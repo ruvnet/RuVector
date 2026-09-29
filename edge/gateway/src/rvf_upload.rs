@@ -37,6 +37,9 @@ pub struct Deps<'a, B, R, S> {
     /// Largest upload finalized in one request; larger ones are finalized
     /// in steps (`rvf_finalize_step::INLINE_FINALIZE_BYTES`).
     pub inline_finalize: u64,
+    /// Most finalize steps one `:finalize` request drives before answering
+    /// `202` (`rvf_finalize::FINALIZE_STEPS`).
+    pub finalize_steps: u32,
 }
 
 /// A package version addressed by the request path.

@@ -20,6 +20,15 @@ impl Wake for NoopWake {
     fn wake(self: Arc<Self>) {}
 }
 
+/// Poll once, then drop the future (a request cancelled mid-await);
+/// `true` if it had already finished.
+pub fn poll_once<F: Future>(fut: F) -> bool {
+    let waker = Waker::from(Arc::new(NoopWake));
+    let mut cx = Context::from_waker(&waker);
+    let mut fut = std::pin::pin!(fut);
+    fut.as_mut().poll(&mut cx).is_ready()
+}
+
 /// Poll to completion (every backend future here is ready immediately).
 pub fn block_on<F: Future>(fut: F) -> F::Output {
     let waker = Waker::from(Arc::new(NoopWake));

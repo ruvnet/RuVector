@@ -33,6 +33,40 @@ struct FinalizeBody {
     provenance: Option<Provenance>,
 }
 
+/// Most steps one `:finalize` request drives (a 512 MiB upload takes 8
+/// steps of `STEP_BYTES`; the rest is slack for restarts).
+pub const FINALIZE_STEPS: u32 = 32;
+
+/// Drive a stepped finalize from one client request: step after step while
+/// each one makes progress, so the scope DO never sits idle between steps
+/// (an idle object hibernates after ~10 s and loses the live validator).
+/// Each step is its own DO invocation with its own CPU budget; the Worker
+/// only awaits. Answers the commit's `201`, the first error, or the last
+/// `202` when a step made no progress (another request is stepping this
+/// upload) or `max` steps ran; the client then repeats the finalize.
+async fn drive_steps<R: RegistryRpc>(
+    r: &R,
+    t: &Target,
+    call: StepCall,
+    max: u32,
+) -> Result<(u16, Json), RvfError> {
+    let mut last: Option<(u64, u64)> = None;
+    let mut reply = drive(r, t.name.scope(), call.clone()).await?;
+    for _ in 1..max {
+        if reply.0 != 202 {
+            break;
+        }
+        let at = |k: &str| reply.1[k].as_u64().unwrap_or(0);
+        let now = (at("bytes_validated"), at("restarts"));
+        if last.is_some_and(|(b, n)| now.0 <= b && now.1 <= n) {
+            break;
+        }
+        last = Some(now);
+        reply = drive(r, t.name.scope(), call.clone()).await?;
+    }
+    Ok(reply)
+}
+
 fn committed(manifest: impl serde::Serialize) -> Result<(u16, Json), RvfError> {
     Ok((
         201,
@@ -103,7 +137,7 @@ pub async fn finalize<B, R: RegistryRpc, S: BlobStore>(
             upload_id: upload_id.to_string(),
             provenance: fb.provenance,
         };
-        return drive(d.r, t.name.scope(), call).await;
+        return drive_steps(d.r, t, call, d.finalize_steps).await;
     }
     let declared = hex32(&plan.sha256)?;
     let complete = complete_staging(d.s, &plan).await?;

@@ -142,11 +142,16 @@ impl RegistryRpc for MemRegistry {
             .ok_or_else(RvfError::unavailable)?;
         let jobs = self.scope_jobs(do_name);
         // The object's storage leaves the map while the step awaits R2 (no
-        // borrow is held across an await); nothing else runs meanwhile.
-        let store = self.scopes.borrow_mut().remove(do_name).unwrap_or_default();
+        // borrow is held across an await; nothing else runs meanwhile) and
+        // goes back even if the step is cancelled, like a DO's storage.
+        let taken = self.scopes.borrow_mut().remove(do_name).unwrap_or_default();
+        let held = Restore(&self.scopes, do_name.to_string(), Some(taken));
+        let Some(store) = held.2.as_ref() else {
+            return Err(RvfError::unavailable());
+        };
         let open = || !self.sweeping.get();
         let st = Step {
-            sql: &store,
+            sql: store,
             clock: &self.clock,
             entropy: &self.entropy,
             cfg: self.cfg,
@@ -154,9 +159,7 @@ impl RegistryRpc for MemRegistry {
             step_bytes: self.step_bytes.get(),
             open: &open,
         };
-        let out = serve_step(&jobs, &st, body.as_bytes()).await;
-        self.scopes.borrow_mut().insert(do_name.to_string(), store);
-        Ok(out.body)
+        Ok(serve_step(&jobs, &st, body.as_bytes()).await.body)
     }
 }
 
@@ -192,6 +195,8 @@ pub struct MemR2 {
     pub part_calls: RefCell<Vec<(String, u16)>>,
     /// `get_range` and `measure` calls received.
     pub reads: Cell<(usize, usize)>,
+    /// `get_range` never completes (a step cancelled while awaiting R2).
+    pub stall_reads: Cell<bool>,
 }
 
 fn fail() -> RvfError {
@@ -312,6 +317,9 @@ impl BlobStore for MemR2 {
     ) -> Result<Option<Vec<u8>>, RvfError> {
         let (r, m) = self.reads.get();
         self.reads.set((r + 1, m));
+        if self.stall_reads.get() {
+            std::future::pending::<()>().await;
+        }
         Ok(self.objects.borrow().get(key).map(|b| {
             let s = (offset as usize).min(b.len());
             let e = (offset.saturating_add(len) as usize).min(b.len());
@@ -380,5 +388,20 @@ impl BlobStore for MemR2 {
         }
         self.objects.borrow_mut().remove(key);
         Ok(())
+    }
+}
+
+/// Puts a `RegistryScope`'s storage back into the map on drop.
+struct Restore<'a>(
+    &'a RefCell<BTreeMap<String, MemSqlStore>>,
+    String,
+    Option<MemSqlStore>,
+);
+
+impl Drop for Restore<'_> {
+    fn drop(&mut self) {
+        if let Some(s) = self.2.take() {
+            self.0.borrow_mut().insert(std::mem::take(&mut self.1), s);
+        }
     }
 }

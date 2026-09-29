@@ -42,6 +42,8 @@ pub struct World {
     pub s: Rc<MemR2>,
     /// Largest upload finalized in one request.
     pub inline_finalize: Cell<u64>,
+    /// Most finalize steps one request drives.
+    pub finalize_steps: Cell<u32>,
 }
 
 impl World {
@@ -55,6 +57,7 @@ impl World {
             r,
             s,
             inline_finalize: Cell::new(INLINE_FINALIZE_BYTES),
+            finalize_steps: Cell::new(crate::rvf_finalize::FINALIZE_STEPS),
         }
     }
 
@@ -66,6 +69,7 @@ impl World {
             s: &self.s,
             cfg: self.r.cfg(),
             inline_finalize: self.inline_finalize.get(),
+            finalize_steps: self.finalize_steps.get(),
         }
     }
 

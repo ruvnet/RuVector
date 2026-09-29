@@ -14,11 +14,19 @@
 //! `restarts` counts it, so nothing is ever trusted that was not hashed by
 //! the live validator.
 //!
-//! Each `POST …/uploads/{id}:finalize` is one step: `202` with progress
-//! until the last step, which writes the blob (a streamed R2 put of the
-//! staging object with the declared SHA-256, so R2 verifies the bytes and
-//! no Worker-side hash pass is needed), commits and answers `201` with the
-//! manifest. Clients repeat the same request (same body) until `201`.
+//! One `POST …/uploads/{id}:finalize` drives the steps back to back
+//! (`rvf_finalize::FINALIZE_STEPS`), so the object is never idle long
+//! enough to hibernate mid-finalize; each step is its own DO invocation.
+//! The last step writes the blob (a streamed R2 put of the staging object
+//! with the declared SHA-256, so R2 verifies the bytes and no Worker-side
+//! hash pass is needed), commits and answers `201` with the manifest. A
+//! request that stops early (another request is stepping the upload, or
+//! the step cap ran out) answers `202` with progress, and the client
+//! repeats the same request (same body) until `201`.
+//!
+//! **CPU: assumes Workers Paid.** The byte budgets below assume the Paid
+//! plan's 30 s default CPU per invocation; the Free plan's 10 ms cannot
+//! hash even one 16 MiB part, so registry uploads need Workers Paid.
 //! Retries are safe: a committed session answers with its manifest, a step
 //! in flight answers with progress, and a failed session answers its error.
 
@@ -45,13 +53,13 @@ use serde_json::{json, Value as Json};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
-/// Largest upload finalized in one request (hashing it takes well under a
+/// Largest upload finalized in one request (on Workers Paid; hashing it takes well under a
 /// second of wasm CPU; every single-part upload, ≤ 16 MiB, is below it).
 pub const INLINE_FINALIZE_BYTES: u64 = 32 << 20;
 /// Staged bytes one step validates at most (a single part may exceed it
 /// only if it alone is larger; parts are ≤ 16 MiB). Three hash passes over
-/// 64 MiB stay within a few seconds of wasm CPU, far below the 30 s
-/// default limit.
+/// 64 MiB stay within a few seconds of wasm CPU, far below the Workers
+/// **Paid** 30 s default limit (on Free, 10 ms, no step size fits).
 pub const STEP_BYTES: u64 = 64 << 20;
 
 /// One finalize step, Worker → `RegistryScope`.
@@ -153,6 +161,18 @@ struct Busy<'a>(&'a Jobs, String);
 impl Drop for Busy<'_> {
     fn drop(&mut self) {
         self.0.busy.borrow_mut().remove(&self.1);
+    }
+}
+
+/// A streaming job taken out of [`Jobs`] for one step; put back on drop
+/// unless the step consumed (or deliberately dropped) it.
+struct Held<'a>(&'a Jobs, String, Option<Box<Streaming>>);
+
+impl Drop for Held<'_> {
+    fn drop(&mut self) {
+        if let Some(s) = self.2.take() {
+            self.0.put(&self.1, Job::Streaming(s));
+        }
     }
 }
 
@@ -279,7 +299,7 @@ async fn step<Q: SqlStore + Copy, C: Clock, S: BlobStore>(
     }
     let _busy = Busy(jobs, id.clone());
     let taken = jobs.live.borrow_mut().remove(&id);
-    let mut s = match taken {
+    let fresh = match taken {
         Some(Job::Ready(r)) => return commit(jobs, st, &call, &plan, &plan_call, *r, m).await,
         Some(Job::Streaming(s)) => s,
         None => {
@@ -299,6 +319,12 @@ async fn step<Q: SqlStore + Copy, C: Clock, S: BlobStore>(
             })
         }
     };
+    // Put back on every exit that does not consume it (errors and a
+    // cancelled step included), so only eviction ever restarts a job.
+    let mut held = Held(jobs, id.clone(), Some(fresh));
+    let Some(s) = held.2.as_mut() else {
+        return Err(RvfError::unexpected());
+    };
     let mut spent = 0u64;
     let mut stop: Option<bool> = None;
     while s.complete && s.next < plan.parts.len() {
@@ -310,17 +336,15 @@ async fn step<Q: SqlStore + Copy, C: Clock, S: BlobStore>(
             Ok(Some(b)) => b,
             Ok(None) => {
                 // A concurrent finalize or the sweep removed the staging.
+                held.2 = None;
                 st.clear(&id);
                 return match st.index(&plan_call, m) {
                     Ok(ScopeOut::Manifest { manifest }) => Ok(StepOut::Manifest { manifest }),
                     _ => Err(RvfError::storage()),
                 };
             }
-            Err(e) => {
-                // Transient: keep the progress made so far.
-                jobs.put(&id, Job::Streaming(s));
-                return Err(e);
-            }
+            // Transient: the guard keeps the progress made so far.
+            Err(e) => return Err(e),
         };
         s.offset += p.size;
         s.next += 1;
@@ -344,9 +368,11 @@ async fn step<Q: SqlStore + Copy, C: Clock, S: BlobStore>(
         cur.next = s.next;
         cur.bytes_done = s.offset;
         st.save(&id, cur)?;
-        jobs.put(&id, Job::Streaming(s));
         return Ok(progress(cur, plan.size));
     }
+    let Some(s) = held.2.take() else {
+        return Err(RvfError::unexpected());
+    };
     let ready = finish(st, &plan, *s, stop).await?;
     commit(jobs, st, &call, &plan, &plan_call, ready, m).await
 }

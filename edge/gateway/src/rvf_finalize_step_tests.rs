@@ -5,6 +5,7 @@
 use crate::registry_kv::SqlKv;
 use crate::registry_world::*;
 use crate::rvf_finalize_step::k_cursor;
+use ruvector_edge_auth::Clock;
 use ruvector_edge_registry::keys::registry_do_name;
 use ruvector_edge_registry::ports::KvStore;
 use ruvector_edge_registry::Scope;
@@ -21,6 +22,8 @@ fn world(bytes: &[u8], per_step: usize) -> (World, CallerContext) {
     let alice = w.owner("org-a", "alice");
     assert_eq!(w.claim(&alice, "acme").0, 200);
     w.inline_finalize.set(0);
+    // One step per request: these tests watch every step.
+    w.finalize_steps.set(1);
     let part = bytes.len().div_ceil(PARTS) as u64;
     w.r.step_bytes.set(part * per_step as u64);
     (w, alice)
@@ -203,4 +206,60 @@ fn staging_removed_mid_job_is_a_retryable_storage_error() {
     assert_eq!(s, 503, "{e}");
     assert!(cursor(&w, &id).is_none());
     assert!(w.pull(&alice, "acme/pkg", "1.0.0").is_err());
+}
+
+/// Regression (hibernation between client-paced steps restarted
+/// validation from byte 0): one request drives every step to the commit,
+/// so the object is never idle mid-finalize; a step cap answers `202`.
+#[test]
+fn one_request_drives_every_step_to_the_commit() {
+    let bytes = fixture();
+    let (w, alice) = world(&bytes, 2);
+    w.finalize_steps.set(crate::rvf_finalize::FINALIZE_STEPS);
+    let id = upload(&w, &alice, &bytes);
+    let (seen, (s, m)) = drive(&w, &alice, &id);
+    assert!(seen.is_empty(), "{seen:?}");
+    assert_eq!(s, 201, "{m}");
+    assert_eq!(w.pull(&alice, "acme/pkg", "1.0.0").unwrap().0, bytes);
+    assert!(cursor(&w, &id).is_none());
+    assert_eq!(w.r.scope_jobs(&do_name()).live(), 0);
+    // A cap of 2 steps (4 needed): 202 after two steps, then the commit.
+    let (w, alice) = world(&bytes, 2);
+    w.finalize_steps.set(2);
+    let id = upload(&w, &alice, &bytes);
+    let (s, p) = fin(&w, &alice, &id);
+    assert_eq!(s, 202, "{p}");
+    assert_eq!(p["bytes_validated"].as_u64(), Some(4 * part_size(&bytes)));
+    assert_eq!(fin(&w, &alice, &id).0, 201);
+}
+
+fn part_size(bytes: &[u8]) -> u64 {
+    bytes.len().div_ceil(PARTS) as u64
+}
+
+/// Regression (a cancelled step lost its job): a step dropped while
+/// awaiting R2 puts the live validator back, so the next step resumes
+/// instead of restarting from byte 0.
+#[test]
+fn cancelled_step_puts_its_job_back() {
+    let bytes = fixture();
+    let (w, alice) = world(&bytes, 2);
+    let id = upload(&w, &alice, &bytes);
+    let (s, p) = fin(&w, &alice, &id);
+    assert_eq!(s, 202, "{p}");
+    w.s.stall_reads.set(true);
+    let path = format!("/v1/rvf/acme/pkg/1.0.0/uploads/{id}:finalize");
+    let route = crate::registry_routes::parse(&Method::Post, &path).unwrap();
+    let d = w.deps();
+    let q = crate::registry_routes::Query::default();
+    let now = w.r.clock.now_unix();
+    let fut = crate::registry_routes::handle(&d, &alice, &route, vec![], &q, now, "md");
+    assert!(!crate::testkit::poll_once(fut), "the step must stall on R2");
+    w.s.stall_reads.set(false);
+    assert_eq!(w.r.scope_jobs(&do_name()).live(), 1);
+    let (s, p2) = fin(&w, &alice, &id);
+    assert_eq!(s, 202, "{p2}");
+    assert_eq!(p2["restarts"].as_u64(), Some(0));
+    assert!(p2["bytes_validated"].as_u64() > p["bytes_validated"].as_u64());
+    assert_eq!(drive(&w, &alice, &id).1 .0, 201);
 }

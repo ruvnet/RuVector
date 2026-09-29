@@ -83,6 +83,7 @@ pub async fn serve(
         s: &r2,
         cfg: gateway_config(),
         inline_finalize: INLINE_FINALIZE_BYTES,
+        finalize_steps: crate::rvf_finalize::FINALIZE_STEPS,
     };
     match registry_routes::handle(&deps, &caller.ctx, &route, body, &q, now, &md).await {
         RvfReply::Api(r) => render(r),
@@ -160,6 +161,7 @@ pub async fn mcp(
         s: &r2,
         cfg: gateway_config(),
         inline_finalize: INLINE_FINALIZE_BYTES,
+        finalize_steps: crate::rvf_finalize::FINALIZE_STEPS,
     };
     let tools = crate::rvf_mcp::RvfTools(&deps);
     crate::mcp::handle_with(&backend, &tools, ctx, body, now, metadata_url).await
