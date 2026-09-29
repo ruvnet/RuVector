@@ -123,8 +123,10 @@ bucket_name = "ruvector-edge-data"
 # Bulk-import jobs: {tenant_key, job_id}. One bounded step per delivery (a
 # slice of the upload's sha256 pass, or a few batches); the job persists its
 # hasher state / cursor after every step and re-enqueues itself, so retries
-# resume and every invocation stays within the default CPU limit. A job in
-# the DLQ resumes by re-sending the same {tenant_key, job_id} to
+# resume and every invocation stays within the default CPU limit. A job
+# whose deliveries commit nothing 15 times in a row is failed (and its upload
+# released) before its message would reach the DLQ; one that still lands
+# there resumes by re-sending the same {tenant_key, job_id} to
 # ruvector-edge-ingest (jobs older than the 24 h op_id window since
 # submission are failed, never replayed).
 [[queues.producers]]
