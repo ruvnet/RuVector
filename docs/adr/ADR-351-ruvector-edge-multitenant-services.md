@@ -880,7 +880,7 @@ crates/ruvector-edge-auth/    [V] RS verification: jws, jwks, claims (TokenKind 
                               UpstreamFirstParty), audience (exact aud), resource, subject (edge_subject),
                               scopes (Capability, SCOPE_TABLE, M1 ROUTE_TABLE — not used at runtime),
                               prm (REST_SCOPES, MCP_SCOPES), verifier, clock, error.
-  fuzz/                       [V] cargo-fuzz crate (own [workspace]): jws_compact, jwks_parse.
+  fuzz/                       [V] cargo-fuzz crate (own [workspace]): jws_compact, jwks_parse, resource_url.
 crates/ruvector-edge-authz/   [V] AS core over sync ports: client (DCR, DEFAULT_CLIENT_SCOPE), authorize,
                               pkce, code, federation, token, grant (incl. RFC 8693 exchange), params,
                               refresh, revoke, metadata, resource (vocabularies, TEAM_EXCHANGE_MAP), error.
@@ -995,13 +995,17 @@ internal envs; fail if any secret name appears under `[vars]`.
    satisfy the §5.2 `iss`/`aud`/lifetime invariants) and `jwks_parse` (`JwkSet::parse_usable`,
    thumbprint and key round trip), run with `env -u RUSTFLAGS cargo +nightly fuzz run <t> --
    -max_total_time=600`. `crates/ruvector-edge-registry/fuzz` adds `rvf_validate` (streaming
-   `rvf-wire` validator) and `rvf_payloads` (payload decoders). **Run evidence (2026-09-29, nightly,
-   `-max_total_time=300`, 4 targets in parallel, all exit 0, no crash):** `jws_compact` 365,111
-   runs (cov 1324), `jwks_parse` 21,474,073 (cov 2386), `rvf_validate` 5,963,434 (cov 926),
-   `rvf_payloads` 234,785,134 (cov 166). That is 5 min, **not** the 10 min (M0) / 1 h (M3)
-   criteria, which stay owed. **Targets still owed:** DCR JSON, `/token` form, `ResourceUrl`,
-   index chunks (M2b), `rbqx0002` quant persist (M4, the designed `rbpx0001` was superseded), the
-   M3 snapshot/import `rvf-wire` reader. **Live:** M0.5 acceptance.
+   `rvf-wire` validator) and `rvf_payloads` (payload decoders). [V] `14e3f77e3` adds
+   `resource_url` (auth), `dcr_json` + `token_form` (`ruvector-edge-authz/fuzz`), `index_chunks`
+   (`ruvector-edge-index/fuzz`), `rbqx_decode` (`ruvector-edge-quant/fuzz`; `rbqx0002`, which
+   superseded the designed `rbpx0001`) and `m3_reader` (`ruvector-edge-snapshot/fuzz`: sealed
+   manifest, restore session, RVF import). **Run evidence (2026-09-29, nightly 1.100.0, cargo-fuzz
+   0.13.1, `-rss_limit_mb=2048`, 10 targets in parallel, all exit 0, no crash/OOM/timeout):** 600 s
+   each for `jws_compact` (687,634 runs), `jwks_parse` (45.8M), `resource_url` (49.2M), `dcr_json`
+   (6.05M), `token_form` (11.4M), `index_chunks` (9.74M), `rbqx_decode` (506k); 3600 s each for
+   `rvf_validate` (80.3M), `rvf_payloads` (2.47B), `m3_reader` (102M). This meets the 10 min (M0)
+   and 1 h (M3) criteria; full table in `edge/HORIZON.json` (`fuzz_table_2026-09-29`).
+   **Live:** M0.5 acceptance.
 
 ## 10. Quotas and abuse controls
 
@@ -1128,7 +1132,7 @@ staging; a pentest gates GA (M6).
 ## 15. Phased implementation plan
 
 **Status at `52e2a5c55`** (tracker `edge/HORIZON.json`; checkboxes below are the original plan and
-are not ticked individually). M0 done (fuzz run evidence still owed). M0.5–M5 **deployed to
+are not ticked individually). M0 done (fuzz criteria met at `14e3f77e3`, §9 item 4). M0.5–M5 **deployed to
 workers.dev pending G1**: every acceptance item that needs a real login (claim, CRUD, connectors,
 refresh/revoke, 413/429 live, latency) is unrun, and these items are **not met by the code**
 regardless of G1: M0.5/M1 `http://localhost` loopback and the 30 s refresh grace (§8 deltas 4, 11);
@@ -1539,7 +1543,7 @@ tenant claim and the admin routes; only `vector_upsert`/`vector_delete`/`graph_m
 are `destructiveHint: true`; `/v1/ops` dry runs and reads still look up `op_id`; ApproxMinCut error
 is ≈ 0.10–0.33× (RuVector#1085). Added: the unset `IP_HASH_SALT` (empty-salt fallback) as a G1
 precondition, M4 residual risks (§12), G3 provenance, §16 adoption status (no coordinator receipt;
-`CONFIDENTIAL_CLIENTS` empty; RuVector#1063/#1064), and 5-min fuzz evidence for the four existing
-targets (§9). One build change: `rvlite` is now pinned by **rev** `c6ece785` instead of the PR
+`CONFIDENTIAL_CLIENTS` empty; RuVector#1063/#1064), and fuzz evidence (§9: ten targets, 10 min /
+1 h clean at `14e3f77e3`). One build change: `rvlite` is now pinned by **rev** `c6ece785` instead of the PR
 #1084 branch (resolved commit unchanged, `edge/Cargo.lock` source strings only); the
 `keys.rs` doc no longer claims the mirror is written. Nothing deployed.
