@@ -4,9 +4,10 @@
 
 **Proposed.** 2026-09-28; reconciled 2026-09-29 with the edge-authorization-server decision and
 **again with the shipped code at `52e2a5c55`** (Review log). M0–M5 are **deployed to workers.dev**
-on account `501c77f5…`, which is on **Workers Free** (Workers Paid is a G2 precondition, pending
-rUv): `ruvector-edge-auth` and `ruvector-edge-gateway` (DO migration tags `v1`, `v2-registry`,
-`v-m4-quant-graph`). Hosted login waits on G1 (cognitum-one/console#605): `UPSTREAM_CLIENT_ID` and
+on account `501c77f5…`, which is on **Workers Paid** since 2026-09-29 (the G2 precondition;
+gateway `[limits] cpu_ms = 30000`, and the Free-sized caps raised and deployed at `24f37fab2`,
+gateway version `1460504f`): `ruvector-edge-auth` and `ruvector-edge-gateway` (DO migration tags
+`v1`, `v2-registry`, `v-m4-quant-graph`). Hosted login waits on G1 (cognitum-one/console#605): `UPSTREAM_CLIENT_ID` and
 `ACCEPTED_UPSTREAM_KIDS` are empty, `/authorize` answers `temporarily_unavailable`, so no
 authenticated flow has run live. Deploy evidence lives in `edge/HORIZON.json`; every further
 resource creation and provider touch stays gated (§13).
@@ -25,14 +26,16 @@ resource creation and provider touch stays gated (§13).
 - **[L]** Likely: inferred, or verified on an older checkout only.
 - **[U]** Unverified: the named milestone must measure or confirm it.
 - **[V] 52e2a5c55** Re-read in the edge worktree at that commit on 2026-09-29 (the "Shipped vs
-  designed" table and every body line carrying the tag). **[Paid]** marks a limit that exists only
-  because the account is on Workers Free (10 ms CPU per invocation, no `[limits] cpu_ms`: the API
-  refuses it with code 100328) and that Workers Paid (30 s default CPU) would lift or relax.
-  **[needs Paid]** marks the opposite case: a budget sized for Paid's 30 s default (VectorShard
-  lazy-load `DECODE_BUDGET_MS` 300 ms + `REPLAY_BUDGET_MS` 600 ms, flushes, `REBUILD_BUDGET_MS`
-  20 s, registry writes), which on Free is expected to exceed CPU for any non-trivial shard or blob.
+  designed" table and every body line carrying the tag). **[Paid]** marked a limit that existed
+  only because the account was on Workers Free (10 ms CPU per invocation, no `[limits] cpu_ms`:
+  the API refused it with code 100328). **Resolved 2026-09-29** (**[Paid ✓]**): the account is on
+  Workers Paid (gateway `cpu_ms = 30000`) and those caps were raised at `24f37fab2` (deployed as
+  gateway `1460504f`); caps that stayed are memory-bound, not CPU-bound, and say so.
+  **[needs Paid]** marked the opposite case: a budget sized for Paid's 30 s (VectorShard lazy-load
+  `DECODE_BUDGET_MS` 300 ms + `REPLAY_BUDGET_MS` 600 ms, flushes, `REBUILD_BUDGET_MS` 20 s,
+  registry writes), which on Free would exceed CPU; with Workers Paid these are now within budget.
 
-### Shipped vs designed (as of `52e2a5c55`)
+### Shipped vs designed (as of `52e2a5c55`; caps rows 3–6 as of `24f37fab2`, Workers Paid)
 
 Where the table and a body section disagree, the table and the corrected body describe what ships;
 the design text is kept where it is still the target. `file:line` are in the edge worktree.
@@ -41,10 +44,10 @@ the design text is kept where it is still the target. `file:line` are in the edg
 |---|---|---|---|---|
 | 1 | Idempotency (§6.1, §7, §16.3) | `422 idempotency_mismatch` | **`409 op_replayed`** on REST, `/v1/ops` and graph mutations: one code for one fact (a key reused with another body), shared with the §16.3 contract. The key is bound to sha256(route tag ‖ raw body bytes) (REST/graph, namespaced `rest:<key>`) or sha256(raw body) (`/v1/ops`), not a canonical JSON form. It is reserved in the lookup's DO turn (a concurrent twin gets `409 conflict`, with `retry_after_s: 1` on `/v1/ops`; reservation TTL 120 s); **only successful** mutating responses are remembered (≤ 64 KiB, 24 h); failures release the key. Honoured on create/upsert/delete, graph `…/edges` and mutating Cypher; on REST and graph, reads and dry runs ignore the header (a malformed key there is not rejected); on `/v1/ops` dry runs and read ops still **look up** `op_id` (a reuse with another body is `409 op_replayed`, a same-body hit can replay) but are never reserved or remembered, and the header must equal `op_id` (else 400). `idempotency_mismatch` survives only in the unused tenancy `ProblemCode`. | `edge/gateway/src/idem.rs:1-9,52,77`; `rest.rs:270-296,315-327`; `ops.rs:89-91,107,128-170`; `graph_routes.rs:18-21,285-311`; `crates/ruvector-edge-store/src/ledger/idem.rs:1-28`; `crates/ruvector-edge-store/src/error.rs:69`; `crates/ruvector-edge-tenancy/src/problem.rs:80` |
 | 2 | rv-mincut modes (§3) | exact and approximate | `mode: approximate` (ε ∈ (0,1]) is **answered by the exact solver**; the report says `mode: "exact"`, `requested_mode: "approximate"`, echoes `epsilon`. `ruvector-mincut` `ApproxMinCut` returned ≈ 0.10–0.33× the exact cut (up to 10× below the true minimum, e.g. 0.333 vs exact 3.333; no cut of that weight exists), so serving it would break the ε contract. Upstream fix owed: RuVector#1085 (also `ruvector-mincut` wasm32 clippy `static_mut_refs`/`unused_unsafe`). | `crates/ruvector-edge-analytics/src/service.rs:55-74`; `tests/equivalence.rs:163-168`; `edge/gateway/src/mincut_core.rs:99-114,200-225` |
-| 3 | Vector index kinds (§6.1, §7.2) | M1 `flat` = f32 slab; M2a `q8`; M2b `hnsw` | Kinds are **`flat` (default) \| `hnsw` \| `rabitq`**; `q8` is refused. `flat` = int8 codes resident + exact f32 rerank from SQLite (rerank `max(40, 4·top_k)` ≤ 1000); measured recall@10 **1.000** (20k × 384). `hnsw` is **opt-in** (built in-repo in `ruvector-edge-index`, not via G4a): m 16 / efc 128 default, per-metric default `ef` **cosine 1024, l2/dot 512** (max 2048) because 0.95 recall on random data needed them. Resident ≈ 384 B/vector flat, ≈ 522 B/vector HNSW m16 at 384-d, plus ~128 B row bookkeeping. HNSW is built only in alarms (`REBUILD_BUDGET_MS` 20 s ⇒ ≈ 18k nodes at 384-d m16) **[needs Paid]**: that budget and the lazy-load budgets (decode 300 ms + replay 600 ms; a full 14 MB shard decodes in ≈ 31 ms at 2.3 ms/MiB) are sized for Paid's 30 s, so on Free cold loads and rebuilds of non-trivial shards are expected to exceed CPU. | `crates/ruvector-edge-store/src/shard/codec.rs:150-164,216-222`; `shard/read.rs:38-46,173-178`; `shard/maintain.rs:59`; `shard/slab.rs:16`; `crates/ruvector-edge-index/src/memory.rs:31-42` |
-| 4 | Memory caps (§6.1, §10) | 56 MB resident per isolate, per shard 3M floats (12 MB f32), 3–4 shards | 56 MB is **split per class** because every DO class of the script can share an isolate: `VectorShard` 28 MB (per-shard cap 14 MB, **2** full shards), `QuantShard` 16 MB, `GraphStore` 12 MB; plus one `AnalyticsJob` turn ≤ 32 MiB and one registry finalize part 2 × 16 MiB ⇒ ≈ 123 of 128 MB. Stored f32 per shard ≤ 16M floats (SQLite). `M1_SHARD_FLOAT_CAP` is unused by the gateway (f32 stays in SQLite). | `edge/gateway/src/shard_core.rs:20-39`; `crates/ruvector-edge-store/src/shard/mod.rs:69-73`; `shard/write.rs:34-39`; `resident.rs:18`; `edge/gateway/src/quant_shard.rs:36-40`; `graph_store.rs:51-56`; `mincut_core.rs:41-44` |
-| 5 | Registry (§3, §6.3, §7.2) | `/v1/rvf/{name}/{version}*`, push by `upload_id`, D1 index, keys `rvf/{tenant}/{name}/{version}` | Names are **`@scope/name`**; a scope is a **global** namespace claimed by one tenant (`POST /v1/rvf/scopes/{scope}`, `ruvector:admin`); index = DOs `RegistryRoot` (`idFromName("v1\|registry\|root")`) + one `RegistryScope` per scope (`hex(sha256("v1\|registry\|" + scope))`), no D1. Push = registry-native upload sessions (`…/uploads`, `PUT …/parts/{n}` ≤ 16 MiB, `:finalize`), then `:publish`/`:yank`/`:unyank`. Blobs are content-addressed and **the key includes the scope**: `rvf/{tenant_key}/{scope}/blobs/sha256/{hex}` (public: `public/blobs/sha256/{hex}`, write-once). A manifest mirror at `rvf/{tenant_key}/@{scope}/{name}/{version}/manifest.json` is *(designed, not written)*: `keys::manifest_key` exists but only its unit test calls it; the gateway stores the blob plus the `RegistryScope` DO rows. `RESERVED_SCOPES`/`RESERVED_NAMES` are enforced on **deserialise** too, so adding a reserved word makes stored names unreadable: a list change is a **compatibility break** (migration needed). All registry writes hash MBs per request ⇒ **[needs Paid]** (expected 1102 on Free). | `edge/gateway/src/registry_routes.rs:1-19,87-118`; `registry_ports.rs:95`; `rvf_finalize.rs:249`; `crates/ruvector-edge-registry/src/keys.rs:7-16,52-66,70-96,126`; `name.rs:1-15,29,212-214,240-245`; `edge/gateway/wrangler.toml:110-127` |
-| 6 | Workers Free limits (§6.3, §7.2, §10) — all **[Paid]** | 8 MiB inline import; streamed snapshots of any size; 200k-edge graphs; mincut ≤ 200k edges | Inline `:import` ≤ **512 KiB**; synchronous snapshot/export/restore **413** above **2^18 stored floats** (682 rows at 384-d), checked before any side effect; queued import segments ≤ **1 MiB** (rvf CLI needs `--batch-size` ≤ 680 at 384-d), 2 batches per delivery, stalled after 15 deliveries; quant shard ≤ **50k rows / 6M load units**, a cold 50k load answers **one retryable 503**; graph persisted state ≤ **256 KiB** (≈ 1.5–2k edges), ≤ 1k edges per bulk request, 20 graphs/tenant; mincut inline ≤ 5M work units, jobs ≤ **32 MiB** (413 above ≈ 80k edges), ≤ 20 live jobs/tenant, TTL **24 h**, 3 attempts — a 51k-edge solve is admitted but ends **413 `budget_exceeded`** on Free; registry writes fail on Free (**[needs Paid]**, row 5). | `edge/gateway/src/uploads.rs:38`; `sync_budget.rs:1-27`; `ingest.rs:71-84`; `quant_shard.rs:56-62`; `graph_store.rs:31-50`; `graph_catalog.rs:18-21`; `mincut_core.rs:33-58`; `mincut_job.rs:69`; `crates/ruvector-edge-analytics/src/job.rs:18` |
+| 3 | Vector index kinds (§6.1, §7.2) | M1 `flat` = f32 slab; M2a `q8`; M2b `hnsw` | Kinds are **`flat` (default) \| `hnsw` \| `rabitq`**; `q8` is refused. `flat` = int8 codes resident + exact f32 rerank from SQLite (rerank `max(40, 4·top_k)` ≤ 1000); measured recall@10 **1.000** (20k × 384). `hnsw` is **opt-in** (built in-repo in `ruvector-edge-index`, not via G4a): m 16 / efc 128 default, per-metric default `ef` **cosine 1024, l2/dot 512** (max 2048) because 0.95 recall on random data needed them. Resident ≈ 384 B/vector flat, ≈ 522 B/vector HNSW m16 at 384-d, plus ~128 B row bookkeeping. HNSW is built only in alarms (`REBUILD_BUDGET_MS` 20 s ⇒ ≈ 18k nodes at 384-d m16) **[needs Paid ✓]**: that budget and the lazy-load budgets (decode 300 ms + replay 600 ms; a full 14 MB shard decodes in ≈ 31 ms at 2.3 ms/MiB) are sized for Paid's 30 s, which the account now has. The rebuild budget is deliberately **kept at 20 s** on Paid (not lowered): shards already written up to the ≈ 18k node cap would otherwise refuse every write with 413; a rebuild at the cap is one ≈ 17 s DO turn (§12 residual). | `crates/ruvector-edge-store/src/shard/codec.rs:150-164,216-222`; `shard/read.rs:38-46,173-178`; `shard/maintain.rs:59`; `shard/slab.rs:16`; `crates/ruvector-edge-index/src/memory.rs:31-42` |
+| 4 | Memory caps (§6.1, §10) | 56 MB resident per isolate, per shard 3M floats (12 MB f32), 3–4 shards | 56 MB is **split per class** because every DO class of the script can share an isolate: `VectorShard` 28 MB (per-shard cap 14 MB, **2** full shards), `QuantShard` 16 MB, `GraphStore` 12 MB; plus one synchronous analytics turn ≤ 32 MiB (an `AnalyticsJob` turn, or the Paid request-path min-cut at ≤ 16 MiB — neither awaits, so never both), one registry part 2 × 8 MiB (lowered from 16 MiB on Paid) and one 8 MiB gateway transfer 2 × 8 MiB (inline `:import`, upload part, hash-pass range, queued-import tail/record; `read_capped` never reserves past its cap) ⇒ ≈ 123 of 128 MB (`24f37fab2`). Stored f32 per shard ≤ 16M floats (SQLite). `M1_SHARD_FLOAT_CAP` is unused by the gateway (f32 stays in SQLite). | `edge/gateway/src/shard_core.rs:20-39`; `crates/ruvector-edge-store/src/shard/mod.rs:69-73`; `shard/write.rs:34-39`; `resident.rs:18`; `edge/gateway/src/quant_shard.rs:36-40`; `graph_store.rs:51-56`; `mincut_core.rs:41-44` |
+| 5 | Registry (§3, §6.3, §7.2) | `/v1/rvf/{name}/{version}*`, push by `upload_id`, D1 index, keys `rvf/{tenant}/{name}/{version}` | Names are **`@scope/name`**; a scope is a **global** namespace claimed by one tenant (`POST /v1/rvf/scopes/{scope}`, `ruvector:admin`); index = DOs `RegistryRoot` (`idFromName("v1\|registry\|root")`) + one `RegistryScope` per scope (`hex(sha256("v1\|registry\|" + scope))`), no D1. Push = registry-native upload sessions (`…/uploads`, `PUT …/parts/{n}` ≤ 8 MiB since `24f37fab2` (16 MiB before; isolate memory budget, row 4), `:finalize`), then `:publish`/`:yank`/`:unyank`. Blobs are content-addressed and **the key includes the scope**: `rvf/{tenant_key}/{scope}/blobs/sha256/{hex}` (public: `public/blobs/sha256/{hex}`, write-once). A manifest mirror at `rvf/{tenant_key}/@{scope}/{name}/{version}/manifest.json` is *(designed, not written)*: `keys::manifest_key` exists but only its unit test calls it; the gateway stores the blob plus the `RegistryScope` DO rows. `RESERVED_SCOPES`/`RESERVED_NAMES` are enforced on **deserialise** too, so adding a reserved word makes stored names unreadable: a list change is a **compatibility break** (migration needed). All registry writes hash MBs per request ⇒ **[needs Paid ✓]** (would 1102 on Free; the account is on Paid since 2026-09-29; no live registry write yet, it waits on G1 login). | `edge/gateway/src/registry_routes.rs:1-19,87-118`; `registry_ports.rs:95`; `rvf_finalize.rs:249`; `crates/ruvector-edge-registry/src/keys.rs:7-16,52-66,70-96,126`; `name.rs:1-15,29,212-214,240-245`; `edge/gateway/wrangler.toml:110-127` |
+| 6 | Workers Paid caps (§6.3, §7.2, §10) — the Free-plan **[Paid]** limits, **resolved** 2026-09-29 (`24f37fab2`, gateway `1460504f`) | 8 MiB inline import; streamed snapshots of any size; 200k-edge graphs; mincut ≤ 200k edges | Inline `:import` ≤ **8 MiB** (Free 512 KiB; pre-auth 413 above it, verified live); export ≤ **2^24 stored floats** (43,690 rows at 384-d) **and ≤ 128 MiB stored bytes** (values + ids + metadata; Free 2^18 floats); snapshot/restore stay **2^18 floats** (memory-bound restore commit, not CPU), all checked before any side effect (export's byte cap while reading, upload aborted); queued import segments ≤ **8 MiB** (Free 1 MiB; the rvf CLI default `--batch-size 1000` imports unchanged), batches ≤ 65,536 floats **and ≤ 1 MiB of worst-case encoded JSON** (93 rows at 384-d, 34 at 1536-d; Free 64 at 384-d), **8** batches per delivery (Free 2), 8 MiB hash slices (Free 512 KiB), stalled after 15 deliveries; quant shard ≤ **50k rows** (kept, memory) with **400M load units** served in one turn (Free 6M and one retryable 503); graph persisted state ≤ **1 MiB** (≈ 6.5k edges, memory-bound; Free 256 KiB), ≤ **5,000** edges per bulk request (Free 1,000), 20 graphs/tenant; mincut inline ≤ **500M** work units / ≈ 40k edges (16 MiB; Free 5M / 10k), jobs ≤ **32 MiB** (kept; 413 above ≈ 80k edges) and ≤ **3e9 work** (≈ 4.5 s wasm per solve turn; exact Stoer–Wagner ≈ 6.8k vertices), ≤ 20 live jobs/tenant, TTL 24 h, 3 attempts — the 51k-edge K_320 solve (≈ 295M units) now completes; RVF import ≤ 4,000 DO subrequests per request (Free 800). | `edge/gateway/src/uploads.rs:33-40`; `sync_budget.rs`; `export.rs`; `ingest.rs:73-110`; `ingest_sink.rs:14-90`; `ingest_hash.rs:18-24`; `quant_shard.rs:42-75`; `quant_load.rs:24-38`; `graph_store.rs:31-48`; `graph_catalog.rs:18-21`; `mincut_core.rs:33-75`; `rvf_import.rs:54-61` |
 | 7 | Scopes (§5.3, §16.1) | — | As designed: per-resource vocabularies (`/v1`, `/v1/mcp`: `ruvector:*` + `offline_access`; `https://team.ruv.io/mcp`: `team:read/write/run`); exact `aud`; RFC 8693 map `team:read→ruvector:read`, `team:write→ruvector:write`, `team:run→∅`, a `ruvector:*` subject maps to nothing; `act` bound; adapter-audience tokens get 401 at `/v1` and `/v1/mcp`. **Gap:** the live `RESOURCE_ALLOWLIST` and PRM list no `ruvector:publish`, so `:publish` is unreachable until the operator adds it (M5 config). | `crates/ruvector-edge-authz/src/resource.rs:77-97,127-135`; `client.rs:37`; `crates/ruvector-edge-auth/src/prm.rs:13-21`; `edge/auth-worker/wrangler.toml:63` |
 | 8 | rabitq collections (§7.2) | snapshot/export/restore for every index | Refused **400 `invalid_request`** before any charge: rows live in `QuantShard`, which does not serve the `/m3` side channel. Also no metadata `filter` (400) and no per-row `ops` log on `QuantShard`. Imports are served. | `edge/gateway/src/quant_route.rs:70-84`; `quant_shard.rs:14-16`; `quant_query.rs:44` |
 | 9 | M3 resources (§6.3–§6.5, G3) | R2 + D1 `ruvector-edge-control` + Queues `ruvector-edge-jobs`(+DLQ), `ruvector-edge-audit` | **One** R2 binding `EDGE_DATA` → `ruvector-edge-data` for every prefix (M3 data and M5 registry unified); Queues **`ruvector-edge-ingest`** (DLQ `ruvector-edge-ingest-dlq`, 20 retries × 30 s) and **`ruvector-edge-audit`** (DLQ `ruvector-edge-audit-dlq`); Workers AI `AI` → `@cf/baai/bge-small-en-v1.5` (embedder `bge-small-en-v1.5`). **No D1:** no global deny (`DENY_GLOBAL` unset, `deny_check` is tenant-only), no `usage_daily`, `tenants`, `plans`, `packages`. | `edge/gateway/wrangler.toml:136-188`; `embed.rs:1-4,32`; `tenant_admin.rs:315-358` |
@@ -105,7 +108,7 @@ Constraints from other ADRs and live services:
 | Isolate memory | **128 MB per isolate**, shared by the JS heap and wasm. **DOs of the same class can share one isolate** (DO metrics: "Memory is measured per isolate, not per Durable Object"). With workers-rs, co-located DOs share **one wasm instance and one linear memory**, and wasm memory never shrinks. | [V] |
 | Global-scope startup | **1 s** for module instantiate; lazy load on the first request counts against request CPU. | [V] |
 | Bundle size | 64 MiB uncompressed on all plans (changelog 2026-09-04) | [V] |
-| CPU per request | Free 10 ms; Paid 30 s default, `limits.cpu_ms` up to 300 s, **per script**. Whether DO request CPU follows it is unclear. **This account is on Free**: a `[limits] cpu_ms` block is refused (API code 100328), so the M3/M4/M5 request budgets are sized for 10 ms (**[Paid]** rows in the Shipped-vs-designed table), but the VectorShard lazy-load (decode 300 ms + replay 600 ms), flush and HNSW rebuild (20 s) budgets and all registry writes are sized for Paid's 30 s (**[needs Paid]**): on Free, cold loads and HNSW rebuilds of non-trivial shards are expected to exceed CPU. | [V] / **[U]** (M1); [V] 52e2a5c55 deploy log |
+| CPU per request | Free 10 ms; Paid 30 s default, `limits.cpu_ms` up to 300 s, **per script**. Whether DO request CPU follows it is unclear. **This account is on Workers Paid since 2026-09-29** (it was on Free, which refused a `[limits] cpu_ms` block with API code 100328): the gateway declares `cpu_ms = 30000`, and the M3/M4/M5 request budgets once sized for 10 ms (**[Paid]** rows in the Shipped-vs-designed table) were raised at `24f37fab2`; the VectorShard lazy-load, flush and HNSW rebuild (20 s) budgets and registry writes (**[needs Paid]**) now fit. | [V] / **[U]** (M1); [V] 52e2a5c55 deploy log |
 | DO SQLite | 10 GB per object; 30-day PITR. **2 MB** max string/BLOB/row, **100 KB** max statement, **100** bound parameters, 100 columns. | [V] |
 | DO SQLite atomicity | No `txn` object; atomicity comes from **write coalescing** (synchronous `sql.exec` calls with no intervening `await`). Non-storage I/O lets requests interleave. No transaction spans two DOs. | [V] |
 | DO throughput / connections / alarms | ~500–1,000 simple req/s per object; 6 simultaneous outgoing connections per request; exactly **one** alarm per object. | [V] |
@@ -185,13 +188,13 @@ resource-bound tokens (rUv, 2026-09-29; the upstream AS mints `aud = client_id` 
 | **rv-gateway** (public resource entrypoint) | Worker `ruvector-edge-gateway`: `/.well-known/oauth-protected-resource/v1[/mcp]`, `/v1/health`, `/v1/me`, `/v1/usage`, `/v1/tenant*`, dispatch | `ruvector-edge-auth`, `ruvector-edge-tenancy`; glue `edge/gateway` | — | none of its own | M0.5 (PRM, `/v1/me`, `/v1/mcp` 401 challenge), M1 |
 | **rv-vector** | `/v1/collections*`, `index=flat\|hnsw` (`q8` not a kind) | `ruvector-edge-store` + `ruvector-edge-index`: `flat` (default) = int8 codes + f32 rerank from SQLite; `hnsw` opt-in over the same codes, in-repo (G4a not needed) [V] 52e2a5c55 | `VectorShard` | scope ∩ role | M1/M2a/M2b |
 | **TenantLedger** | internal control plane for one tenant | plain Rust + serde | `TenantLedger` (one per tenant) | — | M1 |
-| **rv-snapshot** | `POST/GET …/snapshots`, `POST …/snapshots/{id}:restore`, `POST …:export` → `GET /v1/exports/{id}` | `ruvector-edge-snapshot` (streaming RVF segments + witness chain) | `/m3` side channel of `VectorShard` + `TenantLedger` (no new class) | export → read; snapshot → write; restore → admin | M3 (sync, ≤ 2^18 floats **[Paid]**; not for `rabitq`) |
+| **rv-snapshot** | `POST/GET …/snapshots`, `POST …/snapshots/{id}:restore`, `POST …:export` → `GET /v1/exports/{id}` | `ruvector-edge-snapshot` (streaming RVF segments + witness chain) | `/m3` side channel of `VectorShard` + `TenantLedger` (no new class) | export → read; snapshot → write; restore → admin | M3 (sync; export ≤ 2^24 floats + 128 MiB, snapshot/restore ≤ 2^18 floats, **[Paid ✓]**; not for `rabitq`) |
 | **rv-embed** | `text` on upsert/query | Workers AI `bge-small-en-v1.5` (384-dim) | — | inherits route | M3 |
-| **rv-ingest** | bulk upsert, `POST /v1/uploads` (+ parts, `:complete`), `…:import`, `GET /v1/jobs/{id}` | Queue `ruvector-edge-ingest` (+ DLQ) + R2 `staging/` (server-minted `upload_id`); inline ≤ 512 KiB **[Paid]** | — | submit → write; status → read | M3 |
-| **rv-quant** | `index=rabitq` | `ruvector-edge-quant` over `ruvector-rabitq` with its own persist v2 (`rbqx0002`, no f32 re-encode on load; G4c done in-repo) | `QuantShard` | as rv-vector; no `filter`, no per-row `ops` log | M4 (≤ 50k rows/shard **[Paid]**) |
-| **rv-graph** | `POST/GET /v1/graphs`, `GET/DELETE /v1/graphs/{g}`, `POST …/cypher`, `POST …/edges` | `rvlite::cypher` `PropertyGraph`, `rvlite` pinned to git **rev `c6ece785`** (head of `feat/rvlite-browser-feature-gate`, open PR RuVector#1084) with `default-features = false` (G4b realised as an unmerged upstream branch; pinned by rev so a squash-merge + branch deletion cannot break clean builds; move to `main`/a release after #1084 merges; `edge/Cargo.toml:47`) | `GraphStore` (one per graph + `$catalog`) | MATCH/RETURN/WITH → read; other → write + editor | M4 (state ≤ 256 KiB **[Paid]**) |
+| **rv-ingest** | bulk upsert, `POST /v1/uploads` (+ parts, `:complete`), `…:import`, `GET /v1/jobs/{id}` | Queue `ruvector-edge-ingest` (+ DLQ) + R2 `staging/` (server-minted `upload_id`); inline ≤ 8 MiB (**[Paid ✓]**, Free 512 KiB) | — | submit → write; status → read | M3 |
+| **rv-quant** | `index=rabitq` | `ruvector-edge-quant` over `ruvector-rabitq` with its own persist v2 (`rbqx0002`, no f32 re-encode on load; G4c done in-repo) | `QuantShard` | as rv-vector; no `filter`, no per-row `ops` log | M4 (≤ 50k rows/shard, a memory bound kept on Paid; 400M load units, **[Paid ✓]**) |
+| **rv-graph** | `POST/GET /v1/graphs`, `GET/DELETE /v1/graphs/{g}`, `POST …/cypher`, `POST …/edges` | `rvlite::cypher` `PropertyGraph`, `rvlite` pinned to git **rev `c6ece785`** (head of `feat/rvlite-browser-feature-gate`, open PR RuVector#1084) with `default-features = false` (G4b realised as an unmerged upstream branch; pinned by rev so a squash-merge + branch deletion cannot break clean builds; move to `main`/a release after #1084 merges; `edge/Cargo.toml:47`) | `GraphStore` (one per graph + `$catalog`) | MATCH/RETURN/WITH → read; other → write + editor | M4 (state ≤ 1 MiB, **[Paid ✓]**, Free 256 KiB) |
 | **rv-mincut** | `POST /v1/mincut`, `GET /v1/mincut/jobs/{id}` | `ruvector-edge-analytics` over `ruvector-mincut` (exact solver; approximate answered exactly) | `AnalyticsJob` | inline compute → read; job → write + one write token | M4 |
-| **rv-registry** | `/v1/rvf/scopes[/{scope}]`, `/v1/rvf/{scope}/{name}[/{version}[/blob\|/uploads…\|:publish\|:yank\|:unyank]]`, `POST /v1/collections/{c}:import-rvf` | `ruvector-edge-registry` (strict names, streaming `rvf-wire` validator) + R2 `EDGE_DATA` | `RegistryRoot` (global scope directory) + `RegistryScope` (one per scope) | pull → read; push → write + owned scope; scope claim → admin; public publish → `ruvector:publish` ∩ owner | M5 (writes **[needs Paid]**) |
+| **rv-registry** | `/v1/rvf/scopes[/{scope}]`, `/v1/rvf/{scope}/{name}[/{version}[/blob\|/uploads…\|:publish\|:yank\|:unyank]]`, `POST /v1/collections/{c}:import-rvf` | `ruvector-edge-registry` (strict names, streaming `rvf-wire` validator) + R2 `EDGE_DATA` | `RegistryRoot` (global scope directory) + `RegistryScope` (one per scope) | pull → read; push → write + owned scope; scope claim → admin; public publish → `ruvector:publish` ∩ owner | M5 (writes **[needs Paid ✓]**, parts ≤ 8 MiB) |
 | **rv-mcp** | `POST /v1/mcp` (Streamable HTTP, JSON-RPC 2.0; protocol 2025-11-25 / 2025-06-18) | Rust MCP framing calling the REST handlers | — | scope ∩ role; every tool carries `readOnlyHint`/`destructiveHint`, `destructiveHint: true` only on `vector_upsert`, `vector_delete`, `graph_mutate` and `rvf_import` (`collection_create` and `tenant_claim` mutate but are not destructive; `mcp.rs:106-135`, `rvf_mcp.rs:63-64`); `dry_run` on `collection_create`, `vector_upsert`/`vector_delete` and `graph_mutate` only (not `tenant_claim`, which refuses it; §7.2) | M1 (vector tools), M4 graph/mincut, M5 rvf |
 | **ops** (private contract) | `POST /v1/ops` on the gateway, for Service-Binding callers holding a `/v1` token (exchanged, §5.6) | same handlers as REST | — | scope ∩ role (§16.3) | M1 |
 
@@ -671,17 +674,21 @@ against the ledger **before** the op (§7: reuse with another body is **`409 op_
 **Isolate-wide memory budget.** Resident data is capped at **56 MB per isolate [U]**, LRU-evicting
 cold shards. *Shipped* ([V] 52e2a5c55): because every DO class of the script can share an isolate,
 the 56 MB is **split per class** — `VectorShard` 28 MB (per-shard cap **14 MB** of codes/links plus
-~128 B/row bookkeeping, so **two** full shards; ≈ 25k × 384 flat, **[needs Paid]**: a cold load of a full shard exceeds Free's 10 ms), `QuantShard` 16 MB,
-`GraphStore` 12 MB — and the rest of the 128 MB is budgeted for one `AnalyticsJob` turn (≤ 32 MiB)
-and one registry finalize part (2 × 16 MiB), ≈ 123 MB total (`shard_core.rs:20-39`,
-`shard/mod.rs:69-73`). The M1 "3,000,000 floats" cap was never used (f32 stays in SQLite). A panic or OOM reinitialises the **whole instance**: no-unwrap lint on the request path,
+~128 B/row bookkeeping, so **two** full shards; ≈ 25k × 384 flat, **[needs Paid ✓]**: a cold load of a full shard exceeded Free's 10 ms), `QuantShard` 16 MB,
+`GraphStore` 12 MB — and the rest of the 128 MB is budgeted (`24f37fab2`, Workers Paid) for one
+synchronous analytics turn (an `AnalyticsJob` turn ≤ 32 MiB or a request-path min-cut ≤ 16 MiB;
+neither awaits, so they never overlap), one registry part (2 × 8 MiB, lowered from 16 MiB) and one
+8 MiB gateway transfer held across awaits (2 × 8 MiB: inline `:import` body, upload part, ingest
+hash-pass range, queued-import tail or record), ≈ 123 MB total (`shard_core.rs:20-45`,
+`shard/mod.rs:69-73`). A second concurrent registry part or 8 MiB transfer in one isolate is not
+bounded (§12). The M1 "3,000,000 floats" cap was never used (f32 stays in SQLite). A panic or OOM reinitialises the **whole instance**: no-unwrap lint on the request path,
 fuzzing, and the Q12 decision.
 
 **Index kinds.** *Shipped* ([V] 52e2a5c55): `flat` (default) is the int8 scan below with f32 rerank
 (`max(40, 4·top_k)` ≤ 1000 candidates, recall@10 1.000 measured), `hnsw` is opt-in (default
 `ef` cosine 1024, l2/dot 512, ≤ 2048), there is no `q8` kind and no f32 slab; HNSW was built
 in-repo (`ruvector-edge-index`), so G4a no longer gates it, and it is rebuilt only in alarms within
-`REBUILD_BUDGET_MS` 20 s **[needs Paid]** (sized under Paid's 30 s default, `maintain.rs:50-60`; not reachable on Free). *Designed:* **M1 `flat`**: f32 slab, exact scan, no `q8`. **M2a `q8`**: u8 flat scan with
+`REBUILD_BUDGET_MS` 20 s **[needs Paid ✓]** (sized under Paid's 30 s default, `maintain.rs:50-62`; kept at 20 s on Paid so no written shard regresses to 413; one rebuild at the cap is a ≈ 17 s DO turn, §12). *Designed:* **M1 `flat`**: f32 slab, exact scan, no `q8`. **M2a `q8`**: u8 flat scan with
 asymmetric distance and f32 rerank from SQLite; cosine uses the fixed range `[-1, 1]`, l2/dot a
 1k-reservoir quantizer with `quant_epoch`, per-row `q8_epoch` and sliced re-encode. **M2b `hnsw`**
 after G4a: `DistanceOracle` traversal over u8 codes, CSR `u32` adjacency, dense iids renumbered on
@@ -732,15 +739,19 @@ and M5 (`edge/gateway/wrangler.toml:136-144`); lifecycle rules (per the `wrangle
   Streamed (multipart / `ReadableStream`), never assembled whole. Hourly when dirty; 24 hourly + 7
   daily retained. *Shipped* ([V] 52e2a5c55): snapshots are on request only (no hourly alarm or
   retention policy yet); snapshot, export and restore each run synchronously in one request and
-  are refused **413** above 2^18 stored floats before any side effect (`sync_budget.rs`) **[Paid]**;
-  export segments are sized to the 1 MiB queued-import segment cap; `index = rabitq` collections are
+  are refused **413** before any side effect above their budget (`sync_budget.rs`, **[Paid ✓]**
+  `24f37fab2`): export 2^24 stored floats and 128 MiB of stored bytes (values + ids + metadata; the
+  byte cap is enforced while rows are read and aborts the multipart upload), snapshot and restore
+  2^18 floats (kept: restore commits the whole staged set in one DO turn, a memory bound);
+  export segments stay ≤ 1 MiB (memory), within the 8 MiB queued-import segment cap; `index = rabitq` collections are
   refused **400 `invalid_request`** (`quant_route.rs:70-84`).
 - **Restore** checks in order: size vs quota before allocation, manifest `tenant_key`, per-segment
   sha256, dimension and quota; segments are read one at a time by range.
 - **Import** takes only an `upload_id` resolving inside the caller's tenant, or an inline body
-  ≤ **512 KiB** **[Paid]** (designed 8 MiB); queued deliveries process ≤ 1 MiB segments and 2
-  batches each, and a job with 15 deliveries without progress fails before its DLQ
-  (`uploads.rs:38`, `ingest.rs:63-84`).
+  ≤ **8 MiB** as designed (**[Paid ✓]**, Free 512 KiB); queued deliveries process ≤ 8 MiB
+  segments (Free 1 MiB) and 8 batches each (Free 2), every batch ≤ 1 MiB of worst-case encoded
+  JSON, and a job with 15 deliveries without progress fails before its DLQ
+  (`uploads.rs:33-40`, `ingest.rs:63-110`, `ingest_sink.rs`).
 - DO point-in-time recovery (30 d) is an operator-only second layer.
 
 ### 6.4 Control plane (M3, gated: D1 `ruvector-edge-control`) — not shipped
@@ -799,7 +810,7 @@ only a successful response is remembered and replayed (failures release the key,
 re-executes). **CORS** is `Access-Control-Allow-Origin: *` on every response (bearer-only API, no
 cookies), exposing `WWW-Authenticate, Retry-After, ETag, X-RVF-Yanked, Content-Disposition`
 (`respond.rs:1-30`). Data-route bodies are capped at 1 MiB while streaming (declared larger →
-413 before auth); registry parts ≤ 16 MiB, upload parts ≤ 8 MiB.
+413 before auth); inline `:import` ≤ 8 MiB, registry parts ≤ 8 MiB, upload parts ≤ 8 MiB.
 
 ### 7.1 Edge authorization server (`https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev`)
 
@@ -843,16 +854,16 @@ As shipped at `52e2a5c55` ([V]; routers `routes.rs`, `rest.rs:141-175`, `m3_api.
 | `POST …/vectors:fetch` (alias `…/fetch`) `{ids ≤100}` | — (`GET …/vectors/{id}` *(designed)*) | `ruvector:read` + viewer | M1 |
 | `POST …/vectors:delete` (alias `DELETE …/vectors`) | `{ids ≤1000, dry_run?}` (batches of ≤ 100) | `ruvector:write` + editor | M1 |
 | `POST /v1/ops` | §16.3 envelope (Service-Binding callers, `aud = …/v1` only) | per op | M1 |
-| `POST …/snapshots` / `GET …/snapshots` | synchronous, ≤ 2^18 floats **[Paid]** / list | write+editor / read+viewer | M3 |
-| `POST …/snapshots/{id}:restore` | synchronous, ≤ 2^18 floats **[Paid]** | `ruvector:admin` + owner | M3 |
-| `POST /v1/collections/{c}:export` → `GET /v1/exports/{id}` | `redact` keys (≤ 32) → `.rvf` with witness manifest, downloadable 15 min; ≤ 2^18 floats **[Paid]** | `ruvector:read` + viewer | M3 |
-| `POST /v1/uploads`, `POST /v1/uploads/{id}/parts/{n}` (≤ 8 MiB), `POST /v1/uploads/{id}:complete`, `POST …:import`, `GET /v1/jobs/{id}` | `{size, sha256}` / part bytes / — / `{upload_id}` or ≤ **512 KiB** inline **[Paid]** / — | write+editor (uploads, import) / read+viewer (job) | M3 |
+| `POST …/snapshots` / `GET …/snapshots` | synchronous, ≤ 2^18 floats (kept on Paid: memory-bound restore commit) / list | write+editor / read+viewer | M3 |
+| `POST …/snapshots/{id}:restore` | synchronous, ≤ 2^18 floats (kept on Paid: memory-bound) | `ruvector:admin` + owner | M3 |
+| `POST /v1/collections/{c}:export` → `GET /v1/exports/{id}` | `redact` keys (≤ 32) → `.rvf` with witness manifest, downloadable 15 min; ≤ 2^24 stored floats and ≤ 128 MiB stored bytes (**[Paid ✓]**, Free 2^18 floats) | `ruvector:read` + viewer | M3 |
+| `POST /v1/uploads`, `POST /v1/uploads/{id}/parts/{n}` (≤ 8 MiB), `POST /v1/uploads/{id}:complete`, `POST …:import`, `GET /v1/jobs/{id}` | `{size, sha256}` / part bytes / — / `{upload_id}` or ≤ **8 MiB** inline (**[Paid ✓]**, Free 512 KiB) / — | write+editor (uploads, import) / read+viewer (job) | M3 |
 | `GET /v1/audit?cursor=&limit≤500` *(designed)* | own tenant only | `ruvector:admin` + owner | M3 |
 | `POST/GET /v1/results[/{id}]` *(designed)* | publish a signed, redacted result page (§17) / read it | write+editor / read, or public if opted in | M3/M5 |
-| `POST/GET /v1/graphs`, `GET/DELETE /v1/graphs/{g}`, `POST …/edges` (≤ 1k per request), `POST …/cypher` (≤ 4 KiB, ≤ 10k steps, ≤ 1k rows) | state ≤ 256 KiB **[Paid]**; `Idempotency-Key` on edges and mutating Cypher | read / write + editor (mutating Cypher, edges, create, delete) | M4 |
-| `POST /v1/mincut`, `GET /v1/mincut/jobs/{id}` | `{graph \| edges, mode: exact\|approximate, epsilon?}` → 200 inline, 202 job (write + editor + one write token; ≤ 20 live jobs, 24 h), 413 beyond | read / write | M4 |
+| `POST/GET /v1/graphs`, `GET/DELETE /v1/graphs/{g}`, `POST …/edges` (≤ 5,000 per request), `POST …/cypher` (≤ 4 KiB, ≤ 10k steps, ≤ 1k rows) | state ≤ 1 MiB (**[Paid ✓]**, Free 256 KiB / 1k edges; memory-bound); `Idempotency-Key` on edges and mutating Cypher | read / write + editor (mutating Cypher, edges, create, delete) | M4 |
+| `POST /v1/mincut`, `GET /v1/mincut/jobs/{id}` | `{graph \| edges, mode: exact\|approximate, epsilon?}` → 200 inline (≤ 500M work, ≈ 40k edges), 202 job (write + editor + one write token; ≤ 20 live jobs, 24 h, ≤ 32 MiB and ≤ 3e9 work), 413 beyond | read / write | M4 |
 | `POST /v1/rvf/scopes/{scope}`, `GET /v1/rvf/scopes` | claim a global `@scope` / list own scopes | `ruvector:admin` / `ruvector:read` | M5 |
-| `POST /v1/rvf/{scope}/{name}/{version}/uploads`, `PUT …/uploads/{id}/parts/{n}` (≤ 16 MiB), `POST …/uploads/{id}:finalize` | immutable SemVer; registry-native upload session (202 per step until 201) **[Paid]** | `ruvector:write` + owned scope | M5 |
+| `POST /v1/rvf/{scope}/{name}/{version}/uploads`, `PUT …/uploads/{id}/parts/{n}` (≤ 8 MiB; 16 MiB before `24f37fab2`), `POST …/uploads/{id}:finalize` | immutable SemVer; registry-native upload session (202 per step until 201) **[needs Paid ✓]** | `ruvector:write` + owned scope | M5 |
 | `GET /v1/rvf/{scope}/{name}`, `GET …/{version}`, `GET …/{version}/blob` | versions (paginated) / manifest / streamed bytes (`ETag`, `X-RVF-Yanked`) | `ruvector:read` | M5 |
 | `POST …/{version}:yank` / `:unyank` | — | `ruvector:write` (uploader or admin) | M5 |
 | `POST …/{version}:publish` | public publish | `ruvector:publish` + owner (not grantable until the allowlist lists it, §5.3) | M5 |
@@ -1020,12 +1031,14 @@ Only layer 4 is a hard, consistent limit; the others are shields.
 4. **Admission:** `TenantLedger` leases (§6.1).
 
 *Shipped* ([V] 52e2a5c55): layer 1 is the 1 MiB streamed body cap (declared larger → 413 before
-auth; inline `:import` 512 KiB) and the AS per-IP limits (`DCR_RATE_LIMITER` 5/60 s,
+auth; inline `:import` 8 MiB on Workers Paid, 512 KiB on Free — verified live 2026-09-29: exactly
+8 MiB → 401, 8 MiB + 1 → 413) and the AS per-IP limits (`DCR_RATE_LIMITER` 5/60 s,
 `AUTHZ_RATE_LIMITER` 60/60 s, plus a durable `DCR_RATE_PER_HOUR`); the gateway has **no** pre-auth
 `ip:` limit and **no** failed-token cache yet. Layer 2 is eight Workers Rate Limiting bindings,
 `user:` then `org:` per class (read 20/100, write 10/50, ops 20/100, mcp 20/100 per 10 s), failing
-open (`ratelimit.rs:1-20`, `edge/gateway/wrangler.toml:34-76`). Layer 3 budgets are sized to the
-Free 10 ms CPU (**[Paid]**, Shipped-vs-designed #6). Layer 4 is per-op ledger admission, not leases
+open (`ratelimit.rs:1-20`, `edge/gateway/wrangler.toml:34-76`). Layer 3 budgets were sized to the
+Free 10 ms CPU and are raised for Workers Paid at `24f37fab2` (**[Paid ✓]**, Shipped-vs-designed #6);
+those that stayed are memory bounds. Layer 4 is per-op ledger admission, not leases
 (§6.1).
 
 | Limit | M1 default (per plan) |
@@ -1033,15 +1046,16 @@ Free 10 ms CPU (**[Paid]**, Shipped-vs-designed #6). Layer 4 is per-op ledger ad
 | Collections per tenant | 20 |
 | Shards per collection | ≤ 6 through M3 |
 | Dimension | 1..=1536, fixed per collection |
-| Resident data per isolate | 56 MB, LRU eviction **[U]**; shipped split `VectorShard` 28 / `QuantShard` 16 / `GraphStore` 12 MB, plus ≤ 32 MiB job + 2 × 16 MiB registry part |
-| Per-shard cap | designed M1 3,000,000 floats (12 MB); **shipped** 14 MB resident codes/links + row bookkeeping (≈ 25k × 384 flat, 2 per isolate), ≤ 16M stored floats — **[needs Paid]**: a cold load of a full shard does not fit Free's 10 ms, so the cap is a design ceiling, not reachable on Free; HNSW ≤ `REBUILD_BUDGET_MS` 20 s of nodes (≈ 18k at 384-d m16) **[needs Paid]**; `rabitq` ≤ 50k rows / 6M load units **[Paid]** |
+| Resident data per isolate | 56 MB, LRU eviction **[U]**; shipped split `VectorShard` 28 / `QuantShard` 16 / `GraphStore` 12 MB, plus one synchronous analytics turn ≤ 32 MiB (job, or inline min-cut ≤ 16 MiB) + 2 × 8 MiB registry part + 2 × 8 MiB gateway transfer ≈ 123 MB (Paid, `24f37fab2`) |
+| Per-shard cap | designed M1 3,000,000 floats (12 MB); **shipped** 14 MB resident codes/links + row bookkeeping (≈ 25k × 384 flat, 2 per isolate), ≤ 16M stored floats — **[needs Paid ✓]** (a cold load of a full shard did not fit Free's 10 ms; the account is on Paid since 2026-09-29); HNSW ≤ `REBUILD_BUDGET_MS` 20 s of nodes (≈ 18k at 384-d m16), kept at 20 s on Paid so no written shard regresses to 413; `rabitq` ≤ 50k rows (memory) / 400M load units (**[Paid ✓]**, Free 6M) |
 | Vectors per tenant | 250k free / 2M paid **[U]**, applied only once the milestone ceiling reaches them |
 | Upsert batch | ≤ 500 vectors, ≤ 1 MiB (≤ 64 per shard for `hnsw`); over → 413 |
 | `top_k` / metadata | ≤ 100 / ≤ 4 KiB per vector |
-| Cypher / mincut inline (M4) | designed ≤ 10k steps, ≤ 1k rows, ≤ 6 hops / ≤ 200k edges, ≤ 50k nodes; **shipped** Cypher ≤ 4 KiB, 10k steps, 1k rows, 20 graphs/tenant, graph state ≤ 256 KiB (≈ 1.5–2k edges), 1k edges/request **[Paid]**; mincut inline ≤ 5M work units, job ≤ 32 MiB (≈ 80k edges), 20 live jobs/tenant, 24 h, 3 attempts (51k edges ⇒ 413 on Free) **[Paid]** |
-| M3 synchronous passes | snapshot/export/restore ≤ 2^18 stored floats (682 rows at 384-d) **[Paid]**; queued import segments ≤ 1 MiB |
-| Registry (M5) | parts ≤ 16 MiB, ≤ 1000 parts; every write needs Workers Paid (MB-scale hashing) **[Paid]** |
-| `limits.cpu_ms` | one script-level value (M1: 30 s) **[U]** DO CPU source; **shipped: none** — the Free plan refuses the block (code 100328) |
+| Cypher / mincut inline (M4) | designed ≤ 10k steps, ≤ 1k rows, ≤ 6 hops / ≤ 200k edges, ≤ 50k nodes; **shipped** Cypher ≤ 4 KiB, 10k steps, 1k rows, 20 graphs/tenant, graph state ≤ 1 MiB (≈ 6.5k edges, memory-bound), 5,000 edges/request (**[Paid ✓]**, Free 256 KiB / 1k); mincut inline ≤ 500M work units / ≈ 40k edges (16 MiB), job ≤ 32 MiB (≈ 80k edges) and ≤ 3e9 work (≈ 4.5 s wasm per solve turn; exact Stoer–Wagner ≈ 6.8k vertices), 20 live jobs/tenant, 24 h, 3 attempts (**[Paid ✓]**, Free 5M inline; the 51k-edge K_320 job now completes) |
+| M3 synchronous passes | export ≤ 2^24 stored floats (43,690 rows at 384-d) and ≤ 128 MiB stored bytes; snapshot/restore ≤ 2^18 (682 rows at 384-d; memory-bound restore commit) (**[Paid ✓]**, Free 2^18 for all three) |
+| M3 queued import | segments ≤ 8 MiB, batches ≤ 1 MiB worst-case JSON (93 rows at 384-d, 34 at 1536-d), 8 batches and one 8 MiB hash slice per delivery (**[Paid ✓]**, Free 1 MiB / 64 rows / 2 / 512 KiB) |
+| Registry (M5) | parts ≤ 8 MiB (16 MiB before `24f37fab2`: isolate memory), ≤ 1000 parts; every write needs Workers Paid (MB-scale hashing) **[needs Paid ✓]** |
+| `limits.cpu_ms` | one script-level value (M1: 30 s) **[U]** DO CPU source; **shipped: gateway `cpu_ms = 30000`** since 2026-09-29 on Workers Paid (`a83f661da`, version 161567cc; Free refused the block, code 100328); the longest single steps are an HNSW rebuild (≤ 20 s modelled) and a job solve (≤ ≈ 4.5 s) |
 | Edge DCR clients | cap `MAX_CLIENTS` (default 10,000) [V] tree; per-IP rate limit and 30-day idle expiry **[U]** (M0.5) |
 
 **Derived per-collection ceiling at 384 dims** (6 shards × per-shard cap): M1 ≈ 47k vectors, M2a ≈
@@ -1092,7 +1106,9 @@ work units (§17); binary inputs are checked against quota before allocation.
 | DoS: floods / fan-out | Unauthenticated floods, kid-spraying, fan-out amplification | Pre-auth IP limit; failed-token cache; single-flight JWKS refetch; `shards_queried` charging; ≤ 6 shards; step budgets | RL may be per location; no WAF on workers.dev; gateway pre-auth IP limit and failed-token cache not shipped ([V] 52e2a5c55), so kid-spraying costs one signature check per request |
 | **E**levation of privilege | Viewer mutating; first claimant in a shared org; scope inflation | Scope ∩ role ∩ route; default-deny route table; explicit audited claim granting nothing pre-existing | Team tenancy needs G5 |
 | Supply chain and deploy | Account-wide token; mold `RUSTFLAGS`; pin drift; a git dependency on an unmerged branch | Scoped deploy credentials; CI binding checks; `env -u RUSTFLAGS`; pinned lockfile; `rvlite` pinned by **rev** `c6ece785` (RuVector#1084 still open) | Account shared with the consultant-email stack until G6; move `rvlite` to `main`/a release once #1084 merges |
-| M4 residuals ([V] 52e2a5c55, from `edge/HORIZON.json` M4) | Unbounded per-tenant bytes; data surviving removal; shared-isolate blast radius | Per-graph 256 KiB state cap, 20 graphs/tenant, ≤ 20 live jobs/tenant, 24 h job TTL | Graph and job bytes are **not counted in the tenant quota**; there is **no graph/job wipe** on tenant removal (and no tenant deletion at all); the isolate-kill blast radius on Free (a `GraphStore`/`AnalyticsJob` OOM restarting co-located `VectorShard`s) is **unverified** — all M6 items |
+| M4 residuals ([V] 52e2a5c55, from `edge/HORIZON.json` M4) | Unbounded per-tenant bytes; data surviving removal; shared-isolate blast radius | Per-graph 1 MiB state cap (256 KiB on Free), 20 graphs/tenant, ≤ 20 live jobs/tenant, 24 h job TTL | Graph and job bytes are **not counted in the tenant quota**; there is **no graph/job wipe** on tenant removal (and no tenant deletion at all); the isolate-kill blast radius (a `GraphStore`/`AnalyticsJob` OOM restarting co-located `VectorShard`s) is **unverified** — all M6 items |
+| DoS: isolate blocking during long steps (Workers Paid, `24f37fab2`) | A tenant triggers a long synchronous DO turn; every other object co-resident in that isolate (other tenants' `VectorShard`/`QuantShard`/`GraphStore`) waits for it | `AnalyticsJob` solves admitted only at ≤ 3e9 work (≈ 4.5 s wasm; the crate's 20e9 and the earlier 10e9 ≈ 15 s are refused `413` on the request path); request-path min-cut ≤ 500M (≤ 0.75 s); inline hashing ≤ 8 MiB (≈ 84 ms); HNSW rebuilds only in alarms at ≤ `REBUILD_BUDGET_MS` 20 s modelled; ≤ 20 live jobs per tenant | An HNSW rebuild at the node cap is one ≈ 17 s (measured) turn, and a job solve up to ≈ 4.5 s: co-resident objects see that much added latency. `REBUILD_BUDGET_MS` was **not** lowered because shards written under it would then refuse every write (`413`); slicing the rebuild across alarms is the fix (M6) |
+| DoS: isolate memory under concurrency (Workers Paid, `24f37fab2`) | Two 8 MiB transfers (inline `:import`, upload/registry part, hash pass, queued-import record) or two registry parts in one isolate at once | `shard_core` table: 56 MB resident + one analytics turn ≤ 32 MiB + one registry part 2 × 8 MiB (lowered from 16 MiB) + one 8 MiB transfer 2 × 8 MiB ≈ 123 of 128 MB; `read_capped` never reserves past its cap; pre-auth 413 above the body caps | Each additional concurrent 8 MiB transfer or registry part adds ≈ 16.8 MB, over the limit once two coincide; an isolate OOM restarts every co-resident tenant's objects. Not bounded by code (a per-isolate transfer slot would 503 parallel part uploads); recorded for M6 |
 
 Run `npx @claude-flow/cli@latest security scan` and an external review before exposure beyond
 staging; a pentest gates GA (M6).
@@ -1102,7 +1118,7 @@ staging; a pentest gates GA (M6).
 | Gate | What it needs | Earliest milestone |
 |---|---|---|
 | G1 | **Register the edge AS as an upstream client** at `auth.cognitum.one` via the public DCR endpoint (use authorised by rUv, 2026-09-29): public client, PKCE, `scope = "openid profile email"` (explicit — omitting it grants `mcp:*`), `redirect_uris = ["https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev/callback"]`. **Precondition [V]:** at console `ce9ddca` that redirect is not on `ALLOWED_REDIRECT_PREFIXES`/`ALLOWED_EXACT_REDIRECTS`, so DCR returns `invalid_redirect_uri`. G1 therefore includes **one exact-match line** in `ALLOWED_EXACT_REDIRECTS` (console repo review; ADR-124 does not pre-approve it) — or an equivalent hand-seeded client row. No scope, claim or protocol change. | M0.5 |
-| G2 | Cloudflare resources in account `501c77f5…`: Workers `ruvector-edge-auth` and `ruvector-edge-gateway` on workers.dev, DO namespaces `AuthStore` (M0.5), `VectorShard`, `TenantLedger` (M1), Rate Limiting bindings, secrets `EDGE_AUTH_SIGNING_JWK`, `IP_HASH_SALT`, `DENY_GLOBAL`; the gateway → auth `EDGE_AUTH` Service Binding. Workers Paid plan. Operator deploys via wrangler OAuth; CI uses a dedicated token scoped to Workers Scripts, DO, D1, R2 and Queues, plus the binding check. **Status ([V] 52e2a5c55):** exercised — both Workers, `AuthStore`, `TenantLedger`, `VectorShard` and (M4/M5) `QuantShard`, `GraphStore`, `AnalyticsJob`, `RegistryRoot`, `RegistryScope`, 8 + 2 Rate Limiting bindings, `EDGE_AUTH_SIGNING_JWK` deployed; `IP_HASH_SALT` and `DENY_GLOBAL` **not set**; the account is still on **Workers Free** (the Paid precondition is open, pending rUv); the gateway and auth rate-limit `namespace_id`s 35101/35102 collide [U]. | M0.5 (auth + gateway), M1 (DOs) |
+| G2 | Cloudflare resources in account `501c77f5…`: Workers `ruvector-edge-auth` and `ruvector-edge-gateway` on workers.dev, DO namespaces `AuthStore` (M0.5), `VectorShard`, `TenantLedger` (M1), Rate Limiting bindings, secrets `EDGE_AUTH_SIGNING_JWK`, `IP_HASH_SALT`, `DENY_GLOBAL`; the gateway → auth `EDGE_AUTH` Service Binding. Workers Paid plan. Operator deploys via wrangler OAuth; CI uses a dedicated token scoped to Workers Scripts, DO, D1, R2 and Queues, plus the binding check. **Status ([V] 52e2a5c55):** exercised — both Workers, `AuthStore`, `TenantLedger`, `VectorShard` and (M4/M5) `QuantShard`, `GraphStore`, `AnalyticsJob`, `RegistryRoot`, `RegistryScope`, 8 + 2 Rate Limiting bindings, `EDGE_AUTH_SIGNING_JWK` deployed; `IP_HASH_SALT` and `DENY_GLOBAL` **not set**; the Workers Paid precondition is **closed** (account on Paid since 2026-09-29; gateway `cpu_ms = 30000`; Paid caps deployed at `24f37fab2`, gateway version `1460504f`); the gateway and auth rate-limit `namespace_id`s 35101/35102 collide [U]. | M0.5 (auth + gateway), M1 (DOs) |
 | G3 | R2 `ruvector-edge-data`, D1 `ruvector-edge-control`, Queues `ruvector-edge-jobs` (+ DLQ) and `ruvector-edge-audit`, Workers AI binding. **Status ([V] 52e2a5c55):** exercised without D1 — one R2 binding `EDGE_DATA` → `ruvector-edge-data` (also M5), Queues `ruvector-edge-ingest` (+ `ruvector-edge-ingest-dlq`) and `ruvector-edge-audit` (+ `ruvector-edge-audit-dlq`), Workers AI `AI`; D1 `ruvector-edge-control` not created (§6.4). Created by the M3 deploy (`f1959f942`, gateway version `07de745c`); **no G3 approval line was recorded before the run** (as for G2). | M3 |
 | G4 | Upstream crate PRs: (a) `rvf-index` DistanceOracle traversal, CSR `u32` adjacency, dense ids, header fields, streaming encoder, simd128; (b) `rvlite-core` split / `browser` gate; (c) `ruvector-rabitq` persist v2 **Status:** (a) not needed — HNSW built in-repo (`ruvector-edge-index`); (b) consumed from the unmerged branch `feat/rvlite-browser-feature-gate` of **RuVector#1084**, pinned by rev `c6ece785` (merge still owed); (c) not needed — persist v2 (`rbqx0002`) is in `ruvector-edge-quant`. | M2b, M4 |
 | G5 | **Team tenancy only:** an upstream org selector on `/oauth/authorize` and/or an org-role claim (console repo). The former G5a (first-party web client), G5b (RFC 8707 at the upstream AS) and G5c (`ruvector:*` upstream scopes) are **withdrawn** — the edge AS provides all three. | M6 |
@@ -1138,10 +1154,11 @@ refresh/revoke, 413/429 live, latency) is unrun, and these items are **not met b
 regardless of G1: M0.5/M1 `http://localhost` loopback and the 30 s refresh grace (§8 deltas 4, 11);
 M1 pre-auth IP limit, failed-token cache and `ruvector-edge-cli`; "four 12 MB shards resident"
 (shipped two 14 MB `VectorShard`s per isolate); M3 global deny and usage reconciliation (no D1),
-signed result pages, and 100k-vector imports / snapshots on Free (**[Paid]**); M4 the 51k-edge
-min-cut ends `413` on Free (**[Paid]**) and graphs cap at 256 KiB, not 200k edges; M5 `dry_run` on
-`rvf_import`, `ruvector:publish` absent from the allowlist, rvf CLI imports only with
-`--batch-size` ≤ 680 at 384-d, and registry writes need Paid. M2b and M4 no longer wait on G4a/G4c
+signed result pages, and snapshots/restores above 2^18 floats (memory-bound, kept on Paid; exports
+now reach 2^24 floats) (**[Paid ✓]** for the CPU-bound caps since `24f37fab2`); M4 graphs cap at
+1 MiB of state (≈ 6.5k edges, memory-bound), not 200k edges (the 51k-edge min-cut now completes on
+Paid); M5 `dry_run` on `rvf_import` and `ruvector:publish` absent from the allowlist (the rvf CLI
+default batch size now imports, and registry writes have Paid; live runs wait on G1). M2b and M4 no longer wait on G4a/G4c
 (built in-repo); G4b is consumed as an unmerged branch.
 
 ### M0: Cores including authz (no deploy, no Cloudflare or provider changes)
@@ -1431,7 +1448,8 @@ manifest and a `redact` key list (≤ 32). **Not yet:** `/v1/results` and the re
 `dry_run` on REST collection create, tenant claim (REST and MCP), collection drop, member/deny
 admin routes, graph REST create/delete/edges, `rvf_import`, M3 and registry routes (so "every
 mutating tool supports `dry_run`" is not met), `approval_ref` outside `/v1/ops`, the packaged Launch Doctor checker, and
-the Workers Paid plan the free-tier caps assume (**[Paid]** budgets throughout).
+live runs of the Workers Paid caps (the plan is active since 2026-09-29 and the caps are deployed,
+**[Paid ✓]**; the drills wait on a G1 login).
 
 ## 18. Open questions
 
@@ -1465,12 +1483,15 @@ the Workers Paid plan the free-tier caps assume (**[Paid]** budgets throughout).
     family's scopes instead of refusing them [V] tree (`team_vocabulary.rs`
     `as_metadata_union_request_gets_each_resource_share`); only (a) remains open.
 
-13. **Q17 Workers Paid (G2 precondition).** Every **[Paid]** limit above (inline import 512 KiB,
-    2^18-float sync passes, 1 MiB queued segments, 50k-row quant shards, 256 KiB graphs, 32 MiB /
-    51k-edge min-cut jobs) was sized to Workers Free's 10 ms. Conversely every **[needs Paid]**
-    budget (VectorShard lazy load, flush, the 20 s HNSW rebuild budget, the 14 MB per-shard cap,
-    all registry writes) needs Paid **before live M2 load** or any registry write. After the upgrade, which are raised by config and which need the resumable-job designs
-    (snapshot/export/restore as queued jobs, delta-persisted graphs)?
+13. **Q17 Workers Paid (G2 precondition) — resolved 2026-09-29.** The account is on Workers Paid
+    (gateway `cpu_ms = 30000`). Raised by config at `24f37fab2`: inline import 8 MiB, export 2^24
+    floats + 128 MiB bytes, queued segments 8 MiB / 8 batches / 8 MiB hash slices, quant load
+    400M units, graphs 1 MiB / 5,000 edges per bulk, inline min-cut 500M work, job work 3e9, RVF
+    import 4,000 subrequests. Kept because they are **memory** bounds, not CPU: snapshot/restore
+    2^18 floats (restore commit), quant 50k rows, graph state beyond 1 MiB, job memory 32 MiB, the
+    14 MB shard cap and the 20 s HNSW rebuild (kept so no written shard regresses). Those still
+    need the resumable/streamed designs (paged restore commit, snapshot/export/restore as queued
+    jobs, delta-persisted graphs, streamed quant frames, sliced HNSW rebuilds).
 14. **Q18 D1 control plane (§6.4)** — build it (global deny, `usage_daily`, plans) or record that
     per-tenant ledgers plus key rotation are enough through GA; M3 acceptance depends on it.
 15. **Q19 Registry scope namespace** — scopes are global and first-claimer-wins (with brand and
@@ -1547,3 +1568,19 @@ precondition, M4 residual risks (§12), G3 provenance, §16 adoption status (no 
 1 h clean at `14e3f77e3`). One build change: `rvlite` is now pinned by **rev** `c6ece785` instead of the PR
 #1084 branch (resolved commit unchanged, `edge/Cargo.lock` source strings only); the
 `keys.rs` doc no longer claims the mirror is written. Nothing deployed.
+
+**2026-09-29, Workers Paid (`24f37fab2`, gateway `1460504f`).** rUv moved account `501c77f5…` to
+Workers Paid (gateway `[limits] cpu_ms = 30000`, `a83f661da`). The Free-sized **[Paid]** caps were
+raised (Shipped-vs-designed rows 3–6, §6.1, §6.3, §7.2, §10) and a review of the raise fixed five
+findings with tests: `REBUILD_BUDGET_MS` stays 20 s (15 s would have dropped the 384-d m16 HNSW
+node cap from ≈ 18k to ≈ 13.6k and refused every write to shards in between); queued-import
+batches are bounded by worst-case encoded bytes (≤ 1 MiB: 17 B per `ryu` f32, 4 KiB metadata
+re-checked in the sink, 512 B escaped id), not floats alone; export adds a 128 MiB stored-byte
+budget beside 2^24 floats; `AnalyticsJob` work is 3e9 (≈ 4.5 s per solve turn) to limit isolate
+blocking; the isolate memory table counts one synchronous analytics turn, one registry part
+(lowered 16 → 8 MiB) and one 8 MiB gateway transfer, ≈ 123 of 128 MB. New §12 residuals: isolate
+blocking during long steps, and isolate memory under concurrent 8 MiB transfers. Deployed
+`ruvector-edge-gateway` only (no new DO class or migration tag); live: `/v1/health` 200, a 20-route
+`/v1` sweep 401 with `resource_metadata`, `:import` at exactly 8 MiB → 401 and 8 MiB + 1 → 413
+(pre-auth). The seven `cognitum-consultant-email-staging-*` scripts were unchanged (`modified_on`/
+`etag` identical before and after).
