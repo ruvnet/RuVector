@@ -49,7 +49,7 @@ async function inTenant(
   try {
     requireTenant(principal, tenantId, write);
     const used = await chargeTenant(env, tenantId);
-    return reply({ ...await work(), usageToday: used });
+    return reply({ ...await work(), tenant_id: tenantId, usageToday: used });
   } catch (error) {
     const code = error instanceof AccessError || error instanceof RangeError ? error.message : 'internal_error';
     return { ...reply({ error: code }), isError: true };

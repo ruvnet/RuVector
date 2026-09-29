@@ -23,10 +23,12 @@ export async function invokeService(
     version: 1, tenantId, issuer: principal.issuer, actor: principal.subject,
     operation, input, issuedAt: Date.now(), requestId: crypto.randomUUID(),
   });
-  if (body.length > 8192) throw new RangeError('service_payload_too_large');
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.SERVICE_SIGNING_KEY!),
+  const encoder = new TextEncoder();
+  const bodyBytes = encoder.encode(body);
+  if (bodyBytes.byteLength > 8192) throw new RangeError('service_payload_too_large');
+  const key = await crypto.subtle.importKey('raw', encoder.encode(env.SERVICE_SIGNING_KEY!),
     { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body));
+  const signature = await crypto.subtle.sign('HMAC', key, bodyBytes);
   const encoded = Array.from(new Uint8Array(signature), b => b.toString(16).padStart(2, '0')).join('');
   const response = await env[name]!.fetch('https://ruvector.internal/ruvector-internal/v1', {
     method: 'POST', headers: { 'content-type': 'application/json', 'x-ruvector-signature': encoded },
@@ -34,7 +36,7 @@ export async function invokeService(
   });
   if (!response.ok) throw new Error('service_error');
   const text = await response.text();
-  if (text.length > 65536) throw new Error('service_response_too_large');
+  if (encoder.encode(text).byteLength > 65536) throw new Error('service_response_too_large');
   const result = JSON.parse(text);
   if (!result || typeof result !== 'object' || Array.isArray(result)) throw new Error('invalid_service_response');
   return result as Record<string, unknown>;

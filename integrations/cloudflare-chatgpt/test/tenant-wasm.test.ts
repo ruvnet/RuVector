@@ -111,6 +111,22 @@ test('service binding receives signed identity context at a fixed internal route
   assert.equal(inspected, true);
 });
 
+test('service request limit counts UTF-8 bytes before invoking downstream', async () => {
+  let invoked = false;
+  const env: ServiceEnv = {
+    SERVICE_SIGNING_KEY: 'this-is-a-test-key-with-more-than-32-bytes',
+    METAHARNESS: { async fetch(_input: RequestInfo | URL, _init?: RequestInit) {
+      invoked = true;
+      return new Response('{}');
+    } } as Fetcher,
+  };
+  await assert.rejects(invokeService(env, 'METAHARNESS', {
+    issuer: 'https://id.example.test', subject: 'alice', scopes: new Set(['ruvector.read']),
+    memberships: [{ tenant_id: 'acme', role: 'editor' }],
+  }, 'acme', 'evaluate_candidate', { objective: '界'.repeat(3000) }), /service_payload_too_large/);
+  assert.equal(invoked, false);
+});
+
 test('chunked requests are bounded without trusting Content Length', async () => {
   const request = new Request('https://worker.example/mcp', { method: 'POST',
     body: new ReadableStream({ start(controller) { controller.enqueue(new Uint8Array(8)); controller.enqueue(new Uint8Array(8)); controller.close(); } }),
