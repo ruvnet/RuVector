@@ -861,7 +861,7 @@
   ],
   "owed": [
     "Upstream: RuVector#1084 merge (then move rvlite from rev c6ece785 to main/release); RuVector#1085 (ApproxMinCut 0.10-0.33x exact; ruvector-mincut wasm32 clippy static_mut_refs/unused_unsafe) before serving approximate mode or dropping the analytics wasm32 clippy exception; RuVector#1063/#1064 (@ruvector/core VectorDb shares ./ruvector.db across tenants) before a RuFlo front end fronts multi-tenant data",
-    "Next approved gateway deploy: renumber gateway Rate Limiting namespace_ids (e.g. 35201-35208) and fix both wrangler comments",
+    "Next approved gateway deploy: renumber gateway Rate Limiting namespace_ids (e.g. 35201-35208) and fix both wrangler comments (still owed: not done in the 2026-09-29 Workers Paid caps deploy 1460504f, which was scoped to code caps with no wrangler.toml change)",
     "M0.5 live verification left two public DCR clients on AuthStore (default scope with 127.0.0.1:53682 redirect; a team:read/team:write client); their client_ids were not recorded and purge_idle_clients runs only at MAX_CLIENTS; operator to list and delete them or accept them as test fixtures before G1",
     "M4 residuals: graph/job bytes not in tenant quota; no graph/job wipe on tenant removal (no tenant deletion at all); isolate-kill blast radius unverified; multi-second DO turns (job solve <= ~4.5 s, HNSW rebuild <= 20 s) block co-resident objects",
     "Code: dry_run on REST collection create, tenant claim, drop, member/deny, graph REST, rvf_import, M3, mincut jobs, registry; registry manifest mirror (designed, not written); fail-closed empty IP_HASH_SALT in release builds; ruvector:publish in the RESOURCE_ALLOWLIST; /v1/results; GET /v1/audit; global deny/D1",
