@@ -104,7 +104,11 @@ ACCEPTED_UPSTREAM_KIDS = "_jQ62WD8cCiIGkKNQB8Hg4El2TNU5rHIITV4h_ba4YM"
 # exchange map (team:read->ruvector:read, team:write->ruvector:write,
 # ruvector:* identity) of the subject scopes ∩ requested ∩ this ceiling ∩ the
 # .../v1 scopes, no refresh token.
-CONFIDENTIAL_CLIENTS = ""
+# 2026-09-29: ruflo-ai-team (RuFlo AI Team adapter, ruvnet/ruflo#3553). Public JWK
+# posted in #swarm by the ChatGPT coordinator; validated here: P-256, no "d",
+# kid = RFC 7638 thumbprint. Private key lives only in GCP Secret Manager
+# (cognitum-20260110/ruflo-ai-team-edge-private-jwk).
+CONFIDENTIAL_CLIENTS = '[{"client_id":"ruflo-ai-team","jwk":{"kty":"EC","crv":"P-256","x":"62SPhyB0cKylZiz0IwZArr9_xCKtczYAfk-asenZXHs","y":"ruT_45ienTMrwe2k4Fbh1PpUauRPtbrUlVT1_iOICJE","kid":"MItTXyaR29uQzUZB9ETuLl8-9uQ_YwmmXQZfPO5kHiE"},"subject_audiences":["https://team.ruv.io/mcp"],"scope":"ruvector:read ruvector:write"}]'
 
 # Optional cap on dynamically registered clients (default 10000).
 # MAX_CLIENTS = "10000"

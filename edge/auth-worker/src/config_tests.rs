@@ -77,7 +77,13 @@ pub(crate) fn shipped_vars() -> HashMap<&'static str, String> {
             continue;
         };
         if in_vars && !line.starts_with('#') {
-            let v = v.trim().trim_matches('"').to_string();
+            // Basic "..." strings and TOML literal '...' strings (used for
+            // the JSON-valued CONFIDENTIAL_CLIENTS so its quotes survive).
+            let v = v.trim();
+            let v = match v.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')) {
+                Some(lit) => lit.to_string(),
+                None => v.trim_matches('"').to_string(),
+            };
             out.insert(k.trim(), v);
         }
     }
@@ -192,10 +198,15 @@ fn allowlist_var_cannot_rebind_a_resource_vocabulary() {
         format!("{gw}/v1 team:read team:write offline_access"),
     );
     assert!(load(&v).is_err(), "/v1 with team:* accepted");
-    // Narrowing through the var is still possible.
+    // Narrowing through the var is still possible...
     let mut v = shipped_vars();
     v.insert("RESOURCE_ALLOWLIST", format!("{gw}/v1/mcp ruvector:read"));
+    v.insert("CONFIDENTIAL_CLIENTS", String::new());
     assert!(load(&v).is_ok());
+    // ...but not past a registered exchange client's audiences: that fails closed.
+    let mut v = shipped_vars();
+    v.insert("RESOURCE_ALLOWLIST", format!("{gw}/v1/mcp ruvector:read"));
+    assert!(load(&v).is_err(), "narrowed away ruflo-ai-team's audience");
 }
 
 #[test]
@@ -323,11 +334,13 @@ fn rejects_bad_values() {
 }
 
 /// ADR-351 §5.6: confidential exchange clients come only from the operator
-/// registry var, validated whole at load; the shipped config registers none.
+/// registry var, validated whole at load; the shipped config registers exactly
+/// the RuFlo AI Team adapter (ruvnet/ruflo#3553).
 #[test]
 fn confidential_clients_are_operator_config_validated_at_load() {
     let shipped = load(&shipped_vars()).unwrap();
-    assert!(shipped.confidential_clients.clients().is_empty());
+    assert_eq!(shipped.confidential_clients.clients().len(), 1);
+    assert!(shipped.confidential_clients.get("ruflo-ai-team").is_some());
     assert!(load(&vars())
         .unwrap()
         .confidential_clients
