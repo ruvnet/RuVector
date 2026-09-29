@@ -1,6 +1,6 @@
 import test from 'ava';
 import { VectorDB } from '../index.js';
-import { mkdtempSync, rmSync } from 'fs';
+import { existsSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -383,4 +383,39 @@ test('VectorDB - concurrent operations', async (t) => {
   const results = await Promise.all(searchPromises);
   t.is(results.length, 10);
   results.forEach((r) => t.truthy(r.length >= 1));
+});
+
+// Issue #1063: omitting storagePath gives a private in-memory database.
+test.serial('VectorDB - no storagePath is in-memory and isolated', async (t) => {
+  const cwd = process.cwd();
+  const tempDir = createTempDir();
+  t.teardown(() => {
+    process.chdir(cwd);
+    cleanupTempDir(tempDir);
+  });
+  process.chdir(tempDir);
+
+  const a = new VectorDB({ dimensions: 256 });
+  const b = new VectorDB({ dimensions: 4 });
+  await a.insert({ id: 'x', vector: new Float32Array(256).fill(0.1) });
+  await b.insert({ id: 'y', vector: new Float32Array(4).fill(0.1) });
+
+  t.is(await a.len(), 1);
+  t.is(await b.len(), 1);
+  t.false(existsSync(join(tempDir, 'ruvector.db')));
+});
+
+// Issue #1063: reopening a store with different dimensions fails in the constructor.
+test('VectorDB - shared storagePath with different dimensions throws', async (t) => {
+  const tempDir = createTempDir();
+  t.teardown(() => cleanupTempDir(tempDir));
+  const storagePath = join(tempDir, 'shared.db');
+
+  const first = new VectorDB({ dimensions: 256, storagePath });
+  await first.insert({ id: 'x', vector: new Float32Array(256).fill(0.1) });
+
+  const error = t.throws(() => new VectorDB({ dimensions: 4, storagePath }));
+  t.true(error.message.includes(storagePath));
+  t.true(error.message.includes('stored 256'));
+  t.true(error.message.includes('requested 4'));
 });

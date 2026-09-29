@@ -115,13 +115,27 @@ pub struct JsDbOptions {
     pub dimensions: u32,
     /// Distance metric
     pub distance_metric: Option<JsDistanceMetric>,
-    /// Storage path
+    /// Where the database is persisted.
+    ///
+    /// - Omitted: an in-memory database private to this instance. Nothing is
+    ///   written to disk and nothing is shared with other `VectorDB`
+    ///   instances; the data is gone when the instance is garbage-collected.
+    /// - A file path: a persistent database at that path. If a database
+    ///   already exists there, its stored `dimensions` and `distanceMetric`
+    ///   must equal the requested ones, otherwise the constructor throws an
+    ///   error naming the path and both values.
+    /// - A value starting with `memory://`: explicitly in-memory, same as
+    ///   omitting it.
     pub storage_path: Option<String>,
     /// HNSW configuration
     pub hnsw_config: Option<JsHnswConfig>,
     /// Quantization configuration
     pub quantization: Option<JsQuantizationConfig>,
 }
+
+/// Storage path used when `storagePath` is omitted: ruvector-core's
+/// per-instance in-memory backend (no file is created).
+const IN_MEMORY_STORAGE_PATH: &str = "memory://";
 
 impl From<JsDbOptions> for DbOptions {
     fn from(options: JsDbOptions) -> Self {
@@ -131,9 +145,13 @@ impl From<JsDbOptions> for DbOptions {
                 .distance_metric
                 .map(Into::into)
                 .unwrap_or(DistanceMetric::Cosine),
+            // Issue #1063: no storagePath means in-memory. The previous default,
+            // a shared `./ruvector.db` in the working directory, made every
+            // instance share one store and let its stored dimension override
+            // the requested one.
             storage_path: options
                 .storage_path
-                .unwrap_or_else(|| "./ruvector.db".to_string()),
+                .unwrap_or_else(|| IN_MEMORY_STORAGE_PATH.to_string()),
             hnsw_config: options.hnsw_config.map(Into::into),
             quantization: options.quantization.map(Into::into),
         }
@@ -236,6 +254,10 @@ pub struct VectorDB {
 impl VectorDB {
     /// Create a new vector database with the given options
     ///
+    /// Without `storagePath` the database is in-memory and private to this
+    /// instance. With `storagePath`, an existing database at that path must
+    /// have the same `dimensions` and `distanceMetric`, or this throws.
+    ///
     /// # Example
     /// ```javascript
     /// const db = new VectorDB({
@@ -260,7 +282,7 @@ impl VectorDB {
         })
     }
 
-    /// Create a vector database with default options
+    /// Create an in-memory vector database with default options
     ///
     /// # Example
     /// ```javascript
@@ -268,7 +290,12 @@ impl VectorDB {
     /// ```
     #[napi(factory)]
     pub fn with_dimensions(dimensions: u32) -> Result<Self> {
-        let db = CoreVectorDB::with_dimensions(dimensions as usize)
+        let options = DbOptions {
+            dimensions: dimensions as usize,
+            storage_path: IN_MEMORY_STORAGE_PATH.to_string(),
+            ..DbOptions::default()
+        };
+        let db = CoreVectorDB::new(options)
             .map_err(|e| Error::from_reason(format!("Failed to create database: {}", e)))?;
 
         Ok(Self {
@@ -783,5 +810,103 @@ pub fn get_health() -> JsHealthResponse {
         },
         version: health.version,
         uptime_seconds: health.uptime_seconds as i64,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Issue #1063 regression tests for the options conversion and the
+    //! constructor. They drive the Rust side directly (no Node runtime).
+    use super::*;
+
+    fn js_options(dimensions: u32, storage_path: Option<String>) -> JsDbOptions {
+        JsDbOptions {
+            dimensions,
+            distance_metric: None,
+            storage_path,
+            hnsw_config: None,
+            quantization: None,
+        }
+    }
+
+    fn insert(db: &VectorDB, id: &str, dimensions: usize) {
+        db.inner
+            .read()
+            .unwrap()
+            .insert(VectorEntry {
+                id: Some(id.to_string()),
+                vector: vec![0.1; dimensions],
+                metadata: None,
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn omitted_storage_path_converts_to_in_memory() {
+        let options: DbOptions = js_options(8, None).into();
+        assert!(options.storage_path.starts_with("memory://"));
+        let explicit: DbOptions = js_options(8, Some("/tmp/x.db".to_string())).into();
+        assert_eq!(explicit.storage_path, "/tmp/x.db");
+    }
+
+    #[test]
+    fn instances_without_storage_path_are_isolated_and_create_no_file() {
+        let default_file = std::path::Path::new("./ruvector.db");
+        let existed_before = default_file.exists();
+
+        let a = VectorDB::new(js_options(256, None)).unwrap();
+        let b = VectorDB::new(js_options(4, None)).unwrap();
+        insert(&a, "x", 256);
+        insert(&b, "y", 4);
+        assert_eq!(a.inner.read().unwrap().len().unwrap(), 1);
+        assert_eq!(b.inner.read().unwrap().len().unwrap(), 1);
+
+        let c = VectorDB::with_dimensions(16).unwrap();
+        insert(&c, "z", 16);
+
+        if !existed_before {
+            assert!(
+                !default_file.exists(),
+                "a VectorDB without storagePath must not create ./ruvector.db"
+            );
+        }
+    }
+
+    #[test]
+    fn shared_storage_path_with_different_dimensions_fails_at_construction() {
+        let dir = std::env::temp_dir().join(format!(
+            "ruvector-node-1063-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("shared.db").to_string_lossy().to_string();
+
+        {
+            let first = VectorDB::new(js_options(256, Some(path.clone()))).unwrap();
+            insert(&first, "x", 256);
+        }
+        let err = match VectorDB::new(js_options(4, Some(path.clone()))) {
+            Ok(_) => panic!("opening a 256-dim store with dimensions 4 must fail"),
+            Err(e) => e.reason.clone(),
+        };
+        assert!(err.contains(&path), "error must name the path: {err}");
+        assert!(
+            err.contains("stored 256"),
+            "error must name stored dims: {err}"
+        );
+        assert!(
+            err.contains("requested 4"),
+            "error must name requested dims: {err}"
+        );
+
+        // Same dimensions still reopen the persisted data.
+        let reopened = VectorDB::new(js_options(256, Some(path))).unwrap();
+        assert_eq!(reopened.inner.read().unwrap().len().unwrap(), 1);
+        drop(reopened);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -554,7 +554,7 @@ impl McpHandler {
         let mut db_options = self.config.to_db_options();
         db_options.storage_path = path_str.clone();
 
-        let db = Arc::new(VectorDB::new(db_options)?);
+        let db = Arc::new(VectorDB::open_or_create(db_options)?);
         self.databases.write().await.insert(path_str, db.clone());
 
         Ok(db)
