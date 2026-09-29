@@ -7,7 +7,7 @@
   "worktree": "/home/ruvultra/projects/ruvector-edge",
   "repo": "ruvector-edge (off origin/main of ruvector)",
   "targetDate": null,
-  "currentMilestone": "M0.5",
+  "currentMilestone": "M1",
   "baseline_state": {
     "as_of": "2026-09-29",
     "adr_written": true,
@@ -102,11 +102,57 @@
     {
       "id": "M1",
       "name": "rv-vector MVP, exact flat scan, connectors end to end",
-      "status": "pending",
+      "status": "deployed_pending_G1",
       "gated_on": [
-        "G2 (DO namespaces)"
+        "G1 (real user tokens: login round trip)",
+        "G2 (DO namespaces, exercised 2026-09-29)"
       ],
-      "criteria": "Locally and live: login -> claim -> create -> upsert 1k x 384 -> exact top-10 equals native brute force; tenant B gets 404 on tenant A's names; non-member gets 403; no upsert without ruvector:write, even as owner; foreign-iss, wrong-aud, upstream (mode off) and ID tokens rejected; 413 at the shard cap, 429 at the rate limit; four 12 MB shards stay resident and a fifth evicts, not crashes; instantiate < 600 ms and lazy-load p95 < 1 s; Claude.ai and ChatGPT connectors run vector_query, step up to ruvector:write on consent (HTTP 403 insufficient_scope challenge) and run a dry_run vector_upsert; /v1/ops accepts only aud = …/v1 tokens obtained by the RFC 8693 exchange grant (confidential private_key_jwt adapter clients, act claim audited; an adapter-audience token gets 401), refuses a mismatched target or tenant_key and never applies an op_id twice."
+      "criteria": "Locally and live: login -> claim -> create -> upsert 1k x 384 -> exact top-10 equals native brute force; tenant B gets 404 on tenant A's names; non-member gets 403; no upsert without ruvector:write, even as owner; foreign-iss, wrong-aud, upstream (mode off) and ID tokens rejected; 413 at the shard cap, 429 at the rate limit; four 12 MB shards stay resident and a fifth evicts, not crashes; instantiate < 600 ms and lazy-load p95 < 1 s; Claude.ai and ChatGPT connectors run vector_query, step up to ruvector:write on consent (HTTP 403 insufficient_scope challenge) and run a dry_run vector_upsert; /v1/ops accepts only aud = …/v1 tokens obtained by the RFC 8693 exchange grant (confidential private_key_jwt adapter clients, act claim audited; an adapter-audience token gets 401), refuses a mismatched target or tenant_key and never applies an op_id twice.",
+      "deployment": {
+        "date": "2026-09-29",
+        "source_commit": "96aeb49016ab4d22b9147a2ed5c03ec3b2111de0",
+        "account": "501c77f558c68152352b8ddfade9b854",
+        "auth": "ruvector-edge-auth version 61bf970a-f44a-481a-bdfd-855f2e73661d (deployment ab478379-ae57-428f-80c4-09d0dd365292, 100%); 904.27 KiB / 304.99 KiB gzip; startup 3 ms; CONFIDENTIAL_CLIENTS empty (no adapter registered yet); secrets not re-set",
+        "gateway": "ruvector-edge-gateway version fdcce770-980e-410c-84cd-b672e6a0d080 (deployment 9da0e59b-ca5d-4b5f-950e-6e379db0f4bd, 100%); 1338.14 KiB / 409.88 KiB gzip; startup 5 ms; migration v1 applied (new_sqlite_classes TenantLedger 5a425ce4b1374b518551c3c4256656dc, VectorShard 9624b70c618d42b0879c3adb1b48cba0, both SQLite); bindings TENANT_LEDGER, VECTOR_SHARD, EDGE_AUTH",
+        "order": "auth first, then gateway"
+      },
+      "evidence": {
+        "tests": "Root crates 380/0 (auth 98, authz 141, tenancy + store incl. idem_reserve_and_audit 4 new); edge workspace 127/0 (auth-worker 70, gateway 57); gateway --features dev-issuer 57/0; cargo fmt --check clean (root edge crates + edge workspace); clippy -D warnings clean native (--all-targets, also --features dev-issuer) and wasm32-unknown-unknown (env -u RUSTFLAGS); wrangler deploy --dry-run exit 0 for both Workers; no .rs file >= 500 lines (largest 488).",
+        "review_fixes_in_source_commit": [
+          "Body cap enforced while streaming (api::read_capped): chunked/undeclared bodies stop at 1 MiB instead of buffering whole; declared Content-Length still refused pre-auth (413)",
+          "Quota admission (ops + base work units) before any shard fan-out in query, fetch, collection_get, upsert Plan (dry runs included) and dry-run delete; extra scan work units charged after, and on budget_exceeded for scans already done",
+          "REST Idempotency-Key honoured on create/upsert/delete (<= 255 visible ASCII bytes, 400 otherwise): reserve -> execute -> store '<status> <json>' or release; namespaced rest:<key>, bound to route + raw body; mismatch 409 op_replayed; dry runs and reads ignore it",
+          "op_id reservation: TenantLedger::idem_reserve (lookup + pending row in one DO turn, IDEM_PENDING_TTL_SECS 120), idem_release, idem_store clears an unremembered reservation; concurrent twin -> 409 conflict retry_after_s 1",
+          "Confidential registry refuses gateway resources (/v1, /v1/mcp) as subject audiences; exchange_scope(subject vocabulary, scope): only adapter vocabularies map (team:read -> ruvector:read, team:write -> ruvector:write), ruvector:* maps to nothing",
+          "Audit: ActorWire/store Actor carry act_sub, recorded in shard ops.act_sub (part of the first shard schema; no VectorShard existed before this deploy); AS logs one structured token_exchange line per mint (client_id, sub, family_id, jti, scope, exp) via Reply.log",
+          "MCP: tenant_claim bootstrap tool (403 step-up without write/admin, 409 as isError); MCP-Protocol-Version header validated (absent ok, unsupported 400); 2025-03-26 no longer offered (batches unsupported); request ids must be string or integer (null/float/bool/object -> -32600, id not echoed)"
+        ],
+        "live_verification_2026-09-29": [
+          "GET gateway /v1/health -> 200 {\"ok\":true}",
+          "GET auth /.well-known/oauth-authorization-server -> grant_types_supported [authorization_code, refresh_token, urn:ietf:params:oauth:grant-type:token-exchange]; token_endpoint_auth_methods_supported [none, private_key_jwt]; token_endpoint_auth_signing_alg_values_supported [ES256]; issuer unchanged",
+          "GET /v1/collections without token -> 401, WWW-Authenticate Bearer resource_metadata=.../oauth-protected-resource/v1, scope=\"ruvector:read offline_access\"",
+          "POST /v1/ops without token -> 401 with the /v1 resource_metadata",
+          "POST /v1/mcp initialize without token -> 401 challenge with resource_metadata=.../oauth-protected-resource/v1/mcp",
+          "POST /v1/ops with a garbage token -> 401 error=\"invalid_token\"",
+          "Well-formed ES256 JWT with the live kid and a random signature -> 401 invalid_token on /v1/ops, /v1/me and /v1/mcp (not 503: edge JWKS reachable via EDGE_AUTH)",
+          "POST /v1/ops declaring Content-Length 2000000 without token -> 413 (pre-auth); chunked POST /v1/mcp without token -> 401",
+          "PRM /v1 and /v1/mcp 200, bare /.well-known/oauth-protected-resource 404",
+          "cognitum-consultant-email-staging-* (7 scripts): modified_on identical before and after both deploys; ruvector-edge-* have 0 custom domains"
+        ]
+      },
+      "remaining_acceptance_needing_real_login": [
+        "login -> claim -> create -> upsert 1k x 384 -> exact top-10 equals native brute force, live (covered natively by e2e_tests)",
+        "tenant B 404 on tenant A's names; non-member 403; no upsert without ruvector:write even as owner, live",
+        "foreign-iss, wrong-aud, upstream (mode off) and ID tokens rejected with real minted tokens",
+        "413 at the shard cap; four 12 MB shards resident and a fifth evicts; instantiate < 600 ms and lazy-load p95 < 1 s (live measurements)",
+        "Claude.ai and ChatGPT connectors: discovery -> DCR -> consent -> tenant_claim -> vector_query, step up to ruvector:write (HTTP 403 insufficient_scope) and a dry_run vector_upsert",
+        "/v1/ops with a real exchanged token: needs an operator-registered adapter in CONFIDENTIAL_CLIENTS (team.ruv.io public JWK, reviewed config) plus a real team.ruv.io user token; adapter-audience token 401, wrong target/tenant_key refused, op_id never applied twice, act.sub audited (ops.act_sub + AS token_exchange log line)"
+      ],
+      "remaining_not_login_gated": [
+        "429 at the rate limit: ADR-351 §10 layer 2 (org:{tenant_key} / user:{tenant_key}:{sub} Rate Limiting bindings) is NOT implemented in edge/gateway; layer 4 ledger admission is the only hard limit today",
+        "ADR §7 lists 422 idempotency_mismatch; the implementation answers 409 op_replayed for a REST Idempotency-Key reused with a different request (same code as /v1/ops) — reconcile ADR or code",
+        "Members/deny routes (/v1/tenant/members, /v1/tenant/deny) and DELETE /v1/collections/{c} are not served yet"
+      ]
     },
     {
       "id": "M2a",
@@ -203,6 +249,11 @@
       "date": "2026-09-29",
       "summary": "Per-resource scope vocabularies: team.ruv.io mints team:read/write/run only; URL -> family binding compiled (resource::RESOURCE_VOCABULARIES) and enforced at load; cross-family scopes dropped (Q16(b) closed); team.ruv.io consent discloses the M1 exchange map (team:read -> ruvector:read, team:write -> ruvector:write); ADR-351 exchange wording is map-not-narrow; JWS/JWKS cargo-fuzz targets with .gitignore. ruvector-edge-auth redeployed (98e93c52) and verified live; gateway unchanged.",
       "next": "G1 (console#605) then the M0.5 login round trip; run and record the fuzz targets; add DCR JSON, /token form and ResourceUrl fuzz targets; Q16(a) connector registrations on team.ruv.io."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "M1 review fixes (10 findings verified, all real, all fixed with regression tests): streaming body cap, quota admission before shard fan-out, REST Idempotency-Key, op_id reservation, confidential subject audiences limited to adapter resources, act_sub audit + AS exchange log, MCP tenant_claim, MCP-Protocol-Version, 2025-03-26 dropped, JSON-RPC id validation. Committed 96aeb4901 and deployed auth (61bf970a) then gateway (fdcce770, DO migration v1); unauthenticated/invalid surfaces verified live.",
+      "next": "G1 (console#605) for real tokens; register the team.ruv.io adapter in CONFIDENTIAL_CLIENTS (reviewed); implement §10 layer 2 rate limiting; then run the login-gated M1 acceptance items live."
     }
   ],
   "gates_registry_status": {
