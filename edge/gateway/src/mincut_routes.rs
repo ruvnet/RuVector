@@ -9,10 +9,17 @@
 //! `AnalyticsJob` (`202` + `job_id`, which needs write + editor); beyond
 //! the job limits `413`. Approximate requests are answered exactly and
 //! report `mode: exact`.
+//!
+//! Queuing a job, in order: the job memory precheck (`413
+//! budget_exceeded`, nothing stored), write + editor, **one write rate
+//! token** (`429`: a job is a write, §3, although the route's class is
+//! read), the tenant's live-job slot in the graph catalog (`413
+//! quota_exceeded` at `graph_catalog::MAX_LIVE_JOBS`), then the job DO.
+//! The job and its slot expire together (`mincut_job::JOB_TTL_MS`).
 
 use crate::backend::Backend;
 use crate::graph_routes::{admit, authorize, graph_call, job_call, Need};
-use crate::graph_wire::{job_graph_uid, GraphCall, GraphOut, JobCall};
+use crate::graph_wire::{job_graph_uid, GraphCall, GraphOut, JobCall, CATALOG};
 use crate::mincut_core::{self as mc, Plan};
 use ruvector_edge_analytics::QueryMode;
 use ruvector_edge_store::{CallerContext, OpError};
@@ -61,12 +68,7 @@ pub fn mode_of(mode: Option<&Json>, epsilon: Option<&Json>) -> Result<QueryMode,
     mc::parse_mode(mode, eps)
 }
 
-/// Edges in a raw edge-list text: one `[` per edge plus the outer one
-/// (numbers contain none; any other shape fails `parse_edges`). O(bytes),
-/// no allocation.
-pub fn raw_edge_count(raw: &str) -> u64 {
-    (raw.bytes().filter(|&c| c == b'[').count() as u64).saturating_sub(1)
-}
+pub use crate::mincut_core::raw_edge_count;
 
 async fn submit<B: Backend>(
     b: &B,
@@ -76,17 +78,26 @@ async fn submit<B: Backend>(
     now: u64,
     entropy: &dyn EntropySource,
 ) -> Result<(u16, Json), OpError> {
-    // Compute is read; a job is write (ADR-351 §3).
-    authorize(b, ctx, Need::Write).await?;
-    let job_id = new_job_id(entropy)?;
     let (edges, labels, graph, revision) = input;
+    mc::job_memory_admissible(raw_edge_count(&edges))?;
+    // Compute is read; a job is write (ADR-351 §3): role, then a token.
+    authorize(b, ctx, Need::Write).await?;
+    b.charge_writes(ctx, 1).await?;
+    let job_id = new_job_id(entropy)?;
+    let now_ms = now.saturating_mul(1000);
+    let slot = GraphCall::JobAdd {
+        job_id: job_id.clone(),
+        now_ms,
+        expires_ms: crate::mincut_job::expires_at(now_ms),
+    };
+    graph_call(b, ctx, CATALOG, slot).await?;
     let call = JobCall::Submit {
         mode,
         edges,
         labels,
         graph,
         revision,
-        now_ms: now.saturating_mul(1000),
+        now_ms,
     };
     let mut view = job_call(b, ctx, &job_id, call).await?;
     view["status_url"] = json!(format!("/v1/mincut/jobs/{job_id}"));
@@ -143,8 +154,7 @@ pub async fn post<B: Backend>(
             mc::job_admissible(count)?;
             // Only an inline-sized list is parsed on the request path.
             let inline = if count <= mc::INLINE_MAX_EDGES {
-                let v: Json = serde_json::from_str(raw).map_err(|_| OpError::invalid("edges"))?;
-                Some(mc::parse_edges(&v)?)
+                Some(mc::parse_edges(raw)?)
             } else {
                 None
             };

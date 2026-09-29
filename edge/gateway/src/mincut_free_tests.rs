@@ -45,10 +45,16 @@ fn killed_solves_exhaust_attempts_as_413() {
         match mincut_job::prepare(&st, 2_000 + u64::from(a)) {
             Turn::Solve(d) => assert!(!d.is_terminal()),
             Turn::Done(n) => panic!("attempt {a}: {n:?}"),
+            Turn::Expire => panic!("attempt {a}: expired"),
         }
     }
-    // The next alarm finds the attempts exhausted: 413, terminal.
-    assert!(matches!(mincut_job::prepare(&st, 3_000), Turn::Done(None)));
+    // The next alarm finds the attempts exhausted: 413, terminal; the
+    // alarm is re-armed for the job's expiry.
+    let expiry = mincut_job::expires_at(1_000);
+    assert!(matches!(
+        mincut_job::prepare(&st, 3_000),
+        Turn::Done(Some(ms)) if ms == expiry - 3_000
+    ));
     let (out, _) = mincut_job::serve(None, &st, &req(JobCall::Get { now_ms: 3_001 }));
     let v = serde_json::from_str::<Json>(&out).unwrap()["Ok"]["view"].clone();
     assert_eq!(
@@ -57,7 +63,20 @@ fn killed_solves_exhaust_attempts_as_413() {
         "{v}"
     );
     assert_eq!(v["error"]["status"], json!(413));
-    assert!(matches!(mincut_job::prepare(&st, 4_000), Turn::Done(None)));
+    assert!(matches!(
+        mincut_job::prepare(&st, 4_000),
+        Turn::Done(Some(_))
+    ));
+    // Retention: at the expiry the job erases itself; its id is then 404.
+    assert!(matches!(mincut_job::prepare(&st, expiry), Turn::Expire));
+    mincut_job::expire(&st).unwrap();
+    let (out, _) = mincut_job::serve(None, &st, &req(JobCall::Get { now_ms: expiry }));
+    let v: Json = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["Err"]["code"], json!("not_found"), "{v}");
+    assert!(matches!(
+        mincut_job::prepare(&st, expiry + 1),
+        Turn::Done(None)
+    ));
 }
 
 #[test]

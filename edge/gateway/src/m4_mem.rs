@@ -33,8 +33,11 @@ pub struct M4Mem {
     pub graph_host: RefCell<GraphHost>,
     /// `AnalyticsJob` stores by DO name.
     pub job_stores: RefCell<BTreeMap<String, MemSqlStore>>,
-    /// Armed alarms.
+    /// Armed alarms (due now).
     pub alarms: RefCell<BTreeSet<(Kind, String)>>,
+    /// Job alarms armed for later (retention), by DO name → due ms; moved
+    /// into `alarms` by [`M4Mem::advance`].
+    pub later: RefCell<BTreeMap<String, u64>>,
     /// Clock for job alarms (ms).
     pub now_ms: Cell<u64>,
 }
@@ -80,12 +83,42 @@ impl M4Mem {
         let mut stores = self.job_stores.borrow_mut();
         let store = stores.entry(name.to_string()).or_default();
         let (out, alarm) = mincut_job::serve(Some(name), &*store, body);
-        if alarm.is_some() {
+        if let Some(ms) = alarm {
+            self.arm_job(name, ms);
+        }
+        out
+    }
+
+    /// Arm a job alarm: due now when urgent, else at `now + ms`.
+    fn arm_job(&self, name: &str, ms: u64) {
+        if ms <= crate::shard_core::URGENT_ALARM_MS {
             self.alarms
                 .borrow_mut()
                 .insert((Kind::Job, name.to_string()));
+        } else {
+            let due = self.now().saturating_add(ms);
+            self.later.borrow_mut().insert(name.to_string(), due);
         }
-        out
+    }
+
+    fn now(&self) -> u64 {
+        self.now_ms.get().max(crate::testkit::T0 * 1000)
+    }
+
+    /// Move the clock `ms` forward; job alarms now due become armed.
+    pub fn advance(&self, ms: u64) {
+        let now = self.now().saturating_add(ms);
+        self.now_ms.set(now);
+        let mut later = self.later.borrow_mut();
+        let due: Vec<String> = later
+            .iter()
+            .filter(|(_, at)| **at <= now)
+            .map(|(n, _)| n.clone())
+            .collect();
+        for n in due {
+            later.remove(&n);
+            self.alarms.borrow_mut().insert((Kind::Job, n));
+        }
     }
 
     /// Run every armed alarm once (re-arming those that ask); the number
@@ -108,9 +141,13 @@ impl M4Mem {
                     let Some(store) = stores.get(name) else {
                         continue;
                     };
-                    let now = self.now_ms.get().max(crate::testkit::T0 * 1000) + 1;
-                    self.now_ms.set(now);
-                    mincut_job::alarm(store, self.now_ms.get())
+                    self.now_ms.set(self.now() + 1);
+                    let next = mincut_job::alarm(store, self.now_ms.get());
+                    drop(stores);
+                    if let Some(ms) = next {
+                        self.arm_job(name, ms);
+                    }
+                    continue;
                 }
             };
             if next.is_some() {

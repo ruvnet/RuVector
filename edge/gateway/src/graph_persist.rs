@@ -42,6 +42,16 @@ pub fn ensure_schema(store: &dyn SqlStore) -> Result<(), OpError> {
     Ok(())
 }
 
+/// Erase the graph (rows only: the tables stay, empty, so a same-name
+/// re-create claims a fresh identity; every non-create call on a graph
+/// without `ident` is `404`).
+pub fn wipe(store: &dyn SqlStore) -> Result<(), OpError> {
+    for sql in [CHUNKS_CLEAR, "DELETE FROM gmeta"] {
+        store.exec(sql, &[]).map_err(io)?;
+    }
+    Ok(())
+}
+
 /// `gmeta` as key/value pairs.
 pub fn meta(store: &dyn SqlStore) -> Result<Vec<(String, String)>, OpError> {
     let rows = store.query(META_ALL, &[]).map_err(io)?;

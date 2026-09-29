@@ -117,6 +117,18 @@ pub enum GraphCall {
     CatalogList,
     /// Catalog: record a graph (`created: false` if it exists).
     CatalogAdd { name: String, sub: String, now: u64 },
+    /// Catalog: forget a graph.
+    CatalogRemove { name: String },
+    /// Catalog: register a live min-cut job until `expires_ms` (`413`
+    /// at the live-job limit).
+    JobAdd {
+        job_id: String,
+        now_ms: u64,
+        expires_ms: u64,
+    },
+    /// Graph: erase everything stored (graph delete); `existed: false`
+    /// when there was nothing.
+    Wipe,
     /// Graph: initialise (idempotent).
     Init { now: u64 },
     /// Graph: counters.
@@ -140,8 +152,10 @@ pub enum GraphCall {
 pub enum GraphOut {
     /// For `CatalogList`.
     Graphs { graphs: Vec<Json> },
-    /// For `CatalogAdd`.
+    /// For `CatalogAdd` / `JobAdd`.
     Added { created: bool },
+    /// For `CatalogRemove` / `Wipe`.
+    Removed { existed: bool },
     /// For `Init` / `Stats` / `AddEdges`.
     Info { view: Json },
     /// For `Cypher`.

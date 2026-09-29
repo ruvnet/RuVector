@@ -5,7 +5,7 @@
 //! `/m3` side channel) refuse an `index = rabitq` collection up front.
 
 use crate::api::ratelimit::{request_class, Class, MUTATING_OPS};
-use crate::audit_http::{body_event, graph_event};
+use crate::audit_http::{body_event, emits, graph_event, JOB_EVENT};
 use crate::graph_routes::{self, GraphRoute};
 use crate::m3_mem::*;
 use crate::testkit::Rng;
@@ -14,10 +14,11 @@ use ruvector_edge_store::ErrorCode;
 use serde_json::{json, Value as Json};
 use worker::Method;
 
-const GRAPH: [(Method, &str); 7] = [
+const GRAPH: [(Method, &str); 8] = [
     (Method::Post, "/v1/graphs"),
     (Method::Get, "/v1/graphs"),
     (Method::Get, "/v1/graphs/g1"),
+    (Method::Delete, "/v1/graphs/g1"),
     (Method::Post, "/v1/graphs/g1/cypher"),
     (Method::Post, "/v1/graphs/g1/edges"),
     (Method::Post, "/v1/mincut"),
@@ -59,6 +60,7 @@ fn graph_routes_have_their_own_rate_class_and_audit_events() {
     let class = |m: Method, p: &str| request_class(false, &m, p);
     assert_eq!(class(Method::Post, "/v1/graphs"), Class::Write);
     assert_eq!(class(Method::Post, "/v1/graphs/g1/edges"), Class::Write);
+    assert_eq!(class(Method::Delete, "/v1/graphs/g1"), Class::Write);
     assert_eq!(class(Method::Post, "/v1/graphs/g1/cypher"), Class::Read);
     assert_eq!(class(Method::Get, "/v1/mincut/jobs/j1"), Class::Read);
     // M3's job status is still M3's class (a read), not re-routed.
@@ -81,10 +83,17 @@ fn graph_routes_have_their_own_rate_class_and_audit_events() {
         graph_event(&GraphRoute::Edges("g1".into()), None),
         Some("graph.edges")
     );
+    assert_eq!(
+        graph_event(&GraphRoute::Delete("g1".into()), None),
+        Some("graph.delete")
+    );
+    // A min-cut request is audited only when it queued a job (202).
+    assert_eq!(graph_event(&GraphRoute::Mincut, None), Some(JOB_EVENT));
+    assert!(emits(JOB_EVENT, 202) && !emits(JOB_EVENT, 200) && !emits(JOB_EVENT, 413));
+    assert!(emits("graph.create", 201) && emits("graph.create", 409));
     for r in [
         GraphRoute::List,
         GraphRoute::Get("g1".into()),
-        GraphRoute::Mincut,
         GraphRoute::Job("j1".into()),
     ] {
         assert_eq!(graph_event(&r, None), None, "{r:?}");

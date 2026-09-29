@@ -159,7 +159,8 @@ impl DurableObject for AnalyticsJob {
         json_reply(out)
     }
 
-    /// One job turn (admit, then run); re-armed while work remains.
+    /// One job turn (admit, then run, then expiry); re-armed while work
+    /// or retention remains.
     async fn alarm(&self) -> Result<Response> {
         let next = match mincut_job::prepare(&self.sql, Date::now().as_millis()) {
             mincut_job::Turn::Done(next) => next,
@@ -168,6 +169,16 @@ impl DurableObject for AnalyticsJob {
                 // before the (possibly CPU-fatal) solve.
                 let _ = self.state.storage().get_alarm().await;
                 mincut_job::solve(&self.sql, *d, Date::now().as_millis())
+            }
+            mincut_job::Turn::Expire => {
+                // Retention: the rows, then everything the object stores.
+                let _ = mincut_job::expire(&self.sql);
+                let storage = self.state.storage();
+                if let Err(e) = storage.delete_all().await {
+                    worker::console_warn!("analytics job expiry: deleteAll failed: {e}");
+                }
+                let _ = storage.delete_alarm().await;
+                None
             }
         };
         if let Some(ms) = next {

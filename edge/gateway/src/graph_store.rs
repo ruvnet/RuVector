@@ -11,12 +11,13 @@
 //! the resident graph is dropped, so storage (the last committed revision)
 //! stays authoritative.
 
+use crate::graph_catalog as cat;
 use crate::graph_cypher as gc;
 use crate::graph_persist as gp;
 use crate::graph_wire::{
     graph_do_name, name_ok, BulkEdge, GraphCall, GraphOut, GraphRequest, CATALOG,
 };
-use ruvector_edge_store::{ErrorCode, OpError, ResidentRegistry, SqlStore, Value};
+use ruvector_edge_store::{ErrorCode, OpError, ResidentRegistry, SqlStore};
 use ruvector_edge_tenancy::TenantKey;
 use rvlite::cypher::graph_store::{Edge, Node, Value as CValue};
 use rvlite::cypher::PropertyGraph;
@@ -53,15 +54,8 @@ pub const MAX_BULK_EDGES: usize = 1_000;
 /// (`quant_shard::QUANT_RESIDENT_CAP_BYTES`) because DOs of one script can
 /// share an isolate.
 pub const GRAPH_RESIDENT_CAP_BYTES: u64 = 12_000_000;
-/// Graphs per tenant.
-pub const MAX_GRAPHS: usize = 20;
 /// Longest node id / edge type / label in a bulk request.
 pub const MAX_KEY_BYTES: usize = 256;
-
-const CAT_SCHEMA: &str =
-    "CREATE TABLE IF NOT EXISTS gcat (name TEXT PRIMARY KEY, created_at INTEGER, sub TEXT)";
-const CAT_ALL: &str = "SELECT name, created_at, sub FROM gcat ORDER BY name";
-const CAT_PUT: &str = "INSERT INTO gcat (name, created_at, sub) VALUES (?, ?, ?)";
 
 /// A loaded graph.
 pub struct Resident {
@@ -143,7 +137,7 @@ pub fn handle(
     // (or a tenant's first catalog read) must not persist an empty DO.
     let create = matches!(
         req.call,
-        GraphCall::Init { .. } | GraphCall::CatalogAdd { .. }
+        GraphCall::Init { .. } | GraphCall::CatalogAdd { .. } | GraphCall::JobAdd { .. }
     );
     if create {
         gp::ensure_schema(store)?;
@@ -152,6 +146,10 @@ pub fn handle(
         Ok(kv) => kv,
         Err(_) if matches!(req.call, GraphCall::CatalogList) && catalog => {
             return Ok(GraphOut::Graphs { graphs: Vec::new() })
+        }
+        // Nothing stored: nothing to forget or wipe.
+        Err(_) if matches!(req.call, GraphCall::CatalogRemove { .. } | GraphCall::Wipe) => {
+            return Ok(GraphOut::Removed { existed: false })
         }
         Err(_) if !create => return Err(not_found()),
         Err(e) => return Err(e),
@@ -162,12 +160,26 @@ pub fn handle(
     }
     let claim = |store: &dyn SqlStore| gp::put(store, "ident", expected.as_str());
     match (req.call, catalog) {
-        (GraphCall::CatalogList, true) => catalog_list(store),
+        (GraphCall::CatalogList, true) => cat::list(store),
         (GraphCall::CatalogAdd { name, sub, now }, true) => {
             if ident.is_none() {
                 claim(store)?;
             }
-            catalog_add(store, &name, &sub, now)
+            cat::add(store, &name, &sub, now)
+        }
+        (GraphCall::CatalogRemove { name }, true) => cat::remove(store, &name),
+        (
+            GraphCall::JobAdd {
+                job_id,
+                now_ms,
+                expires_ms,
+            },
+            true,
+        ) => {
+            if ident.is_none() {
+                claim(store)?;
+            }
+            cat::job_add(store, &job_id, now_ms, expires_ms)
         }
         (GraphCall::Init { now }, false) => {
             if ident.is_none() {
@@ -179,8 +191,20 @@ pub fn handle(
                 view: view(&req.graph, &gp::meta(store)?),
             })
         }
-        (_, true) | (GraphCall::CatalogList | GraphCall::CatalogAdd { .. }, false) => {
-            Err(OpError::invalid("call not valid for this instance"))
+        (_, true)
+        | (
+            GraphCall::CatalogList
+            | GraphCall::CatalogAdd { .. }
+            | GraphCall::CatalogRemove { .. }
+            | GraphCall::JobAdd { .. },
+            false,
+        ) => Err(OpError::invalid("call not valid for this instance")),
+        (GraphCall::Wipe, _) => {
+            host.evict(key);
+            gp::wipe(store)?;
+            Ok(GraphOut::Removed {
+                existed: ident.is_some(),
+            })
         }
         _ if ident.is_none() => Err(not_found()),
         (GraphCall::Stats, _) => Ok(GraphOut::Info {
@@ -212,41 +236,6 @@ fn view(name: &str, kv: &[(String, String)]) -> Json {
         "edges": num(kv, "edges"),
         "state_bytes": num(kv, "bytes"),
     })
-}
-
-fn catalog_list(store: &dyn SqlStore) -> Result<GraphOut, OpError> {
-    store.exec(CAT_SCHEMA, &[]).map_err(gp::io)?;
-    let rows = store.query(CAT_ALL, &[]).map_err(gp::io)?;
-    let graphs = rows
-        .into_iter()
-        .filter_map(|r| match (r.first(), r.get(1)) {
-            (Some(Value::Text(n)), Some(Value::Int(t))) => {
-                Some(json!({ "name": n, "created_at": t }))
-            }
-            _ => None,
-        })
-        .collect();
-    Ok(GraphOut::Graphs { graphs })
-}
-
-fn catalog_add(store: &dyn SqlStore, name: &str, sub: &str, now: u64) -> Result<GraphOut, OpError> {
-    if !name_ok(name) {
-        return Err(OpError::invalid("graph name"));
-    }
-    store.exec(CAT_SCHEMA, &[]).map_err(gp::io)?;
-    let rows = store.query(CAT_ALL, &[]).map_err(gp::io)?;
-    if rows
-        .iter()
-        .any(|r| matches!(r.first(), Some(Value::Text(n)) if n == name))
-    {
-        return Ok(GraphOut::Added { created: false });
-    }
-    if rows.len() >= MAX_GRAPHS {
-        return Err(OpError::new(ErrorCode::QuotaExceeded, "graph limit"));
-    }
-    let params = [name.into(), Value::Int(now as i64), sub.into()];
-    store.exec(CAT_PUT, &params).map_err(gp::io)?;
-    Ok(GraphOut::Added { created: true })
 }
 
 fn state_limit() -> OpError {

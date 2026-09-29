@@ -7,15 +7,26 @@
 //! request path uses [`EDGE_INLINE`] (5M work units ≈ 5 ms native, the
 //! crate's ≲ 1 ns/unit calibration): e.g. a certified graph of ≈ 10k
 //! vertices + edges, or Stoer–Wagner on a few hundred. Anything larger
-//! that `Profile::JOB` admits runs as an `AnalyticsJob` in a DO alarm;
+//! that [`EDGE_JOB`] admits runs as an `AnalyticsJob` in a DO alarm;
 //! beyond the job limits the answer is `413`.
+//!
+//! [`EDGE_JOB`] is the crate's `Profile::JOB` with its memory budget cut
+//! from 100 MB ("the isolate to itself") to [`JOB_MEMORY_BYTES`]: an
+//! `AnalyticsJob` shares its isolate with the resident shards of
+//! `VectorShard` / `QuantShard` / `GraphStore` (56 MB of caps), so it may
+//! only use the headroom stated in `shard_core` (memory budget). Work stays
+//! at `Profile::JOB`: a CPU overrun is contained (the attempt is committed
+//! before the solve, at most `MAX_ATTEMPTS`, then `413`), a memory overrun
+//! is not (the isolate OOM evicts every co-resident tenant).
 
+use ruvector_edge_analytics::cost::MEM_PER_EDGE;
 use ruvector_edge_analytics::service::{plan, query, Budget, Profile};
 use ruvector_edge_analytics::{
     AnalyticsError, CostEstimate, CutReport, EdgeRecord, GraphLimits, GraphUid, QueryMode,
     TenantGraph,
 };
 use ruvector_edge_store::{ErrorCode, OpError};
+use serde::de::{self, Deserializer, IgnoredAny, SeqAccess, Visitor};
 use serde_json::{json, Value as Json};
 
 /// Request-path profile on Workers Free (ADR-351 §10 limits, 5 ms budget).
@@ -24,6 +35,21 @@ pub const EDGE_INLINE: Profile = Profile {
     budget: Budget {
         max_work: 5_000_000,
         max_memory_bytes: 16 << 20,
+    },
+};
+
+/// Peak memory one `AnalyticsJob` turn (admit or solve) may estimate:
+/// the isolate headroom left after the resident caps (`shard_core`). The
+/// 51k-edge K_320 acceptance job estimates 29.8 MB and fits.
+pub const JOB_MEMORY_BYTES: u64 = 32 << 20;
+
+/// The `AnalyticsJob` profile: `Profile::JOB` limits and work, memory
+/// bounded to [`JOB_MEMORY_BYTES`].
+pub const EDGE_JOB: Profile = Profile {
+    limits: GraphLimits::JOB,
+    budget: Budget {
+        max_work: Profile::JOB.budget.max_work,
+        max_memory_bytes: JOB_MEMORY_BYTES,
     },
 };
 
@@ -49,6 +75,27 @@ pub fn job_admissible(edges: u64) -> Result<(), OpError> {
     GraphLimits::JOB.check(0, edges).map_err(aerr)
 }
 
+/// `413 budget_exceeded` if a job over `edges` edges certainly exceeds
+/// [`JOB_MEMORY_BYTES`]: the estimate is at least `MEM_PER_EDGE` per edge,
+/// so this refuses (O(1), before anything is stored) exactly what the
+/// admit turn would refuse on the edge term alone.
+pub fn job_memory_admissible(edges: u64) -> Result<(), OpError> {
+    if edges.saturating_mul(MEM_PER_EDGE) > JOB_MEMORY_BYTES {
+        return Err(OpError::new(
+            ErrorCode::BudgetExceeded,
+            "min-cut job exceeds the job memory budget",
+        ));
+    }
+    Ok(())
+}
+
+/// Edges in a raw edge-list text: one `[` per edge plus the outer one
+/// (numbers contain none; any other shape fails [`parse_edges`]). O(bytes),
+/// no allocation.
+pub fn raw_edge_count(raw: &str) -> u64 {
+    (raw.bytes().filter(|&c| c == b'[').count() as u64).saturating_sub(1)
+}
+
 /// Parse `mode` (`exact` | `approximate` + `epsilon`).
 pub fn parse_mode(mode: Option<&str>, epsilon: Option<f64>) -> Result<QueryMode, OpError> {
     let m = match mode.unwrap_or("exact") {
@@ -67,7 +114,7 @@ pub fn parse_mode(mode: Option<&str>, epsilon: Option<f64>) -> Result<QueryMode,
 }
 
 /// Build (validate + canonicalise) and route: inline under
-/// [`EDGE_INLINE`], else a job if `Profile::JOB` admits it, else `413`.
+/// [`EDGE_INLINE`], else a job if [`EDGE_JOB`] admits it, else `413`.
 pub fn route(
     uid: GraphUid,
     revision: u64,
@@ -84,32 +131,50 @@ pub fn route(
         Err(AnalyticsError::BudgetExceeded {
             job_eligible: true, ..
         }) => Ok(Plan::Job),
-        Err(AnalyticsError::LimitExceeded { .. }) if plan(&g, mode, &Profile::JOB).is_ok() => {
+        Err(AnalyticsError::LimitExceeded { .. }) if plan(&g, mode, &EDGE_JOB).is_ok() => {
             Ok(Plan::Job)
         }
         Err(e) => Err(aerr(e)),
     }
 }
 
-/// Parse an edge-list JSON `[[u, v], [u, v, w], …]` (`u`, `v` integers).
-pub fn parse_edges(v: &Json) -> Result<Vec<(u64, u64, f64)>, OpError> {
-    let arr = v
-        .as_array()
-        .ok_or(OpError::invalid("edges must be an array"))?;
-    job_admissible(arr.len() as u64)?;
-    let bad = || OpError::invalid("edge must be [u, v] or [u, v, weight]");
-    arr.iter()
-        .map(|e| {
-            let t = e.as_array().ok_or_else(bad)?;
-            let id = |i: usize| t.get(i).and_then(Json::as_u64).ok_or_else(bad);
-            let w = match t.len() {
-                2 => 1.0,
-                3 => t[2].as_f64().ok_or_else(bad)?,
-                _ => return Err(bad()),
-            };
-            Ok((id(0)?, id(1)?, w))
-        })
-        .collect()
+/// One `[u, v]` / `[u, v, w]` edge, deserialized in place (no JSON tree).
+struct EdgeIn(u64, u64, f64);
+
+impl<'de> serde::Deserialize<'de> for EdgeIn {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = EdgeIn;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("[u, v] or [u, v, weight]")
+            }
+            fn visit_seq<A: SeqAccess<'de>>(self, mut s: A) -> Result<EdgeIn, A::Error> {
+                let u = s
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let v = s
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                let w = s.next_element()?.unwrap_or(1.0);
+                if s.next_element::<IgnoredAny>()?.is_some() {
+                    return Err(de::Error::invalid_length(4, &self));
+                }
+                Ok(EdgeIn(u, v, w))
+            }
+        }
+        d.deserialize_seq(V)
+    }
+}
+
+/// Parse an edge-list JSON text `[[u, v], [u, v, w], …]` (`u`, `v`
+/// integers) straight into edges: 24 bytes per edge, never a
+/// `serde_json::Value` tree (≈ 150 bytes per edge).
+pub fn parse_edges(raw: &str) -> Result<Vec<(u64, u64, f64)>, OpError> {
+    job_admissible(raw_edge_count(raw))?;
+    let v: Vec<EdgeIn> = serde_json::from_str(raw)
+        .map_err(|_| OpError::invalid("edges must be [[u, v] or [u, v, weight], …]"))?;
+    Ok(v.into_iter().map(|EdgeIn(u, v, w)| (u, v, w)).collect())
 }
 
 /// Compact edge-list JSON (no quotes: embedded verbatim in job bodies).

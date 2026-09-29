@@ -173,7 +173,7 @@ impl World {
             let entropy = crate::backend::mem::CounterEntropy(Cell::new(self.jobs.get()));
             self.jobs.set(self.jobs.get() + 1);
             return block_on(crate::graph_routes::handle(
-                &self.b, &c, &g, &bytes, T0, &md, &entropy,
+                &self.b, &c, &g, &bytes, key, T0, &md, &entropy,
             ));
         };
         block_on(data(&self.b, &self.cfg, &api, &c, &bytes, key, T0))

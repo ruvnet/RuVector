@@ -21,11 +21,21 @@ use std::collections::BTreeMap;
 /// `VectorShard`'s share of the 56 MB isolate resident cap (§6.1): the
 /// isolate may also host `QuantShard`s and `GraphStore`s (M4), each with
 /// its own explicit share (16 MB, 12 MB). Two full 14 MB shards fit.
-/// 28 + 16 + 12 = 56: the other DOs of this script take no resident share.
-/// `RegistryRoot` / `RegistryScope` (M5), `AnalyticsJob` and the M3 `/m3`
-/// side channel keep their state in SQLite and hold only per-request
-/// buffers (bounded by the body caps), which with `TenantLedger`'s cached
-/// ledger live in the headroom between the 56 MB cap and the isolate limit.
+///
+/// **Isolate memory budget** (128 MB per isolate; every DO class of this
+/// script can share one; checked by `m4_merge_tests`):
+///
+/// | holder | bytes | why bounded |
+/// |---|---|---|
+/// | resident caps 28 + 16 + 12 | 56 MB | LRU registries |
+/// | one `AnalyticsJob` turn | ≤ 32 MiB (33.6 MB) | `mincut_core::EDGE_JOB`, admit and solve each one synchronous turn (no await inside), so at most one job peak is live per isolate |
+/// | one `RegistryScope` finalize part (M5) | ≤ 16 MiB × 2 (33.6 MB) | the JS copy plus the wasm copy of one staged part, held across awaits |
+/// | total | ≈ 123 MB | ~5 MB left for `TenantLedger`'s cache, 1 MiB request bodies and the runtime |
+///
+/// Not bounded by this table: a second `RegistryScope` finalize step in
+/// the same isolate at the same time (+33.6 MB, over the limit). Accepted
+/// because registry finalize already requires Workers Paid (its hashing
+/// exceeds Free's 10 ms), recorded as a residual risk.
 pub const VECTOR_RESIDENT_CAP_BYTES: u64 = 28_000_000;
 
 /// Resident shard states of one isolate plus the eviction registry.

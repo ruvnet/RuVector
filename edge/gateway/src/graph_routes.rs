@@ -3,12 +3,22 @@
 //! - `POST /v1/graphs` `{"name"}` → create (write + editor), `201` / `409`
 //! - `GET /v1/graphs` → list (read + viewer)
 //! - `GET /v1/graphs/{g}` → counters (read)
+//! - `DELETE /v1/graphs/{g}` → erase the graph and its catalog row
+//!   (write and editor, like a mutating Cypher `DELETE` of every node);
+//!   `200`, or `404` when neither existed. The graph's rows go first, then the
+//!   catalog row, so a retry after a partial failure finishes the job and
+//!   a failure never leaves unlisted graph storage behind.
 //! - `POST /v1/graphs/{g}/cypher` `{"query"}` → `MATCH`/`RETURN`/`WITH`
 //!   only: read + viewer; anything else: write + editor (a viewer's
 //!   mutating query is `403 role_required`)
 //! - `POST /v1/graphs/{g}/edges` `{"edges": [[a, b, w?], …], "type"?,
 //!   "label"?}` → bulk insert (write + editor)
 //! - `POST /v1/mincut`, `GET /v1/mincut/jobs/{id}` (`mincut_routes`)
+//!
+//! `Idempotency-Key` (§7) is honoured on the bulk edge insert and on a
+//! mutating Cypher query, in the REST key table (`rest::slot`): a retry
+//! with the same key and body replays the stored answer without running
+//! or charging again; the same key on another request is `409`.
 //!
 //! Every graph and job DO is named from the verified tenant key, so
 //! another tenant's graph or job is simply absent (`404`).
@@ -20,6 +30,7 @@ use crate::graph_wire::{
     graph_do_name, job_do_name, name_ok, GraphCall, GraphOut, GraphRequest, JobCall, JobRequest,
     JobView, CATALOG,
 };
+use crate::idem::{self, Seen};
 use crate::rest::{ApiReply, Caller};
 use crate::service::{self, Access, Call};
 use crate::wire::{unavailable, Reply};
@@ -38,6 +49,8 @@ pub enum GraphRoute {
     List,
     /// `GET /v1/graphs/{g}`.
     Get(String),
+    /// `DELETE /v1/graphs/{g}`.
+    Delete(String),
     /// `POST /v1/graphs/{g}/cypher`.
     Cypher(String),
     /// `POST /v1/graphs/{g}/edges`.
@@ -60,10 +73,12 @@ pub fn job_id_ok(id: &str) -> bool {
 pub fn parse(method: &Method, path: &str) -> Option<GraphRoute> {
     let seg: Vec<&str> = path.strip_prefix("/v1/")?.split('/').collect();
     let (get, post) = (*method == Method::Get, *method == Method::Post);
+    let delete = *method == Method::Delete;
     Some(match seg.as_slice() {
         ["graphs"] if post => GraphRoute::Create,
         ["graphs"] if get => GraphRoute::List,
         ["graphs", g] if get && name_ok(g) => GraphRoute::Get(g.to_string()),
+        ["graphs", g] if delete && name_ok(g) => GraphRoute::Delete(g.to_string()),
         ["graphs", g, "cypher"] if post && name_ok(g) => GraphRoute::Cypher(g.to_string()),
         ["graphs", g, "edges"] if post && name_ok(g) => GraphRoute::Edges(g.to_string()),
         ["mincut"] if post => GraphRoute::Mincut,
@@ -75,7 +90,7 @@ pub fn parse(method: &Method, path: &str) -> Option<GraphRoute> {
 /// The §10 rate class charged before the body is read.
 pub fn class(r: &GraphRoute) -> Class {
     match r {
-        GraphRoute::Create | GraphRoute::Edges(_) => Class::Write,
+        GraphRoute::Create | GraphRoute::Edges(_) | GraphRoute::Delete(_) => Class::Write,
         _ => Class::Read,
     }
 }
@@ -264,6 +279,62 @@ pub async fn cypher<B: Backend>(
     }
 }
 
+/// A graph mutation under an optional `Idempotency-Key`: authorize (a
+/// replay is re-authorized), reserve the key, replay a stored answer or
+/// run `op` (which charges) and store its answer.
+async fn keyed<B: Backend, F: std::future::Future<Output = Result<(u16, Json), OpError>>>(
+    b: &B,
+    ctx: &CallerContext,
+    key: Option<&str>,
+    tag: String,
+    body: &[u8],
+    now: u64,
+    op: F,
+) -> Result<(u16, Json), OpError> {
+    let Some(key) = key else {
+        return op.await;
+    };
+    if !idem::key_ok(key) {
+        return Err(OpError::invalid(
+            "Idempotency-Key must be 1..=255 visible ASCII bytes",
+        ));
+    }
+    authorize(b, ctx, Need::Write).await?;
+    let slot = crate::rest::slot(ctx, &tag, key, body);
+    let reused = "Idempotency-Key reused with a different request";
+    if let Seen::Replay(stored) = idem::check(b, ctx, &slot, true, reused, now).await? {
+        return crate::rest::replayed(&stored);
+    }
+    let out = op.await;
+    let stored = out.as_ref().ok().map(|(s, v)| format!("{s} {v}"));
+    idem::finish(b, ctx, slot, stored, now).await;
+    out
+}
+
+/// Delete a graph: wipe its rows, then its catalog row.
+pub async fn delete<B: Backend>(
+    b: &B,
+    ctx: &CallerContext,
+    name: &str,
+    now: u64,
+) -> Result<(u16, Json), OpError> {
+    admit(b, ctx, Need::Write, now).await?;
+    let GraphOut::Removed { existed: stored } = graph_call(b, ctx, name, GraphCall::Wipe).await?
+    else {
+        return Err(service::unexpected());
+    };
+    let forget = GraphCall::CatalogRemove {
+        name: name.to_string(),
+    };
+    let GraphOut::Removed { existed: listed } = graph_call(b, ctx, CATALOG, forget).await? else {
+        return Err(service::unexpected());
+    };
+    if !stored && !listed {
+        return Err(OpError::not_found());
+    }
+    Ok((200, json!({ "name": name, "deleted": true })))
+}
+
 /// List the tenant's graphs.
 pub async fn list<B: Backend>(b: &B, ctx: &CallerContext, now: u64) -> Result<Json, OpError> {
     admit(b, ctx, Need::Read, now).await?;
@@ -273,11 +344,13 @@ pub async fn list<B: Backend>(b: &B, ctx: &CallerContext, now: u64) -> Result<Js
     }
 }
 
+/// One route; `key` is the `Idempotency-Key` header.
 async fn route<B: Backend>(
     b: &B,
     caller: &Caller,
     r: &GraphRoute,
     body: &[u8],
+    key: Option<&str>,
     now: u64,
     entropy: &dyn EntropySource,
 ) -> Result<(u16, Json), OpError> {
@@ -296,10 +369,14 @@ async fn route<B: Backend>(
                 _ => Err(service::unexpected()),
             }
         }
+        GraphRoute::Delete(g) => delete(b, ctx, g, now).await,
         GraphRoute::Cypher(g) => {
             let m = body_obj(body, &["query"])?;
             let q = text(&m, "query")?.ok_or(OpError::invalid("query required"))?;
-            cypher(b, ctx, g, q, now).await.map(|v| (200, v))
+            // Only a mutating query is keyed (a read replays nothing).
+            let key = key.filter(|_| gc::parse(q).is_ok_and(|p| !p.read_only));
+            let run = async { cypher(b, ctx, g, q, now).await.map(|v| (200, v)) };
+            keyed(b, ctx, key, format!("graph-cypher/{g}"), body, now, run).await
         }
         GraphRoute::Edges(g) => {
             let m = body_obj(body, &["edges", "type", "label"])?;
@@ -310,11 +387,14 @@ async fn route<B: Backend>(
                 edge_type: text(&m, "type")?.unwrap_or("LINK").to_string(),
                 label: text(&m, "label")?.unwrap_or("Node").to_string(),
             };
-            admit(b, ctx, Need::Write, now).await?;
-            match graph_call(b, ctx, g, call).await? {
-                GraphOut::Info { view } => Ok((200, view)),
-                _ => Err(service::unexpected()),
-            }
+            let run = async {
+                admit(b, ctx, Need::Write, now).await?;
+                match graph_call(b, ctx, g, call).await? {
+                    GraphOut::Info { view } => Ok((200, view)),
+                    _ => Err(service::unexpected()),
+                }
+            };
+            keyed(b, ctx, key, format!("graph-edges/{g}"), body, now, run).await
         }
         GraphRoute::Mincut => crate::mincut_routes::post(b, ctx, body, now, Some(entropy)).await,
         GraphRoute::Job(id) => crate::mincut_routes::get(b, ctx, id, now)
@@ -323,17 +403,20 @@ async fn route<B: Backend>(
     }
 }
 
-/// Handle one graph / min-cut route for a verified caller.
+/// Handle one graph / min-cut route for a verified caller; `key` is the
+/// `Idempotency-Key` header.
+#[allow(clippy::too_many_arguments)]
 pub async fn handle<B: Backend>(
     b: &B,
     caller: &Caller,
     r: &GraphRoute,
     body: &[u8],
+    key: Option<&str>,
     now: u64,
     metadata_url: &str,
     entropy: &dyn EntropySource,
 ) -> ApiReply {
-    match route(b, caller, r, body, now, entropy).await {
+    match route(b, caller, r, body, key, now, entropy).await {
         Ok((status, v)) => ApiReply::json(status, &v),
         Err(e) => ApiReply::problem(&e, metadata_url),
     }

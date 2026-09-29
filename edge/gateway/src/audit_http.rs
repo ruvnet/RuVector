@@ -146,19 +146,31 @@ async fn peek(req: &Request, mcp: bool) -> Result<Option<(String, Capability)>> 
     Ok(body.and_then(|b| body_event(mcp, &b)))
 }
 
-/// Audit name of a mutating M4 graph route: create, edge import, and a
-/// Cypher query whose `body` mutates ([`graph_routes::extra_class`], the
-/// same test that charges it a write). Listings, reads, min-cut runs and
-/// job status are not audited. All need `ruvector:write`.
+/// Audit name of a mutating M4 graph route: create, delete, edge import,
+/// a Cypher query whose `body` mutates ([`graph_routes::extra_class`], the
+/// same test that charges it a write), and a min-cut request — audited
+/// only when it queued a job ([`JOB_EVENT`], `202`; an inline `200` answer
+/// is a read). Listings, reads and job status are not audited. All need
+/// `ruvector:write`.
 pub fn graph_event(route: &GraphRoute, body: Option<&[u8]>) -> Option<&'static str> {
     match route {
         GraphRoute::Create => Some("graph.create"),
+        GraphRoute::Delete(_) => Some("graph.delete"),
         GraphRoute::Edges(_) => Some("graph.edges"),
         GraphRoute::Cypher(_) => {
             graph_routes::extra_class(route, body?).map(|_| "graph.cypher_mutate")
         }
-        GraphRoute::List | GraphRoute::Get(_) | GraphRoute::Mincut | GraphRoute::Job(_) => None,
+        GraphRoute::Mincut => Some(JOB_EVENT),
+        GraphRoute::List | GraphRoute::Get(_) | GraphRoute::Job(_) => None,
     }
+}
+
+/// The event of a queued min-cut job, emitted only for a `202`.
+pub const JOB_EVENT: &str = "mincut.job";
+
+/// Whether an event is emitted for a response `status`.
+pub fn emits(name: &str, status: u16) -> bool {
+    name != JOB_EVENT || status == 202
 }
 
 async fn peek_graph(req: &Request, g: &GraphRoute) -> Result<Option<(String, Capability)>> {
@@ -214,6 +226,9 @@ pub async fn serve(
         .unwrap_or(0);
     let caller: CallerContext = api::caller(auth.clone()).ctx;
     let resp = api::serve(req, env, cfg, route, auth).await?;
+    if !emits(&name, resp.status_code()) {
+        return Ok(resp);
+    }
     let now_ms = WorkerClock.now_unix() * 1000;
     let mut ev = AuditEvent::new(&caller, &name, resp.status_code(), now_ms);
     ev.scope = Some(cap.satisfying_scope().to_string());

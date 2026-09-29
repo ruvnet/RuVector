@@ -306,6 +306,13 @@ fn rest_slot(ctx: &CallerContext, route: &ApiRoute, key: &str, body: &[u8]) -> S
         ApiRoute::Delete(c) => format!("delete/{c}"),
         other => format!("{other:?}"),
     };
+    slot(ctx, &tag, key, body)
+}
+
+/// A key slot in the REST namespace bound to `tag` (the route) and the raw
+/// body; shared with the M4 graph mutations (`graph_routes`), so one key
+/// reused across a REST and a graph request is a reuse (`409`).
+pub(crate) fn slot(ctx: &CallerContext, tag: &str, key: &str, body: &[u8]) -> Slot {
     let mut h = Sha256::new();
     h.update(tag.as_bytes());
     h.update(b"\n");
@@ -318,7 +325,7 @@ fn rest_slot(ctx: &CallerContext, route: &ApiRoute, key: &str, body: &[u8]) -> S
 }
 
 /// A stored `"<status> <json>"` REST response.
-fn replayed(stored: &str) -> Result<(u16, Json), OpError> {
+pub(crate) fn replayed(stored: &str) -> Result<(u16, Json), OpError> {
     stored
         .split_once(' ')
         .and_then(|(s, j)| Some((s.parse().ok()?, serde_json::from_str(j).ok()?)))

@@ -233,10 +233,20 @@ fn exhausted_budgets_are_413_never_500() {
         (413, json!("payload_too_large")),
         "{v}"
     );
-    // Admissible by edge count, but a 250,001-vertex star exceeds the job's
-    // vertex limit: the job fails with a 413 code, not a server error.
+    // Admissible by edge count, but a 250,000-edge star certainly exceeds
+    // the job memory budget: refused at submit, nothing queued.
     let star: Vec<Json> = (1..=250_000u64).map(|i| json!([0, i])).collect();
     let (s, v) = post(&w, &tok, json!({ "edges": star }));
+    assert_eq!(
+        (s, v["code"].clone()),
+        (413, json!("budget_exceeded")),
+        "{v}"
+    );
+    // Within the per-edge precheck, but 60k disjoint edges (120k vertices)
+    // estimate over the job memory budget: the job fails with a 413 code,
+    // not a server error.
+    let pairs: Vec<Json> = (0..60_000u64).map(|i| json!([2 * i, 2 * i + 1])).collect();
+    let (s, v) = post(&w, &tok, json!({ "edges": pairs }));
     assert_eq!(s, 202, "{v}");
     let path = format!("/v1/mincut/jobs/{}", v["job_id"].as_str().unwrap());
     w.b.m4.drain_alarms(4);
@@ -332,5 +342,9 @@ fn probes_create_nothing_and_stalled_jobs_fail_413() {
         (json!("failed"), json!(413)),
         "{v}"
     );
-    assert_eq!(mincut_job::alarm(&st, 3_000 + STALL_MS), None);
+    // Failed: only the retention alarm remains, armed for the expiry.
+    assert_eq!(
+        mincut_job::alarm(&st, 3_000 + STALL_MS),
+        Some(mincut_job::expires_at(1_000) - 3_000 - STALL_MS)
+    );
 }

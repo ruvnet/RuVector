@@ -243,7 +243,9 @@ pub async fn serve(
 }
 
 /// A graph / min-cut route (M4): body, the extra write charge of a
-/// mutating Cypher query, then `graph_routes::handle`.
+/// mutating Cypher query, then `graph_routes::handle` (with the
+/// `Idempotency-Key` header; a queued min-cut job charges its own write
+/// token there).
 async fn serve_graph(
     mut req: Request,
     env: &Env,
@@ -265,7 +267,10 @@ async fn serve_graph(
         }
     }
     let entropy = crate::durable::WorkerEntropy;
-    render(graph_routes::handle(backend, caller, g, &body, now, md, &entropy).await)
+    let key = req.headers().get("Idempotency-Key").ok().flatten();
+    let reply =
+        graph_routes::handle(backend, caller, g, &body, key.as_deref(), now, md, &entropy).await;
+    render(reply)
 }
 
 /// Read the body, `None` once it exceeds [`MAX_BODY_BYTES`]. Streamed and

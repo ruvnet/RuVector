@@ -32,6 +32,7 @@ mod blob_r2;
 mod config;
 mod durable;
 mod durable_m4;
+mod graph_catalog;
 mod graph_cypher;
 mod graph_mcp;
 mod graph_mincut;
@@ -154,6 +155,8 @@ mod m3_snapshot_tests;
 mod m4_mem;
 #[cfg(test)]
 mod m4_merge_tests;
+#[cfg(test)]
+mod m4_review_tests;
 #[cfg(test)]
 mod mcp_tests;
 #[cfg(test)]

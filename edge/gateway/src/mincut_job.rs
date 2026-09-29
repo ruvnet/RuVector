@@ -24,7 +24,14 @@
 //!    `budget_exceeded`) instead of staying `queued` / `running` forever.
 //!
 //! The solve is one indivisible step (Stoer–Wagner is not resumable); its
-//! cost is the analytics estimate the job was admitted with.
+//! cost is the analytics estimate the job was admitted with, against
+//! [`mc::EDGE_JOB`] (the crate's job profile with the isolate-headroom
+//! memory budget, `mincut_core`).
+//!
+//! **Retention**: a job deletes its storage [`JOB_TTL_MS`] after submit,
+//! whatever its state (the alarm of every terminal turn is armed for that
+//! instant; [`prepare`] answers [`Turn::Expire`]). The tenant catalog
+//! counts the job as live until the same instant (`graph_catalog`).
 
 use crate::graph_wire::{job_graph_uid, JobCall, JobRequest, JobView};
 use crate::mincut_core::{self as mc, error_json};
@@ -33,7 +40,7 @@ use crate::wire::WireErr;
 use ruvector_edge_analytics::format::{decode_graph, encode_graph, Manifest, MAX_CHUNK_EDGES};
 use ruvector_edge_analytics::job::MAX_ATTEMPTS;
 use ruvector_edge_analytics::{
-    AnalyticsError, GraphLimits, JobDescriptor, JobState, QueryMode, TenantGraph,
+    plan, AnalyticsError, GraphLimits, JobDescriptor, JobState, QueryMode, TenantGraph,
 };
 use ruvector_edge_store::{ErrorCode, OpError, SqlStore, Value};
 use ruvector_edge_tenancy::TenantKey;
@@ -52,6 +59,14 @@ const META_ALL: &str = "SELECT k, v FROM jmeta";
 const META_PUT: &str = "INSERT OR REPLACE INTO jmeta (k, v) VALUES (?, ?)";
 const CHUNKS_ALL: &str = "SELECT idx, bytes FROM jchunks ORDER BY idx";
 const CHUNK_PUT: &str = "INSERT OR REPLACE INTO jchunks (idx, bytes) VALUES (?, ?)";
+const WIPE: [&str; 3] = [
+    "DELETE FROM jchunks",
+    "DELETE FROM jblob",
+    "DELETE FROM jmeta",
+];
+
+/// How long a job (input, snapshot, result) is kept after submit.
+pub const JOB_TTL_MS: u64 = 24 * 60 * 60 * 1000;
 
 fn io<E>(_: E) -> OpError {
     OpError::new(ErrorCode::ShardUnavailable, "job storage")
@@ -170,7 +185,7 @@ fn handle(
                     JobView {
                         view: view(store, &m),
                     },
-                    None,
+                    retain(&m, now_ms),
                 ));
             }
             Ok((
@@ -199,6 +214,7 @@ fn handle(
             put_json(store, "graph", &graph)?;
             put(store, "revision", &revision.to_string())?;
             put(store, "submitted_ms", &now_ms.to_string())?;
+            put(store, "expires_ms", &expires_at(now_ms).to_string())?;
             let m = Meta::read(store)?;
             Ok((
                 JobView {
@@ -208,6 +224,37 @@ fn handle(
             ))
         }
     }
+}
+
+/// Expiry instant of a job submitted at `submitted_ms`.
+pub fn expires_at(submitted_ms: u64) -> u64 {
+    submitted_ms.saturating_add(JOB_TTL_MS)
+}
+
+fn expiry(m: &Meta) -> u64 {
+    m.get("expires_ms")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or_else(|| {
+            expires_at(
+                m.get("submitted_ms")
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(0),
+            )
+        })
+}
+
+/// The alarm delay of a finished job: until its expiry (≥ 1 ms).
+fn retain(m: &Meta, now_ms: u64) -> Option<u64> {
+    Some(expiry(m).saturating_sub(now_ms).max(1))
+}
+
+/// Erase the job's rows (retention); the Worker shell then also calls
+/// `deleteAll`. A later `Get` finds no identity: `404`.
+pub fn expire(store: &dyn SqlStore) -> Result<(), OpError> {
+    for sql in WIPE {
+        store.exec(sql, &[]).map_err(io)?;
+    }
+    Ok(())
 }
 
 /// A non-terminal job whose last recorded progress is older than this is
@@ -318,11 +365,15 @@ fn admit(store: &dyn SqlStore, m: &Meta, now_ms: u64) -> Result<JobDescriptor, O
     let job_id = m.get("job_id").unwrap_or_default();
     let mode: QueryMode = m.json("mode").ok_or(io(()))?;
     let revision: u64 = m.get("revision").and_then(|v| v.parse().ok()).unwrap_or(0);
-    let input: Json = serde_json::from_slice(&get_blob(store, "input")?)
-        .map_err(|_| OpError::invalid("edges"))?;
+    let input = String::from_utf8(get_blob(store, "input")?)
+        .map_err(|_| OpError::invalid("edges must be UTF-8 JSON"))?;
+    // Checked before building anything (the request path checked it too).
+    mc::job_memory_admissible(mc::raw_edge_count(&input))?;
     let edges = mc::parse_edges(&input)?;
+    drop(input);
     let g = TenantGraph::from_edges(job_graph_uid(job_id), revision, &edges, &GraphLimits::JOB)
         .map_err(aerr)?;
+    drop(edges);
     let enc = encode_graph(&g, MAX_CHUNK_EDGES).map_err(aerr)?;
     drop(g);
     store
@@ -334,6 +385,9 @@ fn admit(store: &dyn SqlStore, m: &Meta, now_ms: u64) -> Result<JobDescriptor, O
             .map_err(io)?;
     }
     let pinned = load_graph(store).map_err(aerr)?;
+    // The isolate-headroom budget first; `submit` then re-plans against
+    // the crate's (looser) job profile and pins the snapshot digest.
+    plan(&pinned, &mode, &mc::EDGE_JOB).map_err(aerr)?;
     JobDescriptor::submit(job_id, &pinned, mode, now_ms).map_err(aerr)
 }
 
@@ -344,6 +398,8 @@ pub enum Turn {
     /// The attempt was recorded: solve it ([`solve`]) after the shell has
     /// awaited storage I/O (committing the attempt).
     Solve(Box<JobDescriptor>),
+    /// The job reached its expiry: [`expire`] it (and `deleteAll`).
+    Expire,
 }
 
 /// First half of an alarm turn: admission, or `start` of the next attempt
@@ -352,31 +408,39 @@ pub fn prepare(store: &dyn SqlStore, now_ms: u64) -> Turn {
     let Ok(m) = Meta::read(store) else {
         return Turn::Done(None);
     };
-    if m.get("ident").is_none() || m.get("error").is_some() {
+    if m.get("ident").is_none() {
         return Turn::Done(None);
+    }
+    // Before every other state: a failed or stuck job expires too.
+    if now_ms >= expiry(&m) {
+        return Turn::Expire;
+    }
+    let keep = retain(&m, now_ms);
+    if m.get("error").is_some() {
+        return Turn::Done(keep);
     }
     let Some(mut d) = m.json::<JobDescriptor>("desc") else {
         return Turn::Done(match admit(store, &m, now_ms) {
             Ok(d) => put_json(store, "desc", &d).ok().map(|_| URGENT_ALARM_MS),
             Err(e) => {
                 let _ = fail(store, &e);
-                None
+                keep
             }
         });
     };
     if d.is_terminal() {
-        return Turn::Done(None);
+        return Turn::Done(keep);
     }
     if matches!(d.state, JobState::Running { attempt } if attempt >= MAX_ATTEMPTS) {
         // Every attempt died mid-solve: the isolate was killed (CPU or
         // memory), i.e. the job exceeds what one alarm may spend — a
         // budget failure (`413`), not the crate's `JobState` conflict.
         let _ = fail(store, &cpu_limit());
-        return Turn::Done(None);
+        return Turn::Done(keep);
     }
     if d.start(now_ms).is_err() {
         let _ = put_json(store, "desc", &d);
-        return Turn::Done(None);
+        return Turn::Done(keep);
     }
     match put_json(store, "desc", &d) {
         Ok(()) => Turn::Solve(Box::new(d)),
@@ -393,7 +457,7 @@ pub fn solve(store: &dyn SqlStore, mut d: JobDescriptor, now_ms: u64) -> Option<
         Err(e) => d.fail(&e, now_ms),
     }
     put_json(store, "desc", &d).ok()?;
-    None
+    retain(&Meta::read(store).ok()?, now_ms)
 }
 
 /// One whole alarm turn (native tests; the Worker shell awaits between
@@ -403,5 +467,9 @@ pub fn alarm(store: &dyn SqlStore, now_ms: u64) -> Option<u64> {
     match prepare(store, now_ms) {
         Turn::Done(next) => next,
         Turn::Solve(d) => solve(store, *d, now_ms),
+        Turn::Expire => {
+            let _ = expire(store);
+            None
+        }
     }
 }
