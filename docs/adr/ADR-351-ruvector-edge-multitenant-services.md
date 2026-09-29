@@ -1584,3 +1584,15 @@ blocking during long steps, and isolate memory under concurrent 8 MiB transfers.
 `/v1` sweep 401 with `resource_metadata`, `:import` at exactly 8 MiB → 401 and 8 MiB + 1 → 413
 (pre-auth). The seven `cognitum-consultant-email-staging-*` scripts were unchanged (`modified_on`/
 `etag` identical before and after).
+
+**2026-09-29, Cypher refusal detail and column names (`694f927dc`, gateway `7b3bc9ef`).** The live
+drill found Cypher refusals opaque (`400 invalid_request` with `detail: "invalid_request"`: the
+`GraphStore` wire carried only the code) and unaliased `RETURN` items named `?column?` (rvlite keeps
+one column per name, so `RETURN n.id, n.name` lost `n.name`). Now: status and `code` unchanged; the
+problem / MCP tool-error `detail` says what failed (parse line and column, `unsupported: aggregation
+count()`, `unsupported: MERGE clause`, `RETURN of variables bound by CREATE`, `unknown variable`,
+the 10k-step and 1k-row budgets, `$` with its byte offset, nesting, the 4 KiB limit), ≤ 200 chars,
+built from fixed phrases and the caller's own query only (`graph_cypher_dx.rs`, optional
+`WireErr.detail`). Unaliased items are named by their expression text (`n.name`, `count(n)`) in
+the gateway glue before execution; rvlite is unmodified. Deployed `ruvector-edge-gateway` only;
+staging scripts unchanged.

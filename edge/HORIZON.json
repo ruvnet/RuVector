@@ -868,7 +868,8 @@
         "not_run": [
           "tenant A/B denial: needs a second login in a different org/workspace"
         ],
-        "dx_note": "unsupported Cypher syntax (e.g. relationship property maps, count(n)) returns bare 400 invalid_request with no detail; unaliased RETURN columns are named ?column?"
+        "dx_note": "unsupported Cypher syntax (e.g. relationship property maps, count(n)) returns bare 400 invalid_request with no detail; unaliased RETURN columns are named ?column?",
+        "dx_note_status": "fixed 2026-09-29 in 694f927dc, gateway 7b3bc9ef (see the Cypher DX session entry)"
       },
       "exchange_drill_2026_09_29": {
         "client": "ruflo-ai-team (kid MItTXyaR29uQzUZB9ETuLl8-9uQ_YwmmXQZfPO5kHiE), auth 1a43aae6, gateway 46fa927c",
@@ -901,6 +902,97 @@
           "RESULT pass=22 fail=0"
         ]
       }
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "Cypher DX (from the live drill dx_note): refusals now say what failed and unaliased RETURN columns are named by expression. Status codes and `code` unchanged. The GraphStore wire carried only the error code (WireErr.into_op substitutes code.as_str() for detail), so every DO-side Cypher refusal read detail \"invalid_request\"; WireErr gains an optional detail set only by Cypher refusals (graph_cypher_dx::Refusal), rendered as the REST problem detail and the MCP graph_query / graph_mutate (incl. dry_run) tool-error detail, clamped to 200 chars, built from fixed phrases plus the caller's own query (line/column, token, variable name, byte offset), never rvlite Debug AST dumps. rvlite named every unaliased non-variable RETURN item ?column? and kept one column per name (RETURN n.id, n.name silently dropped n.name); gc::parse now aliases such items with their expression text before execution (zero-match column list too). rvlite (c6ece785) unmodified.",
+      "commits": {
+        "code": "694f927dc"
+      },
+      "examples": [
+        {
+          "query": "CREATE (a:N {id:1})-[:E {w:3}]->(b:N {id:2}) RETURN a,b",
+          "before": "400 invalid_request detail \"invalid_request\"",
+          "after": "400 invalid_request detail \"unsupported: RETURN of variables bound by CREATE (`a`); run the CREATE, then MATCH it in a second query\" (mutation discarded, nodes 0)"
+        },
+        {
+          "query": "MATCH (n:N) RETURN count(n)",
+          "before": "400 invalid_request detail \"invalid_request\"",
+          "after": "400 invalid_request detail \"unsupported: aggregation count() (aggregate functions are not implemented)\""
+        },
+        {
+          "query": "MATCH (n:N RETURN n",
+          "before": "400 detail \"cypher parse error\"",
+          "after": "400 detail \"parse error at line 1, column 12: expected ..., found ...\""
+        },
+        {
+          "query": "MATCH (n:N) RETURN n.id, n.name, n",
+          "before": "columns [\"?column?\", \"n\"] (n.name lost)",
+          "after": "columns [\"n.id\", \"n.name\", \"n\"]"
+        }
+      ],
+      "gate": "edge workspace 273/0 (auth-worker 70, gateway 203 incl. 5 new graph_dx_tests), gateway --features dev-issuer 203/0; root ruvector-edge-analytics 30/0 (2 ignored), release; cargo fmt --check clean; clippy -D warnings clean native (--all-targets, also --features dev-issuer) and wasm32-unknown-unknown (env -u RUSTFLAGS); wrangler deploy --dry-run exit 0; no .rs file >= 500 lines (new graph_cypher_dx.rs 355).",
+      "deploy": {
+        "worker": "ruvector-edge-gateway",
+        "version_id": "7b3bc9ef-ce06-420b-9bef-8b4f0e1db0c1",
+        "previous_version_id": "46fa927c",
+        "url": "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev",
+        "migrations": "unchanged; no new DO class",
+        "command": "cd edge/gateway && env -u CLOUDFLARE_API_TOKEN -u RUSTFLAGS npx -y wrangler@4 deploy",
+        "deployments_status": "(100%) 7b3bc9ef-ce06-420b-9bef-8b4f0e1db0c1"
+      },
+      "live_verification": [
+        "GET /v1/health 200 {\"ok\":true} sha256 4062edaf750f",
+        "GET /v1/graphs 401 invalid_token sha256 0a0e7787d3c9",
+        "POST /v1/graphs/g/cypher 401 invalid_token sha256 0a0e7787d3c9",
+        "POST /v1/mcp 401 invalid_token sha256 0a0e7787d3c9"
+      ],
+      "staging_unchanged": {
+        "result": "all 7 cognitum-consultant-email-staging-* scripts: modified_on and etag identical before and after the deploy",
+        "scripts": [
+          {
+            "script": "cognitum-consultant-email-staging-audit-processor",
+            "modified_on": "2026-08-01T19:05:49.600679Z",
+            "etag": "a6c0d3777fe80568016fe6d5b15ac9b3119b31f733d814ad142dee8cb3beeb9e"
+          },
+          {
+            "script": "cognitum-consultant-email-staging-control-plane-proxy",
+            "modified_on": "2026-08-02T02:11:25.333864Z",
+            "etag": "354ef1ca417dfb34535a7d7e80711448b846deaf6a9ecfaed1eafcae52b8bd93"
+          },
+          {
+            "script": "cognitum-consultant-email-staging-delivery-ingestion",
+            "modified_on": "2026-08-01T21:37:05.111919Z",
+            "etag": "223b3e8aee80f1c96a7f82f746662843f02b81f6cd2f978fd4adb7e6eb5e2900"
+          },
+          {
+            "script": "cognitum-consultant-email-staging-delivery-processor",
+            "modified_on": "2026-08-01T19:05:49.585515Z",
+            "etag": "a6c0d3777fe80568016fe6d5b15ac9b3119b31f733d814ad142dee8cb3beeb9e"
+          },
+          {
+            "script": "cognitum-consultant-email-staging-inbound-ingestion",
+            "modified_on": "2026-08-01T21:37:05.117188Z",
+            "etag": "223b3e8aee80f1c96a7f82f746662843f02b81f6cd2f978fd4adb7e6eb5e2900"
+          },
+          {
+            "script": "cognitum-consultant-email-staging-inbound-processor",
+            "modified_on": "2026-08-01T19:05:49.601956Z",
+            "etag": "a6c0d3777fe80568016fe6d5b15ac9b3119b31f733d814ad142dee8cb3beeb9e"
+          },
+          {
+            "script": "cognitum-consultant-email-staging-webhook-edge",
+            "modified_on": "2026-08-01T21:37:04.116959Z",
+            "etag": "c2e9c06ca42ead89e7260bf2655586ebfe453e72fe1372e903b074caff108c17"
+          }
+        ]
+      },
+      "not_touched": [
+        "cognitum-consultant-email-staging-*",
+        "D1 ruvector-chatgpt",
+        "custom domains",
+        "ruvector-edge-auth"
+      ]
     }
   ],
   "gates_registry_status": {
