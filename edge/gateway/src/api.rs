@@ -49,10 +49,6 @@ fn render(r: ApiReply) -> Result<Response> {
         // Every 429 is a §10 rate budget (one window).
         let h = resp.headers_mut();
         h.set("Retry-After", &ratelimit::PERIOD_S.to_string())?;
-        h.set(
-            "Access-Control-Expose-Headers",
-            "WWW-Authenticate, Retry-After",
-        )?;
     }
     Ok(resp)
 }
@@ -172,10 +168,6 @@ fn refused(r: Refused) -> Result<Response> {
     if let Some(s) = r.retry_after {
         let h = resp.headers_mut();
         h.set("Retry-After", &s.to_string())?;
-        h.set(
-            "Access-Control-Expose-Headers",
-            "WWW-Authenticate, Retry-After",
-        )?;
     }
     Ok(resp)
 }

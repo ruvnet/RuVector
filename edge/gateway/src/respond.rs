@@ -9,16 +9,23 @@ use ruvector_edge_tenancy::{problem::PROBLEM_CONTENT_TYPE, Problem, ProblemCode}
 use serde::Serialize;
 use worker::{Headers, Response, Result};
 
-/// Headers on every actual (non-preflight) response.
+/// Headers on every actual (non-preflight) response. Exposed: the challenge, `Retry-After`
+/// (429), and a registry blob pull's `ETag` (`sha256:…`) and `X-RVF-Yanked`.
 pub const RESPONSE_CORS: [(&str, &str); 2] = [
     ("Access-Control-Allow-Origin", "*"),
-    ("Access-Control-Expose-Headers", "WWW-Authenticate"),
+    (
+        "Access-Control-Expose-Headers",
+        "WWW-Authenticate, Retry-After, ETag, X-RVF-Yanked",
+    ),
 ];
 
 /// Headers on a preflight answer.
 pub const PREFLIGHT_CORS: [(&str, &str); 4] = [
     ("Access-Control-Allow-Origin", "*"),
-    ("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"),
+    (
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, DELETE, OPTIONS",
+    ),
     (
         "Access-Control-Allow-Headers",
         "Authorization, Content-Type, MCP-Protocol-Version, Mcp-Session-Id",
@@ -119,7 +126,7 @@ mod tests {
         };
         assert_eq!(
             get(&RESPONSE_CORS, "access-control-expose-headers").as_deref(),
-            Some("WWW-Authenticate")
+            Some("WWW-Authenticate, Retry-After, ETag, X-RVF-Yanked")
         );
         assert_eq!(
             get(&RESPONSE_CORS, "access-control-allow-origin").as_deref(),
@@ -127,6 +134,8 @@ mod tests {
         );
         let methods = get(&PREFLIGHT_CORS, "access-control-allow-methods").unwrap();
         assert!(methods.contains("POST") && methods.contains("GET"));
+        // Registry part uploads are `PUT`.
+        assert!(methods.contains("PUT") && methods.contains("DELETE"));
         let headers = get(&PREFLIGHT_CORS, "access-control-allow-headers").unwrap();
         assert!(headers.contains("Authorization"));
     }
