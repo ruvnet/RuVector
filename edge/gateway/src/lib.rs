@@ -28,6 +28,7 @@
 mod api;
 mod auth;
 mod backend;
+mod blob_r2;
 mod config;
 mod durable;
 mod idem;
@@ -36,9 +37,23 @@ mod ledger_core;
 mod mcp;
 mod ops;
 mod platform;
+mod registry_core;
+mod registry_do;
+mod registry_http;
+mod registry_kv;
+mod registry_pending;
+mod registry_ports;
+mod registry_routes;
+mod registry_sweep;
+mod registry_upload_core;
+mod registry_wire;
 mod respond;
 mod rest;
 mod routes;
+mod rvf_finalize;
+mod rvf_import;
+mod rvf_mcp;
+mod rvf_upload;
 mod service;
 mod shard_core;
 mod trust_root;
@@ -76,7 +91,19 @@ mod mcp_tests;
 #[cfg(test)]
 mod ops_tests;
 #[cfg(test)]
+mod registry_mem;
+#[cfg(test)]
+mod registry_sweep_tests;
+#[cfg(test)]
+mod registry_tests;
+#[cfg(test)]
+mod registry_world;
+#[cfg(test)]
 mod rest_tests;
+#[cfg(test)]
+mod rvf_import_tests;
+#[cfg(test)]
+mod rvf_upload_tests;
 #[cfg(test)]
 mod service_tests;
 #[cfg(test)]

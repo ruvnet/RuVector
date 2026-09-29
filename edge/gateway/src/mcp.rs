@@ -246,10 +246,57 @@ fn initialize(params: &Json) -> Json {
     })
 }
 
+/// Extra tools served next to [`TOOLS`] (the M5 registry tools, `rvf_mcp`).
+#[allow(async_fn_in_trait)]
+pub trait McpExtra {
+    /// Their `tools/list` entries.
+    fn tools(&self) -> Vec<Json>;
+    /// Run tool `name`, or `None` if it is not one of these. An
+    /// `insufficient_scope` error becomes the HTTP 403 step-up, any other
+    /// error an `isError` result.
+    async fn call(
+        &self,
+        ctx: &CallerContext,
+        name: &str,
+        args: Map<String, Json>,
+        now: u64,
+    ) -> Option<Result<Json, crate::registry_wire::RvfError>>;
+}
+
+/// No extra tools.
+pub struct NoExtra;
+
+impl McpExtra for NoExtra {
+    fn tools(&self) -> Vec<Json> {
+        Vec::new()
+    }
+    async fn call(
+        &self,
+        _: &CallerContext,
+        _: &str,
+        _: Map<String, Json>,
+        _: u64,
+    ) -> Option<Result<Json, crate::registry_wire::RvfError>> {
+        None
+    }
+}
+
 /// Handle one JSON-RPC message for a verified caller. `metadata_url` is
 /// the `/v1/mcp` RFC 9728 document (step-up challenges).
 pub async fn handle<B: Backend>(
     b: &B,
+    ctx: &CallerContext,
+    body: &[u8],
+    now: u64,
+    metadata_url: &str,
+) -> ApiReply {
+    handle_with(b, &NoExtra, ctx, body, now, metadata_url).await
+}
+
+/// [`handle`] plus the tools of `x`.
+pub async fn handle_with<B: Backend, X: McpExtra>(
+    b: &B,
+    x: &X,
     ctx: &CallerContext,
     body: &[u8],
     now: u64,
@@ -290,8 +337,14 @@ pub async fn handle<B: Backend>(
     match method {
         "initialize" => rpc_result(id, initialize(&params)),
         "ping" => rpc_result(id, json!({})),
-        "tools/list" => rpc_result(id, tools_list()),
-        "tools/call" => tools_call(b, ctx, id, &params, now, metadata_url).await,
+        "tools/list" => {
+            let mut list = tools_list();
+            if let Some(t) = list["tools"].as_array_mut() {
+                t.extend(x.tools());
+            }
+            rpc_result(id, list)
+        }
+        "tools/call" => tools_call(b, x, ctx, id, &params, now, metadata_url).await,
         _ => rpc_error(id, -32601, "method not found"),
     }
 }
@@ -311,8 +364,9 @@ fn accepted() -> ApiReply {
     }
 }
 
-async fn tools_call<B: Backend>(
+async fn tools_call<B: Backend, X: McpExtra>(
     b: &B,
+    x: &X,
     ctx: &CallerContext,
     id: &Json,
     params: &Json,
@@ -322,13 +376,31 @@ async fn tools_call<B: Backend>(
     let Some(name) = params.get("name").and_then(Json::as_str) else {
         return rpc_error(id, -32602, "missing tool name");
     };
-    let Some(tool) = TOOLS.iter().find(|t| t.name == name) else {
-        return rpc_error(id, -32602, "unknown tool");
-    };
     let mut args: Map<String, Json> = match params.get("arguments") {
         None | Some(Json::Null) => Map::new(),
         Some(Json::Object(m)) => m.clone(),
         Some(_) => return rpc_error(id, -32602, "arguments must be an object"),
+    };
+    let Some(tool) = TOOLS.iter().find(|t| t.name == name) else {
+        return match x.call(ctx, name, args, now).await {
+            None => rpc_error(id, -32602, "unknown tool"),
+            Some(Ok(result)) => rpc_result(
+                id,
+                json!({
+                    "content": [{ "type": "text", "text": result.to_string() }],
+                    "structuredContent": result,
+                    "isError": false,
+                }),
+            ),
+            Some(Err(e)) if e.code == ErrorCode::InsufficientScope.as_str() => {
+                e.reply(metadata_url)
+            }
+            Some(Err(e)) => {
+                let body = json!({ "code": e.code, "status": e.status, "detail": e.detail });
+                let r = json!({ "content": [{ "type": "text", "text": body.to_string() }], "isError": true });
+                rpc_result(id, r)
+            }
+        };
     };
     let claim = matches!(tool.op, Kind::Claim);
     if claim && !args.is_empty() {

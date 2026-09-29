@@ -115,9 +115,15 @@ pub async fn serve(
         let Some(body) = body(&mut req).await? else {
             return too_large(&md);
         };
-        return render(mcp::handle(&backend, &caller.ctx, &body, now, &md).await);
+        // M5: the registry tools ride along (`rvf_mcp`).
+        let r = crate::registry_http::mcp(env, &caller.ctx, &body, now, &md).await;
+        return render(r);
     }
     let md = prm::metadata_url(&cfg.rest_resource);
+    // M5 rv-registry routes (`/v1/rvf/*`, `…:import-rvf`) before the REST table.
+    if let Some(r) = crate::registry_routes::parse(&method, &path) {
+        return crate::registry_http::serve(req, env, cfg, r, caller, now).await;
+    }
     let Some(api) = rest::parse(&method, &path) else {
         return respond::problem(ProblemCode::NotFound, None);
     };

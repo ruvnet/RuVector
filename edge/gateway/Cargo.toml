@@ -23,6 +23,10 @@ ruvector-edge-tenancy = { workspace = true }
 # Storage core behind the TenantLedger / VectorShard Durable Objects
 # (ADR-351 §6, §16), consumed by path like the other cores.
 ruvector-edge-store = { path = "../../crates/ruvector-edge-store" }
+# RVF package registry core (ADR-351 §3 rv-registry, M5) behind the
+# RegistryRoot / RegistryScope Durable Objects.
+ruvector-edge-registry = { path = "../../crates/ruvector-edge-registry" }
+hex = "0.4"
 sha2 = { workspace = true }
 # Bounded body reads (ADR-351 §10 layer 1): stop at 1 MiB while streaming.
 futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
@@ -41,3 +45,6 @@ p256 = { workspace = true }
 # Cross-crate end-to-end tests: tokens minted and exchanged by the real AS
 # core are verified and served by the gateway (native only; never in wasm).
 ruvector-edge-authz = { workspace = true }
+# M5 acceptance: real `.rvf` files written by the rvf CLI engine (native only).
+rvf-runtime = { path = "../../crates/rvf/rvf-runtime" }
+tempfile = "3"

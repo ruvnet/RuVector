@@ -80,7 +80,10 @@ pub fn auth_target(route: Route, cfg: &GatewayConfig) -> Option<(&ResourceUrl, R
 pub async fn handle(req: Request, env: &Env, cfg: &GatewayConfig) -> Result<Response> {
     let route = classify(&req.method(), &req.path());
     // ADR-351 §10 layer 1: refuse oversized bodies before any signature work.
-    if matches!(route, Route::Mcp | Route::OtherV1) && api::declared_too_large(&req) {
+    // (M5: a registry part upload may declare up to `max_part_size`.)
+    if matches!(route, Route::Mcp | Route::OtherV1)
+        && crate::registry_http::declared_too_large(&req)
+    {
         return respond::problem(ProblemCode::PayloadTooLarge, None);
     }
     // Authenticate first so unknown routes do not leak existence to

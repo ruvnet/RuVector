@@ -98,12 +98,14 @@ impl SegmentEntry {
     }
 }
 
-/// The result of a successful validation.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// The result of a successful validation. Serializable so a Worker can hand
+/// it to the registry Durable Object that commits the version.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ValidatedRvf {
     /// Object size in bytes.
     pub total_size: u64,
     /// SHA-256 of the whole object (its content address).
+    #[serde(with = "hexser")]
     pub sha256: [u8; 32],
     /// Every segment, in stream order.
     pub segments: Vec<SegmentEntry>,
