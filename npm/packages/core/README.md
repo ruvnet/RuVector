@@ -100,7 +100,7 @@ const results: SearchResult[] = await db.search({
 new VectorDb(options: {
   dimensions: number;        // Vector dimensionality (required)
   maxElements?: number;      // Max vectors (default: 10000)
-  storagePath?: string;      // Persistent storage path
+  storagePath?: string;      // Persistent storage path; omit for a private in-memory DB
   ef_construction?: number;  // HNSW construction parameter (default: 200)
   m?: number;               // HNSW M parameter (default: 16)
 })
@@ -186,6 +186,44 @@ const db = new VectorDb({
   // No storagePath = in-memory
 });
 ```
+
+`storagePath` semantics (from `@ruvector/core` 0.2.0, the release built with the
+fix for [#1063](https://github.com/ruvnet/ruvector/issues/1063)):
+
+- **Omitted**: an in-memory database private to that instance. No file is
+  created and nothing is shared with other `VectorDb` instances, so two
+  instances with different `dimensions` never interfere. The data is lost when
+  the instance is garbage-collected. `VectorDb.withDimensions(n)` is in-memory
+  too.
+- **A file path**: a persistent database. Instances opened on the same path
+  share one store, so use a separate path per logical index (for example per
+  tenant).
+- **Reopening an existing file**: its stored `dimensions` must match the
+  options you pass, and so must its `distanceMetric` if you pass one (omit
+  `distanceMetric` to keep the stored metric). On a mismatch the constructor
+  throws an error naming the path and both values, instead of failing later on
+  `insert`.
+
+### Upgrading from 0.1.x
+
+Versions up to 0.1.x opened a shared `./ruvector.db` in the working directory
+whenever `storagePath` was omitted (including `withDimensions`), and a stored
+dimension silently overrode the requested one. From 0.2.0:
+
+- **If you relied on that implicit file, pass it explicitly** or your writes
+  go to memory and are lost when the process exits:
+
+  ```javascript
+  const db = new VectorDb({ dimensions: 384, storagePath: './ruvector.db' });
+  ```
+
+  When `storagePath` is omitted and a `./ruvector.db` exists in the working
+  directory, the binding prints a one-time warning to stderr.
+- **Reopening a store with different `dimensions`** (or an explicitly
+  different `distanceMetric`) now throws in the constructor instead of being
+  silently adopted.
+
+On 0.1.x, always pass a unique `storagePath`.
 
 ## Building from Source
 

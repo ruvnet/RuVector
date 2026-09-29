@@ -124,7 +124,7 @@ const _: () = {
 
 pub use error::{Result, RuvectorError};
 pub use types::{DistanceMetric, SearchQuery, SearchResult, VectorEntry, VectorId};
-pub use vector_db::VectorDB;
+pub use vector_db::{ConfigCheck, VectorDB};
 
 // Quantization types (ADR-001)
 pub use quantization::{

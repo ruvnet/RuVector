@@ -14,11 +14,12 @@ class VectorDB {
   }
 
   static withDimensions(dimensions) {
-    // Factory method - create with default options
+    // Factory method - in-memory database with default options. No
+    // storagePath: a shared './ruvector.db' made unrelated instances share
+    // one store (issue #1063).
     return new VectorDB({
       dimensions: dimensions,
-      distanceMetric: 'Cosine',
-      storagePath: './ruvector.db'
+      distanceMetric: 'Cosine'
     });
   }
 

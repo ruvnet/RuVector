@@ -88,6 +88,112 @@ impl StorageBackend {
     }
 }
 
+/// Which stored settings [`VectorDB::open_checked`] requires to equal the
+/// requested ones when `storage_path` names an existing database (issue #1063).
+///
+/// A setting that is not checked is adopted from the stored configuration,
+/// exactly as [`VectorDB::new`] adopts every stored setting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ConfigCheck {
+    /// Require the stored `dimensions` to equal the requested one.
+    pub dimensions: bool,
+    /// Require the stored `distance_metric` to equal the requested one.
+    pub distance_metric: bool,
+}
+
+impl ConfigCheck {
+    /// Check both `dimensions` and `distance_metric`.
+    pub const ALL: Self = Self {
+        dimensions: true,
+        distance_metric: true,
+    };
+    /// Check `dimensions` only; adopt the stored `distance_metric`.
+    pub const DIMENSIONS: Self = Self {
+        dimensions: true,
+        distance_metric: false,
+    };
+    /// Check nothing; adopt the stored configuration (the [`VectorDB::new`] behaviour).
+    pub const NONE: Self = Self {
+        dimensions: false,
+        distance_metric: false,
+    };
+}
+
+#[cfg(feature = "storage")]
+fn config_mismatch(requested: &DbOptions, mismatches: &[String]) -> crate::error::RuvectorError {
+    crate::error::RuvectorError::InvalidParameter(format!(
+        "existing database at '{}' does not match the requested options ({}). \
+         Use a different storage path or pass the stored values",
+        requested.storage_path,
+        mismatches.join("; ")
+    ))
+}
+
+/// Compare the stored configuration of an existing database with the
+/// requested one, for the settings `check` selects (issue #1063).
+///
+/// Silently adopting the stored values turned a wrong `dimensions` into a
+/// late `Dimension mismatch` on the first insert, and let unrelated callers
+/// share one file without noticing.
+#[cfg(feature = "storage")]
+fn check_stored_config(
+    requested: &DbOptions,
+    stored: &DbOptions,
+    check: ConfigCheck,
+) -> Result<()> {
+    let mut mismatches = Vec::new();
+    if check.dimensions && stored.dimensions != requested.dimensions {
+        mismatches.push(format!(
+            "dimensions: stored {}, requested {}",
+            stored.dimensions, requested.dimensions
+        ));
+    }
+    if check.distance_metric && stored.distance_metric != requested.distance_metric {
+        mismatches.push(format!(
+            "distance metric: stored {:?}, requested {:?}",
+            stored.distance_metric, requested.distance_metric
+        ));
+    }
+    if mismatches.is_empty() {
+        Ok(())
+    } else {
+        Err(config_mismatch(requested, &mismatches))
+    }
+}
+
+/// Legacy stores can hold vectors but no stored configuration. Before a
+/// checked open writes the requested configuration into such a file, make
+/// sure its vectors actually have the requested length.
+///
+/// Only reached for files without a stored config; `all_ids` walks the id
+/// table, which is acceptable for this one-time legacy path.
+#[cfg(feature = "storage")]
+fn check_unconfigured_store(
+    storage: &crate::storage::VectorStorage,
+    requested: &DbOptions,
+    check: ConfigCheck,
+) -> Result<()> {
+    if !check.dimensions || storage.is_empty()? {
+        return Ok(());
+    }
+    let Some(id) = storage.all_ids()?.into_iter().next() else {
+        return Ok(());
+    };
+    let Some(entry) = storage.get(&id)? else {
+        return Ok(());
+    };
+    if entry.vector.len() == requested.dimensions {
+        return Ok(());
+    }
+    Err(config_mismatch(
+        requested,
+        &[format!(
+            "dimensions: stored vectors have {}, requested {}",
+            entry.vector.len(),
+            requested.dimensions
+        )],
+    ))
+}
 /// Main vector database
 pub struct VectorDB {
     storage: Arc<StorageBackend>,
@@ -101,9 +207,38 @@ impl VectorDB {
     /// If a storage path is provided and contains persisted vectors,
     /// the HNSW index will be automatically rebuilt from storage.
     /// If opening an existing database, the stored configuration (dimensions,
-    /// distance metric, etc.) will be used instead of the provided options.
-    #[allow(unused_mut)] // `options` is mutated only when feature = "storage"
-    pub fn new(mut options: DbOptions) -> Result<Self> {
+    /// distance metric, etc.) will be used instead of the provided options;
+    /// a difference is logged as a warning.
+    ///
+    /// Use [`VectorDB::open_checked`] to fail instead when the stored
+    /// `dimensions` or `distance_metric` differ from the requested ones.
+    ///
+    /// A `storage_path` starting with `memory://` selects a non-persistent,
+    /// per-instance in-memory store; no file is created.
+    pub fn new(options: DbOptions) -> Result<Self> {
+        Self::open(options, ConfigCheck::NONE)
+    }
+
+    /// Create a new vector database, or open an existing one, requiring the
+    /// stored settings that `check` selects to equal the requested ones.
+    ///
+    /// When `storage_path` names an existing database whose stored
+    /// `dimensions` (or `distance_metric`) differ from `options` and `check`
+    /// covers that setting, this fails immediately with
+    /// [`RuvectorError::InvalidParameter`](crate::error::RuvectorError) naming
+    /// the path and both values, instead of failing later on the first
+    /// insert (issue #1063). Settings `check` does not cover, and the stored
+    /// `hnsw_config` and `quantization`, are adopted as in [`VectorDB::new`].
+    ///
+    /// An existing file that holds vectors but no stored configuration (a
+    /// legacy store) is checked against the length of a stored vector before
+    /// the requested configuration is written into it.
+    pub fn open_checked(options: DbOptions, check: ConfigCheck) -> Result<Self> {
+        Self::open(options, check)
+    }
+
+    #[allow(unused_mut, unused_variables)] // `options` / `check` are used only when feature = "storage"
+    fn open(mut options: DbOptions, check: ConfigCheck) -> Result<Self> {
         #[cfg(feature = "storage")]
         let storage = {
             if options.storage_path.starts_with("memory://") {
@@ -119,6 +254,20 @@ impl VectorDB {
                 let stored_config = temp_storage.load_config()?;
 
                 if let Some(config) = stored_config {
+                    check_stored_config(&options, &config, check)?;
+                    if config.dimensions != options.dimensions
+                        || config.distance_metric != options.distance_metric
+                    {
+                        tracing::warn!(
+                            "database at '{}' was created with dimensions {} / {:?}; \
+                             using those instead of the requested {} / {:?}",
+                            options.storage_path,
+                            config.dimensions,
+                            config.distance_metric,
+                            options.dimensions,
+                            options.distance_metric
+                        );
+                    }
                     // Existing database - use stored configuration
                     tracing::info!(
                         "Loading existing database with {} dimensions",
@@ -146,6 +295,7 @@ impl VectorDB {
                         "Creating new database with {} dimensions",
                         options.dimensions
                     );
+                    check_unconfigured_store(&temp_storage, &options, check)?;
                     temp_storage.save_config(&options)?;
                     Arc::new(StorageBackend::Persistent(temp_storage))
                 }
@@ -778,6 +928,189 @@ mod tests {
             );
         }
 
+        Ok(())
+    }
+
+    // Issue #1063: `open_checked` validates an existing store; `new` adopts it.
+    #[cfg(feature = "storage")]
+    fn persisted_options(path: &str, dimensions: usize, metric: DistanceMetric) -> DbOptions {
+        DbOptions {
+            dimensions,
+            distance_metric: metric,
+            storage_path: path.to_string(),
+            hnsw_config: None,
+            quantization: None,
+        }
+    }
+
+    #[cfg(feature = "storage")]
+    fn one_vector(id: &str, dimensions: usize) -> VectorEntry {
+        VectorEntry {
+            id: Some(id.to_string()),
+            vector: vec![0.1; dimensions],
+            metadata: None,
+        }
+    }
+
+    #[cfg(feature = "storage")]
+    fn open_checked_err(options: DbOptions, check: ConfigCheck) -> String {
+        match VectorDB::open_checked(options, check) {
+            Ok(_) => panic!("open_checked must reject the mismatching store"),
+            Err(e) => e.to_string(),
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "storage")]
+    fn open_checked_with_matching_config_succeeds() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("match.db").to_string_lossy().to_string();
+        {
+            let db = VectorDB::new(persisted_options(&path, 4, DistanceMetric::Euclidean))?;
+            db.insert(one_vector("a", 4))?;
+        }
+        let db = VectorDB::open_checked(
+            persisted_options(&path, 4, DistanceMetric::Euclidean),
+            ConfigCheck::ALL,
+        )?;
+        assert_eq!(db.len()?, 1);
+        assert_eq!(db.options().dimensions, 4);
+        db.insert(one_vector("b", 4))?;
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "storage")]
+    fn open_checked_with_different_dimensions_fails_at_construction() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("dims.db").to_string_lossy().to_string();
+        {
+            let db = VectorDB::new(persisted_options(&path, 256, DistanceMetric::Cosine))?;
+            db.insert(one_vector("a", 256))?;
+        }
+        let err = open_checked_err(
+            persisted_options(&path, 4, DistanceMetric::Cosine),
+            ConfigCheck::ALL,
+        );
+        assert!(err.contains(&path), "error must name the path: {err}");
+        assert!(
+            err.contains("dimensions: stored 256, requested 4"),
+            "error must name both dimensions: {err}"
+        );
+        assert!(!err.contains("distance metric"), "metric matched: {err}");
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "storage")]
+    fn open_checked_with_different_metric_fails_at_construction() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("metric.db").to_string_lossy().to_string();
+        drop(VectorDB::new(persisted_options(
+            &path,
+            8,
+            DistanceMetric::Cosine,
+        ))?);
+        let err = open_checked_err(
+            persisted_options(&path, 8, DistanceMetric::Euclidean),
+            ConfigCheck::ALL,
+        );
+        assert!(err.contains(&path), "error must name the path: {err}");
+        assert!(
+            err.contains("distance metric: stored Cosine, requested Euclidean"),
+            "error must name both metrics: {err}"
+        );
+        assert!(!err.contains("dimensions:"), "dimensions matched: {err}");
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "storage")]
+    fn open_checked_dimensions_only_adopts_stored_metric() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let path = dir
+            .path()
+            .join("adopt-metric.db")
+            .to_string_lossy()
+            .to_string();
+        {
+            let db = VectorDB::new(persisted_options(&path, 8, DistanceMetric::Euclidean))?;
+            db.insert(one_vector("a", 8))?;
+        }
+        let db = VectorDB::open_checked(
+            persisted_options(&path, 8, DistanceMetric::Cosine),
+            ConfigCheck::DIMENSIONS,
+        )?;
+        assert_eq!(db.options().distance_metric, DistanceMetric::Euclidean);
+        assert_eq!(db.len()?, 1);
+        drop(db);
+
+        let err = open_checked_err(
+            persisted_options(&path, 16, DistanceMetric::Euclidean),
+            ConfigCheck::DIMENSIONS,
+        );
+        assert!(err.contains("dimensions: stored 8, requested 16"), "{err}");
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "storage")]
+    fn new_still_adopts_stored_config() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("adopt.db").to_string_lossy().to_string();
+        {
+            let db = VectorDB::new(persisted_options(&path, 3, DistanceMetric::Manhattan))?;
+            db.insert(one_vector("a", 3))?;
+        }
+        let db = VectorDB::new(persisted_options(&path, 384, DistanceMetric::Cosine))?;
+        assert_eq!(db.options().dimensions, 3);
+        assert_eq!(db.options().distance_metric, DistanceMetric::Manhattan);
+        assert_eq!(db.len()?, 1);
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "storage")]
+    fn open_checked_rejects_config_less_store_with_other_dimensions() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("legacy.db").to_string_lossy().to_string();
+        {
+            // A legacy store: vectors but no stored configuration.
+            let storage = crate::storage::VectorStorage::new(&path, 6)?;
+            storage.insert(&one_vector("a", 6))?;
+            assert!(storage.load_config()?.is_none());
+        }
+        let err = open_checked_err(
+            persisted_options(&path, 4, DistanceMetric::Cosine),
+            ConfigCheck::ALL,
+        );
+        assert!(
+            err.contains("dimensions: stored vectors have 6, requested 4"),
+            "{err}"
+        );
+        // The rejected open must not stamp the wrong config into the file.
+        assert!(crate::storage::VectorStorage::new(&path, 6)?
+            .load_config()?
+            .is_none());
+
+        let db = VectorDB::open_checked(
+            persisted_options(&path, 6, DistanceMetric::Cosine),
+            ConfigCheck::ALL,
+        )?;
+        assert_eq!(db.len()?, 1);
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "storage")]
+    fn memory_stores_are_isolated_across_dimensions() -> Result<()> {
+        let a = VectorDB::new(persisted_options("memory://", 256, DistanceMetric::Cosine))?;
+        let b = VectorDB::new(persisted_options("memory://", 4, DistanceMetric::Cosine))?;
+        a.insert(one_vector("x", 256))?;
+        b.insert(one_vector("y", 4))?;
+        assert_eq!(a.len()?, 1);
+        assert_eq!(b.len()?, 1);
+        assert!(b.get("x")?.is_none(), "memory stores must not share data");
         Ok(())
     }
 }
