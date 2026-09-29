@@ -286,7 +286,7 @@ pub async fn drop<B: M3Backend>(b: &B, ctx: &CallerContext, name: &str, now: u64
     for i in service::count_of(&e)?.indices() {
         let dm = service::shard_meta(ctx, &e, i)?;
         let req = serde_json::to_string(&WipeRequest::for_shard(&dm)).map_err(|_| unavailable())?;
-        let text = b.call_shard(&dm.do_name(), req).await?;
+        let text = crate::quant_route::wipe_for(b, &e, &dm, req).await?;
         let d = match serde_json::from_str::<Reply<DeltaWire>>(&text) {
             Ok(Ok(d)) => d,
             Ok(Err(e)) => return Err(e.into_op()),

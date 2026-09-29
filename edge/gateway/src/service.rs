@@ -290,7 +290,7 @@ pub async fn collection_get<B: Backend>(c: &Call<'_, B>, raw: &str) -> Exec {
     let (mut count, mut resident, mut snapshot_seq) = (0u64, 0u64, 0u64);
     for i in count_of(&e)?.indices() {
         let dm = shard_meta(c.ctx, &e, i)?;
-        match crate::backend::shard(c.b, &dm, ShardCall::Stats).await {
+        match crate::quant_route::shard_for(c.b, &e, &dm, ShardCall::Stats).await {
             Ok(ShardOut::Stats {
                 count: n,
                 resident_bytes,

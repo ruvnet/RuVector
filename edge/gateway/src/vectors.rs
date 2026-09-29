@@ -13,7 +13,8 @@
 //! applied is refunded; a shard write whose effect is unknown (transport
 //! failure) stays charged — a conservative over-count, never an under-count.
 
-use crate::backend::{shard, Backend, ShardErr};
+use crate::backend::{Backend, ShardErr};
+use crate::quant_route::shard_for;
 use crate::service::{
     args, charge, correct, count_of, lookup, one_op, route, shard_meta, unexpected, Call, Exec,
 };
@@ -101,7 +102,10 @@ pub(crate) async fn upsert<B: Backend>(c: &Call<'_, B>, raw: &str) -> Exec {
             cfg: e.cfg.clone(),
             rows: rows.clone(),
         };
-        let delta = match shard(c.b, &dm, call).await.map_err(ShardErr::into_op)? {
+        let delta = match shard_for(c.b, &e, &dm, call)
+            .await
+            .map_err(ShardErr::into_op)?
+        {
             ShardOut::Planned { delta } => delta,
             _ => return Err(unexpected()),
         };
@@ -134,7 +138,7 @@ pub(crate) async fn upsert<B: Backend>(c: &Call<'_, B>, raw: &str) -> Exec {
             actor: actor(c),
             now: c.now,
         };
-        let applied = match shard(c.b, dm, call).await {
+        let applied = match shard_for(c.b, &e, dm, call).await {
             Ok(ShardOut::Written {
                 write_seq: s,
                 delta,
@@ -200,7 +204,10 @@ pub(crate) async fn query<B: Backend>(c: &Call<'_, B>, raw: &str) -> Exec {
             req: req.clone(),
             steps_before: steps,
         };
-        let out = match shard(c.b, &dm, call).await.map_err(ShardErr::into_op) {
+        let out = match shard_for(c.b, &e, &dm, call)
+            .await
+            .map_err(ShardErr::into_op)
+        {
             Ok(out) => out,
             Err(err) => {
                 // Scans already done (e.g. up to `budget_exceeded`) count.
@@ -264,7 +271,10 @@ pub(crate) async fn fetch<B: Backend>(c: &Call<'_, B>, raw: &str) -> Exec {
             ids: part,
             include_values,
         };
-        match shard(c.b, &dm, call).await.map_err(ShardErr::into_op)? {
+        match shard_for(c.b, &e, &dm, call)
+            .await
+            .map_err(ShardErr::into_op)?
+        {
             ShardOut::Fetched { matches } => {
                 found.extend(matches.into_iter().map(|m| (m.id.clone(), m)));
             }
@@ -323,7 +333,7 @@ pub(crate) async fn delete<B: Backend>(c: &Call<'_, B>, raw: &str) -> Exec {
             dry_run: c.dry_run,
             now: c.now,
         };
-        let (err, applied) = match shard(c.b, &dm, call).await {
+        let (err, applied) = match shard_for(c.b, &e, &dm, call).await {
             Ok(ShardOut::Written {
                 count,
                 write_seq: s,

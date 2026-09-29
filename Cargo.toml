@@ -60,6 +60,8 @@ members = [
     "crates/ruvector-edge-index",
     "crates/ruvector-edge-registry",
     "crates/ruvector-edge-snapshot",
+    "crates/ruvector-edge-analytics",
+    "crates/ruvector-edge-quant",
     "crates/ruvector-bounded-rag",
     "crates/ruvector-temporal-coherence",
     "crates/ruvector-acorn",

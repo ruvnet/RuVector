@@ -253,6 +253,7 @@ pub async fn restore<B: M3Backend, R: Blob, Q: Queues>(
 ) -> Result<(u16, Json), OpError> {
     m.require(Capability::Admin, Role::Owner).await?;
     let e = m.collection(collection).await?;
+    crate::quant_route::refuse_m3(&e)?;
     let epoch: u64 = id.parse().map_err(|_| OpError::not_found())?;
     let t = m.ctx.tenant_key();
     let rec = kv_get(m.b, t, Ns::Snapshot, &snap_key(&e.uid, epoch))

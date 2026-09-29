@@ -18,11 +18,30 @@ use ruvector_edge_store::{
 use ruvector_edge_tenancy::{CollectionUid, DoMeta, ShardIndex, TenantKey};
 use std::collections::BTreeMap;
 
+/// `VectorShard`'s share of the 56 MB isolate resident cap (§6.1): the
+/// isolate may also host `QuantShard`s and `GraphStore`s (M4), each with
+/// its own explicit share (16 MB, 12 MB). Two full 14 MB shards fit.
+/// 28 + 16 + 12 = 56: the other DOs of this script take no resident share.
+/// `RegistryRoot` / `RegistryScope` (M5), `AnalyticsJob` and the M3 `/m3`
+/// side channel keep their state in SQLite and hold only per-request
+/// buffers (bounded by the body caps), which with `TenantLedger`'s cached
+/// ledger live in the headroom between the 56 MB cap and the isolate limit.
+pub const VECTOR_RESIDENT_CAP_BYTES: u64 = 28_000_000;
+
 /// Resident shard states of one isolate plus the eviction registry.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ShardHost {
     registry: ResidentRegistry,
     shards: BTreeMap<String, VectorShard>,
+}
+
+impl Default for ShardHost {
+    fn default() -> Self {
+        ShardHost {
+            registry: ResidentRegistry::new(VECTOR_RESIDENT_CAP_BYTES),
+            shards: BTreeMap::new(),
+        }
+    }
 }
 
 impl ShardHost {

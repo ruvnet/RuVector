@@ -31,6 +31,14 @@ mod backend;
 mod blob_r2;
 mod config;
 mod durable;
+mod durable_m4;
+mod graph_cypher;
+mod graph_mcp;
+mod graph_mincut;
+mod graph_persist;
+mod graph_routes;
+mod graph_store;
+mod graph_wire;
 mod idem;
 mod keys;
 mod ledger_core;
@@ -54,8 +62,17 @@ mod m3_shard;
 mod m3_transport;
 mod m3_wire;
 mod mcp;
+mod mincut_core;
+mod mincut_job;
+mod mincut_routes;
 mod ops;
 mod platform;
+mod quant_load;
+mod quant_query;
+mod quant_route;
+mod quant_shard;
+mod quant_store;
+mod quant_write;
 mod queue_consumer;
 mod registry_core;
 mod registry_do;
@@ -114,6 +131,10 @@ mod e2e_tests;
 #[cfg(test)]
 mod e2e_world;
 #[cfg(test)]
+mod graph_free_tests;
+#[cfg(test)]
+mod graph_tests;
+#[cfg(test)]
 mod m3_budget_tests;
 #[cfg(test)]
 mod m3_embed_audit_tests;
@@ -130,9 +151,23 @@ mod m3_review_tests;
 #[cfg(test)]
 mod m3_snapshot_tests;
 #[cfg(test)]
+mod m4_mem;
+#[cfg(test)]
+mod m4_merge_tests;
+#[cfg(test)]
 mod mcp_tests;
 #[cfg(test)]
+mod mincut_free_tests;
+#[cfg(test)]
+mod mincut_tests;
+#[cfg(test)]
 mod ops_tests;
+#[cfg(test)]
+mod quant_e2e_tests;
+#[cfg(test)]
+mod quant_free_tests;
+#[cfg(test)]
+mod quant_tests;
 #[cfg(test)]
 mod registry_mem;
 #[cfg(test)]
@@ -153,5 +188,7 @@ mod rvf_surface_tests;
 mod rvf_upload_tests;
 #[cfg(test)]
 mod service_tests;
+#[cfg(test)]
+mod sqlite_mem;
 #[cfg(test)]
 mod testkit;

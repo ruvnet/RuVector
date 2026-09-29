@@ -87,6 +87,22 @@ class_name = "TenantLedger"
 name = "VECTOR_SHARD"
 class_name = "VectorShard"
 
+# ADR-351 M4 (§3 rv-quant / rv-graph / rv-mincut): same addressing rule
+# (idFromName of a name derived from the verified tenant key: QuantShard
+# DoMeta(service = quant), GraphStore / AnalyticsJob do_name(tenant,
+# graph | mincut, uid(name | job id), 0)); no public route reaches them.
+[[durable_objects.bindings]]
+name = "QUANT_SHARD"
+class_name = "QuantShard"
+
+[[durable_objects.bindings]]
+name = "GRAPH_STORE"
+class_name = "GraphStore"
+
+[[durable_objects.bindings]]
+name = "ANALYTICS_JOB"
+class_name = "AnalyticsJob"
+
 # Append-only: never edit or reorder an applied tag (ADR-351 §16.4).
 [[migrations]]
 tag = "v1"
@@ -110,6 +126,12 @@ class_name = "RegistryScope"
 [[migrations]]
 tag = "v2-registry"
 new_sqlite_classes = ["RegistryRoot", "RegistryScope"]
+
+# M4 classes (ADR-351 §3 rv-quant / rv-graph / rv-mincut). Appended after the
+# applied v1 and v2-registry tags; this tag only ever adds these three classes.
+[[migrations]]
+tag = "v-m4-quant-graph"
+new_sqlite_classes = ["QuantShard", "GraphStore", "AnalyticsJob"]
 
 # ONE bucket binding for every server-derived key prefix (ADR-351 §6.3):
 # M5 RVF package blobs, registry upload staging (R2 multipart) and manifest

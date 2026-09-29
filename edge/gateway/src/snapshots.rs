@@ -156,6 +156,7 @@ pub async fn create<B: M3Backend, R: Blob, Q: Queues>(
 ) -> Result<(u16, Json), OpError> {
     m.require(Capability::Write, Role::Editor).await?;
     let e = m.collection(collection).await?;
+    crate::quant_route::refuse_m3(&e)?;
     let shards = count_of(&e)?;
     m.charge(1 + u64::from(shards.get())).await?;
     // Before the epoch is taken: a refused snapshot burns nothing.

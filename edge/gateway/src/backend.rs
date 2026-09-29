@@ -36,6 +36,21 @@ pub trait Backend {
         let _ = (ctx, extra);
         Ok(())
     }
+    /// POST `body` to one `QuantShard` (M4 rv-quant). Unbound: unavailable.
+    async fn call_quant(&self, name: &DoName, body: String) -> Result<String, OpError> {
+        let _ = (name, body);
+        Err(unavailable())
+    }
+    /// POST `body` to one `GraphStore` (M4 rv-graph). Unbound: unavailable.
+    async fn call_graph(&self, name: &DoName, body: String) -> Result<String, OpError> {
+        let _ = (name, body);
+        Err(unavailable())
+    }
+    /// POST `body` to one `AnalyticsJob` (M4 rv-mincut). Unbound: unavailable.
+    async fn call_job(&self, name: &DoName, body: String) -> Result<String, OpError> {
+        let _ = (name, body);
+        Err(unavailable())
+    }
 }
 
 /// Why a shard call failed.
@@ -143,6 +158,8 @@ pub mod mem {
         /// When set, query fan-out and import batches are charged here
         /// (§10 layer 2).
         pub fanout_limiter: Option<crate::api::ratelimit::mem::CountingLimiter>,
+        /// M4 DOs (`QuantShard`, `GraphStore`, `AnalyticsJob`).
+        pub m4: crate::m4_mem::M4Mem,
     }
 
     impl MemBackend {
@@ -161,6 +178,7 @@ pub mod mem {
                 entropy: CounterEntropy(Cell::new(7)),
                 shard_down: Cell::new(false),
                 fanout_limiter: None,
+                m4: Default::default(),
             }
         }
 
@@ -197,6 +215,7 @@ pub mod mem {
             for (_, l) in self.ledgers.borrow_mut().values_mut() {
                 *l = None;
             }
+            self.m4.restart();
         }
     }
 
@@ -239,6 +258,21 @@ pub mod mem {
                 }),
                 None => Ok(()),
             }
+        }
+
+        async fn call_quant(&self, name: &DoName, body: String) -> Result<String, OpError> {
+            if self.shard_down.get() {
+                return Err(crate::wire::unavailable());
+            }
+            Ok(self.m4.quant(name.as_str(), body.as_bytes()))
+        }
+
+        async fn call_graph(&self, name: &DoName, body: String) -> Result<String, OpError> {
+            Ok(self.m4.graph(name.as_str(), body.as_bytes()))
+        }
+
+        async fn call_job(&self, name: &DoName, body: String) -> Result<String, OpError> {
+            Ok(self.m4.job(name.as_str(), body.as_bytes()))
         }
 
         async fn call_shard(&self, name: &DoName, body: String) -> Result<String, OpError> {

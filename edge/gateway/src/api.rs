@@ -13,7 +13,7 @@ use crate::platform::WorkerClock;
 use crate::rest::admin::deny_check;
 use crate::rest::{self, ApiReply, ApiRoute, Caller};
 use crate::routes::Route;
-use crate::{mcp, ops, respond};
+use crate::{graph_routes, mcp, ops, respond};
 use ratelimit::{Class, EnvLimiter, Limiter};
 use ruvector_edge_auth::{prm, Clock};
 use ruvector_edge_store::{CallerContext, ErrorCode, OpError};
@@ -225,7 +225,10 @@ pub async fn serve(
         return crate::registry_http::serve(req, env, cfg, r, caller, now).await;
     }
     let Some(api) = rest::parse(&method, &path) else {
-        return respond::problem(ProblemCode::NotFound, None);
+        let Some(g) = graph_routes::parse(&method, &path) else {
+            return respond::problem(ProblemCode::NotFound, None);
+        };
+        return serve_graph(req, env, &backend, &caller, &g, now, &md).await;
     };
     let Some(body) = body(&mut req).await? else {
         return too_large(&md);
@@ -237,6 +240,32 @@ pub async fn serve(
     }
     let key = req.headers().get("Idempotency-Key").ok().flatten();
     render(data(&backend, cfg, &api, &caller, &body, key.as_deref(), now).await)
+}
+
+/// A graph / min-cut route (M4): body, the extra write charge of a
+/// mutating Cypher query, then `graph_routes::handle`.
+async fn serve_graph(
+    mut req: Request,
+    env: &Env,
+    backend: &DoBackend<'_>,
+    caller: &Caller,
+    g: &graph_routes::GraphRoute,
+    now: u64,
+    md: &str,
+) -> Result<Response> {
+    let Some(body) = body(&mut req).await? else {
+        return too_large(md);
+    };
+    if let Some(class) = graph_routes::extra_class(g, &body) {
+        if let Err(s) = ratelimit::admit(&EnvLimiter(env), class, &caller.ctx).await {
+            return refused(Refused {
+                reply: ratelimit::limited(md),
+                retry_after: Some(s),
+            });
+        }
+    }
+    let entropy = crate::durable::WorkerEntropy;
+    render(graph_routes::handle(backend, caller, g, &body, now, md, &entropy).await)
 }
 
 /// Read the body, `None` once it exceeds [`MAX_BODY_BYTES`]. Streamed and

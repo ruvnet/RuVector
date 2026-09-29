@@ -76,7 +76,7 @@ fn part_uploads_exhaust_the_user_write_budget() {
 }
 
 #[test]
-fn tools_list_has_the_data_tools_and_the_registry_tools() {
+fn tools_list_has_the_data_tools_the_graph_tools_and_the_registry_tools() {
     let w = World::new();
     let alice = w.owner("org-a", "alice");
     let d = w.deps();
@@ -104,14 +104,19 @@ fn tools_list_has_the_data_tools_and_the_registry_tools() {
             "collection_create",
             "vector_upsert",
             "vector_delete",
+            "graph_list",
+            "graph_query",
+            "graph_mutate",
+            "mincut",
             "rvf_list",
             "rvf_get",
             "rvf_import",
         ]
     );
-    // The data tools keep exactly the annotations `tools_list` gives them.
-    assert_eq!(&tools[..9], mcp::tools_list()["tools"].as_array().unwrap());
-    for t in &tools[9..] {
+    // The data and M4 graph tools keep exactly the entries `tools_list`
+    // gives them; the registry tools follow.
+    assert_eq!(&tools[..13], mcp::tools_list()["tools"].as_array().unwrap());
+    for t in &tools[13..] {
         let n = t["name"].as_str().unwrap();
         let a = &t["annotations"];
         let write = n == "rvf_import";

@@ -2,8 +2,9 @@
 //! the request path (ADR-351 §6.5; what is shipped: `audit` module docs).
 //!
 //! `serve` wraps `api::serve` for `/v1/…` (REST table incl. the M2 drop /
-//! members / deny routes, the M5 registry routes, `/v1/ops`) and `/v1/mcp`:
-//! the mutating REST and registry routes are named from the path; `/v1/ops`
+//! members / deny routes, the M5 registry routes, the M4 graph routes,
+//! `/v1/ops`) and `/v1/mcp`: the mutating REST, registry and graph routes are
+//! named from the path (a Cypher query from its cloned body); `/v1/ops`
 //! and `POST /v1/mcp` name their op / tool in the body, which is read from
 //! a clone (`Request::clone` tees the stream; both reads stay capped at
 //! 1 MiB). The event carries the HTTP status (an MCP tool error is a
@@ -18,6 +19,7 @@ use crate::api::{self, ratelimit::MUTATING_OPS};
 use crate::audit::AuditEvent;
 use crate::auth::Authenticated;
 use crate::config::GatewayConfig;
+use crate::graph_routes::{self, GraphRoute};
 use crate::m3_ports::{QueueName, Queues, WorkerQueues};
 use crate::platform::WorkerClock;
 use crate::registry_routes::{self, RvfRoute};
@@ -144,6 +146,35 @@ async fn peek(req: &Request, mcp: bool) -> Result<Option<(String, Capability)>> 
     Ok(body.and_then(|b| body_event(mcp, &b)))
 }
 
+/// Audit name of a mutating M4 graph route: create, edge import, and a
+/// Cypher query whose `body` mutates ([`graph_routes::extra_class`], the
+/// same test that charges it a write). Listings, reads, min-cut runs and
+/// job status are not audited. All need `ruvector:write`.
+pub fn graph_event(route: &GraphRoute, body: Option<&[u8]>) -> Option<&'static str> {
+    match route {
+        GraphRoute::Create => Some("graph.create"),
+        GraphRoute::Edges(_) => Some("graph.edges"),
+        GraphRoute::Cypher(_) => {
+            graph_routes::extra_class(route, body?).map(|_| "graph.cypher_mutate")
+        }
+        GraphRoute::List | GraphRoute::Get(_) | GraphRoute::Mincut | GraphRoute::Job(_) => None,
+    }
+}
+
+async fn peek_graph(req: &Request, g: &GraphRoute) -> Result<Option<(String, Capability)>> {
+    let body = match g {
+        GraphRoute::Cypher(_) => {
+            let mut copy = req.clone()?;
+            if copy.inner().body().is_none() {
+                return Ok(None);
+            }
+            api::read_capped(copy.stream()?, api::MAX_BODY_BYTES).await?
+        }
+        _ => None,
+    };
+    Ok(graph_event(g, body.as_deref()).map(|n| (n.to_string(), Capability::Write)))
+}
+
 /// `api::serve` plus one audit event for a mutating request.
 pub async fn serve(
     req: Request,
@@ -162,7 +193,11 @@ pub async fn serve(
             None => match rest::parse(&method, &path) {
                 Some(ApiRoute::Ops) => peek(&req, false).await?,
                 Some(r) => rest_event(&r).map(|(n, c)| (n.to_string(), c)),
-                None => None,
+                // M4 graph writes (off the REST table, as `api::serve`).
+                None => match graph_routes::parse(&method, &path) {
+                    Some(g) => peek_graph(&req, &g).await?,
+                    None => None,
+                },
             },
         },
         _ => None,

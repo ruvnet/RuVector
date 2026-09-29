@@ -85,7 +85,7 @@ fn m2_and_m5_writes_are_audited_and_their_reads_are_not() {
 }
 
 #[test]
-fn wrangler_binds_one_r2_bucket_the_queues_and_ai_and_no_new_classes() {
+fn wrangler_binds_one_r2_bucket_the_queues_and_ai_and_appends_only_m4_classes() {
     let toml = include_str!("../wrangler.toml");
     assert_eq!(crate::m3_ports::DATA_BINDING, crate::blob_r2::R2_BINDING);
     let r2: Vec<&str> = toml.split("[[r2_buckets]]").skip(1).collect();
@@ -100,12 +100,12 @@ fn wrangler_binds_one_r2_bucket_the_queues_and_ai_and_no_new_classes() {
     assert!(toml.contains("[ai]\nbinding = \"AI\""));
     // Default CPU limits: no `[limits]` table.
     assert!(!toml.lines().any(|l| l.trim() == "[limits]"));
-    // M3 adds no Durable Object class: the applied tags only.
+    // M3 adds no Durable Object class: the applied tags, then M4's, in order.
     let tags: Vec<&str> = toml
         .lines()
         .filter_map(|l| l.trim().strip_prefix("tag = "))
         .collect();
-    assert_eq!(tags, ["\"v1\"", "\"v2-registry\""]);
+    assert_eq!(tags, ["\"v1\"", "\"v2-registry\"", "\"v-m4-quant-graph\""]);
 }
 
 const DIM: usize = 384;

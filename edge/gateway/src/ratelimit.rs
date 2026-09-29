@@ -68,7 +68,8 @@ pub const BUDGETS: [(Class, Budget, Budget); 4] = [
 
 /// The class of an authenticated request: `mcp` for `/v1/mcp`, else the
 /// M3 route's ([`crate::m3_api::M3Route::class`]), the registry route's
-/// ([`rvf_class`]) or the REST route's ([`class_of`]).
+/// ([`rvf_class`]), the REST route's ([`class_of`]) or, off the REST table,
+/// the M4 graph / min-cut route's ([`crate::graph_routes::class`]).
 pub fn request_class(mcp: bool, method: &worker::Method, path: &str) -> Class {
     if mcp {
         return Class::Mcp;
@@ -76,9 +77,17 @@ pub fn request_class(mcp: bool, method: &worker::Method, path: &str) -> Class {
     if let Some(r) = crate::m3_api::parse(method, path) {
         return r.class();
     }
-    match crate::registry_routes::parse(method, path) {
-        Some(r) => rvf_class(&r),
-        None => class_of(crate::rest::parse(method, path).as_ref()),
+    if let Some(r) = crate::registry_routes::parse(method, path) {
+        return rvf_class(&r);
+    }
+    let api = crate::rest::parse(method, path);
+    // M4 graph / min-cut routes carry their own class (only off the REST table).
+    match api
+        .is_none()
+        .then(|| crate::graph_routes::parse(method, path))
+    {
+        Some(Some(g)) => crate::graph_routes::class(&g),
+        _ => class_of(api.as_ref()),
     }
 }
 
@@ -111,13 +120,15 @@ pub fn class_of(route: Option<&ApiRoute>) -> Class {
 }
 
 /// Ops that write, by their `/v1/ops` `op` / MCP tool name (`rvf_import`
-/// is the M5 registry tool, MCP only).
-pub const MUTATING_OPS: [&str; 5] = [
+/// is the M5 registry tool, `graph_mutate` the M4 graph tool; both MCP only).
+pub const MUTATING_OPS: [&str; 6] = [
     "collection_create",
     "vector_upsert",
     "vector_delete",
     "tenant_claim",
     "rvf_import",
+    // M4 (`graph_mcp`).
+    "graph_mutate",
 ];
 
 /// The class of an M5 registry route: pulls and listings are reads; scope

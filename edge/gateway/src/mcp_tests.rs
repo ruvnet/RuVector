@@ -40,7 +40,12 @@ fn tools_list_shape_and_annotations() {
             "tenant_claim",
             "collection_create",
             "vector_upsert",
-            "vector_delete"
+            "vector_delete",
+            // M4 (`graph_mcp`).
+            "graph_list",
+            "graph_query",
+            "graph_mutate",
+            "mincut"
         ]
     );
     for t in tools {
@@ -52,17 +57,23 @@ fn tools_list_shape_and_annotations() {
         assert_eq!(t["inputSchema"]["type"], json!("object"), "{n}");
         let ro = t["annotations"]["readOnlyHint"].as_bool().unwrap();
         let destructive = t["annotations"]["destructiveHint"].as_bool().unwrap();
-        let writes = ["collection_create", "vector_upsert", "vector_delete"].contains(&n);
+        let writes = [
+            "collection_create",
+            "vector_upsert",
+            "vector_delete",
+            "graph_mutate",
+        ]
+        .contains(&n);
         assert_eq!(ro, !writes && n != "tenant_claim", "{n}");
         let idem = t["annotations"]["idempotentHint"].as_bool().unwrap();
         assert_eq!(
             idem,
-            !["collection_create", "tenant_claim"].contains(&n),
+            !["collection_create", "tenant_claim", "graph_mutate"].contains(&n),
             "{n}"
         );
         assert_eq!(
             destructive,
-            n == "vector_upsert" || n == "vector_delete",
+            n == "vector_upsert" || n == "vector_delete" || n == "graph_mutate",
             "{n}"
         );
         let has_dry_run = t["inputSchema"]["properties"].get("dry_run").is_some();

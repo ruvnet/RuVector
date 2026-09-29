@@ -117,6 +117,7 @@ pub async fn export<B: M3Backend, R: Blob, Q: Queues>(
     m.require(Capability::Read, Role::Viewer).await?;
     let keys = redact_keys(query)?;
     let e = m.collection(collection).await?;
+    crate::quant_route::refuse_m3(&e)?;
     let shards = count_of(&e)?;
     m.charge(1 + u64::from(shards.get())).await?;
     // Before the multipart upload is opened.

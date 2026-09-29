@@ -310,6 +310,32 @@ impl Backend for DoBackend<'_> {
             .map_err(|_| unavailable())
     }
 
+    async fn call_quant(
+        &self,
+        name: &DoName,
+        body: String,
+    ) -> std::result::Result<String, OpError> {
+        self.post(crate::durable_m4::QUANT_BINDING, name, body)
+            .await
+            .map_err(|_| unavailable())
+    }
+
+    async fn call_graph(
+        &self,
+        name: &DoName,
+        body: String,
+    ) -> std::result::Result<String, OpError> {
+        self.post(crate::durable_m4::GRAPH_BINDING, name, body)
+            .await
+            .map_err(|_| unavailable())
+    }
+
+    async fn call_job(&self, name: &DoName, body: String) -> std::result::Result<String, OpError> {
+        self.post(crate::durable_m4::JOB_BINDING, name, body)
+            .await
+            .map_err(|_| unavailable())
+    }
+
     async fn charge_fanout(
         &self,
         ctx: &ruvector_edge_store::CallerContext,
