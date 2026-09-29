@@ -260,11 +260,49 @@
     {
       "id": "M3",
       "name": "Durability, ingest, embeddings, control plane, result pages (gated on G3)",
-      "status": "pending",
+      "status": "deployed_pending_G1",
       "gated_on": [
         "G3"
       ],
-      "criteria": "A kill-and-restore drill returns byte-identical results; cross-tenant restore, a tampered snapshot and a foreign upload_id are refused; a 100k-vector import stays within quota and the isolate cap; a global deny takes effect within 60 s; usage reconciles within 1%; a signed result page's witness verifies offline and a redacted key is absent; fuzzers run 1 h clean."
+      "criteria": "A kill-and-restore drill returns byte-identical results; cross-tenant restore, a tampered snapshot and a foreign upload_id are refused; a 100k-vector import stays within quota and the isolate cap; a global deny takes effect within 60 s; usage reconciles within 1%; a signed result page's witness verifies offline and a redacted key is absent; fuzzers run 1 h clean.",
+      "deployment": {
+        "date": "2026-09-29",
+        "source_commits": [
+          "69f023478 (M3 feature branch feat/ruvector-edge-m3-int)",
+          "f1959f942 (merge into feat/ruvector-edge-services; one R2 binding EDGE_DATA, M3 routes rate-limited + deny-listed, M2/M5 writes audited)",
+          "638b20b43 (inline :import cap 512 KiB; no audit on job/snapshot-list polls or 429s; m3_http split)",
+          "edb62a721 (synchronous snapshot/export/restore budget 2^18 floats, 413 before side effects; restore quota capped)",
+          "51688a913 (collection drop settles an interrupted restore journal)",
+          "905e0a825 (queued import: 1 MiB segment cap, write token per batch, deny/lookup before hash pass, stalled jobs fail before DLQ)",
+          "d35b760a7 (structural text probe on the M1 upsert/query path)",
+          "517589a01 (wrangler comment)"
+        ],
+        "account": "501c77f558c68152352b8ddfade9b854",
+        "gateway": "ruvector-edge-gateway version 07de745c-37aa-45a4-83e6-c3709b261dc8 (deployment 488975f5-9737-4077-b040-435a92d74643, 100%); 2992.97 KiB / 920.01 KiB gzip; startup 5 ms; bindings TENANT_LEDGER, VECTOR_SHARD, REGISTRY_ROOT, REGISTRY_SCOPE, INGEST_QUEUE, AUDIT_QUEUE, EDGE_DATA (R2 ruvector-edge-data, the single R2 binding), EDGE_AUTH, AI, 8 Rate Limiting bindings; consumer of ruvector-edge-ingest (max_retries 20, retry_delay 30, DLQ ruvector-edge-ingest-dlq) and ruvector-edge-audit (max_retries 10, retry_delay 30, DLQ ruvector-edge-audit-dlq); no [limits] block",
+        "migration": "none: M3 adds no Durable Object class (its tables live in TenantLedger / VectorShard behind /m3); live script migration_tag stays v2-registry",
+        "auth": "ruvector-edge-auth not redeployed (no auth-worker diff)",
+        "precondition": "Workers Paid for M3 data paths beyond small collections: the synchronous snapshot/export/restore are refused above 2^18 stored floats (682 rows at 384 dims) because one request processes the whole collection; queued imports run in bounded deliveries (512 KiB hash slices, 2 batches, <=1 MiB segments) sized for the Free 10 ms budget by arithmetic only (unmeasured on wasm); embeddings call Workers AI. Raising the sync budget, or making snapshot/export/restore resumable queued jobs, is the path to large collections."
+      },
+      "live_verification_2026-09-29": [
+        "GET /v1/health -> 200 {\"ok\":true}",
+        "Without token -> 401 with WWW-Authenticate resource_metadata=.../.well-known/oauth-protected-resource/v1: POST /v1/collections/c/snapshots, GET /v1/collections/c/snapshots, POST /v1/collections/c/snapshots/1:restore (the real restore route), POST /v1/collections/c:restore, POST /v1/collections/c:export, POST /v1/collections/c:import, GET /v1/jobs/x, GET /v1/exports/x, POST /v1/uploads, POST /v1/uploads/u/parts/1, POST /v1/uploads/u:complete",
+        "M2/M5 without token -> 401 (.../v1): GET /v1/collections, POST /v1/collections, DELETE /v1/collections/c, GET /v1/tenant/members, POST /v1/collections/c/vectors:upsert, POST /v1/collections/c/query, POST /v1/collections/c:import-rvf, GET /v1/rvf/scopes; POST /v1/mcp -> 401 (.../v1/mcp); both PRMs -> 200",
+        "Pre-auth body caps: 600 KB octet-stream :import -> 413; 2 MB upload part -> 401 (allowed size, then auth)",
+        "Queues (wrangler queues info + API): ruvector-edge-ingest and ruvector-edge-audit each have producer and consumer worker:ruvector-edge-gateway",
+        "cognitum-consultant-email-staging-* (7 scripts) modified_on/etag and their 4 queues (producers/consumers) identical before and after the deploy (Cloudflare API); only ruvector-edge-gateway changed; ruvector-edge-* have 0 custom domains"
+      ],
+      "evidence": {
+        "tests": "Root edge crates 562/0 (auth, authz, tenancy, store, index, registry, snapshot); edge workspace 227/0 (gateway 157, auth-worker 70); cargo fmt --check clean; clippy -D warnings clean native (--all-targets) and wasm32-unknown-unknown, both workspaces; wrangler deploy --dry-run OK (gateway, auth); no .rs file >= 500 lines",
+        "review_findings": [
+          "HIGH mitigated: synchronous snapshot/export/restore not resumable -> refused 413 above 2^18 floats before any epoch, multipart upload or journal (Stats pre-check + read meter); restore quota capped at the same budget (undoes the merge raising it to the M2 shard cap). Resumable jobs remain future work.",
+          "HIGH fixed: inline :import hashed up to 8 MiB in the request -> cap 512 KiB (parts keep 8 MiB).",
+          "MEDIUM fixed: per-delivery O(record) re-read -> queued segments capped at 1 MiB (gateway export sized to fit); stalled jobs (15 deliveries without a batch) fail before the DLQ and release their upload.",
+          "MEDIUM fixed: collection drop leaked the admitted growth of an interrupted restore -> drop settles a stale journal before the wipe, 409 while a restore is live.",
+          "MEDIUM fixed by budget: restore Commit rows in one DO turn bounded by the sync budget.",
+          "MEDIUM fixed: queue volume -> job/snapshot-list polls and 429 refusals no longer audited; M1/M2/M3/M5 writes still ship one message each (deliberate).",
+          "LOW fixed: text detection is structural (no Value tree); queued batches pay write tokens; deny/lookup before the hash pass."
+        ]
+      }
     },
     {
       "id": "M4",
@@ -336,7 +374,10 @@
     "G4 upstream crate PRs gate M2b and M4; team tenancy (G5) still needs an upstream org selector or org-role claim.",
     "workers.dev hosts are the issuer and audiences until G6; moving hosts changes every aud and forces a re-login for all clients and adapters.",
     "2026-09-29: the Workers API refused limits.cpu_ms with 'CPU limits are not supported for the Free plan' (code 100328): the account appears to be on Workers Free, whose per-invocation CPU limit is far below what an HNSW batch insert, a flush of a large shard or an alarm rebuild needs. G2 lists Workers Paid; confirm the plan before load-testing M2 live.",
-    "2026-09-29 (M5): registry uploads/finalize/import hash up to 16-64 MiB per request and need Workers Paid (30 s default CPU); on the current Workers Free account (10 ms) they are expected to fail with 1102. Deployed anyway (unauthenticated surfaces verified); upgrade to Workers Paid before any live registry write or G1 load test. Free-plan DO CPU figure unverified."
+    "2026-09-29 (M5): registry uploads/finalize/import hash up to 16-64 MiB per request and need Workers Paid (30 s default CPU); on the current Workers Free account (10 ms) they are expected to fail with 1102. Deployed anyway (unauthenticated surfaces verified); upgrade to Workers Paid before any live registry write or G1 load test. Free-plan DO CPU figure unverified.",
+    "2026-09-29 (M3): every CPU figure behind the M3 budgets (512 KiB inline hash, 2^18-float sync snapshot/export/restore, 1 MiB segment re-verify per delivery, 2 batches per delivery) is arithmetic (~100 MB/s wasm SHA-256), not measured on wasm; on Workers Free some requests may still exceed 10 ms. SHAKE256 (checksum_algo 2) segments are accepted and cost more per re-verify.",
+    "2026-09-29 (M3): Queues operations are account-wide; every write (M1/M2/M3/M5) ships one audit message and an import re-enqueues every 2 batches / 512 KiB hash slice. If the account is on a Free Queues allowance, a busy day can exhaust it and new imports fail with enqueue failed. Verify the plan before G1.",
+    "2026-09-29 (M3): the R2 bucket has lifecycle rules for exports/ (1 day) and aborted multipart (7 days) but none for staging/ (shared with the M5 registry sweep), so unconsumed M3 import uploads are not reclaimed although wrangler.toml says 3 days."
   ],
   "drift_detection": {
     "scope_drift": "Flag if work expands beyond the edge AS, rv-gateway and the services in ADR §3 (rv-vector, TenantLedger, rv-snapshot, rv-embed, rv-ingest, rv-quant, rv-graph, rv-mincut, rv-registry, rv-mcp, /v1/results signed result pages) plus the §16 adapter contract (/v1/ops, RFC 8693 exchange for adapter clients), or touches Cloudflare resources/OAuth provider settings without a listed gate (G1-G6) being explicitly approved.",
@@ -385,6 +426,11 @@
       "date": "2026-09-29",
       "summary": "M5 RVF registry merged into edge services (0948584ad), review fixes 06d6e510a (finalize driven in one request, job kept on cancel), dfdb783d0 (import write budget per batch), 66ea39938 (CORS); gateway deployed f24ff298 (deployment 352c51dc), migration v1 -> v2-registry applied; auth unchanged; unauthenticated surfaces verified live; staging scripts unchanged.",
       "next": "Move the account to Workers Paid, then exercise a live registry upload/finalize/import (G1); merge M3 and M4 branches."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "M3 (69f023478) merged into edge services (f1959f942) with one R2 binding; review fixes 638b20b43, edb62a721, 51688a913, 905e0a825, d35b760a7; gateway deployed 07de745c (deployment 488975f5) with ingest + audit queue consumers, AI and EDGE_DATA; no migration (tag stays v2-registry); unauthenticated M3/M2/M5 surfaces verified live; email staging untouched.",
+      "next": "Move the account to Workers Paid, then run a live snapshot/restore drill and a queued import (G1); make snapshot/export/restore resumable queued jobs; merge M4."
     }
   ],
   "gates_registry_status": {
