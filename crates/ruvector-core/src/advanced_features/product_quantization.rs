@@ -254,7 +254,7 @@ impl EnhancedPQ {
             .collect();
 
         // Sort by distance (ascending)
-        distances.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        distances.sort_by(|a, b| a.1.total_cmp(&b.1));
 
         // Return top-k
         Ok(distances.into_iter().take(k).collect())

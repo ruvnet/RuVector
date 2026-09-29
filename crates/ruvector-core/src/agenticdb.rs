@@ -661,7 +661,7 @@ impl AgenticDB {
         }
 
         // Sort by utility score (descending)
-        utility_results.sort_by(|a, b| b.utility_score.partial_cmp(&a.utility_score).unwrap());
+        utility_results.sort_by(|a, b| b.utility_score.total_cmp(&a.utility_score));
         utility_results.truncate(k);
 
         Ok(utility_results)

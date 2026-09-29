@@ -179,11 +179,11 @@ impl VamanaGraph {
                 }
             }
             if results.len() > list_size * 2 {
-                results.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                results.sort_by(|a, b| a.0.total_cmp(&b.0));
                 results.truncate(list_size);
             }
         }
-        results.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        results.sort_by(|a, b| a.0.total_cmp(&b.0));
         results.truncate(list_size);
         (
             results.iter().map(|r| r.1).collect(),
@@ -199,7 +199,7 @@ impl VamanaGraph {
             .filter(|&&c| c != node_id)
             .map(|&c| (l2_sq(nv, &self.vectors[c as usize]), c))
             .collect();
-        scored.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        scored.sort_by(|a, b| a.0.total_cmp(&b.0));
         let mut sel: Vec<u32> = Vec::new();
         for (d2n, cand) in scored {
             if sel.len() >= self.config.max_degree {
@@ -290,11 +290,11 @@ impl DiskIndex {
                 }
             }
             if results.len() > beam_width * 2 {
-                results.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                results.sort_by(|a, b| a.0.total_cmp(&b.0));
                 results.truncate(beam_width);
             }
         }
-        results.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        results.sort_by(|a, b| a.0.total_cmp(&b.0));
         results.truncate(top_k);
         (results.iter().map(|r| (r.1, r.0)).collect(), stats)
     }
@@ -349,7 +349,7 @@ impl DiskIndex {
                 }
             }
         }
-        results.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        results.sort_by(|a, b| a.0.total_cmp(&b.0));
         results.truncate(top_k);
         results.iter().map(|r| (r.1, r.0)).collect()
     }
@@ -455,10 +455,7 @@ impl PartialOrd for OrdF32Pair {
 }
 impl Ord for OrdF32Pair {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0
-            .partial_cmp(&other.0)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then(self.1.cmp(&other.1))
+        self.0.total_cmp(&other.0).then(self.1.cmp(&other.1))
     }
 }
 
@@ -495,6 +492,19 @@ mod tests {
         let g = VamanaGraph::build(v, default_cfg(8, 30)).unwrap();
         let r = g.search(&[0.0; 4], 3);
         assert!(r.iter().any(|&(id, _)| id == 20));
+    }
+
+    #[test]
+    fn non_finite_query_never_panics_in_memory_or_disk_search() {
+        let graph = VamanaGraph::build(make_vecs(5, 2), default_cfg(4, 8)).unwrap();
+        assert_eq!(graph.search(&[f32::NAN, 0.0], 3).len(), 3);
+
+        let mut disk = DiskIndex::from_graph(&graph, 4);
+        assert_eq!(disk.search_disk(&[f32::NAN, 0.0], 3, 8).0.len(), 3);
+        assert_eq!(
+            disk.search_with_filter(&[f32::NAN, 0.0], |_| true, 3).len(),
+            3
+        );
     }
 
     #[test]
