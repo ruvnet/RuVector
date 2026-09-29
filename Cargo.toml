@@ -58,6 +58,7 @@ members = [
     "crates/ruvector-edge-authz",
     "crates/ruvector-edge-store",
     "crates/ruvector-edge-index",
+    "crates/ruvector-edge-snapshot",
     "crates/ruvector-bounded-rag",
     "crates/ruvector-temporal-coherence",
     "crates/ruvector-acorn",
