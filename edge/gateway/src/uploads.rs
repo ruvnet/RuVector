@@ -30,12 +30,14 @@ pub const PART_BYTES: u64 = 8 << 20;
 pub const MAX_UPLOAD_BYTES: u64 = 1 << 30;
 /// Largest upload part body (R2 multipart parts are [`PART_BYTES`]).
 pub const MAX_PART_BODY: usize = 8 << 20;
-/// Largest inline import body. The inline path hashes the body in the
-/// request (so R2 stores its checksum): 512 KiB keeps that near the
-/// Workers Free 10 ms CPU budget (~100 MB/s wasm SHA-256, an estimate);
-/// larger imports use an upload session,
-/// whose sha256 pass runs in the queue consumer in bounded slices.
-pub const MAX_INLINE_BYTES: usize = 512 << 10;
+/// Largest inline import body: [`MAX_PART_BODY`], the body size the isolate
+/// budget already accepts for an upload part (body plus its JS/wasm copy,
+/// ≈ 16 MiB transient). The inline path hashes the body in the request (so
+/// R2 stores its checksum): at ≈ 100 MB/s wasm SHA-256 (native soft
+/// SHA-256 ≈ 268 MB/s) 8 MiB is ≈ 84 ms, < 1 % of the Workers Paid 30 s
+/// `cpu_ms`. Larger imports use an upload session, whose sha256 pass runs
+/// in the queue consumer in bounded slices. (Free: 512 KiB.)
+pub const MAX_INLINE_BYTES: usize = MAX_PART_BODY;
 
 /// A stored upload session.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

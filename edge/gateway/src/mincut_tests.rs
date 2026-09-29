@@ -261,7 +261,7 @@ fn exhausted_budgets_are_413_never_500() {
         .edge_as
         .user_token("alice", "org-g", &w.mcp(), &["ruvector:read"]);
     let call = json!({ "jsonrpc": "2.0", "id": 3, "method": "tools/call",
-        "params": { "name": "mincut", "arguments": { "edges": body(&k320()[..20_000]) } } });
+        "params": { "name": "mincut", "arguments": { "edges": body(&k320()) } } });
     let r: Json =
         serde_json::from_str(&w.send(&om, Method::Post, "/v1/mcp", call, None).body).unwrap();
     let text = r["result"]["content"][0]["text"]

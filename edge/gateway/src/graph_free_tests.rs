@@ -1,7 +1,7 @@
 //! rv-graph hardening (ADR-351 §10, M4 review): Cypher text that would hang
 //! or overflow rvlite's parser is `400` on every entry point (REST, MCP
 //! `graph_query`, `graph_mutate` and its `dry_run`), before any
-//! authorization; the Workers-Free graph limits are `413` before the work;
+//! authorization; the graph limits are `413` before the work;
 //! and a stored graph's min-cut digest does not depend on the resident
 //! graph's history.
 
@@ -99,7 +99,7 @@ fn parameters_and_deep_nesting_are_400_everywhere() {
 }
 
 #[test]
-fn free_graph_limits_are_413_before_the_work() {
+fn graph_limits_are_413_before_the_work() {
     let (w, tok) = owner_world();
     w.ok(&tok, Method::Post, "/v1/graphs", json!({ "name": "g" }));
     let too_many: Vec<Json> = (0..=MAX_BULK_EDGES)
@@ -107,6 +107,25 @@ fn free_graph_limits_are_413_before_the_work() {
         .collect();
     let r = status(&w, &tok, "/v1/graphs/g/edges", json!({ "edges": too_many }));
     assert_eq!(r, (413, "payload_too_large".into()));
+    // Exactly the cap is one request (Workers Paid: 5,000; Free: 1,000),
+    // over 1k nodes so the state (≈ 800 KB) stays under MAX_STATE_BYTES.
+    w.ok(&tok, Method::Post, "/v1/graphs", json!({ "name": "h" }));
+    let at_cap: Vec<Json> = (0..MAX_BULK_EDGES)
+        .map(|i| {
+            json!([
+                format!("v{}", i % 1_000),
+                format!("v{}", (i * 7 + 1) % 1_000)
+            ])
+        })
+        .collect();
+    let v = w.ok(
+        &tok,
+        Method::Post,
+        "/v1/graphs/h/edges",
+        json!({ "edges": at_cap }),
+    );
+    assert_eq!(v["edges"], json!(MAX_BULK_EDGES), "{v}");
+    assert!(v["state_bytes"].as_u64().unwrap() <= MAX_STATE_BYTES, "{v}");
     w.ok(
         &tok,
         Method::Post,

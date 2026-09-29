@@ -28,14 +28,15 @@ use std::collections::BTreeMap;
 /// | holder | bytes | why bounded |
 /// |---|---|---|
 /// | resident caps 28 + 16 + 12 | 56 MB | LRU registries |
-/// | one `AnalyticsJob` turn | ≤ 32 MiB (33.6 MB) | `mincut_core::EDGE_JOB`, admit and solve each one synchronous turn (no await inside), so at most one job peak is live per isolate |
-/// | one `RegistryScope` finalize part (M5) | ≤ 16 MiB × 2 (33.6 MB) | the JS copy plus the wasm copy of one staged part, held across awaits |
+/// | one synchronous analytics turn: an `AnalyticsJob` turn (≤ 32 MiB) **or** a request-path min-cut (`EDGE_INLINE`, ≤ 16 MiB, Workers Paid) | ≤ 32 MiB (33.6 MB) | `mincut_core::EDGE_JOB` / `EDGE_INLINE`; admit, solve and the inline route are each one synchronous turn (no await inside), so at most one of them is live per isolate |
+/// | one `RegistryScope` part (M5): upload or finalize | ≤ 8 MiB × 2 (16.8 MB) | the JS copy plus the wasm copy of one part, held across awaits (`registry_core::gateway_config`, 16 MiB before Workers Paid) |
+/// | one 8 MiB gateway transfer (Workers Paid): inline `:import` body (`uploads::MAX_INLINE_BYTES`), upload part, ingest hash-pass range (`ingest_hash::HASH_BYTES_PER_DELIVERY`), queued-import tail or record (`ingest::TAIL_BYTES`, `QUEUED_MAX_SEGMENT_PAYLOAD`) | ≤ 8 MiB × 2 (16.8 MB) | the JS copy plus the wasm copy, held across awaits; `api::read_capped` never reserves past its cap |
 /// | total | ≈ 123 MB | ~5 MB left for `TenantLedger`'s cache, 1 MiB request bodies and the runtime |
 ///
-/// Not bounded by this table: a second `RegistryScope` finalize step in
-/// the same isolate at the same time (+33.6 MB, over the limit). Accepted
-/// because registry finalize already requires Workers Paid (its hashing
-/// exceeds Free's 10 ms), recorded as a residual risk.
+/// Not bounded by this table: a second registry part or 8 MiB transfer in
+/// the same isolate at the same time (+16.8 MB each, over the limit once
+/// both happen). Accepted and recorded as an ADR-351 residual risk; the
+/// Free-plan values of those paths were ≤ 1 MiB.
 pub const VECTOR_RESIDENT_CAP_BYTES: u64 = 28_000_000;
 
 /// Resident shard states of one isolate plus the eviction registry.

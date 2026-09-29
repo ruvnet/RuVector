@@ -8,9 +8,10 @@
 //!
 //! 1. **admit**: parse and canonicalise the edge list, encode it in the
 //!    analytics crate's persisted format (versioned, sha256-checksummed,
-//!    ≤ 32k-edge chunks, one row each), decode it back and
-//!    `JobDescriptor::submit` against `Profile::JOB` (a `413` here is a
-//!    `failed` job with `budget_exceeded` / `payload_too_large`);
+//!    ≤ 32k-edge chunks, one row each), decode it back, plan it against
+//!    [`mc::EDGE_JOB`] and `JobDescriptor::submit` (the crate's
+//!    `Profile::JOB`); a `413` here is a `failed` job with
+//!    `budget_exceeded` / `payload_too_large`;
 //! 2. **run**: `start` (the attempt), then `run` on the graph decoded from
 //!    the pinned snapshot (digest-checked). The Worker shell awaits storage
 //!    I/O between the two ([`prepare`] / [`solve`]), so the attempt is

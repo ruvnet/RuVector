@@ -13,8 +13,10 @@
 //! The reply carries a gateway path, never an R2 or public URL: the file is
 //! downloadable only with a bearer token of the same tenant (read +
 //! viewer) until `expires_at` (15 min); an R2 lifecycle rule removes
-//! `exports/` objects after a day. A collection over the synchronous budget
-//! ([`crate::sync_budget`]) is refused `413` before the upload is opened.
+//! `exports/` objects after a day. A collection over the export budget
+//! ([`crate::sync_budget::EXPORT_MAX_FLOATS`]) is refused `413` before the
+//! upload is opened; one over [`crate::sync_budget::EXPORT_MAX_BYTES`]
+//! (values + ids + metadata) while its rows are read (upload aborted).
 
 use crate::m3_ctx::{dim16, mint, snap_err, snap_metric, M3};
 use crate::m3_ports::{Blob, Queues};
@@ -38,11 +40,20 @@ pub const MAX_REDACT_KEYS: usize = 32;
 /// flag + metadata (u16 length + 4096).
 pub const SIDECAR_ROW_MAX: usize = 2 + 256 + 1 + 2 + 4096;
 
+/// Largest payload of one exported segment. Kept at 1 MiB although the
+/// queued import accepts [`crate::ingest::QUEUED_MAX_SEGMENT_PAYLOAD`]
+/// (8 MiB on Workers Paid): the exporter holds one segment pair besides
+/// the 8 MiB R2 part, so larger segments would add up to ≈ 14 MiB of
+/// gateway transient the isolate budget does not carry.
+pub const EXPORT_MAX_SEGMENT_PAYLOAD: u64 = 1 << 20;
+const _: () = assert!(EXPORT_MAX_SEGMENT_PAYLOAD <= crate::ingest::QUEUED_MAX_SEGMENT_PAYLOAD);
+
 /// Rows per exported segment pair: both the VEC and the sidecar payload
-/// stay within [`crate::ingest::QUEUED_MAX_SEGMENT_PAYLOAD`], so an export
-/// can always be imported again through the queued `:import`.
+/// stay within [`EXPORT_MAX_SEGMENT_PAYLOAD`] (≤ the queued import's
+/// segment cap), so an export can always be imported again through the
+/// queued `:import`.
 pub fn rows_per_segment(dim: u16) -> u32 {
-    let cap = crate::ingest::QUEUED_MAX_SEGMENT_PAYLOAD as usize;
+    let cap = EXPORT_MAX_SEGMENT_PAYLOAD as usize;
     let row = (usize::from(dim) * 4).max(SIDECAR_ROW_MAX);
     u32::try_from(cap / row)
         .unwrap_or(u32::MAX)
@@ -121,7 +132,7 @@ pub async fn export<B: M3Backend, R: Blob, Q: Queues>(
     let shards = count_of(&e)?;
     m.charge(1 + u64::from(shards.get())).await?;
     // Before the multipart upload is opened.
-    sync_budget::check_live(m.b, m.ctx, &e).await?;
+    sync_budget::check_live_export(m.b, m.ctx, &e).await?;
     let tenant = m.ctx.tenant_key().as_str();
     let now = m.now_ms.to_le_bytes();
     let export_id = mint(
@@ -200,13 +211,14 @@ async fn write<B: M3Backend, R: Blob, Q: Queues>(
         .map_err(snap_err)?;
     let audit = crate::audit::head(m.b, m.ctx.tenant_key()).await?;
     let mut heads = Vec::new();
-    let mut meter = Meter::new(e);
+    let mut meter = Meter::export(e);
     for i in count_of(e)?.indices() {
         let dm = shard_meta(m.ctx, e, i)?;
         let (seq0, _, mut rows) = page(m.b, &dm, None).await?;
         heads.extend_from_slice(&shard_head(tenant, &e.uid, i.get(), seq0, &audit));
         loop {
             meter.add(rows.len())?;
+            meter.add_bytes(stored_bytes(&rows, dim))?;
             let last = rows.last().map(|r| r.id.clone());
             for r in rows {
                 let mut row = r.into_row(dim)?;
@@ -239,6 +251,19 @@ async fn write<B: M3Backend, R: Blob, Q: Queues>(
         .map_err(snap_err)?;
     parts.flush(true).await?;
     Ok((summary.rows, crate::m3_wire::hex32(&audit_head)))
+}
+
+/// Stored bytes of one page for the export byte budget
+/// ([`crate::sync_budget::EXPORT_MAX_BYTES`]): `f32` values plus id and
+/// metadata text.
+pub fn stored_bytes(rows: &[crate::m3_wire::RowWire], dim: u16) -> u64 {
+    rows.iter()
+        .map(|r| {
+            u64::from(dim) * 4
+                + r.id.len() as u64
+                + r.metadata.as_ref().map_or(0, |m| m.len() as u64)
+        })
+        .sum()
 }
 
 /// What `GET /v1/exports/{id}` streams.

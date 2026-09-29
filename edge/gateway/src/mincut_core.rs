@@ -1,23 +1,26 @@
 //! Min-cut planning shared by the gateway, `GraphStore` and `AnalyticsJob`
-//! (ADR-351 §3 rv-mincut, §10): the Workers-Free inline profile, routing
-//! (inline / job / 413), edge-list parsing and the public report.
+//! (ADR-351 §3 rv-mincut, §10): the inline profile, routing (inline / job
+//! / 413), edge-list parsing and the public report.
 //!
-//! Workers Free gives an invocation 10 ms of CPU. The analytics crate's
-//! `Profile::INLINE` (≈ 0.5 s native) is sized for a paid isolate, so the
-//! request path uses [`EDGE_INLINE`] (5M work units ≈ 5 ms native, the
-//! crate's ≲ 1 ns/unit calibration): e.g. a certified graph of ≈ 10k
-//! vertices + edges, or Stoer–Wagner on a few hundred. Anything larger
-//! that [`EDGE_JOB`] admits runs as an `AnalyticsJob` in a DO alarm;
-//! beyond the job limits the answer is `413`.
+//! Workers Paid gives an invocation 30 s of CPU (`cpu_ms = 30000`). The
+//! request path uses [`EDGE_INLINE`]: the crate's `Profile::INLINE` work
+//! (500M units, ≈ 0.5 s native at the crate's ≲ 1 ns/unit calibration, ≤
+//! 0.75 s wasm) with its memory budget cut to 16 MiB, which is what bounds
+//! inline graphs (≈ 40k edges at 420 B/edge, [`INLINE_MAX_EDGES`]).
+//! Anything larger that [`EDGE_JOB`] admits runs as an `AnalyticsJob` in a
+//! DO alarm; beyond the job limits the answer is `413`. (Free: 5M units.)
 //!
 //! [`EDGE_JOB`] is the crate's `Profile::JOB` with its memory budget cut
 //! from 100 MB ("the isolate to itself") to [`JOB_MEMORY_BYTES`]: an
 //! `AnalyticsJob` shares its isolate with the resident shards of
 //! `VectorShard` / `QuantShard` / `GraphStore` (56 MB of caps), so it may
-//! only use the headroom stated in `shard_core` (memory budget). Work stays
-//! at `Profile::JOB`: a CPU overrun is contained (the attempt is committed
-//! before the solve, at most `MAX_ATTEMPTS`, then `413`), a memory overrun
-//! is not (the isolate OOM evicts every co-resident tenant).
+//! only use the headroom stated in `shard_core` (memory budget) — and its
+//! work cut from 20e9 to [`JOB_MAX_WORK`] so an admitted solve is one
+//! ≲ 5 s DO turn (a solve is synchronous, so it blocks every object
+//! co-resident in its isolate for that long). A CPU overrun is contained (the attempt is
+//! committed before the solve, at most `MAX_ATTEMPTS`, then `413`), a
+//! memory overrun is not (the isolate OOM evicts every co-resident
+//! tenant).
 
 use ruvector_edge_analytics::cost::MEM_PER_EDGE;
 use ruvector_edge_analytics::service::{plan, query, Budget, Profile};
@@ -29,11 +32,14 @@ use ruvector_edge_store::{ErrorCode, OpError};
 use serde::de::{self, Deserializer, IgnoredAny, SeqAccess, Visitor};
 use serde_json::{json, Value as Json};
 
-/// Request-path profile on Workers Free (ADR-351 §10 limits, 5 ms budget).
+/// Request-path profile (ADR-351 §10 limits): `Profile::INLINE` work,
+/// ≤ 0.75 s of wasm (≈ 2.5 % of 30 s); memory stays 16 MiB, a request-path
+/// share of the 128 MB isolate (the crate's 64 MiB does not fit the
+/// `shard_core` table). (Free: 5M units.)
 pub const EDGE_INLINE: Profile = Profile {
     limits: GraphLimits::INLINE,
     budget: Budget {
-        max_work: 5_000_000,
+        max_work: Profile::INLINE.budget.max_work,
         max_memory_bytes: 16 << 20,
     },
 };
@@ -43,19 +49,33 @@ pub const EDGE_INLINE: Profile = Profile {
 /// 51k-edge K_320 acceptance job estimates 29.8 MB and fits.
 pub const JOB_MEMORY_BYTES: u64 = 32 << 20;
 
-/// The `AnalyticsJob` profile: `Profile::JOB` limits and work, memory
-/// bounded to [`JOB_MEMORY_BYTES`].
+/// Work one `AnalyticsJob` solve may be admitted with: at the crate's
+/// ≲ 1 ns/unit native × 1.5 for wasm, ≈ 4.5 s (15 % of the alarm's 30 s
+/// `cpu_ms`). The bound is not CPU but isolate sharing: the solve is one
+/// synchronous turn that blocks co-resident `VectorShard` / `QuantShard` /
+/// `GraphStore` objects, so it is held to ≲ 5 s. Edge ceiling: exact
+/// Stoer–Wagner on ≈ 6,782 vertices (a 13.6k-edge circulant graph, ≈ 3.0e9
+/// units; 11,900 under the earlier 10e9); certified / near-linear paths
+/// stay bounded by [`JOB_MEMORY_BYTES`] (≈ 80k edges) and
+/// `GraphLimits::JOB`. The 51k-edge K_320 job is ≈ 295M units (≈ 84 ms
+/// native).
+pub const JOB_MAX_WORK: u64 = 3_000_000_000;
+
+/// The `AnalyticsJob` profile: `Profile::JOB` limits, work bounded to
+/// [`JOB_MAX_WORK`], memory bounded to [`JOB_MEMORY_BYTES`].
 pub const EDGE_JOB: Profile = Profile {
     limits: GraphLimits::JOB,
     budget: Budget {
-        max_work: Profile::JOB.budget.max_work,
+        max_work: JOB_MAX_WORK,
         max_memory_bytes: JOB_MEMORY_BYTES,
     },
 };
 
-/// Edges above which a request skips building the graph inline (the
-/// linear rebuild alone would exceed [`EDGE_INLINE`]: 500 units/item).
-pub const INLINE_MAX_EDGES: u64 = EDGE_INLINE.budget.max_work / 500;
+/// Edges above which a request skips parsing / building the graph inline:
+/// the inline memory budget at `MEM_PER_EDGE` (≈ 40k edges). No longer
+/// derived from work (500M / 500 units per item would be 1M edges, i.e.
+/// no pre-allocation guard at all). (Free: 10,000, from 5M work.)
+pub const INLINE_MAX_EDGES: u64 = EDGE_INLINE.budget.max_memory_bytes / MEM_PER_EDGE;
 
 /// Where a query runs.
 pub enum Plan {
@@ -128,9 +148,28 @@ pub fn route(
     let g = TenantGraph::from_edges(uid, revision, edges, &GraphLimits::JOB).map_err(aerr)?;
     match plan(&g, mode, &EDGE_INLINE) {
         Ok(_) => Ok(Plan::Inline(query(&g, mode, &EDGE_INLINE).map_err(aerr)?)),
+        // `job_eligible` is judged against the crate's `Profile::JOB`; the
+        // job actually runs under the tighter `EDGE_JOB` (32 MiB, 3e9
+        // work), which inline-sized graphs (≤ ≈ 40k edges on Workers Paid)
+        // can exceed. Refuse those here instead of queueing a job whose
+        // admit turn can only fail.
         Err(AnalyticsError::BudgetExceeded {
             job_eligible: true, ..
-        }) => Ok(Plan::Job),
+        }) => match plan(&g, mode, &EDGE_JOB) {
+            Ok(_) => Ok(Plan::Job),
+            Err(AnalyticsError::BudgetExceeded {
+                resource,
+                estimated,
+                budget,
+                ..
+            }) => Err(aerr(AnalyticsError::BudgetExceeded {
+                resource,
+                estimated,
+                budget,
+                job_eligible: false,
+            })),
+            Err(e) => Err(aerr(e)),
+        },
         Err(AnalyticsError::LimitExceeded { .. }) if plan(&g, mode, &EDGE_JOB).is_ok() => {
             Ok(Plan::Job)
         }

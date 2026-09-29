@@ -285,7 +285,10 @@ async fn body(req: &mut Request) -> Result<Option<Vec<u8>>> {
 }
 
 /// Collect `chunks` into one buffer, `None` as soon as more than `max`
-/// bytes have arrived (the rest is never read).
+/// bytes have arrived (the rest is never read). The buffer's capacity
+/// never exceeds `max` (doubling from an odd chunk size could otherwise
+/// reserve almost 2 × `max`), which the isolate memory budget relies on
+/// for its 8 MiB bodies (`shard_core`).
 pub async fn read_capped<S, E>(chunks: S, max: usize) -> std::result::Result<Option<Vec<u8>>, E>
 where
     S: futures_util::Stream<Item = std::result::Result<Vec<u8>, E>>,
@@ -297,6 +300,11 @@ where
         let chunk = chunk?;
         if chunk.len() > max.saturating_sub(out.len()) {
             return Ok(None);
+        }
+        let need = out.len() + chunk.len();
+        if need > out.capacity() {
+            let target = need.max(out.capacity().saturating_mul(2)).min(max);
+            out.reserve_exact(target - out.len());
         }
         out.extend_from_slice(&chunk);
     }

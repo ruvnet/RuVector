@@ -29,25 +29,23 @@ pub const MAX_NODES: usize = 50_000;
 /// Edges per graph (§10: ≤ 200k edges).
 pub const MAX_EDGES: usize = 200_000;
 /// Persisted state per graph, checked on every commit and before every
-/// cold load (`413`). Sized to Workers Free (10 ms CPU per invocation):
-/// the state is one JSON document, so a cold load and a commit are both
-/// O(whole graph). Measured (release profile, native; wasm ≈ 1.1–1.5×;
-/// `graph_tests::graph_store_costs`): per ~500 KB of state a cold load ≈
-/// 5 ms and a 1k-edge bulk insert + persist ≈ 6–7.7 ms (12 ms at ~950 KB),
-/// so the cap is 256 KiB: ≤ ~2.6 ms cold load, ≤ ~5 ms bulk insert +
-/// persist, ≈ 2 ms stored-graph min-cut. With the ~4x resident estimate a
-/// graph stays ≤ 1 MiB resident, well inside
-/// [`GRAPH_RESIDENT_CAP_BYTES`]. (On Workers Paid this could be raised
-/// towards the §10 ceiling; persisting deltas would lift it on Free.)
-pub const MAX_STATE_BYTES: u64 = 256 << 10;
-/// A cold load of more persisted state than this is the whole turn: the
-/// request answers `503 shard_unavailable` (retry) and the retry is served
-/// from the now-resident graph, so no turn pays load + mutation (≈ 7 ms at
-/// the cap).
-pub const LOAD_TURN_BYTES: u64 = 128 << 10;
-/// Edges per bulk request (Free: one request mutates, exports and
-/// persists the graph).
-pub const MAX_BULK_EDGES: usize = 1_000;
+/// cold load (`413`). The state is one JSON document, so a cold load and a
+/// commit are both O(whole graph); measured (release profile, native; wasm
+/// ≈ 1.1–1.5×; `graph_tests::graph_store_costs`) at ≈ 160 B/edge: 1k
+/// edges / 1k nodes = 159,618 B, 1k-edge bulk insert + persist ≈ 4.7 ms,
+/// cold load ≈ 1.9 ms — ≈ 12 ms/MB to load and ≈ 30 ms/MB to commit, so
+/// CPU does not bind on Workers Paid. **Memory** does: resident is ≈ 4×
+/// state against [`GRAPH_RESIDENT_CAP_BYTES`], and a commit also holds the
+/// whole JSON document plus its 1 MiB SQL chunk copies. At 1 MiB (≈ 6.5k
+/// edges) that is ≈ 4 MB resident (three graphs fit) plus ≈ 2–3 MB
+/// transient, inside the isolate's ≈ 5 MB spare; 2 MiB would not be. The
+/// §10 ceiling (200k edges ≈ 30 MB state, ≈ 120 MB resident) needs delta
+/// persistence. (Free: 256 KiB.)
+pub const MAX_STATE_BYTES: u64 = 1 << 20;
+/// Edges per bulk request: ≈ 25–40 ms including the persist of a 1 MiB
+/// state, a ≈ 300 KB body, and about the most one request can add under
+/// [`MAX_STATE_BYTES`] (≈ 800 KB of state). (Free: 1,000.)
+pub const MAX_BULK_EDGES: usize = 5_000;
 /// This isolate's resident graph budget: the graph share of the 56 MB
 /// isolate resident cap (ADR-351 §6.1), split explicitly with `VectorShard`
 /// (`shard_core::VECTOR_RESIDENT_CAP_BYTES`) and `QuantShard`
@@ -267,12 +265,9 @@ pub fn resident<'a>(
         for v in host.registry.touch(key, num(kv, "bytes").saturating_mul(4)) {
             host.graphs.remove(&v);
         }
-        if num(kv, "bytes") > LOAD_TURN_BYTES {
-            return Err(OpError::new(
-                ErrorCode::ShardUnavailable,
-                "graph loading, retry",
-            ));
-        }
+        // Workers Paid: a cold load at the state cap (≈ 12 ms native) and
+        // the request's own work share one turn. (Free ended the turn with
+        // a retryable `503` above 128 KiB of state.)
     }
     host.graphs
         .get_mut(key)

@@ -29,13 +29,16 @@ use ruvector_edge_tenancy::{EntropySource, ProblemCode};
 pub const MAX_SCOPES_PER_TENANT: usize = 10;
 
 /// Registry configuration the gateway runs with: the crate defaults, but
-/// parts of at most 16 MiB, because the Worker holds one part in memory
-/// while hashing it (R2 multipart minimum stays 5 MiB), and at most 1000
+/// parts of at most 8 MiB, because the Worker holds one part in memory
+/// (JS plus wasm copy) while receiving or hashing it: the same 8 MiB
+/// transfer size as `uploads::PART_BYTES`, which keeps the isolate budget
+/// (`shard_core`) within 128 MB on Workers Paid (16 MiB before; R2
+/// multipart minimum stays 5 MiB), and at most 1000
 /// logical parts, so each can take `ATTEMPTS_PER_PART` distinct R2 part
-/// numbers within R2's 10 000 (512 MiB needs at least 32 parts).
+/// numbers within R2's 10 000 (512 MiB needs at least 64 parts).
 pub fn gateway_config() -> RegistryConfig {
     let mut c = RegistryConfig::default();
-    c.upload.max_part_size = 16 << 20;
+    c.upload.max_part_size = 8 << 20;
     c.upload.max_parts = 1000;
     c
 }

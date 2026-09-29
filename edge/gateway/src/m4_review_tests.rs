@@ -14,7 +14,7 @@ use crate::mincut_job::JOB_TTL_MS;
 use crate::testkit::{sub, tenant, T0};
 use ruvector_edge_analytics::service::plan;
 use ruvector_edge_analytics::{GraphLimits, QueryMode, TenantGraph};
-use ruvector_edge_store::MemSqlStore;
+use ruvector_edge_store::{ErrorCode, MemSqlStore};
 use ruvector_edge_tenancy::Role;
 use serde_json::{json, Value as Json};
 use worker::Method;
@@ -33,10 +33,16 @@ fn send(w: &World, tok: &str, m: Method, path: &str, body: Json, key: Option<&st
     )
 }
 
-/// A job-sized (over the inline limit), memory-admissible edge list.
+/// A job-sized (over the inline limit), memory- and work-admissible edge
+/// list: the complete graph on 300 vertices (44,850 edges; a sparse path
+/// of that many edges would exceed the job's Stoer–Wagner work budget).
 fn job_edges(seed: u64) -> Json {
-    let n = mc::INLINE_MAX_EDGES + 5;
-    Json::Array((0..n).map(|i| json!([i + seed, i + seed + 1])).collect())
+    let k = 300u64;
+    let edges: Vec<Json> = (0..k)
+        .flat_map(|u| (u + 1..k).map(move |v| json!([u + seed, v + seed])))
+        .collect();
+    assert!(edges.len() as u64 > mc::INLINE_MAX_EDGES);
+    Json::Array(edges)
 }
 
 #[test]
@@ -46,9 +52,26 @@ fn isolate_budget_counts_jobs_and_registry_parts() {
         + graph_store::GRAPH_RESIDENT_CAP_BYTES;
     assert_eq!(resident, 56_000_000);
     let part = crate::registry_core::gateway_config().upload.max_part_size;
-    assert_eq!(part, 16 << 20);
-    // One job turn plus one finalize part (JS + wasm copies).
-    let total = resident + JOB_MEMORY_BYTES + 2 * part;
+    assert_eq!(part, 8 << 20);
+    // One synchronous analytics turn: a job, or (Workers Paid) the
+    // request-path min-cut, never both (neither awaits).
+    let analytics = JOB_MEMORY_BYTES.max(mc::EDGE_INLINE.budget.max_memory_bytes);
+    assert_eq!(analytics, JOB_MEMORY_BYTES);
+    // Workers Paid: the 8 MiB gateway transfers (JS + wasm copies).
+    let transfer = [
+        crate::uploads::MAX_INLINE_BYTES as u64,
+        crate::uploads::MAX_PART_BODY as u64,
+        crate::ingest_hash::HASH_BYTES_PER_DELIVERY,
+        crate::ingest::TAIL_BYTES,
+        crate::ingest::QUEUED_MAX_SEGMENT_PAYLOAD,
+    ]
+    .into_iter()
+    .max()
+    .unwrap();
+    assert!(transfer <= (8 << 20) + 128, "{transfer}");
+    // Resident caps, one analytics turn, one registry part and one 8 MiB
+    // transfer (each part / transfer with its JS + wasm copy).
+    let total = resident + analytics + 2 * part + 2 * transfer;
     assert!(total <= ISOLATE_MEMORY_BYTES, "{total}");
     assert!(ISOLATE_MEMORY_BYTES - total >= 4_000_000, "{total}");
 
@@ -59,6 +82,24 @@ fn isolate_budget_counts_jobs_and_registry_parts() {
     let g = TenantGraph::from_edges([0; 16], 0, &k320, &GraphLimits::JOB).unwrap();
     let est = plan(&g, &QueryMode::Exact, &EDGE_JOB).unwrap();
     assert!(est.memory_bytes <= JOB_MEMORY_BYTES, "{est:?}");
+}
+
+/// The budget counts an 8 MiB body once plus its JS copy: `read_capped`
+/// never reserves past its cap, even when odd-sized chunks would make
+/// `Vec` doubling overshoot to ≈ 16 MB.
+#[test]
+fn eight_mib_bodies_never_reserve_past_the_cap() {
+    use futures_util::stream;
+    let max = crate::uploads::MAX_INLINE_BYTES;
+    let chunks: Vec<Result<Vec<u8>, ()>> = (0..max)
+        .step_by(4000)
+        .map(|at| Ok(vec![1u8; 4000.min(max - at)]))
+        .collect();
+    let body = crate::testkit::block_on(crate::api::read_capped(stream::iter(chunks), max))
+        .unwrap()
+        .unwrap();
+    assert_eq!(body.len(), max);
+    assert!(body.capacity() <= max, "{}", body.capacity());
 }
 
 #[test]
@@ -405,4 +446,40 @@ fn graph_mutations_honour_idempotency_keys() {
         send(&w, &tok, Method::Post, "/v1/graphs/g/edges", e, Some("")).0,
         400
     );
+}
+
+/// Workers Paid review: an admitted job solve is ≤ [`mc::JOB_MAX_WORK`]
+/// (3e9, ≈ 4.5 s of wasm at the crate's ≲ 1 ns/unit × 1.5), so one alarm
+/// turn never blocks the DOs co-resident in its isolate for longer; the
+/// crate's `Profile::JOB` (20e9) and the earlier 10e9 (≈ 15 s) are refused.
+/// A circulant graph (offsets 1 and 2, unit weights: no bridge, min degree
+/// 4, so Stoer–Wagner) on 6,782 vertices (≈ 3.00e9 units) is queued; on
+/// 6,783 it is `413` on the request path, although the crate's job profile
+/// would take it.
+#[test]
+fn job_work_cap_is_3e9_and_refuses_just_above_on_the_request_path() {
+    use ruvector_edge_analytics::service::Profile;
+    assert_eq!(EDGE_JOB.budget.max_work, 3_000_000_000);
+    let circulant = |n: u64| -> Vec<(u64, u64, f64)> {
+        (0..n)
+            .flat_map(|i| [(i, (i + 1) % n, 1.0), (i, (i + 2) % n, 1.0)])
+            .collect()
+    };
+    let mode = QueryMode::Exact;
+    for (n, admitted) in [(6_782u64, true), (6_783, false), (11_900, false)] {
+        let edges = circulant(n);
+        assert!(edges.len() as u64 <= mc::INLINE_MAX_EDGES);
+        let g = TenantGraph::from_edges([0; 16], 0, &edges, &GraphLimits::JOB).unwrap();
+        let est = plan(&g, &mode, &Profile::JOB).unwrap();
+        assert!(est.memory_bytes <= JOB_MEMORY_BYTES, "{est:?}");
+        assert_eq!(plan(&g, &mode, &EDGE_JOB).is_ok(), admitted, "{n}: {est:?}");
+        match mc::route([0; 16], 0, &edges, &mode) {
+            Ok(mc::Plan::Job) => assert!(admitted, "{n}"),
+            Ok(mc::Plan::Inline(_)) => panic!("{n}: inline"),
+            Err(e) => {
+                assert!(!admitted, "{n}: {e:?}");
+                assert_eq!((e.code.status(), e.code), (413, ErrorCode::BudgetExceeded));
+            }
+        }
+    }
 }

@@ -7,9 +7,9 @@
 //! history (cold-loaded or mutated in place) — floating-point addition is
 //! not associative, and the report digest hashes `value.to_bits()`.
 //!
-//! Workers Free: the export is O(edges) on the request path, so a stored
-//! graph above [`MAX_MINCUT_EDGES`] is refused (`413`) from its counters,
-//! before it is loaded.
+//! The export is O(edges) on the request path and the edge list is held
+//! whole, so a stored graph above [`MAX_MINCUT_EDGES`] (the inline memory
+//! bound) is refused (`413`) from its counters, before it is loaded.
 
 use crate::graph_store::{num, resident, GraphHost};
 use crate::mincut_core::{self as mc, Plan};
@@ -20,7 +20,8 @@ use rvlite::cypher::PropertyGraph;
 use std::collections::BTreeMap;
 
 /// Edges of a stored graph one request may export for a min-cut (the
-/// inline routing threshold; the state cap keeps graphs near it anyway).
+/// inline routing threshold; the 1 MiB state cap keeps graphs far below
+/// it anyway).
 pub const MAX_MINCUT_EDGES: u64 = mc::INLINE_MAX_EDGES;
 
 /// `(u, v, weight)` over dense vertex indices.

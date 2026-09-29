@@ -23,8 +23,8 @@ fn ids(v: &Json) -> Vec<String> {
         .collect()
 }
 
-/// Query until no shard answers `503` (a cold shard's load turn is the
-/// whole turn on Workers Free); the number of `503`s seen.
+/// Query until no shard answers `503` (a rebuild still in progress); the
+/// number of `503`s seen.
 fn warm_up(w: &World, tok: &str, q: &[f32]) -> usize {
     for n in 0..5 {
         let r = w.send(
@@ -146,11 +146,11 @@ fn rabitq_collection_over_rest_ops_and_mcp() {
     assert_eq!(r.status, 400, "{}", r.body);
 
     // Isolate restart before any flush: re-encoded from the rows (2 × 999
-    // rows fit one rebuild turn at 64 dims, which is then the whole turn:
-    // `503`, retry), then flushed by the alarm; a second restart decodes
-    // the snapshot and replays nothing (small: served in the same turn).
+    // rows fit one rebuild turn at 64 dims and, on Workers Paid, the same
+    // turn serves the query: no `503`), then flushed by the alarm; a second
+    // restart decodes the snapshot and replays nothing.
     w.b.restart();
-    warm_up(&w, &tok, &qs[0]);
+    assert_eq!(warm_up(&w, &tok, &qs[0]), 0);
     assert!(recall(&w, &tok, &data, &qs) >= 0.95);
     w.b.m4.drain_alarms(4);
     let frames: usize =

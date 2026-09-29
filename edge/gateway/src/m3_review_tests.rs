@@ -97,10 +97,11 @@ fn the_op_id_window_counts_from_submission_not_the_last_delivery() {
 fn a_multipart_upload_with_a_wrong_sha256_fails_before_any_row() {
     let w = World::default();
     let o = w.owner("org-a", "alice");
-    collection(&w, &o, "docs", 8);
+    collection(&w, &o, "docs", 64);
     // 60k rows: far more than one delivery's batches, so the old
-    // end-of-stream check never ran for such files.
-    let file = rvf(&rows(60_000, 8, 3), 8);
+    // end-of-stream check never ran for such files (≈ 16 MB: several
+    // 8 MiB hash slices).
+    let file = rvf(&rows(60_000, 64, 3), 64);
     let lie = hex(&Sha256::digest(b"not the file"));
     let msg = submit(&w, &o, "docs", &upload(&w, &o, &file, Some(lie)));
     // The pass spans several bounded deliveries, none of which applies a row.
@@ -111,6 +112,7 @@ fn a_multipart_upload_with_a_wrong_sha256_fails_before_any_row() {
         deliveries += 1;
     }
     let slices = (file.len() as u64).div_ceil(crate::ingest_hash::HASH_BYTES_PER_DELIVERY);
+    assert!(slices >= 2, "{slices}");
     assert_eq!(deliveries, slices);
     assert_eq!((r.outcome, r.batches), (Delivery::Done, 0));
     let j = job(&w, &o, &msg.job_id);

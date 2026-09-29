@@ -26,7 +26,7 @@
 //!
 //! **CPU: assumes Workers Paid.** The byte budgets below assume the Paid
 //! plan's 30 s default CPU per invocation; the Free plan's 10 ms cannot
-//! hash even one 16 MiB part, so registry uploads need Workers Paid.
+//! hash even one 8 MiB part, so registry uploads need Workers Paid.
 //! Retries are safe: a committed session answers with its manifest, a step
 //! in flight answers with progress, and a failed session answers its error.
 
@@ -54,10 +54,10 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
 /// Largest upload finalized in one request (on Workers Paid; hashing it takes well under a
-/// second of wasm CPU; every single-part upload, ≤ 16 MiB, is below it).
+/// second of wasm CPU; every single-part upload, ≤ 8 MiB, is below it).
 pub const INLINE_FINALIZE_BYTES: u64 = 32 << 20;
 /// Staged bytes one step validates at most (a single part may exceed it
-/// only if it alone is larger; parts are ≤ 16 MiB). Three hash passes over
+/// only if it alone is larger; parts are ≤ 8 MiB). Three hash passes over
 /// 64 MiB stay within a few seconds of wasm CPU, far below the Workers
 /// **Paid** 30 s default limit (on Free, 10 ms, no step size fits).
 pub const STEP_BYTES: u64 = 64 << 20;

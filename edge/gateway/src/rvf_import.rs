@@ -51,10 +51,14 @@ use serde_json::{json, Value as Json};
 pub const MAX_IMPORT_BYTES: u64 = 32 << 20;
 /// Most vector records (live or superseded) an imported package may carry.
 pub const MAX_IMPORT_RECORDS: u64 = 1_000_000;
-/// Durable Object subrequests one import request may spend on upserts
-/// (under the Workers per-invocation limit, with room for auth, lookup,
-/// pull and the blob read).
-pub const IMPORT_SUBREQUEST_BUDGET: u64 = 800;
+/// Durable Object subrequests one import request may spend on upserts:
+/// 40 % of the Workers Paid default of 10,000 per invocation (Free: 1,000
+/// to internal services, so 800), leaving room for auth, lookup, pull and
+/// the blob read. ≈ 570 batches at one shard, ≈ 4 s of wasm JSON encoding
+/// plus the package hash (≈ 15 % of 30 s); in practice the per-batch write
+/// token (`RL_WRITE_USER`, 10 per 10 s) ends a request first, with
+/// `rate_limited: true`.
+pub const IMPORT_SUBREQUEST_BUDGET: u64 = 4_000;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

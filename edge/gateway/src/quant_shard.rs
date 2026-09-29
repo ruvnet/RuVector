@@ -40,25 +40,38 @@ enum Slot {
 pub const QUANT_RESIDENT_CAP_BYTES: u64 = 16_000_000;
 
 /// Load work above which a turn that cold-opened / rebuilt a shard ends
-/// there (`503`, retry) instead of also serving the request.
-pub const LOAD_TURN_UNITS: u64 = TURN_UNITS / 2;
+/// there (`503`, retry) instead of also serving the request. Workers Paid:
+/// the load cap itself, so any cold load the budget admits is served in
+/// its own turn — a 50k × 384 cold load (≈ 3.4 ms native) plus a warm
+/// query (≈ 2.1 ms) or a 500-row upsert (≈ 5 ms) is ≈ 15 ms of wasm — and
+/// only a turn that also re-encoded rows past it answers `503`. No extra
+/// memory: the load is paid for in one turn or two. (Free: `TURN_UNITS /
+/// 2`, so every 50k cold load answered one `503`.)
+pub const LOAD_TURN_UNITS: u64 = MAX_LOAD_UNITS;
 
-/// Per-shard limits on Workers Free (10 ms CPU per request / alarm).
+/// Cold-load work cap (the crate default): the row cap binds first, the
+/// memory-bound ≈ 114.5k rows at 384 dims being ≈ 12.4M units (≈ 12 ms
+/// wasm); 400M units is ≤ 0.6 s of wasm at the crate's 1.1–1.5 ns/unit.
+/// (Free: 6M, which also refused 50k-row shards at dims above 384.)
+pub const MAX_LOAD_UNITS: u64 = 400_000_000;
+
+/// Per-shard limits on Workers Paid (30 s CPU per request / alarm).
 ///
 /// Measured (native, the Worker's `opt-level = "z"` release profile; wasm
 /// ≈ 1.1–1.5× that): at 50k × 384 a snapshot read + decode is ≈ 3.4 ms
 /// (5.39M load units), a snapshot flush (encode + write) ≈ 4–4.5 ms, a warm
-/// query ≈ 2.1 ms, a 500-row upsert ≈ 5 ms. Each fits one turn on its own (a
-/// load turn does nothing else, `quant_free_tests`),
-/// so `max_vectors` is the 50k design point and `max_load_units` sits just
-/// above its load cost: a shard that could not be loaded in one turn can
-/// never be written (`413`), instead of becoming a shard that is CPU-killed
-/// on every cold open (`503` forever). The crate default (150k rows, 400M
-/// load units) is sized for Workers Paid.
+/// query ≈ 2.1 ms, a 500-row upsert ≈ 5 ms, so CPU does not bind.
+/// `max_vectors` stays at the 50k design point for **memory**: the 14 MB
+/// shard cap refuses growth at ≈ 114.5k rows × 384 (the upsert peak doubles
+/// the packed buffer), a 100k shard would take most of
+/// [`QUANT_RESIDENT_CAP_BYTES`], and a cold load reads every frame at once
+/// (≈ 3 MB at 50k, ≈ 6 MB at 100k plus the JS copy) against the isolate's
+/// ≈ 5 MB spare. Raising it needs frames streamed on load first. The crate
+/// default (150k rows) is never reachable at 384 dims.
 pub fn edge_budget() -> Budget {
     Budget {
         max_vectors: 50_000,
-        max_load_units: 6_000_000,
+        max_load_units: MAX_LOAD_UNITS,
         ..Budget::default()
     }
 }
@@ -234,10 +247,13 @@ fn maintain(host: &mut QuantHost, key: &str, store: &dyn SqlStore) -> Result<(),
         host.evict(key);
         return Ok(());
     }
-    // A turn that loads (cold open, replay, rebuild) never also flushes:
-    // either alone fits a Free turn, both together may not — and a turn
-    // killed for CPU loses its writes, so the shard would re-open, replay
-    // and be killed again on every alarm. The flush is the next alarm.
+    // A turn that loads (cold open, replay, rebuild) never also flushes.
+    // On Workers Free that was CPU (both together could overrun 10 ms and a
+    // killed turn loses its writes); on Paid both fit easily, but the split
+    // is kept for memory: the load's frame buffers (and their JS copies)
+    // and the flush's freshly encoded frames are never live in one turn,
+    // so the peak stays one frame set (≈ 3 MB at 50k × 384) against the
+    // isolate's ≈ 5 MB spare. It costs one extra alarm.
     let loaded = host.is_ready(key);
     let r = host.ready(key, store, &meta)?;
     if !loaded {

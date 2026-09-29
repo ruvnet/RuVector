@@ -281,7 +281,7 @@ fn graphs_cypher_roles_tenancy_and_counters() {
 fn cypher_budgets_are_413() {
     let (w, tok) = owner_world();
     w.ok(&tok, Method::Post, "/v1/graphs", json!({ "name": "big" }));
-    // 1,000 disjoint edges (2,000 nodes; the Free state cap keeps graphs
+    // 1,000 disjoint edges (2,000 nodes; the state cap keeps graphs
     // small): each undirected pattern enumerates 2,000 nodes + 2 × 1,000
     // edges, so three of them are over the 10k-step budget.
     let edges: Vec<Json> = (0..1_000)
@@ -353,7 +353,7 @@ fn cypher_budgets_are_413() {
     );
 }
 
-/// Measured `GraphStore` costs at the Workers-Free limits (run with
+/// Measured `GraphStore` costs at the Workers Paid limits (run with
 /// `--nocapture`, ideally `--release`): bulk inserts of `MAX_BULK_EDGES`
 /// until the state cap refuses one (`413`, graph unchanged), then a cold
 /// load of the capped graph, a label-indexed read query and the stored
@@ -399,18 +399,20 @@ fn graph_store_costs() {
         last = serde_json::from_str(&r.body).unwrap();
         assert!(batches < 20);
     }
+    assert!(
+        batches >= 1,
+        "a full {MAX_BULK_EDGES}-edge batch fits the state cap"
+    );
     // The refused batch changed nothing.
     let now = w.ok(&tok, Method::Get, "/v1/graphs/m", Json::Null);
     assert_eq!(now, last);
     assert!(last["state_bytes"].as_u64().unwrap() <= MAX_STATE_BYTES);
     w.b.restart();
-    // Over LOAD_TURN_BYTES the cold load is the whole turn (503, retry).
-    let q = json!({ "query": "MATCH (n:Nope) RETURN n.id AS id" });
+    // Workers Paid: the cold load of the capped graph and the query share
+    // one turn (Free answered `503` above 128 KiB of state).
     let t = Instant::now();
-    let r = code(&w, &tok, Method::Post, "/v1/graphs/m/cypher", q);
-    let cold = ms(t);
-    assert_eq!(r, (503, "shard_unavailable".to_string()));
     let none = cypher(&w, &tok, "m", "MATCH (n:Nope) RETURN n.id AS id");
+    let cold = ms(t);
     assert_eq!(none["rows"], json!([]), "{none}");
     let t = Instant::now();
     cypher(&w, &tok, "m", "MATCH (n:Nope) RETURN n.id AS id");
@@ -426,7 +428,7 @@ fn graph_store_costs() {
     let mincut = ms(t);
     assert!(r.status == 200 || r.status == 202, "{}", r.status);
     eprintln!(
-        "graph at the Free cap ({} nodes / {} edges, {} B state): slowest {MAX_BULK_EDGES}-edge \
+        "graph at the state cap ({} nodes / {} edges, {} B state): slowest {MAX_BULK_EDGES}-edge \
          bulk insert + persist {bulk:.1} ms; cold-load turn {cold:.1} ms; warm read \
          query {warm:.2} ms; graph min-cut ({}) {mincut:.1} ms",
         last["nodes"],

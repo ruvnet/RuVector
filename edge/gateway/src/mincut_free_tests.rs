@@ -1,5 +1,7 @@
-//! rv-mincut on Workers Free (ADR-351 §10, M4 review): a job whose every
-//! solve attempt is killed ends `failed` with `413 budget_exceeded` (not
+//! rv-mincut CPU-kill handling (ADR-351 §10, M4 review; written for Workers
+//! Free, still the contract on Paid for a solve killed at the 30 s
+//! `cpu_ms`): a job whose every solve attempt is killed ends `failed` with
+//! `413 budget_exceeded` (not
 //! the crate's `409` job-state conflict), and a job-sized edge list is
 //! handed to the job verbatim — validated in its admit turn, not parsed on
 //! the request path.

@@ -22,8 +22,19 @@ use ruvector_edge_quant::{QuantConfig, QuantError, QuantShard, RandomRotationKin
 use ruvector_edge_store::{ErrorCode, OpError, SqlStore};
 
 /// Work units one request or alarm turn may spend re-encoding rows
-/// (≈ 4 ms native at the crate's measured ≈ 1 ns/unit; wasm ≈ 1.1–1.5×).
-pub const TURN_UNITS: u64 = 4_000_000;
+/// (≈ 16 ms native at the crate's measured ≈ 1 ns/unit; wasm ≈ 1.1–1.5×):
+/// ≈ 1,450 rows at 384 dims (≈ 11k units/row). CPU would allow ~100× more
+/// under the Workers Paid 30 s `cpu_ms`; the bound is the page [`step`]
+/// reads in one `qs::page` call, which is also capped by [`PAGE_BYTES`].
+/// (Free: 4M.)
+pub const TURN_UNITS: u64 = 16_000_000;
+/// f32 bytes (plus a per-row allowance) one rebuild turn reads in one page:
+/// ≈ 2 MiB keeps the page and its JS copy inside the isolate's ≈ 5 MB
+/// spare at every dim (small dims encode cheaply, so the unit budget alone
+/// would page ≈ 5 MB of f32 at 16 dims).
+pub const PAGE_BYTES: u64 = 2 << 20;
+/// Per-row allowance of a page row besides its f32 values (key, `Vec`).
+const PAGE_ROW_OVERHEAD: u64 = 48;
 /// Snapshot frame size (one DO SQLite row each; rows are capped at 2 MB).
 pub const FRAME_BYTES: usize = MAX_FRAME_BYTES;
 /// Rows written since the snapshot that make a flush urgent.
@@ -161,7 +172,8 @@ pub fn open(
 /// Rows one turn of `units` re-encodes at this shard's dimension.
 pub fn rows_per_turn(dim: usize, units: u64) -> usize {
     let per_row = budget::encode_units(1, dim, ROTATION).max(1);
-    usize::try_from((units / per_row).max(1)).unwrap_or(usize::MAX)
+    let by_bytes = PAGE_BYTES / (dim as u64 * 4 + PAGE_ROW_OVERHEAD);
+    usize::try_from((units / per_row).min(by_bytes).max(1)).unwrap_or(usize::MAX)
 }
 
 /// Advance a rebuild by at most `units` of encoding; `true` when done.

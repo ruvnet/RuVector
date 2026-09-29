@@ -51,11 +51,14 @@ pub const COMPACT_MIN_SLOTS: u64 = 1024;
 pub const REPLAY_BUDGET_MS: f64 = 600.0;
 /// Decode share of the lazy-load budget (ms, wasm).
 pub const DECODE_BUDGET_MS: f64 = 300.0;
-/// CPU budget of a full HNSW rebuild in one alarm (ms, wasm), with headroom
-/// under the Workers Paid default of 30 s per invocation (`limits.cpu_ms`
-/// cannot be raised on the account's current plan). It caps HNSW shards
-/// below the resident byte cap: ≈ 18k nodes at 384-d m 16, ≈ 4.2k at
-/// 1536-d m 48.
+/// CPU budget of a full HNSW rebuild in one alarm (ms, modelled wasm):
+/// two thirds of the gateway's deployed Workers Paid `cpu_ms = 30000`. It
+/// caps HNSW shards below the resident byte cap at write admission
+/// (`hnsw_node_cap`): ≈ 18k nodes at 384-d m 16, ≈ 4.2k at 1536-d m 48.
+/// Deliberately not lowered on Paid: shards already written up to this cap
+/// would then refuse every write (even overwrites) with `413`. A rebuild at
+/// the cap is one ≈ 17 s (measured) DO turn that blocks co-resident
+/// objects of the isolate (ADR-351 residual risks).
 pub const REBUILD_BUDGET_MS: f64 = 20_000.0;
 
 /// Rows per write batch assumed when checking whether dead slots block

@@ -98,8 +98,14 @@ fn wrangler_binds_one_r2_bucket_the_queues_and_ai_and_appends_only_m4_classes() 
         assert!(toml.contains(&format!("dead_letter_queue = \"{q}-dlq\"")));
     }
     assert!(toml.contains("[ai]\nbinding = \"AI\""));
-    // Default CPU limits: no `[limits]` table.
-    assert!(!toml.lines().any(|l| l.trim() == "[limits]"));
+    // Workers Paid: the one `[limits]` table sets the 30 s CPU budget the
+    // Paid-sized caps are derived from (50 % targets).
+    let limits: Vec<&str> = toml.split("\n[limits]\n").skip(1).collect();
+    assert_eq!(limits.len(), 1, "one [limits] table");
+    assert_eq!(
+        limits[0].split("\n[").next().unwrap().trim(),
+        "cpu_ms = 30000"
+    );
     // M3 adds no Durable Object class: the applied tags, then M4's, in order.
     let tags: Vec<&str> = toml
         .lines()
@@ -123,12 +129,13 @@ fn seed(w: &World, c: &crate::rest::Caller, n: usize) {
     }
 }
 
-/// Snapshot, export and restore run in one request, so they are refused
-/// `413` past the synchronous budget (`sync_budget`, 682 rows × 384) before
-/// any side effect: no epoch, no R2 object, no multipart upload, no
-/// restore journal. At the budget they still round-trip.
+/// Snapshot and restore run in one request, so they are refused `413` past
+/// the synchronous budget (`sync_budget`, 682 rows × 384; memory-bound by
+/// the restore commit) before any side effect: no epoch, no R2 object, no
+/// restore journal. At the budget they still round-trip. Export streams
+/// and has its own Workers Paid budget (2^24 floats), so it still succeeds.
 #[test]
-fn snapshot_export_and_restore_refuse_past_the_sync_budget_before_side_effects() {
+fn snapshot_and_restore_refuse_past_the_sync_budget_before_side_effects() {
     let w = World::default();
     let o = w.owner("org-a", "alice");
     let body = json!({ "name": "big", "dim": DIM, "metric": "cosine", "shards": 2 });
@@ -147,15 +154,14 @@ fn snapshot_export_and_restore_refuse_past_the_sync_budget_before_side_effects()
     assert_eq!(w.req(&o, Method::Post, up, extra).0, 200);
     let objects = w.blob.keys("");
     let restore = format!("/v1/collections/big/snapshots/{id}:restore");
-    for (path, what) in [
-        (snap, "snapshot"),
-        ("/v1/collections/big:export", "export"),
-        (restore.as_str(), "restore"),
-    ] {
+    for (path, what) in [(snap, "snapshot"), (restore.as_str(), "restore")] {
         let (s, v) = w.req(&o, Method::Post, path, Json::Null);
         assert_eq!(s, 413, "{what}: {v}");
     }
     assert_eq!(w.blob.keys(""), objects, "no R2 side effect");
+    let (s, v) = w.req(&o, Method::Post, "/v1/collections/big:export", Json::Null);
+    assert_eq!(s, 201, "export is within its own budget: {v}");
+    assert_eq!(v["rows"].as_u64(), Some(max as u64 + 1));
     // Back at the budget: no epoch was burned and no journal blocks restore.
     let del = "/v1/collections/big/vectors:delete";
     assert_eq!(

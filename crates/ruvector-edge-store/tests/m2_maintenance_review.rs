@@ -222,6 +222,18 @@ fn heavy_hnsw_configs_flush_sooner_and_cap_nodes_by_load_budget() {
         cap < hnsw_node_cap(&default) && (4_000..6_600).contains(&cap),
         "{cap}"
     );
+    // Workers Paid review: the rebuild budget stays at 20 s so no shard
+    // written under it regresses to refusing every write (`413`). Lowering
+    // it to 15 s would drop the 384-d m 16 cap to ≈ 13.6k nodes.
+    assert_eq!(
+        ruvector_edge_store::shard::maintain::REBUILD_BUDGET_MS,
+        20_000.0
+    );
+    assert!(
+        (17_500..19_000).contains(&hnsw_node_cap(&default)),
+        "{}",
+        hnsw_node_cap(&default)
+    );
     // The write path honours the lower threshold.
     let st = MemSqlStore::new();
     let mut s = VectorShard::open(&st).unwrap();

@@ -182,16 +182,15 @@ fn rabitq_50k_x_384_cold_load_fits_cpu_and_memory() {
     drop(rb);
 
     // A fresh isolate: the first query cold-loads the snapshot (no row is
-    // re-encoded) within the load budget and the resident cap. That load
-    // is the whole turn (`503`, retry); the retry is served warm.
+    // re-encoded) within the load budget and the resident cap, and on
+    // Workers Paid is served in the same turn (Free: `503`, retry).
     let mut cold = QuantHost::default();
     let q = qs[30].clone();
     let t = Instant::now();
-    let e = query(&mut cold, &st, DIM, &q).unwrap_err();
-    let cold_ms = ms(t);
-    assert_eq!(e.code, ErrorCode::ShardUnavailable);
-    let t = Instant::now();
     let got = query(&mut cold, &st, DIM, &q).unwrap();
+    let cold_ms = ms(t);
+    let t = Instant::now();
+    query(&mut cold, &st, DIM, &q).unwrap();
     let first_ms = ms(t);
     let load = cold.last_load.unwrap();
     let resident = cold.resident_bytes("q0");
@@ -223,7 +222,7 @@ fn rabitq_50k_x_384_cold_load_fits_cpu_and_memory() {
     eprintln!(
         "rabitq 50k x 384 (native; cores opt 3 in test, opt z in --release): upsert-500 turn mean {mean:.1} ms / max {max:.1} ms \
          ({} units encode); flush {flush_ms:.1} ms ({frames} frames, {} B); cold load \
-         turn {cold_ms:.1} ms (snapshot read + decode {open_ms:.1} ms, {} of {} units), then first query \
+         + query turn {cold_ms:.1} ms (snapshot read + decode {open_ms:.1} ms, {} of {} units), then warm query \
          {first_ms:.2} ms; warm query {warm_ms:.2} ms ({units} units); resident {resident} B; recall@10 {recall:.3}",
         budget::encode_units(500, DIM as usize, crate::quant_load::ROTATION),
         load.snapshot_bytes,

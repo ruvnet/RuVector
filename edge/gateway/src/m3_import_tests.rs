@@ -12,7 +12,7 @@ use crate::rest::Caller;
 use crate::testkit::{block_on, Rng};
 use crate::uploads::PART_BYTES;
 use ruvector_edge_snapshot::{Metric, Row, RvfExporter};
-use ruvector_edge_store::{ErrorCode, OpError};
+use ruvector_edge_store::{ErrorCode, IndexConfig, OpError};
 use serde_json::{json, Value as Json};
 use sha2::{Digest, Sha256};
 use std::cell::{Cell, RefCell};
@@ -184,7 +184,7 @@ fn upload_session_import_lands_in_shards() {
         409
     );
     assert_eq!(deliver(&w, &sink(&w), &msg, 1000).batches, 0);
-    // Inline (≤ 512 KiB, octet-stream) import.
+    // Inline (≤ 8 MiB, octet-stream) import.
     collection(&w, &o, "inline", 8);
     let small = rows(700, 8, 2);
     let (s, v) = w.raw(
@@ -316,17 +316,31 @@ fn import_100k_x_384_streams_within_quota_and_memory() {
         }
     }
     assert_eq!(meter.rows.get(), 100_000);
-    // Batches are `batch_rows(384)` = 64 rows (the per-delivery CPU bound)
-    // and never span `seg`-row records (240 at 384 dims).
-    let per = batch_rows(384);
-    assert_eq!((per, seg), (64, 240));
+    // Batches are `batch_rows(384)` = 93 rows (≤ 1 MiB of worst-case
+    // encoded JSON, Workers Paid; 64 on Free) and never span `seg`-row
+    // records (240 at 384 dims).
+    let per = batch_rows(384, IndexConfig::Flat);
+    assert_eq!((per, seg), (93, 240));
+    // An `hnsw` collection's shards take at most 64 rows per batch.
+    let hnsw = IndexConfig::Hnsw {
+        m: 16,
+        ef_construction: 128,
+    };
+    assert_eq!((batch_rows(384, hnsw), batch_rows(8, hnsw)), (64, 64));
+    assert_eq!(
+        (
+            batch_rows(8, IndexConfig::Flat),
+            batch_rows(1 << 20, IndexConfig::Flat)
+        ),
+        (218, 1)
+    );
     let (full, rem) = (100_000 / seg as usize, 100_000 % seg as usize);
     let ops = full * (seg as usize).div_ceil(per) + rem.div_ceil(per);
     assert_eq!(meter.ops.borrow().len(), ops);
     assert_eq!(meter.max_batch.get(), per);
     assert_eq!(
         deliveries,
-        ops.div_ceil(50),
+        ops / 50 + 1,
         "re-enqueued every 50 batches (after the hash pass)"
     );
     // One record (≤ 1 MiB) plus one 1 MiB piece, never the file.
@@ -341,7 +355,7 @@ fn import_100k_x_384_streams_within_quota_and_memory() {
     let stored = crate::jobs::load(&w.b, o.ctx.tenant_key(), &msg.job_id);
     let binding = block_on(stored).unwrap().unwrap().job.binding.unwrap();
     assert_eq!(binding.max_rows, 250_000);
-    assert_eq!(binding.max_batch_rows, 64);
+    assert_eq!(binding.max_batch_rows, 93);
 }
 
 #[test]
@@ -415,13 +429,15 @@ fn import_resumes_after_a_crash_without_double_applying() {
             break;
         }
     }
-    // 3000 rows = records of 1024/1024/952 → batches 500/500/24 ×2 + 500/452.
+    // 3000 rows = records of 1024/1024/952 → 218-row batches (the 1 MiB
+    // encoded-body bound at 8 dims): 4×218 + 152 twice, then 4×218 + 80;
+    // 15 in all, 12 after the crash.
     assert_eq!(
         outcomes
             .iter()
             .filter(|d| **d == Delivery::Continue)
             .count(),
-        5
+        12
     );
     let j = job(&w, &o, &msg.job_id);
     assert_eq!(

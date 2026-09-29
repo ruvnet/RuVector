@@ -23,16 +23,17 @@
 //! crash at any point resumes without loss and a batch applied but not
 //! recorded is replayed by the sink's `op_id` idempotency, not re-applied.
 //!
-//! **CPU per invocation** (Workers default limits, no `[limits]`): batches
-//! are sized to [`FLOATS_PER_BATCH`] floats ([`batch_rows`], at most 500
-//! rows) because the sink JSON-encodes every value, and after
+//! **Per delivery** (Workers Paid, `cpu_ms = 30000`): batches are sized to
+//! at most [`FLOATS_PER_BATCH`] floats and at most 1 MiB of worst-case
+//! encoded JSON ([`batch_rows`], ≤ 500 rows) so the `VectorShard` path
+//! never parses a larger body than a client upsert, and after
 //! [`BATCHES_PER_DELIVERY`] batches the delivery stops with
-//! [`Delivery::Continue`] (the consumer re-enqueues and acks). Batches never
-//! span a record, so a delivery re-reads and re-verifies the record it
-//! resumes in: segments are capped at [`QUEUED_MAX_SEGMENT_PAYLOAD`]. All
-//! are tuning values for the 10 ms Free budget, not measured on wasm. Every
-//! batch after the first pays one §10 write token, as the synchronous RVF
-//! import does (over budget: [`Delivery::Retry`]).
+//! [`Delivery::Continue`] (the consumer re-enqueues and acks). Batches
+//! never span a record, so a delivery re-reads and re-verifies the record
+//! it resumes in: segments are capped at [`QUEUED_MAX_SEGMENT_PAYLOAD`], a
+//! memory bound (the segment is buffered whole). Every batch after the
+//! first pays one §10 write token, as the synchronous RVF import does
+//! (over budget: [`Delivery::Retry`]) — that limiter, not CPU, paces it.
 //!
 //! Job saves are compare-and-swap (`jobs::save`): a delivery that loses to
 //! a concurrent one (duplicate or stale message) stops and acks. A delivery
@@ -55,7 +56,8 @@ use ruvector_edge_auth::Capability;
 use ruvector_edge_snapshot::{
     inspect_tail, FailCode, ImportError, ImportLimits, ImportSpec, JobState, RvfImporter,
 };
-use ruvector_edge_store::{ErrorCode, OpError};
+use ruvector_edge_store::shard::HNSW_SYNC_UPSERT;
+use ruvector_edge_store::{ErrorCode, IndexConfig, OpError};
 use ruvector_edge_tenancy::quota::limits::MAX_UPSERT_BATCH;
 use ruvector_edge_tenancy::TenantKey;
 
@@ -69,26 +71,43 @@ pub const STALLED: &str = "stalled: deliveries keep failing without progress";
 /// fails: below the ingest queue's `max_retries` (20), so a job whose
 /// message would be dead-lettered ends `failed`, not `running`.
 pub const MAX_STALLED_DELIVERIES: u32 = 15;
-/// Largest segment payload a queued import accepts. Batches never span a
-/// record, so every delivery re-reads and re-verifies the record it resumes
-/// in: 1 MiB bounds that per-delivery cost (the gateway's own exports use
-/// segments of at most this size, `export::rows_per_segment`).
-pub const QUEUED_MAX_SEGMENT_PAYLOAD: u64 = 1 << 20;
+/// Largest segment payload a queued import accepts: the snapshot format's
+/// `MAX_SEGMENT_PAYLOAD` and the [`TAIL_BYTES`] buffer already accepted,
+/// so it adds no new peak. Batches never span a record, so every delivery
+/// re-reads and re-verifies (≈ 84 ms of wasm SHA-256 at 8 MiB) the record
+/// it resumes in; the record is buffered whole, which makes this a memory
+/// bound. The `rvf` CLI default (`--batch-size 1000`: 1.54 MB at 384-d,
+/// ≈ 6.1 MB at 1536-d) imports unchanged. (Free: 1 MiB.)
+pub const QUEUED_MAX_SEGMENT_PAYLOAD: u64 = 8 << 20;
 /// Range read size.
 pub const PIECE_BYTES: u64 = 1 << 20;
 /// Tail read: the largest manifest segment plus its header and padding.
 pub const TAIL_BYTES: u64 = (8 << 20) + 128;
-/// Batches per delivery before re-enqueueing.
-pub const BATCHES_PER_DELIVERY: u32 = 2;
-/// Float values per upsert batch (64 rows at 384 dims).
-pub const FLOATS_PER_BATCH: u64 = 24_576;
+/// Batches per delivery before re-enqueueing: ≈ 20–40 ms of JSON encoding
+/// at [`FLOATS_PER_BATCH`]. More only turns into [`Delivery::Retry`]: each
+/// batch after the first pays a write token and `RL_WRITE_USER` is 10 per
+/// 10 s. (Free: 2.)
+pub const BATCHES_PER_DELIVERY: u32 = 8;
+/// Float values per upsert batch, an upper bound only: the encoded-bytes
+/// bound of [`batch_rows`] binds first at every dim (93 rows at 384 dims,
+/// 34 at 1536). Pinned per job ([`batch_rows`]), so jobs queued before a
+/// change keep their batching. (Free: 24,576.)
+pub const FLOATS_PER_BATCH: u64 = 65_536;
 
 /// Rows per batch for a `dim`-dimensional collection: [`FLOATS_PER_BATCH`]
-/// worth, between 1 and the M1 upsert cap of 500. Pinned in the job on its
-/// first delivery (it feeds the batch `op_id`s).
-pub fn batch_rows(dim: u32) -> usize {
-    let rows = FLOATS_PER_BATCH / u64::from(dim.max(1));
-    rows.clamp(1, u64::from(MAX_UPSERT_BATCH)) as usize
+/// worth and at most `ingest_sink::rows_within_body` (the batch's upsert
+/// body is ≤ 1 MiB whatever its metadata), between 1 and the M1 upsert
+/// cap (500, or `HNSW_SYNC_UPSERT` = 64 for an `hnsw` collection, whose
+/// shards refuse larger batches). Pinned in the job on its first delivery
+/// (it feeds the batch `op_id`s).
+pub fn batch_rows(dim: u32, index: IndexConfig) -> usize {
+    let cap = match index {
+        IndexConfig::Hnsw { .. } => HNSW_SYNC_UPSERT as u64,
+        _ => u64::from(MAX_UPSERT_BATCH),
+    };
+    let rows =
+        (FLOATS_PER_BATCH / u64::from(dim.max(1))).min(crate::ingest_sink::rows_within_body(dim));
+    rows.clamp(1, cap) as usize
 }
 
 /// What the consumer does with the message.
@@ -325,7 +344,7 @@ async fn run<B: M3Backend, R: Blob, S: BatchSink>(
     let dim = u16::try_from(e.cfg.dim).map_err(|_| OpError::invalid("dimension"))?;
     let limits = ImportLimits {
         max_rows: remaining(b, &t, e.cfg.dim, now_ms / 1000).await?,
-        max_batch_rows: batch_rows(e.cfg.dim),
+        max_batch_rows: batch_rows(e.cfg.dim, e.cfg.index),
         max_segment_payload: QUEUED_MAX_SEGMENT_PAYLOAD,
         ..ImportLimits::default()
     };

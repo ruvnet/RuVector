@@ -15,10 +15,13 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Bytes hashed per delivery (a multiple of 64). A tuning value chosen for
-/// the Workers Free 10 ms CPU budget (pure-Rust SHA-256 on wasm32 is on the
-/// order of 100 MB/s); not measured on the deployed Worker.
-pub const HASH_BYTES_PER_DELIVERY: u64 = 512 << 10;
+/// Bytes hashed per delivery (a multiple of 64): one 8 MiB range read, the
+/// size of the upload parts and of the import tail buffer already in
+/// flight (the range is buffered whole, so this is a memory bound). At the
+/// ≈ 100 MB/s wasm SHA-256 estimate that is ≈ 84 ms of the Workers Paid
+/// 30 s `cpu_ms`; 128 deliveries per 1 GiB upload. A larger slice would
+/// need bounded sub-reads inside one delivery. (Free: 512 KiB.)
+pub const HASH_BYTES_PER_DELIVERY: u64 = 8 << 20;
 
 /// SHA-256 initial hash value (FIPS 180-4 §5.3.3).
 const IV: [u32; 8] = [
@@ -132,7 +135,7 @@ mod tests {
 
     #[test]
     fn chunked_pass_matches_one_shot_sha256_at_every_padding_edge() {
-        let big = (3 << 20) + 7;
+        let big = 2 * HASH_BYTES_PER_DELIVERY as usize + 7;
         for n in [0usize, 1, 55, 56, 63, 64, 65, 119, 120, 128, 4096, big] {
             let data: Vec<u8> = (0..n).map(|i| (i * 31 + 7) as u8).collect();
             let (d, deliveries) = chunked(&data);
