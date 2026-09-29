@@ -155,7 +155,6 @@ pub async fn verify_access_token<K: KeySource, C: Clock + ?Sized>(
     let audience = AudiencePolicy {
         edge_issuer: edge_issuer.to_string(),
         resource,
-        sibling_resources: Vec::new(),
         upstream: Some(UpstreamFirstPartyPolicy {
             issuer: cfg.issuer.clone(),
             first_party_auds: vec![cfg.client_id.clone()],

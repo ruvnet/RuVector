@@ -111,7 +111,11 @@ fn identity_scopes_are_dropped_at_authorization() {
     assert_eq!(v.scopes, vec!["ruvector:read"]);
     r.scope = Some("openid profile".into());
     let v = validate_authorization(&r, &c, &allowlist()).unwrap();
-    assert_eq!(v.scopes, c.scope, "nothing left -> client ceiling");
+    assert_eq!(
+        v.scopes,
+        vec!["ruvector:read", "offline_access"],
+        "nothing left -> resource default"
+    );
     r.scope = Some("openid brains:read".into());
     let e = validate_authorization(&r, &c, &allowlist()).unwrap_err();
     assert_eq!(e.oauth().error, C::InvalidScope);
@@ -153,6 +157,7 @@ fn mint_payload(identity: &crate::federation::UpstreamIdentity) -> serde_json::V
             identity,
             family_id: "fam-1",
             scopes: &scopes,
+            act: None,
         },
     )
     .unwrap();
@@ -193,6 +198,7 @@ fn mint_refuses_identity_without_upstream_iss() {
             identity: &id,
             family_id: "fam-1",
             scopes: &scopes,
+            act: None,
         },
     );
     assert_code(r, C::ServerError);
@@ -221,7 +227,10 @@ fn client_name_rejects_format_and_separator_chars() {
         );
     }
     assert!(is_display_name("Claude (Anthropic) - v2.1"));
-    assert!(is_display_name("Café Ünïcode 東京"));
+    // ASCII only: non-ASCII letters (and so homoglyphs) are refused.
+    for bad in ["Café", "東京", "Cl\u{0430}ude"] {
+        assert!(!is_display_name(bad), "{bad:?}");
+    }
 }
 
 #[test]

@@ -53,7 +53,8 @@ impl World {
         self.login_with(grants, FULL_SCOPE)
     }
 
-    /// Like [`World::login`] with an explicit consented `scope`.
+    /// Like [`World::login`] with an explicit consented `scope` (`""` omits
+    /// the `scope` parameter).
     fn login_with(&self, grants: &[&str], scope: &str) -> (String, String) {
         let mut req = reg_request();
         req.grant_types = Some(grants.iter().map(|g| g.to_string()).collect());
@@ -63,7 +64,7 @@ impl World {
             response_type: Some("code".into()),
             client_id: Some(client.client_id.clone()),
             redirect_uri: Some(REDIRECT.into()),
-            scope: Some(scope.into()),
+            scope: (!scope.is_empty()).then(|| scope.into()),
             state: Some("st".into()),
             code_challenge: Some(challenge()),
             code_challenge_method: Some("S256".into()),
@@ -170,6 +171,22 @@ fn full_flow_mints_resource_bound_token_and_refresh() {
     );
 }
 
+/// Regression (ADR-351 §5.3 table): an `/authorize` without `scope` yields
+/// a token response `scope` of `ruvector:read offline_access` — both are
+/// "granted by default" — and the access token carries the same.
+#[test]
+fn omitted_scope_token_response_echoes_offline_access() {
+    let w = World::new();
+    let (cid, code) = w.login_with(&["authorization_code", "refresh_token"], "");
+    let t = w.redeem(&cid, &code).unwrap();
+    assert_eq!(t.scope, "ruvector:read offline_access");
+    assert_eq!(
+        payload(&t.access_token)["scope"],
+        "ruvector:read offline_access"
+    );
+    assert!(t.refresh_token.is_some());
+}
+
 /// Regression (code replay, RFC 6749 §4.1.2): replaying a redeemed code
 /// revokes the grant it started, so the first redemption's refresh token
 /// stops working.
@@ -199,17 +216,22 @@ fn unknown_code_revokes_nothing() {
     assert!(w.refresh(&cid, &rt, None).is_ok());
 }
 
-/// Regression (offline_access, ADR-351 §5.3): a client with the
-/// refresh_token grant whose user consented without `offline_access` gets
-/// no refresh token.
+/// Regression (ADR-351 §5.3/§5.6): refresh tokens follow the client's
+/// registered `refresh_token` grant, not `offline_access`: a grant without
+/// `offline_access` still gets (and can rotate) a refresh token, and a
+/// client without the grant never gets one even with `offline_access`.
 #[test]
-fn no_refresh_token_without_offline_access() {
+fn refresh_follows_grant_types_not_offline_access() {
     let w = World::new();
     let (cid, code) = w.login_with(&["authorization_code", "refresh_token"], "ruvector:read");
     let t = w.redeem(&cid, &code).unwrap();
-    assert!(t.refresh_token.is_none());
     assert_eq!(t.scope, "ruvector:read");
-    assert!(w.store.refresh.borrow().is_empty());
+    let rt = t.refresh_token.expect("refresh grant registered");
+    assert!(w.refresh(&cid, &rt, None).is_ok());
+    let (cid, code) = w.login_with(&["authorization_code"], "ruvector:read offline_access");
+    let t = w.redeem(&cid, &code).unwrap();
+    assert!(t.refresh_token.is_none());
+    assert_eq!(t.scope, "ruvector:read offline_access");
 }
 
 /// Narrowing `scope` on refresh to drop `offline_access` narrows only the
@@ -295,4 +317,21 @@ fn resource_removed_before_code_redemption() {
     let (cid, code) = w.login(&["authorization_code"]);
     w.resources = ResourceAllowlist::new(vec![]);
     assert_code(w.redeem(&cid, &code), C::InvalidTarget);
+}
+
+/// Regression (§5.3 per-resource ceiling): if the resource's scopes are
+/// narrowed in config after the grant, refresh mints only what the resource
+/// still allows; nothing left is `invalid_scope`.
+#[test]
+fn refresh_is_rescoped_to_the_resource_current_scopes() {
+    let mut w = World::new();
+    let (cid, code) = w.login(&["authorization_code", "refresh_token"]);
+    let rt = w.redeem(&cid, &code).unwrap().refresh_token.unwrap();
+    w.resources = ResourceAllowlist::from_config(&format!("{RESOURCE} ruvector:read")).unwrap();
+    let t = w.refresh(&cid, &rt, None).unwrap();
+    assert_eq!(t.scope, "ruvector:read");
+    assert_eq!(payload(&t.access_token)["scope"], "ruvector:read");
+    w.resources = ResourceAllowlist::from_config(&format!("{RESOURCE} ruvector:admin")).unwrap();
+    let rt = t.refresh_token.unwrap();
+    assert_code(w.refresh(&cid, &rt, None), C::InvalidScope);
 }

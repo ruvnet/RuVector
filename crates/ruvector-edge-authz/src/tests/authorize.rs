@@ -52,15 +52,15 @@ fn valid_request() {
 }
 
 #[test]
-fn omitted_scope_is_client_ceiling_and_state_optional() {
+/// Regression (ADR-351 §5.3): an omitted `scope` grants the resource's
+/// default (`ruvector:read` + `offline_access`), not the client's whole
+/// ceiling.
+fn omitted_scope_is_resource_default_and_state_optional() {
     let mut r = request();
     r.scope = None;
     r.state = None;
     let v = run(&r).unwrap();
-    assert_eq!(
-        v.scopes,
-        vec!["ruvector:read", "ruvector:write", "offline_access"]
-    );
+    assert_eq!(v.scopes, vec!["ruvector:read", "offline_access"]);
     assert_eq!(v.state, None);
 }
 

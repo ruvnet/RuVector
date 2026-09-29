@@ -115,8 +115,21 @@ fn allowlist_resolution() {
     ] {
         assert_code(a.resolve(bad), C::InvalidTarget);
     }
-    assert!(ResourceAllowlist::from_config(&format!("{RESOURCE}, {OTHER_RESOURCE}")).is_ok());
-    assert!(ResourceAllowlist::from_config("https://ok.example,http://bad.example").is_err());
+    assert!(ResourceAllowlist::from_config(&format!(
+        "{RESOURCE} ruvector:read, {OTHER_RESOURCE} ruvector:read ruvector:admin"
+    ))
+    .is_ok());
+    for bad in [
+        "https://ok.example/v1 a, http://bad.example b".to_string(),
+        // Every entry needs scopes; the default grant is not offline_access.
+        RESOURCE.to_string(),
+        format!("{RESOURCE} offline_access ruvector:read"),
+        format!("{RESOURCE} ruvector:read ruvector:read"),
+        format!("{RESOURCE} a\"b"),
+        format!("{RESOURCE} a, {RESOURCE} b"),
+    ] {
+        assert!(ResourceAllowlist::from_config(&bad).is_err(), "{bad}");
+    }
     assert_code(
         ResourceAllowlist::default().resolve(Some(RESOURCE)),
         C::InvalidTarget,

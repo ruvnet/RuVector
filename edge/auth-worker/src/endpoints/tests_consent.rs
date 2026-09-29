@@ -76,8 +76,9 @@ fn rebuilt_upstream_url_matches_begin_upstream() {
     );
 }
 
-/// Regression (weak anti-phishing signals): unverified redirect hosts and
-/// non-ASCII names are called out; the form may only lead to us or upstream.
+/// Regression (weak anti-phishing signals): unverified redirect hosts are
+/// called out, non-ASCII (lookalike) names are refused at DCR; the form may
+/// only lead to us or upstream.
 #[test]
 fn consent_page_marks_unverified_hosts_and_lookalike_names() {
     let w = World::new();
@@ -94,6 +95,12 @@ fn consent_page_marks_unverified_hosts_and_lookalike_names() {
         "redirect_uris": ["https://evil.example/cb"],
         "client_name": "\u{0421}laude",
     }));
+    assert_eq!(r.status, 400);
+    assert_eq!(body_json(&r)["error"], "invalid_client_metadata");
+    let r = w.register(json!({
+        "redirect_uris": ["https://evil.example/cb"],
+        "client_name": "Claude",
+    }));
     let id = body_json(&r)["client_id"].as_str().unwrap().to_string();
     let q = authorize_query(&id, RESOURCE).replace(
         &url::form_urlencoded::byte_serialize(REDIRECT.as_bytes()).collect::<String>(),
@@ -101,13 +108,13 @@ fn consent_page_marks_unverified_hosts_and_lookalike_names() {
     );
     let html = String::from_utf8(authorize(&w.ctx(), Some(&q)).body).unwrap();
     assert!(html.contains("Unverified application"), "{html}");
-    assert!(html.contains("Unusual characters"));
 }
 
 /// Regression (offline_access refused under the shipped config): with the
 /// shipped `wrangler.toml` vars (plus an upstream client and kid pin), a
 /// connector can register and authorize `offline_access`, and a
-/// registration without `scope` gets the read-only default.
+/// registration without `scope` gets `ruvector:read ruvector:write
+/// offline_access` and both grant types (ADR-351 §5.6).
 #[test]
 fn shipped_config_accepts_offline_access_end_to_end() {
     let mut v = crate::config::tests::shipped_vars();
@@ -117,7 +124,7 @@ fn shipped_config_accepts_offline_access_end_to_end() {
         crate::config::tests::upstream_test_kid(),
     );
     let cfg = load(&v).unwrap();
-    let resource = cfg.resources.resources()[1].as_str().to_string();
+    let resource = cfg.resources.entries()[1].url().as_str().to_string();
     let w = World::with_cfg(cfg);
     let r = w.register(json!({
         "redirect_uris": [REDIRECT],
@@ -131,5 +138,48 @@ fn shipped_config_accepts_offline_access_end_to_end() {
     assert_eq!(page.status, 200, "{}", String::from_utf8_lossy(&page.body));
     assert!(String::from_utf8_lossy(&page.body).contains("offline_access"));
     let r = w.register(json!({"redirect_uris": [REDIRECT]}));
-    assert_eq!(body_json(&r)["scope"], "ruvector:read offline_access");
+    assert_eq!(
+        body_json(&r)["scope"],
+        "ruvector:read ruvector:write offline_access"
+    );
+    assert_eq!(
+        body_json(&r)["grant_types"],
+        json!(["authorization_code", "refresh_token"])
+    );
+}
+
+/// Regression (refresh without disclosure, ADR-351 §5.3): refresh tokens
+/// follow `grant_types`, not `offline_access`, so a refresh-capable client's
+/// consent page says it stays signed in — even when the request names only
+/// `ruvector:read` — and a code-only client's page does not.
+#[test]
+fn consent_discloses_long_lived_access_for_refresh_clients() {
+    let w = World::new();
+    let read_only = |id: &str| {
+        authorize_query(id, RESOURCE).replace(
+            "scope=ruvector%3Aread+offline_access",
+            "scope=ruvector%3Aread",
+        )
+    };
+    let refresh_id = w.client_id();
+    let page = authorize(&w.ctx(), Some(&read_only(&refresh_id)));
+    assert_eq!(page.status, 200, "{}", String::from_utf8_lossy(&page.body));
+    let html = String::from_utf8(page.body).unwrap();
+    assert!(
+        !html.contains("<li><code>offline_access</code></li>"),
+        "{html}"
+    );
+    assert!(html.contains("Stays signed in"), "{html}");
+    assert!(html.contains("up to 90 days"), "{html}");
+    assert!(html.contains("<code>offline_access</code>"), "{html}");
+    let r = w.register(json!({
+        "redirect_uris": [REDIRECT],
+        "grant_types": ["authorization_code"],
+    }));
+    assert_eq!(r.status, 201, "{}", String::from_utf8_lossy(&r.body));
+    let code_only = body_json(&r)["client_id"].as_str().unwrap().to_string();
+    let page = authorize(&w.ctx(), Some(&read_only(&code_only)));
+    assert_eq!(page.status, 200, "{}", String::from_utf8_lossy(&page.body));
+    let html = String::from_utf8(page.body).unwrap();
+    assert!(!html.contains("Stays signed in"), "{html}");
 }

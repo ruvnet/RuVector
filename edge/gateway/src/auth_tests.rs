@@ -82,7 +82,7 @@ fn token(k: &SigningKey, typ: Option<&str>, claims: Value) -> String {
 fn edge_claims(aud: &str) -> Value {
     json!({
         "iss": EDGE, "aud": aud, "sub": SUB, "client_id": "edc-1",
-        "org_id": "org_1", "workspace_id": "ws_1", "scope": "mcp:read",
+        "org_id": "org_1", "workspace_id": "ws_1", "scope": "ruvector:read",
         "jti": "AAECAwQFBgcICQoLDA0ODw", "family_id": "EBESExQVFhcYGRobHB0eHw",
         "upstream_iss": UPSTREAM, "iat": NOW - 10, "exp": NOW + 890,
     })
@@ -135,21 +135,34 @@ fn missing_token_gets_bare_resource_metadata_challenge() {
     assert_eq!(d.code, ProblemCode::InvalidToken);
     assert_eq!(
         d.www_authenticate.as_deref(),
-        Some("Bearer resource_metadata=\"https://gw.example.workers.dev/.well-known/oauth-protected-resource/v1\", scope=\"ruvector:read\"")
+        Some("Bearer resource_metadata=\"https://gw.example.workers.dev/.well-known/oauth-protected-resource/v1\", scope=\"ruvector:read offline_access\"")
     );
 }
 
+const REST_PRM: &str = "https://gw.example.workers.dev/.well-known/oauth-protected-resource/v1";
+const MCP_PRM: &str = "https://gw.example.workers.dev/.well-known/oauth-protected-resource/v1/mcp";
+
+/// The 401 audience-mismatch denial for a route whose metadata is `prm`
+/// (ADR-351 §5.4.7).
+fn audience_mismatch(prm: &str) -> Denied {
+    Denied {
+        code: ProblemCode::InvalidToken,
+        www_authenticate: Some(format!(
+            "Bearer resource_metadata=\"{prm}\", scope=\"ruvector:read offline_access\", \
+             error=\"invalid_token\", error_description=\"audience mismatch\""
+        )),
+    }
+}
+
+/// Regression (ADR-351 §5.4.7, §8 delta 10): a `/v1/mcp` token on `/v1` is
+/// 401 `invalid_token` "audience mismatch" with the `/v1` metadata, not a
+/// bare 403, so MCP clients re-run discovery.
 #[test]
-fn other_resource_audience_is_403_without_challenge() {
+fn other_resource_audience_is_401_audience_mismatch() {
     let t = token(&key(1), Some("at+jwt"), edge_claims(MCP));
     let d = run(&cfg(false), Some(&t), edge_keys()).unwrap_err();
-    assert_eq!(
-        d,
-        Denied {
-            code: ProblemCode::AudienceNotAllowed,
-            www_authenticate: None
-        }
-    );
+    assert_eq!(d, audience_mismatch(REST_PRM));
+    assert_eq!(d.code.status_and_code().0, 401);
 }
 
 #[test]
@@ -214,7 +227,7 @@ fn run_mcp(c: &GatewayConfig, header: Option<&str>) -> Result<TenantContext, Den
 }
 
 /// Regression (/v1/mcp authenticated as REST): on `/v1/mcp` an MCP-audience
-/// token is accepted, a `/v1` token is 403, the 401 challenge names the
+/// token is accepted, a `/v1` token is a 401 audience mismatch naming the
 /// `/v1/mcp` metadata, and upstream first-party tokens are refused.
 #[test]
 fn mcp_route_uses_the_mcp_resource_audience_and_surface() {
@@ -224,10 +237,7 @@ fn mcp_route_uses_the_mcp_resource_audience_and_surface() {
     let rest = token(&key(1), Some("at+jwt"), edge_claims(REST));
     assert_eq!(
         run_mcp(&c, Some(&rest)).unwrap_err(),
-        Denied {
-            code: ProblemCode::AudienceNotAllowed,
-            www_authenticate: None
-        }
+        audience_mismatch(MCP_PRM)
     );
     let d = run_mcp(&c, None).unwrap_err();
     assert!(d
@@ -279,4 +289,70 @@ fn denial_mapping() {
         denial(&AuthError::InvalidConfig("x")),
         (ProblemCode::ServerError, false)
     );
+    assert_eq!(
+        denial(&AuthError::AudienceNotAllowed),
+        (ProblemCode::InvalidToken, true)
+    );
+}
+
+/// Regression (§5.4.7): only audience failures carry the description; a
+/// forged or expired token gets the plain `invalid_token` challenge.
+#[test]
+fn only_audience_failures_are_described() {
+    let wrong_key = token(&key(3), Some("at+jwt"), edge_claims(REST));
+    let d = run(&cfg(false), Some(&wrong_key), edge_keys()).unwrap_err();
+    assert!(!d.www_authenticate.unwrap().contains("error_description"));
+    let mut arr = edge_claims(REST);
+    arr["aud"] = json!([REST]);
+    let arr = token(&key(1), Some("at+jwt"), arr);
+    let d = run(&cfg(false), Some(&arr), edge_keys()).unwrap_err();
+    assert_eq!(d, audience_mismatch(REST_PRM));
+}
+
+/// Regression (ADR-351 §5.4 item 7, §16.1): a token minted for the
+/// team.ruv.io adapter resource is never accepted by the gateway — 401
+/// `invalid_token` "audience mismatch" with this route's challenge on both
+/// resources.
+#[test]
+fn team_adapter_audience_is_never_accepted() {
+    let t = token(
+        &key(1),
+        Some("at+jwt"),
+        edge_claims("https://team.ruv.io/mcp"),
+    );
+    let d = run(&cfg(true), Some(&t), edge_keys()).unwrap_err();
+    assert_eq!(d, audience_mismatch(REST_PRM));
+    let d = run_mcp(&cfg(true), Some(&t)).unwrap_err();
+    assert_eq!(d, audience_mismatch(MCP_PRM));
+}
+
+/// Regression (Cloudflare 1042, ADR-351 §5.4 item 5): without the
+/// `EDGE_AUTH` binding the edge JWKS is never fetched over the public
+/// internet; the fetch fails and the request is 503 `jwks_unavailable`.
+#[test]
+fn missing_edge_auth_binding_is_503_not_a_public_fetch() {
+    use crate::platform::{JwksFetch, UNBOUND_ERROR};
+    use ruvector_edge_auth::{HttpFetch, JwksCache, JwksCachePolicy};
+    let fetch = crate::routes::edge_fetch(None);
+    assert!(matches!(fetch, JwksFetch::Unbound));
+    let err = block_on(fetch.get(&cfg(false).edge_jwks_url, 1024)).unwrap_err();
+    assert_eq!(err.0, UNBOUND_ERROR);
+    let c = cfg(false);
+    let keys = JwksCache::new(
+        crate::routes::edge_fetch(None),
+        Fixed,
+        JwksCachePolicy::with_defaults(&c.edge_jwks_url),
+    );
+    let t = token(&key(1), Some("at+jwt"), edge_claims(REST));
+    let d = block_on(authenticate(
+        Some(&t),
+        &c,
+        &c.rest_resource,
+        RouteSurface::Rest,
+        keys,
+        || Down,
+        Fixed,
+    ))
+    .unwrap_err();
+    assert_eq!(d.code, ProblemCode::JwksUnavailable);
 }

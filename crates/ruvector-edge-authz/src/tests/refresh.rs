@@ -234,10 +234,11 @@ fn store_failure_is_server_error() {
     );
 }
 
-/// Regression (offline_access, ADR-351 §5.3): a family whose ceiling lacks
-/// `offline_access` cannot rotate, and the failed attempt consumes nothing.
+/// Regression (ADR-351 §5.3): `offline_access` does not gate rotation; a
+/// family whose ceiling lacks it still rotates (the token endpoint checks
+/// the client's `refresh_token` grant instead).
 #[test]
-fn family_without_offline_access_cannot_rotate() {
+fn family_without_offline_access_still_rotates() {
     let (store, rng, clock) = (MemStore::default(), SeqRng::default(), FixedClock::at(T0));
     let (token, _) = issue_refresh(
         &store,
@@ -250,11 +251,9 @@ fn family_without_offline_access_cannot_rotate() {
         &["ruvector:read".to_string()],
     )
     .unwrap();
-    assert_code(
-        rotate_refresh(&store, &rng, &clock, &token, CLIENT_ID, None, None),
-        C::InvalidGrant,
-    );
-    assert!(!store.refresh.borrow()[&crate::secret_hash(&token)].rotated);
+    let r = rotate_refresh(&store, &rng, &clock, &token, CLIENT_ID, None, None).unwrap();
+    assert_eq!(r.granted_scopes, vec!["ruvector:read"]);
+    assert!(store.refresh.borrow()[&crate::secret_hash(&token)].rotated);
 }
 
 /// Preparing a rotation writes nothing; only commit consumes the token.

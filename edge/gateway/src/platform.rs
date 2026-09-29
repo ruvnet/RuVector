@@ -24,11 +24,19 @@ impl Clock for WorkerClock {
 /// cache as a non-200 and is treated as a fetch failure.
 pub enum JwksFetch {
     /// Through the `EDGE_AUTH` service binding (the URL's path is used; the
-    /// host is ignored by the runtime).
+    /// host is ignored by the runtime). The **only** way the edge JWKS is
+    /// fetched (ADR-351 §5.4 item 5).
     Service(Fetcher),
-    /// Public internet.
+    /// The `EDGE_AUTH` binding is missing: every fetch fails, so the gateway
+    /// answers 503 `jwks_unavailable` instead of trying a public
+    /// workers.dev -> workers.dev fetch (Cloudflare 1042).
+    Unbound,
+    /// Public internet (upstream `auth.cognitum.one` JWKS only).
     Global,
 }
+
+/// Error of a fetch through a missing `EDGE_AUTH` binding.
+pub const UNBOUND_ERROR: &str = "EDGE_AUTH service binding missing";
 
 fn fetch_err(e: worker::Error) -> FetchError {
     FetchError(e.to_string())
@@ -48,10 +56,17 @@ fn init() -> Result<RequestInit, FetchError> {
 
 impl HttpFetch for JwksFetch {
     async fn get(&self, url: &str, max_body_bytes: usize) -> Result<HttpResponse, FetchError> {
+        // Checked before any runtime call, so a missing binding never
+        // reaches the network.
+        let service = match self {
+            JwksFetch::Unbound => return Err(FetchError(UNBOUND_ERROR.into())),
+            JwksFetch::Service(f) => Some(f),
+            JwksFetch::Global => None,
+        };
         let init = init()?;
-        let mut resp = match self {
-            JwksFetch::Service(f) => f.fetch(url, Some(init)).await.map_err(fetch_err)?,
-            JwksFetch::Global => {
+        let mut resp = match service {
+            Some(f) => f.fetch(url, Some(init)).await.map_err(fetch_err)?,
+            None => {
                 let req = Request::new_with_init(url, &init).map_err(fetch_err)?;
                 Fetch::Request(req).send().await.map_err(fetch_err)?
             }

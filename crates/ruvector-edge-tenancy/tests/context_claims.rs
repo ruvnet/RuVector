@@ -111,12 +111,14 @@ fn upstream_capabilities_ignore_token_scopes_and_intersect_role() {
         caps(&[Capability::Read])
     );
     let owner = build(upstream(), Some(Role::Owner), RouteSurface::Rest).unwrap();
+    // §5.5: the fixed set is `read write admin` ∩ role.
     assert_eq!(
         owner.capabilities(),
         caps(&[
             Capability::Read,
             Capability::Write,
-            Capability::CreateCollection
+            Capability::CreateCollection,
+            Capability::Admin,
         ])
     );
     assert!(!owner.capabilities().contains(Capability::PublishPublic));
@@ -269,4 +271,34 @@ fn missing_or_invalid_tenant_claims_are_401() {
         assert_eq!(err, TenancyError::InvalidTenantClaim(what));
         assert_eq!(err.problem_code(), ProblemCode::InvalidToken);
     }
+}
+
+/// Regression (§4.1 step 2, §16.2): the tenant key is derived from the edge
+/// token's own `upstream_iss` claim; a missing or foreign one is 401, even
+/// for claims that bypassed a policy requiring it.
+#[test]
+fn edge_token_upstream_iss_claim_is_required_and_pinned() {
+    let mut t = edge();
+    t.upstream_iss = None;
+    let err = build(t, Some(Role::Owner), RouteSurface::Rest).unwrap_err();
+    assert_eq!(err, TenancyError::InvalidTenantClaim("upstream_iss"));
+    let mut t = edge();
+    t.upstream_iss = Some("https://other-idp.example");
+    let err = build(t, Some(Role::Owner), RouteSurface::Rest).unwrap_err();
+    assert_eq!(err, TenancyError::InvalidTenantClaim("upstream_iss"));
+    assert_eq!(err.problem_code(), ProblemCode::InvalidToken);
+}
+
+/// Regression (§4.2, §5.3): an owner holding `ruvector:admin` gets `Admin`
+/// on REST, never on the MCP surface; an editor never gets it.
+#[test]
+fn admin_is_owner_only_and_rest_only() {
+    let mut t = edge();
+    t.scope = "ruvector:read ruvector:write ruvector:admin";
+    let owner = build(t.clone(), Some(Role::Owner), RouteSurface::Rest).unwrap();
+    assert!(owner.capabilities().contains(Capability::Admin));
+    let owner_mcp = build(t.clone(), Some(Role::Owner), RouteSurface::Mcp).unwrap();
+    assert!(!owner_mcp.capabilities().contains(Capability::Admin));
+    let editor = build(t, Some(Role::Editor), RouteSurface::Rest).unwrap();
+    assert!(!editor.capabilities().contains(Capability::Admin));
 }

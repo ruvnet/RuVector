@@ -132,6 +132,7 @@ fn mint(
             identity: &id,
             family_id: "fam-1",
             scopes: &scopes,
+            act: None,
         },
     )
 }

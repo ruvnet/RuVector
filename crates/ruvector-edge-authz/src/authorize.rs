@@ -3,8 +3,8 @@
 
 use crate::client::ClientRecord;
 use crate::error::{OAuthError, OAuthErrorCode};
-use crate::params::{ensure_subset, split_scope, strip_identity_scopes, Params};
-use crate::resource::ResourceAllowlist;
+use crate::params::Params;
+use crate::resource::{grant_scopes, ResourceAllowlist};
 use ruvector_edge_auth::ResourceUrl;
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -51,7 +51,7 @@ pub struct ValidatedAuthorization {
     pub client_id: String,
     /// Exact redirect URI to return to (as presented; matched a registration).
     pub redirect_uri: String,
-    /// Granted scopes (subset of the client's ceiling).
+    /// Granted scopes (requested ∩ client ceiling ∩ resource scopes).
     pub scopes: Vec<String>,
     /// Client `state` echoed back (opaque, bounded).
     pub state: Option<String>,
@@ -203,9 +203,11 @@ pub fn verify_consent_token(cookie: &str, auth: &ValidatedAuthorization, present
 /// pre-consent error goes to the user agent (no open redirect via DCR).
 /// Checks: `response_type == "code"` else `unsupported_response_type`; PKCE
 /// via [`crate::pkce::validate_challenge`] (`S256` only); `resource` via
-/// [`ResourceAllowlist::resolve`] (`invalid_target`, required); `scope`
-/// minus the identity scopes (dropped) subset of the client ceiling
-/// (`invalid_scope`; absent or nothing left -> the ceiling).
+/// [`ResourceAllowlist::resolve_entry`] (`invalid_target`, required); `scope`
+/// via [`grant_scopes`] (ADR-351 §5.3: requested ∩ client ceiling ∩ the
+/// resource's scopes; out-of-ceiling vocabulary scopes are dropped, unknown
+/// ones `invalid_scope`; omitted -> the resource's default grant, e.g.
+/// `ruvector:read`).
 pub fn validate_authorization(
     req: &AuthorizationRequest,
     client: &ClientRecord,
@@ -255,21 +257,12 @@ pub fn validate_authorization(
     })?;
     crate::pkce::validate_challenge(challenge, req.code_challenge_method.as_deref())
         .map_err(redirect)?;
-    let resource = resources
-        .resolve(req.resource.as_deref())
+    let entry = resources
+        .resolve_entry(req.resource.as_deref())
         .map_err(redirect)?;
-    let scopes = match req.scope.as_deref() {
-        None => client.scope.clone(),
-        Some(s) => {
-            let s = strip_identity_scopes(split_scope(s).map_err(redirect)?);
-            ensure_subset(&s, &client.scope).map_err(redirect)?;
-            if s.is_empty() {
-                client.scope.clone()
-            } else {
-                s
-            }
-        }
-    };
+    let scopes =
+        grant_scopes(req.scope.as_deref(), &client.scope, entry, resources).map_err(redirect)?;
+    let resource = entry.url().clone();
     Ok(ValidatedAuthorization {
         client_id: client.client_id.clone(),
         redirect_uri: redirect_uri.to_string(),

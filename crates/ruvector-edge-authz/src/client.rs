@@ -1,7 +1,7 @@
 //! Dynamic Client Registration (RFC 7591) for public clients.
 
 use crate::error::{OAuthError, OAuthErrorCode};
-use crate::params::{ensure_subset, split_scope, strip_identity_scopes};
+use crate::params::{split_scope, strip_identity_scopes};
 use crate::ports::{ClientStore, Clock, Rng};
 use serde::{Deserialize, Serialize};
 use url::{Host, Url};
@@ -28,8 +28,17 @@ pub const VERIFIED_REDIRECT_PREFIXES: [(&str, &str); 4] = [
     ("claude.com", "/api/mcp/"),
 ];
 
+/// Scope ceiling of a registration that omits `scope` (ADR-351 §5.3/§5.6):
+/// read and write plus `offline_access`, on every resource that allows them
+/// (gateway and adapter resources alike). Admin and publish must be
+/// registered explicitly. Consent plus role, not this ceiling, is the
+/// control.
+pub const DEFAULT_CLIENT_SCOPE: [&str; 3] = ["ruvector:read", "ruvector:write", "offline_access"];
+
 const GRANT_CODE: &str = "authorization_code";
-const GRANT_REFRESH: &str = "refresh_token";
+/// The refresh grant type; a client registered with it gets refresh tokens
+/// (ADR-351 §5.3), which the consent page discloses.
+pub const GRANT_REFRESH: &str = "refresh_token";
 
 /// Registration request body. Unknown metadata members are ignored (RFC 7591
 /// §2); only the members below influence behaviour.
@@ -41,14 +50,15 @@ pub struct RegistrationRequest {
     /// Must be `none` (or absent, meaning `none`).
     #[serde(default)]
     pub token_endpoint_auth_method: Option<String>,
-    /// Subset of `["authorization_code","refresh_token"]`; default
-    /// `["authorization_code"]`.
+    /// Subset of `["authorization_code","refresh_token"]` including the
+    /// first; omitted -> **both** (ADR-351 §5.6: deliberately not the RFC
+    /// 7591 default, so connectors get refresh tokens).
     #[serde(default)]
     pub grant_types: Option<Vec<String>>,
     /// Must be `["code"]` if present.
     #[serde(default)]
     pub response_types: Option<Vec<String>>,
-    /// Display name (printable, <= [`MAX_CLIENT_NAME_LEN`]).
+    /// Display name (printable ASCII, <= [`MAX_CLIENT_NAME_LEN`]).
     #[serde(default)]
     pub client_name: Option<String>,
     /// Space-separated requested scope ceiling; must be a subset of the AS's
@@ -233,23 +243,21 @@ fn meta_err(desc: &'static str) -> OAuthError {
 }
 
 /// `client_name` is shown on the consent page, so it must not be able to
-/// reorder or hide text: 1..=[`MAX_CLIENT_NAME_LEN`] bytes, no leading or
-/// trailing whitespace, and every char is visible ASCII, an ASCII space, or
-/// an alphanumeric char. That allowlist excludes controls (Cc), format
-/// characters (Cf: bidi overrides/isolates, zero-width, BOM), line and
-/// paragraph separators (Zl/Zp), non-ASCII spaces and noncharacters.
+/// reorder, hide or impersonate text: 1..=[`MAX_CLIENT_NAME_LEN`] bytes, no
+/// leading or trailing whitespace, and **ASCII only** (visible ASCII or an
+/// ASCII space). That excludes controls, bidi overrides/isolates,
+/// zero-width and other format characters, non-ASCII spaces and every
+/// non-ASCII homoglyph (e.g. Cyrillic `а` in a fake "Claude").
 pub fn is_display_name(name: &str) -> bool {
     !name.is_empty()
         && name.len() <= MAX_CLIENT_NAME_LEN
         && name.trim() == name
-        && name
-            .chars()
-            .all(|c| c.is_ascii_graphic() || c == ' ' || c.is_alphanumeric())
+        && name.bytes().all(|b| b.is_ascii_graphic() || b == b' ')
 }
 
 fn validate_grants(grants: Option<&Vec<String>>) -> Result<Vec<String>, OAuthError> {
     let Some(grants) = grants else {
-        return Ok(vec![GRANT_CODE.to_string()]);
+        return Ok(vec![GRANT_CODE.to_string(), GRANT_REFRESH.to_string()]);
     };
     let mut out: Vec<String> = Vec::new();
     for g in grants {
@@ -273,10 +281,13 @@ fn validate_grants(grants: Option<&Vec<String>>) -> Result<Vec<String>, OAuthErr
 /// [`validate_redirect_uri`]; `token_endpoint_auth_method` absent or `none`;
 /// `response_types` absent or `["code"]`; `grant_types` subset of
 /// `authorization_code`/`refresh_token` and must include
-/// `authorization_code`; `scope` minus the identity scopes
-/// (`openid profile email`, dropped) subset of `policy.scopes_supported`
-/// (absent or nothing left -> `policy.default_scope`, never the full
-/// supported set); `client_name` per [`is_display_name`].
+/// `authorization_code` (omitted -> both); `scope` minus the identity scopes
+/// (`openid profile email`, dropped): a scope outside
+/// `policy.scopes_supported` and the §5.3 `ruvector:*` vocabulary is
+/// `invalid_client_metadata`, a vocabulary scope not yet supported (e.g.
+/// `ruvector:publish`) is dropped (absent or nothing left ->
+/// `policy.default_scope`, [`DEFAULT_CLIENT_SCOPE`] in production);
+/// `client_name` per [`is_display_name`].
 pub fn validate_registration(
     req: &RegistrationRequest,
     policy: &DcrPolicy,
@@ -318,8 +329,21 @@ pub fn validate_registration(
         Some(s) => {
             let s = split_scope(s).map_err(|_| meta_err("malformed scope"))?;
             let s = strip_identity_scopes(s);
-            ensure_subset(&s, &policy.scopes_supported)
-                .map_err(|_| meta_err("scope not registrable"))?;
+            let known = |t: &String| {
+                policy.scopes_supported.contains(t)
+                    || ruvector_edge_auth::scopes::SCOPE_TABLE
+                        .iter()
+                        .any(|(v, _)| v == t)
+            };
+            if !s.iter().all(known) {
+                return Err(meta_err("scope not registrable"));
+            }
+            // §5.3 vocabulary not yet minted (e.g. `ruvector:publish`) is
+            // dropped, not refused.
+            let s: Vec<String> = s
+                .into_iter()
+                .filter(|t| policy.scopes_supported.contains(t))
+                .collect();
             if s.is_empty() {
                 policy.default_scope.clone()
             } else {

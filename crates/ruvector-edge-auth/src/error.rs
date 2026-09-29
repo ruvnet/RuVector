@@ -5,10 +5,9 @@ use thiserror::Error;
 /// Why a bearer token was refused (or could not be checked).
 ///
 /// Map to HTTP with [`AuthError::http_status`]: key-availability failures are
-/// `503` (ADR §5.4.6 "never fetched"), an edge token for a sibling resource
-/// `403 audience_not_allowed` (§5.4.7), a malformed `Authorization` header
-/// `400 invalid_request` (RFC 6750 §3.1), everything else `401
-/// invalid_token`.
+/// `503` (ADR §5.4.6 "never fetched"), a malformed `Authorization` header
+/// `400 invalid_request` (RFC 6750 §3.1), everything else — including every
+/// audience mismatch (§5.4.7) — `401 invalid_token`.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum AuthError {
     /// No `Authorization: Bearer` header (query/cookie tokens are never read).
@@ -60,8 +59,11 @@ pub enum AuthError {
     /// `iss` is not an accepted issuer.
     #[error("wrong issuer")]
     WrongIssuer,
-    /// `aud` names a sibling edge resource of this gateway (403). Any other
-    /// audience mismatch is [`AuthError::InvalidClaim`]`("aud")` (401).
+    /// `aud` is a well-formed string naming another resource (the gateway's
+    /// other resource, an adapter resource, a client id). 401
+    /// `invalid_token`, like every audience failure (§5.4.7); its
+    /// [`AuthError::code`] `audience_not_allowed` is only the log/metric
+    /// reason.
     #[error("audience not allowed")]
     AudienceNotAllowed,
     /// Token (jti/family_id/sub/client_id/kid) is on the deny-list.
@@ -80,15 +82,15 @@ impl AuthError {
     pub fn http_status(&self) -> u16 {
         match self {
             AuthError::KeysUnavailable | AuthError::NotImplemented(_) => 503,
-            AuthError::AudienceNotAllowed => 403,
             AuthError::MalformedAuthorization => 400,
             AuthError::InvalidConfig(_) => 500,
             _ => 401,
         }
     }
 
-    /// RFC 6750 / ADR §7 stable error code for problem+json and
-    /// `WWW-Authenticate`.
+    /// Stable reason code for logs and metrics (RFC 6750 / ADR §7).
+    /// `audience_not_allowed` is a log reason only; on the wire it is
+    /// `invalid_token` ([`AuthError::rfc6750_error`]).
     pub fn code(&self) -> &'static str {
         match self {
             AuthError::KeysUnavailable | AuthError::NotImplemented(_) => "jwks_unavailable",
@@ -103,9 +105,7 @@ impl AuthError {
     ///
     /// `None` when the request carried no credentials ([`AuthError::MissingToken`],
     /// §3.1: "SHOULD NOT include an error code"), for server-side failures
-    /// (5xx), which are not bearer-token errors, and for the 403
-    /// [`AuthError::AudienceNotAllowed`] (`invalid_token` pairs only with 401,
-    /// RFC 6750 §3.1). A malformed `Authorization` header is
+    /// (5xx), which are not bearer-token errors. A malformed `Authorization` header is
     /// `invalid_request` (400); every other token failure is `invalid_token`
     /// (401). The status from [`AuthError::http_status`] always agrees.
     pub fn rfc6750_error(&self) -> Option<&'static str> {
@@ -113,11 +113,20 @@ impl AuthError {
             AuthError::MissingToken
             | AuthError::KeysUnavailable
             | AuthError::NotImplemented(_)
-            | AuthError::InvalidConfig(_)
-            | AuthError::AudienceNotAllowed => None,
+            | AuthError::InvalidConfig(_) => None,
             AuthError::MalformedAuthorization => Some("invalid_request"),
             _ => Some("invalid_token"),
         }
+    }
+
+    /// Whether this is an audience failure (§5.4.7): the 401 challenge then
+    /// carries `error_description="audience mismatch"` so the client can
+    /// tell it from a bad signature or an expired token.
+    pub fn is_audience_mismatch(&self) -> bool {
+        matches!(
+            self,
+            AuthError::AudienceNotAllowed | AuthError::InvalidClaim("aud")
+        )
     }
 }
 
@@ -161,9 +170,9 @@ mod tests {
             ),
             (
                 AuthError::AudienceNotAllowed,
-                403,
+                401,
                 "audience_not_allowed",
-                None,
+                Some("invalid_token"),
             ),
             (AuthError::KeysUnavailable, 503, "jwks_unavailable", None),
             (AuthError::InvalidConfig("x"), 500, "server_error", None),
@@ -208,6 +217,28 @@ mod tests {
                 Some(other) => panic!("unexpected {other} for {err:?}"),
                 None => {}
             }
+        }
+    }
+
+    /// Regression (ADR §5.4.7, §8 delta 10): every audience failure is a
+    /// 401 `invalid_token` flagged as an audience mismatch; nothing else is.
+    #[test]
+    fn audience_failures_are_401_mismatches() {
+        for err in [
+            AuthError::AudienceNotAllowed,
+            AuthError::InvalidClaim("aud"),
+        ] {
+            assert_eq!(err.http_status(), 401, "{err:?}");
+            assert_eq!(err.rfc6750_error(), Some("invalid_token"), "{err:?}");
+            assert!(err.is_audience_mismatch(), "{err:?}");
+        }
+        for err in [
+            AuthError::BadSignature,
+            AuthError::Expired,
+            AuthError::InvalidClaim("exp"),
+            AuthError::WrongIssuer,
+        ] {
+            assert!(!err.is_audience_mismatch(), "{err:?}");
         }
     }
 }

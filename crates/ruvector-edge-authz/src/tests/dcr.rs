@@ -21,7 +21,7 @@ fn valid_registration_builds_record() {
     let body = serde_json::to_value(r.to_response()).unwrap();
     assert_eq!(body["token_endpoint_auth_method"], "none");
     assert_eq!(body["response_types"], serde_json::json!(["code"]));
-    assert_eq!(body["scope"], "ruvector:read");
+    assert_eq!(body["scope"], "ruvector:read ruvector:write offline_access");
 }
 
 #[test]
@@ -40,7 +40,8 @@ fn explicit_scope_subset_and_defaults() {
     req.token_endpoint_auth_method = Some("none".into());
     let r = validate(&req).unwrap();
     assert_eq!(r.scope, vec!["ruvector:read", "ruvector:write"]);
-    assert_eq!(r.grant_types, vec!["authorization_code"]);
+    // ADR-351 §5.6: omitted grant_types -> both, so connectors refresh.
+    assert_eq!(r.grant_types, vec!["authorization_code", "refresh_token"]);
     req.grant_types = Some(vec![
         "authorization_code".into(),
         "authorization_code".into(),

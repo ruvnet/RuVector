@@ -34,14 +34,20 @@ pub struct TenantContext {
 ///
 /// - `UpstreamFirstParty`: the token's own `iss` (§5.5), which must equal
 ///   [`UPSTREAM_ISSUER`].
-/// - `EdgeIssued`: the edge AS federates to exactly one upstream, the
-///   compiled [`UPSTREAM_ISSUER`]. (When `VerifiedClaims` exposes the
-///   `upstream_iss` claim, it must be required equal to this constant here.)
-fn upstream_iss_of(claims: &VerifiedClaims) -> Result<&'static str, TenancyError> {
-    match claims.kind() {
-        TokenKind::UpstreamFirstParty if claims.iss() == UPSTREAM_ISSUER => Ok(UPSTREAM_ISSUER),
-        TokenKind::UpstreamFirstParty => Err(TenancyError::InvalidTenantClaim("upstream_iss")),
-        TokenKind::EdgeIssued => Ok(UPSTREAM_ISSUER),
+/// - `EdgeIssued`: the token's `upstream_iss` claim (§5.2), which is
+///   **required** and must equal [`UPSTREAM_ISSUER`]. The edge `iss` never
+///   feeds the tenant (§4.1 step 2, §16.2).
+///
+/// The returned value is the claim itself (checked equal to the constant),
+/// so the tenant key is a function of the token's own `upstream_iss`.
+fn upstream_iss_of(claims: &VerifiedClaims) -> Result<&str, TenancyError> {
+    let claimed = match claims.kind() {
+        TokenKind::UpstreamFirstParty => Some(claims.iss()),
+        TokenKind::EdgeIssued => claims.upstream_iss(),
+    };
+    match claimed {
+        Some(iss) if iss == UPSTREAM_ISSUER => Ok(iss),
+        _ => Err(TenancyError::InvalidTenantClaim("upstream_iss")),
     }
 }
 
@@ -49,7 +55,8 @@ fn upstream_iss_of(claims: &VerifiedClaims) -> Result<&'static str, TenancyError
 impl TenantContext {
     /// The only constructor.
     ///
-    /// - `upstream_iss` must equal [`UPSTREAM_ISSUER`]; `org_id` and
+    /// - `upstream_iss` (edge: the claim; upstream: `iss`) must equal
+    ///   [`UPSTREAM_ISSUER`]; `org_id` and
     ///   `workspace_id` must be present and match `^[A-Za-z0-9_-]{1,64}$`;
     ///   `sub` must be an edge subject `^es1_[a-z2-7]{26}$` (edge tokens) or
     ///   is normalised to one with `subject::edge_subject(upstream_iss, sub)`
@@ -59,10 +66,13 @@ impl TenantContext {
     /// - Upstream-first-party tokens are accepted **only** on
     ///   [`RouteSurface::Rest`] (§5.5); elsewhere `InvalidTenantClaim
     ///   ("token_kind")`.
-    /// - `tenant_key = derive_tenant_key(upstream_iss, org_id, workspace_id)`.
+    /// - `tenant_key = derive_tenant_key(upstream_iss, org_id, workspace_id)`
+    ///   (§16.2 formula `base32lower(sha256("v1|" + upstream_iss + "|" +
+    ///   org_id + "|" + workspace_id))[0..26]`).
     ///   `account_id`, `client_id`, `aud`, `family_id` and `jti` never feed it.
-    /// - Capabilities = scope ∩ role (§5.3); `membership = None` (not a
-    ///   member) grants none.
+    /// - `membership` is the caller's role read from the tenant's
+    ///   `TenantLedger` (§4.2). Capabilities = scope ∩ role (§5.3);
+    ///   `membership = None` (not a member) grants none.
     pub fn from_verified(
         claims: VerifiedClaims,
         membership: Option<Role>,

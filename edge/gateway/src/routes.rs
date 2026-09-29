@@ -145,11 +145,9 @@ async fn authenticate(
     surface: RouteSurface,
 ) -> std::result::Result<TenantContext, Response> {
     let header = req.headers().get("Authorization").ok().flatten();
+    // Service Binding only (Cloudflare 1042): no public fallback.
     let edge_keys = keys::edge(&cfg.edge_jwks_url, || {
-        match env.service(EDGE_AUTH_BINDING) {
-            Ok(f) => JwksFetch::Service(f),
-            Err(_) => JwksFetch::Global,
-        }
+        edge_fetch(env.service(EDGE_AUTH_BINDING).ok())
     });
     let upstream_kids = cfg
         .upstream
@@ -167,6 +165,13 @@ async fn authenticate(
     )
     .await
     .map_err(|d| challenge(d.code, d.www_authenticate))
+}
+
+/// The edge JWKS fetcher: the `EDGE_AUTH` binding when present, otherwise
+/// [`JwksFetch::Unbound`] (503 `jwks_unavailable`), never the public
+/// internet.
+pub fn edge_fetch(binding: Option<worker::Fetcher>) -> JwksFetch {
+    binding.map_or(JwksFetch::Unbound, JwksFetch::Service)
 }
 
 fn challenge(code: ProblemCode, www: Option<String>) -> Response {

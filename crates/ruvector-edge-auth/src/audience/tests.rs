@@ -3,7 +3,6 @@ use crate::test_support::*;
 
 fn edge_policy() -> AudiencePolicy {
     AudiencePolicy::edge_only(EDGE_ISS, ResourceUrl::parse(RESOURCE).unwrap())
-        .with_siblings([ResourceUrl::parse(SIBLING).unwrap()])
 }
 
 fn upstream_policy(kids: Vec<String>) -> UpstreamFirstPartyPolicy {
@@ -74,7 +73,7 @@ fn upstream_path_only_when_configured() {
     );
     assert_eq!(
         edge_policy().check_audience(TokenKind::UpstreamFirstParty, Some(&one(CLI_CLIENT))),
-        Err(AuthError::InvalidClaim("aud"))
+        Err(AuthError::AudienceNotAllowed)
     );
 }
 
@@ -94,22 +93,19 @@ fn edge_audience_exact_match() {
     }
 }
 
-/// Regression (ADR §5.4.7 / §7.2): only an edge token for the *other*
-/// resource of this gateway is 403; every other mismatch is 401 so the
-/// client gets the `resource_metadata` challenge and re-authorizes.
+/// Regression (ADR §5.4.7, §8 delta 10): an edge token for the gateway's
+/// *other* resource is 401 like every other mismatch (no 403 carve-out), so
+/// the client gets the `resource_metadata` challenge and re-runs discovery.
 #[test]
-fn only_sibling_resource_is_403() {
+fn every_audience_mismatch_is_401() {
     let p = edge_policy();
-    let err = p
-        .check_audience(TokenKind::EdgeIssued, Some(&one(SIBLING)))
-        .unwrap_err();
-    assert_eq!(err, AuthError::AudienceNotAllowed);
-    assert_eq!(err.http_status(), 403);
     for bad in [
+        SIBLING.to_string(),
         format!("{RESOURCE}/"),
         RESOURCE.to_uppercase(),
         format!("{RESOURCE}x"),
         format!("{SIBLING}/"),
+        "https://team.ruv.io/mcp".to_string(),
         "https://api.cognitum.one/v1/mcp".to_string(),
         CLI_CLIENT.to_string(),
         String::new(),
@@ -117,18 +113,11 @@ fn only_sibling_resource_is_403() {
         let err = p
             .check_audience(TokenKind::EdgeIssued, Some(&one(&bad)))
             .unwrap_err();
-        assert_eq!(err, AuthError::InvalidClaim("aud"), "{bad}");
+        assert_eq!(err, AuthError::AudienceNotAllowed, "{bad}");
         assert_eq!(err.http_status(), 401, "{bad}");
+        assert_eq!(err.rfc6750_error(), Some("invalid_token"), "{bad}");
+        assert!(err.is_audience_mismatch(), "{bad}");
     }
-    // Without declared siblings nothing is 403.
-    let bare = AudiencePolicy::edge_only(EDGE_ISS, ResourceUrl::parse(RESOURCE).unwrap());
-    assert_eq!(
-        bare.check_audience(TokenKind::EdgeIssued, Some(&one(SIBLING))),
-        Err(AuthError::InvalidClaim("aud"))
-    );
-    // The resource itself is never treated as a sibling.
-    let own = bare.with_siblings([ResourceUrl::parse(RESOURCE).unwrap()]);
-    assert!(own.sibling_resources.is_empty());
 }
 
 /// Regression: arrays of any length are 401, never 403.
@@ -166,7 +155,7 @@ fn upstream_allowlist_is_exact_and_misses_are_401() {
         let err = p
             .check_audience(TokenKind::UpstreamFirstParty, Some(&one(bad)))
             .unwrap_err();
-        assert_eq!(err, AuthError::InvalidClaim("aud"), "{bad}");
+        assert_eq!(err, AuthError::AudienceNotAllowed, "{bad}");
         assert_eq!(err.http_status(), 401);
     }
 }

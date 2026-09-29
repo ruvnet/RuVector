@@ -25,9 +25,11 @@ new_sqlite_classes = ["AuthStore"]
 
 # Per-IP throttles consulted by the Worker front BEFORE the single global
 # AuthStore DO (ADR-351 §5.6). Keyed on a salted hash of CF-Connecting-IP.
-# Optional at runtime: when a binding is absent the front skips it, and the
-# DO still enforces the durable DCR_RATE_PER_HOUR window. Creating the
-# namespaces is part of gate G2 (not done by this workflow).
+# `namespace_id` is an operator-chosen integer unique within the account
+# (Workers Rate Limiting); nothing is provisioned ahead of deploy. The ids
+# below are used only by this script. Optional at runtime: when a binding is
+# absent or errors, the front skips it and the DO still enforces the durable
+# DCR_RATE_PER_HOUR window, so a rate-limit issue never blocks deploy or login.
 [[ratelimits]]
 name = "DCR_RATE_LIMITER"
 namespace_id = "35101"
@@ -40,18 +42,28 @@ simple = { limit = 60, period = 60 }
 
 [vars]
 ISSUER = "https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev"
-# Exact canonical resource URLs tokens may be minted for (comma-separated).
-RESOURCE_ALLOWLIST = "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1,https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1/mcp"
-SCOPES_SUPPORTED = "ruvector:read ruvector:write offline_access"
-# Ceiling of a registration that omits `scope`: read-only (write scopes must
-# be registered and requested explicitly, and are shown on consent).
-DEFAULT_SCOPE = "ruvector:read offline_access"
+# Resources tokens may be minted for, each with its own scope table
+# (ADR-351 §5.3 grant rule: requested ∩ client ceiling ∩ resource scopes).
+# Comma-separated entries `<exact canonical URL> <scope> <scope> ...`; the
+# FIRST scope of an entry (plus offline_access, if listed) is the grant of
+# an /authorize request without `scope`. Scopes must be the §5.3 vocabulary
+# (ruvector:read/write/admin/publish, offline_access); anything else fails
+# the load. `ruvector:admin` exists only for /v1 (never /v1/mcp). The
+# team.ruv.io entry is the RuFlo AI Team adapter resource (§16.1): it uses
+# the same ruvector:* scopes (no admin) so its tokens can be exchanged for a
+# /v1 token with scope ⊆ the subject token's; the gateway never accepts that
+# audience. A DCR registration without `scope` gets `ruvector:read
+# ruvector:write offline_access` (compiled). scopes_supported (RFC 8414 +
+# DCR) is derived as the union of these scopes.
+RESOURCE_ALLOWLIST = "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1 ruvector:read ruvector:write ruvector:admin offline_access, https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1/mcp ruvector:read ruvector:write offline_access, https://team.ruv.io/mcp ruvector:read ruvector:write offline_access"
 UPSTREAM_ISSUER = "https://auth.cognitum.one"
 UPSTREAM_AUTHORIZATION_ENDPOINT = "https://auth.cognitum.one/oauth/authorize"
 UPSTREAM_TOKEN_ENDPOINT = "https://auth.cognitum.one/oauth/token"
 UPSTREAM_JWKS_URL = "https://auth.cognitum.one/.well-known/jwks.json"
-# The edge AS's own client id at auth.cognitum.one. Registration is a gated,
-# operator-run step (not performed by this workflow); empty until then.
+# The edge AS's own client id at auth.cognitum.one. Registration is gate G1
+# (cognitum-one/console#605), an operator-run step; EMPTY until then, and
+# /authorize answers 503 temporarily_unavailable ("sign-in is not available
+# yet: ... registration is pending") while it or ACCEPTED_UPSTREAM_KIDS is empty.
 # [U] OPEN: ADR-351 §1.1 [V] says upstream DCR accepts redirects only by
 # prefix (chatgpt/claude connector paths, http://127.0.0.1:, http://localhost:)
 # or three named hosts, so <ISSUER>/callback on workers.dev cannot be

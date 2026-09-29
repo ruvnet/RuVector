@@ -30,12 +30,10 @@ pub struct UpstreamFirstPartyPolicy {
 pub struct AudiencePolicy {
     /// Exact edge AS issuer URL.
     pub edge_issuer: String,
-    /// This resource; edge tokens must carry exactly this `aud`.
+    /// This resource; edge tokens must carry exactly this `aud`. Any other
+    /// audience, including the gateway's other resource, is `401
+    /// invalid_token` ("audience mismatch", ADR §5.4.7).
     pub resource: ResourceUrl,
-    /// The other edge resources of this gateway (e.g. `/v1` when this is
-    /// `/v1/mcp`). An edge token for one of them is `403
-    /// audience_not_allowed`; any other audience is `401` (ADR §5.4.7).
-    pub sibling_resources: Vec<ResourceUrl>,
     /// `None` (default) disables the upstream path entirely. Set it only on
     /// the `/v1` REST resource, never on `/v1/mcp` or `/v1/ops` (ADR §5.5;
     /// tenancy also refuses upstream tokens off the REST surface).
@@ -43,22 +41,13 @@ pub struct AudiencePolicy {
 }
 
 impl AudiencePolicy {
-    /// Edge-only policy (the default posture) with no sibling resources.
+    /// Edge-only policy (the default posture).
     pub fn edge_only(edge_issuer: impl Into<String>, resource: ResourceUrl) -> Self {
         AudiencePolicy {
             edge_issuer: edge_issuer.into(),
             resource,
-            sibling_resources: Vec::new(),
             upstream: None,
         }
-    }
-
-    /// Declare the gateway's other edge resources (builder). `resource`
-    /// itself is ignored if listed.
-    pub fn with_siblings<I: IntoIterator<Item = ResourceUrl>>(mut self, siblings: I) -> Self {
-        let own = self.resource.clone();
-        self.sibling_resources = siblings.into_iter().filter(|r| *r != own).collect();
-        self
     }
 
     /// Header `typ` value required on edge-issued access tokens (RFC 9068).
@@ -114,32 +103,29 @@ impl AudiencePolicy {
     /// Exact audience check for `kind` (ADR §5.4.7).
     ///
     /// Contract: `aud` must be a single JSON **string**; arrays of any length
-    /// and absent `aud` are [`AuthError::InvalidClaim`]`("aud")` (401).
-    /// `EdgeIssued`: byte-equal to `resource` -> Ok; byte-equal to a
-    /// `sibling_resources` entry -> [`AuthError::AudienceNotAllowed`] (403,
-    /// "an edge token for the other resource"); anything else -> 401
-    /// `InvalidClaim("aud")`. `UpstreamFirstParty`: in `first_party_auds`
-    /// (only when upstream is configured) -> Ok, else 401
-    /// `InvalidClaim("aud")`. No prefix matching.
+    /// and absent `aud` are [`AuthError::InvalidClaim`]`("aud")`.
+    /// `EdgeIssued`: byte-equal to `resource` -> Ok. `UpstreamFirstParty`: in
+    /// `first_party_auds` (only when upstream is configured) -> Ok. Any other
+    /// string — the gateway's other resource, an adapter resource, a client
+    /// id — is [`AuthError::AudienceNotAllowed`]. Every audience failure is
+    /// `401 invalid_token` ([`AuthError::is_audience_mismatch`]); there is no
+    /// 403 carve-out, so MCP clients re-run discovery. No prefix matching.
     pub fn check_audience(&self, kind: TokenKind, aud: Option<&Audience>) -> Result<(), AuthError> {
         let aud = match aud {
             Some(Audience::One(a)) => a.as_str(),
             None | Some(Audience::Many(_)) => return Err(AuthError::InvalidClaim("aud")),
         };
-        match kind {
-            TokenKind::EdgeIssued if aud == self.resource.as_str() => Ok(()),
-            TokenKind::EdgeIssued if self.sibling_resources.iter().any(|r| r.as_str() == aud) => {
-                Err(AuthError::AudienceNotAllowed)
-            }
-            TokenKind::UpstreamFirstParty
-                if self
-                    .upstream
-                    .as_ref()
-                    .is_some_and(|up| up.first_party_auds.iter().any(|a| a == aud)) =>
-            {
-                Ok(())
-            }
-            _ => Err(AuthError::InvalidClaim("aud")),
+        let ok = match kind {
+            TokenKind::EdgeIssued => aud == self.resource.as_str(),
+            TokenKind::UpstreamFirstParty => self
+                .upstream
+                .as_ref()
+                .is_some_and(|up| up.first_party_auds.iter().any(|a| a == aud)),
+        };
+        if ok {
+            Ok(())
+        } else {
+            Err(AuthError::AudienceNotAllowed)
         }
     }
 }

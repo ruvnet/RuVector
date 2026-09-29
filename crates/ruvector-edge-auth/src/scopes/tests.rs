@@ -37,7 +37,7 @@ fn capabilities_from_ruvector_scopes() {
 }
 
 /// Regression (ADR §5.3): upstream product scopes, identity scopes and
-/// not-yet-honoured scopes grant nothing.
+/// `offline_access` grant nothing.
 #[test]
 fn legacy_unknown_and_reserved_scopes_grant_nothing() {
     let caps = capabilities_for(
@@ -46,7 +46,6 @@ fn legacy_unknown_and_reserved_scopes_grant_nothing() {
             "mcp:invoke",
             "openid",
             "offline_access",
-            "ruvector:publish",
             "brains:contribute",
             "namespaces:claim",
             "RUVECTOR:READ",
@@ -83,11 +82,33 @@ fn satisfying_scopes_use_ruvector_vocabulary() {
     for cap in Capability::ALL {
         let scope = cap.satisfying_scope();
         assert!(scope.starts_with("ruvector:"), "{cap:?} -> {scope}");
-        if cap != Capability::PublishPublic {
-            let caps = capabilities_for(&s(&[scope]), TokenKind::EdgeIssued, RouteSurface::Rest);
-            assert!(caps.contains(cap), "{scope} must grant {cap:?}");
-        }
+        assert!(SCOPE_TABLE.iter().any(|(s, _)| *s == scope), "{scope}");
+        let caps = capabilities_for(&s(&[scope]), TokenKind::EdgeIssued, RouteSurface::Rest);
+        assert!(caps.contains(cap), "{scope} must grant {cap:?}");
     }
+}
+
+/// Regression (ADR §5.3/§5.7): `ruvector:admin` and `ruvector:publish` are
+/// `/v1`-only; an MCP-surface token carrying them gets neither capability.
+#[test]
+fn admin_and_publish_never_granted_on_mcp() {
+    let all = s(&[
+        "ruvector:read",
+        "ruvector:write",
+        "ruvector:admin",
+        "ruvector:publish",
+    ]);
+    let mcp = capabilities_for(&all, TokenKind::EdgeIssued, RouteSurface::Mcp);
+    assert_eq!(
+        mcp,
+        set(&[
+            Capability::Read,
+            Capability::Write,
+            Capability::CreateCollection
+        ])
+    );
+    let rest = capabilities_for(&all, TokenKind::EdgeIssued, RouteSurface::Rest);
+    assert!(rest.contains(Capability::Admin) && rest.contains(Capability::PublishPublic));
 }
 
 #[test]
@@ -103,7 +124,7 @@ fn every_route_row_resolves_to_itself() {
             "{pattern}"
         );
     }
-    assert_eq!(SCOPE_TABLE_VERSION, 2);
+    assert_eq!(SCOPE_TABLE_VERSION, 3);
 }
 
 /// Regression: every ADR §7.2 M1 route has a row (MCP, ops and tenant

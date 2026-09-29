@@ -14,7 +14,8 @@ use std::collections::BTreeMap;
 pub const EDGE_ISS: &str = "https://ruvector-edge-auth.example.workers.dev";
 pub const UPSTREAM_ISS: &str = "https://auth.cognitum.one";
 pub const RESOURCE: &str = "https://ruvector-edge-gateway.example.workers.dev/v1/mcp";
-/// The sibling edge resource of [`RESOURCE`] on the same gateway.
+/// The other edge resource of [`RESOURCE`] on the same gateway (a 401
+/// audience mismatch there, ADR §5.4.7).
 pub const SIBLING: &str = "https://ruvector-edge-gateway.example.workers.dev/v1";
 pub const JWKS_URL: &str = "https://ruvector-edge-auth.example.workers.dev/.well-known/jwks.json";
 pub const CLI_CLIENT: &str = "ruvector-edge-cli";

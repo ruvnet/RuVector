@@ -47,6 +47,8 @@ pub struct Tok {
     pub scope: &'static str,
     pub jti: Option<&'static str>,
     pub family_id: Option<&'static str>,
+    /// Edge tokens: the `upstream_iss` claim (§5.2).
+    pub upstream_iss: Option<&'static str>,
 }
 
 /// An edge-issued access token as minted by `ruvector-edge-authz`.
@@ -62,6 +64,7 @@ pub fn edge() -> Tok {
         scope: READ_WRITE_SCOPES,
         jti: Some(JTI),
         family_id: Some(FAMILY),
+        upstream_iss: Some(UPSTREAM_ISSUER),
     }
 }
 
@@ -79,6 +82,7 @@ pub fn upstream() -> Tok {
         scope: "openid profile",
         jti: Some("upstream-jti-1"),
         family_id: Some("upstream-family-1"),
+        upstream_iss: None,
     }
 }
 
@@ -97,6 +101,7 @@ impl Tok {
             org_id: Some(self.org.into()),
             workspace_id: Some(self.ws.into()),
             family_id: self.family_id.map(Into::into),
+            upstream_iss: self.upstream_iss.map(Into::into),
             // The verifier requires `typ = "access"` on upstream tokens.
             typ: (self.kind == TokenKind::UpstreamFirstParty).then(|| "access".into()),
             ..RawClaims::default()

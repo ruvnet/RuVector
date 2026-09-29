@@ -46,9 +46,11 @@ impl TokenEndpoint<'_> {
     /// re-check and access-token minting, then
     /// [`crate::refresh::PendingRotation::commit`] (nothing is consumed
     /// unless the response can be produced). The bound resource must still
-    /// be allowlisted (`invalid_target`). A refresh token is issued on code
-    /// redemption only if `offline_access` was granted **and** the client
-    /// registered `refresh_token` (ADR-351 §5.3). The access token's
+    /// be allowlisted (`invalid_target`) and the minted `scope` is
+    /// re-intersected with that resource's current scopes. A refresh token
+    /// is issued on code redemption iff the client registered the
+    /// `refresh_token` grant (ADR-351 §5.3/§5.6: `offline_access` is only
+    /// accepted and echoed, it does not gate refresh). The access token's
     /// `family_id` is the refresh family (a fresh grant id when no refresh
     /// token is issued).
     pub fn handle(&self, req: &TokenRequest) -> Result<TokenResponse, OAuthError> {
@@ -74,11 +76,10 @@ impl TokenEndpoint<'_> {
                     Err(e) => return Err(self.on_code_failure(code, e)),
                 };
                 let auth = &rec.authorization;
-                self.ensure_allowed(&auth.resource)?;
+                let scopes = self.current_scopes(&auth.resource, &auth.scopes)?;
                 let family_id = crate::refresh::new_family_id(self.rng)?;
                 crate::code::record_redemption(self.codes, &rec, &family_id)?;
-                let offline = auth.scopes.iter().any(|s| s == OFFLINE_ACCESS);
-                let refresh_token = if offline && client.allows_grant(GRANT_REFRESH) {
+                let refresh_token = if client.allows_grant(GRANT_REFRESH) {
                     let (token, _) = crate::refresh::issue_refresh(
                         self.refresh,
                         self.rng,
@@ -87,7 +88,7 @@ impl TokenEndpoint<'_> {
                         client_id,
                         &rec.identity,
                         &auth.resource,
-                        &auth.scopes,
+                        &scopes,
                     )?;
                     Some(token)
                 } else {
@@ -98,7 +99,7 @@ impl TokenEndpoint<'_> {
                     &rec.identity,
                     &auth.resource,
                     &family_id,
-                    &auth.scopes,
+                    &scopes,
                     refresh_token,
                 )
             }
@@ -126,13 +127,13 @@ impl TokenEndpoint<'_> {
                     resource.as_deref(),
                 )?;
                 let r = &pending.record;
-                self.ensure_allowed(&r.resource)?;
+                let scopes = self.current_scopes(&r.resource, &pending.granted_scopes)?;
                 let mut response = self.respond(
                     client_id,
                     &r.identity,
                     &r.resource,
                     &r.family_id,
-                    &pending.granted_scopes,
+                    &scopes,
                     None,
                 )?;
                 let rotated = pending.commit(self.refresh)?;
@@ -166,15 +167,27 @@ impl TokenEndpoint<'_> {
         ))
     }
 
-    fn ensure_allowed(&self, resource: &ResourceUrl) -> Result<(), OAuthError> {
-        if self.resources.resources().contains(resource) {
-            Ok(())
-        } else {
-            Err(OAuthError::new(
-                OAuthErrorCode::InvalidTarget,
-                "resource no longer allowed",
-            ))
+    /// `scopes` ∩ the bound resource's **current** scopes (config may have
+    /// narrowed them since the grant). The resource must still be
+    /// allowlisted (`invalid_target`) and something besides
+    /// `offline_access` must remain (`invalid_scope`).
+    fn current_scopes(
+        &self,
+        resource: &ResourceUrl,
+        scopes: &[String],
+    ) -> Result<Vec<String>, OAuthError> {
+        let entry = self.resources.get(resource).ok_or(OAuthError::new(
+            OAuthErrorCode::InvalidTarget,
+            "resource no longer allowed",
+        ))?;
+        let kept: Vec<String> = scopes.iter().filter(|s| entry.allows(s)).cloned().collect();
+        if kept.iter().all(|s| s == OFFLINE_ACCESS) {
+            return Err(OAuthError::new(
+                OAuthErrorCode::InvalidScope,
+                "scope no longer allowed for this resource",
+            ));
         }
+        Ok(kept)
     }
 
     fn respond(
@@ -197,6 +210,7 @@ impl TokenEndpoint<'_> {
                 identity,
                 family_id,
                 scopes,
+                act: None,
             },
         )?;
         Ok(TokenResponse {

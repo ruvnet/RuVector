@@ -4,9 +4,8 @@
 //! no membership row gets **no** data capability: only `AnyValidToken`
 //! routes and `tenant:claim` remain reachable.
 
-use ruvector_edge_auth::{
-    scopes::capabilities_for, Capability, CapabilitySet, RouteSurface, TokenKind,
-};
+use ruvector_edge_auth::scopes::{capabilities_for, UPSTREAM_FIRST_PARTY_CAPS};
+use ruvector_edge_auth::{Capability, CapabilitySet, RouteSurface, TokenKind};
 
 /// A member's role in one tenant (`TenantLedger.memberships.role`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -15,7 +14,8 @@ pub enum Role {
     Viewer,
     /// Read, write, create.
     Editor,
-    /// Everything an editor has, plus admin and public publish.
+    /// Everything an editor has, plus admin (members, deny entries, restore,
+    /// audit), collection drop and public publish.
     Owner,
 }
 
@@ -52,21 +52,13 @@ impl Role {
                 Capability::Read,
                 Capability::Write,
                 Capability::CreateCollection,
+                Capability::Admin,
                 Capability::PublishPublic,
             ],
         };
         set_of(caps)
     }
 }
-
-/// Fixed capability set for upstream-first-party tokens on REST (§5.5:
-/// `ruvector:read ruvector:write ruvector:admin`, which carry no public
-/// publish). Their own scopes are ignored.
-pub const UPSTREAM_FIRST_PARTY_CAPS: &[Capability] = &[
-    Capability::Read,
-    Capability::Write,
-    Capability::CreateCollection,
-];
 
 fn set_of(caps: &[Capability]) -> CapabilitySet {
     let mut set = CapabilitySet::EMPTY;

@@ -54,16 +54,15 @@ impl Jwk {
         if self.use_.as_deref().is_some_and(|u| u != "sig") {
             return Err(AuthError::InvalidConfig("jwk use"));
         }
-        let x = crate::jws::b64url_decode(&self.x)?;
-        let y = crate::jws::b64url_decode(&self.y)?;
-        if x.len() != 32 || y.len() != 32 {
-            return Err(AuthError::InvalidConfig("jwk coordinate length"));
-        }
-        let point = p256::EncodedPoint::from_affine_coordinates(
-            p256::FieldBytes::from_slice(&x),
-            p256::FieldBytes::from_slice(&y),
-            false,
-        );
+        let coord = |v: &str| -> Result<p256::FieldBytes, AuthError> {
+            let bytes: [u8; 32] = crate::jws::b64url_decode(v)?
+                .as_slice()
+                .try_into()
+                .map_err(|_| AuthError::InvalidConfig("jwk coordinate length"))?;
+            Ok(p256::FieldBytes::from(bytes))
+        };
+        let (x, y) = (coord(&self.x)?, coord(&self.y)?);
+        let point = p256::EncodedPoint::from_affine_coordinates(&x, &y, false);
         let key = VerifyingKey::from_encoded_point(&point)
             .map_err(|_| AuthError::InvalidConfig("jwk point not on curve"))?;
         if self.kid != self.thumbprint() {

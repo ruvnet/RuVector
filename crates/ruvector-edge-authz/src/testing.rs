@@ -167,18 +167,32 @@ pub fn resource() -> ResourceUrl {
     ResourceUrl::parse(RESOURCE).unwrap()
 }
 
+/// `RESOURCE` (`/v1/mcp`, no admin), `OTHER_RESOURCE` (`/v1`, with admin)
+/// and an adapter resource drawing on the same §5.3 vocabulary (ADR-351
+/// §5.3, §16.1: no `team:*` scopes, no admin).
+pub const ALLOWLIST_CONFIG: &str = "\
+    https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1/mcp \
+        ruvector:read ruvector:write offline_access, \
+    https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1 \
+        ruvector:read ruvector:write ruvector:admin offline_access, \
+    https://team.ruv.io/mcp ruvector:read ruvector:write offline_access";
+
+/// The adapter resource in [`ALLOWLIST_CONFIG`].
+pub const TEAM_RESOURCE: &str = "https://team.ruv.io/mcp";
+
 pub fn allowlist() -> ResourceAllowlist {
-    ResourceAllowlist::new(vec![
-        resource(),
-        ResourceUrl::parse(OTHER_RESOURCE).unwrap(),
-    ])
+    ResourceAllowlist::from_config(ALLOWLIST_CONFIG).unwrap()
 }
 
+/// Production-shaped DCR policy: registrable = the allowlist's scope union,
+/// default ceiling = [`crate::client::DEFAULT_CLIENT_SCOPE`].
 pub fn policy() -> DcrPolicy {
-    let s = |v: &[&str]| v.iter().map(|x| x.to_string()).collect();
     DcrPolicy {
-        scopes_supported: s(&["ruvector:read", "ruvector:write", "offline_access"]),
-        default_scope: s(&["ruvector:read"]),
+        scopes_supported: allowlist().scopes_supported(),
+        default_scope: crate::client::DEFAULT_CLIENT_SCOPE
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
     }
 }
 

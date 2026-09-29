@@ -18,11 +18,13 @@ pub struct Denied {
 }
 
 /// Map a verification error to the problem code and whether the 401
-/// `invalid_token` challenge applies (403 audience, 503 JWKS and 500 config
-/// failures carry no challenge).
+/// `invalid_token` challenge applies (503 JWKS and 500 config failures carry
+/// no challenge). Every audience failure — including an edge token for the
+/// gateway's other resource — is 401 `invalid_token` (ADR-351 §5.4.7);
+/// `audience_not_allowed` survives only as [`AuthError::code`], the log
+/// reason.
 pub fn denial(err: &AuthError) -> (ProblemCode, bool) {
     match err.http_status() {
-        403 => (ProblemCode::AudienceNotAllowed, false),
         503 => (ProblemCode::JwksUnavailable, false),
         500 => (ProblemCode::ServerError, false),
         _ => (ProblemCode::InvalidToken, true),
@@ -41,13 +43,15 @@ pub async fn authenticate<E: KeySource, U: KeySource, C: Clock>(
     clock: C,
 ) -> Result<TenantContext, Denied> {
     let metadata_url = prm::metadata_url(resource);
-    let invalid = || Denied {
+    let invalid_described = |description: Option<&str>| Denied {
         code: ProblemCode::InvalidToken,
-        www_authenticate: Some(prm::www_authenticate_invalid_token(
+        www_authenticate: Some(prm::www_authenticate_invalid_token_described(
             &metadata_url,
             prm::CHALLENGE_SCOPE,
+            description,
         )),
     };
+    let invalid = || invalid_described(None);
     if let Err(AuthError::MissingToken) = bearer_token(authorization) {
         return Err(Denied {
             code: ProblemCode::InvalidToken,
@@ -74,6 +78,9 @@ pub async fn authenticate<E: KeySource, U: KeySource, C: Clock>(
         .verify(authorization)
         .await
         .map_err(|e| match denial(&e) {
+            (_, true) if e.is_audience_mismatch() => {
+                invalid_described(Some(prm::AUDIENCE_MISMATCH))
+            }
             (_, true) => invalid(),
             (code, false) => Denied {
                 code,

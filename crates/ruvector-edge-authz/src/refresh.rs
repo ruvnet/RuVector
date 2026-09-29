@@ -87,8 +87,9 @@ where
     Ok((token, record))
 }
 
-/// Scope that must be in a family's ceiling for a refresh token to exist
-/// (ADR-351 §5.3).
+/// `offline_access` (ADR-351 §5.3): accepted and echoed in the granted
+/// scope, but it does **not** gate refresh tokens, which follow the
+/// client's registered `refresh_token` grant.
 pub const OFFLINE_ACCESS: &str = "offline_access";
 
 /// Outcome of a successful rotation. `Debug` redacts the token.
@@ -183,14 +184,15 @@ where
 /// Contract, in order: unknown hash => `invalid_grant`; `client_id` mismatch
 /// => `invalid_grant`; family revoked => `invalid_grant`; **already
 /// rotated** => revoke the whole family, then `invalid_grant` (reuse
-/// detection); token or family expired => `invalid_grant`; family ceiling
-/// lacks `offline_access` => `invalid_grant`; `resource`, if sent, must
-/// equal the bound one (`invalid_target`); `scope` must be a subset of the
-/// family ceiling (`invalid_scope`). The family ceiling itself never
-/// changes, so a request narrowing `scope` without `offline_access` narrows
-/// only this access token and the family keeps refreshing. Nothing but a
-/// reuse-detection revocation is written; the successor is random, stored
-/// only on commit, with a sliding expiry capped at `family_expires_at`.
+/// detection); token or family expired => `invalid_grant`; `resource`, if
+/// sent, must equal the bound one (`invalid_target`); `scope` must be a
+/// subset of the family ceiling (`invalid_scope`). The family ceiling itself
+/// never changes, so a narrowing `scope` narrows only this access token and
+/// the family keeps refreshing (whether `offline_access` was granted or
+/// not; the token endpoint checks the client's `refresh_token` grant).
+/// Nothing but a reuse-detection revocation is written; the successor is
+/// random, stored only on commit, with a sliding expiry capped at
+/// `family_expires_at`.
 pub fn prepare_rotation<S, R, C>(
     store: &S,
     rng: &R,
@@ -222,9 +224,6 @@ where
     }
     if now >= old.expires_at || now >= old.family_expires_at {
         return Err(grant_err("refresh token expired"));
-    }
-    if !old.scopes.iter().any(|s| s == OFFLINE_ACCESS) {
-        return Err(grant_err("offline_access was not granted"));
     }
     if let Some(r) = resource {
         if !ResourceUrl::parse(r).is_ok_and(|r| r == old.resource) {

@@ -9,6 +9,7 @@ mod fixes;
 mod grant;
 mod refresh;
 mod revoke;
+mod scope_grant;
 mod token;
 
 use crate::error::{OAuthError, OAuthErrorCode};

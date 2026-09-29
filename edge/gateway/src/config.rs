@@ -1,6 +1,9 @@
-//! Gateway configuration from wrangler `[vars]`. Every value is validated at
-//! the boundary; nothing comes from runtime discovery.
+//! Gateway configuration. The trust root is compiled in
+//! ([`crate::trust_root`]); only the `UPSTREAM_FIRST_PARTY` flag is a
+//! wrangler var in release builds. Every value is validated at the boundary;
+//! nothing comes from runtime discovery.
 
+use crate::trust_root::TrustRoot;
 use ruvector_edge_auth::{AudiencePolicy, AuthError, ResourceUrl, UpstreamFirstPartyPolicy};
 
 /// JWKS path on the edge AS (`ruvector_edge_authz::metadata::paths::JWKS`;
@@ -24,6 +27,22 @@ pub struct GatewayConfig {
     pub upstream_jwks_url: String,
 }
 
+/// Why the configuration could not be built.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConfigError {
+    /// Release build: a trust-root var contradicts the compiled const
+    /// (503 `trust_root_mismatch`, ADR-351 §5.4 item 5).
+    TrustRootMismatch(&'static str),
+    /// Anything else (500 `server_error`).
+    Invalid(AuthError),
+}
+
+impl From<AuthError> for ConfigError {
+    fn from(e: AuthError) -> Self {
+        ConfigError::Invalid(e)
+    }
+}
+
 /// Client-id prefixes minted by DCR (upstream `dcr-`, edge `edc-`): never
 /// first-party, so never accepted in `FIRST_PARTY_AUDS`.
 const DCR_PREFIXES: [&str; 2] = ["dcr-", "edc-"];
@@ -31,43 +50,32 @@ const DCR_PREFIXES: [&str; 2] = ["dcr-", "edc-"];
 const MAX_PINNED_KIDS: usize = 8;
 const MAX_KID_LEN: usize = 128;
 
-fn list(v: &str) -> Vec<String> {
-    v.split([',', ' '])
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(String::from)
-        .collect()
-}
-
 /// The §5.5 upstream first-party policy (only when explicitly enabled).
 ///
 /// Trust root (the AS's `UpstreamConfig::trust_root_ok` rule, tightened):
-/// `UPSTREAM_ISSUER` canonical `https` (no trailing slash) and distinct from
-/// the edge issuer; `UPSTREAM_JWKS_URL` exactly issuer + JWKS path (same
-/// origin). `FIRST_PARTY_AUDS`: non-empty exact ids, never a DCR id.
-/// `ACCEPTED_UPSTREAM_KIDS`: non-empty base64url `kid` pin (1..=8).
-fn upstream_policy(
-    var: &dyn Fn(&str) -> Result<String, AuthError>,
-    edge_issuer: &str,
-    jwks_url: &str,
-) -> Result<UpstreamFirstPartyPolicy, AuthError> {
-    let issuer = var("UPSTREAM_ISSUER")?;
+/// upstream issuer canonical `https` (no trailing slash) and distinct from
+/// the edge issuer; upstream JWKS URL exactly issuer + JWKS path (same
+/// origin). First-party auds: non-empty exact ids, never a DCR id. Pinned
+/// `kid`s: non-empty base64url (1..=8). With the compiled (empty) auds and
+/// kids this fails closed, so the flag alone cannot open the path.
+fn upstream_policy(root: &TrustRoot) -> Result<UpstreamFirstPartyPolicy, AuthError> {
+    let issuer = root.upstream_issuer.clone();
     if ResourceUrl::parse(&issuer)?.as_str() != issuer {
         return Err(AuthError::InvalidConfig(
             "UPSTREAM_ISSUER must be canonical",
         ));
     }
-    if issuer == edge_issuer {
+    if issuer == root.edge_issuer {
         return Err(AuthError::InvalidConfig(
             "UPSTREAM_ISSUER equals EDGE_ISSUER",
         ));
     }
-    if jwks_url != format!("{issuer}{EDGE_JWKS_PATH}") {
+    if root.upstream_jwks_url != format!("{issuer}{EDGE_JWKS_PATH}") {
         return Err(AuthError::InvalidConfig(
             "UPSTREAM_JWKS_URL must be issuer + JWKS path",
         ));
     }
-    let auds = list(&var("FIRST_PARTY_AUDS")?);
+    let auds = root.first_party_auds.clone();
     if auds.is_empty() {
         return Err(AuthError::InvalidConfig("FIRST_PARTY_AUDS empty"));
     }
@@ -79,7 +87,7 @@ fn upstream_policy(
             "FIRST_PARTY_AUDS must not hold DCR client ids",
         ));
     }
-    let kids = list(&var("ACCEPTED_UPSTREAM_KIDS")?);
+    let kids = root.accepted_kids.clone();
     let kid_ok = |k: &String| {
         k.len() <= MAX_KID_LEN
             && k.bytes()
@@ -96,18 +104,18 @@ fn upstream_policy(
 }
 
 impl GatewayConfig {
-    /// Build from a variable lookup (natively testable).
+    /// Build from a trust root and the `UPSTREAM_FIRST_PARTY` flag
+    /// (`"true"`/`"false"`).
     ///
-    /// Reads `PUBLIC_ORIGIN`, `EDGE_ISSUER`, `EDGE_JWKS_URL` (must equal
-    /// `EDGE_ISSUER` + [`EDGE_JWKS_PATH`]), `UPSTREAM_FIRST_PARTY`
-    /// (`"true"`/`"false"`), `UPSTREAM_ISSUER`, `UPSTREAM_JWKS_URL`,
-    /// `FIRST_PARTY_AUDS` and `ACCEPTED_UPSTREAM_KIDS` (comma-separated; both
-    /// required non-empty when the upstream path is on, see
-    /// [`upstream_policy`]).
-    pub fn from_vars(get: &dyn Fn(&str) -> Option<String>) -> Result<Self, AuthError> {
-        let var = |name: &str| get(name).ok_or(AuthError::InvalidConfig("missing var"));
-        let origin = var("PUBLIC_ORIGIN")?;
-        let origin_url = ResourceUrl::parse(&origin)?;
+    /// Checks: `public_origin` a bare canonical https origin; `edge_issuer`
+    /// canonical; `edge_jwks_url` = `edge_issuer` + [`EDGE_JWKS_PATH`]; the
+    /// upstream path per [`upstream_policy`] only when the flag is `"true"`.
+    pub fn from_trust_root(
+        root: &TrustRoot,
+        upstream_first_party: &str,
+    ) -> Result<Self, AuthError> {
+        let origin = &root.public_origin;
+        let origin_url = ResourceUrl::parse(origin)?;
         if origin_url.as_str() != origin || !origin_url.path().is_empty() {
             return Err(AuthError::InvalidConfig(
                 "PUBLIC_ORIGIN must be a bare origin",
@@ -115,19 +123,17 @@ impl GatewayConfig {
         }
         let rest_resource = ResourceUrl::parse(&format!("{origin}/v1"))?;
         let mcp_resource = ResourceUrl::parse(&format!("{origin}/v1/mcp"))?;
-        let edge_issuer = var("EDGE_ISSUER")?;
+        let edge_issuer = root.edge_issuer.clone();
         if ResourceUrl::parse(&edge_issuer)?.as_str() != edge_issuer {
             return Err(AuthError::InvalidConfig("EDGE_ISSUER must be canonical"));
         }
-        let edge_jwks_url = var("EDGE_JWKS_URL")?;
-        if edge_jwks_url != format!("{edge_issuer}{EDGE_JWKS_PATH}") {
+        if root.edge_jwks_url != format!("{edge_issuer}{EDGE_JWKS_PATH}") {
             return Err(AuthError::InvalidConfig(
                 "EDGE_JWKS_URL must be issuer + JWKS path",
             ));
         }
-        let upstream_jwks_url = var("UPSTREAM_JWKS_URL")?;
-        let upstream = match var("UPSTREAM_FIRST_PARTY")?.as_str() {
-            "true" => Some(upstream_policy(&var, &edge_issuer, &upstream_jwks_url)?),
+        let upstream = match upstream_first_party {
+            "true" => Some(upstream_policy(root)?),
             "false" => None,
             _ => {
                 return Err(AuthError::InvalidConfig(
@@ -137,32 +143,60 @@ impl GatewayConfig {
         };
         Ok(GatewayConfig {
             edge_issuer,
-            edge_jwks_url,
+            edge_jwks_url: root.edge_jwks_url.clone(),
             rest_resource,
             mcp_resource,
             upstream,
-            upstream_jwks_url,
+            upstream_jwks_url: root.upstream_jwks_url.clone(),
         })
     }
 
-    /// Read from the Worker environment.
-    pub fn from_env(env: &worker::Env) -> Result<Self, AuthError> {
-        GatewayConfig::from_vars(&|name| env.var(name).ok().map(|v| v.to_string()))
+    /// Release configuration: the compiled [`TrustRoot`] plus the
+    /// `UPSTREAM_FIRST_PARTY` var (absent -> `"false"`). A trust-root var
+    /// that is present and differs from its const is
+    /// [`ConfigError::TrustRootMismatch`].
+    #[cfg_attr(feature = "dev-issuer", allow(dead_code))]
+    pub fn release(get: &dyn Fn(&str) -> Option<String>) -> Result<Self, ConfigError> {
+        let root = TrustRoot::compiled();
+        if let Some(name) = root.contradiction(get) {
+            return Err(ConfigError::TrustRootMismatch(name));
+        }
+        let flag = get("UPSTREAM_FIRST_PARTY").unwrap_or_else(|| "false".into());
+        Ok(GatewayConfig::from_trust_root(&root, flag.trim())?)
     }
 
-    /// Audience policy for a resource served by this gateway: exact `aud`,
-    /// the gateway's other resources as siblings (403, not 401), and the
-    /// upstream first-party path only on the REST resource (ADR-351 §5.5).
+    /// Dev/integration configuration (feature `dev-issuer`, and tests): the
+    /// whole trust root from vars (`PUBLIC_ORIGIN`, `EDGE_ISSUER`,
+    /// `EDGE_JWKS_URL`, `UPSTREAM_ISSUER`, `UPSTREAM_JWKS_URL`,
+    /// `FIRST_PARTY_AUDS`, `ACCEPTED_UPSTREAM_KIDS`) plus
+    /// `UPSTREAM_FIRST_PARTY`, all required. Never compiled into release.
+    #[cfg(any(test, feature = "dev-issuer"))]
+    pub fn from_vars(get: &dyn Fn(&str) -> Option<String>) -> Result<Self, AuthError> {
+        let missing = AuthError::InvalidConfig("missing var");
+        let root = TrustRoot::from_vars(get).ok_or(missing.clone())?;
+        let flag = get("UPSTREAM_FIRST_PARTY").ok_or(missing)?;
+        GatewayConfig::from_trust_root(&root, &flag)
+    }
+
+    /// Read from the Worker environment: [`GatewayConfig::release`], or
+    /// [`GatewayConfig::from_vars`] under `dev-issuer`.
+    pub fn from_env(env: &worker::Env) -> Result<Self, ConfigError> {
+        let get = |name: &str| env.var(name).ok().map(|v| v.to_string());
+        #[cfg(feature = "dev-issuer")]
+        return Ok(GatewayConfig::from_vars(&get)?);
+        #[cfg(not(feature = "dev-issuer"))]
+        GatewayConfig::release(&get)
+    }
+
+    /// Audience policy for a resource served by this gateway: exact `aud`
+    /// (any other, including the gateway's other resource, is a 401
+    /// audience mismatch, ADR-351 §5.4.7), and the upstream first-party path
+    /// only on the REST resource (§5.5).
     pub fn audience_for(&self, resource: &ResourceUrl) -> AudiencePolicy {
         let rest = *resource == self.rest_resource;
         AudiencePolicy {
             edge_issuer: self.edge_issuer.clone(),
             resource: resource.clone(),
-            sibling_resources: [&self.rest_resource, &self.mcp_resource]
-                .into_iter()
-                .filter(|r| *r != resource)
-                .cloned()
-                .collect(),
             upstream: if rest { self.upstream.clone() } else { None },
         }
     }
@@ -228,11 +262,11 @@ mod tests {
         let up = c.upstream.clone().unwrap();
         assert_eq!(up.first_party_auds, vec!["cli-a", "cli-b"]);
         assert_eq!(up.accepted_kids, vec!["kid-1", "kid_2"]);
-        // Upstream tokens only on the REST resource; siblings are exact.
+        // Upstream tokens only on the REST resource; audiences are exact.
         assert!(c.audience_for(&c.rest_resource).upstream.is_some());
         let mcp = c.audience_for(&c.mcp_resource);
         assert!(mcp.upstream.is_none());
-        assert_eq!(mcp.sibling_resources, vec![c.rest_resource.clone()]);
+        assert_eq!(mcp.resource, c.mcp_resource);
         v.insert("UPSTREAM_FIRST_PARTY", "yes".into());
         assert!(load(&v).is_err());
     }
@@ -284,5 +318,105 @@ mod tests {
             v.insert(k, bad.into());
             assert!(load(&v).is_err(), "{k}={bad} accepted");
         }
+    }
+
+    fn release(v: &HashMap<&'static str, String>) -> Result<GatewayConfig, ConfigError> {
+        GatewayConfig::release(&|k| v.get(k).cloned())
+    }
+
+    /// `KEY = "value"` lines of the shipped `wrangler.toml` `[vars]` table.
+    fn shipped_vars() -> HashMap<&'static str, String> {
+        let toml: &'static str = include_str!("../wrangler.toml");
+        let mut section = "";
+        let mut out = HashMap::new();
+        for line in toml.lines().map(str::trim) {
+            if line.starts_with('[') {
+                section = line;
+                continue;
+            }
+            match line.split_once('=') {
+                Some((k, v)) if section == "[vars]" && !line.starts_with('#') => {
+                    out.insert(k.trim(), v.trim().trim_matches('"').to_string());
+                }
+                _ => {}
+            }
+        }
+        out
+    }
+
+    /// Regression (ADR-351 §5.4 item 5): release builds use the compiled
+    /// trust root; the shipped wrangler carries only the flag.
+    #[test]
+    fn release_uses_the_compiled_trust_root() {
+        let shipped = shipped_vars();
+        assert_eq!(
+            shipped.keys().copied().collect::<Vec<_>>(),
+            ["UPSTREAM_FIRST_PARTY"]
+        );
+        let c = release(&shipped).unwrap();
+        assert_eq!(c.edge_issuer, crate::trust_root::EDGE_ISSUER);
+        assert_eq!(c.edge_jwks_url, crate::trust_root::EDGE_JWKS_URL);
+        assert_eq!(
+            c.rest_resource.as_str(),
+            "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1"
+        );
+        assert_eq!(
+            c.mcp_resource.as_str(),
+            "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1/mcp"
+        );
+        assert!(c.upstream.is_none());
+        assert!(release(&HashMap::new()).unwrap().upstream.is_none());
+    }
+
+    /// Regression (§5.4 item 5): a release build that sees a contradicting
+    /// trust-root var is 503 `trust_root_mismatch`, never silently re-rooted;
+    /// an agreeing var is harmless.
+    #[test]
+    fn release_refuses_contradicting_trust_root_vars() {
+        for (k, bad) in [
+            ("EDGE_ISSUER", "https://attacker.example"),
+            (
+                "EDGE_JWKS_URL",
+                "https://attacker.example/.well-known/jwks.json",
+            ),
+            ("PUBLIC_ORIGIN", "https://gw.example.workers.dev"),
+            ("UPSTREAM_ISSUER", "https://evil-idp.example"),
+            ("FIRST_PARTY_AUDS", "cli"),
+            ("ACCEPTED_UPSTREAM_KIDS", "kid-1"),
+        ] {
+            let mut v = shipped_vars();
+            v.insert(k, bad.into());
+            assert_eq!(
+                release(&v).unwrap_err(),
+                ConfigError::TrustRootMismatch(k),
+                "{k}"
+            );
+        }
+        let mut v = shipped_vars();
+        v.insert("EDGE_ISSUER", crate::trust_root::EDGE_ISSUER.into());
+        assert!(release(&v).is_ok());
+    }
+
+    /// With no compiled first-party auds or kid pin, the flag alone cannot
+    /// open the §5.5 path: release config fails closed (500).
+    #[test]
+    fn release_upstream_flag_fails_closed_without_compiled_auds() {
+        let mut v = shipped_vars();
+        v.insert("UPSTREAM_FIRST_PARTY", "true".into());
+        assert!(matches!(release(&v), Err(ConfigError::Invalid(_))));
+    }
+
+    /// Regression (Cloudflare 1042): the edge JWKS comes through the
+    /// `EDGE_AUTH` Service Binding to `ruvector-edge-auth`, and the gateway
+    /// declares no routes.
+    #[test]
+    fn wrangler_binds_edge_auth_service() {
+        let toml = include_str!("../wrangler.toml");
+        let services = toml.split("[[services]]").nth(1).expect("[[services]]");
+        let services = services.split("\n[").next().unwrap();
+        assert!(services.contains("binding = \"EDGE_AUTH\""));
+        assert!(services.contains("service = \"ruvector-edge-auth\""));
+        assert!(!toml.lines().any(|l| l.trim_start().starts_with("routes")));
+        assert!(!toml.lines().any(|l| l.trim() == "[[routes]]"));
     }
 }

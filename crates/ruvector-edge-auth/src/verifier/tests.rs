@@ -8,7 +8,6 @@ use serde_json::{json, Value};
 
 fn audience() -> AudiencePolicy {
     AudiencePolicy::edge_only(EDGE_ISS, ResourceUrl::parse(RESOURCE).unwrap())
-        .with_siblings([ResourceUrl::parse(SIBLING).unwrap()])
 }
 
 fn edge_policy() -> ClaimsPolicy {
@@ -92,24 +91,23 @@ fn wrong_issuer() {
     );
 }
 
+/// Regression (ADR §5.4.7, §8 delta 10): the other gateway resource is a
+/// 401 audience mismatch, exactly like any other foreign audience.
 #[test]
-fn sibling_audience_is_403_other_audiences_401() {
+fn sibling_and_other_audiences_are_401() {
     let k = key(1);
     let (keys, clock) = (StaticKeys::of(&[&k]), TestClock::at(NOW));
     let v = edge_verifier(&keys, &clock);
-    let t = sign(&edge_header(&k), &claims_with("aud", json!(SIBLING)), &k);
-    let err = run(&v, &t).unwrap_err();
-    assert_eq!(err, AuthError::AudienceNotAllowed);
-    assert_eq!(err.http_status(), 403);
-    assert_eq!(err.rfc6750_error(), None);
     for aud in [
+        json!(SIBLING),
+        json!("https://team.ruv.io/mcp"),
         json!("https://api.cognitum.one/v1/mcp"),
         json!("edge-client-abc"),
         json!(format!("{RESOURCE}/")),
     ] {
         let t = sign(&edge_header(&k), &claims_with("aud", aud.clone()), &k);
         let err = run(&v, &t).unwrap_err();
-        assert_eq!(err, AuthError::InvalidClaim("aud"), "{aud}");
+        assert_eq!(err, AuthError::AudienceNotAllowed, "{aud}");
         assert_eq!(err.http_status(), 401);
         assert_eq!(err.rfc6750_error(), Some("invalid_token"));
     }
@@ -326,7 +324,7 @@ fn upstream_path_when_explicitly_enabled() {
     let t = sign(&h, &dcr, &up_k);
     assert_eq!(
         block_on(v.verify(Some(&bearer(&t)))),
-        Err(AuthError::InvalidClaim("aud"))
+        Err(AuthError::AudienceNotAllowed)
     );
 }
 

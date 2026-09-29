@@ -6,7 +6,8 @@ use crate::claims::TokenKind;
 
 /// Version of [`SCOPE_TABLE`] / [`ROUTE_TABLE`]; bump on any change.
 /// v2: `ruvector:*` vocabulary, `Admin`, tenant/MCP/ops routes.
-pub const SCOPE_TABLE_VERSION: u32 = 2;
+/// v3: `ruvector:publish` row; `Admin`/`PublishPublic` never on MCP.
+pub const SCOPE_TABLE_VERSION: u32 = 3;
 
 /// Internal capability a route requires (always further ∩ role, §5.3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -85,8 +86,10 @@ pub enum RouteSurface {
 
 /// `(scope, capabilities granted)` — the ADR §5.3 vocabulary. Scopes not
 /// listed grant nothing: upstream product scopes (`mcp:*`, `swarm:*`,
-/// `brains:*`, ...), identity scopes, `offline_access` (refresh only) and
-/// `ruvector:publish` (not honoured before M5).
+/// `brains:*`, ...), identity scopes and `offline_access` (echoed only;
+/// refresh follows the client's registered grant types). `ruvector:publish`
+/// is listed for completeness but no resource allows it before M5, so the
+/// AS never mints it.
 pub const SCOPE_TABLE: &[(&str, &[Capability])] = &[
     ("ruvector:read", &[Capability::Read]),
     (
@@ -94,7 +97,13 @@ pub const SCOPE_TABLE: &[(&str, &[Capability])] = &[
         &[Capability::Write, Capability::CreateCollection],
     ),
     ("ruvector:admin", &[Capability::Admin]),
+    ("ruvector:publish", &[Capability::PublishPublic]),
 ];
+
+/// Capabilities never granted on [`RouteSurface::Mcp`] (ADR §5.3/§5.7:
+/// `ruvector:admin` and `ruvector:publish` exist only for the `/v1`
+/// resource).
+pub const REST_ONLY_CAPS: &[Capability] = &[Capability::Admin, Capability::PublishPublic];
 
 /// Fixed grant for upstream first-party tokens on REST (ADR §5.5: upstream
 /// tokens carry no ruvector scopes, so they get `ruvector:read
@@ -109,8 +118,8 @@ pub const UPSTREAM_FIRST_PARTY_CAPS: &[Capability] = &[
 /// Map granted scopes to capabilities (before the role intersection).
 ///
 /// Contract: `EdgeIssued` — capabilities of the listed [`SCOPE_TABLE`]
-/// scopes, unknown scopes ignored, `PublishPublic` never granted on
-/// [`RouteSurface::Mcp`]. `UpstreamFirstParty` — the fixed
+/// scopes, unknown scopes ignored, [`REST_ONLY_CAPS`] (`Admin`,
+/// `PublishPublic`) never granted on [`RouteSurface::Mcp`]. `UpstreamFirstParty` — the fixed
 /// [`UPSTREAM_FIRST_PARTY_CAPS`] on [`RouteSurface::Rest`] (its scopes are
 /// ignored) and nothing on any other surface (ADR §5.5: REST only).
 pub fn capabilities_for(
@@ -130,7 +139,7 @@ pub fn capabilities_for(
     for scope in scopes {
         if let Some((_, caps)) = SCOPE_TABLE.iter().find(|(s, _)| *s == scope.as_str()) {
             for cap in caps.iter() {
-                if !(surface == RouteSurface::Mcp && *cap == Capability::PublishPublic) {
+                if !(surface == RouteSurface::Mcp && REST_ONLY_CAPS.contains(cap)) {
                     set.insert(*cap);
                 }
             }

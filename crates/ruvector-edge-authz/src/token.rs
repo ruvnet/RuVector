@@ -131,8 +131,9 @@ impl TokenRequest {
 ///
 /// Carries exactly the ADR-351 §5.2 claim set: `iss`, `aud`, `sub` (the edge
 /// subject), `client_id`, `scope`, `jti`, `iat`, `exp`, `family_id`,
-/// `upstream_iss`, `org_id`, `workspace_id`. The raw upstream `sub` is never
-/// carried.
+/// `upstream_iss`, `org_id`, `workspace_id`, plus `act` **only** on tokens
+/// minted by the RFC 8693 exchange grant (M1). The raw upstream `sub` is
+/// never carried.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct AccessTokenClaims {
     /// Edge AS issuer.
@@ -159,6 +160,17 @@ pub struct AccessTokenClaims {
     pub iat: u64,
     /// Expiry (`iat + ACCESS_TOKEN_TTL_SECS`).
     pub exp: u64,
+    /// RFC 8693 §4.1 actor: present only on exchanged tokens, omitted from
+    /// the JSON otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub act: Option<Act>,
+}
+
+/// RFC 8693 §4.1 `act` claim: the adapter client acting for the user.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Act {
+    /// The adapter's `client_id`.
+    pub sub: String,
 }
 
 /// Inputs for [`mint_access_token`].
@@ -176,6 +188,9 @@ pub struct MintRequest<'a> {
     pub family_id: &'a str,
     /// Granted scopes.
     pub scopes: &'a [String],
+    /// Acting adapter (`act.sub`) for exchanged tokens; `None` for the
+    /// authorization-code and refresh grants.
+    pub act: Option<&'a str>,
 }
 
 #[derive(Serialize)]
@@ -231,6 +246,9 @@ where
         jti: crate::random_secret(rng, JTI_BYTES)?,
         iat: now,
         exp: now.saturating_add(ACCESS_TOKEN_TTL_SECS),
+        act: req.act.map(|sub| Act {
+            sub: sub.to_string(),
+        }),
     };
     let header = Header {
         alg: "ES256",

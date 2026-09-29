@@ -3,12 +3,13 @@
 //! listed is the edge AS, not `auth.cognitum.one`).
 
 use crate::resource::ResourceUrl;
+use crate::scopes::Capability;
 use serde::Serialize;
 
 /// RFC 9728 well-known path prefix.
 pub const PRM_WELL_KNOWN: &str = "/.well-known/oauth-protected-resource";
 
-/// `scopes_supported` for the bare-origin and `/v1` documents (§5.7).
+/// `scopes_supported` for the `/v1` document (§5.7).
 pub const REST_SCOPES: [&str; 4] = [
     "ruvector:read",
     "ruvector:write",
@@ -19,8 +20,30 @@ pub const REST_SCOPES: [&str; 4] = [
 /// `scopes_supported` for the `/v1/mcp` document (§5.7: no admin).
 pub const MCP_SCOPES: [&str; 3] = ["ruvector:read", "ruvector:write", "offline_access"];
 
-/// Scope named in every 401 challenge (§5.7).
-pub const CHALLENGE_SCOPE: &str = "ruvector:read";
+/// Scope named in every 401 challenge (§5.1/§5.7).
+pub const CHALLENGE_SCOPE: &str = "ruvector:read offline_access";
+
+/// Scope named in the 403 `insufficient_scope` step-up challenge of a
+/// mutating call (§5.3); equals [`step_up_scope`] for
+/// [`Capability::Write`] / [`Capability::CreateCollection`].
+pub const STEP_UP_SCOPE: &str = "ruvector:read ruvector:write offline_access";
+
+/// `error_description` of the 401 challenge for a token whose `aud` is not
+/// this resource (§5.4.7), so clients can tell it from a bad signature.
+pub const AUDIENCE_MISMATCH: &str = "audience mismatch";
+
+/// Scope for the 403 `insufficient_scope` challenge when `missing` is the
+/// capability the route needs (§5.3): `ruvector:read <scope satisfying
+/// missing> offline_access`, e.g. `ruvector:read ruvector:admin
+/// offline_access` for an admin route. Never names a scope twice.
+pub fn step_up_scope(missing: Capability) -> String {
+    let needed = missing.satisfying_scope();
+    if needed == "ruvector:read" {
+        "ruvector:read offline_access".to_string()
+    } else {
+        format!("ruvector:read {needed} offline_access")
+    }
+}
 
 /// RFC 9728 §2 metadata document.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -78,11 +101,27 @@ fn quoted(value: &str) -> String {
 /// `resource_metadata`, `scope` — normally [`CHALLENGE_SCOPE`] — and
 /// `error="invalid_token"`).
 pub fn www_authenticate_invalid_token(resource_metadata_url: &str, scope: &str) -> String {
-    format!(
+    www_authenticate_invalid_token_described(resource_metadata_url, scope, None)
+}
+
+/// [`www_authenticate_invalid_token`] with an optional RFC 6750 §3
+/// `error_description` (e.g. [`AUDIENCE_MISMATCH`], §5.4.7). `None` yields
+/// exactly the undescribed challenge.
+pub fn www_authenticate_invalid_token_described(
+    resource_metadata_url: &str,
+    scope: &str,
+    description: Option<&str>,
+) -> String {
+    let mut out = format!(
         r#"Bearer resource_metadata={}, scope={}, error="invalid_token""#,
         quoted(resource_metadata_url),
         quoted(scope)
-    )
+    );
+    if let Some(d) = description {
+        out.push_str(", error_description=");
+        out.push_str(&quoted(d));
+    }
+    out
 }
 
 /// `WWW-Authenticate` value for a 401 with no token at all (RFC 6750 §3.1:
@@ -146,19 +185,59 @@ mod tests {
         );
         assert_eq!(
             www_authenticate_missing(&url, CHALLENGE_SCOPE),
-            format!(r#"Bearer resource_metadata="{url}", scope="ruvector:read""#)
+            format!(r#"Bearer resource_metadata="{url}", scope="ruvector:read offline_access""#)
         );
         assert_eq!(
             www_authenticate_invalid_token(&url, CHALLENGE_SCOPE),
             format!(
-                r#"Bearer resource_metadata="{url}", scope="ruvector:read", error="invalid_token""#
+                r#"Bearer resource_metadata="{url}", scope="ruvector:read offline_access", error="invalid_token""#
             )
         );
         assert_eq!(
-            www_authenticate_insufficient_scope(&url, "ruvector:write"),
+            www_authenticate_insufficient_scope(&url, STEP_UP_SCOPE),
             format!(
-                r#"Bearer resource_metadata="{url}", error="insufficient_scope", scope="ruvector:write""#
+                r#"Bearer resource_metadata="{url}", error="insufficient_scope", scope="ruvector:read ruvector:write offline_access""#
             )
+        );
+    }
+
+    /// Regression (§5.4.7): the audience-mismatch 401 is distinguishable.
+    #[test]
+    fn invalid_token_can_carry_a_description() {
+        let url = metadata_url(&res("https://gw.example/v1"));
+        assert_eq!(
+            www_authenticate_invalid_token_described(&url, CHALLENGE_SCOPE, None),
+            www_authenticate_invalid_token(&url, CHALLENGE_SCOPE)
+        );
+        assert_eq!(
+            www_authenticate_invalid_token_described(
+                &url,
+                CHALLENGE_SCOPE,
+                Some(AUDIENCE_MISMATCH)
+            ),
+            format!(
+                r#"Bearer resource_metadata="{url}", scope="ruvector:read offline_access", error="invalid_token", error_description="audience mismatch""#
+            )
+        );
+    }
+
+    /// Regression (§5.3): the step-up challenge names the scope the missing
+    /// capability needs, not a fixed write scope.
+    #[test]
+    fn step_up_scope_follows_the_missing_capability() {
+        assert_eq!(step_up_scope(Capability::Write), STEP_UP_SCOPE);
+        assert_eq!(step_up_scope(Capability::CreateCollection), STEP_UP_SCOPE);
+        assert_eq!(
+            step_up_scope(Capability::Admin),
+            "ruvector:read ruvector:admin offline_access"
+        );
+        assert_eq!(
+            step_up_scope(Capability::PublishPublic),
+            "ruvector:read ruvector:publish offline_access"
+        );
+        assert_eq!(
+            step_up_scope(Capability::Read),
+            "ruvector:read offline_access"
         );
     }
 

@@ -9,7 +9,8 @@
 
 use crate::http::Reply;
 use ruvector_edge_authz::authorize::{redirect_is_verified, ValidatedAuthorization};
-use ruvector_edge_authz::client::ClientRecord;
+use ruvector_edge_authz::client::{ClientRecord, GRANT_REFRESH};
+use ruvector_edge_authz::refresh::FAMILY_MAX_LIFETIME_SECS;
 
 /// Cookie-name prefix; the name is suffixed with a prefix of the upstream
 /// `state` so parallel logins in one browser do not clobber each other.
@@ -92,6 +93,19 @@ pub struct ConsentForm<'a> {
     pub upstream_origin: &'a str,
 }
 
+/// Consent line disclosing long-lived access. Shown whenever the client
+/// registered the refresh grant — refresh tokens follow `grant_types`, not
+/// the `offline_access` scope (ADR-351 §5.3) — so the page always tells the
+/// user when access outlives the 15-minute access token.
+pub fn offline_access_notice() -> String {
+    format!(
+        "<p><strong>Stays signed in.</strong> This application will stay signed \
+in for up to {} days (<code>offline_access</code>, refresh token) unless you \
+sign out or its access is revoked.</p>",
+        FAMILY_MAX_LIFETIME_SECS / 86_400
+    )
+}
+
 /// Whether a client name could imitate another app (anything outside
 /// printable ASCII, e.g. Cyrillic homoglyphs of a Latin name).
 pub fn is_suspicious_name(name: &str) -> bool {
@@ -124,6 +138,11 @@ pub fn page(
         .iter()
         .map(|s| format!("<li><code>{}</code></li>", escape(s)))
         .collect();
+    let offline = if client.allows_grant(GRANT_REFRESH) {
+        offline_access_notice()
+    } else {
+        String::new()
+    };
     let mut warnings = String::new();
     if !redirect_is_verified(&auth.redirect_uri) {
         warnings.push_str(
@@ -154,7 +173,7 @@ background:#fdf2f2}}form{{display:inline}}\
 <p><strong>{name}</strong> wants to access <code>{resource}</code> as you.</p>\
 <p>After you sign in with Cognitum you will be sent back to \
 <strong>{host}</strong>. Continue only if you trust that site.</p>\
-<p>Requested permissions:</p><ul>{scopes}</ul>\
+<p>Requested permissions:</p><ul>{scopes}</ul>{offline}\
 <p><form method=\"post\" action=\"{action}\">\
 <input type=\"hidden\" name=\"flow\" value=\"{flow}\">\
 <input type=\"hidden\" name=\"consent\" value=\"{token}\">\
