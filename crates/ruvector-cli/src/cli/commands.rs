@@ -45,7 +45,7 @@ pub fn insert_vectors(
     let mut db_options = config.to_db_options();
     db_options.storage_path = db_path.to_string();
 
-    let db = VectorDB::open_or_create(db_options).context("Failed to open database")?;
+    let db = VectorDB::new(db_options).context("Failed to open database")?;
 
     // Parse input file
     let entries = match format {
@@ -112,7 +112,7 @@ pub fn search_vectors(
     let mut db_options = config.to_db_options();
     db_options.storage_path = db_path.to_string();
 
-    let db = VectorDB::open_or_create(db_options).context("Failed to open database")?;
+    let db = VectorDB::new(db_options).context("Failed to open database")?;
 
     let start = Instant::now();
     let results = db
@@ -144,7 +144,7 @@ pub fn show_info(db_path: &str, config: &Config) -> Result<()> {
     let mut db_options = config.to_db_options();
     db_options.storage_path = db_path.to_string();
 
-    let db = VectorDB::open_or_create(db_options).context("Failed to open database")?;
+    let db = VectorDB::new(db_options).context("Failed to open database")?;
 
     let count = db.len().context("Failed to get count")?;
     let dimensions = db.options().dimensions;
@@ -170,7 +170,7 @@ pub fn run_benchmark(db_path: &str, config: &Config, num_queries: usize) -> Resu
     let mut db_options = config.to_db_options();
     db_options.storage_path = db_path.to_string();
 
-    let db = VectorDB::open_or_create(db_options).context("Failed to open database")?;
+    let db = VectorDB::new(db_options).context("Failed to open database")?;
 
     let dimensions = db.options().dimensions;
 
@@ -229,7 +229,7 @@ pub fn export_database(
     let mut db_options = config.to_db_options();
     db_options.storage_path = db_path.to_string();
 
-    let db = VectorDB::open_or_create(db_options).context("Failed to open database")?;
+    let db = VectorDB::new(db_options).context("Failed to open database")?;
 
     println!(
         "{}",

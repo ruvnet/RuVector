@@ -10,7 +10,7 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ruvector_core::{
     types::{DbOptions, HnswConfig, QuantizationConfig},
-    DistanceMetric, SearchQuery, SearchResult, VectorDB as CoreVectorDB, VectorEntry,
+    ConfigCheck, DistanceMetric, SearchQuery, SearchResult, VectorDB as CoreVectorDB, VectorEntry,
 };
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -113,17 +113,23 @@ impl From<JsHnswConfig> for HnswConfig {
 pub struct JsDbOptions {
     /// Vector dimensions
     pub dimensions: u32,
-    /// Distance metric
+    /// Distance metric.
+    ///
+    /// Omitted: `Cosine` for a new database; an existing database at
+    /// `storagePath` keeps its stored metric. Passed: an existing database's
+    /// stored metric must equal it, otherwise the constructor throws.
     pub distance_metric: Option<JsDistanceMetric>,
     /// Where the database is persisted.
     ///
     /// - Omitted: an in-memory database private to this instance. Nothing is
     ///   written to disk and nothing is shared with other `VectorDB`
     ///   instances; the data is gone when the instance is garbage-collected.
+    ///   (Before issue #1063 this opened a shared `./ruvector.db`; pass
+    ///   `storagePath: './ruvector.db'` to keep using such a store.)
     /// - A file path: a persistent database at that path. If a database
-    ///   already exists there, its stored `dimensions` and `distanceMetric`
-    ///   must equal the requested ones, otherwise the constructor throws an
-    ///   error naming the path and both values.
+    ///   already exists there, its stored `dimensions` (and `distanceMetric`,
+    ///   when one is passed) must equal the requested ones, otherwise the
+    ///   constructor throws an error naming the path and both values.
     /// - A value starting with `memory://`: explicitly in-memory, same as
     ///   omitting it.
     pub storage_path: Option<String>,
@@ -136,6 +142,27 @@ pub struct JsDbOptions {
 /// Storage path used when `storagePath` is omitted: ruvector-core's
 /// per-instance in-memory backend (no file is created).
 const IN_MEMORY_STORAGE_PATH: &str = "memory://";
+
+/// The file an omitted `storagePath` opened before issue #1063.
+const LEGACY_DEFAULT_STORAGE_PATH: &str = "./ruvector.db";
+
+static LEGACY_DEFAULT_STORE_WARNING: std::sync::Once = std::sync::Once::new();
+
+/// An omitted `storagePath` used to mean `./ruvector.db`. If that file exists,
+/// an upgrading caller is probably relying on it and would otherwise lose
+/// writes to an in-memory store without noticing, so say so once per process.
+fn warn_if_legacy_default_store_exists() {
+    if std::path::Path::new(LEGACY_DEFAULT_STORAGE_PATH).exists() {
+        LEGACY_DEFAULT_STORE_WARNING.call_once(|| {
+            eprintln!(
+                "ruvector: storagePath was omitted, so this VectorDB is in-memory and its data \
+                 is not saved. A {LEGACY_DEFAULT_STORAGE_PATH} exists in the working directory; \
+                 older versions used it by default. Pass storagePath: '{LEGACY_DEFAULT_STORAGE_PATH}' \
+                 to keep using it (see issue #1063)."
+            );
+        });
+    }
+}
 
 impl From<JsDbOptions> for DbOptions {
     fn from(options: JsDbOptions) -> Self {
@@ -256,7 +283,8 @@ impl VectorDB {
     ///
     /// Without `storagePath` the database is in-memory and private to this
     /// instance. With `storagePath`, an existing database at that path must
-    /// have the same `dimensions` and `distanceMetric`, or this throws.
+    /// have the same `dimensions` (and `distanceMetric`, when one is passed),
+    /// or this throws.
     ///
     /// # Example
     /// ```javascript
@@ -273,8 +301,18 @@ impl VectorDB {
     /// ```
     #[napi(constructor)]
     pub fn new(options: JsDbOptions) -> Result<Self> {
+        if options.storage_path.is_none() {
+            warn_if_legacy_default_store_exists();
+        }
+        // Only a metric the caller actually passed is checked against a
+        // stored database; an omitted one adopts the stored metric, so
+        // reopening a non-Cosine store without restating it keeps working.
+        let check = ConfigCheck {
+            dimensions: true,
+            distance_metric: options.distance_metric.is_some(),
+        };
         let core_options: DbOptions = options.into();
-        let db = CoreVectorDB::new(core_options)
+        let db = CoreVectorDB::open_checked(core_options, check)
             .map_err(|e| Error::from_reason(format!("Failed to create database: {}", e)))?;
 
         Ok(Self {
@@ -290,6 +328,7 @@ impl VectorDB {
     /// ```
     #[napi(factory)]
     pub fn with_dimensions(dimensions: u32) -> Result<Self> {
+        warn_if_legacy_default_store_exists();
         let options = DbOptions {
             dimensions: dimensions as usize,
             storage_path: IN_MEMORY_STORAGE_PATH.to_string(),
@@ -874,15 +913,7 @@ mod tests {
 
     #[test]
     fn shared_storage_path_with_different_dimensions_fails_at_construction() {
-        let dir = std::env::temp_dir().join(format!(
-            "ruvector-node-1063-{}-{}",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = unique_temp_dir("dims");
         let path = dir.join("shared.db").to_string_lossy().to_string();
 
         {
@@ -907,6 +938,54 @@ mod tests {
         let reopened = VectorDB::new(js_options(256, Some(path))).unwrap();
         assert_eq!(reopened.inner.read().unwrap().len().unwrap(), 1);
         drop(reopened);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn unique_temp_dir(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "ruvector-node-1063-{tag}-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn reopen_without_metric_adopts_stored_metric() {
+        let dir = unique_temp_dir("metric");
+        let path = dir.join("euclid.db").to_string_lossy().to_string();
+
+        {
+            let mut options = js_options(128, Some(path.clone()));
+            options.distance_metric = Some(JsDistanceMetric::Euclidean);
+            let created = VectorDB::new(options).unwrap();
+            insert(&created, "x", 128);
+        }
+
+        // Omitting distanceMetric must not be read as a request for Cosine.
+        let reopened = VectorDB::new(js_options(128, Some(path.clone()))).unwrap();
+        {
+            let inner = reopened.inner.read().unwrap();
+            assert_eq!(inner.options().distance_metric, DistanceMetric::Euclidean);
+            assert_eq!(inner.len().unwrap(), 1);
+        }
+        drop(reopened);
+
+        // An explicitly different metric is still rejected.
+        let mut options = js_options(128, Some(path.clone()));
+        options.distance_metric = Some(JsDistanceMetric::Cosine);
+        let err = match VectorDB::new(options) {
+            Ok(_) => panic!("an explicit Cosine must not open a Euclidean store"),
+            Err(e) => e.reason.clone(),
+        };
+        assert!(
+            err.contains("distance metric: stored Euclidean, requested Cosine"),
+            "{err}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

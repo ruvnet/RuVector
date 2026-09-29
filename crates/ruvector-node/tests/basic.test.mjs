@@ -419,3 +419,19 @@ test('VectorDB - shared storagePath with different dimensions throws', async (t)
   t.true(error.message.includes('stored 256'));
   t.true(error.message.includes('requested 4'));
 });
+
+// Issue #1063: an omitted distanceMetric adopts the stored one; an explicit one must match.
+test('VectorDB - reopen without distanceMetric keeps the stored metric', async (t) => {
+  const tempDir = createTempDir();
+  t.teardown(() => cleanupTempDir(tempDir));
+  const storagePath = join(tempDir, 'euclid.db');
+
+  const first = new VectorDB({ dimensions: 8, distanceMetric: 'Euclidean', storagePath });
+  await first.insert({ id: 'x', vector: new Float32Array(8).fill(0.1) });
+
+  const reopened = new VectorDB({ dimensions: 8, storagePath });
+  t.is(await reopened.len(), 1);
+
+  const error = t.throws(() => new VectorDB({ dimensions: 8, distanceMetric: 'Cosine', storagePath }));
+  t.true(error.message.includes('stored Euclidean, requested Cosine'));
+});

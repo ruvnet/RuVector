@@ -5,6 +5,40 @@ All notable changes to RuVector will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [@ruvector/core 0.2.0] - Unreleased
+### Changed (breaking)
+- `new VectorDb({ dimensions })` and `VectorDb.withDimensions(n)` without
+  `storagePath` now create an in-memory database private to that instance
+  (issue #1063). They used to open a shared `./ruvector.db` in the working
+  directory, so every such instance shared one store and its stored dimension
+  silently overrode the requested one: a 4-dim index created after a 256-dim one
+  accepted construction, then failed every insert with `Dimension mismatch`.
+  **Upgrading:** to keep an existing implicit store, pass
+  `storagePath: './ruvector.db'`. When `storagePath` is omitted and that file
+  exists, the binding prints a one-time warning to stderr.
+- Opening an existing store whose stored `dimensions` differ from the requested
+  ones now throws in the constructor, naming the path and both values. An
+  explicitly passed `distanceMetric` is checked the same way; an omitted one
+  keeps the stored metric, so reopening a non-Cosine store without restating the
+  metric still works.
+- Needs native `ruvector-core-*` platform packages built from this change;
+  publish them at the same version and bump the `optionalDependencies` pins.
+  Published as 0.2.0 rather than 0.1.x so caret (`^0.1.x`) dependents do not
+  pick up the new default silently.
+
+## [ruvector-core] - Unreleased
+### Added
+- `VectorDB::open_checked(options, ConfigCheck)` and `ConfigCheck`
+  (`ALL`, `DIMENSIONS`, `NONE`): open or create a database, failing with
+  `InvalidParameter` when an existing store's `dimensions` and/or
+  `distance_metric` differ from the requested ones instead of adopting them. A
+  legacy file holding vectors but no stored config is checked against a stored
+  vector's length before the requested config is written into it.
+### Changed
+- `VectorDB::new` keeps its documented behaviour (the stored configuration is
+  adopted) and now logs a `tracing` warning when the stored `dimensions` or
+  `distance_metric` differ from the requested ones.
+
 ## [@ruvector/router 0.1.31] - 2026-09-21
 ### Fixed
 - Ship the issue #430 HNSW fixes (result-heap eviction order, insert beam width,

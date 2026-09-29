@@ -228,7 +228,7 @@ const db = VectorDB.withDimensions(384);
   - `Euclidean`: Best for absolute distances (images, spatial data)
   - `DotProduct`: Best for positive vectors with magnitude info
   - `Manhattan`: Best for sparse vectors (L1 norm)
-- **storagePath**: Path to persistent storage file. Omit for a private in-memory database. Reopening an existing file with different `dimensions` or `distanceMetric` throws.
+- **storagePath**: Path to persistent storage file. Omit for a private in-memory database. Reopening an existing file with different `dimensions` throws, and so does an explicitly different `distanceMetric` (omit it to keep the stored metric). Upgrading: older versions defaulted to `./ruvector.db`; pass it explicitly to keep using that store.
 - **hnswConfig**: Controls search quality and speed tradeoff
 - **quantization**: Enables memory compression (4-32x reduction)
 
