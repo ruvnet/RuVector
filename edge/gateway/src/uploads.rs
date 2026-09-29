@@ -5,13 +5,13 @@
 //! opens an R2 multipart upload at `staging/{tenant_key}/{upload_id}`; the
 //! session lives in the caller's ledger, so an id resolves only inside its
 //! tenant. `POST /v1/uploads/{id}/parts/{n}` carries one part (exactly
-//! [`PART_BYTES`], the last one the remainder; bodies up to 8 MiB are the
-//! only exception to the 1 MiB cap), `POST /v1/uploads/{id}:complete`
+//! [`PART_BYTES`], the last one the remainder; part bodies up to 8 MiB are
+//! the one exception to the 1 MiB cap), `POST /v1/uploads/{id}:complete`
 //! completes it and checks the size. R2 stores no sha256 for a multipart
 //! object, so the import job's first delivery hashes the whole upload
 //! (streamed) against the declared sha256 before any row is applied.
 //!
-//! Inline imports (`application/octet-stream` body ≤ 8 MiB on `:import`)
+//! Inline imports (`application/octet-stream` body ≤ 512 KiB on `:import`)
 //! skip the session: the body is hashed and PUT with its sha256 so R2
 //! stores the checksum.
 
@@ -28,8 +28,14 @@ use serde_json::{json, Value as Json};
 pub const PART_BYTES: u64 = 8 << 20;
 /// Largest upload (the importer's default `max_file_bytes`).
 pub const MAX_UPLOAD_BYTES: u64 = 1 << 30;
-/// Largest inline import / part body.
-pub const MAX_INLINE_BYTES: usize = 8 << 20;
+/// Largest upload part body (R2 multipart parts are [`PART_BYTES`]).
+pub const MAX_PART_BODY: usize = 8 << 20;
+/// Largest inline import body. The inline path hashes the body in the
+/// request (so R2 stores its checksum): 512 KiB keeps that near the
+/// Workers Free 10 ms CPU budget (~100 MB/s wasm SHA-256, an estimate);
+/// larger imports use an upload session,
+/// whose sha256 pass runs in the queue consumer in bounded slices.
+pub const MAX_INLINE_BYTES: usize = 512 << 10;
 
 /// A stored upload session.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

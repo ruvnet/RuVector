@@ -5,7 +5,7 @@
 use crate::auth::Authenticated;
 use crate::config::GatewayConfig;
 use crate::platform::{JwksFetch, WorkerClock, EDGE_AUTH_BINDING};
-use crate::{api, audit_http, auth, keys, m3_api, respond};
+use crate::{api, audit_http, auth, keys, m3_api, m3_http, respond};
 use ruvector_edge_auth::prm::{ProtectedResourceMetadata, MCP_SCOPES, PRM_WELL_KNOWN, REST_SCOPES};
 use ruvector_edge_auth::{ResourceUrl, RouteSurface};
 use ruvector_edge_tenancy::ProblemCode;
@@ -85,9 +85,9 @@ pub async fn handle(
 ) -> Result<Response> {
     let route = classify(&req.method(), &req.path());
     // ADR-351 §10 layer 1: refuse oversized bodies before any signature work.
-    // M3: 8 MiB on upload parts and inline imports; M5: a registry part
+    // M3: 8 MiB on upload parts, 512 KiB inline imports; M5: a registry part
     // upload may declare up to `max_part_size`; 1 MiB everywhere else.
-    if matches!(route, Route::Mcp | Route::OtherV1) && m3_api::declared_too_large(&req) {
+    if matches!(route, Route::Mcp | Route::OtherV1) && m3_http::declared_too_large(&req) {
         return respond::problem(ProblemCode::PayloadTooLarge, None);
     }
     // Authenticate first so unknown routes do not leak existence to
@@ -113,7 +113,7 @@ pub async fn handle(
             &MCP_SCOPES,
         )),
         (Route::OtherV1, Some(a)) => match m3_api::parse(&req.method(), &req.path()) {
-            Some(m3) => m3_api::serve(req, env, cfg, m3, a, ctx).await,
+            Some(m3) => m3_http::serve(req, env, cfg, m3, a, ctx).await,
             None => audit_http::serve(req, env, cfg, route, a, ctx).await,
         },
         (Route::Mcp, Some(a)) => audit_http::serve(req, env, cfg, route, a, ctx).await,

@@ -5,7 +5,7 @@
 //! `:import` takes `{upload_id}` — resolved in the caller's own ledger, so a
 //! foreign or unknown id is `404` and the job can only ever address
 //! `staging/{caller tenant}/{upload_id}` — or an inline `.rvf` body
-//! (`application/octet-stream`, ≤ 8 MiB). The job (`ImportJob`, RVJ2) plus
+//! (`application/octet-stream`, ≤ 512 KiB). The job (`ImportJob`, RVJ2) plus
 //! the submitter's identity (for re-authorization at every delivery) is
 //! stored in the ledger and `{tenant_key, job_id}` goes to
 //! `ruvector-edge-ingest`.

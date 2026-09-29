@@ -184,7 +184,7 @@ fn upload_session_import_lands_in_shards() {
         409
     );
     assert_eq!(deliver(&w, &sink(&w), &msg, 1000).batches, 0);
-    // Inline (≤ 8 MiB, octet-stream) import.
+    // Inline (≤ 512 KiB, octet-stream) import.
     collection(&w, &o, "inline", 8);
     let small = rows(700, 8, 2);
     let (s, v) = w.raw(

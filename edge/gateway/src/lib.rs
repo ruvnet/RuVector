@@ -46,6 +46,7 @@ mod jobs;
 mod m3_api;
 mod m3_audit_ledger;
 mod m3_ctx;
+mod m3_http;
 mod m3_ledger;
 mod m3_ports;
 mod m3_shard;
@@ -110,6 +111,8 @@ mod e2e_m2_tests;
 mod e2e_tests;
 #[cfg(test)]
 mod e2e_world;
+#[cfg(test)]
+mod m3_budget_tests;
 #[cfg(test)]
 mod m3_embed_audit_tests;
 #[cfg(test)]
