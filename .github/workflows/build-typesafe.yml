@@ -43,6 +43,11 @@ on:
         required: false
         type: boolean
         default: true
+      bypass_release_gate:
+        description: 'Maintainer override: run the ONNX ticket gates report-only so a failing gate does not block publish (the receipt still records the numbers)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -306,11 +311,16 @@ jobs:
           # PR/push: report quality failures without hiding missing engines or
           # incomplete results. Manual publish: run strict, fail on any gate.
           if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then args+=(--report-only); fi
+          if [ "${{ inputs.bypass_release_gate }}" = "true" ]; then
+            echo "::warning::bypass_release_gate=true: ONNX ticket gates are report-only for this publish (maintainer override)"
+            args+=(--report-only)
+          fi
           node bench/run.mjs "${args[@]}"
       - name: Validate ONNX receipt and applicable gate results
         run: |
           args=()
           if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then args+=(--advisory); fi
+          if [ "${{ inputs.bypass_release_gate }}" = "true" ]; then args+=(--advisory); fi
           node scripts/verify-release-bench.mjs bench/results/ci-release-tickets-onnx.json "${args[@]}"
       - name: Upload ONNX ticket receipt
         if: always()

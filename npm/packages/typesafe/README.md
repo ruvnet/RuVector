@@ -95,6 +95,15 @@ typesafe --help
 
 ## Known limitations
 
+> **Release gate status (0.2.0).** This release was published with a maintainer
+> override of the frozen ONNX ticket gates, which it does not meet. Measured on the
+> tickets suite (bge-small-en-v1.5, 8-shot, shipped native binary): accuracy vs
+> Jev **0.807** (gate ≥ 0.823), calibration ECE **0.080** (gate ≤ 0.05), urgent vs
+> train-majority **0.687** (gate ≥ 0.713), frustration vs train-majority **0.367**
+> (gate ≥ 0.527). Native p95 latency (~24 ms, gate ≤ 50 ms) and transfer-regression
+> gates pass. The numbers are unchanged from 0.1.x. Validate on your own labelled
+> data before relying on `confidence` or these questions.
+
 From an independent evaluation (25–27 Sep 2026, bge-small-en-v1.5, native ONNX
 build); details and reproduction in the
 [Typed Decisions Lab](https://typesafe-lab-276367410975.europe-west2.run.app).
