@@ -13,13 +13,15 @@
 //! The reply carries a gateway path, never an R2 or public URL: the file is
 //! downloadable only with a bearer token of the same tenant (read +
 //! viewer) until `expires_at` (15 min); an R2 lifecycle rule removes
-//! `exports/` objects after a day.
+//! `exports/` objects after a day. A collection over the synchronous budget
+//! ([`crate::sync_budget`]) is refused `413` before the upload is opened.
 
 use crate::m3_ctx::{dim16, mint, snap_err, snap_metric, M3};
 use crate::m3_ports::{Blob, Queues};
 use crate::m3_wire::{kv_get, kv_put, M3Backend, Ns};
 use crate::service::{count_of, shard_meta};
 use crate::snapshots::{page, shard_head};
+use crate::sync_budget::{self, Meter};
 use ruvector_edge_auth::Capability;
 use ruvector_edge_snapshot::{ExportIdentity, RvfExporter, DEFAULT_ROWS_PER_SEGMENT};
 use ruvector_edge_store::{ErrorCode, OpError};
@@ -103,6 +105,8 @@ pub async fn export<B: M3Backend, R: Blob, Q: Queues>(
     let e = m.collection(collection).await?;
     let shards = count_of(&e)?;
     m.charge(1 + u64::from(shards.get())).await?;
+    // Before the multipart upload is opened.
+    sync_budget::check_live(m.b, m.ctx, &e).await?;
     let tenant = m.ctx.tenant_key().as_str();
     let now = m.now_ms.to_le_bytes();
     let export_id = mint(
@@ -181,11 +185,13 @@ async fn write<B: M3Backend, R: Blob, Q: Queues>(
         .map_err(snap_err)?;
     let audit = crate::audit::head(m.b, m.ctx.tenant_key()).await?;
     let mut heads = Vec::new();
+    let mut meter = Meter::new(e);
     for i in count_of(e)?.indices() {
         let dm = shard_meta(m.ctx, e, i)?;
         let (seq0, _, mut rows) = page(m.b, &dm, None).await?;
         heads.extend_from_slice(&shard_head(tenant, &e.uid, i.get(), seq0, &audit));
         loop {
+            meter.add(rows.len())?;
             let last = rows.last().map(|r| r.id.clone());
             for r in rows {
                 let mut row = r.into_row(dim)?;

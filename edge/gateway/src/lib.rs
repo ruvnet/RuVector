@@ -78,6 +78,7 @@ mod rvf_upload;
 mod service;
 mod shard_core;
 mod snapshots;
+mod sync_budget;
 mod trust_root;
 mod uploads;
 mod vectors;

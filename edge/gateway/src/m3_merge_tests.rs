@@ -1,7 +1,7 @@
 //! M2 + M5 + M3 integration regressions: every M3 route is charged to a
 //! §10 budget class, M2 / M5 writes are audited, the Worker binds exactly
-//! one R2 bucket, restore uses the M2 shard cap, and a collection drop
-//! clears an interrupted restore's staged rows.
+//! one R2 bucket, snapshot / export / restore keep to the synchronous
+//! budget, and a collection drop clears an interrupted restore's staged rows.
 
 use crate::api::ratelimit::{request_class, Class};
 use crate::audit_http::{body_event, rest_event, rvf_event};
@@ -123,31 +123,53 @@ fn seed(w: &World, c: &crate::rest::Caller, n: usize) {
     }
 }
 
-/// One shard holding more than the M1 cap (3M floats = 7812 × 384) now
-/// fits (M2: 16M floats per shard), and its snapshot restores.
+/// Snapshot, export and restore run in one request, so they are refused
+/// `413` past the synchronous budget (`sync_budget`, 682 rows × 384) before
+/// any side effect: no epoch, no R2 object, no multipart upload, no
+/// restore journal. At the budget they still round-trip.
 #[test]
-fn a_shard_over_the_m1_cap_snapshots_and_restores_under_the_m2_cap() {
+fn snapshot_export_and_restore_refuse_past_the_sync_budget_before_side_effects() {
     let w = World::default();
     let o = w.owner("org-a", "alice");
-    let body = json!({ "name": "big", "dim": DIM, "metric": "cosine", "shards": 1 });
+    let body = json!({ "name": "big", "dim": DIM, "metric": "cosine", "shards": 2 });
     assert_eq!(w.req(&o, Method::Post, "/v1/collections", body).0, 201);
-    seed(&w, &o, 8000);
-    let (s, v) = w.req(
-        &o,
-        Method::Post,
-        "/v1/collections/big/snapshots",
-        Json::Null,
-    );
+    let max = crate::sync_budget::max_rows(DIM as u32) as usize;
+    assert_eq!(max, 682);
+    seed(&w, &o, max);
+    let snap = "/v1/collections/big/snapshots";
+    let (s, v) = w.req(&o, Method::Post, snap, Json::Null);
     assert_eq!(s, 202, "{v}");
     let id = v["snapshot_id"].as_str().unwrap().to_string();
-    let ids: Vec<String> = (0..100).map(|i| format!("v{i:05}")).collect();
-    let path = "/v1/collections/big/vectors:delete";
-    assert_eq!(w.req(&o, Method::Post, path, json!({ "ids": ids })).0, 200);
-    let path = format!("/v1/collections/big/snapshots/{id}:restore");
-    let (s, v) = w.req(&o, Method::Post, &path, Json::Null);
+    let epoch = v["epoch"].as_u64().unwrap();
+    // One row over the budget.
+    let extra = json!({ "vectors": [{ "id": "extra", "values": Rng(9).vec(DIM) }] });
+    let up = "/v1/collections/big/vectors:upsert";
+    assert_eq!(w.req(&o, Method::Post, up, extra).0, 200);
+    let objects = w.blob.keys("");
+    let restore = format!("/v1/collections/big/snapshots/{id}:restore");
+    for (path, what) in [
+        (snap, "snapshot"),
+        ("/v1/collections/big:export", "export"),
+        (restore.as_str(), "restore"),
+    ] {
+        let (s, v) = w.req(&o, Method::Post, path, Json::Null);
+        assert_eq!(s, 413, "{what}: {v}");
+    }
+    assert_eq!(w.blob.keys(""), objects, "no R2 side effect");
+    // Back at the budget: no epoch was burned and no journal blocks restore.
+    let del = "/v1/collections/big/vectors:delete";
+    assert_eq!(
+        w.req(&o, Method::Post, del, json!({ "ids": ["extra"] })).0,
+        200
+    );
+    let (s, v) = w.req(&o, Method::Post, snap, Json::Null);
+    assert_eq!(s, 202, "{v}");
+    assert_eq!(v["epoch"].as_u64(), Some(epoch + 1));
+    let (s, v) = w.req(&o, Method::Post, &restore, Json::Null);
     assert_eq!(s, 200, "{v}");
-    let v = w.req(&o, Method::Get, "/v1/collections/big", Json::Null).1;
-    assert_eq!(v["count"], 8000);
+    assert_eq!(v["rows"].as_u64(), Some(max as u64));
+    let (s, v) = w.req(&o, Method::Post, "/v1/collections/big:export", Json::Null);
+    assert_eq!(s, 201, "{v}");
 }
 
 /// A drop wipes an interrupted restore's staged rows with the shard.

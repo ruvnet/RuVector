@@ -31,6 +31,7 @@ use crate::m3_wire::{
 };
 use crate::service::{count_of, shard_meta, unexpected};
 use crate::snapshots::{snap_key, SERVICE};
+use crate::sync_budget;
 use crate::wire::{ActorWire, CollectionWire, DeltaWire, ShardCall, ShardOut};
 use ruvector_edge_auth::Capability;
 use ruvector_edge_snapshot::{
@@ -174,8 +175,10 @@ async fn stage_shard<B: M3Backend, R: Blob, Q: Queues>(
         metric: Some(snap_metric(e.cfg.metric)),
     };
     let quota = RestoreQuota {
-        // The shard's own stored-float cap (M2: `M2_SHARD_FLOAT_CAP`).
-        max_rows: e.cfg.to_config().float_cap / u64::from(dim.max(1)),
+        // The shard's own stored-float cap (M2: `M2_SHARD_FLOAT_CAP`), but
+        // never more than one synchronous request can verify and commit.
+        max_rows: (e.cfg.to_config().float_cap / u64::from(dim.max(1)))
+            .min(sync_budget::max_rows(e.cfg.dim)),
         max_bytes: MAX_RESTORE_BYTES,
     };
     let proof = ChainProof::from_genesis(tenant, entries, head);
@@ -222,6 +225,10 @@ pub async fn restore<B: M3Backend, R: Blob, Q: Queues>(
         return Err(OpError::new(ErrorCode::Conflict, "shard count changed"));
     }
     m.charge(1 + u64::from(shards.get())).await?;
+    // The snapshot and the live rows (the commit deletes what the snapshot
+    // lacks) both within the synchronous budget, before the journal.
+    sync_budget::check(&e, rec["rows"].as_u64().unwrap_or(u64::MAX))?;
+    sync_budget::check_live(m.b, m.ctx, &e).await?;
     // An earlier restore of this collection that never finished.
     if let Some(raw) = kv_get(m.b, t, Ns::Restore, &e.uid).await? {
         let j: Journal = serde_json::from_str(&raw).map_err(|_| unexpected())?;

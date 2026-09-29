@@ -13,7 +13,9 @@
 //! (`write_seq`). A failed snapshot still consumes its epoch and may leave
 //! unreferenced chunks under `snapshots/`. Signatures:
 //! `SignaturePolicy::NotRequired` (no signing key is configured; root +
-//! witness chain still bind the bytes).
+//! witness chain still bind the bytes). A collection over the synchronous
+//! budget ([`crate::sync_budget`]) is refused `413` before the epoch is
+//! taken.
 
 use crate::m3_ctx::{dim16, snap_err, snap_metric, M3};
 use crate::m3_ports::{Blob, Queues};
@@ -22,6 +24,7 @@ use crate::m3_wire::{
     M3ShardCall, M3ShardOut, Ns, RowWire,
 };
 use crate::service::{count_of, shard_meta, unexpected};
+use crate::sync_budget::{self, Meter};
 use crate::wire::CollectionWire;
 use base64ct::{Base64, Encoding};
 use ruvector_edge_auth::Capability;
@@ -95,6 +98,7 @@ async fn snapshot_shard<B: M3Backend, R: Blob, Q: Queues>(
     i: ruvector_edge_tenancy::ShardIndex,
     epoch: u64,
     audit: &(u64, [u8; 32]),
+    meter: &mut Meter,
 ) -> Result<(EntryWire, u64, u64), OpError> {
     let tenant = m.ctx.tenant_key().as_str();
     let dm = shard_meta(m.ctx, e, i)?;
@@ -109,6 +113,7 @@ async fn snapshot_shard<B: M3Backend, R: Blob, Q: Queues>(
     let mut w = SnapshotWriter::new(spec, SnapshotLimits::default()).map_err(snap_err)?;
     let mut bytes = 0u64;
     loop {
+        meter.add(rows.len())?;
         let last = rows.last().map(|r| r.id.clone());
         for r in rows {
             let row = r.into_row(dim16(e)?)?;
@@ -153,6 +158,8 @@ pub async fn create<B: M3Backend, R: Blob, Q: Queues>(
     let e = m.collection(collection).await?;
     let shards = count_of(&e)?;
     m.charge(1 + u64::from(shards.get())).await?;
+    // Before the epoch is taken: a refused snapshot burns nothing.
+    sync_budget::check_live(m.b, m.ctx, &e).await?;
     let call = M3LedgerCall::NextEpoch { uid: e.uid.clone() };
     let epoch = match ledger3(m.b, m.ctx.tenant_key(), call).await? {
         M3LedgerOut::Epoch { epoch } => epoch,
@@ -160,8 +167,9 @@ pub async fn create<B: M3Backend, R: Blob, Q: Queues>(
     };
     let audit = crate::audit::head(m.b, m.ctx.tenant_key()).await?;
     let (mut rows, mut bytes, mut roots) = (0u64, 0u64, Vec::new());
+    let mut meter = Meter::new(&e);
     for i in shards.indices() {
-        let (entry, n, b) = snapshot_shard(m, &e, i, epoch, &audit).await?;
+        let (entry, n, b) = snapshot_shard(m, &e, i, epoch, &audit, &mut meter).await?;
         rows += n;
         bytes += b;
         roots.push(entry.root);
