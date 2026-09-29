@@ -105,13 +105,58 @@ name = "REGISTRY_SCOPE"
 class_name = "RegistryScope"
 
 # Distinct tag so a merge with other milestones' migrations reconciles
-# ordering instead of colliding on a name.
+# ordering instead of colliding on a name. (M3 adds no Durable Object
+# class: its tables live in TenantLedger / VectorShard behind `/m3`.)
 [[migrations]]
 tag = "v2-registry"
 new_sqlite_classes = ["RegistryRoot", "RegistryScope"]
 
-# RVF package blobs, upload staging (R2 multipart) and manifest mirrors
-# (ADR-351 §6.3). Shared bucket; M3 snapshots may bind it too.
+# ONE bucket binding for every server-derived key prefix (ADR-351 §6.3):
+# M5 RVF package blobs, registry upload staging (R2 multipart) and manifest
+# mirrors; M3 snapshots/, exports/, staging/ (import uploads) and audit/ per
+# tenant. Lifecycle: exports/ expire after 1 day, staging/ after 3 days.
 [[r2_buckets]]
 binding = "EDGE_DATA"
 bucket_name = "ruvector-edge-data"
+
+# ---- M3 (ADR-351 §6.3, §6.5, §3 rv-snapshot / rv-ingest / rv-embed) ----
+# Bulk-import jobs: {tenant_key, job_id}. One bounded step per delivery (a
+# slice of the upload's sha256 pass, or a few batches); the job persists its
+# hasher state / cursor after every step and re-enqueues itself, so retries
+# resume and every invocation stays within the default CPU limit. A job in
+# the DLQ resumes by re-sending the same {tenant_key, job_id} to
+# ruvector-edge-ingest (jobs older than the 24 h op_id window since
+# submission are failed, never replayed).
+[[queues.producers]]
+binding = "INGEST_QUEUE"
+queue = "ruvector-edge-ingest"
+
+[[queues.consumers]]
+queue = "ruvector-edge-ingest"
+max_batch_size = 1
+max_batch_timeout = 1
+max_retries = 20
+# 20 × 30 s ≫ the 120 s pending op_id TTL: a batch reserved by a killed
+# invocation frees up long before the retries run out.
+retry_delay = 30
+dead_letter_queue = "ruvector-edge-ingest-dlq"
+
+# Audit events → one hash chain per tenant (in its ledger), NDJSON objects
+# audit/{tenant_key}/{yyyy}/{mm}/{dd}/{seq:012}.ndjson.
+[[queues.producers]]
+binding = "AUDIT_QUEUE"
+queue = "ruvector-edge-audit"
+
+[[queues.consumers]]
+queue = "ruvector-edge-audit"
+max_batch_size = 100
+max_batch_timeout = 30
+max_retries = 10
+# Rides out a short R2 / ledger outage (every step is idempotent).
+retry_delay = 30
+dead_letter_queue = "ruvector-edge-audit-dlq"
+
+# rv-embed: @cf/baai/bge-small-en-v1.5 (384 dims), only for collections
+# created with embedder = "bge-small-en-v1.5".
+[ai]
+binding = "AI"

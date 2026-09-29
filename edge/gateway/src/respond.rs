@@ -10,12 +10,13 @@ use serde::Serialize;
 use worker::{Headers, Response, Result};
 
 /// Headers on every actual (non-preflight) response. Exposed: the challenge, `Retry-After`
-/// (429), and a registry blob pull's `ETag` (`sha256:…`) and `X-RVF-Yanked`.
+/// (429), a registry blob pull's `ETag` (`sha256:…`) and `X-RVF-Yanked` (M5), and an
+/// export download's `Content-Disposition` (M3).
 pub const RESPONSE_CORS: [(&str, &str); 2] = [
     ("Access-Control-Allow-Origin", "*"),
     (
         "Access-Control-Expose-Headers",
-        "WWW-Authenticate, Retry-After, ETag, X-RVF-Yanked",
+        "WWW-Authenticate, Retry-After, ETag, X-RVF-Yanked, Content-Disposition",
     ),
 ];
 
@@ -28,7 +29,7 @@ pub const PREFLIGHT_CORS: [(&str, &str); 4] = [
     ),
     (
         "Access-Control-Allow-Headers",
-        "Authorization, Content-Type, MCP-Protocol-Version, Mcp-Session-Id",
+        "Authorization, Content-Type, Idempotency-Key, MCP-Protocol-Version, Mcp-Session-Id",
     ),
     ("Access-Control-Max-Age", "600"),
 ];
@@ -126,7 +127,7 @@ mod tests {
         };
         assert_eq!(
             get(&RESPONSE_CORS, "access-control-expose-headers").as_deref(),
-            Some("WWW-Authenticate, Retry-After, ETag, X-RVF-Yanked")
+            Some("WWW-Authenticate, Retry-After, ETag, X-RVF-Yanked, Content-Disposition")
         );
         assert_eq!(
             get(&RESPONSE_CORS, "access-control-allow-origin").as_deref(),
@@ -138,5 +139,7 @@ mod tests {
         assert!(methods.contains("PUT") && methods.contains("DELETE"));
         let headers = get(&PREFLIGHT_CORS, "access-control-allow-headers").unwrap();
         assert!(headers.contains("Authorization"));
+        // REST / M3 mutating routes take an `Idempotency-Key`.
+        assert!(headers.contains("Idempotency-Key"));
     }
 }

@@ -67,10 +67,14 @@ pub const BUDGETS: [(Class, Budget, Budget); 4] = [
 ];
 
 /// The class of an authenticated request: `mcp` for `/v1/mcp`, else the
-/// registry route's ([`rvf_class`]) or the REST route's ([`class_of`]).
+/// M3 route's ([`crate::m3_api::M3Route::class`]), the registry route's
+/// ([`rvf_class`]) or the REST route's ([`class_of`]).
 pub fn request_class(mcp: bool, method: &worker::Method, path: &str) -> Class {
     if mcp {
         return Class::Mcp;
+    }
+    if let Some(r) = crate::m3_api::parse(method, path) {
+        return r.class();
     }
     match crate::registry_routes::parse(method, path) {
         Some(r) => rvf_class(&r),

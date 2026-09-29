@@ -37,7 +37,8 @@ pub fn declared_too_large(req: &Request) -> bool {
         .is_some_and(|n| n > MAX_BODY_BYTES)
 }
 
-fn render(r: ApiReply) -> Result<Response> {
+/// Render an [`ApiReply`]; a `429` (a §10 rate budget) carries `Retry-After`.
+pub fn render(r: ApiReply) -> Result<Response> {
     let limited = r.status == 429;
     let mut resp = respond::raw(
         r.status,
@@ -163,7 +164,8 @@ pub async fn guard<B: Backend, L: Limiter>(
     })
 }
 
-fn refused(r: Refused) -> Result<Response> {
+/// Render a [`Refused`] (with `Retry-After` when rate limited).
+pub fn refused(r: Refused) -> Result<Response> {
     let mut resp = render(r.reply)?;
     if let Some(s) = r.retry_after {
         let h = resp.headers_mut();

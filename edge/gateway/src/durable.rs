@@ -135,9 +135,21 @@ impl DurableObject for TenantLedger {
     }
 
     async fn fetch(&self, mut req: Request) -> Result<Response> {
+        let m3 = req.path() == crate::m3_wire::M3_PATH;
         let Some(body) = rpc_body(&mut req).await? else {
             return Response::error("not found", 404);
         };
+        if m3 {
+            // M3 side channel (witness chain, epochs, jobs, …), same turn rules.
+            let out = crate::m3_ledger::serve(
+                &mut self.slot.borrow_mut(),
+                &self.sql,
+                FREE_PLAN,
+                &body,
+                &WorkerEntropy,
+            );
+            return json_reply(out);
+        }
         // No await from here on: one call, one coalesced commit.
         let out = ledger_core::serve(
             &mut self.slot.borrow_mut(),
@@ -172,12 +184,28 @@ impl DurableObject for VectorShard {
     }
 
     async fn fetch(&self, mut req: Request) -> Result<Response> {
+        let m3 = req.path() == crate::m3_wire::M3_PATH;
         let Some(body) = rpc_body(&mut req).await? else {
             return Response::error("not found", 404);
         };
         let id = self.state.id();
         let key = id.to_string();
         let own_name = id.name();
+        if m3 {
+            // M3 side channel (snapshot pages, restore staging and commit).
+            // A restore commit writes through the M2 index like any upsert,
+            // so it may leave maintenance due: schedule it the same way.
+            let (out, next) = HOST.with(|h| {
+                let mut host = h.borrow_mut();
+                let out =
+                    crate::m3_shard::serve(&mut host, &key, own_name.as_deref(), &self.sql, &body);
+                (out, shard_core::next_alarm(&host, &key))
+            });
+            if let Some(ms) = next {
+                self.schedule(ms).await;
+            }
+            return json_reply(out);
+        }
         // Collection drop (ADR-351 §7.2): every row goes and `meta.wiped`
         // stays (no `deleteAll`: the marker is what refuses a write that
         // raced the drop). The reply carries the usage to release.

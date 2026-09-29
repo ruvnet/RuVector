@@ -86,6 +86,9 @@ pub fn handle(
     ] {
         store.exec(sql, &[])?;
     }
+    for sql in crate::m3_shard::WIPE_SQL {
+        store.exec(sql, &[])?;
+    }
     store.exec(META_PUT, &[keys::WIPED.into(), "1".into()])?;
     Ok(released)
 }

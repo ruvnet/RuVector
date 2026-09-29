@@ -9827,6 +9827,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-edge-snapshot"
+version = "2.3.0"
+dependencies = [
+ "crc32fast",
+ "data-encoding",
+ "ed25519-dalek",
+ "hex",
+ "rvf-types",
+ "rvf-wire",
+ "sha2 0.10.9",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-edge-store"
 version = "2.3.0"
 dependencies = [
