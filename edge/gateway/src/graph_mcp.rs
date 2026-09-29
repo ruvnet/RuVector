@@ -15,9 +15,10 @@
 
 use crate::backend::Backend;
 use crate::graph_cypher as gc;
+use crate::graph_cypher_dx::Refusal;
 use crate::graph_routes::{self as gr, Need};
 use crate::graph_wire::{GraphCall, GraphOut};
-use crate::mcp::{rpc_error, rpc_result, tool_error};
+use crate::mcp::{rpc_error, rpc_result, tool_error_with};
 use crate::rest::{step_up, ApiReply};
 use ruvector_edge_store::{CallerContext, ErrorCode, OpError};
 use serde_json::{json, Map, Value as Json};
@@ -93,13 +94,13 @@ async fn run<B: Backend>(
     name: &str,
     args: Map<String, Json>,
     now: u64,
-) -> Result<Json, OpError> {
+) -> Result<Json, Refusal> {
     match name {
-        "graph_list" => gr::list(b, ctx, now).await,
+        "graph_list" => Ok(gr::list(b, ctx, now).await?),
         "graph_query" => {
             let (graph, query) = (s(&args, "graph")?, s(&args, "query")?);
             if !gc::parse(query)?.read_only {
-                return Err(OpError::invalid(
+                return Err(Refusal::invalid(
                     "graph_query is read-only (MATCH / RETURN / WITH); use graph_mutate",
                 ));
             }
@@ -114,7 +115,7 @@ async fn run<B: Backend>(
                 return dry_run(&graph, create, &args);
             }
             match (create, args.get("query"), args.get("edges")) {
-                (true, None, None) => gr::create(b, ctx, &graph, now).await.map(|(_, v)| v),
+                (true, None, None) => Ok(gr::create(b, ctx, &graph, now).await?.1),
                 (false, Some(_), None) => gr::cypher(b, ctx, &graph, s(&args, "query")?, now).await,
                 (false, None, Some(e)) => {
                     let call = GraphCall::AddEdges {
@@ -134,17 +135,19 @@ async fn run<B: Backend>(
                     gr::admit(b, ctx, Need::Write, now).await?;
                     match gr::graph_call(b, ctx, &graph, call).await? {
                         GraphOut::Info { view } => Ok(view),
-                        _ => Err(crate::service::unexpected()),
+                        _ => Err(crate::service::unexpected().into()),
                     }
                 }
-                _ => Err(OpError::invalid("exactly one of create, query or edges")),
+                _ => Err(OpError::invalid("exactly one of create, query or edges").into()),
             }
         }
         _ => {
             let body = Json::Object(args).to_string();
-            crate::mincut_routes::post(b, ctx, body.as_bytes(), now, None)
-                .await
-                .map(|(_, v)| v)
+            Ok(
+                crate::mincut_routes::post(b, ctx, body.as_bytes(), now, None)
+                    .await?
+                    .1,
+            )
         }
     }
 }
@@ -152,9 +155,9 @@ async fn run<B: Backend>(
 /// `graph_mutate` with `dry_run`: authorized (by the caller) and
 /// validated — graph name, query syntax and kind, edge shape and count —
 /// without touching the graph.
-fn dry_run(graph: &str, create: bool, args: &Map<String, Json>) -> Result<Json, OpError> {
+fn dry_run(graph: &str, create: bool, args: &Map<String, Json>) -> Result<Json, Refusal> {
     if !crate::graph_wire::name_ok(graph) {
-        return Err(OpError::invalid("graph name"));
+        return Err(OpError::invalid("graph name").into());
     }
     let detail = match (create, args.get("query"), args.get("edges")) {
         (true, None, None) => json!({ "create": graph }),
@@ -165,11 +168,11 @@ fn dry_run(graph: &str, create: bool, args: &Map<String, Json>) -> Result<Json, 
             let edges: Vec<crate::graph_wire::BulkEdge> =
                 serde_json::from_value(e.clone()).map_err(|_| OpError::invalid("edges"))?;
             if edges.len() > crate::graph_store::MAX_BULK_EDGES {
-                return Err(OpError::new(ErrorCode::PayloadTooLarge, "too many edges"));
+                return Err(OpError::new(ErrorCode::PayloadTooLarge, "too many edges").into());
             }
             json!({ "edges": edges.len() })
         }
-        _ => return Err(OpError::invalid("exactly one of create, query or edges")),
+        _ => return Err(OpError::invalid("exactly one of create, query or edges").into()),
     };
     Ok(json!({ "dry_run": true, "graph": graph, "valid": detail }))
 }
@@ -201,11 +204,11 @@ pub async fn tools_call<B: Backend>(
                 "isError": false,
             }),
         ),
-        Err(e) if e.code == ErrorCode::InsufficientScope => {
-            let mut r = ApiReply::problem(&e, metadata_url);
-            r.www_authenticate = step_up(&e, metadata_url);
+        Err(e) if e.op.code == ErrorCode::InsufficientScope => {
+            let mut r = ApiReply::problem(&e.op, metadata_url);
+            r.www_authenticate = step_up(&e.op, metadata_url);
             r
         }
-        Err(e) => rpc_result(id, tool_error(&e)),
+        Err(e) => rpc_result(id, tool_error_with(&e.op, &e.shown())),
     }
 }

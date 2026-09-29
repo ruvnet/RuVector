@@ -23,6 +23,10 @@ pub struct WireErr {
     /// `insufficient_scope` only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope: Option<String>,
+    /// Cypher refusals only: what failed (`graph_cypher_dx`; bounded
+    /// again where it is rendered).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
 }
 
 impl WireErr {
@@ -31,11 +35,30 @@ impl WireErr {
         WireErr {
             code: e.code,
             scope: e.scope.map(str::to_string),
+            detail: None,
         }
     }
 
-    /// Back to an [`OpError`]. `detail` is static and never echoes input,
-    /// so it is not transported (the code stands in for it); `scope` is re-derived from the fixed
+    /// From a graph refusal (its explanation, when it has one, travels).
+    pub fn from_refusal(r: &crate::graph_cypher_dx::Refusal) -> Self {
+        WireErr {
+            detail: r.detail.as_deref().map(crate::graph_cypher_dx::clamp),
+            ..WireErr::from_op(&r.op)
+        }
+    }
+
+    /// Back to a refusal carrying the transported explanation.
+    pub fn into_refusal(mut self) -> crate::graph_cypher_dx::Refusal {
+        let detail = self.detail.take();
+        crate::graph_cypher_dx::Refusal {
+            op: self.into_op(),
+            detail,
+        }
+    }
+
+    /// Back to an [`OpError`]. Its static `detail` is not transported (the
+    /// code stands in for it; a Cypher explanation is kept only by
+    /// [`WireErr::into_refusal`]); `scope` is re-derived from the fixed
     /// vocabulary (an unknown value is dropped).
     pub fn into_op(self) -> OpError {
         let scope = self.scope.and_then(|s| {

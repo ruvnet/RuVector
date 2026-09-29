@@ -26,6 +26,7 @@
 use crate::api::ratelimit::Class;
 use crate::backend::Backend;
 use crate::graph_cypher as gc;
+use crate::graph_cypher_dx::Refusal;
 use crate::graph_wire::{
     graph_do_name, job_do_name, name_ok, GraphCall, GraphOut, GraphRequest, JobCall, JobRequest,
     JobView, CATALOG,
@@ -157,11 +158,11 @@ pub async fn admit<B: Backend>(
     service::charge(&c, service::one_op(), 1).await
 }
 
-fn decode<T: serde::de::DeserializeOwned>(text: &str) -> Result<T, OpError> {
+fn decode<T: serde::de::DeserializeOwned>(text: &str) -> Result<T, Refusal> {
     match serde_json::from_str::<Reply<T>>(text) {
         Ok(Ok(v)) => Ok(v),
-        Ok(Err(e)) => Err(e.into_op()),
-        Err(_) => Err(unavailable()),
+        Ok(Err(e)) => Err(e.into_refusal()),
+        Err(_) => Err(unavailable().into()),
     }
 }
 
@@ -171,7 +172,7 @@ pub async fn graph_call<B: Backend>(
     ctx: &CallerContext,
     graph: &str,
     call: GraphCall,
-) -> Result<GraphOut, OpError> {
+) -> Result<GraphOut, Refusal> {
     let tenant = ctx.tenant_key();
     let req = GraphRequest {
         tenant_key: tenant.as_str().to_string(),
@@ -196,7 +197,8 @@ pub async fn job_call<B: Backend>(
         call,
     };
     let body = serde_json::to_string(&req).map_err(|_| unavailable())?;
-    let v: JobView = decode(&b.call_job(&job_do_name(tenant, job_id), body).await?)?;
+    let v: JobView =
+        decode(&b.call_job(&job_do_name(tenant, job_id), body).await?).map_err(|r| r.op)?;
     Ok(v.view)
 }
 
@@ -258,7 +260,7 @@ pub async fn cypher<B: Backend>(
     graph: &str,
     query: &str,
     now: u64,
-) -> Result<Json, OpError> {
+) -> Result<Json, Refusal> {
     let parsed = gc::parse(query)?;
     let need = if parsed.read_only {
         Need::Read
@@ -275,14 +277,18 @@ pub async fn cypher<B: Backend>(
             result["read_only"] = json!(parsed.read_only);
             Ok(result)
         }
-        _ => Err(service::unexpected()),
+        _ => Err(service::unexpected().into()),
     }
 }
 
 /// A graph mutation under an optional `Idempotency-Key`: authorize (a
 /// replay is re-authorized), reserve the key, replay a stored answer or
 /// run `op` (which charges) and store its answer.
-async fn keyed<B: Backend, F: std::future::Future<Output = Result<(u16, Json), OpError>>>(
+async fn keyed<
+    B: Backend,
+    E: From<OpError>,
+    F: std::future::Future<Output = Result<(u16, Json), E>>,
+>(
     b: &B,
     ctx: &CallerContext,
     key: Option<&str>,
@@ -290,20 +296,18 @@ async fn keyed<B: Backend, F: std::future::Future<Output = Result<(u16, Json), O
     body: &[u8],
     now: u64,
     op: F,
-) -> Result<(u16, Json), OpError> {
+) -> Result<(u16, Json), E> {
     let Some(key) = key else {
         return op.await;
     };
     if !idem::key_ok(key) {
-        return Err(OpError::invalid(
-            "Idempotency-Key must be 1..=255 visible ASCII bytes",
-        ));
+        return Err(OpError::invalid("Idempotency-Key must be 1..=255 visible ASCII bytes").into());
     }
     authorize(b, ctx, Need::Write).await?;
     let slot = crate::rest::slot(ctx, &tag, key, body);
     let reused = "Idempotency-Key reused with a different request";
     if let Seen::Replay(stored) = idem::check(b, ctx, &slot, true, reused, now).await? {
-        return crate::rest::replayed(&stored);
+        return crate::rest::replayed(&stored).map_err(E::from);
     }
     let out = op.await;
     let stored = out.as_ref().ok().map(|(s, v)| format!("{s} {v}"));
@@ -344,6 +348,23 @@ pub async fn list<B: Backend>(b: &B, ctx: &CallerContext, now: u64) -> Result<Js
     }
 }
 
+/// `POST /v1/graphs/{g}/cypher`; a refusal keeps its explanation.
+async fn cypher_route<B: Backend>(
+    b: &B,
+    ctx: &CallerContext,
+    g: &str,
+    body: &[u8],
+    key: Option<&str>,
+    now: u64,
+) -> Result<(u16, Json), Refusal> {
+    let m = body_obj(body, &["query"])?;
+    let q = text(&m, "query")?.ok_or(OpError::invalid("query required"))?;
+    // Only a mutating query is keyed (a read replays nothing).
+    let key = key.filter(|_| gc::parse(q).is_ok_and(|p| !p.read_only));
+    let run = async { cypher(b, ctx, g, q, now).await.map(|v| (200, v)) };
+    keyed(b, ctx, key, format!("graph-cypher/{g}"), body, now, run).await
+}
+
 /// One route; `key` is the `Idempotency-Key` header.
 async fn route<B: Backend>(
     b: &B,
@@ -370,14 +391,7 @@ async fn route<B: Backend>(
             }
         }
         GraphRoute::Delete(g) => delete(b, ctx, g, now).await,
-        GraphRoute::Cypher(g) => {
-            let m = body_obj(body, &["query"])?;
-            let q = text(&m, "query")?.ok_or(OpError::invalid("query required"))?;
-            // Only a mutating query is keyed (a read replays nothing).
-            let key = key.filter(|_| gc::parse(q).is_ok_and(|p| !p.read_only));
-            let run = async { cypher(b, ctx, g, q, now).await.map(|v| (200, v)) };
-            keyed(b, ctx, key, format!("graph-cypher/{g}"), body, now, run).await
-        }
+        GraphRoute::Cypher(g) => Ok(cypher_route(b, ctx, g, body, key, now).await?),
         GraphRoute::Edges(g) => {
             let m = body_obj(body, &["edges", "type", "label"])?;
             let edges = serde_json::from_value(m.get("edges").cloned().unwrap_or(Json::Null))
@@ -416,8 +430,14 @@ pub async fn handle<B: Backend>(
     metadata_url: &str,
     entropy: &dyn EntropySource,
 ) -> ApiReply {
-    match route(b, caller, r, body, key, now, entropy).await {
+    let out = match r {
+        GraphRoute::Cypher(g) => cypher_route(b, &caller.ctx, g, body, key, now).await,
+        _ => route(b, caller, r, body, key, now, entropy)
+            .await
+            .map_err(Refusal::from),
+    };
+    match out {
         Ok((status, v)) => ApiReply::json(status, &v),
-        Err(e) => ApiReply::problem(&e, metadata_url),
+        Err(e) => ApiReply::problem_with(&e.op, &e.shown(), metadata_url),
     }
 }

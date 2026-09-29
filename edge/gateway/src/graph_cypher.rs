@@ -11,7 +11,10 @@
 //! [`MAX_STEPS`] → `413 budget_exceeded` before anything runs; more than
 //! [`MAX_ROWS`] result rows → `413` (a mutating query's effect is then
 //! discarded by the caller).
+//!
+//! Every refusal says what failed ([`Refusal`], `graph_cypher_dx`).
 
+use crate::graph_cypher_dx::{self as dx, Refusal};
 use ruvector_edge_store::{ErrorCode, OpError};
 use rvlite::cypher::ast::{Direction, NodePattern, Pattern, Query, Statement};
 use rvlite::cypher::executor::{ContextValue, ExecutionError};
@@ -49,7 +52,7 @@ pub const MAX_NESTING: usize = 32;
 /// `$` is refused because rvlite@c6ece78 routes it to `scan_identifier`,
 /// which does not consume it: `tokenize` then pushes empty tokens forever
 /// until the isolate runs out of memory. Parameters are unsupported anyway.
-pub fn precheck(query: &str) -> Result<(), OpError> {
+pub fn precheck(query: &str) -> Result<(), Refusal> {
     let b = query.as_bytes();
     let (mut i, mut depth) = (0usize, 0usize);
     while i < b.len() {
@@ -71,11 +74,17 @@ pub fn precheck(query: &str) -> Result<(), OpError> {
                     i += 1;
                 }
             }
-            b'$' => return Err(OpError::invalid("cypher parameters ($) are not supported")),
+            b'$' => {
+                return Err(Refusal::invalid(format!(
+                    "unsupported: query parameters ($ at byte {i}); inline the value"
+                )))
+            }
             b'(' | b'[' | b'{' => {
                 depth += 1;
                 if depth > MAX_NESTING {
-                    return Err(OpError::invalid("cypher nesting too deep"));
+                    return Err(Refusal::invalid(format!(
+                        "query nests ( [ {{ deeper than {MAX_NESTING} levels (at byte {i})"
+                    )));
                 }
             }
             b')' | b']' | b'}' => depth = depth.saturating_sub(1),
@@ -87,25 +96,33 @@ pub fn precheck(query: &str) -> Result<(), OpError> {
 }
 
 /// Parse and classify (`400` on syntax errors, parameters or deep nesting;
-/// `413` on oversized text).
-pub fn parse(query: &str) -> Result<Parsed, OpError> {
+/// `413` on oversized text); unaliased `RETURN` items are named by their
+/// expression text ([`dx::name_columns`]).
+pub fn parse(query: &str) -> Result<Parsed, Refusal> {
     if query.len() > MAX_QUERY_BYTES {
-        return Err(OpError::new(
-            ErrorCode::PayloadTooLarge,
-            "cypher query too long",
+        return Err(Refusal::new(
+            OpError::new(ErrorCode::PayloadTooLarge, "cypher query too long"),
+            format!(
+                "query is {} bytes, over the {MAX_QUERY_BYTES}-byte limit",
+                query.len()
+            ),
         ));
     }
     precheck(query)?;
-    let ast = parse_cypher(query).map_err(|_| OpError::invalid("cypher parse error"))?;
+    let mut ast = parse_cypher(query).map_err(|e| Refusal::invalid(dx::parse_detail(&e)))?;
     if ast.statements.is_empty() {
-        return Err(OpError::invalid("empty cypher query"));
+        return Err(Refusal::invalid("empty cypher query"));
     }
+    dx::name_columns(&mut ast);
     let read_only = ast.is_read_only();
     Ok(Parsed { ast, read_only })
 }
 
-fn budget() -> OpError {
-    OpError::new(ErrorCode::BudgetExceeded, "cypher step budget")
+fn budget() -> Refusal {
+    Refusal::new(
+        OpError::new(ErrorCode::BudgetExceeded, "cypher step budget"),
+        format!("query exceeds the {MAX_STEPS}-step budget (estimated from the MATCH patterns and graph size)"),
+    )
 }
 
 fn node_candidates(g: &PropertyGraph, p: &NodePattern) -> u64 {
@@ -121,7 +138,7 @@ fn node_candidates(g: &PropertyGraph, p: &NodePattern) -> u64 {
 
 /// Estimated steps of `ast` over `g` (saturating; stops counting past the
 /// budget). Unsupported patterns are `400` here, before execution.
-pub fn estimate(g: &PropertyGraph, ast: &Query) -> Result<u64, OpError> {
+pub fn estimate(g: &PropertyGraph, ast: &Query) -> Result<u64, Refusal> {
     let mut steps = 0u64;
     for st in &ast.statements {
         let pats = match st {
@@ -137,7 +154,9 @@ pub fn estimate(g: &PropertyGraph, ast: &Query) -> Result<u64, OpError> {
                 Pattern::Node(n) => node_candidates(g, n),
                 Pattern::Relationship(r) => {
                     if r.range.is_some() {
-                        return Err(OpError::invalid("variable-length paths are not supported"));
+                        return Err(Refusal::invalid(
+                            "unsupported: variable-length relationships ([*a..b])",
+                        ));
                     }
                     let from = node_candidates(g, &r.from);
                     let edges = g.stats().edge_count as u64;
@@ -147,7 +166,11 @@ pub fn estimate(g: &PropertyGraph, ast: &Query) -> Result<u64, OpError> {
                     };
                     from.saturating_add(fan)
                 }
-                _ => return Err(OpError::invalid("pattern not supported")),
+                _ => {
+                    return Err(Refusal::invalid(
+                        "unsupported: this MATCH pattern (e.g. named paths or hyperedges)",
+                    ))
+                }
             });
             if steps > MAX_STEPS {
                 return Err(budget());
@@ -157,46 +180,19 @@ pub fn estimate(g: &PropertyGraph, ast: &Query) -> Result<u64, OpError> {
     Ok(steps)
 }
 
-fn node_var<'a>(out: &mut Vec<&'a str>, n: &'a NodePattern) {
-    if let Some(v) = &n.variable {
-        out.push(v.as_str());
-    }
-}
-
-/// Variables bound by the `MATCH` patterns of `ast`.
-fn match_vars(ast: &Query) -> Vec<&str> {
-    let mut out = Vec::new();
-    for st in &ast.statements {
-        let Statement::Match(m) = st else { continue };
-        for p in &m.patterns {
-            match p {
-                Pattern::Node(n) => node_var(&mut out, n),
-                Pattern::Relationship(r) => {
-                    node_var(&mut out, &r.from);
-                    if let Pattern::Node(n) = &*r.to {
-                        node_var(&mut out, n);
-                    }
-                    out.extend(r.variable.as_deref());
-                }
-                _ => {}
-            }
-        }
-    }
-    out
-}
-
-/// The `RETURN` columns of `ast` (alias, variable, else `?column?`).
+/// The `RETURN` columns of `ast` (alias, variable, else the expression
+/// text — as [`dx::name_columns`] names them).
 fn return_columns(ast: &Query) -> Vec<String> {
     let mut cols = Vec::new();
     for st in &ast.statements {
         if let Statement::Return(r) = st {
-            for item in &r.items {
+            for (i, item) in r.items.iter().enumerate() {
                 let name = item
                     .alias
                     .clone()
                     .unwrap_or_else(|| match &item.expression {
                         rvlite::cypher::Expression::Variable(v) => v.clone(),
-                        _ => "?column?".into(),
+                        e => dx::column_name(e, i),
                     });
                 if !cols.contains(&name) {
                     cols.push(name);
@@ -213,20 +209,30 @@ fn return_columns(ast: &Query) -> Vec<String> {
 /// found nothing and fails with `VariableNotFound` for the pattern's own
 /// variable; a read-only query failing that way on a variable its `MATCH`
 /// binds has matched nothing, so it answers zero rows.
-pub fn run(g: &mut PropertyGraph, parsed: &Parsed) -> Result<(Json, u64), OpError> {
+pub fn run(g: &mut PropertyGraph, parsed: &Parsed) -> Result<(Json, u64), Refusal> {
     let steps = estimate(g, &parsed.ast)?;
     let res = match Executor::new(g).execute(&parsed.ast) {
         Ok(res) => res,
         Err(ExecutionError::VariableNotFound(v))
-            if parsed.read_only && match_vars(&parsed.ast).contains(&v.as_str()) =>
+            if parsed.read_only && dx::bound_vars(&parsed.ast, false).contains(&v.as_str()) =>
         {
             let columns = return_columns(&parsed.ast);
             return Ok((json!({ "columns": columns, "rows": [] }), steps));
         }
-        Err(_) => return Err(OpError::invalid("cypher execution error")),
+        Err(e) => {
+            return Err(Refusal::new(
+                OpError::invalid("cypher execution error"),
+                dx::exec_detail(&e, &parsed.ast),
+            ))
+        }
     };
     if res.rows.len() > MAX_ROWS {
-        return Err(OpError::new(ErrorCode::BudgetExceeded, "cypher row budget"));
+        return Err(Refusal::new(
+            OpError::new(ErrorCode::BudgetExceeded, "cypher row budget"),
+            format!(
+                "query returns more than {MAX_ROWS} rows; narrow the MATCH (LIMIT is not applied)"
+            ),
+        ));
     }
     let rows: Vec<Json> = res
         .rows

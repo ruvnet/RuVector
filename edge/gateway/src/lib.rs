@@ -34,6 +34,7 @@ mod durable;
 mod durable_m4;
 mod graph_catalog;
 mod graph_cypher;
+mod graph_cypher_dx;
 mod graph_mcp;
 mod graph_mincut;
 mod graph_persist;
@@ -131,6 +132,8 @@ mod e2e_m2_tests;
 mod e2e_tests;
 #[cfg(test)]
 mod e2e_world;
+#[cfg(test)]
+mod graph_dx_tests;
 #[cfg(test)]
 mod graph_free_tests;
 #[cfg(test)]

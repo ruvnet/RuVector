@@ -13,6 +13,7 @@
 
 use crate::graph_catalog as cat;
 use crate::graph_cypher as gc;
+use crate::graph_cypher_dx::Refusal;
 use crate::graph_persist as gp;
 use crate::graph_wire::{
     graph_do_name, name_ok, BulkEdge, GraphCall, GraphOut, GraphRequest, CATALOG,
@@ -104,8 +105,8 @@ pub fn serve(
 ) -> String {
     let reply: Result<GraphOut, crate::wire::WireErr> =
         match serde_json::from_slice::<GraphRequest>(body) {
-            Ok(req) => handle(host, key, own_name, store, req)
-                .map_err(|e| crate::wire::WireErr::from_op(&e)),
+            Ok(req) => handle_call(host, key, own_name, store, req)
+                .map_err(|r| crate::wire::WireErr::from_refusal(&r)),
             Err(_) => Err(crate::wire::WireErr::from_op(&OpError::invalid(
                 "malformed graph call",
             ))),
@@ -114,7 +115,8 @@ pub fn serve(
         .unwrap_or_else(|_| String::from(r#"{"Err":{"code":"server_error"}}"#))
 }
 
-/// Run one call.
+/// Run one call (tests drive the DO through this).
+#[cfg(test)]
 pub fn handle(
     host: &mut GraphHost,
     key: &str,
@@ -122,14 +124,25 @@ pub fn handle(
     store: &dyn SqlStore,
     req: GraphRequest,
 ) -> Result<GraphOut, OpError> {
+    handle_call(host, key, own_name, store, req).map_err(|r| r.op)
+}
+
+/// Run one call; a Cypher refusal keeps its explanation.
+fn handle_call(
+    host: &mut GraphHost,
+    key: &str,
+    own_name: Option<&str>,
+    store: &dyn SqlStore,
+    req: GraphRequest,
+) -> Result<GraphOut, Refusal> {
     let tenant = TenantKey::parse(&req.tenant_key).map_err(|_| OpError::invalid("tenant"))?;
     let catalog = req.graph == CATALOG;
     if !catalog && !name_ok(&req.graph) {
-        return Err(OpError::invalid("graph name"));
+        return Err(OpError::invalid("graph name").into());
     }
     let expected = graph_do_name(&tenant, &req.graph);
     if own_name.is_some_and(|n| n != expected.as_str()) {
-        return Err(not_found());
+        return Err(not_found().into());
     }
     // Only a create initialises storage: a probe of an unknown graph name
     // (or a tenant's first catalog read) must not persist an empty DO.
@@ -149,15 +162,15 @@ pub fn handle(
         Err(_) if matches!(req.call, GraphCall::CatalogRemove { .. } | GraphCall::Wipe) => {
             return Ok(GraphOut::Removed { existed: false })
         }
-        Err(_) if !create => return Err(not_found()),
-        Err(e) => return Err(e),
+        Err(_) if !create => return Err(not_found().into()),
+        Err(e) => return Err(e.into()),
     };
     let ident = gp::get(&kv, "ident");
     if ident.is_some_and(|i| i != expected.as_str()) {
-        return Err(not_found());
+        return Err(not_found().into());
     }
     let claim = |store: &dyn SqlStore| gp::put(store, "ident", expected.as_str());
-    match (req.call, catalog) {
+    let out: Result<GraphOut, OpError> = match (req.call, catalog) {
         (GraphCall::CatalogList, true) => cat::list(store),
         (GraphCall::CatalogAdd { name, sub, now }, true) => {
             if ident.is_none() {
@@ -208,7 +221,9 @@ pub fn handle(
         (GraphCall::Stats, _) => Ok(GraphOut::Info {
             view: view(&req.graph, &kv),
         }),
-        (GraphCall::Cypher { query, write }, _) => cypher(host, key, store, &kv, &query, write),
+        (GraphCall::Cypher { query, write }, _) => {
+            return cypher(host, key, store, &kv, &query, write)
+        }
         (
             GraphCall::AddEdges {
                 edges,
@@ -222,7 +237,8 @@ pub fn handle(
         (GraphCall::Mincut { mode }, _) => {
             crate::graph_mincut::mincut(host, key, store, &kv, &mode)
         }
-    }
+    };
+    out.map_err(Refusal::from)
 }
 
 fn view(name: &str, kv: &[(String, String)]) -> Json {
@@ -281,13 +297,10 @@ fn cypher(
     kv: &[(String, String)],
     query: &str,
     write: bool,
-) -> Result<GraphOut, OpError> {
+) -> Result<GraphOut, Refusal> {
     let parsed = gc::parse(query)?;
     if !parsed.read_only && !write {
-        return Err(OpError::new(
-            ErrorCode::RoleRequired,
-            "mutating cypher needs write",
-        ));
+        return Err(OpError::new(ErrorCode::RoleRequired, "mutating cypher needs write").into());
     }
     let r = resident(host, key, store, kv)?;
     if parsed.read_only {
@@ -295,7 +308,10 @@ fn cypher(
         return Ok(GraphOut::Rows { result });
     }
     let out = gc::run(&mut r.g, &parsed).and_then(|(result, _)| {
-        commit(r, store, kv)?;
+        commit(r, store, kv).map_err(|e| {
+            let what = format!("mutation not applied: {}", e.detail);
+            Refusal::new(e, what)
+        })?;
         Ok(result)
     });
     out.map(|result| GraphOut::Rows { result })

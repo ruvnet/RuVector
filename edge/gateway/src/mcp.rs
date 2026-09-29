@@ -232,7 +232,12 @@ pub(crate) fn rpc_result(id: &Json, result: Json) -> ApiReply {
 }
 
 pub(crate) fn tool_error(e: &OpError) -> Json {
-    let body = json!({ "code": e.code.as_str(), "status": e.code.status(), "detail": e.detail });
+    tool_error_with(e, e.detail)
+}
+
+/// [`tool_error`] with `detail` in place of `e.detail`.
+pub(crate) fn tool_error_with(e: &OpError, detail: &str) -> Json {
+    let body = json!({ "code": e.code.as_str(), "status": e.code.status(), "detail": detail });
     json!({ "content": [{ "type": "text", "text": body.to_string() }], "isError": true })
 }
 

@@ -48,13 +48,19 @@ impl ApiReply {
     /// RFC 9457 problem for `e`; `insufficient_scope` carries the §5.3
     /// step-up challenge naming `metadata_url`.
     pub fn problem(e: &OpError, metadata_url: &str) -> Self {
+        ApiReply::problem_with(e, e.detail, metadata_url)
+    }
+
+    /// [`ApiReply::problem`] with `detail` in place of `e.detail` (code,
+    /// title and status unchanged).
+    pub fn problem_with(e: &OpError, detail: &str, metadata_url: &str) -> Self {
         let status = e.code.status();
         let p = Problem {
             type_: "about:blank".into(),
             title: e.code.as_str().into(),
             status,
             code: e.code.as_str().into(),
-            detail: Some(e.detail.to_string()),
+            detail: Some(detail.to_string()),
             request_id: None,
         };
         ApiReply {
