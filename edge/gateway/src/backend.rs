@@ -10,7 +10,7 @@
 use crate::wire::{
     unavailable, LedgerCall, LedgerOut, LedgerRequest, Reply, ShardCall, ShardOut, ShardRequest,
 };
-use ruvector_edge_store::OpError;
+use ruvector_edge_store::{CallerContext, OpError};
 use ruvector_edge_tenancy::{ledger_do_name, DoMeta, DoName, TenantKey};
 use serde::de::DeserializeOwned;
 
@@ -22,6 +22,13 @@ pub trait Backend {
     async fn call_ledger(&self, name: &DoName, body: String) -> Result<String, OpError>;
     /// POST `body` to one `VectorShard`.
     async fn call_shard(&self, name: &DoName, body: String) -> Result<String, OpError>;
+    /// ADR-351 §10 layer 2 "a query costs `shards_queried` tokens": charge
+    /// `extra` more read tokens once the fan-out is known (`429
+    /// rate_limited` when over budget). No limiter: always admitted.
+    async fn charge_fanout(&self, ctx: &CallerContext, extra: u32) -> Result<(), OpError> {
+        let _ = (ctx, extra);
+        Ok(())
+    }
 }
 
 /// Why a shard call failed.
@@ -126,6 +133,8 @@ pub mod mem {
         entropy: CounterEntropy,
         /// When set, every shard call fails in transport.
         pub shard_down: Cell<bool>,
+        /// When set, query fan-out is charged here (§10 layer 2).
+        pub fanout_limiter: Option<crate::api::ratelimit::mem::CountingLimiter>,
     }
 
     impl MemBackend {
@@ -143,6 +152,7 @@ pub mod mem {
                 limits,
                 entropy: CounterEntropy(Cell::new(7)),
                 shard_down: Cell::new(false),
+                fanout_limiter: None,
             }
         }
 
@@ -167,6 +177,12 @@ pub mod mem {
             ledger.put_member(&*store, &lm, owner, sub, role, now)
         }
 
+        /// Charge query fan-out to a counting limiter (§10 layer 2).
+        pub fn with_fanout_limiter(mut self) -> Self {
+            self.fanout_limiter = Some(Default::default());
+            self
+        }
+
         /// Drop every resident state (isolate restart), keep storage.
         pub fn restart(&self) {
             *self.host.borrow_mut() = ShardHost::default();
@@ -189,6 +205,20 @@ pub mod mem {
             ))
         }
 
+        async fn charge_fanout(
+            &self,
+            ctx: &ruvector_edge_store::CallerContext,
+            extra: u32,
+        ) -> Result<(), OpError> {
+            use crate::api::ratelimit::{admit_n, Class};
+            match &self.fanout_limiter {
+                Some(l) => admit_n(l, Class::Read, ctx, extra).await.map_err(|_| {
+                    OpError::new(ruvector_edge_store::ErrorCode::RateLimited, "rate limited")
+                }),
+                None => Ok(()),
+            }
+        }
+
         async fn call_shard(&self, name: &DoName, body: String) -> Result<String, OpError> {
             if self.shard_down.get() {
                 return Err(crate::wire::unavailable());
@@ -196,6 +226,15 @@ pub mod mem {
             let mut all = self.shards.borrow_mut();
             let store = all.entry(name.as_str().to_string()).or_default();
             let key = name.as_str();
+            // The `VectorShard` shell's collection-drop interception.
+            if let Some((out, wiped)) =
+                crate::durable::wipe::serve(Some(key), &*store, body.as_bytes())
+            {
+                if wiped {
+                    self.host.borrow_mut().evict(key);
+                }
+                return Ok(out);
+            }
             Ok(shard_core::serve(
                 &mut self.host.borrow_mut(),
                 key,

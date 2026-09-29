@@ -13,6 +13,10 @@
 //!   acted, §5.6/§16.3), `NULL` for direct writes. Part of the first shard
 //!   schema: no `VectorShard` existed before M1, so no table needs an ALTER.
 //! - `filter_idx` has a primary key `(key, value, id)`.
+//! - M2: `ops.body` v2 carries the row's `iid` (upsert and delete), so an
+//!   index epoch can be brought forward by replaying the op tail even for
+//!   ids deleted since; `index_chunks` is created with the other tables.
+//!   `vectors.q8` stays unused: the resident codes persist as chunks.
 //! - `TenantLedger` tables: `ledger_meta`, `memberships`, `catalog` (with
 //!   `filterable_keys`), `idempotency` (the §16.3 `op_id` store) with an
 //!   `expires_at` index for bounded purges.
@@ -26,7 +30,49 @@ pub const SHARD_SCHEMA: &[&str] = &[
      actor_sub TEXT, jti TEXT, family_id TEXT, act_sub TEXT, body BLOB)",
     "CREATE TABLE IF NOT EXISTS filter_idx (key TEXT, value TEXT, id TEXT, \
      PRIMARY KEY (key, value, id))",
+    "CREATE TABLE IF NOT EXISTS index_chunks (epoch INTEGER, part INTEGER, bytes BLOB, \
+     PRIMARY KEY (epoch, part))",
 ];
+
+/// Ids per rerank / fetch-by-iid statement (the `IN` list width). Unused
+/// slots are bound to iid `0`, which the store never allocates.
+pub const IID_BATCH: usize = 32;
+
+/// Paged slab load (no f32: M2 keeps only codes/links resident).
+pub const VEC_PAGE_META: &str =
+    "SELECT id, iid, metadata FROM vectors WHERE iid > ? ORDER BY iid LIMIT ?";
+/// Paged f32 read for an index rebuild (no id, no metadata: neither is
+/// used, and metadata can be 4 KiB a row).
+pub const VEC_PAGE_F32: &str = "SELECT iid, f32 FROM vectors WHERE iid > ? ORDER BY iid LIMIT ?";
+/// Quantizer training sample: up to [`IID_BATCH`] f32 rows by internal id.
+pub const VEC_F32_BY_IIDS: &str = concat!(
+    "SELECT iid, f32 FROM vectors WHERE iid IN (",
+    "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ",
+    "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+);
+/// Rerank fetch: up to [`IID_BATCH`] rows by internal id.
+pub const VEC_BY_IIDS: &str = concat!(
+    "SELECT iid, id, f32, metadata FROM vectors WHERE iid IN (",
+    "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ",
+    "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+);
+/// One row by external id (fetch).
+pub const VEC_BY_ID: &str = "SELECT id, iid, f32, metadata FROM vectors WHERE id = ?";
+/// Renumber one row (dense-iid compaction, ascending so no clash).
+pub const VEC_SET_IID: &str = "UPDATE vectors SET iid = ? WHERE id = ?";
+
+/// Write one index chunk row.
+pub const CHUNK_PUT: &str =
+    "INSERT OR REPLACE INTO index_chunks (epoch, part, bytes) VALUES (?, ?, ?)";
+/// Stream one epoch's chunks, one row per call (`LIMIT 1`).
+pub const CHUNK_GET: &str = "SELECT part, bytes FROM index_chunks WHERE epoch = ? AND part >= ? \
+                             ORDER BY part LIMIT ?";
+/// Drop an epoch and anything newer (clears a torn earlier attempt).
+pub const CHUNK_DELETE_FROM: &str = "DELETE FROM index_chunks WHERE epoch >= ?";
+/// Drop epochs older than the oldest retained one.
+pub const CHUNK_DELETE_BELOW: &str = "DELETE FROM index_chunks WHERE epoch < ?";
+/// Wipe `index_chunks`.
+pub const CHUNK_DELETE_ALL: &str = "DELETE FROM index_chunks";
 
 /// All `meta` rows.
 pub const META_SELECT_ALL: &str = "SELECT k, v FROM meta";

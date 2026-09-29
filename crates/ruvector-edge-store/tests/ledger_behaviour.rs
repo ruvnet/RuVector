@@ -17,6 +17,7 @@ fn spec(name: &str) -> CreateCollection {
         dim: 8,
         metric: Metric::Cosine,
         index: None,
+        hnsw: None,
         embedder: None,
         filterable_keys: vec![],
         shards: None,
@@ -108,10 +109,30 @@ fn collection_uid_never_reused_across_drop_recreate_and_rollback() {
     );
     l.drop_collection(&st, &lm, "docs").unwrap();
     assert!(l.collection(&lm, "docs").unwrap().is_none());
+    // While its shards are wiped the name stays reserved; a retried drop
+    // returns the same uid; the purge is by uid and idempotent.
+    let busy = l
+        .create_collection(&st, &lm, &spec("docs"), &sub("o"), &e, T0)
+        .unwrap_err();
+    assert_eq!(busy.code, ErrorCode::Conflict);
+    assert_eq!(l.drop_collection(&st, &lm, "docs").unwrap().uid, a1.uid);
+    l.purge_collection(&st, &lm, a1.uid).unwrap();
+    l.purge_collection(&st, &lm, a1.uid).unwrap();
+    assert_eq!(
+        l.drop_collection(&st, &lm, "docs").unwrap_err().code,
+        ErrorCode::NotFound
+    );
     let a2 = l
         .create_collection(&st, &lm, &spec("docs"), &sub("o"), &e, T0)
         .unwrap();
     assert_ne!(a1.uid, a2.uid);
+    // A stale purge of the old uid never touches the new collection.
+    l.purge_collection(&st, &lm, a1.uid).unwrap();
+    assert_eq!(
+        l.purge_collection(&st, &lm, a2.uid).unwrap_err().code,
+        ErrorCode::NotFound
+    );
+    assert_eq!(l.collection(&lm, "docs").unwrap().unwrap().uid, a2.uid);
     // Tombstone survives a reopen; uid set only grows.
     let l2 = open(&st);
     assert!(l2.all_uids().contains(&a1.uid) && l2.all_uids().contains(&a2.uid));
@@ -243,7 +264,7 @@ fn create_validation() {
             ..spec("x")
         },
         CreateCollection {
-            index: Some("hnsw".into()),
+            index: Some("rabitq".into()),
             ..spec("x")
         },
         CreateCollection {

@@ -137,6 +137,7 @@ fn ops_log_records_the_adapter_that_acted() {
         metric: Metric::L2,
         filterable_keys: vec![],
         float_cap: 1000,
+        index: Default::default(),
     };
     let row = |id: &str| UpsertRow {
         id: id.into(),

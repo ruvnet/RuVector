@@ -3,7 +3,9 @@
 //! trust root, whose requests go through the production authenticator,
 //! route table and handlers over the in-process Durable Object backend.
 
-use crate::api::{caller, data};
+use crate::api::ratelimit::mem::CountingLimiter;
+use crate::api::ratelimit::{class_of, Budget, Class, Limiter};
+use crate::api::{caller, data, guard};
 use crate::auth::authenticate_full;
 use crate::backend::mem::MemBackend;
 use crate::config::GatewayConfig;
@@ -16,6 +18,7 @@ use p256::ecdsa::VerifyingKey;
 use ruvector_edge_auth::prm;
 use ruvector_edge_auth::{AuthError, Jwk, KeySource};
 use serde_json::{json, Value as Json};
+use std::cell::Cell;
 use worker::Method;
 
 /// The gateway's JWKS view: exactly the AS's published keys, by thumbprint.
@@ -30,11 +33,27 @@ impl KeySource for Jwks {
     }
 }
 
+/// Rate budgets as the gateway charges them: enforced by a fixed-window
+/// counter, or (`None`) admitting everything.
+pub struct Budgets(pub Option<CountingLimiter>);
+impl Limiter for Budgets {
+    async fn allow(&self, budget: &Budget, key: &str) -> bool {
+        match &self.0 {
+            Some(l) => l.allow(budget, key).await,
+            None => true,
+        }
+    }
+}
+
 /// The two Workers side by side.
 pub struct World {
     pub edge_as: EdgeAs,
     pub cfg: GatewayConfig,
     pub b: MemBackend,
+    /// The rate limiter `api::serve` charges before dispatch.
+    pub limiter: Budgets,
+    /// `Retry-After` of the last refused request.
+    pub retry_after: Cell<Option<u32>>,
 }
 
 impl World {
@@ -43,6 +62,23 @@ impl World {
             edge_as: EdgeAs::new(T0, ceiling),
             cfg: GatewayConfig::from_trust_root(&TrustRoot::compiled(), "false").unwrap(),
             b: MemBackend::new(),
+            limiter: Budgets(None),
+            retry_after: Cell::new(None),
+        }
+    }
+
+    /// [`World::new`] with the ADR-351 §10 rate budgets enforced.
+    pub fn rate_limited(ceiling: &str) -> Self {
+        World {
+            limiter: Budgets(Some(CountingLimiter::default())),
+            ..Self::new(ceiling)
+        }
+    }
+
+    /// Start a new rate-limit window.
+    pub fn new_window(&self) {
+        if let Some(l) = &self.limiter.0 {
+            l.reset();
         }
     }
 
@@ -102,6 +138,19 @@ impl World {
             }
         };
         let c = caller(a);
+        // Rate budgets, then the deny list, before anything else
+        // (`api::serve`).
+        let (class, res) = if route == Route::Mcp {
+            (Class::Mcp, &self.cfg.mcp_resource)
+        } else {
+            (class_of(parse(&m, path).as_ref()), &self.cfg.rest_resource)
+        };
+        let md = prm::metadata_url(res);
+        self.retry_after.set(None);
+        if let Err(r) = block_on(guard(&self.b, &self.limiter, class, &c.ctx, T0, &md)) {
+            self.retry_after.set(r.retry_after);
+            return r.reply;
+        }
         let bytes = if body.is_null() {
             Vec::new()
         } else {

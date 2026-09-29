@@ -81,7 +81,11 @@ fn route_table_serves_task_and_adr_spellings() {
         (Method::Post, "/v1/collections//query", None),
         (Method::Post, "/v1/collections/a:b/query", None),
         (Method::Get, "/v1/me/", None),
-        (Method::Delete, "/v1/collections/d", None),
+        (
+            Method::Delete,
+            "/v1/collections/d",
+            Some(ApiRoute::Drop(c("d"))),
+        ),
     ];
     for (m, p, want) in cases {
         assert_eq!(parse(&m, p), want, "{m:?} {p}");

@@ -9,7 +9,9 @@
 //! is only ever opened over that DO's own storage.
 
 use crate::wire::{DeltaWire, MatchWire, Reply, ShardCall, ShardOut, ShardRequest, WireErr};
-use ruvector_edge_store::shard::{validate_query, Actor, Match, MAX_FETCH_IDS, MAX_QUERY_STEPS};
+use ruvector_edge_store::shard::{
+    validate_query, Actor, Due, Match, MAX_FETCH_IDS, MAX_QUERY_STEPS,
+};
 use ruvector_edge_store::{
     shard_meta_for, ErrorCode, OpError, ResidentRegistry, SqlStore, VectorShard,
 };
@@ -37,6 +39,14 @@ impl ShardHost {
     #[cfg(test)]
     pub fn resident_count(&self) -> usize {
         self.shards.len()
+    }
+
+    /// Forget `key`'s resident state (its storage was wiped): a later
+    /// request or alarm cold-loads from storage instead of flushing stale
+    /// index state back into it.
+    pub fn evict(&mut self, key: &str) {
+        self.shards.remove(key);
+        self.registry.remove(key);
     }
 
     /// The shard for `key`, cold-loaded from `store` on first use or after
@@ -85,6 +95,30 @@ impl ShardHost {
             .ok()
             .map(|s| DeltaWire::from(s.usage_totals()).minus(before))
     }
+}
+
+/// Delay of an alarm for work that is due now (a floor, so a shard that
+/// stays due can never spin the alarm).
+pub const URGENT_ALARM_MS: u64 = 1_000;
+
+/// Delay (ms) until the DO `key` needs its maintenance alarm (ADR-351 §6.1
+/// alarms: timer flush, compaction, requantize), `None` when idle or not
+/// resident.
+pub fn next_alarm(host: &ShardHost, key: &str) -> Option<u64> {
+    match host.shards.get(key)?.maintenance_due()? {
+        Due::Now => Some(URGENT_ALARM_MS),
+        Due::After(ms) => Some(ms.max(URGENT_ALARM_MS)),
+    }
+}
+
+/// The DO alarm: run one maintenance step over the DO's own storage
+/// (cold-loading the shard if it was evicted) and return the next delay.
+/// A storage error poisons the shard; the next request reopens it.
+pub fn alarm(host: &mut ShardHost, key: &str, store: &dyn SqlStore) -> Option<u64> {
+    let shard = host.get(key, store).ok()?;
+    let _outcome = shard.maintain(store);
+    host.touch(key);
+    next_alarm(host, key)
 }
 
 /// Serve one encoded request for the DO whose stable id is `key`.
@@ -149,6 +183,7 @@ pub fn handle(
     match req.call {
         ShardCall::Plan { cfg, rows } => {
             let shard = host.get(key, store)?;
+            shard.load_index(store)?;
             let plan = shard.plan_upsert(&dm, &cfg.to_config(), rows)?;
             let delta = plan.delta.into();
             host.touch(key);
@@ -162,6 +197,7 @@ pub fn handle(
             now,
         } => {
             let shard = host.get(key, store)?;
+            shard.load_index(store)?;
             let plan = shard.plan_upsert(&dm, &cfg.to_config(), rows)?;
             if DeltaWire::from(plan.delta).exceeds(admitted) {
                 // The shard changed since the plan the ledger admitted:
@@ -206,11 +242,11 @@ pub fn handle(
             let cfg = cfg.to_config();
             let v = validate_query(&q, &cfg)?;
             let shard = host.get(key, store)?;
-            let steps = steps_before.saturating_add(shard.query_steps(&v.filter));
+            let steps = steps_before.saturating_add(shard.query_steps(&v));
             if steps > MAX_QUERY_STEPS {
                 return Err(OpError::new(ErrorCode::BudgetExceeded, "query step budget"));
             }
-            let out = shard.query(&dm, &cfg, &q)?;
+            let out = shard.query(store, &dm, &cfg, &q)?;
             host.touch(key);
             Ok(ShardOut::Matches {
                 matches: out.matches.into_iter().map(wire_match).collect(),
@@ -226,7 +262,7 @@ pub fn handle(
                 return Err(OpError::new(ErrorCode::PayloadTooLarge, "too many ids"));
             }
             let shard = host.get(key, store)?;
-            let got = shard.fetch(&dm, &ids, include_values)?;
+            let got = shard.fetch(store, &dm, &ids, include_values)?;
             host.touch(key);
             Ok(ShardOut::Fetched {
                 matches: got.into_iter().map(wire_match).collect(),
@@ -269,5 +305,123 @@ fn written_or_failed(
             err: WireErr::from_op(&e),
             applied: host.applied_after_failure(key, store, before),
         }),
+    }
+}
+
+#[cfg(test)]
+mod m2_tests {
+    //! M2 wiring: `hnsw` config over the wire, validated `ef`, the alarm's
+    //! timer flush, and a cold isolate answering from the flushed epoch.
+    use super::*;
+    use crate::testkit::{tenant, T0};
+    use crate::wire::{ActorWire, CfgWire, ShardCall};
+    use ruvector_edge_store::{
+        ErrorCode, IndexConfig, MemSqlStore, Metric, QueryRequest, UpsertRow,
+    };
+
+    fn call(host: &mut ShardHost, st: &MemSqlStore, call: ShardCall) -> Reply<ShardOut> {
+        let req = ShardRequest {
+            tenant_key: tenant("org-m2").as_str().to_string(),
+            uid: "0123456789abcdef0123456789abcdef".into(),
+            shard: 0,
+            call,
+        };
+        let body = serde_json::to_vec(&req).unwrap();
+        serde_json::from_str(&serve(host, "do-1", None, st, &body)).unwrap()
+    }
+
+    fn query(ef: Option<u32>) -> ShardCall {
+        ShardCall::Query {
+            cfg: cfg(),
+            req: QueryRequest {
+                vector: vec![3.0, 3.0, 3.0, 3.0],
+                top_k: 3,
+                filter: None,
+                include: vec![],
+                ef,
+                rerank: None,
+            },
+            steps_before: 0,
+        }
+    }
+
+    fn cfg() -> CfgWire {
+        CfgWire {
+            dim: 4,
+            metric: Metric::L2,
+            filterable_keys: vec![],
+            index: IndexConfig::HNSW_DEFAULT,
+        }
+    }
+
+    fn ids(r: Reply<ShardOut>) -> Vec<String> {
+        match r {
+            Ok(ShardOut::Matches { matches, .. }) => matches.into_iter().map(|m| m.id).collect(),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn hnsw_shard_flushes_on_alarm_and_reloads() {
+        // An M1 gateway's config (no `index`) still reads as `flat`.
+        let m1: CfgWire =
+            serde_json::from_str(r#"{"dim":4,"metric":"l2","filterable_keys":[]}"#).unwrap();
+        assert_eq!(m1.index, IndexConfig::Flat);
+        let (mut host, st) = (ShardHost::default(), MemSqlStore::new());
+        let rows: Vec<UpsertRow> = (0..10)
+            .map(|i| UpsertRow {
+                id: format!("r{i}"),
+                values: vec![i as f32; 4],
+                metadata: None,
+            })
+            .collect();
+        let delta = match call(
+            &mut host,
+            &st,
+            ShardCall::Plan {
+                cfg: cfg(),
+                rows: rows.clone(),
+            },
+        ) {
+            Ok(ShardOut::Planned { delta }) => delta,
+            other => panic!("{other:?}"),
+        };
+        let actor = ActorWire {
+            sub: "es1_m2".into(),
+            jti: "j".into(),
+            family_id: "f".into(),
+            act_sub: None,
+        };
+        let apply = ShardCall::Apply {
+            cfg: cfg(),
+            rows,
+            admitted: delta,
+            actor,
+            now: T0,
+        };
+        assert!(matches!(
+            call(&mut host, &st, apply),
+            Ok(ShardOut::Written { count: 10, .. })
+        ));
+        // Ten unpersisted ops: a timer flush is scheduled, not an urgent one.
+        assert_eq!(
+            next_alarm(&host, "do-1"),
+            Some(ruvector_edge_store::shard::FLUSH_AFTER_MS)
+        );
+        assert_eq!(alarm(&mut host, "do-1", &st), None);
+        assert_eq!(ids(call(&mut host, &st, query(None))), ["r3", "r2", "r4"]);
+        let e = call(
+            &mut host,
+            &st,
+            query(Some(ruvector_edge_store::shard::MAX_EF + 1)),
+        );
+        assert_eq!(e.unwrap_err().code, ErrorCode::InvalidRequest);
+        // A cold isolate decodes the flushed epoch (nothing to replay).
+        let mut cold = ShardHost::default();
+        assert_eq!(
+            ids(call(&mut cold, &st, query(Some(64)))),
+            ["r3", "r2", "r4"]
+        );
+        assert_eq!(next_alarm(&cold, "do-1"), None);
     }
 }

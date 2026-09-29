@@ -11,6 +11,9 @@ use ruvector_edge_store::{
 use ruvector_edge_tenancy::{QuotaLimits, TenantKey};
 use serde_json::json;
 
+#[path = "ledger_admin.rs"]
+pub mod admin;
+
 /// M1 free-plan limits (ADR-351 §10). `max_vectors` is the §10 free figure;
 /// the float budget (250k × 384), bytes and daily-op ceilings are **[U]**
 /// placeholders until the plan table lands (M3 control plane).
@@ -31,6 +34,7 @@ pub fn collection_wire(e: &CatalogEntry) -> CollectionWire {
             dim: e.dim,
             metric: e.metric,
             filterable_keys: e.filterable_keys.clone(),
+            index: e.index,
         },
         view: e.to_json(),
     }
@@ -48,13 +52,20 @@ pub fn serve(
 ) -> String {
     let reply: Reply<LedgerOut> = match serde_json::from_slice::<LedgerRequest>(body) {
         Ok(req) => handle(slot, store, limits, req, entropy).map_err(|e| WireErr::from_op(&e)),
-        Err(_) => Err(WireErr::from_op(&OpError::invalid("malformed ledger call"))),
+        Err(_) => {
+            // Members / deny / drop (ADR-351 §4.2, §5.8) use their own shape.
+            if let Some(out) = admin::serve(slot, store, limits, body) {
+                return out;
+            }
+            Err(WireErr::from_op(&OpError::invalid("malformed ledger call")))
+        }
     };
     serde_json::to_string(&reply)
         .unwrap_or_else(|_| String::from(r#"{"Err":{"code":"server_error"}}"#))
 }
 
-fn open<'a>(
+/// The resident ledger, (re)opened when absent or poisoned.
+pub(crate) fn open<'a>(
     slot: &'a mut Option<TenantLedger>,
     store: &dyn SqlStore,
     limits: QuotaLimits,

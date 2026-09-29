@@ -9811,6 +9811,7 @@ dependencies = [
  "proptest",
  "rusqlite",
  "ruvector-edge-auth",
+ "ruvector-edge-index",
  "ruvector-edge-tenancy",
  "serde",
  "serde_json",

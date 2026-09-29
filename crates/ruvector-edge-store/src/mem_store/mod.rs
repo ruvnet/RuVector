@@ -12,7 +12,7 @@ mod parse;
 use crate::ports::{Row, SqlStore, StoreError, Value};
 use core::cell::{Cell, RefCell};
 use core::cmp::Ordering;
-use parse::{CmpOp, Cond, Stmt};
+use parse::{wh_params, CmpOp, Cond, Stmt};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Default)]
@@ -31,11 +31,24 @@ impl Table {
     }
 
     fn matches(&self, row: &Row, wh: &[(usize, CmpOp)], params: &[Value]) -> bool {
-        wh.iter().zip(params).all(|((ci, op), p)| {
+        let mut at = 0;
+        wh.iter().all(|(ci, op)| {
+            if let CmpOp::In(n) = op {
+                let set = params.get(at..at + n).unwrap_or(&[]);
+                at += n;
+                return set
+                    .iter()
+                    .any(|p| cmp(&row[*ci], p) == Some(Ordering::Equal));
+            }
+            let Some(p) = params.get(at) else {
+                return false;
+            };
+            at += 1;
             let Some(ord) = cmp(&row[*ci], p) else {
                 return false;
             };
             match op {
+                CmpOp::In(_) => false,
                 CmpOp::Eq => ord == Ordering::Equal,
                 CmpOp::Ne => ord != Ordering::Equal,
                 CmpOp::Lt => ord == Ordering::Less,
@@ -257,7 +270,7 @@ impl MemSqlStore {
                 }
                 if limit {
                     let n = params
-                        .get(wh_res.len())
+                        .get(wh_params(&wh))
                         .and_then(Value::as_int)
                         .ok_or_else(|| {
                             StoreError::Backend("mem_store: LIMIT needs INTEGER".into())

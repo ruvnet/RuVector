@@ -33,6 +33,7 @@ fn setup(dim: u32, metric: Metric, cap: u64) -> (MemSqlStore, VectorShard, DoMet
         metric,
         filterable_keys: vec!["k".into()],
         float_cap: cap,
+        index: Default::default(),
     };
     (store, shard, dm, cfg)
 }
@@ -64,6 +65,8 @@ fn q(v: Vec<f32>, k: u32) -> QueryRequest {
         top_k: k,
         filter: None,
         include: vec![],
+        ef: None,
+        rerank: None,
     }
 }
 
@@ -125,14 +128,18 @@ fn validation_error_codes() {
     // Nothing was written by any rejected call.
     assert_eq!(st.write_count(), 0);
     upsert(&mut s, &st, &dm, &cfg, vec![row("a", vec![1.0, 0.0, 0.0])]).unwrap();
-    let e = s.query(&dm, &cfg, &q(vec![1.0; 4], 1)).unwrap_err();
+    let e = s.query(&st, &dm, &cfg, &q(vec![1.0; 4], 1)).unwrap_err();
     assert_eq!(e.code, ErrorCode::DimensionMismatch);
     assert_eq!(
-        s.query(&dm, &cfg, &q(vec![1.0; 3], 0)).unwrap_err().code,
+        s.query(&st, &dm, &cfg, &q(vec![1.0; 3], 0))
+            .unwrap_err()
+            .code,
         ErrorCode::InvalidRequest
     );
     assert_eq!(
-        s.query(&dm, &cfg, &q(vec![1.0; 3], 101)).unwrap_err().code,
+        s.query(&st, &dm, &cfg, &q(vec![1.0; 3], 101))
+            .unwrap_err()
+            .code,
         ErrorCode::InvalidRequest
     );
 }
@@ -168,7 +175,7 @@ fn float_cap_is_budget_exceeded_and_replacements_are_free() {
         (0, 1, 0, 0)
     );
     s.apply_upsert(&st, plan, ACTOR, T0).unwrap();
-    assert_eq!(s.resident_floats(), 12);
+    assert_eq!(s.usage_totals().floats, 12);
 }
 
 #[test]
@@ -180,8 +187,8 @@ fn delete_then_query_and_fetch() {
         row("c", vec![5.0, 5.0]),
     ];
     upsert(&mut s, &st, &dm, &cfg, rows).unwrap();
-    let ids = |r: &QueryRequest, s: &VectorShard| -> Vec<String> {
-        s.query(&dm, &cfg, r)
+    let ids = |r: &QueryRequest, s: &mut VectorShard| -> Vec<String> {
+        s.query(&st, &dm, &cfg, r)
             .unwrap()
             .matches
             .into_iter()
@@ -189,11 +196,11 @@ fn delete_then_query_and_fetch() {
             .collect()
     };
     let near = q(vec![0.1, 0.0], 3);
-    assert_eq!(ids(&near, &s), ["a", "b", "c"]);
+    assert_eq!(ids(&near, &mut s), ["a", "b", "c"]);
     // dry_run deletes nothing.
     let o = s.delete(&st, &dm, &["a".into()], ACTOR, true, T0).unwrap();
     assert_eq!((o.deleted, o.dry_run), (1, true));
-    assert_eq!(ids(&near, &s), ["a", "b", "c"]);
+    assert_eq!(ids(&near, &mut s), ["a", "b", "c"]);
     let o = s
         .delete(
             &st,
@@ -213,21 +220,21 @@ fn delete_then_query_and_fetch() {
             bytes: -(1 + 8)
         }
     );
-    assert_eq!(ids(&near, &s), ["b", "c"]);
-    assert!(s.fetch(&dm, &["a".into()], false).unwrap().is_empty());
+    assert_eq!(ids(&near, &mut s), ["b", "c"]);
+    assert!(s.fetch(&st, &dm, &["a".into()], false).unwrap().is_empty());
     assert_eq!(
-        s.fetch(&dm, &["c".into(), "b".into()], true).unwrap()[0].values,
+        s.fetch(&st, &dm, &["c".into(), "b".into()], true).unwrap()[0].values,
         Some(vec![5.0, 5.0])
     );
     // Re-upsert after delete gets a fresh iid and is queryable again.
     upsert(&mut s, &st, &dm, &cfg, vec![row("a", vec![0.0, 0.0])]).unwrap();
-    assert_eq!(ids(&near, &s), ["a", "b", "c"]);
-    for fresh in [
+    assert_eq!(ids(&near, &mut s), ["a", "b", "c"]);
+    for mut fresh in [
         VectorShard::open(&st).unwrap(),
         VectorShard::rebuild_from_ops(&st).unwrap(),
     ] {
         assert_eq!(fresh.state_digest(), s.state_digest());
-        assert_eq!(ids(&near, &fresh), ["a", "b", "c"]);
+        assert_eq!(ids(&near, &mut fresh), ["a", "b", "c"]);
     }
 }
 
@@ -264,7 +271,7 @@ fn replay_is_idempotent_and_fails_closed_on_gap() {
 #[test]
 fn foreign_identity_is_not_found_and_uninitialised_reads_are_empty() {
     let (st, mut s, dm, cfg) = setup(2, Metric::Cosine, 1000);
-    let empty = s.query(&dm, &cfg, &q(vec![1.0, 0.0], 5)).unwrap();
+    let empty = s.query(&st, &dm, &cfg, &q(vec![1.0, 0.0], 5)).unwrap();
     assert!(empty.matches.is_empty());
     assert_eq!(st.row_count("meta"), 0, "a read never initialises a DO");
     upsert(&mut s, &st, &dm, &cfg, vec![row("a", vec![1.0, 0.0])]).unwrap();
@@ -282,13 +289,13 @@ fn foreign_identity_is_not_found_and_uninitialised_reads_are_empty() {
     .unwrap();
     for wrong in [&other_tenant, &other_uid] {
         assert_eq!(
-            s.query(wrong, &cfg, &q(vec![1.0, 0.0], 5))
+            s.query(&st, wrong, &cfg, &q(vec![1.0, 0.0], 5))
                 .unwrap_err()
                 .code,
             ErrorCode::NotFound
         );
         assert_eq!(
-            s.fetch(wrong, &["a".into()], true).unwrap_err().code,
+            s.fetch(&st, wrong, &["a".into()], true).unwrap_err().code,
             ErrorCode::NotFound
         );
         assert_eq!(
@@ -319,7 +326,9 @@ fn storage_failure_poisons_until_reopen() {
     );
     assert!(s.is_poisoned());
     assert_eq!(
-        s.query(&dm, &cfg, &q(vec![1.0, 0.0], 1)).unwrap_err().code,
+        s.query(&st, &dm, &cfg, &q(vec![1.0, 0.0], 1))
+            .unwrap_err()
+            .code,
         ErrorCode::ShardUnavailable
     );
     st.set_fail_writes(false);

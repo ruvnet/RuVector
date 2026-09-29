@@ -44,6 +44,12 @@ struct QueryArgs {
     filter: Option<Json>,
     #[serde(default)]
     include: Vec<String>,
+    /// HNSW beam width (validated and capped by the shard).
+    #[serde(default)]
+    ef: Option<u32>,
+    /// Candidates reranked exactly from SQLite.
+    #[serde(default)]
+    rerank: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -174,9 +180,15 @@ pub(crate) async fn query<B: Backend>(c: &Call<'_, B>, raw: &str) -> Exec {
         top_k: q.top_k,
         filter: q.filter,
         include: q.include,
+        ef: q.ef,
+        rerank: q.rerank,
     };
     // Every request-only check runs before any shard is loaded.
     validate_query(&req, &e.cfg.to_config())?;
+    // §10 layer 2: a query costs one read token per shard (the request
+    // itself paid the first).
+    let fanout = count_of(&e)?.get();
+    c.b.charge_fanout(c.ctx, fanout.saturating_sub(1)).await?;
     // Admitted before the fan-out; the scan's extra work units after it.
     charge(c, one_op(), 1).await?;
     let mut all: Vec<MatchWire> = Vec::new();

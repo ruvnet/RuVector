@@ -1,6 +1,9 @@
 //! Deterministic test ports and helpers (no `rand`, no clock).
 #![allow(dead_code)]
 
+pub mod m2;
+pub mod sqlite;
+
 use core::cell::Cell;
 use ruvector_edge_auth::subject::edge_subject;
 use ruvector_edge_auth::{Capability, CapabilitySet};

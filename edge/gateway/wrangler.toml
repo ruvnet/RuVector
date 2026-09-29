@@ -6,6 +6,13 @@ compatibility_date = "2026-09-01"
 account_id = "501c77f558c68152352b8ddfade9b854"
 workers_dev = true
 
+# ADR-351 §6.1: an HNSW shard with no usable index epoch is rebuilt in the
+# DO alarm, never on a request (requests answer 503 meanwhile); at the
+# 14 MB resident cap that build measured ~29 s of CPU (wasm), past the
+# default 30 s limit. Store REBUILD_BUDGET_MS (60 s) is half of this.
+[limits]
+cpu_ms = 120000
+
 [build]
 # Pinned: worker-build must match the worker crate (=0.8.5); an unpinned
 # install pulls the latest release.
@@ -30,6 +37,51 @@ service = "ruvector-edge-auth"
 # compiled (empty) FIRST_PARTY_AUDS / ACCEPTED_UPSTREAM_KIDS, "true" fails
 # closed.
 UPSTREAM_FIRST_PARTY = "false"
+
+# ADR-351 §10 layer 2: Workers Rate Limiting, one binding per budget class
+# (read / write / ops / mcp) and level (USER = `user:{tenant_key}:{sub}`,
+# ORG = `org:{tenant_key}`). Limits are per 10 s window and per Cloudflare
+# location. Must match `api::ratelimit::BUDGETS` (config tests check it);
+# namespace_ids are unique to this Worker within the account.
+[[ratelimits]]
+name = "RL_READ_USER"
+namespace_id = "35101"
+simple = { limit = 20, period = 10 }
+
+[[ratelimits]]
+name = "RL_READ_ORG"
+namespace_id = "35102"
+simple = { limit = 100, period = 10 }
+
+[[ratelimits]]
+name = "RL_WRITE_USER"
+namespace_id = "35103"
+simple = { limit = 10, period = 10 }
+
+[[ratelimits]]
+name = "RL_WRITE_ORG"
+namespace_id = "35104"
+simple = { limit = 50, period = 10 }
+
+[[ratelimits]]
+name = "RL_OPS_USER"
+namespace_id = "35105"
+simple = { limit = 20, period = 10 }
+
+[[ratelimits]]
+name = "RL_OPS_ORG"
+namespace_id = "35106"
+simple = { limit = 100, period = 10 }
+
+[[ratelimits]]
+name = "RL_MCP_USER"
+namespace_id = "35107"
+simple = { limit = 20, period = 10 }
+
+[[ratelimits]]
+name = "RL_MCP_ORG"
+namespace_id = "35108"
+simple = { limit = 100, period = 10 }
 
 # ADR-351 §6: storage Durable Objects, SQLite-backed, addressed only by
 # idFromName from this Worker (TenantLedger: hex(sha256("v1|" + tenant_key +

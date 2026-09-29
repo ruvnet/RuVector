@@ -6,11 +6,13 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "ruvector edge storage core (ADR-351 §6, §16): VectorShard (exact flat scan, op log, replay, float budget), TenantLedger (catalog, collection_uid, memberships, quotas, op_id idempotency) and the /v1/ops dispatcher, behind a SqlStore port with an in-memory mock. Pure Rust, wasm32 clean."
+description = "ruvector edge storage core (ADR-351 §6, §16): VectorShard (int8 flat or HNSW index with f32 rerank from SQLite, chunked index persistence, op log, replay, resident cap), TenantLedger (catalog, collection_uid, memberships, quotas, op_id idempotency) and the /v1/ops dispatcher, behind a SqlStore port with an in-memory mock. Pure Rust, wasm32 clean."
 
 [dependencies]
 ruvector-edge-auth = { path = "../ruvector-edge-auth" }
 ruvector-edge-tenancy = { path = "../ruvector-edge-tenancy" }
+# M2 index (ADR-351 §6.1): int8 codes / HNSW links resident, f32 in SQLite.
+ruvector-edge-index = { path = "../ruvector-edge-index" }
 sha2 = "0.10"
 hex = "0.4"
 serde = { workspace = true }

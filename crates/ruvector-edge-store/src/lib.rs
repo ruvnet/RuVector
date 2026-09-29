@@ -6,8 +6,10 @@
 //! - [`ports`]: the DO-SQLite-shaped [`SqlStore`] port (plus the clock and
 //!   entropy ports); [`mem_store`] is its in-memory implementation.
 //! - [`schema`]: every SQL statement, as constants.
-//! - [`shard`]: `VectorShard` — M1 exact f32 flat scan with metadata
-//!   post-filter, op log, replay, per-shard float cap.
+//! - [`shard`]: `VectorShard` — M2 int8 `flat` (default) or `hnsw` index
+//!   resident, exact f32 rerank from SQLite, metadata filter, chunked index
+//!   persistence with lazy load and replay fallback, alarm maintenance,
+//!   op log, per-shard resident cap.
 //! - [`ledger`]: `TenantLedger` — memberships (default-deny), collection
 //!   catalog with never-reused `collection_uid`s, checked quota counters,
 //!   `op_id` idempotency.
@@ -42,4 +44,4 @@ pub use mem_store::MemSqlStore;
 pub use ops::{Dispatcher, LocalCluster, Op, OpReply, OpRequest, OpResponse};
 pub use ports::{Clock, EntropySource, Row, SqlStore, StoreError, Value};
 pub use resident::ResidentRegistry;
-pub use shard::{QueryRequest, ShardConfig, UpsertRow, VectorShard};
+pub use shard::{IndexConfig, QueryRequest, ShardConfig, UpsertRow, VectorShard};

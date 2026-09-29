@@ -6,73 +6,13 @@
 mod common;
 
 use common::*;
-use rusqlite::types::{ToSqlOutput, ValueRef};
-use rusqlite::{params_from_iter, Connection, ToSql};
+
+use common::sqlite::SqliteStore;
 use ruvector_edge_store::{
-    schema, shard_meta_for, MemSqlStore, Row, SqlStore, StoreError, Value, VectorShard,
+    schema, shard_meta_for, MemSqlStore, SqlStore, StoreError, Value, VectorShard,
 };
 use ruvector_edge_tenancy::{CollectionUid, Role, ShardIndex};
 use serde_json::{json, Value as Json};
-
-struct SqliteStore(Connection);
-
-impl Default for SqliteStore {
-    fn default() -> Self {
-        SqliteStore(Connection::open_in_memory().unwrap())
-    }
-}
-
-struct P<'a>(&'a Value);
-impl ToSql for P<'_> {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        Ok(match self.0 {
-            Value::Null => ToSqlOutput::Borrowed(ValueRef::Null),
-            Value::Int(i) => ToSqlOutput::Borrowed(ValueRef::Integer(*i)),
-            Value::Real(f) => ToSqlOutput::Borrowed(ValueRef::Real(*f)),
-            Value::Text(s) => ToSqlOutput::Borrowed(ValueRef::Text(s.as_bytes())),
-            Value::Blob(b) => ToSqlOutput::Borrowed(ValueRef::Blob(b)),
-        })
-    }
-}
-
-fn map_err(e: rusqlite::Error) -> StoreError {
-    match e.sqlite_error_code() {
-        Some(rusqlite::ErrorCode::ConstraintViolation) => StoreError::Constraint,
-        _ => StoreError::Backend(e.to_string()),
-    }
-}
-
-impl SqlStore for SqliteStore {
-    fn exec(&self, sql: &str, params: &[Value]) -> Result<u64, StoreError> {
-        self.0
-            .execute(sql, params_from_iter(params.iter().map(P)))
-            .map(|n| n as u64)
-            .map_err(map_err)
-    }
-    fn query(&self, sql: &str, params: &[Value]) -> Result<Vec<Row>, StoreError> {
-        let mut st = self.0.prepare(sql).map_err(map_err)?;
-        let n = st.column_count();
-        let rows = st
-            .query_map(params_from_iter(params.iter().map(P)), |r| {
-                (0..n)
-                    .map(|i| {
-                        Ok(match r.get_ref(i)? {
-                            ValueRef::Null => Value::Null,
-                            ValueRef::Integer(i) => Value::Int(i),
-                            ValueRef::Real(f) => Value::Real(f),
-                            ValueRef::Text(t) => {
-                                Value::Text(String::from_utf8_lossy(t).into_owned())
-                            }
-                            ValueRef::Blob(b) => Value::Blob(b.to_vec()),
-                        })
-                    })
-                    .collect::<rusqlite::Result<Row>>()
-            })
-            .map_err(map_err)?;
-        rows.collect::<rusqlite::Result<Vec<Row>>>()
-            .map_err(map_err)
-    }
-}
 
 /// A deterministic ops scenario; returns every response in order.
 fn scenario<S: SqlStore + Default>() -> Vec<Json> {
@@ -185,6 +125,7 @@ fn shard_digests_identical_on_mock_and_sqlite() {
             metric: ruvector_edge_store::Metric::L2,
             filterable_keys: vec!["k".into()],
             float_cap: 1_000_000,
+            index: Default::default(),
         };
         let actor = ruvector_edge_store::shard::Actor {
             sub: "es1_a",

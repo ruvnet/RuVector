@@ -7,7 +7,7 @@
 //! UPDATE t SET c = ?, ... [WHERE cond]
 //! DELETE FROM t [WHERE cond]
 //! SELECT c, ... FROM t [WHERE cond] [ORDER BY c [ASC|DESC]] [LIMIT ?]
-//! cond := c (= | != | < | <= | > | >=) ? [AND cond]
+//! cond := (c (= | != | < | <= | > | >=) ? | c IN (?, ...)) [AND cond]
 //! ```
 //!
 //! Anything else is rejected, so a statement the mock would silently
@@ -90,9 +90,11 @@ pub(crate) enum CmpOp {
     Le,
     Gt,
     Ge,
+    /// `IN (?, …)` with this many bindings.
+    In(usize),
 }
 
-/// `column op ?`.
+/// `column op ?` or `column IN (?, …)`.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Cond {
     pub col: String,
@@ -141,11 +143,21 @@ impl Stmt {
         match self {
             Stmt::Create { .. } | Stmt::Index { .. } => 0,
             Stmt::Insert { cols, .. } => cols.len(),
-            Stmt::Update { sets, wh, .. } => sets.len() + wh.len(),
-            Stmt::Delete { wh, .. } => wh.len(),
-            Stmt::Select { wh, limit, .. } => wh.len() + usize::from(*limit),
+            Stmt::Update { sets, wh, .. } => sets.len() + wh_params(wh),
+            Stmt::Delete { wh, .. } => wh_params(wh),
+            Stmt::Select { wh, limit, .. } => wh_params(wh) + usize::from(*limit),
         }
     }
+}
+
+/// Bindings a `WHERE` clause consumes.
+pub(crate) fn wh_params(wh: &[Cond]) -> usize {
+    wh.iter()
+        .map(|c| match c.op {
+            CmpOp::In(n) => n,
+            _ => 1,
+        })
+        .sum()
 }
 
 struct P {
@@ -214,6 +226,29 @@ impl P {
         self.i += 1;
         loop {
             let col = self.ident()?;
+            if self.is_kw("in") {
+                self.i += 1;
+                self.punct("(")?;
+                let mut n = 0;
+                loop {
+                    self.param()?;
+                    n += 1;
+                    if !matches!(self.peek(), Some(Tok::Punct(","))) {
+                        break;
+                    }
+                    self.i += 1;
+                }
+                self.punct(")")?;
+                out.push(Cond {
+                    col,
+                    op: CmpOp::In(n),
+                });
+                if !self.is_kw("and") {
+                    return Ok(out);
+                }
+                self.i += 1;
+                continue;
+            }
             let op = match self.next() {
                 Some(Tok::Punct("=")) => CmpOp::Eq,
                 Some(Tok::Punct("!=")) => CmpOp::Ne,
@@ -388,78 +423,5 @@ fn parse_create(p: &mut P) -> Result<Stmt, StoreError> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::schema;
-
-    #[test]
-    fn every_schema_constant_parses() {
-        for s in schema::SHARD_SCHEMA.iter().chain(schema::LEDGER_SCHEMA) {
-            assert!(
-                matches!(parse(s).unwrap(), Stmt::Create { .. } | Stmt::Index { .. }),
-                "{s}"
-            );
-        }
-        for s in [
-            schema::META_SELECT_ALL,
-            schema::META_PUT,
-            schema::META_DELETE_ALL,
-            schema::VEC_PUT,
-            schema::VEC_DELETE,
-            schema::VEC_PAGE,
-            schema::VEC_DELETE_ALL,
-            schema::OPS_APPEND,
-            schema::OPS_PAGE,
-            schema::OPS_ACTORS,
-            schema::OPS_DELETE_ALL,
-            schema::FILTER_PUT,
-            schema::FILTER_DELETE_ID,
-            schema::FILTER_DELETE_ALL,
-            schema::LMETA_SELECT_ALL,
-            schema::LMETA_PUT,
-            schema::MEMBER_SELECT_ALL,
-            schema::MEMBER_INSERT,
-            schema::MEMBER_PUT,
-            schema::MEMBER_DELETE,
-            schema::CATALOG_SELECT_ALL,
-            schema::CATALOG_INSERT,
-            schema::CATALOG_SET_STATE,
-            schema::IDEM_SELECT,
-            schema::IDEM_PUT,
-            schema::IDEM_EXPIRED,
-            schema::IDEM_DELETE,
-            schema::OPS_PRUNE,
-        ] {
-            parse(s).unwrap_or_else(|e| panic!("{s}: {e}"));
-        }
-    }
-
-    #[test]
-    fn pk_detection() {
-        match parse(schema::SHARD_SCHEMA[3]).unwrap() {
-            Stmt::Create { pk, .. } => assert_eq!(pk, vec!["key", "value", "id"]),
-            _ => unreachable!(),
-        }
-        match parse(schema::SHARD_SCHEMA[1]).unwrap() {
-            Stmt::Create { pk, cols, .. } => {
-                assert_eq!(pk, vec!["id"]);
-                assert_eq!(cols.len(), 8);
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    #[test]
-    fn rejects_unsupported_sql() {
-        for s in [
-            "SELECT COUNT(*) FROM t",
-            "SELECT a FROM t WHERE a = 1",
-            "DROP TABLE t",
-            "SELECT a FROM t; DELETE FROM t",
-            "INSERT INTO t (a) SELECT a FROM u",
-            "SELECT a FROM t WHERE a = ? OR b = ?",
-        ] {
-            assert!(parse(s).is_err(), "{s}");
-        }
-    }
-}
+#[path = "parse_tests.rs"]
+mod tests;

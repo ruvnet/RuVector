@@ -15,6 +15,9 @@ use crate::wire::unavailable;
 use ruvector_edge_store::{OpError, Row, SqlStore, StoreError, TenantLedger as LedgerState, Value};
 use ruvector_edge_tenancy::{DoName, EntropySource, TenancyError};
 use std::cell::RefCell;
+
+#[path = "shard_wipe.rs"]
+pub mod wipe;
 use worker::{
     durable_object, DurableObject, Env, Headers, Method, Request, RequestInit, Response, Result,
     SqlStorage, SqlStorageValue, State,
@@ -175,16 +178,58 @@ impl DurableObject for VectorShard {
         let id = self.state.id();
         let key = id.to_string();
         let own_name = id.name();
-        let out = HOST.with(|h| {
-            shard_core::serve(
-                &mut h.borrow_mut(),
-                &key,
-                own_name.as_deref(),
-                &self.sql,
-                &body,
-            )
+        // Collection drop (ADR-351 §7.2): every row goes and `meta.wiped`
+        // stays (no `deleteAll`: the marker is what refuses a write that
+        // raced the drop). The reply carries the usage to release.
+        if let Some((out, wiped)) = wipe::serve(own_name.as_deref(), &self.sql, &body) {
+            if wiped {
+                // Drop the resident index and any pending maintenance alarm,
+                // so neither can flush stale state into the wiped storage (a
+                // cold load sees the marker and schedules nothing).
+                HOST.with(|h| h.borrow_mut().evict(&key));
+                if let Err(e) = self.state.storage().delete_alarm().await {
+                    worker::console_warn!("vector shard wipe: deleteAlarm failed: {e}");
+                }
+            }
+            return json_reply(out);
+        }
+        let (out, next) = HOST.with(|h| {
+            let mut host = h.borrow_mut();
+            let out = shard_core::serve(&mut host, &key, own_name.as_deref(), &self.sql, &body);
+            (out, shard_core::next_alarm(&host, &key))
         });
+        // After the synchronous call (its SQL already issued): schedule
+        // index maintenance (timer flush, compaction, requantize).
+        if let Some(ms) = next {
+            self.schedule(ms).await;
+        }
         json_reply(out)
+    }
+
+    /// ADR-351 §6.1 alarm: one maintenance step, then re-arm if more is due.
+    async fn alarm(&self) -> Result<Response> {
+        let key = self.state.id().to_string();
+        let next = HOST.with(|h| shard_core::alarm(&mut h.borrow_mut(), &key, &self.sql));
+        if let Some(ms) = next {
+            self.schedule(ms).await;
+        }
+        Response::ok("")
+    }
+}
+
+impl VectorShard {
+    /// Arm the alarm `delay_ms` from now: always for urgent work, else only
+    /// when none is pending (so a stream of writes never postpones the
+    /// timer flush indefinitely).
+    async fn schedule(&self, delay_ms: u64) {
+        let storage = self.state.storage();
+        let urgent = delay_ms <= shard_core::URGENT_ALARM_MS;
+        if urgent || matches!(storage.get_alarm().await, Ok(None)) {
+            let ms = i64::try_from(delay_ms).unwrap_or(i64::MAX);
+            if let Err(e) = storage.set_alarm(ms).await {
+                worker::console_warn!("vector shard: set_alarm failed: {e}");
+            }
+        }
     }
 }
 
@@ -235,5 +280,16 @@ impl Backend for DoBackend<'_> {
         self.post(SHARD_BINDING, name, body)
             .await
             .map_err(|_| unavailable())
+    }
+
+    async fn charge_fanout(
+        &self,
+        ctx: &ruvector_edge_store::CallerContext,
+        extra: u32,
+    ) -> std::result::Result<(), OpError> {
+        use crate::api::ratelimit::{admit_n, Class, EnvLimiter};
+        admit_n(&EnvLimiter(self.env), Class::Read, ctx, extra)
+            .await
+            .map_err(|_| OpError::new(ruvector_edge_store::ErrorCode::RateLimited, "rate limited"))
     }
 }

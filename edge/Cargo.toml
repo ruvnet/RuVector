@@ -50,3 +50,8 @@ codegen-units = 1
 # for catch wrappers" with worker-build 0.8.5). wasm-bindgen strips names.
 strip = "debuginfo"
 panic = "abort"
+
+# Native tests build and query 5k x 384 HNSW / flat indexes (M2 e2e); at
+# opt-level 0 that takes minutes. Optimise only the index crate in dev/test.
+[profile.dev.package.ruvector-edge-index]
+opt-level = 3

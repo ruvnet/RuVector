@@ -59,6 +59,7 @@ fn resident_bytes_count_ids_and_metadata_and_cap_the_shard() {
         metric: Metric::L2,
         filterable_keys: vec!["blob".into()],
         float_cap: 3_000_000,
+        index: Default::default(),
     };
     let actor = Actor {
         sub: "es1_m",
@@ -90,19 +91,26 @@ fn resident_bytes_count_ids_and_metadata_and_cap_the_shard() {
     assert_eq!(err, Some(ErrorCode::BudgetExceeded));
     assert!(s.len() < 4_000, "{} rows admitted", s.len());
     assert!(s.resident_bytes() <= SHARD_RESIDENT_CAP_BYTES);
+    // The declared filter key keeps its 4000-byte value resident (compact
+    // form); metadata text itself stays in SQLite at M2.
     assert!(s.resident_bytes() >= s.len() as u64 * (4000 + 2 * 256));
-    assert_eq!(
-        VectorShard::open(&st).unwrap().resident_bytes(),
-        s.resident_bytes()
-    );
+    // A cold load accounts the same rows; its index is decoded at exact
+    // capacity, so the two agree up to allocation slack.
+    let close = |a: u64, b: u64| a.abs_diff(b) < b / 50;
+    let reopened = |st: &MemSqlStore| {
+        let mut r = VectorShard::open(st).unwrap();
+        r.load_index(st).unwrap();
+        r
+    };
+    let r = reopened(&st);
+    assert!(close(r.resident_bytes(), s.resident_bytes()));
     let ids: Vec<String> = (0..10).map(|i| format!("{:0>256}", i)).collect();
     let before = s.resident_bytes();
     s.delete(&st, &dm, &ids, actor, false, T0).unwrap();
     assert!(before - s.resident_bytes() >= 10 * (4000 + 2 * 256));
-    assert_eq!(
-        VectorShard::open(&st).unwrap().resident_bytes(),
-        s.resident_bytes()
-    );
+    let r = reopened(&st);
+    assert_eq!(r.len(), s.len());
+    assert!(close(r.resident_bytes(), s.resident_bytes()));
 }
 
 #[test]
@@ -307,19 +315,27 @@ fn poisoned_ledger_recovers_once_storage_does() {
 fn extreme_magnitudes_give_finite_ordered_distances() {
     let (mut h, t) = setup(1);
     let o = ctx(&t, "owner", write_caps());
+    // M2: the int8 index needs a finite f32 norm, so a vector whose squared
+    // norm overflows f32 is refused at the boundary (400), never stored.
+    let over = json!({"collection": "c", "vectors": [{"id": "x", "values": [3.0e38, 3.0e38]}]});
+    let (s, r) = h.call(&o, "vector_upsert", over);
+    assert_eq!((s, code(&r)), (400, "non_finite_value"), "{r}");
+    let q = json!({"collection": "c", "vector": [3.0e38, 3.0e38], "top_k": 2});
+    assert_eq!(h.call(&o, "vector_query", q).0, 400);
     let body = json!({"collection": "c", "vectors": [
-        {"id": "far", "values": [-3.0e38, -3.0e38]},
-        {"id": "near", "values": [3.0e38, 2.9e38]},
+        {"id": "far", "values": [-1.0e19, -1.0e19]},
+        {"id": "near", "values": [1.0e19, 0.9e19]},
     ]});
     assert_eq!(h.call(&o, "vector_upsert", body).0, 200);
-    let q = json!({"collection": "c", "vector": [3.0e38, 3.0e38], "top_k": 2});
+    let q = json!({"collection": "c", "vector": [1.0e19, 1.0e19], "top_k": 2});
     let (s, r) = h.call(&o, "vector_query", q);
     assert_eq!(s, 200);
     let m = r["result"]["matches"].as_array().unwrap();
     assert_eq!(m[0]["id"], "near");
     assert_eq!(m[1]["id"], "far");
     assert!(m.iter().all(|x| x["distance"].is_number()), "{r}");
-    assert_eq!(m[1]["distance"].as_f64().unwrap() as f32, f32::MAX);
+    let d = |i: usize| m[i]["distance"].as_f64().unwrap();
+    assert!(d(0).is_finite() && d(1).is_finite() && d(0) < d(1), "{r}");
 }
 
 #[test]
@@ -339,6 +355,7 @@ fn query_steps_scale_with_filter_values() {
         metric: Metric::L2,
         filterable_keys: keys.clone(),
         float_cap: 100,
+        index: Default::default(),
     };
     let rows = (0..10)
         .map(|i| UpsertRow {
@@ -360,9 +377,22 @@ fn query_steps_scale_with_filter_values() {
         T0,
     )
     .unwrap();
-    assert_eq!(s.query_steps(&Filter::default()), 10);
-    let f = Filter::parse(&json!({"g": {"$in": ["a", "b", "c"]}}), &keys).unwrap();
-    assert_eq!(s.query_steps(&f), 40);
+    // Flat: rows x filter cost, plus the rerank rows (here 1).
+    let v = |filter: Option<Json>| {
+        let req = ruvector_edge_store::QueryRequest {
+            vector: vec![0.0],
+            top_k: 1,
+            filter,
+            include: vec![],
+            ef: None,
+            rerank: Some(1),
+        };
+        ruvector_edge_store::shard::validate_query(&req, &cfg).unwrap()
+    };
+    assert_eq!(s.query_steps(&v(None)), 11);
+    let f = json!({"g": {"$in": ["a", "b", "c"]}});
+    Filter::parse(&f, &keys).unwrap();
+    assert_eq!(s.query_steps(&v(Some(f))), 41);
     // No filter: a full 6-shard collection of the smallest rows fits the budget.
     const _: () = assert!(ruvector_edge_store::shard::MAX_QUERY_STEPS >= 6 * 100_000);
 }

@@ -18,6 +18,9 @@ use serde_json::{json, Map, Value as Json};
 use sha2::{Digest, Sha256};
 use worker::Method;
 
+#[path = "tenant_admin.rs"]
+pub mod admin;
+
 /// A pure HTTP reply.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ApiReply {
@@ -118,6 +121,16 @@ pub enum ApiRoute {
     Fetch(String),
     /// `POST /v1/ops`.
     Ops,
+    /// `DELETE /v1/collections/{c}` (drop: owner).
+    Drop(String),
+    /// `GET /v1/tenant/members`.
+    Members,
+    /// `POST /v1/tenant/members`.
+    Invite,
+    /// `DELETE /v1/tenant/members/{sub}`.
+    RemoveMember(String),
+    /// `POST /v1/tenant/deny`.
+    Deny,
 }
 
 fn name_ok(c: &str) -> bool {
@@ -141,6 +154,11 @@ pub fn parse(method: &Method, path: &str) -> Option<ApiRoute> {
         ["collections"] if post => ApiRoute::Create,
         ["collections"] if get => ApiRoute::List,
         ["collections", c] if get && name_ok(c) => ApiRoute::Get(c.to_string()),
+        ["collections", c] if del && name_ok(c) => ApiRoute::Drop(c.to_string()),
+        ["tenant", "members"] if get => ApiRoute::Members,
+        ["tenant", "members"] if post => ApiRoute::Invite,
+        ["tenant", "members", s] if del && !s.is_empty() => ApiRoute::RemoveMember(s.to_string()),
+        ["tenant", "deny"] if post => ApiRoute::Deny,
         ["collections", c, tail] if name_ok(c) => {
             let c = c.to_string();
             match (*tail, post, del) {
@@ -232,7 +250,13 @@ async fn exec_route<B: Backend>(
         ApiRoute::Delete(c) => op(Op::VectorDelete, Some(c), true)?,
         ApiRoute::Query(c) => op(Op::VectorQuery, Some(c), false)?,
         ApiRoute::Fetch(c) => op(Op::VectorFetch, Some(c), false)?,
-        ApiRoute::Me | ApiRoute::Ops => return Err(OpError::not_found()),
+        ApiRoute::Me
+        | ApiRoute::Ops
+        | ApiRoute::Drop(_)
+        | ApiRoute::Members
+        | ApiRoute::Invite
+        | ApiRoute::RemoveMember(_)
+        | ApiRoute::Deny => return Err(OpError::not_found()),
     };
     let status = if op == Op::CollectionCreate && !dry_run {
         201
@@ -304,7 +328,8 @@ fn replayed(stored: &str) -> Result<(u16, Json), OpError> {
 /// Handle a data route (everything but `/v1/ops`) for a verified caller.
 /// `metadata_url` is the `/v1` RFC 9728 document (step-up challenges);
 /// `idempotency_key` the `Idempotency-Key` header (§7: honoured on the
-/// mutating routes — create, upsert, delete — except dry runs).
+/// mutating routes — create, upsert, delete — except dry runs; the tenant
+/// admin routes and the collection drop are naturally idempotent).
 pub async fn handle<B: Backend>(
     b: &B,
     caller: &Caller,
@@ -314,8 +339,14 @@ pub async fn handle<B: Backend>(
     now: u64,
     metadata_url: &str,
 ) -> ApiReply {
+    let ctx = &caller.ctx;
     let res = match route {
         ApiRoute::Me => me(b, caller).await.map(|v| (200, v)),
+        ApiRoute::Members => admin::members(b, ctx).await,
+        ApiRoute::Invite => admin::invite(b, ctx, body, now).await,
+        ApiRoute::RemoveMember(s) => admin::remove(b, ctx, s, now).await,
+        ApiRoute::Deny => admin::deny(b, ctx, body, now).await,
+        ApiRoute::Drop(c) => admin::drop(b, ctx, c, now).await,
         _ => exec_route(b, &caller.ctx, route, body, idempotency_key, now).await,
     };
     match res {
@@ -323,3 +354,13 @@ pub async fn handle<B: Backend>(
         Err(e) => ApiReply::problem(&e, metadata_url),
     }
 }
+
+#[cfg(test)]
+#[path = "admin_tests.rs"]
+mod admin_tests;
+#[cfg(test)]
+#[path = "drop_race_tests.rs"]
+mod drop_race_tests;
+#[cfg(test)]
+#[path = "drop_tests.rs"]
+mod drop_tests;

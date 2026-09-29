@@ -9,9 +9,8 @@
 //! boundary.
 
 use ruvector_edge_auth::Capability;
-use ruvector_edge_store::shard::{UpsertRow, UsageDelta};
-use ruvector_edge_store::{ErrorCode, Metric, OpError, QueryRequest, ShardConfig};
-use ruvector_edge_tenancy::quota::limits::M1_SHARD_FLOAT_CAP;
+use ruvector_edge_store::shard::{UpsertRow, UsageDelta, M2_SHARD_FLOAT_CAP};
+use ruvector_edge_store::{ErrorCode, IndexConfig, Metric, OpError, QueryRequest, ShardConfig};
 use ruvector_edge_tenancy::QuotaDelta;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as Json};
@@ -72,16 +71,20 @@ pub struct CfgWire {
     pub metric: Metric,
     /// Declared filterable keys.
     pub filterable_keys: Vec<String>,
+    /// Index kind (`flat` when absent: an M1 gateway never sent it).
+    #[serde(default)]
+    pub index: IndexConfig,
 }
 
 impl CfgWire {
-    /// The store's shard config (M1 float cap).
+    /// The store's shard config (M2 stored-float cap).
     pub fn to_config(&self) -> ShardConfig {
         ShardConfig {
             dim: self.dim,
             metric: self.metric,
             filterable_keys: self.filterable_keys.clone(),
-            float_cap: M1_SHARD_FLOAT_CAP,
+            float_cap: M2_SHARD_FLOAT_CAP,
+            index: self.index,
         }
     }
 }
@@ -336,7 +339,8 @@ pub enum ShardCall {
         actor: ActorWire,
         now: u64,
     },
-    /// Exact top-k; `steps_before` is the fan-out's running scan budget.
+    /// Top-k (int8 candidates + exact rerank); `steps_before` is the
+    /// fan-out's running scan budget.
     Query {
         cfg: CfgWire,
         req: QueryRequest,

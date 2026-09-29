@@ -11,8 +11,8 @@ use crate::error::{ErrorCode, OpError};
 use crate::filter::validate_filterable_keys;
 use crate::ports::{col_int, col_text, SqlStore, StoreError, Value};
 use crate::schema;
-use crate::shard::ShardConfig;
-use ruvector_edge_tenancy::quota::{dimension_ok, limits::M1_SHARD_FLOAT_CAP};
+use crate::shard::{IndexConfig, ShardConfig, M2_SHARD_FLOAT_CAP};
+use ruvector_edge_tenancy::quota::dimension_ok;
 use ruvector_edge_tenancy::{
     CollectionName, CollectionUid, EntropySource, LedgerMeta, QuotaDelta, ShardCount, UidAllocator,
 };
@@ -22,7 +22,8 @@ use serde_json::{json, Value as Json};
 /// Attempts at allocating a non-colliding uid before failing closed.
 pub const UID_ALLOC_ATTEMPTS: usize = 8;
 
-/// `POST /v1/collections` body (M1: `index` must be `flat`, no embedder).
+/// `POST /v1/collections` body (`index`: `flat` (default) or `hnsw`; no
+/// embedder before M3).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CreateCollection {
@@ -32,9 +33,12 @@ pub struct CreateCollection {
     pub dim: u32,
     /// `cosine | l2 | dot`.
     pub metric: Metric,
-    /// `flat` (default) at M1.
+    /// `flat` (default: int8 scan + f32 rerank) or `hnsw`.
     #[serde(default)]
     pub index: Option<String>,
+    /// HNSW parameters (`index = hnsw` only).
+    #[serde(default)]
+    pub hnsw: Option<HnswSpec>,
     /// M3; must be absent at M1.
     #[serde(default)]
     pub embedder: Option<String>,
@@ -49,11 +53,49 @@ pub struct CreateCollection {
     pub origin: Option<String>,
 }
 
+/// `hnsw: {m: 8..48, ef_construction: 32..200}` (ADR §7).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HnswSpec {
+    /// Links per upper-layer node.
+    #[serde(default)]
+    pub m: Option<u16>,
+    /// Construction beam.
+    #[serde(default)]
+    pub ef_construction: Option<u16>,
+}
+
+impl CreateCollection {
+    /// The index configuration this spec asks for.
+    pub fn index_config(&self) -> Result<IndexConfig, OpError> {
+        let cfg = match (self.index.as_deref().unwrap_or("flat"), self.hnsw) {
+            ("flat", None) => IndexConfig::Flat,
+            ("hnsw", h) => IndexConfig::Hnsw {
+                m: h.and_then(|h| h.m)
+                    .unwrap_or(crate::shard::codec::HNSW_M_DEFAULT),
+                ef_construction: h
+                    .and_then(|h| h.ef_construction)
+                    .unwrap_or(crate::shard::codec::HNSW_EFC_DEFAULT),
+            },
+            ("flat", Some(_)) => return Err(OpError::invalid("hnsw params need index hnsw")),
+            _ => return Err(OpError::invalid("index kind not available")),
+        };
+        if !cfg.in_range() {
+            return Err(OpError::invalid("hnsw params out of range"));
+        }
+        Ok(cfg)
+    }
+}
+
 /// Catalog row state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CollectionState {
     /// Serving.
     Live,
+    /// Being dropped: no longer served (reads and writes `404`), its shards
+    /// are being wiped, its name stays reserved until [`TenantLedger::
+    /// purge_collection`] (a retried drop finishes the wipe).
+    Deleting,
     /// Tombstoned; uid reserved forever.
     Deleted,
 }
@@ -62,6 +104,7 @@ impl CollectionState {
     fn as_str(self) -> &'static str {
         match self {
             CollectionState::Live => "live",
+            CollectionState::Deleting => "deleting",
             CollectionState::Deleted => "deleted",
         }
     }
@@ -90,6 +133,8 @@ pub struct CatalogEntry {
     pub created_at: u64,
     /// Declared filterable keys.
     pub filterable_keys: Vec<String>,
+    /// Index kind.
+    pub index: IndexConfig,
 }
 
 impl CatalogEntry {
@@ -99,23 +144,28 @@ impl CatalogEntry {
             dim: self.dim,
             metric: self.metric,
             filterable_keys: self.filterable_keys.clone(),
-            float_cap: M1_SHARD_FLOAT_CAP,
+            float_cap: M2_SHARD_FLOAT_CAP,
+            index: self.index,
         }
     }
 
     /// Public JSON view.
     pub fn to_json(&self) -> Json {
-        json!({
+        let mut j = json!({
             "name": self.name,
             "collection_uid": self.uid.to_hex(),
             "dim": self.dim,
             "metric": self.metric.as_str(),
-            "index": "flat",
+            "index": self.index.kind_str(),
             "shards": self.shard_count.get(),
             "filterable_keys": self.filterable_keys,
             "origin": self.origin,
             "created_at": self.created_at,
-        })
+        });
+        if let IndexConfig::Hnsw { m, ef_construction } = self.index {
+            j["hnsw"] = json!({ "m": m, "ef_construction": ef_construction });
+        }
+        j
     }
 }
 
@@ -128,6 +178,7 @@ pub(super) fn load(store: &dyn SqlStore) -> Result<Vec<CatalogEntry>, StoreError
     for r in store.query(schema::CATALOG_SELECT_ALL, &[])? {
         let state = match col_text(&r, 8, "catalog.state")?.as_str() {
             "live" => CollectionState::Live,
+            "deleting" => CollectionState::Deleting,
             "deleted" => CollectionState::Deleted,
             _ => return Err(StoreError::Corrupt("catalog.state")),
         };
@@ -152,6 +203,8 @@ pub(super) fn load(store: &dyn SqlStore) -> Result<Vec<CatalogEntry>, StoreError
             created_at: int(11, "catalog.created_at")?,
             filterable_keys: serde_json::from_str(&col_text(&r, 12, "catalog.filterable_keys")?)
                 .map_err(|_| StoreError::Corrupt("catalog.filterable_keys"))?,
+            index: IndexConfig::from_catalog(&col_text(&r, 3, "catalog.kind")?)
+                .ok_or(StoreError::Corrupt("catalog.kind"))?,
         });
     }
     Ok(out)
@@ -216,9 +269,7 @@ impl TenantLedger {
         if !dimension_ok(spec.dim) {
             return Err(OpError::invalid("dim out of range"));
         }
-        if spec.index.as_deref().is_some_and(|i| i != "flat") {
-            return Err(OpError::invalid("index kind not available"));
-        }
+        spec.index_config()?;
         if spec.embedder.is_some() {
             return Err(OpError::invalid("embedder not available"));
         }
@@ -227,12 +278,20 @@ impl TenantLedger {
             validate_origin(o)?;
         }
         let shard_count = ShardCount::new(spec.shards.unwrap_or(1))?;
-        if self
+        match self
             .catalog
             .iter()
-            .any(|c| c.state == CollectionState::Live && c.name == name)
+            .find(|c| c.state != CollectionState::Deleted && c.name == name)
+            .map(|c| c.state)
         {
-            return Err(OpError::new(ErrorCode::Conflict, "collection exists"));
+            Some(CollectionState::Deleting) => {
+                return Err(OpError::new(
+                    ErrorCode::Conflict,
+                    "collection is being deleted; retry the DELETE",
+                ))
+            }
+            Some(_) => return Err(OpError::new(ErrorCode::Conflict, "collection exists")),
+            None => {}
         }
         let delta = QuotaDelta {
             collections: 1,
@@ -279,6 +338,7 @@ impl TenantLedger {
             created_by: created_by.to_string(),
             created_at: now,
             filterable_keys: spec.filterable_keys.clone(),
+            index: spec.index_config()?,
         };
         let usage_json = serde_json::to_string(&usage)
             .map_err(|_| OpError::new(ErrorCode::ServerError, "usage"))?;
@@ -313,9 +373,13 @@ impl TenantLedger {
         Ok(entry)
     }
 
-    /// Tombstone a live collection and release its collection slot. The
-    /// caller wipes the collection's shards first and releases their vector
-    /// usage with [`TenantLedger::admit`].
+    /// Begin dropping the collection named `name`: a live one becomes
+    /// `Deleting` (no longer served; its collection slot is released), one
+    /// already `Deleting` is returned as is (a retried drop finishes its
+    /// wipe). The ledger picks the uid here, atomically with the state
+    /// change, so a drop can never land on a newer collection of the same
+    /// name. The caller then wipes that uid's shards and calls
+    /// [`TenantLedger::purge_collection`].
     pub fn drop_collection(
         &mut self,
         store: &dyn SqlStore,
@@ -326,32 +390,69 @@ impl TenantLedger {
         let idx = self
             .catalog
             .iter()
-            .position(|c| c.state == CollectionState::Live && c.name == name)
+            .position(|c| c.state != CollectionState::Deleted && c.name == name)
             .ok_or(OpError::not_found())?;
+        if self.catalog[idx].state == CollectionState::Deleting {
+            return Ok(self.catalog[idx].clone());
+        }
         let delta = QuotaDelta {
             collections: -1,
             ..QuotaDelta::default()
         };
         let usage = ruvector_edge_tenancy::admit(self.limits(), &self.usage, &delta)?;
-        let usage_json = serde_json::to_string(&usage)
-            .map_err(|_| OpError::new(ErrorCode::ServerError, "usage"))?;
+        self.set_state(store, idx, CollectionState::Deleting, Some(usage))
+    }
+
+    /// Finish a drop: the `Deleting` collection `uid` (shards wiped)
+    /// becomes `Deleted`, its uid reserved forever and its name free.
+    /// Idempotent for an already `Deleted` uid; `404` for any other.
+    pub fn purge_collection(
+        &mut self,
+        store: &dyn SqlStore,
+        expected: &LedgerMeta,
+        uid: CollectionUid,
+    ) -> Result<CatalogEntry, OpError> {
+        self.guard(expected, true)?;
+        let idx = self
+            .catalog
+            .iter()
+            .position(|c| c.uid == uid && c.state != CollectionState::Live)
+            .ok_or(OpError::not_found())?;
+        if self.catalog[idx].state == CollectionState::Deleted {
+            return Ok(self.catalog[idx].clone());
+        }
+        self.set_state(store, idx, CollectionState::Deleted, None)
+    }
+
+    fn set_state(
+        &mut self,
+        store: &dyn SqlStore,
+        idx: usize,
+        state: CollectionState,
+        usage: Option<ruvector_edge_tenancy::Usage>,
+    ) -> Result<CatalogEntry, OpError> {
         let uid = self.catalog[idx].uid.to_hex();
+        let usage_json = usage
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|_| OpError::new(ErrorCode::ServerError, "usage"))?;
         let res = store
             .exec(
                 schema::CATALOG_SET_STATE,
-                &[CollectionState::Deleted.as_str().into(), uid.into()],
+                &[state.as_str().into(), uid.into()],
             )
-            .and_then(|_| {
-                store.exec(
-                    schema::LMETA_PUT,
-                    &[super::keys::USAGE.into(), usage_json.into()],
-                )
+            .and_then(|_| match usage_json {
+                Some(j) => store.exec(schema::LMETA_PUT, &[super::keys::USAGE.into(), j.into()]),
+                None => Ok(0),
             });
         if let Err(e) = res {
             return self.poison(e);
         }
-        self.usage = usage;
-        self.catalog[idx].state = CollectionState::Deleted;
+        if let Some(u) = usage {
+            self.usage = u;
+        }
+        self.catalog[idx].state = state;
         Ok(self.catalog[idx].clone())
     }
 }
@@ -362,7 +463,7 @@ fn catalog_row(e: &CatalogEntry) -> Result<Vec<Value>, StoreError> {
         e.uid.to_hex().into(),
         e.name.as_str().into(),
         "vector".into(),
-        "flat".into(),
+        e.index.to_catalog().into(),
         i64::from(e.dim).into(),
         e.metric.as_str().into(),
         Value::Null,

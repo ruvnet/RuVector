@@ -419,4 +419,47 @@ mod tests {
         assert!(!toml.lines().any(|l| l.trim_start().starts_with("routes")));
         assert!(!toml.lines().any(|l| l.trim() == "[[routes]]"));
     }
+
+    /// ADR-351 §10 layer 2: every rate budget the code charges is declared
+    /// as a `[[ratelimits]]` binding with the same limit and period, with
+    /// distinct namespaces, and nothing else is declared.
+    #[test]
+    fn wrangler_declares_every_rate_limit_budget() {
+        use crate::api::ratelimit::BUDGETS;
+        let toml = include_str!("../wrangler.toml");
+        let mut declared = Vec::new();
+        for block in toml.split("[[ratelimits]]").skip(1) {
+            let block = block.split("\n[").next().unwrap();
+            let field = |k: &str| {
+                block
+                    .lines()
+                    .find_map(|l| l.trim().strip_prefix(k)?.trim().strip_prefix('='))
+                    .map(|v| v.trim().trim_matches('"').to_string())
+                    .unwrap_or_else(|| panic!("{k} missing in {block}"))
+            };
+            declared.push((field("name"), field("namespace_id"), field("simple")));
+        }
+        let mut want: Vec<_> = BUDGETS
+            .iter()
+            .flat_map(|(_, u, o)| [*u, *o])
+            .map(|b| {
+                let simple = format!("{{ limit = {}, period = {} }}", b.limit, b.period_s);
+                (b.binding.to_string(), simple)
+            })
+            .collect();
+        let mut got: Vec<_> = declared
+            .iter()
+            .map(|(n, _, s)| (n.clone(), s.clone()))
+            .collect();
+        want.sort();
+        got.sort();
+        assert_eq!(got, want);
+        let mut ns: Vec<_> = declared.iter().map(|(_, n, _)| n.clone()).collect();
+        ns.sort();
+        ns.dedup();
+        assert_eq!(ns.len(), declared.len(), "namespace_id reused");
+        assert!(BUDGETS
+            .iter()
+            .all(|(_, u, o)| [u, o].iter().all(|b| b.period_s == 10 || b.period_s == 60)));
+    }
 }

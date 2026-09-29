@@ -39,6 +39,10 @@ struct QueryArgs {
     filter: Option<Json>,
     #[serde(default)]
     include: Vec<String>,
+    #[serde(default)]
+    ef: Option<u32>,
+    #[serde(default)]
+    rerank: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -108,7 +112,8 @@ pub(crate) fn vector_upsert<S: SqlStore + Default>(
     let mut total = UsageDelta::default();
     for (i, rows) in groups {
         let dm = shard_meta(c, &e, i)?;
-        let (_, shard) = cl.shard(&dm.do_name())?;
+        let (store, shard) = cl.shard(&dm.do_name())?;
+        shard.load_index(store)?;
         let plan = shard.plan_upsert(&dm, &cfg, rows)?;
         add(&mut total, plan.delta);
         plans.push((dm, plan));
@@ -183,6 +188,8 @@ pub(crate) fn vector_query<S: SqlStore + Default>(
         top_k: q.top_k,
         filter: q.filter,
         include: q.include,
+        ef: q.ef,
+        rerank: q.rerank,
     };
     // Every request-only check (includes, dimension, filter) runs before
     // any shard is loaded.
@@ -192,12 +199,12 @@ pub(crate) fn vector_query<S: SqlStore + Default>(
     for i in e.shard_count.indices() {
         let dm = shard_meta(c, &e, i)?;
         let name = dm.do_name();
-        let (_, shard) = cl.shard(&name)?;
-        steps = steps.saturating_add(shard.query_steps(&v.filter));
+        let (store, shard) = cl.shard(&name)?;
+        steps = steps.saturating_add(shard.query_steps(&v));
         if steps > MAX_QUERY_STEPS {
             return Err(OpError::new(ErrorCode::BudgetExceeded, "query step budget"));
         }
-        let out = shard.query(&dm, &cfg, &req)?;
+        let out = shard.query(store, &dm, &cfg, &req)?;
         scanned += out.scanned;
         all.extend(out.matches);
         cl.touch(&name);
@@ -246,8 +253,8 @@ pub(crate) fn vector_fetch<S: SqlStore + Default>(
     for (i, part) in groups {
         let dm = shard_meta(c, &e, i)?;
         let name = dm.do_name();
-        let (_, shard) = cl.shard(&name)?;
-        let got = shard.fetch(&dm, &part, include_values)?;
+        let (store, shard) = cl.shard(&name)?;
+        let got = shard.fetch(store, &dm, &part, include_values)?;
         found.extend(got.into_iter().map(|m| (m.id.clone(), m)));
         cl.touch(&name);
     }

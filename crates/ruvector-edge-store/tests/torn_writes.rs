@@ -34,6 +34,7 @@ fn setup() -> (MemSqlStore, VectorShard, DoMeta, ShardConfig) {
         metric: Metric::L2,
         filterable_keys: vec!["g".into()],
         float_cap: 1_000,
+        index: Default::default(),
     };
     (st, s, dm, cfg)
 }

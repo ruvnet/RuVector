@@ -68,6 +68,8 @@ mod e2e_as;
 #[cfg(test)]
 mod e2e_m1_tests;
 #[cfg(test)]
+mod e2e_m2_tests;
+#[cfg(test)]
 mod e2e_tests;
 #[cfg(test)]
 mod e2e_world;

@@ -1,6 +1,9 @@
 //! M1 acceptance: exact top-10 over 1k × 384 equals an independent f64
-//! brute force, for every metric, directly on a shard and through the
-//! dispatcher with 3 shards and a metadata filter.
+//! brute force. At M2 the scan is int8 + f32 rerank, which is exact by
+//! construction when `rerank ≥ N` (every row reranked), as used here
+//! (recall at the default rerank: `tests/m2_recall.rs`). Checked
+//! for every metric, directly on a shard and through the dispatcher with
+//! 3 shards and a metadata filter.
 
 mod common;
 
@@ -90,6 +93,7 @@ fn shard_top10_equals_brute_force_all_metrics() {
             metric,
             filterable_keys: vec![],
             float_cap: 3_000_000,
+            index: Default::default(),
         };
         for chunk in data.chunks(500) {
             let rows = chunk
@@ -112,8 +116,10 @@ fn shard_top10_equals_brute_force_all_metrics() {
                 top_k: K as u32,
                 filter: None,
                 include: vec![],
+                ef: None,
+                rerank: Some(N as u32),
             };
-            let out = shard.query(&dm, &cfg, &req).unwrap();
+            let out = shard.query(&store, &dm, &cfg, &req).unwrap();
             assert_eq!(out.scanned, N as u64);
             let got: Vec<(String, f32)> = out
                 .matches
@@ -125,7 +131,7 @@ fn shard_top10_equals_brute_force_all_metrics() {
         // Cold load answers identically. 1000 ops exceed the op-log tail,
         // so the log was pruned and replay-from-scratch fails closed
         // (equivalence with replay is covered by `proptest_replay`).
-        let reopened = VectorShard::open(&store).unwrap();
+        let mut reopened = VectorShard::open(&store).unwrap();
         assert_eq!(reopened.state_digest(), shard.state_digest());
         assert!(VectorShard::rebuild_from_ops(&store).is_err());
         let q = Rng(7).vec(DIM);
@@ -134,10 +140,12 @@ fn shard_top10_equals_brute_force_all_metrics() {
             top_k: K as u32,
             filter: None,
             include: vec![],
+            ef: None,
+            rerank: Some(N as u32),
         };
         assert_eq!(
-            reopened.query(&dm, &cfg, &req).unwrap(),
-            shard.query(&dm, &cfg, &req).unwrap()
+            reopened.query(&store, &dm, &cfg, &req).unwrap(),
+            shard.query(&store, &dm, &cfg, &req).unwrap()
         );
     }
 }
@@ -191,7 +199,7 @@ fn dispatcher_three_shards_with_filter_equals_brute_force() {
         let (s, r) = h.call(
             &viewer,
             "vector_query",
-            json!({"collection": "docs", "vector": q, "top_k": K}),
+            json!({"collection": "docs", "vector": q, "top_k": K, "rerank": N}),
         );
         assert_eq!(s, 200, "{r}");
         assert_eq!(r["result"]["shards_queried"], 3);
@@ -202,7 +210,7 @@ fn dispatcher_three_shards_with_filter_equals_brute_force() {
             &viewer,
             "vector_query",
             json!({
-                "collection": "docs", "vector": q, "top_k": K, "include": ["metadata"],
+                "collection": "docs", "vector": q, "top_k": K, "rerank": N, "include": ["metadata"],
                 "filter": {"bucket": 2, "tag": {"$in": ["even"]}}
             }),
         );

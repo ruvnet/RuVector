@@ -10,7 +10,7 @@
 //! with the log before any new write is accepted. Re-issuing is idempotent
 //! (`INSERT OR REPLACE`, delete-by-id).
 
-use super::codec::{decode_upsert_body, encode_f32, keys, parse_meta};
+use super::codec::{decode_delete_body, decode_upsert_body, encode_f32, keys, parse_meta};
 use super::{VectorShard, PAGE_ROWS};
 use crate::filter::{compact, index_rows};
 use crate::ports::{col_int, col_text, SqlStore, StoreError, Value};
@@ -66,9 +66,18 @@ impl VectorShard {
                             .get(3)
                             .and_then(Value::as_blob)
                             .ok_or(StoreError::Corrupt("ops.body"))?;
-                        let (vals, meta) = decode_upsert_body(body, dim)?;
+                        let (logged, vals, meta) = decode_upsert_body(body, dim)?;
                         let parsed = meta.as_deref().map(parse_meta).transpose()?;
                         let iid = self.iid_for(&id);
+                        // Write-through (torn-write catch-up) trusts the
+                        // logged iid; a full-log rebuild re-derives it.
+                        let iid = match logged {
+                            Some(l) if write_through => {
+                                self.next_iid = self.next_iid.max(l + 1);
+                                l
+                            }
+                            _ => iid,
+                        };
                         if write_through {
                             let indexed = parsed
                                 .as_ref()
@@ -94,9 +103,11 @@ impl VectorShard {
                             }
                         }
                         let filt = compact(parsed.as_ref(), &cfg.filterable_keys);
-                        self.slab.put(id, iid, &vals, meta, filt);
+                        let meta_len = meta.as_ref().map_or(0, String::len);
+                        self.slab.put(id, iid, dim, meta_len, filt);
                     }
                     "delete" => {
+                        decode_delete_body(r.get(3).and_then(Value::as_blob))?;
                         if write_through {
                             store.exec(schema::VEC_DELETE, &[id.as_str().into()])?;
                             store.exec(schema::FILTER_DELETE_ID, &[id.as_str().into()])?;
@@ -133,7 +144,9 @@ impl VectorShard {
                 &[keys::NEXT_IID.into(), n.to_string().into()],
             )?;
         }
-        let cut = seq.saturating_sub(OPS_TAIL);
+        // Never prune ops an index fallback may replay (`persist`).
+        let floor = self.persisted.floor().unwrap_or(u64::MAX);
+        let cut = seq.saturating_sub(OPS_TAIL).min(floor);
         if cut <= self.snapshot_seq {
             return Ok(self.snapshot_seq);
         }

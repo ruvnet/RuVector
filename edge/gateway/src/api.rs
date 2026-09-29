@@ -1,20 +1,26 @@
 //! Workers glue for the authenticated data surface: `/v1/me`, the REST
-//! table, `/v1/ops` and `/v1/mcp`. Reads the body (bounded), builds the
-//! store-facing caller from the verified token, runs the pure handler over
-//! the Durable Object backend and renders the reply.
+//! table, `/v1/ops` and `/v1/mcp`. Charges the request to its rate budget
+//! and checks the tenant deny list ([`guard`]), reads the body (bounded),
+//! builds the store-facing caller from the verified token, runs the pure
+//! handler over the Durable Object backend and renders the reply.
 
 use crate::auth::Authenticated;
 use crate::backend::Backend;
 use crate::config::GatewayConfig;
 use crate::durable::DoBackend;
 use crate::platform::WorkerClock;
+use crate::rest::admin::deny_check;
 use crate::rest::{self, ApiReply, ApiRoute, Caller};
 use crate::routes::Route;
 use crate::{mcp, ops, respond};
+use ratelimit::{Class, EnvLimiter, Limiter};
 use ruvector_edge_auth::{prm, Clock};
 use ruvector_edge_store::{CallerContext, ErrorCode, OpError};
 use ruvector_edge_tenancy::ProblemCode;
 use worker::{Env, Method, Request, Response, Result};
+
+#[path = "ratelimit.rs"]
+pub mod ratelimit;
 
 /// Largest request body on any data route (ADR-351 §10: 1 MiB).
 pub const MAX_BODY_BYTES: usize = 1 << 20;
@@ -31,12 +37,45 @@ pub fn declared_too_large(req: &Request) -> bool {
 }
 
 fn render(r: ApiReply) -> Result<Response> {
-    respond::raw(
+    let limited = r.status == 429;
+    let mut resp = respond::raw(
         r.status,
         r.body,
         r.content_type,
         r.www_authenticate.as_deref(),
-    )
+    )?;
+    if limited {
+        // Every 429 is a §10 rate budget (one window).
+        let h = resp.headers_mut();
+        h.set("Retry-After", &ratelimit::PERIOD_S.to_string())?;
+        h.set(
+            "Access-Control-Expose-Headers",
+            "WWW-Authenticate, Retry-After",
+        )?;
+    }
+    Ok(resp)
+}
+
+/// Charge a mutating `/v1/ops` or `/v1/mcp` op to the write budget as
+/// well ([`ratelimit::op_class`]); `Some(429)` when over it.
+async fn op_budget(
+    env: &Env,
+    surface: Class,
+    ctx: &CallerContext,
+    body: &[u8],
+    md: &str,
+) -> Result<Option<Response>> {
+    let Some(class) = ratelimit::op_class(surface, body) else {
+        return Ok(None);
+    };
+    match ratelimit::admit(&EnvLimiter(env), class, ctx).await {
+        Ok(()) => Ok(None),
+        Err(s) => refused(Refused {
+            reply: ratelimit::limited(md),
+            retry_after: Some(s),
+        })
+        .map(Some),
+    }
 }
 
 /// The store-facing caller of a verified request, carrying the exchanged
@@ -85,6 +124,61 @@ pub async fn data<B: Backend>(
     }
 }
 
+/// A request refused before dispatch: the reply plus `Retry-After` (429).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Refused {
+    /// Problem reply.
+    pub reply: ApiReply,
+    /// `Retry-After` seconds (rate limited only).
+    pub retry_after: Option<u32>,
+}
+
+/// ADR-351 §10 layer 2 then §5.8: charge `class`'s user and tenant rate
+/// budgets (`429`), then refuse a denied `jti` / `family_id` / `sub` /
+/// `client_id` with `401 invalid_token` naming `metadata_url`. Rate first,
+/// so a denied token's flood is still throttled.
+pub async fn guard<B: Backend, L: Limiter>(
+    b: &B,
+    limiter: &L,
+    class: Class,
+    ctx: &CallerContext,
+    now: u64,
+    metadata_url: &str,
+) -> std::result::Result<(), Refused> {
+    if let Err(retry_after) = ratelimit::admit(limiter, class, ctx).await {
+        return Err(Refused {
+            reply: ratelimit::limited(metadata_url),
+            retry_after: Some(retry_after),
+        });
+    }
+    deny_check(b, ctx, now).await.map_err(|e| {
+        let mut reply = ApiReply::problem(&e, metadata_url);
+        if e.code == ErrorCode::InvalidToken {
+            reply.www_authenticate = Some(prm::www_authenticate_invalid_token(
+                metadata_url,
+                prm::CHALLENGE_SCOPE,
+            ));
+        }
+        Refused {
+            reply,
+            retry_after: None,
+        }
+    })
+}
+
+fn refused(r: Refused) -> Result<Response> {
+    let mut resp = render(r.reply)?;
+    if let Some(s) = r.retry_after {
+        let h = resp.headers_mut();
+        h.set("Retry-After", &s.to_string())?;
+        h.set(
+            "Access-Control-Expose-Headers",
+            "WWW-Authenticate, Retry-After",
+        )?;
+    }
+    Ok(resp)
+}
+
 /// Serve an authenticated `Me` / `Mcp` / `OtherV1` request.
 pub async fn serve(
     mut req: Request,
@@ -97,6 +191,16 @@ pub async fn serve(
     let caller = caller(auth);
     let backend = DoBackend { env };
     let now = WorkerClock.now_unix();
+    let (class, resource) = if route == Route::Mcp {
+        (Class::Mcp, &cfg.mcp_resource)
+    } else {
+        let api = rest::parse(&method, &path);
+        (ratelimit::class_of(api.as_ref()), &cfg.rest_resource)
+    };
+    let md = prm::metadata_url(resource);
+    if let Err(r) = guard(&backend, &EnvLimiter(env), class, &caller.ctx, now, &md).await {
+        return refused(r);
+    }
     if route == Route::Mcp {
         if path != "/v1/mcp" {
             return respond::problem(ProblemCode::NotFound, None);
@@ -111,19 +215,25 @@ pub async fn serve(
         if !mcp::protocol_header_ok(version.as_deref()) {
             return render(mcp::bad_protocol_version());
         }
-        let md = prm::metadata_url(&cfg.mcp_resource);
         let Some(body) = body(&mut req).await? else {
             return too_large(&md);
         };
+        if let Some(r) = op_budget(env, Class::Mcp, &caller.ctx, &body, &md).await? {
+            return Ok(r);
+        }
         return render(mcp::handle(&backend, &caller.ctx, &body, now, &md).await);
     }
-    let md = prm::metadata_url(&cfg.rest_resource);
     let Some(api) = rest::parse(&method, &path) else {
         return respond::problem(ProblemCode::NotFound, None);
     };
     let Some(body) = body(&mut req).await? else {
         return too_large(&md);
     };
+    if api == ApiRoute::Ops {
+        if let Some(r) = op_budget(env, Class::Ops, &caller.ctx, &body, &md).await? {
+            return Ok(r);
+        }
+    }
     let key = req.headers().get("Idempotency-Key").ok().flatten();
     render(data(&backend, cfg, &api, &caller, &body, key.as_deref(), now).await)
 }

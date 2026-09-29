@@ -41,7 +41,7 @@ proptest! {
         let st = MemSqlStore::new();
         let mut s = VectorShard::open(&st).unwrap();
         let dm = shard_meta_for(&tenant("org-p"), CollectionUid::from_bytes([4; 16]), ShardIndex::ZERO).unwrap();
-        let cfg = ShardConfig { dim: 3, metric, filterable_keys: vec!["g".into()], float_cap: 1_000 };
+        let cfg = ShardConfig { dim: 3, metric, filterable_keys: vec!["g".into()], float_cap: 1_000, index: Default::default() };
         let actor = Actor { sub: "es1_p", jti: "j", family_id: "f", act_sub: None };
         let mut model: BTreeMap<String, (Vec<f32>, Option<u8>)> = BTreeMap::new();
         for step in steps {
@@ -74,8 +74,8 @@ proptest! {
         // Filtered top-k equals a brute force over the model.
         if !model.is_empty() {
             let q = vec![0.5f32, -0.25, 1.0];
-            let req = QueryRequest { vector: q.clone(), top_k: 5, filter: Some(json!({"g": {"$in": [0, 2]}})), include: vec![] };
-            let got: Vec<String> = s.query(&dm, &cfg, &req).unwrap().matches.into_iter().map(|m| m.id).collect();
+            let req = QueryRequest { vector: q.clone(), top_k: 5, filter: Some(json!({"g": {"$in": [0, 2]}})), include: vec![], ef: None, rerank: None };
+            let got: Vec<String> = s.query(&st, &dm, &cfg, &req).unwrap().matches.into_iter().map(|m| m.id).collect();
             let dist = |v: &[f32]| ruvector_edge_store::distance::distance(metric, &q, ruvector_edge_store::distance::norm(&q), v, ruvector_edge_store::distance::norm(v));
             let mut want: Vec<(f64, String)> = model.iter()
                 .filter(|(_, (_, g))| matches!(g, Some(0) | Some(2)))
