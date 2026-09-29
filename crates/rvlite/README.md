@@ -86,6 +86,30 @@ await db.learning.recordTrajectory({ state: [0.1], action: 2, reward: 1.0 });
 await db.learning.train({ algorithm: 'q-learning', iterations: 1000 });
 ```
 
+## Cargo features
+
+| Feature | Default | What it adds |
+|---------|---------|--------------|
+| `browser` | yes | wasm-bindgen exports (`RvLite`, `RvLiteConfig`, `CypherEngine`), IndexedDB persistence, `JsValue` glue for the npm package |
+| `rvf-backend` | no | RVF file persistence |
+
+With `default-features = false`, rvlite is a plain Rust library: the `cypher`,
+`sql` and `sparql` engines plus the serde state types in `storage`. rvlite itself
+then depends on no `wasm-bindgen`, `js-sys` or `web-sys`. On `wasm32` targets,
+transitive dependencies (`getrandom`'s `js` backend, and `chrono`/`uuid` via
+`ruvector-core`) still link `wasm-bindgen`/`js-sys`; `web-sys` is never pulled
+in. Use this to embed the engines server-side, e.g. in a Cloudflare Worker via
+workers-rs:
+
+```toml
+rvlite = { version = "0.4", default-features = false }
+```
+
+**Upgrading from 0.3:** before 0.4.0 the browser bindings were always compiled
+and `default-features = false` had no effect. From 0.4.0 it removes them. If you
+set `default-features = false` and still use `RvLite`, `IndexedDBStorage` or
+`CypherEngine::execute`, add `features = ["browser"]`.
+
 ## 📦 Current Status (v0.1.0 - POC)
 
 This is a **proof of concept** to validate:

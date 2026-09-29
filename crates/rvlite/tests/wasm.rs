@@ -2,7 +2,7 @@
 //!
 //! These tests run in a browser-like environment using wasm-bindgen-test.
 
-#![cfg(target_arch = "wasm32")]
+#![cfg(all(target_arch = "wasm32", feature = "browser"))]
 
 use rvlite::RvLite;
 use wasm_bindgen_test::*;
