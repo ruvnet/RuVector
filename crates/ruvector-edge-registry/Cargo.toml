@@ -1,0 +1,41 @@
+[package]
+name = "ruvector-edge-registry"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.87"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "ruvector edge RVF registry core (ADR-351 §3 rv-registry, M5): scoped package names, immutable semver versions with yanking, package manifests, a streaming strict RVF validator over untrusted bytes (rvf-wire), content-addressed R2 blob keys, upload sessions, the visibility/authorization matrix and paginated listing. Pure Rust, wasm32 clean."
+
+[dependencies]
+ruvector-edge-auth = { path = "../ruvector-edge-auth" }
+ruvector-edge-tenancy = { path = "../ruvector-edge-tenancy" }
+ruvector-edge-store = { path = "../ruvector-edge-store" }
+# RVF crates live in their own excluded workspace; used as path deps. Only
+# header parsing, the Level-0 root codec and the hash registry are used.
+rvf-wire = { path = "../rvf/rvf-wire" }
+rvf-types = { path = "../rvf/rvf-types", features = ["std"] }
+# Streaming forms of the rvf-wire content-hash algorithms (XXH3-128, SHAKE-256)
+# and of the rvf-runtime legacy CRC32 hash.
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+sha3 = "0.10"
+crc32fast = "1"
+sha2 = "0.10"
+hex = "0.4"
+data-encoding = "2"
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+# Native-only: produces real `.rvf` files with the rvf CLI's engine for the
+# round-trip / query-equivalence test. Never in the wasm graph.
+rvf-runtime = { path = "../rvf/rvf-runtime" }
+tempfile = "3"
+
+[lints.rust]
+# `cfg(fuzzing)` is set by cargo-fuzz (skips segment content-hash checks so
+# the fuzzer reaches the payload parsers).
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }

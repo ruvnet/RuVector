@@ -1,0 +1,35 @@
+# cargo-fuzz target for the rv-registry streaming RVF validator (ADR-351 §3
+# "fuzzed streaming rvf-wire validator", M5). Run with nightly:
+#   cd crates/ruvector-edge-registry/fuzz
+#   env -u RUSTFLAGS cargo +nightly fuzz run rvf_validate -- -max_total_time=600
+#   env -u RUSTFLAGS cargo +nightly fuzz run rvf_payloads -- -max_total_time=600
+# Seed the corpus with small `examples/rvf/output/*.rvf` files for depth.
+[package]
+name = "ruvector-edge-registry-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ruvector-edge-registry = { path = ".." }
+
+# Prevent this from being discovered as a workspace member
+[workspace]
+
+[[bin]]
+name = "rvf_validate"
+path = "fuzz_targets/rvf_validate.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rvf_payloads"
+path = "fuzz_targets/rvf_payloads.rs"
+test = false
+doc = false
+bench = false

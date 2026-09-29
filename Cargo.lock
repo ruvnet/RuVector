@@ -9797,6 +9797,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-edge-registry"
+version = "2.3.0"
+dependencies = [
+ "crc32fast",
+ "data-encoding",
+ "hex",
+ "proptest",
+ "ruvector-edge-auth",
+ "ruvector-edge-store",
+ "ruvector-edge-tenancy",
+ "rvf-runtime",
+ "rvf-types",
+ "rvf-wire",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sha3",
+ "tempfile",
+ "thiserror 2.0.18",
+ "xxhash-rust",
+]
+
+[[package]]
 name = "ruvector-edge-store"
 version = "2.3.0"
 dependencies = [
