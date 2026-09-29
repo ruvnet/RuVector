@@ -2776,6 +2776,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "exacl"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22be12de19decddab85d09f251ec8363f060ccb22ec9c81bc157c0c8433946d8"
+dependencies = [
+ "bitflags 2.13.0",
+ "log",
+ "scopeguard",
+ "uuid",
+]
+
+[[package]]
 name = "exr"
 version = "1.74.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9291,6 +9303,7 @@ dependencies = [
 name = "ruvector-context"
 version = "2.3.0"
 dependencies = [
+ "exacl",
  "fs4",
  "libc",
  "rustix 1.1.4",
