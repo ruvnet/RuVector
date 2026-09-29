@@ -8,7 +8,7 @@
 
 **Continuous structural integrity as a first-class signal for systems that must not drift.**
 
-*Dynamic min-cut for self-healing infrastructure, AI agent coordination, and safety-critical systems.*
+*Dynamic global minimum cuts and experimental graph algorithms.*
 
 ---
 
@@ -16,7 +16,7 @@
 
 Every complex system — your brain, the internet, a hospital network, an AI model — is a web of connections. Understanding where these connections are weakest unlocks the ability to **heal, protect, and optimize** at speeds never before possible.
 
-**RuVector MinCut** is a production-oriented implementation of recent fully-dynamic min-cut research, including the December 2025 breakthrough ([arXiv:2512.13105](https://arxiv.org/abs/2512.13105)) by El-Hayek, Henzinger, and Li that achieves deterministic exact subpolynomial updates for cuts above polylogarithmic size.
+`DynamicMinCut` maintains exact global cuts using a sparse Stoer-Wagner solver when its cached cut must be recomputed. That recomputation is polynomial. Other modules explore dynamic and sparsified approaches; this crate has not established the update bound of [arXiv:2512.13105](https://arxiv.org/abs/2512.13105), an `(1+ε)` guarantee for its experimental sparsifier, or suitability for safety-critical decisions. The performance numbers below are historical observations on specific test graphs, not general complexity bounds.
 
 ---
 
@@ -31,7 +31,7 @@ The human brain contains 86 billion neurons with trillions of connections. Under
 - **Understand drug effects** by tracking how medications strengthen or weaken neural circuits
 - **Map disease spread** in biological networks to find intervention points
 
-Traditional algorithms take hours to analyze a single brain scan. RuVector MinCut can track changes in milliseconds as new data streams in.
+These are potential research applications. This crate has not been validated on clinical brain scans.
 
 ### Networking: Self-Healing Infrastructure
 
@@ -55,7 +55,7 @@ Modern AI isn't just neural networks — it's networks of networks, agents, and 
 
 ## The December 2025 Breakthrough
 
-RuVector MinCut implements [arXiv:2512.13105](https://arxiv.org/abs/2512.13105) — deterministic exact fully-dynamic min-cut in subpolynomial time:
+The result in [arXiv:2512.13105](https://arxiv.org/abs/2512.13105) motivates research in this crate. The following properties describe the paper, not guarantees of `DynamicMinCut`:
 
 | Property | What It Means | Why It Matters |
 |----------|---------------|----------------|
@@ -85,18 +85,18 @@ RuVector MinCut implements [arXiv:2512.13105](https://arxiv.org/abs/2512.13105) 
 
 ## ✨ What Makes This Different
 
-This library delivers deterministic, exact, fully-dynamic min-cut based on recent theoretical advances.
+`DynamicMinCut` accepts insertions and deletions and returns an exact cut for finite, nonnegative edge weights. It may run a full polynomial-time solver after an update.
 
 ### Core Properties
 
 | Property | What It Means | Measured Performance |
 |----------|---------------|---------------------|
-| **Always Right** | Mathematically correct — no dice rolls | Essential for safety-critical systems |
+| **Exact cut** | Sparse Stoer-Wagner recomputation | Subject to the supported graph and weight model |
 | **Perfectly Predictable** | Same input = same output | Essential for debugging and auditing |
-| **Handles Any Change** | Insertions and deletions equally fast | Real networks grow AND shrink |
-| **Scales Subpolynomially** | Update time grows slower than any polynomial | n^0.12 scaling across tested ranges (100–1600 vertices) |
+| **Dynamic updates** | Insertions and deletions | Recomputations can be polynomial |
+| **Cached queries** | Read the last cut value | Update cost depends on graph and cut changes |
 
-### Production-Ready Extensions
+### Additional Experimental Components
 
 | Feature | What It Does | Real-World Benefit |
 |---------|--------------|-------------------|
@@ -138,7 +138,7 @@ Or add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-ruvector-mincut = "0.1"
+ruvector-mincut = "2.3"
 ```
 
 ### 30-Second Example
@@ -160,7 +160,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Query minimum cut - O(1) after build
     println!("Min cut: {}", mincut.min_cut_value()); // Output: 2
 
-    // Dynamic update - O(n^{o(1)}) amortized!
+    // Dynamic update; may recompute the exact cut.
     mincut.insert_edge(3, 4, 2.0)?;
     mincut.delete_edge(2, 3)?;
 
@@ -212,7 +212,7 @@ Learn to build networks that think for themselves. These examples demonstrate se
 
 | Example | Description | Run Command |
 |---------|-------------|-------------|
-| **Subpoly Benchmark** | Verify subpolynomial n^0.12 scaling | `cargo run -p ruvector-mincut --release --example subpoly_bench` |
+| **Subpoly Benchmark** | Explore update scaling on the example's graph family | `cargo run -p ruvector-mincut --release --example subpoly_bench` |
 | **Temporal Attractors** | Networks that evolve toward stable states | `cargo run -p ruvector-mincut --release --example temporal_attractors` |
 | **Strange Loop** | Self-aware systems that monitor and repair themselves | `cargo run -p ruvector-mincut --release --example strange_loop` |
 | **Causal Discovery** | Trace cause-and-effect chains in failures | `cargo run -p ruvector-mincut --release --example causal_discovery` |
@@ -230,8 +230,8 @@ See the full [Examples Guide](https://github.com/ruvnet/ruvector/tree/main/examp
 
 ### Core Features
 
-- ⚡ **Subpolynomial Updates**: O(n^{o(1)}) amortized time per edge insertion/deletion
-- 🎯 **Exact & Approximate Modes**: Choose between exact minimum cut or (1+ε)-approximation
+- ⚡ **Dynamic Exact Cuts**: `DynamicMinCut` caches a cut and runs the polynomial exact solver when needed
+- 🎯 **Separate Experimental Approximation**: `ApproxMinCut` explores sparsification; `MinCutBuilder::approximate()` does not switch solvers
 - 🔗 **Advanced Data Structures**: Link-Cut Trees and Euler Tour Trees for dynamic connectivity
 - 📊 **Graph Sparsification**: Benczúr-Karger and Nagamochi-Ibaraki algorithms
 - 🔔 **Real-Time Monitoring**: Event-driven notifications with configurable thresholds
@@ -240,13 +240,13 @@ See the full [Examples Guide](https://github.com/ruvnet/ruvector/tree/main/examp
 
 ### December 2025 Breakthrough
 
-This crate implements the **first deterministic exact fully-dynamic minimum cut algorithm** based on the December 2025 paper ([arxiv:2512.13105](https://arxiv.org/abs/2512.13105)):
+The December 2025 paper ([arxiv:2512.13105](https://arxiv.org/abs/2512.13105)) motivates these research components. Their presence does not establish that the paper's full algorithm or update-time proof has been implemented:
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| **SubpolynomialMinCut** | ✅ **NEW** | Verified n^0.12 scaling — true subpolynomial updates |
+| **SubpolynomialMinCut** | Research | Hierarchy and recourse experiments; no proven subpolynomial update bound |
 | **MinCutWrapper** | ✅ Complete | O(log n) bounded-range instances with geometric factor 1.2 |
-| **BoundedInstance** | ✅ Complete | Production implementation with strategic seed selection |
+| **BoundedInstance** | Implemented | Bounded-range instance with strategic seed selection |
 | **DeterministicLocalKCut** | ✅ Complete | BFS-based local minimum cut oracle (no randomness) |
 | **CutCertificate** | ✅ Complete | Compact witness using RoaringBitmap |
 | **ClusterHierarchy** | ✅ Integrated | O(log n) levels of recursive decomposition |
@@ -278,13 +278,13 @@ Optimized for deployment on agentic chips with 256 WASM cores × 8KB memory each
 | **CoreExecutor** | ✅ Complete | Per-core execution with SIMD boundary methods |
 | **AgenticAnalyzer** | ✅ Integrated | Graph distribution across cores |
 
-### Paper Algorithm Implementation (arxiv:2512.13105)
+### Research Components Inspired by arxiv:2512.13105
 
-Full implementation of the December 2025 breakthrough paper components:
+These components are present, but no end-to-end implementation or complexity proof has been verified for the December 2025 paper:
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| **SubpolynomialMinCut** | ✅ **NEW** | Integrated module with verified n^0.12 scaling |
+| **SubpolynomialMinCut** | Research | Integrated module; asymptotic scaling unverified |
 | **DeterministicLocalKCut** | ✅ Complete | Color-coded DFS with 4-color family (Theorem 4.1) |
 | **GreedyForestPacking** | ✅ Complete | k edge-disjoint forests for witness guarantees |
 | **EdgeColoring** | ✅ Complete | (a,b)-coloring families for deterministic enumeration |
@@ -293,12 +293,12 @@ Full implementation of the December 2025 breakthrough paper components:
 | **ThreeLevelHierarchy** | ✅ Complete | Expander → Precluster → Cluster decomposition |
 | **O(log^{1/4} n) Hierarchy** | ✅ Complete | Multi-level cluster hierarchy with φ-expansion |
 | **MirrorCut Tracking** | ✅ Complete | Cross-expander minimum cut maintenance |
-| **Recourse Tracking** | ✅ Complete | Verifies subpolynomial update bounds |
+| **Recourse Tracking** | Implemented | Records observed update recourse; does not prove an asymptotic bound |
 | **Incremental Updates** | ✅ Complete | Propagates changes without full rebuild |
 
-### ✅ Verified Subpolynomial Performance
+### Historical Scaling Observation
 
-Benchmark results confirming **true subpolynomial complexity**:
+One example run reported the following timings. The graph family, sample size, and finite range do not establish asymptotic complexity or a general update-time bound:
 
 ```
 === Complexity Verification ===
@@ -310,7 +310,7 @@ Size    Avg Update (μs)    Scaling
 800     870,120            n^0.50
 1600    816,950            n^-0.09
 
-Overall scaling: n^0.12 (SUBPOLYNOMIAL ✓)
+Fitted exponent on this run: n^0.12 (not a complexity guarantee)
 Avg recourse: ~4.0 (constant-like)
 ```
 
@@ -326,10 +326,10 @@ Beyond the core December 2025 paper, we implement cutting-edge algorithms from r
 | Component | Paper | Description |
 |-----------|-------|-------------|
 | **PolylogConnectivity** | [arXiv:2510.08297](https://arxiv.org/abs/2510.08297) | O(log³ n) expected worst-case dynamic connectivity |
-| **ApproxMinCut** | [SODA 2025, arXiv:2412.15069](https://arxiv.org/abs/2412.15069) | (1+ε)-approximate min-cut for ALL cut sizes |
+| **ApproxMinCut** | Inspired by [SODA 2025, arXiv:2412.15069](https://arxiv.org/abs/2412.15069) | Experimental sparsification; no verified (1+ε) guarantee |
 | **CacheOptBFS** | — | Cache-optimized traversal with prefetching hints |
 
-#### SubpolynomialMinCut — True O(n^{o(1)}) Updates (NEW)
+#### SubpolynomialMinCut — Research API
 
 ```rust
 use ruvector_mincut::{SubpolynomialMinCut, SubpolyConfig};
@@ -346,20 +346,20 @@ mincut.build();
 // Query min cut - O(1)
 println!("Min cut: {}", mincut.min_cut_value());
 
-// Dynamic updates - O(n^{o(1)}) amortized
+// Dynamic updates; the asymptotic bound is not established here.
 mincut.insert_edge(500, 750, 2.0).unwrap();
 mincut.delete_edge(250, 251).unwrap();
 
-// Verify subpolynomial recourse
+// Inspect observed recourse against a heuristic threshold.
 let stats = mincut.recourse_stats();
 println!("Avg recourse: {:.2}", stats.amortized_recourse());
 println!("Is subpolynomial: {}", stats.is_subpolynomial(1000));
 ```
 
 **Key Features:**
-- **Verified n^0.12 scaling** — benchmark-confirmed subpolynomial updates
+- **Measured example run** — an n^0.12 fitted exponent over five sizes, without a general complexity guarantee
 - **O(log^{1/4} n) hierarchy** — multi-level cluster decomposition
-- **Recourse tracking** — verifies complexity bounds at runtime
+- **Recourse tracking** — records observed changes; it does not verify a complexity proof
 - **Tree packing witness** — deterministic cut certification
 
 #### Polylogarithmic Worst-Case Connectivity (October 2025)
@@ -379,7 +379,7 @@ assert!(conn.connected(0, 2));  // O(log n) worst-case query
 - Hierarchical level structure with edge sparsification
 - Automatic replacement edge finding on tree edge deletion
 
-#### Approximate Min-Cut for All Sizes (SODA 2025)
+#### Experimental Approximate Min-Cut
 
 ```rust
 use ruvector_mincut::ApproxMinCut;
@@ -394,11 +394,9 @@ println!("Value: {}, Bounds: [{}, {}]",
     result.value, result.lower_bound, result.upper_bound);
 ```
 
-**Key Features:**
-- (1+ε)-approximation for ANY cut size (not just small cuts)
-- Spectral sparsification with effective resistance sampling
-- O(n log n / ε²) sparsifier size
-- Stoer-Wagner on sparsified graph for efficiency
+This separate `ApproxMinCut` API uses heuristic edge sampling and Stoer-Wagner on
+the sampled graph. The returned bounds are calculated from the requested ε;
+they have not been validated as rigorous error bounds for all graph families.
 
 **Test Coverage**: 448+ tests passing (30+ specifically for paper algorithms)
 
@@ -415,13 +413,13 @@ ruvector-mincut = "0.1"
 
 ```toml
 [dependencies]
-ruvector-mincut = { version = "0.1", features = ["monitoring", "simd"] }
+ruvector-mincut = { version = "2.3", features = ["monitoring", "simd"] }
 ```
 
 Available features:
 
 - **`exact`** (default): Exact minimum cut algorithm
-- **`approximate`** (default): (1+ε)-approximate algorithm with graph sparsification
+- **`approximate`** (default): legacy compatibility flag; `ApproxMinCut` is currently compiled regardless, and this flag does not change `DynamicMinCut`'s solver
 - **`monitoring`**: Real-time event monitoring with callbacks
 - **`integration`**: GraphDB integration for ruvector-graph
 - **`simd`**: SIMD optimizations for vector operations
@@ -462,15 +460,19 @@ let new_cut = mincut.delete_edge(2, 3)?;
 println!("After deletion: {}", new_cut);
 ```
 
-### Approximate Mode
+### Legacy Approximate Builder Option
 
-For large graphs, use the approximate algorithm:
+For compatibility, `.approximate(ε)` still records the requested ε in the
+configuration. `DynamicMinCut` continues to run the exact solver and reports
+`is_exact: true` with `approximation_ratio: 1.0`. It does not offer a faster
+approximate path. Use the separate `ApproxMinCut` research API to experiment
+with sparsification.
 
 ```rust
 use ruvector_mincut::MinCutBuilder;
 
 let mincut = MinCutBuilder::new()
-    .approximate(0.1)  // 10% approximation (1+ε)
+    .approximate(0.1)  // legacy request; still computes an exact cut
     .with_edges(vec![
         (1, 2, 1.0),
         (2, 3, 1.0),
@@ -479,9 +481,9 @@ let mincut = MinCutBuilder::new()
     .build()?;
 
 let result = mincut.min_cut();
-assert!(!result.is_exact);
-assert_eq!(result.approximation_ratio, 1.1);
-println!("Approximate min cut: {}", result.value);
+assert!(result.is_exact);
+assert_eq!(result.approximation_ratio, 1.0);
+println!("Exact min cut: {}", result.value);
 ```
 
 ### Real-Time Monitoring
@@ -514,110 +516,76 @@ mincut.insert_edge(2, 3, 1.0)?;
 
 | Operation | Time Complexity | Notes |
 |-----------|----------------|-------|
-| **Build** | O(m log n) | Initial construction from m edges, n vertices |
+| **Build** | Polynomial | Runs the exact solver on the initial graph |
 | **Query** | O(1) | Current minimum cut value |
-| **Insert Edge** | O(n^{o(1)}) amortized | Subpolynomial update time |
-| **Delete Edge** | O(n^{o(1)}) amortized | Includes replacement edge search |
-| **Batch Insert** | O(k × n^{o(1)}) | k edges with lazy evaluation |
+| **Insert Edge** | May be polynomial | Recomputes when the cached cut cannot be preserved |
+| **Delete Edge** | May be polynomial | Recomputes when the cached cut cannot be preserved |
+| **Batch Insert** | May be polynomial | Validates the batch, then runs at most one solve |
 | **Get Partition** | O(n) | Extract vertex partition |
 | **Get Cut Edges** | O(m) | Extract edges in the cut |
 
 ### Space Complexity
 
 - **Exact mode**: O(n log n + m)
-- **Approximate mode**: O(n log n / ε²) after sparsification
+- **Experimental `ApproxMinCut`**: sparsifier size and error are workload dependent; no general guarantee is established here
 - **Agentic mode**: 6.7KB per core (compile-time verified)
 
 ### Comparison with Alternatives
 
 | Library | Update Time | Deterministic | Exact | Dynamic |
 |---------|------------|---------------|-------|---------|
-| **ruvector-mincut** | **O(n^{o(1)})** | ✅ Yes | ✅ Yes | ✅ Both |
+| **DynamicMinCut** | Polynomial recomputation | ✅ Yes | ✅ Yes | ✅ Both |
 | petgraph (Karger) | O(n² log³ n) | ❌ No | ❌ Approx | ❌ Static |
 | Stoer-Wagner | O(nm + n² log n) | ✅ Yes | ✅ Yes | ❌ Static |
 | Push-Relabel | O(n²√m) | ✅ Yes | ✅ Yes | ❌ Static |
 
-> **Bottom line**: RuVector MinCut is the only Rust library offering subpolynomial dynamic updates with deterministic exact results.
+`DynamicMinCut` is an exact dynamic API with cached results. This repository
+does not establish subpolynomial update time or a comparative performance lead.
 
 ### ⚠️ Limitations & Scope
 
-Theoretical guarantees depend on graph model and cut size regime. Per the underlying paper ([arXiv:2512.13105](https://arxiv.org/abs/2512.13105)):
+The underlying paper ([arXiv:2512.13105](https://arxiv.org/abs/2512.13105))
+proves bounds for its own algorithm. Those bounds do not apply to this crate's
+current `DynamicMinCut` implementation:
 
-- **Cut size regime**: Subpolynomial bounds apply to cuts of superpolylogarithmic size (λ > log^c n for some constant c)
-- **Practical defaults**: Our implementation uses practical parameter choices; see `SubpolyConfig` for tuning
-- **Benchmark scope**: Measured scaling (n^0.12) is empirical on test graphs; your mileage may vary on different topologies
+- **Cut size regime**: The paper's subpolynomial result is scoped to superpolylogarithmic cuts; this crate does not inherit that theorem.
+- **Practical defaults**: `SubpolyConfig` contains research parameters, not proven production tuning.
+- **Benchmark scope**: The n^0.12 fit above uses a finite example run; it cannot establish asymptotic scaling.
 
 For formal complexity bounds and proofs, consult the original paper.
 
 ## Architecture
 
-The crate implements a sophisticated multi-layered architecture:
+`MinCutBuilder` constructs `DynamicMinCut` over a `DynamicGraph`. The solver
+keeps a selected partition and cached cut value. Some updates can preserve
+that cut; other updates call the sparse exact Stoer-Wagner implementation in
+`src/algorithm/exact.rs`. `min_cut()` reports the solver actually used.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                  DynamicMinCut (Public API)                 │
-├─────────────────────────────────────────────────────────────┤
-│  MinCutWrapper (December 2025 Paper Implementation)    [✅] │
-│  ├── O(log n) BoundedInstance with strategic seeds          │
-│  ├── Geometric ranges with factor 1.2                       │
-│  ├── ClusterHierarchy integration                           │
-│  ├── FragmentingAlgorithm integration                       │
-│  └── DeterministicLocalKCut oracle                          │
-├─────────────────────────────────────────────────────────────┤
-│  HierarchicalDecomposition (O(log n) depth)            [✅] │
-│  ├── DecompositionNode (Binary tree)                        │
-│  ├── ClusterHierarchy (recursive decomposition)             │
-│  └── FragmentingAlgorithm (disconnected subgraphs)          │
-├─────────────────────────────────────────────────────────────┤
-│  Dynamic Connectivity (Hybrid: ETT + Union-Find)       [✅] │
-│  ├── EulerTourTree (Treap-based, O(log n))                  │
-│  │   └── Bulk operations, lazy propagation                  │
-│  ├── Union-Find (path compression fallback)                 │
-│  └── LinkCutTree (Sleator-Tarjan)                           │
-├─────────────────────────────────────────────────────────────┤
-│  Graph Sparsification (Approximate mode)               [✅] │
-│  ├── Benczúr-Karger (Randomized)                            │
-│  └── Nagamochi-Ibaraki (Deterministic)                      │
-├─────────────────────────────────────────────────────────────┤
-│  DynamicGraph (Thread-safe storage)                    [✅] │
-│  └── DashMap for concurrent operations                      │
-├─────────────────────────────────────────────────────────────┤
-│  Agentic Chip Layer (WASM, feature: agentic)           [✅] │
-│  ├── CompactCoreState (6.7KB per core, compile-verified)    │
-│  ├── SharedCoordinator (lock-free atomics)                  │
-│  ├── CoreExecutor with SIMD boundary methods                │
-│  ├── AgenticAnalyzer (256-core distribution)                │
-│  └── SIMD128 accelerated popcount/xor/boundary              │
-└─────────────────────────────────────────────────────────────┘
-```
+Other public modules, including `SubpolynomialMinCut`, `MinCutWrapper`,
+`ApproxMinCut`, and the hierarchy components, are separate research APIs.
+They are not on `DynamicMinCut`'s solve path. Their presence does not imply
+that the main API has the paper's update bound or a validated approximation
+ratio.
 
-See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed design documentation.
+See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for research design notes; check
+current source before relying on a stated complexity or deployment property.
 
 ## Algorithms
 
-### Exact Algorithm
+### Exact DynamicMinCut
 
-The exact algorithm maintains minimum cuts using:
+The main API uses sparse Stoer-Wagner to recompute an exact global cut when
+its cached partition cannot be preserved. Full recomputation is polynomial.
+Reading the cached cut value is O(1); `min_cut()` also clones the partition
+and crossing edges.
 
-1. **Hierarchical Decomposition**: Balanced binary tree over vertices
-2. **Link-Cut Trees**: Dynamic tree operations in O(log n)
-3. **Euler Tour Trees**: Alternative connectivity structure
-4. **Lazy Propagation**: Only recompute affected subtrees
+### Experimental ApproxMinCut
 
-Guarantees the true minimum cut but may be slower for very large cuts.
-
-### Approximate Algorithm
-
-The approximate algorithm uses **graph sparsification**:
-
-1. **Edge Strength Computation**: Approximate max-flow for each edge
-2. **Sampling**: Keep edges with probability ∝ 1/strength
-3. **Weight Scaling**: Scale kept edges to preserve cuts
-4. **Sparse Certificate**: O(n log n / ε²) edges preserve (1+ε)-approximate cuts
-
-Faster for large graphs, with tunable accuracy via ε.
-
-See [ALGORITHMS.md](docs/ALGORITHMS.md) for complete mathematical details.
+`ApproxMinCut` samples edges using heuristic resistance estimates, then
+solves the sampled graph. Its `lower_bound` and `upper_bound` fields are
+computed from the selected ε, but are not independently certified bounds on
+the original graph. Treat this API as research code until error guarantees
+are validated on representative graph families.
 
 ## API Reference
 
@@ -633,9 +601,9 @@ See [ALGORITHMS.md](docs/ALGORITHMS.md) for complete mathematical details.
 
 ### Paper Implementation Types (December 2025)
 
-- **`SubpolynomialMinCut`**: **NEW** — True O(n^{o(1)}) dynamic min-cut with verified n^0.12 scaling
+- **`SubpolynomialMinCut`**: research API; no verified subpolynomial update bound
 - **`SubpolyConfig`**: Configuration for subpolynomial parameters (φ, λ_max, levels)
-- **`RecourseStats`**: Tracks update recourse for complexity verification
+- **`RecourseStats`**: Tracks observed update recourse
 - **`MinCutWrapper`**: O(log n) instance manager with geometric ranges
 - **`ProperCutInstance`**: Trait for bounded-range cut solvers
 - **`BoundedInstance`**: Production bounded-range implementation

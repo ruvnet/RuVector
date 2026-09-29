@@ -1,6 +1,6 @@
 //! Subpolynomial Dynamic Minimum Cut Algorithm
 //!
-//! Implementation of the December 2024 breakthrough achieving n^{o(1)} update time:
+//! Research implementation inspired by the dynamic min-cut result in:
 //! "Deterministic and Exact Fully-dynamic Minimum Cut of Superpolylogarithmic Size
 //! in Subpolynomial Time" (arXiv:2512.13105)
 //!
@@ -11,12 +11,10 @@
 //! 3. **Fragmenting Algorithm**: Boundary-sparse cut detection
 //! 4. **Witness Trees**: Certificate-based cut verification
 //!
-//! # Complexity Guarantees
+//! # Paper Bounds (Not Established for This Implementation)
 //!
-//! - **Update Time**: O(n^{o(1)}) = 2^{O(log^{1-c} n)} amortized
-//! - **Query Time**: O(1)
-//! - **Space**: O(m log n)
-//! - **Cut Size**: Up to 2^{Θ(log^{3/4-c} n)}
+//! The paper studies O(n^{o(1)}) amortized updates in a scoped cut-size
+//! regime. This crate has not proved that bound for this implementation.
 //!
 //! # Example
 //!
@@ -34,7 +32,7 @@
 //! let cut_value = mincut.min_cut_value();
 //! println!("Min cut: {}", cut_value);
 //!
-//! // Updates are subpolynomial!
+//! // The update complexity of this implementation is not established.
 //! mincut.insert_edge(3, 4, 1.0);
 //! println!("New min cut: {}", mincut.min_cut_value());
 //! ```
@@ -138,7 +136,8 @@ pub struct RecourseStats {
 }
 
 impl RecourseStats {
-    /// Check if recourse is within subpolynomial bounds
+    /// Compare observed average recourse with a heuristic threshold.
+    /// This is not a proof of subpolynomial update time.
     pub fn is_subpolynomial(&self, n: usize) -> bool {
         if n < 2 || self.num_updates == 0 {
             return true;
