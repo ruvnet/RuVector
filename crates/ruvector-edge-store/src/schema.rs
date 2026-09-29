@@ -9,6 +9,9 @@
 //!   `meta.write_seq` (a torn write) can be replayed write-through on open.
 //!   The log is pruned to a bounded tail below `write_seq`
 //!   (`meta.snapshot_seq` records the cut; `vectors` is the snapshot).
+//! - `ops.act_sub TEXT`: `act.sub` of an exchanged token (the adapter that
+//!   acted, §5.6/§16.3), `NULL` for direct writes. Part of the first shard
+//!   schema: no `VectorShard` existed before M1, so no table needs an ALTER.
 //! - `filter_idx` has a primary key `(key, value, id)`.
 //! - `TenantLedger` tables: `ledger_meta`, `memberships`, `catalog` (with
 //!   `filterable_keys`), `idempotency` (the §16.3 `op_id` store) with an
@@ -20,7 +23,7 @@ pub const SHARD_SCHEMA: &[&str] = &[
     "CREATE TABLE IF NOT EXISTS vectors (id TEXT PRIMARY KEY, iid INTEGER UNIQUE, f32 BLOB, \
      q8 BLOB, q8_epoch INTEGER, metadata TEXT, updated_at INTEGER, deleted INTEGER DEFAULT 0)",
     "CREATE TABLE IF NOT EXISTS ops (seq INTEGER PRIMARY KEY, op TEXT, id TEXT, ts INTEGER, \
-     actor_sub TEXT, jti TEXT, family_id TEXT, body BLOB)",
+     actor_sub TEXT, jti TEXT, family_id TEXT, act_sub TEXT, body BLOB)",
     "CREATE TABLE IF NOT EXISTS filter_idx (key TEXT, value TEXT, id TEXT, \
      PRIMARY KEY (key, value, id))",
 ];
@@ -44,11 +47,14 @@ pub const VEC_PAGE: &str =
 pub const VEC_DELETE_ALL: &str = "DELETE FROM vectors";
 
 /// Append one op-log entry (`seq` is the shard `write_seq`).
-pub const OPS_APPEND: &str = "INSERT INTO ops (seq, op, id, ts, actor_sub, jti, family_id, body) \
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+pub const OPS_APPEND: &str = "INSERT INTO ops (seq, op, id, ts, actor_sub, jti, family_id, \
+                              act_sub, body) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 /// Paged op-log read.
 pub const OPS_PAGE: &str =
     "SELECT seq, op, id, body, ts FROM ops WHERE seq > ? ORDER BY seq LIMIT ?";
+/// Who wrote each op-log entry (audit read: `actor_sub`, adapter `act_sub`).
+pub const OPS_ACTORS: &str =
+    "SELECT seq, op, actor_sub, act_sub FROM ops WHERE seq > ? ORDER BY seq LIMIT ?";
 /// Drop op-log entries at or below a sequence (already reflected in
 /// `vectors`; the shard keeps a bounded tail).
 pub const OPS_PRUNE: &str = "DELETE FROM ops WHERE seq <= ?";

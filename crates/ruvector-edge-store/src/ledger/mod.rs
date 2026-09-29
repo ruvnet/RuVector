@@ -15,7 +15,8 @@ mod usage;
 
 pub use catalog::{CatalogEntry, CollectionState, CreateCollection};
 pub use idem::{
-    IdemKey, IdemLookup, IDEMPOTENCY_TTL_SECS, IDEM_PURGE_BATCH, MAX_IDEM_RESPONSE_BYTES,
+    IdemKey, IdemLookup, IDEMPOTENCY_TTL_SECS, IDEM_PENDING_TTL_SECS, IDEM_PURGE_BATCH,
+    MAX_IDEM_RESPONSE_BYTES,
 };
 
 use crate::error::{ErrorCode, OpError};

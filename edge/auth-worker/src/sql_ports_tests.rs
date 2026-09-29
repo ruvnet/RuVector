@@ -127,3 +127,22 @@ fn purge_removes_only_expired_rows() {
     assert_eq!(p.get_refresh(&[1; 32]).unwrap(), None);
     assert!(p.get_refresh(&[2; 32]).unwrap().is_some());
 }
+
+#[test]
+fn assertion_jti_is_one_time_until_it_expires() {
+    let p = ports();
+    let h = [7u8; 32];
+    assert!(p.record_assertion(&h, 200, 100).unwrap());
+    assert!(!p.record_assertion(&h, 250, 150).unwrap(), "live replay");
+    assert!(!p.record_assertion(&h, 250, 199).unwrap(), "still live");
+    // At or after its expiry the slot is reusable (the assertion itself is
+    // then expired, so this is never a replay window).
+    assert!(p.record_assertion(&h, 400, 200).unwrap());
+    assert!(!p.record_assertion(&h, 500, 399).unwrap());
+    assert!(p.record_assertion(&[8u8; 32], 400, 150).unwrap(), "per jti");
+    p.purge_expired(400).unwrap();
+    let rows =
+        p.db.query("SELECT COUNT(*) FROM assertion_jtis", vec![])
+            .unwrap();
+    assert_eq!(rows[0][0].as_int(), Some(0));
+}

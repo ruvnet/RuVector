@@ -3,8 +3,10 @@
 
 use crate::config::GatewayConfig;
 use ruvector_edge_auth::prm;
+use ruvector_edge_auth::scopes::capabilities_for;
 use ruvector_edge_auth::{
-    bearer_token, AuthError, ClaimsPolicy, Clock, KeySource, ResourceUrl, RouteSurface, Verifier,
+    bearer_token, AuthError, CapabilitySet, ClaimsPolicy, Clock, KeySource, ResourceUrl,
+    RouteSurface, Verifier,
 };
 use ruvector_edge_tenancy::{ProblemCode, TenantContext, UPSTREAM_ISSUER};
 
@@ -31,8 +33,24 @@ pub fn denial(err: &AuthError) -> (ProblemCode, bool) {
     }
 }
 
-/// Verify `authorization` for `resource`: edge-AS tokens with `aud` exactly
-/// `resource`; upstream first-party tokens only when configured.
+/// A verified request: the tenant context plus what the token itself
+/// grants — scope-derived capabilities before the role intersection (the
+/// role lives in the tenant's `TenantLedger`) — and its scopes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Authenticated {
+    /// Tenant context (built with no role: its own capabilities are empty).
+    pub ctx: TenantContext,
+    /// `capabilities_for(scopes, kind, surface)`.
+    pub scope_caps: CapabilitySet,
+    /// Granted scopes, verbatim.
+    pub scopes: Vec<String>,
+    /// `act.sub` of an RFC 8693-exchanged token (the adapter acting for the
+    /// user, ADR-351 §16.3); `None` otherwise.
+    pub act_sub: Option<String>,
+}
+
+/// [`authenticate_full`], tenant context only (native tests).
+#[cfg(test)]
 pub async fn authenticate<E: KeySource, U: KeySource, C: Clock>(
     authorization: Option<&str>,
     cfg: &GatewayConfig,
@@ -42,6 +60,30 @@ pub async fn authenticate<E: KeySource, U: KeySource, C: Clock>(
     upstream_keys: impl FnOnce() -> U,
     clock: C,
 ) -> Result<TenantContext, Denied> {
+    let a = authenticate_full(
+        authorization,
+        cfg,
+        resource,
+        surface,
+        edge_keys,
+        upstream_keys,
+        clock,
+    )
+    .await?;
+    Ok(a.ctx)
+}
+
+/// Verify `authorization` for `resource`: edge-AS tokens with `aud` exactly
+/// `resource`; upstream first-party tokens only when configured.
+pub async fn authenticate_full<E: KeySource, U: KeySource, C: Clock>(
+    authorization: Option<&str>,
+    cfg: &GatewayConfig,
+    resource: &ResourceUrl,
+    surface: RouteSurface,
+    edge_keys: E,
+    upstream_keys: impl FnOnce() -> U,
+    clock: C,
+) -> Result<Authenticated, Denied> {
     let metadata_url = prm::metadata_url(resource);
     let invalid_described = |description: Option<&str>| Denied {
         code: ProblemCode::InvalidToken,
@@ -87,9 +129,25 @@ pub async fn authenticate<E: KeySource, U: KeySource, C: Clock>(
                 www_authenticate: None,
             },
         })?;
-    // M1 has no membership source (ADR-351 §1.1: no org-role claim, no
-    // membership store yet). `None` grants no capabilities; `/v1/me` needs none.
-    TenantContext::from_verified(claims, None, surface).map_err(|_| invalid())
+    // Exchanged tokens are minted for `…/v1` only (ADR-351 §5.6), so the
+    // audience check already refuses them on `/v1/mcp`; an actor on the MCP
+    // surface is refused here as well, whatever the audience policy says.
+    let act_sub = claims.act_sub().map(str::to_string);
+    if act_sub.is_some() && surface == RouteSurface::Mcp {
+        return Err(invalid());
+    }
+    // The role is read from the tenant's ledger DO afterwards, so the
+    // context is built without one; callers intersect `scope_caps` with it
+    // (scope before role, ADR-351 §5.3).
+    let scope_caps = capabilities_for(claims.scopes(), claims.kind(), surface);
+    let scopes = claims.scopes().to_vec();
+    let ctx = TenantContext::from_verified(claims, None, surface).map_err(|_| invalid())?;
+    Ok(Authenticated {
+        ctx,
+        scope_caps,
+        scopes,
+        act_sub,
+    })
 }
 
 #[cfg(test)]

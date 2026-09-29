@@ -3,7 +3,11 @@
 mod authorize;
 mod basics;
 mod code;
+mod confidential;
 mod dcr;
+mod exchange;
+mod exchange_client;
+mod exchange_rules;
 mod federation;
 mod fixes;
 mod grant;

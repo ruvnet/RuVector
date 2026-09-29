@@ -18,8 +18,8 @@ use crate::sql::SqlExec;
 use crate::sql_ports::SqlPorts;
 use ruvector_edge_authz::federation::UpstreamFlowState;
 use ruvector_edge_authz::{
-    AuthorizeError, ClientStore, Clock, CodeStore, FederationStore, RefreshStore, Rng, Signer,
-    StoreError,
+    AssertionReplayStore, AuthorizeError, ClientStore, Clock, CodeStore, FederationStore,
+    RefreshStore, Rng, Signer, StoreError,
 };
 
 /// Housekeeping operations the endpoints need beyond the authz ports.
@@ -71,10 +71,13 @@ impl<D: SqlExec> AdminStore for SqlPorts<D> {
 
 /// Every store the AS uses, as one handle (one Durable Object).
 pub trait AuthStores:
-    ClientStore + CodeStore + RefreshStore + FederationStore + AdminStore
+    ClientStore + CodeStore + RefreshStore + FederationStore + AssertionReplayStore + AdminStore
 {
 }
-impl<T: ClientStore + CodeStore + RefreshStore + FederationStore + AdminStore> AuthStores for T {}
+impl<T> AuthStores for T where
+    T: ClientStore + CodeStore + RefreshStore + FederationStore + AssertionReplayStore + AdminStore
+{
+}
 
 /// Per-request context shared by the endpoints.
 pub struct Ctx<'a, S: AuthStores, R: Rng, C: Clock, G: Signer> {

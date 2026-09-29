@@ -65,6 +65,27 @@ impl Vocabulary {
 /// The RuFlo AI Team adapter resource (ADR-351 §16.1): `team:*` only.
 pub const TEAM_RESOURCE_URL: &str = "https://team.ruv.io/mcp";
 
+/// The gateway REST / `/v1/ops` resource: the only target of the RFC 8693
+/// exchange grant (ADR-351 §5.6, §16.1).
+pub const GATEWAY_V1_URL: &str =
+    "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1";
+
+/// The compiled exchange map of a subject token's vocabulary (ADR-351
+/// §5.6, §16.1): the `…/v1` scope an RFC 8693 exchange derives from one
+/// scope of a token whose `aud` is a resource of `subject` vocabulary.
+/// Only adapter vocabularies have a map (`team:*` via
+/// [`TEAM_EXCHANGE_MAP`]); a gateway (`ruvector:*`) token maps to nothing,
+/// so `/v1/mcp` is never exchanged into `/v1` (the two authorise
+/// separately, §5.6). `team:run`, `offline_access` and unknown scopes map
+/// to nothing.
+pub fn exchange_scope(subject: Vocabulary, scope: &str) -> Option<&'static str> {
+    let map: &[(&str, &'static str)] = match subject {
+        Vocabulary::Team => &TEAM_EXCHANGE_MAP,
+        Vocabulary::Ruvector => &[],
+    };
+    map.iter().find(|(t, _)| *t == scope).map(|(_, r)| *r)
+}
+
 /// team.ruv.io's compiled exchange map (ADR-351 §5.6, §16.1): the
 /// `ruvector:*` scope an M1 token exchange derives from each `team:*` scope
 /// of the subject token (`team:run` and `offline_access` map to nothing).
@@ -104,10 +125,7 @@ pub fn exchange_disclosure<'a>(
 /// instead of minting e.g. team.ruv.io tokens with `ruvector:admin`. A new
 /// resource or adapter is a reviewed code change here.
 pub const RESOURCE_VOCABULARIES: [(&str, Vocabulary); 3] = [
-    (
-        "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1",
-        Vocabulary::Ruvector,
-    ),
+    (GATEWAY_V1_URL, Vocabulary::Ruvector),
     (
         "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1/mcp",
         Vocabulary::Ruvector,

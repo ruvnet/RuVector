@@ -37,7 +37,7 @@ fn parses_authorization_code_request() {
             resource: Some(RESOURCE.into()),
         }
     );
-    assert_eq!(r.client_id(), CLIENT_ID);
+    assert_eq!(r.client_id(), Some(CLIENT_ID));
 }
 
 #[test]
@@ -218,6 +218,8 @@ fn token_response_shape() {
         expires_in: 900,
         refresh_token: None,
         scope: "ruvector:read".into(),
+        issued_token_type: None,
+        audit: None,
     };
     let v = serde_json::to_value(r).unwrap();
     assert!(v.get("refresh_token").is_none());

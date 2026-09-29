@@ -64,6 +64,7 @@ fn resident_bytes_count_ids_and_metadata_and_cap_the_shard() {
         sub: "es1_m",
         jti: "j",
         family_id: "f",
+        act_sub: None,
     };
     let blob = "x".repeat(4000);
     let mut err = None;
@@ -354,6 +355,7 @@ fn query_steps_scale_with_filter_values() {
             sub: "es1_s",
             jti: "j",
             family_id: "f",
+            act_sub: None,
         },
         T0,
     )

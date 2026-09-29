@@ -1,10 +1,15 @@
 //! Token endpoint orchestration: `authorization_code` and `refresh_token`
-//! grants over the ports.
+//! grants for public clients, and the RFC 8693 exchange grant for
+//! operator-registered confidential clients ([`crate::exchange`]), over the
+//! ports.
 
 use crate::client::ClientRecord;
+use crate::confidential::ConfidentialClients;
 use crate::error::{OAuthError, OAuthErrorCode};
 use crate::federation::UpstreamIdentity;
-use crate::ports::{ClientStore, Clock, CodeStore, RefreshStore, Rng, Signer};
+use crate::ports::{
+    AssertionReplayStore, ClientStore, Clock, CodeStore, RefreshStore, Rng, Signer,
+};
 use crate::refresh::OFFLINE_ACCESS;
 use crate::resource::ResourceAllowlist;
 use crate::token::ACCESS_TOKEN_TTL_SECS;
@@ -30,6 +35,11 @@ pub struct TokenEndpoint<'a> {
     pub rng: &'a dyn Rng,
     /// Time.
     pub clock: &'a dyn Clock,
+    /// Operator-registered confidential (adapter) clients: the only clients
+    /// of the exchange grant.
+    pub confidential: &'a ConfidentialClients,
+    /// RFC 7523 client-assertion `jti` replay cache.
+    pub assertions: &'a dyn AssertionReplayStore,
 }
 
 const GRANT_REFRESH: &str = "refresh_token";
@@ -53,8 +63,17 @@ impl TokenEndpoint<'_> {
     /// accepted and echoed, it does not gate refresh). The access token's
     /// `family_id` is the refresh family (a fresh grant id when no refresh
     /// token is issued).
+    ///
+    /// The exchange grant is dispatched first to
+    /// [`crate::exchange::exchange`]: its clients are confidential and never
+    /// in the [`ClientStore`] (and a DCR client is never confidential).
     pub fn handle(&self, req: &TokenRequest) -> Result<TokenResponse, OAuthError> {
-        let client = self.client(req.client_id())?;
+        let client_id = match req {
+            TokenRequest::TokenExchange(x) => return crate::exchange::exchange(self, x),
+            TokenRequest::AuthorizationCode { client_id, .. }
+            | TokenRequest::RefreshToken { client_id, .. } => client_id,
+        };
+        let client = self.client(client_id)?;
         match req {
             TokenRequest::AuthorizationCode {
                 code,
@@ -140,6 +159,11 @@ impl TokenEndpoint<'_> {
                 response.refresh_token = Some(rotated.token);
                 Ok(response)
             }
+            // Dispatched above; kept total without a panic path.
+            TokenRequest::TokenExchange(_) => Err(OAuthError::new(
+                OAuthErrorCode::UnsupportedGrantType,
+                "unsupported grant_type",
+            )),
         }
     }
 
@@ -219,6 +243,8 @@ impl TokenEndpoint<'_> {
             expires_in: ACCESS_TOKEN_TTL_SECS,
             refresh_token,
             scope: scopes.join(" "),
+            issued_token_type: None,
+            audit: None,
         })
     }
 }

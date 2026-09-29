@@ -2,12 +2,13 @@
 //! and the verification-error mapping are pure functions (tested natively);
 //! `handle` is the Workers glue.
 
+use crate::auth::Authenticated;
 use crate::config::GatewayConfig;
 use crate::platform::{JwksFetch, WorkerClock, EDGE_AUTH_BINDING};
-use crate::{auth, keys, respond};
+use crate::{api, auth, keys, respond};
 use ruvector_edge_auth::prm::{ProtectedResourceMetadata, MCP_SCOPES, PRM_WELL_KNOWN, REST_SCOPES};
 use ruvector_edge_auth::{ResourceUrl, RouteSurface};
-use ruvector_edge_tenancy::{ProblemCode, TenantContext};
+use ruvector_edge_tenancy::ProblemCode;
 use serde::Serialize;
 use worker::{Env, Method, Request, Response, Result};
 
@@ -23,13 +24,14 @@ pub enum Route {
     /// `GET /v1/me`.
     Me,
     /// The MCP resource `/v1/mcp[/…]` (any method but `OPTIONS`):
-    /// authenticated against the MCP resource and surface, then 404 until
-    /// the MCP handler lands.
+    /// authenticated against the MCP resource and surface; `POST /v1/mcp`
+    /// is the JSON-RPC endpoint, `GET`/`DELETE` are 405, deeper paths 404.
     Mcp,
     /// CORS preflight (public documents and every `/v1` path; never
     /// authenticated).
     Preflight,
-    /// Any other `/v1` path: authenticate against the REST resource, then 404.
+    /// Any other `/v1` path: authenticate against the REST resource (so
+    /// `/v1/ops` only takes `aud = …/v1` tokens), then the REST table or 404.
     OtherV1,
     /// Outside the API surface (including the bare
     /// `/.well-known/oauth-protected-resource`, ADR-351 §5.7: its RFC 9728
@@ -77,16 +79,20 @@ pub fn auth_target(route: Route, cfg: &GatewayConfig) -> Option<(&ResourceUrl, R
 /// Dispatch one request.
 pub async fn handle(req: Request, env: &Env, cfg: &GatewayConfig) -> Result<Response> {
     let route = classify(&req.method(), &req.path());
+    // ADR-351 §10 layer 1: refuse oversized bodies before any signature work.
+    if matches!(route, Route::Mcp | Route::OtherV1) && api::declared_too_large(&req) {
+        return respond::problem(ProblemCode::PayloadTooLarge, None);
+    }
     // Authenticate first so unknown routes do not leak existence to
     // anonymous callers.
-    let ctx = match auth_target(route, cfg) {
+    let auth = match auth_target(route, cfg) {
         Some((resource, surface)) => match authenticate(&req, env, cfg, resource, surface).await {
-            Ok(ctx) => Some(ctx),
+            Ok(a) => Some(a),
             Err(resp) => return Ok(resp),
         },
         None => None,
     };
-    match (route, ctx) {
+    match (route, auth) {
         (Route::Preflight, _) => respond::preflight(),
         (Route::Health, _) => respond::json(&Health { ok: true }, false),
         (Route::PrmRest, _) => respond::public_json(&ProtectedResourceMetadata::new(
@@ -99,7 +105,9 @@ pub async fn handle(req: Request, env: &Env, cfg: &GatewayConfig) -> Result<Resp
             &cfg.edge_issuer,
             &MCP_SCOPES,
         )),
-        (Route::Me, Some(ctx)) => me(&ctx),
+        (Route::Me | Route::Mcp | Route::OtherV1, Some(a)) => {
+            api::serve(req, env, cfg, route, a).await
+        }
         _ => respond::problem(ProblemCode::NotFound, None),
     }
 }
@@ -107,32 +115,6 @@ pub async fn handle(req: Request, env: &Env, cfg: &GatewayConfig) -> Result<Resp
 #[derive(Serialize)]
 struct Health {
     ok: bool,
-}
-
-#[derive(Serialize)]
-struct Me<'a> {
-    tenant_key: &'a str,
-    org_id: &'a str,
-    workspace_id: &'a str,
-    sub: &'a str,
-    client_id: &'a str,
-    capabilities: Vec<String>,
-}
-
-fn me(ctx: &TenantContext) -> Result<Response> {
-    let body = Me {
-        tenant_key: ctx.tenant_key().as_str(),
-        org_id: ctx.org_id(),
-        workspace_id: ctx.workspace_id(),
-        sub: ctx.sub(),
-        client_id: ctx.client_id(),
-        capabilities: ctx
-            .capabilities()
-            .iter()
-            .map(|c| format!("{c:?}").to_lowercase())
-            .collect(),
-    };
-    respond::json(&body, true)
 }
 
 /// Verify the bearer token for `resource` and build the tenant context, or
@@ -143,7 +125,7 @@ async fn authenticate(
     cfg: &GatewayConfig,
     resource: &ResourceUrl,
     surface: RouteSurface,
-) -> std::result::Result<TenantContext, Response> {
+) -> std::result::Result<Authenticated, Response> {
     let header = req.headers().get("Authorization").ok().flatten();
     // Service Binding only (Cloudflare 1042): no public fallback.
     let edge_keys = keys::edge(&cfg.edge_jwks_url, || {
@@ -154,7 +136,7 @@ async fn authenticate(
         .as_ref()
         .map(|u| u.accepted_kids.as_slice())
         .unwrap_or_default();
-    auth::authenticate(
+    auth::authenticate_full(
         header.as_deref(),
         cfg,
         resource,

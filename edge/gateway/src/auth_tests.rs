@@ -354,3 +354,91 @@ fn missing_edge_auth_binding_is_503_not_a_public_fetch() {
     .unwrap_err();
     assert_eq!(d.code, ProblemCode::JwksUnavailable);
 }
+
+/// `/v1/ops` (and every REST data route) authenticates against the `/v1`
+/// resource only: MCP-audience and adapter-audience tokens are 401 with the
+/// `/v1` metadata (ADR-351 §16.3), and the scope-derived capabilities
+/// follow the surface (no `admin` on `/v1/mcp`, §5.3).
+#[test]
+fn ops_takes_only_v1_audience_tokens_and_scope_caps_follow_the_surface() {
+    use ruvector_edge_auth::Capability;
+    let c = cfg(false);
+    let route = crate::routes::classify(&worker::Method::Post, "/v1/ops");
+    let (res, surface) = crate::routes::auth_target(route, &c).unwrap();
+    assert_eq!((res, surface), (&c.rest_resource, RouteSurface::Rest));
+    let full = |t: &str, res: &ResourceUrl, surface| {
+        block_on(authenticate_full(
+            Some(t),
+            &c,
+            res,
+            surface,
+            edge_keys(),
+            || Keys(vec![]),
+            Fixed,
+        ))
+    };
+    for aud in [MCP, "https://team.ruv.io/mcp"] {
+        let t = token(&key(1), Some("at+jwt"), edge_claims(aud));
+        let d = full(&t, res, surface).unwrap_err();
+        assert_eq!(d.code, ProblemCode::InvalidToken, "{aud}");
+        let www = d.www_authenticate.unwrap();
+        assert!(www.contains("oauth-protected-resource/v1\""), "{www}");
+    }
+    let wide = "ruvector:read ruvector:write ruvector:admin";
+    let mut rest = edge_claims(REST);
+    rest["scope"] = json!(wide);
+    let a = full(&token(&key(1), Some("at+jwt"), rest.clone()), res, surface).unwrap();
+    assert!(a.scope_caps.contains(Capability::Admin) && a.scope_caps.contains(Capability::Write));
+    assert_eq!(a.scopes.join(" "), wide);
+    // The same `/v1` token is refused on the MCP resource.
+    let d = full(
+        &token(&key(1), Some("at+jwt"), rest),
+        &c.mcp_resource,
+        RouteSurface::Mcp,
+    )
+    .unwrap_err();
+    assert!(d.www_authenticate.unwrap().contains("/v1/mcp\""));
+    let mut mcp = edge_claims(MCP);
+    mcp["scope"] = json!(wide);
+    let a = full(
+        &token(&key(1), Some("at+jwt"), mcp),
+        &c.mcp_resource,
+        RouteSurface::Mcp,
+    )
+    .unwrap();
+    assert!(!a.scope_caps.contains(Capability::Admin) && a.scope_caps.contains(Capability::Write));
+}
+
+/// RFC 8693 actor (ADR-351 §16.3): `act.sub` reaches the caller on `/v1`;
+/// an actor is refused on `/v1/mcp` even under an MCP audience; a forged
+/// actor (not the token's client) is refused everywhere.
+#[test]
+fn act_sub_is_surfaced_on_v1_and_refused_on_mcp() {
+    let c = cfg(false);
+    let full = |claims: Value, res: &ResourceUrl, surface| {
+        let t = token(&key(1), Some("at+jwt"), claims);
+        block_on(authenticate_full(
+            Some(&t),
+            &c,
+            res,
+            surface,
+            edge_keys(),
+            || Keys(vec![]),
+            Fixed,
+        ))
+    };
+    let mut rest = edge_claims(REST);
+    rest["act"] = json!({ "sub": "edc-1" });
+    let a = full(rest.clone(), &c.rest_resource, RouteSurface::Rest).unwrap();
+    assert_eq!(a.act_sub.as_deref(), Some("edc-1"));
+    let plain = full(edge_claims(REST), &c.rest_resource, RouteSurface::Rest).unwrap();
+    assert_eq!(plain.act_sub, None);
+    let mut mcp = edge_claims(MCP);
+    mcp["act"] = json!({ "sub": "edc-1" });
+    let d = full(mcp, &c.mcp_resource, RouteSurface::Mcp).unwrap_err();
+    assert_eq!(d.code, ProblemCode::InvalidToken);
+    assert!(d.www_authenticate.unwrap().contains("/v1/mcp\""));
+    rest["act"] = json!({ "sub": "adapter-x" });
+    let d = full(rest, &c.rest_resource, RouteSurface::Rest).unwrap_err();
+    assert_eq!(d.code, ProblemCode::InvalidToken);
+}

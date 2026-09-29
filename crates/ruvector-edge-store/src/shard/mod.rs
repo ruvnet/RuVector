@@ -58,6 +58,9 @@ pub struct Actor<'a> {
     pub jti: &'a str,
     /// Grant family.
     pub family_id: &'a str,
+    /// `act.sub` of an exchanged token: the adapter that acted for `sub`
+    /// (ADR-351 §5.6, §16.3); `None` when the user acted directly.
+    pub act_sub: Option<&'a str>,
 }
 
 /// Resident state of one `VectorShard`.

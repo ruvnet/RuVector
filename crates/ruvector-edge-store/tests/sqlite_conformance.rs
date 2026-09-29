@@ -190,6 +190,7 @@ fn shard_digests_identical_on_mock_and_sqlite() {
             sub: "es1_a",
             jti: "j",
             family_id: "f",
+            act_sub: None,
         };
         let mut rng = Rng(5);
         // > PAGE_ROWS rows so the paged cold load crosses a page boundary.

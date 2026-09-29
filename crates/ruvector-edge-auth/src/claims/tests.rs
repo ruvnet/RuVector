@@ -342,3 +342,45 @@ fn aud_bounded_by_resource_url_limit() {
         Err(AuthError::InvalidClaim("aud"))
     );
 }
+
+#[test]
+fn act_is_one_level_naming_the_client() {
+    // Absent: no actor.
+    assert_eq!(check_edge(raw(edge_claims())).unwrap().act_sub(), None);
+    // The exchange grant's shape: `{"sub": client_id}`.
+    let v = check_edge(edge_with("act", json!({ "sub": "edge-client-abc" }))).unwrap();
+    assert_eq!(v.act_sub(), Some("edge-client-abc"));
+    let bad = AuthError::InvalidClaim("act");
+    for act in [
+        json!({ "sub": "someone-else" }),
+        json!({ "sub": "" }),
+        json!({ "sub": 7 }),
+        json!({}),
+        json!({ "sub": "edge-client-abc", "act": { "sub": "x" } }),
+        json!({ "sub": "edge-client-abc", "extra": 1 }),
+        json!(["edge-client-abc"]),
+        json!("edge-client-abc"),
+    ] {
+        assert_eq!(
+            check_edge(edge_with("act", act.clone())),
+            Err(bad.clone()),
+            "{act}"
+        );
+    }
+    // `act: null` is refused, not read as absent (the AS refuses it too).
+    let mut c = edge_claims();
+    c["act"] = Value::Null;
+    assert_eq!(check_edge(raw(c)), Err(bad.clone()));
+    // Upstream first-party tokens never carry an actor.
+    let mut u = upstream_claims();
+    u["act"] = json!({ "sub": u["client_id"].clone() });
+    assert_eq!(
+        validate(
+            raw(u),
+            &upstream_policy(),
+            TokenKind::UpstreamFirstParty,
+            NOW
+        ),
+        Err(bad)
+    );
+}

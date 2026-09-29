@@ -4,7 +4,7 @@
 
 use ruvector_edge_authz::client::{DcrPolicy, DEFAULT_CLIENT_SCOPE};
 use ruvector_edge_authz::federation::UpstreamConfig;
-use ruvector_edge_authz::{OAuthError, ResourceAllowlist, ResourceUrl};
+use ruvector_edge_authz::{ConfidentialClients, OAuthError, ResourceAllowlist, ResourceUrl};
 
 /// Default cap on dynamically registered clients (abuse bound on a public,
 /// unauthenticated write endpoint).
@@ -37,6 +37,10 @@ pub struct AuthConfig {
     /// Pinned upstream signing `kid`s (`ACCEPTED_UPSTREAM_KIDS`). Empty
     /// means federation is not ready (like an empty `UPSTREAM_CLIENT_ID`).
     pub upstream_accepted_kids: Vec<String>,
+    /// Operator-registered confidential (adapter) clients of the RFC 8693
+    /// exchange grant (`CONFIDENTIAL_CLIENTS`; empty = none). Never
+    /// created by DCR.
+    pub confidential_clients: ConfidentialClients,
 }
 
 /// `error_description` of `/authorize` while the upstream client is not
@@ -126,7 +130,9 @@ impl AuthConfig {
     /// and optional `MAX_CLIENTS`, `DCR_RATE_PER_HOUR` (>= 1),
     /// `UPSTREAM_REVOCATION_ENDPOINT` (https, same origin as the upstream
     /// issuer; default `<UPSTREAM_ISSUER>/oauth/revoke`) and
-    /// `ACCEPTED_UPSTREAM_KIDS` (comma-separated base64url `kid`s). The upstream
+    /// `ACCEPTED_UPSTREAM_KIDS` (comma-separated base64url `kid`s) and
+    /// `CONFIDENTIAL_CLIENTS` (the operator registry of exchange clients, see
+    /// [`ConfidentialClients::from_config`]; invalid fails the load). The upstream
     /// callback is `<ISSUER>/callback`.
     pub fn from_vars(get: &dyn Fn(&str) -> Option<String>) -> Result<Self, OAuthError> {
         let var = |name: &'static str| get(name).ok_or(crate::config_error(name));
@@ -190,6 +196,11 @@ impl AuthConfig {
                 "RESOURCE_ALLOWLIST lacks ruvector scopes",
             ));
         }
+        let confidential_clients = ConfidentialClients::from_config(
+            &get("CONFIDENTIAL_CLIENTS").unwrap_or_default(),
+            &resources,
+        )
+        .map_err(|_| crate::config_error("CONFIDENTIAL_CLIENTS"))?;
         let upstream_revocation_endpoint = match get("UPSTREAM_REVOCATION_ENDPOINT") {
             Some(v) if !v.trim().is_empty() => v.trim().to_string(),
             _ => format!("{}/oauth/revoke", upstream.issuer),
@@ -211,6 +222,7 @@ impl AuthConfig {
             default_scope,
             upstream_revocation_endpoint,
             upstream_accepted_kids: kid_list(get("ACCEPTED_UPSTREAM_KIDS"))?,
+            confidential_clients,
         })
     }
 

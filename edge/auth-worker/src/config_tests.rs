@@ -326,3 +326,52 @@ fn rejects_bad_values() {
     v.remove("UPSTREAM_ISSUER");
     assert!(load(&v).is_err());
 }
+
+/// ADR-351 §5.6: confidential exchange clients come only from the operator
+/// registry var, validated whole at load; the shipped config registers none.
+#[test]
+fn confidential_clients_are_operator_config_validated_at_load() {
+    let shipped = load(&shipped_vars()).unwrap();
+    assert!(shipped.confidential_clients.clients().is_empty());
+    assert!(load(&vars())
+        .unwrap()
+        .confidential_clients
+        .clients()
+        .is_empty());
+
+    let key = crate::signer::tests::test_key(11);
+    let j = ruvector_edge_auth::Jwk::from_verifying_key(key.verifying_key());
+    let entry = |id: &str, aud: &str| {
+        serde_json::json!([{
+            "client_id": id,
+            "jwk": {"kty": "EC", "crv": "P-256", "x": j.x, "y": j.y, "kid": j.kid},
+            "subject_audiences": [aud],
+            "scope": "ruvector:read",
+        }])
+        .to_string()
+    };
+    let mut v = vars();
+    let allow = format!(
+        "{}, https://team.ruv.io/mcp team:read team:write",
+        v["RESOURCE_ALLOWLIST"]
+    );
+    v.insert("RESOURCE_ALLOWLIST", allow);
+    v.insert(
+        "CONFIDENTIAL_CLIENTS",
+        entry("team-ruv-io", "https://team.ruv.io/mcp"),
+    );
+    let c = load(&v).unwrap();
+    assert!(c.confidential_clients.get("team-ruv-io").is_some());
+    for bad in [
+        entry("edc-0123", "https://team.ruv.io/mcp"),
+        entry(
+            "team-ruv-io",
+            "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1",
+        ),
+        "{not json".to_string(),
+    ] {
+        v.insert("CONFIDENTIAL_CLIENTS", bad);
+        let e = load(&v).unwrap_err();
+        assert_eq!(e.error_description, "CONFIDENTIAL_CLIENTS");
+    }
+}

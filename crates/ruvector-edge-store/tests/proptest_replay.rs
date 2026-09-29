@@ -42,7 +42,7 @@ proptest! {
         let mut s = VectorShard::open(&st).unwrap();
         let dm = shard_meta_for(&tenant("org-p"), CollectionUid::from_bytes([4; 16]), ShardIndex::ZERO).unwrap();
         let cfg = ShardConfig { dim: 3, metric, filterable_keys: vec!["g".into()], float_cap: 1_000 };
-        let actor = Actor { sub: "es1_p", jti: "j", family_id: "f" };
+        let actor = Actor { sub: "es1_p", jti: "j", family_id: "f", act_sub: None };
         let mut model: BTreeMap<String, (Vec<f32>, Option<u8>)> = BTreeMap::new();
         for step in steps {
             match step {

@@ -748,13 +748,31 @@ name = "ruvector-edge-gateway"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
+ "futures-util",
+ "getrandom",
  "p256",
+ "ruvector-edge-auth",
+ "ruvector-edge-authz",
+ "ruvector-edge-store",
+ "ruvector-edge-tenancy",
+ "serde",
+ "serde_json",
+ "sha2",
+ "wasm-bindgen",
+ "worker",
+]
+
+[[package]]
+name = "ruvector-edge-store"
+version = "2.3.0"
+dependencies = [
+ "hex",
  "ruvector-edge-auth",
  "ruvector-edge-tenancy",
  "serde",
  "serde_json",
- "wasm-bindgen",
- "worker",
+ "sha2",
+ "thiserror",
 ]
 
 [[package]]

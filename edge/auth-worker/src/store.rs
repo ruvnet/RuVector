@@ -160,6 +160,9 @@ fn unavailable(desc: &'static str) -> Result<Response> {
 /// Convert a [`Reply`] into a Workers response (`append`, so several
 /// `Set-Cookie` headers survive), optionally with permissive CORS.
 pub(crate) fn to_response(reply: Reply, cors: bool) -> Result<Response> {
+    if let Some(line) = &reply.log {
+        worker::console_log!("{line}");
+    }
     let headers = worker::Headers::new();
     for (k, v) in &reply.headers {
         headers.append(k, v)?;

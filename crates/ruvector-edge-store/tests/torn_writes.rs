@@ -17,6 +17,7 @@ const ACTOR: Actor<'static> = Actor {
     sub: "es1_t",
     jti: "j",
     family_id: "f",
+    act_sub: None,
 };
 
 fn setup() -> (MemSqlStore, VectorShard, DoMeta, ShardConfig) {

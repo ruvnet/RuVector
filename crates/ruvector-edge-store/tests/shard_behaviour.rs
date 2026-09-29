@@ -16,6 +16,7 @@ const ACTOR: Actor<'static> = Actor {
     sub: "es1_actor",
     jti: "jti",
     family_id: "fam",
+    act_sub: Some("team-ruv-io"),
 };
 
 fn setup(dim: u32, metric: Metric, cap: u64) -> (MemSqlStore, VectorShard, DoMeta, ShardConfig) {

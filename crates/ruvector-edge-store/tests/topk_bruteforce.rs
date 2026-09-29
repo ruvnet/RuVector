@@ -79,6 +79,7 @@ fn shard_top10_equals_brute_force_all_metrics() {
         sub: "es1_x",
         jti: "j",
         family_id: "f",
+        act_sub: None,
     };
     for metric in [Metric::Cosine, Metric::L2, Metric::Dot] {
         let store = MemSqlStore::new();

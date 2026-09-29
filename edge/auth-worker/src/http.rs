@@ -22,6 +22,9 @@ pub struct Reply {
     pub headers: Vec<(&'static str, String)>,
     /// Body bytes.
     pub body: Vec<u8>,
+    /// One structured audit line the Worker logs with the response (never
+    /// sent to the client; e.g. the token-exchange mint, ADR-351 §5.6).
+    pub log: Option<String>,
 }
 
 impl Reply {
@@ -34,6 +37,7 @@ impl Reply {
             status,
             headers,
             body,
+            log: None,
         }
     }
 

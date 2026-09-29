@@ -152,6 +152,22 @@ fn metadata_advertises_s256_none_and_rfc9207() {
     assert_eq!(v["response_types_supported"], serde_json::json!(["code"]));
     assert_eq!(
         v["token_endpoint_auth_methods_supported"],
+        serde_json::json!(["none", "private_key_jwt"])
+    );
+    assert_eq!(
+        v["token_endpoint_auth_signing_alg_values_supported"],
+        serde_json::json!(["ES256"])
+    );
+    assert_eq!(
+        v["grant_types_supported"],
+        serde_json::json!([
+            "authorization_code",
+            "refresh_token",
+            "urn:ietf:params:oauth:grant-type:token-exchange"
+        ])
+    );
+    assert_eq!(
+        v["revocation_endpoint_auth_methods_supported"],
         serde_json::json!(["none"])
     );
     assert_eq!(v["authorization_response_iss_parameter_supported"], true);

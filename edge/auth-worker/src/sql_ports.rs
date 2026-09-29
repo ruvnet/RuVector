@@ -12,7 +12,9 @@ use ruvector_edge_authz::client::ClientRecord;
 use ruvector_edge_authz::code::AuthorizationCodeRecord;
 use ruvector_edge_authz::federation::UpstreamFlowState;
 use ruvector_edge_authz::refresh::RefreshTokenRecord;
-use ruvector_edge_authz::{ClientStore, CodeStore, FederationStore, RefreshStore, StoreError};
+use ruvector_edge_authz::{
+    AssertionReplayStore, ClientStore, CodeStore, FederationStore, RefreshStore, StoreError,
+};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -33,6 +35,7 @@ CREATE TABLE IF NOT EXISTS refresh_families (family_id TEXT PRIMARY KEY, revoked
 CREATE TABLE IF NOT EXISTS redeemed_codes (code_hash TEXT PRIMARY KEY, family_id TEXT NOT NULL, expires_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS client_activity (client_id TEXT PRIMARY KEY, last_used_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS dcr_rate (bucket TEXT PRIMARY KEY, window_start INTEGER NOT NULL, count INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS assertion_jtis (jti_hash TEXT PRIMARY KEY, expires_at INTEGER NOT NULL);
 ";
 
 /// All authz stores over one SQL handle.
@@ -81,7 +84,13 @@ impl<D: SqlExec> SqlPorts<D> {
     /// Delete expired codes, flows and refresh tokens (housekeeping; the
     /// cores also check expiry on every read).
     pub fn purge_expired(&self, now: u64) -> Result<(), StoreError> {
-        for table in ["codes", "flows", "refresh_tokens", "redeemed_codes"] {
+        for table in [
+            "codes",
+            "flows",
+            "refresh_tokens",
+            "redeemed_codes",
+            "assertion_jtis",
+        ] {
             self.db.query(
                 &format!("DELETE FROM {table} WHERE expires_at <= ?"),
                 vec![now.into()],
@@ -343,6 +352,25 @@ impl<D: SqlExec> FederationStore for SqlPorts<D> {
             "DELETE FROM flows WHERE state = ? RETURNING record",
             state_param.to_string(),
         )
+    }
+}
+
+impl<D: SqlExec> AssertionReplayStore for SqlPorts<D> {
+    /// One upsert: a row comes back when the `jti` is new or its earlier
+    /// record had expired (and is replaced); none for a live replay.
+    fn record_assertion(
+        &self,
+        jti_hash: &[u8; 32],
+        expires_at: u64,
+        now: u64,
+    ) -> Result<bool, StoreError> {
+        let rows = self.db.query(
+            "INSERT INTO assertion_jtis (jti_hash, expires_at) VALUES (?, ?) \
+             ON CONFLICT(jti_hash) DO UPDATE SET expires_at = excluded.expires_at \
+             WHERE assertion_jtis.expires_at <= ? RETURNING 1",
+            vec![hex32(jti_hash).into(), expires_at.into(), now.into()],
+        )?;
+        Ok(!rows.is_empty())
     }
 }
 

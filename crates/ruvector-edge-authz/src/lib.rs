@@ -17,7 +17,10 @@
 //!    [`resource`];
 //! 5. rotates refresh tokens with family reuse detection — [`refresh`];
 //! 6. supports RFC 7009 revocation — [`revoke`];
-//! 7. publishes RFC 8414 metadata and its JWKS — [`metadata`].
+//! 7. publishes RFC 8414 metadata and its JWKS — [`metadata`];
+//! 8. lets operator-registered confidential adapter clients
+//!    (`private_key_jwt`, RFC 7523) exchange a user's adapter-resource token
+//!    for a gateway `…/v1` token (RFC 8693) — [`confidential`], [`exchange`].
 //!
 //! All I/O is behind the sync ports in [`ports`] (clock, RNG, signer, stores),
 //! which the Worker implements over Durable Object SQLite and which tests mock.
@@ -28,7 +31,9 @@
 pub mod authorize;
 pub mod client;
 pub mod code;
+pub mod confidential;
 pub mod error;
+pub mod exchange;
 pub mod federation;
 pub mod grant;
 pub mod metadata;
@@ -46,9 +51,13 @@ mod testing;
 mod tests;
 
 pub use authorize::AuthorizeError;
+pub use confidential::ConfidentialClients;
 pub use error::{OAuthError, OAuthErrorCode};
 pub use grant::TokenEndpoint;
-pub use ports::{ClientStore, CodeStore, FederationStore, RefreshStore, Rng, Signer, StoreError};
+pub use ports::{
+    AssertionReplayStore, ClientStore, CodeStore, FederationStore, RefreshStore, Rng, Signer,
+    StoreError,
+};
 pub use resource::ResourceAllowlist;
 pub use ruvector_edge_auth::{Clock, ResourceUrl};
 

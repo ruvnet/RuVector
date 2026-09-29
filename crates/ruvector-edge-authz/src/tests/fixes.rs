@@ -286,6 +286,8 @@ fn debug_never_prints_secrets() {
         expires_in: 900,
         refresh_token: Some("SECRET-RT2".into()),
         scope: "ruvector:read".into(),
+        issued_token_type: None,
+        audit: None,
     };
     let rev = crate::revoke::RevocationRequest {
         token: "SECRET-REV".into(),

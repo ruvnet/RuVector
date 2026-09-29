@@ -83,6 +83,27 @@ UPSTREAM_SCOPES = "openid profile email"
 # redeploy. Empty until the operator records them with UPSTREAM_CLIENT_ID
 # (gate G1); federation answers temporarily_unavailable until then.
 ACCEPTED_UPSTREAM_KIDS = ""
+# Operator-registered CONFIDENTIAL clients (ADR-351 §5.6, §16.1): the only
+# clients of the RFC 8693 token-exchange grant at /token
+# (grant_type=urn:ietf:params:oauth:grant-type:token-exchange), authenticated
+# with private_key_jwt (RFC 7523, ES256, aud = <ISSUER>/token, exp <= 5 min,
+# one-time jti). Never created by public DCR. A reviewed deploy-config change
+# is the ONLY way to add one. Empty = none registered (today). Value: a JSON
+# array (use a TOML literal string '...' so the JSON quotes survive):
+#   [{"client_id":"team-ruv-io",
+#     "jwk":{"kty":"EC","crv":"P-256","x":"<b64url>","y":"<b64url>","kid":"<RFC 7638 thumbprint>"},
+#     "subject_audiences":["https://team.ruv.io/mcp"],
+#     "scope":"ruvector:read ruvector:write"}]
+# Validated whole at load (any error fails every endpoint closed): public
+# P-256 JWK only (no "d"), kid = thumbprint; client_id [A-Za-z0-9._-]{1,128},
+# unique, never the DCR "edc-" prefix; subject_audiences allowlisted,
+# compiled, never the exchange target .../v1; scope = ruvector:* ceiling. The
+# exchanged token: aud = .../v1, same sub/upstream_iss/org_id/workspace_id/
+# family_id, act = {sub: client_id}, exp <= the subject token's, scope =
+# exchange map (team:read->ruvector:read, team:write->ruvector:write,
+# ruvector:* identity) of the subject scopes ∩ requested ∩ this ceiling ∩ the
+# .../v1 scopes, no refresh token.
+CONFIDENTIAL_CLIENTS = ""
 
 # Optional cap on dynamically registered clients (default 10000).
 # MAX_CLIENTS = "10000"

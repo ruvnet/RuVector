@@ -4,7 +4,9 @@ use crate::authorize::ValidatedAuthorization;
 use crate::client::{ClientRecord, DcrPolicy, RegistrationRequest};
 use crate::code::AuthorizationCodeRecord;
 use crate::federation::{UpstreamConfig, UpstreamFlowState, UpstreamIdentity};
-use crate::ports::{ClientStore, Clock, CodeStore, FederationStore, RefreshStore, Rng, Signer};
+use crate::ports::{
+    AssertionReplayStore, ClientStore, Clock, CodeStore, FederationStore, RefreshStore, Rng, Signer,
+};
 use crate::refresh::RefreshTokenRecord;
 use crate::resource::ResourceAllowlist;
 use crate::StoreError;
@@ -65,6 +67,7 @@ pub struct MemStore {
     pub refresh: RefCell<BTreeMap<[u8; 32], RefreshTokenRecord>>,
     pub revoked: RefCell<BTreeSet<String>>,
     pub redeemed: RefCell<BTreeMap<[u8; 32], (String, u64)>>,
+    pub assertions: RefCell<BTreeMap<[u8; 32], u64>>,
 }
 
 impl ClientStore for MemStore {
@@ -141,6 +144,17 @@ impl FederationStore for MemStore {
     }
 }
 
+impl AssertionReplayStore for MemStore {
+    fn record_assertion(&self, h: &[u8; 32], until: u64, now: u64) -> Result<bool, StoreError> {
+        let mut m = self.assertions.borrow_mut();
+        if m.get(h).is_some_and(|exp| now < *exp) {
+            return Ok(false);
+        }
+        m.insert(*h, until);
+        Ok(true)
+    }
+}
+
 /// Real ES256 signer over a fixed test key.
 pub struct TestSigner(pub SigningKey);
 impl Default for TestSigner {
@@ -160,6 +174,26 @@ impl Signer for TestSigner {
     fn sign_es256(&self, input: &[u8]) -> Result<[u8; 64], StoreError> {
         let sig: Signature = self.0.sign(input);
         Ok(sig.to_bytes().into())
+    }
+    fn verifying_keys(&self) -> Vec<VerifyingKey> {
+        vec![self.verifying_key()]
+    }
+}
+
+/// [`TestSigner`] whose `kid` is the real RFC 7638 thumbprint (as the
+/// Worker's signer), so the AS can verify its own tokens back (RFC 8693
+/// subject tokens). `TestSigner` keeps `"test-kid"`, which other tests pin.
+#[derive(Default)]
+pub struct ThumbSigner(pub TestSigner);
+impl Signer for ThumbSigner {
+    fn kid(&self) -> String {
+        ruvector_edge_auth::Jwk::from_verifying_key(&self.0.verifying_key()).kid
+    }
+    fn sign_es256(&self, input: &[u8]) -> Result<[u8; 64], StoreError> {
+        self.0.sign_es256(input)
+    }
+    fn verifying_keys(&self) -> Vec<VerifyingKey> {
+        self.0.verifying_keys()
     }
 }
 

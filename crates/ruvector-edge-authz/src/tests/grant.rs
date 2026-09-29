@@ -21,6 +21,7 @@ struct World {
     clock: FixedClock,
     signer: TestSigner,
     resources: ResourceAllowlist,
+    confidential: crate::ConfidentialClients,
 }
 
 impl World {
@@ -31,6 +32,7 @@ impl World {
             clock: FixedClock::at(T0),
             signer: TestSigner::default(),
             resources: allowlist(),
+            confidential: crate::ConfidentialClients::default(),
         }
     }
 
@@ -44,6 +46,8 @@ impl World {
             signer: &self.signer,
             rng: &self.rng,
             clock: &self.clock,
+            confidential: &self.confidential,
+            assertions: &self.store,
         }
     }
 

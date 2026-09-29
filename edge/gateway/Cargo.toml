@@ -1,6 +1,6 @@
 [package]
 name = "ruvector-edge-gateway"
-description = "rv-gateway Worker (ADR-351 M1 router): /v1/health, RFC 9728 metadata, /v1/me; accepts only edge-auth-issued, resource-bound ES256 tokens."
+description = "rv-gateway Worker (ADR-351 M1): /v1/health, RFC 9728 metadata, /v1/me, REST collections/vectors, /v1/ops and /v1/mcp over TenantLedger / VectorShard Durable Objects; accepts only edge-auth-issued, resource-bound ES256 tokens."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -20,6 +20,16 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 ruvector-edge-auth = { workspace = true }
 ruvector-edge-tenancy = { workspace = true }
+# Storage core behind the TenantLedger / VectorShard Durable Objects
+# (ADR-351 §6, §16), consumed by path like the other cores.
+ruvector-edge-store = { path = "../../crates/ruvector-edge-store" }
+sha2 = { workspace = true }
+# Bounded body reads (ADR-351 §10 layer 1): stop at 1 MiB while streaming.
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# EntropySource for collection_uid nonces (crypto.getRandomValues).
+getrandom = { workspace = true }
 
 [features]
 default = []
@@ -28,3 +38,6 @@ dev-issuer = []
 
 [dev-dependencies]
 p256 = { workspace = true }
+# Cross-crate end-to-end tests: tokens minted and exchanged by the real AS
+# core are verified and served by the gateway (native only; never in wasm).
+ruvector-edge-authz = { workspace = true }

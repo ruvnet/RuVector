@@ -29,6 +29,28 @@ pub trait Signer {
     fn kid(&self) -> String;
     /// Fixed-width `r || s` ES256 signature over `signing_input`.
     fn sign_es256(&self, signing_input: &[u8]) -> Result<[u8; 64], StoreError>;
+    /// Public keys whose tokens this AS accepts back (the published JWKS:
+    /// active + previous during rotation), looked up by RFC 7638
+    /// thumbprint = `kid`. Used to verify RFC 8693 subject tokens. The
+    /// default (no keys) fails the exchange closed.
+    fn verifying_keys(&self) -> Vec<p256::ecdsa::VerifyingKey> {
+        Vec::new()
+    }
+}
+
+/// One-time `jti` cache for RFC 7523 client assertions (replay defence).
+#[cfg_attr(test, mockall::automock)]
+pub trait AssertionReplayStore {
+    /// Record `jti_hash` (`secret_hash(client_id "|" jti)`) until
+    /// `expires_at`. Returns `true` if it was not seen before (or its earlier
+    /// record expired by `now`), `false` for a live replay. Must be atomic
+    /// (insert-if-absent).
+    fn record_assertion(
+        &self,
+        jti_hash: &[u8; 32],
+        expires_at: u64,
+        now: u64,
+    ) -> Result<bool, StoreError>;
 }
 
 /// Registered clients (DCR).

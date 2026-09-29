@@ -30,3 +30,19 @@ service = "ruvector-edge-auth"
 # compiled (empty) FIRST_PARTY_AUDS / ACCEPTED_UPSTREAM_KIDS, "true" fails
 # closed.
 UPSTREAM_FIRST_PARTY = "false"
+
+# ADR-351 §6: storage Durable Objects, SQLite-backed, addressed only by
+# idFromName from this Worker (TenantLedger: hex(sha256("v1|" + tenant_key +
+# "|ledger")); VectorShard: DoMeta::do_name()). No public route reaches them.
+[[durable_objects.bindings]]
+name = "TENANT_LEDGER"
+class_name = "TenantLedger"
+
+[[durable_objects.bindings]]
+name = "VECTOR_SHARD"
+class_name = "VectorShard"
+
+# Append-only: never edit or reorder an applied tag (ADR-351 §16.4).
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TenantLedger", "VectorShard"]

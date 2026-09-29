@@ -410,6 +410,7 @@ mod tests {
             schema::VEC_DELETE_ALL,
             schema::OPS_APPEND,
             schema::OPS_PAGE,
+            schema::OPS_ACTORS,
             schema::OPS_DELETE_ALL,
             schema::FILTER_PUT,
             schema::FILTER_DELETE_ID,

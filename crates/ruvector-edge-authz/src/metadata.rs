@@ -36,6 +36,8 @@ pub struct AuthorizationServerMetadata {
     pub response_types_supported: Vec<&'static str>,
     pub grant_types_supported: Vec<&'static str>,
     pub token_endpoint_auth_methods_supported: Vec<&'static str>,
+    /// RFC 8414: algorithms for `private_key_jwt` client assertions.
+    pub token_endpoint_auth_signing_alg_values_supported: Vec<&'static str>,
     pub revocation_endpoint_auth_methods_supported: Vec<&'static str>,
     pub code_challenge_methods_supported: Vec<&'static str>,
     /// RFC 9207.
@@ -44,8 +46,10 @@ pub struct AuthorizationServerMetadata {
 
 impl AuthorizationServerMetadata {
     /// Build the document for `issuer` (no trailing slash) and `scopes`.
-    /// Advertises PKCE `S256` only, `none` client auth only, code +
-    /// refresh_token grants.
+    /// Advertises PKCE `S256` only; `none` client auth for public (DCR)
+    /// clients and `private_key_jwt` (ES256) for operator-registered
+    /// confidential clients; code + refresh_token grants, plus the RFC 8693
+    /// exchange grant (confidential clients only).
     pub fn build(issuer: &str, scopes: &[String]) -> Self {
         let u = |p: &str| format!("{issuer}{p}");
         AuthorizationServerMetadata {
@@ -57,8 +61,13 @@ impl AuthorizationServerMetadata {
             jwks_uri: u(paths::JWKS),
             scopes_supported: scopes.to_vec(),
             response_types_supported: vec!["code"],
-            grant_types_supported: vec!["authorization_code", "refresh_token"],
-            token_endpoint_auth_methods_supported: vec!["none"],
+            grant_types_supported: vec![
+                "authorization_code",
+                "refresh_token",
+                crate::exchange::TOKEN_EXCHANGE_GRANT,
+            ],
+            token_endpoint_auth_methods_supported: vec!["none", "private_key_jwt"],
+            token_endpoint_auth_signing_alg_values_supported: vec!["ES256"],
             revocation_endpoint_auth_methods_supported: vec!["none"],
             code_challenge_methods_supported: vec!["S256"],
             authorization_response_iss_parameter_supported: true,

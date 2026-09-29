@@ -289,6 +289,8 @@ fn team_token_carries_team_scopes_and_audience() {
         signer: &signer,
         rng: &rng,
         clock: &clock,
+        confidential: &crate::ConfidentialClients::default(),
+        assertions: &store,
     };
     let t: TokenResponse = ep
         .handle(&TokenRequest::AuthorizationCode {

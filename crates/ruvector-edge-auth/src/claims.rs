@@ -5,6 +5,8 @@ use crate::error::AuthError;
 use crate::resource::MAX_RESOURCE_URL_LEN;
 use serde::Deserialize;
 
+mod act;
+
 /// Which authorization server minted the token.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TokenKind {
@@ -61,6 +63,10 @@ pub struct RawClaims {
     pub exchanged: Option<bool>,
     pub setup: Option<bool>,
     pub workload: Option<bool>,
+    /// RFC 8693 actor: exchanged edge tokens only (ADR §5.2). A present
+    /// `null` is kept (and refused), never read as absent.
+    #[serde(default, deserialize_with = "act::present")]
+    pub act: Option<serde_json::Value>,
 }
 
 /// Hard cap on `exp - iat` for edge-issued tokens (ADR §5.4.7; the AS mints
@@ -167,6 +173,7 @@ pub struct VerifiedClaims {
     nonce: Option<String>,
     family_id: Option<String>,
     upstream_iss: Option<String>,
+    act_sub: Option<String>,
     kid: String,
     iat: u64,
     exp: u64,
@@ -214,6 +221,11 @@ impl VerifiedClaims {
     /// [`ClaimsPolicy::upstream_issuer`] that did not carry the claim.
     pub fn upstream_iss(&self) -> Option<&str> {
         self.upstream_iss.as_deref()
+    }
+    /// `act.sub` of an exchanged edge token: the adapter acting for `sub`
+    /// (always equal to `client_id`); `None` on every other token.
+    pub fn act_sub(&self) -> Option<&str> {
+        self.act_sub.as_deref()
     }
     /// JOSE header `kid` of the signing key (ADR §5.4.7 / §5.6 deny-list key).
     /// Always set by [`crate::Verifier::verify`]; empty only for claims built
@@ -271,6 +283,7 @@ impl VerifiedClaims {
             jti: None,
             family_id: None,
             upstream_iss: Some(upstream_iss.into()),
+            act_sub: None,
             kid: "test-kid".into(),
             nonce: None,
             iat,
@@ -322,8 +335,9 @@ fn check_time(raw: &RawClaims, skew: u64, max_lifetime: u64, now: u64) -> Result
 ///
 /// Contract: `iss == policy.issuer`; `sub`, `client_id`, `jti`, `org_id`,
 /// `workspace_id` and `scope` required, bounded strings (edge tokens:
-/// `client_id` is the DCR client; upstream: `client_id == aud` and
-/// `family_id` required); `aud` a single string of at most
+/// `client_id` is the DCR client, or the adapter on an exchanged token,
+/// whose `act` must be exactly `{"sub": client_id}`; upstream: `client_id
+/// == aud`, `family_id` required, `act` refused); `aud` a single string of at most
 /// [`MAX_RESOURCE_URL_LEN`] bytes; `exchanged`, `setup`, `workload` true =>
 /// reject; `scope` split on single spaces (empty tokens and non RFC 6749
 /// scope-token bytes rejected); time via the kind-capped lifetime
@@ -377,6 +391,12 @@ pub fn validate(
     };
     let sub = bounded(raw.sub, "sub")?;
     let client_id = bounded(raw.client_id, "client_id")?;
+    let act_sub = act::validate_act(
+        raw.act,
+        kind == TokenKind::UpstreamFirstParty,
+        &client_id,
+        MAX_CLAIM_LEN,
+    )?;
     let jti = bounded(raw.jti, "jti")?;
     let org_id = bounded(raw.org_id, "org_id")?;
     let workspace_id = bounded(raw.workspace_id, "workspace_id")?;
@@ -420,6 +440,7 @@ pub fn validate(
         nonce,
         family_id,
         upstream_iss,
+        act_sub,
         kid: String::new(),
         // check_time guarantees both are present.
         iat: raw.iat.unwrap_or_default(),

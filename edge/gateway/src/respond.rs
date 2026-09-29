@@ -60,6 +60,30 @@ pub fn problem(code: ProblemCode, www_authenticate: Option<String>) -> Result<Re
         .with_headers(headers))
 }
 
+/// Credentialed reply with an explicit status and content type (API and
+/// MCP responses), CORS, `Cache-Control: no-store` and an optional
+/// challenge. An empty body is sent as no body (202 / 405).
+pub fn raw(
+    status: u16,
+    body: String,
+    content_type: &str,
+    www_authenticate: Option<&str>,
+) -> Result<Response> {
+    let headers = Headers::new();
+    headers.set("Cache-Control", "no-store")?;
+    with_cors(&headers)?;
+    if let Some(challenge) = www_authenticate {
+        headers.set("WWW-Authenticate", challenge)?;
+    }
+    let resp = if body.is_empty() {
+        Response::empty()?
+    } else {
+        headers.set("Content-Type", content_type)?;
+        Response::ok(body)?
+    };
+    Ok(resp.with_status(status).with_headers(headers))
+}
+
 /// Public, cacheable JSON document (RFC 9728 metadata) with CORS, so
 /// browser-based MCP clients can discover the authorization server.
 pub fn public_json<T: Serialize>(value: &T) -> Result<Response> {

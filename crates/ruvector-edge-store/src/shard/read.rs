@@ -60,6 +60,14 @@ pub struct Match {
 }
 
 impl Match {
+    /// The exact `f64` rank key. DO adapter hook: a gateway that fans a
+    /// query out to `VectorShard` Durable Objects carries this key over the
+    /// wire and merges by `(rank_score, id)` ascending, exactly like
+    /// [`Match::rank_cmp`], instead of by the clamped `f32` distance.
+    pub fn rank_score(&self) -> f64 {
+        self.score
+    }
+
     /// Merge order: `(score, id)` ascending.
     pub(crate) fn rank_cmp(&self, other: &Match) -> Ordering {
         self.score

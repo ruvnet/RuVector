@@ -448,6 +448,7 @@ fn ops_row(
         a.sub.into(),
         a.jti.into(),
         a.family_id.into(),
+        a.act_sub.map_or(Value::Null, Value::from),
         body,
     ])
 }

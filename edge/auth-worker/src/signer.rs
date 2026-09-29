@@ -215,6 +215,12 @@ impl Signer for EnvSigner {
         out.copy_from_slice(&sig.to_bytes());
         Ok(out)
     }
+
+    /// The published keys (active + previous): RFC 8693 subject tokens
+    /// signed by any key still in the JWKS verify.
+    fn verifying_keys(&self) -> Vec<VerifyingKey> {
+        self.public_keys()
+    }
 }
 
 #[cfg(test)]

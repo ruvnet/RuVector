@@ -358,3 +358,6 @@ mod upstream_leg;
 
 #[path = "tests_consent.rs"]
 mod consent_form;
+
+#[path = "tests_exchange.rs"]
+mod exchange;

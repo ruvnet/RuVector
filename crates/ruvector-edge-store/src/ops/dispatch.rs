@@ -158,6 +158,10 @@ impl Dispatcher {
                 IdemLookup::Conflict => {
                     return Err(OpError::new(ErrorCode::OpReplayed, "op_id reused"))
                 }
+                // Only a concurrent (DO-backed) reservation leaves a pending row.
+                IdemLookup::InFlight => {
+                    return Err(OpError::new(ErrorCode::Conflict, "op_id in flight"))
+                }
                 IdemLookup::Replay(body) => {
                     let status =
                         serde_json::from_str::<OpResponse>(&body).map_or(500, |r| r.status());

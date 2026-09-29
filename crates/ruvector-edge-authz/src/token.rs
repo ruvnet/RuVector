@@ -43,6 +43,9 @@ pub enum TokenRequest {
         /// Optional RFC 8707 resource (must equal the family's).
         resource: Option<String>,
     },
+    /// `grant_type=urn:ietf:params:oauth:grant-type:token-exchange`
+    /// (RFC 8693; operator-registered confidential clients only).
+    TokenExchange(crate::exchange::ExchangeRequest),
 }
 
 impl std::fmt::Debug for TokenRequest {
@@ -74,6 +77,7 @@ impl std::fmt::Debug for TokenRequest {
                 .field("scope", scope)
                 .field("resource", resource)
                 .finish(),
+            TokenRequest::TokenExchange(x) => x.fmt(f),
         }
     }
 }
@@ -86,9 +90,16 @@ impl TokenRequest {
     /// each value <= 2 KiB; `client_secret` or `client_assertion` present =>
     /// `invalid_client` (public clients only); `client_id` required;
     /// `grant_type` missing => `invalid_request`, unknown =>
-    /// `unsupported_grant_type`; grant-specific members required.
+    /// `unsupported_grant_type`; grant-specific members required. The
+    /// token-exchange grant is decided first and parsed by
+    /// [`crate::exchange::ExchangeRequest::from_params`] (confidential
+    /// clients: `client_assertion` required there).
     pub fn from_form(pairs: &[(String, String)]) -> Result<Self, OAuthError> {
         let p = Params::from_pairs(pairs)?;
+        if p.get("grant_type") == Some(crate::exchange::TOKEN_EXCHANGE_GRANT) {
+            return crate::exchange::ExchangeRequest::from_params(&p)
+                .map(TokenRequest::TokenExchange);
+        }
         if p.get("client_secret").is_some() || p.get("client_assertion").is_some() {
             return Err(OAuthError::new(
                 OAuthErrorCode::InvalidClient,
@@ -118,11 +129,13 @@ impl TokenRequest {
         }
     }
 
-    /// The `client_id` member.
-    pub fn client_id(&self) -> &str {
+    /// The public client's `client_id` member; `None` for the exchange
+    /// grant, whose client is known only once its assertion verifies.
+    pub fn client_id(&self) -> Option<&str> {
         match self {
             TokenRequest::AuthorizationCode { client_id, .. }
-            | TokenRequest::RefreshToken { client_id, .. } => client_id,
+            | TokenRequest::RefreshToken { client_id, .. } => Some(client_id),
+            TokenRequest::TokenExchange(_) => None,
         }
     }
 }
@@ -250,14 +263,28 @@ where
             sub: sub.to_string(),
         }),
     };
+    Ok((sign_claims(signer, &claims)?, claims))
+}
+
+/// Sign `claims` as a compact JWS with header `{"alg":"ES256","typ":
+/// "at+jwt","kid":signer.kid()}` (empty `kid` => `server_error`). Shared by
+/// every grant, so the JOSE header is defined once.
+pub(crate) fn sign_claims<S: Signer + ?Sized>(
+    signer: &S,
+    claims: &AccessTokenClaims,
+) -> Result<String, OAuthError> {
+    let kid = signer.kid();
+    if kid.is_empty() {
+        return Err(server_error("signing key unavailable"));
+    }
     let header = Header {
         alg: "ES256",
         typ: "at+jwt",
         kid: &kid,
     };
-    let signing_input = format!("{}.{}", b64_json(&header)?, b64_json(&claims)?);
+    let signing_input = format!("{}.{}", b64_json(&header)?, b64_json(claims)?);
     let sig = signer.sign_es256(signing_input.as_bytes())?;
-    Ok((format!("{signing_input}.{}", b64url_encode(&sig)), claims))
+    Ok(format!("{signing_input}.{}", b64url_encode(&sig)))
 }
 
 fn b64_json<T: Serialize>(v: &T) -> Result<String, OAuthError> {
@@ -281,6 +308,13 @@ pub struct TokenResponse {
     pub refresh_token: Option<String>,
     /// Granted scope.
     pub scope: String,
+    /// RFC 8693 §2.2.1 `issued_token_type`: only on exchange responses.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issued_token_type: Option<&'static str>,
+    /// Exchange only: the mint the AS audits (ADR-351 §5.6); never
+    /// serialised to the client.
+    #[serde(skip)]
+    pub audit: Option<crate::exchange::ExchangeAudit>,
 }
 
 impl std::fmt::Debug for TokenResponse {

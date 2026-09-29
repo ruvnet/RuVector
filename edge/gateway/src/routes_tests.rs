@@ -99,3 +99,25 @@ fn preflight_is_never_authenticated() {
     assert_eq!(classify(&o, "/elsewhere"), Route::NotFound);
     assert!(auth_target(Route::Preflight, &cfg()).is_none());
 }
+
+/// The data routes (REST table, `/v1/ops`, `/v1/claim`) are `OtherV1`,
+/// bound to the `/v1` resource and REST surface.
+#[test]
+fn data_routes_bind_to_the_v1_resource() {
+    let c = cfg();
+    for (m, p) in [
+        (Method::Post, "/v1/ops"),
+        (Method::Post, "/v1/claim"),
+        (Method::Get, "/v1/usage"),
+        (Method::Get, "/v1/collections"),
+        (Method::Post, "/v1/collections/d/query"),
+        (Method::Delete, "/v1/collections/d/vectors"),
+    ] {
+        let r = classify(&m, p);
+        assert_eq!(r, Route::OtherV1, "{p}");
+        assert_eq!(
+            auth_target(r, &c),
+            Some((&c.rest_resource, RouteSurface::Rest))
+        );
+    }
+}

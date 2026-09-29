@@ -23,6 +23,9 @@ pub const IDEMPOTENCY_TTL_SECS: u64 = 86_400;
 pub const IDEM_PURGE_BATCH: i64 = 100;
 /// Largest response remembered (64 KiB).
 pub const MAX_IDEM_RESPONSE_BYTES: usize = 64 << 10;
+/// Lifetime of an in-flight reservation ([`TenantLedger::idem_reserve`]):
+/// a crashed request's key frees itself after this.
+pub const IDEM_PENDING_TTL_SECS: u64 = 120;
 
 /// The `(sub, op_id, body hash)` an idempotency row is keyed and bound on.
 #[derive(Debug, Clone, Copy)]
@@ -51,6 +54,9 @@ pub enum IdemLookup {
     Replay(String),
     /// Seen with a different body: `409 op_replayed`.
     Conflict,
+    /// Reserved by a request with the same body that has not finished:
+    /// `409 conflict`, retry shortly.
+    InFlight,
 }
 
 fn i64_of(v: u64) -> i64 {
@@ -61,7 +67,86 @@ fn bytes_col(r: &[Value], i: usize) -> i64 {
     r.get(i).and_then(Value::as_int).unwrap_or(0).max(0)
 }
 
+/// An `IDEM_SELECT` row reserved by [`TenantLedger::idem_reserve`] and not
+/// yet completed: its `response` is `NULL`.
+fn is_pending(r: &[Value]) -> bool {
+    matches!(r.get(1), Some(Value::Null) | None)
+}
+
 impl TenantLedger {
+    /// Look up `(sub, key)` and, on a miss, reserve it for this request in
+    /// the same call (one DO turn, so two concurrent requests with one key
+    /// never both miss): a pending row (`response NULL`, uncharged,
+    /// [`IDEM_PENDING_TTL_SECS`]) that [`TenantLedger::idem_store`]
+    /// replaces and [`TenantLedger::idem_release`] clears. An expired row
+    /// the reservation replaces has its charged bytes released.
+    pub fn idem_reserve(
+        &mut self,
+        store: &dyn SqlStore,
+        expected: &LedgerMeta,
+        k: IdemKey<'_>,
+        now: u64,
+    ) -> Result<IdemLookup, OpError> {
+        let found = self.idem_lookup(store, expected, k, now)?;
+        if found != IdemLookup::Miss {
+            return Ok(found);
+        }
+        let check = self.guard(expected, true)?;
+        let stale = store
+            .query(schema::IDEM_SELECT, &[k.sub.into(), k.key.into()])?
+            .first()
+            .map_or(0, |r| bytes_col(r, 3));
+        let expires = i64_of(now.saturating_add(IDEM_PENDING_TTL_SECS));
+        let res = self.init_identity(store, check, expected).and_then(|_| {
+            store.exec(
+                schema::IDEM_PUT,
+                &[
+                    k.sub.into(),
+                    k.key.into(),
+                    k.body_sha256.to_vec().into(),
+                    Value::Null,
+                    0i64.into(),
+                    expires.into(),
+                ],
+            )
+        });
+        if let Err(e) = res {
+            return self.poison(e);
+        }
+        if stale > 0 {
+            let release = QuotaDelta {
+                bytes: -stale,
+                ..Default::default()
+            };
+            let next = self.plan_adjust(&release, now);
+            self.commit_usage(store, check, expected, next, 0, now)?;
+        } else {
+            self.commit_identity(check, expected);
+        }
+        Ok(IdemLookup::Miss)
+    }
+
+    /// Clear this request's reservation of `(sub, key)` (the op failed or
+    /// is not remembered): only a pending row with the same body hash.
+    pub fn idem_release(
+        &mut self,
+        store: &dyn SqlStore,
+        expected: &LedgerMeta,
+        k: IdemKey<'_>,
+    ) -> Result<(), OpError> {
+        self.guard(expected, true)?;
+        let rows = store.query(schema::IDEM_SELECT, &[k.sub.into(), k.key.into()])?;
+        let ours = rows.first().is_some_and(|r| {
+            is_pending(r) && r.first().and_then(Value::as_blob) == Some(k.body_sha256.as_slice())
+        });
+        if ours {
+            if let Err(e) = store.exec(schema::IDEM_DELETE, &[k.sub.into(), k.key.into()]) {
+                return self.poison(e);
+            }
+        }
+        Ok(())
+    }
+
     /// Look up `(sub, key)` at `now`.
     pub fn idem_lookup(
         &self,
@@ -82,6 +167,9 @@ impl TenantLedger {
         let stored = r.first().and_then(Value::as_blob).unwrap_or(&[]);
         if stored != k.body_sha256.as_slice() {
             return Ok(IdemLookup::Conflict);
+        }
+        if is_pending(r) {
+            return Ok(IdemLookup::InFlight);
         }
         let resp = r.get(1).and_then(Value::as_text).unwrap_or("").to_string();
         Ok(IdemLookup::Replay(resp))
@@ -115,13 +203,14 @@ impl TenantLedger {
         }
         // The key being stored may hold an expired row beyond this batch;
         // it is released only if the new row replaces it.
-        let mut existing: i64 = 0;
+        let (mut existing, mut pending_here) = (0i64, false);
         if !purge.iter().any(|(s, q)| s == k.sub && q == k.key) {
             if let Some(r) = store
                 .query(schema::IDEM_SELECT, &[k.sub.into(), k.key.into()])?
                 .first()
             {
                 existing = bytes_col(r, 3);
+                pending_here = is_pending(r);
             }
         }
         let row = i64_of(k.row_bytes(response));
@@ -143,7 +232,10 @@ impl TenantLedger {
                 Err(_) => (self.plan_adjust(&release, now), false),
             }
         };
-        if purge.is_empty() && !keep {
+        // Not remembered: clear this key's reservation, so a retry
+        // re-executes instead of waiting out the pending TTL.
+        let clear = !keep && pending_here;
+        if purge.is_empty() && !keep && !clear {
             return Ok(false);
         }
         let expires = i64_of(now.saturating_add(IDEMPOTENCY_TTL_SECS));
@@ -153,6 +245,9 @@ impl TenantLedger {
                     schema::IDEM_DELETE,
                     &[sub.as_str().into(), key.as_str().into()],
                 )?;
+            }
+            if clear {
+                store.exec(schema::IDEM_DELETE, &[k.sub.into(), k.key.into()])?;
             }
             if keep {
                 store.exec(
