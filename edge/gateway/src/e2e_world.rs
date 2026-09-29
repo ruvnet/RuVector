@@ -4,7 +4,7 @@
 //! route table and handlers over the in-process Durable Object backend.
 
 use crate::api::ratelimit::mem::CountingLimiter;
-use crate::api::ratelimit::{class_of, Budget, Class, Limiter};
+use crate::api::ratelimit::{request_class, Budget, Limiter};
 use crate::api::{caller, data, guard};
 use crate::auth::authenticate_full;
 use crate::backend::mem::MemBackend;
@@ -140,10 +140,11 @@ impl World {
         let c = caller(a);
         // Rate budgets, then the deny list, before anything else
         // (`api::serve`).
-        let (class, res) = if route == Route::Mcp {
-            (Class::Mcp, &self.cfg.mcp_resource)
+        let class = request_class(route == Route::Mcp, &m, path);
+        let res = if route == Route::Mcp {
+            &self.cfg.mcp_resource
         } else {
-            (class_of(parse(&m, path).as_ref()), &self.cfg.rest_resource)
+            &self.cfg.rest_resource
         };
         let md = prm::metadata_url(res);
         self.retry_after.set(None);

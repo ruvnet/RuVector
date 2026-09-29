@@ -91,3 +91,27 @@ class_name = "VectorShard"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["TenantLedger", "VectorShard"]
+
+# ADR-351 §3 rv-registry (M5): the global scope directory (one object,
+# idFromName("v1|registry|root")) and one registry index per @scope
+# (idFromName(hex(sha256("v1|registry|" + scope)))). SQLite-backed, reachable
+# only from this Worker; RegistryScope runs its sweep from a DO alarm.
+[[durable_objects.bindings]]
+name = "REGISTRY_ROOT"
+class_name = "RegistryRoot"
+
+[[durable_objects.bindings]]
+name = "REGISTRY_SCOPE"
+class_name = "RegistryScope"
+
+# Distinct tag so a merge with other milestones' migrations reconciles
+# ordering instead of colliding on a name.
+[[migrations]]
+tag = "v2-registry"
+new_sqlite_classes = ["RegistryRoot", "RegistryScope"]
+
+# RVF package blobs, upload staging (R2 multipart) and manifest mirrors
+# (ADR-351 §6.3). Shared bucket; M3 snapshots may bind it too.
+[[r2_buckets]]
+binding = "EDGE_DATA"
+bucket_name = "ruvector-edge-data"

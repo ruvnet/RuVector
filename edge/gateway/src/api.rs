@@ -1,8 +1,9 @@
 //! Workers glue for the authenticated data surface: `/v1/me`, the REST
-//! table, `/v1/ops` and `/v1/mcp`. Charges the request to its rate budget
-//! and checks the tenant deny list ([`guard`]), reads the body (bounded),
-//! builds the store-facing caller from the verified token, runs the pure
-//! handler over the Durable Object backend and renders the reply.
+//! table, the M5 registry routes, `/v1/ops` and `/v1/mcp`. Charges the
+//! request to its rate budget and checks the tenant deny list ([`guard`]),
+//! reads the body (bounded), builds the store-facing caller from the
+//! verified token, runs the pure handler over the Durable Object backend
+//! and renders the reply.
 
 use crate::auth::Authenticated;
 use crate::backend::Backend;
@@ -191,11 +192,11 @@ pub async fn serve(
     let caller = caller(auth);
     let backend = DoBackend { env };
     let now = WorkerClock.now_unix();
-    let (class, resource) = if route == Route::Mcp {
-        (Class::Mcp, &cfg.mcp_resource)
+    let class = ratelimit::request_class(route == Route::Mcp, &method, &path);
+    let resource = if route == Route::Mcp {
+        &cfg.mcp_resource
     } else {
-        let api = rest::parse(&method, &path);
-        (ratelimit::class_of(api.as_ref()), &cfg.rest_resource)
+        &cfg.rest_resource
     };
     let md = prm::metadata_url(resource);
     if let Err(r) = guard(&backend, &EnvLimiter(env), class, &caller.ctx, now, &md).await {
@@ -221,7 +222,13 @@ pub async fn serve(
         if let Some(r) = op_budget(env, Class::Mcp, &caller.ctx, &body, &md).await? {
             return Ok(r);
         }
-        return render(mcp::handle(&backend, &caller.ctx, &body, now, &md).await);
+        // M5: the registry tools ride along (`rvf_mcp`).
+        return render(crate::registry_http::mcp(env, &caller.ctx, &body, now, &md).await);
+    }
+    // M5 rv-registry routes (`/v1/rvf/*`, `…:import-rvf`) before the REST
+    // table; they read their own body under the route's cap.
+    if let Some(r) = crate::registry_routes::parse(&method, &path) {
+        return crate::registry_http::serve(req, env, cfg, r, caller, now).await;
     }
     let Some(api) = rest::parse(&method, &path) else {
         return respond::problem(ProblemCode::NotFound, None);

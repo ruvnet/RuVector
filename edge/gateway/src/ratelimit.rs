@@ -6,7 +6,8 @@
 //! `org:{tenant_key}` — each against its own Workers Rate Limiting binding
 //! (a binding's limit and period are fixed in `wrangler.toml`, so one
 //! binding per class × level). Classes have separate budgets: `read`,
-//! `write`, `ops` (`/v1/ops`) and `mcp` (`/v1/mcp`). A mutating op on
+//! `write`, `ops` (`/v1/ops`) and `mcp` (`/v1/mcp`); the M5 `/v1/rvf` routes
+//! are `read` or `write` ([`rvf_class`]). A mutating op on
 //! `/v1/ops` or `/v1/mcp` is charged to `write` as well ([`op_class`]),
 //! and a query pays one `read` token per shard it fans out to. Over budget
 //! → `429 rate_limited` with `Retry-After` = the period.
@@ -17,6 +18,7 @@
 //! logged (`wrangler tail`); the shipped `wrangler.toml` is tested to
 //! declare every binding. Live 429 behaviour is unverified until G1.
 
+use crate::registry_routes::RvfRoute;
 use crate::rest::{ApiReply, ApiRoute};
 use ruvector_edge_store::{CallerContext, ErrorCode, OpError};
 
@@ -64,6 +66,18 @@ pub const BUDGETS: [(Class, Budget, Budget); 4] = [
     (Class::Mcp, b("RL_MCP_USER", 20), b("RL_MCP_ORG", 100)),
 ];
 
+/// The class of an authenticated request: `mcp` for `/v1/mcp`, else the
+/// registry route's ([`rvf_class`]) or the REST route's ([`class_of`]).
+pub fn request_class(mcp: bool, method: &worker::Method, path: &str) -> Class {
+    if mcp {
+        return Class::Mcp;
+    }
+    match crate::registry_routes::parse(method, path) {
+        Some(r) => rvf_class(&r),
+        None => class_of(crate::rest::parse(method, path).as_ref()),
+    }
+}
+
 /// The class of a REST route (`None`: unknown path, charged as a read so
 /// 404 probing is throttled too).
 pub fn class_of(route: Option<&ApiRoute>) -> Class {
@@ -92,13 +106,34 @@ pub fn class_of(route: Option<&ApiRoute>) -> Class {
     }
 }
 
-/// Ops that write, by their `/v1/ops` `op` / MCP tool name.
-pub const MUTATING_OPS: [&str; 4] = [
+/// Ops that write, by their `/v1/ops` `op` / MCP tool name (`rvf_import`
+/// is the M5 registry tool, MCP only).
+pub const MUTATING_OPS: [&str; 5] = [
     "collection_create",
     "vector_upsert",
     "vector_delete",
     "tenant_claim",
+    "rvf_import",
 ];
+
+/// The class of an M5 registry route: pulls and listings are reads; scope
+/// claims, uploads (begin, every part, each finalize step), publish,
+/// yank / unyank and import into a collection are writes.
+pub fn rvf_class(route: &RvfRoute) -> Class {
+    match route {
+        RvfRoute::ListScopes | RvfRoute::Get(..) | RvfRoute::Blob(..) | RvfRoute::Versions(_) => {
+            Class::Read
+        }
+        RvfRoute::ClaimScope(_)
+        | RvfRoute::Begin(..)
+        | RvfRoute::Part(..)
+        | RvfRoute::Finalize(..)
+        | RvfRoute::Publish(..)
+        | RvfRoute::Yank(..)
+        | RvfRoute::Unyank(..)
+        | RvfRoute::Import(_) => Class::Write,
+    }
+}
 
 /// The class a `/v1/ops` or `/v1/mcp` body is charged **in addition** to
 /// its surface class: [`Class::Write`] for a mutating op (`/v1/ops` `op`,
