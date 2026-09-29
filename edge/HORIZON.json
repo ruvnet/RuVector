@@ -7,7 +7,7 @@
   "worktree": "/home/ruvultra/projects/ruvector-edge",
   "repo": "ruvector-edge (off origin/main of ruvector)",
   "targetDate": null,
-  "currentMilestone": "M1",
+  "currentMilestone": "M2",
   "baseline_state": {
     "as_of": "2026-09-29",
     "adr_written": true,
@@ -149,26 +149,113 @@
         "/v1/ops with a real exchanged token: needs an operator-registered adapter in CONFIDENTIAL_CLIENTS (team.ruv.io public JWK, reviewed config) plus a real team.ruv.io user token; adapter-audience token 401, wrong target/tenant_key refused, op_id never applied twice, act.sub audited (ops.act_sub + AS token_exchange log line)"
       ],
       "remaining_not_login_gated": [
-        "429 at the rate limit: ADR-351 §10 layer 2 (org:{tenant_key} / user:{tenant_key}:{sub} Rate Limiting bindings) is NOT implemented in edge/gateway; layer 4 ledger admission is the only hard limit today",
-        "ADR §7 lists 422 idempotency_mismatch; the implementation answers 409 op_replayed for a REST Idempotency-Key reused with a different request (same code as /v1/ops) — reconcile ADR or code",
-        "Members/deny routes (/v1/tenant/members, /v1/tenant/deny) and DELETE /v1/collections/{c} are not served yet"
+        "ADR §7 lists 422 idempotency_mismatch; the implementation answers 409 op_replayed for a REST Idempotency-Key reused with a different request (same code as /v1/ops) — reconcile ADR or code (still open)"
+      ],
+      "closed_leftovers": [
+        "CLOSED 2026-09-29 (commit 49b002d91, gateway 5ac46dca): ADR §10 layer 2 rate limiting — Workers Rate Limiting bindings RL_{READ,WRITE,OPS,MCP}_{USER,ORG} (user:{tenant_key}:{sub} then org:{tenant_key}, 20/100, writes 10/50 per 10 s), 429 rate_limited + Retry-After; mutating /v1/ops ops and MCP tools/call are charged to the write budget too; a query pays one read token per shard. Live 429 unverified until G1.",
+        "CLOSED 2026-09-29: /v1/tenant/members (GET/POST, DELETE /{sub} with a 900 s sub deny), /v1/tenant/deny (GET/POST, owner, ≤ 1000 owner entries; removal denies uncapped) and DELETE /v1/collections/{c} (tombstone-first: Deleting → shard wipe with a persistent wiped marker → Deleted by uid) are served; unauthenticated 401s verified live."
       ]
     },
     {
       "id": "M2a",
       "name": "int8 flat scan with f32 rerank (today's crates)",
-      "status": "pending",
+      "status": "deployed_pending_G1",
       "gated_on": null,
-      "criteria": "recall@10 >= 0.95 against FlatIndex on 20k x 384 random vectors and one real-embedding set; >= 3 shards per isolate at the measured per-shard cap; a quantizer change re-encodes without blocking queries for more than one slice."
+      "criteria": "recall@10 >= 0.95 against FlatIndex on 20k x 384 random vectors and one real-embedding set; >= 3 shards per isolate at the measured per-shard cap; a quantizer change re-encodes without blocking queries for more than one slice.",
+      "deployment": {
+        "date": "2026-09-29",
+        "source_commits": [
+          "49b002d91 (M2 feature commit)",
+          "4cd5e95a1 (HNSW rebuild budget fits the default CPU limit; limits.cpu_ms refused by the plan)"
+        ],
+        "account": "501c77f558c68152352b8ddfade9b854",
+        "gateway": "ruvector-edge-gateway version 5ac46dca-54af-4c0e-af76-558a5c681e2f (deployment a793c2c1-d052-402c-8b12-8a405d7c98c7, 100%); 1687.02 KiB / 520.02 KiB gzip; startup 3 ms; bindings TENANT_LEDGER, VECTOR_SHARD, EDGE_AUTH, 8 Rate Limiting bindings (35101-35108); no new DO migration tag (classes unchanged; v1 only; the catalog 'deleting' state and the shard 'wiped' marker are data, not schema)",
+        "auth": "ruvector-edge-auth not redeployed (source and deps unchanged; live version 61bf970a)",
+        "first_attempt": "wrangler deploy with [limits] cpu_ms = 120000 was refused by the API (code 100328: CPU limits are not supported for the Free plan); nothing was uploaded. Fixed in 4cd5e95a1 (no cpu_ms; REBUILD_BUDGET_MS 20 s bounds HNSW shards instead)."
+      },
+      "live_verification_2026-09-29": [
+        "GET /v1/health -> 200 {\"ok\":true}",
+        "GET /v1/collections, GET+POST /v1/tenant/members, DELETE /v1/tenant/members/x, GET+POST /v1/tenant/deny, DELETE /v1/collections/x, POST /v1/ops without token -> 401 invalid_token, WWW-Authenticate Bearer resource_metadata=.../oauth-protected-resource/v1",
+        "POST /v1/mcp without token -> 401 with resource_metadata=.../oauth-protected-resource/v1/mcp",
+        "GET /v1/collections with a garbage bearer -> 401 invalid_token",
+        "PRM /.well-known/oauth-protected-resource/v1 -> 200; bare /.well-known/oauth-protected-resource -> 404",
+        "cognitum-consultant-email-staging-* (7 scripts): modified_on identical before and after the deploy (Cloudflare API list); ruvector-edge-gateway and ruvector-edge-auth: 0 custom domains"
+      ],
+      "evidence": {
+        "tests": "Root edge crates 444/0 (auth, authz, tenancy, store incl. m2_maintain, m2_persist, m2_recall, m2_maintenance_review, index), release profile; edge workspace 141/0 (auth-worker 70, gateway 71); gateway --features dev-issuer 71/0; cargo fmt --check clean (root edge crates + edge workspace); clippy -D warnings clean native (--all-targets, also --features dev-issuer) and wasm32-unknown-unknown (env -u RUSTFLAGS); wrangler deploy --dry-run exit 0; no .rs file >= 500 lines (largest 488, store catalog.rs 479).",
+        "measured": "flat int8 + f32 rerank(40) recall@10 = 1.000 on every native recall run (m2_recall, 20k x 384 class sizes and e2e 5k x 384); ~384 B/vector resident flat at 384-d; flat is the default index kind",
+        "review_findings_fixed": [
+          "CRITICAL fixed: HNSW iid gap after a rebuild (newest rows deleted before a requantize left next_iid above len+1, the next insert opened a gap the encoder refuses, every flush failed and maintain() poisoned the shard, op tail grew unbounded). rebuild_from_vectors renumbers densely whenever max_iid != len OR next_iid != len+1 (identity pairs persist NEXT_IID); maintain() heals a deterministic encoder refusal by a dense rebuild + rebase instead of poisoning. Regression: the review's exact repro (64+64+10 l2 HNSW dim 8, delete 129..138, requantize, upsert 5) flushes directly and reloads Current; a forced gap (stale meta.next_iid) heals.",
+          "HIGH fixed: no HNSW graph build on the request path. ensure_index rebuilds flat (quantize only) on a request, but marks HNSW rebuild_pending and answers 503 shard_unavailable without poisoning; the alarm (maintenance_due Now) rebuilds. Rebase flushes write two epochs with the same payload/seq, so one corrupt chunk falls back to Previous with bit-identical results and the rebuild path needs both copies bad. HNSW admission also caps nodes by REBUILD_BUDGET_MS 20 s (fits the 30 s default; limits.cpu_ms is refused on this account's plan). Partial correction: the requantize-alarm rebuild is bounded (needs_requantize only fires while the trained sample is < 1000 rows, so that rebuild is ≤ ~2k rows, never cap-sized).",
+          "HIGH fixed: HNSW link repair runs in alarm slices (resident cursor, repair_slice_nodes ≈ 2 s of modelled wasm CPU per slice, re-armed while in progress, writes interleave); the final slice purges, renumbers, shrinks and writes a rebase. Regression: 1100×1536 m48 efc200 shard repairs in ≥ 2 slices with an upsert between slices, then reloads Current with exact brute-force answers.",
+          "MEDIUM fixed: compaction becomes due when dead slots are what blocks admission at the resident cap (same projection as plan_upsert), and compaction shrink_to_fit()s the index so the dead capacity is released. Regression: 22k×384 flat, delete 1/6, re-insert new ids: compaction runs and live rows pass 22k before the real cap (was stuck at ≈ 21.9k).",
+          "MEDIUM fixed: lazy-load bound for heavy HNSW configs: flush threshold flush_ops(cfg) (200 at default params, 16 at 1536-d m48 efc200) from a per-insert wasm cost model fitted to the two measured points; HNSW node cap = min(rebuild budget, decode budget via memory::max_nodes_for_load_budget).",
+          "MEDIUM fixed: §6.1 corrupted-chunk fallback now holds right after a rebase and for a shard's first epoch (both written as two identical epochs); regression: compaction followed by one corrupt chunk loads Previous with identical answers.",
+          "LOW fixed: filtered HNSW query_steps charges max(rerank, min(len, EXACT_FILTER_MAX)) for the exact fallback.",
+          "LOW fixed: rebuild reads VEC_PAGE_F32 (iid, f32 only) 256 rows a page; training fetches only the ≤ 1000 strided sample iids (VEC_F32_BY_IIDS). Not changed: open() still parses metadata to rebuild the filter form (pre-existing, noted by the review).",
+          "MEDIUM fixed (gateway): collection drop is tombstone-first and by uid: the ledger moves the named collection Live -> Deleting atomically and names its uid (lookups/writes 404, name reserved, retry finishes), each shard is wiped and keeps a meta.wiped marker (no deleteAll) so a write that raced the drop gets 404 and is refunded, then Purge{uid} -> Deleted. A stale purge can never touch a newer same-name collection (regression test).",
+          "MEDIUM fixed (gateway): write budget applies per operation: mutating /v1/ops ops and MCP tools/call (collection_create, vector_upsert, vector_delete, tenant_claim) are also charged to RL_WRITE_*.",
+          "LOW fixed (gateway): a query pays shards_queried read tokens (Backend::charge_fanout after lookup; 429 + Retry-After).",
+          "LOW fixed (gateway): member removal at 1000 live deny entries commits and returns 200; the removal deny bypasses the owner-entry cap."
+        ]
+      },
+      "criteria_exceptions": [
+        "Not verified live (needs G1 real tokens): recall through the deployed Worker, ≥ 3 shards per isolate, lazy-load p95.",
+        "A quantizer change is a one-shot bounded rebase (≤ ~2k rows, the l2/dot retrain fires only while the sample is < 1000 rows), not a sliced re-encode.",
+        "No real-embedding recall set run yet (random vectors only)."
+      ]
     },
     {
       "id": "M2b",
       "name": "HNSW (gated on G4a)",
-      "status": "pending",
+      "status": "deployed_pending_G1",
       "gated_on": [
         "G4a"
       ],
-      "criteria": "recall@10 >= 0.95 against FlatIndex; warm query p50 < 10 ms [U]; >= 2 full HNSW shards fit the isolate cap; lazy-load p95 < 1 s with <= 200-op replay; a corrupted chunk falls back with identical results; a gapped-iid encode fails loudly."
+      "criteria": "recall@10 >= 0.95 against FlatIndex; warm query p50 < 10 ms [U]; >= 2 full HNSW shards fit the isolate cap; lazy-load p95 < 1 s with <= 200-op replay; a corrupted chunk falls back with identical results; a gapped-iid encode fails loudly.",
+      "deployment": {
+        "date": "2026-09-29",
+        "source_commits": [
+          "49b002d91 (M2 feature commit)",
+          "4cd5e95a1 (HNSW rebuild budget fits the default CPU limit; limits.cpu_ms refused by the plan)"
+        ],
+        "account": "501c77f558c68152352b8ddfade9b854",
+        "gateway": "ruvector-edge-gateway version 5ac46dca-54af-4c0e-af76-558a5c681e2f (deployment a793c2c1-d052-402c-8b12-8a405d7c98c7, 100%); 1687.02 KiB / 520.02 KiB gzip; startup 3 ms; bindings TENANT_LEDGER, VECTOR_SHARD, EDGE_AUTH, 8 Rate Limiting bindings (35101-35108); no new DO migration tag (classes unchanged; v1 only; the catalog 'deleting' state and the shard 'wiped' marker are data, not schema)",
+        "auth": "ruvector-edge-auth not redeployed (source and deps unchanged; live version 61bf970a)",
+        "first_attempt": "wrangler deploy with [limits] cpu_ms = 120000 was refused by the API (code 100328: CPU limits are not supported for the Free plan); nothing was uploaded. Fixed in 4cd5e95a1 (no cpu_ms; REBUILD_BUDGET_MS 20 s bounds HNSW shards instead)."
+      },
+      "live_verification_2026-09-29": [
+        "GET /v1/health -> 200 {\"ok\":true}",
+        "GET /v1/collections, GET+POST /v1/tenant/members, DELETE /v1/tenant/members/x, GET+POST /v1/tenant/deny, DELETE /v1/collections/x, POST /v1/ops without token -> 401 invalid_token, WWW-Authenticate Bearer resource_metadata=.../oauth-protected-resource/v1",
+        "POST /v1/mcp without token -> 401 with resource_metadata=.../oauth-protected-resource/v1/mcp",
+        "GET /v1/collections with a garbage bearer -> 401 invalid_token",
+        "PRM /.well-known/oauth-protected-resource/v1 -> 200; bare /.well-known/oauth-protected-resource -> 404",
+        "cognitum-consultant-email-staging-* (7 scripts): modified_on identical before and after the deploy (Cloudflare API list); ruvector-edge-gateway and ruvector-edge-auth: 0 custom domains"
+      ],
+      "gated_on_note": "HNSW is implemented in-repo in crates/ruvector-edge-index (commit 9d058e6ab) rather than via the G4a rvf-index PR; G4a no longer blocks this milestone's code.",
+      "evidence": {
+        "tests": "Root edge crates 444/0 (auth, authz, tenancy, store incl. m2_maintain, m2_persist, m2_recall, m2_maintenance_review, index), release profile; edge workspace 141/0 (auth-worker 70, gateway 71); gateway --features dev-issuer 71/0; cargo fmt --check clean (root edge crates + edge workspace); clippy -D warnings clean native (--all-targets, also --features dev-issuer) and wasm32-unknown-unknown (env -u RUSTFLAGS); wrangler deploy --dry-run exit 0; no .rs file >= 500 lines (largest 488, store catalog.rs 479).",
+        "measured": "HNSW needs ef 512 (l2) / 1024 (cosine) for recall@10 >= 0.95 on random data, so index=hnsw is opt-in with per-metric default ef (cosine 1024, l2/dot 512, capped, client-tunable); ~522 B/vector at 384-d m16; full rebuild 26k×384 m16 efc128 29.0 s wasm, 6.6k×1536 m48 efc200 26.3 s wasm; HNSW admission capped at REBUILD_BUDGET_MS 20 s (≈ 18k nodes at 384-d m16, ≈ 4.2k at 1536-d m48)",
+        "review_findings_fixed": [
+          "CRITICAL fixed: HNSW iid gap after a rebuild (newest rows deleted before a requantize left next_iid above len+1, the next insert opened a gap the encoder refuses, every flush failed and maintain() poisoned the shard, op tail grew unbounded). rebuild_from_vectors renumbers densely whenever max_iid != len OR next_iid != len+1 (identity pairs persist NEXT_IID); maintain() heals a deterministic encoder refusal by a dense rebuild + rebase instead of poisoning. Regression: the review's exact repro (64+64+10 l2 HNSW dim 8, delete 129..138, requantize, upsert 5) flushes directly and reloads Current; a forced gap (stale meta.next_iid) heals.",
+          "HIGH fixed: no HNSW graph build on the request path. ensure_index rebuilds flat (quantize only) on a request, but marks HNSW rebuild_pending and answers 503 shard_unavailable without poisoning; the alarm (maintenance_due Now) rebuilds. Rebase flushes write two epochs with the same payload/seq, so one corrupt chunk falls back to Previous with bit-identical results and the rebuild path needs both copies bad. HNSW admission also caps nodes by REBUILD_BUDGET_MS 20 s (fits the 30 s default; limits.cpu_ms is refused on this account's plan). Partial correction: the requantize-alarm rebuild is bounded (needs_requantize only fires while the trained sample is < 1000 rows, so that rebuild is ≤ ~2k rows, never cap-sized).",
+          "HIGH fixed: HNSW link repair runs in alarm slices (resident cursor, repair_slice_nodes ≈ 2 s of modelled wasm CPU per slice, re-armed while in progress, writes interleave); the final slice purges, renumbers, shrinks and writes a rebase. Regression: 1100×1536 m48 efc200 shard repairs in ≥ 2 slices with an upsert between slices, then reloads Current with exact brute-force answers.",
+          "MEDIUM fixed: compaction becomes due when dead slots are what blocks admission at the resident cap (same projection as plan_upsert), and compaction shrink_to_fit()s the index so the dead capacity is released. Regression: 22k×384 flat, delete 1/6, re-insert new ids: compaction runs and live rows pass 22k before the real cap (was stuck at ≈ 21.9k).",
+          "MEDIUM fixed: lazy-load bound for heavy HNSW configs: flush threshold flush_ops(cfg) (200 at default params, 16 at 1536-d m48 efc200) from a per-insert wasm cost model fitted to the two measured points; HNSW node cap = min(rebuild budget, decode budget via memory::max_nodes_for_load_budget).",
+          "MEDIUM fixed: §6.1 corrupted-chunk fallback now holds right after a rebase and for a shard's first epoch (both written as two identical epochs); regression: compaction followed by one corrupt chunk loads Previous with identical answers.",
+          "LOW fixed: filtered HNSW query_steps charges max(rerank, min(len, EXACT_FILTER_MAX)) for the exact fallback.",
+          "LOW fixed: rebuild reads VEC_PAGE_F32 (iid, f32 only) 256 rows a page; training fetches only the ≤ 1000 strided sample iids (VEC_F32_BY_IIDS). Not changed: open() still parses metadata to rebuild the filter form (pre-existing, noted by the review).",
+          "MEDIUM fixed (gateway): collection drop is tombstone-first and by uid: the ledger moves the named collection Live -> Deleting atomically and names its uid (lookups/writes 404, name reserved, retry finishes), each shard is wiped and keeps a meta.wiped marker (no deleteAll) so a write that raced the drop gets 404 and is refunded, then Purge{uid} -> Deleted. A stale purge can never touch a newer same-name collection (regression test).",
+          "MEDIUM fixed (gateway): write budget applies per operation: mutating /v1/ops ops and MCP tools/call (collection_create, vector_upsert, vector_delete, tenant_claim) are also charged to RL_WRITE_*.",
+          "LOW fixed (gateway): a query pays shards_queried read tokens (Backend::charge_fanout after lookup; 429 + Retry-After).",
+          "LOW fixed (gateway): member removal at 1000 live deny entries commits and returns 200; the removal deny bypasses the owner-entry cap."
+        ]
+      },
+      "criteria_exceptions": [
+        "Not verified live (needs G1 real tokens): warm query p50, ≥ 2 full shards per isolate, lazy-load p95 < 1 s.",
+        "'A gapped-iid encode fails loudly': the encoder still refuses (EncodeError::GappedIid) and the store no longer produces gaps; if one appears maintenance heals by a dense rebuild instead of poisoning the shard.",
+        "Chunk-decoding fuzz target not yet run."
+      ]
     },
     {
       "id": "M3",
@@ -215,7 +302,8 @@
     "Single global AuthStore DO (~500-1,000 req/s) and a single ES256 signing key held as a wrangler secret: availability and key-compromise procedures must be exercised before GA.",
     "Several load-bearing facts are [U]: Rate Limiting locality, DO CPU-limit source, D1 size limits, upstream ID-token contents and RFC 9207 support, connector scope requests, HNSW warm p50 and the M6 latency targets.",
     "G4 upstream crate PRs gate M2b and M4; team tenancy (G5) still needs an upstream org selector or org-role claim.",
-    "workers.dev hosts are the issuer and audiences until G6; moving hosts changes every aud and forces a re-login for all clients and adapters."
+    "workers.dev hosts are the issuer and audiences until G6; moving hosts changes every aud and forces a re-login for all clients and adapters.",
+    "2026-09-29: the Workers API refused limits.cpu_ms with 'CPU limits are not supported for the Free plan' (code 100328): the account appears to be on Workers Free, whose per-invocation CPU limit is far below what an HNSW batch insert, a flush of a large shard or an alarm rebuild needs. G2 lists Workers Paid; confirm the plan before load-testing M2 live."
   ],
   "drift_detection": {
     "scope_drift": "Flag if work expands beyond the edge AS, rv-gateway and the services in ADR §3 (rv-vector, TenantLedger, rv-snapshot, rv-embed, rv-ingest, rv-quant, rv-graph, rv-mincut, rv-registry, rv-mcp, /v1/results signed result pages) plus the §16 adapter contract (/v1/ops, RFC 8693 exchange for adapter clients), or touches Cloudflare resources/OAuth provider settings without a listed gate (G1-G6) being explicitly approved.",
@@ -254,6 +342,11 @@
       "date": "2026-09-29",
       "summary": "M1 review fixes (10 findings verified, all real, all fixed with regression tests): streaming body cap, quota admission before shard fan-out, REST Idempotency-Key, op_id reservation, confidential subject audiences limited to adapter resources, act_sub audit + AS exchange log, MCP tenant_claim, MCP-Protocol-Version, 2025-03-26 dropped, JSON-RPC id validation. Committed 96aeb4901 and deployed auth (61bf970a) then gateway (fdcce770, DO migration v1); unauthenticated/invalid surfaces verified live.",
       "next": "G1 (console#605) for real tokens; register the team.ruv.io adapter in CONFIDENTIAL_CLIENTS (reviewed); implement §10 layer 2 rate limiting; then run the login-gated M1 acceptance items live."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "M2 review (13 findings verified: 12 real and fixed with regression tests, 1 partially corrected — the requantize-alarm rebuild is bounded to < ~2k rows): HNSW iid-gap (critical), request-path HNSW rebuild and sliced link repair (high), cap-blocking compaction, load-budget flush/node caps, rebase fallback copies, tombstone-first drop by uid with wiped marker, per-op write budget (medium), filtered-HNSW step charge, f32-only rebuild pages, query fan-out tokens, removal at the deny cap (low). Committed 49b002d91 + 4cd5e95a1 (limits.cpu_ms refused on the Free plan; HNSW rebuild budget 20 s instead) and deployed the gateway (5ac46dca, deployment a793c2c1; auth unchanged); unauthenticated surfaces verified live; staging scripts unchanged.",
+      "next": "G1 for real tokens, then the live M1/M2 acceptance (recall, shards per isolate, lazy-load p95, 429); confirm the Workers plan (Paid) before live M2 load; reconcile 422 idempotency_mismatch vs 409 op_replayed; run the chunk-decode fuzz target."
     }
   ],
   "gates_registry_status": {
