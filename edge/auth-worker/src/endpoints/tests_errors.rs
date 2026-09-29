@@ -86,42 +86,21 @@ fn authorize_is_temporarily_unavailable_without_upstream_client() {
     assert_redirect_error(&r, "temporarily_unavailable");
 }
 
-/// Gate G1 pending (console#605): with the SHIPPED config (empty
-/// `UPSTREAM_CLIENT_ID` and `ACCEPTED_UPSTREAM_KIDS`), `/authorize` answers
-/// `temporarily_unavailable` with the static pending description — as a
-/// redirect for a verified client, as a 503 page otherwise.
+/// Gate G1 closed (console#605): with the SHIPPED config a verified client's
+/// `/authorize` proceeds (no `temporarily_unavailable`); the pending path
+/// stays covered by `authorize_is_temporarily_unavailable_without_upstream_client`.
 #[test]
-fn shipped_config_authorize_is_temporarily_unavailable_with_clear_description() {
+fn shipped_config_authorize_proceeds() {
     let v = crate::config::tests::shipped_vars();
     let cfg = load(&v).unwrap();
     let resource = cfg.resources.entries()[1].url().as_str().to_string();
     let w = World::with_cfg(cfg);
     let client_id = w.client_id();
     let r = authorize(&w.ctx(), Some(&authorize_query(&client_id, &resource)));
-    assert_eq!(r.status, 302);
-    let loc = url::Url::parse(r.header("Location").unwrap()).unwrap();
-    let get = |k: &str| {
-        loc.query_pairs()
-            .find(|(n, _)| n == k)
-            .map(|(_, v)| v.into_owned())
-    };
-    assert_eq!(get("error").as_deref(), Some("temporarily_unavailable"));
-    assert_eq!(
-        get("error_description").as_deref(),
-        Some(crate::config::FEDERATION_PENDING)
-    );
-    let r = w.register(json!({"redirect_uris": ["https://unverified.example/cb"]}));
-    let id = body_json(&r)["client_id"].as_str().unwrap().to_string();
-    let q = authorize_query(&id, &resource).replace(
-        &url::form_urlencoded::byte_serialize(REDIRECT.as_bytes()).collect::<String>(),
-        &url::form_urlencoded::byte_serialize(b"https://unverified.example/cb").collect::<String>(),
-    );
-    let r = authorize(&w.ctx(), Some(&q));
-    assert_eq!(r.status, 503);
-    assert_eq!(
-        body_json(&r)["error_description"],
-        crate::config::FEDERATION_PENDING
-    );
+    assert_ne!(r.status, 503);
+    if let Some(loc) = r.header("Location") {
+        assert!(!loc.contains("temporarily_unavailable"), "{loc}");
+    }
 }
 
 /// Regression (open redirect, RFC 9700 §4.11.2): an anonymously registered,

@@ -160,15 +160,10 @@ fn shipped_allowlist_has_per_resource_scopes() {
             "team:write",
         ]
     );
-    // G1 pending (console#605): no upstream client and no kid pin yet.
-    assert!(c.upstream.client_id.is_empty());
-    assert!(c.upstream_accepted_kids.is_empty());
-    let e = c.ensure_federation_ready().unwrap_err();
-    assert_eq!(
-        e.error,
-        ruvector_edge_authz::OAuthErrorCode::TemporarilyUnavailable
-    );
-    assert_eq!(e.error_description, FEDERATION_PENDING);
+    // G1 closed (console#605): the upstream client and one pinned kid ship.
+    assert_eq!(c.upstream.client_id, "dcr-0d64c5e883c74a3db49cbbb41e8dcaf0");
+    assert_eq!(c.upstream_accepted_kids.len(), 1);
+    assert!(c.ensure_federation_ready().is_ok());
 }
 
 /// Regression (ADR-351 §5.3, §16.1): the URL → vocabulary binding is

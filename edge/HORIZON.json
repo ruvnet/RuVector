@@ -670,7 +670,15 @@
           "crashes": 0,
           "exit": 0
         }
-      ]
+      ],
+      "g1_close": {
+        "merged": "98e1615f8",
+        "publish_run": 36578007212,
+        "upstream_client_id": "dcr-0d64c5e883c74a3db49cbbb41e8dcaf0",
+        "accepted_kid": "_jQ62WD8cCiIGkKNQB8Hg4El2TNU5rHIITV4h_ba4YM",
+        "auth_version": "24a2818e-6eaf-4b5e-bb21-a5afadb108d4",
+        "probe_client": "edc-VFogSHyfHUOdWtKDZvP2mQ (loopback, left registered)"
+      }
     }
   ],
   "gates_registry_status": {
@@ -683,7 +691,7 @@
   },
   "open_gates": [
     "Workers Paid plan (G2 precondition, pending rUv) — before any live M2 load, registry write or G1 load test",
-    "G1: console#605 (one exact DCR redirect for https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev/callback) -> UPSTREAM_CLIENT_ID + ACCEPTED_UPSTREAM_KIDS -> hosted login and live token drills",
+    "G1 CLOSED 2026-09-29: console#605 merged (98e1615f8) + Identity published; edge AS registered upstream as dcr-0d64c5e883c74a3db49cbbb41e8dcaf0 (public, PKCE S256, openid profile email), ACCEPTED_UPSTREAM_KIDS=_jQ62WD8cCiIGkKNQB8Hg4El2TNU5rHIITV4h_ba4YM; auth version 24a2818e. Live: /authorize -> consent 200 -> 303 to auth.cognitum.one/oauth/authorize -> upstream login page 200. Remaining: a human browser login to complete callback + token drills.",
     "IP_HASH_SALT secret set by the operator (G1 precondition)",
     "ChatGPT coordinator acceptance receipt for the ADR §16 adapter contract (Slack #swarm + x.ruv.io), then register its private_key_jwt client in CONFIDENTIAL_CLIENTS",
     "G5 (team tenancy: upstream org selector / org-role claim) and G6 (production hostname) for M6"

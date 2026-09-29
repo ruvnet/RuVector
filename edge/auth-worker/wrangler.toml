@@ -69,12 +69,10 @@ UPSTREAM_JWKS_URL = "https://auth.cognitum.one/.well-known/jwks.json"
 # (cognitum-one/console#605), an operator-run step; EMPTY until then, and
 # /authorize answers 503 temporarily_unavailable ("sign-in is not available
 # yet: ... registration is pending") while it or ACCEPTED_UPSTREAM_KIDS is empty.
-# [U] OPEN: ADR-351 §1.1 [V] says upstream DCR accepts redirects only by
-# prefix (chatgpt/claude connector paths, http://127.0.0.1:, http://localhost:)
-# or three named hosts, so <ISSUER>/callback on workers.dev cannot be
-# registered via DCR as-is. Resolve (seeded client or allowlist entry) before
-# the federation leg can work end-to-end.
-UPSTREAM_CLIENT_ID = ""
+# G1 closed 2026-09-29: cognitum-one/console#605 (98e1615f8) allowlists exactly
+# <ISSUER>/callback; registered by public DCR (token_endpoint_auth_method none,
+# PKCE S256, scope "openid profile email") at 2026-09-29T13:58Z.
+UPSTREAM_CLIENT_ID = "dcr-0d64c5e883c74a3db49cbbb41e8dcaf0"
 # Identity scopes only (enforced at load): never mcp:*, which api.cognitum.one
 # would honour. The upstream refresh token is revoked right after login.
 UPSTREAM_SCOPES = "openid profile email"
@@ -82,7 +80,9 @@ UPSTREAM_SCOPES = "openid profile email"
 # callback (comma-separated). Pinned, so upstream key rotation needs a
 # redeploy. Empty until the operator records them with UPSTREAM_CLIENT_ID
 # (gate G1); federation answers temporarily_unavailable until then.
-ACCEPTED_UPSTREAM_KIDS = ""
+# _jQ62WD8… = the single ES256 key in auth.cognitum.one JWKS on 2026-09-29
+# (kid verified equal to its RFC 7638 thumbprint).
+ACCEPTED_UPSTREAM_KIDS = "_jQ62WD8cCiIGkKNQB8Hg4El2TNU5rHIITV4h_ba4YM"
 # Operator-registered CONFIDENTIAL clients (ADR-351 §5.6, §16.1): the only
 # clients of the RFC 8693 token-exchange grant at /token
 # (grant_type=urn:ietf:params:oauth:grant-type:token-exchange), authenticated
