@@ -1,8 +1,10 @@
-# cargo-fuzz targets for the ruvector edge JWS/JWKS verification core
+# cargo-fuzz targets for the ruvector edge JWS/JWKS verification core and
+# ResourceUrl canonicalisation
 # (ADR-351 §9, M0 fuzz criterion). Run with nightly:
 #   cd crates/ruvector-edge-auth/fuzz
 #   env -u RUSTFLAGS cargo +nightly fuzz run jws_compact -- -max_total_time=600
 #   env -u RUSTFLAGS cargo +nightly fuzz run jwks_parse  -- -max_total_time=600
+#   env -u RUSTFLAGS cargo +nightly fuzz run resource_url corpus/resource_url seeds/resource_url -- -max_total_time=600
 [package]
 name = "ruvector-edge-auth-fuzz"
 version = "0.0.0"
@@ -31,6 +33,13 @@ bench = false
 [[bin]]
 name = "jwks_parse"
 path = "fuzz_targets/jwks_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "resource_url"
+path = "fuzz_targets/resource_url.rs"
 test = false
 doc = false
 bench = false

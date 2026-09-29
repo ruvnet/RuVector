@@ -1,0 +1,39 @@
+# cargo-fuzz targets for the ruvector edge authorization server core
+# (ADR-351 §5, M0 fuzz criterion: DCR JSON and /token form). Run with nightly:
+#   cd crates/ruvector-edge-authz/fuzz
+#   env -u RUSTFLAGS cargo +nightly fuzz run dcr_json   corpus/dcr_json   seeds/dcr_json   -- -max_total_time=600
+#   env -u RUSTFLAGS cargo +nightly fuzz run token_form corpus/token_form seeds/token_form -- -max_total_time=600
+# `seeds/<target>` holds the committed seed corpus (request bodies from the
+# unit and Worker endpoint tests); `corpus/` is local and ignored.
+[package]
+name = "ruvector-edge-authz-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ruvector-edge-auth = { path = "../../ruvector-edge-auth" }
+ruvector-edge-authz = { path = ".." }
+serde_json = "1"
+url = "2.5"
+
+# Prevent this from being discovered as a workspace member
+[workspace]
+
+[[bin]]
+name = "dcr_json"
+path = "fuzz_targets/dcr_json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "token_form"
+path = "fuzz_targets/token_form.rs"
+test = false
+doc = false
+bench = false

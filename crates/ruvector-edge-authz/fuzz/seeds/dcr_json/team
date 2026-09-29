@@ -1,0 +1,1 @@
+{"redirect_uris":["https://chatgpt.com/connector/oauth/abc","http://[::1]/cb"],"scope":"team:read team:write offline_access openid"}
