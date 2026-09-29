@@ -9765,6 +9765,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-edge-analytics"
+version = "2.3.0"
+dependencies = [
+ "getrandom 0.2.17",
+ "hex",
+ "rayon",
+ "ruvector-edge-store",
+ "ruvector-mincut 2.3.1",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.18",
+ "wasm-bindgen-test",
+]
+
+[[package]]
 name = "ruvector-edge-auth"
 version = "2.3.0"
 dependencies = [
@@ -9794,6 +9810,20 @@ dependencies = [
  "subtle",
  "thiserror 2.0.18",
  "url",
+]
+
+[[package]]
+name = "ruvector-edge-quant"
+version = "2.3.0"
+dependencies = [
+ "getrandom 0.2.17",
+ "js-sys",
+ "rand 0.8.6",
+ "rand_distr 0.4.3",
+ "ruvector-edge-store",
+ "ruvector-rabitq",
+ "thiserror 2.0.18",
+ "wasm-bindgen-test",
 ]
 
 [[package]]

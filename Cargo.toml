@@ -57,6 +57,8 @@ members = [
     "crates/ruvector-edge-tenancy",
     "crates/ruvector-edge-authz",
     "crates/ruvector-edge-store",
+    "crates/ruvector-edge-analytics",
+    "crates/ruvector-edge-quant",
     "crates/ruvector-bounded-rag",
     "crates/ruvector-temporal-coherence",
     "crates/ruvector-acorn",
