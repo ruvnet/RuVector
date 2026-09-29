@@ -91,7 +91,7 @@ pub fn caller(a: Authenticated) -> Caller {
 /// read: the pure half of [`serve`], shared with the native tests.
 /// `idempotency_key` is the `Idempotency-Key` header (`/v1/ops` `op_id`, or
 /// the REST key of a mutating route).
-pub async fn data<B: Backend>(
+pub async fn data<B: crate::m3_wire::M3Backend>(
     b: &B,
     cfg: &GatewayConfig,
     api: &ApiRoute,

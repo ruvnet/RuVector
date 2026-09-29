@@ -50,7 +50,7 @@ pub(super) fn bob(org: &str, scope: CapabilitySet) -> Caller {
     other(org, "bob", scope)
 }
 
-pub(super) fn call<B: Backend>(
+pub(super) fn call<B: crate::m3_wire::M3Backend>(
     b: &B,
     c: &Caller,
     m: Method,

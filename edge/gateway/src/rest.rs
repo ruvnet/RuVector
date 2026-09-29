@@ -330,7 +330,7 @@ fn replayed(stored: &str) -> Result<(u16, Json), OpError> {
 /// `idempotency_key` the `Idempotency-Key` header (§7: honoured on the
 /// mutating routes — create, upsert, delete — except dry runs; the tenant
 /// admin routes and the collection drop are naturally idempotent).
-pub async fn handle<B: Backend>(
+pub async fn handle<B: crate::m3_wire::M3Backend>(
     b: &B,
     caller: &Caller,
     route: &ApiRoute,

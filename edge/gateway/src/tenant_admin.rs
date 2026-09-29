@@ -12,6 +12,7 @@
 use crate::backend::Backend;
 use crate::durable::wipe::WipeRequest;
 use crate::ledger_core::admin::{AdminCall, AdminOut, AdminRequest, DenyKind, DenyPut, DenyWire};
+use crate::m3_wire::M3Backend;
 use crate::service::{self, access, Call};
 use crate::wire::{unavailable, DeltaWire, Reply};
 use ruvector_edge_auth::Capability;
@@ -251,7 +252,7 @@ pub async fn deny<B: Backend>(b: &B, ctx: &CallerContext, raw: &[u8], now: u64) 
 /// refuses any write that raced the drop), then the uid is purged
 /// (`Deleted`, never reused, name free). A retry after a partial failure
 /// finds the `Deleting` entry and finishes the wipe.
-pub async fn drop<B: Backend>(b: &B, ctx: &CallerContext, name: &str, now: u64) -> Out {
+pub async fn drop<B: M3Backend>(b: &B, ctx: &CallerContext, name: &str, now: u64) -> Out {
     // `ROUTE_TABLE`: DELETE /v1/collections/{c} needs `CreateCollection`
     // (`ruvector:write`), and §5.3 the owner role.
     if !ctx.scope_caps().contains(Capability::CreateCollection) {
@@ -273,6 +274,14 @@ pub async fn drop<B: Backend>(b: &B, ctx: &CallerContext, name: &str, now: u64) 
         AdminOut::Dropped { entry } => entry,
         _ => return Err(unexpected()),
     };
+    // M3: an interrupted restore of this uid is settled (or a live one
+    // refuses the drop) while the shards still hold its commit records.
+    let at = crate::restore::At {
+        b,
+        ctx,
+        now_ms: now.saturating_mul(1000),
+    };
+    crate::restore::settle_for_drop(&at, &e).await?;
     let mut released = DeltaWire::default();
     for i in service::count_of(&e)?.indices() {
         let dm = service::shard_meta(ctx, &e, i)?;

@@ -73,3 +73,89 @@ fn polled_reads_and_throttled_refusals_ship_no_audit_message() {
     }
     assert!(w.q.take(QueueName::Audit).is_empty());
 }
+
+/// Seed `n` rows into a new 1-shard, 8-dim collection `big`; returns its uid.
+fn seeded(w: &World, o: &crate::rest::Caller, n: usize) -> String {
+    let body = json!({ "name": "big", "dim": 8, "metric": "cosine", "shards": 1 });
+    assert_eq!(w.req(o, Method::Post, "/v1/collections", body).0, 201);
+    let rows: Vec<Json> = (0..n)
+        .map(|i| json!({ "id": format!("v{i:04}"), "values": [1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, i as f32] }))
+        .collect();
+    let up = "/v1/collections/big/vectors:upsert";
+    assert_eq!(
+        w.req(o, Method::Post, up, json!({ "vectors": rows })).0,
+        200
+    );
+    crate::testkit::block_on(w.m3(o).collection("big"))
+        .unwrap()
+        .uid
+}
+
+/// A restore killed after admitting its growth (CPU limit): the journal
+/// holds `admitted`, the ledger holds the growth, no settle ever ran.
+fn interrupted_restore(w: &World, o: &crate::rest::Caller, uid: &str, grow: i64) {
+    use crate::m3_wire::{ledger3, M3LedgerCall, Ns};
+    let j = crate::restore::Journal {
+        rid: "r1x1".into(),
+        epoch: 1,
+        started_ms: w.now_ms.get(),
+        admitted: Some((grow, grow * 8)),
+    };
+    let call = M3LedgerCall::KvSwap {
+        ns: Ns::Restore,
+        key: uid.into(),
+        expect: None,
+        value: Some(serde_json::to_string(&j).unwrap()),
+        admit: Some(ruvector_edge_tenancy::QuotaDelta {
+            vectors: grow,
+            float_budget: grow * 8,
+            ..Default::default()
+        }),
+        adjust: None,
+        now: w.now_ms.get() / 1000,
+    };
+    crate::testkit::block_on(ledger3(&w.b, o.ctx.tenant_key(), call)).unwrap();
+}
+
+fn usage(w: &World, o: &crate::rest::Caller) -> (u64, u64) {
+    let u = w.req(o, Method::Get, "/v1/usage", Json::Null).1["usage"].clone();
+    (
+        u["vectors"].as_u64().unwrap(),
+        u["float_budget"].as_u64().unwrap(),
+    )
+}
+
+#[test]
+fn dropping_a_collection_releases_an_interrupted_restores_admitted_growth() {
+    let w = World::default();
+    let o = w.owner("org-a", "alice");
+    let uid = seeded(&w, &o, 10);
+    interrupted_restore(&w, &o, &uid, 5);
+    assert_eq!(usage(&w, &o), (15, 120));
+    // Past the lease the journal is stale: the drop settles it first.
+    w.now_ms
+        .set(w.now_ms.get() + crate::restore::RESTORE_LEASE_MS + 1);
+    let (s, v) = w.req(&o, Method::Delete, "/v1/collections/big", Json::Null);
+    assert_eq!(s, 200, "{v}");
+    assert_eq!(usage(&w, &o), (0, 0), "no phantom usage after the purge");
+}
+
+#[test]
+fn a_live_restore_journal_defers_the_drop_until_the_lease_ends() {
+    let w = World::default();
+    let o = w.owner("org-a", "alice");
+    let uid = seeded(&w, &o, 10);
+    interrupted_restore(&w, &o, &uid, 3);
+    let (s, v) = w.req(&o, Method::Delete, "/v1/collections/big", Json::Null);
+    assert_eq!(s, 409, "{v}");
+    // Tombstoned: invisible, and the retry after the lease finishes it.
+    assert_eq!(
+        w.req(&o, Method::Get, "/v1/collections/big", Json::Null).0,
+        404
+    );
+    w.now_ms
+        .set(w.now_ms.get() + crate::restore::RESTORE_LEASE_MS + 1);
+    let (s, v) = w.req(&o, Method::Delete, "/v1/collections/big", Json::Null);
+    assert_eq!(s, 200, "{v}");
+    assert_eq!(usage(&w, &o), (0, 0));
+}

@@ -38,7 +38,7 @@ use ruvector_edge_snapshot::{
     snapshot_key, ChainProof, RestoreQuota, RestoreSession, RestoreTarget, Row, ShardRef,
     SignaturePolicy, WitnessEntry,
 };
-use ruvector_edge_store::{ErrorCode, OpError};
+use ruvector_edge_store::{CallerContext, ErrorCode, OpError};
 use ruvector_edge_tenancy::{DoMeta, QuotaDelta, Role};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as Json};
@@ -68,8 +68,27 @@ fn in_progress() -> OpError {
     OpError::new(ErrorCode::Conflict, "restore in progress")
 }
 
-async fn swap<B: M3Backend, R: Blob, Q: Queues>(
-    m: &M3<'_, B, R, Q>,
+/// Where a journal is kept and settled: DO transport, caller (its tenant
+/// ledger), clock. Built from an M3 request or by the collection drop.
+pub struct At<'a, B> {
+    /// DO transport.
+    pub b: &'a B,
+    /// Verified caller.
+    pub ctx: &'a CallerContext,
+    /// Unix ms.
+    pub now_ms: u64,
+}
+
+fn at<'a, B: M3Backend, R: Blob, Q: Queues>(m: &M3<'a, B, R, Q>) -> At<'a, B> {
+    At {
+        b: m.b,
+        ctx: m.ctx,
+        now_ms: m.now_ms,
+    }
+}
+
+async fn swap<B: M3Backend>(
+    m: &At<'_, B>,
     uid: &str,
     expect: Option<&str>,
     value: Option<&Journal>,
@@ -97,8 +116,8 @@ async fn swap<B: M3Backend, R: Blob, Q: Queues>(
 /// shard, sum what its commits changed, and — in one ledger turn with the
 /// journal's removal — correct usage by `applied − admitted`. Idempotent
 /// until that last step succeeds.
-pub async fn settle<B: M3Backend, R: Blob, Q: Queues>(
-    m: &M3<'_, B, R, Q>,
+pub async fn settle<B: M3Backend>(
+    m: &At<'_, B>,
     e: &CollectionWire,
     raw: &str,
     j: &Journal,
@@ -127,6 +146,26 @@ pub async fn settle<B: M3Backend, R: Blob, Q: Queues>(
     });
     swap(m, &e.uid, Some(raw), None, None, adjust).await?;
     Ok(())
+}
+
+/// For a collection drop (`tenant_admin::drop`, after the tombstone and
+/// before the wipe, which deletes the shards' commit records): a live
+/// restore journal (younger than [`RESTORE_LEASE_MS`]) refuses the drop
+/// `409 restore in progress` (retry once it ends; the tombstone stays); a
+/// stale one is settled here, so growth it admitted is released instead
+/// of leaking once the uid is purged and no restore can reach it.
+pub async fn settle_for_drop<B: M3Backend>(
+    at: &At<'_, B>,
+    e: &CollectionWire,
+) -> Result<(), OpError> {
+    let Some(raw) = kv_get(at.b, at.ctx.tenant_key(), Ns::Restore, &e.uid).await? else {
+        return Ok(());
+    };
+    let j: Journal = serde_json::from_str(&raw).map_err(|_| unexpected())?;
+    if at.now_ms.saturating_sub(j.started_ms) < RESTORE_LEASE_MS {
+        return Err(in_progress());
+    }
+    settle(at, e, &raw, &j).await
 }
 
 async fn chain<B: M3Backend, R: Blob, Q: Queues>(
@@ -236,7 +275,7 @@ pub async fn restore<B: M3Backend, R: Blob, Q: Queues>(
         if j.admitted.is_some() && live {
             return Err(in_progress());
         }
-        settle(m, &e, &raw, &j).await?;
+        settle(&at(m), &e, &raw, &j).await?;
     }
     let (entries, head) = chain(m).await?;
     let j = Journal {
@@ -245,7 +284,7 @@ pub async fn restore<B: M3Backend, R: Blob, Q: Queues>(
         started_ms: m.now_ms,
         admitted: None,
     };
-    let raw = swap(m, &e.uid, None, Some(&j), None, None)
+    let raw = swap(&at(m), &e.uid, None, Some(&j), None, None)
         .await
         .map_err(|err| match err.code {
             ErrorCode::Conflict => in_progress(),
@@ -259,7 +298,7 @@ pub async fn restore<B: M3Backend, R: Blob, Q: Queues>(
         match stage_shard(m, &e, &dm, shard, epoch, &entries, head, &j.rid).await {
             Ok(n) => staged.push((dm, n)),
             Err(err) => {
-                let _settled = settle(m, &e, &raw, &j).await;
+                let _settled = settle(&at(m), &e, &raw, &j).await;
                 return Err(err);
             }
         }
@@ -286,7 +325,7 @@ async fn commit_all<B: M3Backend, R: Blob, Q: Queues>(
             Ok(ShardOut::Stats { count, .. }) => current += count,
             Ok(_) => return Err(unexpected()),
             Err(err) => {
-                let _settled = settle(m, e, raw, j).await;
+                let _settled = settle(&at(m), e, raw, j).await;
                 return Err(err.into_op());
             }
         }
@@ -305,10 +344,10 @@ async fn commit_all<B: M3Backend, R: Blob, Q: Queues>(
         admitted: Some((admitted.vectors, admitted.float_budget)),
         ..j.clone()
     };
-    let raw2 = match swap(m, &e.uid, Some(raw), Some(&j2), Some(admitted), None).await {
+    let raw2 = match swap(&at(m), &e.uid, Some(raw), Some(&j2), Some(admitted), None).await {
         Ok(r) => r.unwrap_or_default(),
         Err(err) => {
-            let _settled = settle(m, e, raw, j).await;
+            let _settled = settle(&at(m), e, raw, j).await;
             return Err(err);
         }
     };
@@ -333,7 +372,7 @@ async fn commit_all<B: M3Backend, R: Blob, Q: Queues>(
         // Usage follows what the shards really changed (their commit
         // records, including a commit whose reply was lost). If this fails
         // too, the next restore of the collection settles it.
-        let _settled = settle(m, e, &raw2, &j2).await;
+        let _settled = settle(&at(m), e, &raw2, &j2).await;
         return Err(err);
     }
     let applied = net.quota();
@@ -343,7 +382,7 @@ async fn commit_all<B: M3Backend, R: Blob, Q: Queues>(
         bytes: applied.bytes,
         ..QuotaDelta::default()
     };
-    swap(m, &e.uid, Some(&raw2), None, None, Some(delta)).await?;
+    swap(&at(m), &e.uid, Some(&raw2), None, None, Some(delta)).await?;
     let call = M3LedgerCall::NextEpoch { uid: e.uid.clone() };
     let new_epoch = match ledger3(m.b, m.ctx.tenant_key(), call).await? {
         M3LedgerOut::Epoch { epoch } => epoch,

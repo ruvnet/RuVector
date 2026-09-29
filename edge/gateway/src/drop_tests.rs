@@ -7,13 +7,12 @@ use crate::api::guard;
 use crate::api::ratelimit::mem::CountingLimiter;
 use crate::api::ratelimit::Class;
 use crate::backend::mem::MemBackend;
-use crate::backend::Backend;
 use crate::testkit::*;
 use ruvector_edge_store::{OpError, SqlStore};
 use serde_json::{json, Value as Json};
 use worker::Method;
 
-fn usage<B: Backend>(b: &B, c: &Caller) -> Json {
+fn usage<B: crate::m3_wire::M3Backend>(b: &B, c: &Caller) -> Json {
     let r = call(b, c, Method::Get, "/v1/usage", Json::Null, T0);
     serde_json::from_str::<Json>(&r.body).unwrap()["usage"].clone()
 }
