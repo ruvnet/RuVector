@@ -33,15 +33,35 @@ mod durable;
 mod idem;
 mod keys;
 mod ledger_core;
+// M3 (ADR-351 §15): snapshots, restore, export, uploads, import jobs,
+// embeddings, audit shipping; side channel `/m3` into the same DOs.
+mod audit;
+mod audit_http;
+mod embed;
+mod export;
+mod ingest;
+mod jobs;
+mod m3_api;
+mod m3_audit_ledger;
+mod m3_ctx;
+mod m3_ledger;
+mod m3_ports;
+mod m3_shard;
+mod m3_transport;
+mod m3_wire;
 mod mcp;
 mod ops;
 mod platform;
+mod queue_consumer;
 mod respond;
 mod rest;
+mod restore;
 mod routes;
 mod service;
 mod shard_core;
+mod snapshots;
 mod trust_root;
+mod uploads;
 mod vectors;
 mod wire;
 
@@ -49,7 +69,7 @@ use worker::{event, Context, Env, Request, Response, Result};
 
 /// Worker entry point.
 #[event(fetch)]
-async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
+async fn fetch(req: Request, env: Env, ctx: Context) -> Result<Response> {
     console_error_panic_hook::set_once();
     let cfg = match config::GatewayConfig::from_env(&env) {
         Ok(cfg) => cfg,
@@ -60,7 +80,7 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             return respond::problem(ruvector_edge_tenancy::ProblemCode::ServerError, None)
         }
     };
-    routes::handle(req, &env, &cfg).await
+    routes::handle(req, &env, &cfg, &ctx).await
 }
 
 #[cfg(test)]
@@ -71,6 +91,18 @@ mod e2e_m1_tests;
 mod e2e_tests;
 #[cfg(test)]
 mod e2e_world;
+#[cfg(test)]
+mod m3_embed_audit_tests;
+#[cfg(test)]
+mod m3_import_tests;
+#[cfg(test)]
+mod m3_mem;
+#[cfg(test)]
+mod m3_restore_tests;
+#[cfg(test)]
+mod m3_review_tests;
+#[cfg(test)]
+mod m3_snapshot_tests;
 #[cfg(test)]
 mod mcp_tests;
 #[cfg(test)]

@@ -13,7 +13,7 @@ publish.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
-worker = { workspace = true }
+worker = { workspace = true, features = ["queue"] }
 wasm-bindgen = { workspace = true }
 console_error_panic_hook = { workspace = true }
 serde = { workspace = true }
@@ -23,6 +23,11 @@ ruvector-edge-tenancy = { workspace = true }
 # Storage core behind the TenantLedger / VectorShard Durable Objects
 # (ADR-351 §6, §16), consumed by path like the other cores.
 ruvector-edge-store = { path = "../../crates/ruvector-edge-store" }
+# M3 durability core (ADR-351 §3 rv-snapshot/rv-embed/rv-ingest, §6.3, §15):
+# snapshots, witness chain, restore validation, RVF export/import, jobs, embed batcher.
+ruvector-edge-snapshot = { path = "../../crates/ruvector-edge-snapshot" }
+# M3 DO side channel: f32 rows travel base64-encoded, not as JSON floats.
+base64ct = { workspace = true }
 sha2 = { workspace = true }
 # Bounded body reads (ADR-351 §10 layer 1): stop at 1 MiB while streaming.
 futures-util = { version = "0.3", default-features = false, features = ["alloc"] }

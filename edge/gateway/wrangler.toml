@@ -46,3 +46,50 @@ class_name = "VectorShard"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["TenantLedger", "VectorShard"]
+
+# ---- M3 (ADR-351 §6.3, §6.5, §3 rv-snapshot / rv-ingest / rv-embed) ----
+# Snapshots, exports, upload staging and shipped audit. Keys are
+# server-derived only (snapshots/, exports/, staging/, audit/ per tenant).
+# Lifecycle: exports/ expire after 1 day, staging/ after 3 days.
+[[r2_buckets]]
+binding = "DATA"
+bucket_name = "ruvector-edge-data"
+
+# Bulk-import jobs: {tenant_key, job_id}. One job per invocation; a job
+# re-enqueues itself every 50 batches and persists its cursor after every
+# batch, so retries resume. A job in the DLQ resumes by re-sending the same
+# {tenant_key, job_id} to ruvector-edge-ingest (jobs older than the 24 h
+# op_id window since submission are failed, never replayed).
+[[queues.producers]]
+binding = "INGEST_QUEUE"
+queue = "ruvector-edge-ingest"
+
+[[queues.consumers]]
+queue = "ruvector-edge-ingest"
+max_batch_size = 1
+max_batch_timeout = 1
+max_retries = 20
+# 20 × 30 s ≫ the 120 s pending op_id TTL: a batch reserved by a killed
+# invocation frees up long before the retries run out.
+retry_delay = 30
+dead_letter_queue = "ruvector-edge-ingest-dlq"
+
+# Audit events → one hash chain per tenant (in its ledger), NDJSON objects
+# audit/{tenant_key}/{yyyy}/{mm}/{dd}/{seq:012}.ndjson.
+[[queues.producers]]
+binding = "AUDIT_QUEUE"
+queue = "ruvector-edge-audit"
+
+[[queues.consumers]]
+queue = "ruvector-edge-audit"
+max_batch_size = 100
+max_batch_timeout = 30
+max_retries = 10
+# Rides out a short R2 / ledger outage (every step is idempotent).
+retry_delay = 30
+dead_letter_queue = "ruvector-edge-audit-dlq"
+
+# rv-embed: @cf/baai/bge-small-en-v1.5 (384 dims), only for collections
+# created with embedder = "bge-small-en-v1.5".
+[ai]
+binding = "AI"
