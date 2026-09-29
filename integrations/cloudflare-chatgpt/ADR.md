@@ -1,6 +1,6 @@
 # ADR: Tenant scoped RuVector MCP at the Cloudflare edge
 
-Status: Implemented for review, live OAuth and target account gates pending
+Status: Implemented for review, live OAuth gate pending
 
 ## Decision
 
@@ -23,8 +23,6 @@ Run a stateless MCP Worker with a versioned MCP Apps UI resource. Verify an exte
 | Shared D1 with composite tenant keys | Simple pilot operations and atomic quota accounting | Requires query discipline; US jurisdiction is not suitable for every tenant |
 | External OAuth issuer | Reuses Cognitum identity when compatible | Issuer metadata, scope and membership provisioning are deployment dependencies |
 | Internal service bindings | Clear resource and deployment isolation for Darwin, Autogenous and ruvLLM | Each service needs its own contract and acceptance test |
-
-The D1 pilot is provisioned in the Cognitum Cloudflare account. The maintainer's staging deploy path uses a different account without access to that database. A production target decision must precede deployment: either use a credential scoped to this D1 account, or adapt storage to the SQLite Durable Object contract used by the separately claimed RuVector edge backend. The latter contract and tenant derivation are still being drafted. This adapter does not claim ownership of the backend's Rust Worker or tenant collection namespace.
 
 ## Threat model and gates
 
