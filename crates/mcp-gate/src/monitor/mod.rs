@@ -15,7 +15,7 @@
 //! The routing rule is *investigate when `P(violation) × damage > verification
 //! cost`*. That is exactly the purchase inequality of the Wave-4
 //! value-of-information primitive
-//! ([`ruvector_tiny_dancer_core::voi`]), with `value_of_success` carrying the
+//! ([`ruvector_voi`]), with `value_of_success` carrying the
 //! damage term — so this module **reuses** that primitive rather than
 //! restating its mathematics. Each [`LadderRung`] is one
 //! [`EstimatorSpec`]: cheap and noisy first, expensive and sharp last.
@@ -85,7 +85,7 @@ pub mod overhead;
 
 use std::time::Instant;
 
-use ruvector_tiny_dancer_core::voi::{
+use ruvector_voi::{
     decide, observe, voi_upper_bound, Belief, EstimatorSpec, VoiConfig, VoiDecision,
 };
 

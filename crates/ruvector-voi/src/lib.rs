@@ -49,11 +49,9 @@
 //! # Intended call sites
 //!
 //! [`decide`] is a standalone pure function so the same primitive can gate
-//! model selection (this crate's [`Router`](crate::Router) integration, via
-//! [`crate::types::RouterConfig`]), retrieval depth, verifier invocations,
-//! agent spawning, and escalation. Only the router integration is implemented
-//! here; the others are expected to construct their own [`EstimatorSpec`]
-//! ladders over the same API.
+//! model selection, retrieval depth, verifier invocations,
+//! agent spawning, and escalation. This crate stays independent of those
+//! consumers; each constructs its own [`EstimatorSpec`] ladder.
 //!
 //! # Numerical discipline
 //!
@@ -63,14 +61,31 @@
 //! (comparison-based gates silently pass NaN; see PIR Wave-3 finding on
 //! non-finite bypass).
 
-use crate::error::{Result, TinyDancerError};
-use serde::{Deserialize, Serialize};
+/// Errors from invalid VoI inputs.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum VoiError {
+    /// An input was non-finite or outside the expected range.
+    InvalidInput(String),
+}
+
+impl std::fmt::Display for VoiError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidInput(message) => write!(f, "Invalid input: {message}"),
+        }
+    }
+}
+
+impl std::error::Error for VoiError {}
+
+/// Result of a value-of-information operation.
+pub type Result<T> = std::result::Result<T, VoiError>;
 
 /// 1/√(2π), the standard normal density at zero.
 const INV_SQRT_2PI: f64 = 0.398_942_280_401_432_7;
 
-fn invalid(msg: impl Into<String>) -> TinyDancerError {
-    TinyDancerError::InvalidInput(msg.into())
+fn invalid(msg: impl Into<String>) -> VoiError {
+    VoiError::InvalidInput(msg.into())
 }
 
 fn require_finite(name: &str, value: f64) -> Result<f64> {
@@ -101,7 +116,8 @@ fn norm_cdf(x: f64) -> f64 {
 }
 
 /// Gaussian belief `N(mean, std_dev²)` over a candidate's utility.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Belief {
     mean: f64,
     std_dev: f64,
@@ -135,7 +151,8 @@ impl Belief {
 /// A purchasable estimator: pay `cost` and `latency_us`, observe the true
 /// utility corrupted by `N(0, noise_std²)` noise. `noise_std == 0` models a
 /// perfect oracle.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EstimatorSpec {
     /// Direct cost of one invocation, in the same currency as
     /// [`VoiConfig::value_of_success`] (e.g. dollars or token-dollars).
@@ -169,7 +186,8 @@ impl EstimatorSpec {
 }
 
 /// Economic parameters for the purchase decision.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct VoiConfig {
     /// Currency value of one unit of routing utility (converts VoI from
     /// utility units into the same currency as [`EstimatorSpec::cost`]).
@@ -201,7 +219,8 @@ impl VoiConfig {
 }
 
 /// Outcome of one VoI evaluation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum VoiDecision {
     /// Purchase estimator `estimators[idx]`; observe, update the belief with
     /// [`observe`], and re-evaluate.
@@ -249,7 +268,7 @@ fn expected_max(mean: f64, std: f64, alt: f64) -> f64 {
 /// true VoI near zero) can be overestimated by orders of magnitude relative
 /// to a vanishing true value. The bias is one-directional — it can trigger a
 /// worthless purchase, never suppress a worthwhile one — and is immaterial
-/// for `[0, 1]`-scale utilities like this router's scores. Callers reusing
+/// for `[0, 1]`-scale utilities like router scores. Callers reusing
 /// this primitive with large-magnitude utilities should either rescale to
 /// unit range or substitute a higher-precision cdf.
 pub fn value_of_information(belief: Belief, alternative: f64, noise_std: f64) -> Result<f64> {
@@ -329,7 +348,12 @@ pub fn decide(
         est.validate()?;
         let voi = value_of_information(belief, alternative, est.noise_std)?;
         let net = config.value_of_success * voi - est.monetized_cost(config);
-        if net > 0.0 && best.map_or(true, |(_, b)| net > b) {
+        if net > 0.0
+            && match best {
+                None => true,
+                Some((_, best_net)) => net > best_net,
+            }
+        {
             best = Some((idx, net));
         }
     }

@@ -5406,7 +5406,7 @@ dependencies = [
  "cognitum-gate-tilezero",
  "futures",
  "hex",
- "ruvector-tiny-dancer-core",
+ "ruvector-voi",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -11001,6 +11001,7 @@ dependencies = [
  "rayon",
  "redb",
  "rusqlite",
+ "ruvector-voi",
  "safetensors 0.4.5",
  "serde",
  "serde_json",
@@ -11158,6 +11159,14 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-test",
  "web-sys",
+]
+
+[[package]]
+name = "ruvector-voi"
+version = "2.3.0"
+dependencies = [
+ "proptest",
+ "serde",
 ]
 
 [[package]]

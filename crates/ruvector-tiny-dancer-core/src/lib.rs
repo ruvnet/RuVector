@@ -24,7 +24,10 @@ pub mod storage;
 pub mod training;
 pub mod types;
 pub mod uncertainty;
-pub mod voi;
+/// Backward-compatible path for the standalone value-of-information primitive.
+pub mod voi {
+    pub use ruvector_voi::*;
+}
 
 // Re-exports for convenience
 pub use error::{Result, TinyDancerError};
