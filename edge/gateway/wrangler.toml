@@ -6,6 +6,11 @@ compatibility_date = "2026-09-01"
 account_id = "501c77f558c68152352b8ddfade9b854"
 workers_dev = true
 
+# Workers Paid (upgraded 2026-09-29): 30 s CPU per request. The Free plan
+# refused this block (API code 100328).
+[limits]
+cpu_ms = 30000
+
 [build]
 # Pinned: worker-build must match the worker crate (=0.8.5); an unpinned
 # install pulls the latest release.
