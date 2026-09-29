@@ -51,6 +51,19 @@ pub trait CodeStore {
         &self,
         code_hash: &[u8; 32],
     ) -> Result<Option<AuthorizationCodeRecord>, StoreError>;
+    /// Record a tombstone for a successfully redeemed code: the grant
+    /// (`family_id`) it started, kept until `expires_at` (unix seconds) so a
+    /// replay can revoke that grant (RFC 6749 §4.1.2). Required, no default:
+    /// a no-op would silently disable replay revocation.
+    fn record_redeemed(
+        &self,
+        code_hash: &[u8; 32],
+        family_id: &str,
+        expires_at: u64,
+    ) -> Result<(), StoreError>;
+    /// The `family_id` of an unexpired tombstone for `code_hash` at `now`.
+    fn redeemed_family(&self, code_hash: &[u8; 32], now: u64)
+        -> Result<Option<String>, StoreError>;
 }
 
 /// Refresh tokens and families, keyed by `secret_hash(token)`.

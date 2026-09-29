@@ -19,9 +19,8 @@ console_error_panic_hook = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 url = { workspace = true }
-sha2 = { workspace = true }
-base64ct = { workspace = true }
 p256 = { workspace = true }
+zeroize = { workspace = true }
 ruvector-edge-auth = { workspace = true }
 ruvector-edge-authz = { workspace = true }
 
@@ -32,3 +31,7 @@ getrandom = { workspace = true }
 [features]
 default = []
 dev-issuer = []
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+# Real SQLite (RETURNING, ON CONFLICT) behind the `SqlExec` port in native tests.
+rusqlite = { workspace = true }

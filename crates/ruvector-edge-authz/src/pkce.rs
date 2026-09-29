@@ -39,14 +39,21 @@ pub fn validate_challenge(challenge: &str, method: Option<&str>) -> Result<(), O
     ))
 }
 
+/// `BASE64URL(SHA256(verifier))`, the S256 challenge for `verifier`.
+pub fn challenge_s256(verifier: &str) -> String {
+    use sha2::{Digest, Sha256};
+    ruvector_edge_auth::jws::b64url_encode(&Sha256::digest(verifier.as_bytes()))
+}
+
 /// `BASE64URL(SHA256(verifier)) == challenge`, compared in constant time.
 /// Returns `false` for a malformed verifier.
 pub fn verify_s256(verifier: &str, challenge: &str) -> bool {
-    use sha2::{Digest, Sha256};
     use subtle::ConstantTimeEq;
     if validate_verifier(verifier).is_err() {
         return false;
     }
-    let computed = ruvector_edge_auth::jws::b64url_encode(&Sha256::digest(verifier.as_bytes()));
-    computed.as_bytes().ct_eq(challenge.as_bytes()).into()
+    challenge_s256(verifier)
+        .as_bytes()
+        .ct_eq(challenge.as_bytes())
+        .into()
 }

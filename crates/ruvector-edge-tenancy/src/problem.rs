@@ -16,18 +16,49 @@ pub enum ProblemCode {
     InsufficientScope,
     AudienceNotAllowed,
     RoleRequired,
+    NotClaimed,
     TenantSuspended,
     NotFound,
     Conflict,
     PayloadTooLarge,
     QuotaExceeded,
+    BudgetExceeded,
+    IdempotencyMismatch,
     RateLimited,
     JwksUnavailable,
     ShardUnavailable,
+    TrustRootMismatch,
     ServerError,
 }
 
 impl ProblemCode {
+    /// Every code, in §7 order (for exhaustive tests and docs).
+    pub const ALL: [ProblemCode; 20] = {
+        use ProblemCode::*;
+        [
+            InvalidRequest,
+            DimensionMismatch,
+            NonFiniteValue,
+            InvalidToken,
+            InsufficientScope,
+            AudienceNotAllowed,
+            RoleRequired,
+            NotClaimed,
+            TenantSuspended,
+            NotFound,
+            Conflict,
+            PayloadTooLarge,
+            QuotaExceeded,
+            BudgetExceeded,
+            IdempotencyMismatch,
+            RateLimited,
+            JwksUnavailable,
+            ShardUnavailable,
+            TrustRootMismatch,
+            ServerError,
+        ]
+    };
+
     /// `(status, code)` pair.
     pub fn status_and_code(self) -> (u16, &'static str) {
         use ProblemCode::*;
@@ -39,14 +70,18 @@ impl ProblemCode {
             InsufficientScope => (403, "insufficient_scope"),
             AudienceNotAllowed => (403, "audience_not_allowed"),
             RoleRequired => (403, "role_required"),
+            NotClaimed => (403, "not_claimed"),
             TenantSuspended => (403, "tenant_suspended"),
             NotFound => (404, "not_found"),
             Conflict => (409, "conflict"),
             PayloadTooLarge => (413, "payload_too_large"),
             QuotaExceeded => (413, "quota_exceeded"),
+            BudgetExceeded => (413, "budget_exceeded"),
+            IdempotencyMismatch => (422, "idempotency_mismatch"),
             RateLimited => (429, "rate_limited"),
             JwksUnavailable => (503, "jwks_unavailable"),
             ShardUnavailable => (503, "shard_unavailable"),
+            TrustRootMismatch => (503, "trust_root_mismatch"),
             ServerError => (500, "server_error"),
         }
     }

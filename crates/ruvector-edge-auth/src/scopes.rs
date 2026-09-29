@@ -1,13 +1,14 @@
 //! Scope -> capability mapping and the default-deny route table
-//! (ADR-351 §5.4). Versioned `const` tables; a unit test (later stage) asserts
-//! every route is covered and unknown routes are denied.
+//! (ADR-351 §5.3). Versioned `const` tables; unit tests assert every route is
+//! covered and unknown routes are denied.
 
 use crate::claims::TokenKind;
 
 /// Version of [`SCOPE_TABLE`] / [`ROUTE_TABLE`]; bump on any change.
-pub const SCOPE_TABLE_VERSION: u32 = 1;
+/// v2: `ruvector:*` vocabulary, `Admin`, tenant/MCP/ops routes.
+pub const SCOPE_TABLE_VERSION: u32 = 2;
 
-/// Internal capability a route requires.
+/// Internal capability a route requires (always further ∩ role, §5.3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Capability {
     /// Read vectors/collections/usage.
@@ -16,15 +17,18 @@ pub enum Capability {
     Write,
     /// Create or drop collections.
     CreateCollection,
-    /// Publish public RVF packages (M6, never via `/v1/mcp`).
+    /// Tenant administration: members, tenant deny entries, restore, audit.
+    Admin,
+    /// Publish public RVF packages (M5, never via `/v1/mcp`).
     PublishPublic,
 }
 
 impl Capability {
-    const ALL: [Capability; 4] = [
+    const ALL: [Capability; 5] = [
         Capability::Read,
         Capability::Write,
         Capability::CreateCollection,
+        Capability::Admin,
         Capability::PublishPublic,
     ];
 
@@ -36,9 +40,10 @@ impl Capability {
     /// `WWW-Authenticate: ... error="insufficient_scope", scope="..."`).
     pub fn satisfying_scope(self) -> &'static str {
         match self {
-            Capability::Read => "mcp:read",
-            Capability::Write | Capability::CreateCollection => "mcp:invoke",
-            Capability::PublishPublic => "brains:contribute",
+            Capability::Read => "ruvector:read",
+            Capability::Write | Capability::CreateCollection => "ruvector:write",
+            Capability::Admin => "ruvector:admin",
+            Capability::PublishPublic => "ruvector:publish",
         }
     }
 }
@@ -78,30 +83,50 @@ pub enum RouteSurface {
     Mcp,
 }
 
-/// `(scope, capabilities granted)`. Scopes not listed grant nothing
-/// (including the deliberately-unused product scopes in ADR §5.4).
+/// `(scope, capabilities granted)` — the ADR §5.3 vocabulary. Scopes not
+/// listed grant nothing: upstream product scopes (`mcp:*`, `swarm:*`,
+/// `brains:*`, ...), identity scopes, `offline_access` (refresh only) and
+/// `ruvector:publish` (not honoured before M5).
 pub const SCOPE_TABLE: &[(&str, &[Capability])] = &[
-    ("mcp:read", &[Capability::Read]),
+    ("ruvector:read", &[Capability::Read]),
     (
-        "mcp:invoke",
+        "ruvector:write",
         &[Capability::Write, Capability::CreateCollection],
     ),
+    ("ruvector:admin", &[Capability::Admin]),
 ];
 
-/// Map granted scopes to capabilities.
+/// Fixed grant for upstream first-party tokens on REST (ADR §5.5: upstream
+/// tokens carry no ruvector scopes, so they get `ruvector:read
+/// ruvector:write ruvector:admin`, still ∩ role).
+pub const UPSTREAM_FIRST_PARTY_CAPS: &[Capability] = &[
+    Capability::Read,
+    Capability::Write,
+    Capability::CreateCollection,
+    Capability::Admin,
+];
+
+/// Map granted scopes to capabilities (before the role intersection).
 ///
-/// Contract: unknown scopes are ignored; `brains:*`, `namespaces:claim` and
-/// `brains:contribute` are not honoured before M6 (absent from
-/// [`SCOPE_TABLE`]); `PublishPublic` is never granted on
-/// [`RouteSurface::Mcp`]. `kind` is accepted so per-kind restrictions can be
-/// added without an API change.
+/// Contract: `EdgeIssued` — capabilities of the listed [`SCOPE_TABLE`]
+/// scopes, unknown scopes ignored, `PublishPublic` never granted on
+/// [`RouteSurface::Mcp`]. `UpstreamFirstParty` — the fixed
+/// [`UPSTREAM_FIRST_PARTY_CAPS`] on [`RouteSurface::Rest`] (its scopes are
+/// ignored) and nothing on any other surface (ADR §5.5: REST only).
 pub fn capabilities_for(
     scopes: &[String],
     kind: TokenKind,
     surface: RouteSurface,
 ) -> CapabilitySet {
-    let _ = kind;
     let mut set = CapabilitySet::EMPTY;
+    if kind == TokenKind::UpstreamFirstParty {
+        if surface == RouteSurface::Rest {
+            UPSTREAM_FIRST_PARTY_CAPS
+                .iter()
+                .for_each(|c| set.insert(*c));
+        }
+        return set;
+    }
     for scope in scopes {
         if let Some((_, caps)) = SCOPE_TABLE.iter().find(|(s, _)| *s == scope.as_str()) {
             for cap in caps.iter() {
@@ -124,19 +149,39 @@ pub enum Method {
     Delete,
 }
 
-/// What a route requires.
+/// What a route requires (always further ∩ role and, for MCP/ops, per
+/// tool/op, downstream).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RouteRequirement {
     /// No token (health + metadata documents only).
     Anonymous,
-    /// Any valid token, no capability (`/v1/me`).
+    /// Any valid token, no capability at the route level (`/v1/me`; and
+    /// `POST /v1/mcp` / `POST /v1/ops`, whose tools/ops each check their own
+    /// capability).
     AnyValidToken,
     /// A valid token carrying this capability.
     Capability(Capability),
+    /// A valid token carrying at least one of these capabilities
+    /// (`tenant:claim`: `ruvector:write` or `ruvector:admin`).
+    AnyOf(&'static [Capability]),
 }
 
-/// Default-deny route table. Patterns use `{c}` / `{id}` for one path
-/// segment. M1 routes only; later milestones append rows.
+impl RouteRequirement {
+    /// Whether a token with `caps` (after the role intersection) meets the
+    /// route requirement. `Anonymous`/`AnyValidToken` need no capability.
+    pub fn satisfied_by(&self, caps: CapabilitySet) -> bool {
+        match self {
+            RouteRequirement::Anonymous | RouteRequirement::AnyValidToken => true,
+            RouteRequirement::Capability(c) => caps.contains(*c),
+            RouteRequirement::AnyOf(list) => list.iter().any(|c| caps.contains(*c)),
+        }
+    }
+}
+
+const CLAIM_CAPS: &[Capability] = &[Capability::Write, Capability::Admin];
+
+/// Default-deny route table. Patterns use `{c}` / `{id}` / `{sub}` for one
+/// path segment. M1 routes only; later milestones append rows.
 pub const ROUTE_TABLE: &[(Method, &str, RouteRequirement)] = &[
     (
         Method::Get,
@@ -206,6 +251,40 @@ pub const ROUTE_TABLE: &[(Method, &str, RouteRequirement)] = &[
         "/v1/collections/{c}/vectors:delete",
         RouteRequirement::Capability(Capability::Write),
     ),
+    // Tenant administration (§7.2, M1).
+    (
+        Method::Post,
+        "/v1/tenant:claim",
+        RouteRequirement::AnyOf(CLAIM_CAPS),
+    ),
+    (
+        Method::Get,
+        "/v1/tenant/members",
+        RouteRequirement::Capability(Capability::Admin),
+    ),
+    (
+        Method::Post,
+        "/v1/tenant/members",
+        RouteRequirement::Capability(Capability::Admin),
+    ),
+    (
+        Method::Get,
+        "/v1/tenant/members/{sub}",
+        RouteRequirement::Capability(Capability::Admin),
+    ),
+    (
+        Method::Delete,
+        "/v1/tenant/members/{sub}",
+        RouteRequirement::Capability(Capability::Admin),
+    ),
+    (
+        Method::Post,
+        "/v1/tenant/deny",
+        RouteRequirement::Capability(Capability::Admin),
+    ),
+    // JSON-RPC / op envelopes: each tool/op enforces its own capability.
+    (Method::Post, "/v1/mcp", RouteRequirement::AnyValidToken),
+    (Method::Post, "/v1/ops", RouteRequirement::AnyValidToken),
 ];
 
 /// Look up the requirement for `(method, path)`.
@@ -214,6 +293,45 @@ pub const ROUTE_TABLE: &[(Method, &str, RouteRequirement)] = &[
 /// placeholder matches exactly one non-empty segment; `None` means the route
 /// does not exist and must be denied (404), never allowed.
 pub fn route_requirement(method: Method, path: &str) -> Option<RouteRequirement> {
-    let _ = (method, path);
-    None
+    ROUTE_TABLE
+        .iter()
+        .find(|(m, pattern, _)| *m == method && path_matches(pattern, path))
+        .map(|(_, _, req)| *req)
 }
+
+/// Segment-wise match. A pattern segment `{x}` (optionally followed by a
+/// literal suffix such as `:upsert`) matches one non-empty request segment
+/// that ends with that suffix and whose variable part has no `:` and is not
+/// `.` or `..`. Paths with empty segments never match.
+fn path_matches(pattern: &str, path: &str) -> bool {
+    if !path.starts_with('/') || path.contains("//") {
+        return false;
+    }
+    let mut p = pattern.split('/');
+    let mut r = path.split('/');
+    loop {
+        match (p.next(), r.next()) {
+            (None, None) => return true,
+            (Some(ps), Some(rs)) if segment_matches(ps, rs) => {}
+            _ => return false,
+        }
+    }
+}
+
+fn segment_matches(pattern: &str, seg: &str) -> bool {
+    if let Some(rest) = pattern.strip_prefix('{') {
+        let Some(close) = rest.find('}') else {
+            return false;
+        };
+        let suffix = &rest[close + 1..];
+        match seg.strip_suffix(suffix) {
+            Some(var) => !var.is_empty() && !var.contains(':') && var != "." && var != "..",
+            None => false,
+        }
+    } else {
+        pattern == seg
+    }
+}
+
+#[cfg(test)]
+mod tests;

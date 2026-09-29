@@ -1,49 +1,132 @@
 //! Per-request tenant context (ADR-351 §4.1).
 
 use crate::error::TenancyError;
-use crate::names::TenantKey;
+use crate::membership::{effective_capabilities, Role};
+use crate::names::{derive_tenant_key, TenantKey};
+use crate::validate::{validate_edge_subject, validate_edge_token_id};
+use ruvector_edge_auth::subject::edge_subject;
 use ruvector_edge_auth::{CapabilitySet, RouteSurface, TokenKind, VerifiedClaims};
+
+/// The compiled-in upstream issuer (ADR-351 §4.1 step 1). Every tenant is
+/// keyed on this value, never on the edge AS hostname, so the edge path and
+/// the §5.5 upstream-first-party path land on the same tenant and an edge
+/// hostname change (custom domain, dev vs prod issuer) never re-keys tenants.
+pub const UPSTREAM_ISSUER: &str = "https://auth.cognitum.one";
 
 /// Built once per request from verified claims. Storage APIs take this, never
 /// a raw tenant string.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TenantContext {
     tenant_key: TenantKey,
-    iss: String,
+    upstream_iss: String,
     org_id: String,
     workspace_id: String,
     sub: String,
     client_id: String,
+    family_id: String,
+    jti: String,
     capabilities: CapabilitySet,
     token_kind: TokenKind,
-    jti: Option<String>,
+    role: Option<Role>,
+}
+
+/// Resolve the upstream issuer that namespaces the tenant.
+///
+/// - `UpstreamFirstParty`: the token's own `iss` (§5.5), which must equal
+///   [`UPSTREAM_ISSUER`].
+/// - `EdgeIssued`: the edge AS federates to exactly one upstream, the
+///   compiled [`UPSTREAM_ISSUER`]. (When `VerifiedClaims` exposes the
+///   `upstream_iss` claim, it must be required equal to this constant here.)
+fn upstream_iss_of(claims: &VerifiedClaims) -> Result<&'static str, TenancyError> {
+    match claims.kind() {
+        TokenKind::UpstreamFirstParty if claims.iss() == UPSTREAM_ISSUER => Ok(UPSTREAM_ISSUER),
+        TokenKind::UpstreamFirstParty => Err(TenancyError::InvalidTenantClaim("upstream_iss")),
+        TokenKind::EdgeIssued => Ok(UPSTREAM_ISSUER),
+    }
 }
 
 #[allow(missing_docs)]
 impl TenantContext {
     /// The only constructor.
     ///
-    /// Contract: `org_id` and `workspace_id` present and valid per
-    /// [`crate::validate_claim_component`] (else
-    /// [`TenancyError::InvalidTenantClaim`] -> 401); `tenant_key` from
-    /// [`crate::derive_tenant_key`]`(iss, org_id, workspace_id)`;
-    /// capabilities from `ruvector_edge_auth::scopes::capabilities_for`
-    /// for `surface`. `account_id` and `client_id`/`aud` never feed the key.
+    /// - `upstream_iss` must equal [`UPSTREAM_ISSUER`]; `org_id` and
+    ///   `workspace_id` must be present and match `^[A-Za-z0-9_-]{1,64}$`;
+    ///   `sub` must be an edge subject `^es1_[a-z2-7]{26}$` (edge tokens) or
+    ///   is normalised to one with `subject::edge_subject(upstream_iss, sub)`
+    ///   (upstream first-party tokens, §5.5);
+    ///   `jti` and `family_id` are required (edge tokens: 16-byte base64url).
+    ///   Any failure is [`TenancyError::InvalidTenantClaim`] (401).
+    /// - Upstream-first-party tokens are accepted **only** on
+    ///   [`RouteSurface::Rest`] (§5.5); elsewhere `InvalidTenantClaim
+    ///   ("token_kind")`.
+    /// - `tenant_key = derive_tenant_key(upstream_iss, org_id, workspace_id)`.
+    ///   `account_id`, `client_id`, `aud`, `family_id` and `jti` never feed it.
+    /// - Capabilities = scope ∩ role (§5.3); `membership = None` (not a
+    ///   member) grants none.
     pub fn from_verified(
         claims: VerifiedClaims,
+        membership: Option<Role>,
         surface: RouteSurface,
     ) -> Result<Self, TenancyError> {
-        let _ = (claims, surface);
-        Err(TenancyError::NotImplemented(
-            "context::TenantContext::from_verified",
-        ))
+        let kind = claims.kind();
+        if kind == TokenKind::UpstreamFirstParty && surface != RouteSurface::Rest {
+            return Err(TenancyError::InvalidTenantClaim("token_kind"));
+        }
+        let upstream_iss = upstream_iss_of(&claims)?;
+        let org_id = claims
+            .org_id()
+            .ok_or(TenancyError::InvalidTenantClaim("org_id"))?;
+        let workspace_id = claims
+            .workspace_id()
+            .ok_or(TenancyError::InvalidTenantClaim("workspace_id"))?;
+        let tenant_key = derive_tenant_key(upstream_iss, org_id, workspace_id)?;
+        // §5.5: an upstream first-party token carries the raw upstream `sub`
+        // (a UUID); it is normalised with the same edge-subject function the
+        // edge AS mints with, so both paths yield one actor per user.
+        let sub = match kind {
+            TokenKind::UpstreamFirstParty => {
+                if claims.sub().is_empty() {
+                    return Err(TenancyError::InvalidTenantClaim("sub"));
+                }
+                edge_subject(upstream_iss, claims.sub())
+            }
+            TokenKind::EdgeIssued => claims.sub().to_string(),
+        };
+        validate_edge_subject(&sub)?;
+        let jti = claims
+            .jti()
+            .filter(|v| !v.is_empty())
+            .ok_or(TenancyError::InvalidTenantClaim("jti"))?;
+        let family_id = claims
+            .family_id()
+            .filter(|v| !v.is_empty())
+            .ok_or(TenancyError::InvalidTenantClaim("family_id"))?;
+        if kind == TokenKind::EdgeIssued {
+            validate_edge_token_id(jti, "jti")?;
+            validate_edge_token_id(family_id, "family_id")?;
+        }
+        let capabilities = effective_capabilities(claims.scopes(), kind, surface, membership);
+        Ok(TenantContext {
+            tenant_key,
+            upstream_iss: upstream_iss.to_string(),
+            org_id: org_id.to_string(),
+            workspace_id: workspace_id.to_string(),
+            sub,
+            client_id: claims.client_id().to_string(),
+            family_id: family_id.to_string(),
+            jti: jti.to_string(),
+            capabilities,
+            token_kind: kind,
+            role: membership,
+        })
     }
 
     pub fn tenant_key(&self) -> &TenantKey {
         &self.tenant_key
     }
-    pub fn iss(&self) -> &str {
-        &self.iss
+    /// The tenant namespace (always [`UPSTREAM_ISSUER`] today).
+    pub fn upstream_iss(&self) -> &str {
+        &self.upstream_iss
     }
     pub fn org_id(&self) -> &str {
         &self.org_id
@@ -51,20 +134,30 @@ impl TenantContext {
     pub fn workspace_id(&self) -> &str {
         &self.workspace_id
     }
-    /// Actor for audit rows and the per-user rate-limit sub-key.
+    /// Edge subject: actor for audit rows, memberships and the per-user
+    /// rate-limit sub-key.
     pub fn sub(&self) -> &str {
         &self.sub
     }
     pub fn client_id(&self) -> &str {
         &self.client_id
     }
+    /// Grant / refresh family (ops, audit, logs, §5.8 deny list).
+    pub fn family_id(&self) -> &str {
+        &self.family_id
+    }
+    pub fn jti(&self) -> &str {
+        &self.jti
+    }
+    /// Effective capabilities (scope ∩ role).
     pub fn capabilities(&self) -> CapabilitySet {
         self.capabilities
     }
     pub fn token_kind(&self) -> TokenKind {
         self.token_kind
     }
-    pub fn jti(&self) -> Option<&str> {
-        self.jti.as_deref()
+    /// The caller's membership role, `None` if not a member.
+    pub fn role(&self) -> Option<Role> {
+        self.role
     }
 }

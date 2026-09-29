@@ -7,7 +7,18 @@ account_id = "501c77f558c68152352b8ddfade9b854"
 workers_dev = true
 
 [build]
-command = "cargo install -q worker-build && worker-build --release"
+# Pinned: worker-build must match the worker crate (=0.8.5); an unpinned
+# install pulls the latest release.
+# `env -u RUSTFLAGS`: a host-wide RUSTFLAGS (e.g. `-C link-arg=-fuse-ld=mold`)
+# breaks the wasm32 link.
+command = "cargo install -q worker-build --version 0.8.5 --locked && env -u RUSTFLAGS worker-build --release"
+
+# Edge AS JWKS is fetched through this binding: same-account workers.dev ->
+# workers.dev subrequests over the internet are refused (Cloudflare 1042).
+# Without the binding the gateway falls back to a global fetch of EDGE_JWKS_URL.
+[[services]]
+binding = "EDGE_AUTH"
+service = "ruvector-edge-auth"
 
 [vars]
 PUBLIC_ORIGIN = "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev"
@@ -19,4 +30,9 @@ EDGE_JWKS_URL = "https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev
 UPSTREAM_FIRST_PARTY = "false"
 UPSTREAM_ISSUER = "https://auth.cognitum.one"
 UPSTREAM_JWKS_URL = "https://auth.cognitum.one/.well-known/jwks.json"
+# Exact first-party client ids (never a DCR dcr-/edc- id).
 FIRST_PARTY_AUDS = ""
+# Pinned upstream signing kids (RFC 7638 thumbprints, comma-separated);
+# required non-empty when UPSTREAM_FIRST_PARTY = "true". UPSTREAM_JWKS_URL
+# must be UPSTREAM_ISSUER + /.well-known/jwks.json.
+ACCEPTED_UPSTREAM_KIDS = ""

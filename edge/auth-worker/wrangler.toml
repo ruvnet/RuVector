@@ -9,7 +9,11 @@ account_id = "501c77f558c68152352b8ddfade9b854"
 workers_dev = true
 
 [build]
-command = "cargo install -q worker-build && worker-build --release"
+# Pinned: worker-build must match the worker crate (=0.8.5); an unpinned
+# install pulls the latest release.
+# `env -u RUSTFLAGS`: a host-wide RUSTFLAGS (e.g. `-C link-arg=-fuse-ld=mold`)
+# breaks the wasm32 link.
+command = "cargo install -q worker-build --version 0.8.5 --locked && env -u RUSTFLAGS worker-build --release"
 
 [[durable_objects.bindings]]
 name = "AUTH_STORE"
@@ -19,11 +23,29 @@ class_name = "AuthStore"
 tag = "v1"
 new_sqlite_classes = ["AuthStore"]
 
+# Per-IP throttles consulted by the Worker front BEFORE the single global
+# AuthStore DO (ADR-351 §5.6). Keyed on a salted hash of CF-Connecting-IP.
+# Optional at runtime: when a binding is absent the front skips it, and the
+# DO still enforces the durable DCR_RATE_PER_HOUR window. Creating the
+# namespaces is part of gate G2 (not done by this workflow).
+[[ratelimits]]
+name = "DCR_RATE_LIMITER"
+namespace_id = "35101"
+simple = { limit = 5, period = 60 }
+
+[[ratelimits]]
+name = "AUTHZ_RATE_LIMITER"
+namespace_id = "35102"
+simple = { limit = 60, period = 60 }
+
 [vars]
 ISSUER = "https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev"
 # Exact canonical resource URLs tokens may be minted for (comma-separated).
 RESOURCE_ALLOWLIST = "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1,https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1/mcp"
-SCOPES_SUPPORTED = "mcp:read mcp:invoke"
+SCOPES_SUPPORTED = "ruvector:read ruvector:write offline_access"
+# Ceiling of a registration that omits `scope`: read-only (write scopes must
+# be registered and requested explicitly, and are shown on consent).
+DEFAULT_SCOPE = "ruvector:read offline_access"
 UPSTREAM_ISSUER = "https://auth.cognitum.one"
 UPSTREAM_AUTHORIZATION_ENDPOINT = "https://auth.cognitum.one/oauth/authorize"
 UPSTREAM_TOKEN_ENDPOINT = "https://auth.cognitum.one/oauth/token"
@@ -36,7 +58,28 @@ UPSTREAM_JWKS_URL = "https://auth.cognitum.one/.well-known/jwks.json"
 # registered via DCR as-is. Resolve (seeded client or allowlist entry) before
 # the federation leg can work end-to-end.
 UPSTREAM_CLIENT_ID = ""
-UPSTREAM_SCOPES = "openid profile email mcp:read"
+# Identity scopes only (enforced at load): never mcp:*, which api.cognitum.one
+# would honour. The upstream refresh token is revoked right after login.
+UPSTREAM_SCOPES = "openid profile email"
+# RFC 7638 thumbprints (`kid`) of the upstream signing keys accepted at the
+# callback (comma-separated). Pinned, so upstream key rotation needs a
+# redeploy. Empty until the operator records them with UPSTREAM_CLIENT_ID
+# (gate G1); federation answers temporarily_unavailable until then.
+ACCEPTED_UPSTREAM_KIDS = ""
 
-# Secret (not a var): SIGNING_KEY_P256 = base64url 32-byte P-256 scalar,
-# set with `wrangler secret put SIGNING_KEY_P256`.
+# Optional cap on dynamically registered clients (default 10000).
+# MAX_CLIENTS = "10000"
+# Optional durable per-IP registration limit per hour (default 10).
+# DCR_RATE_PER_HOUR = "10"
+
+# SECRET (never a var, never committed): EDGE_AUTH_SIGNING_JWK
+#   The ES256 signing key as a private EC P-256 JWK:
+#     {"kty":"EC","crv":"P-256","d":"<b64url 32B>","x":"..","y":".."}
+#   or, during rotation, a JWK Set {"keys":[<active private>, <previous>...]}
+#   whose first key signs and whose other keys (public or private) are only
+#   published in /.well-known/jwks.json. x/y/kid, if present, must match d
+#   (kid = RFC 7638 thumbprint). Without it the JWKS answers 503 and /token
+#   fails closed with server_error.
+#   Set with: wrangler secret put EDGE_AUTH_SIGNING_JWK
+#
+# SECRET (optional): IP_HASH_SALT — salts the per-IP rate-limit bucket hash.

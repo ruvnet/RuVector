@@ -1,12 +1,9 @@
-//! Port implementations over the Workers runtime: clock, RNG, signer, JWKS.
+//! Port implementations over the Workers runtime: clock, RNG, HTTP.
 
-use ruvector_edge_auth::{Clock, JwkSet};
-use ruvector_edge_authz::{Rng, Signer, StoreError};
-use worker::{Date, Env};
-
-/// Name of the secret holding the active ES256 private scalar (32 bytes,
-/// base64url). Set with `wrangler secret put`, never in `wrangler.toml`.
-pub const SIGNING_KEY_SECRET: &str = "SIGNING_KEY_P256";
+use crate::upstream::UpstreamHttp;
+use ruvector_edge_auth::{Clock, FetchError, HttpFetch, HttpResponse};
+use ruvector_edge_authz::{Rng, StoreError};
+use worker::{Date, Fetch, Headers, Method, Request, RequestInit, RequestRedirect};
 
 /// `Clock` over `Date.now()`.
 #[derive(Debug, Clone, Copy, Default)]
@@ -23,7 +20,7 @@ impl Clock for WorkerClock {
 pub struct WorkerRng;
 
 impl Rng for WorkerRng {
-    /// Contract: fills `buf` or returns an error; never weak bytes.
+    /// Fills `buf` or returns an error; never weak bytes.
     fn fill(&self, buf: &mut [u8]) -> Result<(), StoreError> {
         #[cfg(target_arch = "wasm32")]
         {
@@ -37,47 +34,63 @@ impl Rng for WorkerRng {
     }
 }
 
-/// ES256 signer backed by the `SIGNING_KEY_P256` secret.
-pub struct EnvSigner {
-    key: Option<p256::ecdsa::SigningKey>,
+/// Global `fetch` with redirects never followed (a 3xx is returned as-is
+/// and treated as a failure by the callers, which require 200).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct WorkerFetch;
+
+fn fetch_err(e: worker::Error) -> FetchError {
+    FetchError(e.to_string())
 }
 
-impl EnvSigner {
-    /// Load the key from the environment secret.
-    ///
-    /// Contract: base64url-decode exactly 32 bytes and build a
-    /// `p256::ecdsa::SigningKey`; any failure leaves the signer keyless so
-    /// every `sign_es256` fails closed.
-    pub fn from_env(env: &Env) -> Self {
-        let _ = env.secret(SIGNING_KEY_SECRET);
-        EnvSigner { key: None }
+async fn send(url: &str, init: &RequestInit, max: usize) -> Result<HttpResponse, FetchError> {
+    let req = Request::new_with_init(url, init).map_err(fetch_err)?;
+    let mut resp = Fetch::Request(req).send().await.map_err(fetch_err)?;
+    let status = resp.status_code();
+    // A declared length above the cap is refused before the body is read;
+    // an undeclared body is truncated to `max + 1` so callers reject it.
+    let declared = resp
+        .headers()
+        .get("Content-Length")
+        .ok()
+        .flatten()
+        .and_then(|v| v.trim().parse::<usize>().ok());
+    if declared.is_some_and(|n| n > max) {
+        return Err(FetchError("response body too large".into()));
+    }
+    let mut body = resp.bytes().await.map_err(fetch_err)?;
+    body.truncate(max.saturating_add(1));
+    Ok(HttpResponse { status, body })
+}
+
+impl HttpFetch for WorkerFetch {
+    async fn get(&self, url: &str, max_body_bytes: usize) -> Result<HttpResponse, FetchError> {
+        let headers = Headers::new();
+        headers
+            .set("Accept", "application/json")
+            .map_err(fetch_err)?;
+        let mut init = RequestInit::new();
+        init.with_method(Method::Get)
+            .with_headers(headers)
+            .with_redirect(RequestRedirect::Manual);
+        send(url, &init, max_body_bytes).await
     }
 }
 
-impl Signer for EnvSigner {
-    fn kid(&self) -> String {
-        self.key
-            .as_ref()
-            .map(|k| ruvector_edge_auth::Jwk::from_verifying_key(k.verifying_key()).kid)
-            .unwrap_or_default()
+impl UpstreamHttp for WorkerFetch {
+    async fn post_form(&self, url: &str, body: String) -> Result<HttpResponse, FetchError> {
+        let headers = Headers::new();
+        headers
+            .set("Content-Type", "application/x-www-form-urlencoded")
+            .map_err(fetch_err)?;
+        headers
+            .set("Accept", "application/json")
+            .map_err(fetch_err)?;
+        let mut init = RequestInit::new();
+        init.with_method(Method::Post)
+            .with_headers(headers)
+            .with_redirect(RequestRedirect::Manual)
+            .with_body(Some(body.into()));
+        send(url, &init, crate::upstream::MAX_UPSTREAM_BODY).await
     }
-
-    /// Contract: RFC 6979 deterministic ES256 over `signing_input`, fixed
-    /// 64-byte `r || s` output.
-    fn sign_es256(&self, signing_input: &[u8]) -> Result<[u8; 64], StoreError> {
-        let _ = (signing_input, &self.key);
-        Err(StoreError("signer not implemented".into()))
-    }
-}
-
-/// Public JWKS for the active (and, during rotation, previous) key.
-pub fn public_jwks(env: &Env) -> JwkSet {
-    let signer = EnvSigner::from_env(env);
-    let keys = signer
-        .key
-        .as_ref()
-        .map(|k| *k.verifying_key())
-        .into_iter()
-        .collect::<Vec<_>>();
-    ruvector_edge_authz::metadata::jwks_document(&keys)
 }

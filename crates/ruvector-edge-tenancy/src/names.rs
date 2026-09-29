@@ -1,16 +1,26 @@
-//! `tenant_key` and Durable Object name derivation (ADR-351 §4.1, §4.2).
+//! `tenant_key` and Durable Object name derivation (ADR-351 §4.1, §4.3).
+//!
+//! All preimages are domain-separated by a `v1|` version prefix and a fixed
+//! layout; every variable component is validated so it cannot contain the
+//! `|` delimiter. Golden-value tests pin the outputs: changing any function
+//! here re-keys every tenant and orphans every Durable Object.
 
-use crate::validate::CollectionName;
+use crate::error::TenancyError;
+use crate::shard::ShardIndex;
+use crate::uid::CollectionUid;
+use crate::validate::{validate_claim_component, validate_issuer};
 use core::fmt;
+use sha2::{Digest, Sha256};
 
 /// Length of a tenant key in base32 characters.
 pub const TENANT_KEY_LEN: usize = 26;
+/// Length of a DO name in hex characters.
+pub const DO_NAME_LEN: usize = 64;
 
 /// Opaque tenant identifier:
 /// `base32(sha256("v1|" + iss + "|" + org_id + "|" + workspace_id))[0..26]`,
-/// RFC 4648 alphabet, lowercase, unpadded. Only constructible via
-/// [`derive_tenant_key`] (called by `TenantContext::from_verified`, i.e.
-/// after signature verification and component validation).
+/// RFC 4648 alphabet, lowercase, unpadded (130 bits). Constructed only by
+/// [`derive_tenant_key`] or by strict [`TenantKey::parse`] of a stored value.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct TenantKey(String);
 
@@ -18,6 +28,20 @@ impl TenantKey {
     /// The 26-char key.
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    /// Strictly parse a stored key (exactly 26 chars of `[a-z2-7]`). Used when
+    /// reading a DO `meta` row; it does not re-derive anything.
+    pub fn parse(stored: &str) -> Result<Self, TenancyError> {
+        let ok = stored.len() == TENANT_KEY_LEN
+            && stored
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || (b'2'..=b'7').contains(&b));
+        if ok {
+            Ok(TenantKey(stored.to_string()))
+        } else {
+            Err(TenancyError::MalformedIdentifier("tenant_key"))
+        }
     }
 }
 
@@ -27,11 +51,20 @@ impl fmt::Display for TenantKey {
     }
 }
 
-/// Derive the tenant key. Inputs must already be validated (the `|`
-/// delimiter is excluded from components by
-/// [`crate::validate_claim_component`]; `iss` is an exact configured issuer).
-pub fn derive_tenant_key(iss: &str, org_id: &str, workspace_id: &str) -> TenantKey {
-    use sha2::{Digest, Sha256};
+/// Derive the tenant key from `(iss, org_id, workspace_id)`.
+///
+/// Validates every component first ([`validate_issuer`],
+/// [`validate_claim_component`]), so a `|` in any value cannot shift the
+/// preimage boundaries: `("a|b","c")` and `("a","b|c")` are both rejected
+/// rather than colliding.
+pub fn derive_tenant_key(
+    iss: &str,
+    org_id: &str,
+    workspace_id: &str,
+) -> Result<TenantKey, TenancyError> {
+    validate_issuer(iss)?;
+    validate_claim_component(org_id, "org_id")?;
+    validate_claim_component(workspace_id, "workspace_id")?;
     let mut h = Sha256::new();
     h.update(b"v1|");
     h.update(iss.as_bytes());
@@ -42,7 +75,7 @@ pub fn derive_tenant_key(iss: &str, org_id: &str, workspace_id: &str) -> TenantK
     let enc = data_encoding::BASE32_NOPAD
         .encode(&h.finalize())
         .to_ascii_lowercase();
-    TenantKey(enc[..TENANT_KEY_LEN].to_string())
+    Ok(TenantKey(enc[..TENANT_KEY_LEN].to_string()))
 }
 
 /// Service component of a DO name.
@@ -59,6 +92,14 @@ pub enum Service {
 }
 
 impl Service {
+    /// Every service, for exhaustive tests.
+    pub const ALL: [Service; 4] = [
+        Service::Vector,
+        Service::Quant,
+        Service::Graph,
+        Service::Mincut,
+    ];
+
     /// Stable wire name used in the DO-name preimage.
     pub fn as_str(self) -> &'static str {
         match self {
@@ -67,6 +108,14 @@ impl Service {
             Service::Graph => "graph",
             Service::Mincut => "mincut",
         }
+    }
+
+    /// Strictly parse a stored wire name.
+    pub fn parse(stored: &str) -> Result<Self, TenancyError> {
+        Service::ALL
+            .into_iter()
+            .find(|s| s.as_str() == stored)
+            .ok_or(TenancyError::MalformedIdentifier("service"))
     }
 }
 
@@ -82,28 +131,35 @@ impl DoName {
     }
 }
 
-/// `hex(sha256("v1|" + tenant_key + "|" + service + "|" + collection + "|" + shard))`.
+impl fmt::Display for DoName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// `hex(sha256("v1|" + tenant_key + "|" + service + "|" + collection_uid + "|" + shard))`
+/// (ADR §4.3). Keyed by the never-reused `collection_uid`, not the name, so a
+/// delete-then-recreate of the same name lands on a fresh, empty DO.
 pub fn do_name(
     tenant: &TenantKey,
     service: Service,
-    collection: &CollectionName,
-    shard: u32,
+    collection: &CollectionUid,
+    shard: ShardIndex,
 ) -> DoName {
-    use sha2::{Digest, Sha256};
     let preimage = format!(
         "v1|{}|{}|{}|{}",
         tenant.as_str(),
         service.as_str(),
-        collection.as_str(),
-        shard
+        collection.to_hex(),
+        shard.get()
     );
     DoName(hex::encode(Sha256::digest(preimage.as_bytes())))
 }
 
 /// Name of the per-tenant `TenantLedger` DO:
-/// `hex(sha256("v1|" + tenant_key + "|ledger"))`.
+/// `hex(sha256("v1|" + tenant_key + "|ledger"))`. Cannot collide with a
+/// [`do_name`] preimage, which always has five `|`-separated fields.
 pub fn ledger_do_name(tenant: &TenantKey) -> DoName {
-    use sha2::{Digest, Sha256};
     let preimage = format!("v1|{}|ledger", tenant.as_str());
     DoName(hex::encode(Sha256::digest(preimage.as_bytes())))
 }

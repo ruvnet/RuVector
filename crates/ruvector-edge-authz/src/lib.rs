@@ -30,7 +30,9 @@ pub mod client;
 pub mod code;
 pub mod error;
 pub mod federation;
+pub mod grant;
 pub mod metadata;
+pub mod params;
 pub mod pkce;
 pub mod ports;
 pub mod refresh;
@@ -38,10 +40,21 @@ pub mod resource;
 pub mod revoke;
 pub mod token;
 
+#[cfg(test)]
+mod testing;
+#[cfg(test)]
+mod tests;
+
+pub use authorize::AuthorizeError;
 pub use error::{OAuthError, OAuthErrorCode};
+pub use grant::TokenEndpoint;
 pub use ports::{ClientStore, CodeStore, FederationStore, RefreshStore, Rng, Signer, StoreError};
 pub use resource::ResourceAllowlist;
 pub use ruvector_edge_auth::{Clock, ResourceUrl};
+
+/// Placeholder printed by the manual `Debug` impls of secret-bearing types
+/// (tokens, codes, verifiers, browser secrets are never logged).
+pub(crate) const REDACTED: &str = "<redacted>";
 
 /// Hash a bearer secret (code / refresh token) for storage. Stores never hold
 /// plaintext secrets: raw SHA-256 digest (32 bytes).

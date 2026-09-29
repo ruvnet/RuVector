@@ -42,8 +42,29 @@ impl ResourceUrl {
         let rest = input
             .strip_prefix("https://")
             .ok_or(AuthError::InvalidConfig("resource url must be https"))?;
+        // Only RFC 3986 characters: no non-ASCII (it must be %-encoded), no
+        // controls/space, no query/fragment/userinfo, and none of the
+        // characters RFC 3986 never allows unencoded (`"`, `<`, `>`, `\`,
+        // `^`, `` ` ``, `{`, `|`, `}`), so the value is safe inside a
+        // `WWW-Authenticate` quoted-string and compares byte-for-byte.
         if rest.bytes().any(|b| {
-            b.is_ascii_control() || b == b' ' || b == b'?' || b == b'#' || b == b'@' || b == b'\\'
+            !b.is_ascii()
+                || b.is_ascii_control()
+                || matches!(
+                    b,
+                    b' ' | b'?'
+                        | b'#'
+                        | b'@'
+                        | b'\\'
+                        | b'"'
+                        | b'<'
+                        | b'>'
+                        | b'^'
+                        | b'`'
+                        | b'{'
+                        | b'|'
+                        | b'}'
+                )
         }) {
             return Err(AuthError::InvalidConfig(
                 "resource url has forbidden characters",
@@ -112,5 +133,58 @@ impl ResourceUrl {
 impl fmt::Display for ResourceUrl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn canonical_urls_accepted() {
+        let r = ResourceUrl::parse("https://GW.Example:8443/v1/mcp").unwrap();
+        assert_eq!(r.as_str(), "https://gw.example:8443/v1/mcp");
+        assert_eq!(r.origin(), "https://gw.example:8443");
+        assert_eq!(r.path(), "/v1/mcp");
+        assert!(ResourceUrl::parse("https://gw.example/v1/a%20b").is_ok());
+    }
+
+    /// Regression: characters that would break a `WWW-Authenticate`
+    /// quoted-string or are not RFC 3986 are refused.
+    #[test]
+    fn non_rfc3986_bytes_rejected() {
+        for bad in [
+            "https://gw.example/v1\"x",
+            "https://gw.example/v1/caf\u{e9}",
+            "https://gw.example/v1/<x>",
+            "https://gw.example/v1/a|b",
+            "https://gw.example/v1/{c}",
+            "https://gw.example/v1/a^b",
+            "https://gw.example/v1/a`b",
+            "https://gw.example/v1/a\\b",
+            "https://gw.example/v1?q=1",
+            "https://gw.example/v1#f",
+            "https://u@gw.example/v1",
+        ] {
+            assert!(ResourceUrl::parse(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn non_canonical_forms_rejected() {
+        for bad in [
+            "http://gw.example/v1",
+            "https://gw.example/v1/",
+            "https://gw.example//v1",
+            "https://gw.example/v1/../x",
+            "https://gw.example:443/v1",
+            "https://gw.example:/v1",
+            "https://.gw.example/v1",
+            "",
+        ] {
+            assert!(ResourceUrl::parse(bad).is_err(), "{bad}");
+        }
+        let long = format!("https://gw.example/{}", "a".repeat(MAX_RESOURCE_URL_LEN));
+        assert!(ResourceUrl::parse(&long).is_err());
     }
 }

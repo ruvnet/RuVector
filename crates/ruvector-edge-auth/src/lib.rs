@@ -30,7 +30,11 @@ pub mod jws;
 pub mod prm;
 pub mod resource;
 pub mod scopes;
+pub mod subject;
 pub mod verifier;
+
+#[cfg(test)]
+mod test_support;
 
 pub use audience::{AudiencePolicy, UpstreamFirstPartyPolicy};
 pub use claims::{Audience, ClaimsPolicy, RawClaims, TokenKind, VerifiedClaims};

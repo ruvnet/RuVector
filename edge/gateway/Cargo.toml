@@ -25,3 +25,6 @@ ruvector-edge-tenancy = { workspace = true }
 default = []
 # Integration-test issuer override (ADR §9.3). Never enabled in release builds.
 dev-issuer = []
+
+[dev-dependencies]
+p256 = { workspace = true }

@@ -32,6 +32,9 @@ base64ct = { version = "1", features = ["alloc"] }
 p256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
 # Only if a transitive dependency pulls getrandom 0.2 into the wasm graph.
 getrandom = { version = "0.2", features = ["js"] }
+zeroize = "1"
+# Native-only test double for the Durable Object SQLite port.
+rusqlite = { version = "=0.32.1", features = ["bundled"] }
 
 ruvector-edge-auth = { path = "../crates/ruvector-edge-auth" }
 ruvector-edge-tenancy = { path = "../crates/ruvector-edge-tenancy" }
@@ -42,5 +45,8 @@ ruvector-edge-authz = { path = "../crates/ruvector-edge-authz" }
 opt-level = "z"
 lto = true
 codegen-units = 1
-strip = true
+# Not `true`: stripping symbols also drops the wasm `target_features` section,
+# and wasm-bindgen then cannot see reference-types ("externref table required
+# for catch wrappers" with worker-build 0.8.5). wasm-bindgen strips names.
+strip = "debuginfo"
 panic = "abort"
