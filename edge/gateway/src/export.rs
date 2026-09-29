@@ -34,6 +34,20 @@ pub const PART_BYTES: usize = 8 << 20;
 pub const EXPORT_TTL_S: u64 = 15 * 60;
 /// Largest `redact` list.
 pub const MAX_REDACT_KEYS: usize = 32;
+/// Worst-case sidecar bytes of one row: id (u16 length + 256) + metadata
+/// flag + metadata (u16 length + 4096).
+pub const SIDECAR_ROW_MAX: usize = 2 + 256 + 1 + 2 + 4096;
+
+/// Rows per exported segment pair: both the VEC and the sidecar payload
+/// stay within [`crate::ingest::QUEUED_MAX_SEGMENT_PAYLOAD`], so an export
+/// can always be imported again through the queued `:import`.
+pub fn rows_per_segment(dim: u16) -> u32 {
+    let cap = crate::ingest::QUEUED_MAX_SEGMENT_PAYLOAD as usize;
+    let row = (usize::from(dim) * 4).max(SIDECAR_ROW_MAX);
+    u32::try_from(cap / row)
+        .unwrap_or(u32::MAX)
+        .clamp(1, DEFAULT_ROWS_PER_SEGMENT)
+}
 
 /// Parse `?redact=a,b` (keys 1..=64 visible ASCII, no commas).
 pub fn redact_keys(query: Option<&str>) -> Result<Vec<String>, OpError> {
@@ -181,7 +195,7 @@ async fn write<B: M3Backend, R: Blob, Q: Queues>(
 ) -> Result<(u64, String), OpError> {
     let dim = dim16(e)?;
     let tenant = m.ctx.tenant_key().as_str();
-    let mut exp = RvfExporter::new(dim, snap_metric(e.cfg.metric), DEFAULT_ROWS_PER_SEGMENT)
+    let mut exp = RvfExporter::new(dim, snap_metric(e.cfg.metric), rows_per_segment(dim))
         .map_err(snap_err)?;
     let audit = crate::audit::head(m.b, m.ctx.tenant_key()).await?;
     let mut heads = Vec::new();

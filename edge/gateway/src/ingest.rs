@@ -5,14 +5,17 @@
 //! is older than the 24 h `op_id` window **since submission** (every batch
 //! it applied was recorded under an `op_id` whose idempotency slot lives
 //! 24 h from that batch, so inside the window a replayed batch is always
-//! deduplicated; past it, it could not be). It checks the staging object
-//! (`head`); an upload R2 holds no sha256 for (multipart) gets a hash pass
-//! against the declared sha256 before any batch is applied, split into
-//! deliveries of its own of at most `HASH_BYTES_PER_DELIVERY` each with the
-//! hasher state persisted in the job (`ingest_hash`). It then re-checks the
-//! submitter against the tenant deny list (a revoked credential's queued
-//! job is cancelled), resolves the collection by name **and** uid, pins the
-//! tenant's remaining row quota, range-reads the tail (`inspect_tail`; after
+//! deduplicated; past it, it could not be), or once
+//! [`MAX_STALLED_DELIVERIES`] deliveries in a row committed nothing (its
+//! upload is released for a resubmit). It re-checks the submitter against
+//! the tenant deny list (a revoked credential's queued job is cancelled)
+//! and resolves the collection by name **and** uid — both before the hash
+//! pass, so neither spends it. It checks the staging object (`head`); an
+//! upload R2 holds no sha256 for (multipart) gets a hash pass against the
+//! declared sha256 before any batch is applied, split into deliveries of
+//! its own of at most `HASH_BYTES_PER_DELIVERY` each with the hasher state
+//! persisted in the job (`ingest_hash`). It then pins the tenant's
+//! remaining row quota, range-reads the tail (`inspect_tail`; after
 //! the first delivery only from the recorded manifest offset), `deliver`s
 //! the job and streams the object from the cursor in 1 MiB ranges through
 //! `RvfImporter`. Each batch goes to a [`BatchSink`] under
@@ -24,8 +27,12 @@
 //! are sized to [`FLOATS_PER_BATCH`] floats ([`batch_rows`], at most 500
 //! rows) because the sink JSON-encodes every value, and after
 //! [`BATCHES_PER_DELIVERY`] batches the delivery stops with
-//! [`Delivery::Continue`] (the consumer re-enqueues and acks). Both are
-//! tuning values for the 10 ms Free budget, not measured on wasm.
+//! [`Delivery::Continue`] (the consumer re-enqueues and acks). Batches never
+//! span a record, so a delivery re-reads and re-verifies the record it
+//! resumes in: segments are capped at [`QUEUED_MAX_SEGMENT_PAYLOAD`]. All
+//! are tuning values for the 10 ms Free budget, not measured on wasm. Every
+//! batch after the first pays one §10 write token, as the synchronous RVF
+//! import does (over budget: [`Delivery::Retry`]).
 //!
 //! Job saves are compare-and-swap (`jobs::save`): a delivery that loses to
 //! a concurrent one (duplicate or stale message) stops and acks. A delivery
@@ -34,28 +41,39 @@
 
 use crate::audit::AuditEvent;
 use crate::backend::Backend;
-use crate::idem::{self, Seen, Slot};
 use crate::ingest_hash::HashStep;
+use crate::ingest_sink::{sink_fail, submitter};
+pub use crate::ingest_sink::{BatchSink, UpsertSink};
 use crate::jobs::{self, IngestMsg, Job};
 use crate::m3_ctx::snap_metric;
 use crate::m3_ports::Blob;
-use crate::m3_wire::M3Backend;
+use crate::m3_wire::{kv_get, kv_put, M3Backend, Ns};
 use crate::rest::admin::deny_check;
 use crate::service::{self, Call};
 use crate::wire::{LedgerCall, LedgerOut};
-use ruvector_edge_auth::{Capability, CapabilitySet};
+use ruvector_edge_auth::Capability;
 use ruvector_edge_snapshot::{
-    inspect_tail, FailCode, ImportError, ImportLimits, ImportSpec, JobState, Row, RvfImporter,
+    inspect_tail, FailCode, ImportError, ImportLimits, ImportSpec, JobState, RvfImporter,
 };
-use ruvector_edge_store::{CallerContext, ErrorCode, Op, OpError};
+use ruvector_edge_store::{ErrorCode, OpError};
 use ruvector_edge_tenancy::quota::limits::MAX_UPSERT_BATCH;
 use ruvector_edge_tenancy::TenantKey;
-use serde_json::json;
 
 /// `op_id` idempotency window (ADR-351 §16.3), from submission.
 pub const JOB_WINDOW_MS: u64 = 24 * 3600 * 1000;
 /// Failure reason of a job past the window.
 pub const EXPIRED: &str = "expired: older than the 24 h op_id window";
+/// Failure reason of a job whose deliveries stopped making progress.
+pub const STALLED: &str = "stalled: deliveries keep failing without progress";
+/// Consecutive import deliveries without a committed batch before the job
+/// fails: below the ingest queue's `max_retries` (20), so a job whose
+/// message would be dead-lettered ends `failed`, not `running`.
+pub const MAX_STALLED_DELIVERIES: u32 = 15;
+/// Largest segment payload a queued import accepts. Batches never span a
+/// record, so every delivery re-reads and re-verifies the record it resumes
+/// in: 1 MiB bounds that per-delivery cost (the gateway's own exports use
+/// segments of at most this size, `export::rows_per_segment`).
+pub const QUEUED_MAX_SEGMENT_PAYLOAD: u64 = 1 << 20;
 /// Range read size.
 pub const PIECE_BYTES: u64 = 1 << 20;
 /// Tail read: the largest manifest segment plus its header and padding.
@@ -147,114 +165,18 @@ pub fn fail_status(code: FailCode) -> u16 {
     }
 }
 
-/// Where batches go.
-#[allow(async_fn_in_trait)]
-pub trait BatchSink {
-    /// Apply `rows` under `op_id` (idempotent per `op_id`).
-    async fn apply(&self, job: &Job, op_id: &str, rows: Vec<Row>) -> Result<(), OpError>;
-}
-
-/// The production sink: the M1 upsert executor, re-authorized as the
-/// submitter (scope `write` ∩ current role) and deduplicated through the
-/// ledger's `op_id` table under `import:{op_id}`.
-pub struct UpsertSink<'a, B> {
-    /// DO transport.
-    pub b: &'a B,
-    /// Unix seconds.
-    pub now: u64,
-}
-
-fn submitter(j: &Job) -> Result<CallerContext, OpError> {
-    let t = TenantKey::parse(&j.job.tenant_key).map_err(|_| OpError::invalid("tenant"))?;
-    let mut caps = CapabilitySet::EMPTY;
-    caps.insert(Capability::Write);
-    let m = &j.meta;
-    Ok(CallerContext::new(
-        t,
-        m.sub.clone(),
-        m.client_id.clone(),
-        m.jti.clone(),
-        m.family_id.clone(),
-        m.act_sub.clone(),
-        caps,
-    ))
-}
-
-impl<B: Backend> BatchSink for UpsertSink<'_, B> {
-    async fn apply(&self, job: &Job, op_id: &str, rows: Vec<Row>) -> Result<(), OpError> {
-        use sha2::{Digest, Sha256};
-        let ctx = submitter(job)?;
-        let slot = Slot {
-            sub: ctx.sub().to_string(),
-            key: format!("import:{op_id}"),
-            sha256: Sha256::digest(format!("{}|{op_id}", job.job.job_id)).into(),
-        };
-        let reused = "import op_id reused";
-        if let Seen::Replay(_) = idem::check(self.b, &ctx, &slot, true, reused, self.now).await? {
-            return Ok(());
-        }
-        let mut vectors = Vec::with_capacity(rows.len());
-        for r in rows {
-            let metadata = match r.metadata {
-                None => None,
-                Some(t) => Some(
-                    serde_json::from_str::<serde_json::Value>(&t)
-                        .map_err(|_| OpError::invalid("row metadata"))?,
-                ),
-            };
-            vectors.push(json!({ "id": r.id, "values": r.values, "metadata": metadata }));
-        }
-        let args = json!({ "collection": job.meta.collection, "vectors": vectors }).to_string();
-        let call = Call {
-            b: self.b,
-            ctx: &ctx,
-            dry_run: false,
-            now: self.now,
-        };
-        let res = match service::authorize_op(self.b, &ctx, Op::VectorUpsert).await {
-            Ok(a) => service::run(&call, a, Op::VectorUpsert, &args).await,
-            Err(e) => Err(e),
-        };
-        match res {
-            Ok(_) => {
-                idem::finish(self.b, &ctx, slot, Some("ok".into()), self.now).await;
-                Ok(())
-            }
-            Err(e) => {
-                idem::finish(self.b, &ctx, slot, None, self.now).await;
-                Err(e)
-            }
-        }
-    }
-}
-
 fn import_fail(e: &ImportError) -> FailCode {
     match e {
-        ImportError::DimensionMismatch { .. } | ImportError::MetricMismatch => {
-            FailCode::Incompatible
-        }
-        ImportError::QuotaExceeded { .. }
-        | ImportError::FileTooLarge
-        | ImportError::SegmentTooLarge(_) => FailCode::QuotaExceeded,
+        // A segment over the queued cap: the file is valid, just not
+        // importable here (re-export with smaller segments).
+        ImportError::DimensionMismatch { .. }
+        | ImportError::MetricMismatch
+        | ImportError::SegmentTooLarge(_) => FailCode::Incompatible,
+        ImportError::QuotaExceeded { .. } | ImportError::FileTooLarge => FailCode::QuotaExceeded,
         ImportError::Checksum(_) | ImportError::ManifestMismatch(_) | ImportError::Truncated => {
             FailCode::Integrity
         }
         _ => FailCode::Malformed,
-    }
-}
-
-/// `None` = transient (redeliver); otherwise the job fails with this code.
-fn sink_fail(e: &OpError) -> Option<FailCode> {
-    use ErrorCode as C;
-    match e.code {
-        C::QuotaExceeded | C::BudgetExceeded | C::PayloadTooLarge => Some(FailCode::QuotaExceeded),
-        C::DimensionMismatch => Some(FailCode::Incompatible),
-        C::InvalidRequest | C::NonFiniteValue => Some(FailCode::Malformed),
-        C::OpReplayed => Some(FailCode::Integrity),
-        C::InsufficientScope | C::RoleRequired | C::NotClaimed | C::NotFound => {
-            Some(FailCode::Cancelled)
-        }
-        _ => None,
     }
 }
 
@@ -335,6 +257,41 @@ async fn run<B: M3Backend, R: Blob, S: BatchSink>(
     if now_ms.saturating_sub(j.meta.created_at_ms) > JOB_WINDOW_MS {
         return fail(b, &t, &mut j, FailCode::Cancelled, EXPIRED, now_ms).await;
     }
+    if j.meta.stalled >= MAX_STALLED_DELIVERIES {
+        release_upload(b, &t, &j).await;
+        return fail(b, &t, &mut j, FailCode::Cancelled, STALLED, now_ms).await;
+    }
+    // Cheap ledger reads first: a denied submitter or a dropped collection
+    // stops the job before any hash-pass delivery is spent on it.
+    let ctx = submitter(&j)?;
+    // ADR-351 §5.8: a denied submitter (jti / family / sub / client) stops
+    // its queued import, as it would stop its next request.
+    match deny_check(b, &ctx, now_ms / 1000).await {
+        Ok(()) => {}
+        Err(e) if e.code == ErrorCode::InvalidToken => {
+            let why = "submitter denied";
+            return fail(b, &t, &mut j, FailCode::Cancelled, why, now_ms).await;
+        }
+        Err(e) => return Err(e),
+    }
+    let call = Call {
+        b,
+        ctx: &ctx,
+        dry_run: false,
+        now: now_ms / 1000,
+    };
+    let e = match service::lookup(&call, &j.meta.collection).await {
+        Ok(e) if e.uid == j.meta.uid => e,
+        Ok(_)
+        | Err(OpError {
+            code: ErrorCode::NotFound,
+            ..
+        }) => {
+            let why = "collection deleted or recreated";
+            return fail(b, &t, &mut j, FailCode::Incompatible, why, now_ms).await;
+        }
+        Err(err) => return Err(err),
+    };
     let key = j.job.staging_key();
     let Some(facts) = blob.head(&key).await? else {
         return fail(b, &t, &mut j, FailCode::Integrity, "upload missing", now_ms).await;
@@ -365,39 +322,11 @@ async fn run<B: M3Backend, R: Blob, S: BatchSink>(
         jobs::save(b, &t, &mut j).await?;
         return Ok(Report::of(Delivery::Continue));
     }
-    let ctx = submitter(&j)?;
-    // ADR-351 §5.8: a denied submitter (jti / family / sub / client) stops
-    // its queued import, as it would stop its next request.
-    match deny_check(b, &ctx, now_ms / 1000).await {
-        Ok(()) => {}
-        Err(e) if e.code == ErrorCode::InvalidToken => {
-            let why = "submitter denied";
-            return fail(b, &t, &mut j, FailCode::Cancelled, why, now_ms).await;
-        }
-        Err(e) => return Err(e),
-    }
-    let call = Call {
-        b,
-        ctx: &ctx,
-        dry_run: false,
-        now: now_ms / 1000,
-    };
-    let e = match service::lookup(&call, &j.meta.collection).await {
-        Ok(e) if e.uid == j.meta.uid => e,
-        Ok(_)
-        | Err(OpError {
-            code: ErrorCode::NotFound,
-            ..
-        }) => {
-            let why = "collection deleted or recreated";
-            return fail(b, &t, &mut j, FailCode::Incompatible, why, now_ms).await;
-        }
-        Err(err) => return Err(err),
-    };
     let dim = u16::try_from(e.cfg.dim).map_err(|_| OpError::invalid("dimension"))?;
     let limits = ImportLimits {
         max_rows: remaining(b, &t, e.cfg.dim, now_ms / 1000).await?,
         max_batch_rows: batch_rows(e.cfg.dim),
+        max_segment_payload: QUEUED_MAX_SEGMENT_PAYLOAD,
         ..ImportLimits::default()
     };
     let tail_from = match j.meta.tail_from {
@@ -419,6 +348,8 @@ async fn run<B: M3Backend, R: Blob, S: BatchSink>(
         return fail(b, &t, &mut j, FailCode::Integrity, why, now_ms).await;
     };
     j.meta.tail_from = Some(summary.manifest_offset);
+    // Counted before any batch; the first committed batch resets it.
+    j.meta.stalled = j.meta.stalled.saturating_add(1);
     j.meta.updated_at_ms = now_ms;
     jobs::save(b, &t, &mut j).await?;
     let spec = ImportSpec {
@@ -451,6 +382,15 @@ async fn run<B: M3Backend, R: Blob, S: BatchSink>(
                 Err(ie) => return fail(b, &t, &mut j, import_fail(&ie), "rvf batch", now_ms).await,
             };
             let op_id = j.job.op_id(batch.seq).map_err(|_| service::unexpected())?;
+            // ADR-351 §10 layer 2, as the synchronous RVF import: the `:import`
+            // request's token paid batch 0, every later batch pays one more.
+            if batch.seq > 0 && b.charge_writes(&ctx, 1).await.is_err() {
+                return Ok(Report {
+                    batches: n,
+                    peak_buffered: imp.peak_buffered_bytes(),
+                    ..Report::of(Delivery::Retry)
+                });
+            }
             if let Err(err) = sink.apply(&j, &op_id, batch.rows.clone()).await {
                 return match sink_fail(&err) {
                     Some(code) => fail(b, &t, &mut j, code, err.code.as_str(), now_ms).await,
@@ -464,6 +404,7 @@ async fn run<B: M3Backend, R: Blob, S: BatchSink>(
             j.job
                 .commit_batch(&batch)
                 .map_err(|_| service::unexpected())?;
+            j.meta.stalled = 0;
             j.meta.updated_at_ms = now_ms;
             jobs::save(b, &t, &mut j).await?;
             n += 1;
@@ -492,4 +433,22 @@ async fn run<B: M3Backend, R: Blob, S: BatchSink>(
         peak_buffered: peak,
         audit: Some(job_event(&j, "job.done", 200, now_ms)),
     })
+}
+
+/// Give a stalled job's upload back (`consumed` → `complete`) so the
+/// client can submit it again. Best effort: the job fails either way.
+async fn release_upload<B: M3Backend>(b: &B, t: &TenantKey, j: &Job) {
+    let id = &j.job.upload_id;
+    let Ok(Some(raw)) = kv_get(b, t, Ns::Upload, id).await else {
+        return;
+    };
+    let Ok(mut u) = serde_json::from_str::<crate::uploads::Upload>(&raw) else {
+        return;
+    };
+    if u.state == "consumed" {
+        u.state = "complete".into();
+        if let Ok(v) = serde_json::to_string(&u) {
+            let _saved = kv_put(b, t, Ns::Upload, id, v).await;
+        }
+    }
 }

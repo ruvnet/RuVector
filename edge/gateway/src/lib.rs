@@ -42,6 +42,7 @@ mod embed;
 mod export;
 mod ingest;
 mod ingest_hash;
+mod ingest_sink;
 mod jobs;
 mod m3_api;
 mod m3_audit_ledger;

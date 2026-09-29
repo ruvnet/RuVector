@@ -159,3 +159,147 @@ fn a_live_restore_journal_defers_the_drop_until_the_lease_ends() {
     assert_eq!(s, 200, "{v}");
     assert_eq!(usage(&w, &o), (0, 0));
 }
+
+mod ingest {
+    use super::*;
+    use crate::backend::mem::MemBackend;
+    use crate::ingest::{BatchSink, Delivery, MAX_STALLED_DELIVERIES, STALLED};
+    use crate::jobs::Job;
+    use crate::m3_import_tests::{
+        collection, deliver, hash_pass, job, rows, rvf, sink, submit, upload,
+    };
+    use ruvector_edge_snapshot::{Metric, Row, RvfExporter};
+    use ruvector_edge_store::{ErrorCode, OpError};
+
+    /// A sink whose every batch fails transiently (a killed or flaky
+    /// delivery that never commits).
+    struct Down;
+    impl BatchSink for Down {
+        async fn apply(&self, _: &Job, _: &str, _: Vec<Row>) -> Result<(), OpError> {
+            Err(OpError::new(ErrorCode::ShardUnavailable, "down"))
+        }
+    }
+
+    #[test]
+    fn a_segment_over_1_mib_fails_the_queued_import_as_incompatible() {
+        let w = World::default();
+        let o = w.owner("org-a", "alice");
+        collection(&w, &o, "big", 384);
+        // 1024 × 384 f32 = 1.5 MiB VEC payload.
+        let mut file = Vec::new();
+        let mut exp = RvfExporter::new(384, Metric::Cosine, 1024).unwrap();
+        for r in rows(1024, 384, 3) {
+            exp.push(&r, &mut |b: &[u8]| file.extend_from_slice(b))
+                .unwrap();
+        }
+        exp.finish(&mut |b: &[u8]| file.extend_from_slice(b));
+        let msg = submit(&w, &o, "big", &upload(&w, &o, &file, None));
+        hash_pass(&w, &msg);
+        let r = deliver(&w, &sink(&w), &msg, 1000);
+        assert_eq!((r.outcome, r.batches), (Delivery::Done, 0));
+        let j = job(&w, &o, &msg.job_id);
+        assert_eq!(
+            (j["state"].as_str(), j["failure"].as_str()),
+            (Some("failed"), Some("incompatible"))
+        );
+        // The gateway's own segment size is importable at any dim.
+        for dim in [8u16, 384, 768, 1536, 4096] {
+            let seg = crate::export::rows_per_segment(dim) as usize;
+            assert!(seg >= 1 && seg * usize::from(dim) * 4 <= 1 << 20, "{dim}");
+            assert!(seg * crate::export::SIDECAR_ROW_MAX <= 1 << 20, "{dim}");
+        }
+    }
+
+    #[test]
+    fn queued_batches_after_the_first_pay_a_write_token() {
+        let w = World {
+            b: MemBackend::new().with_fanout_limiter(),
+            ..World::default()
+        };
+        let o = w.owner("org-a", "alice");
+        collection(&w, &o, "docs", 8);
+        // 6000 rows at 8 dims: 500-row batches, 3 per 1024-row record.
+        let msg = submit(
+            &w,
+            &o,
+            "docs",
+            &upload(&w, &o, &rvf(&rows(6000, 8, 4), 8), None),
+        );
+        hash_pass(&w, &msg);
+        let limiter = w.b.fanout_limiter.as_ref().unwrap();
+        limiter.reset();
+        // Batch 0 rides on the `:import` token, batches 1-10 pay the user
+        // write budget (10 / 10 s), batch 11 is refused: retry later.
+        let r = deliver(&w, &sink(&w), &msg, 1000);
+        assert_eq!((r.outcome, r.batches), (Delivery::Retry, 11));
+        let writes: u32 = limiter
+            .seen
+            .borrow()
+            .iter()
+            .filter(|((b, _), _)| b == "RL_WRITE_USER")
+            .map(|(_, n)| *n)
+            .sum();
+        assert_eq!(writes, 11, "10 admitted + 1 refused");
+        limiter.reset();
+        let r = deliver(&w, &sink(&w), &msg, 1000);
+        assert_eq!(r.outcome, Delivery::Done);
+        assert_eq!(job(&w, &o, &msg.job_id)["rows_done"], 6000);
+    }
+
+    #[test]
+    fn a_job_whose_deliveries_never_progress_fails_and_frees_its_upload() {
+        let w = World::default();
+        let o = w.owner("org-a", "alice");
+        collection(&w, &o, "docs", 8);
+        let up = upload(&w, &o, &rvf(&rows(300, 8, 5), 8), None);
+        let msg = submit(&w, &o, "docs", &up);
+        hash_pass(&w, &msg);
+        for _ in 0..MAX_STALLED_DELIVERIES {
+            let r = deliver(&w, &Down, &msg, 1000);
+            assert_eq!((r.outcome, r.batches), (Delivery::Retry, 0));
+        }
+        // Before the queue would dead-letter the message: failed, not running.
+        let r = deliver(&w, &Down, &msg, 1000);
+        assert_eq!(r.outcome, Delivery::Done);
+        let ev = r.audit.unwrap();
+        assert_eq!((ev.route.as_str(), ev.outcome), ("job.cancelled", 410));
+        let j = job(&w, &o, &msg.job_id);
+        assert_eq!(
+            (j["state"].as_str(), j["error"].as_str()),
+            (Some("failed"), Some(STALLED))
+        );
+        // The upload is `complete` again: the client resubmits it.
+        w.now_ms.set(w.now_ms.get() + 1000); // job ids are minted per ms
+        let again = submit(&w, &o, "docs", &up);
+        hash_pass(&w, &again);
+        assert_eq!(deliver(&w, &sink(&w), &again, 1000).outcome, Delivery::Done);
+        assert_eq!(job(&w, &o, &again.job_id)["rows_done"], 300);
+    }
+
+    #[test]
+    fn a_dropped_collection_cancels_the_job_before_its_hash_pass() {
+        let w = World::default();
+        let o = w.owner("org-a", "alice");
+        collection(&w, &o, "docs", 8);
+        let msg = submit(
+            &w,
+            &o,
+            "docs",
+            &upload(&w, &o, &rvf(&rows(300, 8, 6), 8), None),
+        );
+        assert!(
+            w.req(&o, Method::Delete, "/v1/collections/docs", Json::Null)
+                .0
+                < 300
+        );
+        let r = deliver(&w, &sink(&w), &msg, 1000);
+        assert_eq!((r.outcome, r.batches), (Delivery::Done, 0));
+        let j = job(&w, &o, &msg.job_id);
+        assert_eq!(j["failure"], "incompatible", "{j}");
+        let t = o.ctx.tenant_key();
+        let stored = crate::testkit::block_on(crate::jobs::load(&w.b, t, &msg.job_id))
+            .unwrap()
+            .unwrap();
+        assert!(stored.meta.hash_pass.is_none() && !stored.meta.sha_verified);
+    }
+}

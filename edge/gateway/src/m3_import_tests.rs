@@ -283,7 +283,10 @@ fn import_100k_x_384_streams_within_quota_and_memory() {
     let o = w.owner("org-a", "alice");
     collection(&w, &o, "big", 384);
     let mut file = Vec::new();
-    let mut exp = RvfExporter::new(384, Metric::Cosine, 1024).unwrap();
+    // Segments as the gateway's own export writes them (both payloads
+    // within the queued import's 1 MiB segment cap).
+    let seg = crate::export::rows_per_segment(384);
+    let mut exp = RvfExporter::new(384, Metric::Cosine, seg).unwrap();
     let mut rng = Rng(5);
     for i in 0..100_000 {
         let r = Row {
@@ -314,10 +317,11 @@ fn import_100k_x_384_streams_within_quota_and_memory() {
     }
     assert_eq!(meter.rows.get(), 100_000);
     // Batches are `batch_rows(384)` = 64 rows (the per-delivery CPU bound)
-    // and never span 1024-row records: 97 × 16 + (10 × 64 + 32).
+    // and never span `seg`-row records (240 at 384 dims).
     let per = batch_rows(384);
-    assert_eq!(per, 64);
-    let ops = 97 * 1024_usize.div_ceil(per) + 672_usize.div_ceil(per);
+    assert_eq!((per, seg), (64, 240));
+    let (full, rem) = (100_000 / seg as usize, 100_000 % seg as usize);
+    let ops = full * (seg as usize).div_ceil(per) + rem.div_ceil(per);
     assert_eq!(meter.ops.borrow().len(), ops);
     assert_eq!(meter.max_batch.get(), per);
     assert_eq!(
@@ -325,7 +329,7 @@ fn import_100k_x_384_streams_within_quota_and_memory() {
         ops.div_ceil(50),
         "re-enqueued every 50 batches (after the hash pass)"
     );
-    // One record (≈ 1.6 MB at 1024 × 384) plus one 1 MiB piece, never the file.
+    // One record (≤ 1 MiB) plus one 1 MiB piece, never the file.
     assert!(peak < 6 << 20, "peak importer buffer {peak}");
     assert!(w.blob.max_range.get() <= TAIL_BYTES);
     let j = job(&w, &o, &msg.job_id);

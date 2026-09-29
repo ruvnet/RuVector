@@ -133,10 +133,11 @@ fn summarize(
     let mut vec_segs = Vec::new();
     let mut planned_rows = 0u64;
     for e in m.dir.iter().filter(|e| e.seg_type == SEG_VEC) {
+        if e.payload_len > limits.max_segment_payload {
+            return Err(ImportError::SegmentTooLarge(e.payload_len));
+        }
         let rows_bytes = e.payload_len.checked_sub(6);
-        let ok = e.offset < offset
-            && e.payload_len <= limits.max_segment_payload
-            && rows_bytes.is_some_and(|b| b % stride == 0);
+        let ok = e.offset < offset && rows_bytes.is_some_and(|b| b % stride == 0);
         if !ok {
             return Err(ImportError::Malformed("directory entry"));
         }

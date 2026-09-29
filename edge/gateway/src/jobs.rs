@@ -60,6 +60,17 @@ pub struct JobMeta {
     /// Stable failure reason.
     #[serde(default)]
     pub error: Option<String>,
+    /// Consecutive import deliveries that started (reached the early save)
+    /// without committing a batch: a delivery killed mid-record, or one
+    /// that keeps failing transiently. Reset by every committed batch; at
+    /// `ingest::MAX_STALLED_DELIVERIES` the job fails (before the queue
+    /// dead-letters its message) and its upload is released.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub stalled: u32,
+}
+
+fn is_zero(n: &u32) -> bool {
+    *n == 0
 }
 
 /// A job with its metadata.
@@ -211,6 +222,7 @@ pub async fn submit<B: M3Backend, R: Blob, Q: Queues>(
         hash_pass: None,
         tail_from: None,
         error: None,
+        stalled: 0,
     };
     let mut j = Job {
         job,
