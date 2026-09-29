@@ -846,6 +846,30 @@
         "gateway_rate_limit_namespaces": "35101-35108 -> 35201-35208 (was sharing 35101/35102 with the auth worker)",
         "gateway_version": "46fa927c-7385-4a1d-86a1-c29348fb4e07",
         "ip_hash_salt": "set on ruvector-edge-auth via wrangler secret put (random 48 bytes, never printed)"
+      },
+      "live_token_drills_2026_09_29": {
+        "login": "browser login by rUv via edge /authorize -> consent -> auth.cognitum.one -> /callback -> loopback client edc-VFogSHyfHUOdWtKDZvP2mQ; ES256 token aud=/v1, scope ruvector:read ruvector:write offline_access, 900 s, refresh issued",
+        "passed": [
+          "GET /v1/me resolves tenant_key from org/workspace",
+          "POST /v1/tenant:claim 201 owner",
+          "unclaimed tenant 403 not_claimed on /v1/usage and /v1/collections",
+          "collection create 201 (flat, and 384-d with bge-small-en-v1.5 embedder)",
+          "upsert/query/fetch/delete 200 with usage metering",
+          "Workers AI text upsert+query ranks semantically",
+          "unknown collection 404",
+          "graph create 201; Cypher CREATE/MATCH 200",
+          "inline mincut 200 exact (stoer_wagner) with digest",
+          "POST /v1/tenant/members with write-only token 403 insufficient_scope + challenge",
+          "/v1 token at /v1/mcp 401 invalid_token (exact audience)",
+          "refresh rotates; access token from refresh works",
+          "old refresh replay 400 reuse detected and family revoked (rotated token then 400 revoked)",
+          "drill resources deleted"
+        ],
+        "not_run": [
+          "RFC 8693 exchange + act binding + adapter-token refusal at /v1/mcp: needs an adapter private_key_jwt client in CONFIDENTIAL_CLIENTS (awaiting ChatGPT adapter public JWK)",
+          "tenant A/B denial: needs a second login in a different org/workspace"
+        ],
+        "dx_note": "unsupported Cypher syntax (e.g. relationship property maps, count(n)) returns bare 400 invalid_request with no detail; unaliased RETURN columns are named ?column?"
       }
     }
   ],
