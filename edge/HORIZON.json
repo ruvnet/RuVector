@@ -307,12 +307,54 @@
     {
       "id": "M4",
       "name": "rv-quant, rv-graph, rv-mincut (gated on G4b/G4c)",
-      "status": "pending",
+      "status": "deployed_pending_G1",
       "gated_on": [
         "G4b",
         "G4c"
       ],
-      "criteria": "A 50k x 384 rabitq cold load fits the CPU and memory budgets; a viewer cannot run a mutating Cypher query; mincut on 50k edges equals the native crate; an exhausted budget returns 413, not 500."
+      "criteria": "A 50k x 384 rabitq cold load fits the CPU and memory budgets; a viewer cannot run a mutating Cypher query; mincut on 50k edges equals the native crate; an exhausted budget returns 413, not 500.",
+      "deployment": {
+        "date": "2026-09-29",
+        "source_commits": [
+          "2e3537a57 (M4 feature branch feat/ruvector-edge-m4-int, base 1446b9511 = M2)",
+          "aae8b3798 (merge into feat/ruvector-edge-services; migrations v1, v2-registry, then the new v-m4-quant-graph; snapshot/export/restore refuse index=rabitq with 400 before any charge)",
+          "18a2ba400 (review fixes: job memory budget 32 MiB + submit precheck + streaming edge parse; queued job pays a write token, audited mincut.job, 20 live jobs/tenant, 24 h retention; DELETE /v1/graphs/{g}; Idempotency-Key on graph edges and mutating Cypher)"
+        ],
+        "account": "501c77f558c68152352b8ddfade9b854",
+        "gateway": "ruvector-edge-gateway version a5cb208b-ff70-4bc1-ae08-039eb66f2ab6 (deployment e9cc9487-c546-490b-badd-f1902594273e, 100%; previous 07de745c); 3863.39 KiB / 1191.54 KiB gzip; startup 5 ms; bindings TENANT_LEDGER, VECTOR_SHARD, QUANT_SHARD, GRAPH_STORE, ANALYTICS_JOB, REGISTRY_ROOT, REGISTRY_SCOPE, INGEST_QUEUE, AUDIT_QUEUE, EDGE_DATA, EDGE_AUTH, AI, 8 Rate Limiting bindings; producer + consumer of ruvector-edge-ingest / ruvector-edge-audit unchanged; no [limits] block; workers.dev only",
+        "migration": "live script migration_tag v2-registry before -> v-m4-quant-graph after (Cloudflare API script list); additive: new_sqlite_classes [QuantShard, GraphStore, AnalyticsJob]; namespaces ruvector-edge-gateway_QuantShard 1b2a504be70f4e4aaa4914cea5b608ab, _GraphStore d129c85b183e4252ab9c3e246a7ce172, _AnalyticsJob b0bd55d5b793401abdddb7590221834b (use_sqlite true), next to the unchanged TenantLedger, VectorShard, RegistryRoot, RegistryScope",
+        "auth": "ruvector-edge-auth not redeployed (no auth-worker diff; etag ffbc40eb… unchanged)",
+        "precondition": "Workers Paid for M4 beyond small data. Free-plan limits (10 ms CPU per invocation, incl. DO alarms): the first cold load of a 50k-row rabitq shard answers one retryable 503 shard_unavailable (the load is its own turn; the retry is served resident); a 51k-edge min-cut (K_320) is admitted as a job (est. 29.8 MB, inside the 32 MiB job memory budget) but every solve attempt exceeds 10 ms, so it ends failed 413 budget_exceeded on Free (completes on Paid, ~84 ms release native); a graph's persisted state is capped at 256 KiB (~1.5-2k edges) versus the ADR's 200k edges, because a cold load and a commit are O(whole graph) on Free."
+      },
+      "free_plan_limits": {
+        "quant_cold_load_50k": "first request after eviction: one retryable 503 shard_unavailable, then served resident",
+        "mincut_51k_edges": "202 job, then failed 413 budget_exceeded after MAX_ATTEMPTS (3) killed solves; completes on Paid",
+        "graph_state": "MAX_STATE_BYTES 256 KiB (~1.5-2k edges; MAX_BULK_EDGES 1000 per request) vs ADR-351 §10 200k edges / 50k nodes",
+        "mincut_job_memory": "JOB_MEMORY_BYTES 32 MiB (was the crate's 100 MB); edges x 420 B > 32 MiB refused 413 at submit (~79.9k edges)"
+      },
+      "live_verification_2026-09-29": [
+        "GET /v1/health -> 200 (body sha256 4062edaf750f)",
+        "M4 without token -> 401, WWW-Authenticate resource_metadata=/.well-known/oauth-protected-resource/v1 (body sha256 0a0e7787d3c9): POST /v1/collections {index: rabitq}, POST /v1/collections/q/vectors:upsert, POST /v1/collections/q/query, POST /v1/graphs, GET /v1/graphs, GET /v1/graphs/g, DELETE /v1/graphs/g, POST /v1/graphs/g/cypher, POST /v1/graphs/g/edges, POST /v1/mincut, GET /v1/mincut/jobs/mc_0000000000000000; POST /v1/mcp -> 401 (…/oauth-protected-resource/v1/mcp)",
+        "M2/M3/M5 without token -> 401 (…/v1): GET /v1/collections, DELETE /v1/collections/c, GET /v1/tenant/members, POST /v1/ops, POST /v1/collections/c/snapshots, POST /v1/collections/c:export, GET /v1/jobs/x, POST /v1/uploads, GET /v1/rvf/scopes, POST /v1/collections/c:import-rvf; both PRMs -> 200 (sha256 cec00cdd22f1, d99b5e28c4ef)",
+        "Cloudflare API: script ruvector-edge-gateway migration_tag v-m4-quant-graph; DO namespaces QuantShard, GraphStore, AnalyticsJob exist (sqlite)",
+        "cognitum-consultant-email-staging-* (7 scripts) modified_on + etag and their 4 queues (producers/consumers/modified_on) identical before and after the deploy; ruvector-edge-* 0 custom domains"
+      ],
+      "evidence": {
+        "tests": "Root edge crates 619/0 (auth, authz, tenancy, store, index, registry, snapshot, analytics, quant); edge workspace 258/0 (gateway 188, auth-worker 70); cargo fmt --check clean both workspaces; clippy -D warnings clean native (--all-targets) both workspaces and wasm32-unknown-unknown for the edge workspace and the root edge crates except ruvector-edge-analytics, whose dependency ruvector-mincut fails wasm32 clippy (static_mut_refs, unused_unsafe; pre-existing, unchanged by M4 or the merge); wrangler deploy --dry-run OK (gateway, auth); no .rs file >= 500 lines",
+        "review_findings_fixed": [
+          "MEDIUM fixed: AnalyticsJob admitted against Profile::JOB (100 MB, 'the isolate to itself') while sharing the isolate with 56 MB of resident caps and M5 finalize part buffers -> gateway profile EDGE_JOB (32 MiB), submit precheck (413 before storing), admit parses the edge list without a JSON tree; shard_core states 56 MB + 32 MiB job + 2 x 16 MiB registry part ~= 123 of 128 MB (test m4_review_tests::isolate_budget_counts_jobs_and_registry_parts).",
+          "MEDIUM fixed: min-cut job creation charged only a read token, no audit, unbounded never-deleted storage -> one write token (Backend::charge_writes, 429), mincut.job audit only on 202, 20 live jobs per tenant in the $catalog GraphStore (413 quota_exceeded), job storage deleted 24 h after submit (alarm + deleteAll).",
+          "LOW fixed: no graph deletion (20-graph cap permanent) -> DELETE /v1/graphs/{g} (write + editor, Class::Write, graph.delete audit; rows + resident copy, then catalog; name reusable).",
+          "LOW fixed: graph mutations ignored Idempotency-Key -> honoured on POST …/edges and mutating Cypher via the REST key table (replay without re-running or re-charging; reuse 409)."
+        ]
+      },
+      "residual_risks": [
+        "Two concurrent RegistryScope finalize steps in one isolate exceed 128 MB (2 x 33.6 MB on top of the table); accepted while registry finalize requires Workers Paid.",
+        "Job retention relies on the DO alarm: a job whose alarm retries are exhausted before it becomes terminal keeps its storage until a GET fails it (STALL_MS) and arms retention; its catalog slot still expires on time.",
+        "Graph and job storage are not counted in the tenant byte quota (bounded by 20 graphs x 256 KiB and 20 live jobs x ~3 MB); tenant_admin has no graph/job wipe on tenant removal.",
+        "Isolate-kill blast radius of a CPU-exceeding job solve on Free is unverified [U] (other DOs sharing the isolate may be reset).",
+        "Live behaviour (quant cold load, graph writes, job alarms, 429s) unverified with tokens until G1."
+      ]
     },
     {
       "id": "M5",
@@ -432,6 +474,11 @@
       "date": "2026-09-29",
       "summary": "M3 (69f023478) merged into edge services (f1959f942) with one R2 binding; review fixes 638b20b43, edb62a721, 51688a913, 905e0a825, d35b760a7; gateway deployed 07de745c (deployment 488975f5) with ingest + audit queue consumers, AI and EDGE_DATA; no migration (tag stays v2-registry); unauthenticated M3/M2/M5 surfaces verified live; email staging untouched.",
       "next": "Move the account to Workers Paid, then run a live snapshot/restore drill and a queued import (G1); make snapshot/export/restore resumable queued jobs; merge M4."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "M4 (2e3537a57) merged into edge services (aae8b3798: migration v-m4-quant-graph appended after v1, v2-registry; rabitq snapshots/exports/restores refused 400); review fixes 18a2ba400 (job memory budget 32 MiB + submit precheck + streaming parse; job write token, mincut.job audit, 20 live jobs/tenant, 24 h retention; DELETE /v1/graphs/{g}; graph Idempotency-Key); gateway deployed a5cb208b (deployment e9cc9487), migration_tag v2-registry -> v-m4-quant-graph, QuantShard/GraphStore/AnalyticsJob namespaces live; unauthenticated M2-M5 surfaces 401 as expected; email staging untouched.",
+      "next": "Workers Paid (G1), then live token drills: 50k rabitq cold load, Cypher viewer 403, K_320 job to done, 413 budgets; count graph/job bytes in tenant quota; graph/job wipe on tenant removal."
     }
   ],
   "gates_registry_status": {
