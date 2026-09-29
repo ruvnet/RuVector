@@ -44,31 +44,14 @@
 //!
 //! Only the coverage half is *enforced*. Overhead is bounded by
 //! [`MonitorConfig::max_rounds`] and priced by [`VoiConfig::latency_price`],
-//! but nothing refuses a ladder whose rungs are simply slow. Measured on the
-//! reference ladder (5 ms / 200 ms rungs, 200 operations, one in ten
-//! mandatory, 20 ms attributed per operation):
-//!
-//! | Case | Overhead | Rungs |
-//! |---|---|---|
-//! | Investigator resolves the ambiguity (reports 0.2) | **2.6%** | 20 |
-//! | Investigator leaves it ambiguous (reports 0.5), latency priced | **108%** | 80 |
-//! | Same, latency unpriced | **205%** | 80 |
-//!
-//! So the target holds only when the first investigator actually settles the
-//! question. When it does not, the belief stays near the escalation
-//! threshold, every further rung still looks worth buying, and the ladder
-//! spends [`MonitorConfig::max_rounds`] rungs on every operation it
-//! *inspects* — four
-//! rounds of a 200 ms investigator against a 20 ms workload is 40× the
-//! budget on its own.
-//!
-//! Pricing latency halves that (205% → 108%) by shifting the *mix* toward
-//! cheaper rungs, but it does not reduce the *count*: at
-//! `value_of_success = 100` even a priced 200 ms rung is worth buying at
-//! maximum ambiguity. **`max_rounds` is the only hard bound on wall-clock
-//! cost.** Treat 5% as a budget to configure toward — chiefly by keeping
-//! `max_rounds` small and the top rung fast — not as a property this module
-//! guarantees.
+//! but nothing refuses a ladder whose rungs are simply slow. When an
+//! investigator leaves the belief near the escalation threshold, later
+//! rungs may still be worth buying, up to [`MonitorConfig::max_rounds`] per
+//! operation. [`OverheadAccount::fraction`] now measures elapsed wall-clock
+//! time once; declared rung latency affects the purchase price, not the
+//! measured time. **`max_rounds` is the only hard bound on purchase count.**
+//! Treat 5% as a budget to configure toward, not as a guarantee of this
+//! module.
 //!
 //! # Not wired into the request path
 //!
@@ -143,6 +126,7 @@ pub struct EscalationLadder<D: TinyDetector, I: Investigator> {
     specs: Vec<EstimatorSpec>,
     config: MonitorConfig,
     detector: D,
+    declared_uncertainty: f64,
     investigator: I,
     account: OverheadAccount,
 }
@@ -199,11 +183,6 @@ impl<D: TinyDetector, I: Investigator> EscalationLadder<D, I> {
         // unit-scale risk, and would only serve to inflate the ceiling below.
         let detector_uncertainty = detector.expected_uncertainty();
         RiskSignal::new(0.0, detector_uncertainty)?;
-        if detector_uncertainty > 1.0 {
-            return Err(MonitorError::UncertaintyOutOfRange {
-                uncertainty: detector_uncertainty,
-            });
-        }
 
         let mut previous = f64::NEG_INFINITY;
         for (index, rung) in rungs.iter().enumerate() {
@@ -259,6 +238,7 @@ impl<D: TinyDetector, I: Investigator> EscalationLadder<D, I> {
             specs,
             config,
             detector,
+            declared_uncertainty: detector_uncertainty,
             investigator,
             account: OverheadAccount::new(),
         })
@@ -322,6 +302,24 @@ impl<D: TinyDetector, I: Investigator> EscalationLadder<D, I> {
             return halt(HaltReason::CriticalRisk, Some(signal.risk()), mandatory);
         }
 
+        // The declared uncertainty is an upper bound, not a substitute for
+        // the signal observed at runtime. A detector that exceeds it breaks
+        // its contract; a smaller signal may make the cheapest rung
+        // unaffordable. Either case halts instead of silently allowing a
+        // configuration that cannot escalate at its own threshold.
+        if signal.uncertainty() > self.declared_uncertainty {
+            return halt(HaltReason::DetectorFailed, Some(signal.risk()), mandatory);
+        }
+        let actual_ceiling = Belief::new(self.config.escalation_threshold, signal.uncertainty())
+            .and_then(|belief| voi_upper_bound(belief, self.rungs[0].spec.noise_std));
+        let Ok(actual_ceiling) = actual_ceiling else {
+            return halt(HaltReason::DetectorFailed, Some(signal.risk()), mandatory);
+        };
+        let cheapest_cost = monetized_cost(&self.rungs[0].spec, &self.config.voi);
+        if cheapest_cost > self.config.voi.value_of_success * actual_ceiling {
+            return halt(HaltReason::DetectorFailed, Some(signal.risk()), mandatory);
+        }
+
         let mut belief = match Belief::new(signal.risk(), signal.uncertainty()) {
             Ok(b) => b,
             Err(_) => return halt(HaltReason::DetectorFailed, Some(signal.risk()), mandatory),
@@ -370,14 +368,9 @@ impl<D: TinyDetector, I: Investigator> EscalationLadder<D, I> {
             rungs_purchased += 1;
             inspected = true;
             self.account.record_rung();
-            // Charge the rung's *declared* latency, not the wall-clock of
-            // whatever ran. A fixture investigator returns instantly, so
-            // wall-clock alone would report an overhead figure that says more
-            // about the test double than about the ladder as configured.
-            // Declared latency is also what the economics priced, so the
-            // accounting and the purchase decision agree on what a rung costs.
-            self.account
-                .record_monitoring(rung.spec.latency_us.max(0.0) as u128);
+            // `inspect` records elapsed time for the whole run, including
+            // this investigator. Declared latency prices the purchase but
+            // is not added to observed time a second time.
 
             // Validate before any comparison: a non-finite observation would
             // otherwise pass the halt check silently.
