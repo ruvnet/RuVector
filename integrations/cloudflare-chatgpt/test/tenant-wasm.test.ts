@@ -35,7 +35,7 @@ test('verified subject can use only enrolled tenant and viewer cannot write', as
   const { publicKey, privateKey } = await generateKeyPair('RS256');
   const issuer = 'https://id.example.test';
   const token = await new SignJWT({ scope: 'ruvector.read' }).setProtectedHeader({ alg: 'RS256' })
-    .setIssuer(issuer).setAudience('ruvector-chatgpt').setSubject('alice')
+    .setIssuer(issuer).setAudience('https://ruvector.example/mcp').setSubject('alice')
     .setIssuedAt().setExpirationTime('5m').sign(privateKey);
   const queries: unknown[][] = [];
   const database = {
@@ -47,8 +47,9 @@ test('verified subject can use only enrolled tenant and viewer cannot write', as
     },
   } as unknown as D1Database;
   const env: AuthEnv = { DB: database, OAUTH_ISSUER: issuer,
-    OAUTH_AUDIENCE: 'ruvector-chatgpt', OAUTH_JWKS_URL: `${issuer}/keys` };
+    OAUTH_AUDIENCE: 'https://ruvector.example/mcp', OAUTH_JWKS_URL: `${issuer}/keys` };
   assert.equal(authConfigured(env), true);
+  assert.equal(authConfigured({ ...env, OAUTH_AUDIENCE: 'ruvector-chatgpt' }), false);
   const principal = await authenticate(new Request('https://worker.example/mcp', {
     headers: { authorization: `Bearer ${token}` },
   }), env, async () => publicKey);

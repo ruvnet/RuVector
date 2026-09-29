@@ -24,9 +24,12 @@ export function authConfigured(env: AuthEnv): boolean {
   try {
     const issuer = new URL(env.OAUTH_ISSUER);
     const jwks = new URL(env.OAUTH_JWKS_URL);
+    const audience = new URL(env.OAUTH_AUDIENCE);
     return issuer.protocol === 'https:' && jwks.protocol === 'https:' &&
+      audience.protocol === 'https:' && audience.pathname === '/mcp' &&
+      !audience.search && !audience.hash && !audience.username && !audience.password &&
       !issuer.hostname.includes('replace_with') && !jwks.hostname.includes('replace_with') &&
-      Boolean(env.OAUTH_AUDIENCE);
+      !audience.hostname.includes('replace_with');
   } catch {
     return false;
   }
