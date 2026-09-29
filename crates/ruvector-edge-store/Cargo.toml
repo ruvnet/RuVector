@@ -1,0 +1,24 @@
+[package]
+name = "ruvector-edge-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "ruvector edge storage core (ADR-351 §6, §16): VectorShard (exact flat scan, op log, replay, float budget), TenantLedger (catalog, collection_uid, memberships, quotas, op_id idempotency) and the /v1/ops dispatcher, behind a SqlStore port with an in-memory mock. Pure Rust, wasm32 clean."
+
+[dependencies]
+ruvector-edge-auth = { path = "../ruvector-edge-auth" }
+ruvector-edge-tenancy = { path = "../ruvector-edge-tenancy" }
+sha2 = "0.10"
+hex = "0.4"
+serde = { workspace = true }
+serde_json = { workspace = true, features = ["raw_value"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+# SQL conformance only: runs the same statement constants against real SQLite
+# (what Durable Objects execute). Never part of the wasm graph.
+rusqlite = { version = "0.32", features = ["bundled"] }

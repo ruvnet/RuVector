@@ -9797,6 +9797,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-edge-store"
+version = "2.3.0"
+dependencies = [
+ "hex",
+ "proptest",
+ "rusqlite",
+ "ruvector-edge-auth",
+ "ruvector-edge-tenancy",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-edge-tenancy"
 version = "2.3.0"
 dependencies = [
