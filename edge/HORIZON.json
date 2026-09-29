@@ -35,15 +35,15 @@
     {
       "id": "M0",
       "name": "Cores including authz (no deploy, no Cloudflare or provider changes)",
-      "status": "deployed_partial",
+      "status": "deployed_pending_G1",
       "gated_on": null,
       "criteria": "ruvector-edge-auth, ruvector-edge-authz and ruvector-edge-tenancy implemented per ADR §4-§5 and every §8 working-tree delta closed (M1-marked items excepted); native tests pass (minted-token golden test with the exact §5.2 claim set, refresh grace and reuse detection, code-replay revocation, flow-cookie binding, §5.3 scope grant rule, 401 on aud mismatch, upstream-mode ID-token and typ=inference cases, trust-root mismatch on both Workers); route-table gap test passes; both Workers build for wasm32 with env -u RUSTFLAGS; every file under 500 lines; JWS/JWKS/DCR/token-form/ResourceUrl fuzzers run 10 min with no panic.",
       "completed": "2026-09-29",
       "commit": "94a4ce1a1",
       "evidence": "Root crates 285/0 (auth 97, authz 112, tenancy 76); edge workspace 90/0 (auth-worker 63, gateway 27), gateway --features dev-issuer 27/0; fmt + clippy -D warnings clean (native and wasm32 edge); wasm32 cargo check clean with env -u RUSTFLAGS; wrangler deploy --dry-run exit 0 for both Workers; no file >= 500 lines.",
       "criteria_exceptions": [
-        "The 10-minute JWS/JWKS/DCR/token-form/ResourceUrl fuzz runs are not recorded here. At 94a4ce1a1 no fuzz targets existed; the follow-up commit adds crates/ruvector-edge-auth/fuzz (jws_compact, jwks_parse; own [workspace], .gitignore target/ corpus/ artifacts/). Run evidence for those two and the DCR JSON, /token form and ResourceUrl targets remain owed.",
-        "2026-09-29 finalize: fuzz run evidence (nightly, -max_total_time=300, parallel, exit 0, no crash): jws_compact 365,111 runs, jwks_parse 21,474,073. 5 min < the 10 min criterion, and the DCR JSON, /token form and ResourceUrl targets do not exist, so M0 is NOT done (milestones are binary): status set back from done to deployed_partial. The M0 route-table gap test guards ROUTE_TABLE, which the runtime does not consult (ADR Shipped-vs-designed #12)."
+        "Fuzz criterion met 2026-09-29 at db5820427 (nightly 1.100.0 8925ea358, env -u RUSTFLAGS, -max_total_time=600 -rss_limit_mb=2048, parallel, exit 0, no crash, no artifacts): jws_compact 687,634 runs (cov 1603), jwks_parse 45,781,391 (cov 2487), resource_url 49,202,815 (cov 672), dcr_json 6,050,139 (cov 4210), token_form 11,355,928 (cov 1477). Status deployed_pending_G1 (was deployed_partial; done before the finalize rollback): every M0 criterion is met natively, and M0's live counterpart is M0.5, pending G1.",
+        "Caveat, not an unmet criterion: the M0 route-table gap test guards ROUTE_TABLE, which the runtime does not consult (ADR Shipped-vs-designed #12)."
       ]
     },
     {
@@ -255,7 +255,7 @@
       "criteria_exceptions": [
         "Not verified live (needs G1 real tokens): warm query p50, ≥ 2 full shards per isolate, lazy-load p95 < 1 s.",
         "'A gapped-iid encode fails loudly': the encoder still refuses (EncodeError::GappedIid) and the store no longer produces gaps; if one appears maintenance heals by a dense rebuild instead of poisoning the shard.",
-        "Chunk-decoding fuzz target not yet run."
+        "Chunk-decoding fuzz (index_chunks, ruvector-edge-index/fuzz) ran 600 s clean 2026-09-29: 9,735,521 runs, cov 2705, exit 0, no crash."
       ]
     },
     {
@@ -305,7 +305,7 @@
         ]
       },
       "criteria_exceptions": [
-        "2026-09-29 finalize: registry fuzz targets rvf_validate (5,963,434 runs) and rvf_payloads (234,785,134 runs) ran 5 min each, exit 0; the 1 h criterion and the snapshot/import rvf-wire reader target are owed."
+        "Fuzz criterion (1 h clean) met 2026-09-29 at db5820427 for the rvf-wire decoders: m3_reader 101,944,102 runs (cov 1767), rvf_validate 80,333,811 (cov 939), rvf_payloads 2,471,045,526 (cov 166), each -max_total_time=3600, exit 0, no crash. Other M3 criteria still need G1/Paid live drills."
       ]
     },
     {
@@ -554,6 +554,123 @@
         ]
       },
       "next": "Workers Paid (G2 precondition, pending rUv) and IP_HASH_SALT; then G1 (console#605) live token drills; send the §16 delta to the ChatGPT coordinator and record the receipt; owed fuzz durations/targets; RuVector#1084/#1085 follow-ups."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "Fuzz campaigns to ADR-351 durations at db5820427 (nightly 1.100.0 8925ea358, cargo-fuzz 0.13.1, env -u RUSTFLAGS, -rss_limit_mb=2048, 10 targets in parallel on 32 cores, existing corpora plus committed seeds). M0 targets (jws_compact, jwks_parse, resource_url, dcr_json, token_form) and index_chunks (M2b) and rbqx_decode (M4) ran 600 s; the M3 rvf-wire decoders (m3_reader, rvf_validate, rvf_payloads) ran 3600 s. All exit 0, no crash/oom/timeout artifacts, peak RSS <= 730 MB. No library change, so no crate tests or clippy were affected. M0 -> deployed_pending_G1; M2b/M3 fuzz exceptions replaced with evidence; fuzz item removed from owed. Nothing deployed.",
+      "next": "Workers Paid (G2 precondition) and IP_HASH_SALT; then G1 (console#605) live token drills; ADR-351 §9 item 4, §15 status line and §16 still describe fuzz evidence as owed (5-min runs) and need the numbers from this session; RuVector#1084/#1085 follow-ups.",
+      "fuzz_table_2026-09-29": [
+        {
+          "target": "jws_compact",
+          "crate": "ruvector-edge-auth/fuzz",
+          "secs": 600,
+          "runs": 687634,
+          "cov": 1603,
+          "ft": 3950,
+          "peak_rss_mb": 467,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "jwks_parse",
+          "crate": "ruvector-edge-auth/fuzz",
+          "secs": 600,
+          "runs": 45781391,
+          "cov": 2487,
+          "ft": 10218,
+          "peak_rss_mb": 730,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "resource_url",
+          "crate": "ruvector-edge-auth/fuzz",
+          "secs": 600,
+          "runs": 49202815,
+          "cov": 672,
+          "ft": 2302,
+          "peak_rss_mb": 543,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "dcr_json",
+          "crate": "ruvector-edge-authz/fuzz",
+          "secs": 600,
+          "runs": 6050139,
+          "cov": 4210,
+          "ft": 20224,
+          "peak_rss_mb": 596,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "token_form",
+          "crate": "ruvector-edge-authz/fuzz",
+          "secs": 600,
+          "runs": 11355928,
+          "cov": 1477,
+          "ft": 4926,
+          "peak_rss_mb": 557,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "index_chunks",
+          "crate": "ruvector-edge-index/fuzz",
+          "secs": 600,
+          "runs": 9735521,
+          "cov": 2705,
+          "ft": 8385,
+          "peak_rss_mb": 467,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "rbqx_decode",
+          "crate": "ruvector-edge-quant/fuzz",
+          "secs": 600,
+          "runs": 506286,
+          "cov": 1596,
+          "ft": 4691,
+          "peak_rss_mb": 128,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "rvf_validate",
+          "crate": "ruvector-edge-registry/fuzz",
+          "secs": 3600,
+          "runs": 80333811,
+          "cov": 939,
+          "ft": 3023,
+          "peak_rss_mb": 390,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "rvf_payloads",
+          "crate": "ruvector-edge-registry/fuzz",
+          "secs": 3600,
+          "runs": 2471045526,
+          "cov": 166,
+          "ft": 264,
+          "peak_rss_mb": 448,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "m3_reader",
+          "crate": "ruvector-edge-snapshot/fuzz",
+          "secs": 3600,
+          "runs": 101944102,
+          "cov": 1767,
+          "ft": 5672,
+          "peak_rss_mb": 523,
+          "crashes": 0,
+          "exit": 0
+        }
+      ]
     }
   ],
   "gates_registry_status": {
@@ -572,7 +689,6 @@
     "G5 (team tenancy: upstream org selector / org-role claim) and G6 (production hostname) for M6"
   ],
   "owed": [
-    "Fuzz: 10 min (M0) and 1 h (M3) runs of jws_compact, jwks_parse, rvf_validate, rvf_payloads; new targets DCR JSON, /token form, ResourceUrl, index chunks (M2b), rbqx0002 (M4), M3 snapshot/import reader",
     "Upstream: RuVector#1084 merge (then move rvlite from rev c6ece785 to main/release); RuVector#1085 (ApproxMinCut 0.10-0.33x exact; ruvector-mincut wasm32 clippy static_mut_refs/unused_unsafe) before serving approximate mode or dropping the analytics wasm32 clippy exception; RuVector#1063/#1064 (@ruvector/core VectorDb shares ./ruvector.db across tenants) before a RuFlo front end fronts multi-tenant data",
     "Next approved gateway deploy: renumber gateway Rate Limiting namespace_ids (e.g. 35201-35208) and fix both wrangler comments",
     "M0.5 live verification left two public DCR clients on AuthStore (default scope with 127.0.0.1:53682 redirect; a team:read/team:write client); their client_ids were not recorded and purge_idle_clients runs only at MAX_CLIENTS; operator to list and delete them or accept them as test fixtures before G1",
