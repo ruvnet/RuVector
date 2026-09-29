@@ -4,7 +4,9 @@
 //! seeded from `(layer_id, channel_id)` pairs so every channel is
 //! structurally decorrelated without any RNG.
 
-use crate::{DitherSource, GoldenRatioDither};
+use crate::{round_f32, DitherSource, GoldenRatioDither};
+#[cfg(feature = "no_std")]
+use alloc::vec::Vec;
 
 /// Per-channel dither pool seeded from `(layer_id, channel_id)` pairs.
 ///
@@ -47,7 +49,7 @@ impl ChannelDither {
         for (i, x) in activations.iter_mut().enumerate() {
             let ch = i % nc;
             let d = self.channels[ch].next(self.eps * lsb);
-            *x = ((*x + d) * qmax).round().clamp(-qmax, qmax) / qmax;
+            *x = round_f32((*x + d) * qmax).clamp(-qmax, qmax) / qmax;
         }
     }
 
@@ -60,6 +62,8 @@ impl ChannelDither {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "no_std")]
+    use alloc::vec;
 
     #[test]
     fn channel_dither_correct_count() {
