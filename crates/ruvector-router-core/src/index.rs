@@ -394,6 +394,11 @@ impl HnswIndex {
         Ok(true)
     }
 
+    /// Check whether an id is present in the index
+    pub fn contains(&self, id: &str) -> bool {
+        self.vectors.read().contains_key(id)
+    }
+
     /// Get total number of vectors in index
     pub fn len(&self) -> usize {
         self.vectors.read().len()

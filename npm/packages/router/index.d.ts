@@ -18,8 +18,21 @@ export enum DistanceMetric {
 export interface DbOptions {
   /** Vector dimension size (required) */
   dimensions: number;
-  /** Maximum number of elements (optional) */
+  /**
+   * Capacity hint: how many vectors the database is expected to hold (optional).
+   *
+   * On its own this is NOT a hard limit — inserts beyond it succeed.
+   * Set `enforceMaxElements: true` to make it one (#1099).
+   */
   maxElements?: number;
+  /**
+   * Enforce `maxElements` as a hard bound (optional, default `false`).
+   * An insert that would make the database hold more than `maxElements`
+   * distinct ids throws an Error whose message starts with
+   * `ERR_CAPACITY_EXCEEDED:`. Replacing an existing id never counts against
+   * the bound, and deleting frees a slot. Requires `maxElements`.
+   */
+  enforceMaxElements?: boolean;
   /** Distance metric for similarity (optional, default: Cosine) */
   distanceMetric?: DistanceMetric;
   /** HNSW M parameter (optional, default: 16) */

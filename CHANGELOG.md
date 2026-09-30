@@ -5,6 +5,24 @@ All notable changes to RuVector will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [@ruvector/router 0.1.32] - 2026-09-30
+### Fixed
+- `maxElements` was typed and documented as "Maximum number of elements" but
+  was never read: a database created with `maxElements: 5` accepted 12 inserts
+  (#1099). It is now documented as what it is, a **capacity hint that is not a
+  hard limit**, and a new opt-in `enforceMaxElements: true` (Rust:
+  `VectorDbBuilder::enforce_max_elements`) makes it a real bound. An insert
+  that would exceed the bound fails with `VectorDbError::CapacityExceeded`
+  (JS: an `Error` whose message starts `ERR_CAPACITY_EXCEEDED:`), before
+  anything is written; a batch is rejected as a whole. Replacing an existing
+  id never counts against the bound and deleting frees a slot. The check is
+  serialized so concurrent inserts cannot both pass it.
+- Enforcement is opt-in rather than default because the default `maxElements`
+  is 1,000,000: enforcing it unconditionally would start rejecting writes to
+  any existing store past that size whose owner never asked for a limit.
+  `enforceMaxElements` without `maxElements` is rejected as a configuration
+  error.
+
 ## [@ruvector/router 0.1.31] - 2026-09-21
 ### Fixed
 - Ship the issue #430 HNSW fixes (result-heap eviction order, insert beam width,

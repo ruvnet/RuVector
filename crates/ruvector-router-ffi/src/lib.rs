@@ -6,13 +6,25 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ruvector_router_core::{
     DistanceMetric as CoreDistanceMetric, SearchQuery as CoreSearchQuery, VectorDB as CoreVectorDB,
-    VectorEntry as CoreVectorEntry,
+    VectorDbError as CoreVectorDbError, VectorEntry as CoreVectorEntry,
 };
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 static INSTANCE_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+/// Map a core error to a JS error. A capacity overrun (#1099) gets a stable
+/// `ERR_CAPACITY_EXCEEDED:` message prefix so callers can branch on it without
+/// parsing prose.
+fn to_js_error(e: CoreVectorDbError) -> Error {
+    match e {
+        CoreVectorDbError::CapacityExceeded { .. } => {
+            Error::from_reason(format!("ERR_CAPACITY_EXCEEDED: {e}"))
+        }
+        other => Error::from_reason(other.to_string()),
+    }
+}
 
 #[napi]
 pub enum DistanceMetric {
@@ -36,7 +48,11 @@ impl From<DistanceMetric> for CoreDistanceMetric {
 #[napi(object)]
 pub struct DbOptions {
     pub dimensions: u32,
+    /// Capacity hint. Not a hard limit unless `enforce_max_elements` is true.
     pub max_elements: Option<u32>,
+    /// Make `max_elements` a hard bound: inserts beyond it throw
+    /// `ERR_CAPACITY_EXCEEDED` (#1099). Defaults to false.
+    pub enforce_max_elements: Option<bool>,
     pub distance_metric: Option<DistanceMetric>,
     pub hnsw_m: Option<u32>,
     pub hnsw_ef_construction: Option<u32>,
@@ -57,6 +73,15 @@ impl VectorDB {
 
         if let Some(max_elements) = options.max_elements {
             builder = builder.max_elements(max_elements as usize);
+        }
+
+        if options.enforce_max_elements == Some(true) {
+            if options.max_elements.is_none() {
+                return Err(Error::from_reason(
+                    "enforceMaxElements requires maxElements to be set",
+                ));
+            }
+            builder = builder.enforce_max_elements(true);
         }
 
         if let Some(metric) = options.distance_metric {
@@ -103,9 +128,7 @@ impl VectorDB {
             timestamp: chrono::Utc::now().timestamp(),
         };
 
-        self.db
-            .insert(core_entry)
-            .map_err(|e| Error::from_reason(e.to_string()))
+        self.db.insert(core_entry).map_err(to_js_error)
     }
 
     #[napi]
@@ -121,8 +144,7 @@ impl VectorDB {
                 timestamp: chrono::Utc::now().timestamp(),
             };
 
-            db.insert(core_entry)
-                .map_err(|e| Error::from_reason(e.to_string()))
+            db.insert(core_entry).map_err(to_js_error)
         })
         .await
         .map_err(|e| Error::from_reason(e.to_string()))?
