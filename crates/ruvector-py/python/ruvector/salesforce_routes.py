@@ -116,8 +116,23 @@ async def _run_action(request: Any, handler: Any) -> Any:
     query actions (not `openapi_spec`, which needs neither). `handler` is
     called with the parsed JSON body and must do its own `_load`/`_save`
     under `_lock` and return the JSON-serializable result dict.
+
+    The exception mapping is deliberately narrow: `KeyError` (missing
+    required field), `ValueError`/`TypeError` (bad field value/shape), and
+    `ruvector.RuVectorError` (the real base of `CollectionError` and every
+    extension-raised error -- unknown collection, dimension mismatch) are
+    the only types the action functions / `Collection` are documented to
+    raise for a *caller* mistake, so only those get a clean 4xx body. A
+    prior version caught bare `Exception` here, which would silently
+    report an unrelated bug (e.g. an `AttributeError` from a real defect
+    in this module) as a 404 with its internal message exposed in the
+    response body -- anything else now propagates and surfaces as
+    Starlette's normal 500, which is the honest outcome for "this is our
+    bug, not the caller's".
     """
     from starlette.responses import JSONResponse
+
+    from ruvector import RuVectorError
 
     auth_error = _check_salesforce_auth(request)
     if auth_error is not None:
@@ -132,7 +147,7 @@ async def _run_action(request: Any, handler: Any) -> Any:
         return JSONResponse({"error": "KeyError", "error_description": f"missing required field: {exc}"}, status_code=400)
     except (ValueError, TypeError) as exc:
         return JSONResponse(_error_response(exc), status_code=400)
-    except Exception as exc:  # CollectionError (ruvector.RuVectorError subclass) and similar
+    except RuVectorError as exc:  # CollectionError and other extension-raised caller errors
         return JSONResponse(_error_response(exc), status_code=404)
     return JSONResponse(result)
 

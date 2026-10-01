@@ -39,6 +39,39 @@ env:
   PACKAGE_DIR: crates/ruvector-py
 
 jobs:
+  rust-tests:
+    # ruvector-py's own Rust unit tests (49, under crates/ruvector-py/src/).
+    # release.yml's "validate"/"build-crates" jobs explicitly `--exclude
+    # ruvector-py` (their pyo3 `extension-module` comment explains why: a
+    # bare ubuntu-22.04 runner with no Python dev headers can't link a test
+    # binary against libpython). This job is the other half of that split —
+    # a runner that DOES set up Python (via actions/setup-python, same as
+    # the `linux` wheel job below) so `cargo test -p ruvector-py` can link
+    # dynamically. Confirmed locally first: with a venv's `python3` on
+    # PATH and no `extension-module` Cargo feature (see that crate's
+    # Cargo.toml comment), `cargo test -p ruvector-py --release` links and
+    # passes all 49 tests with no extra PYO3_PYTHON/pkg-config wiring needed.
+    name: Rust unit tests (ruvector-py)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          prefix-key: 'v1-rust'
+          shared-key: 'ruvector-py-rust-tests'
+
+      - name: cargo test -p ruvector-py
+        run: cargo test -p ruvector-py --release
+
   linux:
     runs-on: ${{ matrix.runner }}
     name: Linux ${{ matrix.target }}
