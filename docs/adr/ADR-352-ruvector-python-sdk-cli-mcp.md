@@ -91,9 +91,12 @@ completions:{}}` over streamable HTTP (plain `POST` + `Accept: application/json,
 text/event-stream`; CORS headers advertise `Mcp-Session-Id` but none was issued for this
 stateless flow).
 
-The sibling site `signal-to-swarm.ruv.chatgpt.site` is unrelated to vector search (an ESP32/
-Wi-Fi-sensing field guide that name-drops RuVector as a *future* tool for sensor-disagreement
-analysis — confirms the brand context, not a technical pattern to copy).
+The sibling site `signal-to-swarm.ruv.chatgpt.site` (both its landing page and `/live.html`,
+fetched separately) is unrelated to vector search (an ESP32/Wi-Fi-sensing field guide and a
+live radar/Wi-Fi presence-fusion dashboard respectively) that name-drops RuVector as a *future*
+tool for sensor-disagreement analysis — confirms the brand context, not a technical pattern to
+copy. All four URLs in the original task were fetched; these two contributed no MCP/`ui://`
+pattern beyond what the `web-based-chatgpt-mcp-starter` endpoint already gave.
 
 ### What the npm CLI/MCP actually ship (anchor for "major capabilities", not a parity target)
 

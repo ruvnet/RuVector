@@ -115,6 +115,38 @@ def test_duplicate_ids_rejected(vectors: Vectors) -> None:
         Collection.from_vectors(vectors, ids=[0] * len(vectors))
 
 
+def test_custom_ids_round_trip_in_search(vectors: Vectors) -> None:
+    """Regression test: an earlier cut of from_vectors accepted a
+    non-identity `ids=` kwarg but silently returned row indices from
+    search() instead of the caller's own ids. RabitqIndex.build() now
+    takes ids directly (ADR-352 review fix)."""
+    custom_ids = [1000 + i * 7 for i in range(len(vectors))]
+    coll = Collection.from_vectors(vectors, ids=custom_ids, rerank_factor=10)
+    hits = coll.search(vectors[5], 1)
+    assert hits[0].id == custom_ids[5]
+    assert hits[0].id not in (5,)
+
+    # ids allocated after a custom-id bulk build must not collide with them.
+    new_id = coll.insert(vectors[0])
+    assert new_id not in custom_ids
+    assert new_id == max(custom_ids) + 1
+
+
+def test_custom_ids_with_metadata(vectors: Vectors) -> None:
+    custom_ids = [100 + i for i in range(len(vectors))]
+    metas = [{"tag": f"item-{i}"} for i in range(len(vectors))]
+    coll = Collection.from_vectors(vectors, ids=custom_ids, metadatas=metas, rerank_factor=10)
+    hits = coll.search(vectors[3], 1)
+    assert hits[0].id == custom_ids[3]
+    assert hits[0].metadata == {"tag": "item-3"}
+
+
+def test_id_exceeding_u32_rejected(vectors: Vectors) -> None:
+    too_big = [2**32 + i for i in range(len(vectors))]
+    with pytest.raises(CollectionError):
+        Collection.from_vectors(vectors, ids=too_big)
+
+
 def test_save_load_roundtrip(vectors: Vectors) -> None:
     metas = [{"cat": "a" if i % 2 == 0 else "b"} for i in range(len(vectors))]
     coll = Collection.from_vectors(vectors, metadatas=metas, rerank_factor=10)

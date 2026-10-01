@@ -5,12 +5,12 @@ build-backend = "maturin"
 [project]
 name = "ruvector"
 version = "0.1.0"
-description = "Vector similarity search via RaBitQ 1-bit quantization"
+description = "Ultra-low-latency vector search (RaBitQ, Rust core) with a CLI and MCP server"
 readme = "README.md"
 license = { text = "MIT OR Apache-2.0" }
 requires-python = ">=3.9"
 authors = [{ name = "Ruvector Team" }]
-keywords = ["vector-search", "ann", "rabitq", "rust", "embeddings"]
+keywords = ["vector-search", "ann", "rabitq", "rust", "embeddings", "mcp", "cli", "vector-database"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: Rust",
@@ -56,9 +56,14 @@ features = ["pyo3/extension-module"]
 python-source = "python"
 module-name = "ruvector._native"
 # Hand-written stubs live alongside the Python source so they ship in the
-# wheel. `python/ruvector/__init__.pyi` is the canonical surface; the
-# `stubs/` tree carries the same file for tooling that reads PEP 561 stub
-# packages directly. See `docs/sdk/02-strategy.md` § "Type stubs".
+# wheel: `__init__.pyi` (package-level re-exports) + `_native.pyi` (the
+# compiled extension module). `python/ruvector/collection.py` needs no
+# separate stub — it's plain annotated Python, covered by py.typed
+# directly. (A `stubs/` tree duplicating `__init__.pyi` existed from the
+# M1 salvage and silently drifted out of sync with the real stubs; removed
+# rather than kept "in sync" by hand — it was never in this include list
+# in the first place, so nothing shipped from it.) See
+# `docs/sdk/02-strategy.md` § "Type stubs".
 include = [
     { path = "python/ruvector/py.typed", format = "wheel" },
     { path = "python/ruvector/__init__.pyi", format = "wheel" },

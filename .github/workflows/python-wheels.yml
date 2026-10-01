@@ -10,8 +10,10 @@ name: Python Wheels (ruvector)
 # installed and cross-linked, which maturin-action (same PyO3 org) handles
 # natively (manylinux container + the right target + abi3 in one action
 # input), without re-deriving cibuildwheel's own container/cross config for
-# a toolchain it wasn't built around. Polars and pydantic-core (cited as
-# precedent in 02-strategy) both use maturin-action, not cibuildwheel.
+# a toolchain it wasn't built around. Verified via `gh api
+# repos/pola-rs/polars/contents/.github/workflows/release-python.yml` and
+# repos/pydantic/pydantic-core/.../ci.yml: both (cited as precedent in
+# 02-strategy) use `PyO3/maturin-action@v1`, not cibuildwheel.
 on:
   pull_request:
     paths:
@@ -63,8 +65,10 @@ jobs:
           manylinux: 2_28
           args: --release --out dist
 
-      - name: Test wheel (native arch only — aarch64 can't run under QEMU here)
-        if: matrix.target == 'x86_64'
+      - name: Test wheel
+        # `ubuntu-24.04-arm` is a native ARM64 GitHub-hosted runner (not QEMU
+        # emulation), so the aarch64 wheel built above runs directly here —
+        # no cross-arch skip needed on either leg of this matrix.
         working-directory: ${{ env.PACKAGE_DIR }}
         run: |
           python3 -m venv /tmp/wheel-venv

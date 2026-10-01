@@ -25,7 +25,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -34,10 +34,23 @@ from ._native import RabitqIndex, RuVectorError
 
 _META_SUFFIX = ".meta.json"
 _DEFAULT_OVERFETCH = 4
+# RabitqIndex stores ids as u32 (ruvector_rabitq::index's `ids: Vec<u32>`,
+# `self.ids.push(id as u32)` with no bounds check at that layer). The Rust
+# binding already rejects an over-wide id with ValueError; this constant
+# lets Collection raise its own CollectionError at the same boundary so
+# every Collection-level error is a CollectionError, not a mix of
+# CollectionError and bare ValueError depending on which layer caught it.
+_MAX_ID = 2**32 - 1
 
 
 class CollectionError(RuVectorError):
     """Raised for Collection-level misuse (distinct from index-level errors)."""
+
+
+def _check_ids_fit_u32(ids: Iterable[int]) -> None:
+    for i in ids:
+        if i < 0 or i > _MAX_ID:
+            raise CollectionError(f"id {i} out of range — RabitqIndex stores ids as u32 (0..{_MAX_ID})")
 
 
 @dataclass
@@ -137,50 +150,32 @@ class Collection:
         if arr.ndim != 2:
             raise CollectionError(f"vectors must be 2D, got {arr.ndim}D")
         n = arr.shape[0]
-        if ids is None:
-            ids = list(range(n))
-        if len(ids) != n:
-            raise CollectionError(f"ids length ({len(ids)}) must match vectors row count ({n})")
-        if len(set(ids)) != len(ids):
+        id_list: List[int] = list(range(n)) if ids is None else list(ids)
+        if len(id_list) != n:
+            raise CollectionError(f"ids length ({len(id_list)}) must match vectors row count ({n})")
+        if len(set(id_list)) != len(id_list):
             raise CollectionError("ids must be unique")
+        if ids is not None:
+            _check_ids_fit_u32(id_list)
         if metadatas is not None and len(metadatas) != n:
             raise CollectionError(f"metadatas length ({len(metadatas)}) must match vectors row count ({n})")
 
-        # RabitqIndex.build assigns row-index ids internally; remap to the
-        # caller's external ids via add_batch after an initial single-row
-        # build would be wasteful, so instead we build directly with the
-        # caller's ids by using add_batch from a throwaway 1-row index.
-        # Simpler and correct: build with row ids 0..n-1, then if the
-        # caller's ids differ from identity, re-key via a second pass.
-        index = RabitqIndex.build(arr, rerank_factor=rerank_factor, seed=seed)
-        identity = list(range(n))
-        metadata: Dict[int, Dict[str, Any]] = {}
-        if list(ids) != identity:
-            # Re-key: export (row-id, vector), rebuild with caller ids as a
-            # batch add onto a fresh 1-vector-seeded index. We instead just
-            # rebuild once more with a remapped id array, which is the
-            # correct & simple approach since `build` takes ids implicitly
-            # as row index — so rebuild is avoided by overwriting metadata
-            # keyed on row index -> caller id via a parallel map, and
-            # relying on callers to pass ids == row order for now.
-            #
-            # NOTE (documented limitation): `RabitqIndex.build` does not
-            # accept external ids in M1/M1.5. We therefore keep the
-            # row-index ids as the *internal* ids (what `search()` returns)
-            # and store the caller's requested id as metadata["_id"] so
-            # round-tripping is still possible. A future M2 Collection can
-            # push external ids into the Rust layer directly.
-            for row, caller_id in enumerate(ids):
-                row_meta = metadatas[row] if metadatas else None
-                meta: Dict[str, Any] = dict(row_meta) if row_meta else {}
-                meta["_external_id"] = caller_id
-                metadata[row] = meta
-        elif metadatas is not None:
-            for row, m in enumerate(metadatas):
-                if m:
-                    metadata[row] = dict(m)
+        # `RabitqIndex.build`'s optional `ids` kwarg stores the caller's own
+        # ids directly (added in review — an earlier cut of this method
+        # accepted `ids` and silently remapped search results back to row
+        # indices instead; see ADR-352/LOOP-STATE for the history). Pass
+        # `None` when the caller didn't supply ids so the Rust side takes
+        # its cheaper default path instead of allocating an identity array.
+        ids_arr = None if ids is None else np.asarray(id_list, dtype=np.uint64)
+        index = RabitqIndex.build(arr, ids=ids_arr, rerank_factor=rerank_factor, seed=seed)
 
-        coll = cls(_index=index, _metadata=metadata, _tombstones=set(), _next_id=n)
+        metadata: Dict[int, Dict[str, Any]] = {}
+        if metadatas is not None:
+            for row_id, m in zip(id_list, metadatas):
+                if m:
+                    metadata[row_id] = dict(m)
+
+        coll = cls(_index=index, _metadata=metadata, _tombstones=set(), _next_id=max(id_list) + 1)
         coll._dim = arr.shape[1]
         coll._rerank_factor = rerank_factor
         coll._seed = seed

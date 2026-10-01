@@ -67,11 +67,22 @@ impl RabitqIndex {
     /// `seed` defaults to 42 to keep the build deterministic out-of-the-box —
     /// the doc-comment guarantee on `ruvector_rabitq` is that
     /// `(dim, seed, data)` round-trips bit-identically.
+    ///
+    /// `ids` (optional) assigns the on-disk/search-result id for each row
+    /// instead of the default `0..n` row index — added so
+    /// `ruvector.Collection.from_vectors(ids=...)` can store the caller's
+    /// own ids directly rather than remapping them through metadata (a
+    /// gap caught in review: the first cut of `Collection.from_vectors`
+    /// accepted an `ids` kwarg and silently ignored it for search purposes).
+    /// Ids must fit in `u32` — the underlying `RabitqPlusIndex` storage
+    /// width (see `ids()` / search results) — a larger id raises
+    /// `ValueError` rather than silently truncating.
     #[staticmethod]
-    #[pyo3(signature = (vectors, *, rerank_factor = 20, seed = 42))]
+    #[pyo3(signature = (vectors, *, ids = None, rerank_factor = 20, seed = 42))]
     fn build(
         py: Python<'_>,
         vectors: PyReadonlyArray2<'_, f32>,
+        ids: Option<PyReadonlyArray1<'_, u64>>,
         rerank_factor: u32,
         seed: u64,
     ) -> PyResult<Self> {
@@ -112,9 +123,39 @@ impl RabitqIndex {
         // to NumPy storage without breaking the readonly contract.
         let slice = vectors.as_slice()?; // contiguous view, len = n*dim
         let mut items: Vec<(usize, Vec<f32>)> = Vec::with_capacity(n);
-        for i in 0..n {
-            let row = &slice[i * dim..(i + 1) * dim];
-            items.push((i, row.to_vec()));
+        match ids {
+            Some(ids_arr) => {
+                if !ids_arr.is_c_contiguous() {
+                    return Err(PyTypeError::new_err(
+                        "ids must be C-contiguous; pass np.ascontiguousarray(...) first",
+                    ));
+                }
+                let ids_slice = ids_arr.as_slice()?;
+                if ids_slice.len() != n {
+                    return Err(PyValueError::new_err(format!(
+                        "ids length ({}) must match vectors row count ({})",
+                        ids_slice.len(),
+                        n
+                    )));
+                }
+                for &id in ids_slice {
+                    if id > u32::MAX as u64 {
+                        return Err(PyValueError::new_err(format!(
+                            "id {id} exceeds u32::MAX — RabitqIndex stores ids as u32"
+                        )));
+                    }
+                }
+                for (i, &id) in ids_slice.iter().enumerate() {
+                    let row = &slice[i * dim..(i + 1) * dim];
+                    items.push((id as usize, row.to_vec()));
+                }
+            }
+            None => {
+                for i in 0..n {
+                    let row = &slice[i * dim..(i + 1) * dim];
+                    items.push((i, row.to_vec()));
+                }
+            }
         }
 
         // Heavy work: drop the GIL. `from_vectors_parallel` runs rotate+pack
@@ -319,6 +360,18 @@ impl RabitqIndex {
             )));
         }
         let ids_slice = ids.as_slice()?.to_vec();
+        // `ruvector_rabitq`'s own storage is `Vec<u32>` (`self.ids.push(id as
+        // u32)`, no bounds check at that layer) — a u64 id above u32::MAX
+        // would silently wrap there. Reject it here instead, at the one
+        // place that knows the caller handed us a real u64, same as
+        // `build`'s `ids` kwarg.
+        for &id in &ids_slice {
+            if id > u32::MAX as u64 {
+                return Err(PyValueError::new_err(format!(
+                    "id {id} exceeds u32::MAX — RabitqIndex stores ids as u32"
+                )));
+            }
+        }
         let vecs_slice = vectors.as_slice()?;
         let rows: Vec<(usize, Vec<f32>)> = (0..n)
             .map(|i| {

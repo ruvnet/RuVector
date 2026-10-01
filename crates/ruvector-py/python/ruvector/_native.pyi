@@ -29,13 +29,17 @@ class RabitqIndex:
     def build(
         vectors: NDArray[np.float32],
         *,
+        ids: Optional[NDArray[np.uint64]] = ...,
         rerank_factor: int = ...,
         seed: int = ...,
     ) -> "RabitqIndex":
         """Build an index from an ``(n, dim)`` float32 array.
 
         ``vectors`` must be C-contiguous; non-contiguous arrays raise
-        ``TypeError``. ``rerank_factor`` defaults to 20 (the ADR-154
+        ``TypeError``. ``ids`` (optional) assigns the search-result id for
+        each row instead of the default ``0..n`` row index; every id must
+        fit in ``u32`` (the index's storage width) or this raises
+        ``ValueError``. ``rerank_factor`` defaults to 20 (the ADR-154
         recommendation for 100% recall@10 at D=128). ``seed`` defaults
         to 42 for deterministic builds.
         """
@@ -74,7 +78,11 @@ class RabitqIndex:
         ...
 
     def add_batch(self, ids: NDArray[np.uint64], vectors: NDArray[np.float32]) -> None:
-        """Append many vectors at once. Releases the GIL around the loop."""
+        """Append many vectors at once. Releases the GIL around the loop.
+
+        Accepts u64 ids but, like :meth:`build`, every id must fit in
+        ``u32`` (the index's storage width) or this raises ``ValueError``.
+        """
         ...
 
     def export_items(self) -> List[Tuple[int, NDArray[np.float32]]]:
