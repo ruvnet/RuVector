@@ -54,6 +54,42 @@ import numpy as np
 
 from ..collection import Collection
 
+
+def _distance_to_similarity(distance: float, metric: str) -> float:
+    """Convert a ``Collection.search`` distance score into a similarity.
+
+    Found in review: this adapter originally put ``hit.score`` (a
+    *distance* — lower means closer, see ``Collection.search``'s
+    docstring) directly into ``VectorStoreQueryResult.similarities``,
+    which every llama-index consumer (``SimilarityPostprocessor``'s
+    ``similarity_cutoff``, retrievers that sort or threshold on
+    "similarity") assumes is *higher-means-closer*. Left as distance,
+    the two best (closest) hits would be the ones a
+    ``similarity_cutoff`` filter drops first — silently inverted
+    ranking for any downstream similarity-threshold logic, not just a
+    cosmetic label mismatch.
+
+    For ``metric="cosine"``: exact conversion, since
+    ``ruvector_core::encoding::metric_distance``'s cosine branch is
+    literally ``(1.0 - cosine_similarity).max(0.0)`` — so
+    ``1.0 - distance`` recovers the real cosine similarity (clamped to
+    ``>= 0`` the same way the distance already was).
+
+    For any other metric (``euclidean``/``l2``, ``dot``, ``manhattan``,
+    or the rabitq backend's ``squared_l2``): there is no universally
+    "correct" bounded similarity to invert to — these are unbounded
+    distances. ``1.0 / (1.0 + distance)`` is used instead: monotonic
+    decreasing in distance (so rank order and any relative
+    similarity-threshold comparisons stay correct), bounded to ``(0, 1]``
+    (so it behaves like the ``[0, 1]`` range llama-index callers expect
+    from a similarity), but it is **not** a normalized similarity score
+    with a principled meaning for these metrics — documented here
+    rather than presented as equivalent to the cosine case.
+    """
+    if metric == "cosine":
+        return 1.0 - distance
+    return 1.0 / (1.0 + distance)
+
 try:
     from llama_index.core.schema import BaseNode, TextNode
     from llama_index.core.vector_stores.types import (
@@ -267,6 +303,7 @@ class RuVectorStore(BasePydanticVectorStore):
             allowed = set(query.node_ids)
             hits = [h for h in hits if self._int_to_id.get(h.id) in allowed]
 
+        metric = self._collection.metric
         nodes: List[BaseNode] = []
         similarities: List[float] = []
         ids: List[str] = []
@@ -274,7 +311,7 @@ class RuVectorStore(BasePydanticVectorStore):
             metadata = hit.metadata or {}
             node = metadata_dict_to_node(metadata)
             nodes.append(node)
-            similarities.append(hit.score)
+            similarities.append(_distance_to_similarity(hit.score, metric))
             ids.append(node.node_id)
         return VectorStoreQueryResult(nodes=nodes, similarities=similarities, ids=ids)
 

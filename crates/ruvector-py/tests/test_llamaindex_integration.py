@@ -17,7 +17,7 @@ from ruvector import Collection
 
 llama_index_core = pytest.importorskip("llama_index.core")  # noqa: F841 - presence check only
 
-from ruvector.integrations.llamaindex import RuVectorStore  # noqa: E402
+from ruvector.integrations.llamaindex import RuVectorStore, _distance_to_similarity  # noqa: E402
 
 from llama_index.core.schema import (  # noqa: E402
     NodeRelationship,
@@ -75,8 +75,32 @@ def test_add_and_query_returns_nearest_node(store: RuVectorStore) -> None:
     assert result.nodes[0].get_content() == "apple"
     assert result.nodes[0].metadata == {"category": "fruit"}
     assert result.similarities is not None
-    assert result.similarities[0] == pytest.approx(0.0, abs=1e-6)
+    # Regression test (ADR-352 review fix): this used to assert ~0.0 here,
+    # which was the bug - `hit.score` is a *distance* (0 = exact match),
+    # but VectorStoreQueryResult.similarities is a *similarity* (1.0 =
+    # exact match for a bounded metric like cosine, the default here).
+    # Every llama-index consumer that sorts/thresholds on "similarity"
+    # assumes higher = closer; leaving raw distance in this field would
+    # have silently inverted that for any SimilarityPostprocessor cutoff.
+    assert result.similarities[0] == pytest.approx(1.0, abs=1e-6)
     assert result.ids == ["n-apple"]
+
+
+def test_similarities_are_closer_is_higher_not_raw_distance(store: RuVectorStore) -> None:
+    """Explicit regression test for the distance-vs-similarity bug fixed
+    in this review: similarities must be *descending* in closeness (best
+    match first, as Collection.search already orders hits), and the top
+    hit's similarity must be near the metric's "identical vector" bound
+    (1.0 for cosine), not near 0 (which is what the un-converted raw
+    distance would read for an exact match).
+    """
+    _add_fruit_and_vehicle_nodes(store)
+    result = store.query(VectorStoreQuery(query_embedding=_BASIS["apple"], similarity_top_k=4))
+    assert result.similarities is not None
+    sims = result.similarities
+    assert sims[0] > sims[1] >= sims[2] >= sims[3], f"expected descending similarity, got {sims}"
+    assert sims[0] == pytest.approx(1.0, abs=1e-6)
+    assert all(0.0 <= s <= 1.0 + 1e-6 for s in sims), f"cosine similarity should stay in [0, 1], got {sims}"
 
 
 def test_add_rejects_duplicate_node_id(store: RuVectorStore) -> None:
@@ -164,3 +188,27 @@ def test_import_error_has_install_hint_when_llama_index_core_missing(monkeypatch
 
     with pytest.raises(ImportError, match=r"pip install 'ruvector\[llamaindex\]'"):
         importlib.import_module("ruvector.integrations.llamaindex")
+
+
+def test_distance_to_similarity_cosine_is_exact_inverse() -> None:
+    assert _distance_to_similarity(0.0, "cosine") == pytest.approx(1.0)
+    assert _distance_to_similarity(1.0, "cosine") == pytest.approx(0.0)
+    assert _distance_to_similarity(0.25, "cosine") == pytest.approx(0.75)
+
+
+def test_distance_to_similarity_non_cosine_is_bounded_and_monotonic() -> None:
+    for metric in ["euclidean", "squared_l2", "dot", "manhattan"]:
+        assert _distance_to_similarity(0.0, metric) == pytest.approx(1.0)
+        near = _distance_to_similarity(1.0, metric)
+        far = _distance_to_similarity(10.0, metric)
+        assert 0.0 < far < near < 1.0, f"metric={metric}: expected monotonic decrease, got near={near} far={far}"
+
+
+def test_collection_metric_property_matches_backend() -> None:
+    hnsw_coll = Collection.create(dim=4, backend="hnsw", metric="euclidean")
+    assert hnsw_coll.metric == "euclidean"
+    rabitq_coll = Collection.create(dim=4, backend="rabitq", metric="cosine")
+    # metric= is accepted but NOT applied by the rabitq backend (it always
+    # scores via squared L2 internally) - `.metric` must report what's
+    # actually used, not echo back the ignored constructor kwarg.
+    assert rabitq_coll.metric == "squared_l2"

@@ -527,6 +527,26 @@ class Collection:
             tombstoned=len(self._tombstones),
         )
 
+    @property
+    def metric(self) -> str:
+        """The distance function ``search()`` scores are computed with.
+
+        For ``backend="hnsw"``: whatever ``metric=`` was passed at
+        construction (``"cosine"`` by default — see ``create()``).
+        For ``backend="rabitq"``: always ``"squared_l2"`` — the
+        ``metric=`` constructor kwarg is accepted but **not actually
+        applied** to this backend (``RabitqPlusIndex`` always scores via
+        squared L2 internally; `self._metric` would otherwise report
+        whatever default was passed, which could silently lie about what
+        distance is actually in use). Added for
+        ``ruvector.integrations.llamaindex``'s distance->similarity
+        conversion, which needs to know this to avoid returning a raw
+        distance in a field callers expect to be a similarity.
+        """
+        if self._backend == "rabitq":
+            return "squared_l2"
+        return self._metric
+
     def __repr__(self) -> str:
         return f"Collection(backend={self._backend!r}, n={len(self)}, dim={self._dim}, tombstoned={len(self._tombstones)})"
 

@@ -62,7 +62,17 @@ jobs:
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
       - name: Run Rust tests
-        run: cargo test --workspace --all-features
+        # ruvector-py excluded: its pyo3 dependency does not enable the
+        # `extension-module` Cargo feature (required so `cargo test -p
+        # ruvector-py` can link against libpython at all — see the
+        # comment on that crate's Cargo.toml `pyo3 = {...}` line, ADR-352).
+        # This bare ubuntu-22.04 runner has no Python dev headers/shared
+        # lib set up, so linking its test binary here is unverified and
+        # not worth risking breaking this shared validation job over.
+        # ruvector-py's Rust tests (26, added alongside the pytest suite)
+        # run in .github/workflows/python-wheels.yml instead, which does
+        # set up Python via actions/setup-python.
+        run: cargo test --workspace --all-features --exclude ruvector-py
         env:
           RUST_TEST_THREADS: 2
 
@@ -107,10 +117,16 @@ jobs:
           shared-key: 'build-crates'
 
       - name: Build all crates
-        run: cargo build --workspace --release
+        # ruvector-py excluded here too: building its cdylib without the
+        # `extension-module` pyo3 feature links against libpython (see
+        # the "Run Rust tests" comment in the validate job above for the
+        # full rationale) — this bare runner has no Python dev headers
+        # set up, unlike python-wheels.yml, which builds it correctly via
+        # maturin (the tool meant for this, not bare `cargo build`).
+        run: cargo build --workspace --release --exclude ruvector-py
 
       - name: Run crate tests
-        run: cargo test --workspace --release
+        run: cargo test --workspace --release --exclude ruvector-py
         env:
           RUST_TEST_THREADS: 2
 
