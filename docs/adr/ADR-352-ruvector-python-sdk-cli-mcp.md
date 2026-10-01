@@ -195,6 +195,95 @@ in the new bindings themselves):
    set literal — the `__all__` list conflicts that did occur (append-only, different physical
    lines) were trivial 2-minute resolutions, not a design failure needing a redo.
 
+## Integrations — LangChain, LlamaIndex, Salesforce Agentforce
+
+### LangChain / LlamaIndex
+
+`ruvector.integrations.langchain` (`ruvector[langchain]`) and `ruvector.integrations.llamaindex`
+(`ruvector[llamaindex]`) are `VectorStore` adapters, verified against **real, currently-installed
+versions** (`langchain-core==1.6.6`, `llama-index-core==0.14.25`), not against API docs from
+memory. Built by parallel forks, then integration-tested by this session before merging — that
+pass caught a real correctness bug: the LlamaIndex adapter returned raw distance where
+llama-index's contract expects similarity, which would have silently inverted ranking under any
+`SimilarityPostprocessor` cutoff. Fixed via `Collection.metric` + `_distance_to_similarity()`
+(exact `1 - distance` for cosine, since `ruvector_core::encoding::metric_distance`'s cosine branch
+is literally `(1 - cos_sim).max(0)`; `1/(1+distance)` for other metrics, documented in the function
+as an approximation, not an exact inverse). Both lazy-import their framework dependency (PEP 562
+`__getattr__`, no eager `import langchain`/`import llama_index` cost for callers who don't use
+these extras).
+
+### Salesforce Agentforce
+
+**Research done before design, per the task's instruction to verify against current Salesforce
+docs rather than memory** — findings that changed the plan from what was originally proposed:
+
+- **Data Cloud's "bring your own retriever" is not a drop-in external-vector-store plug** — its
+  grounding/retrieval surface is built to query Data Cloud's own indexed data, not an arbitrary
+  external vector database over HTTP. Treating `ruvector` as a literal BYO-retriever backend for
+  Data Cloud would have been building against a capability that doesn't exist in the form assumed.
+- **Agentforce does have an MCP client, but it is Beta and gated to specific Agentforce Enterprise
+  tiers/orgs** — not a self-service extension point reachable from a plain Salesforce
+  Developer/scratch org, and this session has no such org or AE-gated access to verify against
+  even if it tried.
+- **External Services + OpenAPI 3.0 custom actions is the extension point that is actually
+  self-service and buildable without special org access** — a standard Salesforce org can register
+  an External Service from an OpenAPI document and expose its operations as Agentforce/Flow
+  actions. This is what got built, as the primary (not fallback) integration path, once the above
+  two were confirmed to not be viable as primaries.
+
+**What got built** (`ruvector.integrations.salesforce` + `ruvector.salesforce_routes`):
+
+| Piece | What it does |
+|---|---|
+| `SalesforceConfig.from_env()` | reads instance URL / client id / client secret from env vars, no hardcoded credentials |
+| `get_oauth_token()` | OAuth2 client-credentials grant against `/services/oauth2/token` |
+| `fetch_records()` | SOQL query via the REST Query API, follows `nextRecordsUrl` pagination to completion |
+| `sync_records_to_collection()` | embeds + inserts Salesforce records into a `Collection`, skipping rows missing the text field, storing `_salesforce_id` in metadata |
+| `action_search` / `action_upsert` / `action_ground` | the three Agentforce-callable actions — vector search, upsert, and a grounding-context join (joins top-k text snippets for an agent prompt) |
+| `generate_openapi_spec()` | a hand-built **flat** OpenAPI 3.0 document (no `oneOf`/`anyOf`/`allOf` anywhere, checked by test — External Services' own import constraints are narrower than general OpenAPI 3.0) describing the three actions, for registering as an External Service |
+| `ruvector.salesforce_routes` | mounts the three actions (plus the OpenAPI doc itself) as HTTP routes on the same `MCPServer`/port used for MCP, behind `RUVECTOR_ENABLE_SALESFORCE_ACTIONS=1` (opt-in — importing this module has the side effect of registering routes, so it's not imported by default) |
+
+**Security**: `MCPServer.custom_route` does not go through the SDK's `token_verifier` (its own
+docstring says routes registered this way are not authorization-protected — confirmed by reading
+the SDK source before writing this integration, matching the same finding recorded in the Security
+section below for MCP HTTP auth generally). Every Salesforce route therefore does its own manual
+constant-time bearer check (`RUVECTOR_SALESFORCE_ACTION_TOKEN`, falling back to
+`RUVECTOR_MCP_TOKEN` if unset) against a header the SDK's auth middleware never sees. `_run_action`
+maps `KeyError`/`ValueError`/`TypeError`/`RuVectorError` to clean 4xx bodies with a specific error
+type and description (an earlier version caught bare `Exception`, which both leaked internal
+exception messages and mis-reported unrelated bugs as 404s — narrowed after review, see commit
+history). Found and fixed, via live `curl` testing before committing: an unhandled
+`CollectionError`/`KeyError` was originally leaking as a raw Starlette 500 instead of a clean 4xx
+body a Salesforce Flow could branch on.
+
+**Testing — explicitly what was and was not verified against a real org, per the task's
+instruction to be explicit about this**:
+
+- **Verified, no real org**: all 28 tests (20 integration + 8 route-level) run against
+  `httpx.MockTransport` (OAuth token exchange, SOQL pagination, error responses) or Starlette's
+  `TestClient` driving the real ASGI app with no real network socket. `generate_openapi_spec()`'s
+  output is validated with `openapi-spec-validator`, confirming it is syntactically valid
+  OpenAPI 3.0 — this does **not** confirm it clears Salesforce External Services' own import
+  constraints (operation-count caps, request/response size limits, or unsupported-keyword rules
+  beyond the three composition keywords this module already avoids), which only a real import
+  against a real org's Setup UI can confirm.
+- **Not verified against a real org, anywhere in this session**: no live OAuth exchange against a
+  real Salesforce instance, no real SOQL query, no real External Service registration or Agentforce
+  action invocation, no real Named Credential setup. The task's boundary ("mock the Salesforce
+  APIs, do not hit a real org") was followed throughout — this is a stated scope limit, not an
+  oversight.
+- **Agentforce MCP support**: documented here as a beta-gated option for a future session with
+  AE-tier org access, not built — see the research findings above. This is a scope decision, not a
+  silent gap: the primary (External Services/OpenAPI) path is a complete, usable Agentforce
+  integration on its own, and nothing about it depends on the MCP option ever landing.
+- **`examples/` metadata files** (Named Credential, External Service reference, if present under
+  `examples/`): any Salesforce metadata XML shapes in this repo are **illustrative, not validated
+  against a real org or the current Salesforce Metadata API schema** — Salesforce's metadata types
+  (especially newer ones like `GenAiFunction`, used for registering agent actions) change across
+  releases, and confirming an exact schema would need either a live Metadata API describe call
+  against a real org or a current Salesforce Metadata API reference fetch, neither of which this
+  session had access to do. Treat these as a starting point for a real deployment, not a ready-to-deploy artifact.
+
 ## Security (run this session, results below — not projected)
 
 - **Input validation at the PyO3 boundary**: dimension checks before any NumPy buffer read
