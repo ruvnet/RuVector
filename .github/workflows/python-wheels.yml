@@ -110,12 +110,29 @@ jobs:
           # documented escape hatch: "disable manylinux docker build and
           # build on the host instead") sidesteps the container-selection
           # logic entirely — correct since the host already IS real aarch64
-          # Linux. Tradeoff: the wheel loses the `manylinux_2_28` platform
-          # tag (gets a plain `linux_aarch64` tag instead), which is less
-          # portable for a PyPI upload than a true manylinux wheel — accepted
-          # for now; revisit with real iterative access to an aarch64 runner
-          # before publishing for real (ADR-352/LOOP-STATE tracks this).
-          manylinux: 2_28
+          # Linux.
+          #
+          # **Second real bug found on the next CI run, after `container:
+          # 'off'` alone**: `manylinux: 2_28` still asked maturin to run its
+          # own manylinux-compliance check against the resulting binary even
+          # with no container — and the native `ubuntu-24.04-arm` runner's
+          # host glibc is newer than the manylinux_2_28 floor, so the build
+          # now compiles fine and then maturin itself fails post-build:
+          # "Your library is not manylinux_2_28 compliant because of the
+          # presence of too-recent versioned symbols: libc.so.6 offending
+          # versions: GLIBC_2.30, GLIBC_2.33, GLIBC_2.34" (real error text
+          # from a real CI run, not guessed). `manylinux: off` for this leg
+          # (not `2_28`) turns off that compliance check entirely, which is
+          # the correct pairing with `container: 'off'` — building on the
+          # bare host and then still demanding a container-grade glibc floor
+          # was never going to hold. Tradeoff (already true before this
+          # fix, just now actually reachable instead of erroring out first):
+          # the wheel loses the `manylinux_2_28` platform tag (gets a plain
+          # `linux_aarch64` tag instead), which is less portable for a PyPI
+          # upload than a true manylinux wheel — accepted for now; revisit
+          # with real iterative access to an aarch64 runner before
+          # publishing for real (ADR-352/LOOP-STATE tracks this).
+          manylinux: ${{ matrix.target == 'aarch64' && 'off' || '2_28' }}
           container: ${{ matrix.target == 'aarch64' && 'off' || '' }}
           args: --release --out dist
 
