@@ -1,7 +1,7 @@
 # RuVector-Postgres Development & Testing Dockerfile
 # Multi-stage build with PostgreSQL version support (14-17)
 # Default: PostgreSQL 17 (latest with pgrx 0.12 support)
-# v0.3.1: Fixes — Cypher self-reference, graph/RDF persistence, SONA dimension panic
+# v2.0.6: index and SONA integrity fixes
 
 ARG PG_VERSION=17
 ARG RUST_VERSION=1.86
@@ -87,7 +87,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "2.0.4"
+version = "2.0.6"
 edition = "2021"
 rust-version = "1.77"
 license = "MIT"
@@ -187,9 +187,9 @@ ENV PG_VERSION=${PG_VERSION}
 ENV POSTGRES_INITDB_ARGS="--data-checksums"
 
 # Labels for version tracking
-LABEL org.opencontainers.image.title="RuVector PostgreSQL Extension v0.3.1"
+LABEL org.opencontainers.image.title="RuVector PostgreSQL Extension v2.0.6"
 LABEL org.opencontainers.image.description="High-performance vector database extension for PostgreSQL with 270+ SQL functions, Graph/Cypher/SPARQL, GNN, hybrid search, multi-tenancy, self-healing, SONA self-learning, Solver, Math, TDA, and Domain Expansion"
-LABEL org.opencontainers.image.version="0.3.1"
+LABEL org.opencontainers.image.version="2.0.6"
 LABEL org.opencontainers.image.vendor="ruv.io"
 LABEL org.opencontainers.image.source="https://github.com/ruvnet/ruvector"
 LABEL ruvector.pg.version="${PG_VERSION}"
