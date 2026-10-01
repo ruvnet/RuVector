@@ -304,7 +304,7 @@ export class NodeBackend implements RvfBackend {
     this.ensureHandle();
     try {
       // NAPI takes a JSON string for the filter expression.
-      const result = this.handle.deleteByFilter(JSON.stringify(filter));
+      const result = this.handle.deleteByFilter(JSON.stringify(filterToNativeJson(filter)));
       return { deleted: Number(result.deleted), epoch: result.epoch };
     } catch (err) {
       throw RvfError.fromNative(err);
