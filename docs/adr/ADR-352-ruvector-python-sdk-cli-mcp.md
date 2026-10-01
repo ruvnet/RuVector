@@ -160,6 +160,41 @@ M1.5 is the pragmatic answer to "all major capabilities in one session": it buys
 widget + a *usable* (if not yet HNSW-backed) generic `Collection` API now, without blocking on
 the RVF/ruLake integration work that M2 correctly scopes as multi-week.
 
+## Capability landing — graph / GNN / attention / clustering / SONA
+
+Per rUv's follow-up asking for the remaining "major capabilities" from the npm package's surface
+where practical, rather than silently deferring all of them to M3/M4. Each landed as a standalone
+PyO3 binding in `crates/ruvector-py/src/{graph,gnn,cluster,sona}.rs`, verified by this session —
+not just by the implementing pass — with a hands-on smoke test of every new class/function after
+integration (see commits on `feat/python-sdk` after `cebb38bc4`).
+
+| Capability | Class/fn | Scope landed | Scope deliberately NOT landed |
+|---|---|---|---|
+| Graph (raw CRUD) | `ruvector.GraphDB` | create/get node, create/get edge, outgoing-edge traversal, in-memory only (no `storage` feature — `default-features=false` on `ruvector-graph`) | persistent graph storage, distributed/sharded graphs |
+| Graph (Cypher) | `GraphDB.query_cypher` | `MATCH`/`WHERE` execution, ported from `ruvector-graph-node`'s `cypher_exec.rs` (confirmed NAPI-free, a clean copy-port) | `RETURN` as a real projection (parsed, not applied — matches the upstream contract exactly, not a new limitation), `CREATE`/`MERGE`/`SET`/`DELETE`/`REMOVE` (rejected or silently no-op, matching upstream), variable-length relationships, cross-`MATCH` joins |
+| GNN forward-pass rerank | `ruvector.GnnLayer` | `forward()` on `ruvector_gnn::layer::RuvectorLayer` (message passing + multi-head attention + GRU + layer norm), `to_json`/`from_json` | training (no `backward()` wired to this type at all — an untrained layer's `forward()` is a Xavier/Glorot **random projection**, not a quality improvement; stated plainly in the binding's own doc comment, not buried) |
+| Attention rerank | `ruvector.AttentionReranker` | `softmax(QK^T/√d)V` over a query + candidate set, returns both the blended vector and the raw per-candidate weights (the weights are what a RAG reranker actually wants to re-sort by) | multi-head variant (scalar-dot-product alone judged a complete, honest deliverable) |
+| k-means clustering | `ruvector.kmeans()` | `ruvector_cluster_rag::cluster::kmeans` (Lloyd's), returns assignments/centroids/cohesion/cluster_sizes | — (small, complete surface) |
+| SONA (inference) | `ruvector.SonaEngine` | `apply_micro_lora`/`apply_base_lora`/`stats`/`save_state`/`load_state` | the online-learning API (`begin_trajectory`/`tick`/`force_learn`/`find_patterns`) — real but only does something with a genuine reward signal a test can't fabricate; **on a fresh engine both LoRA forward passes are an *exact* identity transform** (zero-init projections, residual forward pass), stated as fact, not "close to one" |
+| Quantization (Turbo4) | — | not evaluated this session | — |
+| `ruvector-cluster` (the OTHER "cluster" crate) | — | **deliberately not bound** — it's distributed-sharding/consensus infrastructure (gossip discovery, consistent hashing, Raft-like consensus), not an ML clustering algorithm; binding it would need a running multi-node cluster, not a Python process. If "clustering" meant this crate specifically, say so and this gets revisited — the capability-table row above binds the actual k-means algorithm instead. |
+| RVF persistence | — | **not practical this session** — ~30-file subsystem (COW pages, witness/crypto log, eBPF, federation); neither `ruvector-core` nor `ruvector-collections` depend on it today either, so adopting it for `Collection` persistence is a separate project, not a one-session add-on. |
+
+Two real bugs this slice's integration pass found and fixed (both in shared infrastructure, not
+in the new bindings themselves):
+
+1. **`patches/hnsw_rs`'s stdout-corrupting `println!`** — found and fixed in the HNSW-backend
+   benchmark pass (see above), before this capability slice started; mentioned again here
+   because every new binding's `cargo test`/`pytest` run depended on it already being fixed.
+2. **Three parallel forks all needed to append to `__init__.py`/`__init__.pyi`/`_native.pyi`'s
+   `__all__` lists** — refactored `__init__.py`'s `__getattr__` to dispatch dynamically
+   (`hasattr(_native, name)`) against the compiled module instead of a hardcoded name set,
+   *before* forking, specifically to eliminate the bug class that made `ruvector.HnswIndex`
+   unreachable earlier in this session (addable in Rust, forgotten in the dispatch set). This
+   also pre-empted what would otherwise have been a 3-way merge conflict on the exact same
+   set literal — the `__all__` list conflicts that did occur (append-only, different physical
+   lines) were trivial 2-minute resolutions, not a design failure needing a redo.
+
 ## Security (run this session, results below — not projected)
 
 - **Input validation at the PyO3 boundary**: dimension checks before any NumPy buffer read
