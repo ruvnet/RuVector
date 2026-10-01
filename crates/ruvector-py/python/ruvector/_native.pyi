@@ -326,6 +326,34 @@ class AttentionReranker:
     @property
     def dim(self) -> int: ...
 
+def kmeans(
+    vectors: NDArray[np.float32],
+    k: int,
+    *,
+    iters: int = ...,
+) -> Tuple[
+    NDArray[np.int64],
+    NDArray[np.float32],
+    NDArray[np.float32],
+    NDArray[np.int64],
+]:
+    """Run Lloyd's k-means over ``vectors`` (shape ``(n, dim)``).
+
+    Backed by ``ruvector_cluster_rag::cluster::kmeans``. Returns
+    ``(assignments, centroids, cohesion, cluster_sizes)``:
+
+    - ``assignments``: ``int64[n]`` cluster id per input row.
+    - ``centroids``: ``float32[k, dim]`` final cluster centroids.
+    - ``cohesion``: ``float32[k]`` mean cosine similarity of each
+      cluster's members to their centroid (higher is tighter).
+    - ``cluster_sizes``: ``int64[k]`` member count per cluster.
+
+    ``vectors`` must be C-contiguous float32 (``TypeError`` otherwise).
+    Raises ``ValueError`` for ``k == 0``, ``k > n``, an empty input, or
+    any non-finite (``NaN``/``inf``) coordinate.
+    """
+    ...
+
 __all__ = [
     "RabitqIndex",
     "HnswIndex",
@@ -334,4 +362,5 @@ __all__ = [
     "GraphDB",
     "GnnLayer",
     "AttentionReranker",
+    "kmeans",
 ]

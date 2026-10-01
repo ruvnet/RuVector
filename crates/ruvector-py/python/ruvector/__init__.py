@@ -40,6 +40,7 @@ if TYPE_CHECKING:  # pragma: no cover - only for static type checkers
     from ruvector._native import HnswIndex as HnswIndex
     from ruvector._native import RabitqIndex as RabitqIndex
     from ruvector._native import RuVectorError as RuVectorError
+    from ruvector._native import kmeans as kmeans
     from ruvector.collection import Collection as Collection
     from ruvector.collection import CollectionError as CollectionError
     from ruvector.collection import CollectionStats as CollectionStats
@@ -58,6 +59,7 @@ __all__ = [
     "GraphDB",
     "GnnLayer",
     "AttentionReranker",
+    "kmeans",
 ]
 
 # Names that must NOT be dynamically resolved against _native/collection even
