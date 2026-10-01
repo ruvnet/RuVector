@@ -31,7 +31,7 @@ on:
 env:
   DOCKER_REGISTRY: ruvnet
   IMAGE_NAME: ruvector-postgres
-  RUST_VERSION: '1.85'
+  RUST_VERSION: '1.86'
 
 jobs:
   # ============================================================================
