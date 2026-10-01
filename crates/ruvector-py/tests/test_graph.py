@@ -192,8 +192,11 @@ def test_create_edge_with_duplicate_explicit_id_raises() -> None:
 
 def test_create_node_rejects_bare_string_labels() -> None:
     g = ruvector.GraphDB()
+    # mypy accepts `str` here (it structurally satisfies `Sequence[str]`),
+    # so no `type: ignore` is needed/valid — the rejection is a runtime-only
+    # guard against the iterate-by-character footgun, not a type error.
     with pytest.raises(TypeError):
-        g.create_node("Person", {})  # type: ignore[arg-type]
+        g.create_node("Person", {})
 
 
 def test_create_node_rejects_dict_as_labels() -> None:

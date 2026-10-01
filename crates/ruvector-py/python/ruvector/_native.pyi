@@ -230,6 +230,21 @@ class GraphDB:
         node id (not an error)."""
         ...
 
+    def query_cypher(self, cypher: str) -> Dict[str, List[Dict[str, Any]]]:
+        """Execute a Cypher string, limited to ``MATCH`` execution (no
+        cross-pattern joins, variable-length paths, or aggregations).
+
+        Returns ``{"nodes": [...], "edges": [...]}`` using the same
+        per-row dict shape as :meth:`get_node`/:meth:`get_edge` — **not**
+        a ``RETURN``-projected row set. ``RETURN`` is valid syntax but is
+        never applied as a projection: the result is always every
+        node/edge the ``MATCH`` touched. Raises ``RuVectorError`` on a
+        parse error, on ``CREATE`` (use :meth:`create_node`/
+        :meth:`create_edge` instead), or on anything the executor could
+        not honour (e.g. a variable-length relationship).
+        """
+        ...
+
     def __len__(self) -> int:
         """Node count (networkx convention: not nodes + edges)."""
         ...
