@@ -31,8 +31,20 @@ classifiers = [
 ]
 dependencies = ["numpy>=1.21"]
 
+[project.scripts]
+ruvector = "ruvector.cli:main"
+
 [project.optional-dependencies]
 test = ["pytest>=7", "numpy>=1.21"]
+# CLI deps are NOT in base `dependencies`: `import ruvector` (the library
+# use case) stays numpy-only. Only `pip install ruvector[cli]` pulls
+# click+rich, and only `ruvector.cli` imports them (lazily, per-subcommand —
+# see cli.py's module docstring).
+cli = ["click>=8.1", "rich>=13"]
+# MCP server: the official SDK. `ruvector.mcp_server` is the only module
+# that imports it.
+mcp = ["mcp>=1.6"]
+all = ["ruvector[cli,mcp]"]
 
 [project.urls]
 Repository = "https://github.com/ruvnet/ruvector"

@@ -325,6 +325,21 @@ class Collection:
     def get_metadata(self, id: int) -> Optional[Dict[str, Any]]:
         return self._metadata.get(id)
 
+    def export_live_items(
+        self,
+    ) -> List["tuple[int, NDArray[np.float32], Optional[Dict[str, Any]]]"]:
+        """Return ``(id, vector, metadata)`` for every non-tombstoned row,
+        sorted by id. Used by the CLI's ``export`` command and by anything
+        else that needs a read-only snapshot without reaching into
+        ``_index``/``_tombstones`` directly.
+        """
+        if self._index is None:
+            return []
+        items = sorted(self._index.export_items(), key=lambda kv: kv[0])
+        return [
+            (i, v, self._metadata.get(i)) for i, v in items if i not in self._tombstones
+        ]
+
     # ── introspection ────────────────────────────────────────────────────
 
     def __len__(self) -> int:
@@ -346,6 +361,22 @@ class Collection:
 
     # ── persistence ──────────────────────────────────────────────────────
 
+    @staticmethod
+    def meta_path(path: Union[str, os.PathLike]) -> Path:
+        """Path of the JSON sidecar for a given index path.
+
+        **Existence of a collection must be checked against this path, not
+        the index path** — an empty :meth:`create`d collection has no
+        ``.rbpx`` file yet (the underlying index needs >=1 vector to build
+        a rotation) but always has a sidecar once :meth:`save` has run once.
+        Both the CLI and the MCP server use this (fixed in this session
+        after the MCP server's duplicate-collection check used the wrong
+        path and silently let a second ``vector_create_collection`` call
+        through — see ``tests/test_mcp_server.py::test_create_twice_errors``).
+        """
+        path = Path(path)
+        return path.with_suffix(path.suffix + _META_SUFFIX)
+
     def save(self, path: Union[str, os.PathLike]) -> None:
         """Save to ``path`` (the ``.rbpx`` index) plus a ``<path>.meta.json``
         sidecar (metadata dict, tombstones, dim/rerank_factor/seed/next_id).
@@ -358,7 +389,7 @@ class Collection:
         path = Path(path)
         if self._index is not None:
             self._index.save(str(path))
-        meta_path = path.with_suffix(path.suffix + _META_SUFFIX)
+        meta_path = self.meta_path(path)
         sidecar = {
             "dim": self._dim,
             "rerank_factor": self._rerank_factor,
@@ -373,7 +404,7 @@ class Collection:
     @classmethod
     def load(cls, path: Union[str, os.PathLike]) -> "Collection":
         path = Path(path)
-        meta_path = path.with_suffix(path.suffix + _META_SUFFIX)
+        meta_path = cls.meta_path(path)
         if not meta_path.exists():
             raise CollectionError(f"missing sidecar metadata file: {meta_path}")
         sidecar = json.loads(meta_path.read_text())

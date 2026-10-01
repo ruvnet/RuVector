@@ -28,11 +28,19 @@ use crate::error::to_pyerr;
 /// scan + exact f32 rerank) — the variant the SDK plan picks for M1 because
 /// it owns its originals and has a stable on-disk format.
 ///
-/// `unsendable` because the underlying index is `Send + Sync` but pyo3 cannot
-/// statically prove our wrapper is — and we never need cross-thread Python
-/// access since all heavy work is done inside `py.detach`. Marking it
-/// unsendable is the conservative, free choice.
-#[pyclass(name = "RabitqIndex", module = "ruvector._native", unsendable)]
+/// Not `unsendable`: `RabitqPlusIndex` implements `AnnIndex: Send + Sync`
+/// (`crates/ruvector-rabitq/src/index.rs`), and both of this wrapper's
+/// fields (`RabitqPlusIndex`, `u64`) are themselves `Send + Sync`, so pyo3's
+/// auto-derive gives us a real `Send + Sync` `#[pyclass]` for free.
+///
+/// This is not cosmetic: an `unsendable` class panics the moment it is
+/// touched from any OS thread other than the one that created it (pyo3
+/// asserts the thread id on every access). An MCP server that caches a
+/// `Collection` across tool calls, where each call may be dispatched to a
+/// different worker thread by the host's async runtime, hits that panic
+/// immediately — caught in this session's `tests/test_mcp_server.py` before
+/// it reached a live server. Removing `unsendable` here is the fix (ADR-352).
+#[pyclass(name = "RabitqIndex", module = "ruvector._native")]
 pub struct RabitqIndex {
     inner: RabitqPlusIndex,
     // RabitqPlusIndex needs the original (id, vector) items handed back to
