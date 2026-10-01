@@ -7,13 +7,15 @@ from __future__ import annotations
 
 import asyncio
 import json
+from pathlib import Path
+from types import ModuleType
+from typing import Any
 
-import numpy as np
 import pytest
 
 
 @pytest.fixture
-def server_module(tmp_path, monkeypatch):
+def server_module(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     monkeypatch.setenv("RUVECTOR_MCP_DATA_DIR", str(tmp_path))
     import ruvector.mcp_server as m
 
@@ -21,7 +23,7 @@ def server_module(tmp_path, monkeypatch):
     return m
 
 
-def _call(server_module, tool_name, **kwargs):
+def _call(server_module: ModuleType, tool_name: str, **kwargs: Any) -> Any:
     result = asyncio.run(server_module.server.call_tool(tool_name, kwargs))
     # CallToolResult.structuredContent carries the dict the tool returned;
     # fall back to parsing the first text content block if structured
@@ -32,7 +34,7 @@ def _call(server_module, tool_name, **kwargs):
     return json.loads(text)
 
 
-def test_create_insert_search_roundtrip(server_module):
+def test_create_insert_search_roundtrip(server_module: ModuleType) -> None:
     m = server_module
     _call(m, "vector_create_collection", name="t1", dim=4)
     r = _call(m, "vector_insert", name="t1", vector=[1.0, 0.0, 0.0, 0.0], metadata={"cat": "a"})
@@ -45,7 +47,7 @@ def test_create_insert_search_roundtrip(server_module):
     assert hits[0]["metadata"] == {"cat": "a"}
 
 
-def test_insert_batch(server_module):
+def test_insert_batch(server_module: ModuleType) -> None:
     m = server_module
     _call(m, "vector_create_collection", name="t2", dim=3)
     r = _call(
@@ -59,7 +61,7 @@ def test_insert_batch(server_module):
     assert r["count"] == 3
 
 
-def test_search_filter(server_module):
+def test_search_filter(server_module: ModuleType) -> None:
     m = server_module
     _call(m, "vector_create_collection", name="t3", dim=2)
     _call(m, "vector_insert_batch", name="t3",
@@ -69,7 +71,7 @@ def test_search_filter(server_module):
     assert {h["id"] for h in hits} == {0, 2}
 
 
-def test_delete_and_vacuum(server_module):
+def test_delete_and_vacuum(server_module: ModuleType) -> None:
     m = server_module
     _call(m, "vector_create_collection", name="t4", dim=2)
     _call(m, "vector_insert_batch", name="t4", vectors=[[1.0, 0.0], [0.0, 1.0]])
@@ -78,7 +80,7 @@ def test_delete_and_vacuum(server_module):
     assert r["vacuumed"] == 1
 
 
-def test_stats_and_list(server_module):
+def test_stats_and_list(server_module: ModuleType) -> None:
     m = server_module
     _call(m, "vector_create_collection", name="t5", dim=2)
     _call(m, "vector_insert", name="t5", vector=[1.0, 2.0])
@@ -89,27 +91,27 @@ def test_stats_and_list(server_module):
     assert "t5" in names
 
 
-def test_create_twice_errors(server_module):
+def test_create_twice_errors(server_module: ModuleType) -> None:
     m = server_module
     _call(m, "vector_create_collection", name="t6", dim=2)
     with pytest.raises(Exception):
         _call(m, "vector_create_collection", name="t6", dim=2)
 
 
-def test_collection_name_traversal_rejected(server_module):
+def test_collection_name_traversal_rejected(server_module: ModuleType) -> None:
     m = server_module
     for bad in ["../etc/passwd", "/etc/passwd", "a/b", "a\x00b", ""]:
         with pytest.raises(ValueError):
             m._safe_path(bad)
 
 
-def test_search_unknown_collection_errors(server_module):
+def test_search_unknown_collection_errors(server_module: ModuleType) -> None:
     m = server_module
     with pytest.raises(Exception):
         _call(m, "vector_search", name="does-not-exist", query=[1.0], k=1)
 
 
-def test_widget_meta_shape_matches_adr(server_module):
+def test_widget_meta_shape_matches_adr(server_module: ModuleType) -> None:
     """Mirrors the live-verified _meta shape in ADR-352 exactly."""
     m = server_module
     tools = asyncio.run(m.server.list_tools())
@@ -120,7 +122,7 @@ def test_widget_meta_shape_matches_adr(server_module):
     assert explore.meta["ui/resourceUri"] == "ui://ruvector/explore.html"
 
 
-def test_widget_resource_readable(server_module):
+def test_widget_resource_readable(server_module: ModuleType) -> None:
     m = server_module
     contents = list(asyncio.run(m.server.read_resource(m._WIDGET_URI)))
     assert len(contents) == 1
@@ -129,7 +131,7 @@ def test_widget_resource_readable(server_module):
     assert "window.openai" in html
 
 
-def test_explore_tool_returns_search_shape(server_module):
+def test_explore_tool_returns_search_shape(server_module: ModuleType) -> None:
     m = server_module
     _call(m, "vector_create_collection", name="t7", dim=2)
     _call(m, "vector_insert", name="t7", vector=[1.0, 0.0], metadata={"cat": "x"})

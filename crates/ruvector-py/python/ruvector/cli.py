@@ -116,7 +116,7 @@ def search(path: str, query_path: str, k: int, filter_json: Optional[str], reran
 @click.option("--path", required=True)
 @click.option("--id", "ids", required=True, multiple=True, type=int, help="Repeatable; id(s) to soft-delete.")
 @click.option("--vacuum", is_flag=True, default=False, help="Also physically rebuild to reclaim space.")
-def delete(path: str, ids: tuple, vacuum: bool) -> None:
+def delete(path: str, ids: "tuple[int, ...]", vacuum: bool) -> None:
     """Soft-delete one or more ids (and optionally vacuum immediately)."""
     from ruvector.collection import Collection
 

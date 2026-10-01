@@ -25,7 +25,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -48,7 +48,7 @@ class SearchHit:
     score: float
     metadata: Optional[Dict[str, Any]] = None
 
-    def __iter__(self):
+    def __iter__(self) -> "Iterator[Union[int, float]]":
         # Keeps `for id, score in coll.search(...)` working for callers who
         # only want the M1 two-tuple shape.
         yield self.id
@@ -78,12 +78,21 @@ class Collection:
     Do not call ``Collection(...)`` directly.
     """
 
+    # Declared at class level (PEP 526) rather than only assigned in
+    # __init__: every constructor path (create/from_vectors/load) sets
+    # these right after calling __init__, and mypy --strict needs the
+    # declaration to exist somewhere unconditional to recognize the
+    # attribute at all on later `coll._dim` reads.
+    _dim: int
+    _rerank_factor: int
+    _seed: int
+
     def __init__(
         self,
         *,
-        _index: RabitqIndex,
+        _index: Optional[RabitqIndex],
         _metadata: Dict[int, Dict[str, Any]],
-        _tombstones: set,
+        _tombstones: "set[int]",
         _next_id: int,
     ) -> None:
         self._index = _index
@@ -103,7 +112,7 @@ class Collection:
         """
         if dim <= 0:
             raise CollectionError("dim must be > 0")
-        coll = cls(_index=None, _metadata={}, _tombstones=set(), _next_id=0)  # type: ignore[arg-type]
+        coll = cls(_index=None, _metadata={}, _tombstones=set(), _next_id=0)
         coll._dim = dim
         coll._rerank_factor = rerank_factor
         coll._seed = seed
@@ -162,7 +171,8 @@ class Collection:
             # round-tripping is still possible. A future M2 Collection can
             # push external ids into the Rust layer directly.
             for row, caller_id in enumerate(ids):
-                meta = dict(metadatas[row]) if metadatas and metadatas[row] else {}
+                row_meta = metadatas[row] if metadatas else None
+                meta: Dict[str, Any] = dict(row_meta) if row_meta else {}
                 meta["_external_id"] = caller_id
                 metadata[row] = meta
         elif metadatas is not None:
@@ -291,13 +301,17 @@ class Collection:
         pred: Optional[Callable[[Dict[str, Any]], bool]]
         if filter is None:
             pred = None
-        elif callable(filter):
-            pred = filter
-        else:
-            filt_dict = dict(filter)
+        elif isinstance(filter, dict):
+            # `isinstance` (not `callable(filter)`) is the branch mypy can
+            # actually narrow a Dict|Callable union on; `callable()` doesn't
+            # exclude Callable from the union in the general case.
+            filt_dict: Dict[str, Any] = dict(filter)
 
             def pred(meta: Dict[str, Any]) -> bool:  # noqa: F811
                 return all(meta.get(key) == val for key, val in filt_dict.items())
+
+        else:
+            pred = filter
 
         tombstones = self._tombstones
         width = k
@@ -327,7 +341,7 @@ class Collection:
 
     def export_live_items(
         self,
-    ) -> List["tuple[int, NDArray[np.float32], Optional[Dict[str, Any]]]"]:
+    ) -> List[Tuple[int, NDArray[np.float32], Optional[Dict[str, Any]]]]:
         """Return ``(id, vector, metadata)`` for every non-tombstoned row,
         sorted by id. Used by the CLI's ``export`` command and by anything
         else that needs a read-only snapshot without reaching into
@@ -362,7 +376,7 @@ class Collection:
     # ── persistence ──────────────────────────────────────────────────────
 
     @staticmethod
-    def meta_path(path: Union[str, os.PathLike]) -> Path:
+    def meta_path(path: Union[str, os.PathLike[str]]) -> Path:
         """Path of the JSON sidecar for a given index path.
 
         **Existence of a collection must be checked against this path, not
@@ -377,7 +391,7 @@ class Collection:
         path = Path(path)
         return path.with_suffix(path.suffix + _META_SUFFIX)
 
-    def save(self, path: Union[str, os.PathLike]) -> None:
+    def save(self, path: Union[str, os.PathLike[str]]) -> None:
         """Save to ``path`` (the ``.rbpx`` index) plus a ``<path>.meta.json``
         sidecar (metadata dict, tombstones, dim/rerank_factor/seed/next_id).
 
@@ -402,7 +416,7 @@ class Collection:
         meta_path.write_text(json.dumps(sidecar))
 
     @classmethod
-    def load(cls, path: Union[str, os.PathLike]) -> "Collection":
+    def load(cls, path: Union[str, os.PathLike[str]]) -> "Collection":
         path = Path(path)
         meta_path = cls.meta_path(path)
         if not meta_path.exists():

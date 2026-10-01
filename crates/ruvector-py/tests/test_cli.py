@@ -5,6 +5,7 @@ CliRunner — real subprocess-free invocations against a tmp_path collection.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -14,18 +15,18 @@ from ruvector.cli import main
 
 
 @pytest.fixture
-def runner():
+def runner() -> CliRunner:
     return CliRunner()
 
 
-def test_help_lists_subcommands(runner):
+def test_help_lists_subcommands(runner: CliRunner) -> None:
     result = runner.invoke(main, ["--help"])
     assert result.exit_code == 0
     for cmd in ["create", "search", "delete", "export", "import", "benchmark", "serve", "info"]:
         assert cmd in result.output
 
 
-def test_create_insert_search_delete_info(runner, tmp_path):
+def test_create_insert_search_delete_info(runner: CliRunner, tmp_path: Path) -> None:
     db = tmp_path / "coll.rbpx"
     r = runner.invoke(main, ["create", "--path", str(db), "--dim", "4"])
     assert r.exit_code == 0, r.output
@@ -66,7 +67,7 @@ def test_create_insert_search_delete_info(runner, tmp_path):
     assert json.loads(r.output)["count"] == 9
 
 
-def test_import_and_export_roundtrip(runner, tmp_path):
+def test_import_and_export_roundtrip(runner: CliRunner, tmp_path: Path) -> None:
     rng = np.random.default_rng(1)
     vecs = rng.standard_normal((5, 3)).astype(np.float32)
     vecs_path = tmp_path / "in.npy"
@@ -84,7 +85,7 @@ def test_import_and_export_roundtrip(runner, tmp_path):
     assert exported.shape == (5, 3)
 
 
-def test_create_twice_fails(runner, tmp_path):
+def test_create_twice_fails(runner: CliRunner, tmp_path: Path) -> None:
     db = tmp_path / "dup.rbpx"
     r1 = runner.invoke(main, ["create", "--path", str(db), "--dim", "2"])
     assert r1.exit_code == 0
@@ -93,14 +94,14 @@ def test_create_twice_fails(runner, tmp_path):
     assert "already exists" in r2.output
 
 
-def test_search_missing_collection_fails(runner, tmp_path):
+def test_search_missing_collection_fails(runner: CliRunner, tmp_path: Path) -> None:
     q = tmp_path / "q.npy"
     np.save(q, np.zeros(4, dtype=np.float32))
     r = runner.invoke(main, ["search", "--path", str(tmp_path / "nope.rbpx"), "--query", str(q)])
     assert r.exit_code != 0
 
 
-def test_benchmark_runs(runner):
+def test_benchmark_runs(runner: CliRunner) -> None:
     r = runner.invoke(main, ["benchmark", "-n", "500", "--dim", "16", "--queries", "20", "--json"])
     assert r.exit_code == 0, r.output
     result = json.loads(r.output)

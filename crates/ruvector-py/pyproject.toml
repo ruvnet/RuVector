@@ -62,6 +62,7 @@ module-name = "ruvector._native"
 include = [
     { path = "python/ruvector/py.typed", format = "wheel" },
     { path = "python/ruvector/__init__.pyi", format = "wheel" },
+    { path = "python/ruvector/_native.pyi", format = "wheel" },
 ]
 
 [tool.pytest.ini_options]

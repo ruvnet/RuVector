@@ -9,28 +9,31 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from numpy.typing import NDArray
 
 from ruvector import Collection, CollectionError
 
+Vectors = NDArray[np.float32]
+
 
 @pytest.fixture
-def rng():
+def rng() -> np.random.Generator:
     return np.random.default_rng(42)
 
 
 @pytest.fixture
-def vectors(rng):
+def vectors(rng: np.random.Generator) -> Vectors:
     return rng.standard_normal((64, 8)).astype(np.float32)
 
 
-def test_from_vectors_basic(vectors):
+def test_from_vectors_basic(vectors: Vectors) -> None:
     coll = Collection.from_vectors(vectors, rerank_factor=10)
     assert len(coll) == 64
     assert coll.stats().dim == 8
     assert coll.stats().tombstoned == 0
 
 
-def test_from_vectors_with_metadata(vectors):
+def test_from_vectors_with_metadata(vectors: Vectors) -> None:
     metas = [{"cat": "a" if i % 2 == 0 else "b"} for i in range(len(vectors))]
     coll = Collection.from_vectors(vectors, metadatas=metas, rerank_factor=10)
     hits = coll.search(vectors[0], 5)
@@ -38,29 +41,29 @@ def test_from_vectors_with_metadata(vectors):
     assert hits[0].metadata == {"cat": "a"}
 
 
-def test_search_returns_self_as_nearest(vectors):
+def test_search_returns_self_as_nearest(vectors: Vectors) -> None:
     coll = Collection.from_vectors(vectors, rerank_factor=10)
     hits = coll.search(vectors[5], 1)
     assert hits[0].id == 5
     assert hits[0].score == pytest.approx(0.0, abs=1e-4)
 
 
-def test_search_dict_filter(vectors):
+def test_search_dict_filter(vectors: Vectors) -> None:
     metas = [{"cat": "a" if i % 2 == 0 else "b"} for i in range(len(vectors))]
     coll = Collection.from_vectors(vectors, metadatas=metas, rerank_factor=10)
     hits = coll.search(vectors[0], 5, filter={"cat": "a"})
     assert len(hits) == 5
-    assert all(h.metadata["cat"] == "a" for h in hits)
+    assert all((h.metadata or {}).get("cat") == "a" for h in hits)
 
 
-def test_search_callable_filter(vectors):
+def test_search_callable_filter(vectors: Vectors) -> None:
     metas = [{"score_tier": i} for i in range(len(vectors))]
     coll = Collection.from_vectors(vectors, metadatas=metas, rerank_factor=10)
     hits = coll.search(vectors[0], 5, filter=lambda m: m.get("score_tier", -1) >= 30)
-    assert all(h.metadata["score_tier"] >= 30 for h in hits)
+    assert all((h.metadata or {}).get("score_tier", -1) >= 30 for h in hits)
 
 
-def test_delete_excludes_from_search(vectors):
+def test_delete_excludes_from_search(vectors: Vectors) -> None:
     coll = Collection.from_vectors(vectors, rerank_factor=10)
     hits = coll.search(vectors[2], 1)
     victim = hits[0].id
@@ -70,7 +73,7 @@ def test_delete_excludes_from_search(vectors):
     assert len(coll) == len(vectors) - 1
 
 
-def test_vacuum_physically_removes(vectors):
+def test_vacuum_physically_removes(vectors: Vectors) -> None:
     coll = Collection.from_vectors(vectors, rerank_factor=10)
     coll.delete(0)
     coll.delete(1)
@@ -80,7 +83,7 @@ def test_vacuum_physically_removes(vectors):
     assert len(coll) == len(vectors) - 2
 
 
-def test_insert_and_insert_batch(vectors, rng):
+def test_insert_and_insert_batch(vectors: Vectors, rng: np.random.Generator) -> None:
     coll = Collection.from_vectors(vectors, rerank_factor=10)
     nid = coll.insert(rng.standard_normal(8).astype(np.float32), metadata={"x": 1})
     assert nid == len(vectors)
@@ -90,7 +93,7 @@ def test_insert_and_insert_batch(vectors, rng):
     assert len(coll) == len(vectors) + 4
 
 
-def test_empty_collection_lazy_build(rng):
+def test_empty_collection_lazy_build(rng: np.random.Generator) -> None:
     coll = Collection.create(dim=8)
     assert len(coll) == 0
     assert coll.search(rng.standard_normal(8).astype(np.float32), 5) == []
@@ -99,7 +102,7 @@ def test_empty_collection_lazy_build(rng):
     assert len(coll) == 1
 
 
-def test_dim_mismatch_raises(vectors, rng):
+def test_dim_mismatch_raises(vectors: Vectors, rng: np.random.Generator) -> None:
     coll = Collection.from_vectors(vectors, rerank_factor=10)
     with pytest.raises(CollectionError):
         coll.insert(rng.standard_normal(9).astype(np.float32))
@@ -107,12 +110,12 @@ def test_dim_mismatch_raises(vectors, rng):
         coll.search(rng.standard_normal(9).astype(np.float32), 1)
 
 
-def test_duplicate_ids_rejected(vectors):
+def test_duplicate_ids_rejected(vectors: Vectors) -> None:
     with pytest.raises(CollectionError):
         Collection.from_vectors(vectors, ids=[0] * len(vectors))
 
 
-def test_save_load_roundtrip(vectors):
+def test_save_load_roundtrip(vectors: Vectors) -> None:
     metas = [{"cat": "a" if i % 2 == 0 else "b"} for i in range(len(vectors))]
     coll = Collection.from_vectors(vectors, metadatas=metas, rerank_factor=10)
     coll.delete(3)
@@ -130,7 +133,7 @@ def test_save_load_roundtrip(vectors):
     assert coll2.get_metadata(0) == {"cat": "a"}
 
 
-def test_save_load_empty_collection():
+def test_save_load_empty_collection() -> None:
     coll = Collection.create(dim=4)
     with tempfile.TemporaryDirectory() as d:
         path = Path(d) / "empty.rbpx"
@@ -139,7 +142,7 @@ def test_save_load_empty_collection():
     assert len(coll2) == 0
 
 
-def test_load_missing_sidecar_raises():
+def test_load_missing_sidecar_raises() -> None:
     with tempfile.TemporaryDirectory() as d:
         path = Path(d) / "nope.rbpx"
         path.write_bytes(b"not a real index")

@@ -24,11 +24,25 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from mcp.server.mcpserver import MCPServer
+from mcp.types import ToolAnnotations
+
+if TYPE_CHECKING:
+    from ruvector.collection import Collection
 
 _NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+
+# mcp>=2's ToolAnnotations are pydantic fields (read_only_hint, not
+# readOnlyHint — the camelCase on the wire, visible in ADR-352's live probe
+# of the starter site, is a pydantic alias). Four reusable instances cover
+# every tool below; building them once keeps `mypy --strict` happy (a bare
+# dict literal doesn't type-check against ToolAnnotations even though
+# pydantic would coerce it at runtime).
+_RO = ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True)
+_WRITE = ToolAnnotations(read_only_hint=False, destructive_hint=False, idempotent_hint=False)
+_DELETE = ToolAnnotations(read_only_hint=False, destructive_hint=True, idempotent_hint=True)
 
 
 def _data_root() -> Path:
@@ -62,12 +76,12 @@ def _safe_path(name: str) -> Path:
 _cache: Dict[str, "Any"] = {}
 
 
-def _load(name: str):
+def _load(name: str) -> "Collection":
     from ruvector.collection import Collection, CollectionError
 
     path = _safe_path(name)
     if name in _cache:
-        return _cache[name]
+        return _cache[name]  # type: ignore[no-any-return]
     if not Collection.meta_path(path).exists():
         raise CollectionError(f"no such collection: {name!r} (create it first with vector_create_collection)")
     coll = Collection.load(path)
@@ -75,7 +89,7 @@ def _load(name: str):
     return coll
 
 
-def _save(name: str, coll) -> None:
+def _save(name: str, coll: "Collection") -> None:
     coll.save(_safe_path(name))
     _cache[name] = coll
 
@@ -96,7 +110,7 @@ server = MCPServer(
 @server.tool(
     name="vector_create_collection",
     description="Create a new empty vector collection.",
-    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False},
+    annotations=_WRITE,
 )
 def vector_create_collection(name: str, dim: int, rerank_factor: int = 20, seed: int = 42) -> Dict[str, Any]:
     from ruvector.collection import Collection
@@ -112,7 +126,7 @@ def vector_create_collection(name: str, dim: int, rerank_factor: int = 20, seed:
 @server.tool(
     name="vector_insert",
     description="Insert one vector (with optional metadata) into a collection.",
-    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False},
+    annotations=_WRITE,
 )
 def vector_insert(name: str, vector: List[float], metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     import numpy as np
@@ -126,7 +140,7 @@ def vector_insert(name: str, vector: List[float], metadata: Optional[Dict[str, A
 @server.tool(
     name="vector_insert_batch",
     description="Insert many vectors (with optional per-row metadata) into a collection.",
-    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False},
+    annotations=_WRITE,
 )
 def vector_insert_batch(
     name: str, vectors: List[List[float]], metadatas: Optional[List[Optional[Dict[str, Any]]]] = None
@@ -142,7 +156,7 @@ def vector_insert_batch(
 @server.tool(
     name="vector_search",
     description="Search a collection for the k nearest neighbours of a query vector, with an optional exact-match metadata filter.",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True},
+    annotations=_RO,
 )
 def vector_search(
     name: str,
@@ -161,7 +175,7 @@ def vector_search(
 @server.tool(
     name="vector_delete",
     description="Soft-delete one id from a collection; optionally vacuum immediately to reclaim space.",
-    annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True},
+    annotations=_DELETE,
 )
 def vector_delete(name: str, id: int, vacuum: bool = False) -> Dict[str, Any]:
     coll = _load(name)
@@ -174,16 +188,18 @@ def vector_delete(name: str, id: int, vacuum: bool = False) -> Dict[str, Any]:
 @server.tool(
     name="vector_stats",
     description="Get stats (count, dim, rerank_factor, memory_bytes, tombstoned) for a collection.",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True},
+    annotations=_RO,
 )
 def vector_stats(name: str) -> Dict[str, Any]:
-    return _load(name).stats().__dict__
+    from dataclasses import asdict
+
+    return asdict(_load(name).stats())
 
 
 @server.tool(
     name="vector_list_collections",
     description="List every collection under the server's data root.",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True},
+    annotations=_RO,
 )
 def vector_list_collections() -> Dict[str, Any]:
     root = _data_root()
@@ -266,7 +282,7 @@ def explore_widget() -> str:
     title="Explore search results",
     description="Run a search and render it in the ruvector explore widget.",
     meta=_WIDGET_META,
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True},
+    annotations=_RO,
 )
 def vector_explore(name: str, query: List[float], k: int = 10) -> Dict[str, Any]:
     return vector_search(name=name, query=query, k=k)
