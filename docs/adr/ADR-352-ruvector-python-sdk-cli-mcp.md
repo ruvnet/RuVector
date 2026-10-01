@@ -221,10 +221,22 @@ docs rather than memory** — findings that changed the plan from what was origi
   grounding/retrieval surface is built to query Data Cloud's own indexed data, not an arbitrary
   external vector database over HTTP. Treating `ruvector` as a literal BYO-retriever backend for
   Data Cloud would have been building against a capability that doesn't exist in the form assumed.
+  **[V, live-fetched, re-confirmed at a later checkpoint]**: SalesforceBen, "Connecting Agentforce
+  to Data Cloud for Grounding With RAG" (published 2026-01-28, updated 2026-01-29) —
+  https://www.salesforceben.com/connecting-agentforce-to-data-cloud-for-grounding-with-rag/ —
+  walks through Custom Retriever setup and the only source options it offers are a Data Space
+  (the org's own Data Cloud instance), a Data Model Object, or a Search Index — all internal to
+  Data Cloud; no external HTTP endpoint or outside vector database appears anywhere in the
+  article's setup flow.
 - **Agentforce does have an MCP client, but it is Beta and gated to specific Agentforce Enterprise
   tiers/orgs** — not a self-service extension point reachable from a plain Salesforce
   Developer/scratch org, and this session has no such org or AE-gated access to verify against
-  even if it tried.
+  even if it tried. **[V, live-fetched]**: Salesforce's own blog, "Agentforce MCP Beta Brings All
+  the Power of Tool Calling, None of the Context Bloat" (published 2026-01-15) —
+  https://www.salesforce.com/blog/agentforce-mcp/ — states the feature is Beta and that joining
+  requires contacting your account executive ("To join the Agentforce MCP beta, reach out to your
+  AE to see if your account qualifies") — i.e. account-level sales qualification, not a
+  self-service toggle any org can enable.
 - **External Services + OpenAPI 3.0 custom actions is the extension point that is actually
   self-service and buildable without special org access** — a standard Salesforce org can register
   an External Service from an OpenAPI document and expose its operations as Agentforce/Flow
@@ -276,13 +288,33 @@ instruction to be explicit about this**:
   AE-tier org access, not built — see the research findings above. This is a scope decision, not a
   silent gap: the primary (External Services/OpenAPI) path is a complete, usable Agentforce
   integration on its own, and nothing about it depends on the MCP option ever landing.
-- **`examples/` metadata files** (Named Credential, External Service reference, if present under
-  `examples/`): any Salesforce metadata XML shapes in this repo are **illustrative, not validated
-  against a real org or the current Salesforce Metadata API schema** — Salesforce's metadata types
-  (especially newer ones like `GenAiFunction`, used for registering agent actions) change across
-  releases, and confirming an exact schema would need either a live Metadata API describe call
-  against a real org or a current Salesforce Metadata API reference fetch, neither of which this
-  session had access to do. Treat these as a starting point for a real deployment, not a ready-to-deploy artifact.
+- **`examples/` metadata files** (Named Credential, External Service Registration, `GenAiFunction`
+  — all under `examples/python-salesforce-agentforce/`): any Salesforce metadata XML shapes in
+  this repo are **illustrative, not validated against a real org or the current Salesforce
+  Metadata API schema** — Salesforce's metadata types (especially newer ones like
+  `GenAiFunction`, used for registering agent actions) change across releases, and confirming an
+  exact schema would need either a live Metadata API describe call against a real org or a
+  current Salesforce Metadata API reference fetch, neither of which this session had access to
+  do. Treat these as a starting point for a real deployment, not a ready-to-deploy artifact.
+  **`GenAiFunction`'s `invocationTargetType` is a literal, uppercase placeholder
+  (`UNCONFIRMED_PLACEHOLDER`), not a real value** — per direction from the coordinating
+  teammate, guessing this value from training-data memory instead of a real org export would
+  misrepresent confidence this session doesn't have. **[V, live-fetched, partial]**: real
+  Salesforce docs (Gearset's deployment guide,
+  https://docs.gearset.com/en/articles/10398666-how-to-deploy-agentforce-agent-action-genaifunction-metadata,
+  and a WebSearch snippet of Salesforce's own metadata reference) confirm `flow` and `slack` as
+  two real, valid `invocationTargetType` values ("the `invocationTarget` and
+  `invocationTargetType` must correspond to a valid target on your org... there must be a `flow`
+  with the name..."), but neither source enumerates the full value set or confirms what value an
+  External-Service-backed action (this integration's actual mechanism) resolves to — Salesforce's
+  own Setup UI most likely assigns that value automatically when an External Service operation is
+  added as an agent action, rather than a developer choosing it directly, which is exactly the
+  "register through the Setup UI, don't hand-author this file" guidance already in this
+  directory's README. The placeholder stays a placeholder; `flow`/`slack` are not substituted in
+  since this integration's target is neither. The file carries an inline comment to the same
+  effect, and the real value must be confirmed against a real org's metadata export (e.g.
+  `sf project retrieve start -m GenAiFunction` against an org with an existing, UI-created
+  function) before this is usable as-is.
 
 ## Security (run this session, results below — not projected)
 

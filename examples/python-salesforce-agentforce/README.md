@@ -55,7 +55,11 @@ verifiable in this session; see the ADR for the research that established this).
 - **Data Cloud "bring your own retriever"** — not applicable; its grounding surface queries
   Data Cloud's own indexed data, not an arbitrary external vector store over HTTP (see the ADR's
   research findings).
-- **A `GenAiFunction` metadata sketch** — deliberately not included. It's a newer metadata type
-  whose exact current XML schema this session could not confirm without a live org or a current
-  Metadata API reference, and fabricating one here would misrepresent confidence this session
-  doesn't have. Register agent actions through the Agentforce Studio UI (step 4 above) instead.
+- **`genAiFunctions/RuVector_Search.genAiFunction-meta.xml`** — included as a sketch per a later
+  design review, with its `invocationTargetType` field left as a literal, commented
+  `UNCONFIRMED_PLACEHOLDER` rather than a guessed value. Real research confirmed `flow` and
+  `slack` as two valid values for this field but could not confirm what an External-Service-backed
+  action resolves to (Salesforce's Setup UI most likely assigns it automatically, which is exactly
+  why step 4 above still says to register through the UI rather than hand-authoring this file for
+  a real deploy). See the file's own header comment and ADR-352's Integrations section for the
+  sources checked.
