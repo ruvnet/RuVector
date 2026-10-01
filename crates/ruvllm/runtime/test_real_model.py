@@ -27,6 +27,7 @@ def test_real_adapter_changes_logits_and_restores_baseline(tmp_path):
     trained = client.post('/microlora/adapt', json=payload, headers=headers)
     assert trained.status_code == 200, trained.text
     receipt = trained.json()
+    assert isinstance(receipt['expires_at'], str)
     directory, metadata = store.resolve(receipt['adapter_handle'], 'tenant', payload['host'], MODEL)
     engine.model.load_adapter(directory / metadata['artifact_path'], adapter_name='proof')
     engine.model.set_adapter('proof')

@@ -1,8 +1,8 @@
-torch==2.8.0
-transformers==4.56.2
-peft==0.17.1
-fastapi==0.117.1
+torch==2.14.1
+transformers==5.18.0
+peft==0.21.1
+fastapi==0.142.2
 uvicorn==0.37.0
-PyJWT[crypto]==2.10.1
-pytest==8.4.2
+PyJWT[crypto]==2.15.1
+pytest==9.0.3
 httpx==0.28.1

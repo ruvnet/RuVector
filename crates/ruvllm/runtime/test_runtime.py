@@ -72,6 +72,8 @@ def test_quote_auth_tenant_and_budget_before_compute(tmp_path, monkeypatch):
     monkeypatch.setenv('MICROLORA_COMPUTE_USD_PER_TOKEN', '0.001')
     auth, private, claims = authority()
     class NeverRun:
+        def validate_evaluation(self, request):
+            return None
         def adapt(self, *args):
             pytest.fail('Budget-denied request executed')
     client = TestClient(create_app(NeverRun(), auth, AdapterStore(tmp_path)))
@@ -127,3 +129,37 @@ def test_weight_tampering_is_denied(tmp_path):
     weight.write_bytes(b'tampered')
     with pytest.raises(HTTPException):
         store.resolve(handle, 'tenant', 'host', MODEL)
+
+
+def test_adapter_capacity_preserves_existing_state(tmp_path):
+    store = AdapterStore(tmp_path, max_adapters=1)
+    handle, directory = store.allocate()
+    with pytest.raises(HTTPException):
+        store.allocate()
+    assert directory.exists()
+
+
+def test_chunked_request_body_is_bounded_before_parser():
+    import asyncio
+    from ruvllm_microlora_runtime.limits import RequestBodyLimit
+    called, sent = [], []
+    async def forbidden(scope, receive, send):
+        called.append(True)
+    chunks = iter([{'type': 'http.request', 'body': b'a' * 65536, 'more_body': True},
+                   {'type': 'http.request', 'body': b'b' * 65537, 'more_body': False}])
+    async def receive():
+        return next(chunks)
+    async def send(message):
+        sent.append(message)
+    asyncio.run(RequestBodyLimit(forbidden)({'type': 'http', 'method': 'POST', 'headers': []}, receive, send))
+    assert not called
+    assert sent[0]['status'] == 413
+
+
+def test_tenant_cannot_exhaust_other_tenants_adapter_capacity(tmp_path):
+    store = AdapterStore(tmp_path)
+    for _ in range(4):
+        store.allocate('tenant-one')
+    with pytest.raises(HTTPException):
+        store.allocate('tenant-one')
+    assert store.allocate('tenant-two')[1].exists()

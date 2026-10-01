@@ -10,16 +10,30 @@ from fastapi import HTTPException
 
 
 class AdapterStore:
-    def __init__(self, root):
+    def __init__(self, root, max_adapters=128):
+        self.max_adapters = max_adapters
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         if self.root.is_symlink() or self.root.stat().st_mode & 0o077:
             raise ValueError('Adapter root must be a private nonsymlink directory')
 
-    def allocate(self):
+    def allocate(self, account="local-test"):
+        owner = hashlib.sha256(account.encode()).hexdigest()
+        # Fail closed at bounded capacity. Expired/incomplete state is retained for
+        # explicit operator maintenance; never delete runtime state automatically.
+        if sum(1 for p in self.root.iterdir() if p.is_dir()) >= self.max_adapters:
+            raise HTTPException(503, 'Adapter capacity reached; operator maintenance required')
+        owned = sum(1 for p in self.root.iterdir() if p.is_dir()
+                    and (p / 'owner').exists() and (p / 'owner').read_text() == owner)
+        if owned >= 4:
+            raise HTTPException(503, 'Tenant adapter capacity reached; operator maintenance required')
         handle = secrets.token_hex(32)
         directory = self.root / handle
         directory.mkdir(mode=0o700)
+        marker = directory / 'owner'
+        with marker.open('x') as out:
+            os.chmod(marker, 0o600)
+            out.write(owner)
         return handle, directory
 
     def publish(self, directory, metadata):

@@ -41,9 +41,10 @@ class Engine:
         finally:
             self.lock.release()
 
-    def adapt(self, request, handle, directory, deadline):
+    def adapt(self, request, allocate, deadline):
         started = time.monotonic()
         with self.execution(deadline):
+            handle, directory = allocate()
             self.model.add_adapter(handle, self.config(request.rank))
             self.model.set_adapter(handle)
             try:
@@ -74,13 +75,20 @@ class Engine:
                 if not changed:
                     raise ValueError('Training produced no changed adapter weights')
                 self.model.save_pretrained(directory, selected_adapters=[handle], safe_serialization=True)
-                return {'training_tokens': tokens, 'training_loss': losses[-1],
+                return handle, directory, {'training_tokens': tokens, 'training_loss': losses[-1],
                         'elapsed_ms': round((time.monotonic() - started) * 1000),
                         'artifact_path': handle}
             finally:
                 self.model.eval()
                 self.model.set_adapter('default')
                 self.model.delete_adapter(handle)
+
+    def validate_evaluation(self, request):
+        prompt = '\n'.join(f'{m.role}: {m.content}' for m in request.messages) + '\nassistant:'
+        batch = self.tokenizer(prompt, return_tensors='pt', truncation=False)
+        if batch.input_ids.shape[1] > PROMPT_TOKENS:
+            raise ValueError('Prompt exceeds 512 tokens')
+        return batch
 
     def complete(self, request, artifact=None, deadline=float("inf")):
         started = time.monotonic()
@@ -92,10 +100,7 @@ class Engine:
             try:
                 self.model.eval()
                 # Same serialization for baseline and candidate; adapter is the only difference.
-                prompt = '\n'.join(f'{m.role}: {m.content}' for m in request.messages) + '\nassistant:'
-                batch = self.tokenizer(prompt, return_tensors='pt', truncation=False)
-                if batch.input_ids.shape[1] > PROMPT_TOKENS:
-                    raise ValueError('Prompt exceeds 512 tokens')
+                batch = self.validate_evaluation(request)
                 with torch.no_grad():
                     if artifact:
                         output = self.model.generate(**batch, max_new_tokens=request.max_tokens,
