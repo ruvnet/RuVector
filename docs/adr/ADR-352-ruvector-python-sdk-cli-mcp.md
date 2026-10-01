@@ -247,10 +247,37 @@ in the new bindings themselves):
   eliminates the collisions. This serializes all tool calls under `--http` (correctness over
   throughput — the right tradeoff for a single vector index, not a high-QPS service); `stdio`
   (the default transport) was never affected, since it's one request at a time regardless.
-- MCP HTTP transport auth (bearer token, matching the live-probed starter site's convention):
-  **not implemented this session** — `ruvector serve --http` currently has no auth. This is a
-  real gap for internet-facing deployment; fine for the localhost/stdio default. Flagged as a
-  concrete M2 follow-up, not silently left implicit.
+- **MCP HTTP transport auth** [V, implemented]: `RUVECTOR_MCP_TOKEN` env var, checked via the
+  SDK's real `token_verifier`/`AuthSettings` mechanism (not a hand-rolled ASGI middleware) —
+  `mcp_server.py`'s `StaticTokenVerifier` compares the bearer token with
+  `hmac.compare_digest` (constant-time). Verified live end-to-end with a real HTTP server and
+  real `curl` requests: no `Authorization` header → `401`; wrong token → `401`; correct token →
+  `200` and the real `initialize` response. Every mutating tool (`vector_create_collection`/
+  `vector_insert`/`vector_insert_batch`/`vector_delete`) additionally calls
+  `_require_write_scope()`, checked against `get_access_token()`'s scopes — verified directly
+  (not just through the HTTP layer) that a read-only-scoped token is rejected, a read+write
+  token passes, and no-auth-configured is a no-op (so stdio/local use is unaffected).
+  **Real finding from reading the SDK source before implementing** (not assumed):
+  `MCPServer.custom_route`'s own docstring says those routes do **not** get this protection —
+  relevant for any future Salesforce Agentforce action mounted that way, which will need its own
+  manual check. If `RUVECTOR_MCP_TOKEN` is unset and `--http` is used anyway, `run_http` prints
+  one unmissable startup warning rather than silently serving unauthenticated — this remaining
+  configuration (no token set) is a real, named gap for that specific deployment choice, not
+  hidden.
+- **Supply-chain finding (not a `ruvector` bug, not fixable by `ruvector`, recorded honestly)**:
+  `pip-audit` on the dev venv after installing the `llamaindex` extra reports **1 vulnerability**:
+  `nltk 3.10.3`, `PYSEC-2026-3740` (a file-sandbox-bypass in `nltk`'s own model-persistence
+  helpers — `TransitionParser`/`AveragedPerceptron`/`PerceptronTagger` APIs that accept a
+  caller-controlled path and bypass `nltk`'s `pathsec` guard). `nltk` is a **direct** dependency
+  of `llama-index-core` (`pip show llama-index-core` lists it), not something `ruvector` adds or
+  could pin around — `pip index versions nltk` shows 3.10.3 is the latest available and the
+  advisory itself states "Patched versions: Not yet patched." `ruvector.integrations.llamaindex`
+  never calls any of the affected APIs (it only uses `llama_index.core.schema`/
+  `vector_stores.types` and `node_to_metadata_dict`/`metadata_dict_to_node` — no model
+  persistence), so this is unreachable through `ruvector`'s own code paths, but it is a real
+  transitive exposure for anyone who runs `pip install ruvector[llamaindex]` and separately uses
+  `llama-index-core`'s own NLP features. Nothing to do here until upstream patches it; recorded
+  so it isn't silently discovered later.
 
 ## Benchmark — M1.5, RabitqPlus backend, random-Gaussian data (superseded as the default; kept for the record)
 

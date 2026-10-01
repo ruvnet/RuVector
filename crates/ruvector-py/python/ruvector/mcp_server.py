@@ -1,4 +1,4 @@
-"""ruvector MCP server (ADR-352 M1.5).
+"""ruvector MCP server (ADR-352).
 
 Built on the official ``mcp`` Python SDK (``mcp.server.mcpserver.MCPServer``,
 mcp>=2.0 — note the v1->v2 rename from ``FastMCP``). Exposes the
@@ -6,7 +6,7 @@ mcp>=2.0 — note the v1->v2 rename from ``FastMCP``). Exposes the
 (``vector_explore``) whose ``_meta`` matches the shape live-verified in
 ADR-352 against ``web-based-chatgpt-mcp-starter.ruv.chatgpt.site/api/mcp``.
 
-Security boundary (ADR-352 "Security"): tool arguments that name a
+Security boundary #1 (ADR-352 "Security"): tool arguments that name a
 collection are **names**, not paths — ``_safe_path`` resolves a name to a
 file under ``RUVECTOR_MCP_DATA_DIR`` (default ``~/.ruvector/collections``)
 and rejects anything that would escape that root (directory traversal,
@@ -17,23 +17,140 @@ Resource reads (the ``ui://`` widget) get the SDK's own
 ``ResourceSecurity(reject_path_traversal=True, reject_absolute_paths=True,
 reject_null_bytes=True)`` for free — that guard is on by default in
 ``MCPServer.__init__``, not something this module has to add.
+
+Security boundary #2 — bearer auth on the ``--http`` transport (closes the
+gap ADR-352 originally left open). **Policy, stated explicitly rather than
+left implicit:**
+
+- If ``RUVECTOR_MCP_TOKEN`` is set, every tool call over ``--http`` must
+  carry ``Authorization: Bearer <token>`` matching it (constant-time
+  compared via :func:`hmac.compare_digest`), enforced by the SDK's own
+  ``token_verifier``/``AuthSettings`` machinery (not a hand-rolled ASGI
+  middleware — see ``StaticTokenVerifier`` below). A request with no token,
+  or the wrong one, is rejected by the SDK before it ever reaches a tool
+  handler.
+- The one token this design supports carries both ``read`` and ``write``
+  scopes (a single shared secret for a single-tenant deployment — this
+  slice does not implement separate reader/writer secrets). Every
+  *mutating* tool (create/insert/insert_batch/delete) additionally calls
+  :func:`_require_write_scope`, which checks the authenticated token's
+  scopes via ``get_access_token()``. This is deliberate defense-in-depth,
+  not redundant: if ``RUVECTOR_MCP_TOKEN`` is unset (no auth configured at
+  all — e.g. local stdio use, or ``--http`` run without a token on
+  purpose), ``get_access_token()`` returns ``None`` and the guard is a
+  no-op, so local/dev use is unaffected either way.
+- If ``RUVECTOR_MCP_TOKEN`` is **not** set and ``--http`` is used anyway,
+  :func:`run_http` prints one prominent, impossible-to-miss startup
+  warning rather than silently serving unauthenticated — this is a real,
+  known gap for that configuration, not something to hide.
+- **`MCPServer.custom_route`-mounted endpoints do NOT get this protection**
+  — the SDK's own docstring for that decorator says so explicitly
+  ("Routes using this decorator will not require authorization"). This
+  module does not currently mount any `custom_route` endpoints, but if a
+  future Salesforce Agentforce action handler is added via that mechanism,
+  it MUST call its own manual check (e.g. reusing
+  ``StaticTokenVerifier.verify_token`` directly against the incoming
+  request's `Authorization` header) rather than assume the MCP-level auth
+  config covers it — confirmed by reading the SDK source, not assumed.
+- ``stdio`` transport (the default) has no HTTP layer at all, so none of
+  this applies there; `auth=`/`token_verifier=` are stored on the server
+  object unconditionally but only consulted when the Starlette ASGI app is
+  built for `--http` — passing them does not change stdio behaviour.
 """
 
 from __future__ import annotations
 
+import hmac
 import os
-import threading
 import re
+import sys
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from mcp.server.auth.middleware.auth_context import get_access_token
+from mcp.server.auth.provider import AccessToken, TokenVerifier
+from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
+from pydantic import AnyHttpUrl
 
 if TYPE_CHECKING:
     from ruvector.collection import Collection
 
 _NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+
+_TOKEN_ENV_VAR = "RUVECTOR_MCP_TOKEN"
+# Self-referential placeholder — this design does not do real OAuth
+# discovery or RFC 8707 resource-indicator validation (our tokens carry no
+# meaningful `aud`/resource claim), so these just need to be syntactically
+# valid AnyHttpUrl values for AuthSettings' schema; `validate_token_resource`
+# is deliberately left at its default (`None`/falsy) so the SDK never tries
+# to enforce a resource match against them.
+_SELF_ISSUER_URL = "http://ruvector.local/"
+
+
+class StaticTokenVerifier(TokenVerifier):
+    """Single-shared-secret ``TokenVerifier``: compares the bearer token
+    against ``RUVECTOR_MCP_TOKEN`` with :func:`hmac.compare_digest`
+    (constant-time, so response timing can't leak how many leading bytes
+    matched). The one valid token carries both ``read`` and ``write``
+    scopes — see this module's docstring for why that's the deliberate
+    scope model for this slice, not an oversight.
+    """
+
+    def __init__(self, expected_token: str) -> None:
+        self._expected = expected_token
+
+    async def verify_token(self, token: str) -> Optional[AccessToken]:
+        if not hmac.compare_digest(token, self._expected):
+            return None
+        return AccessToken(
+            token=token,
+            client_id="ruvector-static-token",
+            scopes=["read", "write"],
+            resource=_SELF_ISSUER_URL,
+        )
+
+
+def _require_write_scope() -> None:
+    """Defense-in-depth guard called at the top of every mutating tool.
+
+    A no-op when no auth is configured at all (``get_access_token()`` is
+    ``None`` on stdio, and on ``--http`` with no ``RUVECTOR_MCP_TOKEN``
+    set) — see this module's docstring for why that's the intended
+    behaviour, not a bypass. When auth IS configured, the SDK's bearer
+    middleware already rejected an unauthenticated or wrong-token request
+    before this tool body ever ran; this check instead guards against a
+    token that authenticated successfully but lacks the ``write`` scope
+    (relevant once a non-``StaticTokenVerifier`` is ever swapped in with a
+    real reader/writer scope split).
+    """
+    token = get_access_token()
+    if token is None:
+        return
+    if "write" not in token.scopes:
+        raise ValueError("this token does not have the 'write' scope required for this operation")
+
+
+def _build_auth() -> "tuple[Optional[StaticTokenVerifier], Optional[AuthSettings]]":
+    expected = os.environ.get(_TOKEN_ENV_VAR)
+    if not expected:
+        return None, None
+    verifier = StaticTokenVerifier(expected)
+    self_url = AnyHttpUrl(_SELF_ISSUER_URL)
+    settings = AuthSettings(
+        issuer_url=self_url,
+        resource_server_url=self_url,
+        # Our StaticTokenVerifier always sets AccessToken.resource to the
+        # same _SELF_ISSUER_URL, so this is safe to enforce (not just
+        # silenced) — it makes the SDK actually check the token's resource
+        # claim against resource_server_url instead of accepting any token
+        # regardless of audience. Explicit per the SDK's own deprecation
+        # warning when this is left unset.
+        validate_token_resource=True,
+    )
+    return verifier, settings
 
 # mcp>=2's ToolAnnotations are pydantic fields (read_only_hint, not
 # readOnlyHint — the camelCase on the wire, visible in ADR-352's live probe
@@ -109,6 +226,8 @@ def _save(name: str, coll: "Collection") -> None:
     _cache[name] = coll
 
 
+_token_verifier, _auth_settings = _build_auth()
+
 server = MCPServer(
     name="ruvector",
     title="RuVector",
@@ -119,6 +238,8 @@ server = MCPServer(
         "with optional exact-match filters, and explore results visually "
         "via vector_explore."
     ),
+    token_verifier=_token_verifier,
+    auth=_auth_settings,
 )
 
 
@@ -130,6 +251,7 @@ server = MCPServer(
 def vector_create_collection(name: str, dim: int, rerank_factor: int = 20, seed: int = 42) -> Dict[str, Any]:
     from ruvector.collection import Collection
 
+    _require_write_scope()
     with _lock:
         path = _safe_path(name)
         if Collection.meta_path(path).exists():
@@ -147,6 +269,7 @@ def vector_create_collection(name: str, dim: int, rerank_factor: int = 20, seed:
 def vector_insert(name: str, vector: List[float], metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     import numpy as np
 
+    _require_write_scope()
     with _lock:
         coll = _load(name)
         new_id = coll.insert(np.asarray(vector, dtype=np.float32), metadata=metadata)
@@ -164,6 +287,7 @@ def vector_insert_batch(
 ) -> Dict[str, Any]:
     import numpy as np
 
+    _require_write_scope()
     with _lock:
         coll = _load(name)
         ids = coll.insert_batch(np.asarray(vectors, dtype=np.float32), metadatas=metadatas)
@@ -197,6 +321,7 @@ def vector_search(
     annotations=_DELETE,
 )
 def vector_delete(name: str, id: int, vacuum: bool = False) -> Dict[str, Any]:
+    _require_write_scope()
     with _lock:
         coll = _load(name)
         coll.delete(id)
@@ -314,7 +439,18 @@ def run_stdio() -> None:
 
 
 def run_http(host: str = "127.0.0.1", port: int = 8420) -> None:
+    if _token_verifier is None:
+        print(
+            f"\n{'!' * 70}\n"
+            f"WARNING: ruvector serve --http is starting WITHOUT authentication.\n"
+            f"Set the {_TOKEN_ENV_VAR} environment variable to require a bearer\n"
+            f"token on every tool call (see ruvector.mcp_server's module docstring\n"
+            f"for the exact policy). Anyone who can reach {host}:{port} can call\n"
+            f"every tool, including inserts and deletes.\n"
+            f"{'!' * 70}\n",
+            file=sys.stderr,
+        )
     server.run(transport="streamable-http", host=host, port=port)
 
 
-__all__ = ["server", "run_stdio", "run_http"]
+__all__ = ["server", "run_stdio", "run_http", "StaticTokenVerifier"]

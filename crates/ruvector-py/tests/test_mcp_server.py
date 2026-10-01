@@ -1,11 +1,12 @@
-"""End-to-end tests for the ruvector MCP server (ADR-352 M1.5): tool round
-trips, the ui:// widget's _meta shape, and the directory-traversal guard on
-collection names.
+"""End-to-end tests for the ruvector MCP server (ADR-352): tool round trips,
+the ui:// widget's _meta shape, the directory-traversal guard on collection
+names, and the bearer-auth policy (ADR-352 "Security boundary #2").
 """
 
 from __future__ import annotations
 
 import asyncio
+import importlib
 import json
 from pathlib import Path
 from types import ModuleType
@@ -175,3 +176,91 @@ def test_concurrent_inserts_do_not_collide(server_module: ModuleType) -> None:
     assert len(set(ids)) == 160, f"id collision: {len(ids) - len(set(ids))} duplicate(s)"
     stats = _call(m, "vector_stats", name="tc")
     assert stats["count"] == 160
+
+
+# ── bearer auth (ADR-352 "Security boundary #2") ────────────────────────────
+
+
+def test_no_token_env_var_means_no_auth_configured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RUVECTOR_MCP_DATA_DIR", str(tmp_path))
+    monkeypatch.delenv("RUVECTOR_MCP_TOKEN", raising=False)
+    import ruvector.mcp_server as m
+
+    importlib.reload(m)
+    verifier, settings = m._build_auth()
+    assert verifier is None
+    assert settings is None
+
+
+def test_token_env_var_builds_a_verifier_and_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RUVECTOR_MCP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("RUVECTOR_MCP_TOKEN", "test-secret")
+    import ruvector.mcp_server as m
+
+    importlib.reload(m)
+    verifier, settings = m._build_auth()
+    assert verifier is not None
+    assert settings is not None
+    assert settings.validate_token_resource is True
+
+
+def test_static_token_verifier_accepts_correct_token_only() -> None:
+    # No pytest-asyncio dependency in this package - run the coroutine the
+    # same way `_call()` above already does for async MCP calls.
+    import ruvector.mcp_server as m
+
+    verifier = m.StaticTokenVerifier("correct-token")
+    ok = asyncio.run(verifier.verify_token("correct-token"))
+    assert ok is not None
+    assert set(ok.scopes) == {"read", "write"}
+
+    bad = asyncio.run(verifier.verify_token("wrong-token"))
+    assert bad is None
+
+
+def test_require_write_scope_blocks_read_only_token(server_module: ModuleType) -> None:
+    from mcp.server.auth.middleware.auth_context import (  # type: ignore[attr-defined]
+        AuthenticatedUser,
+        auth_context_var,
+    )
+    from mcp.server.auth.provider import AccessToken
+
+    m = server_module
+    token = AuthenticatedUser(auth_info=AccessToken(token="x", client_id="c", scopes=["read"]))
+    reset_token = auth_context_var.set(token)
+    try:
+        with pytest.raises(ValueError, match="write"):
+            m._require_write_scope()
+    finally:
+        auth_context_var.reset(reset_token)
+
+
+def test_require_write_scope_allows_write_scoped_token(server_module: ModuleType) -> None:
+    from mcp.server.auth.middleware.auth_context import (  # type: ignore[attr-defined]
+        AuthenticatedUser,
+        auth_context_var,
+    )
+    from mcp.server.auth.provider import AccessToken
+
+    m = server_module
+    token = AuthenticatedUser(auth_info=AccessToken(token="x", client_id="c", scopes=["read", "write"]))
+    reset_token = auth_context_var.set(token)
+    try:
+        m._require_write_scope()  # must not raise
+    finally:
+        auth_context_var.reset(reset_token)
+
+
+def test_require_write_scope_is_a_noop_with_no_auth_context(server_module: ModuleType) -> None:
+    from mcp.server.auth.middleware.auth_context import auth_context_var
+
+    m = server_module
+    reset_token = auth_context_var.set(None)
+    try:
+        m._require_write_scope()  # must not raise - no auth configured at all
+    finally:
+        auth_context_var.reset(reset_token)
