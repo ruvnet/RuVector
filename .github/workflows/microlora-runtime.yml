@@ -1,0 +1,74 @@
+name: MicroLoRA Runtime
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'crates/ruvllm/runtime/**'
+      - '.github/workflows/microlora-runtime.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/ruvllm/runtime/**'
+      - '.github/workflows/microlora-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    name: CPU adapter proof and dependency audit
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    env:
+      MICROLORA_REAL_MODEL_TEST: '1'
+      HF_HUB_DISABLE_XET: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Install locked CPU runtime
+        run: |
+          python -m pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-deps -r crates/ruvllm/runtime/requirements.lock
+          python -m pip install --no-deps -e crates/ruvllm/runtime
+          python -m pip check
+      - name: Verify authorization, storage limits, and real pretrained adapters
+        run: |
+          python -m pytest -q -s \
+            crates/ruvllm/runtime/test_runtime.py \
+            crates/ruvllm/runtime/test_real_model.py \
+            --junitxml=runtime-tests.xml
+      - name: Audit pinned dependencies including canonical CPU torch
+        run: |
+          python -m venv "$RUNNER_TEMP/microlora-audit"
+          "$RUNNER_TEMP/microlora-audit/bin/pip" install pip-audit==2.9.0
+          python - <<'PY'
+          from pathlib import Path
+          locked = Path('crates/ruvllm/runtime/requirements.lock').read_text()
+          # Advisories index canonical torch, not the official CPU wheel suffix.
+          assert locked.count('torch==2.14.1+cpu') == 1
+          Path('runtime-audit.lock').write_text(locked.replace('torch==2.14.1+cpu', 'torch==2.14.1'))
+          PY
+          "$RUNNER_TEMP/microlora-audit/bin/pip-audit" \
+            --requirement runtime-audit.lock --no-deps --disable-pip \
+            --format json --output runtime-audit.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('runtime-audit.json').read_text())
+          assert len(report['dependencies']) == 52
+          assert all('skip_reason' not in d and not d.get('vulns') for d in report['dependencies'])
+          PY
+      - name: Preserve test and audit evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: microlora-runtime-evidence
+          path: |
+            runtime-tests.xml
+            runtime-audit.json
+          if-no-files-found: error
+          retention-days: 14
