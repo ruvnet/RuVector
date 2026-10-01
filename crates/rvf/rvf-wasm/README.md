@@ -47,7 +47,7 @@ In-memory store operations for creating and querying `.rvf` data without filesys
 | Export | Description |
 |--------|-------------|
 | `rvf_store_create(dim, metric) -> handle` | Create in-memory store |
-| `rvf_store_open(buf_ptr, buf_len) -> handle` | Parse `.rvf` bytes into queryable store |
+| `rvf_store_open(buf_ptr, buf_len) -> handle` | Parse complete `.rvf` segments into a queryable store; returns `-1` for malformed input or no Vec segment |
 | `rvf_store_ingest(handle, vecs, ids, count)` | Add vectors |
 | `rvf_store_query(handle, query, k, metric, out)` | k-NN search |
 | `rvf_store_delete(handle, ids, count)` | Soft-delete by ID |
@@ -66,7 +66,7 @@ Parse and inspect `.rvf` file structure from raw bytes:
 | `rvf_parse_header(buf, len, out)` | Parse a 64-byte segment header |
 | `rvf_segment_count(buf, len)` | Count segments in buffer |
 | `rvf_segment_info(buf, len, idx, out)` | Get segment details by index |
-| `rvf_verify_checksum(buf, len)` | Verify CRC32C integrity |
+| `rvf_verify_checksum(buf, len)` | Check a CRC32C trailer on arbitrary data (`1` = match, `0` = mismatch, `-1` = too short); this does not verify an RVF segment header's `content_hash` |
 
 ### Witness Chain Verification (2 exports)
 
