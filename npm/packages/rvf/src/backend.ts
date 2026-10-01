@@ -825,7 +825,8 @@ export class WasmBackend implements RvfBackend {
       // Each result = 8 bytes id + 4 bytes dist = 12 bytes
       const outSize = k * 12;
       const outPtr = this.wasm.rvf_alloc(outSize);
-      const count = this.wasm.rvf_store_query(this.handle, queryPtr, k, 0, outPtr);
+      // A negative override selects the metric recorded on the WASM store; zero forces L2.
+      const count = this.wasm.rvf_store_query(this.handle, queryPtr, k, -1, outPtr);
       const results: RvfSearchResult[] = [];
       const view = new DataView(this.wasm.memory.buffer);
       for (let i = 0; i < count; i++) {
