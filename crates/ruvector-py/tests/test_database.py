@@ -196,8 +196,9 @@ def test_metrics(metric):
         assert result[0].score < result[1].score
 
 
-def test_persistence_in_fresh_process(tmp_path):
-    path = tmp_path / "nested" / "data.redb"
+@pytest.mark.parametrize("directory", ["nested", "nested folder 記憶"])
+def test_persistence_in_fresh_process(tmp_path, directory):
+    path = tmp_path / directory / "data.redb"
     hnsw = HNSWConfig(m=8, ef_search=64, ef_construction=64, max_elements=128)
     with VectorDB(3, path=path, distance_metric="euclidean", hnsw=hnsw) as db:
         db.insert_batch(

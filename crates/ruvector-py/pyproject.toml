@@ -17,7 +17,7 @@ classifiers = ["Programming Language :: Python :: 3", "Programming Language :: R
 dev = ["pytest>=8", "ruff>=0.15", "mypy>=1.15", "build>=1"]
 
 [tool.maturin]
-exclude = ["dist/**", "**/dist/**", "**/rebuilt/**", "**/__pycache__/**", "**/*.pyc", "python/**/*.so"]
+exclude = ["dist/**", "**/dist/**", "**/rebuilt/**", "**/__pycache__/**", "**/*.pyc", "python/**/*.so", "python/**/*.pyd", "python/**/*.dylib"]
 python-source = "python"
 module-name = "ruvector._native"
 features = ["pyo3/extension-module"]

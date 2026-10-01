@@ -12,7 +12,7 @@ Nothing is published to PyPI by this change.
 
 ## Install
 
-A supplied Linux x86_64 wheel installs without Rust:
+A supplied wheel matching your operating system and architecture installs without Rust:
 
 ```sh
 python -m pip install dist/ruvector_python-0.1.0-*.whl
@@ -28,8 +28,10 @@ Run source builds from this directory in a RuVector checkout. They require Rust/
 access to fetch Cargo/build dependencies. The source distribution includes the required local Cargo dependencies;
 builds do not clone RuVector. There are no vendored copies in this source tree.
 Dependencies are pinned in Cargo.lock. Wheels use CPython's abi3 (3.10+) API.
-The tested wheel targets Linux x86_64/glibc >=2.34; macOS, Windows, ARM and other Python
-versions require separate verification. Free-threaded Python and PyPy are not
+Locally tested wheels target Linux x86_64/glibc >=2.34 and macOS ARM64 (abi3,
+macosx_11_0_arm64). The Mac wheel passed on CPython 3.10, 3.13 and 3.14 on macOS 27.
+Dedicated CI also covers macOS ARM64/Intel and Windows x86_64; consult
+[verification evidence](docs/VERIFICATION.md) for completed results. Free-threaded Python and PyPy are not
 supported claims.
 
 ## Use
@@ -128,6 +130,11 @@ python -m build --sdist --no-isolation --outdir dist
 ```
 
 Test details and platform limitations are recorded in docs/VERIFICATION.md.
+Release builds explicitly disable stripping to avoid the Mach-O string-pool
+alignment defect reproduced with the macOS 27 toolchain
+([rust-lang/rust#157750](https://github.com/rust-lang/rust/issues/157750)).
+Do not override this with Cargo stripping or maturin `--strip` on affected toolchains.
+
 The binding is a standalone Cargo workspace, explicitly excluded from the parent
 workspace so default Rust builds do not require Python.
 `.github/workflows/python-bindings.yml` runs its native and packaging checks.

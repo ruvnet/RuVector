@@ -5,7 +5,7 @@
 An experimental native VectorDB interface now lives in
 [`crates/ruvector-py`](../../crates/ruvector-py/README.md). It wraps the existing
 core's HNSW, storage and metadata APIs, with real-native tests and dedicated
-Linux CI. This is a narrower scope than the RaBitQ/ruLake roadmap below; those
+Linux/macOS/Windows CI. This is a narrower scope than the RaBitQ/ruLake roadmap below; those
 milestones remain future work. The survey statements below describe the original
 2026-04-25 planning snapshot.
 

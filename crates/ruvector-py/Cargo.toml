@@ -27,6 +27,9 @@ hnsw_rs = { path = "../../patches/hnsw_rs" }
 [profile.release]
 opt-level = 3
 lto = "thin"
+# macOS 27 rejects Mach-O string pools misaligned by debug-info stripping.
+# Keep Cargo from implicitly stripping release dylibs (rust-lang/rust#157750).
+strip = "none"
 
 # Keep optional Python tooling out of default workspace builds; CI is dedicated.
 [workspace]

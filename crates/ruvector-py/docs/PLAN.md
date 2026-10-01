@@ -62,7 +62,9 @@ It depends directly on `../ruvector-core` and patches `hnsw_rs` to
 the existing upstream patch. No existing Rust source is copied or changed in the PR.
 The separate Cargo.lock pins the Python binding's dependency graph without
 changing the default workspace lockfile or requiring Python in default builds.
-Dedicated Linux CI checks Python 3.10 and 3.13, native tests and wheel/sdist builds.
+Dedicated CI checks Python 3.10 and 3.13 on Linux x86_64, macOS ARM64 and
+Windows x86_64, plus Python 3.13 on macOS Intel. Every job runs native tests,
+static checks, wheel installation and an offline out-of-checkout sdist rebuild.
 
 The PEP 517 backend delegates wheel/editable builds to maturin. Its small
 source hook supplements maturin's path-dependency archive with the existing

@@ -29,18 +29,40 @@ concurrency:
 
 jobs:
   native:
-    name: Native Python ${{ matrix.python }}
-    runs-on: ubuntu-22.04
+    name: Native Python ${{ matrix.python }} (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.10', '3.13']
+        include:
+          - os: ubuntu-22.04
+            platform: linux-x86_64
+            python: '3.10'
+          - os: ubuntu-22.04
+            platform: linux-x86_64
+            python: '3.13'
+          - os: macos-15
+            platform: macos-arm64
+            python: '3.10'
+          - os: macos-15
+            platform: macos-arm64
+            python: '3.13'
+          - os: macos-15-intel
+            platform: macos-x86_64
+            python: '3.13'
+          - os: windows-2022
+            platform: windows-x86_64
+            python: '3.10'
+          - os: windows-2022
+            platform: windows-x86_64
+            python: '3.13'
     env:
       CARGO_TARGET_DIR: ${{ github.workspace }}/target/python
       CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
     defaults:
       run:
+        shell: bash
         working-directory: crates/ruvector-py
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -56,30 +78,31 @@ jobs:
       - name: Create isolated Python environment
         run: |
           python -m venv .venv
-          .venv/bin/pip install 'maturin>=1.13,<2' pytest ruff mypy build
-          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+          python -c 'import os, pathlib; p = pathlib.Path(".venv") / ("Scripts" if os.name == "nt" else "bin"); print(p.resolve())' >> "$GITHUB_PATH"
+      - name: Install build and test tools
+        run: python -m pip install 'maturin>=1.13,<2' pytest ruff mypy build
       - name: Python lint, types and Rust checks
         run: |
-          .venv/bin/ruff check python tests examples scripts
-          .venv/bin/ruff format --check python tests examples scripts
-          .venv/bin/mypy
+          python -m ruff check python tests examples scripts
+          python -m ruff format --check python tests examples scripts
+          python -m mypy
           cargo fmt --check
           cargo clippy --locked --all-targets -- -D warnings
       - name: Build and test installed native wheel
         run: |
-          .venv/bin/maturin build --release --locked -i .venv/bin/python --out dist
-          .venv/bin/pip install --no-deps dist/*.whl
-          .venv/bin/python -m pytest -q
-          .venv/bin/python examples/basic.py
-          .venv/bin/python examples/batch.py
+          python -m maturin build --release --locked -i python --out dist
+          python -m pip install --no-deps dist/*.whl
+          python -m pytest -q
+          python examples/basic.py
+          python examples/batch.py
       - name: Build and test source distribution outside checkout
         run: |
-          .venv/bin/python -m build --sdist --no-isolation --outdir dist
-          CARGO_NET_OFFLINE=true .venv/bin/pip wheel --no-deps --no-build-isolation dist/*.tar.gz --wheel-dir rebuilt
-          .venv/bin/pip install --no-deps --force-reinstall rebuilt/*.whl
-          .venv/bin/python -m pytest -q
+          python -m build --sdist --no-isolation --outdir dist
+          CARGO_NET_OFFLINE=true python -m pip wheel --no-deps --no-build-isolation dist/*.tar.gz --wheel-dir rebuilt
+          python -m pip install --no-deps --force-reinstall rebuilt/*.whl
+          python -m pytest -q
       - name: Preserve build artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: python-bindings-${{ matrix.python }}-linux-x86_64
+          name: python-bindings-${{ matrix.python }}-${{ matrix.platform }}
           path: crates/ruvector-py/dist/*
