@@ -217,7 +217,7 @@ the RVF/ruLake integration work that M2 correctly scopes as multi-week.
   real gap for internet-facing deployment; fine for the localhost/stdio default. Flagged as a
   concrete M2 follow-up, not silently left implicit.
 
-## Benchmark (real numbers, this session, this host)
+## Benchmark — M1.5, RabitqPlus backend, random-Gaussian data (superseded as the default; kept for the record)
 
 Host: 32-core x86_64, 123 GiB RAM (`nproc` / `free -h`). `hnswlib==0.8.0` installed fresh via
 `uv pip install hnswlib` (needed `sudo apt-get install -y libomp-dev` first — no prebuilt wheel
@@ -270,6 +270,68 @@ bytes/vector at dim=128, dominated by the stored f32 originals in both).
 dataset (e.g. SIFT1M or a MiniLM-embedded text corpus once M3 ships) where RaBitQ's quantization
 has actual angular structure to exploit, and extend to recall@10 ≥ 0.95 for both to find the
 genuine crossover point rather than reading two unmatched curves.
+
+## Benchmark — M2, HnswIndex backend (now the default), real embeddings
+
+Per rUv's follow-up asking for both the HNSW-backed default *and* a real-embedding re-benchmark
+(the random-Gaussian section above flagged its own worst-case-workload caveat). Dataset: 10,000
+documents from `sklearn.datasets.fetch_20newsgroups` (train split, headers/footers/quotes
+stripped, real English text), embedded with `all-MiniLM-L6-v2` (CPU, `sentence-transformers`) to
+384-dim — 64.4 s one-time embedding cost, not counted in any latency number below. k=10, 200
+queries, cosine distance, exact-cosine brute force as ground truth. `m=16, ef_construction=200`
+fixed; `ef_search` swept at 50/100/200 on both sides via identical construction parameters.
+
+**Two real implementation bugs found and fixed while investigating why the first run of this
+benchmark looked suspiciously slow, per a second advisor review — not hypothetical, both
+verified against the actual `ruvector-core`/`hnsw_rs` source:**
+
+1. **A per-call `ef_search` override on `HnswIndex.search()` silently did nothing.**
+   `SearchQuery.ef_search` exists on the Rust struct, but `VectorDB::search` (`vector_db.rs`)
+   never reads it — it calls the generic `VectorIndex::search(&self, query, k)` trait method,
+   which has no `ef` parameter at all; `HnswIndex`'s trait impl always uses
+   `self.config.ef_search`, fixed at construction. Removed the misleading parameter from
+   `HnswIndex.search()` rather than ship a kwarg that does nothing — `ef_search` is
+   construction-time-only (`HnswIndex.create(..., ef_search=...)`), documented in both the Rust
+   doc comment and the `.pyi` stub. (The benchmark's three `ef_search` rows were still valid —
+   each used a freshly-constructed index with that `ef_search`, not the dead per-call path —
+   but the parameter needed to go.)
+2. **`Collection.search()` over-fetched `k * overfetch` (4x) candidates from Rust on every
+   unfiltered search**, even with `filter=None` — the widen-on-undersupply loop has no reason to
+   run at all when there's nothing to widen for. Added a fast path: `filter is None` now calls
+   `HnswIndex.search(qvec, k, filter=None)` for exactly `k`, matching what `hnswlib` is asked
+   for. Measured effect at `ef_search=50`: p50 0.304 ms → 0.252 ms (~17% faster) — real, but not
+   the dominant cost.
+3. **(Found, not fixed — a real bug in a vendored dependency, fixed instead):**
+   `patches/hnsw_rs/src/hnsw.rs` had a hardcoded `println!` to stdout every 50,000 points
+   inserted. This corrupts any consumer that frames a protocol over stdout — exactly what
+   `ruvector serve` (stdio MCP transport) does. Removed the `println!` (an adjacent `trace!`
+   already logs the identical message through the `log` facade, which a caller can opt into via
+   a subscriber instead of inheriting a hardcoded stdout write). Verified with a 60,000-vector
+   `insert_batch` producing zero stray stdout lines before the fix would have printed one.
+
+| ef_search | ruvector p50 (ms) | ruvector QPS | hnswlib p50 (ms) | hnswlib QPS | recall@10 (both) | gap |
+|---|---|---|---|---|---|---|
+| 50 | 0.252 | 3,854 | 0.035 | 28,104 | 0.999 / 0.999 | ~7.2x |
+| 100 | 0.391 | 2,388 | 0.059 | 16,758 | 1.0 / 1.0 | ~6.6x |
+| 200 | 0.611 | 1,514 | 0.108 | 9,057 | 1.0 / 1.0 | ~5.7x |
+
+**Honest read.** On real text embeddings (not the adversarial random-Gaussian workload above),
+recall is essentially identical between the two at matched `m`/`ef_construction`/`ef_search` —
+the algorithm is doing the same job either way. The latency gap narrowed (8.6x → ~5.7-7.2x) after
+fixing bug #2 but did **not** close, and that residual is structural, not a bug: `HnswIndex.search`
+copies the query into an owned `Vec<f32>` (`SearchQuery.vector` is `Vec<f32>`, not a borrow) and
+constructs a Python dict per hit (`json_map_to_py`) even when the caller discards the metadata —
+costs `hnswlib`'s bare-`labels`-array return doesn't pay. Separating "how much is PyO3/marshaling
+overhead" from "how much is `hnsw_rs` itself being slower than `hnswlib`'s tuned C++" needs
+profiling that wasn't done this session — stated as a gap, not guessed at. A batched `search_many`
+entry point (amortizing the per-call marshaling over N queries) is the obvious next lever and is
+not implemented.
+
+Build time still favors ruvector at this n (0.28-0.32 s vs hnswlib's 0.08 s is actually a
+**loss** here, inverted from the random-Gaussian section above — small-n HNSW construction is
+cheap for both, and `VectorDB`'s per-insert storage-layer overhead (the in-memory `MemoryStorage`
+path, still exercised even though nothing is written to disk) shows up at this n where graph
+construction itself is not the bottleneck).
 
 ## Publishing prep (verified; not executed — out of scope per task boundary)
 

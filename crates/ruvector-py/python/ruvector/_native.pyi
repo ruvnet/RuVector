@@ -151,11 +151,14 @@ class HnswIndex:
         k: int,
         *,
         filter: Optional[Dict[str, Any]] = ...,
-        ef_search: Optional[int] = ...,
     ) -> List[Tuple[str, float, Optional[Dict[str, Any]]]]:
         """``filter`` is an exact-match dict, applied in Rust as a
         post-ANN-search retain (not pushed into the HNSW graph traversal
         itself — see the Rust module docstring for the precise claim).
+
+        No per-call ``ef_search``: tune it at :meth:`create` time — see
+        ``src/hnsw.rs``'s doc comment on this method for why a per-call
+        override isn't offered (``VectorDB::search`` never reads one).
         """
         ...
 

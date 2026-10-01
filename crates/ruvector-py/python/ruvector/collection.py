@@ -399,11 +399,21 @@ class Collection:
         overfetch: int,
     ) -> List[SearchHit]:
         assert isinstance(self._index, HnswIndex)
+        if filter is None:
+            # Fast path: nothing to widen for. The overfetch loop below
+            # exists only because VectorDB's own filter has no overfetch
+            # for selectivity (a selective filter can return fewer than k
+            # from one call) - with no filter at all, asking Rust for
+            # `k * overfetch` candidates on every unfiltered search would
+            # be pure waste (this was a real perf bug, caught while
+            # investigating a benchmark number that looked too slow - see
+            # ADR-352's benchmark section).
+            raw = self._index.search(qvec, k, filter=None)
+            return [SearchHit(id=int(i), score=s, metadata=m) for i, s, m in raw]
+
         rust_filter: Optional[Dict[str, Any]]
         py_pred: Optional[Callable[[Dict[str, Any]], bool]]
-        if filter is None:
-            rust_filter, py_pred = None, None
-        elif isinstance(filter, dict):
+        if isinstance(filter, dict):
             rust_filter, py_pred = dict(filter), None
         else:
             rust_filter, py_pred = None, filter

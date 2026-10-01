@@ -265,14 +265,24 @@ impl HnswIndex {
     /// restricted by an exact-match `filter` dict (applied in Rust —
     /// see this module's docstring for the "bolt-on, not in-traversal"
     /// caveat). Returns `(id, score, metadata)` tuples.
-    #[pyo3(signature = (query, k, *, filter = None, ef_search = None))]
+    ///
+    /// No per-call `ef_search` override: `SearchQuery.ef_search` exists on
+    /// the Rust struct but `VectorDB::search` never reads it — it calls
+    /// the generic `VectorIndex::search(&self, query, k)` trait method,
+    /// which has no ef parameter at all; `HnswIndex`'s impl always uses
+    /// `self.config.ef_search`, fixed at construction (`HnswIndex::create`'s
+    /// `ef_search` kwarg). Found this by reading `vector_db.rs::search`
+    /// after a benchmark result looked suspicious — exposing a per-call
+    /// kwarg that silently does nothing would be worse than not having
+    /// one, so it isn't here. Tune `ef_search` by constructing with the
+    /// value you want.
+    #[pyo3(signature = (query, k, *, filter = None))]
     fn search<'py>(
         &self,
         py: Python<'py>,
         query: PyReadonlyArray1<'_, f32>,
         k: usize,
         filter: Option<&Bound<'_, PyDict>>,
-        ef_search: Option<usize>,
     ) -> PyResult<Vec<SearchHit<'py>>> {
         if !query.is_c_contiguous() {
             return Err(PyTypeError::new_err(
@@ -288,7 +298,7 @@ impl HnswIndex {
             vector: q,
             k,
             filter: filt,
-            ef_search,
+            ef_search: None,
         };
         let results = py.detach(|| self.inner.search(sq)).map_err(to_pyerr_core)?;
         results
