@@ -232,9 +232,9 @@ function safeRequire(modulePath) {
   return null;
 }
 
-const router = safeRequire(path.join(helpersDir, 'router.js'));
-const session = safeRequire(path.join(helpersDir, 'session.js'));
-const memory = safeRequire(path.join(helpersDir, 'memory.js'));
+const router = safeRequire(path.join(helpersDir, 'router.cjs'));
+const session = safeRequire(path.join(helpersDir, 'session.cjs'));
+const memory = safeRequire(path.join(helpersDir, 'memory.cjs'));
 const intelligence = safeRequire(path.join(helpersDir, 'intelligence.cjs'));
 
 // ── Intelligence timeout protection (fixes #1530, #1531) ───────────────────
@@ -587,9 +587,23 @@ const handlers = {
 
 // Hooks must ALWAYS exit 0 — Claude Code treats non-zero as "hook error"
 // and skips all subsequent hooks for the event.
-process.exitCode = 0;
-main().catch((e) => {
-  try { console.log(`[WARN] Hook handler error: ${e.message}`); } catch (_) {}
-}).finally(() => {
-  process.exit(0);
-});
+//
+// Only dispatch when run directly (node hook-handler.cjs <cmd>). When
+// require()'d by a test, expose the internals instead of reading stdin and
+// calling process.exit — the 2026-06-15 fix (cb1e93e8d) added this guard and
+// the exports for tests/hook-handler-runwithtimeout.test.cjs; the 2026-07-04
+// helper sync (a5f86ad0a) dropped both, so the test died with
+// "runWithTimeout is not a function" once the Test Suite job ran again.
+if (require.main === module) {
+  process.exitCode = 0;
+  main().catch((e) => {
+    try { console.log(`[WARN] Hook handler error: ${e.message}`); } catch (_) {}
+  }).finally(() => {
+    process.exit(0);
+  });
+}
+
+// Which sibling helpers loaded (all CommonJS, shipped as .cjs — #3555).
+const loadedHelpers = { router: !!router, session: !!session, memory: !!memory, intelligence: !!intelligence };
+
+module.exports = { runWithTimeout, INTELLIGENCE_TIMEOUT_MS, loadedHelpers };
