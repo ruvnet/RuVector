@@ -242,6 +242,107 @@ impl RabitqIndex {
         self.inner.rerank_factor() as u32
     }
 
+    /// Add one vector to the index in place. Unlike `build`, this is a true
+    /// incremental append (`ruvector_rabitq::RabitqPlusIndex::add` pushes one
+    /// row into the SoA storage, no full rebuild) — see
+    /// `crates/ruvector-rabitq/src/index.rs` `impl AnnIndex for
+    /// RabitqPlusIndex`. Exposed so `ruvector.Collection.insert` (Python
+    /// layer, `python/ruvector/collection.py`) doesn't have to rebuild the
+    /// whole index on every insert.
+    ///
+    /// Not GIL-released: a single-row add is dominated by the
+    /// release/reacquire cost itself (same call made for `RabitqPlusIndex.add`
+    /// in `docs/sdk/02-strategy.md`'s GIL table). Use `add_batch` for bulk
+    /// inserts, which does release the GIL.
+    fn add(&mut self, id: u32, vector: PyReadonlyArray1<'_, f32>) -> PyResult<()> {
+        if !vector.is_c_contiguous() {
+            return Err(PyTypeError::new_err(
+                "vector must be C-contiguous; pass np.ascontiguousarray(...) first",
+            ));
+        }
+        let v = vector.as_slice()?;
+        if v.len() != self.inner.dim() {
+            return Err(PyValueError::new_err(format!(
+                "dimension mismatch: index dim={}, vector dim={}",
+                self.inner.dim(),
+                v.len()
+            )));
+        }
+        self.inner
+            .add(id as usize, v.to_vec())
+            .map_err(to_pyerr)?;
+        Ok(())
+    }
+
+    /// Add many vectors at once. Releases the GIL around the whole loop —
+    /// this is the bulk-insert path `Collection.insert_batch` should prefer.
+    #[pyo3(signature = (ids, vectors))]
+    fn add_batch(
+        &mut self,
+        py: Python<'_>,
+        ids: PyReadonlyArray1<'_, u64>,
+        vectors: PyReadonlyArray2<'_, f32>,
+    ) -> PyResult<()> {
+        if !vectors.is_c_contiguous() {
+            return Err(PyTypeError::new_err(
+                "vectors must be C-contiguous; pass np.ascontiguousarray(...) first",
+            ));
+        }
+        let shape = vectors.shape();
+        if shape.len() != 2 {
+            return Err(PyValueError::new_err(format!(
+                "vectors must be 2D, got {}D",
+                shape.len()
+            )));
+        }
+        let (n, dim) = (shape[0], shape[1]);
+        if ids.len() != n {
+            return Err(PyValueError::new_err(format!(
+                "ids length ({}) must match vectors row count ({})",
+                ids.len(),
+                n
+            )));
+        }
+        if dim != self.inner.dim() {
+            return Err(PyValueError::new_err(format!(
+                "dimension mismatch: index dim={}, vectors dim={}",
+                self.inner.dim(),
+                dim
+            )));
+        }
+        let ids_slice = ids.as_slice()?.to_vec();
+        let vecs_slice = vectors.as_slice()?;
+        let rows: Vec<(usize, Vec<f32>)> = (0..n)
+            .map(|i| {
+                (
+                    ids_slice[i] as usize,
+                    vecs_slice[i * dim..(i + 1) * dim].to_vec(),
+                )
+            })
+            .collect();
+
+        py.detach(|| -> ruvector_rabitq::error::Result<()> {
+            for (id, v) in rows {
+                self.inner.add(id, v)?;
+            }
+            Ok(())
+        })
+        .map_err(to_pyerr)?;
+        Ok(())
+    }
+
+    /// Export every `(id, vector)` pair currently held. Used by
+    /// `Collection.vacuum()` to physically drop tombstoned rows by rebuilding
+    /// without them (the underlying index has no `delete`, only `add` — see
+    /// ADR-352 "Security"/limitations note).
+    fn export_items<'py>(&self, py: Python<'py>) -> Vec<(u32, Bound<'py, numpy::PyArray1<f32>>)> {
+        self.inner
+            .export_items()
+            .into_iter()
+            .map(|(id, v)| (id as u32, numpy::PyArray1::from_vec(py, v)))
+            .collect()
+    }
+
     /// Diagnostic-friendly repr: variant, n, dim, memory_bytes, rerank_factor.
     fn __repr__(&self) -> String {
         format!(

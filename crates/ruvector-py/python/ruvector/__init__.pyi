@@ -62,6 +62,29 @@ class RabitqIndex:
         """Load an index previously written by :meth:`save`."""
         ...
 
+    def add(self, id: int, vector: NDArray[np.float32]) -> None:
+        """Append one vector in place (true incremental add, no rebuild).
+
+        Not GIL-released — see ``docs/sdk/02-strategy.md`` § "GIL story".
+        Prefer :meth:`add_batch` for more than a few inserts.
+        """
+        ...
+
+    def add_batch(
+        self, ids: NDArray[np.uint64], vectors: NDArray[np.float32]
+    ) -> None:
+        """Append many vectors at once. Releases the GIL around the loop."""
+        ...
+
+    def export_items(self) -> List[Tuple[int, NDArray[np.float32]]]:
+        """Return every ``(id, vector)`` pair currently held.
+
+        Used by ``ruvector.Collection.vacuum()`` to physically drop
+        tombstoned rows by rebuilding without them — there is no
+        ``delete`` on the underlying index.
+        """
+        ...
+
     def __len__(self) -> int: ...
     def __repr__(self) -> str: ...
 
