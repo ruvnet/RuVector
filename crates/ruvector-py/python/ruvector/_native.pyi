@@ -354,6 +354,70 @@ def kmeans(
     """
     ...
 
+class SonaEngine:
+    """SONA (inference-only) adaptive-LoRA engine —
+    ``ruvector_sona::SonaEngine``.
+
+    Binds the forward-pass half only (``apply_micro_lora``,
+    ``apply_base_lora``, ``stats``, ``save_state``/``load_state``). The
+    online-learning API (trajectories, ``tick``, ``force_learn``,
+    ``find_patterns``) is not exposed by this binding.
+
+    On a freshly constructed engine, both LoRA forward passes are an
+    **exact identity transform** (zero-initialised projections + residual
+    forward pass) — this is a usable API hook, not a quality improvement,
+    until the (unexposed) online-learning loop has actually adapted the
+    weights.
+    """
+
+    def __init__(self, hidden_dim: int) -> None:
+        """``hidden_dim`` must be > 0."""
+        ...
+
+    def apply_micro_lora(self, input: NDArray[np.float32]) -> NDArray[np.float32]:
+        """Apply the micro-LoRA transform. ``input`` length must equal
+        :attr:`hidden_dim`. Identity on a fresh, untrained engine."""
+        ...
+
+    def apply_base_lora(
+        self, layer_idx: int, input: NDArray[np.float32]
+    ) -> NDArray[np.float32]:
+        """Apply the base-LoRA transform for layer ``layer_idx``.
+        ``input`` length must equal :attr:`hidden_dim`; ``layer_idx`` must
+        be ``< num_layers`` (raises ``ValueError`` otherwise — unlike the
+        underlying Rust fn, which silently no-ops out of range).
+        """
+        ...
+
+    def stats(self) -> Dict[str, Any]:
+        """Engine statistics: ``trajectories_recorded``,
+        ``trajectories_buffered``, ``trajectories_dropped``,
+        ``buffer_success_rate``, ``patterns_stored``, ``patterns_learned``,
+        ``ewc_tasks``, ``instant_enabled``, ``background_enabled``.
+        """
+        ...
+
+    def save_state(self) -> str:
+        """Serialize learned patterns + EWC task count + enabled flags to
+        JSON. Does **not** include LoRA weights."""
+        ...
+
+    def load_state(self, state_json: str) -> int:
+        """Restore patterns from a ``save_state`` JSON string; returns the
+        count restored. Raises ``RuVectorError`` on malformed JSON (unlike
+        the NAPI binding, which swallows the error and returns 0)."""
+        ...
+
+    def __repr__(self) -> str: ...
+    @property
+    def num_layers(self) -> int: ...
+    @property
+    def hidden_dim(self) -> int: ...
+    @property
+    def is_enabled(self) -> bool: ...
+    @is_enabled.setter
+    def is_enabled(self, value: bool) -> None: ...
+
 __all__ = [
     "RabitqIndex",
     "HnswIndex",
@@ -363,4 +427,5 @@ __all__ = [
     "GnnLayer",
     "AttentionReranker",
     "kmeans",
+    "SonaEngine",
 ]
