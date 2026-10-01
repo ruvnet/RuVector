@@ -5,7 +5,7 @@
 //! This is the 1-D Halton sequence in base φ — it has the best possible
 //! equidistribution for a 1-D low-discrepancy sequence.
 
-use crate::DitherSource;
+use crate::{fract_f32, DitherSource};
 
 /// Additive golden-ratio dither with zero-mean output in `[-0.5, 0.5]`.
 ///
@@ -27,14 +27,14 @@ impl GoldenRatioDither {
     #[inline]
     pub fn new(initial_state: f32) -> Self {
         Self {
-            state: initial_state.abs().fract(),
+            state: fract_f32(initial_state.abs()),
         }
     }
 
     /// Construct from a `(layer_id, channel_id)` pair for structural decorrelation.
     #[inline]
     pub fn from_ids(layer_id: u32, channel_id: u32) -> Self {
-        let s = ((layer_id as f32) * PHI + (channel_id as f32) * PHI * PHI).fract();
+        let s = fract_f32((layer_id as f32) * PHI + (channel_id as f32) * PHI * PHI);
         Self { state: s }
     }
 
@@ -49,7 +49,7 @@ impl DitherSource for GoldenRatioDither {
     /// Advance and return next value in `[-0.5, 0.5]`.
     #[inline]
     fn next_unit(&mut self) -> f32 {
-        self.state = (self.state + PHI).fract();
+        self.state = fract_f32(self.state + PHI);
         self.state - 0.5
     }
 }
