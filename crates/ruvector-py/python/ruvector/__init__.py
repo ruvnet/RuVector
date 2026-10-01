@@ -44,6 +44,7 @@ if TYPE_CHECKING:  # pragma: no cover - only for static type checkers
     from ruvector.collection import CollectionError as CollectionError
     from ruvector.collection import CollectionStats as CollectionStats
     from ruvector.collection import SearchHit as SearchHit
+    from ruvector._native import GraphDB as GraphDB
 
 __all__ = [
     "RabitqIndex",
@@ -54,6 +55,7 @@ __all__ = [
     "CollectionError",
     "CollectionStats",
     "SearchHit",
+    "GraphDB",
 ]
 
 # Names that must NOT be dynamically resolved against _native/collection even

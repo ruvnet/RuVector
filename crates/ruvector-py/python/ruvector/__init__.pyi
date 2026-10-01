@@ -17,6 +17,7 @@ from ruvector.collection import Collection as Collection
 from ruvector.collection import CollectionError as CollectionError
 from ruvector.collection import CollectionStats as CollectionStats
 from ruvector.collection import SearchHit as SearchHit
+from ruvector._native import GraphDB as GraphDB
 
 __all__ = [
     "RabitqIndex",
@@ -27,4 +28,5 @@ __all__ = [
     "CollectionError",
     "CollectionStats",
     "SearchHit",
+    "GraphDB",
 ]

@@ -179,4 +179,61 @@ class HnswIndex:
     @property
     def dim(self) -> int: ...
 
-__all__ = ["RabitqIndex", "HnswIndex", "RuVectorError", "__version__"]
+class GraphDB:
+    """In-memory property graph — ``ruvector_graph::GraphDB``.
+
+    Raw CRUD surface: create/get nodes, create/get edges, outgoing-edge
+    traversal. No Cypher here — see ``src/graph.rs``'s module docstring.
+    """
+
+    def __init__(self) -> None: ...
+    def create_node(
+        self,
+        labels: Optional[Sequence[str]] = ...,
+        properties: Optional[Dict[str, Any]] = ...,
+        *,
+        id: Optional[str] = ...,
+    ) -> str:
+        """Returns the new node's id. If ``id`` is given and already
+        exists, raises ``RuVectorError`` rather than silently overwriting
+        (the underlying Rust ``create_node`` has no such guard and would
+        leave stale label/property index entries behind)."""
+        ...
+
+    def get_node(self, node_id: str) -> Optional[Dict[str, Any]]:
+        """``{"id": str, "labels": List[str], "properties": Dict[str, Any]}``
+        or ``None`` if ``node_id`` does not exist."""
+        ...
+
+    def create_edge(
+        self,
+        from_id: str,
+        to_id: str,
+        relation_type: str,
+        properties: Optional[Dict[str, Any]] = ...,
+        *,
+        id: Optional[str] = ...,
+    ) -> str:
+        """Returns the new edge's id. Raises ``RuVectorError`` if
+        ``from_id``/``to_id`` doesn't exist, or if ``id`` is given and
+        already exists (see :meth:`create_node`)."""
+        ...
+
+    def get_edge(self, edge_id: str) -> Optional[Dict[str, Any]]:
+        """``{"id": str, "from": str, "to": str, "type": str,
+        "properties": Dict[str, Any]}`` or ``None`` if ``edge_id`` does
+        not exist."""
+        ...
+
+    def get_outgoing_edges(self, node_id: str) -> List[Dict[str, Any]]:
+        """Edges whose ``from`` is ``node_id``. Empty list for an unknown
+        node id (not an error)."""
+        ...
+
+    def __len__(self) -> int:
+        """Node count (networkx convention: not nodes + edges)."""
+        ...
+
+    def __repr__(self) -> str: ...
+
+__all__ = ["RabitqIndex", "HnswIndex", "RuVectorError", "__version__", "GraphDB"]
