@@ -59,7 +59,7 @@ verifiable in this session; see the ADR for the research that established this).
   design review, with its `invocationTargetType` field left as a literal, commented
   `UNCONFIRMED_PLACEHOLDER` rather than a guessed value. Real research confirmed `flow` and
   `slack` as two valid values for this field but could not confirm what an External-Service-backed
-  action resolves to (Salesforce's Setup UI most likely assigns it automatically, which is exactly
-  why step 4 above still says to register through the UI rather than hand-authoring this file for
-  a real deploy). See the file's own header comment and ADR-352's Integrations section for the
+  action resolves to or who/what sets it — which is exactly why step 4 above still says to
+  register through the UI rather than hand-authoring this file for a real deploy. See the file's
+  own header comment and ADR-352's Integrations section for the
   sources checked.

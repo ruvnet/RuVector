@@ -306,11 +306,12 @@ instruction to be explicit about this**:
   two real, valid `invocationTargetType` values ("the `invocationTarget` and
   `invocationTargetType` must correspond to a valid target on your org... there must be a `flow`
   with the name..."), but neither source enumerates the full value set or confirms what value an
-  External-Service-backed action (this integration's actual mechanism) resolves to — Salesforce's
-  own Setup UI most likely assigns that value automatically when an External Service operation is
-  added as an agent action, rather than a developer choosing it directly, which is exactly the
-  "register through the Setup UI, don't hand-author this file" guidance already in this
-  directory's README. The placeholder stays a placeholder; `flow`/`slack` are not substituted in
+  External-Service-backed action (this integration's actual mechanism) resolves to — no source
+  checked this session says how that value gets set for an External-Service action, whether by a
+  developer or by Salesforce itself, so that is left unstated here rather than guessed; this is
+  exactly why this directory's README still says to register through the Setup UI rather than
+  hand-author this file for a real deploy. The placeholder stays a placeholder; `flow`/`slack`
+  are not substituted in
   since this integration's target is neither. The file carries an inline comment to the same
   effect, and the real value must be confirmed against a real org's metadata export (e.g.
   `sf project retrieve start -m GenAiFunction` against an org with an existing, UI-created

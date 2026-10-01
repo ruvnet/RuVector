@@ -10,14 +10,14 @@
   `flow` and `slack` as two real, valid values for this field, but neither
   source enumerates the full value set or states what value an
   External-Service-backed action resolves to -- which is this file's
-  actual case. Salesforce's Setup UI most likely assigns the real value
-  automatically when you add a registered External Service operation as
-  an agent action (Setup -> Agentforce Studio -> add action from the
-  External Service), rather than a developer choosing it directly here --
-  which is exactly why ../README.md's step 4 says to do this through the
-  UI, not by hand-authoring this file. DO NOT substitute `flow` or `slack`
-  here -- this integration's target is neither, and guessing a third,
-  unconfirmed value would be worse than leaving an honest placeholder.
+  actual case. No source checked this session says how that value gets
+  set for an External-Service action (developer-chosen or
+  Salesforce-assigned) -- left unstated here rather than guessed, which
+  is exactly why ../README.md's step 4 says to register through the Setup
+  UI rather than hand-author this file for a real deploy. DO NOT
+  substitute `flow` or `slack` here -- this integration's target is
+  neither, and guessing a third, unconfirmed value would be worse than
+  leaving an honest placeholder.
 
   Retrieve the real value from an org that already has this action
   registered via the UI with, e.g.:
