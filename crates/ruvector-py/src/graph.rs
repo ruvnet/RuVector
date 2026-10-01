@@ -2,8 +2,9 @@
 //!
 //! M1 of the ADR-352 graph slice: raw CRUD (create/get node, create/get
 //! edge, outgoing-edge traversal) over the in-memory graph. Cypher
-//! execution, if it lands, is a separate module (`cypher.rs`) added on top
-//! of this one — this file stays the "smallest useful graph surface".
+//! execution, if it lands, is added on top of this one via child modules
+//! under `src/graph/` — this file stays the "smallest useful graph
+//! surface".
 //!
 //! Not `unsendable`: `ruvector_graph::GraphDB`'s own test suite
 //! (`test_concurrent_updates_do_not_lose_writes` in
@@ -152,19 +153,27 @@ fn properties_to_py<'py>(
 fn py_to_labels(value: &Bound<'_, PyAny>) -> PyResult<Vec<String>> {
     if value.cast::<PyString>().is_ok() {
         return Err(PyTypeError::new_err(
-            "labels must be a list of strings, not a bare string \
+            "labels must be a sequence of strings, not a bare string \
              (a str iterates to one label per character)",
         ));
     }
-    let list = value
-        .cast::<PyList>()
-        .map_err(|_| PyTypeError::new_err("labels must be a list of strings"))?;
-    list.iter()
-        .map(|item| {
-            item.extract::<String>()
-                .map_err(|_| PyTypeError::new_err("labels must be a list of strings"))
-        })
-        .collect()
+    // A dict is iterable too (over its keys), so without this check a
+    // dict would silently pass through `extract::<Vec<String>>` below and
+    // turn its keys into labels — surprising in the same way a bare `str`
+    // is, so it gets the same explicit rejection.
+    if value.cast::<PyDict>().is_ok() {
+        return Err(PyTypeError::new_err(
+            "labels must be a sequence of strings, not a dict",
+        ));
+    }
+    // Any sequence (list, tuple, ...) of strings — not just `PyList` — per
+    // the `Sequence[str]` the stub promises in `_native.pyi`. `extract`'s
+    // own `FromPyObject<Vec<String>>` impl walks any Python iterable and
+    // extracts each item as a `String`, giving the same clear `TypeError`
+    // on a non-string element without a separate hand-rolled loop.
+    value
+        .extract::<Vec<String>>()
+        .map_err(|_| PyTypeError::new_err("labels must be a sequence of strings"))
 }
 
 /// `{id, labels, properties}` — the Python-facing shape of a `Node`.
@@ -439,6 +448,28 @@ mod tests {
             let list = PyList::new(py, ["Person", "Employee"]).unwrap();
             let labels = py_to_labels(list.as_any()).expect("list of strings should convert");
             assert_eq!(labels, vec!["Person".to_string(), "Employee".to_string()]);
+        });
+    }
+
+    #[test]
+    fn py_to_labels_accepts_tuple_of_strings() {
+        attach_py();
+        Python::attach(|py| {
+            use pyo3::types::PyTuple;
+            let tuple = PyTuple::new(py, ["Person", "Employee"]).unwrap();
+            let labels = py_to_labels(tuple.as_any()).expect("tuple of strings should convert");
+            assert_eq!(labels, vec!["Person".to_string(), "Employee".to_string()]);
+        });
+    }
+
+    #[test]
+    fn py_to_labels_rejects_dict() {
+        attach_py();
+        Python::attach(|py| {
+            let dict = PyDict::new(py);
+            dict.set_item("Person", true).unwrap();
+            let err = py_to_labels(dict.as_any()).unwrap_err();
+            assert!(err.is_instance_of::<PyTypeError>(py));
         });
     }
 

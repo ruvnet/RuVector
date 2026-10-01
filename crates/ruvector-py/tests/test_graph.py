@@ -58,6 +58,14 @@ def test_create_node_defaults_to_no_labels_and_empty_properties() -> None:
     assert node["properties"] == {}
 
 
+def test_create_node_accepts_tuple_labels() -> None:
+    g = ruvector.GraphDB()
+    node_id = g.create_node(("Person", "Employee"))
+    node = g.get_node(node_id)
+    assert node is not None
+    assert sorted(node["labels"]) == ["Employee", "Person"]
+
+
 def test_create_node_with_explicit_id() -> None:
     g = ruvector.GraphDB()
     node_id = g.create_node(["Thing"], {}, id="my-custom-id")
@@ -186,6 +194,12 @@ def test_create_node_rejects_bare_string_labels() -> None:
     g = ruvector.GraphDB()
     with pytest.raises(TypeError):
         g.create_node("Person", {})  # type: ignore[arg-type]
+
+
+def test_create_node_rejects_dict_as_labels() -> None:
+    g = ruvector.GraphDB()
+    with pytest.raises(TypeError):
+        g.create_node({"Person": True}, {})  # type: ignore[arg-type]
 
 
 def test_create_node_rejects_non_dict_properties() -> None:
