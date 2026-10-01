@@ -317,10 +317,27 @@ export class IntelligenceEngine {
       this.vectorDb = new VDB({
         dimensions: this.config.embeddingDim,
         distanceMetric: 'Cosine',
+        ...(this.config.storagePath ? { storagePath: this.config.storagePath } : {}),
+        // The native binding selects FlatIndex when this is omitted. Match the
+        // public VectorDB wrapper's HNSW defaults for the engine's memory index.
+        hnswConfig: {
+          m: 32,
+          efConstruction: 200,
+          efSearch: 100,
+          maxElements: this.config.maxMemories,
+        },
       });
-    } catch {
-      // VectorDB not available, use fallback
+    } catch (error) {
+      // Keep the brute-force fallback available, but make lock/configuration
+      // failures visible to stdio clients through stderr and capabilities.
+      const reason = error instanceof Error ? error.message : String(error);
+      console.error(`ruvector: VectorDB unavailable (${reason}); using brute-force fallback`);
     }
+  }
+
+  /** Whether the native memory index actually initialized. */
+  hasVectorDb(): boolean {
+    return this.vectorDb !== null;
   }
 
   private async initParallel(): Promise<void> {
