@@ -21,7 +21,7 @@
 //! in the *whole* graph, and checks whether the candidate point sits on the
 //! weak side of it.
 //!
-//! Three admission policies are implemented, all behind [`AdmissionPolicy`]:
+//! Four admission policies are implemented, all behind [`AdmissionPolicy`]:
 //!
 //! 1. [`policy::NearestCentroidThreshold`] — baseline: merge into the
 //!    nearest centroid if cosine similarity clears a fixed threshold, else
@@ -32,8 +32,18 @@
 //!    weight of the cut against a fixed coherence threshold.
 //! 3. [`policy::AdaptiveMincutAdmission`] — candidate B: identical mechanism
 //!    to candidate A, but the coherence threshold is self-calibrating — a
-//!    running mean/std (Welford) of observed cut weights sets the threshold
-//!    online instead of requiring a hand-tuned constant.
+//!    *lifetime* running mean/std (Welford) of observed cut weights sets
+//!    the threshold online instead of requiring a hand-tuned constant.
+//!    Measured result (2026-09-02 nightly): this drifts to the
+//!    safety-valve cluster cap once the graph grows past a handful of
+//!    nodes — a documented negative result, not a tuning failure.
+//! 4. [`policy::ConformalMincutAdmission`] — candidate C: identical
+//!    mechanism to A/B, but the threshold is the empirical `alpha`-quantile
+//!    of a *sliding window* of recently observed cut weights, rather than a
+//!    lifetime mean/std. Directly attacks candidate B's documented failure
+//!    mode (see module doc comment on `ConformalMincutAdmission` for the
+//!    mechanism and an explicit conformal-prediction-exchangeability
+//!    caveat).
 
 pub mod dataset;
 pub mod mincut;
