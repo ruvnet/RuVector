@@ -1,0 +1,32 @@
+[package]
+name = "ruvector-py"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+license = "MIT"
+description = "Native typed Python VectorDB interface for RuVector"
+repository = "https://github.com/ruvnet/RuVector"
+readme = "README.md"
+publish = false
+
+[lib]
+name = "_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "=0.23.5", features = ["abi3-py310"] }
+ruvector-core = { path = "../ruvector-core", default-features = false, features = ["storage", "hnsw", "parallel"] }
+serde_json = "1.0"
+serde = "1.0"
+# Keep the upstream patched HNSW selected even if newer registry versions exist.
+hnsw_rs = "=0.3.3"
+
+[patch.crates-io]
+hnsw_rs = { path = "../../patches/hnsw_rs" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+
+# Keep optional Python tooling out of default workspace builds; CI is dedicated.
+[workspace]

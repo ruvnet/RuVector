@@ -5,6 +5,16 @@ All notable changes to RuVector will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased — Python]
+### Added
+- Experimental typed native Python VectorDB interface in `crates/ruvector-py`
+  using PyO3/maturin, with HNSW CRUD, batch operations, exact metadata filters,
+  redb persistence and deterministic close. It uses the existing core directly
+  and has dedicated Linux Python CI. Cosine, Euclidean and Manhattan are exposed;
+  dot-product remains excluded because HNSW clamps its ranking distances.
+- Real-native Python integration tests covering cross-process reopen, batch
+  validation, filters and threaded operations; wheel/source package build checks.
+
 ## [@ruvector/router 0.1.32] - 2026-09-30
 ### Fixed
 - `maxElements` was typed and documented as "Maximum number of elements" but

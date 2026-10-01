@@ -1,5 +1,15 @@
 # ruvector Python SDK — Planning Index
 
+## VectorDB implementation
+
+An experimental native VectorDB interface now lives in
+[`crates/ruvector-py`](../../crates/ruvector-py/README.md). It wraps the existing
+core's HNSW, storage and metadata APIs, with real-native tests and dedicated
+Linux CI. This is a narrower scope than the RaBitQ/ruLake roadmap below; those
+milestones remain future work. The survey statements below describe the original
+2026-04-25 planning snapshot.
+
+
 This directory contains the design review for a first-party Python SDK over the
 ruvector workspace. It is a planning artifact, not source code. No `pyproject.toml`,
 `*-py` crate, or PyO3 dependency exists in the workspace today (verified

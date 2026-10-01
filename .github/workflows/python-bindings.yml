@@ -1,0 +1,84 @@
+name: Python bindings
+
+on:
+  pull_request:
+    paths:
+      - 'crates/ruvector-py/**'
+      - 'crates/ruvector-core/**'
+      - 'crates/ruvector-turboquant/**'
+      - 'patches/hnsw_rs/**'
+      - 'Cargo.toml'
+      - '.github/workflows/python-bindings.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/ruvector-py/**'
+      - 'crates/ruvector-core/**'
+      - 'crates/ruvector-turboquant/**'
+      - 'patches/hnsw_rs/**'
+      - 'Cargo.toml'
+      - '.github/workflows/python-bindings.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-bindings-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: Native Python ${{ matrix.python }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.13']
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target/python
+      CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+    defaults:
+      run:
+        working-directory: crates/ruvector-py
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          components: clippy,rustfmt
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          workspaces: 'crates/ruvector-py -> ../../target/python'
+      - name: Create isolated Python environment
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install 'maturin>=1.13,<2' pytest ruff mypy build
+      - name: Python lint, types and Rust checks
+        run: |
+          .venv/bin/ruff check python tests examples scripts
+          .venv/bin/ruff format --check python tests examples scripts
+          .venv/bin/mypy
+          cargo fmt --check
+          cargo clippy --locked --all-targets -- -D warnings
+      - name: Build and test installed native wheel
+        run: |
+          .venv/bin/maturin build --release --locked -i .venv/bin/python --out dist
+          .venv/bin/pip install --no-deps dist/*.whl
+          .venv/bin/python -m pytest -q
+          .venv/bin/python examples/basic.py
+          .venv/bin/python examples/batch.py
+      - name: Build and test source distribution outside checkout
+        run: |
+          .venv/bin/python -m build --sdist --no-isolation --outdir dist
+          CARGO_NET_OFFLINE=true .venv/bin/pip wheel --no-deps --no-build-isolation dist/*.tar.gz --wheel-dir rebuilt
+          .venv/bin/pip install --no-deps --force-reinstall rebuilt/*.whl
+          .venv/bin/python -m pytest -q
+      - name: Preserve build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: python-bindings-${{ matrix.python }}-linux-x86_64
+          path: crates/ruvector-py/dist/*
