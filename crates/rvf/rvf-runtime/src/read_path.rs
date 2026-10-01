@@ -48,7 +48,7 @@ pub(crate) struct ParsedManifest {
 /// pattern, since segment headers are NOT necessarily 64-byte aligned from EOF.
 pub(crate) fn find_latest_manifest<R: Read + Seek>(
     reader: &mut R,
-) -> io::Result<Option<ParsedManifest>> {
+) -> io::Result<Option<(ParsedManifest, u64)>> {
     let file_size = reader.seek(SeekFrom::End(0))?;
     if file_size < SEGMENT_HEADER_SIZE as u64 {
         return Ok(None);
@@ -79,7 +79,7 @@ fn scan_tail_for_manifest<R: Read + Seek>(
     reader: &mut R,
     file_size: u64,
     scan_size: usize,
-) -> io::Result<Option<ParsedManifest>> {
+) -> io::Result<Option<(ParsedManifest, u64)>> {
     let scan_start = file_size - scan_size as u64;
     reader.seek(SeekFrom::Start(scan_start))?;
     let mut buf = vec![0u8; scan_size];
@@ -125,7 +125,7 @@ fn scan_tail_for_manifest<R: Read + Seek>(
             if payload_end <= buf.len() {
                 // Payload is within our buffer — parse directly.
                 if let Some(manifest) = parse_manifest_payload(&buf[payload_start..payload_end]) {
-                    return Ok(Some(manifest));
+                    return Ok(Some((manifest, scan_start + payload_end as u64)));
                 }
             } else {
                 // Payload extends beyond our buffer — read from file.
@@ -134,7 +134,7 @@ fn scan_tail_for_manifest<R: Read + Seek>(
                 let mut payload = vec![0u8; payload_length];
                 if reader.read_exact(&mut payload).is_ok() {
                     if let Some(manifest) = parse_manifest_payload(&payload) {
-                        return Ok(Some(manifest));
+                        return Ok(Some((manifest, file_offset + payload_length_u64)));
                     }
                 }
             }
