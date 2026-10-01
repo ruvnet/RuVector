@@ -7,13 +7,17 @@
 //!
 //! `RuvectorLayer::new` initialises every weight matrix with Xavier/Glorot
 //! random values (see `crates/ruvector-gnn/src/layer.rs`'s `Linear::new`).
-//! There is no training step anywhere in this binding or in
-//! `ruvector_gnn` as currently wired here — `forward()` runs immediately,
-//! but on a freshly-constructed layer it is a **random projection**, not a
-//! learned reranking signal. Calling `GnnLayer(...).forward(...)` does NOT
-//! make search results better by itself; it only becomes a quality
-//! improvement once the weights are actually trained (out of scope for
-//! this binding) or loaded from a trained checkpoint via `from_json`.
+//! `RuvectorLayer` itself has no `backward()`/weight-update method, and
+//! this binding exposes nothing that trains or mutates its weights after
+//! construction — `ruvector_gnn` as a crate does have training machinery
+//! elsewhere (`training::Optimizer`, `replay::ReplayBuffer`, `ewc`), but
+//! none of it is wired to `RuvectorLayer` or reachable from this binding.
+//! So `forward()` runs immediately, but on a freshly-constructed layer it
+//! is a **random projection**, not a learned reranking signal. Calling
+//! `GnnLayer(...).forward(...)` does NOT make search results better by
+//! itself; it only becomes a quality improvement once the weights are
+//! actually trained (out of scope for this binding) or loaded from a
+//! trained checkpoint via `from_json`.
 //! `AttentionReranker` is different: `softmax(QK^T/√d)V` is a fixed,
 //! trainless, legitimate reranking primitive (no weights to train), so its
 //! output is meaningful from the first call.
