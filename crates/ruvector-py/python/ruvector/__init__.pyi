@@ -9,6 +9,7 @@ Python, py.typed covers it directly); this file just re-exports both so
 (see `__init__.py`'s module docstring for why).
 """
 
+from ruvector._native import HnswIndex as HnswIndex
 from ruvector._native import RabitqIndex as RabitqIndex
 from ruvector._native import RuVectorError as RuVectorError
 from ruvector._native import __version__ as __version__
@@ -19,6 +20,7 @@ from ruvector.collection import SearchHit as SearchHit
 
 __all__ = [
     "RabitqIndex",
+    "HnswIndex",
     "RuVectorError",
     "__version__",
     "Collection",
