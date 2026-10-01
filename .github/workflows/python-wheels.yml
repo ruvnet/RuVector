@@ -81,10 +81,8 @@ jobs:
         include:
           - target: x86_64
             runner: ubuntu-latest
-            container: auto
           - target: aarch64
             runner: ubuntu-24.04-arm
-            container: 'off'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
@@ -97,43 +95,46 @@ jobs:
         with:
           working-directory: ${{ env.PACKAGE_DIR }}
           target: ${{ matrix.target }}
-          # aarch64 leg only: `manylinux: 2_28` here (no `container:` override)
-          # made maturin-action select the x86_64 CROSS manylinux image
-          # (`ghcr.io/rust-cross/manylinux_2_28-cross:x86_64`, needing an
-          # `aarch64-linux-gnu-gcc` cross-linker that plain Ubuntu doesn't
-          # ship) even though `runs-on: ubuntu-24.04-arm` is a NATIVE arm64
-          # runner — confirmed via a real CI run, not guessed (maturin-action
-          # error: "linker `aarch64-linux-gnu-gcc` not found"). Its own table
-          # says a native arm64 host + aarch64 target should pick the native
-          # `quay.io/pypa/manylinux_2_28_aarch64` image instead; this matrix
-          # leg hit that mismatch in practice. `container: 'off'` (its own
-          # documented escape hatch: "disable manylinux docker build and
-          # build on the host instead") sidesteps the container-selection
-          # logic entirely — correct since the host already IS real aarch64
-          # Linux.
+          # No `container:` override on either leg — DELIBERATE, after two
+          # wrong fixes found across two CI rounds (both confirmed via real
+          # runs, not guessed):
           #
-          # **Second real bug found on the next CI run, after `container:
-          # 'off'` alone**: `manylinux: 2_28` still asked maturin to run its
-          # own manylinux-compliance check against the resulting binary even
-          # with no container — and the native `ubuntu-24.04-arm` runner's
-          # host glibc is newer than the manylinux_2_28 floor, so the build
-          # now compiles fine and then maturin itself fails post-build:
-          # "Your library is not manylinux_2_28 compliant because of the
-          # presence of too-recent versioned symbols: libc.so.6 offending
-          # versions: GLIBC_2.30, GLIBC_2.33, GLIBC_2.34" (real error text
-          # from a real CI run, not guessed). `manylinux: off` for this leg
-          # (not `2_28`) turns off that compliance check entirely, which is
-          # the correct pairing with `container: 'off'` — building on the
-          # bare host and then still demanding a container-grade glibc floor
-          # was never going to hold. Tradeoff (already true before this
-          # fix, just now actually reachable instead of erroring out first):
-          # the wheel loses the `manylinux_2_28` platform tag (gets a plain
-          # `linux_aarch64` tag instead), which is less portable for a PyPI
-          # upload than a true manylinux wheel — accepted for now; revisit
-          # with real iterative access to an aarch64 runner before
-          # publishing for real (ADR-352/LOOP-STATE tracks this).
-          manylinux: ${{ matrix.target == 'aarch64' && 'off' || '2_28' }}
-          container: ${{ matrix.target == 'aarch64' && 'off' || '' }}
+          # 1. First attempt forced `container: 'off'` on the aarch64 leg
+          #    alone, assuming maturin-action's container auto-selection was
+          #    broken for a native arm64 runner. It built on the bare host,
+          #    bypassing Docker entirely.
+          # 2. That produced a SECOND bug: with no container, `manylinux:
+          #    2_28` still asked maturin to run its post-build manylinux-
+          #    compliance check against a binary built against the bare
+          #    runner's own (newer) glibc — real failure: "Your library is
+          #    not manylinux_2_28 compliant ... GLIBC_2.30, GLIBC_2.33,
+          #    GLIBC_2.34". Setting `manylinux: off` instead silenced that
+          #    check, but produces a plain `linux_aarch64` wheel tag — which
+          #    PyPI's upload validation REJECTS outright (only manylinux_*/
+          #    musllinux_*/macosx_*/win_* tags are accepted) — so the fix
+          #    made this CI leg green while quietly breaking the real
+          #    publish job later. Caught in review before any tag/publish
+          #    was attempted.
+          #
+          # The actual, correct fix (per maturin-action's own source,
+          # `PyO3/maturin-action` at this pinned commit, function
+          # `getDockerContainer`): its `DEFAULT_CONTAINERS` table is keyed
+          # by the ACTUAL RUNNER'S OWN architecture first
+          # (`process.arch` — 'arm64' on `ubuntu-24.04-arm`, 'x64' on
+          # `ubuntu-latest`), then by target, then by manylinux version.
+          # `DEFAULT_CONTAINERS.arm64['aarch64-unknown-linux-gnu']['2_28']`
+          # is `quay.io/pypa/manylinux_2_28_aarch64:latest` — the correct
+          # NATIVE (not cross-compile) manylinux image, which runs directly
+          # on this native arm64 runner with no QEMU and no cross-linker.
+          # That lookup only fires when `container` is left empty/'auto'/
+          # 'on' — an explicit `off` bypasses it entirely, which is what
+          # caused problem #2. Leaving `container` unset on BOTH legs (not
+          # just x86_64) lets this per-host-arch table do the right thing
+          # on each runner uniformly — no matrix-level `container` field or
+          # per-leg ternary needed at all. `validate-wheels` (below, a
+          # separate job) now asserts every wheel's platform tag in CI so a
+          # regression here fails loudly instead of surfacing at publish.
+          manylinux: 2_28
           args: --release --out dist
 
       - name: Test wheel
@@ -223,6 +224,47 @@ jobs:
           name: wheels-windows-x86_64
           path: ${{ env.PACKAGE_DIR }}/dist/*.whl
 
+  # Runs on every PR/push (unlike `publish`, gated on a real tag/dispatch) so a
+  # non-publishable wheel is caught here, not discovered at an actual publish
+  # attempt. Added after exactly that happened once in this PR's own history:
+  # an aarch64 CI fix that made the `linux` job green also silently produced a
+  # plain `linux_aarch64`-tagged wheel, which PyPI's upload validation rejects
+  # outright (only manylinux_*/musllinux_*/macosx_*/win_* tags are accepted).
+  validate-wheels:
+    runs-on: ubuntu-latest
+    name: Validate wheel tags + twine check
+    needs: [linux, macos, windows]
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          path: dist
+          pattern: wheels-*
+          merge-multiple: true
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+
+      - name: Assert every wheel has a PyPI-acceptable platform tag
+        run: |
+          ls -la dist/
+          fail=0
+          for f in dist/*.whl; do
+            case "$(basename "$f")" in
+              *-manylinux_*.whl|*-musllinux_*.whl|*-macosx_*.whl|*-win_*.whl) ;;
+              *)
+                echo "::error::$(basename "$f") has a platform tag PyPI will reject (only manylinux_*/musllinux_*/macosx_*/win_* are accepted)"
+                fail=1
+                ;;
+            esac
+          done
+          test "$fail" -eq 0
+
+      - name: twine check
+        run: |
+          python3 -m pip install --quiet twine
+          python3 -m twine check dist/*.whl
+
   # Trusted publishing (PyPI OIDC, no stored token — https://docs.pypi.org/trusted-publishers/)
   # requires a one-time PyPI-side publisher registration for this repo/workflow before it can
   # succeed; left gated on a real tag/dispatch input so this workflow landing does NOT publish
@@ -230,7 +272,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     name: Publish to PyPI
-    needs: [linux, macos, windows]
+    needs: [linux, macos, windows, validate-wheels]
     if: startsWith(github.ref, 'refs/tags/python-v') || github.event.inputs.publish == 'true'
     environment: pypi
     permissions:
