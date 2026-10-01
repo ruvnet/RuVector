@@ -391,9 +391,14 @@ ADR's M1.5 benchmark section for an earlier, worse comparison on adversarial ran
 and the two real bugs (a dead `ef_search` per-call kwarg, a 4x overfetch) found and fixed while
 chasing this number down — those fixes are already reflected in the table above.
 
-Reproduce: `crates/ruvector-py` has the benchmark scripts referenced in
-`docs/sdk/LOOP-STATE.md`; `ruvector benchmark` in the CLI gives you ruvector's own numbers
-in-process without a comparator installed.
+Reproduce: `crates/ruvector-py/benchmarks/bench_hnsw_real_embeddings.py` (this table;
+needs `pip install hnswlib sentence-transformers scikit-learn`) and
+`bench_compare_rabitq.py` (the earlier RabitqPlus-vs-hnswlib random-Gaussian comparison in the
+ADR, superseded as the default backend but kept for the record; needs `pip install hnswlib`).
+Both are standalone scripts, not part of the pytest suite (too slow for CI, and the point is a
+real side-by-side against a comparator that isn't always installed) — run with
+`python benchmarks/bench_hnsw_real_embeddings.py` from `crates/ruvector-py/`. `ruvector benchmark`
+in the CLI gives you ruvector's own numbers in-process without a comparator installed.
 
 ## Further reading
 

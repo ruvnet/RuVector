@@ -37,9 +37,10 @@ https://github.com/ruvnet/RuVector/pull/1117 (draft).
 - Python venvs: `/data/scratch/ruvector-py-venv` (dev, editable install, has every extra incl.
   langchain-core/llama-index-core/sentence-transformers/hnswlib/scikit-learn/torch);
   `/data/scratch/ruvector-freshwheel-venv` (clean wheel-install check).
-- Benchmark scripts (scratchpad, not committed): `.../scratchpad/bench_compare.py` (M1.5
-  RabitqPlus vs hnswlib, random-Gaussian), `.../scratchpad/bench_hnsw_real.py` (M2 HnswIndex vs
-  hnswlib, real MiniLM/20newsgroups embeddings).
+- Benchmark scripts, now committed (moved out of scratchpad this checkpoint since the user guide
+  needs a real, reproducible pointer): `crates/ruvector-py/benchmarks/bench_compare_rabitq.py`
+  (M1.5 RabitqPlus vs hnswlib, random-Gaussian) and `bench_hnsw_real_embeddings.py` (M2 HnswIndex
+  vs hnswlib, real MiniLM/20newsgroups embeddings).
 - Dependency-compile trial scratch: `.../scratchpad/trial_deps_check/` — used to verify
   ruvector-graph/gnn/attention/cluster-rag/sona compile together before forking; not needed
   again unless adding a 6th new dependency.
