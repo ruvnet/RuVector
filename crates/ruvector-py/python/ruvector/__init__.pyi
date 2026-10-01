@@ -9,6 +9,9 @@ Python, py.typed covers it directly); this file just re-exports both so
 (see `__init__.py`'s module docstring for why).
 """
 
+from ruvector._native import AttentionReranker as AttentionReranker
+from ruvector._native import GnnLayer as GnnLayer
+from ruvector._native import GraphDB as GraphDB
 from ruvector._native import HnswIndex as HnswIndex
 from ruvector._native import RabitqIndex as RabitqIndex
 from ruvector._native import RuVectorError as RuVectorError
@@ -17,7 +20,6 @@ from ruvector.collection import Collection as Collection
 from ruvector.collection import CollectionError as CollectionError
 from ruvector.collection import CollectionStats as CollectionStats
 from ruvector.collection import SearchHit as SearchHit
-from ruvector._native import GraphDB as GraphDB
 
 __all__ = [
     "RabitqIndex",
@@ -29,4 +31,6 @@ __all__ = [
     "CollectionStats",
     "SearchHit",
     "GraphDB",
+    "GnnLayer",
+    "AttentionReranker",
 ]

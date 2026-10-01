@@ -56,6 +56,8 @@ __all__ = [
     "CollectionStats",
     "SearchHit",
     "GraphDB",
+    "GnnLayer",
+    "AttentionReranker",
 ]
 
 # Names that must NOT be dynamically resolved against _native/collection even

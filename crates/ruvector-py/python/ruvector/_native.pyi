@@ -251,4 +251,87 @@ class GraphDB:
 
     def __repr__(self) -> str: ...
 
-__all__ = ["RabitqIndex", "HnswIndex", "RuVectorError", "__version__", "GraphDB"]
+class GnnLayer:
+    """GNN forward-pass rerank layer — ``ruvector_gnn::layer::RuvectorLayer``.
+
+    Weights are randomly initialised (Xavier/Glorot) at construction time;
+    there is no training step in this binding, so ``forward()`` on a
+    freshly-built layer is a random projection, not a quality improvement,
+    until the weights are trained or loaded via :meth:`from_json`.
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int,
+        heads: int,
+        dropout: float = ...,
+    ) -> None:
+        """``heads`` must divide ``hidden_dim``; ``dropout`` must be in
+        ``[0.0, 1.0]`` (both raise ``RuVectorError`` otherwise).
+        """
+        ...
+
+    def forward(
+        self,
+        node: NDArray[np.float32],
+        neighbors: NDArray[np.float32],
+        weights: Optional[NDArray[np.float32]] = ...,
+    ) -> NDArray[np.float32]:
+        """``node``: shape ``(input_dim,)``. ``neighbors``: shape
+        ``(n, input_dim)``, ``n`` may be ``0``. ``weights``: optional
+        shape ``(n,)``, defaults to uniform. Returns shape ``(hidden_dim,)``.
+        """
+        ...
+
+    def to_json(self) -> str:
+        """Serialize this layer (including its random/trained weights)."""
+        ...
+
+    @staticmethod
+    def from_json(data: str) -> "GnnLayer":
+        """Deserialize a value previously produced by :meth:`to_json`."""
+        ...
+
+    def __repr__(self) -> str: ...
+    @property
+    def input_dim(self) -> int: ...
+    @property
+    def hidden_dim(self) -> int: ...
+    @property
+    def heads(self) -> int: ...
+    @property
+    def dropout(self) -> float: ...
+
+class AttentionReranker:
+    """Attention-based rerank — ``softmax(QK^T/√d)V``, trainless and
+    deterministic (``ruvector_attention::attention::ScaledDotProductAttention``).
+    """
+
+    def __init__(self, dim: int) -> None: ...
+    def rerank(
+        self,
+        query: NDArray[np.float32],
+        candidates: NDArray[np.float32],
+    ) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
+        """``query``: shape ``(dim,)``. ``candidates``: shape ``(n, dim)``,
+        used as both keys and values. Returns ``(blended, weights)``:
+        the attention-weighted blend (shape ``(dim,)``) and the raw
+        per-candidate softmax weight (shape ``(n,)``, sums to ~1.0, same
+        row order as ``candidates``).
+        """
+        ...
+
+    def __repr__(self) -> str: ...
+    @property
+    def dim(self) -> int: ...
+
+__all__ = [
+    "RabitqIndex",
+    "HnswIndex",
+    "RuVectorError",
+    "__version__",
+    "GraphDB",
+    "GnnLayer",
+    "AttentionReranker",
+]

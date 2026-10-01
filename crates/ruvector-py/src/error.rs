@@ -34,6 +34,18 @@ pub fn to_pyerr_core(err: ruvector_core::error::RuvectorError) -> PyErr {
     RuVectorError::new_err(err.to_string())
 }
 
+/// Same mapping for `ruvector_gnn::error::GnnError` (added for the GNN
+/// forward-pass rerank binding, `gnn.rs`'s `GnnLayer`).
+pub fn to_pyerr_gnn(err: ruvector_gnn::error::GnnError) -> PyErr {
+    RuVectorError::new_err(err.to_string())
+}
+
+/// Same mapping for `ruvector_attention::error::AttentionError` (added for
+/// the attention-rerank binding, `gnn.rs`'s `AttentionReranker`).
+pub fn to_pyerr_attention(err: ruvector_attention::error::AttentionError) -> PyErr {
+    RuVectorError::new_err(err.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -125,6 +137,33 @@ mod tests {
         let expected_msg = src.to_string();
         let err = to_pyerr_core(src);
         Python::attach(|py| {
+            assert_eq!(err.value(py).to_string(), expected_msg);
+        });
+    }
+
+    #[test]
+    fn to_pyerr_gnn_forwards_layer_config_verbatim() {
+        attach_py();
+        let src = ruvector_gnn::error::GnnError::layer_config("dropout must be in [0, 1]");
+        let expected_msg = src.to_string();
+        let err = to_pyerr_gnn(src);
+        Python::attach(|py| {
+            assert!(err.is_instance_of::<RuVectorError>(py));
+            assert_eq!(err.value(py).to_string(), expected_msg);
+        });
+    }
+
+    #[test]
+    fn to_pyerr_attention_forwards_dimension_mismatch_verbatim() {
+        attach_py();
+        let src = ruvector_attention::error::AttentionError::DimensionMismatch {
+            expected: 128,
+            actual: 64,
+        };
+        let expected_msg = src.to_string();
+        let err = to_pyerr_attention(src);
+        Python::attach(|py| {
+            assert!(err.is_instance_of::<RuVectorError>(py));
             assert_eq!(err.value(py).to_string(), expected_msg);
         });
     }
