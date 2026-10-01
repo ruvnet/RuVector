@@ -317,9 +317,7 @@ impl RabitqIndex {
                 v.len()
             )));
         }
-        self.inner
-            .add(id as usize, v.to_vec())
-            .map_err(to_pyerr)?;
+        self.inner.add(id as usize, v.to_vec()).map_err(to_pyerr)?;
         Ok(())
     }
 

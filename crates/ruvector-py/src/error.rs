@@ -80,7 +80,8 @@ mod tests {
     #[test]
     fn to_pyerr_forwards_rabitq_invalid_parameter_verbatim() {
         attach_py();
-        let src = ruvector_rabitq::RabitqError::InvalidParameter("rerank_factor must be > 0".to_string());
+        let src =
+            ruvector_rabitq::RabitqError::InvalidParameter("rerank_factor must be > 0".to_string());
         let expected_msg = src.to_string();
         let err = to_pyerr(src);
         Python::attach(|py| {
@@ -136,7 +137,9 @@ mod tests {
     fn both_mappers_raise_the_same_exception_type() {
         attach_py();
         let a = to_pyerr(ruvector_rabitq::RabitqError::EmptyIndex);
-        let b = to_pyerr_core(ruvector_core::error::RuvectorError::InvalidInput("x".to_string()));
+        let b = to_pyerr_core(ruvector_core::error::RuvectorError::InvalidInput(
+            "x".to_string(),
+        ));
         Python::attach(|py| {
             assert_eq!(
                 a.get_type(py).qualname().unwrap().to_string(),

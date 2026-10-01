@@ -48,8 +48,10 @@ jobs:
         include:
           - target: x86_64
             runner: ubuntu-latest
+            container: auto
           - target: aarch64
             runner: ubuntu-24.04-arm
+            container: 'off'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
@@ -62,7 +64,26 @@ jobs:
         with:
           working-directory: ${{ env.PACKAGE_DIR }}
           target: ${{ matrix.target }}
+          # aarch64 leg only: `manylinux: 2_28` here (no `container:` override)
+          # made maturin-action select the x86_64 CROSS manylinux image
+          # (`ghcr.io/rust-cross/manylinux_2_28-cross:x86_64`, needing an
+          # `aarch64-linux-gnu-gcc` cross-linker that plain Ubuntu doesn't
+          # ship) even though `runs-on: ubuntu-24.04-arm` is a NATIVE arm64
+          # runner — confirmed via a real CI run, not guessed (maturin-action
+          # error: "linker `aarch64-linux-gnu-gcc` not found"). Its own table
+          # says a native arm64 host + aarch64 target should pick the native
+          # `quay.io/pypa/manylinux_2_28_aarch64` image instead; this matrix
+          # leg hit that mismatch in practice. `container: 'off'` (its own
+          # documented escape hatch: "disable manylinux docker build and
+          # build on the host instead") sidesteps the container-selection
+          # logic entirely — correct since the host already IS real aarch64
+          # Linux. Tradeoff: the wheel loses the `manylinux_2_28` platform
+          # tag (gets a plain `linux_aarch64` tag instead), which is less
+          # portable for a PyPI upload than a true manylinux wheel — accepted
+          # for now; revisit with real iterative access to an aarch64 runner
+          # before publishing for real (ADR-352/LOOP-STATE tracks this).
           manylinux: 2_28
+          container: ${{ matrix.target == 'aarch64' && 'off' || '' }}
           args: --release --out dist
 
       - name: Test wheel

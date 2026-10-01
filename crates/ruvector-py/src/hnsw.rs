@@ -40,7 +40,11 @@ use crate::error::to_pyerr_core;
 /// `(id, score, metadata)` — one `HnswIndex.search` hit.
 type SearchHit<'py> = (String, f32, Option<Bound<'py, PyDict>>);
 /// `(id, vector, metadata)` — one `HnswIndex.export_items` row.
-type ExportedItem<'py> = (String, Bound<'py, numpy::PyArray1<f32>>, Option<Bound<'py, PyDict>>);
+type ExportedItem<'py> = (
+    String,
+    Bound<'py, numpy::PyArray1<f32>>,
+    Option<Bound<'py, PyDict>>,
+);
 
 fn parse_metric(metric: &str) -> PyResult<DistanceMetric> {
     match metric {
@@ -81,7 +85,9 @@ fn py_to_json(value: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
         return Ok(serde_json::Value::Array(items?));
     }
     if let Ok(dict) = value.cast::<PyDict>() {
-        return Ok(serde_json::Value::Object(py_dict_to_json_map(dict)?.into_iter().collect()));
+        return Ok(serde_json::Value::Object(
+            py_dict_to_json_map(dict)?.into_iter().collect(),
+        ));
     }
     Err(PyTypeError::new_err(format!(
         "metadata values must be str/int/float/bool/None/list/dict, got {}",
@@ -89,14 +95,12 @@ fn py_to_json(value: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
     )))
 }
 
-fn py_dict_to_json_map(
-    dict: &Bound<'_, PyDict>,
-) -> PyResult<HashMap<String, serde_json::Value>> {
+fn py_dict_to_json_map(dict: &Bound<'_, PyDict>) -> PyResult<HashMap<String, serde_json::Value>> {
     let mut map = HashMap::with_capacity(dict.len());
     for (k, v) in dict.iter() {
-        let key: String = k.extract().map_err(|_| {
-            PyTypeError::new_err("metadata keys must be strings")
-        })?;
+        let key: String = k
+            .extract()
+            .map_err(|_| PyTypeError::new_err("metadata keys must be strings"))?;
         map.insert(key, py_to_json(&v)?);
     }
     Ok(map)
@@ -155,7 +159,13 @@ impl HnswIndex {
     /// `euclidean`/`l2`, `dot`/`dot_product`, `manhattan`/`l1`.
     #[staticmethod]
     #[pyo3(signature = (dim, *, metric = "cosine", m = 16, ef_construction = 200, ef_search = 50))]
-    fn create(dim: usize, metric: &str, m: usize, ef_construction: usize, ef_search: usize) -> PyResult<Self> {
+    fn create(
+        dim: usize,
+        metric: &str,
+        m: usize,
+        ef_construction: usize,
+        ef_search: usize,
+    ) -> PyResult<Self> {
         if dim == 0 {
             return Err(PyValueError::new_err("dim must be > 0"));
         }
@@ -203,7 +213,8 @@ impl HnswIndex {
             vector: v,
             metadata: meta,
         };
-        py.detach(|| self.inner.insert(entry)).map_err(to_pyerr_core)
+        py.detach(|| self.inner.insert(entry))
+            .map_err(to_pyerr_core)
     }
 
     /// Insert many vectors at once. Releases the GIL around the loop
@@ -224,7 +235,10 @@ impl HnswIndex {
         }
         let shape = vectors.shape();
         if shape.len() != 2 {
-            return Err(PyValueError::new_err(format!("vectors must be 2D, got {}D", shape.len())));
+            return Err(PyValueError::new_err(format!(
+                "vectors must be 2D, got {}D",
+                shape.len()
+            )));
         }
         let (n, dim) = (shape[0], shape[1]);
         if ids.len() != n {
@@ -258,7 +272,8 @@ impl HnswIndex {
                 metadata: meta,
             });
         }
-        py.detach(|| self.inner.insert_batch(entries)).map_err(to_pyerr_core)
+        py.detach(|| self.inner.insert_batch(entries))
+            .map_err(to_pyerr_core)
     }
 
     /// Search for the `k` nearest neighbours of `query`, optionally
@@ -332,10 +347,7 @@ impl HnswIndex {
     /// Export every `(id, vector, metadata)` triple currently held, for
     /// `Collection.save()`'s rebuild-into-persistent-form path (this
     /// backend is always in-memory — see the module docstring).
-    fn export_items<'py>(
-        &self,
-        py: Python<'py>,
-    ) -> PyResult<Vec<ExportedItem<'py>>> {
+    fn export_items<'py>(&self, py: Python<'py>) -> PyResult<Vec<ExportedItem<'py>>> {
         let ids = self.inner.keys().map_err(to_pyerr_core)?;
         let mut out = Vec::with_capacity(ids.len());
         for id in ids {
@@ -372,11 +384,23 @@ mod tests {
     #[test]
     fn parse_metric_accepts_every_documented_alias() {
         assert!(matches!(parse_metric("cosine"), Ok(DistanceMetric::Cosine)));
-        assert!(matches!(parse_metric("euclidean"), Ok(DistanceMetric::Euclidean)));
+        assert!(matches!(
+            parse_metric("euclidean"),
+            Ok(DistanceMetric::Euclidean)
+        ));
         assert!(matches!(parse_metric("l2"), Ok(DistanceMetric::Euclidean)));
-        assert!(matches!(parse_metric("dot"), Ok(DistanceMetric::DotProduct)));
-        assert!(matches!(parse_metric("dot_product"), Ok(DistanceMetric::DotProduct)));
-        assert!(matches!(parse_metric("manhattan"), Ok(DistanceMetric::Manhattan)));
+        assert!(matches!(
+            parse_metric("dot"),
+            Ok(DistanceMetric::DotProduct)
+        ));
+        assert!(matches!(
+            parse_metric("dot_product"),
+            Ok(DistanceMetric::DotProduct)
+        ));
+        assert!(matches!(
+            parse_metric("manhattan"),
+            Ok(DistanceMetric::Manhattan)
+        ));
         assert!(matches!(parse_metric("l1"), Ok(DistanceMetric::Manhattan)));
     }
 
@@ -461,7 +485,13 @@ mod tests {
 
     #[test]
     fn round_trip_flat_list_of_mixed_scalars() {
-        round_trip(serde_json::json!([1, "two", 3.0, true, serde_json::Value::Null]));
+        round_trip(serde_json::json!([
+            1,
+            "two",
+            3.0,
+            true,
+            serde_json::Value::Null
+        ]));
     }
 
     #[test]
@@ -593,7 +623,8 @@ mod known_limitations {
             let lone_surrogate_str = py
                 .eval(c"b.decode('utf-8', 'surrogateescape')", None, Some(&locals))
                 .unwrap();
-            let err = py_to_json(&lone_surrogate_str).expect_err("lone surrogates aren't valid text");
+            let err =
+                py_to_json(&lone_surrogate_str).expect_err("lone surrogates aren't valid text");
             assert!(err.is_instance_of::<PyTypeError>(py));
             let msg = err.value(py).to_string();
             assert!(msg.contains("got str"), "message was: {msg}");
