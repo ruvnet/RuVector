@@ -47,7 +47,16 @@ cli = ["click>=8.1", "rich>=13"]
 # rename (v1 called it `FastMCP`) — `mcp>=1.6` would resolve and then fail
 # on import.
 mcp = ["mcp>=2.0"]
-all = ["ruvector[cli,mcp]"]
+# Framework adapters: only `ruvector.integrations.langchain` /
+# `.llamaindex` import these (at module level — see each module's
+# docstring for why that's the honest boundary, not a lazy-import
+# oversight); plain `import ruvector` never does. Floors are the exact
+# versions verified against while writing these adapters (`pip show
+# langchain-core` -> 1.6.6, `pip show llama-index-core` -> 0.14.25), not
+# guessed minimums.
+langchain = ["langchain-core>=1.6"]
+llamaindex = ["llama-index-core>=0.14"]
+all = ["ruvector[cli,mcp,langchain,llamaindex]"]
 
 [project.urls]
 Repository = "https://github.com/ruvnet/ruvector"
