@@ -24,21 +24,38 @@
 //!     metadata-aware, Rust-side filtered search; the default backend for
 //!     `ruvector.Collection`)
 //!
+//! ADR-352 capability-expansion slice adds (modules pre-wired here,
+//! `register()` bodies filled in by parallel forks — see each module's
+//! own doc comment and `Cargo.toml`'s dependency-selection comments):
+//!   - `graph` — raw graph CRUD (`ruvector_graph::GraphDB`)
+//!   - `gnn` — GNN forward-pass rerank + attention rerank
+//!     (`ruvector_gnn`, `ruvector_attention`)
+//!   - `cluster` — k-means clustering (`ruvector_cluster_rag`)
+//!   - `sona` — SONA inference-only binding (`ruvector_sona`)
+//!
 //! Subsequent milestones add `RuLake`, `Embedder`, and `A2aClient` as
 //! additional `register()` calls in this same `_native` module — no new
 //! extensions, no separate wheels.
 
 use pyo3::prelude::*;
 
+mod cluster;
 mod error;
+mod gnn;
+mod graph;
 mod hnsw;
 mod rabitq;
+mod sona;
 
 #[pymodule]
 fn _native(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Class + exception registrations.
     rabitq::register(m)?;
     hnsw::register(m)?;
+    graph::register(m)?;
+    gnn::register(m)?;
+    cluster::register(m)?;
+    sona::register(m)?;
     m.add("RuVectorError", py.get_type::<error::RuVectorError>())?;
 
     // Version mirrors the Cargo crate version. The pure-Python
