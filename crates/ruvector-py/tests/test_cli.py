@@ -51,20 +51,63 @@ def test_create_insert_search_delete_info(runner: CliRunner, tmp_path: Path) -> 
     np.save(query_path, vecs[3])
     r = runner.invoke(main, ["search", "--path", str(db), "--query", str(query_path), "-k", "3", "--json"])
     assert r.exit_code == 0, r.output
+    # --json must stay exactly plain, parseable JSON: no stray ANSI/color
+    # escape sequences, under CliRunner (non-TTY) or anywhere else.
+    assert "\x1b" not in r.output
     hits = json.loads(r.output)
     assert hits[0]["id"] == 3
     assert hits[0]["metadata"] == {"i": 3}
 
+    # Human-readable table: assert on the underlying data (ids, score,
+    # metadata) being present, not on exact table/box-drawing formatting,
+    # which is fragile and not the point of this test.
+    r = runner.invoke(main, ["search", "--path", str(db), "--query", str(query_path), "-k", "3"])
+    assert r.exit_code == 0, r.output
+    assert "\x1b" not in r.output  # CliRunner isn't a real TTY -> no color
+    assert "3" in r.output
+    assert '"i": 3' in r.output
+
     r = runner.invoke(main, ["info", "--path", str(db), "--json"])
     assert r.exit_code == 0, r.output
+    assert "\x1b" not in r.output
     info = json.loads(r.output)
     assert info["count"] == 10
     assert info["dim"] == 4
+    assert info["backend"] == "hnsw"
+
+    # Human-readable info panel: same data, non-TTY so no escape codes.
+    r = runner.invoke(main, ["info", "--path", str(db)])
+    assert r.exit_code == 0, r.output
+    assert "\x1b" not in r.output
+    assert "10" in r.output
+    assert "hnsw" in r.output
 
     r = runner.invoke(main, ["delete", "--path", str(db), "--id", "3", "--vacuum"])
     assert r.exit_code == 0, r.output
     r = runner.invoke(main, ["info", "--path", str(db), "--json"])
     assert json.loads(r.output)["count"] == 9
+
+
+def test_insert_batch_shows_progress_and_inserts_correct_count(runner: CliRunner, tmp_path: Path) -> None:
+    """The insert-batch spinner is cosmetic (see cli.py's _run_with_spinner
+    docstring for why it's not a chunked/granular progress bar) — the
+    thing that actually matters is that wrapping the call in a Progress
+    context doesn't change the result."""
+    db = tmp_path / "coll.rbpx"
+    r = runner.invoke(main, ["create", "--path", str(db), "--dim", "4"])
+    assert r.exit_code == 0, r.output
+
+    rng = np.random.default_rng(2)
+    vecs = rng.standard_normal((25, 4)).astype(np.float32)
+    vecs_path = tmp_path / "vecs.npy"
+    np.save(vecs_path, vecs)
+
+    r = runner.invoke(main, ["insert-batch", "--path", str(db), "--vectors", str(vecs_path)])
+    assert r.exit_code == 0, r.output
+    assert "inserted 25 vectors" in r.output
+
+    r = runner.invoke(main, ["info", "--path", str(db), "--json"])
+    assert json.loads(r.output)["count"] == 25
 
 
 def test_import_and_export_roundtrip(runner: CliRunner, tmp_path: Path) -> None:
@@ -77,6 +120,9 @@ def test_import_and_export_roundtrip(runner: CliRunner, tmp_path: Path) -> None:
     r = runner.invoke(main, ["import", "--path", str(db), "--vectors", str(vecs_path)])
     assert r.exit_code == 0, r.output
     assert "built collection with 5 vectors" in r.output
+    # import also runs behind the spinner (_run_with_spinner) — same
+    # no-escape-under-non-TTY expectation as everything else.
+    assert "\x1b" not in r.output
 
     out_prefix = str(tmp_path / "out")
     r = runner.invoke(main, ["export", "--path", str(db), "--out", out_prefix])
@@ -104,7 +150,37 @@ def test_search_missing_collection_fails(runner: CliRunner, tmp_path: Path) -> N
 def test_benchmark_runs(runner: CliRunner) -> None:
     r = runner.invoke(main, ["benchmark", "-n", "500", "--dim", "16", "--queries", "20", "--json"])
     assert r.exit_code == 0, r.output
+    assert "\x1b" not in r.output
     result = json.loads(r.output)
     assert result["n"] == 500
     assert result["p50_ms"] >= 0
     assert result["qps"] > 0
+
+
+def test_benchmark_human_readable_has_data(runner: CliRunner) -> None:
+    r = runner.invoke(main, ["benchmark", "-n", "500", "--dim", "16", "--queries", "20"])
+    assert r.exit_code == 0, r.output
+    assert "\x1b" not in r.output  # non-TTY under CliRunner -> no color
+    assert "n=500" in r.output
+    assert "dim=16" in r.output
+
+
+def test_search_no_color_flag_forces_plain(runner: CliRunner, tmp_path: Path) -> None:
+    """--no-color is a no-op in terms of data under CliRunner (already
+    non-TTY => already plain), but exercise the flag itself end to end so
+    a future regression in its wiring (e.g. an exception from a bad
+    Console() call) would fail a test, not just a manual check."""
+    db = tmp_path / "coll.rbpx"
+    runner.invoke(main, ["create", "--path", str(db), "--dim", "4"])
+    rng = np.random.default_rng(3)
+    vecs = rng.standard_normal((5, 4)).astype(np.float32)
+    vecs_path = tmp_path / "vecs.npy"
+    np.save(vecs_path, vecs)
+    runner.invoke(main, ["insert-batch", "--path", str(db), "--vectors", str(vecs_path)])
+
+    query_path = tmp_path / "q.npy"
+    np.save(query_path, vecs[0])
+    r = runner.invoke(main, ["search", "--path", str(db), "--query", str(query_path), "-k", "2", "--no-color"])
+    assert r.exit_code == 0, r.output
+    assert "\x1b" not in r.output
+    assert "0" in r.output

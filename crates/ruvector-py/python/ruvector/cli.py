@@ -16,9 +16,30 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, TypeVar
 
 import click
+
+if TYPE_CHECKING:  # pragma: no cover - type-only, no runtime import cost
+    import numpy as np
+    from numpy.typing import NDArray
+
+    from ruvector.collection import Collection
+
+_T = TypeVar("_T")
+
+
+def _secho(message: str, *, fg: str) -> None:
+    """``click.secho`` that also honors the NO_COLOR convention.
+
+    ``click.echo``/``secho`` already auto-strip ANSI when stdout isn't a
+    TTY (their own ``color=None`` default), but — unlike Rich's
+    ``Console`` — they don't check the ``NO_COLOR`` env var on top of
+    that. Check it here so a user who sets NO_COLOR gets consistent
+    behaviour whether a command's output goes through Rich or through
+    plain click.secho.
+    """
+    click.secho(message, fg=fg, color=False if os.environ.get("NO_COLOR") else None)
 
 
 def _resolve_existing(path: str) -> Path:
@@ -53,7 +74,7 @@ def create(path: str, dim: int, rerank_factor: int, seed: int) -> None:
         raise click.ClickException(f"{p} already exists")
     coll = Collection.create(dim=dim, rerank_factor=rerank_factor, seed=seed)
     coll.save(p)
-    click.echo(f"created empty collection dim={dim} at {p}")
+    _secho(f"created empty collection dim={dim} at {p}", fg="green")
 
 
 @main.command()
@@ -72,9 +93,58 @@ def insert_batch(path: str, vectors_path: str, metadata_path: Optional[str]) -> 
     if metadata_path:
         metadatas = json.loads(_resolve_existing(metadata_path).read_text())
     coll = Collection.load(p)
-    ids = coll.insert_batch(vecs, metadatas=metadatas)
+    ids = _run_with_spinner(f"inserting {len(vecs)} vectors...", lambda: coll.insert_batch(vecs, metadatas=metadatas))
     coll.save(p)
-    click.echo(f"inserted {len(ids)} vectors (ids {ids[0]}..{ids[-1]}); collection now has {len(coll)} rows")
+    _secho(f"inserted {len(ids)} vectors (ids {ids[0]}..{ids[-1]}); collection now has {len(coll)} rows", fg="green")
+
+
+def _run_with_spinner(label: str, fn: "Callable[[], _T]") -> "_T":
+    """Run ``fn`` (one bulk, atomic Rust call) behind an indeterminate
+    Rich spinner, and return its result.
+
+    Used by ``insert-batch`` (``Collection.insert_batch``) and ``import``
+    (``Collection.from_vectors``). Both are single calls into Rust with no
+    progress callback, so there is no way to report *granular* progress
+    without changing what Python actually does. Two honest options were
+    considered — see python/ruvector/collection.py for both methods:
+
+    1. Chunk the call into N smaller bulk calls from Python, to get real
+       incremental progress ticks.
+    2. One atomic call (unchanged from before this CLI polish pass) with
+       an indeterminate spinner that honestly says "working", not "N% of
+       M done".
+
+    Went with (2), for a correctness reason found by reading the code,
+    not just style preference: ``Collection.insert_batch``, when the
+    rabitq backend's index hasn't been built yet (``self._index is
+    None``), does ``RabitqIndex.build(arr, ...)`` on *whatever rows are
+    in that call* — fitting the rotation on them. Chunking one big insert
+    into N pieces would fit that rotation on only the first chunk instead
+    of the full batch: a real recall-quality regression, not a cosmetic
+    difference. ``from_vectors`` has the same shape of call
+    (``RabitqIndex.build`` over the whole array) and the same risk if
+    rebuilt as a loop of smaller inserts. Even on the hnsw backend, where
+    chunking would be behavior-equivalent (HNSW insertion is already
+    incremental), the CLI can't tell which backend is in play without
+    extra plumbing, and running two different code paths for a benefit
+    that's "the spinner fills in a bit more" isn't worth the risk above.
+
+    `total=None` renders a pulsing bar, never a fake percentage — that's
+    what keeps this honest. `insert_batch`/`from_vectors` both release
+    the GIL around their Rust call (see their own docstrings), so Rich's
+    background refresh thread can still repaint the spinner while the
+    call is in flight.
+    """
+    from rich.console import Console
+    from rich.progress import Progress, SpinnerColumn, TextColumn
+
+    # stderr, not stdout: stdout stays reserved for the final plain
+    # success line (or --json payload, on the commands that have one), so
+    # piping stdout to a file/program never sees spinner frames.
+    console = Console(stderr=True)
+    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:
+        progress.add_task(description=label, total=None)
+        return fn()
 
 
 @main.command()
@@ -84,7 +154,16 @@ def insert_batch(path: str, vectors_path: str, metadata_path: Optional[str]) -> 
 @click.option("--filter", "filter_json", default=None, help='JSON dict for exact-match metadata filtering, e.g. \'{"cat":"news"}\'')
 @click.option("--rerank-factor", default=None, type=int)
 @click.option("--json", "as_json", is_flag=True, default=False, help="Emit JSON instead of a table.")
-def search(path: str, query_path: str, k: int, filter_json: Optional[str], rerank_factor: Optional[int], as_json: bool) -> None:
+@click.option("--no-color", is_flag=True, default=False, help="Disable colored table output (also honored: NO_COLOR env var, non-TTY stdout).")
+def search(
+    path: str,
+    query_path: str,
+    k: int,
+    filter_json: Optional[str],
+    rerank_factor: Optional[int],
+    as_json: bool,
+    no_color: bool,
+) -> None:
     """Search a collection for the k nearest neighbours of a query vector."""
     import numpy as np
 
@@ -97,19 +176,56 @@ def search(path: str, query_path: str, k: int, filter_json: Optional[str], reran
     hits = coll.search(q, k, filter=filt, rerank_factor=rerank_factor)
 
     if as_json:
+        # Scripting path: stays exactly plain, parseable JSON, never touched
+        # by the rich/color code below.
         click.echo(json.dumps([{"id": h.id, "score": h.score, "metadata": h.metadata} for h in hits]))
         return
 
     from rich.console import Console
     from rich.table import Table
 
+    # `Console()` already auto-detects both non-TTY stdout (no ANSI when
+    # piped/redirected) and the NO_COLOR env var (see rich.console.Console.
+    # __init__: self.no_color falls back to "NO_COLOR" in os.environ when
+    # the constructor arg is left as the default `None`) — passing `None`
+    # here (not `False`) when --no-color wasn't given preserves that
+    # auto-detection instead of forcing color on. Note NO_COLOR/no_color
+    # suppress *color* specifically (matching the no-color.org spec, which
+    # scopes to color codes) — bold/dim/italic SGR attributes can still
+    # render on a real TTY even with --no-color; piping to a non-TTY (the
+    # case this flag mainly exists for) strips all ANSI regardless.
+    console = Console(no_color=no_color or None)
+
     table = Table(title=f"search results (k={k})")
     table.add_column("id", justify="right")
     table.add_column("score", justify="right")
-    table.add_column("metadata")
-    for h in hits:
-        table.add_row(str(h.id), f"{h.score:.4f}", json.dumps(h.metadata) if h.metadata else "")
-    Console().print(table)
+    # `overflow="ellipsis"` is a second guard alongside the manual
+    # truncation below — it only kicks in if a value still exceeds the
+    # rendered column width (e.g. a very narrow terminal).
+    table.add_column("metadata", overflow="ellipsis", max_width=60)
+
+    n = len(hits)
+    for idx, h in enumerate(hits):
+        # Hits are returned best-first by the backend regardless of metric
+        # (cosine distance vs. similarity, rabitq vs. hnsw score scales
+        # differ) — coloring by *rank* rather than by a score threshold
+        # avoids assuming which direction "good" points, which the score
+        # value alone doesn't tell us here.
+        if n <= 1:
+            rank_style = "bold green"
+        elif idx < max(1, n // 3):
+            rank_style = "bold green"
+        elif idx < max(1, 2 * n // 3):
+            rank_style = "yellow"
+        else:
+            rank_style = "dim"
+
+        metadata_str = json.dumps(h.metadata) if h.metadata else ""
+        if len(metadata_str) > 60:
+            metadata_str = metadata_str[:57] + "..."
+        table.add_row(str(h.id), f"{h.score:.4f}", metadata_str, style=rank_style)
+
+    console.print(table)
 
 
 @main.command()
@@ -126,7 +242,7 @@ def delete(path: str, ids: "tuple[int, ...]", vacuum: bool) -> None:
         coll.delete(i)
     dropped = coll.vacuum() if vacuum else 0
     coll.save(p)
-    click.echo(f"tombstoned {len(ids)} id(s)" + (f", vacuumed {dropped} rows" if vacuum else ""))
+    _secho(f"tombstoned {len(ids)} id(s)" + (f", vacuumed {dropped} rows" if vacuum else ""), fg="green")
 
 
 @main.command()
@@ -147,7 +263,7 @@ def export(path: str, out_prefix: str) -> None:
     metas = [m for _, _, m in live]
     np.save(f"{out_prefix}.npy", vecs)
     Path(f"{out_prefix}.meta.json").write_text(json.dumps(metas))
-    click.echo(f"exported {len(live)} vectors to {out_prefix}.npy / {out_prefix}.meta.json")
+    _secho(f"exported {len(live)} vectors to {out_prefix}.npy / {out_prefix}.meta.json", fg="green")
 
 
 @click.command(name="import")
@@ -165,9 +281,12 @@ def import_(path: str, vectors_path: str, metadata_path: Optional[str], rerank_f
     p = Path(path).expanduser().resolve()
     vecs = np.load(_resolve_existing(vectors_path))
     metadatas = json.loads(_resolve_existing(metadata_path).read_text()) if metadata_path else None
-    coll = Collection.from_vectors(vecs, metadatas=metadatas, rerank_factor=rerank_factor, seed=seed)
+    coll = _run_with_spinner(
+        f"building collection from {len(vecs)} vectors...",
+        lambda: Collection.from_vectors(vecs, metadatas=metadatas, rerank_factor=rerank_factor, seed=seed),
+    )
     coll.save(p)
-    click.echo(f"built collection with {len(coll)} vectors at {p}")
+    _secho(f"built collection with {len(coll)} vectors at {p}", fg="green")
 
 
 main.add_command(import_)
@@ -176,17 +295,44 @@ main.add_command(import_)
 @main.command()
 @click.option("--path", required=True)
 @click.option("--json", "as_json", is_flag=True, default=False)
-def info(path: str, as_json: bool) -> None:
+@click.option("--no-color", is_flag=True, default=False, help="Disable the colored panel (also honored: NO_COLOR env var, non-TTY stdout).")
+def info(path: str, as_json: bool, no_color: bool) -> None:
     """Print collection stats."""
     from ruvector.collection import Collection
 
     p = _resolve_existing(path)
     stats = Collection.load(p).stats()
     if as_json:
+        # Scripting path: exactly plain, parseable JSON (CollectionStats's
+        # own field names via dataclass __dict__) — never styled.
         click.echo(json.dumps(stats.__dict__))
+        return
+
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+
+    table = Table.grid(padding=(0, 2))
+    table.add_column(justify="right", style="bold cyan")
+    table.add_column()
+    table.add_row("count", str(stats.count))
+    table.add_row("dim", str(stats.dim))
+    table.add_row("backend", stats.backend)
+    # stats() (python/ruvector/collection.py) only ever populates
+    # rerank_factor/memory_bytes for backend="rabitq" — they're hardcoded
+    # to 0 for "hnsw" because that backend doesn't use a rerank pass or
+    # track its own heap size. Showing a bare "0" there reads like a bug;
+    # say plainly that the field isn't applicable to this backend instead.
+    if stats.backend == "rabitq":
+        table.add_row("rerank_factor", str(stats.rerank_factor))
+        table.add_row("memory_bytes", str(stats.memory_bytes))
     else:
-        click.echo(f"count={stats.count} dim={stats.dim} rerank_factor={stats.rerank_factor} "
-                    f"memory_bytes={stats.memory_bytes} tombstoned={stats.tombstoned}")
+        table.add_row("rerank_factor", "— (not used by hnsw)")
+        table.add_row("memory_bytes", "— (not tracked for hnsw)")
+    table.add_row("tombstoned", str(stats.tombstoned))
+
+    console = Console(no_color=no_color or None)
+    console.print(Panel(table, title=f"[bold]{p.name}[/bold]", expand=False))
 
 
 @main.command()
@@ -230,11 +376,13 @@ def benchmark(n: int, dim: int, k: int, queries: int, rerank_factor: int, as_jso
         "qps": 1.0 / (sum(latencies) / len(latencies)),
     }
     if as_json:
+        # Scripting path: plain, parseable JSON — never styled.
         click.echo(json.dumps(result))
     else:
-        click.echo(
+        _secho(
             f"n={n} dim={dim} build={build_s:.3f}s p50={result['p50_ms']:.3f}ms "
-            f"p99={result['p99_ms']:.3f}ms qps={result['qps']:.0f}"
+            f"p99={result['p99_ms']:.3f}ms qps={result['qps']:.0f}",
+            fg="cyan",
         )
 
 
@@ -247,6 +395,21 @@ def serve(use_http: bool, host: str, port: int) -> None:
     from ruvector.mcp_server import run_http, run_stdio
 
     if use_http:
+        # Checked (not just assumed) what happens on a port-in-use or
+        # permission-denied bind failure: `run_http` hands off to the MCP
+        # SDK's uvicorn-based server, which catches the bind OSError
+        # *internally*, logs its own clean one-line
+        # "ERROR: [Errno N] ... address already in use"/"permission
+        # denied" message, and then returns normally — the OSError never
+        # reaches this function, so a `try`/`except OSError` here would be
+        # dead code (verified: EADDRINUSE on a held port and EACCES on
+        # port 80 both land in that uvicorn log line, not a Python
+        # traceback). The one real rough edge is that the process then
+        # exits 0 even though it failed to bind — misleading for a
+        # supervisor/script checking the exit code — but that's decided
+        # inside uvicorn's `Server.serve()` before control returns here,
+        # so fixing it would mean changing `ruvector.mcp_server`, which is
+        # out of scope for this CLI-only pass.
         run_http(host=host, port=port)
     else:
         run_stdio()
