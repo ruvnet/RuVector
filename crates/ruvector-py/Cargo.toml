@@ -22,7 +22,20 @@ crate-type = ["cdylib"]
 # Bumped from the original 0.22 pin to current (0.29, 2026-10) during the
 # ADR-352 salvage: `Python::allow_threads` -> `Python::detach`,
 # `Python::get_type_bound` -> `Python::get_type`.
-pyo3 = { version = "0.29", features = ["extension-module", "abi3-py39"] }
+# NOTE (test infra, 2026-10-01): "extension-module" deliberately dropped from
+# this list. Per the pyo3 0.29 FAQ ("I can't run `cargo test` ... Undefined
+# reference to _PyExc_SystemError"), that Cargo feature disables linking
+# against libpython — which makes `cargo test -p ruvector-py` fail to link
+# the moment any test touches the interpreter (even `PyErr::new_err`, whose
+# lazy exception closure still references e.g. `PyExc_ValueError`; confirmed
+# empirically here, not just from the docs). The wheel build is unaffected:
+# `pyproject.toml`'s `[tool.maturin] features = ["pyo3/extension-module"]`
+# already re-adds this feature via maturin's own `--features` flag for every
+# real `maturin build`/`develop` invocation, so this line is redundant for
+# that path and only mattered for bare `cargo build`/`cargo test`. Revert by
+# restoring `"extension-module"` to the list below if this ever needs to
+# change back.
+pyo3 = { version = "0.29", features = ["abi3-py39"] }
 numpy = "0.29"
 ruvector-rabitq = { path = "../ruvector-rabitq" }
 # HNSW-backed generic index + native Rust-side metadata filtering (ADR-352

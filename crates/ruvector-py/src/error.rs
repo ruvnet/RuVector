@@ -33,3 +33,115 @@ pub fn to_pyerr(err: ruvector_rabitq::RabitqError) -> PyErr {
 pub fn to_pyerr_core(err: ruvector_core::error::RuvectorError) -> PyErr {
     RuVectorError::new_err(err.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Both mapper fns need an attached, initialized interpreter the moment
+    /// a `PyErr` is actually inspected (formatting a `PyErr` — even via
+    /// `Display`/`to_string()` — calls `Python::attach` internally in pyo3
+    /// 0.29; see `pyo3::err::PyErr`'s `Display` impl). `Python::initialize`
+    /// is idempotent/`Once`-guarded, so calling it per-test is safe and
+    /// matches the one-off nature of each `#[test]` fn (no shared fixture
+    /// needed).
+    fn attach_py() {
+        Python::initialize();
+    }
+
+    #[test]
+    fn to_pyerr_forwards_rabitq_dimension_mismatch_verbatim() {
+        attach_py();
+        let src = ruvector_rabitq::RabitqError::DimensionMismatch {
+            expected: 128,
+            actual: 64,
+        };
+        let expected_msg = src.to_string();
+        let err = to_pyerr(src);
+        Python::attach(|py| {
+            assert!(err.is_instance_of::<RuVectorError>(py));
+            assert_eq!(err.value(py).to_string(), expected_msg);
+            assert_eq!(expected_msg, "dimension mismatch: expected 128, got 64");
+        });
+    }
+
+    #[test]
+    fn to_pyerr_forwards_rabitq_empty_index_verbatim() {
+        attach_py();
+        let src = ruvector_rabitq::RabitqError::EmptyIndex;
+        let expected_msg = src.to_string();
+        let err = to_pyerr(src);
+        Python::attach(|py| {
+            assert!(err.is_instance_of::<RuVectorError>(py));
+            assert_eq!(err.value(py).to_string(), expected_msg);
+        });
+    }
+
+    #[test]
+    fn to_pyerr_forwards_rabitq_invalid_parameter_verbatim() {
+        attach_py();
+        let src = ruvector_rabitq::RabitqError::InvalidParameter("rerank_factor must be > 0".to_string());
+        let expected_msg = src.to_string();
+        let err = to_pyerr(src);
+        Python::attach(|py| {
+            assert_eq!(err.value(py).to_string(), expected_msg);
+            assert_eq!(expected_msg, "invalid parameter: rerank_factor must be > 0");
+        });
+    }
+
+    #[test]
+    fn to_pyerr_core_forwards_dimension_mismatch_verbatim() {
+        attach_py();
+        let src = ruvector_core::error::RuvectorError::DimensionMismatch {
+            expected: 32,
+            actual: 16,
+        };
+        let expected_msg = src.to_string();
+        let err = to_pyerr_core(src);
+        Python::attach(|py| {
+            assert!(err.is_instance_of::<RuVectorError>(py));
+            assert_eq!(err.value(py).to_string(), expected_msg);
+            assert_eq!(expected_msg, "Dimension mismatch: expected 32, got 16");
+        });
+    }
+
+    #[test]
+    fn to_pyerr_core_forwards_vector_not_found_verbatim() {
+        attach_py();
+        let src = ruvector_core::error::RuvectorError::VectorNotFound("abc-123".to_string());
+        let expected_msg = src.to_string();
+        let err = to_pyerr_core(src);
+        Python::attach(|py| {
+            assert_eq!(err.value(py).to_string(), expected_msg);
+            assert_eq!(expected_msg, "Vector not found: abc-123");
+        });
+    }
+
+    #[test]
+    fn to_pyerr_core_forwards_invalid_input_verbatim() {
+        attach_py();
+        let src = ruvector_core::error::RuvectorError::InvalidInput("k must be > 0".to_string());
+        let expected_msg = src.to_string();
+        let err = to_pyerr_core(src);
+        Python::attach(|py| {
+            assert_eq!(err.value(py).to_string(), expected_msg);
+        });
+    }
+
+    /// Both error families must land on the *same* Python exception class —
+    /// the whole point of having a single `RuVectorError` base per
+    /// `docs/sdk/03-api-surface.md` § "Error hierarchy", rather than one
+    /// exception type per Rust backend.
+    #[test]
+    fn both_mappers_raise_the_same_exception_type() {
+        attach_py();
+        let a = to_pyerr(ruvector_rabitq::RabitqError::EmptyIndex);
+        let b = to_pyerr_core(ruvector_core::error::RuvectorError::InvalidInput("x".to_string()));
+        Python::attach(|py| {
+            assert_eq!(
+                a.get_type(py).qualname().unwrap().to_string(),
+                b.get_type(py).qualname().unwrap().to_string()
+            );
+        });
+    }
+}
