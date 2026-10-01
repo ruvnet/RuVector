@@ -12087,6 +12087,9 @@ dependencies = [
 [[package]]
 name = "rvf-index"
 version = "0.2.0"
+dependencies = [
+ "libm",
+]
 
 [[package]]
 name = "rvf-kernel"

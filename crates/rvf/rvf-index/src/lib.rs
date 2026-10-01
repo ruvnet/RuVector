@@ -10,6 +10,42 @@
 
 extern crate alloc;
 
+#[inline]
+pub(crate) fn sqrt_f32(value: f32) -> f32 {
+    #[cfg(feature = "std")]
+    {
+        value.sqrt()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        libm::sqrtf(value)
+    }
+}
+
+#[inline]
+pub(crate) fn ln_f64(value: f64) -> f64 {
+    #[cfg(feature = "std")]
+    {
+        value.ln()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        libm::log(value)
+    }
+}
+
+#[inline]
+pub(crate) fn floor_f64(value: f64) -> f64 {
+    #[cfg(feature = "std")]
+    {
+        value.floor()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        libm::floor(value)
+    }
+}
+
 pub mod builder;
 pub mod codec;
 pub mod distance;
