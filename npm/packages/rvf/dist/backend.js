@@ -564,8 +564,16 @@ class NodeBackend {
         if (!mp)
             return;
         const fs = await Promise.resolve().then(() => __importStar(require('fs')));
-        if (!fs.existsSync(mp))
-            return; // fresh store: no sidecar yet is legitimate
+        if (!fs.existsSync(mp)) {
+            const path = await Promise.resolve().then(() => __importStar(require('path')));
+            const prefix = `${path.basename(mp)}.corrupt-`;
+            const quarantines = fs.readdirSync(path.dirname(mp)).filter(name => name.startsWith(prefix));
+            if (quarantines.length > 0) {
+                throw new errors_1.RvfError(errors_1.RvfErrorCode.SidecarCorrupt, `at ${mp}: a quarantined mapping remains (${quarantines.join(', ')}); ` +
+                    'restore a valid sidecar or recreate the store before retrying');
+            }
+            return; // An ordinary fresh store without a quarantined mapping remains legitimate.
+        }
         let parsed;
         try {
             const candidate = JSON.parse(fs.readFileSync(mp, 'utf-8'));
