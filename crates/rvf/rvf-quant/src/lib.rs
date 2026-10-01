@@ -20,6 +20,30 @@
 
 extern crate alloc;
 
+#[inline]
+pub(crate) fn sqrt_f32(value: f32) -> f32 {
+    #[cfg(feature = "std")]
+    {
+        value.sqrt()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        libm::sqrtf(value)
+    }
+}
+
+#[inline]
+pub(crate) fn round_f32(value: f32) -> f32 {
+    #[cfg(feature = "std")]
+    {
+        value.round()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        libm::roundf(value)
+    }
+}
+
 pub mod binary;
 pub mod codec;
 pub mod product;
