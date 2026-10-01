@@ -199,6 +199,19 @@ the RVF/ruLake integration work that M2 correctly scopes as multi-week.
   `_native.pyi` that silently typed every `RuVectorError` subclass as `Any`).
 - **`npx @claude-flow/cli@latest security scan`** [V], run from `crates/ruvector-py/`: "No
   security issues found!" — Critical 0, High 0, Medium 0, Low 0, Total 0.
+- **Concurrency** [V, fixed]: a second review pass found that `_cache`, `Collection._next_id`,
+  `_metadata`, and `_tombstones` had no locking, and `ruvector serve --http` dispatches
+  concurrent tool calls to worker threads — the same fact that made `RabitqIndex`'s old
+  `unsendable` pyclass panic. Two concurrent `vector_insert` calls on one collection could read
+  the same `_next_id` and both `add()` with the same id. Fixed with one process-wide
+  `threading.RLock()` around every tool body that touches shared state (`RLock`, not `Lock`,
+  because `vector_explore` calls `vector_search` from the same thread). Verified the fix is
+  real, not cosmetic: temporarily neutered the lock and reproduced **3 duplicate ids out of 160**
+  under 16 concurrent threads × 10 inserts each
+  (`tests/test_mcp_server.py::test_concurrent_inserts_do_not_collide`); restoring the lock
+  eliminates the collisions. This serializes all tool calls under `--http` (correctness over
+  throughput — the right tradeoff for a single vector index, not a high-QPS service); `stdio`
+  (the default transport) was never affected, since it's one request at a time regardless.
 - MCP HTTP transport auth (bearer token, matching the live-probed starter site's convention):
   **not implemented this session** — `ruvector serve --http` currently has no auth. This is a
   real gap for internet-facing deployment; fine for the localhost/stdio default. Flagged as a

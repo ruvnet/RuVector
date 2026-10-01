@@ -137,3 +137,36 @@ def test_explore_tool_returns_search_shape(server_module: ModuleType) -> None:
     _call(m, "vector_insert", name="t7", vector=[1.0, 0.0], metadata={"cat": "x"})
     out = _call(m, "vector_explore", name="t7", query=[1.0, 0.0], k=1)
     assert out["hits"][0]["metadata"] == {"cat": "x"}
+
+
+def test_concurrent_inserts_do_not_collide(server_module: ModuleType) -> None:
+    """Regression test for the concurrency gap flagged in ADR-352: without
+    the module-level RLock, two threads racing vector_insert on the same
+    collection could both read the same next_id. 16 threads x 10 inserts
+    each must produce 160 distinct ids and a collection of length 160 -
+    not fewer (which would mean a lost write from an id collision)."""
+    import threading
+
+    m = server_module
+    _call(m, "vector_create_collection", name="tc", dim=2)
+
+    results: list[dict[str, Any]] = []
+    results_lock = threading.Lock()
+
+    def worker() -> None:
+        for _ in range(10):
+            r = _call(m, "vector_insert", name="tc", vector=[1.0, 2.0])
+            with results_lock:
+                results.append(r)
+
+    threads = [threading.Thread(target=worker) for _ in range(16)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert len(results) == 160
+    ids = [r["id"] for r in results]
+    assert len(set(ids)) == 160, f"id collision: {len(ids) - len(set(ids))} duplicate(s)"
+    stats = _call(m, "vector_stats", name="tc")
+    assert stats["count"] == 160

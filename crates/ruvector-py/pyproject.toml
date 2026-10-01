@@ -42,8 +42,11 @@ test = ["pytest>=7", "numpy>=1.21"]
 # see cli.py's module docstring).
 cli = ["click>=8.1", "rich>=13"]
 # MCP server: the official SDK. `ruvector.mcp_server` is the only module
-# that imports it.
-mcp = ["mcp>=1.6"]
+# that imports it. >=2.0 is required, not a style preference: mcp_server.py
+# imports `mcp.server.mcpserver.MCPServer`, which only exists from the v2
+# rename (v1 called it `FastMCP`) — `mcp>=1.6` would resolve and then fail
+# on import.
+mcp = ["mcp>=2.0"]
 all = ["ruvector[cli,mcp]"]
 
 [project.urls]

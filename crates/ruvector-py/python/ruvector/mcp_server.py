@@ -22,6 +22,7 @@ reject_null_bytes=True)`` for free — that guard is on by default in
 from __future__ import annotations
 
 import os
+import threading
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -75,6 +76,20 @@ def _safe_path(name: str) -> Path:
 # acknowledged write.
 _cache: Dict[str, "Any"] = {}
 
+# `ruvector serve --http` dispatches concurrent tool calls to worker
+# threads (the same fact that made RabitqIndex's old `unsendable` pyclass
+# panic — see ADR-352). Without this lock, two concurrent `vector_insert`
+# calls on the same collection can both read the same `Collection._next_id`
+# and both `add()` with the same id, or race on `_metadata`/`_tombstones`
+# (plain dict/set, no internal locking). One process-wide `RLock` (not a
+# plain `Lock`: `vector_explore` calls `vector_search` from inside the same
+# thread, which must be able to re-acquire) around every tool body that
+# touches `_cache` or a `Collection` serializes all of them — correct over
+# concurrent, which is the right tradeoff for a single vector index, not a
+# throughput-critical service. The stdio transport (the default) is already
+# one request at a time, so this only changes behavior under `--http`.
+_lock = threading.RLock()
+
 
 def _load(name: str) -> "Collection":
     from ruvector.collection import Collection, CollectionError
@@ -115,12 +130,13 @@ server = MCPServer(
 def vector_create_collection(name: str, dim: int, rerank_factor: int = 20, seed: int = 42) -> Dict[str, Any]:
     from ruvector.collection import Collection
 
-    path = _safe_path(name)
-    if Collection.meta_path(path).exists():
-        raise ValueError(f"collection {name!r} already exists")
-    coll = Collection.create(dim=dim, rerank_factor=rerank_factor, seed=seed)
-    _save(name, coll)
-    return {"name": name, "dim": dim, "rerank_factor": rerank_factor}
+    with _lock:
+        path = _safe_path(name)
+        if Collection.meta_path(path).exists():
+            raise ValueError(f"collection {name!r} already exists")
+        coll = Collection.create(dim=dim, rerank_factor=rerank_factor, seed=seed)
+        _save(name, coll)
+        return {"name": name, "dim": dim, "rerank_factor": rerank_factor}
 
 
 @server.tool(
@@ -131,10 +147,11 @@ def vector_create_collection(name: str, dim: int, rerank_factor: int = 20, seed:
 def vector_insert(name: str, vector: List[float], metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     import numpy as np
 
-    coll = _load(name)
-    new_id = coll.insert(np.asarray(vector, dtype=np.float32), metadata=metadata)
-    _save(name, coll)
-    return {"id": new_id, "count": len(coll)}
+    with _lock:
+        coll = _load(name)
+        new_id = coll.insert(np.asarray(vector, dtype=np.float32), metadata=metadata)
+        _save(name, coll)
+        return {"id": new_id, "count": len(coll)}
 
 
 @server.tool(
@@ -147,10 +164,11 @@ def vector_insert_batch(
 ) -> Dict[str, Any]:
     import numpy as np
 
-    coll = _load(name)
-    ids = coll.insert_batch(np.asarray(vectors, dtype=np.float32), metadatas=metadatas)
-    _save(name, coll)
-    return {"ids": ids, "count": len(coll)}
+    with _lock:
+        coll = _load(name)
+        ids = coll.insert_batch(np.asarray(vectors, dtype=np.float32), metadatas=metadatas)
+        _save(name, coll)
+        return {"ids": ids, "count": len(coll)}
 
 
 @server.tool(
@@ -167,9 +185,10 @@ def vector_search(
 ) -> Dict[str, Any]:
     import numpy as np
 
-    coll = _load(name)
-    hits = coll.search(np.asarray(query, dtype=np.float32), k, filter=filter, rerank_factor=rerank_factor)
-    return {"hits": [{"id": h.id, "score": h.score, "metadata": h.metadata} for h in hits]}
+    with _lock:
+        coll = _load(name)
+        hits = coll.search(np.asarray(query, dtype=np.float32), k, filter=filter, rerank_factor=rerank_factor)
+        return {"hits": [{"id": h.id, "score": h.score, "metadata": h.metadata} for h in hits]}
 
 
 @server.tool(
@@ -178,11 +197,12 @@ def vector_search(
     annotations=_DELETE,
 )
 def vector_delete(name: str, id: int, vacuum: bool = False) -> Dict[str, Any]:
-    coll = _load(name)
-    coll.delete(id)
-    dropped = coll.vacuum() if vacuum else 0
-    _save(name, coll)
-    return {"count": len(coll), "vacuumed": dropped}
+    with _lock:
+        coll = _load(name)
+        coll.delete(id)
+        dropped = coll.vacuum() if vacuum else 0
+        _save(name, coll)
+        return {"count": len(coll), "vacuumed": dropped}
 
 
 @server.tool(
@@ -193,7 +213,8 @@ def vector_delete(name: str, id: int, vacuum: bool = False) -> Dict[str, Any]:
 def vector_stats(name: str) -> Dict[str, Any]:
     from dataclasses import asdict
 
-    return asdict(_load(name).stats())
+    with _lock:
+        return asdict(_load(name).stats())
 
 
 @server.tool(
