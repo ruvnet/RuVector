@@ -1,7 +1,7 @@
 //! Ladder rungs, economic configuration, and the investigator trait
 //! (PIR WP33, ADR-337).
 
-use ruvector_tiny_dancer_core::voi::{EstimatorSpec, VoiConfig};
+use ruvector_voi::{EstimatorSpec, VoiConfig};
 
 use super::detector::InspectionSubject;
 use super::MonitorError;
