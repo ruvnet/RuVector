@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools==78.1.0", "wheel==0.45.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ruvllm-microlora-runtime"
+version = "0.1.0"
+description = "Optional tenant-bound CPU MicroLoRA runtime companion"
+requires-python = ">=3.11"
+dependencies = [
+  "torch==2.8.0", "transformers==4.56.2", "peft==0.17.1",
+  "fastapi==0.117.1", "uvicorn==0.37.0", "PyJWT[crypto]==2.10.1",
+]
+
+[tool.setuptools]
+packages = ["ruvllm_microlora_runtime"]
+package-dir = {ruvllm_microlora_runtime = "."}
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
