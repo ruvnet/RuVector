@@ -391,8 +391,26 @@ def benchmark(n: int, dim: int, k: int, queries: int, rerank_factor: int, as_jso
 @click.option("--host", default="127.0.0.1", show_default=True)
 @click.option("--port", default=8420, show_default=True, type=int)
 def serve(use_http: bool, host: str, port: int) -> None:
-    """Launch the ruvector MCP server (stdio by default)."""
+    """Launch the ruvector MCP server (stdio by default).
+
+    If ``RUVECTOR_ENABLE_SALESFORCE_ACTIONS`` is set, also mounts the
+    Salesforce Agentforce action routes (ADR-352) on the same server —
+    see ``ruvector.salesforce_routes``'s module docstring for the separate
+    auth these routes need (``MCPServer.custom_route`` endpoints do not
+    get the MCP-level bearer auth). This only makes sense with `--http`
+    (a REST action endpoint has no stdio equivalent); it's a no-op flag
+    check here either way, not an error, so `ruvector serve` without
+    `--http` simply ignores it rather than failing on an irrelevant
+    env var a deployment script might set unconditionally.
+    """
+    import os
+
     from ruvector.mcp_server import run_http, run_stdio
+
+    if use_http and os.environ.get("RUVECTOR_ENABLE_SALESFORCE_ACTIONS"):
+        from ruvector.salesforce_routes import maybe_register
+
+        maybe_register()
 
     if use_http:
         # Checked (not just assumed) what happens on a port-in-use or

@@ -56,7 +56,17 @@ mcp = ["mcp>=2.0"]
 # guessed minimums.
 langchain = ["langchain-core>=1.6"]
 llamaindex = ["llama-index-core>=0.14"]
-all = ["ruvector[cli,mcp,langchain,llamaindex]"]
+# Salesforce Agentforce integration (ADR-352): only the two network
+# functions in `ruvector.integrations.salesforce`
+# (`get_oauth_token`/`fetch_records`) import httpx, lazily — not at module
+# level (unlike langchain/llamaindex, this module never subclasses a
+# third-party base class, so there's no forced-eager-import requirement).
+# httpx over `simple_salesforce` deliberately: this module only needs two
+# REST calls (OAuth token + SOQL query), not a full Salesforce ORM, and
+# httpx avoids simple_salesforce's heavier `requests`-based transitive
+# footprint.
+salesforce = ["httpx>=0.27"]
+all = ["ruvector[cli,mcp,langchain,llamaindex,salesforce]"]
 
 [project.urls]
 Repository = "https://github.com/ruvnet/ruvector"
