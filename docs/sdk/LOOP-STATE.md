@@ -40,7 +40,7 @@ capabilities" bar rUv set). Update this table at every milestone, not just at th
 | Metadata filtering | ✅ done (partial) | `Collection.search(filter=dict)` | dict-filter in Rust for hnsw backend; callable predicate always Python-side (structural — can't ship a Python fn into Rust); rabitq backend always Python-side |
 | Collections (named, CRUD) | ✅ done | `Collection` class | both backends |
 | Persistence | ✅ done (own format, not RVF) | `Collection.save/load` | `.rbpx`+sidecar (rabitq) / `.npy`+sidecar (hnsw) — see "RVF" row for why not RVF |
-| CLI | ✅ done, polish in progress | `ruvector` console script | forked for rich-table/progress-bar polish — see below |
+| CLI | ✅ done, polished | `ruvector` console script | rich tables, colored/ranked output, progress spinner, `--no-color`; importtime unchanged |
 | MCP server (stdio+HTTP) | ✅ done, auth gap | `ruvector serve` | no bearer/OAuth on `--http` yet — queued |
 | ChatGPT `ui://` widget | ✅ done | `vector_explore` tool | live-verified `_meta` shape |
 | Graph (raw CRUD) | ⬜ not started | — | `ruvector-graph::GraphDB` confirmed Send+Sync, pub API ready to bind (ADR-352 inventory) |
@@ -52,25 +52,62 @@ capabilities" bar rUv set). Update this table at every milestone, not just at th
 | Embeddings (M3) | ❌ deferred | — | needs ONNX/`ort` + model download, a separate milestone by design (docs/sdk/04-milestones.md M3), unchanged |
 | `ruvector-cluster` (distributed) | ❌ premise mismatch | — | it's node-coordination/sharding infra, not ML clustering — binding it needs a running multi-node cluster, not a Python process |
 | Quantization (Turbo4) | ⬜ unexplored | — | exists in `ruvector-core`'s `QuantizationConfig`, not evaluated this session |
-| LangChain VectorStore | 🔄 forked, in progress | `python/ruvector/integrations/langchain.py` | against the stable `Collection` API |
-| LlamaIndex VectorStore | 🔄 forked, in progress | `python/ruvector/integrations/llamaindex.py` | same |
+| LangChain VectorStore | ✅ done | `python/ruvector/integrations/langchain.py` | verified vs langchain-core 1.6.6; lazy module (not imported by plain `import ruvector`) |
+| LlamaIndex VectorStore | ✅ done | `python/ruvector/integrations/llamaindex.py` | verified vs llama-index-core 0.14.25; found+fixed a real distance-vs-similarity bug in review |
 | Salesforce Agentforce | 🔄 scoped, corrected | — | sent rUv a correction: no real "BYO retriever" extension point; Agentforce MCP is Beta/AE-gated. Proceeding with External Services + OpenAPI as the primary path pending any reply. |
-| Rust unit tests | 🔄 forked, in progress | `src/*.rs` test modules | `cargo test -p ruvector-py` ran 0 before this |
+| Rust unit tests | ✅ done | `src/hnsw.rs`, `src/error.rs` `#[cfg(test)]` modules | 26 tests, was 0; required a Cargo.toml feature change, fixed a CI risk that introduced in `release.yml` |
 
-## Next (in flight this message / immediately after)
+## Done, continued (3 forked agents landed + integration-tested, this checkpoint)
 
-- [ ] 3 forked agents in flight: LangChain+LlamaIndex adapters, Rust unit tests, CLI rich-UI
-      polish. Check their results before continuing other Rust/CLI work on the same files.
-- [ ] Graph raw-CRUD + GNN-forward + k-means + SONA-inference bindings (doing myself while forks run).
-- [ ] MCP HTTP bearer/OAuth auth (independent, pick up after the forks land).
-- [ ] Salesforce Agentforce integration once/if rUv confirms the corrected design.
-- [ ] Python user guide `docs/python/README.md` (per rUv — install+extras, quick start, SDK,
-      CLI, MCP+ChatGPT ui://, each integration incl. Agentforce, perf tips, benchmark table).
+- [x] LangChain (`ruvector.integrations.langchain.RuVectorStore`, verified against
+      `langchain-core==1.6.6`) and LlamaIndex (`ruvector.integrations.llamaindex.RuVectorStore`,
+      verified against `llama-index-core==0.14.25`) adapters. `ruvector[langchain]`/
+      `ruvector[llamaindex]` extras. Cherry-picked from forked agents, then **integration-tested
+      for real** (not just trusted) — found and fixed a real correctness bug: the LlamaIndex
+      adapter returned raw *distance* in `VectorStoreQueryResult.similarities` (should be
+      *similarity*, higher=closer) — would have silently inverted ranking for any
+      `SimilarityPostprocessor` cutoff. Fixed via a new `Collection.metric` property +
+      `_distance_to_similarity()` (exact for cosine, documented-approximate otherwise).
+- [x] 26 Rust unit tests for `ruvector-py` (was 0) — `parse_metric`, JSON round-trip converters,
+      error mappers. Required dropping `extension-module` from `ruvector-py`'s pyo3 feature list
+      so `cargo test -p ruvector-py` can link against libpython at all (maturin re-adds the
+      feature for real wheel builds via `pyproject.toml`, unaffected). **Fixed a CI risk this
+      introduced**: `.github/workflows/release.yml`'s `validate`/`build-crates` jobs run
+      workspace-wide `cargo build`/`cargo test` on bare `ubuntu-22.04` with no Python setup —
+      excluded `ruvector-py` from all 4 of those invocations (`--exclude ruvector-py`) rather
+      than risk breaking shared CI on an unverifiable libpython-availability assumption.
+      3 real bugs found in `hnsw.rs`'s JSON converters, documented as `known_limitations` tests
+      (not fixed — out of scope, reported honestly): large-int (`>i64::MAX`) precision loss,
+      NaN→null silent coercion, misleading error message for a lone UTF-16 surrogate string.
+- [x] CLI rich-UI polish: colored/ranked `search` table (+ `--no-color`, verified NO_COLOR/TTY
+      detection), `info` as a Rich panel over real `CollectionStats` fields, indeterminate
+      spinner on `insert-batch`/`import` (chunking was considered and rejected — would change
+      the rabitq rotation's fit quality on partial data). Importtime unchanged (~16-21ms).
+- [x] Fixed a pre-existing bug found while integration-testing: `ruvector.HnswIndex` was
+      unreachable via the public API (`__init__.py`'s lazy `__getattr__` dispatch set was never
+      updated when `HnswIndex` was added to the compiled module — `Collection` worked fine since
+      it imports `HnswIndex` directly, masking the gap).
+- [x] All of the above cherry-picked onto `feat/python-sdk` as individual commits (not merged
+      branches — each fork's worktree had drifted onto `feat/python-sdk`'s tip on its own, so
+      cherry-picking the single commit was clean with zero conflicts). Full suite re-verified
+      after every cherry-pick, not just at the end: 93/93 pytest, mypy --strict clean (14 files),
+      clippy clean, 26/26 cargo test. Pushed.
+
+## Next
+
+- [ ] Graph raw-CRUD + GNN-forward + k-means + SONA-inference bindings.
+- [ ] MCP HTTP bearer/OAuth auth.
+- [ ] Salesforce Agentforce integration — corrected design sent to rUv (External Services +
+      OpenAPI primary path; MCP registration documented as beta/AE-gated, not built), awaiting
+      any reply before building.
+- [ ] Python user guide `docs/python/README.md` (install+extras incl. langchain/llamaindex/
+      salesforce, quick start, SDK, CLI, MCP+ChatGPT ui://, each integration, perf tips,
+      benchmark table — now has real content for langchain/llamaindex to document).
 - [ ] Separate commit `docs(readme): add Python install + user guide link` — minimal root
       README.md edit, flagged in the PR body as "land only after `ruvector` is live on PyPI".
 - [ ] First CI run on the PR (untested non-Linux-x86_64 cross-compile paths).
-- [ ] Slack: posted M1/M1.5 progress to #swarm thread (ts 1790885023.580889). Post again at
-      HNSW-landing milestone (done — not yet posted, do next), integrations-landing, and final.
+- [ ] Slack: posted M1/M1.5 progress to #swarm thread (ts 1790885023.580889). Post the
+      HNSW+integrations-landing milestone next, then final summary.
 
 ## Gotchas hit this session (don't rediscover) — M1/M1.5 ones omitted here, see git log; M2 additions below
 
