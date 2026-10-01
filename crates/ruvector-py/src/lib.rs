@@ -19,6 +19,11 @@
 //!   - `RuVectorError` exception
 //!   - `__version__` string mirroring the Cargo crate version
 //!
+//! ADR-352 M2 slice adds:
+//!   - `HnswIndex` class (`ruvector_core::vector_db::VectorDB` — generic,
+//!     metadata-aware, Rust-side filtered search; the default backend for
+//!     `ruvector.Collection`)
+//!
 //! Subsequent milestones add `RuLake`, `Embedder`, and `A2aClient` as
 //! additional `register()` calls in this same `_native` module — no new
 //! extensions, no separate wheels.
@@ -26,12 +31,14 @@
 use pyo3::prelude::*;
 
 mod error;
+mod hnsw;
 mod rabitq;
 
 #[pymodule]
 fn _native(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Class + exception registrations.
     rabitq::register(m)?;
+    hnsw::register(m)?;
     m.add("RuVectorError", py.get_type::<error::RuVectorError>())?;
 
     // Version mirrors the Cargo crate version. The pure-Python

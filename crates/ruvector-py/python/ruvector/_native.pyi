@@ -7,7 +7,7 @@ mypy cannot find an implementation for the compiled module and every
 subclass of ``RuVectorError`` elsewhere resolves to ``Any``).
 """
 
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
@@ -103,4 +103,77 @@ class RabitqIndex:
     @property
     def rerank_factor(self) -> int: ...
 
-__all__ = ["RabitqIndex", "RuVectorError", "__version__"]
+class HnswIndex:
+    """Generic HNSW-backed index — ``ruvector_core::vector_db::VectorDB``.
+
+    Metadata-aware (arbitrary JSON-compatible dict per vector) and filters
+    in Rust (``search(..., filter=...)``), not in Python — the ADR-352 M2
+    default backend for :class:`ruvector.Collection`. Always in-memory;
+    persistence goes through :meth:`export_items` + the Python-side save/
+    load sidecar, same idiom as :class:`RabitqIndex`.
+    """
+
+    @staticmethod
+    def create(
+        dim: int,
+        *,
+        metric: str = ...,
+        m: int = ...,
+        ef_construction: int = ...,
+        ef_search: int = ...,
+    ) -> "HnswIndex":
+        """``metric``: one of ``cosine`` (default), ``euclidean``/``l2``,
+        ``dot``/``dot_product``, ``manhattan``/``l1``.
+        """
+        ...
+
+    def insert(
+        self,
+        id: str,
+        vector: NDArray[np.float32],
+        metadata: Optional[Dict[str, Any]] = ...,
+    ) -> str:
+        """Returns ``id`` (echoed back for symmetry with the Rust API,
+        which can auto-generate an id when none is given — this binding
+        always supplies one explicitly)."""
+        ...
+
+    def insert_batch(
+        self,
+        ids: Sequence[str],
+        vectors: NDArray[np.float32],
+        metadatas: Optional[Sequence[Optional[Dict[str, Any]]]] = ...,
+    ) -> List[str]: ...
+
+    def search(
+        self,
+        query: NDArray[np.float32],
+        k: int,
+        *,
+        filter: Optional[Dict[str, Any]] = ...,
+        ef_search: Optional[int] = ...,
+    ) -> List[Tuple[str, float, Optional[Dict[str, Any]]]]:
+        """``filter`` is an exact-match dict, applied in Rust as a
+        post-ANN-search retain (not pushed into the HNSW graph traversal
+        itself — see the Rust module docstring for the precise claim).
+        """
+        ...
+
+    def delete(self, id: str) -> bool:
+        """Real delete (not a Python tombstone). The underlying HNSW
+        graph node is not physically removed until a rebuild (no
+        live-delete in the vendored ``hnsw_rs``), but the id is gone from
+        every result/count/get immediately.
+        """
+        ...
+
+    def export_items(
+        self,
+    ) -> List[Tuple[str, NDArray[np.float32], Optional[Dict[str, Any]]]]: ...
+
+    def __len__(self) -> int: ...
+    def __repr__(self) -> str: ...
+    @property
+    def dim(self) -> int: ...
+
+__all__ = ["RabitqIndex", "HnswIndex", "RuVectorError", "__version__"]

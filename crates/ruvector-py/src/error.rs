@@ -25,3 +25,11 @@ pyo3::create_exception!(
 pub fn to_pyerr(err: ruvector_rabitq::RabitqError) -> PyErr {
     RuVectorError::new_err(err.to_string())
 }
+
+/// Same mapping for `ruvector_core::error::RuvectorError` (the HNSW/VectorDB
+/// backend added for the generic `HnswIndex` pyclass, ADR-352 M2 slice).
+/// Two source error types, one Python exception — `RuVectorError` stays the
+/// single base class for every backend per `docs/sdk/03-api-surface.md`.
+pub fn to_pyerr_core(err: ruvector_core::error::RuvectorError) -> PyErr {
+    RuVectorError::new_err(err.to_string())
+}

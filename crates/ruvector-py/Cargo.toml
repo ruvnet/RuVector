@@ -6,7 +6,7 @@ rust-version.workspace = true
 license = "MIT OR Apache-2.0"
 authors.workspace = true
 repository.workspace = true
-description = "Python bindings for ruvector — vector similarity search via RaBitQ 1-bit quantization"
+description = "Python bindings for ruvector — ultra-low-latency vector search (RaBitQ + HNSW)"
 
 [lib]
 # Must match the maturin `module-name` Python module so the produced
@@ -25,4 +25,17 @@ crate-type = ["cdylib"]
 pyo3 = { version = "0.29", features = ["extension-module", "abi3-py39"] }
 numpy = "0.29"
 ruvector-rabitq = { path = "../ruvector-rabitq" }
+# HNSW-backed generic index + native Rust-side metadata filtering (ADR-352
+# M2 slice — "make the default Collection the fast path"). Explicit
+# `default-features = false` per the ADR-352 capability-inventory pass:
+# ruvector-core's *default* feature set pulls in `api-embeddings` (reqwest +
+# rustls) for a capability this crate never uses — would bloat the wheel
+# for nothing. `storage`/`parallel` stay on because `vector_db::VectorDB`
+# needs them at compile time (its `#[cfg(feature = "storage")]` branch);
+# we always construct it with a `memory://` storage_path at runtime (see
+# `src/hnsw.rs`), so no redb file ever touches disk — persistence for this
+# backend goes through `HnswIndex.export_items()` + Python's existing
+# save/load sidecar pattern, the same idiom `RabitqIndex` already uses.
+ruvector-core = { path = "../ruvector-core", default-features = false, features = ["storage", "hnsw", "simd", "parallel"] }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
