@@ -72,12 +72,17 @@ def test_search_filter(server_module: ModuleType) -> None:
 
 
 def test_delete_and_vacuum(server_module: ModuleType) -> None:
+    # Default collection backend is hnsw (ADR-352 M2): delete() is a real
+    # delete already, so vacuum() correctly reports 0 dropped (nothing was
+    # queued to drop) - see Collection.vacuum's docstring and
+    # test_collection.py::test_hnsw_delete_is_immediate_no_vacuum_needed
+    # for the backend-specific coverage of this.
     m = server_module
     _call(m, "vector_create_collection", name="t4", dim=2)
     _call(m, "vector_insert_batch", name="t4", vectors=[[1.0, 0.0], [0.0, 1.0]])
     r = _call(m, "vector_delete", name="t4", id=0, vacuum=True)
     assert r["count"] == 1
-    assert r["vacuumed"] == 1
+    assert r["vacuumed"] == 0
 
 
 def test_stats_and_list(server_module: ModuleType) -> None:
