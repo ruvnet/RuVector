@@ -157,27 +157,121 @@ M1.5 is the pragmatic answer to "all major capabilities in one session": it buys
 widget + a *usable* (if not yet HNSW-backed) generic `Collection` API now, without blocking on
 the RVF/ruLake integration work that M2 correctly scopes as multi-week.
 
-## Security
+## Security (run this session, results below — not projected)
 
-- Input validation at every PyO3 boundary: dimension checks before any unsafe-adjacent NumPy
-  buffer read (already present in salvaged `rabitq.rs`); CLI/MCP path arguments resolved and
-  checked against directory traversal (`os.path.realpath` + prefix check) before touching disk.
-- No pickle. Collection metadata sidecar is JSON; vectors are raw float32 buffers with an
-  explicit header (mirrors the existing `.rbpx` format's magic-byte approach).
-- MCP HTTP transport (M2+): bearer-token auth, same shape as the live-probed starter site's
-  `Authorization` header convention.
-- `cargo audit` and `pip-audit` to run before publish; results recorded in the loop-state file,
-  not fabricated here before they're run.
+- **Input validation at the PyO3 boundary**: dimension checks before any NumPy buffer read
+  (`rabitq.rs` `build`/`search`/`add`/`add_batch`), C-contiguity enforced (non-contig raises
+  `TypeError` rather than silently copying).
+- **Path handling has two different rules for two different trust levels**, not one blanket
+  rule: the CLI's `--path` runs with the caller's own filesystem authority (like `sqlite3
+  file.db` — no traversal check needed, confirmed appropriate since the caller already has
+  arbitrary filesystem access by definition). The MCP server is the actual trust boundary (a
+  remote client sends a `name` string): `ruvector.mcp_server._safe_path` restricts collection
+  *names* to `^[A-Za-z0-9_-]{1,128}$` — no `/`, no `..`, no absolute paths, no null bytes — then
+  resolves under `RUVECTOR_MCP_DATA_DIR` and asserts `.relative_to(root)`. Verified by
+  `tests/test_mcp_server.py::test_collection_name_traversal_rejected` against
+  `"../etc/passwd"`, `"/etc/passwd"`, `"a/b"`, a null byte, and the empty string — all raise.
+  Resource reads (the `ui://` widget) get the `mcp` SDK's own
+  `ResourceSecurity(reject_path_traversal=True, reject_absolute_paths=True,
+  reject_null_bytes=True)`, on by default in `MCPServer.__init__` — not something this module
+  implements itself.
+- No pickle anywhere. Collection metadata sidecar is JSON; the index itself is the existing
+  `.rbpx` binary format (magic-byte header, `persist.rs`).
+- **`cargo audit --file Cargo.lock`** [V]: ran against the full workspace lockfile (hundreds of
+  crates). `ruvector-py`'s own dependency tree (`cargo tree -p ruvector-py`) does **not** include
+  either of the two findings (`rustls-pemfile` RUSTSEC-2025-0134 unmaintained,
+  `lru` RUSTSEC-2026-0253 unsound `pop()`) — both belong to unrelated workspace crates
+  (networking/server crates elsewhere in the monorepo). Zero findings in `ruvector-py`'s own
+  tree: pyo3, numpy (rust-numpy), ruvector-rabitq, rand/rand_distr/rayon/serde/thiserror.
+- **`pip-audit`** [V]: run as `python3 -m pip_audit` inside the dev venv (the standalone
+  `~/.local/bin/pip-audit` binary audits the *system* Python, not the active venv — caught this
+  by seeing Ubuntu system packages like `cloud-init`/`ufw` in its output and re-running
+  correctly). Result: **"No known vulnerabilities found"** across numpy, click, rich, mcp,
+  pytest, mypy, and their transitive deps. `ruvector` itself is skipped (not yet on PyPI, can't
+  be looked up — correct, not a failure).
+- **`mypy --strict`** [V]: clean across `collection.py`, `cli.py`, `mcp_server.py`, `__init__.py`,
+  and all 4 test files, after fixing two real type-narrowing bugs this surfaced (not just
+  annotation noise) — see the commit history for specifics (a `callable()` branch that doesn't
+  narrow a `Dict | Callable` union the way `isinstance(filter, dict)` does; a missing
+  `_native.pyi` that silently typed every `RuVectorError` subclass as `Any`).
+- **`npx @claude-flow/cli@latest security scan`** [V], run from `crates/ruvector-py/`: "No
+  security issues found!" — Critical 0, High 0, Medium 0, Low 0, Total 0.
+- MCP HTTP transport auth (bearer token, matching the live-probed starter site's convention):
+  **not implemented this session** — `ruvector serve --http` currently has no auth. This is a
+  real gap for internet-facing deployment; fine for the localhost/stdio default. Flagged as a
+  concrete M2 follow-up, not silently left implicit.
 
-## Benchmark methodology
+## Benchmark (real numbers, this session, this host)
 
-No fabricated numbers. Real comparator: this session confirms no `hnswlib`/`faiss`/`chromadb`/
-`qdrant-client` is pre-installed (`pip list` empty for all four) — one will be `uv pip install`ed
-specifically to get an honest side-by-side, or the absence will be stated explicitly if install
-is skipped. Metrics: p50/p99 single-query latency, QPS, recall@10, build time, wheel size — same
-shape as `04-milestones.md`'s acceptance tests, measured on this host (32-core, per
-`ruv_system_info`), not assumed from `ruvector-rabitq/BENCHMARK.md`'s numbers (those were a
-different host).
+Host: 32-core x86_64, 123 GiB RAM (`nproc` / `free -h`). `hnswlib==0.8.0` installed fresh via
+`uv pip install hnswlib` (needed `sudo apt-get install -y libomp-dev` first — no prebuilt wheel
+for this platform, source build failed on a missing `omp` shared lib without it) as the real
+comparator; `faiss`/`chromadb`/`qdrant-client` were not installed (time budget) — stated here
+rather than silently substituted. Workload: i.i.d. standard-normal (Gaussian) float32 vectors,
+seed 0, L2 distance, k=10. Ground truth is exact brute-force L2, computed per query.
+
+**[V] Random-Gaussian data is close to worst-case for both algorithms** — all pairwise angles
+concentrate near 90° in high dimensions, which is exactly the structure RaBitQ's rotation-based
+binary quantization and HNSW's graph proximity both rely on *less* of than they would on real
+embedding clusters. The recall numbers below are real but should not be read as "ruvector gets
+64% recall" in general — `ruvector-rabitq/BENCHMARK.md`'s "100% recall@10" figure was measured on
+a different (unspecified in this session) workload/host and is not reproduced here; this is an
+honest discrepancy to flag, not a regression.
+
+| n | dim | rerank_factor | ruvector p50/p99 (ms) | ruvector recall@10 | ruvector QPS | hnswlib p50/p99 (ms) (ef=50) | hnswlib recall@10 | hnswlib QPS |
+|---|---|---|---|---|---|---|---|---|
+| 10,000 | 128 | 20 | 0.171 / 0.290 | 0.901 | 5,546 | 0.030 / 0.039 | 0.736 | 32,757 |
+| 100,000 | 128 | 20 | 0.491 / 0.587 | 0.636 | 1,982 | 0.059 / 0.130 | 0.398 | 15,780 |
+
+Recall climbs with `rerank_factor` as expected (same n=100,000, dim=128, 100 queries):
+
+| rerank_factor | ruvector recall@10 | ruvector p50 (ms) |
+|---|---|---|
+| 20 | 0.63 | 0.495 |
+| 50 | 0.789 | 0.848 |
+| 100 | 0.888 | 1.464 |
+| 200 | 0.96 | 2.426 |
+
+hnswlib's `ef` has the same shape (n=100,000, dim=128, 100 queries):
+
+| ef | hnswlib recall@10 | hnswlib p50 (ms) |
+|---|---|---|
+| 50 | 0.391 | 0.064 |
+| 100 | 0.539 | 0.099 |
+| 200 | 0.699 | 0.204 |
+| 400 | 0.818 | 0.413 |
+
+**Honest read:** at roughly matched recall (~0.82-0.89) on this synthetic worst-case workload,
+hnswlib's p50 (≤0.413ms at ef=400) beats ruvector's RabitqPlus p50 (1.464ms at rerank_factor=100)
+by roughly 3-4x. This is a real result on real-but-adversarial data, not a fabricated number, and
+not necessarily representative of real embedding workloads (where RaBitQ's published benchmarks
+claim parity or better — unverified in this session, no real-embedding dataset was on hand).
+Build time favors ruvector at these sizes (0.053s vs 1.449s at n=100,000 — RabitqPlus's
+`from_vectors_parallel` has no graph-construction cost). Memory is comparable (both ≈512-537
+bytes/vector at dim=128, dominated by the stored f32 originals in both).
+
+**Follow-up for a future session, not done here:** re-run this comparison on a real embedding
+dataset (e.g. SIFT1M or a MiniLM-embedded text corpus once M3 ships) where RaBitQ's quantization
+has actual angular structure to exploit, and extend to recall@10 ≥ 0.95 for both to find the
+genuine crossover point rather than reading two unmatched curves.
+
+## Publishing prep (verified; not executed — out of scope per task boundary)
+
+- **[V]** `maturin build --release --out dist` succeeds standalone (not just `maturin develop`):
+  produces `ruvector-0.1.0-cp39-abi3-manylinux_2_34_x86_64.whl`, **345 KiB** (well under the
+  8 MiB M1 budget).
+- **[V]** Installed that wheel into a **completely fresh venv** (`uv venv
+  /data/scratch/ruvector-freshwheel-venv`, no editable install, no dev-venv carryover) and ran
+  the full test suite against it: **38/38 pass**.
+- **[V]** `.github/workflows/python-wheels.yml` created: Linux x86_64/aarch64 (manylinux_2_28),
+  macOS x86_64/aarch64, Windows x86_64 — 5 wheels via `PyO3/maturin-action` (see the workflow's
+  header comment for why maturin-action over the literal "cibuildwheel" in `02-strategy.md`).
+  Trusted publishing (PyPI OIDC) on the publish job, gated on a `python-v*` tag or an explicit
+  `workflow_dispatch` input — **this workflow has not been run in CI and nothing has been
+  published**; PyPI trusted-publisher registration for this repo/workflow is a one-time setup
+  step that hasn't happened either (open question O1 from `06-decision-record.md` still stands).
+- **Not done**: aarch64/cross-platform wheels are configured but unbuilt/untested locally (this
+  host is x86_64 Linux only) — CI is the first real test of the cross-compile paths.
 
 ## Open questions carried over unchanged from `06-decision-record.md`
 

@@ -1,0 +1,175 @@
+name: Python Wheels (ruvector)
+
+# ADR-352 / docs/sdk/02-strategy.md "Wheel distribution matrix": 5 abi3-py39
+# wheels (one per platform, not per Python version) via maturin + PyO3.
+#
+# Deviates from 02-strategy's literal "cibuildwheel" choice: uses
+# PyO3/maturin-action instead. cibuildwheel's manylinux containers and
+# auditwheel pass are tuned for C-extension wheels that already have a
+# compiled .so to repair; a Rust crate needs the matching Rust target
+# installed and cross-linked, which maturin-action (same PyO3 org) handles
+# natively (manylinux container + the right target + abi3 in one action
+# input), without re-deriving cibuildwheel's own container/cross config for
+# a toolchain it wasn't built around. Polars and pydantic-core (cited as
+# precedent in 02-strategy) both use maturin-action, not cibuildwheel.
+on:
+  pull_request:
+    paths:
+      - 'crates/ruvector-py/**'
+      - 'crates/ruvector-rabitq/**'
+      - '.github/workflows/python-wheels.yml'
+  push:
+    branches: [main]
+    tags:
+      - 'python-v*'
+    paths:
+      - 'crates/ruvector-py/**'
+      - 'crates/ruvector-rabitq/**'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to PyPI'
+        type: boolean
+        default: false
+
+env:
+  CARGO_TERM_COLOR: always
+  PACKAGE_DIR: crates/ruvector-py
+
+jobs:
+  linux:
+    runs-on: ${{ matrix.runner }}
+    name: Linux ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64
+            runner: ubuntu-latest
+          - target: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+
+      - name: Build abi3 wheel (manylinux_2_28)
+        uses: PyO3/maturin-action@423a6347767a8b16e65c2a7a7042e4a921528da8
+        with:
+          working-directory: ${{ env.PACKAGE_DIR }}
+          target: ${{ matrix.target }}
+          manylinux: 2_28
+          args: --release --out dist
+
+      - name: Test wheel (native arch only — aarch64 can't run under QEMU here)
+        if: matrix.target == 'x86_64'
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          python3 -m venv /tmp/wheel-venv
+          /tmp/wheel-venv/bin/pip install dist/*.whl pytest numpy
+          /tmp/wheel-venv/bin/python -m pytest tests/test_smoke.py tests/test_collection.py -q
+
+      - name: Wheel size budget (<= 8 MiB, docs/sdk/04-milestones.md M1 acceptance test 7)
+        if: matrix.target == 'x86_64'
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          size=$(stat -c%s dist/*.whl)
+          echo "wheel size: $size bytes"
+          test "$size" -le 8388608 || { echo "wheel exceeds 8 MiB budget"; exit 1; }
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: wheels-linux-${{ matrix.target }}
+          path: ${{ env.PACKAGE_DIR }}/dist/*.whl
+
+  macos:
+    runs-on: macos-14
+    name: macOS ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+
+      - name: Build abi3 wheel
+        uses: PyO3/maturin-action@423a6347767a8b16e65c2a7a7042e4a921528da8
+        with:
+          working-directory: ${{ env.PACKAGE_DIR }}
+          target: ${{ matrix.target }}
+          args: --release --out dist
+
+      - name: Test wheel (native arch only)
+        if: matrix.target == 'aarch64-apple-darwin'
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          python3 -m venv /tmp/wheel-venv
+          /tmp/wheel-venv/bin/pip install dist/*.whl pytest numpy
+          /tmp/wheel-venv/bin/python -m pytest tests/test_smoke.py tests/test_collection.py -q
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: wheels-macos-${{ matrix.target }}
+          path: ${{ env.PACKAGE_DIR }}/dist/*.whl
+
+  windows:
+    runs-on: windows-latest
+    name: Windows x86_64
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+
+      - name: Build abi3 wheel
+        uses: PyO3/maturin-action@423a6347767a8b16e65c2a7a7042e4a921528da8
+        with:
+          working-directory: ${{ env.PACKAGE_DIR }}
+          target: x86_64-pc-windows-msvc
+          args: --release --out dist
+
+      - name: Test wheel
+        working-directory: ${{ env.PACKAGE_DIR }}
+        shell: bash
+        run: |
+          python3 -m venv /tmp/wheel-venv
+          /tmp/wheel-venv/Scripts/pip install dist/*.whl pytest numpy
+          /tmp/wheel-venv/Scripts/python -m pytest tests/test_smoke.py tests/test_collection.py -q
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: wheels-windows-x86_64
+          path: ${{ env.PACKAGE_DIR }}/dist/*.whl
+
+  # Trusted publishing (PyPI OIDC, no stored token — https://docs.pypi.org/trusted-publishers/)
+  # requires a one-time PyPI-side publisher registration for this repo/workflow before it can
+  # succeed; left gated on a real tag/dispatch input so this workflow landing does NOT publish
+  # anything by itself (ADR-352 task boundary: prepare publishing, do not execute it).
+  publish:
+    runs-on: ubuntu-latest
+    name: Publish to PyPI
+    needs: [linux, macos, windows]
+    if: startsWith(github.ref, 'refs/tags/python-v') || github.event.inputs.publish == 'true'
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          path: dist
+          pattern: wheels-*
+          merge-multiple: true
+
+      - name: List wheels
+        run: ls -la dist/
+
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+        with:
+          packages-dir: dist/
