@@ -7,7 +7,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 readme = "README.md"
-description = "World's first subpolynomial dynamic min-cut: self-healing networks, AI optimization, real-time graph analysis"
+description = "Dynamic global minimum cut with an exact sparse Stoer-Wagner baseline and experimental graph algorithms"
 keywords = ["graph", "minimum-cut", "network-analysis", "self-healing", "dynamic-graph"]
 categories = ["algorithms", "data-structures", "science", "mathematics", "simulation"]
 homepage = "https://ruv.io"
@@ -44,7 +44,7 @@ mockall = { workspace = true }
 default = ["exact", "approximate"]
 full = ["exact", "approximate", "integration", "monitoring", "simd", "agentic", "jtree", "tiered", "canonical"]
 exact = []  # Exact minimum cut algorithm
-approximate = []  # (1+ε)-approximate algorithm
+approximate = []  # Legacy compatibility flag; ApproxMinCut is currently always compiled
 integration = ["ruvector-graph"]  # GraphDB integration
 monitoring = []  # Real-time monitoring with callbacks
 simd = ["ruvector-core/simd"]

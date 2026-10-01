@@ -1,5 +1,9 @@
 # Algorithm Documentation
 
+> Research design document. Complexity targets below describe algorithms in
+> the cited literature; they are not proven guarantees of this crate's
+> `DynamicMinCut`, which currently uses sparse exact Stoer-Wagner recomputation.
+
 This document provides detailed explanations of the algorithms implemented in `ruvector-mincut`, including mathematical foundations, pseudocode, complexity proofs, and implementation notes.
 
 ## Table of Contents
