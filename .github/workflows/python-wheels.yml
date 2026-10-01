@@ -1,0 +1,292 @@
+name: Python Wheels (ruvector)
+
+# ADR-352 / docs/sdk/02-strategy.md "Wheel distribution matrix": 5 abi3-py39
+# wheels (one per platform, not per Python version) via maturin + PyO3.
+#
+# Deviates from 02-strategy's literal "cibuildwheel" choice: uses
+# PyO3/maturin-action instead. cibuildwheel's manylinux containers and
+# auditwheel pass are tuned for C-extension wheels that already have a
+# compiled .so to repair; a Rust crate needs the matching Rust target
+# installed and cross-linked, which maturin-action (same PyO3 org) handles
+# natively (manylinux container + the right target + abi3 in one action
+# input), without re-deriving cibuildwheel's own container/cross config for
+# a toolchain it wasn't built around. Verified via `gh api
+# repos/pola-rs/polars/contents/.github/workflows/release-python.yml` and
+# repos/pydantic/pydantic-core/.../ci.yml: both (cited as precedent in
+# 02-strategy) use `PyO3/maturin-action@v1`, not cibuildwheel.
+on:
+  pull_request:
+    paths:
+      - 'crates/ruvector-py/**'
+      - 'crates/ruvector-rabitq/**'
+      - '.github/workflows/python-wheels.yml'
+  push:
+    branches: [main]
+    tags:
+      - 'python-v*'
+    paths:
+      - 'crates/ruvector-py/**'
+      - 'crates/ruvector-rabitq/**'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to PyPI'
+        type: boolean
+        default: false
+
+env:
+  CARGO_TERM_COLOR: always
+  PACKAGE_DIR: crates/ruvector-py
+
+jobs:
+  rust-tests:
+    # ruvector-py's own Rust unit tests (49, under crates/ruvector-py/src/).
+    # release.yml's "validate"/"build-crates" jobs explicitly `--exclude
+    # ruvector-py` (their pyo3 `extension-module` comment explains why: a
+    # bare ubuntu-22.04 runner with no Python dev headers can't link a test
+    # binary against libpython). This job is the other half of that split —
+    # a runner that DOES set up Python (via actions/setup-python, same as
+    # the `linux` wheel job below) so `cargo test -p ruvector-py` can link
+    # dynamically. Confirmed locally first: with a venv's `python3` on
+    # PATH and no `extension-module` Cargo feature (see that crate's
+    # Cargo.toml comment), `cargo test -p ruvector-py --release` links and
+    # passes all 49 tests with no extra PYO3_PYTHON/pkg-config wiring needed.
+    name: Rust unit tests (ruvector-py)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          prefix-key: 'v1-rust'
+          shared-key: 'ruvector-py-rust-tests'
+
+      - name: cargo test -p ruvector-py
+        run: cargo test -p ruvector-py --release
+
+  linux:
+    runs-on: ${{ matrix.runner }}
+    name: Linux ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64
+            runner: ubuntu-latest
+          - target: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+
+      - name: Build abi3 wheel (manylinux_2_28)
+        uses: PyO3/maturin-action@423a6347767a8b16e65c2a7a7042e4a921528da8
+        with:
+          working-directory: ${{ env.PACKAGE_DIR }}
+          target: ${{ matrix.target }}
+          # No `container:` override on either leg — DELIBERATE, after two
+          # wrong fixes found across two CI rounds (both confirmed via real
+          # runs, not guessed):
+          #
+          # 1. First attempt forced `container: 'off'` on the aarch64 leg
+          #    alone, assuming maturin-action's container auto-selection was
+          #    broken for a native arm64 runner. It built on the bare host,
+          #    bypassing Docker entirely.
+          # 2. That produced a SECOND bug: with no container, `manylinux:
+          #    2_28` still asked maturin to run its post-build manylinux-
+          #    compliance check against a binary built against the bare
+          #    runner's own (newer) glibc — real failure: "Your library is
+          #    not manylinux_2_28 compliant ... GLIBC_2.30, GLIBC_2.33,
+          #    GLIBC_2.34". Setting `manylinux: off` instead silenced that
+          #    check, but produces a plain `linux_aarch64` wheel tag — which
+          #    PyPI's upload validation REJECTS outright (only manylinux_*/
+          #    musllinux_*/macosx_*/win_* tags are accepted) — so the fix
+          #    made this CI leg green while quietly breaking the real
+          #    publish job later. Caught in review before any tag/publish
+          #    was attempted.
+          #
+          # The actual, correct fix (per maturin-action's own source,
+          # `PyO3/maturin-action` at this pinned commit, function
+          # `getDockerContainer`): its `DEFAULT_CONTAINERS` table is keyed
+          # by the ACTUAL RUNNER'S OWN architecture first
+          # (`process.arch` — 'arm64' on `ubuntu-24.04-arm`, 'x64' on
+          # `ubuntu-latest`), then by target, then by manylinux version.
+          # `DEFAULT_CONTAINERS.arm64['aarch64-unknown-linux-gnu']['2_28']`
+          # is `quay.io/pypa/manylinux_2_28_aarch64:latest` — the correct
+          # NATIVE (not cross-compile) manylinux image, which runs directly
+          # on this native arm64 runner with no QEMU and no cross-linker.
+          # That lookup only fires when `container` is left empty/'auto'/
+          # 'on' — an explicit `off` bypasses it entirely, which is what
+          # caused problem #2. Leaving `container` unset on BOTH legs (not
+          # just x86_64) lets this per-host-arch table do the right thing
+          # on each runner uniformly — no matrix-level `container` field or
+          # per-leg ternary needed at all. `validate-wheels` (below, a
+          # separate job) now asserts every wheel's platform tag in CI so a
+          # regression here fails loudly instead of surfacing at publish.
+          manylinux: 2_28
+          args: --release --out dist
+
+      - name: Test wheel
+        # `ubuntu-24.04-arm` is a native ARM64 GitHub-hosted runner (not QEMU
+        # emulation), so the aarch64 wheel built above runs directly here —
+        # no cross-arch skip needed on either leg of this matrix.
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          python3 -m venv /tmp/wheel-venv
+          /tmp/wheel-venv/bin/pip install dist/*.whl pytest numpy
+          /tmp/wheel-venv/bin/python -m pytest tests/test_smoke.py tests/test_collection.py -q
+
+      - name: Wheel size budget (<= 8 MiB, docs/sdk/04-milestones.md M1 acceptance test 7)
+        if: matrix.target == 'x86_64'
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          size=$(stat -c%s dist/*.whl)
+          echo "wheel size: $size bytes"
+          test "$size" -le 8388608 || { echo "wheel exceeds 8 MiB budget"; exit 1; }
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: wheels-linux-${{ matrix.target }}
+          path: ${{ env.PACKAGE_DIR }}/dist/*.whl
+
+  macos:
+    runs-on: macos-14
+    name: macOS ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+
+      - name: Build abi3 wheel
+        uses: PyO3/maturin-action@423a6347767a8b16e65c2a7a7042e4a921528da8
+        with:
+          working-directory: ${{ env.PACKAGE_DIR }}
+          target: ${{ matrix.target }}
+          args: --release --out dist
+
+      - name: Test wheel (native arch only)
+        if: matrix.target == 'aarch64-apple-darwin'
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          python3 -m venv /tmp/wheel-venv
+          /tmp/wheel-venv/bin/pip install dist/*.whl pytest numpy
+          /tmp/wheel-venv/bin/python -m pytest tests/test_smoke.py tests/test_collection.py -q
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: wheels-macos-${{ matrix.target }}
+          path: ${{ env.PACKAGE_DIR }}/dist/*.whl
+
+  windows:
+    runs-on: windows-latest
+    name: Windows x86_64
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+
+      - name: Build abi3 wheel
+        uses: PyO3/maturin-action@423a6347767a8b16e65c2a7a7042e4a921528da8
+        with:
+          working-directory: ${{ env.PACKAGE_DIR }}
+          target: x86_64-pc-windows-msvc
+          args: --release --out dist
+
+      - name: Test wheel
+        working-directory: ${{ env.PACKAGE_DIR }}
+        shell: bash
+        run: |
+          python3 -m venv /tmp/wheel-venv
+          /tmp/wheel-venv/Scripts/pip install dist/*.whl pytest numpy
+          /tmp/wheel-venv/Scripts/python -m pytest tests/test_smoke.py tests/test_collection.py -q
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: wheels-windows-x86_64
+          path: ${{ env.PACKAGE_DIR }}/dist/*.whl
+
+  # Runs on every PR/push (unlike `publish`, gated on a real tag/dispatch) so a
+  # non-publishable wheel is caught here, not discovered at an actual publish
+  # attempt. Added after exactly that happened once in this PR's own history:
+  # an aarch64 CI fix that made the `linux` job green also silently produced a
+  # plain `linux_aarch64`-tagged wheel, which PyPI's upload validation rejects
+  # outright (only manylinux_*/musllinux_*/macosx_*/win_* tags are accepted).
+  validate-wheels:
+    runs-on: ubuntu-latest
+    name: Validate wheel tags + twine check
+    needs: [linux, macos, windows]
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          path: dist
+          pattern: wheels-*
+          merge-multiple: true
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+
+      - name: Assert every wheel has a PyPI-acceptable platform tag
+        run: |
+          ls -la dist/
+          fail=0
+          for f in dist/*.whl; do
+            case "$(basename "$f")" in
+              *-manylinux_*.whl|*-musllinux_*.whl|*-macosx_*.whl|*-win_*.whl) ;;
+              *)
+                echo "::error::$(basename "$f") has a platform tag PyPI will reject (only manylinux_*/musllinux_*/macosx_*/win_* are accepted)"
+                fail=1
+                ;;
+            esac
+          done
+          test "$fail" -eq 0
+
+      - name: twine check
+        run: |
+          python3 -m pip install --quiet twine
+          python3 -m twine check dist/*.whl
+
+  # Trusted publishing (PyPI OIDC, no stored token — https://docs.pypi.org/trusted-publishers/)
+  # requires a one-time PyPI-side publisher registration for this repo/workflow before it can
+  # succeed; left gated on a real tag/dispatch input so this workflow landing does NOT publish
+  # anything by itself (ADR-352 task boundary: prepare publishing, do not execute it).
+  publish:
+    runs-on: ubuntu-latest
+    name: Publish to PyPI
+    needs: [linux, macos, windows, validate-wheels]
+    if: startsWith(github.ref, 'refs/tags/python-v') || github.event.inputs.publish == 'true'
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          path: dist
+          pattern: wheels-*
+          merge-multiple: true
+
+      - name: List wheels
+        run: ls -la dist/
+
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+        with:
+          packages-dir: dist/

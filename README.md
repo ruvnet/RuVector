@@ -103,6 +103,16 @@ main().catch(console.error);
 
 Reopen the same `storagePath` in another process to recover the stored vectors, metadata, configuration, and searchability. Search `score` is a distance, so lower values are closer. See the [Node.js API](./docs/api/NODEJS_API.md) and [Rust API](./docs/api/RUST_API.md) for the complete interfaces.
 
+## Use ruvector from Python
+
+```bash
+pip install ruvector
+# or
+uv add ruvector
+```
+
+A PyO3/maturin binding over the same Rust core, with a CLI, an MCP server, and LangChain/LlamaIndex/Salesforce Agentforce integrations. See the [Python guide](./docs/python/README.md) for install extras, the SDK reference, and benchmarks.
+
 ## The memory loop
 
 ```mermaid
