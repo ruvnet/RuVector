@@ -1,7 +1,8 @@
 # Python SDK/CLI/MCP — loop state (resume point)
 
-Updated: 2026-10-01 (capability-landing checkpoint). Owner: claude-flow agent on branch
-`feat/python-sdk`. PR: https://github.com/ruvnet/RuVector/pull/1117 (draft).
+Updated: 2026-10-01 (full-scope checkpoint — MCP auth, Salesforce Agentforce, CI gap fix, docs
+all landed). Owner: claude-flow agent on branch `feat/python-sdk`. PR:
+https://github.com/ruvnet/RuVector/pull/1117 (draft).
 
 ## Where things live
 
@@ -15,15 +16,22 @@ Updated: 2026-10-01 (capability-landing checkpoint). Owner: claude-flow agent on
 - Python package: `crates/ruvector-py/python/ruvector/` (`__init__.py` — dynamic `__getattr__`
   dispatch, see below —, `collection.py`, `cli.py`, `mcp_server.py`, `integrations/{langchain,
   llamaindex}.py`, `.pyi` stubs). `collection.py` has two backends (`hnsw` default, `rabitq`).
-- Tests: `crates/ruvector-py/tests/` — **167/167 passing** (smoke, collection [parametrized over
-  both backends], cli, mcp_server, graph, graph_cypher, gnn, cluster, sona,
-  langchain_integration, llamaindex_integration). Plus **49/49 `cargo test -p ruvector-py`**.
+- Tests: `crates/ruvector-py/tests/` — **201/201 passing** (smoke, collection [parametrized over
+  both backends], cli, mcp_server [incl. auth], graph, graph_cypher, gnn, cluster, sona,
+  langchain_integration, llamaindex_integration, salesforce_integration, salesforce_routes).
+  Plus **49/49 `cargo test -p ruvector-py`** — now actually running in CI (see below; it wasn't
+  before this checkpoint despite a comment claiming otherwise).
 - Vendored patch: `patches/hnsw_rs/` (workspace `[patch.crates-io]`) — fixed a stdout-corrupting
   `println!` in it this session (would have corrupted the stdio MCP transport).
 - CI: `.github/workflows/python-wheels.yml` — first real CI run already caught and fixed a
   rustfmt failure and an aarch64 maturin-action container-selection bug (see git log). Also
   patched `.github/workflows/release.yml` to exclude `ruvector-py` from 4 workspace-wide
   build/test steps (bare ubuntu-22.04, no Python setup — libpython linking unverified there).
+  **Gap found and fixed this checkpoint**: `release.yml`'s own comment claimed the 49 Rust unit
+  tests "run in python-wheels.yml instead" — checked the actual workflow file and they didn't
+  (it only builds wheels, no `cargo test` step anywhere). Added a `rust-tests` job to
+  `python-wheels.yml` that does; confirmed working locally first (`cargo test -p ruvector-py
+  --release` with a venv python on PATH, no `extension-module` feature needed).
 - Cargo target dir (NOT the default — root disk pressure, see `~/CLAUDE.local.md`):
   `/data/scratch/ruvector-python-target`.
 - Python venvs: `/data/scratch/ruvector-py-venv` (dev, editable install, has every extra incl.
@@ -46,7 +54,7 @@ Updated: 2026-10-01 (capability-landing checkpoint). Owner: claude-flow agent on
 | Collections (named, CRUD) | ✅ done | `Collection` class | both backends |
 | Persistence | ✅ done (own format, not RVF) | `Collection.save/load` | `.rbpx`+sidecar (rabitq) / `.npy`+sidecar (hnsw) |
 | CLI | ✅ done, polished | `ruvector` console script | rich tables, colored/ranked output, progress spinner, `--no-color`; importtime unchanged |
-| MCP server (stdio+HTTP) | ✅ done, auth gap | `ruvector serve` | no bearer/OAuth on `--http` yet — in progress, see Next |
+| MCP server (stdio+HTTP) | ✅ done | `ruvector serve` | bearer auth via `RUVECTOR_MCP_TOKEN` + SDK `TokenVerifier`/`AuthSettings`, read/write scopes, live-verified with real curl |
 | ChatGPT `ui://` widget | ✅ done | `vector_explore` tool | live-verified `_meta` shape |
 | Graph (raw CRUD) | ✅ done | `ruvector.GraphDB` | create/get node+edge, outgoing-edge traversal; in-memory only |
 | Graph (Cypher) | ✅ done (partial) | `GraphDB.query_cypher` | `MATCH`/`WHERE` only; `RETURN` parsed not projected, `CREATE`/etc rejected or no-op — matches upstream `ruvector-graph-node` contract exactly |
@@ -60,8 +68,8 @@ Updated: 2026-10-01 (capability-landing checkpoint). Owner: claude-flow agent on
 | Quantization (Turbo4) | ⬜ unexplored | — | exists in `ruvector-core`'s `QuantizationConfig`, not evaluated |
 | LangChain VectorStore | ✅ done | `ruvector.integrations.langchain.RuVectorStore` | verified vs langchain-core 1.6.6 |
 | LlamaIndex VectorStore | ✅ done | `ruvector.integrations.llamaindex.RuVectorStore` | verified vs llama-index-core 0.14.25; found+fixed a real distance-vs-similarity bug |
-| Salesforce Agentforce | 🔄 scoped, corrected, not built | — | sent rUv a correction: no real "BYO retriever"; Agentforce MCP is Beta/AE-gated. External Services + OpenAPI is the buildable path — next up. |
-| Rust unit tests | ✅ done | `#[cfg(test)]` in every `src/*.rs` | 49 tests, was 0 |
+| Salesforce Agentforce | ✅ done (External Services + OpenAPI path) | `ruvector.integrations.salesforce`, `ruvector.salesforce_routes` | OAuth2 client-credentials, paginated SOQL, record sync, 3 actions (search/upsert/ground), generated OpenAPI 3.0 doc, own bearer auth (custom_route has no SDK auth). 28 tests, all mocked — no real org touched. Agentforce MCP: beta/AE-gated, documented not built. |
+| Rust unit tests | ✅ done, now in CI | `#[cfg(test)]` in every `src/*.rs` | 49 tests, was 0; added a CI job to actually run them (wasn't running anywhere before this checkpoint) |
 
 ## Done this session (full list — see git log on `feat/python-sdk` after `5a93328f2` for commits)
 
@@ -79,32 +87,27 @@ batch done.
 
 ## Next (priority order)
 
-- [ ] MCP HTTP bearer auth. Design decided, not yet implemented: `MCPServer`'s `token_verifier=`
-      requires `auth=AuthSettings(issuer_url=..., resource_server_url=...)` — heavier OAuth-
-      resource-server shape than a shared-secret-from-env needs, but it's the SDK's real
-      mechanism (a self-referential `AuthSettings` pointing at our own server is a legitimate
-      minimal use of it, not a hack). **Important finding**: `MCPServer.custom_route`'s own
-      docstring says those routes do **NOT** get `token_verifier` auth — "intended for uses that
-      are part of authorization flows... or public." Any Agentforce action mounted via
-      `custom_route` needs its own manual bearer check inside the handler (reusing the same env-
-      var-backed verification logic), not a free ride from the MCP-level auth config.
-- [ ] Salesforce Agentforce integration (External Services + OpenAPI primary path; MCP
-      registration documented as beta/AE-gated, not built against it). Mocked Salesforce APIs
-      only in tests, per the task boundary.
-- [ ] Python user guide `docs/python/README.md` (install+extras incl. langchain/llamaindex/
-      salesforce, quick start, SDK, CLI, MCP+ChatGPT ui://, each integration, perf tips,
-      benchmark tables — content now exists for every section except Salesforce).
-- [ ] Separate commit `docs(readme): add Python install + user guide link` — minimal root
-      README.md edit, flagged in the PR body as "land only after `ruvector` is live on PyPI".
-- [ ] CI: first full run after the capability-landing push is in flight — check
-      `gh pr checks 1117` for the Linux aarch64/macOS/Windows legs before trusting them green.
-- [ ] Slack: 2 progress updates posted to #swarm thread (ts 1790885023.580889) so far. Post the
-      graph/GNN/cluster/SONA-landing milestone next (not yet posted as of this checkpoint), then
-      Salesforce, then the final summary + ClaimReleased block per the coordination instructions.
+Everything from the previous checkpoint's list is now done: MCP HTTP bearer auth (implemented,
+live-verified), Salesforce Agentforce (External Services + OpenAPI path, 28 tests, mocked only),
+the Python user guide, the separate flagged README commit, and the CI gap (Rust tests weren't
+running anywhere — now they are). Remaining, in priority order:
+
+- [ ] CI: a full run with today's commits (Salesforce, CI-gap fix, docs) hasn't happened yet —
+      check `gh pr checks 1117` once pushed, for the Linux aarch64/macOS/Windows legs and the new
+      `rust-tests` job specifically.
+- [ ] Final Slack summary + `ClaimReleased` block in the #swarm thread (ts 1790885023.580889),
+      cc Dragan/Martin, plus a one-line pointer in #development — not yet sent as of this
+      checkpoint (4 progress updates posted so far).
+- [ ] PR description (#1117) needs the "land only after `ruvector` is live on PyPI" flag on the
+      `docs(readme):` commit called out explicitly, plus the final capability-coverage table.
 - [ ] Not done, lower priority: the 3 `known_limitations` bugs in `hnsw.rs`'s JSON converter
       (large-int precision loss, NaN→null, lone-surrogate error message) — characterized by
       tests, not fixed. The large-int one is a genuine ~5-line fix (raise instead of the f64
       fallback) worth doing before publish.
+- [ ] Not started, explicitly deferred per the ADR: RVF persistence, Embeddings (M3), Turbo4
+      quantization evaluation. Each has a stated reason in the capability table above, not a
+      silent gap.
+- [ ] Still no PyPI publish, no merge, no tags — boundaries unchanged throughout.
 
 ## Gotchas hit this session (don't rediscover)
 
