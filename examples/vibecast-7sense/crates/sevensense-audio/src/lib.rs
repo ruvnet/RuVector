@@ -18,7 +18,13 @@
 //!
 //! ## Example Usage
 //!
+//! The full pipeline below needs the `full` feature, which is on by default.
+//! Without it the crate still provides [`features`] and [`streaming`], which are
+//! pure computation and build for `wasm32-unknown-unknown`.
+//!
 //! ```rust,no_run
+//! # #[cfg(feature = "full")]
+//! # mod example {
 //! use sevensense_audio::application::AudioIngestionService;
 //! use sevensense_audio::infrastructure::{SymphoniaFileReader, RubatoResampler, EnergySegmenter};
 //! use std::path::Path;
@@ -41,6 +47,7 @@
 //! println!("Found {} call segments", segments.len());
 //! # Ok(())
 //! # }
+//! # }
 //! ```
 
 #![warn(missing_docs)]
@@ -49,16 +56,34 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod application;
+pub mod features;
+pub mod streaming;
+
+/// Domain entities. Requires the `full` feature.
+#[cfg(feature = "full")]
 pub mod domain;
+/// File decoding, resampling, and offline segmentation. Requires `full`.
+#[cfg(feature = "full")]
 pub mod infrastructure;
 pub mod spectrogram;
 
 // Re-export main types
 pub use application::error::{AudioError, AudioResult};
+#[cfg(feature = "full")]
 pub use application::services::AudioIngestionService;
+#[cfg(feature = "full")]
 pub use domain::entities::{CallSegment, Recording, SignalQuality};
+#[cfg(feature = "full")]
 pub use domain::repository::RecordingRepository;
+pub use features::{
+    AcousticFeatures, FeatureConfig, FeatureExtractor, FeatureSummary, ModulationFeatures,
+    SpectralFrame,
+};
 pub use spectrogram::{MelSpectrogram, SpectrogramConfig};
+pub use streaming::{
+    AnalysisWindow, AudioSource, MemorySource, RingBuffer, StreamConfig, StreamPipeline,
+    StreamSegment, StreamSegmenter, StreamStats,
+};
 
 /// Standard target sample rate for all processing (32 kHz).
 pub const TARGET_SAMPLE_RATE: u32 = 32_000;
