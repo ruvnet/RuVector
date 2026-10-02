@@ -1,6 +1,7 @@
 use super::*;
 use crate::ledger::{AlwaysAdmitGate, TransactionalLedger};
 use crate::ops::MemoryWitnessLog;
+use std::time::Duration;
 
 const TEST_SECRET: [u8; 32] = [7u8; 32];
 const GENESIS: SignedAnchor = SignedAnchor::genesis();
@@ -33,10 +34,20 @@ fn populated(strategy: SigningStrategy, n: usize) -> SignedWitnessSink<MemoryWit
     sink
 }
 
-const STRATEGIES: [SigningStrategy; 3] = [
+const STRATEGIES: [SigningStrategy; 5] = [
     SigningStrategy::PerRecord,
     SigningStrategy::BatchTail { batch_size: 4 },
     SigningStrategy::BatchTail { batch_size: 5 },
+    // ADR-352. Clock-independent on purpose: an hour never elapses inside a
+    // test (behaves as BatchTail{4}), and ZERO expires on every write.
+    SigningStrategy::BatchTailTimeout {
+        batch_size: 4,
+        max_wait: Duration::from_secs(3600),
+    },
+    SigningStrategy::BatchTailTimeout {
+        batch_size: 8,
+        max_wait: Duration::ZERO,
+    },
 ];
 
 /// Diligent adversary: recompute the whole FNV chain from `at` onward and
@@ -379,3 +390,6 @@ fn second_ledger_restarting_at_sequence_zero_is_refused() {
     assert_eq!(sink.inner().records.len(), 6);
     assert!(verify(&sink, sink.inner(), sink.spans(), &sink.anchor()).is_ok());
 }
+
+#[path = "witness_signing_timeout_tests.rs"]
+mod timeout;

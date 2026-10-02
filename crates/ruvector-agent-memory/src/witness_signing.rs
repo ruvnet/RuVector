@@ -38,7 +38,8 @@
 //!    verification fail with [`SignedChainError::UnsignedTail`] — that
 //!    error is only returned after the signed prefix has fully verified,
 //!    so it precisely reports "prefix authentic, `unsigned` newest records
-//!    unauthenticated". Under [`SigningStrategy::BatchTail`] callers must
+//!    unauthenticated". Under [`SigningStrategy::BatchTail`] and
+//!    [`SigningStrategy::BatchTailTimeout`] callers must
 //!    [`SignedWitnessSink::seal`] before verifying.
 //! 4. **Rollback floor.** The log is at least as long as the anchor and
 //!    the span ending at `anchor.record_count - 1` has exactly the anchor's
@@ -56,6 +57,10 @@
 //! - **Crash before seal.** Pending `BatchTail` state is in memory only; a
 //!   crash leaves the unsealed tail permanently unsigned, and only a key
 //!   holder can re-sign it. Verification fails closed in that case.
+//! - **Timeout is checked on write.** `BatchTailTimeout`'s `max_wait` is
+//!   evaluated on `emit_batch` and [`SignedWitnessSink::seal_expired`];
+//!   there is no background timer, so with no writes and no polling an
+//!   expired batch stays unsigned (ADR-352).
 //! - **Key compromise / key management** (generation, rotation, storage,
 //!   revocation) is out of scope. Anyone holding the signing key can sign
 //!   an arbitrary alternative history.
@@ -164,9 +169,16 @@ impl SignedAnchor {
 pub enum SigningStrategy {
     PerRecord,
     /// Sign once every `batch_size` records (and on [`SignedWitnessSink::seal`]).
-    /// `batch_size` must be at least 1.
+    /// `batch_size` must be at least 1. No latency bound on a partial batch.
     BatchTail {
         batch_size: usize,
+    },
+    /// `BatchTail` that also signs the open batch once its oldest record is
+    /// `max_wait` old — checked on write / [`SignedWitnessSink::seal_expired`],
+    /// never by a timer (ADR-352). `max_wait == 0` signs every `emit_batch`.
+    BatchTailTimeout {
+        batch_size: usize,
+        max_wait: std::time::Duration,
     },
 }
 
@@ -191,6 +203,8 @@ struct PendingSpan {
     to: u64,
     count: usize,
     hasher: RecordsHasher,
+    /// Oldest record's witness time (`BatchTailTimeout` only).
+    opened_at: Option<std::time::Instant>,
 }
 
 /// A [`WitnessSink`] decorator that signs spans of the records it forwards
@@ -213,7 +227,9 @@ impl<S: WitnessSink> SignedWitnessSink<S> {
         signing_key: SigningKey,
         strategy: SigningStrategy,
     ) -> Result<Self, WitnessSignerError> {
-        if let SigningStrategy::BatchTail { batch_size: 0 } = strategy {
+        if let SigningStrategy::BatchTail { batch_size: 0 }
+        | SigningStrategy::BatchTailTimeout { batch_size: 0, .. } = strategy
+        {
             return Err(WitnessSignerError::ZeroBatchSize);
         }
         Ok(Self {
@@ -293,6 +309,17 @@ impl<S: WitnessSink> SignedWitnessSink<S> {
 
 impl<S: WitnessSink> WitnessSink for SignedWitnessSink<S> {
     fn emit_batch(&mut self, records: &[LedgerWitnessRecord]) -> Result<(), LedgerError> {
+        let now = self.clock_if_timed(std::time::Instant::now);
+        self.emit_batch_inner(records, now)
+    }
+}
+
+impl<S: WitnessSink> SignedWitnessSink<S> {
+    fn emit_batch_inner(
+        &mut self,
+        records: &[LedgerWitnessRecord],
+        now: Option<std::time::Instant>,
+    ) -> Result<(), LedgerError> {
         for (i, r) in records.iter().enumerate() {
             let expected = self.next_seq + i as u64;
             if r.sequence != expected {
@@ -313,21 +340,9 @@ impl<S: WitnessSink> WitnessSink for SignedWitnessSink<S> {
                     self.close(SignPurpose::PerRecord, r.sequence, r.sequence, h.finish());
                 }
             }
-            SigningStrategy::BatchTail { batch_size } => {
-                for r in records {
-                    let p = self.pending.get_or_insert_with(|| PendingSpan {
-                        from: r.sequence,
-                        to: r.sequence,
-                        count: 0,
-                        hasher: RecordsHasher::new(),
-                    });
-                    p.hasher.push(r);
-                    p.to = r.sequence;
-                    p.count += 1;
-                    if p.count >= batch_size {
-                        self.seal();
-                    }
-                }
+            SigningStrategy::BatchTail { batch_size }
+            | SigningStrategy::BatchTailTimeout { batch_size, .. } => {
+                self.push_batched(records, batch_size, now);
             }
         }
         Ok(())
@@ -481,6 +496,9 @@ pub fn verify_signed_chain(
         },
     })
 }
+
+#[path = "witness_batch_fill.rs"]
+mod batch_fill;
 
 #[cfg(test)]
 #[path = "witness_signing_tests.rs"]
