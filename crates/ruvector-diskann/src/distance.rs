@@ -1,8 +1,8 @@
 //! Distance computations with SIMD acceleration and optional GPU offload
 //!
-//! Dispatch priority: GPU (if `gpu` feature) → SimSIMD (if `simd` feature, native
-//! NEON/AVX2/AVX-512) → WASM SIMD128 (`wasm32` target with `simd128`
-//! target-feature) → scalar
+//! Dispatch priority: GPU (if `gpu` feature) → lattice-embed (if `lattice-simd`
+//! feature) → SimSIMD (if `simd` feature, native NEON/AVX2/AVX-512) → WASM
+//! SIMD128 (`wasm32` target with `simd128` target-feature) → scalar
 
 use crate::error::{DiskAnnError, Result};
 use memmap2::Mmap;
@@ -189,24 +189,80 @@ impl FlatVectors {
 // Distance functions — auto-dispatch based on features
 // ============================================================================
 
+/// Set from inside [`l2_lattice`]/[`inner_lattice`] below, only after the
+/// real kernel call returns — so a dispatch arm that swaps the wrapper call
+/// for a scalar/native fallback bypasses the flag along with the kernel.
+/// Thread-local (not a shared global) so a sibling test running on another
+/// thread can't set the flag between this test's reset and its assert.
+/// Compiled only for `lattice-simd` test builds — zero footprint elsewhere.
+/// See `lattice_backend_is_actually_invoked` below.
+#[cfg(all(test, feature = "lattice-simd"))]
+thread_local! {
+    static LATTICE_L2_INVOKED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static LATTICE_INNER_INVOKED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Sole caller of the `lattice-embed` L2 kernel — the dispatch arm in
+/// [`l2_squared`] can only reach the kernel through this wrapper, so
+/// replacing the arm's call expression with a fallback also removes the
+/// witness store.
+#[cfg(feature = "lattice-simd")]
+#[inline]
+fn l2_lattice(a: &[f32], b: &[f32]) -> f32 {
+    let result = lattice_embed::simd::squared_euclidean_distance(a, b);
+    #[cfg(test)]
+    LATTICE_L2_INVOKED.with(|invoked| invoked.set(true));
+    result
+}
+
+/// Sole caller of the `lattice-embed` dot-product kernel — see
+/// [`l2_lattice`] for why the store lives here rather than inline in the
+/// dispatch arm. Negated to match the other backends: this returns a
+/// distance for a min-heap, not a similarity. `SpatialSimilarity::inner` is a
+/// plain alias for `dot`, so both sides negate the same raw dot product.
+#[cfg(feature = "lattice-simd")]
+#[inline]
+fn inner_lattice(a: &[f32], b: &[f32]) -> f32 {
+    let result = -lattice_embed::simd::dot_product(a, b);
+    #[cfg(test)]
+    LATTICE_INNER_INVOKED.with(|invoked| invoked.set(true));
+    result
+}
+
 /// L2 squared distance — dispatches to best available implementation
 #[inline]
 pub fn l2_squared(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "distance vectors must have equal lengths");
 
-    #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
+    #[cfg(feature = "lattice-simd")]
+    {
+        l2_lattice(a, b)
+    }
+
+    #[cfg(all(
+        not(feature = "lattice-simd"),
+        target_arch = "wasm32",
+        target_feature = "simd128"
+    ))]
     {
         wasm_simd128_l2_squared(a, b)
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), feature = "simd"))]
+    #[cfg(all(
+        not(feature = "lattice-simd"),
+        not(target_arch = "wasm32"),
+        feature = "simd"
+    ))]
     {
         simd_l2_squared(a, b)
     }
 
-    #[cfg(any(
-        all(target_arch = "wasm32", not(target_feature = "simd128")),
-        all(not(target_arch = "wasm32"), not(feature = "simd"))
+    #[cfg(all(
+        not(feature = "lattice-simd"),
+        any(
+            all(target_arch = "wasm32", not(target_feature = "simd128")),
+            all(not(target_arch = "wasm32"), not(feature = "simd"))
+        )
     ))]
     {
         scalar_l2_squared(a, b)
@@ -313,27 +369,48 @@ pub fn wasm_simd128_l2_squared(a: &[f32], b: &[f32]) -> f32 {
 pub fn inner_product(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "distance vectors must have equal lengths");
 
-    #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
+    #[cfg(feature = "lattice-simd")]
+    {
+        inner_lattice(a, b)
+    }
+
+    #[cfg(all(
+        not(feature = "lattice-simd"),
+        target_arch = "wasm32",
+        target_feature = "simd128"
+    ))]
     {
         wasm_simd128_inner_product(a, b)
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), feature = "simd"))]
+    #[cfg(all(
+        not(feature = "lattice-simd"),
+        not(target_arch = "wasm32"),
+        feature = "simd"
+    ))]
     {
         simsimd::SpatialSimilarity::inner(a, b)
             .map(|d| -(d as f32))
             .unwrap_or_else(|| scalar_inner_product(a, b))
     }
 
-    #[cfg(any(
-        all(target_arch = "wasm32", not(target_feature = "simd128")),
-        all(not(target_arch = "wasm32"), not(feature = "simd"))
+    #[cfg(all(
+        not(feature = "lattice-simd"),
+        any(
+            all(target_arch = "wasm32", not(target_feature = "simd128")),
+            all(not(target_arch = "wasm32"), not(feature = "simd"))
+        )
     ))]
     {
         scalar_inner_product(a, b)
     }
 }
 
+/// Retained under `lattice-simd` as the fallback the `simd` backend still
+/// calls if SimSIMD returns `None`. The parity test's reference is the local
+/// `naive_inner_product`, not this function. `scalar_l2_squared` is `pub` and
+/// so needs no such annotation.
+#[cfg_attr(feature = "lattice-simd", allow(dead_code))]
 #[inline]
 fn scalar_inner_product(a: &[f32], b: &[f32]) -> f32 {
     let mut s0 = 0.0f32;
@@ -577,6 +654,97 @@ mod tests {
         let a = vec![1.0, 2.0, 3.0];
         let b = vec![4.0, 5.0, 6.0];
         assert!((inner_product(&a, &b) - (-32.0)).abs() < 1e-6);
+    }
+
+    /// Checks whichever backend compiled in against naive scalar references,
+    /// across dimensions chosen to straddle 4/8/16-lane widths **and their
+    /// remainders** so tail handling is exercised. The references are naive
+    /// single-pass loops rather than `scalar_l2_squared` / `scalar_inner_product`,
+    /// which are themselves 4-accumulator implementations, so a reduction-order
+    /// bug in the shared shape cannot hide.
+    ///
+    /// Backend-independent by construction: it covers the SimSIMD path, the
+    /// lattice path, and the plain scalar path. The cross-dimension parity
+    /// tests that existed before this were gated on
+    /// `all(target_arch = "wasm32", target_feature = "simd128")`, so no native
+    /// backend was checked at any dimension wider than 3.
+    #[test]
+    fn backend_matches_scalar_reference() {
+        use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
+
+        fn naive_l2_squared(a: &[f32], b: &[f32]) -> f32 {
+            a.iter().zip(b).map(|(x, y)| (x - y) * (x - y)).sum()
+        }
+
+        fn naive_inner_product(a: &[f32], b: &[f32]) -> f32 {
+            -a.iter().zip(b).map(|(x, y)| x * y).sum::<f32>()
+        }
+
+        const DIMS: &[usize] = &[
+            0, 1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 17, 31, 384, 768, 1000, 1023, 1024,
+        ];
+
+        // Combined absolute+relative tolerance, numpy `allclose`-style. A flat
+        // absolute bound is not achievable: each backend uses a different
+        // reduction tree, f32 addition is not associative, so reordering shifts
+        // rounding by a few ULPs and that drift grows with accumulated
+        // magnitude. A real bug (wrong lane math, dropped remainder) produces
+        // relative error orders of magnitude above machine epsilon.
+        const ATOL: f32 = 1e-5;
+        const RTOL: f32 = 1e-5;
+
+        let mut rng = StdRng::seed_from_u64(42);
+        for &dim in DIMS {
+            let a: Vec<f32> = (0..dim).map(|_| rng.gen_range(-10.0f32..10.0)).collect();
+            let b: Vec<f32> = (0..dim).map(|_| rng.gen_range(-10.0f32..10.0)).collect();
+
+            for (op, got, want) in [
+                ("l2_squared", l2_squared(&a, &b), naive_l2_squared(&a, &b)),
+                (
+                    "inner_product",
+                    inner_product(&a, &b),
+                    naive_inner_product(&a, &b),
+                ),
+            ] {
+                let bound = ATOL + RTOL * got.abs().max(want.abs());
+                assert!(
+                    (got - want).abs() <= bound,
+                    "{op} dim={dim}: got={got} want={want} bound={bound}"
+                );
+            }
+        }
+    }
+
+    /// `backend_matches_scalar_reference` above only checks numerical parity
+    /// against a naive oracle; scalar and lattice implement the same
+    /// arithmetic, so a `lattice-simd` build that silently fell back to the
+    /// scalar/native kernel would still pass it. This pins actual backend
+    /// *selection*: it fails if either dispatch arm's call to
+    /// [`l2_lattice`]/[`inner_lattice`] is replaced by a fallback route while
+    /// the feature stays declared, since the witness flags are only set
+    /// inside those wrappers, after the real kernel call returns. Thread-local
+    /// storage means a sibling test running concurrently on another thread
+    /// can't set these flags between this test's reset and its assert.
+    #[test]
+    #[cfg(feature = "lattice-simd")]
+    fn lattice_backend_is_actually_invoked() {
+        LATTICE_L2_INVOKED.with(|invoked| invoked.set(false));
+        LATTICE_INNER_INVOKED.with(|invoked| invoked.set(false));
+
+        let a = vec![1.0f32, 2.0, 3.0, 4.0, 5.0];
+        let b = vec![6.0f32, 7.0, 8.0, 9.0, 10.0];
+        let _ = l2_squared(&a, &b);
+        let _ = inner_product(&a, &b);
+
+        assert!(
+            LATTICE_L2_INVOKED.with(|invoked| invoked.get()),
+            "l2_squared did not route through the lattice-embed kernel"
+        );
+        assert!(
+            LATTICE_INNER_INVOKED.with(|invoked| invoked.get()),
+            "inner_product did not route through the lattice-embed kernel"
+        );
     }
 
     #[test]

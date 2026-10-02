@@ -11,6 +11,12 @@ description = "DiskANN/Vamana — SSD-friendly approximate nearest neighbor sear
 default = []
 gpu = []  # Feature flag for GPU acceleration (CUDA/Metal stubs)
 simd = ["simsimd"]
+# Route the f32 distance kernels through lattice-embed rather than SimSIMD.
+# Takes precedence over `simd` and over the wasm32 SIMD128 path when both are
+# enabled, so exactly one route is selected for any feature/target
+# combination (the other backends' helper functions still compile; only the
+# dispatch arm actually called changes).
+lattice-simd = ["lattice-embed"]
 # BET 1 (ADR-200): fixed-topology reuse + periodic rebuild under metric drift.
 reuse-under-drift = []
 
@@ -24,6 +30,14 @@ thiserror = { workspace = true }
 rand = { workspace = true }
 parking_lot = "0.12"
 bytemuck = { version = "1.14", features = ["derive"] }
+# Kernels only: `native` is the feature that pulls the model stack, so with
+# default features off this is a pure-Rust SIMD dependency with no tokenizer,
+# no model loader, and no download path. Unlike `simsimd` below it is not
+# target-gated, because it compiles for wasm32 as well. The kernels themselves
+# are pure Rust, but that does not make the feature's dependency tree
+# C-toolchain-free: blake3 (a transitive dependency) needs a target C compiler
+# on AArch64, where its build script compiles c/blake3_neon.c.
+lattice-embed = { version = "0.7.1", optional = true, default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # `rand` (used by PQ k-means training) pulls getrandom 0.2 transitively, which
