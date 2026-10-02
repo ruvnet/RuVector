@@ -14,12 +14,19 @@ rust-version = "1.87"
 [features]
 default = ["std", "ed25519"]
 std = ["sha3/std"]
+# no_std + alloc safe: signing/verification only need `alloc` +
+# `rand_core`, not `std` (see the dependency comment below).
 ed25519 = ["dep:ed25519-dalek"]
 
 [dependencies]
 rvf-types = { version = "0.2.0", path = "../rvf-types" }
 sha3 = { version = "0.10", default-features = false }
-ed25519-dalek = { version = "2", features = ["rand_core"], optional = true }
+# `default-features = false` keeps this no_std-safe (see the `ed25519`
+# feature docs below) -- without it, ed25519-dalek's default "std" feature
+# leaks in through Cargo's feature unification and breaks `#![no_std]`
+# consumers such as rvf-wasm, even when *they* depend on it with
+# `default-features = false`.
+ed25519-dalek = { version = "2", default-features = false, features = ["alloc", "rand_core"], optional = true }
 
 [dev-dependencies]
 rand = "0.8"

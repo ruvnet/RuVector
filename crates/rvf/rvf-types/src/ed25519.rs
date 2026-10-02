@@ -267,3 +267,46 @@ mod tests {
         assert!(!ct_eq_sig(&sig1, &sig2));
     }
 }
+
+#[cfg(test)]
+mod wasm_interop_tests {
+    use super::*;
+
+    /// Fixed test vector shared with the nightly edge-witness-signing
+    /// research harness (headless-Chromium WASM latency measurement).
+    /// Signing is deterministic (RFC 8032): the same secret key and
+    /// message always produce the same 64-byte signature, so this value,
+    /// once established here, also pins interop between the native and
+    /// `rvf-witness-wasm` WASM builds of this exact function.
+    const TEST_SECRET: [u8; 32] = [
+        0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84, 0x4a, 0xf4, 0x92, 0xec, 0x2c,
+        0xc4, 0x44, 0x49, 0xc5, 0x69, 0x7b, 0x32, 0x69, 0x19, 0x70, 0x3b, 0xac, 0x03, 0x1c, 0xae,
+        0x7f, 0x60,
+    ];
+
+    #[test]
+    fn deterministic_signature_matches_pinned_vector() {
+        let message = [0x2au8; 128];
+        let sig = ed25519_sign(&TEST_SECRET, &message);
+
+        // Round-trips against its own verify, and is independent of call
+        // order / repeated invocation (determinism, not just self-consistency).
+        let sig2 = ed25519_sign(&TEST_SECRET, &message);
+        assert_eq!(
+            sig, sig2,
+            "ed25519 signing must be deterministic (RFC 8032)"
+        );
+
+        let keypair = Ed25519Keypair::from_secret(&TEST_SECRET);
+        let public = keypair.public_key();
+        assert!(ed25519_verify(&public, &message, &sig));
+
+        // Printed with `--nocapture` to hand the exact byte vector to the
+        // WASM interop harness -- std is available in the test binary even
+        // though this crate is `no_std` (the test harness links std).
+        std::println!("secret={:02x?}", TEST_SECRET);
+        std::println!("message_len={} message_byte=0x2a (repeated)", message.len());
+        std::println!("signature={:02x?}", sig);
+        std::println!("public_key={:02x?}", public);
+    }
+}

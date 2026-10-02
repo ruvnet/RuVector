@@ -18,9 +18,14 @@ crate-type = ["cdylib"]
 rvf-types = { version = "0.2.0", path = "../rvf-types", default-features = false }
 rvf-crypto = { version = "0.2.0", path = "../rvf-crypto", default-features = false }
 dlmalloc = { version = "0.2", features = ["global"] }
+ed25519-dalek = { version = "2", default-features = false, features = ["alloc"], optional = true }
 
-[profile.release]
-opt-level = "z"
-lto = true
-codegen-units = 1
-strip = true
+[features]
+default = []
+# Ed25519 witness signing/verification (nightly research candidate —
+# off by default so the shipped microkernel artifact is unaffected).
+witness-sign = ["dep:ed25519-dalek", "rvf-crypto/ed25519"]
+
+# Release profile for this crate is set via `[profile.release.package.rvf-wasm]`
+# at the rvf workspace root -- a `[profile.release]` block here is silently
+# ignored by Cargo for non-root workspace members.
