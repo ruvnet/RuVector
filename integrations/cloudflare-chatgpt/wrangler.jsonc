@@ -1,0 +1,15 @@
+{
+  "name": "ruvector-chatgpt",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-09-28",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "rules": [{ "type": "CompiledWasm", "globs": ["**/*.wasm"], "fallthrough": true }],
+  "d1_databases": [{ "binding": "DB", "database_name": "ruvector-chatgpt", "database_id": "ee7fc4c4-7b6c-49f1-a9c2-bfd69a48aa46" }],
+  "vars": {
+    "OAUTH_ISSUER": "https://REPLACE_WITH_IDENTITY_PROVIDER",
+    "OAUTH_AUDIENCE": "https://REPLACE_WITH_MCP_HOST/mcp",
+    "OAUTH_JWKS_URL": "https://REPLACE_WITH_IDENTITY_PROVIDER/.well-known/jwks.json",
+    "MAX_DAILY_CALLS": "1000"
+  }
+}
