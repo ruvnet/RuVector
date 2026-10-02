@@ -1,0 +1,53 @@
+[package]
+name = "ruvector-cohomology"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Team <team@ruvector.dev>"]
+description = "Dynamic cohomological error correction: affine sheaf syndrome, sparse semantic repair, and mincut containment over dynamic cellular sheaves"
+repository = "https://github.com/ruvnet/ruvector"
+homepage = "https://ruv.io/ruvector"
+documentation = "https://docs.rs/ruvector-cohomology"
+keywords = ["sheaf", "cohomology", "error-correction", "graph", "consistency"]
+categories = ["algorithms", "science", "mathematics"]
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+sha2 = "0.10"
+
+# Optional coupling to the dynamic mincut engine for global quarantine
+# boundaries. The crate always ships a deterministic internal s-t max-flow
+# for seeded containment; this feature adds the subpolynomial global cut.
+ruvector-mincut = { version = "2.0", path = "../ruvector-mincut", default-features = false, features = ["exact"], optional = true }
+
+[features]
+default = []
+mincut = ["dep:ruvector-mincut"]
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[[bench]]
+name = "batch"
+harness = false
+
+[[bench]]
+name = "dynamic_edits"
+harness = false
+
+[[bench]]
+name = "planted_cycles"
+harness = false
+
+[[bench]]
+name = "repair"
+harness = false
+
+[[bench]]
+name = "mincut_coupling"
+harness = false
