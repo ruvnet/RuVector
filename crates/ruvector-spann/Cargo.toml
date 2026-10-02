@@ -10,6 +10,21 @@ repository = "https://github.com/ruvnet/ruvector"
 name = "benchmark"
 path = "src/bin/benchmark.rs"
 
+[features]
+default = []
+# Route the partition index's inner products through lattice-embed's
+# runtime-dispatched SIMD kernels instead of the scalar loops.
+#
+# Opt-in and off by default. lattice-embed requires Rust >= 1.93 (edition
+# 2024) and Cargo cannot express a per-feature `rust-version`, so enabling
+# this raises the effective MSRV for anyone who turns it on. The default
+# build keeps this crate's dependency set empty and is unaffected.
+lattice-simd = ["dep:lattice-embed"]
+
 [dependencies]
+# `default-features = false` keeps this to the SIMD kernels: the model,
+# tokenizer, and download stack sit behind lattice-embed's `native` feature
+# and are not pulled in here.
+lattice-embed = { version = "0.7.1", optional = true, default-features = false }
 
 [dev-dependencies]
