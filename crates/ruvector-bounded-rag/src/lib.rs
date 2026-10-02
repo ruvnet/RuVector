@@ -12,7 +12,16 @@
 //! |---------|----------|----------|
 //! | `TopK`  | Cosine rank, no graph | Fastest, baseline |
 //! | `GraphBfs` | Builds a dense similarity graph, then expands with a coherence gate | Budget-safe heuristic |
-//! | `MinCutBounded` | Max-flow/min-cut flow network, then top-budget truncation | Coherent-partition heuristic |
+//! | `MinCutBounded` | Max-flow/min-cut flow network over a **dense O(n²) similarity graph**, then top-budget truncation | Coherent-partition heuristic |
+//! | `SparseKnnMinCut` | Same flow network, but inter-chunk edges come from an **LSH-bucketed sparse k-NN graph** instead of all pairs (see [`sparse_knn`]) | Coherent partition at lower construction cost |
+//!
+//! `SparseKnnMinCut` exists because the nightly research that introduced
+//! `MinCutBounded` ([ADR-272](https://github.com/ruvnet/ruvector)) measured
+//! its dense O(n²·d) graph construction as the dominant cost at scale (over
+//! a second at n=3000) and named a pre-built k-NN graph as the named
+//! follow-up. [`sparse_knn`] is that follow-up: it reuses the exact same
+//! [`flow::source_side_partition`] solver, isolating graph construction as
+//! the only variable being measured.
 //!
 //! ## Quick start
 //!
@@ -33,6 +42,11 @@
 
 use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 use thiserror::Error;
+
+mod flow;
+pub mod sparse_knn;
+
+pub use sparse_knn::{SparseKnnConfig, SparseKnnMinCutRetriever};
 
 // ── public error type ──────────────────────────────────────────────────────────
 
@@ -465,107 +479,25 @@ impl BoundedRetriever for MinCutRetriever {
         let qn = normalise(&query.vector);
         let normed: Vec<Vec<f32>> = corpus.chunks.iter().map(|c| normalise(&c.vector)).collect();
 
-        // Node indices: 0..n = chunks, n = source, n+1 = sink
-        let source = n;
-        let sink = n + 1;
-        let total = n + 2;
+        let source_cap: Vec<f32> = (0..n).map(|i| cosine(&qn, &normed[i]).max(0.001)).collect();
+        let sink_cap: Vec<f32> = (0..n)
+            .map(|i| (1.0 - cosine(&qn, &normed[i])).max(0.001))
+            .collect();
 
-        // Build capacity matrix (sparse via HashMap for large n)
-        let mut cap: Vec<HashMap<usize, f32>> = vec![HashMap::new(); total];
-
-        // Source → chunk edges
-        for i in 0..n {
-            let sim = cosine(&qn, &normed[i]).max(0.001);
-            cap[source].insert(i, sim);
-            cap[i].entry(source).or_insert(0.0);
-        }
-
-        // Chunk → sink edges
-        for i in 0..n {
-            let sim = cosine(&qn, &normed[i]);
-            let anti = (1.0 - sim).max(0.001);
-            cap[i].insert(sink, anti);
-            cap[sink].entry(i).or_insert(0.0);
-        }
-
-        // Inter-chunk edges (both directions)
+        // Dense O(n^2) inter-chunk edge discovery — this is the documented
+        // bottleneck that `sparse_knn::SparseKnnMinCutRetriever` replaces
+        // with LSH-bucketed candidate generation (see ADR-272 follow-up).
+        let mut edges: Vec<(usize, usize, f32)> = Vec::new();
         for i in 0..n {
             for j in (i + 1)..n {
                 let sim = cosine(&normed[i], &normed[j]);
                 if sim >= self.cfg.edge_threshold {
-                    let w = sim * self.edge_scale;
-                    *cap[i].entry(j).or_insert(0.0) += w;
-                    *cap[j].entry(i).or_insert(0.0) += w;
+                    edges.push((i, j, sim * self.edge_scale));
                 }
             }
         }
 
-        // Edmonds-Karp: BFS augmenting paths
-        let mut flow: Vec<HashMap<usize, f32>> = vec![HashMap::new(); total];
-
-        loop {
-            // BFS to find augmenting path
-            let mut prev = vec![usize::MAX; total];
-            prev[source] = source;
-            let mut queue = VecDeque::new();
-            queue.push_back(source);
-
-            'bfs: while let Some(u) = queue.pop_front() {
-                for (&v, &c) in &cap[u] {
-                    if prev[v] == usize::MAX {
-                        let f = *flow[u].get(&v).unwrap_or(&0.0);
-                        if c - f > 1e-6 {
-                            prev[v] = u;
-                            if v == sink {
-                                break 'bfs;
-                            }
-                            queue.push_back(v);
-                        }
-                    }
-                }
-            }
-
-            if prev[sink] == usize::MAX {
-                break; // No augmenting path
-            }
-
-            // Find bottleneck
-            let mut bottleneck = f32::INFINITY;
-            let mut v = sink;
-            while v != source {
-                let u = prev[v];
-                let c = *cap[u].get(&v).unwrap_or(&0.0);
-                let f = *flow[u].get(&v).unwrap_or(&0.0);
-                bottleneck = bottleneck.min(c - f);
-                v = u;
-            }
-
-            // Update flow
-            let mut v = sink;
-            while v != source {
-                let u = prev[v];
-                *flow[u].entry(v).or_insert(0.0) += bottleneck;
-                *flow[v].entry(u).or_insert(0.0) -= bottleneck;
-                v = u;
-            }
-        }
-
-        // BFS on residual graph from source → source-side partition
-        let mut in_source_set = vec![false; total];
-        in_source_set[source] = true;
-        let mut queue = VecDeque::new();
-        queue.push_back(source);
-        while let Some(u) = queue.pop_front() {
-            for (&v, &c) in &cap[u] {
-                if !in_source_set[v] {
-                    let f = *flow[u].get(&v).unwrap_or(&0.0);
-                    if c - f > 1e-6 {
-                        in_source_set[v] = true;
-                        queue.push_back(v);
-                    }
-                }
-            }
-        }
+        let in_source_set = flow::source_side_partition(n, &source_cap, &sink_cap, &edges);
 
         // Collect chunk indices in source partition, sorted by query similarity
         let mut retrieved: Vec<(usize, f32)> = (0..n)
