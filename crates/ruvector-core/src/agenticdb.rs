@@ -853,6 +853,16 @@ impl AgenticDB {
     fn generate_passage_embedding(&self, text: &str) -> Result<Vec<f32>> {
         self.embedding_provider.embed_passage(text)
     }
+
+    /// Embed text that is a **search query** rather than stored content.
+    ///
+    /// Asymmetric providers apply a query-side instruction here that they must
+    /// not apply when embedding the documents being searched. Providers without
+    /// one fall back to [`EmbeddingProvider::embed`], so this is identical to
+    /// [`Self::generate_text_embedding`] for them.
+    fn generate_query_embedding(&self, text: &str) -> Result<Vec<f32>> {
+        self.embedding_provider.embed_query(text)
+    }
 }
 
 // Helper functions
@@ -1449,6 +1459,8 @@ impl AgenticDB {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::embeddings::EmbeddingProvider;
+    use parking_lot::Mutex;
     use tempfile::tempdir;
 
     fn create_test_db() -> Result<AgenticDB> {
@@ -1585,6 +1597,108 @@ mod tests {
 
         let skill_ids = db.auto_consolidate(sequences, 3)?;
         assert_eq!(skill_ids.len(), 2);
+
+        Ok(())
+    }
+
+    /// Records which side of the embedding provider each call landed on.
+    ///
+    /// Both sides return the same vector, so nothing downstream can tell them
+    /// apart by value. Only the recorded call log distinguishes them, which is
+    /// what makes the test below fail if a query path is routed back through
+    /// the passage method.
+    struct SideRecordingProvider {
+        dimensions: usize,
+        calls: Arc<Mutex<Vec<&'static str>>>,
+    }
+
+    impl EmbeddingProvider for SideRecordingProvider {
+        fn embed(&self, _text: &str) -> Result<Vec<f32>> {
+            self.calls.lock().push("passage");
+            Ok(vec![0.1; self.dimensions])
+        }
+
+        fn embed_query(&self, _text: &str) -> Result<Vec<f32>> {
+            self.calls.lock().push("query");
+            Ok(vec![0.1; self.dimensions])
+        }
+
+        fn dimensions(&self) -> usize {
+            self.dimensions
+        }
+
+        fn name(&self) -> &str {
+            "side-recording"
+        }
+    }
+
+    #[test]
+    fn searches_embed_their_query_on_the_query_side() -> Result<()> {
+        let calls: Arc<Mutex<Vec<&'static str>>> = Arc::new(Mutex::new(Vec::new()));
+        let dir = tempdir().unwrap();
+        let mut options = DbOptions::default();
+        options.storage_path = dir.path().join("sides.db").to_string_lossy().to_string();
+        options.dimensions = 128;
+        let db = AgenticDB::with_embedding_provider(
+            options,
+            Arc::new(SideRecordingProvider {
+                dimensions: 128,
+                calls: Arc::clone(&calls),
+            }),
+        )?;
+
+        let drain = || -> Vec<&'static str> { std::mem::take(&mut *calls.lock()) };
+
+        // Stored content is a passage: it must never carry a query instruction.
+        db.store_episode(
+            "task".to_string(),
+            vec!["action".to_string()],
+            vec!["outcome".to_string()],
+            "critique".to_string(),
+        )?;
+        assert_eq!(drain(), ["passage"], "store_episode stores a passage");
+
+        db.session_index("s1", 3600).add_turn(1, "user", "hello")?;
+        assert_eq!(drain(), ["passage"], "add_turn stores a passage");
+
+        db.witness_log().append("agent", "act", "details")?;
+        assert_eq!(drain(), ["passage"], "witness append stores a passage");
+
+        db.create_skill(
+            "skill".to_string(),
+            "description".to_string(),
+            HashMap::new(),
+            vec!["example".to_string()],
+        )?;
+        assert_eq!(drain(), ["passage"], "create_skill stores a passage");
+
+        db.add_causal_edge(
+            vec!["cause".to_string()],
+            vec!["effect".to_string()],
+            0.9,
+            "context".to_string(),
+        )?;
+        assert_eq!(drain(), ["passage"], "add_causal_edge stores a passage");
+
+        // Every search embeds its query text on the query side.
+        db.retrieve_similar_episodes("q", 5)?;
+        assert_eq!(
+            drain(),
+            ["query"],
+            "retrieve_similar_episodes embeds a query"
+        );
+
+        db.search_skills("q", 5)?;
+        assert_eq!(drain(), ["query"], "search_skills embeds a query");
+
+        db.query_with_utility("q", 5, 1.0, 0.0, 0.0)?;
+        assert_eq!(drain(), ["query"], "query_with_utility embeds a query");
+
+        db.session_index("s1", 3600).find_relevant_turns("q", 5)?;
+        assert_eq!(drain(), ["query"], "find_relevant_turns embeds a query");
+
+        db.witness_log().search("q", 5)?;
+        assert_eq!(drain(), ["query"], "witness search embeds a query");
 
         Ok(())
     }
