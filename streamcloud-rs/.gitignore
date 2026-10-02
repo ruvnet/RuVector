@@ -1,0 +1,9 @@
+/target
+**/*.rs.bk
+*.safetensors
+*.mp4
+*.png
+!demo/assets/*.png
+checkpoints/
+demo/pkg/
+.DS_Store

@@ -1,0 +1,59 @@
+name: StreamCloud demo → GitHub Pages
+
+# Scoped to the StreamCloud port so it never runs on unrelated monorepo changes.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "streamcloud-rs/**"
+      - ".github/workflows/streamcloud-pages.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment.
+concurrency:
+  group: streamcloud-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: streamcloud-rs
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust + wasm target
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup target add wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WASM bundle
+        run: wasm-pack build crates/streamcloud-wasm --target web --release --out-dir ../../demo/pkg
+
+      - name: Assemble site
+        run: touch demo/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: streamcloud-rs/demo
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

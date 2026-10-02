@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StreamCloud · WebGPU demo</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header>
+    <h1>StreamCloud <span class="accent">· Rust 3D reconstruction</span></h1>
+    <p class="sub">
+      Streaming feed-forward 3D reconstruction in the browser — Rust → WASM,
+      rendered with <strong>WebGPU</strong>. Trajectory memory (anchor retrieval)
+      runs live; the native build backs it with a lock-free
+      <a href="https://github.com/ruvnet/ruvector">ruvector-core</a> HNSW index.
+    </p>
+  </header>
+
+  <main>
+    <canvas id="gpu" width="720" height="540"></canvas>
+
+    <section class="panel">
+      <div class="stat"><span>backend</span><b id="backend">…</b></div>
+      <div class="stat"><span>frame</span><b id="frame">0</b></div>
+      <div class="stat"><span>points</span><b id="points">0</b></div>
+      <div class="stat"><span>anchors retrieved</span><b id="anchors">0</b></div>
+      <div class="stat"><span>keyframes in memory</span><b id="keyframes">0</b></div>
+      <div class="controls">
+        <button id="toggle">Pause</button>
+        <label>orbit
+          <input id="orbit" type="range" min="0" max="0.08" step="0.005" value="0.02" />
+        </label>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Synthetic backend (ADR-0006): illustrative geometry, not a faithful
+      reconstruction — the 4.63&nbsp;GB checkpoint loads via the native
+      <code>candle</code> backend. Source &amp; ADRs in
+      <code>streamcloud-rs/</code>.
+    </p>
+  </footer>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

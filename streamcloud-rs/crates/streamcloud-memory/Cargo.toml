@@ -1,0 +1,20 @@
+[package]
+name = "streamcloud-memory"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Streaming trajectory memory for StreamCloud: ruvector-core HNSW retrieval replacing the paged KV cache"
+
+[dependencies]
+ruvector-core.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+# deterministic feature generation for tests
