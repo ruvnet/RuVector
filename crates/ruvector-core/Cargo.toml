@@ -61,11 +61,11 @@ tokenizers = { version = "0.20", default-features = false, features = ["onig"], 
 hf-hub = { version = "0.4", optional = true }
 
 # Native (pure-Rust) local embeddings via lattice-embed (not available in WASM).
-# NOTE: lattice-embed 0.6 requires Rust >= 1.93 (edition 2024). Cargo cannot
+# NOTE: lattice-embed 0.7 requires Rust >= 1.93 (edition 2024). Cargo cannot
 # express a per-feature `rust-version`, so enabling the `lattice-embeddings`
 # feature raises the effective MSRV above this crate's workspace-inherited
 # 1.77 for anyone who turns it on. The default build is unaffected.
-lattice-embed = { version = "0.6.1", optional = true }
+lattice-embed = { version = "0.7.1", optional = true }
 tokio = { workspace = true, optional = true }
 
 [dev-dependencies]
