@@ -1,0 +1,22 @@
+[package]
+name = "ruvector-voi-router"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Value-of-information routing between baseline and coherence-gated HNSW search, decided per query from a signal already computed by beam search"
+keywords = ["vector-search", "hnsw", "ann", "coherence", "routing"]
+categories = ["algorithms", "data-structures", "science"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+ruvector-coherence-hnsw = { path = "../ruvector-coherence-hnsw" }
+rand       = { workspace = true }
+rand_distr = { workspace = true }
+
+[dev-dependencies]
