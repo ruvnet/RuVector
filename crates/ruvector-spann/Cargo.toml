@@ -13,3 +13,9 @@ path = "src/bin/benchmark.rs"
 [dependencies]
 
 [dev-dependencies]
+criterion = { workspace = true }
+rand = { workspace = true }
+
+[[bench]]
+name = "distance"
+harness = false
