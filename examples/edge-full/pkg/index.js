@@ -110,42 +110,66 @@ export async function initAll() {
  * Initialize only specific modules
  * @param {string[]} moduleNames - Array of module names to init
  */
+export async function initAll() {
+  const [
+    edgeModule,
+    graphModule,
+    rvliteModule,
+    sonaModule,
+    dagModule
+  ] = await Promise.all([
+    import('./edge/ruvector_edge.js'),
+    import('./graph/ruvector_graph_wasm.js'),
+    import('./rvlite/rvlite.js'),
+    import('./sona/ruvector_sona.js'),
+    import('./dag/ruvector_dag_wasm.js')
+  ]);
+
+  await Promise.all([
+    edgeModule.default(),
+    graphModule.default(),
+    rvliteModule.default(),
+    sonaModule.default(),
+    dagModule.default()
+  ]);
+
+  return {
+    edge: edgeModule,
+    graph: graphModule,
+    rvlite: rvliteModule,
+    sona: sonaModule,
+    dag: dagModule
+  };
+}
+
 export async function initModules(moduleNames) {
+  if (!Array.isArray(moduleNames)) {
+    throw new TypeError('moduleNames must be an array');
+  }
+
+  const loaders = {
+    edge: () => import('./edge/ruvector_edge.js'),
+    graph: () => import('./graph/ruvector_graph_wasm.js'),
+    rvlite: () => import('./rvlite/rvlite.js'),
+    sona: () => import('./sona/ruvector_sona.js'),
+    dag: () => import('./dag/ruvector_dag_wasm.js'),
+    onnx: () => import('./onnx/ruvector_onnx_embeddings_wasm.js')
+  };
+
   const results = {};
 
   for (const name of moduleNames) {
-    switch (name) {
-      case 'edge':
-        const { default: edgeInit } = await import('./edge/ruvector_edge.js');
-        await edgeInit();
-        results.edge = await import('./edge/ruvector_edge.js');
-        break;
-      case 'graph':
-        const { default: graphInit } = await import('./graph/ruvector_graph_wasm.js');
-        await graphInit();
-        results.graph = await import('./graph/ruvector_graph_wasm.js');
-        break;
-      case 'rvlite':
-        const { default: rvliteInit } = await import('./rvlite/rvlite.js');
-        await rvliteInit();
-        results.rvlite = await import('./rvlite/rvlite.js');
-        break;
-      case 'sona':
-        const { default: sonaInit } = await import('./sona/ruvector_sona.js');
-        await sonaInit();
-        results.sona = await import('./sona/ruvector_sona.js');
-        break;
-      case 'dag':
-        const { default: dagInit } = await import('./dag/ruvector_dag_wasm.js');
-        await dagInit();
-        results.dag = await import('./dag/ruvector_dag_wasm.js');
-        break;
-      case 'onnx':
-        const { default: onnxInit } = await import('./onnx/ruvector_onnx_embeddings_wasm.js');
-        await onnxInit();
-        results.onnx = await import('./onnx/ruvector_onnx_embeddings_wasm.js');
-        break;
+    if (!loaders[name]) {
+      throw new Error(`Unknown RuVector module: ${name}`);
     }
+
+    const module = await loaders[name]();
+
+    if (typeof module.default === 'function') {
+      await module.default();
+    }
+
+    results[name] = module;
   }
 
   return results;
