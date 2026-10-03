@@ -20,7 +20,7 @@
 //! 4. If boundary ≤ budget at any layer, create witness
 //! 5. Return smallest cut found or NoneInLocality
 
-use crate::graph::{DynamicGraph, VertexId};
+use crate::graph::{DynamicGraph, EdgeId, VertexId};
 use crate::instance::WitnessHandle;
 use roaring::RoaringBitmap;
 use std::collections::{HashSet, VecDeque};
@@ -271,10 +271,23 @@ impl DeterministicLocalKCut {
         let mut queue = VecDeque::new();
         let mut best_cut: Option<(HashSet<VertexId>, u64)> = None;
 
+        // Boundary edges, maintained incrementally as `visited` grows rather
+        // than recomputed from scratch at every depth. The original
+        // `calculate_boundary(graph, &visited)` rescans every edge incident
+        // to the *entire* visited set on every one of the `radius + 1`
+        // layers, i.e. O(radius * |visited|-degree) per `search()` call; at
+        // the seed/budget fan-out in `BoundedInstance::search_for_cuts` this
+        // was the dominant cost behind the latency blowup measured in
+        // ADR-345 (~77ms at n=50 to ~11.4s at n=400). Updating only the
+        // edges touched by each newly-added layer reduces the whole BFS to
+        // O(edges incident to the explored region), independent of radius.
+        let mut boundary_edges: HashSet<EdgeId> = HashSet::new();
+
         // Initialize BFS with seeds
+        let mut initial_layer = Vec::new();
         for &seed in seeds {
-            if graph.has_vertex(seed) {
-                visited.insert(seed);
+            if graph.has_vertex(seed) && visited.insert(seed) {
+                initial_layer.push(seed);
                 queue.push_back((seed, 0));
             }
         }
@@ -283,13 +296,14 @@ impl DeterministicLocalKCut {
             return None;
         }
 
+        Self::update_boundary_incremental(graph, &visited, &initial_layer, &mut boundary_edges);
+
         // Track vertices at each layer for deterministic expansion
         let mut current_layer = visited.clone();
 
         // BFS exploration
         for depth in 0..=radius {
-            // Calculate boundary for current visited set
-            let boundary_size = self.calculate_boundary(graph, &visited);
+            let boundary_size = boundary_edges.len() as u64;
 
             // Check if this is a valid cut within budget
             if boundary_size <= budget && !visited.is_empty() {
@@ -343,6 +357,16 @@ impl DeterministicLocalKCut {
                 }
             }
 
+            if !next_layer.is_empty() {
+                let new_vertices: Vec<_> = next_layer.iter().copied().collect();
+                Self::update_boundary_incremental(
+                    graph,
+                    &visited,
+                    &new_vertices,
+                    &mut boundary_edges,
+                );
+            }
+
             current_layer = next_layer;
 
             // No more vertices to explore
@@ -354,9 +378,41 @@ impl DeterministicLocalKCut {
         best_cut
     }
 
+    /// Incrementally update a maintained boundary-edge set after `new_vertices`
+    /// have just been added to `visited` (which must already reflect their
+    /// membership).
+    ///
+    /// For each edge incident to a newly-added vertex: if the other endpoint
+    /// is also in `visited`, the edge is now internal (removed from the
+    /// boundary, a no-op if it was never a member, e.g. an edge between two
+    /// vertices added in the same layer); otherwise it crosses the cut and is
+    /// inserted. Edges not incident to `new_vertices` are untouched, which is
+    /// what keeps this O(degree(new_vertices)) instead of O(degree(visited)).
+    fn update_boundary_incremental(
+        graph: &DynamicGraph,
+        visited: &HashSet<VertexId>,
+        new_vertices: &[VertexId],
+        boundary_edges: &mut HashSet<EdgeId>,
+    ) {
+        for &v in new_vertices {
+            for (neighbor, edge_id) in graph.neighbors(v) {
+                if visited.contains(&neighbor) {
+                    boundary_edges.remove(&edge_id);
+                } else {
+                    boundary_edges.insert(edge_id);
+                }
+            }
+        }
+    }
+
     /// Calculate the boundary size for a vertex set
     ///
     /// Counts edges crossing from the vertex set to its complement.
+    ///
+    /// Not used by `deterministic_bfs` (see `update_boundary_incremental`);
+    /// retained as a from-scratch reference implementation and for direct
+    /// use by callers (and tests) that need a one-off boundary computation
+    /// for an arbitrary vertex set.
     ///
     /// # Arguments
     ///
@@ -833,5 +889,68 @@ mod tests {
             // Seed should be in witness
             assert!(witness.contains(witness.seed()));
         }
+    }
+
+    /// Regression test for the `deterministic_bfs` rewrite (2026-10-03
+    /// nightly / ADR-352) that maintains `boundary_edges` incrementally
+    /// instead of calling `calculate_boundary` on the whole `visited` set at
+    /// every BFS depth. Builds several random sparse graphs and checks that
+    /// every witness `search()` returns has a `cut_value` matching an
+    /// independent from-scratch `calculate_boundary` recomputation over the
+    /// witness's own vertex set — i.e. the incrementally-maintained boundary
+    /// and the original full-rescan definition agree on every witness
+    /// actually produced, not just on the hand-built graphs above.
+    #[test]
+    fn test_incremental_boundary_matches_from_scratch_across_random_graphs() {
+        use rand::prelude::*;
+        use rand::rngs::StdRng;
+
+        let mut rng = StdRng::seed_from_u64(0x6d696e637574);
+        let mut witnesses_checked = 0usize;
+
+        for trial in 0..20u64 {
+            let n = 10 + (trial as usize % 6) * 15; // 10..=85 vertices
+            let graph = DynamicGraph::new();
+            for u in 0..n as u64 {
+                for v in (u + 1)..n as u64 {
+                    if rng.gen::<f64>() < 0.15 {
+                        graph.insert_edge(u, v, 1.0).unwrap();
+                    }
+                }
+            }
+            let graph = Arc::new(graph);
+            let oracle = DeterministicLocalKCut::new(8);
+
+            for seed in 0..n as u64 {
+                if !graph.has_vertex(seed) {
+                    continue;
+                }
+                let query = LocalKCutQuery {
+                    seed_vertices: vec![seed],
+                    budget_k: 6,
+                    radius: 6,
+                };
+                if let LocalKCutResult::Found { witness, cut_value } = oracle.search(&graph, query)
+                {
+                    let vertex_set: HashSet<VertexId> =
+                        (0..n as u64).filter(|&v| witness.contains(v)).collect();
+                    let recomputed = oracle.calculate_boundary(&graph, &vertex_set);
+                    assert_eq!(
+                        recomputed, cut_value,
+                        "trial {trial} seed {seed}: incrementally-reported boundary \
+                         {cut_value} != from-scratch calculate_boundary {recomputed}"
+                    );
+                    witnesses_checked += 1;
+                }
+            }
+        }
+
+        // Sanity check that the test actually exercised the Found path
+        // (budget_k=6 on a 0.15-density random graph should produce several
+        // witnesses across 20 trials) rather than vacuously passing.
+        assert!(
+            witnesses_checked >= 10,
+            "expected at least 10 witnesses across trials, got {witnesses_checked}"
+        );
     }
 }
