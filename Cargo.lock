@@ -9086,6 +9086,7 @@ dependencies = [
 name = "ruvector-attn-mincut"
 version = "2.3.0"
 dependencies = [
+ "ruvector-coherence",
  "serde",
  "serde_json",
  "sha2 0.10.9",
