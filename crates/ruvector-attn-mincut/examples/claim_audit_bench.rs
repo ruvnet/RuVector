@@ -41,7 +41,10 @@ const BESTSINK_SEQ_LENS: [usize; 3] = [32, 64, 128];
 struct Lcg(u64);
 impl Lcg {
     fn next_f32(&mut self) -> f32 {
-        self.0 = self.0.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+        self.0 = self
+            .0
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
         ((self.0 >> 40) as f32 / (1u64 << 24) as f32) - 0.5 // roughly uniform in [-0.5, 0.5]
     }
 }
@@ -128,7 +131,13 @@ fn main() {
         let logits = compute_logits(&q, &k, D, seq_len);
         let eps_mask = eps_only_keep_mask(&logits, EPS);
 
-        let reps: u32 = if seq_len <= 64 { 20 } else if seq_len <= 128 { 8 } else { 3 };
+        let reps: u32 = if seq_len <= 64 {
+            20
+        } else if seq_len <= 128 {
+            8
+        } else {
+            3
+        };
         let baseline_ns = timed_ns(reps, || {
             std::hint::black_box(attn_softmax(&q, &k, &v, D, seq_len));
         });
@@ -172,8 +181,7 @@ fn main() {
                 // Best-sink is O(seq_len) Dinic calls: single-shot timing only (no repetition),
                 // documented honestly rather than inflating the rep count for this expensive path.
                 let b_start = Instant::now();
-                let b_out =
-                    attn_mincut_best_sink(&q, &k, &v, D, seq_len, lambda, LAMBDA_TAU, EPS);
+                let b_out = attn_mincut_best_sink(&q, &k, &v, D, seq_len, lambda, LAMBDA_TAU, EPS);
                 let b_ns = b_start.elapsed().as_nanos() as f64;
                 let b_pp = mincut_specific_pp(&eps_mask, &b_out.gating.keep_mask);
                 let b_quality = quality_check(&baseline_out, &b_out.output, 0.99);
@@ -198,11 +206,16 @@ fn main() {
     let h2_a_avg = h2_a_matched.iter().sum::<f64>() / h2_a_matched.len() as f64;
     let h2_b_avg = h2_b_matched.iter().sum::<f64>() / h2_b_matched.len() as f64;
     let h2_delta = h2_b_avg - h2_a_avg;
-    let coherence_cosine = coherence_gate_cosine.expect("seq_len=128, lambda=0.5 sample must exist");
+    let coherence_cosine =
+        coherence_gate_cosine.expect("seq_len=128, lambda=0.5 sample must exist");
 
     let h1_result = if h1_avg >= 5.0 { "ACCEPT" } else { "REJECT" };
     let h2_result = if h2_delta >= 3.0 { "ACCEPT" } else { "REJECT" };
-    let coherence_result = if coherence_cosine >= 0.99 { "PASS" } else { "FAIL" };
+    let coherence_result = if coherence_cosine >= 0.99 {
+        "PASS"
+    } else {
+        "FAIL"
+    };
 
     println!();
     println!("=== Hypothesis results (thresholds fixed before this run) ===");
@@ -260,7 +273,8 @@ fn root_cause_probe() {
         let logits = compute_logits(&q, &k, D, seq_len);
         let eps_mask = eps_only_keep_mask(&logits, EPS);
         for &lambda in &[0.5f32, 5.0, 50.0] {
-            let gating = ruvector_attn_mincut::dynamic_min_cut(&logits, seq_len, lambda, LAMBDA_TAU, EPS);
+            let gating =
+                ruvector_attn_mincut::dynamic_min_cut(&logits, seq_len, lambda, LAMBDA_TAU, EPS);
             let pp = mincut_specific_pp(&eps_mask, &gating.keep_mask);
             println!(
                 "{seq_len:>7} | {lambda:>6} | {:>26} | {pp:.2}pp",
