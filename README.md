@@ -2,7 +2,7 @@
 
 [![RuVector](https://repository-images.githubusercontent.com/1099547803/948d2495-1db9-47f6-9ea1-f7f977343e5f)](https://cognitum.one/ruvector)
 
-<a href="https://github.com/ruvnet/ruvector/blob/main/assets/ruvector/ruvector-walkthrough.md"><img src="assets/ruvector/ruvector-explorer-v4.svg" alt="RuVector animated walkthrough: semantic search, persistent memory, graph relationships, feedback learning and deployment. Get started with npx ruvector." width="100%"></a>
+<a href="https://github.com/ruvnet/ruvector/blob/main/assets/ruvector/ruvector-walkthrough.md"><img src="assets/ruvector/ruvector-explorer-v5.svg" alt="RuVector animated walkthrough: semantic search, persistent memory, graph relationships, feedback learning and deployment. Get started with npx ruvector." width="100%"></a>
 
 <p align="center"><sub>23 chapters · 4 min 36 sec · <a href="assets/ruvector/ruvector-walkthrough.md">Read the walkthrough and get started</a> · <code>npx ruvector</code></sub></p>
 
