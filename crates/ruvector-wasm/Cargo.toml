@@ -36,6 +36,8 @@ web-sys = { workspace = true, features = [
     "IdbRequest",
     "IdbTransaction",
     "IdbOpenDbRequest",
+    "IdbTransactionMode",
+    "DomException",
 ] }
 
 # Error handling

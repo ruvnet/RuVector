@@ -428,6 +428,16 @@ impl PortableDB {
         self.rebuild(entries);
         Ok(true)
     }
+    pub fn metric(&self) -> DistanceMetric {
+        self.metric
+    }
+    pub fn uses_hnsw(&self) -> bool {
+        self.hnsw
+    }
+    /// Every stored entry (with ids), in insertion order, for persistence.
+    pub fn entries(&self) -> Vec<VectorEntry> {
+        self.nodes.iter().map(|n| n.entry.clone()).collect()
+    }
     pub fn get(&self, id: &str) -> Result<Option<VectorEntry>> {
         Ok(self.ids.get(id).map(|&i| self.nodes[i].entry.clone()))
     }

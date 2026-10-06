@@ -30,6 +30,7 @@
 #[cfg(feature = "kernel-pack")]
 pub mod kernel;
 
+mod idb;
 mod portable;
 use portable::PortableDB as CoreVectorDB;
 
@@ -224,7 +225,21 @@ impl VectorDB {
             Some(other) => return Err(JsValue::from_str(&format!("Unknown metric: {}", other))),
         };
 
-        let hnsw_config = if use_hnsw.unwrap_or(true) {
+        Self::from_parts(
+            dimensions,
+            distance_metric,
+            use_hnsw.unwrap_or(true),
+            format!("ruvector_db_{}", js_sys::Date::now()),
+        )
+    }
+
+    fn from_parts(
+        dimensions: usize,
+        distance_metric: DistanceMetric,
+        use_hnsw: bool,
+        db_name: String,
+    ) -> Result<VectorDB, JsValue> {
+        let hnsw_config = if use_hnsw {
             Some(HnswConfig::default())
         } else {
             None
@@ -243,7 +258,7 @@ impl VectorDB {
         Ok(VectorDB {
             db: Arc::new(Mutex::new(db)),
             dimensions,
-            db_name: format!("ruvector_db_{}", js_sys::Date::now()),
+            db_name,
         })
     }
 
@@ -411,28 +426,65 @@ impl VectorDB {
         self.dimensions
     }
 
+    /// Name of the IndexedDB database this instance saves to
+    #[wasm_bindgen(getter, js_name = dbName)]
+    pub fn db_name(&self) -> String {
+        self.db_name.clone()
+    }
+
+    /// Choose the IndexedDB database name used by `saveToIndexedDB`
+    /// (1-128 chars of `[A-Za-z0-9_.-]`). Use the same name with `loadFromIndexedDB`.
+    #[wasm_bindgen(js_name = setDbName)]
+    pub fn set_db_name(&mut self, name: String) -> Result<(), JsValue> {
+        idb::validate_name(&name)?;
+        self.db_name = name;
+        Ok(())
+    }
+
     /// Save database to IndexedDB
-    /// Returns a Promise that resolves when save is complete
+    /// Returns a Promise that resolves only after the IndexedDB transaction has
+    /// committed, and rejects if it errors or aborts (e.g. quota exceeded).
     #[wasm_bindgen(js_name = saveToIndexedDB)]
     pub fn save_to_indexed_db(&self) -> Result<Promise, JsValue> {
         let db_name = self.db_name.clone();
+        idb::validate_name(&db_name)?;
+        let snapshot = {
+            let db = self.db.lock();
+            idb::Snapshot {
+                format: idb::FORMAT_VERSION,
+                dimensions: self.dimensions,
+                metric: db.metric(),
+                hnsw: db.uses_hnsw(),
+                entries: db.entries(),
+            }
+        };
+        let json = serde_json::to_string(&snapshot)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize database: {e}")))?;
 
-        // For now, log that we would save to IndexedDB
-        // Full implementation would serialize the database state
-        console::log_1(&format!("Saving database '{}' to IndexedDB...", db_name).into());
-
-        // Return resolved promise
-        Ok(Promise::resolve(&JsValue::TRUE))
+        Ok(wasm_bindgen_futures::future_to_promise(async move {
+            idb::put(&db_name, json).await?;
+            Ok(JsValue::TRUE)
+        }))
     }
 
-    /// Load database from IndexedDB
-    /// Returns a Promise that resolves with the VectorDB instance
+    /// Load a database previously saved with `saveToIndexedDB`.
+    /// Returns a Promise that resolves with the VectorDB instance, or rejects if
+    /// nothing was saved under `db_name` or the payload is corrupt/unsupported.
     #[wasm_bindgen(js_name = loadFromIndexedDB)]
     pub fn load_from_indexed_db(db_name: String) -> Result<Promise, JsValue> {
-        console::log_1(&format!("Loading database '{}' from IndexedDB...", db_name).into());
-
-        // Return rejected promise for now (not implemented)
-        Ok(Promise::reject(&JsValue::from_str("Not yet implemented")))
+        idb::validate_name(&db_name)?;
+        Ok(wasm_bindgen_futures::future_to_promise(async move {
+            let json = idb::get(&db_name).await?.ok_or_else(|| {
+                JsValue::from_str(&format!("No saved database named '{db_name}'"))
+            })?;
+            let snap = idb::parse_snapshot(&json)?;
+            let db = VectorDB::from_parts(snap.dimensions, snap.metric, snap.hnsw, db_name)?;
+            db.db
+                .lock()
+                .insert_batch(snap.entries)
+                .map_err(|e| JsValue::from(WasmError::from(e)))?;
+            Ok(JsValue::from(db))
+        }))
     }
 }
 

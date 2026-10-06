@@ -4,6 +4,7 @@
 
 use js_sys::Float32Array;
 use ruvector_wasm::*;
+use wasm_bindgen::JsValue;
 use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -196,4 +197,113 @@ async fn test_save_to_indexeddb_actually_persists() {
         "save resolved but no IndexedDB database exists; found {:?}",
         names
     );
+}
+
+async fn save_named(db: &mut VectorDB, name: &str) {
+    db.set_db_name(name.to_string()).unwrap();
+    wasm_bindgen_futures::JsFuture::from(db.save_to_indexed_db().unwrap())
+        .await
+        .unwrap();
+}
+
+async fn load_named(name: &str) -> Result<VectorDB, JsValue> {
+    let v = wasm_bindgen_futures::JsFuture::from(VectorDB::load_from_indexed_db(name.to_string())?)
+        .await?;
+    wasm_bindgen::convert::TryFromJsValue::try_from_js_value(v)
+}
+
+#[wasm_bindgen_test]
+async fn test_indexeddb_round_trip_restores_vectors_and_search() {
+    let mut db = VectorDB::new(3, Some("euclidean".to_string()), Some(false)).unwrap();
+    for (id, v) in [("a", [1.0, 0.0, 0.0]), ("b", [0.0, 1.0, 0.0])] {
+        db.insert(Float32Array::from(&v[..]), Some(id.to_string()), None)
+            .unwrap();
+    }
+    save_named(&mut db, "rt_round_trip").await;
+
+    let loaded = load_named("rt_round_trip").await.unwrap();
+    assert_eq!(loaded.len().unwrap(), 2);
+    assert_eq!(loaded.dimensions(), 3);
+    assert!(loaded.get("b").unwrap().is_some());
+    let hits = loaded
+        .search(Float32Array::from(&[0.0, 1.0, 0.0][..]), 1, None)
+        .unwrap();
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].id(), "b");
+}
+
+#[wasm_bindgen_test]
+async fn test_load_missing_database_is_error() {
+    assert!(load_named("rt_never_saved").await.is_err());
+}
+
+#[wasm_bindgen_test]
+async fn test_invalid_database_name_is_rejected() {
+    let mut db = VectorDB::new(3, None, Some(false)).unwrap();
+    assert!(db.set_db_name("bad name/../x".to_string()).is_err());
+    assert!(db.set_db_name(String::new()).is_err());
+    assert!(VectorDB::load_from_indexed_db("a;b".to_string()).is_err());
+}
+
+/// Overwrite the stored snapshot with arbitrary text, bypassing the crate.
+async fn put_raw(name: &str, payload: &str) {
+    use wasm_bindgen::JsCast;
+    let factory = web_sys::window().unwrap().indexed_db().unwrap().unwrap();
+    let req = factory.open_with_u32(name, 1).unwrap();
+    let rq = req.clone();
+    let on_upgrade = wasm_bindgen::closure::Closure::once_into_js(move || {
+        let db: web_sys::IdbDatabase = rq.result().unwrap().unchecked_into();
+        let _ = db.create_object_store("ruvector");
+    });
+    req.set_onupgradeneeded(Some(on_upgrade.unchecked_ref()));
+    let rq = req.clone();
+    let opened = js_sys::Promise::new(&mut |res, _| {
+        let rq = rq.clone();
+        let ok = wasm_bindgen::closure::Closure::once_into_js(move || {
+            res.call1(&JsValue::NULL, &rq.result().unwrap()).unwrap();
+        });
+        req.set_onsuccess(Some(ok.unchecked_ref()));
+    });
+    let db: web_sys::IdbDatabase = wasm_bindgen_futures::JsFuture::from(opened)
+        .await
+        .unwrap()
+        .unchecked_into();
+    let tx = db
+        .transaction_with_str_and_mode("ruvector", web_sys::IdbTransactionMode::Readwrite)
+        .unwrap();
+    let tx2 = tx.clone();
+    let done = js_sys::Promise::new(&mut |res, _| {
+        let c = wasm_bindgen::closure::Closure::once_into_js(move || {
+            res.call0(&JsValue::NULL).unwrap();
+        });
+        tx2.set_oncomplete(Some(c.unchecked_ref()));
+    });
+    tx.object_store("ruvector")
+        .unwrap()
+        .put_with_key(&JsValue::from_str(payload), &JsValue::from_str("snapshot"))
+        .unwrap();
+    wasm_bindgen_futures::JsFuture::from(done).await.unwrap();
+    db.close();
+}
+
+#[wasm_bindgen_test]
+async fn test_load_rejects_corrupt_and_unsupported_payloads() {
+    put_raw("rt_corrupt", "{not json").await;
+    assert!(load_named("rt_corrupt").await.is_err());
+
+    put_raw(
+        "rt_future",
+        r#"{"format":999,"dimensions":3,"metric":"Euclidean","hnsw":false,"entries":[]}"#,
+    )
+    .await;
+    let err = load_named("rt_future").await.err().unwrap();
+    assert!(err.as_string().unwrap().contains("Unsupported"));
+
+    // Entry whose vector length disagrees with the stored dimensions.
+    put_raw(
+        "rt_baddim",
+        r#"{"format":1,"dimensions":3,"metric":"Euclidean","hnsw":false,"entries":[{"id":"x","vector":[1.0],"metadata":null}]}"#,
+    )
+    .await;
+    assert!(load_named("rt_baddim").await.is_err());
 }
