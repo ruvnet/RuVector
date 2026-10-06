@@ -2,6 +2,10 @@
 
 [![RuVector](https://repository-images.githubusercontent.com/1099547803/948d2495-1db9-47f6-9ea1-f7f977343e5f)](https://cognitum.one/ruvector)
 
+<a href="https://github.com/ruvnet/ruvector/blob/main/assets/ruvector/ruvector-walkthrough.md"><img src="assets/ruvector/ruvector-walkthrough.svg" alt="RuVector animated walkthrough: semantic search, persistent memory, graph relationships, feedback learning and deployment. Get started with npx ruvector." width="100%"></a>
+
+<p align="center"><sub>23 chapters · 4 min 36 sec · <a href="assets/ruvector/ruvector-walkthrough.md">Read the walkthrough and get started</a> · <code>npx ruvector</code></sub></p>
+
 [![Crates.io](https://img.shields.io/crates/v/ruvector-core.svg)](https://crates.io/crates/ruvector-core)
 [![npm](https://img.shields.io/npm/v/ruvector.svg)](https://www.npmjs.com/package/ruvector)
 [![npm monthly downloads](https://img.shields.io/npm/dm/ruvector.svg?label=monthly%20downloads)](https://www.npmjs.com/package/ruvector)
