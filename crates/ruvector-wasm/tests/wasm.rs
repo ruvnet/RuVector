@@ -158,3 +158,42 @@ fn test_array_to_float32_array() {
     assert_eq!(float_arr.get_index(0), 1.0);
     assert_eq!(float_arr.get_index(3), 4.0);
 }
+
+// --- IndexedDB persistence (regression: save resolved but wrote nothing) ---
+
+/// Names of every IndexedDB database visible to this origin.
+async fn idb_database_names() -> Vec<String> {
+    let factory = web_sys::window().unwrap().indexed_db().unwrap().unwrap();
+    // `IdbFactory::databases` is behind web-sys unstable APIs, so call it dynamically.
+    let databases: js_sys::Function = js_sys::Reflect::get(&factory, &"databases".into())
+        .unwrap()
+        .into();
+    let promise: js_sys::Promise = databases.call0(&factory).unwrap().into();
+    let list = wasm_bindgen_futures::JsFuture::from(promise).await.unwrap();
+    js_sys::Array::from(&list)
+        .iter()
+        .filter_map(|d| js_sys::Reflect::get(&d, &"name".into()).ok()?.as_string())
+        .collect()
+}
+
+#[wasm_bindgen_test]
+async fn test_save_to_indexeddb_actually_persists() {
+    let db = VectorDB::new(3, Some("euclidean".to_string()), Some(false)).unwrap();
+    db.insert(
+        Float32Array::from(&[1.0, 0.0, 0.0][..]),
+        Some("a".to_string()),
+        None,
+    )
+    .unwrap();
+
+    wasm_bindgen_futures::JsFuture::from(db.save_to_indexed_db().unwrap())
+        .await
+        .unwrap();
+
+    let names = idb_database_names().await;
+    assert!(
+        names.iter().any(|n| n.starts_with("ruvector_db_")),
+        "save resolved but no IndexedDB database exists; found {:?}",
+        names
+    );
+}
