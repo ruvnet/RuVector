@@ -2,7 +2,7 @@
 
 This is the readable companion to the 23 chapter, 4 minute 36 second SVG tour. Each chapter lasts 12 seconds. The SVG loops automatically and displays a static title card when reduced motion is requested.
 
-The original README header is preserved. The tour uses an entirely vector based intro and conceptual illustrations inspired by the supplied RuVector Explorer. The original attached bitmap is not embedded. A rotating projected sphere gives the SVG a 3D visual style without requiring Three.js or scripts. It is an explanation, not a live benchmark or interactive explorer.
+The original README header is preserved. The tour uses an entirely vector based intro and conceptual illustrations inspired by the supplied RuVector Explorer. The original attached bitmap is not embedded. The visual style follows the supplied Explorer screenshot: a black instrument canvas, branching search trees, orange path traversal, mint recall hints, and compact monospace labels. Tree, hyperbolic and vector space views are conceptual SVG animations; no Three.js or scripts are required. It is an explanation, not a live benchmark or interactive explorer.
 
 ## INTRO: Memory that stays. Search that understands.
 
