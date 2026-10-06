@@ -1,10 +1,20 @@
-# RuVector animated walkthrough
+# RuVector full animated walkthrough
 
-This is the readable companion to the 23 chapter, 4 minute 36 second SVG tour. Each chapter lasts 12 seconds. The SVG loops automatically and displays a static title card when reduced motion is requested.
+Watch the full 23 chapter tour below, then explore each area at your own pace. The complete animation lasts 4 minutes 36 seconds; the README features a separate 32 second trailer.
+
+<img src="ruvector-explorer-v5.svg" alt="Full RuVector animation covering all 23 chapters" width="100%">
+
+[Open the full animation](ruvector-explorer-v5.svg) · [Back to the README trailer](../../README.md)
+
+## Explore each area
+
+Each chapter below has an animated SVG header and a plain language explanation.
 
 The original README header is preserved. The tour uses an entirely vector based intro and conceptual illustrations inspired by the supplied RuVector Explorer. The original attached bitmap is not embedded. The visual style follows the supplied Explorer screenshot: a black instrument canvas, branching search trees, orange path traversal, mint recall hints, and compact monospace labels. All five views are included: Canopy reveals expanding branches; Hyper moves the graph focus; Tree traces layered hops; Space shows query trails; Learn highlights Recall, Search, Score, Store and Adapt in sequence. These views are conceptual SVG animations; no Three.js or scripts are required. It is an explanation, not a live benchmark or interactive explorer.
 
 ## INTRO: Memory that stays. Search that understands.
+
+<img src="chapter-headers/chapter-00.svg" alt="Animated chapter header" width="100%">
 
 RuVector combines local retrieval, relationships and feedback.
 
@@ -16,6 +26,8 @@ A guided tour of the system • Illustrations are conceptual
 
 ## 01 / THE BIG PICTURE: Give your agent a useful memory.
 
+<img src="chapter-headers/chapter-01.svg" alt="Animated chapter header" width="100%">
+
 Capture → encode → store → recall → act → record feedback.
 
 * Keep facts and past decisions
@@ -25,6 +37,8 @@ Capture → encode → store → recall → act → record feedback.
 Your application decides what to remember and which evidence to trust.
 
 ## 02 / EMBEDDINGS: Turn meaning into coordinates.
+
+<img src="chapter-headers/chapter-02.svg" alt="Animated chapter header" width="100%">
 
 An embedding model turns text into a list of numbers.
 
@@ -36,6 +50,8 @@ Local semantic mode uses a model downloaded and cached on first use.
 
 ## 03 / SEMANTIC RECALL: Ask naturally. Find the relevant memory.
 
+<img src="chapter-headers/chapter-03.svg" alt="Animated chapter header" width="100%">
+
 A new question becomes a vector in the same space.
 
 * Question: Where can data run?
@@ -45,6 +61,8 @@ A new question becomes a vector in the same space.
 Similarity helps find context. It does not establish truth.
 
 ## 04 / HNSW SEARCH: Take shortcuts through your data.
+
+<img src="chapter-headers/chapter-04.svg" alt="Animated chapter header" width="100%">
 
 HNSW is a layered network of nearby vectors.
 
@@ -56,6 +74,8 @@ Approximate search trades some recall for less search work.
 
 ## 05 / THE EXPLORER: Watch the search find its way.
 
+<img src="chapter-headers/chapter-05.svg" alt="Animated chapter header" width="100%">
+
 Your attached explorer makes search behavior visible.
 
 * Canopy and Tree reveal each hop
@@ -65,6 +85,8 @@ Your attached explorer makes search behavior visible.
 The WASM engine and animated JavaScript trace are separate implementations.
 
 ## 06 / SEARCH QUALITY: Fast is useful when recall holds.
+
+<img src="chapter-headers/chapter-06.svg" alt="Animated chapter header" width="100%">
 
 Compare approximate results with an exact flat scan.
 
@@ -76,6 +98,8 @@ Higher search breadth usually costs more work. Measure on your data.
 
 ## 07 / PERSISTENCE: Close the process. Keep the memory.
 
+<img src="chapter-headers/chapter-07.svg" alt="Animated chapter header" width="100%">
+
 VectorDB persists vectors, metadata and configuration.
 
 * Store a fact with source and tenant
@@ -85,6 +109,8 @@ VectorDB persists vectors, metadata and configuration.
 Current HNSW reopening rebuilds the index. Measure cold start time.
 
 ## 08 / MEMORY TYPES: Facts, experiences and ways of working.
+
+<img src="chapter-headers/chapter-08.svg" alt="Animated chapter header" width="100%">
 
 Use memory types to organize what the agent knows.
 
@@ -96,6 +122,8 @@ AgenticDB has persistent typed records; the unified ruvllm manager is in memory.
 
 ## 09 / RELATIONSHIPS: Find connections, not just similar text.
 
+<img src="chapter-headers/chapter-09.svg" alt="Animated chapter header" width="100%">
+
 Graph memory links people, projects, events and decisions.
 
 * Follow who approved a decision
@@ -105,6 +133,8 @@ Graph memory links people, projects, events and decisions.
 Graph reconstruction and learned shortcuts require separate integration.
 
 ## 10 / HYBRID RETRIEVAL: Combine meaning with exact details.
+
+<img src="chapter-headers/chapter-10.svg" alt="Animated chapter header" width="100%">
 
 Different retrieval components answer different questions.
 
@@ -116,6 +146,8 @@ Core filters apply to candidates; selective filters can return fewer results.
 
 ## 11 / TIME AND CONTEXT: Old facts may need a second look.
 
+<img src="chapter-headers/chapter-11.svg" alt="Animated chapter header" width="100%">
+
 Temporal recall can prefer recent, supported memories.
 
 * Let stale observations lose weight
@@ -125,6 +157,8 @@ Temporal recall can prefer recent, supported memories.
 Temporal coherence is a proof of concept for moderate memory sets.
 
 ## 12 / EXPLORER LEARNING: Remember a route. Adjust the search effort.
+
+<img src="chapter-headers/chapter-12.svg" alt="Animated chapter header" width="100%">
 
 The demo learns query hints and tunes search breadth.
 
@@ -136,6 +170,8 @@ This demo does not change the index or run SONA. Exact scoring is a demo aid.
 
 ## 13 / SONA AND FEEDBACK: Learning needs an outcome.
 
+<img src="chapter-headers/chapter-13.svg" alt="Animated chapter header" width="100%">
+
 SONA can adapt small weights from trajectories and rewards.
 
 * Record what the agent tried
@@ -145,6 +181,8 @@ SONA can adapt small weights from trajectories and rewards.
 Reading memory alone does not train weights or guarantee improvement.
 
 ## 14 / LOCAL DECISIONS: Some tasks need a decision, not an essay.
+
+<img src="chapter-headers/chapter-14.svg" alt="Animated chapter header" width="100%">
 
 The separate typesafe package supports bounded decisions.
 
@@ -156,6 +194,8 @@ Use real semantic embeddings and labeled evaluation; the hash embedder is a test
 
 ## 15 / COMPRESSION: Fit more memory into less space.
 
+<img src="chapter-headers/chapter-15.svg" alt="Animated chapter header" width="100%">
+
 Specialized components reduce storage and search costs.
 
 * Quantization uses smaller representations
@@ -165,6 +205,8 @@ Specialized components reduce storage and search costs.
 Compression can reduce recall. Core quantization settings alone do not compress storage.
 
 ## 16 / MEMORY LIFECYCLE: Keep what matters. Recover when needed.
+
+<img src="chapter-headers/chapter-16.svg" alt="Animated chapter header" width="100%">
 
 Manage memory beyond insertion and search.
 
@@ -176,6 +218,8 @@ Compaction and snapshot restore are not all wired into the default VectorDB path
 
 ## 17 / TRUST AND ACCESS: Memory informs. Policy authorizes.
 
+<img src="chapter-headers/chapter-17.svg" alt="Animated chapter header" width="100%">
+
 Keep retrieval separate from permission to act.
 
 * Enforce user identity and access rules
@@ -185,6 +229,8 @@ Keep retrieval separate from permission to act.
 Filters are not full authorization. Witness logs do not encrypt the data.
 
 ## 18 / DEPLOYMENT: Start local. Add the pieces you need.
+
+<img src="chapter-headers/chapter-18.svg" alt="Animated chapter header" width="100%">
 
 Choose the runtime that fits your application.
 
@@ -196,6 +242,8 @@ Installing ruvector does not activate every component in the repository.
 
 ## 19 / SHARED MEMORY: Share deliberately across agents.
 
+<img src="chapter-headers/chapter-19.svg" alt="Animated chapter header" width="100%">
+
 Optional shared memory adds a separate data boundary.
 
 * Review what leaves the local process
@@ -205,6 +253,8 @@ Optional shared memory adds a separate data boundary.
 Shared Brain is optional and hosted. Replication primitives are not a complete network plane.
 
 ## 20 / AGENT TOOLS: Connect memory to your agent.
+
+<img src="chapter-headers/chapter-20.svg" alt="Animated chapter header" width="100%">
 
 MCP and coding hooks expose memory operations.
 
@@ -216,6 +266,8 @@ Read only MCP profile: RUVECTOR_MCP_PROFILE=readonly
 
 ## 21 / VALIDATION: Test the outcome, not just the animation.
 
+<img src="chapter-headers/chapter-21.svg" alt="Animated chapter header" width="100%">
+
 Choose a workload and measure quality alongside cost.
 
 * Record recall, p95 latency and memory
@@ -225,6 +277,8 @@ Choose a workload and measure quality alongside cost.
 Explorer timings and demo savings are not production performance guarantees.
 
 ## 22 / GET STARTED: Give your next agent a memory that lasts.
+
+<img src="chapter-headers/chapter-22.svg" alt="Animated chapter header" width="100%">
 
 Start with npx. Remember one fact. Recall it in a new process.
 
