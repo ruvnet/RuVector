@@ -191,12 +191,14 @@ async fn test_save_to_indexeddb_actually_persists() {
         .await
         .unwrap();
 
+    let name = db.db_name();
     let names = idb_database_names().await;
     assert!(
-        names.iter().any(|n| n.starts_with("ruvector_db_")),
-        "save resolved but no IndexedDB database exists; found {:?}",
-        names
+        names.contains(&name),
+        "save resolved but database '{name}' does not exist; found {names:?}"
     );
+    // ...and it must hold the data, not just exist.
+    assert_eq!(load_named(&name).await.unwrap().len().unwrap(), 1);
 }
 
 async fn save_named(db: &mut VectorDB, name: &str) {
@@ -234,7 +236,12 @@ async fn test_indexeddb_round_trip_restores_vectors_and_search() {
 
 #[wasm_bindgen_test]
 async fn test_load_missing_database_is_error() {
-    assert!(load_named("rt_never_saved").await.is_err());
+    let err = load_named("rt_never_saved").await.err().unwrap();
+    assert!(err.as_string().unwrap().contains("No saved database"));
+    // A failed load must not leave an empty database behind.
+    assert!(!idb_database_names()
+        .await
+        .contains(&"rt_never_saved".to_string()));
 }
 
 #[wasm_bindgen_test]
@@ -306,4 +313,12 @@ async fn test_load_rejects_corrupt_and_unsupported_payloads() {
     )
     .await;
     assert!(load_named("rt_baddim").await.is_err());
+
+    put_raw(
+        "rt_dupes",
+        r#"{"format":1,"dimensions":1,"metric":"Euclidean","hnsw":false,"entries":[{"id":"x","vector":[1.0],"metadata":null},{"id":"x","vector":[2.0],"metadata":null}]}"#,
+    )
+    .await;
+    let err = load_named("rt_dupes").await.err().unwrap();
+    assert!(err.as_string().unwrap().contains("duplicate id"));
 }

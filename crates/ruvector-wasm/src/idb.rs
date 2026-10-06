@@ -7,6 +7,7 @@
 use js_sys::{Function, Promise};
 use ruvector_core::types::{DistanceMetric, VectorEntry};
 use serde::{Deserialize, Serialize};
+use std::{cell::Cell, collections::HashSet, rc::Rc};
 use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{IdbDatabase, IdbFactory, IdbOpenDbRequest, IdbRequest, IdbTransactionMode};
@@ -57,6 +58,17 @@ pub(crate) fn parse_snapshot(json: &str) -> Result<Snapshot, JsValue> {
             snap.format, FORMAT_VERSION
         )));
     }
+    // Duplicate ids would make `insert_batch` rebuild the index once per duplicate.
+    let mut seen = HashSet::with_capacity(snap.entries.len());
+    for entry in &snap.entries {
+        if let Some(id) = &entry.id {
+            if !seen.insert(id.as_str()) {
+                return Err(JsValue::from_str(&format!(
+                    "Corrupt saved database: duplicate id '{id}'"
+                )));
+            }
+        }
+    }
     Ok(snap)
 }
 
@@ -86,33 +98,47 @@ fn request_promise(req: &IdbRequest) -> Promise {
     })
 }
 
-async fn open(name: &str) -> Result<IdbDatabase, JsValue> {
+/// Open `name`. With `create == false` a database that does not exist yet is
+/// not created: the upgrade is aborted and `Ok(None)` is returned.
+async fn open(name: &str, create: bool) -> Result<Option<IdbDatabase>, JsValue> {
     validate_name(name)?;
     let factory: IdbFactory = js_sys::Reflect::get(&js_sys::global(), &"indexedDB".into())?
         .dyn_into()
         .map_err(|_| JsValue::from_str("IndexedDB is not available in this environment"))?;
     let req: IdbOpenDbRequest = factory.open_with_u32(name, IDB_VERSION)?;
-    let upgrade_req = req.clone();
+    let missing = Rc::new(Cell::new(false));
+    let (upgrade_req, upgrade_missing) = (req.clone(), missing.clone());
     let upgrade = Closure::once_into_js(move || {
-        if let Ok(db) = upgrade_req
-            .result()
-            .and_then(|r| r.dyn_into::<IdbDatabase>())
-        {
-            let _ = db.create_object_store(STORE);
+        if create {
+            if let Ok(db) = upgrade_req
+                .result()
+                .and_then(|r| r.dyn_into::<IdbDatabase>())
+            {
+                let _ = db.create_object_store(STORE);
+            }
+        } else if let Some(tx) = upgrade_req.transaction() {
+            upgrade_missing.set(true);
+            let _ = tx.abort();
         }
     });
     req.set_onupgradeneeded(Some(upgrade.unchecked_ref()));
     let blocked = Closure::once_into_js(|| {});
     req.set_onblocked(Some(blocked.unchecked_ref()));
-    JsFuture::from(request_promise(&req))
-        .await?
-        .dyn_into::<IdbDatabase>()
-        .map_err(|_| JsValue::from_str("IndexedDB open returned an unexpected value"))
+    match JsFuture::from(request_promise(&req)).await {
+        Ok(v) => v
+            .dyn_into::<IdbDatabase>()
+            .map(Some)
+            .map_err(|_| JsValue::from_str("IndexedDB open returned an unexpected value")),
+        Err(_) if missing.get() => Ok(None),
+        Err(e) => Err(e),
+    }
 }
 
 /// Write the snapshot and resolve only once the transaction has committed.
 pub(crate) async fn put(name: &str, json: String) -> Result<(), JsValue> {
-    let db = open(name).await?;
+    let db = open(name, true)
+        .await?
+        .ok_or_else(|| JsValue::from_str("IndexedDB open returned no database"))?;
     let result = commit(&db, json).await;
     db.close();
     result
@@ -147,7 +173,9 @@ async fn commit(db: &IdbDatabase, json: String) -> Result<(), JsValue> {
 
 /// Read the stored snapshot JSON, or `None` when nothing was saved under `name`.
 pub(crate) async fn get(name: &str) -> Result<Option<String>, JsValue> {
-    let db = open(name).await?;
+    let Some(db) = open(name, false).await? else {
+        return Ok(None);
+    };
     let result = read(&db).await;
     db.close();
     result

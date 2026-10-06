@@ -132,6 +132,9 @@ class VectorDB {
     static async loadFromIndexedDB(dbName, options) {
         const module = await initWasm();
         const inner = await module.VectorDB.loadFromIndexedDB(dbName);
+        if (options.dimensions !== inner.dimensions) {
+            throw new Error(`Saved database '${dbName}' has ${inner.dimensions} dimensions, but ${options.dimensions} were requested`);
+        }
         const db = new VectorDB(options);
         db.db = inner;
         db.dimensions = inner.dimensions;
