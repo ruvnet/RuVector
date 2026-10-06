@@ -1,6 +1,6 @@
 # RuVector
 
-[![RuVector](https://repository-images.githubusercontent.com/1099547803/948d2495-1db9-47f6-9ea1-f7f977343e5f)](https://cognitum.one/ruvector)
+<a href="https://cognitum.one/ruvector"><img src="assets/ruvector/ruvector-neon-header.gif" alt="RuVector animated neon logo: self learning vector intelligence" width="100%"></a>
 
 <a href="https://github.com/ruvnet/ruvector/blob/main/assets/ruvector/ruvector-walkthrough.md"><img src="assets/ruvector/ruvector-trailer-v2.svg" alt="RuVector cinematic trailer: search, remember, learn. Open the full animated system walkthrough and get started with npx ruvector." width="100%"></a>
 
