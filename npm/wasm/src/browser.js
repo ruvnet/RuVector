@@ -116,15 +116,25 @@ class VectorDB {
     getDimensions() {
         return this.dimensions;
     }
-    async saveToIndexedDB() {
+    /**
+     * Save to IndexedDB. Resolves only after the transaction commits; rejects on
+     * failure. Pass `dbName` (1-128 chars of [A-Za-z0-9_.-]) to choose the database
+     * to load back with `loadFromIndexedDB`.
+     */
+    async saveToIndexedDB(dbName) {
         if (!this.db)
             throw new Error('Database not initialized. Call init() first.');
+        if (dbName !== undefined)
+            this.db.setDbName(dbName);
         await this.db.saveToIndexedDB();
     }
+    /** Load a database saved with `saveToIndexedDB`; rejects if none exists. */
     static async loadFromIndexedDB(dbName, options) {
+        const module = await initWasm();
+        const inner = await module.VectorDB.loadFromIndexedDB(dbName);
         const db = new VectorDB(options);
-        await db.init();
-        await db.db.loadFromIndexedDB(dbName);
+        db.db = inner;
+        db.dimensions = inner.dimensions;
         return db;
     }
 }

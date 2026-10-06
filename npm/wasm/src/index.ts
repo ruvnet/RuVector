@@ -206,6 +206,7 @@ export class VectorDB {
     }
 
     if (isBrowser) {
+      if (path !== undefined) this.db.setDbName(path);
       await this.db.saveToIndexedDB();
     } else if (isNode) {
       // Node.js file system persistence would go here
@@ -221,7 +222,8 @@ export class VectorDB {
     await db.init();
 
     if (isBrowser) {
-      await db.db.loadFromIndexedDB(path);
+      db.db = await db.wasmModule.VectorDB.loadFromIndexedDB(path);
+      db.dimensions = db.db.dimensions;
     } else if (isNode) {
       // Node.js file system loading would go here
       console.warn('Node.js persistence not yet implemented');

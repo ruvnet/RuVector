@@ -18,7 +18,13 @@ export declare class VectorDB {
     len(): number;
     isEmpty(): boolean;
     getDimensions(): number;
-    saveToIndexedDB(): Promise<void>;
+    /**
+     * Save to IndexedDB. Resolves only after the transaction commits; rejects on
+     * failure. Pass `dbName` (1-128 chars of [A-Za-z0-9_.-]) to choose the database
+     * to load back with `loadFromIndexedDB`.
+     */
+    saveToIndexedDB(dbName?: string): Promise<void>;
+    /** Load a database saved with `saveToIndexedDB`; rejects if none exists. */
     static loadFromIndexedDB(dbName: string, options: DbOptions): Promise<VectorDB>;
 }
 export declare function detectSIMD(): Promise<boolean>;

@@ -231,6 +231,7 @@
 | ADR-197 | ADR-197 — Differentiable Min-Cut Condensation Loss | [`ADR-197-differentiable-min-cut-condensation-loss.md`](./ADR-197-differentiable-min-cut-condensation-loss.md) | 2026-08-20 | accepted |  |
 | ADR-198 | ADR-198 — Physical Perception Substrate | [`ADR-198-physical-perception-substrate.md`](./ADR-198-physical-perception-substrate.md) | 2026-08-20 | accepted |  |
 | ADR-199 | ADR-199 — Sky Monitor and SkyGraph Appliance | [`ADR-199-sky-monitor-skygraph-appliance.md`](./ADR-199-sky-monitor-skygraph-appliance.md) | 2026-08-20 | proposed |  |
+| ADR-200 | ADR-200 — ruvector-wasm IndexedDB persistence: never report success before the transaction commits | [`ADR-200-wasm-indexeddb-persistence-contract.md`](./ADR-200-wasm-indexeddb-persistence-contract.md) | 2026-10-05 | accepted |  |
 | ADR-202 | ADR-202 — Fixed-Topology Reuse + Periodic Rebuild on a Real Learned-GNN Trajectory | [`ADR-202-reuse-under-drift-real-gnn-trajectory.md`](./ADR-202-reuse-under-drift-real-gnn-trajectory.md) | 2026-08-20 | proposed |  |
 | ADR-205 | ADR-205 — Triangle-Inequality Cluster Pruning vs Tuned Plain IVF `nprobe` (Structural NO-GO) | [`ADR-205-region-pruned-ivf-vs-plain-ivf-nprobe.md`](./ADR-205-region-pruned-ivf-vs-plain-ivf-nprobe.md) | 2026-08-20 | proposed |  |
 | ADR-206 | ADR-206 — PQ/IVFADC Within-List Pruning vs Tuned Plain IVF `nprobe` (Scale-Gated WIN) | [`ADR-206-pq-ivfadc-within-list-pruning-vs-plain-ivf-nprobe.md`](./ADR-206-pq-ivfadc-within-list-pruning-vs-plain-ivf-nprobe.md) | 2026-08-20 | proposed |  |
