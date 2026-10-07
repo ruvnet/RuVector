@@ -310,11 +310,23 @@ fn main() {
     println!("  Test queries    : {N_QUERIES}, K={K}");
     println!();
 
+    // 2026-10-07 nightly (mincut-polylog-connectivity-backend): optional
+    // connectivity-backend override for the downstream re-run comparison.
+    // Unset (default) is byte-for-byte the original benchmark —
+    // `ConnectivityBackend::EulerTour`, same as before this flag existed.
+    let backend = match std::env::var("MINCUT_CONNECTIVITY_BACKEND").as_deref() {
+        Ok("polylog") => ruvector_mincut::ConnectivityBackend::Polylog,
+        _ => ruvector_mincut::ConnectivityBackend::EulerTour,
+    };
+    println!("Connectivity backend : {backend:?}\n");
+
     let cow = CoherencePolicy::default();
     let mut soft = MincutGatedForgetting::soft(CoherenceWeights::default(), STRUCTURAL_BONUS);
     soft.mincut_trials = MINCUT_TRIALS;
+    soft.connectivity_backend = backend;
     let mut hard = MincutGatedForgetting::hard(CoherenceWeights::default(), PROTECT_FRACTION);
     hard.mincut_trials = MINCUT_TRIALS;
+    hard.connectivity_backend = backend;
 
     struct Row {
         name: String,
