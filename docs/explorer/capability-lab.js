@@ -1,4 +1,4 @@
-import {makeDataset,distance,nearest,softmax,quantizationMSE,poincareDistance,decay,hybridRank,permitted,compact,exactMinCut,cutEdges,typedDecision} from './capability-math.js';
+import {makeDataset,distance,nearest,softmax,quantizationMSE,poincareDistance,decay,hybridRank,permitted,compact,exactMinCut,cutEdges,typedDecision} from './capability-math.js?v=20261007-16';
 const root=document.getElementById('rv-capability-lab');
 const E=(id,title,group,kind,path,headline,body,boundary)=>({id,title,group,kind,path,headline,body,boundary});
 const exhibits=[
