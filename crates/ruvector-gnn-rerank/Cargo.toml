@@ -32,3 +32,5 @@ unused_imports   = "allow"
 [dev-dependencies]
 rand = { workspace = true }
 rand_distr = { workspace = true }
+serde_json = { workspace = true }
+ruvector-darwin = { path = "../ruvector-darwin" }

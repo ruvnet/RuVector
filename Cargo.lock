@@ -9551,6 +9551,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-darwin"
+version = "2.3.0"
+dependencies = [
+ "rand 0.8.6",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ruvector-decompiler"
 version = "2.3.0"
 dependencies = [
@@ -10031,6 +10040,8 @@ version = "2.3.0"
 dependencies = [
  "rand 0.8.6",
  "rand_distr 0.4.3",
+ "ruvector-darwin",
+ "serde_json",
  "thiserror 2.0.18",
 ]
 

@@ -118,6 +118,7 @@ members = [
     # OpenJev v0 trainer (ADR-008): candle fine-tune + ONNX transplant (openjev).
     "crates/ruvector-typesafe-train",
     "crates/ruvector-retrieval-receipt",
+    "crates/ruvector-darwin",
     "crates/ruvector-gnn-rerank",
     "crates/ruvector-gnn-node",
     "crates/ruvector-gnn-wasm",
