@@ -92,6 +92,12 @@ jobs:
 
       - name: Build abi3 wheel (manylinux_2_28)
         uses: PyO3/maturin-action@423a6347767a8b16e65c2a7a7042e4a921528da8
+        env:
+          # .cargo/config.toml pins `aarch64-linux-gnu-gcc` for the Pi 5
+          # cross-build (ADR-179). The native manylinux_2_28_aarch64 container
+          # has no such binary ("linker `aarch64-linux-gnu-gcc` not found"),
+          # so use the container's own gcc. Env overrides the config file.
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: gcc
         with:
           working-directory: ${{ env.PACKAGE_DIR }}
           target: ${{ matrix.target }}
