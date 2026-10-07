@@ -311,8 +311,8 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-fa
       <div class="sndRow"><button id="sndTap" title="Tap along with the beat · key B">Tap (B)</button><button id="sndB-" aria-label="Slower">&minus;</button><output id="sndBpm">120.0 BPM</output><button id="sndB+" aria-label="Faster">+</button></div>
       <div class="sndRow"><button id="sndP-" aria-label="Shift beat earlier">Earlier</button><button id="sndP+" aria-label="Shift beat later">Later</button></div>
       <p class="note" id="sndSrcL" aria-live="polite" hidden></p></div>
-    <div class="ctl" data-cine><button id="spxOpen" aria-controls="spxPop">Now playing on Spotify</button>
-      <p class="note">Shows the track in your Spotify app and lets you label the tap tempo clock with it. Audio plays in the Spotify app, not on this page.</p></div>
+    <div class="ctl" data-cine><button id="spxOpen" aria-controls="spxPop">Spotify player</button>
+      <p class="note">Load a Spotify share link in the player, then tap along to sync the visuals. In a supported Claude viewer, the connector can also show now playing. Spotify audio is never included in video exports.</p></div>
     <div class="ctl" data-cine id="sndPlayP" hidden>
       <div class="sndRow"><button id="sndPlay">Play</button><button id="sndMute" aria-pressed="false" title="Mute · key M">Mute</button></div>
       <div class="row"><label class="lbl" for="sndVol">Volume</label><output id="sndVolO">35%</output></div>
@@ -1849,10 +1849,7 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-fa
         return;
       }
       if (S.state === 'no-mcp') {
-        var m1 = el('div', 'spx-msg');
-        m1.appendChild(el('span', 'spx-lbl', SERVER));
-        m1.appendChild(el('span', null, 'Connect ' + SERVER + ' on claude.ai to show what\'s playing'));
-        root.appendChild(m1);
+        renderWebPlayer(root);
         return;
       }
 
@@ -1884,6 +1881,51 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-fa
       }
 
       if (!(S.err && DENIAL[S.err])) renderSearch(root);
+    }
+
+    // Public Pages has no host connector API. Load only an explicit Spotify URL.
+    function parseSpotifyUrl(value) {
+      try {
+        var u = new URL(value.trim());
+        if (u.protocol !== 'https:' || u.hostname !== 'open.spotify.com' || u.port || u.username || u.password) return null;
+        var m = u.pathname.match(/^\/(?:intl-[a-z]{2}\/)?(?:embed\/)?(track|album|playlist|artist|episode|show)\/([A-Za-z0-9]{22})\/?$/);
+        return m ? { kind: m[1], id: m[2], url: 'https://open.spotify.com/' + m[1] + '/' + m[2] } : null;
+      } catch (e) { return null; }
+    }
+
+    function renderWebPlayer(parent) {
+      parent.classList.remove('compact');
+      parent.appendChild(el('div', 'spx-lbl', 'Spotify player'));
+      parent.appendChild(el('p', 'spx-note', 'Paste a Spotify share link to load the player. This website cannot read what is playing in your Spotify app.'));
+      var form = el('form');
+      var label = el('label', 'spx-note', 'Track, album, playlist or podcast link');
+      var input = el('input'); input.type = 'url'; input.required = true;
+      input.placeholder = 'https://open.spotify.com/track/…';
+      input.setAttribute('aria-label', 'Spotify share URL');
+      input.style.cssText = 'width:100%;box-sizing:border-box;margin:8px 0;padding:10px;background:#080a0f;color:#e9edf5;border:1px solid #454c5c;border-radius:6px';
+      label.appendChild(input); form.appendChild(label);
+      var submit = el('button', 'spx-btn acc', 'Load Spotify player'); submit.type = 'submit'; form.appendChild(submit);
+      var status = el('p', 'spx-note'); status.setAttribute('role', 'status');
+      var player = el('div'); player.style.marginTop = '12px';
+      var sync = el('button', 'spx-btn spx-grow', 'Use tap tempo'); sync.type = 'button';
+      sync.onclick = function () {
+        if (typeof opts.onTrack === 'function') opts.onTrack({ label: 'Spotify audio', source: 'manual', tempo: null });
+      };
+      form.onsubmit = function (event) {
+        event.preventDefault();
+        var item = parseSpotifyUrl(input.value);
+        if (!item) { status.textContent = 'Use the full https://open.spotify.com link from Spotify Share. Short links and other websites are not supported.'; return; }
+        player.textContent = '';
+        var frame = el('iframe'); frame.title = 'Spotify ' + item.kind + ' player';
+        frame.src = 'https://open.spotify.com/embed/' + item.kind + '/' + item.id + '?utm_source=generator&theme=0';
+        frame.width = '100%'; frame.height = item.kind === 'track' ? '152' : '352';
+        frame.style.cssText = 'border:0;border-radius:12px;display:block';
+        frame.setAttribute('allow', 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture');
+        frame.setAttribute('allowfullscreen', ''); player.appendChild(frame);
+        var open = el('a', 'spx-btn', 'Open in Spotify'); open.href = item.url; open.target = '_blank'; open.rel = 'noopener noreferrer'; player.appendChild(open);
+        status.textContent = 'Press play in the player, then tap B or Tap with the beat. Spotify determines playback availability. Audio is not included in exported videos.';
+      };
+      parent.appendChild(form); parent.appendChild(status); parent.appendChild(player); parent.appendChild(sync);
     }
 
     function renderError(parent, code) {
