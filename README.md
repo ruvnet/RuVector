@@ -2,9 +2,9 @@
 
 <a href="https://cognitum.one/ruvector"><img src="assets/ruvector/ruvector-neon-header.gif" alt="RuVector animated neon logo: self learning vector intelligence" width="100%"></a>
 
-<a href="https://github.com/ruvnet/ruvector/blob/main/assets/ruvector/ruvector-walkthrough.md"><img src="assets/ruvector/ruvector-trailer-v2.svg" alt="RuVector cinematic trailer: search, remember, learn. Open the full animated system walkthrough and get started with npx ruvector." width="100%"></a>
+<a href="https://ruvnet.github.io/RuVector/explorer/"><img src="assets/ruvector/ruvector-trailer-v2.svg" alt="RuVector cinematic trailer: search, remember, learn. Open the interactive RuVector Explorer and follow vector search trajectories in your browser." width="100%"></a>
 
-<p align="center"><sub>32 second trailer · <a href="assets/ruvector/ruvector-walkthrough.md">Watch the full animation and explore all 23 chapters</a> · <code>npx ruvector</code></sub></p>
+<p align="center"><sub><a href="https://ruvnet.github.io/RuVector/explorer/">Launch the interactive Explorer</a> · 32 second trailer · <a href="assets/ruvector/ruvector-walkthrough.md">Watch the full animation and explore all 23 chapters</a> · <code>npx ruvector</code></sub></p>
 
 [![Crates.io](https://img.shields.io/crates/v/ruvector-core.svg)](https://crates.io/crates/ruvector-core)
 [![npm](https://img.shields.io/npm/v/ruvector.svg)](https://www.npmjs.com/package/ruvector)
