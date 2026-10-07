@@ -32,7 +32,7 @@
 use crate::compaction::{weighted_importance, CoherenceWeights, CompactionPolicy};
 use crate::memory::MemoryEntry;
 use crate::scoring::cosine_sim;
-use ruvector_mincut::RuVectorGraphAnalyzer;
+use ruvector_mincut::{ConnectivityBackend, RuVectorGraphAnalyzer};
 use std::collections::HashSet;
 
 /// How the mincut-boundary structural signal is combined with the scalar
@@ -67,6 +67,21 @@ pub struct MincutGatedForgetting {
     /// "Measured limitation" note on [`Self::boundary_indices`]). `1`
     /// disables retrying.
     pub mincut_trials: usize,
+    /// Which `ruvector-mincut` connectivity backend
+    /// `RuVectorGraphAnalyzer`/`MinCutWrapper` uses internally for its
+    /// whole-graph `is_connected()` fast path. Defaults to
+    /// `ConnectivityBackend::EulerTour` (unchanged baseline behavior) in
+    /// both [`Self::soft`] and [`Self::hard`].
+    ///
+    /// Exposed for the 2026-10-07 nightly research run
+    /// (`docs/research/nightly/2026-10-07-mincut-polylog-connectivity-backend/`),
+    /// which measured that this choice does not affect `partition()`
+    /// latency or this policy's compaction wall-clock (both are dominated
+    /// by `BoundedInstance`'s cut search, which neither backend touches) —
+    /// kept selectable anyway because it is a real, independently correct
+    /// and tested choice, not because it is expected to change this
+    /// policy's behavior.
+    pub connectivity_backend: ConnectivityBackend,
 }
 
 impl MincutGatedForgetting {
@@ -80,6 +95,7 @@ impl MincutGatedForgetting {
             structural_bonus,
             protect_fraction: 0.0,
             mincut_trials: 3,
+            connectivity_backend: ConnectivityBackend::EulerTour,
         }
     }
 
@@ -93,6 +109,7 @@ impl MincutGatedForgetting {
             structural_bonus: 0.0,
             protect_fraction,
             mincut_trials: 3,
+            connectivity_backend: ConnectivityBackend::EulerTour,
         }
     }
 
@@ -168,7 +185,10 @@ impl MincutGatedForgetting {
 
         let mut boundary = HashSet::new();
         for _ in 0..self.mincut_trials.max(1) {
-            boundary.extend(Self::boundary_from_one_partition(&neighbors));
+            boundary.extend(Self::boundary_from_one_partition(
+                &neighbors,
+                self.connectivity_backend,
+            ));
         }
         boundary
     }
@@ -176,8 +196,11 @@ impl MincutGatedForgetting {
     /// One min-cut partition attempt over an already-built k-NN graph; see
     /// [`Self::boundary_indices`]'s "Measured limitation" note for why this
     /// is called more than once.
-    fn boundary_from_one_partition(neighbors: &[(usize, Vec<(usize, f64)>)]) -> HashSet<usize> {
-        let mut analyzer = RuVectorGraphAnalyzer::from_knn(neighbors);
+    fn boundary_from_one_partition(
+        neighbors: &[(usize, Vec<(usize, f64)>)],
+        backend: ConnectivityBackend,
+    ) -> HashSet<usize> {
+        let mut analyzer = RuVectorGraphAnalyzer::from_knn_with_backend(neighbors, backend);
         let (side_a, side_b) = match analyzer.partition() {
             Some(p) => p,
             None => return HashSet::new(),
