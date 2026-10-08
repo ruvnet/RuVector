@@ -1,0 +1,40 @@
+[build-system]
+requires = ["maturin>=1.13,<2"]
+build-backend = "build_backend"
+backend-path = ["scripts"]
+
+[project]
+name = "ruvector-python"
+version = "0.1.0"
+description = "Typed local Python bindings for RuVector's native persistent vector database"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = ["Programming Language :: Python :: 3", "Programming Language :: Rust"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.15", "mypy>=1.15", "build>=1"]
+
+[tool.maturin]
+exclude = ["dist/**", "**/dist/**", "**/rebuilt/**", "**/__pycache__/**", "**/*.pyc", "python/**/*.so", "python/**/*.pyd", "python/**/*.dylib"]
+python-source = "python"
+module-name = "ruvector._native"
+features = ["pyo3/extension-module"]
+include = [{ path = "scripts/**/*", format = "sdist" }, { path = ".cargo/config.toml", format = "sdist" }, { path = "tests/**/*", format = "sdist" }, { path = "examples/**/*", format = "sdist" }, { path = "docs/**/*", format = "sdist" }, { path = "Cargo.lock", format = "sdist" }]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["python/ruvector"]

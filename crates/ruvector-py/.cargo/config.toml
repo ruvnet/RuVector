@@ -1,0 +1,3 @@
+# Avoid the parent workspace's full git-index download for this standalone binding.
+[registries.crates-io]
+protocol = "sparse"
