@@ -2621,7 +2621,7 @@ function recallMemory(q,peek=false){
   return{hints:hints.slice(0,LS.hints*2),dist:Math.sqrt(sc[0][0]),mem:sc.map(([,i])=>LS.memory[i])};
 }
 function learnFrom(q,res,recall){
-  const entry={q,ids:res.top.slice(0,2),qp:S.proj(q),ans:res.top[0],hits:0};let evicted=null;
+  const entry={q,ids:res.top.slice(0,2),qp:S.proj(q),ans:res.top[0],hits:0,sequence:LS.stored,recall};let evicted=null;
   LS.memory.push(entry);while(LS.memory.length>LS.mem)evicted=LS.memory.shift();
   for(const h of res.hops)LS.hub.set(h,(LS.hub.get(h)||0)+1);
   const lo=bFloor(),hi=S.index==='ivf'?(IDX.ivf?.C||64):400;
@@ -2721,6 +2721,7 @@ function commitQuery(rec){
   if(!S.hypUser||S.hypFollow){S.hypA=[0,0];S.hypUser=false}
   push('v',cur.visited);push('e',cur.res.cnt);push('r',cur.recall);if(cur.recallW!=null)push('rw',cur.recallW);push('t',cur.usJ);
   updateHud();drawLearn();updateLearnStats();drawSweep();
+  window.dispatchEvent(new Event('ruvector:query'));
 }
 function push(k,v){const a=S.hist[k];a.push(v);if(a.length>40)a.shift()}
 function buildTree(trace,target,res,root){
@@ -3537,7 +3538,7 @@ function drawLearn(){
 }
 let benchJob=0,autoBenchTok=0;
 const BENCH_CANCEL='<tr><td colspan="5" style="color:var(--dim)">Benchmark cancelled · settings changed. Run again.</td></tr>';
-function benchCancelled(){$('benchT').innerHTML=BENCH_CANCEL;S.bench=null;S.benchNote='Cancelled';drawBench()}
+function benchCancelled(){$('benchT').innerHTML=BENCH_CANCEL;S.bench=null;S.benchEvidence=null;S.benchNote='Cancelled';drawBench()}
 // contract C2: run the automatic benchmark only after the first query has fully revealed, in idle time
 function scheduleAutoBench(tok){
   autoBenchTok=tok;
@@ -3595,12 +3596,12 @@ async function runBench(nq=200){
       }
       per.sort((a,b)=>a-b);const usq=per[per.length>>1]*1000;
       if(key==='brute')truths=outs;
-      let rr=0;outs.forEach((x,i)=>rr+=recallOf(x,truths[i]));rows.push({name,key,us:usq,r:rr/qs.length});
+      let rr=0;outs.forEach((x,i)=>rr+=recallOf(x,truths[i]));rows.push({name,key,us:usq,r:rr/qs.length,passMeansUs:per.map(v=>v*1000)});
     }
     chk();
     const base=rows[0].us,wf=rows.find(r=>r.key==='wflat');
     $('benchT').innerHTML=rows.map(r=>`<tr><td>${r.name}</td><td class="r">${r.us.toFixed(r.us<10?1:0)}</td><td class="r">${r.r.toFixed(3)}</td><td class="r">${(base/r.us).toFixed(1)}×</td><td class="r vf">${wf?(wf.us/r.us).toFixed(1)+'×':'-'}</td></tr>`).join('')+(hasW?'':'<tr><td colspan="5" style="color:var(--dim)">WASM engine unavailable in this viewer</td></tr>');
-    S.bench=rows;S.benchNote=null;$('benchL').textContent=`Head-to-head · ${nq} queries · recall@${K} · same data`;drawBench();
+    S.bench=rows;S.benchEvidence={schema:1,kind:'browser benchmark',recordedAt:new Date().toISOString(),dataset:S.ds,seed:S.seed,vectors:N,dimensions:D,spread:S.spread,queryNoise:S.qnoise,M:S.M,efConstruction:S.efC,nlist:S.nlist,metric:S.metric,K,ef,nprobe:np,mode:o.mode,rerank:o.rerank,queries:qs.map(q=>Array.from(q)),rows,timing:'Median of repeated pass means in microseconds; not per-query p95',engine:{wasmPackage:'0.2.1',core:'2.3.1',simd:'scalar'}};S.benchNote=null;$('benchL').textContent=`Head-to-head · ${nq} queries · recall@${K} · same data`;drawBench();
   }catch(e){
     if(e!=='cancel')console.error(e);
     benchCancelled();
@@ -4455,7 +4456,7 @@ async function reconcile(){
     if(dirty.data){
       // the learned state of the outgoing dataset is flushed under its own key before it is reset
       if(LP.key&&LP.t)learnSave();LP.key=null;
-      cur=null;loadF=0;IDX={};resetLearning();S.ghost=[];S.hist={v:[],e:[],r:[],rw:[],t:[]};S.bench=null;S.benchNote=S.run?'Data changed · benchmark will rerun':null;drawBench();$('benchT').innerHTML='<tr><td colspan="5" style="color:var(--dim)">Rebuilding indexes…</td></tr>';
+      cur=null;loadF=0;IDX={};resetLearning();S.ghost=[];S.hist={v:[],e:[],r:[],rw:[],t:[]};S.bench=null;S.benchEvidence=null;S.benchNote=S.run?'Data changed · benchmark will rerun':null;drawBench();$('benchT').innerHTML='<tr><td colspan="5" style="color:var(--dim)">Rebuilding indexes…</td></tr>';
       status('Generating vectors',`${$('dsSel').selectedOptions[0].text} · ${fmt(S.N)} × ${D}-D`,' ');await sleep(20);if(tok!==buildToken)return;
       if(!await makeData(tok))return;truthCache=null;dirty.data=false;dirty.wasm=true;for(const k of['hnsw','nsw','ivf'])dirty.idx.add(k);fresh=true;
     }
@@ -4466,7 +4467,7 @@ async function reconcile(){
     }
     if(dirty.idx.size){for(const k of dirty.idx)delete IDX[k];dirty.idx.clear();if(!fresh){resetLearning();
       // an index rebuilt with new M, ef_construction or nlist makes the benchmark rows stale, so they go and the auto run repeats
-      if(S.bench){S.bench=null;S.benchNote='Index rebuilt · benchmark will rerun';drawBench();$('benchL').textContent='Head-to-head · same data'}}}
+      if(S.bench){S.bench=null;S.benchEvidence=null;S.benchNote='Index rebuilt · benchmark will rerun';drawBench();$('benchL').textContent='Head-to-head · same data'}}}
     if(!await ensureIndex(tok))return;
     busy=false;setBenchWait(false);
     if(!S.bench&&!benchJob)$('benchT').innerHTML='<tr><td colspan="5" style="color:var(--dim)">Benchmark queued · starts after the first query</td></tr>';
@@ -4666,7 +4667,7 @@ function showHintTxt(t){const el=$('hint');el.textContent=t;el.classList.add('sh
  mm.addEventListener('pointermove',e=>{if(mdn){mdn='drag';go(e)}});
  for(const ev of['pointerup','pointercancel'])mm.addEventListener(ev,()=>{mdn=false})}
 // keys: arrows pan (while the pointer is over the stage, focus is inside it, or the view is zoomed), + and - zoom, 0 resets
-addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey||EXP.active)return;const tg=e.target instanceof Element?e.target:null;if(tg?.closest('input,select,textarea,[contenteditable]'))return;
+addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey||EXP.active)return;const tg=e.target instanceof Element?e.target:null;if(tg?.closest('dialog[open],input,select,textarea,[contenteditable]'))return;
   const k=e.key,st=$('stage'),inStage=UC.hover||(tg&&st.contains(tg)&&!drawer.contains(tg))||ucT().zoom>1.001;
   if(k==='+'||k==='='){e.preventDefault();ucBtnZoom(1.25)}else if(k==='-'||k==='_'){e.preventDefault();ucBtnZoom(.8)}
   else if(k==='0'){e.preventDefault();if(DIR.on)stopDirector();ucReset()}
@@ -4678,7 +4679,7 @@ ucLoad();$('camExp').checked=UC.exportView;$('camFollow').setAttribute('aria-pre
 addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey||e.repeat)return;
   if(EXP.active){if(e.key==='Escape'&&EXP.ac)EXP.ac.abort();return}
   if(e.key==='Escape'){if(DIR.on){stopDirector();return}if(drawer.classList.contains('open'))toggleDrawer(false);return}
-  const t=e.target instanceof Element?e.target:null;if(t?.closest('input,select,textarea'))return;
+  const t=e.target instanceof Element?e.target:null;if(t?.closest('dialog[open],input,select,textarea'))return;
   if(t?.closest('button')&&(e.key===' '||e.key==='Enter'))return;
   const k=(e.key||'').toLowerCase();
   if(DIR.on&&k!=='d'&&k!=='p'&&k!=='b'&&k!=='m'&&k!=='shift'&&k!=='tab')stopDirector();
@@ -4991,7 +4992,26 @@ setInterval(()=>{if(drawer.classList.contains('open')&&!EXP.active&&!document.hi
 xRefresh();
 requestAnimationFrame(frame);
 addEventListener('unhandledrejection',e=>status('Error',String(e.reason?.message||e.reason).slice(0,80)));
+// Narrow UI bridge: snapshots are copies and presets are allowlisted.
+window.RuVectorExplorer=Object.freeze({
+  snapshot(){
+    const log=recentLog(20),mean=k=>log.length?log.reduce((a,r)=>a+r[k],0)/log.length:null;
+    const recalled=new Set((cur?.mem?.mem||[]));
+    return {schema:1,busy,dataset:S.ds,seed:S.seed,vectors:N||S.N,dimensions:D,index:S.index,target:LS.target,learning:LS.on,run:S.run,
+      query:cur?{recall:cur.recall,wasmRecall:cur.recallW,evals:cur.res.cnt,usJS:cur.usJ,usWASM:cur.usW,answers:cur.res.top.slice(0,10)}:null,
+      evidence:{count:log.length,learnedRecall:mean('r'),staticRecall:mean('rBase'),staticEvals:mean('base'),learnedEvals:mean('learned'),memoryEvals:mean('memC'),memoryRecall:mean('memR'),controllerEvals:mean('ctrlC'),controllerRecall:mean('ctrlR')},
+      memories:LS.memory.map((m,i)=>({slot:i,sequence:m.sequence??null,hits:m.hits||0,answers:m.ids.slice(),recall:m.recall??null,recalled:recalled.has(m),position:i+1,retention:'FIFO',source:'Synthetic '+S.ds+' dataset'})),
+      benchmark:S.bench?structuredClone(S.benchEvidence):null};
+  },
+  async preset(name){
+    if(!['search','memory'].includes(name)||busy||EXP.active||training)return false;
+    if(DIR.on)stopDirector();if(AP.on)stopAutopilot();
+    S.ds=name==='memory'?'trajectory':'clusters';$('dsSel').value=S.ds;$('dsNote').textContent=DS[S.ds].note;
+    setView(name==='memory'?'learn':'canopy');await rebuildAll();return !busy&&!!cur;
+  },
+  train(){if(busy||training||EXP.active)return false;trainBurst(25);return true;}
+});
 (async()=>{await loadWasm();await rebuildAll()})().catch(e=>{console.error(e);status('Error',String(e.message||e).slice(0,80))});
 </script>
 
-<link rel="stylesheet" href="./capability-lab.css?v=20261007-canopy2"><section id="rv-capability-lab" aria-label="RuVector intelligence observatory"></section><script type="module" src="./capability-lab.js?v=20261007-canopy2"></script><link rel="stylesheet" href="./explorer-shell.css?v=20261007-app2"><script type="module" src="./explorer-shell.js?v=20261007-app1"></script></body></html>
+<link rel="stylesheet" href="./capability-lab.css?v=20261008-experiments"><section id="rv-capability-lab" aria-label="RuVector intelligence observatory"></section><script type="module" src="./capability-lab.js?v=20261008-experiments"></script><link rel="stylesheet" href="./explorer-shell.css?v=20261008-experiments"><script type="module" src="./explorer-shell.js?v=20261008-experiments"></script><link rel="stylesheet" href="./experience.css?v=20261008"><script type="module" src="./experience.js?v=20261008"></script></body></html>
