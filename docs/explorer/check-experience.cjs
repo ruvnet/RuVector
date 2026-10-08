@@ -25,7 +25,7 @@ async function run(){
   click('[data-rx-scenario="compress"]');assert.equal(d.body.dataset.rxSection,'capabilities');assert(d.querySelector('#rvcl-svg').textContent.includes('QUANTIZED'));
   change('#rvcl-bits','2');assert(d.querySelector('#rvcl-metrics').textContent.includes('270 B'));
   click('.rvcl-card[data-rvcl-mode="compress"]');assert(d.querySelector('#rx-detail-dialog').open);assert.equal(d.querySelector('#rx-guide-watch').getAttribute('aria-selected'),'true');
-  click('[data-guide-tab="change"]');change('[data-guide-bits]','8');assert(d.querySelector('.rx-guide-measure').textContent.includes('1080 B'));
+  click('[data-guide-tab="change"]');d.querySelector('[data-guide-bits]').focus();change('[data-guide-bits]','8');assert(d.activeElement.matches('[data-guide-bits]'),'Precision retains keyboard focus');assert(d.querySelector('.rx-guide-measure').textContent.includes('1080 B'));
   click('[data-guide-tab="measure"]');assert(d.querySelector('#rx-guide-panel').textContent.includes('not a native RuVector'));
   d.querySelector('[data-guide-tab="measure"]').dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));assert.equal(d.querySelector('#rx-guide-build').getAttribute('aria-selected'),'true');
   click('[data-rx-close]');assert(!d.querySelector('#rx-detail-dialog').open);
