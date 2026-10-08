@@ -27,6 +27,11 @@ All implement the `CapGatedIndex` trait:
 | `PostFilter` | Score all vectors, filter after distance | 100% | Baseline; equivalent to current post-filtering SOTA |
 | `EagerMask` | Build authorised bitset first, skip distance for unauthorised | 100% | Latency scales with the *authorised fraction*, not corpus size |
 | `CapGraph` | k-NN graph walk with `ef`-bounded exploration | ~90% | Sub-linear node visits; traverses bridge nodes for connectivity |
+| `HierarchicalCapGraph` | `CapGraph` + sparse top layer for entry-point seeding | ~58-100%, selectivity- and budget-dependent | Isolates seeding quality from degree; see nightly research below |
+
+## Nightly research: low-selectivity audit (2026-10-08)
+
+At the 12.5%-37.5% selectivity measured above, `CapGraph` looks solid. It was never tested near the 1-2% selectivity this crate's own "thousands of agents on one index" use case implies. A nightly run tested whether ACORN's two levers (γ-augmented degree, hierarchical seeding) fix that: **both were rejected** at this crate's production-facing `ef_multiplier=30` default — denser graphs *reduce* recall at that budget, not improve it, because the visited-node cap gets consumed on a near-field that is almost entirely unauthorised at low selectivity before the search is forced outward. γ-augmentation does win, even reaching perfect recall, but only once the budget allows visiting ≥~25% of the corpus. A second finding: `CapGraph`'s recall ceiling is <100% even visiting the *entire* graph, because its k-NN adjacency is directed and a small fraction of nodes are nobody's near neighbour — a pre-existing connectivity gap, not introduced by this research. Full report, raw numbers, and root-cause analysis: `docs/research/nightly/2026-10-08-acorn-capgated-selectivity/README.md` (ADR-352).
 
 ## Measured results
 
@@ -46,8 +51,9 @@ use ruvector_capgated::{CapGatedIndex, CapMask};
 ```
 
 ```bash
-cargo test  -p ruvector-capgated          # 22 tests
+cargo test  -p ruvector-capgated          # 28 tests
 cargo run   --release -p ruvector-capgated --bin benchmark
+cargo run   --release -p ruvector-capgated --example selectivity_acorn_bench
 ```
 
 ## License
