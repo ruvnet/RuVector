@@ -279,9 +279,10 @@ fn is_pid_alive(pid: u32) -> bool {
         if ret == 0 {
             return true;
         }
-        // Check errno for EPERM -- process exists but we lack permission
-        let err = unsafe { *libc_errno() };
-        err == EPERM
+        // Check errno for EPERM -- process exists but we lack permission.
+        // last_os_error reads errno through each platform's own accessor, so this
+        // works on every Unix rather than only those with a hand-declared symbol.
+        std::io::Error::last_os_error().raw_os_error() == Some(EPERM)
     }
     #[cfg(not(unix))]
     {
@@ -299,16 +300,6 @@ extern "C" {
     fn kill(pid: i32, sig: i32) -> i32;
 }
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
-extern "C" {
-    fn __errno_location() -> *mut i32;
-}
-
-#[cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd"))]
-extern "C" {
-    fn __error() -> *mut i32;
-}
-
 /// Permission denied errno -- process exists but belongs to another user.
 #[cfg(unix)]
 const EPERM: i32 = 1;
@@ -316,18 +307,6 @@ const EPERM: i32 = 1;
 #[cfg(unix)]
 fn libc_kill(pid: i32, sig: i32) -> i32 {
     unsafe { kill(pid, sig) }
-}
-
-/// Get a pointer to the thread-local errno value.
-#[cfg(any(target_os = "linux", target_os = "android"))]
-fn libc_errno() -> *mut i32 {
-    unsafe { __errno_location() }
-}
-
-/// Get a pointer to the thread-local errno value (macOS/BSD).
-#[cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd"))]
-fn libc_errno() -> *mut i32 {
-    unsafe { __error() }
 }
 
 /// Simple CRC32 (not CRC32C) for lock file checksumming.
