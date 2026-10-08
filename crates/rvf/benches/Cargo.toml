@@ -9,7 +9,7 @@ name = "rvf_benchmarks"
 harness = false
 
 [dependencies]
-rvf-types = { path = "../rvf-types", features = ["std"] }
+rvf-types = { path = "../rvf-types", features = ["std", "ed25519"] }
 rvf-wire = { path = "../rvf-wire" }
 rvf-manifest = { path = "../rvf-manifest" }
 rvf-index = { path = "../rvf-index", features = ["std"] }
