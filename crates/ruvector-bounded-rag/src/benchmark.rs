@@ -2,9 +2,10 @@
 //!
 //! Measures three retrieval variants across two dataset sizes.
 //! Run: cargo run --release -p ruvector-bounded-rag --bin benchmark
+use ruvector_bounded_rag::sparse_knn::SparseKnnConfig;
 use ruvector_bounded_rag::{
     BoundedRetriever, Corpus, GraphBfsRetriever, MinCutRetriever, Query, RetrieverConfig,
-    TopKRetriever,
+    SparseKnnMinCutRetriever, TopKRetriever,
 };
 
 use rand::{rngs::StdRng, SeedableRng};
@@ -19,6 +20,15 @@ struct BenchCase {
     budget: usize,
     edge_threshold: f32,
     seed_threshold: f32,
+    /// Dense MinCutBounded is O(n^2*d); skip it above this crate's known
+    /// cost cliff so the benchmark finishes in reasonable wall-clock time.
+    run_dense_mincut: bool,
+    /// Candidate A (unbounded threshold graph) degrades to dense-graph cost
+    /// on tight clusters at scale (measured: ~1000x slower than Candidate B
+    /// at n=8000) — skip it above the cliff for the same wall-clock reason.
+    /// Candidate B (degree-capped) always runs; it is the point of this
+    /// comparison.
+    run_sparse_threshold: bool,
 }
 
 fn build_corpus(case: &BenchCase, rng: &mut StdRng) -> (Corpus, Vec<Query>) {
@@ -152,48 +162,133 @@ fn run_case(case: &BenchCase) {
 
     let topk = TopKRetriever::new(cfg.clone());
     let bfs = GraphBfsRetriever::new(cfg.clone());
-    let mc = MinCutRetriever::new(cfg.clone());
+    // Candidate A: cheaper *discovery* of the same unbounded threshold
+    // graph MinCutBounded uses (isolates construction cost).
+    let sparse_threshold = SparseKnnMinCutRetriever::new(cfg.clone());
+    // Candidate B: mutual top-k degree cap, informed by Candidate A's
+    // result that threshold graphs stay dense on tight clusters regardless
+    // of discovery method. k scales with budget so the cap doesn't starve
+    // the retriever of enough candidates to fill it.
+    let max_degree = (case.budget * 2).max(10);
+    let sparse_capped =
+        SparseKnnMinCutRetriever::new(cfg.clone()).with_lsh_config(SparseKnnConfig {
+            max_degree: Some(max_degree),
+            ..SparseKnnConfig::default()
+        });
 
     let s_topk = run_variant(&topk, &corpus, &queries);
     let s_bfs = run_variant(&bfs, &corpus, &queries);
-    let s_mc = run_variant(&mc, &corpus, &queries);
+    let s_sparse_capped = run_variant(&sparse_capped, &corpus, &queries);
 
     print_row("TopK (baseline)", &s_topk);
     print_row("GraphBFS", &s_bfs);
-    print_row("MinCutBounded", &s_mc);
+
+    let s_mc = if case.run_dense_mincut {
+        let mc = MinCutRetriever::new(cfg.clone());
+        let s = run_variant(&mc, &corpus, &queries);
+        print_row("MinCutBounded (dense)", &s);
+        Some(s)
+    } else {
+        println!(
+            "{:<20} {:>10}",
+            "MinCutBounded (dense)", "SKIPPED (O(n^2) cost cliff — see n=3000 case)"
+        );
+        None
+    };
+
+    let s_sparse_threshold = if case.run_sparse_threshold {
+        let s = run_variant(&sparse_threshold, &corpus, &queries);
+        print_row("SparseKnn (A: threshold)", &s);
+        Some(s)
+    } else {
+        println!(
+            "{:<20} {:>10}",
+            "SparseKnn (A: threshold)",
+            "SKIPPED (degrades to dense-graph cost on tight clusters — see n=3000 case)"
+        );
+        None
+    };
+
+    print_row(
+        &format!("SparseKnn (B: k={max_degree} cap)"),
+        &s_sparse_capped,
+    );
 
     println!();
 
-    // Acceptance check
+    if let Some(ref s_mc) = s_mc {
+        if let Some(ref s_a) = s_sparse_threshold {
+            println!(
+                "Candidate A (threshold) vs dense: {:.2}x mean latency, precision {:.3} -> {:.3}",
+                s_mc.mean_us / s_a.mean_us,
+                s_mc.mean_precision,
+                s_a.mean_precision
+            );
+        }
+        println!(
+            "Candidate B (k={max_degree} cap)  vs dense: {:.2}x mean latency, precision {:.3} -> {:.3}",
+            s_mc.mean_us / s_sparse_capped.mean_us,
+            s_mc.mean_precision,
+            s_sparse_capped.mean_precision
+        );
+    }
+
+    // Acceptance check — every variant must clear the precision floor.
     let threshold = 0.70;
-    let pass = s_topk.mean_precision >= threshold
+    let mut pass = s_topk.mean_precision >= threshold
         && s_bfs.mean_precision >= threshold
-        && s_mc.mean_precision >= threshold;
+        && s_sparse_capped.mean_precision >= threshold;
+    if let Some(ref s_a) = s_sparse_threshold {
+        pass = pass && s_a.mean_precision >= threshold;
+    }
+    if let Some(ref s_mc) = s_mc {
+        pass = pass && s_mc.mean_precision >= threshold;
+    }
 
     if pass {
-        println!(
-            "✓ PASS — all variants achieved precision >= {threshold:.2} \
-             (TopK={:.3}, BFS={:.3}, MinCut={:.3})",
-            s_topk.mean_precision, s_bfs.mean_precision, s_mc.mean_precision
-        );
+        println!("✓ PASS — all run variants achieved precision >= {threshold:.2}");
     } else {
-        println!(
-            "✗ FAIL — precision below {threshold:.2} threshold \
-             (TopK={:.3}, BFS={:.3}, MinCut={:.3})",
-            s_topk.mean_precision, s_bfs.mean_precision, s_mc.mean_precision
-        );
+        println!("✗ FAIL — a variant fell below the {threshold:.2} precision threshold");
     }
 
     // Memory estimate (rough)
     let chunk_bytes = case.n_chunks * case.dim * 4;
-    let graph_edges = case.n_chunks * case.n_chunks / 2; // upper bound
-    let graph_bytes = graph_edges * 8; // (usize, f32)
+    let dense_edges = case.n_chunks * case.n_chunks / 2; // upper bound
+    let dense_graph_bytes = dense_edges * 8; // (usize, f32)
     println!(
-        "Memory   : chunks≈{}KB  graph≈{}KB (upper bound)",
+        "Memory   : chunks≈{}KB  dense-graph≈{}KB (upper bound, for reference)",
         chunk_bytes / 1024,
-        graph_bytes / 1024
+        dense_graph_bytes / 1024
     );
     println!();
+}
+
+fn print_sparsity_stats(n: usize, dim: usize) {
+    use ruvector_bounded_rag::sparse_knn::{build_sparse_edges, SparseKnnConfig};
+
+    let mut rng = StdRng::seed_from_u64(0xA11CE);
+    let normal = Normal::new(0.0_f32, 0.1).unwrap();
+    let n_clusters = 6usize;
+    let mut vecs: Vec<Vec<f32>> = Vec::with_capacity(n);
+    for i in 0..n {
+        let mut v = vec![0.0_f32; dim];
+        v[i % n_clusters % dim] = 1.0;
+        for x in v.iter_mut() {
+            *x += normal.sample(&mut rng);
+        }
+        let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+        for x in v.iter_mut() {
+            *x /= norm.max(1e-10);
+        }
+        vecs.push(v);
+    }
+    let (_edges, stats) = build_sparse_edges(&vecs, dim, 0.70, &SparseKnnConfig::default());
+    let dense_pairs = n * (n - 1) / 2;
+    println!(
+        "n={n:<6} dense_pairs={dense_pairs:<12} lsh_candidate_pairs={:<10} reduction={:.1}x",
+        stats.candidate_pairs_checked,
+        dense_pairs as f64 / stats.candidate_pairs_checked.max(1) as f64
+    );
 }
 
 fn main() {
@@ -208,6 +303,8 @@ fn main() {
         budget: 20,
         edge_threshold: 0.70,
         seed_threshold: 0.45,
+        run_dense_mincut: true,
+        run_sparse_threshold: true,
     });
 
     // Medium case: 1000 chunks
@@ -219,9 +316,12 @@ fn main() {
         budget: 30,
         edge_threshold: 0.70,
         seed_threshold: 0.45,
+        run_dense_mincut: true,
+        run_sparse_threshold: true,
     });
 
-    // Larger case: 3000 chunks (MinCut is O(VE) so we limit to 3k)
+    // Larger case: 3000 chunks — this is the documented dense MinCut cost
+    // cliff from the 2026-07-25 nightly report (~1.27s mean per query).
     run_case(&BenchCase {
         n_chunks: 3000,
         n_queries: 30,
@@ -230,8 +330,34 @@ fn main() {
         budget: 40,
         edge_threshold: 0.72,
         seed_threshold: 0.45,
+        run_dense_mincut: true,
+        run_sparse_threshold: true,
     });
 
+    // Beyond the cliff: dense MinCut AND Candidate A (unbounded threshold)
+    // are both skipped — both degrade to dense-graph flow-network cost on
+    // tight clusters (measured at n=3000). Candidate B (degree-capped)
+    // keeps running — this is the regime the hypothesis is actually about.
+    run_case(&BenchCase {
+        n_chunks: 8000,
+        n_queries: 20,
+        dim: 32,
+        n_clusters: 6,
+        budget: 40,
+        edge_threshold: 0.72,
+        seed_threshold: 0.45,
+        run_dense_mincut: false,
+        run_sparse_threshold: false,
+    });
+
+    println!("═══════════════════════════════════════════════════════════════════════════════");
+    println!("  Sparse graph construction cost (LSH candidate pairs vs. dense all-pairs)");
+    println!("═══════════════════════════════════════════════════════════════════════════════");
+    for &n in &[200usize, 1000, 3000, 8000, 20000] {
+        print_sparsity_stats(n, 32);
+    }
+
+    println!();
     println!("═══════════════════════════════════════════════════════════════════════════════");
     println!("  Benchmark complete. All numbers from release build on this hardware.");
     println!("═══════════════════════════════════════════════════════════════════════════════");
