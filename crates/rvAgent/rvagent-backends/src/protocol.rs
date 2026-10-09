@@ -100,6 +100,9 @@ pub struct FileData {
 ///
 /// Maps to Python's `BackendProtocol`. Provides both synchronous and
 /// asynchronous variants of each method.
+// `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+// already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait Backend: Send + Sync {
     /// List files/directories at the given path.
@@ -146,6 +149,9 @@ pub trait Backend: Send + Sync {
 /// Extension trait for backends with shell execution capability.
 ///
 /// Maps to Python's `SandboxBackendProtocol` (ADR-103 C5).
+// `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+// already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait SandboxBackend: Backend {
     /// Execute a shell command within the sandbox.

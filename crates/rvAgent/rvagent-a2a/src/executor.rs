@@ -27,6 +27,9 @@ use crate::{
 /// The agent-implementation side of A2A. Anything that can run a [`TaskSpec`]
 /// to completion — a local LLM, a WASM plugin, a remote service adapter —
 /// implements this trait.
+// `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+// already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait TaskRunner: Send + Sync {
     async fn run(&self, spec: TaskSpec) -> Result<Task, A2aError>;

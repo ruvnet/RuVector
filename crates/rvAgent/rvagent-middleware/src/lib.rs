@@ -63,6 +63,9 @@ pub use utils::{append_to_system_message, SystemPromptBuilder};
 // ---------------------------------------------------------------------------
 
 /// Async model handler — the "next" link called by `wrap_model_call`.
+// `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+// already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait ModelHandler: Send + Sync {
     async fn call(&self, request: ModelRequest) -> ModelResponse;
@@ -76,6 +79,9 @@ pub trait ModelHandler: Send + Sync {
 ///
 /// Schema exposure aligns with `rvagent_core::models::ToolDefinition`
 /// (`input_schema`); `definition()` produces the canonical form.
+// `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+// already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait Tool: Send + Sync {
     fn name(&self) -> &str;
@@ -112,6 +118,9 @@ impl fmt::Debug for dyn Tool {
 /// only needs to override the hooks it uses. The former sync/async duplicate
 /// hook pairs (`before_agent`/`abefore_agent`, `wrap_model_call`/
 /// `awrap_model_call`) are merged into single async hooks.
+// `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+// already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait Middleware: Send + Sync {
     /// Called before agent execution. Returns state update or None.
