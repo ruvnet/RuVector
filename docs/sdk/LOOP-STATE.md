@@ -101,10 +101,9 @@ running anywhere — now they are). Remaining, in priority order:
       checkpoint (4 progress updates posted so far).
 - [ ] PR description (#1117) needs the "land only after `ruvector` is live on PyPI" flag on the
       `docs(readme):` commit called out explicitly, plus the final capability-coverage table.
-- [ ] Not done, lower priority: the 3 `known_limitations` bugs in `hnsw.rs`'s JSON converter
-      (large-int precision loss, NaN→null, lone-surrogate error message) — characterized by
-      tests, not fixed. The large-int one is a genuine ~5-line fix (raise instead of the f64
-      fallback) worth doing before publish.
+- [x] The 3 HNSW JSON-converter bugs (large-int precision loss, NaN/inf->null, lone-surrogate
+      message) are fixed in `hnsw.rs` `py_to_json`/`json_to_py`, test-first (module
+      `conversion_regressions` + 6 pytest cases in `test_collection.py`).
 - [ ] Not started, explicitly deferred per the ADR: RVF persistence, Embeddings (M3), Turbo4
       quantization evaluation. Each has a stated reason in the capability table above, not a
       silent gap.

@@ -266,3 +266,35 @@ def test_hnsw_metric_options(rng: np.random.Generator) -> None:
         assert len(coll) == 1
     with pytest.raises(Exception):
         Collection.create(dim=4, backend="hnsw", metric="not-a-real-metric")
+
+
+# --- HNSW metadata JSON conversion (hnsw.rs `py_to_json`) -------------------
+
+
+def _hnsw_one(meta: dict[str, object]) -> Collection:
+    vec = np.ones((1, 4), dtype=np.float32)
+    return Collection.from_vectors(vec, metadatas=[meta], backend="hnsw")
+
+
+def test_hnsw_metadata_u64_range_int_is_exact() -> None:
+    big = 2**64 - 1
+    coll = _hnsw_one({"h": big})
+    hit = coll.search(np.ones(4, dtype=np.float32), 1)[0]
+    assert hit.metadata == {"h": big}
+    assert type(hit.metadata["h"]) is int
+
+
+def test_hnsw_metadata_int_beyond_u64_raises_instead_of_rounding() -> None:
+    with pytest.raises(OverflowError):
+        _hnsw_one({"h": 2**64})
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_hnsw_metadata_non_finite_float_raises_instead_of_null(bad: float) -> None:
+    with pytest.raises(ValueError, match="finite"):
+        _hnsw_one({"x": bad})
+
+
+def test_hnsw_metadata_lone_surrogate_str_gives_content_error() -> None:
+    with pytest.raises(ValueError, match="surrogate"):
+        _hnsw_one({"s": "ab\ud800cd"})

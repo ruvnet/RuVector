@@ -28,9 +28,9 @@
 use std::collections::HashMap;
 
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyUntypedArrayMethods};
-use pyo3::exceptions::{PyTypeError, PyValueError};
+use pyo3::exceptions::{PyOverflowError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyDict, PyList};
+use pyo3::types::{PyAny, PyDict, PyInt, PyList, PyString};
 
 use ruvector_core::types::{DbOptions, DistanceMetric, HnswConfig, SearchQuery, VectorEntry};
 use ruvector_core::vector_db::VectorDB;
@@ -74,11 +74,31 @@ fn py_to_json(value: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
     if let Ok(i) = value.extract::<i64>() {
         return Ok(serde_json::Value::Number(i.into()));
     }
+    if value.is_instance_of::<PyInt>() {
+        // Beyond i64: keep exact up to u64::MAX, otherwise refuse rather
+        // than round through f64 (silent precision loss).
+        if let Ok(u) = value.extract::<u64>() {
+            return Ok(serde_json::Value::Number(u.into()));
+        }
+        return Err(PyOverflowError::new_err(
+            "metadata int is outside the exactly representable JSON range (i64/u64)",
+        ));
+    }
     if let Ok(f) = value.extract::<f64>() {
-        return Ok(serde_json::json!(f));
+        // serde_json would silently turn NaN/inf into null.
+        return serde_json::Number::from_f64(f)
+            .map(serde_json::Value::Number)
+            .ok_or_else(|| {
+                PyValueError::new_err("metadata floats must be finite (got NaN or inf)")
+            });
     }
     if let Ok(s) = value.extract::<String>() {
         return Ok(serde_json::Value::String(s));
+    }
+    if value.is_instance_of::<PyString>() {
+        return Err(PyValueError::new_err(
+            "metadata string contains a lone surrogate and is not valid Unicode text",
+        ));
     }
     if let Ok(list) = value.cast::<PyList>() {
         let items: PyResult<Vec<serde_json::Value>> = list.iter().map(|v| py_to_json(&v)).collect();
@@ -115,6 +135,8 @@ fn json_to_py<'py>(py: Python<'py>, value: &serde_json::Value) -> PyResult<Bound
         serde_json::Value::Number(n) => {
             if let Some(i) = n.as_i64() {
                 i.into_bound_py_any(py)
+            } else if let Some(u) = n.as_u64() {
+                u.into_bound_py_any(py)
             } else {
                 n.as_f64().unwrap_or(f64::NAN).into_bound_py_any(py)
             }
@@ -566,84 +588,74 @@ mod tests {
     }
 }
 
-/// Regression tests pinning down surprising-but-confirmed current behaviour
-/// found while writing the round-trip tests above. Not assertions of
-/// *desired* behaviour — see this session's summary for the bug report;
-/// fixing these is explicitly left to the orchestrating session.
+/// Regression tests for three metadata-conversion bugs in `py_to_json`
+/// (previously characterized as "known limitations", now fixed): none of
+/// them may silently corrupt or drop data.
 #[cfg(test)]
-mod known_limitations {
+mod conversion_regressions {
     use super::*;
 
-    /// A Python `int` that doesn't fit in `i64` (metadata value, e.g. a
-    /// user-supplied timestamp-as-nanos or a hash) silently loses precision:
-    /// `py_to_json` falls through `extract::<i64>()` to `extract::<f64>()`,
-    /// so `2**64` (`18446744073709551616`) comes back as the double-rounded
-    /// `18446744073709551616.0` -> `1.8446744073709552e19`, with no error
-    /// raised anywhere. Confirmed bug — reported in this session's summary,
-    /// not fixed here per the task's "report, don't silently patch" rule.
+    /// Ints beyond `i64` must not be rounded through `f64`: up to `u64::MAX`
+    /// they are kept exactly; beyond that a clear `OverflowError` is raised.
     #[test]
-    fn py_to_json_large_python_int_loses_precision_silently() {
+    fn py_to_json_large_python_int_is_exact_or_errors() {
         Python::initialize();
         Python::attach(|py| {
+            let u64_max = py.eval(c"2**64 - 1", None, None).unwrap();
+            let back = py_to_json(&u64_max).expect("u64::MAX must be representable");
+            assert_eq!(back.to_string(), "18446744073709551615");
+
             let big = py.eval(c"2**64", None, None).unwrap();
-            assert_eq!(big.repr().unwrap().to_string(), "18446744073709551616");
-            let back = py_to_json(&big).expect("does not error; silently lossy instead");
-            // Documents the data loss: the round-tripped value is not an
-            // exact integer any more (it prints with scientific notation /
-            // a trailing `.0`-equivalent), unlike the exact input.
-            assert!(matches!(back, serde_json::Value::Number(_)));
-            assert_ne!(back.to_string(), "18446744073709551616");
+            let err = py_to_json(&big).expect_err("2**64 must not silently round");
+            assert!(err.is_instance_of::<pyo3::exceptions::PyOverflowError>(py));
+
+            let neg = py.eval(c"-(2**63) - 1", None, None).unwrap();
+            let err = py_to_json(&neg).expect_err("below i64::MIN must error");
+            assert!(err.is_instance_of::<pyo3::exceptions::PyOverflowError>(py));
         });
     }
 
-    /// A Python `str` containing a lone UTF-16 surrogate (constructible via
-    /// `surrogateescape`, e.g. from a malformed-filename-derived string)
-    /// cannot `extract::<String>()` (it isn't valid UTF-8/UTF-32 text), so
-    /// `py_to_json` falls through every branch and hits the final
-    /// `TypeError` whose message claims `"got str"` — true as far as it
-    /// goes, but potentially confusing (the type IS str, the problem is its
-    /// *content*, not its type) when someone's metadata value fails this
-    /// way in production.
+    /// A `str` holding a lone surrogate is a *content* problem, not a type
+    /// problem: the error must say so (ValueError, not "got str").
     #[test]
-    fn py_to_json_lone_surrogate_str_hits_generic_type_error() {
+    fn py_to_json_lone_surrogate_str_reports_content_error() {
         Python::initialize();
         Python::attach(|py| {
-            let bad = py
-                .eval(
-                    c"'abc'.encode('utf-8', 'surrogateescape') + bytes([0xed, 0xa0, 0x80])",
-                    None,
-                    None,
-                )
-                .unwrap();
-            // bytes, not str — decode with surrogateescape to get an
-            // actual lone-surrogate `str` object the way real code would
-            // (e.g. decoding a malformed OS path).
-            let locals = pyo3::types::PyDict::new(py);
-            locals.set_item("b", bad).unwrap();
-            let lone_surrogate_str = py
-                .eval(c"b.decode('utf-8', 'surrogateescape')", None, Some(&locals))
-                .unwrap();
-            let err =
-                py_to_json(&lone_surrogate_str).expect_err("lone surrogates aren't valid text");
-            assert!(err.is_instance_of::<PyTypeError>(py));
+            let s = py.eval(c"'ab\\ud800cd'", None, None).unwrap();
+            let err = py_to_json(&s).expect_err("lone surrogates aren't valid text");
+            assert!(err.is_instance_of::<PyValueError>(py));
             let msg = err.value(py).to_string();
-            assert!(msg.contains("got str"), "message was: {msg}");
+            assert!(msg.contains("surrogate"), "message was: {msg}");
+            assert!(!msg.contains("got str"), "message was: {msg}");
         });
     }
 
-    /// `float('nan')` passed as metadata is also silently accepted and
-    /// converted to JSON `null` with no error (this one traces back to
-    /// `serde_json`'s own `Serialize` impl for `f64`, which maps every
-    /// non-finite float to `null` by design — not a bug unique to this
-    /// crate, but worth pinning down since `py_to_json`'s doc comment
-    /// otherwise promises "no surprise behavior").
+    /// NaN / +-inf have no JSON representation; they must raise instead of
+    /// silently becoming `null`.
     #[test]
-    fn py_to_json_nan_float_becomes_null_silently() {
+    fn py_to_json_non_finite_float_errors() {
         Python::initialize();
         Python::attach(|py| {
-            let nan = py.eval(c"float('nan')", None, None).unwrap();
-            let result = py_to_json(&nan).expect("does not error; becomes null instead");
-            assert_eq!(result, serde_json::Value::Null);
+            for expr in [c"float('nan')", c"float('inf')", c"float('-inf')"] {
+                let v = py.eval(expr, None, None).unwrap();
+                let err = py_to_json(&v).expect_err("non-finite float must error");
+                assert!(err.is_instance_of::<PyValueError>(py));
+                assert!(err.value(py).to_string().contains("finite"));
+            }
+            let ok = py.eval(c"1.5", None, None).unwrap();
+            assert_eq!(py_to_json(&ok).unwrap(), serde_json::json!(1.5));
+        });
+    }
+    /// An int in (i64::MAX, u64::MAX] must round-trip as an exact Python int.
+    #[test]
+    fn u64_range_int_round_trips_exactly_to_python() {
+        Python::initialize();
+        Python::attach(|py| {
+            let big = py.eval(c"2**64 - 1", None, None).unwrap();
+            let json = py_to_json(&big).unwrap();
+            let back = json_to_py(py, &json).unwrap();
+            assert!(back.is_instance_of::<PyInt>());
+            assert_eq!(back.repr().unwrap().to_string(), "18446744073709551615");
         });
     }
 }
