@@ -79,8 +79,9 @@ jobs:
         shell: bash
         run: |
           cd examples/ruvLLM
-          # Use cargo directly with --lib to avoid building binaries
-          cargo build --release --lib --features napi --target ${{ matrix.target }}
+          # Use cargo directly with --lib to avoid building binaries. `candle` is
+          # the inference backend: without it loadModel() cannot load a model.
+          cargo build --release --lib --features napi,candle --target ${{ matrix.target }}
           # napi artifacts command to copy the output
           napi artifacts --build-output-dir ../../target/${{ matrix.target }}/release || true
 

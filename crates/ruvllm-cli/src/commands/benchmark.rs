@@ -79,20 +79,13 @@ pub async fn run(
     println!("{}", "Loading model...".yellow());
     let backend = load_model(&model_id, quant, cache_dir)?;
 
-    if backend.is_model_loaded() {
-        if let Some(info) = backend.model_info() {
-            println!(
-                "{} Loaded {} ({:.1}B params, {} memory)",
-                style("Ready!").green().bold(),
-                info.name,
-                info.num_parameters as f64 / 1e9,
-                bytesize::ByteSize(info.memory_usage as u64)
-            );
-        }
-    } else {
+    if let Some(info) = backend.model_info() {
         println!(
-            "{} Running benchmark in mock mode (no real model loaded)",
-            style("Warning:").yellow().bold()
+            "{} Loaded {} ({:.1}B params, {} memory)",
+            style("Ready!").green().bold(),
+            info.name,
+            info.num_parameters as f64 / 1e9,
+            bytesize::ByteSize(info.memory_usage as u64)
         );
     }
     println!();
@@ -139,23 +132,21 @@ pub async fn run(
 
     for _ in 0..iterations {
         let start = Instant::now();
+        let mut first_token = None;
 
-        // Generate
-        let result = backend.generate(&prompt, params.clone());
+        // Generate. A failure aborts the run instead of being timed.
+        let output = backend
+            .generate_detailed(&prompt, params.clone(), &mut |_| {
+                first_token.get_or_insert_with(|| start.elapsed());
+                true
+            })
+            .map_err(|e| anyhow::anyhow!("generation failed: {}", e))?;
         let total_time = start.elapsed();
 
-        // Record metrics
+        // Record metrics: tokens counted by the model, TTFT as measured
         latencies.push(total_time);
-
-        if let Ok(text) = &result {
-            let token_count = text.split_whitespace().count();
-            tokens_generated.push(token_count);
-            // Estimate TTFT as a fraction of total time
-            ttft_times.push(Duration::from_secs_f64(total_time.as_secs_f64() * 0.1));
-        } else {
-            tokens_generated.push(gen_length);
-            ttft_times.push(Duration::from_millis(50));
-        }
+        tokens_generated.push(output.completion_tokens);
+        ttft_times.push(first_token.unwrap_or(total_time));
 
         bench_pb.inc(1);
     }
@@ -212,15 +203,14 @@ fn load_model(
         ..Default::default()
     };
 
-    let model_path = PathBuf::from(cache_dir).join("models").join(model_id);
-    let load_result = if model_path.exists() {
-        backend.load_model(model_path.to_str().unwrap(), config.clone())
-    } else {
-        backend.load_model(model_id, config)
-    };
-
-    if let Err(e) = load_result {
-        tracing::warn!("Model load failed: {}", e);
+    // The downloaded GGUF for this quantization, else the id or path given.
+    // Without a model there is nothing to measure: fail rather than time errors.
+    let source = crate::models::local_model_source(cache_dir, model_id, quant)?;
+    backend
+        .load_model(&source, config)
+        .map_err(|e| anyhow::anyhow!("model {} failed to load: {}", model_id, e))?;
+    if !backend.is_model_loaded() {
+        anyhow::bail!("model {} did not load; nothing to benchmark", model_id);
     }
 
     Ok(backend)

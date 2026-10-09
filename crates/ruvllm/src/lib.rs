@@ -175,9 +175,9 @@ pub use backends::CandleBackend;
 #[cfg(all(feature = "lattice", target_os = "macos"))]
 pub use backends::LatticeBackend;
 pub use backends::{
-    create_backend, DType, DeviceType, GenerateParams, GeneratedToken, LlmBackend,
-    ModelArchitecture, ModelConfig, ModelInfo, Quantization, SharedBackend, SpecialTokens,
-    StreamEvent, TokenStream, Tokenizer,
+    create_backend, DType, DeviceType, GenerateParams, GeneratedToken, GenerationOutput,
+    LlmBackend, ModelArchitecture, ModelConfig, ModelInfo, Quantization, SharedBackend,
+    SpecialTokens, StreamEvent, TokenStream, Tokenizer,
 };
 #[cfg(feature = "async-runtime")]
 pub use backends::{AsyncTokenStream, LlmBackendAsync};

@@ -45,8 +45,9 @@
 //! ```
 
 use super::{
-    DType, DeviceType, GenerateParams, GeneratedToken, LlmBackend, ModelArchitecture, ModelConfig,
-    ModelInfo, Quantization, SpecialTokens, StreamEvent, TokenStream, Tokenizer,
+    DType, DeviceType, GenerateParams, GeneratedToken, GenerationOutput, LlmBackend,
+    ModelArchitecture, ModelConfig, ModelInfo, Quantization, SpecialTokens, StreamEvent,
+    TokenStream, Tokenizer,
 };
 use crate::error::{Result, RuvLLMError};
 use crate::sona::{SonaConfig, SonaIntegration, Trajectory};
@@ -61,9 +62,13 @@ use candle_core::{DType as CandleDType, Device, IndexOp, Tensor};
 #[cfg(feature = "candle")]
 use candle_nn::VarBuilder;
 #[cfg(feature = "candle")]
-use candle_transformers::generation::LogitsProcessor;
+use candle_transformers::generation::{LogitsProcessor, Sampling};
 #[cfg(feature = "candle")]
 use tokenizers::Tokenizer as HfTokenizer;
+
+/// Temperatures below this sample greedily (candle's `LogitsProcessor` threshold).
+#[cfg(feature = "candle")]
+const GREEDY_BELOW: f32 = 1e-7;
 
 /// Internal model configuration
 #[derive(Debug, Clone)]
@@ -106,9 +111,12 @@ impl Default for ModelConfigInternal {
 #[cfg(feature = "candle")]
 mod candle_impl {
     use super::*;
+    use crate::backends::gguf_arch::{self, GgufArch, GgufSpecialIds};
+    use crate::serving::FinishReason;
     use candle_core::quantized::gguf_file;
     use candle_transformers::models::{
         llama as llama_model, mistral as mistral_model, quantized_llama as qlama,
+        quantized_qwen2 as qqwen2, quantized_qwen3 as qqwen3,
     };
     use std::sync::Mutex;
 
@@ -129,6 +137,10 @@ mod candle_impl {
         ),
         /// Quantized GGUF model (Llama-based architecture)
         QuantizedLlama(qlama::ModelWeights),
+        /// Quantized GGUF model, `general.architecture = "qwen2"` (Qwen2, Qwen2.5)
+        QuantizedQwen2(qqwen2::ModelWeights),
+        /// Quantized GGUF model, `general.architecture = "qwen3"`
+        QuantizedQwen3(qqwen3::ModelWeights),
     }
 
     /// Wrapper for loaded model state
@@ -198,6 +210,10 @@ mod candle_impl {
         pub cache_dir: PathBuf,
         /// Configuration
         pub config: Option<ModelConfig>,
+        /// Token ids that end generation (EOS and end-of-turn markers)
+        stop_token_ids: Vec<u32>,
+        /// Serializes generations: the KV cache and `current_pos` are shared
+        generation_lock: Mutex<()>,
         /// Model ID for chat template detection
         model_id: String,
         /// Current sequence position for KV cache
@@ -215,6 +231,8 @@ mod candle_impl {
                 ruv_tokenizer: None,
                 cache_dir: get_cache_dir(),
                 config: None,
+                stop_token_ids: Vec::new(),
+                generation_lock: Mutex::new(()),
                 model_id: String::new(),
                 current_pos: Mutex::new(0),
                 sona: Some(SonaIntegration::new(SonaConfig::default())),
@@ -239,6 +257,8 @@ mod candle_impl {
                 ruv_tokenizer: None,
                 cache_dir,
                 config: None,
+                stop_token_ids: Vec::new(),
+                generation_lock: Mutex::new(()),
                 model_id: String::new(),
                 current_pos: Mutex::new(0),
                 sona: Some(SonaIntegration::new(SonaConfig::default())),
@@ -438,7 +458,7 @@ mod candle_impl {
 
             // Also load the enhanced RuvTokenizer with chat template support
             let ruv_tokenizer = RuvTokenizer::from_file(&tokenizer_path)?;
-            let chat_template = ChatTemplate::detect_from_model_id(model_id);
+            let chat_template = gguf_arch::template_from_name(model_id);
             self.ruv_tokenizer = Some(ruv_tokenizer.with_chat_template(chat_template));
 
             // Try to download GGUF file based on quantization
@@ -556,6 +576,10 @@ mod candle_impl {
             };
             let tokens = strings("tokenizer.ggml.tokens");
             let merges = strings("tokenizer.ggml.merges");
+            let pre = md
+                .get("tokenizer.ggml.pre")
+                .and_then(|v| v.to_string().ok())
+                .map(String::as_str);
             let types: Option<Vec<i32>> = md
                 .get("tokenizer.ggml.token_type")
                 .and_then(|v| v.to_vec().ok())
@@ -565,8 +589,9 @@ mod candle_impl {
                         .collect::<Option<Vec<_>>>()
                 })
                 .filter(|t| t.len() == tokens.len());
-            match crate::backends::gguf_tokenizer::from_gguf_parts(
+            match crate::backends::gguf_tokenizer::from_gguf_parts_with_pre(
                 &model,
+                pre,
                 &tokens,
                 &merges,
                 types.as_deref(),
@@ -614,10 +639,70 @@ mod candle_impl {
                 special_tokens.eos_token_id
             );
 
+            // Extend, not replace: a tokenizer loaded after `load_gguf` must
+            // keep the end-of-turn ids the file declared. `unload_model`
+            // clears the list, so ids never carry over between models.
+            for id in gguf_arch::vocab_stop_ids(&tokenizer) {
+                if !self.stop_token_ids.contains(&id) {
+                    self.stop_token_ids.push(id);
+                }
+            }
             self.tokenizer = Some(CandleTokenizer {
                 inner: tokenizer,
                 special_tokens,
             });
+        }
+
+        /// Apply what a GGUF says about its tokenizer: the declared EOS /
+        /// end-of-turn ids (authoritative over the vocabulary guess; Qwen
+        /// instruct ends turns with `<|im_end|>`, not `<|endoftext|>`), and a
+        /// chat template so `apply_chat_template` works for a bare `.gguf`.
+        ///
+        /// The file's own template wins over a guess from the model name; when
+        /// it gives none, an earlier guess is kept, else one is made from
+        /// `file_name`. Fails for a Qwen-architecture file that is not ChatML.
+        fn apply_gguf_tokenizer_metadata(
+            &mut self,
+            arch: GgufArch,
+            md: &std::collections::HashMap<String, gguf_file::Value>,
+            file_name: &str,
+        ) -> Result<()> {
+            let Some(tokenizer) = self.tokenizer.as_mut() else {
+                return Ok(());
+            };
+            let ids = GgufSpecialIds::from_metadata(md, tokenizer.inner.get_vocab_size(true));
+            if ids.eos.is_some() {
+                tokenizer.special_tokens.eos_token_id = ids.eos;
+            }
+            if ids.bos.is_some() {
+                tokenizer.special_tokens.bos_token_id = ids.bos;
+            }
+            for id in ids.stop {
+                if !self.stop_token_ids.contains(&id) {
+                    self.stop_token_ids.push(id);
+                }
+            }
+
+            let vocab = &tokenizer.inner;
+            let has_chatml_tokens = vocab.token_to_id("<|im_start|>").is_some()
+                && vocab.token_to_id("<|im_end|>").is_some();
+            let from_file = arch.chat_template(md, has_chatml_tokens)?;
+            let ruv = match (self.ruv_tokenizer.take(), from_file) {
+                (Some(ruv), Some(template)) => ruv.with_chat_template(template),
+                (Some(ruv), None) if ruv.chat_template().is_some() => ruv,
+                (ruv, from_file) => ruv
+                    .unwrap_or_else(|| {
+                        RuvTokenizer::from_hf_tokenizer(vocab.clone(), Some(&self.model_id))
+                    })
+                    .with_chat_template(
+                        from_file.unwrap_or_else(|| gguf_arch::template_from_name(file_name)),
+                    ),
+            };
+            self.ruv_tokenizer = Some(match ids.eos {
+                Some(eos) => ruv.with_eos_token_id(eos),
+                None => ruv,
+            });
+            Ok(())
         }
 
         /// Load GGUF quantized model
@@ -628,38 +713,23 @@ mod candle_impl {
                 .map_err(|e| RuvLLMError::Storage(format!("Failed to open GGUF file: {}", e)))?;
 
             // Read GGUF content
-            let gguf_content = gguf_file::Content::read(&mut file)
+            let mut gguf_content = gguf_file::Content::read(&mut file)
                 .map_err(|e| RuvLLMError::Storage(format!("Failed to read GGUF file: {}", e)))?;
 
-            // Detect GGUF architecture to validate weight-loader compatibility.
-            // qlama::ModelWeights only handles Llama/Mistral tensor naming.
-            let gguf_arch = gguf_content
-                .metadata
-                .get("general.architecture")
-                .and_then(|v| v.to_string().ok())
-                .map(|s| s.to_owned())
-                .unwrap_or_default();
-            let arch_lower = gguf_arch.to_lowercase();
-            let is_llama_compat = arch_lower.is_empty()
-                || arch_lower == "llama"
-                || arch_lower == "mistral"
-                || arch_lower.contains("llama")
-                || arch_lower.contains("mistral");
-            if !is_llama_compat {
-                return Err(RuvLLMError::Model(format!(
-                    "GGUF architecture '{}' is not supported by the quantized weight loader. \
-                     Only llama/mistral tensor layouts are currently implemented. \
-                     Qwen2, Phi, and Gemma GGUF files use different tensor names \
-                     (e.g. 'qwen2.attention.head_count') that qlama cannot read.",
-                    gguf_arch
-                )));
-            }
+            // `general.architecture` picks the weight loader; anything without
+            // one (qwen3moe, qwen35, phi3, gemma*, ...) is rejected by name.
+            let arch = GgufArch::from_metadata(&gguf_content.metadata)?;
+            let quantization =
+                gguf_arch::file_quantization(&gguf_content.metadata, config.quantization);
 
             // A bare .gguf carries its vocabulary; use it when no tokenizer.json
             // was found next to the file (load_model tries that first).
             if self.tokenizer.is_none() {
                 self.load_embedded_tokenizer(&gguf_content);
             }
+            // Before the weights: an unusable chat format fails the load cheaply.
+            let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            self.apply_gguf_tokenizer_metadata(arch, &gguf_content.metadata, file_name)?;
 
             // Extract config from GGUF metadata
             let hidden_size = self
@@ -670,6 +740,7 @@ mod candle_impl {
                         "mistral.embedding_length",
                         "phi.embedding_length",
                         "qwen2.embedding_length",
+                        "qwen3.embedding_length",
                         "gemma.embedding_length",
                         "gemma3.embedding_length",
                     ],
@@ -684,6 +755,7 @@ mod candle_impl {
                         "mistral.block_count",
                         "phi.block_count",
                         "qwen2.block_count",
+                        "qwen3.block_count",
                         "gemma.block_count",
                         "gemma3.block_count",
                     ],
@@ -698,6 +770,7 @@ mod candle_impl {
                         "mistral.attention.head_count",
                         "phi.attention.head_count",
                         "qwen2.attention.head_count",
+                        "qwen3.attention.head_count",
                         "gemma.attention.head_count",
                         "gemma3.attention.head_count",
                     ],
@@ -712,6 +785,7 @@ mod candle_impl {
                         "mistral.attention.head_count_kv",
                         "phi.attention.head_count_kv",
                         "qwen2.attention.head_count_kv",
+                        "qwen3.attention.head_count_kv",
                         "gemma.attention.head_count_kv",
                         "gemma3.attention.head_count_kv",
                     ],
@@ -726,12 +800,18 @@ mod candle_impl {
                         "mistral.vocab_size",
                         "phi.vocab_size",
                         "qwen2.vocab_size",
+                        "qwen3.vocab_size",
                         "gemma.vocab_size",
                         "gemma3.vocab_size",
                         "tokenizer.ggml.tokens_size",
                     ],
                 )
-                .unwrap_or(32000) as usize;
+                .map(|v| v as usize)
+                .or_else(|| {
+                    let tokens = gguf_content.metadata.get("tokenizer.ggml.tokens")?;
+                    tokens.to_vec().ok().map(Vec::len)
+                })
+                .unwrap_or(32000);
 
             let intermediate_size = self
                 .get_gguf_u32(
@@ -741,6 +821,7 @@ mod candle_impl {
                         "mistral.feed_forward_length",
                         "phi.feed_forward_length",
                         "qwen2.feed_forward_length",
+                        "qwen3.feed_forward_length",
                         "gemma.feed_forward_length",
                         "gemma3.feed_forward_length",
                     ],
@@ -755,6 +836,7 @@ mod candle_impl {
                         "mistral.rope.freq_base",
                         "phi.rope.freq_base",
                         "qwen2.rope.freq_base",
+                        "qwen3.rope.freq_base",
                         "gemma.rope.freq_base",
                         "gemma3.rope.freq_base",
                     ],
@@ -769,6 +851,7 @@ mod candle_impl {
                         "mistral.context_length",
                         "phi.context_length",
                         "qwen2.context_length",
+                        "qwen3.context_length",
                         "gemma.context_length",
                         "gemma3.context_length",
                     ],
@@ -782,13 +865,20 @@ mod candle_impl {
                         "llama.attention.layer_norm_rms_epsilon",
                         "mistral.attention.layer_norm_rms_epsilon",
                         "qwen2.attention.layer_norm_rms_epsilon",
+                        "qwen3.attention.layer_norm_rms_epsilon",
                         "gemma.attention.layer_norm_rms_epsilon",
                         "gemma3.attention.layer_norm_rms_epsilon",
                     ],
                 )
                 .unwrap_or(1e-5) as f64;
 
-            let head_dim = hidden_size / num_heads;
+            // Qwen3 declares a head dim that is not hidden / heads.
+            let head_dim = self
+                .get_gguf_u32(
+                    &gguf_content,
+                    &["qwen3.attention.key_length", "llama.attention.key_length"],
+                )
+                .map_or(hidden_size / num_heads, |v| v as usize);
 
             let model_config = ModelConfigInternal {
                 hidden_size,
@@ -813,11 +903,34 @@ mod candle_impl {
                 vocab_size
             );
 
-            // Load the quantized model weights
-            let model_weights =
-                qlama::ModelWeights::from_gguf(gguf_content, &mut file, &self.device).map_err(
-                    |e| RuvLLMError::Model(format!("Failed to load GGUF weights: {}", e)),
-                )?;
+            // Load the quantized model weights with the architecture's loader
+            let weights_err = |e: candle_core::Error| {
+                RuvLLMError::Model(format!("Failed to load {:?} GGUF weights: {}", arch, e))
+            };
+            let inner = match arch {
+                GgufArch::Llama => LoadedModelInner::QuantizedLlama(
+                    qlama::ModelWeights::from_gguf(gguf_content, &mut file, &self.device)
+                        .map_err(weights_err)?,
+                ),
+                GgufArch::Qwen2 => LoadedModelInner::QuantizedQwen2(
+                    qqwen2::ModelWeights::from_gguf(gguf_content, &mut file, &self.device)
+                        .map_err(weights_err)?,
+                ),
+                GgufArch::Qwen3 => {
+                    // quantized_qwen3 builds its RoPE table and mask in
+                    // `general.dtype`, F16 when absent (llama.cpp never writes
+                    // it); F16 is exact for integer positions only up to 2048
+                    // and coarse for the angles. Ask for F32.
+                    gguf_content
+                        .metadata
+                        .entry("general.dtype".to_string())
+                        .or_insert(gguf_file::Value::U32(0));
+                    LoadedModelInner::QuantizedQwen3(
+                        qqwen3::ModelWeights::from_gguf(gguf_content, &mut file, &self.device)
+                            .map_err(weights_err)?,
+                    )
+                }
+            };
 
             let memory_usage = estimate_gguf_memory(path)?;
 
@@ -827,18 +940,18 @@ mod candle_impl {
                     .and_then(|s| s.to_str())
                     .unwrap_or("unknown")
                     .to_string(),
-                architecture: config.architecture,
+                architecture: arch.model_architecture(config.architecture),
                 num_parameters: estimate_parameters(hidden_size, num_layers, vocab_size),
                 vocab_size,
                 hidden_size,
                 num_layers,
                 max_context_length: model_config.max_position_embeddings,
-                quantization: config.quantization,
+                quantization,
                 memory_usage,
             };
 
             self.model = Some(LoadedModel {
-                inner: Mutex::new(LoadedModelInner::QuantizedLlama(model_weights)),
+                inner: Mutex::new(inner),
                 config: model_config,
                 info,
             });
@@ -1051,6 +1164,12 @@ mod candle_impl {
                 LoadedModelInner::QuantizedLlama(m) => m
                     .forward(input_ids, current_pos)
                     .map_err(|e| RuvLLMError::Generation(format!("Forward pass failed: {}", e)))?,
+                LoadedModelInner::QuantizedQwen2(m) => m
+                    .forward(input_ids, current_pos)
+                    .map_err(|e| RuvLLMError::Generation(format!("Forward pass failed: {}", e)))?,
+                LoadedModelInner::QuantizedQwen3(m) => m
+                    .forward(input_ids, current_pos)
+                    .map_err(|e| RuvLLMError::Generation(format!("Forward pass failed: {}", e)))?,
                 LoadedModelInner::Mistral(m) => m
                     .forward(input_ids, current_pos)
                     .map_err(|e| RuvLLMError::Generation(format!("Forward pass failed: {}", e)))?,
@@ -1065,9 +1184,9 @@ mod candle_impl {
 
         /// Clear the KV cache and reset position
         ///
-        /// Note: Only Mistral models support `clear_kv_cache()` in candle-transformers.
-        /// For other models, we reset the position counter which effectively
-        /// starts a fresh generation context.
+        /// Mistral and Qwen3 expose `clear_kv_cache()`; Llama gets a fresh
+        /// cache. Quantized Llama and Qwen2 drop their cache on the next
+        /// forward at position 0, so resetting the position is enough.
         fn clear_kv_cache(&self) {
             if let Some(model) = &self.model {
                 if let Ok(mut inner) = model.inner.lock() {
@@ -1075,6 +1194,13 @@ mod candle_impl {
                         LoadedModelInner::QuantizedLlama(_m) => {
                             // quantized_llama::ModelWeights doesn't expose clear_kv_cache
                             // The cache is managed internally; resetting position is sufficient
+                        }
+                        LoadedModelInner::QuantizedQwen2(_m) => {
+                            // Same as quantized_llama: replaced at index_pos == 0
+                        }
+                        LoadedModelInner::QuantizedQwen3(m) => {
+                            // ConcatKvCache appends regardless of offset: must reset
+                            m.clear_kv_cache();
                         }
                         LoadedModelInner::Mistral(m) => {
                             m.clear_kv_cache();
@@ -1109,12 +1235,33 @@ mod candle_impl {
             }
         }
 
+        /// The sampler for one generation. One per request, so a fixed seed
+        /// seeds one random sequence rather than reusing its first draw for
+        /// every token. Temperature is applied to the logits in
+        /// `sample_token` (before top-k/top-p), so the sampler uses 1.0.
+        pub(crate) fn logits_processor(params: &GenerateParams) -> LogitsProcessor {
+            let seed = params.seed.unwrap_or_else(|| {
+                use std::time::{SystemTime, UNIX_EPOCH};
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map(|d| d.as_nanos() as u64)
+                    .unwrap_or(42)
+            });
+            let sampling = if params.temperature < GREEDY_BELOW {
+                Sampling::ArgMax
+            } else {
+                Sampling::All { temperature: 1.0 }
+            };
+            LogitsProcessor::from_sampling(seed, sampling)
+        }
+
         /// Sample next token from logits
         fn sample_token(
             &self,
             logits: &Tensor,
             params: &GenerateParams,
             generated_tokens: &[u32],
+            sampler: &mut LogitsProcessor,
         ) -> Result<u32> {
             // Get logits shape and squeeze batch dimension if needed
             let logits = if logits.dims().len() == 3 {
@@ -1156,8 +1303,8 @@ mod candle_impl {
                 }
             }
 
-            // Apply temperature
-            if params.temperature > 0.0 && params.temperature != 1.0 {
+            // Apply temperature (the only place it is applied; see `logits_processor`)
+            if params.temperature >= GREEDY_BELOW && params.temperature != 1.0 {
                 for logit in &mut logits_vec {
                     *logit /= params.temperature;
                 }
@@ -1204,101 +1351,24 @@ mod candle_impl {
             }
 
             // Sample from filtered distribution
-            let seed = params.seed.unwrap_or_else(|| {
-                use std::time::{SystemTime, UNIX_EPOCH};
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map(|d| d.as_nanos() as u64)
-                    .unwrap_or(42)
-            });
-
             let filtered_logits: Vec<f32> = indexed_logits.iter().map(|(_, v)| *v).collect();
             let filtered_tensor =
                 Tensor::from_vec(filtered_logits, indexed_logits.len(), &self.device)
                     .map_err(|e| RuvLLMError::Generation(e.to_string()))?;
 
-            let mut logits_processor = LogitsProcessor::new(
-                seed,
-                Some(params.temperature as f64),
-                None, // top_p already applied
-            );
-
-            let sampled_idx = logits_processor
+            let sampled_idx = sampler
                 .sample(&filtered_tensor)
                 .map_err(|e| RuvLLMError::Generation(format!("Sampling failed: {}", e)))?;
 
             Ok(indexed_logits[sampled_idx as usize].0 as u32)
         }
-
-        /// Create a mock stream for testing when no model is loaded
-        fn mock_stream(&self, prompt: &str, params: &GenerateParams) -> Result<TokenStream> {
-            let (tx, stream) = TokenStream::channel();
-
-            // Determine mock response based on prompt
-            let response = if prompt.to_lowercase().contains("hello")
-                || prompt.to_lowercase().contains("hi")
-            {
-                "Hello! I'm running in streaming mode. How can I help you today?"
-            } else if prompt.to_lowercase().contains("code")
-                || prompt.to_lowercase().contains("function")
-            {
-                "Here's an example function:\n\n```rust\nfn hello() {\n    println!(\"Hello from RuvLLM!\");\n}\n```"
-            } else {
-                "I understand your request. This is a streaming response from RuvLLM mock mode."
-            };
-
-            let max_tokens = params.max_tokens.min(100);
-
-            // Spawn mock generation thread
-            std::thread::spawn(move || {
-                let start = Instant::now();
-                let words: Vec<&str> = response.split_whitespace().collect();
-                let mut token_count = 0usize;
-
-                for (i, word) in words.iter().enumerate().take(max_tokens) {
-                    // Simulate generation delay
-                    std::thread::sleep(std::time::Duration::from_millis(50));
-
-                    let text = if i == 0 {
-                        word.to_string()
-                    } else {
-                        format!(" {}", word)
-                    };
-
-                    let token = GeneratedToken {
-                        id: i as u32,
-                        text,
-                        logprob: Some(-0.5),
-                        is_special: false,
-                    };
-
-                    if tx.send(StreamEvent::Token(token)).is_err() {
-                        return;
-                    }
-
-                    token_count += 1;
-                }
-
-                let duration_ms = start.elapsed().as_millis() as u64;
-                let tps = if duration_ms > 0 {
-                    token_count as f64 / (duration_ms as f64 / 1000.0)
-                } else {
-                    0.0
-                };
-
-                let _ = tx.send(StreamEvent::Done {
-                    total_tokens: token_count,
-                    duration_ms,
-                    tokens_per_second: tps,
-                });
-            });
-
-            Ok(stream)
-        }
     }
 
     impl LlmBackend for CandleBackend {
         fn load_model(&mut self, model_id: &str, config: ModelConfig) -> Result<()> {
+            // Start clean: a previous model's tokenizer must not outlive it,
+            // and a failed load must not leave the old model half-replaced.
+            self.unload_model();
             let path = Path::new(model_id);
 
             if path.exists() {
@@ -1321,19 +1391,38 @@ mod candle_impl {
                     if tokenizer_path.exists() {
                         self.load_tokenizer(&tokenizer_path)?;
                         let ruv_tok = RuvTokenizer::from_file(&tokenizer_path)?;
-                        let template = ChatTemplate::detect_from_model_id(model_id);
+                        let template = gguf_arch::template_from_name(model_id);
                         self.ruv_tokenizer = Some(ruv_tok.with_chat_template(template));
                     }
 
                     self.model_id = model_id.to_string();
 
-                    // Check for GGUF files
-                    if let Ok(entries) = std::fs::read_dir(path) {
-                        for entry in entries.flatten() {
-                            let entry_path = entry.path();
-                            if entry_path.extension().map_or(false, |e| e == "gguf") {
-                                return self.load_gguf(&entry_path, &config);
-                            }
+                    // Exactly one GGUF: with several (e.g. two quantizations of
+                    // one repo) `read_dir` order would pick one arbitrarily.
+                    let mut ggufs: Vec<PathBuf> = std::fs::read_dir(path)
+                        .map(|entries| {
+                            entries
+                                .flatten()
+                                .map(|entry| entry.path())
+                                .filter(|p| p.extension().map_or(false, |e| e == "gguf"))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    ggufs.sort();
+                    match ggufs.as_slice() {
+                        [] => {}
+                        [gguf] => return self.load_gguf(gguf, &config),
+                        several => {
+                            let names: Vec<String> = several
+                                .iter()
+                                .filter_map(|p| p.file_name()?.to_str().map(str::to_string))
+                                .collect();
+                            return Err(RuvLLMError::InvalidOperation(format!(
+                                "{} holds {} GGUF files ({}); pass the path of the one to load",
+                                path.display(),
+                                several.len(),
+                                names.join(", ")
+                            )));
                         }
                     }
 
@@ -1383,68 +1472,113 @@ mod candle_impl {
         }
 
         fn generate(&self, prompt: &str, params: GenerateParams) -> Result<String> {
+            Ok(self.generate_detailed(prompt, params, &mut |_| true)?.text)
+        }
+
+        fn generate_detailed(
+            &self,
+            prompt: &str,
+            params: GenerateParams,
+            on_token: &mut dyn FnMut(&GeneratedToken) -> bool,
+        ) -> Result<GenerationOutput> {
+            // One generation at a time: the KV cache and position are shared.
+            // The lock guards no data, so it is safe to take even if an
+            // earlier generation panicked while holding it.
+            let _generation = self
+                .generation_lock
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+
             let tokenizer = self
                 .tokenizer
                 .as_ref()
                 .ok_or_else(|| RuvLLMError::InvalidOperation("No tokenizer loaded".to_string()))?;
+            let model = self
+                .model
+                .as_ref()
+                .ok_or_else(|| RuvLLMError::InvalidOperation("No model loaded".to_string()))?;
 
             // Clear KV cache for new generation
             self.clear_kv_cache();
 
             // Encode prompt
             let tokens = tokenizer.encode(prompt)?;
-            let prompt_len = tokens.len();
-
-            tracing::debug!("Prompt encoded to {} tokens", prompt_len);
-
-            // Check max context
-            let model = self
-                .model
-                .as_ref()
-                .ok_or_else(|| RuvLLMError::InvalidOperation("No model loaded".to_string()))?;
-
-            let max_ctx = model.config.max_position_embeddings;
-            if prompt_len >= max_ctx {
-                return Err(RuvLLMError::Generation(format!(
-                    "Prompt too long: {} tokens exceeds max context {}",
-                    prompt_len, max_ctx
-                )));
+            let prompt_tokens = tokens.len();
+            tracing::debug!("Prompt encoded to {} tokens", prompt_tokens);
+            if prompt_tokens == 0 {
+                return Err(RuvLLMError::Generation(
+                    "Prompt encodes to zero tokens".to_string(),
+                ));
             }
 
-            let eos_token_id = tokenizer.special_tokens.eos_token_id;
+            let max_ctx = model.config.max_position_embeddings;
+            if prompt_tokens >= max_ctx {
+                return Err(RuvLLMError::Generation(format!(
+                    "Prompt too long: {} tokens exceeds max context {}",
+                    prompt_tokens, max_ctx
+                )));
+            }
 
             // Process prompt through model
             let input_tensor = Tensor::new(tokens.as_slice(), &self.device)
                 .map_err(|e| RuvLLMError::Generation(e.to_string()))?
                 .unsqueeze(0)
                 .map_err(|e| RuvLLMError::Generation(e.to_string()))?;
+            let mut logits = self.forward(&input_tensor, prompt_tokens)?;
 
-            let mut logits = self.forward(&input_tensor, tokens.len())?;
-
-            // Generate tokens
+            // Text is re-decoded from all generated tokens each step and
+            // streamed once settled: a trailing partial UTF-8 sequence and the
+            // last (longest stop sequence - 1) bytes are held back, so a stop
+            // sequence never reaches `on_token`.
+            let holdback = params
+                .stop_sequences
+                .iter()
+                .map(String::len)
+                .max()
+                .unwrap_or(0)
+                .saturating_sub(1);
             let mut generated_tokens: Vec<u32> = Vec::new();
+            let mut text = String::new();
+            let mut emitted = 0usize;
+            let mut completion_tokens = 0usize;
+            let mut finish_reason = FinishReason::Length;
+            let mut sampler = Self::logits_processor(&params);
 
-            for i in 0..params.max_tokens {
-                let next_token = self.sample_token(&logits, &params, &generated_tokens)?;
+            while completion_tokens < params.max_tokens {
+                let next_token =
+                    self.sample_token(&logits, &params, &generated_tokens, &mut sampler)?;
+                completion_tokens += 1;
 
-                // Check for EOS
-                if let Some(eos_id) = eos_token_id {
-                    if next_token == eos_id {
-                        tracing::debug!("EOS token generated at position {}", i);
-                        break;
-                    }
+                if self.stop_token_ids.contains(&next_token) {
+                    tracing::debug!(
+                        "Stop token {} at position {}",
+                        next_token,
+                        completion_tokens
+                    );
+                    finish_reason = FinishReason::EndOfSequence;
+                    break;
+                }
+                generated_tokens.push(next_token);
+                text = tokenizer.decode(&generated_tokens)?;
+
+                if let Some(cut) = gguf_arch::find_stop(&text, &params.stop_sequences) {
+                    text.truncate(cut);
+                    finish_reason = FinishReason::Stop;
+                    break;
                 }
 
-                generated_tokens.push(next_token);
-
-                // Check for stop sequences
-                if !params.stop_sequences.is_empty() {
-                    let current_text = tokenizer.decode(&generated_tokens)?;
-                    for stop_seq in &params.stop_sequences {
-                        if current_text.contains(stop_seq) {
-                            let trimmed = current_text.split(stop_seq).next().unwrap_or("");
-                            return Ok(trimmed.to_string());
-                        }
+                let ready = gguf_arch::streamable_len(&text, holdback);
+                if let Some(delta) = text.get(emitted..ready).filter(|d| !d.is_empty()) {
+                    let piece = GeneratedToken {
+                        id: next_token,
+                        text: delta.to_string(),
+                        logprob: None,
+                        is_special: false,
+                    };
+                    emitted = ready;
+                    if !on_token(&piece) {
+                        finish_reason = FinishReason::Cancelled;
+                        break;
                     }
                 }
 
@@ -1460,18 +1594,26 @@ mod candle_impl {
                     .map_err(|e| RuvLLMError::Generation(e.to_string()))?
                     .unsqueeze(0)
                     .map_err(|e| RuvLLMError::Generation(e.to_string()))?;
-
                 logits = self.forward(&next_input, 1)?;
             }
 
-            // Decode generated tokens
-            let output = tokenizer.decode(&generated_tokens)?;
+            // Flush what was held back (the stop sequence is already cut off).
+            if finish_reason != FinishReason::Cancelled {
+                if let Some(rest) = text.get(emitted..).filter(|r| !r.is_empty()) {
+                    on_token(&GeneratedToken {
+                        id: generated_tokens.last().copied().unwrap_or_default(),
+                        text: rest.to_string(),
+                        logprob: None,
+                        is_special: false,
+                    });
+                }
+            }
 
             // Record trajectory for SONA learning
             if let Some(ref sona) = self.sona {
                 // Create simple embeddings from token statistics
                 let query_embedding = Self::simple_embedding(prompt, 768);
-                let response_embedding = Self::simple_embedding(&output, 768);
+                let response_embedding = Self::simple_embedding(&text, 768);
 
                 let trajectory = Trajectory {
                     request_id: format!(
@@ -1486,7 +1628,7 @@ mod candle_impl {
                     response_embedding,
                     quality_score: 0.8, // Default quality, can be updated with feedback
                     routing_features: vec![
-                        generated_tokens.len() as f32 / params.max_tokens as f32,
+                        completion_tokens as f32 / params.max_tokens.max(1) as f32,
                         params.temperature,
                         params.top_p,
                         0.5, // placeholder
@@ -1502,7 +1644,18 @@ mod candle_impl {
                 }
             }
 
-            Ok(output)
+            Ok(GenerationOutput {
+                text,
+                prompt_tokens,
+                completion_tokens,
+                finish_reason,
+            })
+        }
+
+        fn chat_template(&self) -> Option<ChatTemplate> {
+            self.ruv_tokenizer
+                .as_ref()
+                .and_then(|t| t.chat_template().cloned())
         }
 
         fn generate_stream(
@@ -1525,147 +1678,29 @@ mod candle_impl {
         }
 
         fn generate_stream_v2(&self, prompt: &str, params: GenerateParams) -> Result<TokenStream> {
-            let tokenizer = self
-                .tokenizer
-                .as_ref()
-                .ok_or_else(|| RuvLLMError::InvalidOperation("No tokenizer loaded".to_string()))?;
-
-            // Check if model is loaded
-            if self.model.is_none() {
-                // Return mock stream for development/testing
-                return self.mock_stream(prompt, &params);
-            }
-
-            let model = self.model.as_ref().unwrap();
-            let max_ctx = model.config.max_position_embeddings;
-
-            // Clear KV cache for new generation
-            self.clear_kv_cache();
-
-            // Create channel for streaming
+            // The model is borrowed from `self`, so it cannot move to a worker
+            // thread: generation runs to completion here and the stream replays
+            // its deltas. For tokens as they are produced, use the
+            // `generate_detailed` callback.
             let (tx, stream) = TokenStream::channel();
+            let start = Instant::now();
+            let output = self.generate_detailed(prompt, params, &mut |token| {
+                // The receiver is `stream`, alive until this returns.
+                let _ = tx.send(StreamEvent::Token(token.clone()));
+                true
+            })?;
 
-            // Encode prompt
-            let tokens = tokenizer.encode(prompt)?;
-            let prompt_len = tokens.len();
-
-            if prompt_len >= max_ctx {
-                return Err(RuvLLMError::Generation(format!(
-                    "Prompt too long: {} tokens exceeds max context {}",
-                    prompt_len, max_ctx
-                )));
-            }
-
-            let eos_token_id = tokenizer.special_tokens.eos_token_id;
-            let _stop_sequences = params.stop_sequences.clone();
-            let _max_tokens = params.max_tokens;
-
-            // Clone what we need for the generation thread
-            let device = self.device.clone();
-            let tokenizer_inner = tokenizer.inner.clone();
-            let special_tokens = tokenizer.special_tokens.clone();
-
-            // Process prompt through model first
-            let input_tensor = Tensor::new(tokens.as_slice(), &device)
-                .map_err(|e| RuvLLMError::Generation(e.to_string()))?
-                .unsqueeze(0)
-                .map_err(|e| RuvLLMError::Generation(e.to_string()))?;
-
-            let initial_logits = self.forward(&input_tensor, tokens.len())?;
-
-            // Clone params for thread
-            let params_clone = params.clone();
-
-            // Note: For full streaming support, we need to pass model access to the thread.
-            // This simplified version processes initial logits then sends completion.
-            // A production implementation would use an async runtime or proper thread-safe model wrapper.
-
-            std::thread::spawn(move || {
-                let start = Instant::now();
-                let mut token_count = 0usize;
-                let mut accumulated_text = String::new();
-
-                // Sample from initial logits (simplified - full impl would continue generation)
-                let logits_vec: Vec<f32> = match initial_logits.squeeze(0) {
-                    Ok(squeezed) => {
-                        let seq_len = squeezed.dim(0).unwrap_or(1);
-                        match squeezed.i(seq_len.saturating_sub(1)) {
-                            Ok(last) => last.to_vec1().unwrap_or_default(),
-                            Err(_) => vec![],
-                        }
-                    }
-                    Err(_) => vec![],
-                };
-
-                if logits_vec.is_empty() {
-                    let _ = tx.send(StreamEvent::Error(
-                        "Failed to process initial logits".to_string(),
-                    ));
-                    return;
-                }
-
-                // Sample tokens from logits
-                let mut indexed: Vec<(usize, f32)> = logits_vec
-                    .iter()
-                    .enumerate()
-                    .map(|(i, &v)| (i, v))
-                    .collect();
-                indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-
-                // Simple top-k sampling
-                if params_clone.top_k > 0 {
-                    indexed.truncate(params_clone.top_k);
-                }
-
-                // Use first token as result (simplified)
-                let next_token = indexed.first().map(|(i, _)| *i as u32).unwrap_or(0);
-
-                // Check for EOS
-                if let Some(eos_id) = eos_token_id {
-                    if next_token == eos_id {
-                        let duration_ms = start.elapsed().as_millis() as u64;
-                        let _ = tx.send(StreamEvent::Done {
-                            total_tokens: 0,
-                            duration_ms,
-                            tokens_per_second: 0.0,
-                        });
-                        return;
-                    }
-                }
-
-                // Decode and send first token
-                let token_text = tokenizer_inner
-                    .decode(&[next_token], true)
-                    .unwrap_or_default();
-
-                accumulated_text.push_str(&token_text);
-
-                let token = GeneratedToken {
-                    id: next_token,
-                    text: token_text,
-                    logprob: None,
-                    is_special: Some(next_token) == special_tokens.bos_token_id
-                        || Some(next_token) == special_tokens.eos_token_id,
-                };
-
-                if tx.send(StreamEvent::Token(token)).is_ok() {
-                    token_count += 1;
-                }
-
-                let duration_ms = start.elapsed().as_millis() as u64;
-                let tps = if duration_ms > 0 {
-                    token_count as f64 / (duration_ms as f64 / 1000.0)
-                } else {
-                    0.0
-                };
-
-                let _ = tx.send(StreamEvent::Done {
-                    total_tokens: token_count,
-                    duration_ms,
-                    tokens_per_second: tps,
-                });
+            let duration_ms = start.elapsed().as_millis() as u64;
+            let tokens_per_second = if duration_ms > 0 {
+                output.completion_tokens as f64 / (duration_ms as f64 / 1000.0)
+            } else {
+                0.0
+            };
+            let _ = tx.send(StreamEvent::Done {
+                total_tokens: output.completion_tokens,
+                duration_ms,
+                tokens_per_second,
             });
-
             Ok(stream)
         }
 
@@ -1705,6 +1740,7 @@ mod candle_impl {
             self.model = None;
             self.tokenizer = None;
             self.ruv_tokenizer = None;
+            self.stop_token_ids.clear();
             self.config = None;
             self.model_id.clear();
             *self.current_pos.lock().expect("current_pos mutex poisoned") = 0;

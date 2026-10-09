@@ -145,19 +145,8 @@ async function benchmarkCoreEngine() {
   const llm = new RuvLLM({ embeddingDim: 256 });
   const benchmarks = [];
 
-  // Query benchmark
-  benchmarks.push(benchmark('query (short)', () => {
-    llm.query('Hello world');
-  }, CONFIG.iterations.medium));
-
-  benchmarks.push(benchmark('query (long)', () => {
-    llm.query('This is a longer query that contains more text and should require more processing time to handle properly.');
-  }, CONFIG.iterations.medium));
-
-  // Generate benchmark
-  benchmarks.push(benchmark('generate', () => {
-    llm.generate('Write a story');
-  }, CONFIG.iterations.medium));
+  // query()/generate() need a loaded model (loadModel) and are not
+  // benchmarked here; without one they throw RUVLLM_NO_LANGUAGE_MODEL.
 
   // Embed benchmark
   for (const dim of [256, 768]) {
@@ -550,7 +539,9 @@ async function benchmarkSession() {
   console.log('\n📊 Session & Streaming Benchmarks');
   console.log('─'.repeat(60));
 
-  const llm = new RuvLLM();
+  // Session/streaming overhead around a labelled placeholder: no model is
+  // loaded, so these numbers exclude generation.
+  const llm = new RuvLLM({ allowPlaceholder: true });
   const benchmarks = [];
 
   // Session creation

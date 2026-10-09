@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use crate::models::{get_model, resolve_model_id, QuantPreset};
+use ruvllm::{ChatTemplate, Role};
 
 /// Speculative decoding configuration for chat
 struct SpeculativeConfig {
@@ -23,8 +24,12 @@ struct SpeculativeConfig {
 /// Chat session state
 struct ChatSession {
     model_id: String,
-    backend: Box<dyn ruvllm::LlmBackend>,
+    /// `None` only with `--allow-mock` after a failed load: replies are then
+    /// labelled placeholder text.
+    backend: Option<Box<dyn ruvllm::LlmBackend>>,
     draft_backend: Option<Box<dyn ruvllm::LlmBackend>>,
+    /// Prompt format of the loaded model (as `serve` chooses it)
+    template: ChatTemplate,
     history: Vec<ChatMessage>,
     system_prompt: Option<String>,
     max_tokens: usize,
@@ -48,6 +53,7 @@ pub async fn run(
     cache_dir: &str,
     draft_model: Option<&str>,
     speculative_lookahead: usize,
+    allow_mock: bool,
 ) -> Result<()> {
     let quant = QuantPreset::from_str(quantization)
         .ok_or_else(|| anyhow::anyhow!("Invalid quantization format: {}", quantization))?;
@@ -60,21 +66,21 @@ pub async fn run(
 
     // Load main model
     println!("{}", "Loading model...".yellow());
-    let backend = load_model(&model_id, quant, cache_dir)?;
+    let backend = load_model(&model_id, quant, cache_dir, allow_mock)?;
 
-    if let Some(info) = backend.model_info() {
-        println!(
+    match backend.as_ref().and_then(|b| b.model_info()) {
+        Some(info) => println!(
             "{} Loaded {} ({:.1}B params)",
             style("Ready!").green().bold(),
             info.name,
             info.num_parameters as f64 / 1e9
-        );
-    } else {
-        println!(
-            "{} Model loaded (mock mode)",
-            style("Ready!").yellow().bold()
-        );
+        ),
+        None => println!(
+            "{} MOCK MODE (--allow-mock): every reply is placeholder text, not model output",
+            style("Warning:").yellow().bold()
+        ),
     }
+    let template = super::serve::select_chat_template(backend.as_deref(), &model_id);
 
     // Load draft model for speculative decoding if provided
     let (draft_backend, speculative_config) = if let Some(draft_id) = draft_model {
@@ -86,9 +92,10 @@ pub async fn run(
             &crate::models::resolve_weights_repo(draft_id, quant),
             quant,
             cache_dir,
+            allow_mock,
         )?;
 
-        if let Some(info) = draft.model_info() {
+        if let Some(info) = draft.as_ref().and_then(|d| d.model_info()) {
             println!(
                 "{} Draft model: {} ({:.1}B params)",
                 style("Speculative:").cyan().bold(),
@@ -108,7 +115,7 @@ pub async fn run(
             config.lookahead
         );
 
-        (Some(draft), Some(config))
+        (draft, Some(config))
     } else {
         (None, None)
     };
@@ -118,6 +125,7 @@ pub async fn run(
         model_id,
         backend,
         draft_backend,
+        template,
         history: Vec::new(),
         system_prompt: system_prompt.map(String::from),
         max_tokens,
@@ -236,12 +244,14 @@ fn print_header(model_id: &str, system_prompt: Option<&str>, max_tokens: usize, 
     println!();
 }
 
-/// Load model for chat
+/// Load model for chat. A failed load is an error; with `allow_mock` it is
+/// a warning and `None` (labelled placeholder replies).
 fn load_model(
     model_id: &str,
     quant: QuantPreset,
     cache_dir: &str,
-) -> Result<Box<dyn ruvllm::LlmBackend>> {
+    allow_mock: bool,
+) -> Result<Option<Box<dyn ruvllm::LlmBackend>>> {
     let mut backend = ruvllm::create_backend();
 
     let config = ruvllm::ModelConfig {
@@ -250,20 +260,37 @@ fn load_model(
         ..Default::default()
     };
 
-    // Try local cache first
-    let model_path = PathBuf::from(cache_dir).join("models").join(model_id);
-    let load_result = if model_path.exists() {
-        backend.load_model(model_path.to_str().unwrap(), config.clone())
-    } else {
-        backend.load_model(model_id, config)
-    };
+    // The downloaded GGUF for this quantization, else the id or path given.
+    let loaded = crate::models::local_model_source(cache_dir, model_id, quant)
+        .and_then(|source| {
+            backend
+                .load_model(&source, config)
+                .map_err(|e| anyhow::anyhow!("{}", e))
+        })
+        .and_then(
+            |()| match (backend.is_model_loaded(), backend.tokenizer()) {
+                (true, Some(_)) => Ok(()),
+                _ => Err(anyhow::anyhow!("no model or no tokenizer was loaded")),
+            },
+        );
 
-    // Ignore load errors for now (will use mock mode)
-    if let Err(e) = load_result {
-        tracing::warn!("Model load failed, running in mock mode: {}", e);
+    match loaded {
+        Ok(()) => Ok(Some(backend)),
+        Err(e) if allow_mock => {
+            eprintln!(
+                "{} model {} failed to load: {:#}",
+                style("Warning:").yellow().bold(),
+                model_id,
+                e
+            );
+            Ok(None)
+        }
+        Err(e) => Err(e.context(format!(
+            "model {} failed to load (pass --allow-mock / RUVLLM_ALLOW_MOCK=1 for labelled \
+             placeholder replies)",
+            model_id
+        ))),
     }
-
-    Ok(backend)
 }
 
 /// Generate response from the model with streaming output
@@ -274,9 +301,6 @@ fn generate_response(session: &mut ChatSession, user_input: &str) -> Result<Stri
         content: user_input.to_string(),
     });
 
-    // Build prompt
-    let prompt = build_prompt(&session.history);
-
     // Generate parameters
     let params = ruvllm::GenerateParams {
         max_tokens: session.max_tokens,
@@ -285,20 +309,22 @@ fn generate_response(session: &mut ChatSession, user_input: &str) -> Result<Stri
         ..Default::default()
     };
 
-    let response = if session.backend.is_model_loaded() {
-        // Try streaming first
-        generate_with_streaming(session.backend.as_ref(), &prompt, params.clone()).unwrap_or_else(
-            |_| {
-                // Fall back to non-streaming
-                session
-                    .backend
-                    .generate(&prompt, params)
-                    .unwrap_or_else(|_| mock_response(user_input))
-            },
-        )
-    } else {
-        // Use streaming mock response
-        generate_streaming_mock(user_input)?
+    let result = match &session.backend {
+        Some(backend) => {
+            let prompt = build_prompt(&session.template, &session.history);
+            generate_with_streaming(backend.as_ref(), &prompt, params)
+        }
+        // Only with --allow-mock
+        None => generate_streaming_mock(user_input),
+    };
+    // A failed turn is reported, and dropped from the history: neither an
+    // error nor placeholder text becomes part of the next prompt.
+    let response = match result {
+        Ok(response) => response,
+        Err(e) => {
+            session.history.pop();
+            return Err(e);
+        }
     };
 
     // Add assistant response to history
@@ -402,42 +428,26 @@ fn generate_streaming_mock(input: &str) -> Result<String> {
     Ok(full_response)
 }
 
-/// Build prompt from chat history
-fn build_prompt(history: &[ChatMessage]) -> String {
-    let mut prompt = String::new();
-
-    for msg in history {
-        match msg.role.as_str() {
-            "system" => {
-                prompt.push_str(&format!("<|system|>\n{}\n<|end|>\n", msg.content));
-            }
-            "user" => {
-                prompt.push_str(&format!("<|user|>\n{}\n<|end|>\n", msg.content));
-            }
-            "assistant" => {
-                prompt.push_str(&format!("<|assistant|>\n{}\n<|end|>\n", msg.content));
-            }
-            _ => {}
-        }
-    }
-
-    prompt.push_str("<|assistant|>\n");
-    prompt
+/// Render the chat history with the model's chat template
+fn build_prompt(template: &ChatTemplate, history: &[ChatMessage]) -> String {
+    let messages: Vec<ruvllm::ChatMessage> = history
+        .iter()
+        .filter_map(|msg| {
+            let role = match msg.role.as_str() {
+                "system" => Role::System,
+                "user" => Role::User,
+                "assistant" => Role::Assistant,
+                _ => return None,
+            };
+            Some(ruvllm::ChatMessage::new(role, msg.content.clone()))
+        })
+        .collect();
+    template.format(&messages)
 }
 
-/// Mock response for testing
-fn mock_response(input: &str) -> String {
-    let input_lower = input.to_lowercase();
-
-    if input_lower.contains("hello") || input_lower.contains("hi") {
-        "Hello! I'm running in mock mode since the model couldn't be loaded. To get real responses, make sure to download a model first with `ruvllm download <model>`.".to_string()
-    } else if input_lower.contains("help") {
-        "I can help with various tasks like answering questions, writing code, explaining concepts, and more. What would you like to know?".to_string()
-    } else if input_lower.contains("code") || input_lower.contains("rust") {
-        "Here's a simple Rust example:\n\n```rust\nfn main() {\n    println!(\"Hello from RuvLLM!\");\n}\n```\n\nWould you like me to explain how this works?".to_string()
-    } else {
-        format!("I understand you're asking about '{}'. In mock mode, I can only provide placeholder responses. Please download and load a model for full functionality.", truncate(input, 50))
-    }
+/// The placeholder reply of `--allow-mock` mode. It says what it is.
+fn mock_response(_input: &str) -> String {
+    "[ruvllm mock mode] No model is loaded; this is placeholder text, not model output.".to_string()
 }
 
 /// Command result
@@ -684,5 +694,20 @@ mod tests {
     fn test_mock_response() {
         let response = mock_response("hello");
         assert!(response.contains("mock mode"));
+        assert!(response.contains("not model output"));
+    }
+
+    #[test]
+    fn test_build_prompt_uses_the_model_template() {
+        let msg = |role: &str, content: &str| ChatMessage {
+            role: role.to_string(),
+            content: content.to_string(),
+        };
+        let history = [msg("system", "Be brief."), msg("user", "Hi")];
+        assert_eq!(
+            build_prompt(&ChatTemplate::Qwen, &history),
+            "<|im_start|>system\nBe brief.<|im_end|>\n\
+             <|im_start|>user\nHi<|im_end|>\n<|im_start|>assistant\n"
+        );
     }
 }

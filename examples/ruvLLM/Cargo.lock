@@ -4018,7 +4018,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-core"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "anyhow",
  "bincode 2.0.1",
@@ -4068,7 +4068,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-graph"
-version = "2.3.1"
+version = "2.3.2"
 dependencies = [
  "anyhow",
  "bincode 2.0.1",
@@ -4165,7 +4165,7 @@ dependencies = [
  "ruvector-gnn",
  "ruvector-graph",
  "ruvector-sona",
- "ruvllm 2.3.0",
+ "ruvllm 2.5.0",
  "serde",
  "serde_json",
  "simsimd",
@@ -4184,7 +4184,7 @@ dependencies = [
 
 [[package]]
 name = "ruvllm"
-version = "2.3.0"
+version = "2.5.0"
 dependencies = [
  "anyhow",
  "async-trait",

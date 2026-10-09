@@ -26,20 +26,91 @@ const llm = new RuvLLM();
 // Or with custom configuration
 const llm = new RuvLLM({ embeddingDim: 384, learningEnabled: true });
 
-// Routing, memory and embeddings
+// Routing, memory and embeddings (no model needed)
 const decision = llm.route('Explain quantum computing');
 llm.addMemory('RuvLLM routes queries with FastGRNN', { source: 'docs' });
 const hits = llm.searchMemory('how are queries routed?', 3);
 const vec = llm.embed('Explain quantum computing');
 ```
 
-> **Text generation.** This package does not load model files (`modelPath` is
-> ignored), and the native engine has no language-model weights, so the text
-> returned by `generate()` and `query()` is not model output. The first such
-> call emits a `RUVLLM_NO_LANGUAGE_MODEL` warning; pass `{ strict: true }` to
-> throw instead. For GGUF inference, run the CLI (`ruvllm serve <model>`, with
-> `--strict` to exit if the model fails to load) or any OpenAI-compatible
-> server, and call it over HTTP.
+## Text Generation (GGUF)
+
+Text comes only from a model you load. `loadModel()` runs a local GGUF file
+on the native candle backend (CPU; Metal on macOS builds with the `metal`
+feature):
+
+```typescript
+const llm = new RuvLLM();
+llm.loadModel('./qwen2.5-0.5b-instruct-q4_k_m.gguf', { maxContext: 4096 });
+
+const out = llm.chat([{ role: 'user', content: 'What is the capital of France?' }], {
+  maxTokens: 64,
+  temperature: 0,
+});
+// { text: 'The capital of France is Paris.', promptTokens: 15,
+//   completionTokens: 8, finishReason: 'stop' }
+```
+
+- **Architectures**: GGUF `llama`, `mistral`, `qwen2` (Qwen2.5) and `qwen3`.
+  Any other architecture (phi, gemma, qwen3.5, ...) fails to load with an error
+  naming it.
+- **Tokenizer**: a `tokenizer.json` next to the GGUF, else the tokenizer
+  embedded in the GGUF. The embedded one works for byte-level BPE (`gpt2`)
+  vocabularies such as Qwen and Llama 3; GGUFs with a SentencePiece vocabulary
+  (Llama 2, Mistral, TinyLlama) need the `tokenizer.json`, otherwise loading
+  fails with `RUVLLM_TOKENIZER_MISSING`.
+- **`chat()`** applies the model's chat template, read from the GGUF's
+  embedded `tokenizer.chat_template` (ChatML for Qwen). A `qwen2`/`qwen3` GGUF
+  whose template is not ChatML (e.g. DeepSeek-R1-Distill-Qwen) fails to load
+  with `RUVLLM_MODEL_LOAD_FAILED` rather than run under the wrong format.
+- **`generate()`** continues the prompt verbatim; **`query()`** routes, then
+  answers as a single chat message.
+- **Usage**: `promptTokens`/`completionTokens` are counted with the model's
+  tokenizer; `finishReason` is `stop` (end-of-sequence token or a stop
+  sequence) or `length` (`maxTokens` reached or the context is full).
+- **Blocking**: loading and generation are synchronous and block the event
+  loop; run them in a worker thread if that matters.
+
+Without a loaded model, `generate()`, `query()`, `chat()` and
+`generateDetailed()` throw `RUVLLM_NO_LANGUAGE_MODEL`; they never return text
+that is not model output. For demos and tests, `new RuvLLM({ allowPlaceholder:
+true })` (or `RUVLLM_ALLOW_MOCK=1`) makes `generate()`/`query()` return the
+labelled `PLACEHOLDER_TEXT` instead, with a one-time warning.
+
+### Native binary requirements
+
+Model loading needs a native binary built with the `candle` feature;
+`supportsModelLoading()` reports whether the installed one was.
+
+| Native binary | `loadModel()` |
+|---------------|---------------|
+| Built from this source (`npm run build:native`) | Works |
+| `@ruvector/ruvllm-<platform>` 3.x (built by the release workflow with `candle`) | Works |
+| `@ruvector/ruvllm-<platform>` 2.0.x | Throws `RUVLLM_NATIVE_TOO_OLD`: they predate model loading |
+| Built with `--features napi` only (no `candle`) | Throws `RUVLLM_NO_INFERENCE_BACKEND` |
+| None for your platform | Throws `RUVLLM_NATIVE_UNAVAILABLE` |
+
+To use a binary you built, point `RUVLLM_NATIVE_PATH` at it (it takes
+precedence over the installed platform package):
+
+```bash
+npm run build:native   # writes ruvllm.<platform>.node (needs a Rust toolchain)
+RUVLLM_NATIVE_PATH=$PWD/ruvllm.linux-x64-gnu.node node app.js
+```
+
+Until the 3.x platform packages are on npm, build the binary from source as
+above, or use the ruvllm CLI (`ruvllm serve <model>`, an OpenAI-compatible
+server that exits if the model fails to load).
+
+| Error code | Meaning |
+|------------|---------|
+| `RUVLLM_NO_LANGUAGE_MODEL` | Generation was requested with no model loaded |
+| `RUVLLM_NATIVE_UNAVAILABLE` | No native binary could be loaded |
+| `RUVLLM_NATIVE_TOO_OLD` | The native binary predates model loading (2.0.x platform packages) |
+| `RUVLLM_NO_INFERENCE_BACKEND` | The native binary was built without the `candle` backend |
+| `RUVLLM_MODEL_NOT_FOUND` | The model path does not exist |
+| `RUVLLM_MODEL_LOAD_FAILED` | The file could not be loaded (unsupported architecture, not GGUF, ...) |
+| `RUVLLM_TOKENIZER_MISSING` | Weights loaded but no usable tokenizer was found |
 
 ## What's New in v2.5
 
@@ -82,9 +153,10 @@ import { simd } from '@ruvector/ruvllm/simd';
 ## CLI Usage
 
 ```bash
-# Query a model
-ruvllm query "What is machine learning?"
+# Query a model (this package's `ruvllm` bin; needs --model, see above)
+ruvllm query "What is machine learning?" --model ./qwen2.5-0.5b-instruct-q4_k_m.gguf
 
+# The commands below are the Rust ruvllm CLI (crate ruvllm-cli)
 # Stream output
 ruvllm query --stream "Write a poem"
 
@@ -106,11 +178,18 @@ ruvllm eval --model ./models/model.gguf --subset lite --max-tasks 50
 class RuvLLM {
   constructor(config?: RuvLLMConfig);
 
-  // Routed query; text is not model output (see "Text generation" above)
-  query(text: string, config?: GenerationConfig): QueryResponse;
+  // Language model (see "Text Generation" above)
+  loadModel(path: string, options?: LoadModelOptions): LoadedModelInfo;
+  unloadModel(): void;
+  isModelLoaded(): boolean;
+  modelInfo(): LoadedModelInfo | null;
+  supportsModelLoading(): boolean; // native binary can load models
 
-  // Text from the native engine; not model output (see above)
+  // Generation; all throw RUVLLM_NO_LANGUAGE_MODEL without a loaded model
+  chat(messages: ChatMessage[], config?: GenerationConfig): GenerationResult;
+  generateDetailed(prompt: string, config?: GenerationConfig): GenerationResult;
   generate(prompt: string, config?: GenerationConfig): string;
+  query(text: string, config?: GenerationConfig): QueryResponse; // routed, + token usage
 
   // Routing, memory and embeddings
   route(text: string): RoutingDecision;
@@ -118,8 +197,8 @@ class RuvLLM {
   searchMemory(text: string, k?: number): MemoryResult[];
   embed(text: string): Embedding;
 
-  // Not in this package: loadModel(), stream() (streaming lives in
-  // StreamingGenerator), mistral-rs backends. Use the ruvllm CLI for GGUF.
+  // Not in this package: token streaming (StreamingGenerator chunks a
+  // finished generate() result), mistral-rs backends.
 
   // Get SONA learning stats
   sonaStats(): SonaStats | null;
@@ -133,26 +212,33 @@ class RuvLLM {
 
 ```typescript
 interface RuvLLMConfig {
-  modelPath?: string;       // Not supported: ignored with a RUVLLM_UNSUPPORTED_OPTION warning
-  strict?: boolean;         // Throw instead of warning about placeholder text (default: false)
-  sonaEnabled?: boolean;    // Enable SONA learning (default: true)
-  flashAttention?: boolean; // Use Flash Attention 2 (default: true)
-  maxTokens?: number;       // Max generation tokens (default: 256)
-  temperature?: number;     // Sampling temperature (default: 0.7)
-  topP?: number;            // Top-p sampling (default: 0.9)
+  modelPath?: string;              // GGUF to load in the constructor (throws if it cannot be loaded)
+  modelOptions?: LoadModelOptions; // { maxContext?: number } for modelPath
+  allowPlaceholder?: boolean;      // generate()/query() return PLACEHOLDER_TEXT instead of
+                                   // throwing when no model is loaded (default: false)
+  strict?: boolean;                // Throw instead of warning for unsupported options (`backend`)
+  // ...plus routing/memory options (embeddingDim, hnswM, ...), see types.ts
 }
 ```
 
-### Generate Parameters
+### Generation Config and Result
 
 ```typescript
-interface GenerateParams {
-  maxTokens?: number;
-  temperature?: number;
-  topP?: number;
-  topK?: number;
-  repetitionPenalty?: number;
-  stopSequences?: string[];
+interface GenerationConfig {
+  maxTokens?: number;          // default 256
+  temperature?: number;        // default 0.7; 0 = greedy
+  topP?: number;               // default 0.9, in (0, 1]
+  topK?: number;               // default 50; 0 disables
+  repetitionPenalty?: number;  // default 1.1
+  stopSequences?: string[];    // stop text is not included in the output
+  seed?: number;               // reproducible sampling at temperature > 0
+}
+
+interface GenerationResult {
+  text: string;
+  promptTokens: number;        // after the chat template, for chat()
+  completionTokens: number;    // includes an end-of-sequence token that ended generation
+  finishReason: 'stop' | 'length' | 'cancelled';
 }
 ```
 
@@ -187,6 +273,9 @@ simd.rmsNorm(hidden, weights, epsilon);
 | Evaluation | 5 ablation modes |
 
 ## Evaluation Harness
+
+> **Not in this npm package**: `EvaluationHarness` and `AblationMode` are
+> not exported by `@ruvector/ruvllm`. The sketch below shows the intended API.
 
 Run model evaluations with SWE-Bench integration:
 
@@ -250,19 +339,29 @@ await llm.loadModel('mistralai/Mistral-7B-Instruct-v0.2');
 const response = await llm.query('Write production code');
 ```
 
-> **Note**: mistral-rs features require the Rust backend with `mistral-rs` feature enabled. Native bindings will use mistral-rs when available.
+> **Not in this npm package**: `MistralBackend` is not exported, the
+> `backend` option is ignored (with a `RUVLLM_UNSUPPORTED_OPTION` warning), and
+> `loadModel()` takes a local GGUF path, not a Hub id. mistral-rs serving is a
+> feature of the Rust crate (`mistral-rs` feature).
 
 ## Supported Models
 
+GGUF files loadable with `loadModel()` (architectures llama, mistral, qwen2, qwen3):
+
 - **RuvLTRA-Small** (494M) - Q4K, Q5K, Q8
 - **RuvLTRA-Medium** (3B) - Q4K, Q5K, Q8
-- **Qwen 2.5** (0.5B-72B)
+- **Qwen 2.5 / Qwen 3** (0.5B-72B)
 - **Llama 3.x** (8B-70B)
 - **Mistral** (7B-22B)
-- **Phi-3** (3.8B-14B)
-- **Gemma-2** (2B-27B)
+
+Phi-3, Gemma-2 and Qwen3.5 GGUFs are not supported: loading fails with an
+error naming the architecture.
 
 ## Platform Support
+
+The table covers routing, memory and embeddings. Model loading additionally
+needs a native binary built with the `candle` feature (see "Native binary
+requirements").
 
 | Platform | Architecture | Status |
 |----------|--------------|--------|

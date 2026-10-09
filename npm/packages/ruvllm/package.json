@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ruvllm",
-  "version": "2.7.0",
+  "version": "3.0.0",
   "description": "Self-learning LLM runtime \u2014 TurboQuant KV-cache (6-8x compression), SONA adaptive learning, FlashAttention, speculative decoding, GGUF inference",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -31,6 +31,7 @@
     "ruvllm": "./bin/cli.js"
   },
   "napi": {
+    "name": "ruvllm",
     "binaryName": "ruvllm",
     "targets": [
       "x86_64-unknown-linux-gnu",
@@ -46,8 +47,8 @@
     "build:cjs": "tsc",
     "build:esm": "tsc -p tsconfig.esm.json && node scripts/fix-esm-extensions.mjs",
     "verify:esm": "node scripts/fix-esm-extensions.mjs --verify",
-    "build:native": "napi build --platform --release -p ruvllm --manifest-path ../../../examples/ruvLLM/Cargo.toml -F napi",
-    "build:debug": "napi build --platform -p ruvllm --manifest-path ../../../examples/ruvLLM/Cargo.toml -F napi",
+    "build:native": "napi build --platform --release --cargo-cwd ../../../examples/ruvLLM --features napi,candle --cargo-flags=--lib",
+    "build:debug": "napi build --platform --cargo-cwd ../../../examples/ruvLLM --features napi,candle --cargo-flags=--lib",
     "prepublishOnly": "npm run build",
     "test": "node --test test/*.test.js",
     "test:esm-smoke": "node scripts/smoke-esm.mjs",

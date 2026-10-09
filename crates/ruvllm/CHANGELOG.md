@@ -5,6 +5,39 @@ All notable changes to the ruvllm crate will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-10-08
+
+### Added
+- Candle backend loads `qwen2` (Qwen2, Qwen2.5) and `qwen3` GGUF files with
+  candle-transformers' `quantized_qwen2` / `quantized_qwen3`, dispatched on
+  `general.architecture`. Other architectures (e.g. `qwen35`, `qwen3moe`,
+  `phi3`, `gemma2`) and split GGUFs fail to load with an error naming them.
+- `LlmBackend::generate_detailed` (token callback, prompt/completion token
+  counts, finish reason) returning `GenerationOutput`, and
+  `LlmBackend::chat_template`; both have default implementations.
+
+### Changed
+- The chat template comes from the GGUF's embedded `tokenizer.chat_template`.
+  A `qwen2`/`qwen3` GGUF whose template is not ChatML (e.g.
+  DeepSeek-R1-Distill-Qwen) is rejected at load instead of being prompted as
+  ChatML. Name-based guesses use only the last path component.
+- Stop tokens include the GGUF's declared EOS / end-of-turn ids.
+- `CandleBackend::generate_stream_v2` runs the real decode loop (it sampled one
+  token before) and replays the tokens once generation finishes; without a
+  loaded model it is an error instead of a mock stream.
+- Sampling: one sampler per generation, so a fixed `seed` gives a proper
+  random sequence; temperature is applied once (it was applied twice).
+- `ModelInfo::quantization` reports the GGUF's `general.file_type`.
+- A model directory holding several GGUF files is an error naming them,
+  instead of loading whichever the directory listing returned first.
+- ruvllm-cli 2.5.0: `serve` and `chat` exit when the model fails to load;
+  placeholder replies need `--allow-mock` / `RUVLLM_ALLOW_MOCK=1` and are
+  labelled. `serve` counts usage with the model's tokenizer, reports
+  `finish_reason` `length`/`stop`, returns OpenAI-shaped 400 errors for
+  malformed requests, accepts text content parts, and cancels a generation
+  whose client disconnected. `-q` selects among several downloaded GGUFs.
+  `benchmark` fails instead of timing a model that did not load.
+
 ## [2.0.0] - 2025-01-19
 
 ### Added
