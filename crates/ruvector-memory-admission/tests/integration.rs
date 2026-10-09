@@ -1,3 +1,4 @@
+use ruvector_memory_admission::conditioned::GuardedConditionedAdmission;
 use ruvector_memory_admission::dataset::{StreamConfig, StreamDataset};
 use ruvector_memory_admission::policy::{
     AdaptiveMincutAdmission, AdmissionPolicy, MincutGatedAdmission, NearestCentroidThreshold,
@@ -17,7 +18,7 @@ fn small_dataset() -> StreamDataset {
 fn no_vectors_are_lost_across_all_policies() {
     let ds = small_dataset();
 
-    for policy_name in ["baseline", "mincut", "adaptive"] {
+    for policy_name in ["baseline", "mincut", "adaptive", "conditioned"] {
         let mut assigned = 0usize;
         match policy_name {
             "baseline" => {
@@ -34,8 +35,15 @@ fn no_vectors_are_lost_across_all_policies() {
                     assigned += 1;
                 }
             }
-            _ => {
+            "adaptive" => {
                 let mut p = AdaptiveMincutAdmission::new(1.0, 32, 0.35);
+                for pt in &ds.points {
+                    p.admit(&pt.vector);
+                    assigned += 1;
+                }
+            }
+            _ => {
+                let mut p = GuardedConditionedAdmission::new(0.02, 32, 99);
                 for pt in &ds.points {
                     p.admit(&pt.vector);
                     assigned += 1;
@@ -48,6 +56,35 @@ fn no_vectors_are_lost_across_all_policies() {
             "{policy_name} must admit every point"
         );
     }
+}
+
+#[test]
+fn conditioned_admission_cluster_count_stays_bounded() {
+    let ds = small_dataset();
+    let mut p = GuardedConditionedAdmission::new(0.02, 32, 99);
+    for pt in &ds.points {
+        p.admit(&pt.vector);
+    }
+    assert!(p.n_clusters() <= 32);
+    assert!(p.n_clusters() >= 1);
+}
+
+#[test]
+fn conditioned_admission_decide_without_commit_does_not_mutate_state() {
+    let ds = small_dataset();
+    let mut p = GuardedConditionedAdmission::new(0.02, 32, 99);
+    for pt in ds.points.iter().take(50) {
+        p.admit(&pt.vector);
+    }
+    let clusters_before = p.n_clusters();
+    for pt in ds.points.iter().skip(50).take(20) {
+        let _ = p.decide(&pt.vector);
+    }
+    assert_eq!(
+        p.n_clusters(),
+        clusters_before,
+        "decide() must not mutate GuardedConditionedAdmission state"
+    );
 }
 
 #[test]

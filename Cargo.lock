@@ -10450,6 +10450,9 @@ dependencies = [
 [[package]]
 name = "ruvector-memory-admission"
 version = "2.3.0"
+dependencies = [
+ "ruvector-sona 0.2.1",
+]
 
 [[package]]
 name = "ruvector-metrics"
