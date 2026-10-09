@@ -86,8 +86,13 @@ ruvector import --path new.rbpx --vectors vecs.npy
 ruvector info --path my.rbpx
 ruvector benchmark -n 100000 --dim 128     # in-process latency/QPS, no external comparator
 ruvector serve                             # MCP server over stdio
-ruvector serve --http --port 8420          # MCP server over streamable-HTTP
+ruvector serve --http --port 8420          # MCP server over streamable-HTTP (loopback)
+ruvector serve --read-only                 # no create/insert/delete tools
 ```
+
+`serve --http` on a non-loopback `--host` refuses to start unless
+`RUVECTOR_MCP_TOKEN` is set to a non-empty secret (bearer auth); an empty or
+whitespace-only value counts as unset.
 
 `ruvector --help` starts in ~20ms — every subcommand lazily imports numpy/
 click/rich inside its own function body (see `ruvector/cli.py`'s module
