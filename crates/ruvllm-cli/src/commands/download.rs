@@ -408,7 +408,7 @@ fn get_files_to_download(
 /// larger models (e.g. Qwen2.5-14B), so all parts are downloaded in order.
 /// Fails with the repo's actual GGUF inventory (or full file list) when
 /// nothing matches, instead of 404ing on a glob.
-fn select_gguf_files(
+pub(crate) fn select_gguf_files(
     model_id: &str,
     quant: QuantPreset,
     remote_files: &[String],

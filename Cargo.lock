@@ -5443,7 +5443,7 @@ dependencies = [
  "ruvector-solver",
  "ruvector-sona 0.2.1",
  "ruvector-sparsifier",
- "ruvllm 2.4.0",
+ "ruvllm 2.5.0",
  "rvf-crypto",
  "rvf-federation",
  "rvf-runtime",
@@ -10267,7 +10267,7 @@ dependencies = [
  "ruvector-core 2.3.1",
  "ruvector-hailo",
  "ruvector-mmwave",
- "ruvllm 2.4.0",
+ "ruvllm 2.5.0",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -11646,7 +11646,7 @@ dependencies = [
 
 [[package]]
 name = "ruvllm"
-version = "2.4.0"
+version = "2.5.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -11698,7 +11698,7 @@ dependencies = [
 
 [[package]]
 name = "ruvllm-cli"
-version = "2.4.0"
+version = "2.5.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -11718,7 +11718,7 @@ dependencies = [
  "predicates",
  "prettytable-rs",
  "rustyline",
- "ruvllm 2.4.0",
+ "ruvllm 2.5.0",
  "serde",
  "serde_json",
  "tempfile",

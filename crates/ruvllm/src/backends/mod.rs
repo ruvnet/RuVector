@@ -71,6 +71,9 @@
 mod candle_backend;
 
 #[cfg(feature = "candle")]
+mod gguf_arch;
+
+#[cfg(feature = "candle")]
 pub mod gguf_tokenizer;
 
 #[cfg(feature = "candle")]
@@ -560,6 +563,22 @@ pub enum StreamEvent {
     Error(String),
 }
 
+/// Result of [`LlmBackend::generate_detailed`]: the completion plus the token
+/// accounting and stop reason an OpenAI-compatible server reports.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GenerationOutput {
+    /// Generated text (excluding the prompt and any stop sequence)
+    pub text: String,
+    /// Tokens in the prompt as given (after any chat template was applied)
+    pub prompt_tokens: usize,
+    /// Tokens sampled, including an end-of-sequence token that ended generation
+    pub completion_tokens: usize,
+    /// Why generation ended: `Length` (max tokens or context full), `Stop`
+    /// (stop sequence), `EndOfSequence` (EOS / end-of-turn token) or
+    /// `Cancelled` (the token callback returned `false`)
+    pub finish_reason: crate::serving::FinishReason,
+}
+
 /// Streaming token iterator.
 ///
 /// Provides an iterator interface over generated tokens, allowing
@@ -828,6 +847,60 @@ pub trait LlmBackend: Send + Sync {
     /// A TokenStream that yields StreamEvents as tokens are generated
     fn generate_stream_v2(&self, prompt: &str, params: GenerateParams) -> Result<TokenStream>;
 
+    /// Generate text, reporting token counts and the finish reason.
+    ///
+    /// `on_token` receives text deltas as they become final; returning `false`
+    /// stops generation with [`FinishReason::Cancelled`](crate::serving::FinishReason).
+    /// Concatenating every delta yields `GenerationOutput::text`.
+    ///
+    /// The default implementation wraps [`generate`](Self::generate): it sends
+    /// the whole text in one callback, counts tokens by re-encoding prompt and
+    /// output with [`tokenizer`](Self::tokenizer) (0 without one), and reports
+    /// `Length` when that count reaches `max_tokens`, else `Stop`. Those numbers
+    /// are approximate; backends that run their own decode loop override this.
+    fn generate_detailed(
+        &self,
+        prompt: &str,
+        params: GenerateParams,
+        on_token: &mut dyn FnMut(&GeneratedToken) -> bool,
+    ) -> Result<GenerationOutput> {
+        let max_tokens = params.max_tokens;
+        let text = self.generate(prompt, params)?;
+        let count = |s: &str| {
+            self.tokenizer()
+                .and_then(|t| t.encode(s).ok())
+                .map_or(0, |ids| ids.len())
+        };
+        let prompt_tokens = count(prompt);
+        let completion_tokens = count(&text);
+        if !text.is_empty() {
+            on_token(&GeneratedToken {
+                id: 0,
+                text: text.clone(),
+                logprob: None,
+                is_special: false,
+            });
+        }
+        let finish_reason = if completion_tokens >= max_tokens {
+            crate::serving::FinishReason::Length
+        } else {
+            crate::serving::FinishReason::Stop
+        };
+        Ok(GenerationOutput {
+            text,
+            prompt_tokens,
+            completion_tokens,
+            finish_reason,
+        })
+    }
+
+    /// Chat template for the loaded model, when the backend knows it (e.g.
+    /// from the model file); `None` lets callers fall back to
+    /// [`ChatTemplate::detect_from_model_id`](crate::tokenizer::ChatTemplate::detect_from_model_id).
+    fn chat_template(&self) -> Option<crate::tokenizer::ChatTemplate> {
+        None
+    }
+
     /// Extract embeddings from text
     ///
     /// Uses the model's embedding layer to generate dense vector representations.
@@ -1069,7 +1142,12 @@ pub mod async_stream {
         ) -> Result<AsyncTokenStream>;
     }
 
-    /// Blanket implementation for any LlmBackend
+    /// Blanket implementation for any LlmBackend.
+    ///
+    /// This calls the synchronous [`LlmBackend::generate_stream_v2`] inline.
+    /// For `CandleBackend` that runs the whole generation before the stream
+    /// is returned, blocking the calling (async worker) thread throughout; in
+    /// async code, call `generate_detailed` inside `spawn_blocking` instead.
     #[async_trait::async_trait]
     impl<T: LlmBackend + ?Sized> LlmBackendAsync for T {
         async fn generate_stream_async(
