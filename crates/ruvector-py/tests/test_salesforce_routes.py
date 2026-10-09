@@ -173,3 +173,97 @@ def test_maybe_register_is_idempotent() -> None:
     second = sr.maybe_register()
     assert second is False  # already registered - no double-registration
     assert first in (True, False)  # True the very first time this module is imported in the process
+
+
+# ── pre-publish hardening ───────────────────────────────────────────────────
+
+
+def test_requires_json_content_type(sf_client: Any) -> None:
+    from ruvector import Collection
+
+    import ruvector.mcp_server as m
+
+    m._save("ct", Collection.create(dim=2))
+    body = b'{"collection": "ct", "vector": [1.0, 0.0]}'
+    for ctype in ("text/plain", "application/x-www-form-urlencoded", "multipart/form-data"):
+        r = sf_client.post("/salesforce/upsert", content=body, headers={**_auth_headers(), "Content-Type": ctype})
+        assert r.status_code == 415, ctype
+        assert r.json()["error"] == "unsupported_media_type"
+    r = sf_client.post("/salesforce/upsert", content=body, headers=_auth_headers())  # no content type at all
+    assert r.status_code == 415
+    ok = sf_client.post(
+        "/salesforce/upsert", content=body, headers={**_auth_headers(), "Content-Type": "application/json; charset=utf-8"}
+    )
+    assert ok.status_code == 200
+
+
+def test_non_ascii_bearer_token_is_401_not_500(sf_client: Any) -> None:
+    """hmac.compare_digest(str, str) raises TypeError on non-ASCII input;
+    that used to surface as an unhandled 500."""
+    r = sf_client.post(
+        "/salesforce/upsert",
+        json={"collection": "c", "vector": [1.0, 0.0]},
+        headers=[(b"authorization", "Bearer tøken-é".encode("latin-1")), (b"content-type", b"application/json")],
+    )
+    assert r.status_code == 401
+
+
+def test_bounds_violation_is_4xx_not_500(sf_client: Any) -> None:
+    from ruvector import Collection
+
+    import ruvector.mcp_server as m
+
+    coll = Collection.create(dim=2)
+    coll.insert(np.array([1.0, 0.0], dtype=np.float32))
+    m._save("bd", coll)
+    r = sf_client.post(
+        "/salesforce/search",
+        json={"collection": "bd", "query_vector": [1.0, 0.0], "k": 10**12},
+        headers=_auth_headers(),
+    )
+    assert 400 <= r.status_code < 500
+
+
+def test_read_only_registration_omits_upsert(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RUVECTOR_MCP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("RUVECTOR_SALESFORCE_ACTION_TOKEN", "t")
+    import importlib
+
+    import ruvector.mcp_server as mcp_server_mod
+
+    importlib.reload(mcp_server_mod)
+    import ruvector.salesforce_routes as sr
+
+    importlib.reload(sr)
+    sr.maybe_register(read_only=True)
+    client = starlette_testclient.TestClient(mcp_server_mod.server.streamable_http_app())
+    h = {"Authorization": "Bearer t"}
+    assert client.post("/salesforce/upsert", json={"vector": [1.0]}, headers=h).status_code == 404
+    # search is still mounted: its 404 is the handler's JSON CollectionError, not a missing route
+    r = client.post("/salesforce/search", json={"collection": "nope", "query_vector": [1.0]}, headers=h)
+    assert r.json()["error"] == "CollectionError"
+
+
+@pytest.mark.parametrize("blank", [None, "", "   "])
+def test_register_refuses_without_a_token(monkeypatch: pytest.MonkeyPatch, blank: Any) -> None:
+    import importlib
+
+    for var in ("RUVECTOR_SALESFORCE_ACTION_TOKEN", "RUVECTOR_MCP_TOKEN"):
+        if blank is None:
+            monkeypatch.delenv(var, raising=False)
+        else:
+            monkeypatch.setenv(var, blank)
+    import ruvector.salesforce_routes as sr
+
+    importlib.reload(sr)
+    with pytest.raises(sr.SalesforceAuthNotConfiguredError, match="RUVECTOR_SALESFORCE_ACTION_TOKEN"):
+        sr.maybe_register()
+    assert sr._registered is False
+
+
+def test_blank_action_token_falls_back_to_mcp_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    import ruvector.salesforce_routes as sr
+
+    monkeypatch.setenv("RUVECTOR_SALESFORCE_ACTION_TOKEN", "  ")
+    monkeypatch.setenv("RUVECTOR_MCP_TOKEN", " mcp-tok ")
+    assert sr._expected_action_token() == "mcp-tok"

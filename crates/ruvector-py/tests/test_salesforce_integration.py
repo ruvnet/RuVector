@@ -278,3 +278,29 @@ def test_network_call_without_httpx_raises_install_hint(monkeypatch: pytest.Monk
     monkeypatch.setitem(sys.modules, "httpx", None)
     with pytest.raises(ImportError, match=r"pip install 'ruvector\[salesforce\]'"):
         asyncio.run(sf.get_oauth_token(_config()))
+
+
+# ── pre-publish hardening: https-only instance_url, secret not in repr ──────
+
+
+@pytest.mark.parametrize(
+    "bad", ["http://x.my.salesforce.com", "ftp://x", "x.my.salesforce.com", "", "https://", "file:///etc/passwd"]
+)
+def test_config_rejects_non_https_instance_url(bad: str) -> None:
+    with pytest.raises(ValueError, match="https"):
+        sf.SalesforceConfig(instance_url=bad, client_id="a", client_secret="b")
+
+
+def test_config_from_env_rejects_http_instance_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RUVECTOR_SALESFORCE_INSTANCE_URL", "http://insecure.example.com")
+    monkeypatch.setenv("RUVECTOR_SALESFORCE_CLIENT_ID", "cid")
+    monkeypatch.setenv("RUVECTOR_SALESFORCE_CLIENT_SECRET", "csecret")
+    with pytest.raises(ValueError, match="https"):
+        sf.SalesforceConfig.from_env()
+
+
+def test_config_repr_does_not_leak_secret() -> None:
+    cfg = sf.SalesforceConfig(instance_url=_FAKE_INSTANCE, client_id="cid", client_secret="TOP-SECRET-VALUE")
+    assert "TOP-SECRET-VALUE" not in repr(cfg)
+    assert "TOP-SECRET-VALUE" not in str(cfg)
+    assert cfg.client_secret == "TOP-SECRET-VALUE"

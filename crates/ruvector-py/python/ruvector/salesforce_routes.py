@@ -45,17 +45,28 @@ _FALLBACK_TOKEN_ENV = "RUVECTOR_MCP_TOKEN"
 _registered = False
 
 
+class SalesforceAuthNotConfiguredError(RuntimeError):
+    """The Salesforce action routes were enabled with no bearer token set."""
+
+
 def _expected_action_token() -> "str | None":
-    return os.environ.get(_ACTION_TOKEN_ENV) or os.environ.get(_FALLBACK_TOKEN_ENV)
+    """The configured action token: ``RUVECTOR_SALESFORCE_ACTION_TOKEN``,
+    else ``RUVECTOR_MCP_TOKEN``. Empty / whitespace-only values count as
+    unset (and are skipped), mirroring ``mcp_server._configured_token``."""
+    for var in (_ACTION_TOKEN_ENV, _FALLBACK_TOKEN_ENV):
+        value = (os.environ.get(var) or "").strip()
+        if value:
+            return value
+    return None
 
 
 def _check_salesforce_auth(request: Any) -> "Dict[str, Any] | None":
     """Return a JSON-serializable error dict if the request's bearer token
     doesn't match, or ``None`` if the request may proceed. A missing
-    `_expected_action_token()` (neither env var set) means auth is not
-    configured at all — the same "no-op when unconfigured" policy
-    `mcp_server.py` uses for MCP tool calls, documented there and repeated
-    here rather than silently diverging between the two surfaces.
+    `_expected_action_token()` (neither env var set) is NOT a free pass here:
+    unlike the MCP tools (loopback-only without a token), these routes
+    are a network REST surface, so `maybe_register` refuses to mount them
+    without a token and this check fails closed if that ever changes.
 
     Plain ``hmac.compare_digest`` (constant-time), not
     ``mcp_server.StaticTokenVerifier`` — that class's `verify_token` is an
@@ -69,27 +80,42 @@ def _check_salesforce_auth(request: Any) -> "Dict[str, Any] | None":
     """
     expected = _expected_action_token()
     if expected is None:
-        return None
+        # Fail closed. `maybe_register` refuses to mount these routes with no
+        # token, so this is only reachable if the env changed afterwards.
+        return {"error": "invalid_token", "error_description": "server has no action token configured"}
     header = request.headers.get("authorization", "")
     if not header.startswith("Bearer "):
         return {"error": "invalid_token", "error_description": "missing Authorization: Bearer header"}
     token = header[len("Bearer ") :]
-    if not hmac.compare_digest(token, expected):
+    # Compare as bytes: compare_digest(str, str) raises TypeError on any
+    # non-ASCII character, which an attacker-controlled header can contain
+    # (that was an unhandled 500).
+    if not hmac.compare_digest(token.encode("utf-8"), expected.encode("utf-8")):
         return {"error": "invalid_token", "error_description": "token does not match"}
     return None
 
 
-def maybe_register() -> bool:
+def maybe_register(*, read_only: bool = False) -> bool:
     """Register the Salesforce action routes onto `server`, if not already
     done. Idempotent (safe to call more than once — e.g. once from
     `cli.py`'s `serve` command and once from a test). Returns whether
     registration happened in *this* call (``False`` if already registered
     by an earlier call).
+
+    Raises :class:`SalesforceAuthNotConfiguredError` when no action token
+    is configured — these routes never run unauthenticated. With
+    ``read_only=True`` the mutating ``/salesforce/upsert`` route is not
+    mounted at all.
     """
     global _registered
     if _registered:
         return False
-    _register_routes(server)
+    if _expected_action_token() is None:
+        raise SalesforceAuthNotConfiguredError(
+            f"refusing to mount the Salesforce action routes without authentication: set "
+            f"{_ACTION_TOKEN_ENV} (or {_FALLBACK_TOKEN_ENV}) to a non-empty secret"
+        )
+    _register_routes(server, read_only=read_only)
     _registered = True
     return True
 
@@ -137,6 +163,16 @@ async def _run_action(request: Any, handler: Any) -> Any:
     auth_error = _check_salesforce_auth(request)
     if auth_error is not None:
         return JSONResponse(auth_error, status_code=401)
+    # The routes are POST + JSON by contract. Requiring the media type keeps
+    # a cross-site HTML form (text/plain, urlencoded, multipart: the
+    # "simple" content types a browser may send without a CORS preflight)
+    # from reaching a handler.
+    media_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if media_type != "application/json":
+        return JSONResponse(
+            {"error": "unsupported_media_type", "error_description": "Content-Type must be application/json"},
+            status_code=415,
+        )
     try:
         body = await request.json()
     except Exception as exc:
@@ -152,7 +188,7 @@ async def _run_action(request: Any, handler: Any) -> Any:
     return JSONResponse(result)
 
 
-def _register_routes(srv: MCPServer) -> None:
+def _register_routes(srv: MCPServer, *, read_only: bool = False) -> None:
     from starlette.requests import Request
     from starlette.responses import JSONResponse
 
@@ -174,19 +210,21 @@ def _register_routes(srv: MCPServer) -> None:
 
         return await _run_action(request, handler)  # type: ignore[no-any-return]
 
-    @srv.custom_route("/salesforce/upsert", methods=["POST"])  # type: ignore[untyped-decorator]
-    async def upsert_action(request: Request) -> JSONResponse:
-        from .integrations.salesforce import action_upsert
+    if not read_only:
 
-        async def handler(body: Dict[str, Any]) -> Dict[str, Any]:
-            name = body.get("collection", "default")
-            with _lock:
-                coll = _load(name)
-                result = action_upsert(coll, body["vector"], metadata=body.get("metadata"))
-                _save(name, coll)
-                return result
+        @srv.custom_route("/salesforce/upsert", methods=["POST"])  # type: ignore[untyped-decorator]
+        async def upsert_action(request: Request) -> JSONResponse:
+            from .integrations.salesforce import action_upsert
 
-        return await _run_action(request, handler)  # type: ignore[no-any-return]
+            async def handler(body: Dict[str, Any]) -> Dict[str, Any]:
+                name = body.get("collection", "default")
+                with _lock:
+                    coll = _load(name)
+                    result = action_upsert(coll, body["vector"], metadata=body.get("metadata"))
+                    _save(name, coll)
+                    return result
+
+            return await _run_action(request, handler)  # type: ignore[no-any-return]
 
     @srv.custom_route("/salesforce/ground", methods=["POST"])  # type: ignore[untyped-decorator]
     async def ground_action(request: Request) -> JSONResponse:
@@ -202,4 +240,4 @@ def _register_routes(srv: MCPServer) -> None:
         return await _run_action(request, handler)  # type: ignore[no-any-return]
 
 
-__all__ = ["maybe_register"]
+__all__ = ["maybe_register", "SalesforceAuthNotConfiguredError"]

@@ -390,7 +390,13 @@ def benchmark(n: int, dim: int, k: int, queries: int, rerank_factor: int, as_jso
 @click.option("--http", "use_http", is_flag=True, default=False, help="Serve streamable-HTTP instead of stdio.")
 @click.option("--host", default="127.0.0.1", show_default=True)
 @click.option("--port", default=8420, show_default=True, type=int)
-def serve(use_http: bool, host: str, port: int) -> None:
+@click.option(
+    "--read-only",
+    is_flag=True,
+    default=False,
+    help="Do not register mutating tools (create/insert/insert_batch/delete) or the Salesforce upsert route.",
+)
+def serve(use_http: bool, host: str, port: int, read_only: bool) -> None:
     """Launch the ruvector MCP server (stdio by default).
 
     If ``RUVECTOR_ENABLE_SALESFORCE_ACTIONS`` is set, also mounts the
@@ -405,12 +411,18 @@ def serve(use_http: bool, host: str, port: int) -> None:
     """
     import os
 
-    from ruvector.mcp_server import run_http, run_stdio
+    from ruvector.mcp_server import UnsafeBindError, apply_read_only, run_http, run_stdio
+
+    if read_only:
+        apply_read_only()
 
     if use_http and os.environ.get("RUVECTOR_ENABLE_SALESFORCE_ACTIONS"):
-        from ruvector.salesforce_routes import maybe_register
+        from ruvector.salesforce_routes import SalesforceAuthNotConfiguredError, maybe_register
 
-        maybe_register()
+        try:
+            maybe_register(read_only=read_only)
+        except SalesforceAuthNotConfiguredError as exc:
+            raise click.ClickException(str(exc)) from exc
 
     if use_http:
         # Checked (not just assumed) what happens on a port-in-use or
@@ -428,7 +440,10 @@ def serve(use_http: bool, host: str, port: int) -> None:
         # inside uvicorn's `Server.serve()` before control returns here,
         # so fixing it would mean changing `ruvector.mcp_server`, which is
         # out of scope for this CLI-only pass.
-        run_http(host=host, port=port)
+        try:
+            run_http(host=host, port=port)
+        except UnsafeBindError as exc:
+            raise click.ClickException(str(exc)) from exc
     else:
         run_stdio()
 

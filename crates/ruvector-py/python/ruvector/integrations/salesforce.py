@@ -53,7 +53,8 @@ ruvector.integrations.salesforce` alone stays `httpx`-free.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from urllib.parse import urlparse
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional
 
 import numpy as np
@@ -72,17 +73,22 @@ _DEFAULT_API_VERSION = "61.0"
 @dataclass(frozen=True)
 class SalesforceConfig:
     """OAuth2 client-credentials config, read from environment variables
-    (never hardcoded, never logged — :meth:`__repr__` is overridden
-    implicitly by dataclass default repr, which WOULD print the secret, so
-    callers must not `print(config)`/log it directly; this is documented
-    rather than silently "fixed" with a lossy custom repr that could hide
-    a real misconfiguration during debugging).
+    (never hardcoded, never logged — ``client_secret`` is excluded from
+    ``repr`` so printing or logging a config cannot leak it).
+
+    ``instance_url`` must be ``https://``: the client secret is POSTed to
+    it, and a plain-http URL (or a typo'd scheme) would send it in clear.
     """
 
     instance_url: str
     client_id: str
-    client_secret: str
+    client_secret: str = field(repr=False)
     api_version: str = _DEFAULT_API_VERSION
+
+    def __post_init__(self) -> None:
+        parsed = urlparse(self.instance_url)
+        if parsed.scheme != "https" or not parsed.hostname:
+            raise ValueError(f"instance_url must be an https:// URL with a host, got {self.instance_url!r}")
 
     @classmethod
     def from_env(cls) -> "SalesforceConfig":

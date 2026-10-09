@@ -184,3 +184,69 @@ def test_search_no_color_flag_forces_plain(runner: CliRunner, tmp_path: Path) ->
     assert r.exit_code == 0, r.output
     assert "\x1b" not in r.output
     assert "0" in r.output
+
+
+# ── pre-publish hardening: serve exposure / read-only ───────────────────────
+
+
+def test_serve_help_lists_read_only(runner: CliRunner) -> None:
+    result = runner.invoke(main, ["serve", "--help"])
+    assert result.exit_code == 0
+    assert "--read-only" in result.output
+
+
+def test_serve_http_non_loopback_without_token_exits_nonzero(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RUVECTOR_MCP_DATA_DIR", str(tmp_path))
+    import ruvector.mcp_server as m
+
+    ran: list[object] = []
+    monkeypatch.setattr(m.server, "run", lambda *a, **kw: ran.append((a, kw)))
+    monkeypatch.setattr(m, "_token_verifier", None)
+    for host in ("0.0.0.0", "192.168.1.9"):
+        result = runner.invoke(main, ["serve", "--http", "--host", host])
+        assert result.exit_code != 0, result.output
+        assert "RUVECTOR_MCP_TOKEN" in result.output
+    assert ran == []  # never reached the bind
+
+
+def test_serve_http_non_loopback_with_token_starts(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RUVECTOR_MCP_DATA_DIR", str(tmp_path))
+    import ruvector.mcp_server as m
+
+    ran: list[object] = []
+    monkeypatch.setattr(m.server, "run", lambda *a, **kw: ran.append((a, kw)))
+    monkeypatch.setattr(m, "_token_verifier", object())
+    result = runner.invoke(main, ["serve", "--http", "--host", "0.0.0.0"])
+    assert result.exit_code == 0, result.output
+    assert len(ran) == 1
+
+
+def test_serve_read_only_registers_no_mutating_tools(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import asyncio
+    import importlib
+
+    monkeypatch.setenv("RUVECTOR_MCP_DATA_DIR", str(tmp_path))
+    import ruvector.mcp_server as m
+
+    importlib.reload(m)
+    seen: list[set[str]] = []
+    monkeypatch.setattr(m, "run_stdio", lambda: seen.append({t.name for t in asyncio.run(m.server.list_tools())}))
+    try:
+        result = runner.invoke(main, ["serve", "--read-only"])
+        assert result.exit_code == 0, result.output
+        assert seen == [{"vector_search", "vector_stats", "vector_list_collections", "vector_explore"}]
+
+        seen.clear()
+        importlib.reload(m)
+        monkeypatch.setattr(m, "run_stdio", lambda: seen.append({t.name for t in asyncio.run(m.server.list_tools())}))
+        result = runner.invoke(main, ["serve"])  # without the flag the write tools are there
+        assert result.exit_code == 0, result.output
+        assert "vector_insert" in seen[0] and "vector_delete" in seen[0]
+    finally:
+        importlib.reload(m)
