@@ -1123,6 +1123,9 @@ pub mod async_stream {
     }
 
     /// Async trait for LLM backends with streaming support
+    // `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+    // already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+    #[allow(clippy::double_must_use)]
     #[async_trait::async_trait]
     pub trait LlmBackendAsync: Send + Sync {
         /// Generate text with async streaming output
