@@ -7,7 +7,7 @@ name = "ruvector"
 version = "0.1.0"
 description = "Ultra-low-latency vector search (RaBitQ, Rust core) with a CLI and MCP server"
 readme = "README.md"
-license = { text = "MIT OR Apache-2.0" }
+license = { text = "MIT" }
 requires-python = ">=3.9"
 authors = [{ name = "Ruvector Team" }]
 keywords = ["vector-search", "ann", "rabitq", "rust", "embeddings", "mcp", "cli", "vector-database"]
@@ -24,22 +24,25 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Database :: Database Engines/Servers",
     "License :: OSI Approved :: MIT License",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
 ]
-dependencies = ["numpy>=1.21"]
+# click + rich are BASE dependencies: `pip install ruvector` installs the
+# `ruvector` console script, whose module imports click at top level
+# (cli.py), so click must always be present or `ruvector --help` crashes
+# with ModuleNotFoundError. rich is imported lazily per subcommand but is a
+# runtime need of the same script. `import ruvector` (the library) still
+# imports only numpy.
+dependencies = ["numpy>=1.21", "click>=8.1", "rich>=13"]
 
 [project.scripts]
 ruvector = "ruvector.cli:main"
 
 [project.optional-dependencies]
 test = ["pytest>=7", "numpy>=1.21"]
-# CLI deps are NOT in base `dependencies`: `import ruvector` (the library
-# use case) stays numpy-only. Only `pip install ruvector[cli]` pulls
-# click+rich, and only `ruvector.cli` imports them (lazily, per-subcommand —
-# see cli.py's module docstring).
+# Kept as an empty-effect alias so `pip install ruvector[cli]` (documented
+# in earlier READMEs) keeps working; click/rich are base dependencies now.
 cli = ["click>=8.1", "rich>=13"]
 # MCP server: the official SDK. `ruvector.mcp_server` is the only module
 # that imports it. >=2.0 is required, not a style preference: mcp_server.py

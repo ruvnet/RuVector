@@ -411,7 +411,14 @@ def serve(use_http: bool, host: str, port: int, read_only: bool) -> None:
     """
     import os
 
-    from ruvector.mcp_server import UnsafeBindError, apply_read_only, run_http, run_stdio
+    try:
+        from ruvector.mcp_server import UnsafeBindError, apply_read_only, run_http, run_stdio
+    except ModuleNotFoundError as exc:
+        if exc.name is not None and exc.name.split(".")[0] == "mcp":
+            raise click.ClickException(
+                "`ruvector serve` needs the MCP SDK, which is an optional extra: pip install 'ruvector[mcp]'"
+            ) from exc
+        raise
 
     if read_only:
         apply_read_only()

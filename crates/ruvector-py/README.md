@@ -8,7 +8,7 @@ things from one `pip install ruvector`:
 - **`ruvector`** — the Python library (`Collection`, `RabitqIndex`).
 - **`ruvector` console script** — a CLI for scripting/ops
   (`create`/`insert-batch`/`search`/`delete`/`export`/`import`/`info`/
-  `benchmark`/`serve`), install with the `cli` extra.
+  `benchmark`/`serve`), installed with the base package.
 - **`ruvector serve`** — an MCP server (stdio or streamable-HTTP) exposing
   the same surface as tools, plus a ChatGPT Apps SDK `ui://` widget for
   visual search exploration, install with the `mcp` extra.
@@ -23,9 +23,8 @@ and [`docs/sdk/`](../../docs/sdk/).
 ## Install
 
 ```sh
-pip install ruvector            # library only (numpy dependency)
-pip install ruvector[cli]       # + the `ruvector` console script
-pip install ruvector[mcp]       # + `ruvector serve`
+pip install ruvector            # library + the `ruvector` console script (numpy, click, rich)
+pip install ruvector[mcp]       # + `ruvector serve` (MCP server)
 pip install ruvector[all]       # everything
 ```
 
@@ -152,4 +151,4 @@ external comparator.
 
 ## License
 
-Dual MIT / Apache-2.0, matching the rest of the ruvector workspace.
+MIT, matching the rest of the ruvector workspace (see [`LICENSE`](LICENSE)).

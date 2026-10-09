@@ -250,3 +250,16 @@ def test_serve_read_only_registers_no_mutating_tools(
         assert "vector_insert" in seen[0] and "vector_delete" in seen[0]
     finally:
         importlib.reload(m)
+
+
+def test_serve_without_mcp_sdk_gives_install_hint(runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
+    import sys
+
+    # A None entry in sys.modules makes `import mcp...` raise ModuleNotFoundError(name="mcp...")
+    for name in [n for n in sys.modules if n == "mcp" or n.startswith("mcp.") or n == "ruvector.mcp_server"]:
+        monkeypatch.delitem(sys.modules, name)
+    monkeypatch.setitem(sys.modules, "mcp", None)  # type: ignore[arg-type]
+    result = runner.invoke(main, ["serve"])
+    assert result.exit_code != 0
+    assert "ruvector[mcp]" in result.output
+    assert "Traceback" not in result.output
