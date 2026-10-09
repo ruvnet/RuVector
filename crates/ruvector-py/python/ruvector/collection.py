@@ -46,6 +46,16 @@ _BACKENDS = ("hnsw", "rabitq")
 # (`str(int_id)`), with no such ceiling.
 _MAX_ID = 2**32 - 1
 
+# Resource bounds. Without them one hostile (or buggy) call such as
+# `search(q, k=10**12)` makes the Rust side attempt an 8 TB allocation and
+# abort the whole process (reproduced on the hnsw backend), which no Python
+# `try/except` can catch. These are far above any realistic use for an
+# in-memory ANN index; they exist to turn "process abort" into a clean error.
+MAX_K = 10_000
+MAX_DIM = 8192
+MAX_RERANK_FACTOR = 10_000
+MAX_OVERFETCH = 64
+
 Index = Union[HnswIndex, RabitqIndex]
 
 
@@ -84,11 +94,26 @@ class CollectionStats:
     tombstoned: int
 
 
+def _check_finite(arr: NDArray[np.float32], name: str) -> None:
+    """NaN/inf poison an index silently (hnsw scores them 0.0, rabitq NaN),
+    so they are rejected at every entry point. Checked on the float32 array,
+    so a float64 value that overflows float32 (1e39) is caught too."""
+    if not np.isfinite(arr).all():
+        raise CollectionError(f"{name} must contain only finite values (no NaN or inf)")
+
+
 def _validate_vector(v: NDArray[np.float32], dim: int, name: str) -> NDArray[np.float32]:
-    arr = np.ascontiguousarray(v, dtype=np.float32)
+    with np.errstate(over="ignore"):  # float64 -> float32 overflow becomes inf; caught below
+        arr = np.ascontiguousarray(v, dtype=np.float32)
     if arr.ndim != 1 or arr.shape[0] != dim:
         raise CollectionError(f"{name} must be a 1D float32 array of length {dim}, got shape {arr.shape}")
+    _check_finite(arr, name)
     return arr
+
+
+def _check_int_range(value: object, name: str, lo: int, hi: int) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or not lo <= value <= hi:
+        raise CollectionError(f"{name} must be an integer in [{lo}, {hi}], got {value!r}")
 
 
 def _check_backend(backend: str) -> None:
@@ -153,8 +178,8 @@ class Collection:
         (RaBitQ+ needs >=1 vector to fit a rotation); ``rerank_factor``/
         ``seed`` are remembered for that first build.
         """
-        if dim <= 0:
-            raise CollectionError("dim must be > 0")
+        _check_int_range(dim, "dim", 1, MAX_DIM)
+        _check_int_range(rerank_factor, "rerank_factor", 1, MAX_RERANK_FACTOR)
         _check_backend(backend)
         index: Optional[Index]
         if backend == "hnsw":
@@ -198,6 +223,9 @@ class Collection:
         arr = np.ascontiguousarray(vectors, dtype=np.float32)
         if arr.ndim != 2:
             raise CollectionError(f"vectors must be 2D, got {arr.ndim}D")
+        _check_int_range(arr.shape[1], "dim", 1, MAX_DIM)
+        _check_int_range(rerank_factor, "rerank_factor", 1, MAX_RERANK_FACTOR)
+        _check_finite(arr, "vectors")
         n = arr.shape[0]
         id_list: List[int] = list(range(n)) if ids is None else list(ids)
         if len(id_list) != n:
@@ -268,6 +296,7 @@ class Collection:
         arr = np.ascontiguousarray(vectors, dtype=np.float32)
         if arr.ndim != 2 or arr.shape[1] != self._dim:
             raise CollectionError(f"vectors must be (n, {self._dim}), got shape {arr.shape}")
+        _check_finite(arr, "vectors")
         n = arr.shape[0]
         if metadatas is not None and len(metadatas) != n:
             raise CollectionError(f"metadatas length ({len(metadatas)}) must match row count ({n})")
@@ -378,10 +407,12 @@ class Collection:
         way (no native filter pushdown in that backend, documented since
         M1.5).
         """
+        _check_int_range(k, "k", 1, MAX_K)
+        _check_int_range(overfetch, "overfetch", 1, MAX_OVERFETCH)
+        if rerank_factor is not None:
+            _check_int_range(rerank_factor, "rerank_factor", 1, MAX_RERANK_FACTOR)
         if self._index is None or len(self._index) == 0:
             return []
-        if k <= 0:
-            raise CollectionError("k must be > 0")
         qvec = _validate_vector(query, self._dim, "query")
 
         if self._backend == "hnsw":
@@ -581,65 +612,127 @@ class Collection:
         (ids/metadata/config live in the sidecar instead, same two-file
         split as the rabitq backend for a uniform persistence story).
 
-        Both files are written; a partial write (one saved, the other not)
-        is possible on a crash between the two calls — documented, not
-        silently hidden.
+        Each file is written to a temp name and moved into place with
+        :func:`os.replace`, so a crash or error mid-write never leaves a
+        truncated file at the real path. The two files are still replaced
+        one after the other, so a crash *between* the two renames can leave
+        a new index with the previous sidecar; :meth:`load` validates the
+        pair and raises :class:`CollectionError` rather than serving it.
         """
         path = Path(path)
-        if self._backend == "hnsw":
-            items = self.export_live_items()
-            vecs = (
-                np.stack([v for _, v, _ in items]).astype(np.float32)
-                if items
-                else np.zeros((0, self._dim), dtype=np.float32)
-            )
-            with open(path, "wb") as f:
-                np.save(f, vecs)
-            sidecar = {
-                "backend": "hnsw",
-                "dim": self._dim,
-                "metric": self._metric,
-                "hnsw_m": self._hnsw_m,
-                "hnsw_ef_construction": self._hnsw_ef_construction,
-                "hnsw_ef_search": self._hnsw_ef_search,
-                "next_id": self._next_id,
-                "ids": [i for i, _, _ in items],
-                "metadata": {str(i): m for i, _, m in items if m},
-                "empty": self._index is None,
-            }
-        else:
-            if self._index is not None:
-                assert isinstance(self._index, RabitqIndex)
-                self._index.save(str(path))
-            sidecar = {
-                "backend": "rabitq",
-                "dim": self._dim,
-                "rerank_factor": self._rerank_factor,
-                "seed": self._seed,
-                "next_id": self._next_id,
-                "tombstones": sorted(self._tombstones),
-                "metadata": {str(k): v for k, v in self._metadata.items()},
-                "empty": self._index is None,
-            }
-        self.meta_path(path).write_text(json.dumps(sidecar))
+        tmp_index = path.with_name(f"{path.name}.tmp-{os.getpid()}")
+        meta = self.meta_path(path)
+        tmp_meta = meta.with_name(f"{meta.name}.tmp-{os.getpid()}")
+        index_written = False
+        try:
+            if self._backend == "hnsw":
+                items = self.export_live_items()
+                vecs = (
+                    np.stack([v for _, v, _ in items]).astype(np.float32)
+                    if items
+                    else np.zeros((0, self._dim), dtype=np.float32)
+                )
+                with open(tmp_index, "wb") as f:
+                    np.save(f, vecs)
+                index_written = True
+                sidecar = {
+                    "backend": "hnsw",
+                    "dim": self._dim,
+                    "metric": self._metric,
+                    "hnsw_m": self._hnsw_m,
+                    "hnsw_ef_construction": self._hnsw_ef_construction,
+                    "hnsw_ef_search": self._hnsw_ef_search,
+                    "next_id": self._next_id,
+                    "ids": [i for i, _, _ in items],
+                    "metadata": {str(i): m for i, _, m in items if m},
+                    "empty": self._index is None,
+                }
+            else:
+                if self._index is not None:
+                    assert isinstance(self._index, RabitqIndex)
+                    self._index.save(str(tmp_index))
+                    index_written = True
+                sidecar = {
+                    "backend": "rabitq",
+                    "dim": self._dim,
+                    "rerank_factor": self._rerank_factor,
+                    "seed": self._seed,
+                    "next_id": self._next_id,
+                    "tombstones": sorted(self._tombstones),
+                    "metadata": {str(k): v for k, v in self._metadata.items()},
+                    "empty": self._index is None,
+                }
+            tmp_meta.write_text(json.dumps(sidecar))
+            if index_written:
+                os.replace(tmp_index, path)
+            os.replace(tmp_meta, meta)
+        finally:
+            for tmp in (tmp_index, tmp_meta):
+                try:
+                    tmp.unlink()
+                except FileNotFoundError:
+                    pass
 
     @classmethod
     def load(cls, path: Union[str, os.PathLike[str]]) -> "Collection":
+        """Load a collection saved by :meth:`save`.
+
+        The sidecar and index are validated (types, ranges, ids/rows
+        consistency, finite values); anything malformed raises
+        :class:`CollectionError` rather than a bare ``KeyError`` /
+        ``JSONDecodeError`` / Rust panic.
+        """
         path = Path(path)
         meta_path = cls.meta_path(path)
         if not meta_path.exists():
             raise CollectionError(f"missing sidecar metadata file: {meta_path}")
-        sidecar = json.loads(meta_path.read_text())
+        try:
+            sidecar = json.loads(meta_path.read_text())
+            if not isinstance(sidecar, dict):
+                raise CollectionError(f"{meta_path}: sidecar must be a JSON object")
+            return cls._load_validated(path, sidecar)
+        except CollectionError:
+            raise
+        except RuVectorError as exc:
+            raise CollectionError(f"corrupt collection at {path}: {exc}") from exc
+        except (KeyError, TypeError, ValueError, OSError, AttributeError) as exc:
+            raise CollectionError(f"corrupt or unreadable collection at {path}: {type(exc).__name__}: {exc}") from exc
+
+    @classmethod
+    def _load_validated(cls, path: Path, sidecar: Dict[str, Any]) -> "Collection":
         # Sidecars written before ADR-352's M2 slice have no "backend" key
         # at all — they are always rabitq (the only backend that existed).
         backend = sidecar.get("backend", "rabitq")
         _check_backend(backend)
+        dim = sidecar["dim"]
+        _check_int_range(dim, "dim", 1, MAX_DIM)
+        next_id = sidecar["next_id"]
+        _check_int_range(next_id, "next_id", 0, 2**63 - 1)
+        metadata_raw = sidecar["metadata"]
+        if not isinstance(metadata_raw, dict) or not all(isinstance(m, dict) for m in metadata_raw.values()):
+            raise CollectionError("sidecar 'metadata' must map ids to objects")
+        metadata = {int(k): v for k, v in metadata_raw.items()}
 
         if backend == "hnsw":
-            dim = sidecar["dim"]
-            metadata_raw: Dict[str, Dict[str, Any]] = sidecar["metadata"]
+            for key in ("hnsw_m", "hnsw_ef_construction", "hnsw_ef_search"):
+                _check_int_range(sidecar[key], key, 1, 100_000)
+            if not isinstance(sidecar["metric"], str):
+                raise CollectionError("sidecar 'metric' must be a string")
             index: Optional[Index] = None
             if not sidecar["empty"]:
+                ids = sidecar["ids"]
+                if not isinstance(ids, list) or not all(isinstance(i, int) and not isinstance(i, bool) for i in ids):
+                    raise CollectionError("sidecar 'ids' must be a list of integers")
+                if len(set(ids)) != len(ids):
+                    raise CollectionError("sidecar 'ids' contains duplicates")
+                with open(path, "rb") as f:
+                    vecs = np.load(f, allow_pickle=False)
+                if vecs.ndim != 2 or vecs.shape != (len(ids), dim) or vecs.dtype != np.float32:
+                    raise CollectionError(
+                        f"index file shape/dtype {vecs.shape}/{vecs.dtype} does not match sidecar "
+                        f"({len(ids)} ids, dim {dim}, float32) - index and sidecar are out of sync"
+                    )
+                _check_finite(vecs, "stored vectors")
                 index = HnswIndex.create(
                     dim=dim,
                     metric=sidecar["metric"],
@@ -647,17 +740,8 @@ class Collection:
                     ef_construction=sidecar["hnsw_ef_construction"],
                     ef_search=sidecar["hnsw_ef_search"],
                 )
-                with open(path, "rb") as f:
-                    vecs = np.load(f)
-                ids: List[int] = sidecar["ids"]
-                metas = [metadata_raw.get(str(i)) for i in ids]
-                index.insert_batch([str(i) for i in ids], vecs, metadatas=metas)
-            coll = cls(
-                _index=index,
-                _metadata={int(k): v for k, v in metadata_raw.items()},
-                _tombstones=set(),
-                _next_id=sidecar["next_id"],
-            )
+                index.insert_batch([str(i) for i in ids], vecs, metadatas=[metadata_raw.get(str(i)) for i in ids])
+            coll = cls(_index=index, _metadata=metadata, _tombstones=set(), _next_id=next_id)
             coll._dim = dim
             coll._backend = "hnsw"
             coll._metric = sidecar["metric"]
@@ -668,14 +752,13 @@ class Collection:
             coll._seed = 0
             return coll
 
+        _check_int_range(sidecar["rerank_factor"], "rerank_factor", 1, MAX_RERANK_FACTOR)
+        tombstones = sidecar["tombstones"]
+        if not isinstance(tombstones, list) or not all(isinstance(t, int) for t in tombstones):
+            raise CollectionError("sidecar 'tombstones' must be a list of integers")
         rabitq_index: Optional[Index] = None if sidecar["empty"] else RabitqIndex.load(str(path))
-        coll = cls(
-            _index=rabitq_index,
-            _metadata={int(k): v for k, v in sidecar["metadata"].items()},
-            _tombstones=set(sidecar["tombstones"]),
-            _next_id=sidecar["next_id"],
-        )
-        coll._dim = sidecar["dim"]
+        coll = cls(_index=rabitq_index, _metadata=metadata, _tombstones=set(tombstones), _next_id=next_id)
+        coll._dim = dim
         coll._backend = "rabitq"
         coll._rerank_factor = sidecar["rerank_factor"]
         coll._seed = sidecar["seed"]
