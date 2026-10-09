@@ -1,0 +1,83 @@
+[package]
+name = "ruvector-py"
+version = "0.1.0"
+edition = "2021"
+rust-version.workspace = true
+license = "MIT"
+authors.workspace = true
+repository.workspace = true
+description = "Python bindings for ruvector — ultra-low-latency vector search (RaBitQ + HNSW)"
+
+[lib]
+# Must match the maturin `module-name` Python module so the produced
+# cdylib lands as `ruvector/_native.<abi>.so`. See M1 in
+# `docs/sdk/04-milestones.md`.
+name = "ruvector_py"
+crate-type = ["cdylib"]
+
+[dependencies]
+# pyo3 and rust-numpy must stay version-locked (a mismatch produces cryptic
+# linker errors). abi3-py39 means one wheel covers Python 3.9..3.14+ — see
+# `docs/sdk/02-strategy.md` § "Wheel distribution matrix" and ADR-352.
+# Bumped from the original 0.22 pin to current (0.29, 2026-10) during the
+# ADR-352 salvage: `Python::allow_threads` -> `Python::detach`,
+# `Python::get_type_bound` -> `Python::get_type`.
+# NOTE (test infra, 2026-10-01): "extension-module" deliberately dropped from
+# this list. Per the pyo3 0.29 FAQ ("I can't run `cargo test` ... Undefined
+# reference to _PyExc_SystemError"), that Cargo feature disables linking
+# against libpython — which makes `cargo test -p ruvector-py` fail to link
+# the moment any test touches the interpreter (even `PyErr::new_err`, whose
+# lazy exception closure still references e.g. `PyExc_ValueError`; confirmed
+# empirically here, not just from the docs). The wheel build is unaffected:
+# `pyproject.toml`'s `[tool.maturin] features = ["pyo3/extension-module"]`
+# already re-adds this feature via maturin's own `--features` flag for every
+# real `maturin build`/`develop` invocation, so this line is redundant for
+# that path and only mattered for bare `cargo build`/`cargo test`. Revert by
+# restoring `"extension-module"` to the list below if this ever needs to
+# change back.
+pyo3 = { version = "0.29", features = ["abi3-py39"] }
+numpy = "0.29"
+ruvector-rabitq = { path = "../ruvector-rabitq" }
+# HNSW-backed generic index + native Rust-side metadata filtering (ADR-352
+# M2 slice — "make the default Collection the fast path"). Explicit
+# `default-features = false` per the ADR-352 capability-inventory pass:
+# ruvector-core's *default* feature set pulls in `api-embeddings` (reqwest +
+# rustls) for a capability this crate never uses — would bloat the wheel
+# for nothing. `storage`/`parallel` stay on because `vector_db::VectorDB`
+# needs them at compile time (its `#[cfg(feature = "storage")]` branch);
+# we always construct it with a `memory://` storage_path at runtime (see
+# `src/hnsw.rs`), so no redb file ever touches disk — persistence for this
+# backend goes through `HnswIndex.export_items()` + Python's existing
+# save/load sidecar pattern, the same idiom `RabitqIndex` already uses.
+ruvector-core = { path = "../ruvector-core", default-features = false, features = ["storage", "hnsw", "simd", "parallel"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+# Remaining ADR-352 capability-table rows, pre-wired here (Cargo.toml + the
+# mod/register() stubs in lib.rs) so three parallel forks only need to fill
+# in their own module body, never touch this file or lib.rs's shared lines -
+# avoids both a merge conflict and a repeat of the HnswIndex-registration
+# gap. Each verified with a standalone trial compile first (ADR-352):
+#   - ruvector-graph: default feature set ("full") pulls in tokio/moka/
+#     zstd/lz4/redb via `storage`+`async-runtime`+`compression` for
+#     capabilities the raw-CRUD binding doesn't use - explicit
+#     default-features=false + simd only, matching the ruvector-core
+#     pattern above.
+#   - ruvector-gnn: clean already (ruvector-core dep already
+#     default-features=false; ndarray/rayon/serde, nothing heavy).
+#   - ruvector-attention: clean already (napi optional, default = "simd"
+#     only) - the attention-rerank half of "GNN/attention rerank".
+#   - ruvector-cluster-rag: zero dependencies of its own - the real k-means
+#     implementation (NOT crates/ruvector-cluster, which is distributed
+#     sharding infra, a premise mismatch - see ADR-352).
+#   - ruvector-sona (crate name is `ruvector-sona`, package dir is
+#     `crates/sona`): do NOT pass default-features=false here - its
+#     `serde`/`serde_json` deps are Cargo-"optional" but several modules
+#     (ewc.rs, lora.rs, types.rs, loops/coordinator.rs) use them
+#     unconditionally with no cfg-gate, so disabling the default
+#     `serde-support` feature fails to compile. Confirmed by a real trial
+#     build, not assumed from the Cargo.toml feature table.
+ruvector-graph = { path = "../ruvector-graph", default-features = false, features = ["simd"] }
+ruvector-gnn = { path = "../ruvector-gnn" }
+ruvector-attention = { path = "../ruvector-attention" }
+ruvector-cluster-rag = { path = "../ruvector-cluster-rag" }
+ruvector-sona = { path = "../sona" }

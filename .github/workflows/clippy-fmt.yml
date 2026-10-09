@@ -21,9 +21,14 @@ jobs:
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
 
-      - name: Install Rust stable
+      # Pinned, not floating `stable`: rustc 1.99.0's clippy::double_must_use
+      # fires on #[async_trait] fns in rvagent-core (graph.rs, models.rs) and
+      # broke this job on a PR that touches none of that code. Bump together
+      # with a fix for those lints.
+      - name: Install Rust 1.98.1
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
+          toolchain: 1.98.1
           components: clippy
 
       - name: Cache Rust

@@ -1,0 +1,99 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "ruvector"
+version = "0.1.0"
+description = "Ultra-low-latency vector search (RaBitQ, Rust core) with a CLI and MCP server"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "Ruvector Team" }]
+keywords = ["vector-search", "ann", "rabitq", "rust", "embeddings", "mcp", "cli", "vector-database"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Database :: Database Engines/Servers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+]
+# click + rich are BASE dependencies: `pip install ruvector` installs the
+# `ruvector` console script, whose module imports click at top level
+# (cli.py), so click must always be present or `ruvector --help` crashes
+# with ModuleNotFoundError. rich is imported lazily per subcommand but is a
+# runtime need of the same script. `import ruvector` (the library) still
+# imports only numpy.
+dependencies = ["numpy>=1.21", "click>=8.1", "rich>=13"]
+
+[project.scripts]
+ruvector = "ruvector.cli:main"
+
+[project.optional-dependencies]
+test = ["pytest>=7", "numpy>=1.21"]
+# Kept as an empty-effect alias so `pip install ruvector[cli]` (documented
+# in earlier READMEs) keeps working; click/rich are base dependencies now.
+cli = ["click>=8.1", "rich>=13"]
+# MCP server: the official SDK. `ruvector.mcp_server` is the only module
+# that imports it. >=2.0 is required, not a style preference: mcp_server.py
+# imports `mcp.server.mcpserver.MCPServer`, which only exists from the v2
+# rename (v1 called it `FastMCP`) — `mcp>=1.6` would resolve and then fail
+# on import.
+mcp = ["mcp>=2.0"]
+# Framework adapters: only `ruvector.integrations.langchain` /
+# `.llamaindex` import these (at module level — see each module's
+# docstring for why that's the honest boundary, not a lazy-import
+# oversight); plain `import ruvector` never does. Floors are the exact
+# versions verified against while writing these adapters (`pip show
+# langchain-core` -> 1.6.6, `pip show llama-index-core` -> 0.14.25), not
+# guessed minimums.
+langchain = ["langchain-core>=1.6"]
+llamaindex = ["llama-index-core>=0.14"]
+# Salesforce Agentforce integration (ADR-352): only the two network
+# functions in `ruvector.integrations.salesforce`
+# (`get_oauth_token`/`fetch_records`) import httpx, lazily — not at module
+# level (unlike langchain/llamaindex, this module never subclasses a
+# third-party base class, so there's no forced-eager-import requirement).
+# httpx over `simple_salesforce` deliberately: this module only needs two
+# REST calls (OAuth token + SOQL query), not a full Salesforce ORM, and
+# httpx avoids simple_salesforce's heavier `requests`-based transitive
+# footprint.
+salesforce = ["httpx>=0.27"]
+all = ["ruvector[cli,mcp,langchain,llamaindex,salesforce]"]
+
+[project.urls]
+Repository = "https://github.com/ruvnet/ruvector"
+Issues = "https://github.com/ruvnet/ruvector/issues"
+"SDK Plan" = "https://github.com/ruvnet/ruvector/tree/main/docs/sdk"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "ruvector._native"
+# Hand-written stubs live alongside the Python source so they ship in the
+# wheel: `__init__.pyi` (package-level re-exports) + `_native.pyi` (the
+# compiled extension module). `python/ruvector/collection.py` needs no
+# separate stub — it's plain annotated Python, covered by py.typed
+# directly. (A `stubs/` tree duplicating `__init__.pyi` existed from the
+# M1 salvage and silently drifted out of sync with the real stubs; removed
+# rather than kept "in sync" by hand — it was never in this include list
+# in the first place, so nothing shipped from it.) See
+# `docs/sdk/02-strategy.md` § "Type stubs".
+include = [
+    { path = "python/ruvector/py.typed", format = "wheel" },
+    { path = "python/ruvector/__init__.pyi", format = "wheel" },
+    { path = "python/ruvector/_native.pyi", format = "wheel" },
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
