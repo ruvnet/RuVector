@@ -39,10 +39,19 @@ left implicit:**
   all — e.g. local stdio use, or ``--http`` run without a token on
   purpose), ``get_access_token()`` returns ``None`` and the guard is a
   no-op, so local/dev use is unaffected either way.
-- If ``RUVECTOR_MCP_TOKEN`` is **not** set and ``--http`` is used anyway,
-  :func:`run_http` prints one prominent, impossible-to-miss startup
-  warning rather than silently serving unauthenticated — this is a real,
-  known gap for that configuration, not something to hide.
+- An **empty or whitespace-only** ``RUVECTOR_MCP_TOKEN`` counts as *unset*
+  (:func:`_configured_token`), never as "the token is the empty string":
+  a blank value must not silently turn auth off while looking configured.
+- If no token is configured and ``--http`` binds a **loopback** address
+  (``127.0.0.0/8``, ``::1``, ``localhost``), :func:`run_http` prints one
+  prominent startup warning and serves. If no token is configured and the
+  bind host is **not** loopback (``0.0.0.0``, a LAN/tailnet address, a
+  hostname), :func:`run_http` raises :class:`UnsafeBindError` before
+  binding — the CLI turns that into a non-zero exit. There is no override
+  flag: set a token, or bind loopback.
+- ``ruvector serve --read-only`` calls :func:`apply_read_only`, which
+  unregisters every mutating tool (create/insert/insert_batch/delete) so
+  they are not even listed, let alone callable.
 - **`MCPServer.custom_route`-mounted endpoints do NOT get this protection**
   — the SDK's own docstring for that decorator says so explicitly
   ("Routes using this decorator will not require authorization"). This
@@ -61,6 +70,8 @@ left implicit:**
 from __future__ import annotations
 
 import hmac
+import ipaddress
+import json
 import os
 import re
 import sys
@@ -75,10 +86,22 @@ from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import AnyHttpUrl
 
+from ruvector.collection import MAX_DIM
+
 if TYPE_CHECKING:
     from ruvector.collection import Collection
 
 _NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+
+# Per-request resource caps for tool arguments (the dimension / k / rerank
+# bounds live in ``ruvector.collection`` and are enforced there). These
+# limits are checked on the raw argument lists *before* any numpy
+# conversion so an oversized call is rejected cheaply. They bound the work
+# one call can demand, not the HTTP body size itself (the SDK parses the
+# JSON body before a tool runs; cap that at a reverse proxy if exposed).
+MAX_BATCH_ROWS = 10_000
+MAX_BATCH_ELEMENTS = 2_000_000  # rows * dim floats per insert_batch call (~8 MB as float32)
+MAX_METADATA_BYTES = 65_536  # serialized JSON, per row
 
 _TOKEN_ENV_VAR = "RUVECTOR_MCP_TOKEN"
 # Self-referential placeholder — this design does not do real OAuth
@@ -133,9 +156,20 @@ def _require_write_scope() -> None:
         raise ValueError("this token does not have the 'write' scope required for this operation")
 
 
+def _configured_token() -> Optional[str]:
+    """The bearer token from ``RUVECTOR_MCP_TOKEN``, or ``None`` when unset,
+    empty or whitespace-only (stripped: HTTP header parsing strips it too,
+    so a padded value could otherwise never match)."""
+    raw = os.environ.get(_TOKEN_ENV_VAR)
+    if raw is None:
+        return None
+    token = raw.strip()
+    return token or None
+
+
 def _build_auth() -> "tuple[Optional[StaticTokenVerifier], Optional[AuthSettings]]":
-    expected = os.environ.get(_TOKEN_ENV_VAR)
-    if not expected:
+    expected = _configured_token()
+    if expected is None:
         return None, None
     verifier = StaticTokenVerifier(expected)
     self_url = AnyHttpUrl(_SELF_ISSUER_URL)
@@ -226,6 +260,35 @@ def _save(name: str, coll: "Collection") -> None:
     _cache[name] = coll
 
 
+def _check_vector_len(vec: "List[float]", what: str) -> None:
+    if len(vec) > MAX_DIM:
+        raise ValueError(f"{what} has {len(vec)} elements; the maximum dimension is {MAX_DIM}")
+
+
+def _check_metadata(md: "Optional[Dict[str, Any]]") -> None:
+    if md is None:
+        return
+    size = len(json.dumps(md, default=str).encode("utf-8"))
+    if size > MAX_METADATA_BYTES:
+        raise ValueError(f"metadata is {size} bytes serialized; the maximum is {MAX_METADATA_BYTES}")
+
+
+def _check_batch(vectors: "List[List[float]]", metadatas: "Optional[List[Optional[Dict[str, Any]]]]") -> None:
+    if len(vectors) > MAX_BATCH_ROWS:
+        raise ValueError(f"too many rows: {len(vectors)} (maximum {MAX_BATCH_ROWS} per call)")
+    total = 0
+    for row in vectors:
+        _check_vector_len(row, "a vector row")
+        total += len(row)
+    if total > MAX_BATCH_ELEMENTS:
+        raise ValueError(f"batch has {total} elements in total (maximum {MAX_BATCH_ELEMENTS} per call)")
+    if metadatas is not None:
+        if len(metadatas) != len(vectors):
+            raise ValueError(f"metadatas length ({len(metadatas)}) must match the number of rows ({len(vectors)})")
+        for md in metadatas:
+            _check_metadata(md)
+
+
 _token_verifier, _auth_settings = _build_auth()
 
 server = MCPServer(
@@ -270,6 +333,8 @@ def vector_insert(name: str, vector: List[float], metadata: Optional[Dict[str, A
     import numpy as np
 
     _require_write_scope()
+    _check_vector_len(vector, "vector")
+    _check_metadata(metadata)
     with _lock:
         coll = _load(name)
         new_id = coll.insert(np.asarray(vector, dtype=np.float32), metadata=metadata)
@@ -288,6 +353,7 @@ def vector_insert_batch(
     import numpy as np
 
     _require_write_scope()
+    _check_batch(vectors, metadatas)
     with _lock:
         coll = _load(name)
         ids = coll.insert_batch(np.asarray(vectors, dtype=np.float32), metadatas=metadatas)
@@ -309,6 +375,7 @@ def vector_search(
 ) -> Dict[str, Any]:
     import numpy as np
 
+    _check_vector_len(query, "query")
     with _lock:
         coll = _load(name)
         hits = coll.search(np.asarray(query, dtype=np.float32), k, filter=filter, rerank_factor=rerank_factor)
@@ -389,18 +456,42 @@ _WIDGET_HTML = """<!doctype html>
   // The Apps SDK runtime calls window.openai.toolOutput (or postMessage,
   // depending on host) with this tool's structured result. We read it
   // defensively since the widget may also be opened standalone for review.
+  //
+  // SECURITY: every server-supplied value (ids, scores, and above all the
+  // user-controlled metadata) reaches the page ONLY through textContent /
+  // style properties on elements we create. No HTML-parsing sink is used
+  // (no markup-setting property, no write-to-document call), so metadata such as
+  // <img src=x onerror=...> renders as inert text.
+  function el(tag, text, cls) {
+    const e = document.createElement(tag);
+    if (text !== undefined) e.textContent = String(text);
+    if (cls) e.className = cls;
+    return e;
+  }
   function render(data) {
-    const hits = (data && data.hits) || [];
+    const hits = (data && Array.isArray(data.hits)) ? data.hits : [];
     document.getElementById('title').textContent =
       'ruvector — ' + hits.length + ' result(s)';
-    const maxScore = Math.max(1e-9, ...hits.map(h => h.score));
-    const rows = hits.map(h => {
-      const pct = Math.max(2, 100 - (h.score / maxScore) * 100);
-      return '<tr><td>' + h.id + '</td><td>' + h.score.toFixed(4) + '</td>' +
-        '<td><div class="barwrap"><div class="bar" style="width:' + pct + '%"></div></div></td>' +
-        '<td>' + (h.metadata ? JSON.stringify(h.metadata) : '') + '</td></tr>';
-    }).join('');
-    document.getElementById('rows').innerHTML = rows;
+    const scores = hits.map(h => Number(h.score) || 0);
+    const maxScore = Math.max(1e-9, ...scores);
+    const tbody = document.getElementById('rows');
+    tbody.textContent = '';
+    hits.forEach((h, i) => {
+      const score = scores[i];
+      const pct = Math.max(2, 100 - (score / maxScore) * 100);
+      const tr = el('tr');
+      tr.appendChild(el('td', h.id));
+      tr.appendChild(el('td', score.toFixed(4)));
+      const barCell = el('td');
+      const wrap = el('div', undefined, 'barwrap');
+      const bar = el('div', undefined, 'bar');
+      bar.style.width = pct + '%';
+      wrap.appendChild(bar);
+      barCell.appendChild(wrap);
+      tr.appendChild(barCell);
+      tr.appendChild(el('td', h.metadata ? JSON.stringify(h.metadata) : ''));
+      tbody.appendChild(tr);
+    });
   }
   try {
     if (window.openai && window.openai.toolOutput) {
@@ -434,23 +525,66 @@ def vector_explore(name: str, query: List[float], k: int = 10) -> Dict[str, Any]
     return vector_search(name=name, query=query, k=k)
 
 
+_MUTATING_TOOLS = ("vector_create_collection", "vector_insert", "vector_insert_batch", "vector_delete")
+
+
+def apply_read_only() -> None:
+    """Unregister every mutating tool (``ruvector serve --read-only``).
+
+    Removal rather than a runtime flag: a removed tool is neither listed
+    nor callable, so there is no code path left that could write.
+    Idempotent.
+    """
+    for tool_name in _MUTATING_TOOLS:
+        try:
+            server.remove_tool(tool_name)
+        except Exception:  # already removed
+            pass
+
+
+class UnsafeBindError(RuntimeError):
+    """Refusing to serve HTTP on a non-loopback address with no auth token."""
+
+
+def _is_loopback_host(host: str) -> bool:
+    h = host.strip().strip("[]").lower()
+    if h == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(h).is_loopback
+    except ValueError:  # a hostname other than localhost, or empty (= all interfaces)
+        return False
+
+
+def check_http_exposure(host: str, *, token_configured: bool) -> None:
+    """Raise :class:`UnsafeBindError` when ``host`` is reachable beyond this
+    machine and no bearer token is configured."""
+    if token_configured or _is_loopback_host(host):
+        return
+    raise UnsafeBindError(
+        f"refusing to serve HTTP on non-loopback host {host!r} without authentication: "
+        f"set {_TOKEN_ENV_VAR} to a non-empty secret, or bind 127.0.0.1"
+    )
+
+
 def run_stdio() -> None:
     server.run(transport="stdio")
 
 
 def run_http(host: str = "127.0.0.1", port: int = 8420) -> None:
+    check_http_exposure(host, token_configured=_token_verifier is not None)
     if _token_verifier is None:
         print(
             f"\n{'!' * 70}\n"
-            f"WARNING: ruvector serve --http is starting WITHOUT authentication.\n"
-            f"Set the {_TOKEN_ENV_VAR} environment variable to require a bearer\n"
-            f"token on every tool call (see ruvector.mcp_server's module docstring\n"
-            f"for the exact policy). Anyone who can reach {host}:{port} can call\n"
-            f"every tool, including inserts and deletes.\n"
+            f"WARNING: ruvector serve --http is starting WITHOUT authentication\n"
+            f"(loopback only: {host}:{port}). Set the {_TOKEN_ENV_VAR} environment\n"
+            f"variable to require a bearer token on every tool call (see\n"
+            f"ruvector.mcp_server's module docstring for the exact policy).\n"
+            f"Any local process can call every tool, including inserts and deletes.\n"
             f"{'!' * 70}\n",
             file=sys.stderr,
         )
     server.run(transport="streamable-http", host=host, port=port)
 
 
-__all__ = ["server", "run_stdio", "run_http", "StaticTokenVerifier"]
+__all__ = ["server", "run_stdio", "run_http", "StaticTokenVerifier", "apply_read_only", "UnsafeBindError"]
