@@ -68,11 +68,11 @@
     "ora": "^5.4.1"
   },
   "optionalDependencies": {
-    "@ruvector/ruvllm-linux-x64-gnu": "3.0.0",
-    "@ruvector/ruvllm-linux-arm64-gnu": "3.0.0",
-    "@ruvector/ruvllm-darwin-x64": "3.0.0",
-    "@ruvector/ruvllm-darwin-arm64": "3.0.0",
-    "@ruvector/ruvllm-win32-x64-msvc": "3.0.0"
+    "@ruvector/ruvllm-linux-x64-gnu": "2.0.1",
+    "@ruvector/ruvllm-linux-arm64-gnu": "2.0.1",
+    "@ruvector/ruvllm-darwin-x64": "2.0.1",
+    "@ruvector/ruvllm-darwin-arm64": "2.0.1",
+    "@ruvector/ruvllm-win32-x64-msvc": "2.0.1"
   },
   "keywords": [
     "ruvllm",
