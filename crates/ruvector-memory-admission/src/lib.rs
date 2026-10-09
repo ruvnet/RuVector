@@ -33,8 +33,18 @@
 //! 3. [`policy::AdaptiveMincutAdmission`] — candidate B: identical mechanism
 //!    to candidate A, but the coherence threshold is self-calibrating — a
 //!    running mean/std (Welford) of observed cut weights sets the threshold
-//!    online instead of requiring a hand-tuned constant.
+//!    online instead of requiring a hand-tuned constant. candidate B's
+//!    self-calibration was a documented negative result (it drifts and
+//!    blows through the cluster-count safety valve).
+//! 4. [`conditioned::GuardedConditionedAdmission`] — candidate C: addresses
+//!    candidate B's specific failure by conditioning `tau` on local features
+//!    (cluster count, best-single-centroid similarity) instead of a global
+//!    cut-weight statistic, and by recalibrating that mapping through a
+//!    bounded `(1+1)`-ES screened by `ruvector-sona`'s `darwin_guard::Guard`
+//!    reward-hacking defense (ADR-271) rather than an unguarded online
+//!    estimator.
 
+pub mod conditioned;
 pub mod dataset;
 pub mod mincut;
 pub mod policy;
