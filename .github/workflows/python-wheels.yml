@@ -98,6 +98,20 @@ jobs:
           # has no such binary ("linker `aarch64-linux-gnu-gcc` not found"),
           # so use the container's own gcc. Env overrides the config file.
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: gcc
+          # The workspace .cargo/config.toml also sets, for this same target,
+          # `rustflags = -C target-cpu=cortex-a76 -C target-feature=+lse,+rcpc,
+          # +fp16,+crc` (Pi 5 tuning, ADR-179). Left alone, the published
+          # manylinux aarch64 wheel would be compiled for the Cortex-A76 and
+          # die with SIGILL on a Pi 4 / Zero 2 W / other ARMv8.0 CPUs (the
+          # same failure mode the v0 appliance hit). The RUSTFLAGS env var
+          # takes precedence over config-file `target.<triple>.rustflags`
+          # (cargo uses only the first of: CARGO_ENCODED_RUSTFLAGS, RUSTFLAGS,
+          # target.<triple>.rustflags, build.rustflags; confirmed locally with
+          # `cargo check -v --target aarch64-unknown-linux-gnu`: no env ->
+          # cortex-a76 on the rustc line, RUSTFLAGS set -> only that value).
+          # The workspace config is deliberately left untouched for the other
+          # crates that want the Pi 5 tuning. x86_64 has no such config entry.
+          RUSTFLAGS: ${{ matrix.target == 'aarch64' && '-C target-cpu=generic' || '' }}
         with:
           working-directory: ${{ env.PACKAGE_DIR }}
           target: ${{ matrix.target }}
@@ -165,6 +179,58 @@ jobs:
         with:
           name: wheels-linux-${{ matrix.target }}
           path: ${{ env.PACKAGE_DIR }}/dist/*.whl
+
+  sdist:
+    # `pip install ruvector` falls back to the sdist on any platform without a
+    # wheel (musl, FreeBSD, 32-bit, Python < 3.9 ...), so it must build.
+    runs-on: ubuntu-latest
+    name: Source distribution
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+
+      - name: Build sdist
+        uses: PyO3/maturin-action@423a6347767a8b16e65c2a7a7042e4a921528da8
+        with:
+          working-directory: ${{ env.PACKAGE_DIR }}
+          command: sdist
+          args: --out dist
+
+      # maturin copies path dependencies but not `[patch.crates-io]` paths
+      # (workspace Cargo.toml patches hnsw_rs), so the raw sdist cannot
+      # resolve its dependency graph. See the script header.
+      - name: Add vendored patches + LICENSE to sdist
+        run: ${{ env.PACKAGE_DIR }}/scripts/sdist-add-patches.sh ${{ env.PACKAGE_DIR }}/dist/ruvector-*.tar.gz
+
+      - name: Check sdist contents
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          tar tzf dist/ruvector-*.tar.gz > /tmp/sdist.lst
+          wc -l /tmp/sdist.lst
+          if grep -E '(^|/)(\.claude|\.claude-flow|\.git|\.env[^/]*|target|node_modules)(/|$)|\.(so|pyd|dylib|pem|key)$' /tmp/sdist.lst; then
+            echo "::error::sdist contains files that must not be published (listed above)"; exit 1
+          fi
+          grep -q '/patches/hnsw_rs/Cargo.toml$' /tmp/sdist.lst
+          grep -qE '^ruvector-[^/]+/LICENSE$' /tmp/sdist.lst
+
+      - name: Build + smoke-test from the sdist in a clean venv
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          python3 -m venv /tmp/sdist-venv
+          /tmp/sdist-venv/bin/pip install dist/ruvector-*.tar.gz
+          /tmp/sdist-venv/bin/ruvector --help
+          /tmp/sdist-venv/bin/pip install pytest
+          /tmp/sdist-venv/bin/python -m pytest tests/test_smoke.py tests/test_collection.py -q
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          # Named wheels-* on purpose: validate-wheels and publish already
+          # download `wheels-*` into dist/, so the sdist rides the same flow.
+          name: wheels-sdist
+          path: ${{ env.PACKAGE_DIR }}/dist/*.tar.gz
 
   macos:
     runs-on: macos-14
@@ -239,7 +305,7 @@ jobs:
   validate-wheels:
     runs-on: ubuntu-latest
     name: Validate wheel tags + twine check
-    needs: [linux, macos, windows]
+    needs: [linux, macos, windows, sdist]
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -269,7 +335,7 @@ jobs:
       - name: twine check
         run: |
           python3 -m pip install --quiet twine
-          python3 -m twine check dist/*.whl
+          python3 -m twine check dist/*
 
   # Trusted publishing (PyPI OIDC, no stored token — https://docs.pypi.org/trusted-publishers/)
   # requires a one-time PyPI-side publisher registration for this repo/workflow before it can
@@ -278,12 +344,14 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     name: Publish to PyPI
-    needs: [linux, macos, windows, validate-wheels]
+    needs: [linux, macos, windows, sdist, validate-wheels]
     if: startsWith(github.ref, 'refs/tags/python-v') || github.event.inputs.publish == 'true'
     environment: pypi
     permissions:
       id-token: write
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           path: dist
@@ -292,6 +360,16 @@ jobs:
 
       - name: List wheels
         run: ls -la dist/
+
+      # Fails the publish on a tag/version mismatch (tag python-vX.Y.Z must
+      # equal pyproject.toml == Cargo.toml == the version in every built
+      # wheel/sdist filename). For workflow_dispatch there is no tag; the
+      # file-vs-file and artifact checks still run.
+      - name: Check tag matches package version
+        run: |
+          tag=""
+          if [[ "$GITHUB_REF" == refs/tags/python-v* ]]; then tag="$GITHUB_REF"; fi
+          ${{ env.PACKAGE_DIR }}/scripts/check-release-version.sh "$tag" dist
 
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
         with:
