@@ -88,6 +88,7 @@ ruvector benchmark -n 100000 --dim 128     # in-process latency/QPS, no external
 ruvector serve                             # MCP server over stdio
 ruvector serve --http --port 8420          # MCP server over streamable-HTTP (loopback)
 ruvector serve --read-only                 # no create/insert/delete tools
+ruvector serve --max-vectors 50000         # cap vectors per collection (default 1,000,000)
 ```
 
 `serve --http` on a non-loopback `--host` refuses to start unless
@@ -112,6 +113,16 @@ names are restricted to `[A-Za-z0-9_-]` and resolved under
 directory-traversal surface regardless of what a remote MCP client sends.
 See `ruvector/mcp_server.py`'s module docstring for the full security
 model.
+
+Write size is capped. Per call: 10,000 rows, 2,000,000 floats in total, and
+64 KiB of serialized metadata per row. Per collection: 1,000,000 vectors by
+default, counting deleted-but-not-vacuumed rows; `vector_insert` and
+`vector_insert_batch` fail with a `ToolError` that names the limit once it
+would be exceeded. Change it with `ruvector serve --max-vectors N` or
+`RUVECTOR_MCP_MAX_VECTORS=N` (the option wins; a non-positive or non-integer
+value stops the server at startup). The server re-saves the whole collection
+on every write, so keep this cap well below what your disk and latency budget
+can take.
 
 ```sh
 # point an MCP client at: ruvector serve   (stdio)

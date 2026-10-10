@@ -78,7 +78,7 @@ import re
 import sys
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.provider import AccessToken, TokenVerifier
@@ -105,6 +105,13 @@ _NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 MAX_BATCH_ROWS = 10_000
 MAX_BATCH_ELEMENTS = 2_000_000  # rows * dim floats per insert_batch call (~8 MB as float32)
 MAX_METADATA_BYTES = 65_536  # serialized JSON, per row
+# Total vectors a client may write into ONE collection (a cumulative cap, unlike
+# the per-call caps above). Every write re-saves the whole collection, so an
+# unbounded collection also makes each later write slower. Override with the
+# RUVECTOR_MCP_MAX_VECTORS environment variable or `ruvector serve --max-vectors`.
+DEFAULT_MAX_VECTORS = 1_000_000
+_MAX_VECTORS_ENV_VAR = "RUVECTOR_MCP_MAX_VECTORS"
+_max_vectors_override: Optional[int] = None
 
 _TOKEN_ENV_VAR = "RUVECTOR_MCP_TOKEN"
 # Self-referential placeholder — this design does not do real OAuth
@@ -263,6 +270,52 @@ def _save(name: str, coll: "Collection") -> None:
     _cache[name] = coll
 
 
+def parse_max_vectors(raw: Union[str, int], source: str) -> int:
+    """Validate a vectors-per-collection cap; raises ``ValueError`` if not a positive int."""
+    try:
+        value = int(str(raw).strip())
+    except ValueError:
+        raise ValueError(f"{source} must be a positive integer, got {raw!r}") from None
+    if value < 1:
+        raise ValueError(f"{source} must be a positive integer, got {raw!r}")
+    return value
+
+
+def set_max_vectors(value: Optional[int]) -> None:
+    """Set (or with ``None`` clear) the cap given on the command line; it wins over the environment."""
+    global _max_vectors_override
+    _max_vectors_override = None if value is None else parse_max_vectors(value, "max vectors")
+
+
+def max_vectors() -> int:
+    """Effective per-collection cap: ``--max-vectors``, else the env var, else the default.
+
+    An empty env var counts as unset.
+    """
+    if _max_vectors_override is not None:
+        return _max_vectors_override
+    raw = os.environ.get(_MAX_VECTORS_ENV_VAR, "").strip()
+    return parse_max_vectors(raw, _MAX_VECTORS_ENV_VAR) if raw else DEFAULT_MAX_VECTORS
+
+
+def _check_capacity(coll: "Collection", incoming: int) -> None:
+    """Reject a write that would take the collection past the cap.
+
+    Counts tombstoned rows too: they still occupy the index and the saved
+    files until ``vector_delete(..., vacuum=True)`` runs.
+    """
+    cap = max_vectors()
+    stats = coll.stats()
+    used = stats.count + stats.tombstoned
+    if used + incoming > cap:
+        raise ValueError(
+            f"collection is at its vector limit: it holds {used} vectors"
+            f"{f' ({stats.tombstoned} deleted, not yet vacuumed)' if stats.tombstoned else ''}, "
+            f"adding {incoming} would exceed the maximum of {cap} per collection "
+            f"(set {_MAX_VECTORS_ENV_VAR} or `ruvector serve --max-vectors` to change it)"
+        )
+
+
 def _check_vector_len(vec: "List[float]", what: str) -> None:
     if len(vec) > MAX_DIM:
         raise ValueError(f"{what} has {len(vec)} elements; the maximum dimension is {MAX_DIM}")
@@ -369,6 +422,7 @@ def vector_insert(name: str, vector: List[float], metadata: Optional[Dict[str, A
     _check_metadata(metadata)
     with _lock:
         coll = _load(name)
+        _check_capacity(coll, 1)
         new_id = coll.insert(np.asarray(vector, dtype=np.float32), metadata=metadata)
         _save(name, coll)
         return {"id": new_id, "count": len(coll)}
@@ -388,6 +442,7 @@ def vector_insert_batch(
     _check_batch(vectors, metadatas)
     with _lock:
         coll = _load(name)
+        _check_capacity(coll, len(vectors))
         ids = coll.insert_batch(np.asarray(vectors, dtype=np.float32), metadatas=metadatas)
         _save(name, coll)
         return {"ids": ids, "count": len(coll)}
@@ -619,4 +674,13 @@ def run_http(host: str = "127.0.0.1", port: int = 8420) -> None:
     server.run(transport="streamable-http", host=host, port=port)
 
 
-__all__ = ["server", "run_stdio", "run_http", "StaticTokenVerifier", "apply_read_only", "UnsafeBindError"]
+__all__ = [
+    "server",
+    "run_stdio",
+    "run_http",
+    "StaticTokenVerifier",
+    "apply_read_only",
+    "UnsafeBindError",
+    "set_max_vectors",
+    "max_vectors",
+]
