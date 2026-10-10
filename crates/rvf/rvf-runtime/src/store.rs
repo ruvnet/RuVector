@@ -526,7 +526,7 @@ impl RvfStore {
         let old_epoch = self.epoch;
         let old_witness_hash = self.last_witness_hash;
 
-        let candidate_metadata = self.build_ingest_metadata(&metadata, &valid_ids)?;
+        let candidate_metadata = self.build_ingest_metadata(&metadata, &valid_ids, &unique_ids)?;
         let has_metadata = !matches!(metadata, IngestMetadata::None);
 
         let writer = self
@@ -2698,6 +2698,7 @@ impl RvfStore {
         &self,
         metadata: &IngestMetadata<'_>,
         batch_ids: &[u64],
+        batch_id_set: &HashSet<u64>,
     ) -> Result<MetadataStore, RvfError> {
         let mut candidate = self.metadata.clone();
         match metadata {
@@ -2721,7 +2722,6 @@ impl RvfStore {
             }
             IngestMetadata::Records(records) => {
                 let mut record_ids = HashSet::with_capacity(records.len());
-                let batch_ids: HashSet<u64> = batch_ids.iter().copied().collect();
                 for record in *records {
                     if !record_ids.insert(record.vector_id) {
                         return Err(err(ErrorCode::InvalidMetadata));
@@ -2732,7 +2732,10 @@ impl RvfStore {
                         .membership_filter
                         .as_ref()
                         .is_some_and(|membership| membership.contains(record.vector_id));
-                    if !batch_ids.contains(&record.vector_id) && !existing_live && !inherited_live {
+                    if !batch_id_set.contains(&record.vector_id)
+                        && !existing_live
+                        && !inherited_live
+                    {
                         return Err(err(ErrorCode::InvalidMetadata));
                     }
                     let mut field_ids = HashSet::with_capacity(record.fields.len());
@@ -2757,6 +2760,31 @@ impl RvfStore {
                                 .map(|field| (field.field_id, field.value.clone()))
                                 .collect(),
                         );
+                    }
+                }
+            }
+        }
+        if !matches!(metadata, IngestMetadata::None) {
+            // Each META_SEG delta can encode its own schema, but a later full
+            // snapshot must represent every live record with one type per
+            // field ID. Reject the conflicting write before touching vectors
+            // or appending any segment bytes.
+            let mut types_by_field = BTreeMap::<u16, MetadataType>::new();
+            for vector_id in candidate.ids() {
+                if !batch_id_set.contains(&vector_id) && !self.metadata_id_is_committed(vector_id) {
+                    continue;
+                }
+                if let Some(fields) = candidate.fields(vector_id) {
+                    for (&field_id, value) in fields {
+                        let Some(value_type) = runtime_metadata_type(value) else {
+                            continue;
+                        };
+                        if types_by_field
+                            .insert(field_id, value_type)
+                            .is_some_and(|previous| previous != value_type)
+                        {
+                            return Err(err(ErrorCode::InvalidMetadata));
+                        }
                     }
                 }
             }
@@ -4155,6 +4183,18 @@ fn runtime_to_wire(value: &MetadataValue) -> WireMetadataValue {
         MetadataValue::Bool(value) => WireMetadataValue::Bool(*value),
         MetadataValue::DeleteField => WireMetadataValue::DeleteField,
     }
+}
+
+fn runtime_metadata_type(value: &MetadataValue) -> Option<MetadataType> {
+    Some(match value {
+        MetadataValue::Null | MetadataValue::DeleteField => return None,
+        MetadataValue::String(_) => MetadataType::String,
+        MetadataValue::Bytes(_) => MetadataType::Bytes,
+        MetadataValue::I64(_) => MetadataType::I64,
+        MetadataValue::U64(_) => MetadataType::U64,
+        MetadataValue::F64(_) => MetadataType::F64,
+        MetadataValue::Bool(_) => MetadataType::Bool,
+    })
 }
 
 fn wire_to_runtime(value: &WireMetadataValue) -> Result<MetadataValue, RvfError> {
@@ -5671,6 +5711,137 @@ mod tests {
             .unwrap()
             .read_all_vectors()
             .is_empty());
+    }
+
+    #[test]
+    fn conflicting_metadata_types_surface_at_ingest() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("metadata_type_conflict.rvf");
+        let mut store = RvfStore::create(
+            &path,
+            RvfOptions {
+                dimension: 2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        store
+            .ingest_batch_with_metadata(
+                &[&[1.0, 0.0]],
+                &[1],
+                &[VectorMetadata {
+                    vector_id: 1,
+                    fields: vec![MetadataEntry {
+                        field_id: 7,
+                        value: MetadataValue::String("first".into()),
+                    }],
+                    delete_record: false,
+                }],
+            )
+            .unwrap();
+
+        let epoch = store.status().current_epoch;
+        let file_size = std::fs::metadata(&path).unwrap().len();
+        let conflicting = store.ingest_batch_with_metadata(
+            &[&[0.0, 1.0]],
+            &[2],
+            &[VectorMetadata {
+                vector_id: 2,
+                fields: vec![MetadataEntry {
+                    field_id: 7,
+                    value: MetadataValue::U64(2),
+                }],
+                delete_record: false,
+            }],
+        );
+        assert!(matches!(
+            conflicting,
+            Err(RvfError::Code(ErrorCode::InvalidMetadata))
+        ));
+        assert_eq!(store.status().current_epoch, epoch);
+        assert_eq!(std::fs::metadata(&path).unwrap().len(), file_size);
+        assert_eq!(store.read_all_vectors().len(), 1);
+        assert!(store.get_metadata(2).is_none());
+        assert!(store.encode_metadata_generation(3, None).is_ok());
+    }
+
+    #[test]
+    fn metadata_type_replacement_is_allowed_when_no_live_record_conflicts() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("metadata_type_replacement.rvf");
+        let mut store = RvfStore::create(
+            &path,
+            RvfOptions {
+                dimension: 2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        for value in [MetadataValue::String("old".into()), MetadataValue::U64(42)] {
+            store
+                .ingest_batch_with_metadata(
+                    &[&[1.0, 0.0]],
+                    &[1],
+                    &[VectorMetadata {
+                        vector_id: 1,
+                        fields: vec![MetadataEntry { field_id: 7, value }],
+                        delete_record: false,
+                    }],
+                )
+                .unwrap();
+        }
+        store
+            .ingest_batch_with_metadata(
+                &[&[0.0, 1.0]],
+                &[2],
+                &[VectorMetadata {
+                    vector_id: 2,
+                    fields: vec![MetadataEntry {
+                        field_id: 7,
+                        value: MetadataValue::Null,
+                    }],
+                    delete_record: false,
+                }],
+            )
+            .unwrap();
+        assert!(store.encode_metadata_generation(4, None).is_ok());
+    }
+
+    #[test]
+    fn legacy_metadata_ingest_rejects_cross_record_type_conflicts() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("legacy_metadata_type_conflict.rvf");
+        let mut store = RvfStore::create(
+            &path,
+            RvfOptions {
+                dimension: 2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        store
+            .ingest_batch(
+                &[&[1.0, 0.0]],
+                &[1],
+                Some(&[MetadataEntry {
+                    field_id: 7,
+                    value: MetadataValue::String("first".into()),
+                }]),
+            )
+            .unwrap();
+        let result = store.ingest_batch(
+            &[&[0.0, 1.0]],
+            &[2],
+            Some(&[MetadataEntry {
+                field_id: 7,
+                value: MetadataValue::U64(2),
+            }]),
+        );
+        assert!(matches!(
+            result,
+            Err(RvfError::Code(ErrorCode::InvalidMetadata))
+        ));
+        assert_eq!(store.read_all_vectors().len(), 1);
     }
 
     /// Criterion 2 (gap): bytes, signed-integer, and finite-float per-vector
