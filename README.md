@@ -28,6 +28,74 @@ RuVector supports three complementary roles in the wider ruvnet stack. These are
 
 ![Animated RuVector systems diagram: System 0 encodes and responds, System 1 learns and remembers, System 2 reasons and orchestrates](assets/ruvector/three-systems.svg)
 
+## Quick start: choose your track
+
+| Track | Use it for | Prerequisites |
+| :--- | :--- | :--- |
+| [npm](#track-1-npm-local-agent-memory) | Project memory and a Node.js application | Node.js and npm; supported native backend |
+| [MCP](#track-2-mcp-connect-an-agent) | Give an MCP client access to RuVector tools | Node.js, npm, and an MCP compatible client |
+| [Python](#track-3-python-vector-search) | Vector search from Python | Python 3.9+, Rust, and a virtual environment for the source install |
+
+### Track 1: npm local agent memory
+
+Install and pin the package in your project:
+
+```bash
+npm install --save-exact ruvector
+./node_modules/.bin/ruvector info
+./node_modules/.bin/ruvector hooks remember --semantic --type decision \
+  "The customer requires all inference to remain in Canada."
+./node_modules/.bin/ruvector hooks recall --semantic --top-k 3 \
+  "Where may customer data be processed?"
+```
+
+The first semantic command downloads a local embedding model. Reuse the same project directory and model to retain searchable context. [Node.js SDK example](#embed-persistent-memory-in-nodejs) · [Node.js API](./docs/api/NODEJS_API.md).
+
+### Track 2: MCP connect an agent
+
+Install locally, inspect the tools, and start with the read only profile:
+
+```bash
+npm install --save-exact ruvector
+./node_modules/.bin/ruvector mcp tools
+RUVECTOR_MCP_PROFILE=readonly ./node_modules/.bin/ruvector mcp start
+```
+
+Configure your MCP client to launch this project's installed `ruvector` executable with arguments `mcp start`, environment `RUVECTOR_MCP_PROFILE=readonly`, and the project as its working directory. Use the client configuration format it supports. Enable writes only through an explicit tool policy. [MCP integration and policy](#agent-integration).
+
+### Track 3: Python vector search
+
+The [Python guide](./docs/python/README.md#install) currently documents a source installation. This path avoids assuming a published PyPI wheel is available.
+
+```bash
+git clone https://github.com/ruvnet/RuVector.git
+cd RuVector
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install maturin
+cd crates/ruvector-py
+maturin develop --release
+```
+
+The activation command above is for bash or zsh; on Windows use `.venv\Scripts\Activate.ps1`. Rust and its platform build tools are required.
+
+```python
+import numpy as np
+from ruvector import Collection
+
+memory = Collection.create(dim=3)
+vector = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+memory.insert(vector, metadata={"text": "A stored example"})
+hits = memory.search(vector, k=1)
+print(hits[0].metadata)
+memory.save("my-memory")
+restored = Collection.load("my-memory")
+assert len(restored) == 1
+```
+
+This example uses a fixed vector to demonstrate storage, recall, and persistence. Use your embedding model for semantic text search. [Python SDK tutorial and integrations](./docs/python/README.md).
+
+
 ### Where does contrastive AI fit?
 
 Contrastive AI spans these groups: learn useful distinctions in System 1, apply them to bounded System 0 decisions, and evaluate their use in System 2 workflows. Representation learning, graph diagnostics, and promotion policy are distinct mechanisms.
@@ -146,13 +214,7 @@ Reopen the same `storagePath` in another process to recover the stored vectors, 
 
 ## Use ruvector from Python
 
-```bash
-pip install ruvector
-# or
-uv add ruvector
-```
-
-A PyO3/maturin binding over the same Rust core, with a CLI, an MCP server, and LangChain/LlamaIndex/Salesforce Agentforce integrations. See the [Python guide](./docs/python/README.md) for install extras, the SDK reference, and benchmarks.
+Follow the [Python quick start track](#track-3-python-vector-search) for installation, vector search, and save/load. The [Python guide](./docs/python/README.md) covers the PyO3/maturin SDK, CLI, MCP server, and optional framework integrations.
 
 ## The memory loop
 
