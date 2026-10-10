@@ -315,11 +315,30 @@ Memory classes are application semantics over vectors, metadata, and graphs. The
 | Shared | Contributions, provenance, voting, transfer | [`mcp-brain`](./crates/mcp-brain) |
 | Auditable | Hash linked entries, snapshots, RVF witnesses | [`WitnessLog`](./crates/ruvector-core/src/agenticdb.rs), [`ruvector-snapshot`](./crates/ruvector-snapshot), [RVF](./crates/rvf) |
 
-## Capability map
+## Library and capability map
+
+Choose libraries by responsibility. These groups are a navigation model: a library can serve more than one system. npm names below come from package manifests; crate links point to repository guides. Publication, platform support, and maturity vary by package. Installing `ruvector` does not install every library in this monorepo.
+
+[System 0 libraries](#sensing-and-decision-libraries) · [System 1 libraries](#memory-and-learning-libraries) · [System 2 libraries](#runtime-orchestration-and-governance-libraries) · [All npm packages](./npm/packages) · [All Rust crates](./crates) · [All examples](./examples)
 
 ### System 0: Sense & Respond
 
+![System 0: Sense & Respond library flow](./assets/ruvector/system-0-library-header.svg)
+
 Encode incoming observations for retrieval and bounded decisions. [Typed decision tutorial](./npm/packages/typesafe/README.md) · [Semantic embeddings setup](./docs/adr/ADR-210-default-on-semantic-embeddings-minilm.md)
+
+#### Sensing and decision libraries
+
+| Library | Purpose | Guide or example |
+| :--- | :--- | :--- |
+| [`@ruvector/typesafe`](./npm/packages/typesafe/README.md) | Local choices, scores, and typed decisions | [Decision walkthrough](./npm/packages/typesafe/README.md) |
+| [`@ruvector/cnn`](./npm/packages/ruvector-cnn/README.md) | Image feature extraction and embeddings | [CNN guide](./crates/ruvector-cnn/README.md) |
+| [`@ruvector/router`](./npm/packages/router/README.md) | Match intent to a configured route | [Semantic routing](./npm/packages/router/README.md) |
+| [`ruvector-embed-core`](./crates/ruvector-embed-core/README.md) | Embedding primitives | [Local ONNX example](./examples/onnx-embeddings/README.md) |
+| [`ruvector-mmwave`](./crates/ruvector-mmwave/README.md) | Radar sensing components | [Crate guide](./crates/ruvector-mmwave/README.md) |
+| [`ruvector-robotics`](./crates/ruvector-robotics/README.md) | Robotics integration | [Robotics core](./crates/agentic-robotics-core/README.md) |
+
+**Try it:** [ONNX in WASM](./examples/onnx-embeddings-wasm/README.md) · [Browser with React](./examples/wasm-react/README.md) · [Browser without a framework](./examples/wasm-vanilla/README.md) · [Edge examples](./examples/edge/README.md).
 
 #### Capture and encode
 
@@ -332,7 +351,27 @@ Encode incoming observations for retrieval and bounded decisions. [Typed decisio
 
 ### System 1: Learn & Remember
 
+![System 1: Learn & Remember library flow](./assets/ruvector/system-1-library-header.svg)
+
 Store context, reconstruct relevant evidence, and adapt from recorded feedback. [Node.js tutorial](#embed-persistent-memory-in-nodejs) · [Python tutorial](./docs/python/README.md) · [Contrastive training guide](./crates/ruvllm/src/training/README.md)
+
+#### Memory and learning libraries
+
+| Library | Purpose | Guide or example |
+| :--- | :--- | :--- |
+| [`@ruvector/kge`](./npm/packages/kge/README.md) | Knowledge graph embeddings and link prediction | [KGE tutorial](./npm/packages/kge/README.md) |
+| [`@ruvector/graph-node`](./npm/packages/graph-node/README.md) | Native graph and hypergraph access | [Graph examples](./examples/graph/README.md) |
+| [`@ruvector/sona`](./npm/packages/sona/README.md) | Adaptation from trajectories and rewards | [SONA architecture](./crates/sona/README.md) |
+| [`@ruvector/diskann`](./npm/packages/diskann/README.md) | Disk oriented approximate nearest neighbors | [DiskANN guide](./npm/packages/diskann/README.md) |
+| [`rvlite`](./npm/packages/rvlite/README.md) | Lightweight SQL, SPARQL, and Cypher memory | [rvlite tutorial](./npm/packages/rvlite/README.md) |
+| [`ruvector-mincut`](./crates/ruvector-mincut/README.md) | Graph partition and coherence diagnostics | [MinCut examples](./examples/mincut/README.md) |
+| [`ruvector-coherence`](./crates/ruvector-coherence/README.md) | Structural coherence components | [Coherence guide](./crates/ruvector-coherence/README.md) |
+| [`ruvector-memory-admission`](./crates/ruvector-memory-admission/README.md) | Decide which observations enter memory | [Admission guide](./crates/ruvector-memory-admission/README.md) |
+| [`ruvector-query-cache`](./crates/ruvector-query-cache/README.md) | Cache retrieval work | [Cache guide](./crates/ruvector-query-cache/README.md) |
+| [`ruvector-recall-bounded`](./crates/ruvector-recall-bounded/README.md) | Bounded recall components | [Recall guide](./crates/ruvector-recall-bounded/README.md) |
+| [`ruvector-retrieval-receipt`](./crates/ruvector-retrieval-receipt/README.md) | Retrieval evidence and receipts | [Receipt guide](./crates/ruvector-retrieval-receipt/README.md) |
+
+**Try it:** [Node.js examples](./examples/nodejs/README.md) · [Rust examples](./examples/rust/README.md) · [MRAgent reconstruction](./examples/mragent/README.md) · [Contrastive training](./crates/ruvllm/src/training/README.md).
 
 #### Persist and organize
 
@@ -394,7 +433,28 @@ The `DbOptions.quantization` field in `ruvector-core` is persisted but is not cu
 
 ### System 2: Reason & Orchestrate
 
+![System 2: Reason & Orchestrate library flow](./assets/ruvector/system-2-library-header.svg)
+
 Combine memory with application reasoning, agent coordination, and explicit governance. Ruflo and MetaHarness are complementary external projects; RuVector supplies memory and supporting primitives. [MCP integration tutorial](#agent-integration) · [Graph reconstruction example](./examples/mragent) · [Ruflo guide](https://github.com/ruvnet/ruflo#readme)
+
+#### Runtime, orchestration, and governance libraries
+
+| Library | Purpose | Guide or example |
+| :--- | :--- | :--- |
+| [`@ruvector/ruvllm`](./npm/packages/ruvllm/README.md) | Local language model runtime | [RuVLLM examples](./examples/ruvLLM/README.md) |
+| [`@ruvector/tiny-dancer`](./npm/packages/tiny-dancer/README.md) | Neural routing and circuit breakers | [Router tutorial](./npm/packages/tiny-dancer/README.md) |
+| [`@ruvector/wasm-unified`](./npm/packages/ruvector-wasm-unified/README.md) | Unified browser and WASM API | [WASM guide](./npm/packages/ruvector-wasm-unified/README.md) |
+| [`@ruvector/rvf`](./npm/packages/rvf/README.md) | Vector artifact SDK | [RVF examples](./examples/rvf/README.md) |
+| [`@ruvector/rvf-mcp-server`](./npm/packages/rvf-mcp-server/README.md) | Expose RVF through MCP | [MCP server setup](./npm/packages/rvf-mcp-server/README.md) |
+| [`@ruvector/rvforge`](./npm/packages/rvforge/README.md) | Turn RVF artifacts into signed installers | [RVForge guide](./npm/packages/rvforge/README.md) |
+| [`rvAgent`](./crates/rvAgent/README.md) | Agent runtime components | [Runtime guide](./crates/rvAgent/README.md) |
+| [`rvm`](./crates/rvm/README.md) | Execution substrate | [RVM guide](./crates/rvm/README.md) |
+| [`ruvector-proof-gate`](./crates/ruvector-proof-gate/README.md) | Evidence and promotion gates | [Proof gate guide](./crates/ruvector-proof-gate/README.md) |
+| [`ruvector-bounded-rag`](./crates/ruvector-bounded-rag/README.md) | Retrieval with bounded execution | [Bounded RAG guide](./crates/ruvector-bounded-rag/README.md) |
+| [`ruvector-cluster-rag`](./crates/ruvector-cluster-rag/README.md) | Cluster based retrieval components | [Cluster RAG guide](./crates/ruvector-cluster-rag/README.md) |
+| [`ruvector-server`](./crates/ruvector-server/README.md) | Service deployment | [Server guide](./crates/ruvector-server/README.md) |
+
+**Try it:** [Agent to agent swarm](./examples/a2a-swarm/README.md) · [REFRAG pipeline](./examples/refrag-pipeline/README.md) · [Google Cloud examples](./examples/google-cloud/README.md) · [Python Agentforce example](./examples/python-salesforce-agentforce/README.md).
 
 #### Govern and distribute
 
