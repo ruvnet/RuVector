@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "ruvector"
-version = "0.1.0"
+version = "0.1.1"
 description = "Ultra-low-latency vector search (RaBitQ, Rust core) with a CLI and MCP server"
 readme = "README.md"
 license = { text = "MIT" }
@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Database :: Database Engines/Servers",
