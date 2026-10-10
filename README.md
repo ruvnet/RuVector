@@ -16,6 +16,9 @@ Built by [Reuven Cohen (rUv)](https://ruv.io/) as part of the [ruvnet open sourc
 [![npm all-time downloads](https://img.shields.io/npm/dt/ruvector.svg?label=all-time%20downloads)](https://www.npmjs.com/package/ruvector)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
+
+**Explore:** [Quick starts](#quick-start-choose-your-track) · [Build recipes](#build-by-example) · [Library catalog](#library-and-capability-map) · [Contrastive AI](#where-does-contrastive-ai-fit) · [Deployment](#deployment-surfaces) · [Benchmarks](#reproduce-the-evidence)
+
 ## System 0, System 1, and System 2
 
 RuVector supports three complementary roles in the wider ruvnet stack. These are architecture groups, not automatic execution tiers or a claim that every component is installed together.
@@ -165,6 +168,25 @@ Contrastive AI spans these groups: learn useful distinctions in System 1, apply 
 
 [Watch rUv's illustrated contrastive AI walkthrough](https://github.com/ruvnet/ruvnet/blob/main/docs/contrastive-ai-walkthrough.md). Contrastive losses do not establish factual truth; graph coherence does not replace task evaluation, access control, or promotion approval. These components require explicit integration and are not all enabled in the default search path.
 
+## Build by example
+
+Choose one outcome, follow its guide, and check the result before adding more components.
+
+| Build | Libraries to start with | Example or tutorial | Acceptance check |
+| :--- | :--- | :--- | :--- |
+| **Persistent agent memory** | npm `ruvector` or Rust `ruvector-core` | [Node.js](#embed-persistent-memory-in-nodejs), [Rust](#track-4-cratesio-ruvector-core), [Python](#track-3-pypi-ruvector) | A fresh process retrieves a record written by the previous process |
+| **Local ticket routing** | npm `@ruvector/typesafe` | [Typed decisions and evaluation](./npm/packages/typesafe/README.md) | Measure accuracy, abstention, and p95 latency on your held out tickets |
+| **Knowledge graph retrieval** | npm `@ruvector/graph-node`, `@ruvector/kge` | [Graph examples](./examples/graph/README.md), [KGE guide](./npm/packages/kge/README.md) | Return source relationships; evaluate predicted links separately from stored facts |
+| **Browser vector search** | npm `@ruvector/wasm` | [Vanilla JavaScript](./examples/wasm-vanilla/README.md), [React](./examples/wasm-react/README.md) | Insert and query in the browser; explicitly test persistence if required |
+| **Feedback driven memory** | SONA, MRAgent reconstruction | [SONA](./crates/sona/README.md), [MRAgent](./examples/mragent/README.md) | Compare a frozen baseline with the candidate on a separate evaluation set |
+| **Portable memory artifacts** | npm `@ruvector/rvf`, `@ruvector/rvf-mcp-server` | [RVF examples](./examples/rvf/README.md), [MCP setup](./npm/packages/rvf-mcp-server/README.md) | Reopen the artifact and confirm expected records and configured tool permissions |
+
+### How the components work together
+
+![Animated reference architecture: encode observations, retrieve evidence, act under policy, and evaluate feedback before adaptation](./assets/ruvector/build-loop.svg)
+
+The application connects these components. Keep source IDs with retrieved evidence, record the outcome of an action, and evaluate any proposed learning change before retaining it. See [contrastive AI](#where-does-contrastive-ai-fit) for the distinction between representation learning, graph diagnostics, and promotion policy.
+
 ## What is RuVector used for?
 
 | Goal | Start here |
@@ -186,19 +208,11 @@ The default retrieval path runs locally. Learning happens from recorded outcomes
 
 On the [documented 150-ticket test split](./npm/packages/typesafe/README.md#measured), the local ONNX decision engine reports 4–10 ms p95 for its campaign configurations, with 77.3–84.0% department accuracy; the Jev replay reference reports 231 ms p95 and 85.3% accuracy. Those are workload-specific measurements, not a universal speed or quality guarantee. The default hash embedder is a test double and is not calibrated for production decisions. See the [typed decision quick start and benchmark details](./npm/packages/typesafe/README.md).
 
-## Remember and recall in 30 seconds
+<a id="remember-and-recall-in-30-seconds"></a>
 
-No database server or API key is required.
+### Where is CLI memory stored?
 
-```bash
-npx ruvector hooks remember --semantic --type decision \
-  "The customer requires all inference to remain in Canada."
-
-npx ruvector hooks recall --semantic --top-k 3 \
-  "Where may customer data be processed?"
-```
-
-Memory is stored under the current project and remains available to later processes. The first semantic command downloads and caches the local `all-MiniLM-L6-v2` model. Keep one embedding model and dimension per store; use `npx ruvector hooks reembed` before changing an existing store from hash to semantic embeddings. Use `npx ruvector hooks stats` to inspect the store.
+The [npm quick start](#track-1-npm-ruvector) stores memory under the current project for later processes. The first semantic command downloads and caches `all-MiniLM-L6-v2`. Keep one embedding model and dimension per store; use `npx ruvector hooks reembed` before changing an existing store from hash to semantic embeddings. Inspect it with `npx ruvector hooks stats`.
 
 ## Embed persistent memory in Node.js
 
@@ -485,7 +499,7 @@ Combine memory with application reasoning, agent coordination, and explicit gove
 
 ## Agent integration
 
-For automated agent integration, install and pin the package locally:
+For automated agent integration, install the package locally and commit your lockfile:
 
 ```bash
 npm install ruvector
