@@ -60,3 +60,11 @@ impl From<std::io::Error> for TinyDancerError {
         TinyDancerError::StorageError(err.to_string())
     }
 }
+
+impl From<ruvector_voi::VoiError> for TinyDancerError {
+    fn from(err: ruvector_voi::VoiError) -> Self {
+        match err {
+            ruvector_voi::VoiError::InvalidInput(message) => Self::InvalidInput(message),
+        }
+    }
+}
