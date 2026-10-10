@@ -1,132 +1,55 @@
-# RuVector Examples
+# RuVector tutorials and examples
 
-Comprehensive examples demonstrating RuVector's capabilities across multiple platforms and use cases.
+![RuVector application loop](../assets/ruvector/build-loop.svg)
 
-## Directory Structure
+[Quick starts](../README.md#quick-start-choose-your-track) · [Library catalog](../README.md#library-and-capability-map) · [Deployment](../README.md#deployment-surfaces)
 
-```
-examples/
-├── rust/                 # Rust SDK examples
-├── nodejs/               # Node.js SDK examples
-├── graph/                # Graph database features
-├── wasm-react/           # React + WebAssembly integration
-├── wasm-vanilla/         # Vanilla JS + WebAssembly
-├── agentic-jujutsu/      # AI agent version control
-├── exo-ai-2025/          # Advanced cognitive substrate
-├── refrag-pipeline/      # Document processing pipeline
-└── docs/                 # Additional documentation
-```
+Start with a language tutorial, then choose a system capability. Each example has its own dependencies and runtime requirements.
 
-## Quick Start by Platform
+## Start with a working memory loop
 
-### Rust
+| Track | Tutorial | What to verify |
+| :--- | :--- | :--- |
+| npm `ruvector` | [Node.js](./nodejs/README.md) | Write records, exit, and retrieve in another process |
+| Python `ruvector` | [Python installation and SDK](../docs/python/README.md) | Save a collection, load it, and search |
+| Rust `ruvector-core` | [Rust](./rust/README.md) | Insert, reopen the same store, and recover the record |
+| Claude Code MCP | [Setup and project instructions](../README.md#claude-code-setup) | Connect and complete a permitted read |
 
-```bash
-cd rust
-cargo run --example basic_usage
-cargo run --example advanced_features
-cargo run --example agenticdb_demo
-```
+## System 0: Sense and respond
 
-### Node.js
+![System 0 library flow](../assets/ruvector/system-0-library-header.svg)
 
-```bash
-cd nodejs
-npm install
-node basic_usage.js
-node semantic_search.js
-```
+* [Local ONNX embeddings](./onnx-embeddings/README.md)
+* [ONNX embeddings in WASM](./onnx-embeddings-wasm/README.md)
+* [Typed local decisions](../npm/packages/typesafe/README.md)
+* [Browser search with React](./wasm-react/README.md)
+* [Browser search with vanilla JavaScript](./wasm-vanilla/README.md)
+* [Edge examples](./edge/README.md)
 
-### WebAssembly (React)
+## System 1: Learn and remember
 
-```bash
-cd wasm-react
-npm install
-npm run dev
-```
+![System 1 library flow](../assets/ruvector/system-1-library-header.svg)
 
-### WebAssembly (Vanilla)
+* [Graph queries and relationships](./graph/README.md)
+* [Knowledge graph embeddings](../npm/packages/kge/README.md)
+* [MinCut graph diagnostics](./mincut/README.md)
+* [MRAgent memory reconstruction](./mragent/README.md)
+* [SONA adaptation](../crates/sona/README.md)
+* [Contrastive training](../crates/ruvllm/src/training/README.md)
 
-```bash
-cd wasm-vanilla
-# Open index.html in browser
-```
+## System 2: Reason and orchestrate
 
-## Example Categories
+![System 2 library flow](../assets/ruvector/system-2-library-header.svg)
 
-| Category | Directory | Description |
-|----------|-----------|-------------|
-| **Core API** | `rust/basic_usage.rs` | Vector DB fundamentals |
-| **Batch Ops** | `rust/batch_operations.rs` | High-throughput ingestion |
-| **RAG Pipeline** | `rust/rag_pipeline.rs` | Retrieval-Augmented Generation |
-| **Advanced** | `rust/advanced_features.rs` | Hypergraphs, neural hashing |
-| **AgenticDB** | `rust/agenticdb_demo.rs` | AI agent memory system |
-| **GNN** | `rust/gnn_example.rs` | Graph Neural Networks |
-| **Graph** | `graph/` | Cypher queries, clustering |
-| **Node.js** | `nodejs/` | JavaScript integration |
-| **WASM React** | `wasm-react/` | Modern React apps |
-| **WASM Vanilla** | `wasm-vanilla/` | Browser without framework |
-| **Agentic Jujutsu** | `agentic-jujutsu/` | Multi-agent version control |
-| **EXO-AI 2025** | `exo-ai-2025/` | Cognitive substrate research |
-| **Refrag** | `refrag-pipeline/` | Document fragmentation |
+* [RuVLLM runtime](./ruvLLM/README.md)
+* [Agent to agent swarm](./a2a-swarm/README.md)
+* [REFRAG document pipeline](./refrag-pipeline/README.md)
+* [RVF artifacts](./rvf/README.md)
+* [Google Cloud deployment examples](./google-cloud/README.md)
+* [Python Salesforce Agentforce](./python-salesforce-agentforce/README.md)
 
-## Feature Highlights
+## Check before adopting an example
 
-### Vector Database Core
-- High-performance similarity search
-- Multiple distance metrics (Cosine, Euclidean, Dot Product)
-- Metadata filtering
-- Batch operations
+Use its documented setup directory, dependencies, and feature flags. Fixed or random vectors demonstrate API mechanics; semantic search requires a consistent embedding model. Compare learning changes against a frozen baseline on separate evaluation data. A successful tutorial run does not establish a production latency or accuracy guarantee.
 
-### Advanced Features
-- **Hypergraph Index**: Multi-entity relationships
-- **Temporal Hypergraph**: Time-aware relationships
-- **Causal Memory**: Cause-effect chains
-- **Learned Index**: ML-optimized indexing
-- **Neural Hash**: Locality-sensitive hashing
-- **Topological Analysis**: Persistent homology
-
-### AgenticDB
-- Reflexion episodes (self-critique)
-- Skill library (consolidated patterns)
-- Causal memory (hypergraph relationships)
-- Learning sessions (RL training data)
-- Vector embeddings (core storage)
-
-### EXO-AI Cognitive Substrate
-- **exo-core**: IIT consciousness, thermodynamics
-- **exo-temporal**: Causal memory coordination
-- **exo-hypergraph**: Topological structures
-- **exo-manifold**: Continuous deformation
-- **exo-exotic**: 10 cutting-edge experiments
-- **exo-wasm**: Browser deployment
-- **exo-federation**: Distributed consensus
-- **exo-node**: Native bindings
-- **exo-backend-classical**: Classical compute
-
-## Running Benchmarks
-
-```bash
-# Rust benchmarks
-cargo bench --example advanced_features
-
-# Refrag pipeline benchmarks
-cd refrag-pipeline
-cargo bench
-
-# EXO-AI benchmarks
-cd exo-ai-2025
-cargo bench
-```
-
-## Related Documentation
-
-- [Graph CLI Usage](docs/graph-cli-usage.md)
-- [Graph WASM Usage](docs/graph_wasm_usage.html)
-- [Agentic Jujutsu](agentic-jujutsu/README.md)
-- [Refrag Pipeline](refrag-pipeline/README.md)
-- [EXO-AI 2025](exo-ai-2025/README.md)
-
-## License
-
-MIT OR Apache-2.0
+[Research examples](./exo-ai-2025/README.md) · [Agentic version control](./agentic-jujutsu/README.md) · [Graph CLI guide](./docs/graph-cli-usage.md)
