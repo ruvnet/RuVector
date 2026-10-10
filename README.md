@@ -1,10 +1,10 @@
+<a href="https://cognitum.one/ruvector"><img src="assets/ruvector/ruvector-neon-header.gif" alt="RuVector animated neon logo: self learning vector intelligence" width="100%"></a>
+
 # RuVector: Vector Search, Persistent Agent Memory, and Local AI Decisions
 
 RuVector is a Rust native substrate for fast local decisions and agent memory across sessions. It combines local semantic embeddings, persistent vector retrieval, graph relationships, explicit feedback learning, memory lifecycle controls, and optional shared memory.
 
 Built by [Reuven Cohen (rUv)](https://ruv.io/) as part of the [ruvnet open source AI stack](https://github.com/ruvnet/ruvnet). [Cognitum One](https://cognitum.one/ruvector) provides the commercial enterprise layer.
-
-<a href="https://cognitum.one/ruvector"><img src="assets/ruvector/ruvector-neon-header.gif" alt="RuVector animated neon logo: self learning vector intelligence" width="100%"></a>
 
 <a href="https://ruvnet.github.io/RuVector/explorer/"><img src="assets/ruvector/ruvector-trailer-v2.svg" alt="RuVector cinematic trailer: search, remember, learn. Open the interactive RuVector Explorer and follow vector search trajectories in your browser." width="100%"></a>
 
