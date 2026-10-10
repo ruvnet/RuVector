@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="490" viewBox="0 0 1000 490" role="img" aria-labelledby="title desc">
+<title id="title">Build a memory grounded agent with RuVector</title><desc id="desc">Three explicit integration stages: encode observations, retrieve vector and graph evidence, then let an application act under policy. Outcome feedback passes evaluation before adaptation. Retrieval alone does not train the model.</desc>
+<defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0L6 3L0 6" fill="none" stroke="#5cf2c3"/></marker></defs><style>text{font-family:Arial,sans-serif}.wire{fill:none;stroke:#5cf2c3;stroke-width:2;stroke-dasharray:8 7;animation:flow 3s linear infinite}.stage{animation:stage 12s ease-in-out infinite}.two{animation-delay:4s}.three{animation-delay:8s}@keyframes flow{to{stroke-dashoffset:-60}}@keyframes stage{0%,28%,100%{stroke-opacity:1;fill:#1a3040}38%,90%{stroke-opacity:.5;fill:#111e32}}@media(prefers-reduced-motion:reduce){.wire,.stage{animation:none}}</style>
+<rect width="1000" height="490" rx="20" fill="#0b1222"/>
+<text x="30" y="35" fill="#5cf2c3" font-size="13" letter-spacing="3">RUVECTOR / FROM OBSERVATION TO OUTCOME</text>
+<text x="30" y="75" fill="#f2f6ff" font-size="28" font-weight="bold">Compose the loop. Measure what changes.</text>
+<text x="30" y="103" fill="#aebed3" font-size="16">Reference architecture • integrate only the components your application needs</text>
+<path class="wire" marker-end="url(#arrow)" d="M310 205H345M655 205H690"/>
+<path class="wire" marker-end="url(#arrow)" d="M835 278V355H625M375 355H175V278"/>
+<g fill="#111e32" stroke="#5cf2c3"><rect class="stage" x="30" y="140" width="280" height="138" rx="14"/><rect class="stage two" x="345" y="140" width="310" height="138" rx="14" stroke="#bd9bff"/><rect class="stage three" x="690" y="140" width="280" height="138" rx="14" stroke="#ffbe73"/></g>
+<g fill="#f2f6ff" font-size="18" font-weight="bold"><text x="50" y="176">0 / Encode and respond</text><text x="365" y="176">1 / Retrieve and remember</text><text x="710" y="176">2 / Reason and act</text></g>
+<g fill="#b8c7da" font-size="16"><text x="50" y="209">Text, images, observations</text><text x="50" y="235">Embeddings + typed decisions</text><text x="365" y="209">Vector candidates + graph context</text><text x="365" y="235">Source IDs + persistent records</text><text x="710" y="209">Your runtime + tool policy</text><text x="710" y="235">Answer, action, or abstention</text></g>
+<rect x="375" y="315" width="250" height="80" rx="14" fill="#201c35" stroke="#bd9bff"/>
+<text x="400" y="345" fill="#f2f6ff" font-size="19" font-weight="bold">Evaluate feedback</text>
+<text x="400" y="372" fill="#c4b4e8" font-size="15">Retain, revise, or reject</text>
+<text x="689" y="337" fill="#ffbe73" font-size="14">Observed outcome</text>
+<text x="180" y="337" fill="#5cf2c3" font-size="14">Approved adaptation</text>
+<path d="M30 421H970" stroke="#29354a"/>
+<text x="30" y="451" fill="#b8c7da" font-size="16">Contrastive learning separates examples. Graph checks inspect structure. Evaluation measures usefulness.</text>
+<text x="30" y="475" fill="#8297b1" font-size="14">Similarity is not truth • searching does not train weights • feedback needs an explicit evaluation gate</text>
+</svg>
