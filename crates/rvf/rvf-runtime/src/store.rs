@@ -3903,18 +3903,55 @@ impl RvfStore {
             return Ok(());
         }
 
-        // Walk newest-first and stop at the first full snapshot: that is the
-        // newest one, and everything older than it is superseded history.
-        // Generations that cannot be read or decoded are collected as gaps.
-        let mut decoded_bytes = 0usize;
-        let mut newest_first: Vec<(u64, usize, MetadataSegment)> = Vec::new();
+        // Locate the newest readable snapshot. Damaged newer snapshots may
+        // force this scan across many superseded generations, so replay limits
+        // apply only to the chain actually used after the snapshot is found.
+        // Retain a validity bit per manifest entry rather than decoded payloads
+        // from every generation visited during the scan.
+        let mut accepted = vec![false; meta_offsets.len()];
         let mut visited: HashSet<u64> = HashSet::new();
-        let mut damaged = 0u64;
-        let mut found_snapshot = false;
+        let mut snapshot = None;
 
-        for &offset in meta_offsets.iter().rev() {
-            if newest_first.len() > rvf_types::metadata::MAX_META_DELTAS {
-                return Err(err(ErrorCode::MetadataReplayLimitExceeded));
+        for (index, &offset) in meta_offsets.iter().enumerate().rev() {
+            let payload = {
+                let mut reader = BufReader::new(&self.file);
+                read_path::read_segment_payload(&mut reader, offset)
+                    .ok()
+                    .map(|(_, payload)| payload)
+            };
+            let Some(payload) = payload else {
+                continue;
+            };
+            let Ok(segment) = MetadataSegment::decode(&payload) else {
+                continue;
+            };
+            // A repeated generation is manifest corruption; the newer copy is
+            // the one already recorded, so ignore the older duplicate.
+            if !visited.insert(segment.generation) {
+                continue;
+            }
+            accepted[index] = true;
+            if segment.full_snapshot {
+                snapshot = Some((index, offset, payload.len(), segment));
+                break;
+            }
+        }
+        let (snapshot_index, snapshot_offset, snapshot_bytes, snapshot) =
+            snapshot.ok_or_else(|| err(ErrorCode::InvalidMetadata))?;
+
+        // Apply forward from the snapshot, stopping at the first generation
+        // that is missing or does not name its predecessor as its base. Only
+        // this applied prefix consumes the delta and decoded-byte budgets.
+        let snapshot_generation = snapshot.generation;
+        let mut chain_bytes = snapshot_bytes;
+        let mut applied_offsets: HashSet<u64> = HashSet::from([snapshot_offset]);
+        let mut applied = vec![snapshot];
+        if chain_bytes > rvf_types::metadata::MAX_META_DECODED_BYTES {
+            return Err(err(ErrorCode::MetadataReplayLimitExceeded));
+        }
+        for (index, &offset) in meta_offsets.iter().enumerate().skip(snapshot_index + 1) {
+            if !accepted[index] {
+                continue;
             }
             let payload = {
                 let mut reader = BufReader::new(&self.file);
@@ -3923,65 +3960,36 @@ impl RvfStore {
                     .map(|(_, payload)| payload)
             };
             let Some(payload) = payload else {
-                damaged += 1;
-                continue;
-            };
-            decoded_bytes = decoded_bytes
-                .checked_add(payload.len())
-                .ok_or_else(|| err(ErrorCode::MetadataReplayLimitExceeded))?;
-            if decoded_bytes > rvf_types::metadata::MAX_META_DECODED_BYTES {
-                return Err(err(ErrorCode::MetadataReplayLimitExceeded));
-            }
-            let Ok(segment) = MetadataSegment::decode(&payload) else {
-                damaged += 1;
-                continue;
-            };
-            // A repeated generation is manifest corruption; the newer copy is
-            // the one already recorded, so ignore the older duplicate.
-            if !visited.insert(segment.generation) {
-                damaged += 1;
-                continue;
-            }
-            found_snapshot = segment.full_snapshot;
-            newest_first.push((offset, payload.len(), segment));
-            if found_snapshot {
                 break;
-            }
-        }
-        if !found_snapshot {
-            // Without a readable snapshot there is no base to apply deltas to.
-            return Err(err(ErrorCode::InvalidMetadata));
-        }
-
-        // Apply forward from the snapshot, stopping at the first generation
-        // that is missing or does not name its predecessor as its base.
-        newest_first.reverse();
-        let mut chain = newest_first.into_iter();
-        let (snapshot_offset, snapshot_bytes, snapshot) = chain
-            .next()
-            .ok_or_else(|| err(ErrorCode::InvalidManifest))?;
-        let snapshot_generation = snapshot.generation;
-        let mut chain_bytes = snapshot_bytes;
-        let mut applied_offsets: HashSet<u64> = HashSet::from([snapshot_offset]);
-        let mut applied = vec![snapshot];
-        let mut remaining = chain;
-        for (offset, bytes, segment) in remaining.by_ref() {
+            };
+            let Ok(segment) = MetadataSegment::decode(&payload) else {
+                break;
+            };
             let expected = applied
                 .last()
                 .and_then(|previous: &MetadataSegment| previous.generation.checked_add(1));
             if Some(segment.generation) != expected
                 || segment.base_generation != applied.last().map(|p| p.generation)
             {
-                damaged += 1;
                 break;
             }
-            chain_bytes = chain_bytes.saturating_add(bytes);
+            if applied.len() > rvf_types::metadata::MAX_META_DELTAS {
+                return Err(err(ErrorCode::MetadataReplayLimitExceeded));
+            }
+            chain_bytes = chain_bytes
+                .checked_add(payload.len())
+                .ok_or_else(|| err(ErrorCode::MetadataReplayLimitExceeded))?;
+            if chain_bytes > rvf_types::metadata::MAX_META_DECODED_BYTES {
+                return Err(err(ErrorCode::MetadataReplayLimitExceeded));
+            }
             applied_offsets.insert(offset);
             applied.push(segment);
         }
-        // Everything after the break is unreachable too, so it is dropped as
-        // well and must be counted -- the CLI reports this number verbatim.
-        damaged = damaged.saturating_add(remaining.count() as u64);
+        // Every newer manifest entry not in the applied prefix is unreachable,
+        // including corrupt and duplicate entries skipped during the scan.
+        let damaged = meta_offsets
+            .len()
+            .saturating_sub(snapshot_index + applied.len()) as u64;
         let latest = applied
             .last()
             .map(|segment| segment.generation)
