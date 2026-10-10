@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "ruvector"
-version = "0.1.1"
+version = "0.1.2"
 description = "Ultra-low-latency vector search (RaBitQ, Rust core) with a CLI and MCP server"
 readme = "README.md"
 license = { text = "MIT" }
