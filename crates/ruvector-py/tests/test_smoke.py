@@ -26,7 +26,7 @@ import ruvector
 def test_version() -> None:
     assert ruvector.__version__
     # Cargo.toml ships 0.1.0; if you bump there, bump here.
-    assert ruvector.__version__ == "0.1.0"
+    assert ruvector.__version__ == "0.1.1"
 
 
 def test_build_and_search() -> None:
@@ -118,3 +118,89 @@ def test_search_with_per_call_rerank() -> None:
     results = idx.search(query, k=3, rerank_factor=20)
     assert results[0][0] == 10
     assert results[0][1] < 1e-3
+
+
+# ── input validation on RabitqIndex (issue #1134) ──────────────────────────
+
+def _small_index():
+    import numpy as np
+    import ruvector as rv
+
+    rng = np.random.default_rng(3)
+    data = rng.standard_normal((200, 16), dtype=np.float32)
+    return rv, data, rv.RabitqIndex.build(data)
+
+
+def test_search_rejects_non_finite_query():
+    import numpy as np
+    import pytest
+
+    rv, data, idx = _small_index()
+    for bad in (np.nan, np.inf, -np.inf):
+        q = data[0].copy()
+        q[2] = bad
+        with pytest.raises(ValueError, match="non-finite"):
+            idx.search(q, 3)
+
+
+def test_build_and_add_reject_non_finite():
+    import numpy as np
+    import pytest
+
+    rv, data, idx = _small_index()
+    bad = data.copy()
+    bad[7, 3] = np.nan
+    with pytest.raises(ValueError, match="row 7, column 3"):
+        rv.RabitqIndex.build(bad)
+    with pytest.raises(ValueError, match="non-finite"):
+        idx.add(1000, bad[7])
+    with pytest.raises(ValueError, match="non-finite"):
+        idx.add_batch(np.array([1001, 1002], dtype=np.uint64), bad[6:8])
+    assert len(idx) == 200
+
+
+def test_duplicate_ids_rejected():
+    import numpy as np
+    import pytest
+
+    rv, data, idx = _small_index()
+    with pytest.raises(ValueError, match="already in the index"):
+        idx.add(5, data[1])
+    with pytest.raises(ValueError, match="already in the index"):
+        idx.add_batch(np.array([300, 5], dtype=np.uint64), data[:2])
+    with pytest.raises(ValueError, match="repeated in the batch"):
+        idx.add_batch(np.array([300, 300], dtype=np.uint64), data[:2])
+    with pytest.raises(ValueError, match="duplicate id"):
+        rv.RabitqIndex.build(data[:3], ids=np.array([1, 1, 2], dtype=np.uint64))
+    assert len(idx) == 200
+    idx.add(500, data[1])
+    idx.add_batch(np.array([501, 502], dtype=np.uint64), data[:2])
+    assert len(idx) == 203
+    with pytest.raises(ValueError, match="already in the index"):
+        idx.add(502, data[1])
+
+
+def test_duplicate_check_survives_save_load(tmp_path):
+    import pytest
+    import ruvector as rv
+
+    _, data, idx = _small_index()
+    p = str(tmp_path / "i.rbpx")
+    idx.save(p)
+    loaded = rv.RabitqIndex.load(p)
+    with pytest.raises(ValueError, match="already in the index"):
+        loaded.add(5, data[0])
+
+
+def test_dtype_error_names_the_problem():
+    import numpy as np
+    import pytest
+    import ruvector as rv
+
+    rv_, data, idx = _small_index()
+    with pytest.raises(TypeError, match="float32.*got dtype=float64"):
+        rv.RabitqIndex.build(data.astype(np.float64))
+    with pytest.raises(TypeError, match="query must be a 1D float32.*float64"):
+        idx.search(data[0].astype(np.float64), 3)
+    with pytest.raises(TypeError, match="got list"):
+        idx.search([0.0] * 16, 3)

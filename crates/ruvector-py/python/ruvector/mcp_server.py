@@ -69,6 +69,7 @@ left implicit:**
 
 from __future__ import annotations
 
+import functools
 import hmac
 import ipaddress
 import json
@@ -83,10 +84,12 @@ from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import AnyHttpUrl
 
-from ruvector.collection import MAX_DIM
+from ruvector._native import RuVectorError
+from ruvector.collection import MAX_DIM, CollectionError
 
 if TYPE_CHECKING:
     from ruvector.collection import Collection
@@ -294,7 +297,7 @@ _token_verifier, _auth_settings = _build_auth()
 server = MCPServer(
     name="ruvector",
     title="RuVector",
-    version="0.1.0",
+    version="0.1.1",
     instructions=(
         "ultra-low-latency vector search backed by a Rust RaBitQ core. "
         "Create a collection, insert vectors with optional metadata, search "
@@ -306,12 +309,41 @@ server = MCPServer(
 )
 
 
+# mcp 2.x hides the message of any exception that is not a ToolError and sends
+# the client only "Error executing tool <name>". Our own validation errors
+# (bad dimension, unknown collection, rejected name, non-finite input) are safe
+# to show and tell an agent how to correct the call, so re-raise them as
+# ToolError. Anything else (an OSError carrying a filesystem path, say) stays masked.
+_raw_tool = server.tool
+
+
+def _tool_with_messages(*targs: Any, **tkwargs: Any) -> Any:
+    register = _raw_tool(*targs, **tkwargs)
+
+    def wrap(fn: Any) -> Any:
+        @functools.wraps(fn)
+        def inner(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return fn(*args, **kwargs)
+            except (ValueError, TypeError, KeyError, CollectionError, RuVectorError) as e:
+                raise ToolError(str(e)) from e
+
+        return register(inner)
+
+    return wrap
+
+
+server.tool = _tool_with_messages  # type: ignore[method-assign]
+
+
 @server.tool(
     name="vector_create_collection",
     description="Create a new empty vector collection.",
     annotations=_WRITE,
 )
-def vector_create_collection(name: str, dim: int, rerank_factor: int = 20, seed: int = 42) -> Dict[str, Any]:
+def vector_create_collection(
+    name: str, dim: int, rerank_factor: int = 20, seed: int = 42, backend: str = "hnsw"
+) -> Dict[str, Any]:
     from ruvector.collection import Collection
 
     _require_write_scope()
@@ -319,9 +351,9 @@ def vector_create_collection(name: str, dim: int, rerank_factor: int = 20, seed:
         path = _safe_path(name)
         if Collection.meta_path(path).exists():
             raise ValueError(f"collection {name!r} already exists")
-        coll = Collection.create(dim=dim, rerank_factor=rerank_factor, seed=seed)
+        coll = Collection.create(dim=dim, backend=backend, rerank_factor=rerank_factor, seed=seed)
         _save(name, coll)
-        return {"name": name, "dim": dim, "rerank_factor": rerank_factor}
+        return {"name": name, "dim": dim, "backend": backend, "rerank_factor": rerank_factor}
 
 
 @server.tool(

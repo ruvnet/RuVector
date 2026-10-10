@@ -12,6 +12,7 @@
 //! and `RabitqAsymIndex` as separate Python classes per the surface sketch in
 //! `docs/sdk/03-api-surface.md`. M1 ships exactly one class.
 
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
@@ -50,6 +51,53 @@ pub struct RabitqIndex {
     // to keep a redundant copy here. The seed lives separately because
     // `RabitqPlusIndex` doesn't expose its own seed field.
     seed: u64,
+    // Ids currently in the index, so `add`/`add_batch` can reject a duplicate in O(1).
+    ids: HashSet<u32>,
+}
+
+/// Describe a Python object for an error message (dtype and ndim when it is an array).
+fn describe(obj: &Bound<'_, PyAny>) -> String {
+    match (obj.getattr("dtype"), obj.getattr("ndim")) {
+        (Ok(d), Ok(n)) => format!("dtype={d}, ndim={n}"),
+        _ => obj
+            .get_type()
+            .name()
+            .map(|n| n.to_string())
+            .unwrap_or_else(|_| "an unknown object".into()),
+    }
+}
+
+fn arr1<'py>(obj: &Bound<'py, PyAny>, name: &str) -> PyResult<PyReadonlyArray1<'py, f32>> {
+    obj.extract().map_err(|_| {
+        PyTypeError::new_err(format!(
+            "{name} must be a 1D float32 NumPy array, got {}; convert with np.ascontiguousarray(x, dtype=np.float32)",
+            describe(obj)
+        ))
+    })
+}
+
+fn arr2<'py>(obj: &Bound<'py, PyAny>, name: &str) -> PyResult<PyReadonlyArray2<'py, f32>> {
+    obj.extract().map_err(|_| {
+        PyTypeError::new_err(format!(
+            "{name} must be a 2D float32 NumPy array, got {}; convert with np.ascontiguousarray(x, dtype=np.float32)",
+            describe(obj)
+        ))
+    })
+}
+
+/// Reject NaN and infinity, which would otherwise be indexed or searched and yield NaN scores.
+fn check_finite(data: &[f32], dim: usize, name: &str) -> PyResult<()> {
+    match data.iter().position(|x| !x.is_finite()) {
+        None => Ok(()),
+        Some(i) if dim > 0 && data.len() > dim => Err(PyValueError::new_err(format!(
+            "{name} contains a non-finite value (NaN or inf) at row {}, column {}",
+            i / dim,
+            i % dim
+        ))),
+        Some(i) => Err(PyValueError::new_err(format!(
+            "{name} contains a non-finite value (NaN or inf) at position {i}"
+        ))),
+    }
 }
 
 #[pymethods]
@@ -61,8 +109,15 @@ impl RabitqIndex {
     /// silently copying — silent copies would be an O(n·dim) surprise on a
     /// "fast" build call.
     ///
-    /// `rerank_factor` defaults to 20 per `docs/sdk/03-api-surface.md`'s
-    /// "100% recall@10 at D=128" recommendation citing ADR-154.
+    /// `rerank_factor` defaults to 20. Recall depends on the data: ADR-154
+    /// reports 100% recall@10 at D=128 on clustered, embedding-like data, but
+    /// on isotropic Gaussian vectors (D=128, n=10k) a rerank_factor of 20 gives
+    /// about 0.63 recall@10 and 500 is needed for 1.0. Raise `rerank_factor`
+    /// (here or per `search` call) for hard distributions and measure recall
+    /// against brute force on your own data.
+    ///
+    /// Raises `ValueError` if `vectors` contains NaN or infinity, or if `ids`
+    /// contains a duplicate.
     ///
     /// `seed` defaults to 42 to keep the build deterministic out-of-the-box —
     /// the doc-comment guarantee on `ruvector_rabitq` is that
@@ -81,11 +136,12 @@ impl RabitqIndex {
     #[pyo3(signature = (vectors, *, ids = None, rerank_factor = 20, seed = 42))]
     fn build(
         py: Python<'_>,
-        vectors: PyReadonlyArray2<'_, f32>,
+        vectors: &Bound<'_, PyAny>,
         ids: Option<PyReadonlyArray1<'_, u64>>,
         rerank_factor: u32,
         seed: u64,
     ) -> PyResult<Self> {
+        let vectors = arr2(vectors, "vectors")?;
         // Validate the dtype/contig invariants up front. `PyReadonlyArray2`
         // already guarantees the dtype is f32 (otherwise the conversion at
         // the call site fails with `TypeError`). What it does NOT guarantee
@@ -122,6 +178,7 @@ impl RabitqIndex {
         // across rayon workers. PyO3 cannot give us mutable owned access
         // to NumPy storage without breaking the readonly contract.
         let slice = vectors.as_slice()?; // contiguous view, len = n*dim
+        check_finite(slice, dim, "vectors")?;
         let mut items: Vec<(usize, Vec<f32>)> = Vec::with_capacity(n);
         match ids {
             Some(ids_arr) => {
@@ -143,6 +200,12 @@ impl RabitqIndex {
                         return Err(PyValueError::new_err(format!(
                             "id {id} exceeds u32::MAX — RabitqIndex stores ids as u32"
                         )));
+                    }
+                }
+                let mut seen = HashSet::with_capacity(ids_slice.len());
+                for &id in ids_slice {
+                    if !seen.insert(id) {
+                        return Err(PyValueError::new_err(format!("duplicate id {id} in ids")));
                     }
                 }
                 for (i, &id) in ids_slice.iter().enumerate() {
@@ -168,7 +231,8 @@ impl RabitqIndex {
             })
             .map_err(to_pyerr)?;
 
-        Ok(Self { inner, seed })
+        let ids = inner.ids_u64().into_iter().map(|i| i as u32).collect();
+        Ok(Self { inner, seed, ids })
     }
 
     /// Search for the `k` nearest neighbours of a single `query` vector.
@@ -185,10 +249,11 @@ impl RabitqIndex {
     fn search(
         &self,
         py: Python<'_>,
-        query: PyReadonlyArray1<'_, f32>,
+        query: &Bound<'_, PyAny>,
         k: usize,
         rerank_factor: Option<u32>,
     ) -> PyResult<Vec<(u32, f32)>> {
+        let query = arr1(query, "query")?;
         if !query.is_c_contiguous() {
             return Err(PyTypeError::new_err(
                 "query must be C-contiguous; pass np.ascontiguousarray(...) first",
@@ -198,6 +263,7 @@ impl RabitqIndex {
             return Err(PyValueError::new_err("k must be > 0"));
         }
         let q = query.as_slice()?;
+        check_finite(q, 0, "query")?;
 
         // `search_with_rerank` is the right entry point even when no
         // override is requested, because it is the common path the
@@ -263,7 +329,8 @@ impl RabitqIndex {
         let seed = u64::from_le_bytes(header[16..24].try_into().unwrap());
 
         let inner = persist::load_index(&mut r).map_err(to_pyerr)?;
-        Ok(Self { inner, seed })
+        let ids = inner.ids_u64().into_iter().map(|i| i as u32).collect();
+        Ok(Self { inner, seed, ids })
     }
 
     /// Number of indexed vectors (matches `AnnIndex::len`).
@@ -303,7 +370,8 @@ impl RabitqIndex {
     /// release/reacquire cost itself (same call made for `RabitqPlusIndex.add`
     /// in `docs/sdk/02-strategy.md`'s GIL table). Use `add_batch` for bulk
     /// inserts, which does release the GIL.
-    fn add(&mut self, id: u32, vector: PyReadonlyArray1<'_, f32>) -> PyResult<()> {
+    fn add(&mut self, id: u32, vector: &Bound<'_, PyAny>) -> PyResult<()> {
+        let vector = arr1(vector, "vector")?;
         if !vector.is_c_contiguous() {
             return Err(PyTypeError::new_err(
                 "vector must be C-contiguous; pass np.ascontiguousarray(...) first",
@@ -317,7 +385,14 @@ impl RabitqIndex {
                 v.len()
             )));
         }
+        check_finite(v, 0, "vector")?;
+        if self.ids.contains(&id) {
+            return Err(PyValueError::new_err(format!(
+                "id {id} is already in the index; ids must be unique"
+            )));
+        }
         self.inner.add(id as usize, v.to_vec()).map_err(to_pyerr)?;
+        self.ids.insert(id);
         Ok(())
     }
 
@@ -328,8 +403,9 @@ impl RabitqIndex {
         &mut self,
         py: Python<'_>,
         ids: PyReadonlyArray1<'_, u64>,
-        vectors: PyReadonlyArray2<'_, f32>,
+        vectors: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
+        let vectors = arr2(vectors, "vectors")?;
         if !vectors.is_c_contiguous() {
             return Err(PyTypeError::new_err(
                 "vectors must be C-contiguous; pass np.ascontiguousarray(...) first",
@@ -371,6 +447,15 @@ impl RabitqIndex {
             }
         }
         let vecs_slice = vectors.as_slice()?;
+        check_finite(vecs_slice, dim, "vectors")?;
+        let mut batch_ids = HashSet::with_capacity(ids_slice.len());
+        for &id in &ids_slice {
+            if self.ids.contains(&(id as u32)) || !batch_ids.insert(id) {
+                return Err(PyValueError::new_err(format!(
+                    "id {id} is already in the index or repeated in the batch; ids must be unique"
+                )));
+            }
+        }
         let rows: Vec<(usize, Vec<f32>)> = (0..n)
             .map(|i| {
                 (
@@ -387,6 +472,7 @@ impl RabitqIndex {
             Ok(())
         })
         .map_err(to_pyerr)?;
+        self.ids.extend(batch_ids.into_iter().map(|i| i as u32));
         Ok(())
     }
 

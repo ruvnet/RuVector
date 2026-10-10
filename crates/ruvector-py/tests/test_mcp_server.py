@@ -499,3 +499,28 @@ def test_apply_read_only_removes_mutating_tools(tmp_path: Path, monkeypatch: pyt
                 _call(m, gone, name="x")
     finally:
         importlib.reload(m)
+
+
+def test_validation_errors_reach_the_client():
+    """mcp 2.x masks non-ToolError exceptions; our validation messages must get through (issue #1134)."""
+    import asyncio
+
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    from ruvector import mcp_server as m
+
+    async def call(name, args):
+        return await m.server.call_tool(name, args)
+
+    try:
+        asyncio.run(call("vector_create_collection", {"name": "../escape", "dim": 4}))
+    except ToolError as e:
+        assert "invalid collection name" in str(e)
+    else:
+        raise AssertionError("expected ToolError")
+    try:
+        asyncio.run(call("vector_search", {"name": "no-such-collection", "query": [1.0, 2.0, 3.0, 4.0], "k": 1}))
+    except ToolError as e:
+        assert "no such collection" in str(e)
+    else:
+        raise AssertionError("expected ToolError")

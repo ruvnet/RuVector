@@ -38,10 +38,13 @@ class RabitqIndex:
         ``vectors`` must be C-contiguous; non-contiguous arrays raise
         ``TypeError``. ``ids`` (optional) assigns the search-result id for
         each row instead of the default ``0..n`` row index; every id must
-        fit in ``u32`` (the index's storage width) or this raises
-        ``ValueError``. ``rerank_factor`` defaults to 20 (the ADR-154
-        recommendation for 100% recall@10 at D=128). ``seed`` defaults
-        to 42 for deterministic builds.
+        fit in ``u32`` (the index's storage width) and be unique, or this
+        raises ``ValueError``; NaN or infinity in ``vectors`` also raises
+        ``ValueError``. ``rerank_factor`` defaults to 20. Recall depends on
+        the data: about 100% recall@10 on embedding-like data, but only about
+        0.63 on isotropic Gaussian vectors at D=128, where 500 is needed for
+        1.0. Raise it and measure recall against brute force on your own
+        data. ``seed`` defaults to 42 for deterministic builds.
         """
         ...
 
