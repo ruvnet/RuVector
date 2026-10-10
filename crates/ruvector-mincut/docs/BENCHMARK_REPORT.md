@@ -1,5 +1,10 @@
 # RuVector MinCut - Performance Benchmark Report
 
+> Historical measurements from December 2025. They have not been reproduced
+> against the current release, are not general complexity bounds, and should
+> not be used as release-qualified performance claims. Current `DynamicMinCut`
+> may rerun a polynomial-time exact solver after updates.
+
 **Date**: December 2025
 **Version**: 0.2.0
 **Environment**: Linux, Rust 1.70+, Release build
@@ -14,8 +19,8 @@ This report documents the performance characteristics of the ruvector-mincut cra
 
 | Algorithm | Operation | Time (1000 vertices) | Complexity |
 |-----------|-----------|---------------------|------------|
-| **DynamicMinCut** | Insert Edge | 56.6 µs | O(n^{o(1)}) amortized |
-| **DynamicMinCut** | Delete Edge | 106.2 µs | O(n^{o(1)}) amortized |
+| **DynamicMinCut** | Insert Edge | 56.6 µs | Not established; may recompute exactly |
+| **DynamicMinCut** | Delete Edge | 106.2 µs | Not established; may recompute exactly |
 | **PolylogConnectivity** | Insert Edge | 1.66 ms | O(log³ n) expected worst-case |
 | **PolylogConnectivity** | Delete Edge | 519 ms | O(log³ n) expected worst-case |
 | **PolylogConnectivity** | Query | 16.1 µs | O(log n) worst-case |
@@ -26,7 +31,7 @@ This report documents the performance characteristics of the ruvector-mincut cra
 
 ## Detailed Benchmark Results
 
-### 1. Core DynamicMinCut (December 2025 Paper)
+### 1. Core DynamicMinCut (Historical Measurement)
 
 **Insert Edge Performance**
 | Graph Size | Time | Throughput |
@@ -42,7 +47,7 @@ This report documents the performance characteristics of the ruvector-mincut cra
 |------------|------|-------|
 | 100 vertices | 18.4 µs | Includes replacement search |
 | 500 vertices | 56.5 µs | Tree rebuild on tree edge delete |
-| 1,000 vertices | 106 µs | O(n^{o(1)}) amortized |
+| 1,000 vertices | 106 µs | No amortized bound established here |
 
 ### 2. PolylogConnectivity (arXiv:2510.08297)
 
