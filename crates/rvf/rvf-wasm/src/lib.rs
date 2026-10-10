@@ -449,80 +449,18 @@ pub extern "C" fn rvf_store_open(buf_ptr: i32, buf_len: i32) -> i32 {
         return -1;
     }
     let buf = unsafe { core::slice::from_raw_parts(buf_ptr as *const u8, buf_len as usize) };
-    let segments = segment::parse_segments(buf);
-
+    let (dim, entries) = match segment::parse_store(buf) {
+        Some(decoded) => decoded,
+        None => return -1,
+    };
     let reg = store::registry();
-    let mut dim: u32 = 0;
-    let mut entries: alloc::vec::Vec<(u64, alloc::vec::Vec<f32>)> = alloc::vec::Vec::new();
-
-    for seg in &segments {
-        // SegmentType::Vec = 0x01
-        if seg.seg_type == 0x01 {
-            let payload_start = seg.offset + rvf_types::constants::SEGMENT_HEADER_SIZE;
-            let payload_end = payload_start + seg.payload_length as usize;
-            if payload_end > buf.len() || seg.payload_length < 6 {
-                continue;
-            }
-            let payload = &buf[payload_start..payload_end];
-
-            let count = u16::from_le_bytes([payload[0], payload[1]]) as usize;
-            let seg_dim = u32::from_le_bytes([payload[2], payload[3], payload[4], payload[5]]);
-            if dim == 0 {
-                dim = seg_dim;
-            }
-
-            let mut offset = 6;
-            for _ in 0..count {
-                if offset + 8 > payload.len() {
-                    break;
-                }
-                let id = u64::from_le_bytes([
-                    payload[offset],
-                    payload[offset + 1],
-                    payload[offset + 2],
-                    payload[offset + 3],
-                    payload[offset + 4],
-                    payload[offset + 5],
-                    payload[offset + 6],
-                    payload[offset + 7],
-                ]);
-                offset += 8;
-                let vec_bytes = (seg_dim as usize) * 4;
-                if offset + vec_bytes > payload.len() {
-                    break;
-                }
-                let mut vec_data = alloc::vec::Vec::with_capacity(seg_dim as usize);
-                for d in 0..seg_dim as usize {
-                    let f = f32::from_le_bytes([
-                        payload[offset + d * 4],
-                        payload[offset + d * 4 + 1],
-                        payload[offset + d * 4 + 2],
-                        payload[offset + d * 4 + 3],
-                    ]);
-                    vec_data.push(f);
-                }
-                offset += vec_bytes;
-                entries.push((id, vec_data));
-            }
-        }
-    }
-
-    if dim == 0 {
-        dim = 1;
-    }
     let handle = reg.create(dim, 0);
     if handle <= 0 {
         return handle;
     }
 
     if let Some(s) = reg.get_mut(handle) {
-        for (id, data) in entries {
-            s.entries.push(store::VecEntry {
-                id,
-                data,
-                deleted: false,
-            });
-        }
+        s.entries.extend(entries);
     }
 
     handle
