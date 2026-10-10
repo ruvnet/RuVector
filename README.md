@@ -41,14 +41,14 @@ RuVector supports three complementary roles in the wider ruvnet stack. These are
 
 Package: [`ruvector` on npm](https://www.npmjs.com/package/ruvector).
 
-Install and pin the package in your project:
+Install the npm package and run the CLI:
 
 ```bash
-npm install --save-exact ruvector
-./node_modules/.bin/ruvector info
-./node_modules/.bin/ruvector hooks remember --semantic --type decision \
+npm install ruvector
+npx ruvector info
+npx ruvector hooks remember --semantic --type decision \
   "The customer requires all inference to remain in Canada."
-./node_modules/.bin/ruvector hooks recall --semantic --top-k 3 \
+npx ruvector hooks recall --semantic --top-k 3 \
   "Where may customer data be processed?"
 ```
 
@@ -58,15 +58,14 @@ The first semantic command downloads a local embedding model. Reuse the same pro
 
 The MCP server is included in the [`ruvector` npm package](https://www.npmjs.com/package/ruvector).
 
-Install locally, inspect the tools, and start with the read only profile:
+Inspect the tools and start with the read only profile:
 
 ```bash
-npm install --save-exact ruvector
-./node_modules/.bin/ruvector mcp tools
-RUVECTOR_MCP_PROFILE=readonly ./node_modules/.bin/ruvector mcp start
+npx ruvector mcp tools
+RUVECTOR_MCP_PROFILE=readonly npx ruvector mcp start
 ```
 
-Configure your MCP client to launch this project's installed `ruvector` executable with arguments `mcp start`, environment `RUVECTOR_MCP_PROFILE=readonly`, and the project as its working directory. Use the client configuration format it supports. Enable writes only through an explicit tool policy. [MCP integration and policy](#agent-integration).
+Configure your MCP client to launch `npx` with arguments `ruvector mcp start`, environment `RUVECTOR_MCP_PROFILE=readonly`, and the project as its working directory. Use the client configuration format it supports. Enable writes only through an explicit tool policy. [MCP integration and policy](#agent-integration).
 
 ### Track 3: PyPI ruvector
 
@@ -429,19 +428,19 @@ Combine memory with application reasoning, agent coordination, and explicit gove
 For automated agent integration, install and pin the package locally:
 
 ```bash
-npm install --save-exact ruvector
-RUVECTOR_MCP_PROFILE=readonly ./node_modules/.bin/ruvector mcp start
+npm install ruvector
+RUVECTOR_MCP_PROFILE=readonly npx ruvector mcp start
 ```
 
 List the currently available tools instead of relying on a hardcoded count:
 
 ```bash
-./node_modules/.bin/ruvector mcp tools
+npx ruvector mcp tools
 ```
 
 Use `RUVECTOR_MCP_ALLOW` and `RUVECTOR_MCP_DENY` for an explicit tool policy. No policy preserves the broader compatibility surface, so production deployments should set one deliberately.
 
-If you enable editor or coding hooks, inspect the generated configuration, keep the package local and pinned, and run `./node_modules/.bin/ruvector hooks verify`. Do not depend on a fresh `@latest` download inside each hook invocation.
+If you enable editor or coding hooks, inspect the generated configuration, keep the package local and pinned, and run `npx ruvector hooks verify`. Do not depend on a fresh `@latest` download inside each hook invocation.
 
 ## Deployment surfaces
 
