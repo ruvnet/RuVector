@@ -245,7 +245,7 @@ impl HybridSearch {
 
         // Sort by combined score (descending)
         let mut sorted_results = normalized_results;
-        sorted_results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        sorted_results.sort_by(|a, b| b.score.total_cmp(&a.score));
 
         // Return top-k
         Ok(sorted_results.into_iter().take(k).collect())
@@ -415,6 +415,34 @@ mod tests {
 
         assert_eq!(hybrid.doc_texts.len(), 2);
         assert_eq!(hybrid.bm25.doc_lengths.len(), 2);
+    }
+
+    #[test]
+    fn non_finite_vector_scores_do_not_panic_search() {
+        let hybrid = HybridSearch::new(HybridConfig {
+            normalization: NormalizationStrategy::None,
+            ..Default::default()
+        });
+        let results = hybrid
+            .search(&[f32::NAN], "", 2, |query, _| {
+                assert!(query[0].is_nan());
+                Ok(vec![
+                    SearchResult {
+                        id: "non-finite".into(),
+                        score: f32::NAN,
+                        vector: None,
+                        metadata: None,
+                    },
+                    SearchResult {
+                        id: "finite".into(),
+                        score: 0.5,
+                        vector: None,
+                        metadata: None,
+                    },
+                ])
+            })
+            .unwrap();
+        assert_eq!(results.len(), 2);
     }
 
     #[test]

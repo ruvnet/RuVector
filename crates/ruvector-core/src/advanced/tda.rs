@@ -90,7 +90,7 @@ impl TopologicalAnalyzer {
                 })
                 .collect();
 
-            distances.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+            distances.sort_by(|a, b| a.1.total_cmp(&b.1));
 
             // Add k nearest neighbors
             for (j, dist) in distances.iter().take(self.k_neighbors) {
@@ -298,7 +298,7 @@ impl TopologicalAnalyzer {
             values.push(matrix[[i, i]].abs());
         }
 
-        values.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        values.sort_by(|a, b| b.total_cmp(a));
         values
     }
 
