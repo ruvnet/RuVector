@@ -1,4 +1,8 @@
-# RuVector
+# RuVector: Vector Search, Persistent Agent Memory, and Local AI Decisions
+
+RuVector is a Rust native substrate for fast local decisions and agent memory across sessions. It combines local semantic embeddings, persistent vector retrieval, graph relationships, explicit feedback learning, memory lifecycle controls, and optional shared memory.
+
+Built by [Reuven Cohen (rUv)](https://ruv.io/) as part of the [ruvnet open source AI stack](https://github.com/ruvnet/ruvnet). [Cognitum One](https://cognitum.one/ruvector) provides the commercial enterprise layer.
 
 <a href="https://cognitum.one/ruvector"><img src="assets/ruvector/ruvector-neon-header.gif" alt="RuVector animated neon logo: self learning vector intelligence" width="100%"></a>
 
@@ -12,13 +16,22 @@
 [![npm all-time downloads](https://img.shields.io/npm/dt/ruvector.svg?label=all-time%20downloads)](https://www.npmjs.com/package/ruvector)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-## High speed decisions and persistent memory for AI agents
+## What is RuVector used for?
 
-RuVector is a Rust native substrate for fast local decisions and agent memory across sessions. It combines local semantic embeddings, persistent vector retrieval, graph relationships, explicit feedback learning, memory lifecycle controls, and optional shared memory.
+| Goal | Start here |
+| :--- | :--- |
+| Search vectors or retain agent context | [`ruvector` Node.js SDK](#embed-persistent-memory-in-nodejs), [`ruvector-core` Rust crate](./crates/ruvector-core) |
+| Classify text or return typed local decisions | [`@ruvector/typesafe`](./npm/packages/typesafe) |
+| Explore vectors visually | [Interactive RuVector Explorer](https://ruvnet.github.io/RuVector/explorer/) |
+| Choose graph, browser, database, or shared memory components | [Memory paths](#choose-a-memory-path) and [deployment surfaces](#deployment-surfaces) |
+
+[Quick start](#remember-and-recall-in-30-seconds) · [Memory loop](#the-memory-loop) · [Limitations](#known-boundaries) · [Reproducible benchmarks](#reproduce-the-evidence)
 
 The default retrieval path runs locally. Learning happens from recorded outcomes and feedback, not from reads alone. Hosted services remain optional and create a separate data boundary.
 
-### High speed decision model
+### How do local typed decisions work?
+
+![Animated typed decision workflow: text input, local embeddings and decision heads, typed output or abstention](assets/ruvector/typed-decision-walkthrough.svg)
 
 [`@ruvector/typesafe`](./npm/packages/typesafe) turns text into typed `choice`, `score`, and `noul` decisions using local embeddings and native decision heads, with a WASM fallback. It returns confidence and abstention information, supports labeled examples and evaluation, and can serve a Jev-compatible HTTP API. Use it for bounded tasks such as ticket routing, intent classification, and urgency assessment where a full language model call is unnecessary. The decision engine is a separate package; installing the root `ruvector` package does not enable it automatically.
 
@@ -119,6 +132,11 @@ A PyO3/maturin binding over the same Rust core, with a CLI, an MCP server, and L
 
 ## The memory loop
 
+![Animated RuVector memory workflow: encode, persist, recall, then record feedback for explicit adaptation](assets/ruvector/memory-feedback-walkthrough.svg)
+
+<details>
+<summary>View the detailed memory flow diagram</summary>
+
 ```mermaid
 flowchart TD
     A[Capture an event, fact, or outcome] --> B[Create a local or external embedding]
@@ -130,6 +148,8 @@ flowchart TD
     G --> C
     C --> H[Compact, snapshot, branch, or replicate]
 ```
+
+</details>
 
 RuVector provides primitives for this loop. Your application remains responsible for deciding what is worth remembering, which evidence is trusted, when a memory expires, and which actions recalled context may influence.
 
@@ -269,6 +289,8 @@ If you enable editor or coding hooks, inspect the generated configuration, keep 
 
 ## Deployment surfaces
 
+![Animated RuVector deployment diagram: local native and browser applications, with optional services across a separate data boundary](assets/ruvector/deployment-boundaries.svg)
+
 | Surface | Package or crate | Data boundary |
 | --- | --- | --- |
 | Node.js and TypeScript | [`ruvector`](https://www.npmjs.com/package/ruvector) | Local process and local files |
@@ -359,6 +381,24 @@ cargo test --workspace
 ```
 
 The workspace requires Rust 1.77 or newer. RVF and PostgreSQL have separate build instructions in their component documentation.
+
+## Frequently asked questions
+
+### Can RuVector run offline?
+
+Yes, the local retrieval path can operate without a database server or API key. Prepopulate the embedding model and required packages before disconnecting: the default npm semantic command downloads its model on first use. [Deployment requirements](#deployment-surfaces).
+
+### Does RuVector learn whenever an agent reads memory?
+
+No. Reads retrieve context. Learning requires recorded outcomes or feedback and the relevant configured learning component. Research reranking and optimization surfaces do not run automatically in `VectorDB::search`. [Capability map](#capability-map).
+
+### Is the root package the entire RuVector platform?
+
+No. `ruvector` is one entry point in a monorepo. Typed decisions, browser WASM, PostgreSQL, RVF, and specialized research crates have separate installation or build paths. [Choose a component](#choose-a-memory-path).
+
+### Does vector similarity prove that a recalled fact is true?
+
+No. Similarity identifies nearby representations. Your application must assess provenance, freshness, access, and task relevance before acting on recalled context. [Security and governance](#security-and-governance).
 
 ## Documentation
 
