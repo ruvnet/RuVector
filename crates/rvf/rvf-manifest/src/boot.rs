@@ -103,6 +103,7 @@ mod tests {
     use crate::directory::{self, SegmentDirEntry};
     use crate::level0;
     use crate::level1::{ManifestTag, TlvRecord};
+    use alloc::{vec, vec::Vec};
 
     fn make_test_file() -> Vec<u8> {
         // Build a segment directory with a few entries
