@@ -17,7 +17,7 @@ Built by [Reuven Cohen (rUv)](https://ruv.io/) as part of the [ruvnet open sourc
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
 
-**Explore:** [Quick starts](#quick-start-choose-your-track) · [Build recipes](#build-by-example) · [Library catalog](#library-and-capability-map) · [Contrastive AI](#where-does-contrastive-ai-fit) · [Deployment](#deployment-surfaces) · [Benchmarks](#reproduce-the-evidence)
+**Explore:** [Quick starts](#quick-start-choose-your-track) · [Build recipes](#build-by-example) · [Tutorials](./examples/README.md) · [Library catalog](#library-and-capability-map) · [Contrastive AI](#where-does-contrastive-ai-fit) · [Deployment](#deployment-surfaces) · [Benchmarks](#reproduce-the-evidence)
 
 ## System 0, System 1, and System 2
 
@@ -313,9 +313,9 @@ main().catch(console.error);
 
 Reopen the same `storagePath` in another process to recover the stored vectors, metadata, configuration, and searchability. Search `score` is a distance, so lower values are closer. See the [Node.js API](./docs/api/NODEJS_API.md) and [Rust API](./docs/api/RUST_API.md) for the complete interfaces.
 
-## Use ruvector from Python
+## Language tutorials
 
-Follow the [Python quick start track](#track-3-pypi-ruvector) for installation, vector search, and save/load. The [Python guide](./docs/python/README.md) covers the PyO3/maturin SDK, CLI, MCP server, and optional framework integrations.
+Follow the complete [Node.js write and reopen tutorial](./examples/nodejs/README.md), [Python SDK and integration guide](./docs/python/README.md), or [Rust persistence tutorial](./examples/rust/README.md). The [examples hub](./examples/README.md) groups browser, graph, contrastive learning, runtime, and deployment examples by System 0, 1, and 2.
 
 ## The memory loop
 
