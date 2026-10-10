@@ -5,6 +5,12 @@ All notable changes to RuVector will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Reject inconsistent SDK ingest batch dimensions before rows can be padded or overlap. (#1104; contributed by Rudy Celekli).
+
 ## [@ruvector/router 0.1.32] - 2026-09-30
 ### Fixed
 - `maxElements` was typed and documented as "Maximum number of elements" but
