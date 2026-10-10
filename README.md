@@ -16,6 +16,30 @@ Built by [Reuven Cohen (rUv)](https://ruv.io/) as part of the [ruvnet open sourc
 [![npm all-time downloads](https://img.shields.io/npm/dt/ruvector.svg?label=all-time%20downloads)](https://www.npmjs.com/package/ruvector)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
+## System 0, System 1, and System 2
+
+RuVector supports three complementary roles in the wider ruvnet stack. These are architecture groups, not automatic execution tiers or a claim that every component is installed together.
+
+| System | Role | Libraries | Tutorials and examples |
+| :--- | :--- | :--- | :--- |
+| **[System 0: Sense & Respond](#system-0-sense--respond)** | Encode observations and make bounded local decisions | [ONNX embeddings](./crates/ruvector-core/src/embeddings.rs), [typed decisions](./npm/packages/typesafe), [browser WASM](https://www.npmjs.com/package/@ruvector/wasm) | [30 second memory quick start](#remember-and-recall-in-30-seconds), [typed decision guide](./npm/packages/typesafe/README.md), [browser example](./examples/wasm-vanilla/README.md) |
+| **[System 1: Learn & Remember](#system-1-learn--remember)** | Persist context, retrieve evidence, and adapt from explicit feedback | [VectorDB](./crates/ruvector-core), [graph memory](./crates/ruvector-graph), [SONA](./crates/sona), [contrastive primitives](./crates/ruvector-cnn/src/contrastive/mod.rs) | [Node.js memory tutorial](#embed-persistent-memory-in-nodejs), [Python guide](./docs/python/README.md), [SONA guide](./crates/sona/README.md) |
+| **[System 2: Reason & Orchestrate](#system-2-reason--orchestrate)** | Reconstruct multi step context, coordinate work, and govern execution | [RuvLLM](./crates/ruvllm), [RVF](./crates/rvf), [Ruflo](https://github.com/ruvnet/ruflo), [MetaHarness](https://github.com/ruvnet/metaharness) | [MRAgent example](./examples/mragent), [MCP integration](#agent-integration), [Ruflo getting started](https://github.com/ruvnet/ruflo#readme) |
+
+![Animated RuVector systems diagram: System 0 encodes and responds, System 1 learns and remembers, System 2 reasons and orchestrates](assets/ruvector/three-systems.svg)
+
+### Where does contrastive AI fit?
+
+Contrastive AI spans these groups: learn useful distinctions in System 1, apply them to bounded System 0 decisions, and evaluate their use in System 2 workflows. Representation learning, graph diagnostics, and promotion policy are distinct mechanisms.
+
+| Concept | Purpose | Library or implementation | Learn by example |
+| :--- | :--- | :--- | :--- |
+| **Similarity and separation** | Learn representations that bring related examples closer and separate mismatches | [InfoNCE and triplet losses](./crates/ruvector-cnn/src/contrastive/mod.rs) | [Contrastive training example](./crates/ruvllm/examples/train_contrastive.rs), [training guide](./crates/ruvllm/src/training/README.md) |
+| **Structure and coherence** | Examine relationships, weak graph connections, and time sensitive recall | [MinCut](./crates/ruvector-mincut), [temporal coherence](./crates/ruvector-temporal-coherence) | [MinCut guide](./crates/ruvector-mincut/README.md), [temporal memory design](./docs/adr/ADR-211-temporal-coherence-agent-memory.md) |
+| **Feedback and bounded adaptation** | Update learning state from outcomes and evaluate proposed changes | [SONA](./crates/sona), [MRAgent optimization example](./examples/mragent) | [SONA guide](./crates/sona/README.md), [MRAgent design](./docs/adr/ADR-269-mragent-graph-memory-darwin-optimization.md) |
+
+[Watch rUv's illustrated contrastive AI walkthrough](https://github.com/ruvnet/ruvnet/blob/main/docs/contrastive-ai-walkthrough.md). Contrastive losses do not establish factual truth; graph coherence does not replace task evaluation, access control, or promotion approval. These components require explicit integration and are not all enabled in the default search path.
+
 ## What is RuVector used for?
 
 | Goal | Start here |
@@ -174,7 +198,11 @@ Memory classes are application semantics over vectors, metadata, and graphs. The
 
 ## Capability map
 
-### Capture and encode
+### System 0: Sense & Respond
+
+Encode incoming observations for retrieval and bounded decisions. [Typed decision tutorial](./npm/packages/typesafe/README.md) · [Semantic embeddings setup](./docs/adr/ADR-210-default-on-semantic-embeddings-minilm.md)
+
+#### Capture and encode
 
 | Capability | What it enables | Surface |
 | --- | --- | --- |
@@ -183,7 +211,11 @@ Memory classes are application semantics over vectors, metadata, and graphs. The
 | Embedding provenance | Track model, dimension, normalization, and query or passage role | [ADR 210](./docs/adr/ADR-210-default-on-semantic-embeddings-minilm.md) |
 | Batch and parallel embedding | Higher throughput during memory ingestion | [ONNX implementation](./docs/adr/ADR-210-default-on-semantic-embeddings-minilm.md) |
 
-### Persist and organize
+### System 1: Learn & Remember
+
+Store context, reconstruct relevant evidence, and adapt from recorded feedback. [Node.js tutorial](#embed-persistent-memory-in-nodejs) · [Python tutorial](./docs/python/README.md) · [Contrastive training guide](./crates/ruvllm/src/training/README.md)
+
+#### Persist and organize
 
 | Capability | What it enables | Surface |
 | --- | --- | --- |
@@ -197,7 +229,7 @@ Memory classes are application semantics over vectors, metadata, and graphs. The
 | Edge and embedded persistence | Lightweight local vector storage through the RVF Core Profile | [`rvlite`](./crates/rvf/rvf-adapters/rvlite) |
 | PostgreSQL extension | Keep vector memory beside relational data | [`ruvector-postgres`](./crates/ruvector-postgres) |
 
-### Recall and reconstruct
+#### Recall and reconstruct
 
 | Capability | Best use | Surface |
 | --- | --- | --- |
@@ -213,7 +245,7 @@ Memory classes are application semantics over vectors, metadata, and graphs. The
 | Matryoshka funnel | Coarse to fine search for truncatable embeddings | [`ruvector-matryoshka`](./crates/ruvector-matryoshka) |
 | Disk backed ANN | Move read heavy indexes toward SSD scale | [`ruvector-diskann`](./crates/ruvector-diskann) |
 
-### Learn and adapt
+#### Learn and adapt
 
 | Capability | What changes | Trigger |
 | --- | --- | --- |
@@ -226,7 +258,7 @@ Memory classes are application semantics over vectors, metadata, and graphs. The
 
 Reading or searching memory does not, by itself, mutate learned weights or guarantee better future results.
 
-### Consolidate, compress, and recover
+#### Consolidate, compress, and recover
 
 | Capability | What it controls | Surface |
 | --- | --- | --- |
@@ -241,7 +273,11 @@ Reading or searching memory does not, by itself, mutate learned weights or guara
 
 The `DbOptions.quantization` field in `ruvector-core` is persisted but is not currently applied to core storage or indexes. Use a specialized compression crate when physical compression is required. See the source note in [`types.rs`](./crates/ruvector-core/src/types.rs).
 
-### Govern and distribute
+### System 2: Reason & Orchestrate
+
+Combine memory with application reasoning, agent coordination, and explicit governance. Ruflo and MetaHarness are complementary external projects; RuVector supplies memory and supporting primitives. [MCP integration tutorial](#agent-integration) · [Graph reconstruction example](./examples/mragent) · [Ruflo guide](https://github.com/ruvnet/ruflo#readme)
+
+#### Govern and distribute
 
 | Capability | What it provides | Surface |
 | --- | --- | --- |
