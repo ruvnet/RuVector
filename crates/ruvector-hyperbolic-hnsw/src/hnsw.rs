@@ -104,7 +104,7 @@ pub struct SearchResult {
 
 impl PartialEq for SearchResult {
     fn eq(&self, other: &Self) -> bool {
-        self.distance == other.distance
+        self.cmp(other).is_eq()
     }
 }
 
@@ -112,14 +112,25 @@ impl Eq for SearchResult {}
 
 impl PartialOrd for SearchResult {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.distance.partial_cmp(&other.distance)
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for SearchResult {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.distance.partial_cmp(&other.distance).unwrap()
+        self.distance
+            .total_cmp(&other.distance)
+            .then(self.id.cmp(&other.id))
     }
+}
+
+fn require_finite_vector(vector: &[f32], operation: &str) -> HyperbolicResult<()> {
+    if let Some((index, _)) = vector.iter().enumerate().find(|(_, value)| !value.is_finite()) {
+        return Err(HyperbolicError::NumericalInstability(format!(
+            "{operation} vector component {index} must be finite"
+        )));
+    }
+    Ok(())
 }
 
 /// Hyperbolic HNSW Index
@@ -224,8 +235,10 @@ impl HyperbolicHnsw {
 
     /// Insert a vector into the index
     pub fn insert(&mut self, vector: Vec<f32>) -> HyperbolicResult<usize> {
+        require_finite_vector(&vector, "insert")?;
         // Project to ball for safety
         let vector = project_to_ball(&vector, self.config.curvature, EPS);
+        require_finite_vector(&vector, "projected insert")?;
 
         let id = self.nodes.len();
         let level = self.random_level();
@@ -395,7 +408,7 @@ impl HyperbolicHnsw {
         }
 
         let mut result_vec: Vec<SearchResult> = results.into_iter().collect();
-        result_vec.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
+        result_vec.sort();
 
         Ok(result_vec)
     }
@@ -415,7 +428,7 @@ impl HyperbolicHnsw {
             .map(|&id| (id, self.distance(&node_vector, &self.nodes[id].vector)))
             .collect();
 
-        scored.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        scored.sort_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
 
         self.nodes[node_id].connections[level] =
             scored.into_iter().take(max_conn).map(|(id, _)| id).collect();
@@ -425,11 +438,13 @@ impl HyperbolicHnsw {
 
     /// Search for k nearest neighbors
     pub fn search(&self, query: &[f32], k: usize) -> HyperbolicResult<Vec<SearchResult>> {
+        require_finite_vector(query, "query")?;
         if self.is_empty() {
             return Ok(Vec::new());
         }
 
         let query = project_to_ball(query, self.config.curvature, EPS);
+        require_finite_vector(&query, "projected query")?;
         let entry = self.entry_point.unwrap();
 
         // Navigate to lowest level from top
@@ -448,6 +463,7 @@ impl HyperbolicHnsw {
 
     /// Search with tangent space pruning (optimized for hyperbolic)
     pub fn search_with_pruning(&self, query: &[f32], k: usize) -> HyperbolicResult<Vec<SearchResult>> {
+        require_finite_vector(query, "query")?;
         // Fall back to regular search if no tangent cache
         if self.tangent_cache.is_none() || !self.config.use_tangent_pruning {
             return self.search(query, k);
@@ -455,6 +471,7 @@ impl HyperbolicHnsw {
 
         let cache = self.tangent_cache.as_ref().unwrap();
         let query = project_to_ball(query, self.config.curvature, EPS);
+        require_finite_vector(&query, "projected query")?;
 
         // Phase 1: Fast tangent space filtering
         let query_tangent = cache.query_tangent(&query);
@@ -467,7 +484,7 @@ impl HyperbolicHnsw {
             .collect();
 
         // Sort by tangent distance
-        candidates.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        candidates.sort_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
 
         // Keep top prune_factor * k candidates
         let num_candidates = (k * self.config.prune_factor).min(candidates.len());
@@ -482,7 +499,7 @@ impl HyperbolicHnsw {
             })
             .collect();
 
-        results.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
+        results.sort();
         results.truncate(k);
 
         Ok(results)
@@ -509,7 +526,7 @@ impl HyperbolicHnsw {
 
     /// Update curvature and rebuild tangent cache
     pub fn set_curvature(&mut self, curvature: f32) -> HyperbolicResult<()> {
-        if curvature <= 0.0 {
+        if !curvature.is_finite() || curvature <= 0.0 {
             return Err(HyperbolicError::InvalidCurvature(curvature));
         }
 
@@ -592,7 +609,7 @@ impl DualSpaceIndex {
 
         // Sort by combined score (higher is better)
         let mut combined: Vec<(usize, f32)> = scores.into_iter().collect();
-        combined.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        combined.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
 
         // Return top k with hyperbolic distances
         Ok(combined
@@ -646,5 +663,46 @@ mod tests {
         let results = dual.search(&query, 3).unwrap();
 
         assert_eq!(results.len(), 3);
+    }
+
+    #[test]
+    fn non_finite_insert_fails_without_mutating_the_index() {
+        let mut index = HyperbolicHnsw::default_config();
+        assert!(matches!(
+            index.insert(vec![f32::NAN, 0.1]),
+            Err(HyperbolicError::NumericalInstability(_))
+        ));
+        assert_eq!(index.len(), 0);
+        assert!(matches!(
+            index.insert(vec![f32::INFINITY, 0.1]),
+            Err(HyperbolicError::NumericalInstability(_))
+        ));
+        assert_eq!(index.len(), 0);
+    }
+
+    #[test]
+    fn non_finite_query_fails_across_search_variants() {
+        let mut index = HyperbolicHnsw::default_config();
+        for vector in [[0.1, 0.2], [0.2, 0.1], [-0.1, 0.15]] {
+            index.insert(vector.to_vec()).unwrap();
+        }
+        let query = [f32::NAN, 0.1];
+        assert!(matches!(
+            index.search(&query, 2),
+            Err(HyperbolicError::NumericalInstability(_))
+        ));
+        index.build_tangent_cache().unwrap();
+        assert!(matches!(
+            index.search_with_pruning(&query, 2),
+            Err(HyperbolicError::NumericalInstability(_))
+        ));
+    }
+
+    #[test]
+    fn search_result_heap_order_is_total() {
+        let finite = SearchResult { id: 1, distance: 0.2 };
+        let non_finite = SearchResult { id: 2, distance: f32::NAN };
+        assert!(non_finite > finite);
+        assert_eq!(non_finite == finite, non_finite.cmp(&finite).is_eq());
     }
 }
