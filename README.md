@@ -35,6 +35,7 @@ RuVector supports three complementary roles in the wider ruvnet stack. These are
 | [npm](#track-1-npm-local-agent-memory) | Project memory and a Node.js application | Node.js and npm; supported native backend |
 | [MCP](#track-2-mcp-connect-an-agent) | Give an MCP client access to RuVector tools | Node.js, npm, and an MCP compatible client |
 | [Python](#track-3-python-vector-search) | Vector search from Python | Python 3.9+, Rust, and a virtual environment for the source install |
+| [Rust](#track-4-rust-embedded-vector-search) | Embed the Rust core directly | Rust toolchain and Cargo |
 
 ### Track 1: npm local agent memory
 
@@ -95,6 +96,55 @@ assert len(restored) == 1
 
 This example uses a fixed vector to demonstrate storage, recall, and persistence. Use your embedding model for semantic text search. [Python SDK tutorial and integrations](./docs/python/README.md).
 
+
+### Track 4: Rust embedded vector search
+
+Create a small application with the persistent storage feature. This example uses exact search and disables the default optional features.
+
+```bash
+cargo new ruvector-memory
+cd ruvector-memory
+cargo add ruvector-core --no-default-features --features storage
+```
+
+Replace `src/main.rs` with:
+
+```rust
+use ruvector_core::{DbOptions, SearchQuery, VectorDB, VectorEntry};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let db = VectorDB::new(DbOptions {
+        dimensions: 3,
+        storage_path: "./agent-memory.db".into(),
+        hnsw_config: None,
+        quantization: None,
+        ..Default::default()
+    })?;
+
+    db.insert(VectorEntry {
+        id: Some("example-1".into()),
+        vector: vec![1.0, 0.0, 0.0],
+        metadata: None,
+    })?;
+
+    let hits = db.search(SearchQuery {
+        vector: vec![1.0, 0.0, 0.0],
+        k: 1,
+        filter: None,
+        ef_search: None,
+    })?;
+
+    assert_eq!(hits[0].id, "example-1");
+    println!("Nearest memory: {} (score: {})", hits[0].id, hits[0].score);
+    Ok(())
+}
+```
+
+```bash
+cargo run --release
+```
+
+The fixed vector demonstrates insertion and retrieval; supply embeddings for semantic search. Keep `Cargo.lock` for reproducible dependency resolution. [Rust API reference](./docs/api/RUST_API.md) · [Current core types](./crates/ruvector-core/src/types.rs) · [Storage and search implementation](./crates/ruvector-core/src/vector_db.rs).
 
 ### Where does contrastive AI fit?
 
