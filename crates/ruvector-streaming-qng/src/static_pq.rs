@@ -52,6 +52,9 @@ impl AnnVariant for StaticPq {
     }
 
     fn search(&self, query: &[f32], k: usize) -> Vec<Hit> {
+        if query.iter().any(|value| !value.is_finite()) {
+            return vec![];
+        }
         let cb = match &self.codebook {
             Some(c) => c,
             None => return vec![],
@@ -61,12 +64,12 @@ impl AnnVariant for StaticPq {
             .codes
             .iter()
             .enumerate()
-            .map(|(id, code)| Hit {
-                id,
-                dist: Codebook::adc_dist(&table, code),
+            .filter_map(|(id, code)| {
+                let dist = Codebook::adc_dist(&table, code);
+                dist.is_finite().then_some(Hit { id, dist })
             })
             .collect();
-        hits.sort_unstable_by(|a, b| a.dist.partial_cmp(&b.dist).unwrap());
+        hits.sort_unstable();
         hits.truncate(k);
         hits
     }
