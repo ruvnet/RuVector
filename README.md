@@ -32,12 +32,14 @@ RuVector supports three complementary roles in the wider ruvnet stack. These are
 
 | Track | Use it for | Prerequisites |
 | :--- | :--- | :--- |
-| [npm](#track-1-npm-local-agent-memory) | Project memory and a Node.js application | Node.js and npm; supported native backend |
-| [MCP](#track-2-mcp-connect-an-agent) | Give an MCP client access to RuVector tools | Node.js, npm, and an MCP compatible client |
-| [Python](#track-3-python-vector-search) | Vector search from Python | Python 3.9+, Rust, and a virtual environment for the source install |
-| [Rust](#track-4-rust-embedded-vector-search) | Embed the Rust core directly | Rust toolchain and Cargo |
+| [npm `ruvector`](#track-1-npm-ruvector) | Project memory and a Node.js application | Node.js and npm; supported native backend |
+| [MCP via npm `ruvector`](#track-2-mcp-via-npm-ruvector) | Give an MCP client access to RuVector tools | Node.js, npm, and an MCP compatible client |
+| [PyPI `ruvector`](#track-3-pypi-ruvector) | Vector search from Python | Python 3.9+, Rust, and a virtual environment for the source install |
+| [crates.io `ruvector-core`](#track-4-cratesio-ruvector-core) | Embed the Rust core directly | Rust toolchain and Cargo |
 
-### Track 1: npm local agent memory
+### Track 1: npm ruvector
+
+Package: [`ruvector` on npm](https://www.npmjs.com/package/ruvector).
 
 Install and pin the package in your project:
 
@@ -52,7 +54,9 @@ npm install --save-exact ruvector
 
 The first semantic command downloads a local embedding model. Reuse the same project directory and model to retain searchable context. [Node.js SDK example](#embed-persistent-memory-in-nodejs) · [Node.js API](./docs/api/NODEJS_API.md).
 
-### Track 2: MCP connect an agent
+### Track 2: MCP via npm ruvector
+
+The MCP server is included in the [`ruvector` npm package](https://www.npmjs.com/package/ruvector).
 
 Install locally, inspect the tools, and start with the read only profile:
 
@@ -64,7 +68,9 @@ RUVECTOR_MCP_PROFILE=readonly ./node_modules/.bin/ruvector mcp start
 
 Configure your MCP client to launch this project's installed `ruvector` executable with arguments `mcp start`, environment `RUVECTOR_MCP_PROFILE=readonly`, and the project as its working directory. Use the client configuration format it supports. Enable writes only through an explicit tool policy. [MCP integration and policy](#agent-integration).
 
-### Track 3: Python vector search
+### Track 3: PyPI ruvector
+
+Python distribution name: `ruvector`; import name: `ruvector`. See the [Python package manifest](./crates/ruvector-py/pyproject.toml) and [installation guide](./docs/python/README.md#install).
 
 The [Python guide](./docs/python/README.md#install) currently documents a source installation. This path avoids assuming a published PyPI wheel is available.
 
@@ -97,7 +103,9 @@ assert len(restored) == 1
 This example uses a fixed vector to demonstrate storage, recall, and persistence. Use your embedding model for semantic text search. [Python SDK tutorial and integrations](./docs/python/README.md).
 
 
-### Track 4: Rust embedded vector search
+### Track 4: crates.io ruvector-core
+
+Package: [`ruvector-core` on crates.io](https://crates.io/crates/ruvector-core); Rust import: `ruvector_core`.
 
 Create a small application with the persistent storage feature. This example uses exact search and disables the default optional features.
 
@@ -264,7 +272,7 @@ Reopen the same `storagePath` in another process to recover the stored vectors, 
 
 ## Use ruvector from Python
 
-Follow the [Python quick start track](#track-3-python-vector-search) for installation, vector search, and save/load. The [Python guide](./docs/python/README.md) covers the PyO3/maturin SDK, CLI, MCP server, and optional framework integrations.
+Follow the [Python quick start track](#track-3-pypi-ruvector) for installation, vector search, and save/load. The [Python guide](./docs/python/README.md) covers the PyO3/maturin SDK, CLI, MCP server, and optional framework integrations.
 
 ## The memory loop
 
