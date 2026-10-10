@@ -2,7 +2,7 @@
 //!
 //! All implement `VectorSearch` which returns a ranked `Vec<SearchResult>`.
 
-use crate::{cosine_sim, CoherenceGraph, DecayConfig, MemoryId, MemoryStore};
+use crate::{cosine_sim, valid_query, CoherenceGraph, DecayConfig, MemoryId, MemoryStore};
 
 /// A scored retrieval result.
 #[derive(Clone, Debug, PartialEq)]
@@ -13,6 +13,8 @@ pub struct SearchResult {
 
 /// Unified search interface for all three variants.
 pub trait VectorSearch {
+    /// Return up to `k` finite-score results, or an empty result for an
+    /// invalid query (wrong dimension or a non-finite component).
     fn search(&self, query: &[f32], k: usize, store: &MemoryStore) -> Vec<SearchResult>;
 }
 
@@ -23,14 +25,19 @@ pub struct FlatSearch;
 
 impl VectorSearch for FlatSearch {
     fn search(&self, query: &[f32], k: usize, store: &MemoryStore) -> Vec<SearchResult> {
+        if !valid_query(query, store) {
+            return Vec::new();
+        }
         let mut scored: Vec<SearchResult> = store
             .records()
-            .map(|r| SearchResult {
-                id: r.id,
-                score: cosine_sim(query, &r.vec),
+            .filter_map(|r| {
+                let score = cosine_sim(query, &r.vec);
+                score
+                    .is_finite()
+                    .then_some(SearchResult { id: r.id, score })
             })
             .collect();
-        scored.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        scored.sort_by(|a, b| b.score.total_cmp(&a.score).then_with(|| a.id.cmp(&b.id)));
         scored.truncate(k);
         scored
     }
@@ -45,18 +52,21 @@ pub struct TemporalSearch {
 
 impl VectorSearch for TemporalSearch {
     fn search(&self, query: &[f32], k: usize, store: &MemoryStore) -> Vec<SearchResult> {
+        if !valid_query(query, store) {
+            return Vec::new();
+        }
         let mut scored: Vec<SearchResult> = store
             .records()
-            .map(|r| {
+            .filter_map(|r| {
                 let sim = cosine_sim(query, &r.vec);
                 let d = self.decay.factor(r.metadata.timestamp);
-                SearchResult {
-                    id: r.id,
-                    score: sim * d,
-                }
+                let score = sim * d;
+                score
+                    .is_finite()
+                    .then_some(SearchResult { id: r.id, score })
             })
             .collect();
-        scored.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        scored.sort_by(|a, b| b.score.total_cmp(&a.score).then_with(|| a.id.cmp(&b.id)));
         scored.truncate(k);
         scored
     }
@@ -88,22 +98,25 @@ impl CoherenceSearch {
 
 impl VectorSearch for CoherenceSearch {
     fn search(&self, query: &[f32], k: usize, store: &MemoryStore) -> Vec<SearchResult> {
+        if !valid_query(query, store) {
+            return Vec::new();
+        }
         let w = self.coherence_weight;
         let mut scored: Vec<SearchResult> = store
             .records()
-            .map(|r| {
+            .filter_map(|r| {
                 let sim = cosine_sim(query, &r.vec);
                 let decay_f = self.decay.factor(r.metadata.timestamp);
                 let gate_f = self.graph.gate(r.id);
                 // Blend decay and coherence gate with weight w.
                 let temporal_coherence = (1.0 - w) * decay_f + w * gate_f;
-                SearchResult {
-                    id: r.id,
-                    score: sim * temporal_coherence,
-                }
+                let score = sim * temporal_coherence;
+                score
+                    .is_finite()
+                    .then_some(SearchResult { id: r.id, score })
             })
             .collect();
-        scored.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        scored.sort_by(|a, b| b.score.total_cmp(&a.score).then_with(|| a.id.cmp(&b.id)));
         scored.truncate(k);
         scored
     }
@@ -199,6 +212,69 @@ mod tests {
         let results = FlatSearch.search(&[1.0, 0.0, 0.0, 0.0], 3, &store);
         for w in results.windows(2) {
             assert!(w[0].score >= w[1].score, "results not sorted");
+        }
+    }
+
+    #[test]
+    fn flat_search_rejects_non_finite_query_without_panicking() {
+        let store = simple_store();
+        assert!(FlatSearch
+            .search(&[f32::NAN, 0.0, 0.0, 0.0], 3, &store)
+            .is_empty());
+    }
+
+    #[test]
+    fn temporal_search_rejects_non_finite_query_without_panicking() {
+        let store = simple_store();
+        let search = TemporalSearch {
+            decay: DecayConfig::exponential(1000, 500),
+        };
+        assert!(search
+            .search(&[f32::NAN, 0.0, 0.0, 0.0], 3, &store)
+            .is_empty());
+    }
+
+    #[test]
+    fn coherence_search_rejects_non_finite_query_without_panicking() {
+        let store = simple_store();
+        let search = CoherenceSearch::new(
+            DecayConfig::exponential(1000, 500),
+            CoherenceGraph::build(&store, 0.5),
+            0.3,
+        );
+        assert!(search
+            .search(&[f32::NAN, 0.0, 0.0, 0.0], 3, &store)
+            .is_empty());
+    }
+
+    #[test]
+    fn non_finite_stored_vectors_do_not_displace_valid_results() {
+        let mut store = simple_store();
+        store.insert(
+            vec![f32::NAN, 0.0, 0.0, 0.0],
+            MemoryMetadata {
+                timestamp: 1000,
+                source: "bad".into(),
+                tags: vec![],
+            },
+        );
+        let query = [1.0, 0.0, 0.0, 0.0];
+        let temporal = TemporalSearch {
+            decay: DecayConfig::exponential(1000, 500),
+        };
+        let coherence = CoherenceSearch::new(
+            DecayConfig::exponential(1000, 500),
+            CoherenceGraph::build(&store, 0.5),
+            0.3,
+        );
+        for results in [
+            FlatSearch.search(&query, 4, &store),
+            temporal.search(&query, 4, &store),
+            coherence.search(&query, 4, &store),
+        ] {
+            assert_eq!(results.len(), 3);
+            assert!(results.iter().all(|r| r.score.is_finite()));
+            assert!(results.iter().all(|r| r.id != 3));
         }
     }
 }
