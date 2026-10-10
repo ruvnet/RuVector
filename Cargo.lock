@@ -12209,6 +12209,7 @@ dependencies = [
 name = "rvf-quant"
 version = "0.2.0"
 dependencies = [
+ "libm",
  "rvf-types",
 ]
 
