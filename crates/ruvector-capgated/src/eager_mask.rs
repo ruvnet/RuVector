@@ -61,7 +61,7 @@ impl CapGatedIndex for EagerMaskIndex {
             .collect();
 
         // Step 3: partial sort to find top-k
-        scored.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        scored.sort_by(|a, b| a.0.total_cmp(&b.0));
         scored
             .into_iter()
             .take(k)

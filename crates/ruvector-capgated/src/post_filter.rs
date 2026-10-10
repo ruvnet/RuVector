@@ -41,7 +41,7 @@ impl CapGatedIndex for PostFilterIndex {
             .map(|e| (dist_sq(query, &e.vector), e.id, e.required))
             .collect();
         // Step 2: sort by distance
-        scored.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        scored.sort_by(|a, b| a.0.total_cmp(&b.0));
         // Step 3: filter and return top-k authorised
         scored
             .into_iter()

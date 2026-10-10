@@ -22,9 +22,14 @@ use crate::{dist_sq, CapGatedIndex, CapMask, SearchResult};
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashSet};
 
-// Float wrapper that is Ord (assumes no NaN in distance values).
-#[derive(Clone, Copy, PartialEq)]
+// Float wrapper whose equality and ordering agree, including for NaN and -0.0.
+#[derive(Clone, Copy)]
 struct OrdF32(f32);
+impl PartialEq for OrdF32 {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.to_bits() == other.0.to_bits()
+    }
+}
 impl Eq for OrdF32 {}
 impl PartialOrd for OrdF32 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -33,9 +38,7 @@ impl PartialOrd for OrdF32 {
 }
 impl Ord for OrdF32 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0
-            .partial_cmp(&other.0)
-            .unwrap_or(std::cmp::Ordering::Equal)
+        self.0.total_cmp(&other.0)
     }
 }
 
@@ -191,7 +194,7 @@ impl CapGatedIndex for CapGraphIndex {
                 dist_sq: d,
             })
             .collect();
-        out.sort_by(|a, b| a.dist_sq.partial_cmp(&b.dist_sq).unwrap());
+        out.sort_by(|a, b| a.dist_sq.total_cmp(&b.dist_sq));
         out
     }
 
@@ -204,6 +207,14 @@ impl CapGatedIndex for CapGraphIndex {
 mod tests {
     use super::*;
     use crate::CapMask;
+
+    #[test]
+    fn float_heap_order_agrees_with_equality() {
+        let nan = OrdF32(f32::NAN);
+        assert!(nan == nan);
+        assert!(OrdF32(-0.0) != OrdF32(0.0));
+        assert_eq!(nan.cmp(&OrdF32(1.0)), std::cmp::Ordering::Greater);
+    }
 
     fn build_small_graph() -> CapGraphIndex {
         let mut idx = CapGraphIndex::new(2, 4, 2);
