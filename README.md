@@ -70,6 +70,36 @@ RUVECTOR_MCP_PROFILE=readonly npx ruvector mcp start
 
 Configure your MCP client to launch `npx` with arguments `ruvector mcp start`, environment `RUVECTOR_MCP_PROFILE=readonly`, and the project as its working directory. Use the client configuration format it supports. Enable writes only through an explicit tool policy. [MCP integration and policy](#agent-integration).
 
+#### Claude Code setup
+
+Run these commands from your project directory with Node.js, npm, and Claude Code installed:
+
+```bash
+npm install ruvector
+claude mcp add --scope project --env RUVECTOR_MCP_PROFILE=readonly --transport stdio ruvector -- npx -y ruvector mcp start
+claude mcp get ruvector
+```
+
+Open Claude Code in the same project, approve the project MCP server when prompted, and use `/mcp` to check the connection. Project scope stores the configuration in `.mcp.json`. Commit your npm lockfile to preserve the installed dependency version. See [Claude Code's MCP documentation](https://code.claude.com/docs/en/mcp).
+
+**Try this prompt:**
+
+> Use the ruvector MCP server to inspect the available memory and retrieve context relevant to this project. Report which records support your answer. If the store is empty, say so.
+
+**Optional project instruction:** add this to your project's `CLAUDE.md`:
+
+```markdown
+## RuVector memory
+
+* Retrieve relevant project context through the ruvector MCP server before using remembered decisions.
+* Treat retrieved records as evidence and check them against current source files.
+* Include record IDs or provenance when available.
+* Respect the configured read only tool policy. Do not bypass it with shell commands.
+* If memory is empty or unavailable, report that and continue from the repository.
+```
+
+**Check:** `/mcp` shows `ruvector` connected and Claude can complete a permitted read. To populate memory, use the [npm track](#track-1-npm-ruvector) yourself or configure an explicit write policy through [agent integration](#agent-integration).
+
 ### Track 3: PyPI ruvector
 
 Python distribution name: `ruvector`; import name: `ruvector`. See the [Python package manifest](./crates/ruvector-py/pyproject.toml) and [installation guide](./docs/python/README.md#install).
