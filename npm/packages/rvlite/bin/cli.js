@@ -35,16 +35,23 @@ const DEFAULT_DB_PATH = '.rvlite/db.json';
 
 // Load state from file
 function loadState(dbPath) {
-  if (fs.existsSync(dbPath)) {
-    // Do not fall back to an empty state on a parse error: the next
-    // saveState() would overwrite the user's file and lose every vector.
-    try {
-      state = JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
-    } catch (e) {
-      throw new Error(`Cannot read database ${dbPath}: ${e.message}`);
-    }
-    rebuildNormCache();
+  let raw;
+  try {
+    raw = fs.readFileSync(dbPath, 'utf-8');
+  } catch (error) {
+    // Only an absent database starts fresh. Existing unreadable files must
+    // not become an empty state that a mutating command can overwrite.
+    if (error.code === 'ENOENT') return;
+    throw error;
   }
+  // Do not fall back to an empty state on a parse error: the next
+  // saveState() would overwrite the user's file and lose every vector.
+  try {
+    state = JSON.parse(raw);
+  } catch (e) {
+    throw new Error(`Cannot read database ${dbPath}: ${e.message}`);
+  }
+  rebuildNormCache();
 }
 
 // Save state to file (optimized: no pretty print for large DBs)
