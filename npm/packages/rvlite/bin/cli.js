@@ -294,8 +294,20 @@ function hashEmbed(text, dimensions = 384) {
   return embedding;
 }
 
+// Keep malformed coordinates out of persisted state and distance arithmetic.
+function validateVector(vector) {
+  if (!Array.isArray(vector) || vector.length === 0 || !vector.every(v => typeof v === 'number' && Number.isFinite(v))) {
+    throw new Error('Vector must be a nonempty array of finite numbers');
+  }
+  const dimensions = state.config?.dimensions;
+  if (dimensions !== undefined && vector.length !== dimensions) {
+    throw new Error(`Vector dimensions (${vector.length}) must match database dimensions (${dimensions})`);
+  }
+}
+
 // Optimized search with precomputed norms and early termination
 function searchVectors(query, k, metric = 'cosine') {
+  validateVector(query);
   const entries = Object.entries(state.vectors);
   if (entries.length === 0) return [];
 
@@ -342,6 +354,7 @@ function searchVectors(query, k, metric = 'cosine') {
 
 // Insert vector with precomputed norm
 function insertVector(vector, metadata, id, reservedIds) {
+  validateVector(vector);
   const vecId = id || generateId(reservedIds);
   const norm = computeNorm(vector);
   // Define a literal own key: assignment to "__proto__" otherwise invokes
@@ -356,6 +369,7 @@ function insertVector(vector, metadata, id, reservedIds) {
 
 // Batch insert for bulk loading
 function insertBatch(vectors) {
+  for (const { vector } of vectors) validateVector(vector);
   // Reserve later explicit IDs before automatic allocation can claim them.
   const reservedIds = new Set(vectors.filter(row => row.id).map(row => String(row.id)));
   const ids = [];
@@ -386,13 +400,17 @@ program
   .action(async (options) => {
     const spinner = ora('Initializing RvLite database...').start();
     try {
+      const dimensions = Number(options.dimensions);
+      if (!Number.isSafeInteger(dimensions) || dimensions < 1) {
+        throw new Error('Database dimensions must be a positive safe integer');
+      }
       state = {
         vectors: {},
         graph: { nodes: {}, edges: {} },
         triples: [],
         nextId: 1,
         config: {
-          dimensions: parseInt(options.dimensions),
+          dimensions,
           metric: options.metric
         }
       };
