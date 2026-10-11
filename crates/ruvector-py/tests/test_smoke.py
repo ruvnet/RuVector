@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -204,3 +205,27 @@ def test_dtype_error_names_the_problem():
         idx.search(data[0].astype(np.float64), 3)
     with pytest.raises(TypeError, match="got list"):
         idx.search([0.0] * 16, 3)
+
+
+def test_rabitq_export_items_preserves_external_ids() -> None:
+    vectors = np.eye(4, dtype=np.float32)
+    ids = np.asarray([17, 3, 99, 42], dtype=np.uint64)
+    index = ruvector.RabitqIndex.build(vectors, ids=ids)
+    items = index.export_items()
+    assert [item[0] for item in items] == list(ids)
+    for row, (_, vector) in enumerate(items):
+        np.testing.assert_array_equal(vector, vectors[row])
+    assert index.search(vectors[2], k=1)[0][0] == 99
+
+
+def test_rabitq_save_load_preserves_external_ids(tmp_path: Path) -> None:
+    vectors = np.eye(4, dtype=np.float32)
+    ids = np.asarray([17, 3, 99, 42], dtype=np.uint64)
+    index = ruvector.RabitqIndex.build(vectors, ids=ids)
+    path = tmp_path / "sparse.rbpx"
+    index.save(str(path))
+    restored = ruvector.RabitqIndex.load(str(path))
+    assert [restored.search(vector, k=1)[0][0] for vector in vectors] == list(ids)
+    assert [item[0] for item in restored.export_items()] == list(ids)
+    with pytest.raises(ValueError, match="already"):
+        restored.add(99, vectors[0])

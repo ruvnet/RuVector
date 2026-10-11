@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Count undirected edge weights once when scoring modularity in the npm
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
+- Python RaBitQ identity integrity also ignores missing deletions and preserves IDs, metadata, and subsequent insertion identities through vacuum, keeping adapter document maps valid.
+- Python RaBitQ export and persistence retain caller-supplied external IDs instead of substituting internal row positions, preserving associated Collection metadata through save/load.
 
 ## [@ruvector/router 0.1.32] - 2026-09-30
 ### Fixed

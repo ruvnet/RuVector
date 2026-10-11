@@ -154,6 +154,7 @@ class Collection:
         self._metadata = _metadata
         self._tombstones = _tombstones
         self._next_id = _next_id
+        self._rabitq_ids: Optional[set[int]] = None
 
     # ── construction ────────────────────────────────────────────────────
 
@@ -256,6 +257,7 @@ class Collection:
                     metadata[row_id] = dict(md)
 
         coll = cls(_index=index, _metadata=metadata, _tombstones=set(), _next_id=max(id_list) + 1)
+        coll._rabitq_ids = set(id_list) if backend == "rabitq" else None
         coll._dim = arr.shape[1]
         coll._backend = backend
         coll._rerank_factor = rerank_factor
@@ -277,12 +279,17 @@ class Collection:
             self._index.insert(str(new_id), vec, metadata=metadata)
         else:
             if self._index is None:
-                self._index = RabitqIndex.build(vec.reshape(1, -1), rerank_factor=self._rerank_factor, seed=self._seed)
+                self._index = RabitqIndex.build(
+                    vec.reshape(1, -1), ids=np.asarray([new_id], dtype=np.uint64),
+                    rerank_factor=self._rerank_factor, seed=self._seed,
+                )
             else:
                 assert isinstance(self._index, RabitqIndex)
                 self._index.add(new_id, vec)
         if metadata:
             self._metadata[new_id] = dict(metadata)
+        if self._rabitq_ids is not None:
+            self._rabitq_ids.add(new_id)
         self._next_id += 1
         return new_id
 
@@ -306,9 +313,10 @@ class Collection:
             self._index.insert_batch([str(i) for i in new_ids], arr, metadatas=list(metadatas) if metadatas is not None else None)
         else:
             if self._index is None:
-                self._index = RabitqIndex.build(arr, rerank_factor=self._rerank_factor, seed=self._seed)
-                # build() assigns row ids 0..n-1; since _next_id was 0,
-                # these coincide with new_ids by construction.
+                self._index = RabitqIndex.build(
+                    arr, ids=np.asarray(new_ids, dtype=np.uint64),
+                    rerank_factor=self._rerank_factor, seed=self._seed,
+                )
             else:
                 assert isinstance(self._index, RabitqIndex)
                 self._index.add_batch(np.asarray(new_ids, dtype=np.uint64), arr)
@@ -316,6 +324,8 @@ class Collection:
             for i, md in enumerate(metadatas):
                 if md:
                     self._metadata[new_ids[i]] = dict(md)
+        if self._rabitq_ids is not None:
+            self._rabitq_ids.update(new_ids)
         self._next_id += n
         return new_ids
 
@@ -331,6 +341,13 @@ class Collection:
             assert isinstance(self._index, HnswIndex)
             self._index.delete(str(id))
         else:
+            if self._index is None:
+                return
+            if self._rabitq_ids is None:
+                assert isinstance(self._index, RabitqIndex)
+                self._rabitq_ids = {row_id for row_id, _ in self._index.export_items()}
+            if id not in self._rabitq_ids:
+                return
             self._tombstones.add(id)
         self._metadata.pop(id, None)
 
@@ -360,20 +377,20 @@ class Collection:
             self._index = None
             self._metadata = {}
             self._tombstones = set()
-            self._next_id = 0
+            self._rabitq_ids = set()
             return dropped
         vecs = np.stack([v for _, v in kept]).astype(np.float32)
-        # Rebuild with row-index ids 0..len(kept)-1 (build()'s only mode),
-        # then remap metadata from old id -> new row index.
-        self._index = RabitqIndex.build(vecs, rerank_factor=self._rerank_factor, seed=self._seed)
-        old_ids = [i for i, _ in kept]
-        new_metadata: Dict[int, Dict[str, Any]] = {}
-        for new_row, old_id in enumerate(old_ids):
-            if old_id in self._metadata:
-                new_metadata[new_row] = self._metadata[old_id]
-        self._metadata = new_metadata
+        # Reclaim tombstones without changing caller-visible row identities.
+        kept_ids = [i for i, _ in kept]
+        self._index = RabitqIndex.build(
+            vecs, ids=np.asarray(kept_ids, dtype=np.uint64),
+            rerank_factor=self._rerank_factor, seed=self._seed,
+        )
+        self._metadata = {
+            row_id: self._metadata[row_id] for row_id in kept_ids if row_id in self._metadata
+        }
         self._tombstones = set()
-        self._next_id = len(kept)
+        self._rabitq_ids = set(kept_ids)
         return dropped
 
     # ── query ────────────────────────────────────────────────────────────
