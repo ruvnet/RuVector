@@ -12,6 +12,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const VERSION = '0.3.0';
+// Squaring smaller norms enters subnormal precision even if the product is normal.
+const MIN_NORMAL_NORM = Math.sqrt(2.2250738585072014e-308);
 
 const program = new Command();
 
@@ -113,7 +115,7 @@ function cosineSimilarity(a, b, normA, normB) {
     dot += a[i] * b[i];
   }
   const denominator = normA * normB;
-  if (denominator > 0 && Number.isFinite(denominator) && Number.isFinite(dot)) {
+  if (normA >= MIN_NORMAL_NORM && normB >= MIN_NORMAL_NORM && Number.isFinite(denominator) && Number.isFinite(dot)) {
     return dot / denominator;
   }
   // Scaling each side independently avoids overflow and underflow while
