@@ -92,6 +92,8 @@ def test_add_texts_rejects_duplicate_ids(store: RuVectorStore) -> None:
     store.add_texts(["apple"], ids=["dup"])
     with pytest.raises(ValueError):
         store.add_texts(["banana"], ids=["dup"])
+    assert len(store._collection) == 1
+    assert store.similarity_search("apple", k=1)[0].page_content == "apple"
 
 
 def test_delete_removes_from_search_results(store: RuVectorStore) -> None:
@@ -177,3 +179,14 @@ def test_import_error_has_install_hint_when_langchain_core_missing(monkeypatch: 
 
     with pytest.raises(ImportError, match=r"pip install 'ruvector\[langchain\]'"):
         importlib.import_module("ruvector.integrations.langchain")
+
+
+def test_duplicate_ids_within_batch_do_not_orphan_native_vectors(store: RuVectorStore) -> None:
+    with pytest.raises(ValueError, match="already exists"):
+        store.add_texts(["apple", "banana"], ids=["dup", "dup"])
+    assert len(store._collection) == 0
+    assert store.similarity_search("apple", k=2) == []
+    assert store.add_texts(["apple", "banana"], ids=["apple-id", "banana-id"]) == ["apple-id", "banana-id"]
+    assert len(store._collection) == 2
+    assert store.delete(["apple-id", "banana-id"]) is True
+    assert len(store._collection) == 0
