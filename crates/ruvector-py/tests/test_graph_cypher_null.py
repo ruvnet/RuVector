@@ -71,3 +71,15 @@ def test_mixed_numeric_predicate_boundaries(value,predicate,expected):
     graph.create_node(['Thing'], {'x': value}, id='value')
     result = graph.query_cypher('MATCH (n:Thing) WHERE '+predicate+' RETURN n')
     assert bool(result['nodes']) == expected
+
+
+@pytest.mark.parametrize('stored,query,expected', [
+    ([9007199254740993], '[9007199254740992]', False),
+    ([9007199254740993], '[9007199254740992.0]', False),
+    ([2], '[2.0]', True),
+])
+def test_numeric_list_equality_control(stored, query, expected):
+    graph = ruvector.GraphDB()
+    graph.create_node(['Thing'], {'xs': stored}, id='value')
+    result = graph.query_cypher('MATCH (n:Thing) WHERE n.xs = '+query+' RETURN n')
+    assert bool(result['nodes']) == expected

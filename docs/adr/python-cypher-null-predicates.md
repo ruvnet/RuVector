@@ -8,7 +8,7 @@ The Python graph evaluator lowers missing properties to Null but converts compar
 
 Cypher null predicates remain unknown, and WHERE admits only true. The reference truth tables are documented at https://neo4j.com/docs/cypher-manual/4.4/values-and-types/working-with-null/ .
 
-A second scalar predicate defect converts i64 operands through f64. Adjacent values 9007199254740992 and 9007199254740993 both match equality to the former, and neither matches greater-than. The grouped 36 public-query regressions produce 22 baseline failures and 14 passing controls, using the immutable fresh upstream source-built native artifact.
+A second scalar predicate defect converts i64 operands through f64. Adjacent values 9007199254740992 and 9007199254740993 both match equality to the former, and neither matches greater-than. The grouped 39 public-query regressions produce 24 baseline failures and 15 passing controls, using the immutable fresh upstream source-built native artifact.
 
 ## Decision
 
@@ -22,4 +22,4 @@ Rejecting every missing-property query would discard useful complete records. Tr
 
 ## Validation
 
-Thirty-six public Python queries cover absent/explicit-null values, known scalar values, comparison negation, AND/OR/XOR unknown propagation, and decisive false/true controls. Grouped baseline: 22 fail, 14 pass, exact upstream source-built native artifact. Fresh corrected native, graph regression suite, scoped Rust checks and independent exact-commit review must pass before publication; results are preserved in the private campaign evidence.
+Thirty-nine public Python queries cover absent/explicit-null values, known scalar values, comparison negation, AND/OR/XOR unknown propagation, and decisive false/true controls. Grouped baseline: 24 fail, 15 pass, exact upstream source-built native artifact. Fresh corrected native, graph regression suite, scoped Rust checks and independent exact-commit review must pass before publication; results are preserved in the private campaign evidence.
