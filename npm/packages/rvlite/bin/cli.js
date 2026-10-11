@@ -81,7 +81,14 @@ function rebuildNormCache() {
 
 // Generate unique ID
 function generateId() {
-  return `vec_${state.nextId++}`;
+  if (!Number.isSafeInteger(state.nextId) || state.nextId < 1) {
+    throw new Error('Cannot generate a unique vector ID: invalid or exhausted nextId');
+  }
+  while (Number.isSafeInteger(state.nextId)) {
+    const candidate = `vec_${state.nextId++}`;
+    if (!Object.hasOwn(state.vectors, candidate)) return candidate;
+  }
+  throw new Error('Cannot generate a unique vector ID: counter exhausted');
 }
 
 // Compute vector norm (magnitude)

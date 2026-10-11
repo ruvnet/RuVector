@@ -1,6 +1,6 @@
 # Changelog
 
-- RvLite CLI persists literal vector IDs such as __proto__ and requires own records for get/delete, preventing silent data loss and phantom inherited IDs.
+- RvLite CLI persists literal vector IDs such as __proto__ and requires own records for get/delete, preventing silent data loss and phantom inherited IDs; automatic allocation skips occupied caller IDs and refuses exhausted counters.
 
 All notable changes to RuVector will be documented in this file.
 
