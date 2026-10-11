@@ -26,6 +26,7 @@ fixes.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from dataclasses import dataclass
@@ -61,6 +62,14 @@ Index = Union[HnswIndex, RabitqIndex]
 
 class CollectionError(RuVectorError):
     """Raised for Collection-level misuse (distinct from index-level errors)."""
+
+
+def _index_digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _check_ids_fit_u32(ids: Iterable[int]) -> None:
@@ -616,8 +625,11 @@ class Collection:
         :func:`os.replace`, so a crash or error mid-write never leaves a
         truncated file at the real path. The two files are still replaced
         one after the other, so a crash *between* the two renames can leave
-        a new index with the previous sidecar; :meth:`load` validates the
-        pair and raises :class:`CollectionError` rather than serving it.
+        a new sidecar with the previous index; :meth:`load` validates the
+        pair using the saved index digest and raises :class:`CollectionError`
+        rather than serving it. Legacy sidecars without a digest remain
+        readable but cannot establish that the two files belong together.
+        Digest verification reads the complete index during save and load.
         """
         path = Path(path)
         tmp_index = path.with_name(f"{path.name}.tmp-{os.getpid()}")
@@ -662,10 +674,12 @@ class Collection:
                     "metadata": {str(k): v for k, v in self._metadata.items()},
                     "empty": self._index is None,
                 }
+            if index_written:
+                sidecar["index_sha256"] = _index_digest(tmp_index)
             tmp_meta.write_text(json.dumps(sidecar))
+            os.replace(tmp_meta, meta)
             if index_written:
                 os.replace(tmp_index, path)
-            os.replace(tmp_meta, meta)
         finally:
             for tmp in (tmp_index, tmp_meta):
                 try:
@@ -700,6 +714,15 @@ class Collection:
 
     @classmethod
     def _load_validated(cls, path: Path, sidecar: Dict[str, Any]) -> "Collection":
+        if "index_sha256" in sidecar:
+            expected_digest = sidecar["index_sha256"]
+            if not isinstance(expected_digest, str) or len(expected_digest) != 64 or any(
+                char not in "0123456789abcdef" for char in expected_digest
+            ):
+                raise CollectionError("sidecar 'index_sha256' must be a SHA-256 hex digest")
+            if _index_digest(path) != expected_digest:
+                raise CollectionError("index and sidecar are out of sync: index digest mismatch")
+
         # Sidecars written before ADR-352's M2 slice have no "backend" key
         # at all — they are always rabitq (the only backend that existed).
         backend = sidecar.get("backend", "rabitq")
