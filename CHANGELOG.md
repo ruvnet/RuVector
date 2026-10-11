@@ -79,6 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   skill and installs it into `.claude/skills` (Claude Code) and/or
   `.agents/skills` (Codex). `skills/` is now in the published files.
 ### Fixed
+- Preserve current HNSW caller IDs across replacements and deletion, widen live top-k retrieval when obsolete graph rows crowd candidates, and repair stale reverse mappings when restoring older snapshots.
 - Every open-ended `>=` peer range is now bounded. `@ruvector/ruvllm >=2.0.0`
   resolved to 4.0.1, a different product published under the same name
   without the runtime that `ruvector llm` / `ruvector sona` load (`ruvllm.RuvLLM is
