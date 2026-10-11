@@ -287,9 +287,10 @@ class Collection:
         """Insert one vector, returning its assigned internal id."""
         new_id = self._next_id
         vec = _validate_vector(vector, self._dim, "vector")
+        prepared_metadata = dict(metadata) if metadata is not None else None
         if self._backend == "hnsw":
             assert isinstance(self._index, HnswIndex)  # always constructed in create()/from_vectors()
-            self._index.insert(str(new_id), vec, metadata=metadata)
+            self._index.insert(str(new_id), vec, metadata=prepared_metadata)
         else:
             if self._index is None:
                 self._index = RabitqIndex.build(
@@ -299,8 +300,8 @@ class Collection:
             else:
                 assert isinstance(self._index, RabitqIndex)
                 self._index.add(new_id, vec)
-        if metadata:
-            self._metadata[new_id] = dict(metadata)
+        if prepared_metadata:
+            self._metadata[new_id] = prepared_metadata
         if self._rabitq_ids is not None:
             self._rabitq_ids.add(new_id)
         self._next_id += 1
@@ -320,10 +321,15 @@ class Collection:
         n = arr.shape[0]
         if metadatas is not None and len(metadatas) != n:
             raise CollectionError(f"metadatas length ({len(metadatas)}) must match row count ({n})")
+        prepared_metadatas = (
+            [dict(md) if md is not None else None for md in metadatas]
+            if metadatas is not None
+            else None
+        )
         new_ids = list(range(self._next_id, self._next_id + n))
         if self._backend == "hnsw":
             assert isinstance(self._index, HnswIndex)
-            self._index.insert_batch([str(i) for i in new_ids], arr, metadatas=list(metadatas) if metadatas is not None else None)
+            self._index.insert_batch([str(i) for i in new_ids], arr, metadatas=prepared_metadatas)
         else:
             if self._index is None:
                 self._index = RabitqIndex.build(
@@ -333,10 +339,10 @@ class Collection:
             else:
                 assert isinstance(self._index, RabitqIndex)
                 self._index.add_batch(np.asarray(new_ids, dtype=np.uint64), arr)
-        if metadatas:
-            for i, md in enumerate(metadatas):
+        if prepared_metadatas:
+            for i, md in enumerate(prepared_metadatas):
                 if md:
-                    self._metadata[new_ids[i]] = dict(md)
+                    self._metadata[new_ids[i]] = md
         if self._rabitq_ids is not None:
             self._rabitq_ids.update(new_ids)
         self._next_id += n
