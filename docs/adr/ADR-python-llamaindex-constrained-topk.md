@@ -15,3 +15,7 @@ Constrained queries use the existing Python callable filtering path. Node constr
 ## Validation
 
 The real llama-index-core 0.14.25 consumer is exercised with public RuVectorStore.query calls and deterministic TextNode embeddings. Four regressions fail on original source: node restriction after global top-k, ignored document restriction, combined restrictions, and empty document restriction. Fifteen controls pass on original source; all nineteen pass after the fix. The full Python package passes 300 tests with two optional-dependency skips using published 0.1.2 native bindings; no fresh native build is claimed by these results.
+
+## Optional metadata constraints
+
+The same retrieval boundary must retain framework filter semantics. IS_EMPTY now runs before the general null-value guard, so missing and explicit-null metadata match alongside empty strings and lists. Official llama-index-core handles IS_EMPTY separately for this reason. Real TextNode/query regressions cover missing/null values, with empty/nonempty string and list controls; this does not change NE/NIN null handling.

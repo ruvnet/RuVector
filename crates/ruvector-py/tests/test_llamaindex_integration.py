@@ -259,3 +259,24 @@ def test_empty_document_constraint_returns_no_results(store: RuVectorStore) -> N
     assert store.query(VectorStoreQuery(
         query_embedding=_BASIS["apple"], similarity_top_k=1, doc_ids=[],
     )).ids == []
+
+
+@pytest.mark.parametrize(
+    "present,value,expected",
+    [(False, None, True), (True, None, True), (True, "", True),
+     (True, [], True), (True, "present", False), (True, ["present"], False)],
+)
+def test_is_empty_filter_matches_optional_metadata(
+    store: RuVectorStore, present: bool, value: object, expected: bool
+) -> None:
+    node = _node("apple", node_id="optional", category="fruit")
+    if present:
+        node.metadata["optional"] = value
+    store.add([node])
+    result = store.query(VectorStoreQuery(
+        query_embedding=_BASIS["apple"], similarity_top_k=1,
+        filters=MetadataFilters(filters=[MetadataFilter(
+            key="optional", operator=FilterOperator.IS_EMPTY, value=None,
+        )]),
+    ))
+    assert result.ids == (["optional"] if expected else [])

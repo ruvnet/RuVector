@@ -122,6 +122,8 @@ def _match_filter_value(operator: "FilterOperator", value: Any, metadata_value: 
     filter callable (``Collection.search(..., filter=...)``) already
     receives the metadata dict directly, so there is no id to look up.
     """
+    if operator == FilterOperator.IS_EMPTY:
+        return metadata_value is None or metadata_value == [] or metadata_value == ""
     if metadata_value is None:
         return operator in (FilterOperator.NE, FilterOperator.NIN)
     if operator == FilterOperator.EQ:
@@ -152,8 +154,6 @@ def _match_filter_value(operator: "FilterOperator", value: Any, metadata_value: 
         return all(v in metadata_value for v in value)
     if operator == FilterOperator.ANY:
         return any(v in metadata_value for v in value)
-    if operator == FilterOperator.IS_EMPTY:
-        return metadata_value is None or metadata_value == [] or metadata_value == ""
     raise ValueError(f"Unsupported FilterOperator: {operator!r}")
 
 
