@@ -1,4 +1,4 @@
-# Preserve null predicates in Python Cypher queries
+# Preserve scalar predicate correctness in Python Cypher queries
 
 Status: proposed for review
 
@@ -8,9 +8,13 @@ The Python graph evaluator lowers missing properties to Null but converts compar
 
 Cypher null predicates remain unknown, and WHERE admits only true. The reference truth tables are documented at https://neo4j.com/docs/cypher-manual/4.4/values-and-types/working-with-null/ .
 
+A second scalar predicate defect converts i64 operands through f64. Adjacent values 9007199254740992 and 9007199254740993 both match equality to the former, and neither matches greater-than. The grouped 36 public-query regressions produce 22 baseline failures and 14 passing controls, using the immutable fresh upstream source-built native artifact.
+
 ## Decision
 
 Keep EvalValue::Null through null comparisons and negation. Use three-valued logical operators: false dominates AND, true dominates OR, and an unknown operand makes XOR unknown. Keep the existing WHERE truthy boundary and supported query surface. IS NULL remains exempt from propagation. Preserve AND/OR decisive-left short-circuit behavior.
+
+Compare integer pairs directly. Compare mixed integer/float operands through bounded truncation and exact integer ordering, explicitly handling the upper i64 boundary that rounds to 2^63 in f64. Preserve ordinary Int/Float numeric equivalence and partial comparison for NaN. This repairs predicate equality/ordering; integer arithmetic still has its existing floating-point implementation and is not claimed exact.
 
 ## Alternatives and limits
 
@@ -18,4 +22,4 @@ Rejecting every missing-property query would discard useful complete records. Tr
 
 ## Validation
 
-Seventeen public Python queries cover absent/explicit-null values, known scalar values, comparison negation, AND/OR/XOR unknown propagation, and decisive false/true controls. Baseline: nine fail, eight pass, exact upstream source-built native artifact. Fresh corrected native, graph regression suite, scoped Rust checks and independent exact-commit review must pass before publication; results are preserved in the private campaign evidence.
+Thirty-six public Python queries cover absent/explicit-null values, known scalar values, comparison negation, AND/OR/XOR unknown propagation, and decisive false/true controls. Grouped baseline: 22 fail, 14 pass, exact upstream source-built native artifact. Fresh corrected native, graph regression suite, scoped Rust checks and independent exact-commit review must pass before publication; results are preserved in the private campaign evidence.

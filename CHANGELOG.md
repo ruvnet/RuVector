@@ -31,6 +31,38 @@
 - Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
 - Python MCP: discover persisted collections from their metadata sidecars, including empty RaBitQ collections, and omit incomplete native-index files.
 - Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python graph queries preserve unknown null predicates through comparisons, NOT, AND, OR and XOR, preventing missing properties from being admitted by negation; integer equality and ordering retain precision beyond the float mantissa.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python MCP: discover persisted collections from their metadata sidecars, including empty RaBitQ collections, and omit incomplete native-index files.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python Agentforce routes: enforce the configured per-collection vector cap before upserting, consistently with MCP writes.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python MCP: discover persisted collections from their metadata sidecars, including empty RaBitQ collections, and omit incomplete native-index files.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python Salesforce ingestion: reject incomplete pages without cursors and repeated pagination cursors rather than returning partial results or looping.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python MCP: discover persisted collections from their metadata sidecars, including empty RaBitQ collections, and omit incomplete native-index files.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python Agentforce routes: enforce the configured per-collection vector cap before upserting, consistently with MCP writes.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python MCP: discover persisted collections from their metadata sidecars, including empty RaBitQ collections, and omit incomplete native-index files.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python graph queries preserve unknown null predicates through comparisons, NOT, AND, OR and XOR, preventing missing properties from being admitted by negation.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python MCP: discover persisted collections from their metadata sidecars, including empty RaBitQ collections, and omit incomplete native-index files.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python Agentforce routes: enforce the configured per-collection vector cap before upserting, consistently with MCP writes.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python MCP: discover persisted collections from their metadata sidecars, including empty RaBitQ collections, and omit incomplete native-index files.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python Salesforce ingestion: reject incomplete pages without cursors and repeated pagination cursors rather than returning partial results or looping.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python MCP: discover persisted collections from their metadata sidecars, including empty RaBitQ collections, and omit incomplete native-index files.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python Agentforce routes: enforce the configured per-collection vector cap before upserting, consistently with MCP writes.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python MCP: discover persisted collections from their metadata sidecars, including empty RaBitQ collections, and omit incomplete native-index files.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
 
 All notable changes to RuVector will be documented in this file.
 
