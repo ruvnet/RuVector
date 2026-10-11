@@ -1,7 +1,7 @@
 //! Bounded Python surface for trusted local RVF files. No signature verification claims.
 use pyo3::exceptions::{PyFileExistsError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
-use rvf_runtime::{QueryOptions, RvfOptions, RvfStore as Store};
+use rvf_runtime::{MetadataValue, QueryOptions, RvfOptions, RvfStore as Store};
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
@@ -20,6 +20,14 @@ fn check_vector(vector: &[f32], dimension: usize) -> PyResult<()> {
     if vector.len() != dimension || vector.iter().any(|x| !x.is_finite() || x.abs() > 1.0e10) {
         return Err(PyValueError::new_err(
             "vector must match dimension and contain finite float32 values with magnitude <= 1e10",
+        ));
+    }
+    Ok(())
+}
+fn check_metadata_key(key: &str) -> PyResult<()> {
+    if key.is_empty() || key.len() > 256 || key.starts_with("rvf.") {
+        return Err(PyValueError::new_err(
+            "metadata key must be 1..256 UTF-8 bytes and must not start with rvf.",
         ));
     }
     Ok(())
@@ -133,6 +141,79 @@ impl RvfStore {
                 ("epoch".into(), v.current_epoch as u64),
                 ("read_only".into(), u64::from(v.read_only)),
             ]))
+        })
+    }
+    /// Report whether opening discarded damaged metadata generations or records.
+    fn metadata_recovery(&self) -> PyResult<HashMap<String, u64>> {
+        self.access(|s| {
+            let recovery = s.metadata_recovery();
+            Ok(HashMap::from([
+                ("generation".into(), recovery.generation),
+                ("dropped_generations".into(), recovery.dropped_generations),
+                ("dropped_records".into(), recovery.dropped_records),
+            ]))
+        })
+    }
+    /// Persist an application-owned UTF-8 value. Keys beginning with rvf. are reserved.
+    fn set_metadata(&self, key: &str, value: &str) -> PyResult<()> {
+        check_metadata_key(key)?;
+        if value.len() > 16 * 1024 * 1024 {
+            return Err(PyValueError::new_err("metadata value exceeds 16 MiB"));
+        }
+        self.access(|s| {
+            s.set_file_metadata(key.to_owned(), MetadataValue::String(value.to_owned()))
+                .map_err(failure)
+        })
+    }
+    /// Read an application string, rejecting incompatible native metadata types.
+    fn get_metadata(&self, key: &str) -> PyResult<Option<String>> {
+        check_metadata_key(key)?;
+        self.access(|s| match s.get_file_metadata(key) {
+            None => Ok(None),
+            Some(MetadataValue::String(value)) if value.len() <= 16 * 1024 * 1024 => {
+                Ok(Some(value.clone()))
+            }
+            Some(_) => Err(failure("metadata is not a bounded UTF-8 string")),
+        })
+    }
+    /// Export live vectors in unspecified order, checking bounds before copying.
+    /// max_bytes limits float32 payload bytes, excluding Python object overhead.
+    #[pyo3(signature = (*, max_vectors=100000, max_bytes=268435456))]
+    fn export_vectors(
+        &self,
+        max_vectors: usize,
+        max_bytes: usize,
+    ) -> PyResult<Vec<(u64, Vec<f32>)>> {
+        if max_vectors == 0
+            || max_vectors > 1_000_000
+            || max_bytes == 0
+            || max_bytes > 1_073_741_824
+        {
+            return Err(PyValueError::new_err(
+                "export limits must be 1..1000000 vectors and 1..1073741824 bytes",
+            ));
+        }
+        self.access(|s| {
+            let mut count = 0usize;
+            let mut bytes = 0usize;
+            for (_, vector) in s.iter_vectors() {
+                count += 1;
+                bytes = bytes
+                    .checked_add(
+                        vector
+                            .len()
+                            .checked_mul(4)
+                            .ok_or_else(|| failure("vector byte count overflow"))?,
+                    )
+                    .ok_or_else(|| failure("vector byte count overflow"))?;
+                if count > max_vectors || bytes > max_bytes {
+                    return Err(PyValueError::new_err("live vectors exceed export limits"));
+                }
+                check_vector(vector, s.dimension() as usize)?;
+            }
+            Ok(s.iter_vectors()
+                .map(|(id, vector)| (id, vector.to_vec()))
+                .collect())
         })
     }
     fn close(&self) -> PyResult<()> {

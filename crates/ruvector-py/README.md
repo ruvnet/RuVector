@@ -168,3 +168,59 @@ external comparator.
 ## License
 
 MIT, matching the rest of the ruvector workspace (see [`LICENSE`](LICENSE)).
+
+## RVF application checkpoints (0.1.4)
+
+The 0.1.4 source adds file metadata and live vector export for applications
+that keep document identity, payloads and explicit learning feedback in an
+RVF checkpoint. Availability depends on the installed wheel exposing these
+methods; this section is not evidence that 0.1.4 has been published.
+
+```python
+from ruvector import RvfStore
+
+store = RvfStore.create("checkpoint.rvf", 2)
+try:
+    store.ingest([[1.0, 0.0]], [0])
+    store.set_metadata("app.state", '{"documents":["hello"],"revision":1}')
+finally:
+    store.close()
+
+store = RvfStore.open("checkpoint.rvf")  # read only by default
+try:
+    recovery = store.metadata_recovery()
+    if recovery["dropped_generations"] or recovery["dropped_records"]:
+        raise RuntimeError("Checkpoint metadata is incomplete")
+    assert store.get_metadata("app.state") is not None
+    vectors = store.export_vectors(max_vectors=100, max_bytes=4096)
+finally:
+    store.close()
+```
+
+| Method | Contract |
+| --- | --- |
+| `set_metadata(key, value)` | Persist a UTF-8 string under an application key. Key length is 1 to 256 UTF-8 bytes. The `rvf.` prefix is reserved. Each value is at most 16 MiB, matching the native codec limit. Read-only stores reject writes. |
+| `get_metadata(key)` | Return the string or `None`. Reject an incompatible native metadata type or oversized value. |
+| `export_vectors(*, max_vectors=100000, max_bytes=268435456)` | Return live `(id, vector)` pairs in unspecified order, excluding deletions. Check all limits and finite vector values before copying. Hard ceilings are one million vectors and 1 GiB of float32 payload. Python object overhead is additional. |
+| `metadata_recovery()` | Return integer `generation`, `dropped_generations`, and `dropped_records` counters. A strict application rejects nonzero dropped counters. |
+
+These APIs process trusted local files and do not provide signature verification,
+encryption, tenant authorization or a general hostile-file sandbox. Metadata
+recovery counters detect discarded metadata history; they do not establish
+cryptographic authenticity or detect every possible file alteration. The native
+runtime may recover an older committed manifest after a torn tail.
+
+A metadata write and a vector ingest are separate native commits. Applications
+requiring one atomic document/vector/feedback checkpoint should write a new RVF
+file in a private directory, close and sync it, validate its contents, atomically
+replace the previous file on the same filesystem, and sync the directory. They
+must manage writer exclusion and failure handling themselves. Do not treat a
+sequence of these method calls on the live file as a multi-operation transaction.
+Large manifests can be split into bounded metadata strings with an application
+header recording part count, byte count and a checksum. Each metadata update
+commits separately and copies state, so batching application updates into one
+checkpoint avoids unnecessary full snapshot work.
+
+Native boundary coverage is in `tests/test_native_rvf.py`, including actual
+reopen, read-only rejection, deleted-vector exclusion, payload limits and a
+corrupted metadata segment that reports recovery to the prior generation.
