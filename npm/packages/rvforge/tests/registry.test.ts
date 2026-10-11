@@ -168,6 +168,12 @@ describe('release lineage', () => {
 });
 
 describe('transparency log', () => {
+  it('does not accept a digest with a valid hexadecimal prefix and invalid suffix', () => {
+    const hash = `sha256:${'a'.repeat(64)}not-hex`;
+    expect(verifyInclusionProof({ leafIndex: 0, treeSize: 1, leafHash: hash,
+      path: [], rootHash: hash }, hash)).toBe(false);
+  });
+
   const entry = (object: string, timestamp: string) =>
     appendLogEntry(root, { object, objectType: 'release', timestamp });
 
