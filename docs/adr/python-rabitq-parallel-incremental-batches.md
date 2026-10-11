@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed; native correctness and paired performance validation pending.
+Accepted for implementation; independently reviewed promotion remains required.
 
 ## Context
 
@@ -57,5 +57,45 @@ dimension, nonfinite, duplicate and overflowing IDs with successful reuse after
 rejection. All six Python controls pass against the original native artifact;
 they protect semantics rather than claim the performance defect as a failure.
 
-Publication requires core Rust tests, actual fixed native Python tests, and
-paired frozen-data timings with the same build profile and thread settings.
+## Observed validation
+
+The formatted native source at `610d6fdca7de50d3caf21d01aa74a9cda02309bb`
+passed the complete RaBitQ Rust suite (41 tests) and actual native Python suite
+(301 passed, two skipped). The baseline preservation controls passed all six
+cases without skips. These are semantic controls, not performance failures.
+
+Paired original/fixed measurements used the same dev opt-level-0 build,
+debug-info disabled, incremental compilation disabled, four Rayon workers,
+identical frozen data and Python source, and alternating artifact order.
+Each process warmed up both producer paths. Five primary rounds measured
+2,000 by 128 float32 rows with a 100-row prefix. Median append time was
+397.534 ms originally and 101.562 ms fixed: a measured 3.914x improvement on
+this host. Full construction was 149.871 ms versus 149.018 ms. A two-row
+append control (three rounds, 25 measured iterations per artifact) was
+437.625 microseconds versus 274.333 microseconds. No release-profile speedup
+is claimed. The original issue's historical 13x result is not reused.
+
+Tests compare the retained index memory footprint exactly. Process peak RSS
+was also recorded, but is observational whole-process memory, not an isolated
+measurement of batch allocations. The temporary encoded-row storage tradeoff
+above still applies. An initial timing run overlapped compiler-owner test
+processes; its logs were retained and excluded. The reported paired run began
+only after the owner confirmed the compiler and tests were idle.
+
+The baseline native SHA256 was
+`55270150fc7d789fd47469aa7dddcc831b6fcba50eadcf8c332bc38460983359`;
+the fixed native SHA256 was
+`e8e2a32a2eac1fbbcbaa04f7d3fd0cc413be7db6f3ca12983db6f11c5f80913b`.
+The frozen primary NumPy file SHA256 was
+`225ad6ccbfeaaa5aba460b9306cff64cf31e4bcf6f78dc3188e47c3d015f86a8`.
+The final documentation commit retains the tested native input bytes.
+
+To reproduce the public producer, create float32 data with
+`np.random.default_rng(1141).standard_normal((2000, 128), dtype=np.float32)`.
+Time `Collection.from_vectors(data, backend="rabitq", seed=42)` for build;
+for append, construct the first 100 rows before timing and call
+`collection.insert_batch(data[100:])`. Assert returned IDs are 100 through
+1999 and the resulting count is 2,000. Warm up both paths, alternate order,
+record individual timings and host load, and compare immutable artifacts built
+with identical compiler settings. These measurements do not cover release
+optimization, other dimensions, other hosts, or different thread counts.
