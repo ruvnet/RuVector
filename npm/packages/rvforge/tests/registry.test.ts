@@ -5,12 +5,13 @@
  * the release index and transparency log refuse.
  */
 
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 
 import { ForgeError, ForgeErrorCode } from '../src/errors';
 import { canonicalJson } from '../src/hash';
+import { readReceipts } from '../src/witness';
 import {
   appendLogEntry,
   appendRelease,
@@ -18,12 +19,16 @@ import {
   getObject,
   inclusionProof,
   initRegistry,
+  LOG_ENTRIES_FILE,
   objectId,
   objectPath,
   putObject,
   readLog,
   readReleaseIndex,
   readTreeHead,
+  readWitnessChain,
+  TREE_HEAD_FILE,
+  witnessIndexPath,
   verifyInclusionProof,
   verifyLog,
   type Release,
@@ -34,6 +39,32 @@ let root: string;
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), 'rvforge-registry-'));
   await initRegistry(root);
+});
+
+describe('unreadable registry state', () => {
+  it('does not mistake an unreadable release index for a new package', async () => {
+    const first = release();
+    const dir = join(root, 'packages', digestOf(first.package.publisherId), 'analyst');
+    await mkdir(join(dir, 'releases.jsonl'), { recursive: true });
+    await expect(appendRelease(root, first)).rejects.toMatchObject({ code: ForgeErrorCode.REGISTRY });
+  });
+
+  it('does not mistake unreadable log or witness files for empty history', async () => {
+    await mkdir(join(root, LOG_ENTRIES_FILE));
+    await expect(readLog(root)).rejects.toMatchObject({ code: ForgeErrorCode.REGISTRY });
+    await mkdir(witnessIndexPath(root, 'subject'));
+    await expect(readWitnessChain(root, 'subject')).rejects.toMatchObject({ code: ForgeErrorCode.REGISTRY });
+    await mkdir(join(root, 'receipts.jsonl'));
+    await expect(readReceipts(root)).rejects.toMatchObject({ code: ForgeErrorCode.REGISTRY });
+  });
+
+  it('does not report an unreadable or malformed tree head as absent', async () => {
+    await mkdir(join(root, TREE_HEAD_FILE));
+    await expect(readTreeHead(root)).rejects.toMatchObject({ code: ForgeErrorCode.REGISTRY });
+    await rm(join(root, TREE_HEAD_FILE), { recursive: true });
+    await writeFile(join(root, TREE_HEAD_FILE), '{');
+    await expect(readTreeHead(root)).rejects.toMatchObject({ code: ForgeErrorCode.REGISTRY });
+  });
 });
 
 afterEach(async () => {
