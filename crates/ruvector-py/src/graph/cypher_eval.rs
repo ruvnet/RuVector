@@ -152,7 +152,10 @@ pub(super) fn eval(expr: &Expression, bindings: &Bindings) -> EvalValue {
         Expression::UnaryOp { op, operand } => {
             let value = eval(operand, bindings);
             match op {
-                UnaryOperator::Not => EvalValue::Bool(!value.truthy()),
+                UnaryOperator::Not => match value {
+                    EvalValue::Bool(b) => EvalValue::Bool(!b),
+                    _ => EvalValue::Null,
+                },
                 UnaryOperator::Minus => match value {
                     EvalValue::Int(i) => EvalValue::Int(-i),
                     EvalValue::Float(f) => EvalValue::Float(-f),
@@ -176,22 +179,45 @@ fn eval_binary(
     right: &Expression,
     bindings: &Bindings,
 ) -> EvalValue {
-    // Short-circuit the logical operators before evaluating both sides.
+    // Missing properties are unknown, not false. Preserve that value until
+    // the WHERE boundary; otherwise NOT turns an unknown into a match.
+    let l = eval(left, bindings);
+    if op == BinaryOperator::And && l == EvalValue::Bool(false) {
+        return EvalValue::Bool(false);
+    }
+    if op == BinaryOperator::Or && l == EvalValue::Bool(true) {
+        return EvalValue::Bool(true);
+    }
+    let r = eval(right, bindings);
     match op {
         BinaryOperator::And => {
-            return EvalValue::Bool(eval(left, bindings).truthy() && eval(right, bindings).truthy())
+            return match (&l, &r) {
+                (_, EvalValue::Bool(false)) => EvalValue::Bool(false),
+                (EvalValue::Bool(true), EvalValue::Bool(true)) => EvalValue::Bool(true),
+                _ => EvalValue::Null,
+            }
         }
         BinaryOperator::Or => {
-            return EvalValue::Bool(eval(left, bindings).truthy() || eval(right, bindings).truthy())
+            return match (&l, &r) {
+                (_, EvalValue::Bool(true)) => EvalValue::Bool(true),
+                (EvalValue::Bool(false), EvalValue::Bool(false)) => EvalValue::Bool(false),
+                _ => EvalValue::Null,
+            }
         }
         BinaryOperator::Xor => {
-            return EvalValue::Bool(eval(left, bindings).truthy() != eval(right, bindings).truthy())
+            return match (&l, &r) {
+                (EvalValue::Bool(a), EvalValue::Bool(b)) => EvalValue::Bool(a != b),
+                _ => EvalValue::Null,
+            }
         }
+        // IS NULL is deliberately exempt from null propagation.
+        BinaryOperator::Is => return EvalValue::Bool(matches!(l, EvalValue::Null)),
+        BinaryOperator::IsNot => return EvalValue::Bool(!matches!(l, EvalValue::Null)),
         _ => {}
     }
-
-    let l = eval(left, bindings);
-    let r = eval(right, bindings);
+    if matches!(l, EvalValue::Null) || matches!(r, EvalValue::Null) {
+        return EvalValue::Null;
+    }
 
     match op {
         BinaryOperator::Equal => EvalValue::Bool(values_equal(&l, &r)),
