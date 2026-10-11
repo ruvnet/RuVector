@@ -964,19 +964,39 @@ mod tests {
 
     #[test]
     fn incremental_batch_matches_serial_and_bulk_encoding() {
-        for kind in [RandomRotationKind::HaarDense, RandomRotationKind::HadamardSigned] {
+        for kind in [
+            RandomRotationKind::HaarDense,
+            RandomRotationKind::HadamardSigned,
+        ] {
             for dim in [16, 65] {
                 let items: Vec<_> = make_dataset(40, dim, 1141)
-                    .into_iter().enumerate().map(|(i, (_, v))| (1000 + i * 7, v)).collect();
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, (_, v))| (1000 + i * 7, v))
+                    .collect();
                 let mut serial = RabitqPlusIndex::new_with_rotation(dim, 42, 5, kind);
-                for (id, v) in &items { serial.add(*id, v.clone()).unwrap(); }
+                for (id, v) in &items {
+                    serial.add(*id, v.clone()).unwrap();
+                }
                 let mut batch = RabitqPlusIndex::from_vectors_parallel_with_rotation(
-                    dim, 42, 5, kind, items[..3].to_vec()).unwrap();
+                    dim,
+                    42,
+                    5,
+                    kind,
+                    items[..3].to_vec(),
+                )
+                .unwrap();
                 batch.add_batch(Vec::new()).unwrap();
                 batch.add_batch(items[3..4].to_vec()).unwrap();
                 batch.add_batch(items[4..].to_vec()).unwrap();
                 let bulk = RabitqPlusIndex::from_vectors_parallel_with_rotation(
-                    dim, 42, 5, kind, items.clone()).unwrap();
+                    dim,
+                    42,
+                    5,
+                    kind,
+                    items.clone(),
+                )
+                .unwrap();
                 for other in [&serial, &bulk] {
                     assert_eq!(batch.memory_bytes(), other.memory_bytes());
                     assert_eq!(batch.inner.ids, other.inner.ids);
@@ -984,10 +1004,18 @@ mod tests {
                     assert_eq!(batch.inner.norms, other.inner.norms);
                     assert_eq!(batch.originals_flat, other.originals_flat);
                     for (_, q) in &items[..5] {
-                        let a: Vec<_> = batch.search(q, 8).unwrap().into_iter()
-                            .map(|r| (r.id, r.score.to_bits())).collect();
-                        let b: Vec<_> = other.search(q, 8).unwrap().into_iter()
-                            .map(|r| (r.id, r.score.to_bits())).collect();
+                        let a: Vec<_> = batch
+                            .search(q, 8)
+                            .unwrap()
+                            .into_iter()
+                            .map(|r| (r.id, r.score.to_bits()))
+                            .collect();
+                        let b: Vec<_> = other
+                            .search(q, 8)
+                            .unwrap()
+                            .into_iter()
+                            .map(|r| (r.id, r.score.to_bits()))
+                            .collect();
                         assert_eq!(a, b);
                     }
                 }
@@ -997,13 +1025,26 @@ mod tests {
 
     #[test]
     fn incremental_batch_dimension_error_leaves_all_storage_unchanged() {
-        let mut idx = RabitqPlusIndex::from_vectors_parallel(16, 42, 5,
-            make_dataset(3, 16, 1141)).unwrap();
-        let before = (idx.inner.ids.clone(), idx.inner.packed.clone(),
-            idx.inner.norms.clone(), idx.originals_flat.clone());
-        assert!(idx.add_batch(vec![(100, vec![1.0; 16]), (101, vec![1.0; 15])]).is_err());
-        assert_eq!(before, (idx.inner.ids.clone(), idx.inner.packed.clone(),
-            idx.inner.norms.clone(), idx.originals_flat.clone()));
+        let mut idx =
+            RabitqPlusIndex::from_vectors_parallel(16, 42, 5, make_dataset(3, 16, 1141)).unwrap();
+        let before = (
+            idx.inner.ids.clone(),
+            idx.inner.packed.clone(),
+            idx.inner.norms.clone(),
+            idx.originals_flat.clone(),
+        );
+        assert!(idx
+            .add_batch(vec![(100, vec![1.0; 16]), (101, vec![1.0; 15])])
+            .is_err());
+        assert_eq!(
+            before,
+            (
+                idx.inner.ids.clone(),
+                idx.inner.packed.clone(),
+                idx.inner.norms.clone(),
+                idx.originals_flat.clone()
+            )
+        );
         idx.add_batch(vec![(100, vec![1.0; 16])]).unwrap();
         assert_eq!(idx.external_ids(), &[0, 1, 2, 100]);
     }
