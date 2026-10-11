@@ -111,6 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   skill and installs it into `.claude/skills` (Claude Code) and/or
   `.agents/skills` (Codex). `skills/` is now in the published files.
 ### Fixed
+- Validate Python GNN checkpoint declarations, tensor layout and finite parameters before loading while preserving valid serialized learned weights.
 - Python RaBitQ identity integrity also ignores missing deletions and preserves IDs, metadata, and subsequent insertion identities through vacuum, keeping adapter document maps valid.
 - Python RaBitQ export and persistence retain caller-supplied external IDs instead of substituting internal row positions, preserving associated Collection metadata through save/load.
 - Python LlamaIndex IS_EMPTY filters now include absent and null metadata fields, matching the framework contract alongside existing empty-string and empty-list handling.
