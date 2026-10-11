@@ -194,7 +194,16 @@ impl HnswIndex {
             .collect();
 
         let id_to_idx: DashMap<VectorId, usize> = state.id_to_idx.into_iter().collect();
-        let idx_to_id: DashMap<usize, VectorId> = state.idx_to_id.into_iter().collect();
+        // Older snapshots retained reverse mappings for replaced versions.
+        // Reconstruct only each live ID's canonical current graph position.
+        let idx_to_id: DashMap<usize, VectorId> = state
+            .idx_to_id
+            .into_iter()
+            .filter(|(idx, id)| {
+                vectors_lookup.contains_key(id.as_str())
+                    && id_to_idx.get(id).is_some_and(|current| *current == *idx)
+            })
+            .collect();
 
         // Insert vectors into HNSW in index order for deterministic reconstruction.
         let mut sorted_entries: Vec<_> = idx_to_id
@@ -257,22 +266,31 @@ impl HnswIndex {
             return Ok(vec![]);
         }
 
-        // ef_search < k causes hnsw_rs to return fewer than k candidates; clamp.
-        let effective_ef = ef_search.max(k);
-
-        let neighbors = inner.hnsw.search(query, k, effective_ef);
-
-        let mut results: Vec<SearchResult> = neighbors
-            .into_iter()
-            .filter_map(|(idx, distance)| {
-                inner.idx_to_id.get(&idx).map(|id| SearchResult {
-                    id: id.clone(),
-                    score: distance,
-                    vector: None,
-                    metadata: None,
+        let target = k.min(inner.vectors.len());
+        let mut candidate_k = k;
+        let mut results;
+        loop {
+            // Deleted/replaced graph positions remain physically allocated.
+            // Widen only when those positions crowd live rows out of top-k.
+            let neighbors = inner
+                .hnsw
+                .search(query, candidate_k, ef_search.max(candidate_k));
+            results = neighbors
+                .into_iter()
+                .filter_map(|(idx, distance)| {
+                    inner.idx_to_id.get(&idx).map(|id| SearchResult {
+                        id: id.clone(),
+                        score: distance,
+                        vector: None,
+                        metadata: None,
+                    })
                 })
-            })
-            .collect();
+                .collect::<Vec<_>>();
+            if results.len() >= target || candidate_k >= inner.next_idx {
+                break;
+            }
+            candidate_k = candidate_k.saturating_mul(2).min(inner.next_idx);
+        }
 
         // hnsw_rs does not guarantee sort order — ensure ascending distance.
         results.sort_unstable_by(|a, b| {
@@ -281,6 +299,7 @@ impl HnswIndex {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
+        results.truncate(target);
         Ok(results)
     }
 }
@@ -302,7 +321,9 @@ impl VectorIndex for HnswIndex {
 
         // Store mappings
         inner.vectors.insert(id.clone(), vector);
-        inner.id_to_idx.insert(id.clone(), idx);
+        if let Some(previous_idx) = inner.id_to_idx.insert(id.clone(), idx) {
+            inner.idx_to_id.remove(&previous_idx);
+        }
         inner.idx_to_id.insert(idx, id);
 
         Ok(())
@@ -337,7 +358,9 @@ impl VectorIndex for HnswIndex {
         // Store mappings
         for (id, idx, vector) in data_with_ids {
             inner.vectors.insert(id.clone(), vector);
-            inner.id_to_idx.insert(id.clone(), idx);
+            if let Some(previous_idx) = inner.id_to_idx.insert(id.clone(), idx) {
+                inner.idx_to_id.remove(&previous_idx);
+            }
             inner.idx_to_id.insert(idx, id);
         }
 
