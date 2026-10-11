@@ -102,3 +102,22 @@ test('an exhausted counter refuses automatic allocation without overwriting',t=>
   assert.equal(run(db,['insert','[0,1]','--id','explicit']).status,0);
   assert.equal(Object.hasOwn(JSON.parse(fs.readFileSync(db)).vectors,'explicit'),true);
 });
+
+
+test('automatic batch IDs also avoid later caller-supplied IDs',t=>{
+  const db=fixture(t), input=path.join(path.dirname(db),'batch.json');
+  fs.writeFileSync(input,JSON.stringify([{vector:[1,0]},{id:'vec_1',vector:[0,1]}]));
+  assert.equal(run(db,['batch-insert',input]).status,0);
+  const data=JSON.parse(fs.readFileSync(db));
+  assert.deepEqual(Object.keys(data.vectors).sort(),['vec_1','vec_2']);
+  assert.deepEqual(data.vectors.vec_2.vector,[1,0]);
+  assert.deepEqual(data.vectors.vec_1.vector,[0,1]);
+});
+test('explicit duplicate IDs in a batch retain last-write replacement',t=>{
+  const db=fixture(t), input=path.join(path.dirname(db),'batch.json');
+  fs.writeFileSync(input,JSON.stringify([{id:'same',vector:[1,0]},{id:'same',vector:[0,1]}]));
+  assert.equal(run(db,['batch-insert',input]).status,0);
+  const data=JSON.parse(fs.readFileSync(db));
+  assert.deepEqual(Object.keys(data.vectors),['same']);
+  assert.deepEqual(data.vectors.same.vector,[0,1]);
+});

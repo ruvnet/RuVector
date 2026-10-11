@@ -80,13 +80,13 @@ function rebuildNormCache() {
 }
 
 // Generate unique ID
-function generateId() {
+function generateId(reservedIds) {
   if (!Number.isSafeInteger(state.nextId) || state.nextId < 1) {
     throw new Error('Cannot generate a unique vector ID: invalid or exhausted nextId');
   }
   while (Number.isSafeInteger(state.nextId)) {
     const candidate = `vec_${state.nextId++}`;
-    if (!Object.hasOwn(state.vectors, candidate)) return candidate;
+    if (!Object.hasOwn(state.vectors, candidate) && !reservedIds?.has(candidate)) return candidate;
   }
   throw new Error('Cannot generate a unique vector ID: counter exhausted');
 }
@@ -341,8 +341,8 @@ function searchVectors(query, k, metric = 'cosine') {
 }
 
 // Insert vector with precomputed norm
-function insertVector(vector, metadata, id) {
-  const vecId = id || generateId();
+function insertVector(vector, metadata, id, reservedIds) {
+  const vecId = id || generateId(reservedIds);
   const norm = computeNorm(vector);
   // Define a literal own key: assignment to "__proto__" otherwise invokes
   // Object.prototype's setter and loses the record during JSON persistence.
@@ -356,9 +356,11 @@ function insertVector(vector, metadata, id) {
 
 // Batch insert for bulk loading
 function insertBatch(vectors) {
+  // Reserve later explicit IDs before automatic allocation can claim them.
+  const reservedIds = new Set(vectors.filter(row => row.id).map(row => String(row.id)));
   const ids = [];
   for (const { vector, metadata, id } of vectors) {
-    ids.push(insertVector(vector, metadata, id));
+    ids.push(insertVector(vector, metadata, id, reservedIds));
   }
   return ids;
 }
