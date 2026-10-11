@@ -146,20 +146,36 @@ fn http(port: u16, request: &str) -> String {
 }
 
 #[test]
+fn occupied_port_fails_without_announcing_readiness() {
+    let dir = tempfile::tempdir().unwrap();
+    let model = garbage_gguf(dir.path());
+    let occupied = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = occupied.local_addr().unwrap().port();
+    Command::cargo_bin("ruvllm")
+        .unwrap()
+        .env_remove("RUVLLM_STRICT")
+        .env_remove("RUVLLM_ALLOW_MOCK")
+        .env_remove("RUVLLM_CACHE_DIR")
+        .args(serve_args(dir.path(), &model, port))
+        .arg("--allow-mock")
+        .timeout(Duration::from_secs(120))
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("Server ready").not())
+        .stdout(predicate::str::contains("Press Ctrl+C").not())
+        .stderr(predicate::str::contains("Failed to bind server"));
+}
+
+#[test]
 fn allow_mock_serves_labeled_placeholder_responses() {
     let dir = tempfile::tempdir().unwrap();
     let model = garbage_gguf(dir.path());
-    let port = TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port();
 
     let child = std::process::Command::new(assert_cmd::cargo::cargo_bin("ruvllm"))
         .env_remove("RUVLLM_STRICT")
         .env_remove("RUVLLM_ALLOW_MOCK")
         .env_remove("RUVLLM_CACHE_DIR")
-        .args(serve_args(dir.path(), &model, port))
+        .args(serve_args(dir.path(), &model, 0))
         .arg("--allow-mock")
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -182,6 +198,16 @@ fn allow_mock_serves_labeled_placeholder_responses() {
         banner.contains("Server ready (MOCK MODE: placeholder responses, not model output)"),
         "{banner}"
     );
+    let address = banner
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("API: http://"))
+        .unwrap()
+        .strip_suffix("/v1/chat/completions")
+        .unwrap()
+        .parse::<std::net::SocketAddr>()
+        .unwrap();
+    assert_ne!(address.port(), 0, "{banner}");
+    let port = address.port();
 
     let body = r#"{"model":"m","messages":[{"role":"user","content":"Hello"}]}"#;
     let response = http(

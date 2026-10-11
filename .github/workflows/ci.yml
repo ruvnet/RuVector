@@ -575,6 +575,27 @@ jobs:
         with:
           key: test-${{ matrix.name }}
 
+      # ort-sys rc.13's static archives need newer glibc/libstdc++ than
+      # Ubuntu 22.04. Use the same pinned upstream runtime as build-typesafe.
+      # Keep native ONNX tests enabled and make the runtime visible to both
+      # nextest children and doctest executables.
+      - name: Fetch pinned ONNX Runtime shared library
+        if: matrix.name == 'core-and-rest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/onnxruntime-linux-x64-1.28.0.tgz"
+          curl --fail --location --retry 3 --output "$archive" \
+            https://github.com/microsoft/onnxruntime/releases/download/v1.28.0/onnxruntime-linux-x64-1.28.0.tgz
+          printf '%s  %s\n' a3e1b79d7bb1bf09696ce675f49e4064e6c81f6202b8225624fff0e93f8d6407 "$archive" | sha256sum --check --
+          mkdir -p "$RUNNER_TEMP/ort"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/ort" --strip-components=1
+          test -f "$RUNNER_TEMP/ort/lib/libonnxruntime.so.1"
+          test -f "$RUNNER_TEMP/ort/lib/libonnxruntime_providers_shared.so"
+          echo "ORT_LIB_PATH=$RUNNER_TEMP/ort/lib" >> "$GITHUB_ENV"
+          echo 'ORT_PREFER_DYNAMIC_LINK=1' >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$RUNNER_TEMP/ort/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
       - name: Install cargo-nextest
         uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60
         with:

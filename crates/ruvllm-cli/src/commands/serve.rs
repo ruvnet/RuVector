@@ -192,6 +192,12 @@ pub async fn run(
     let addr = format!("{}:{}", host, port)
         .parse::<SocketAddr>()
         .context("Invalid address")?;
+    // Readiness means the socket is already listening. Bind failures must not
+    // announce a ready server; local_addr also resolves an OS-assigned port 0.
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .with_context(|| format!("Failed to bind server to {addr}"))?;
+    let addr = listener.local_addr().context("Read server address")?;
 
     println!();
     if mock_mode {
@@ -221,7 +227,6 @@ pub async fn run(
     println!();
 
     // Set up graceful shutdown
-    let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await

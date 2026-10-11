@@ -20,6 +20,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'crates/ruvector-embed-core/**'
       - 'crates/ruvector-typesafe-core/**'
       - 'crates/ruvector-typesafe-ffi/**'
       - 'npm/packages/typesafe/**'
@@ -27,6 +28,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'crates/ruvector-embed-core/**'
       - 'crates/ruvector-typesafe-core/**'
       - 'crates/ruvector-typesafe-ffi/**'
       - 'npm/packages/typesafe/**'
@@ -301,7 +303,27 @@ jobs:
       - name: Reject changed release gates or unpinned model assets
         run: node scripts/verify-release-bench.mjs --preflight-models
       - name: Download and verify hash-pinned model assets
-        run: node scripts/fetch-models.mjs --model bge-small-en-v1.5
+        run: |
+          node scripts/fetch-models.mjs --model bge-small-en-v1.5
+          node scripts/fetch-models.mjs --model bge-small-en-v1.5-int8
+      - name: Setup Rust for the native INT8 regression
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+      - name: Cache native regression build
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          key: typesafe-native-regression
+      - name: Require exact INT8 embedding parity across batch composition
+        working-directory: .
+        env:
+          ORT_LIB_PATH: ${{ github.workspace }}/npm/packages/typesafe/native/linux-x64-gnu
+          ORT_PREFER_DYNAMIC_LINK: '1'
+          LD_LIBRARY_PATH: ${{ github.workspace }}/npm/packages/typesafe/native/linux-x64-gnu
+        run: >-
+          cargo test --locked -p ruvector-embed-core --features native
+          --test native_models int8_embeddings_are_independent_of_batch_composition
+          -- --exact --ignored
       - name: Score full frozen ONNX tickets
         run: |
           args=(--suite tickets --arm both --embedder onnx \

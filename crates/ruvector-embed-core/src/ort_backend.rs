@@ -81,7 +81,9 @@ impl OrtEmbedder {
         Ok(Self {
             session: Mutex::new(session),
             tokenizer,
-            id: manifest.id(),
+            // Frozen-head consumers must not pair old batched features with
+            // the new per-text inference policy under the same identity.
+            id: format!("{}#ort-singleton-v1", manifest.id()),
             manifest: manifest.clone(),
             input_has_token_type,
             output_name,
@@ -149,13 +151,13 @@ impl OrtEmbedder {
 
 impl Embedder for OrtEmbedder {
     fn embed(&self, texts: &[&str]) -> CoreResult<Vec<Vec<f32>>> {
-        // Bounded batches: one forward pass over thousands of texts can ask
-        // onnxruntime for gigabytes of attention memory (see MAX_EMBED_BATCH).
-        Ok(crate::embed_in_chunks(
-            texts,
-            crate::MAX_EMBED_BATCH,
-            |c| self.embed_impl(c),
-        )?)
+        // Canonical per-text inference: dynamic INT8 quantization derives
+        // activation ranges from the entire input tensor. Masked padding does
+        // not isolate those ranges, so batching changes a text's vector and
+        // can change decisions when an example bank is re-embedded on import.
+        // A singleton tensor also fixes the padding shape and bounds memory.
+        // Apply this to every model; filenames do not prove graph semantics.
+        Ok(crate::embed_in_chunks(texts, 1, |c| self.embed_impl(c))?)
     }
     fn dims(&self) -> usize {
         self.manifest.dims
