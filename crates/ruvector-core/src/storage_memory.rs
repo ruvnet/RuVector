@@ -68,8 +68,8 @@ impl MemoryStorage {
 
     /// Insert multiple vectors in a batch
     pub fn insert_batch(&self, entries: &[VectorEntry]) -> Result<Vec<VectorId>> {
-        let mut ids = Vec::with_capacity(entries.len());
-
+        // Reject the entire batch before allocating IDs or changing stored rows.
+        // VectorDB updates its search index only after this method succeeds.
         for entry in entries {
             if entry.vector.len() != self.dimensions {
                 return Err(RuvectorError::DimensionMismatch {
@@ -77,7 +77,10 @@ impl MemoryStorage {
                     actual: entry.vector.len(),
                 });
             }
+        }
 
+        let mut ids = Vec::with_capacity(entries.len());
+        for entry in entries {
             let id = entry.id.clone().unwrap_or_else(|| self.generate_id());
 
             self.vectors.insert(id.clone(), entry.vector.clone());
