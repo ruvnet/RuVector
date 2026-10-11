@@ -17,6 +17,7 @@ def test_batch_matches_build_and_serial_with_external_ids(dim):
     for ident, row in zip(ids[3:], data[3:]):
         serial.add(int(ident), row)
     assert len(batch) == len(bulk) == len(serial) == 80
+    assert batch.memory_bytes == bulk.memory_bytes == serial.memory_bytes
     for query in data[:8]:
         expected = bulk.search(query, 10)
         assert batch.search(query, 10) == expected

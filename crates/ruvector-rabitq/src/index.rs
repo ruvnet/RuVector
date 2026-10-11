@@ -978,6 +978,7 @@ mod tests {
                 let bulk = RabitqPlusIndex::from_vectors_parallel_with_rotation(
                     dim, 42, 5, kind, items.clone()).unwrap();
                 for other in [&serial, &bulk] {
+                    assert_eq!(batch.memory_bytes(), other.memory_bytes());
                     assert_eq!(batch.inner.ids, other.inner.ids);
                     assert_eq!(batch.inner.packed, other.inner.packed);
                     assert_eq!(batch.inner.norms, other.inner.norms);
