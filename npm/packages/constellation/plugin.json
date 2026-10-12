@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "ruvector-constellation",
+  "version": "0.1.0",
+  "description": "Select and integrate RuVector packages with optional Ruflo coordination and MetaHarness evaluation using verified npm and MCP contracts.",
+  "author": { "name": "RuvNet" },
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "RuVector Constellation",
+        "shortDescription": "Connect the RuvNet ecosystem",
+        "longDescription": "Source-backed package selection and integration guidance. Includes a focused skill; runtime installation and MCP configuration remain explicit user-scoped actions.",
+        "developerName": "RuvNet",
+        "category": "Developer Tools",
+        "defaultPrompt": "Help me select and connect RuVector, Ruflo and MetaHarness packages for my application."
+      }
+    }
+  }
+}

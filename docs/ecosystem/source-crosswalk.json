@@ -1,0 +1,5240 @@
+{
+  "observedAt": "2026-10-11",
+  "scope": "registry public maintainer inventory cross-referenced with tracked local manifests; candidates are not a release allowlist",
+  "counts": {
+    "registry": 398,
+    "noLocalSource": 124,
+    "oneLocalCandidate": 197,
+    "ambiguousLocalCandidates": 77
+  },
+  "packages": [
+    {
+      "name": "@agentic-robotics/cli",
+      "publishedVersion": "0.2.3",
+      "repository": "git+https://github.com/ruvnet/vibecast.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@agentic-robotics/core",
+      "publishedVersion": "0.2.1",
+      "repository": "git+https://github.com/ruvnet/vibecast.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@agentic-robotics/linux-x64-gnu",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/vibecast.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@agentic-robotics/mcp",
+      "publishedVersion": "0.2.2",
+      "repository": "git+https://github.com/ruvnet/vibecast.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@agentic-robotics/self-learning",
+      "publishedVersion": "1.0.0",
+      "repository": "git+https://github.com/ruvnet/agentic-robotics.git",
+      "directory": "examples/self-learning",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@agentics.org/agentic-mcp",
+      "publishedVersion": "1.0.4",
+      "repository": "git+https://github.com/agenticsorg/edge-agents.git",
+      "directory": "scripts/agentic-mcp",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@agentics.org/sparc2",
+      "publishedVersion": "2.0.25",
+      "repository": "git+https://github.com/agenticsorg/sparc2.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/aidefence",
+      "publishedVersion": "3.0.3",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/@claude-flow/aidefence",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/aidefence/package.json",
+          "version": "3.0.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/browser",
+      "publishedVersion": "3.0.0",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/@claude-flow/browser",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/browser/package.json",
+          "version": "3.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/claims",
+      "publishedVersion": "3.0.0",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/@claude-flow/claims",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/claims/package.json",
+          "version": "3.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/cli",
+      "publishedVersion": "3.56.5",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/@claude-flow/cli",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/cli/package.json",
+          "version": "3.54.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/cli-core",
+      "publishedVersion": "3.7.1",
+      "repository": "git+https://github.com/ruvnet/ruflo.git",
+      "directory": "v3/@claude-flow/cli-core",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/cli-core/package.json",
+          "version": "3.7.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/codex",
+      "publishedVersion": "3.0.3",
+      "repository": "git+https://github.com/ruvnet/ruflo.git",
+      "directory": "v3/@claude-flow/codex",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/codex/package.json",
+          "version": "3.0.3"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/deployment",
+      "publishedVersion": "3.0.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/deployment/package.json",
+          "version": "3.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/embeddings",
+      "publishedVersion": "3.0.0-alpha.45",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/embeddings/package.json",
+          "version": "3.0.0-alpha.18"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/guidance",
+      "publishedVersion": "3.0.0",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/@claude-flow/guidance",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/guidance/package.json",
+          "version": "3.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/hooks",
+      "publishedVersion": "3.0.0",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/@claude-flow/hooks",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/hooks/package.json",
+          "version": "3.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/integration",
+      "publishedVersion": "3.0.1",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/integration/package.json",
+          "version": "3.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/mcp",
+      "publishedVersion": "3.1.1",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/mcp/package.json",
+          "version": "3.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/memory",
+      "publishedVersion": "3.0.4",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/memory/package.json",
+          "version": "3.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/neural",
+      "publishedVersion": "3.0.0",
+      "repository": "git+https://github.com/ruvnet/ruflo.git",
+      "directory": "v3/@claude-flow/neural",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/neural/package.json",
+          "version": "3.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/performance",
+      "publishedVersion": "3.0.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/performance/package.json",
+          "version": "3.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/plugin-agent-federation",
+      "publishedVersion": "1.0.1",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/plugin-agent-federation/package.json",
+          "version": "1.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/plugin-agentic-qe",
+      "publishedVersion": "3.0.0-alpha.5",
+      "repository": "git+https://github.com/ruvnet/ruflo.git",
+      "directory": "v3/plugins/agentic-qe",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/plugins/agentic-qe/package.json",
+          "version": "3.0.0-alpha.5"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/plugin-code-intelligence",
+      "publishedVersion": "3.0.0-alpha.3",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/plugins/code-intelligence",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/plugins/code-intelligence/package.json",
+          "version": "3.0.0-alpha.3"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/plugin-cognitive-kernel",
+      "publishedVersion": "3.0.0-alpha.1",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/plugins/cognitive-kernel",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/plugins/cognitive-kernel/package.json",
+          "version": "3.0.0-alpha.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/plugin-financial-risk",
+      "publishedVersion": "3.0.0-alpha.1",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/plugins/financial-risk",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/plugins/financial-risk/package.json",
+          "version": "3.0.0-alpha.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/plugin-gastown-bridge",
+      "publishedVersion": "0.1.4",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/plugins/gastown-bridge",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/plugins/gastown-bridge/package.json",
+          "version": "0.1.4"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/plugin-healthcare-clinical",
+      "publishedVersion": "3.0.0-alpha.2",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/plugins/healthcare-clinical",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/plugins/healthcare-clinical/package.json",
+          "version": "3.0.0-alpha.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/plugin-hyperbolic-reasoning",
+      "publishedVersion": "3.0.0-alpha.1",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/plugins/hyperbolic-reasoning",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/plugins/hyperbolic-reasoning/package.json",
+          "version": "3.0.0-alpha.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/plugin-iot-cognitum",
+      "publishedVersion": "1.0.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/plugin-iot-cognitum/package.json",
+          "version": "1.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/plugin-legal-contracts",
+      "publishedVersion": "3.0.0-alpha.2",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/plugins/legal-contracts",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/plugins/legal-contracts/package.json",
+          "version": "3.0.0-alpha.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/plugin-neural-coordination",
+      "publishedVersion": "3.0.0-alpha.1",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/plugins/neural-coordination",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/plugins/neural-coordination/package.json",
+          "version": "3.0.0-alpha.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/plugin-perf-optimizer",
+      "publishedVersion": "3.0.0-alpha.2",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/plugins/perf-optimizer",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/plugins/perf-optimizer/package.json",
+          "version": "3.0.0-alpha.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/plugin-prime-radiant",
+      "publishedVersion": "0.1.5",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/plugins/prime-radiant",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/plugins/prime-radiant/package.json",
+          "version": "0.1.5"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/plugin-quantum-optimizer",
+      "publishedVersion": "3.0.0-alpha.1",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/plugins/quantum-optimizer",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/plugins/quantum-optimizer/package.json",
+          "version": "3.0.0-alpha.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/plugin-test-intelligence",
+      "publishedVersion": "3.0.0-alpha.1",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/plugins/test-intelligence",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/plugins/test-intelligence/package.json",
+          "version": "3.0.0-alpha.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/plugins",
+      "publishedVersion": "3.0.2",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/plugins/package.json",
+          "version": "3.0.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/providers",
+      "publishedVersion": "3.0.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/providers/package.json",
+          "version": "3.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/security",
+      "publishedVersion": "3.0.4",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/security/package.json",
+          "version": "3.0.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/shared",
+      "publishedVersion": "3.0.3",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/shared/package.json",
+          "version": "3.0.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/swarm",
+      "publishedVersion": "3.0.2",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/swarm/package.json",
+          "version": "3.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/teammate-plugin",
+      "publishedVersion": "1.0.0-alpha.1",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "v3/plugins/teammate-plugin",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/plugins/teammate-plugin/package.json",
+          "version": "1.0.0-alpha.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/testing",
+      "publishedVersion": "3.0.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/testing/package.json",
+          "version": "3.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@claude-flow/watermark",
+      "publishedVersion": "0.4.1",
+      "repository": "git+https://github.com/ruvnet/ruflo.git",
+      "directory": "v3/@claude-flow/watermark",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "v3/@claude-flow/watermark/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@cognitum-one/sdk",
+      "publishedVersion": "0.4.0",
+      "repository": "git+https://github.com/cognitum-one/sdks.git",
+      "directory": "sdks/node",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@cognitum/freetokens",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/cognitum-one/freetokens.git",
+      "directory": "cli",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@cognitum/gate",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "packages/cognitum-gate-wasm",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/cognitum-gate-wasm/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@cognitum/ruos",
+      "publishedVersion": "0.5.0",
+      "repository": "git+https://github.com/cognitum-one/ruos-desktop.git",
+      "directory": "packages/ruos",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@dream-machine/compile",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/dream-machine.git",
+      "directory": "packages/compile",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@dream-machine/ledger",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/dream-machine.git",
+      "directory": "packages/ledger",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@dream-machine/memory",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/dream-machine.git",
+      "directory": "packages/memory",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@dream-machine/schedule",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/dream-machine.git",
+      "directory": "packages/schedule",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@dream-machine/witness",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/dream-machine.git",
+      "directory": "packages/witness",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@foxruv/cf-doctor",
+      "publishedVersion": "1.1.0",
+      "repository": "git+https://github.com/Lego4005/foxit-marketplace.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@foxruv/e2b-runner",
+      "publishedVersion": "2.0.1",
+      "repository": "git+https://github.com/foxruv/e2b-runner.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@foxruv/iris",
+      "publishedVersion": "1.8.19",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@foxruv/iris-agentic-synth",
+      "publishedVersion": "1.0.5",
+      "repository": "git+https://github.com/ruvnet/agentic-synth.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@foxruv/iris-core",
+      "publishedVersion": "1.0.0",
+      "repository": "git+https://github.com/scan-iq/iris.git",
+      "directory": "packages/core",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@foxruv/iris-ultrathink",
+      "publishedVersion": "1.0.0",
+      "repository": "git+https://github.com/your-org/agent-learning-core.git",
+      "directory": "packages/ultrathink",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@foxruv/nova-medicina",
+      "publishedVersion": "1.0.0",
+      "repository": "git+https://github.com/ruvnet/agentic-flow.git",
+      "directory": "examples/nova-medicina",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/agntcy",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/agntcy",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/agntcy/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/avo",
+      "publishedVersion": "0.2.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/avo/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/aws-finops",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/aws-finops",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/aws-finops/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/aws-finops/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/claude-code",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/claude-code",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/claude-code/package.json",
+          "version": "0.1.1"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/claude-code/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/codex",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/codex",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/codex/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/codex/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/coding",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/coding",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/coding/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/coding/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/copilot",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/copilot",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/copilot/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/copilot/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/darwin",
+      "publishedVersion": "0.10.3",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/darwin-mode",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/darwin-mode/package.json",
+          "version": "0.10.2"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/darwin-mode/package.json",
+          "version": "0.8.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/devops",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/devops",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/devops/package.json",
+          "version": "0.1.1"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/devops/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/education",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/education",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/education/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/education/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-ads",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-ads",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-ads/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-ads/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-aws",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-aws",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-aws/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-aws/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-azure",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-azure",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-azure/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-azure/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-bio",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-bio",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-bio/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-bio/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-datadog",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-datadog",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-datadog/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-datadog/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-fhir",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-fhir",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-fhir/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-fhir/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-gcp",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-gcp",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-gcp/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-gcp/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-github",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-github",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-github/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-github/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-huggingface",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-huggingface",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-huggingface/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-huggingface/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-iot",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-iot",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-iot/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-iot/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-nasa",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-nasa",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-nasa/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-nasa/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-pinecone",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-pinecone",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-pinecone/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-pinecone/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-qiskit",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-qiskit",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-qiskit/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-qiskit/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-slack",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-slack",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-slack/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-slack/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-stripe",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-stripe",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-stripe/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-stripe/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-supabase",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-supabase",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-supabase/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-supabase/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-twilio",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-twilio",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-twilio/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-twilio/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/example-web3",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/example-web3",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/example-web3/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/example-web3/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/field-memory",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/metaharness.git",
+      "directory": "packages/field-memory",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/field-memory/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/flywheel",
+      "publishedVersion": "0.1.12",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/flywheel/package.json",
+          "version": "0.1.11"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/flywheel/package.json",
+          "version": "0.1.3"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/gaming",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/gaming",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/gaming/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/gaming/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/github-actions",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/github-actions",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/github-actions/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/github-actions/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/harness",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/harness",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/harness/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/harness/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/hermes",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/hermes",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/hermes/package.json",
+          "version": "0.1.1"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/hermes/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/horizon",
+      "publishedVersion": "0.2.1",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/horizon/package.json",
+          "version": "0.2.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/host-claude-code",
+      "publishedVersion": "0.1.3",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/host-claude-code",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/host-claude-code/package.json",
+          "version": "0.1.2"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/host-claude-code/package.json",
+          "version": "0.1.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/host-codex",
+      "publishedVersion": "0.1.3",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/host-codex",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/host-codex/package.json",
+          "version": "0.1.2"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/host-codex/package.json",
+          "version": "0.1.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/host-copilot",
+      "publishedVersion": "0.1.3",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/host-copilot",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/host-copilot/package.json",
+          "version": "0.1.2"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/host-copilot/package.json",
+          "version": "0.1.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/host-github-actions",
+      "publishedVersion": "0.1.4",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/host-github-actions",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/host-github-actions/package.json",
+          "version": "0.1.3"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/host-github-actions/package.json",
+          "version": "0.1.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/host-hermes",
+      "publishedVersion": "0.1.4",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/host-hermes",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/host-hermes/package.json",
+          "version": "0.1.3"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/host-hermes/package.json",
+          "version": "0.1.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/host-openclaw",
+      "publishedVersion": "0.1.4",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/host-openclaw",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/host-openclaw/package.json",
+          "version": "0.1.3"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/host-openclaw/package.json",
+          "version": "0.1.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/host-opencode",
+      "publishedVersion": "0.1.3",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/host-opencode",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/host-opencode/package.json",
+          "version": "0.1.2"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/host-opencode/package.json",
+          "version": "0.1.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/host-pi-dev",
+      "publishedVersion": "0.1.3",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/host-pi-dev",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/host-pi-dev/package.json",
+          "version": "0.1.2"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/host-pi-dev/package.json",
+          "version": "0.1.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/host-prime-agent",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/host-prime-agent",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/host-prime-agent/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/host-rvm",
+      "publishedVersion": "0.1.4",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/host-rvm",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/host-rvm/package.json",
+          "version": "0.1.3"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/host-rvm/package.json",
+          "version": "0.1.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/jujutsu",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/jujutsu",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/jujutsu/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/jujutsu/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/kernel",
+      "publishedVersion": "0.1.3",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/kernel-js",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/kernel-js/package.json",
+          "version": "0.1.3"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/kernel-js/package.json",
+          "version": "0.1.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/legal",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/legal",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/legal/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/legal/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/oo-agents",
+      "publishedVersion": "0.1.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/oo-agents/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/openclaw",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/openclaw",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/openclaw/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/openclaw/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/opencode",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/opencode",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/opencode/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/opencode/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/pi-dev",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/pi-dev",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/pi-dev/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/pi-dev/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/projects",
+      "publishedVersion": "0.1.2",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/projects",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/projects/package.json",
+          "version": "0.1.2"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/projects/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/radio",
+      "publishedVersion": "0.1.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/radio/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/redblue",
+      "publishedVersion": "0.1.6",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/redblue",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/redblue/package.json",
+          "version": "0.1.6"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/redblue/package.json",
+          "version": "0.1.4"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/repo-maintainer",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/repo-maintainer",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/repo-maintainer/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/repo-maintainer/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/research",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/research",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/research/package.json",
+          "version": "0.1.1"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/research/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/router",
+      "publishedVersion": "0.4.0",
+      "repository": "git+https://github.com/ruvnet/metaharness.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/router/package.json",
+          "version": "0.4.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/router/package.json",
+          "version": "0.3.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/rvm",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/rvm",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/rvm/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/rvm/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/sales",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/sales",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/sales/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/sales/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/sdk",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/sdk",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/sdk/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/sdk/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/support",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/support",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/support/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/support/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/trading",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "examples-packages/trading",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "examples-packages/trading/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "examples-packages/trading/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/turn-credit",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/metaharness.git",
+      "directory": "packages/turn-credit",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/turn-credit/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/vertical-base",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/vertical-base",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/vertical-base/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/vertical-base/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/vertical-trading",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/vertical-trading",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/vertical-trading/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/vertical-trading/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/weight-eft",
+      "publishedVersion": "0.1.2",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/weight-eft",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/weight-eft/package.json",
+          "version": "0.1.1"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/weight-eft/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/workspace-lens",
+      "publishedVersion": "0.1.2",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/workspace-lens/package.json",
+          "version": "0.1.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@metaharness/workspace-probe",
+      "publishedVersion": "0.1.1",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/workspace-probe/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/agentic-accounting-agents",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "packages/agentic-accounting-agents",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/agentic-accounting-agents/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/agentic-accounting-cli",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "packages/agentic-accounting-cli",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/agentic-accounting-cli/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/agentic-accounting-core",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "packages/agentic-accounting-core",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "package/packages/core/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "neural-trader",
+          "path": "packages/agentic-accounting-core/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "neural-trader",
+          "path": "packages/core/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/agentic-accounting-mcp",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "packages/agentic-accounting-mcp",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/agentic-accounting-mcp/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/agentic-accounting-rust-core",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "packages/agentic-accounting-rust-core",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/agentic-accounting-rust-core/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/agentic-accounting-types",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "packages/agentic-accounting-types",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/agentic-accounting-types/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/backend",
+      "publishedVersion": "2.2.1",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "neural-trader-rust/packages/neural-trader-backend",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/neural-trader-backend/package.json",
+          "version": "2.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/backtesting",
+      "publishedVersion": "2.6.0",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "packages/backtesting",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/backtesting/package.json",
+          "version": "2.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/benchoptimizer",
+      "publishedVersion": "2.1.1",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "neural-trader-rust/packages/benchoptimizer",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/benchoptimizer/package.json",
+          "version": "2.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/brokers",
+      "publishedVersion": "2.1.1",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "neural-trader-rust/packages/brokers",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/brokers/package.json",
+          "version": "2.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/core",
+      "publishedVersion": "2.0.0",
+      "repository": "git+https://github.com/neural-trader/neural-trader-rust.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/package.json",
+          "version": "2.0.0"
+        },
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/core/package.json",
+          "version": "1.0.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/e2b-strategies",
+      "publishedVersion": "1.1.1",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "packages/e2b-strategies",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/e2b-strategies/package.json",
+          "version": "1.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/example-dynamic-pricing",
+      "publishedVersion": "1.0.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/examples/dynamic-pricing/package.json",
+          "version": "1.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/example-energy-forecasting",
+      "publishedVersion": "1.0.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/examples/energy-forecasting/package.json",
+          "version": "1.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/example-energy-grid-optimization",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "packages/examples/energy-grid-optimization",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/examples/energy-grid-optimization/package.json",
+          "version": "1.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/example-evolutionary-game-theory",
+      "publishedVersion": "1.0.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/examples/evolutionary-game-theory/package.json",
+          "version": "1.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/example-healthcare-optimization",
+      "publishedVersion": "1.0.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/examples/healthcare-optimization/package.json",
+          "version": "1.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/example-logistics-optimization",
+      "publishedVersion": "1.0.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/examples/logistics-optimization/package.json",
+          "version": "1.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/example-market-microstructure",
+      "publishedVersion": "1.0.0",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "packages/examples/market-microstructure",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/examples/market-microstructure/package.json",
+          "version": "1.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/example-neuromorphic-computing",
+      "publishedVersion": "1.0.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/examples/neuromorphic-computing/package.json",
+          "version": "1.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/example-portfolio-optimization",
+      "publishedVersion": "1.0.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/examples/portfolio-optimization/package.json",
+          "version": "1.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/example-quantum-optimization",
+      "publishedVersion": "1.0.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/examples/quantum-optimization/package.json",
+          "version": "1.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/example-supply-chain-prediction",
+      "publishedVersion": "1.0.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "packages/examples/supply-chain-prediction/package.json",
+          "version": "1.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/execution",
+      "publishedVersion": "2.6.0",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "packages/execution",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/execution/package.json",
+          "version": "2.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/features",
+      "publishedVersion": "2.1.2",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "neural-trader-rust/packages/features",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/features/package.json",
+          "version": "2.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/market-data",
+      "publishedVersion": "2.1.1",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "neural-trader-rust/packages/market-data",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/market-data/package.json",
+          "version": "2.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/mcp",
+      "publishedVersion": "2.1.0",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "neural-trader-rust/packages/mcp",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/mcp/package.json",
+          "version": "2.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/mcp-protocol",
+      "publishedVersion": "2.0.0",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "neural-trader-rust/packages/mcp-protocol",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/mcp-protocol/package.json",
+          "version": "2.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/neural",
+      "publishedVersion": "2.6.0",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "packages/neural",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/neural/package.json",
+          "version": "2.1.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/neuro-divergent",
+      "publishedVersion": "2.1.1",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "neural-trader-rust/packages/neuro-divergent",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/crates/neuro-divergent/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/neuro-divergent/package.json",
+          "version": "2.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/news-trading",
+      "publishedVersion": "2.1.1",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "neural-trader-rust/packages/news-trading",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/news-trading/package.json",
+          "version": "2.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/portfolio",
+      "publishedVersion": "2.6.0",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "packages/portfolio",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/portfolio/package.json",
+          "version": "2.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/prediction-markets",
+      "publishedVersion": "2.1.1",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "neural-trader-rust/packages/prediction-markets",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/prediction-markets/package.json",
+          "version": "2.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/predictor",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "packages/predictor",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "package/packages/predictor/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "neural-trader",
+          "path": "packages/predictor/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/risk",
+      "publishedVersion": "2.6.0",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "packages/risk",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/risk/package.json",
+          "version": "2.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/sports-betting",
+      "publishedVersion": "2.1.1",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "neural-trader-rust/packages/sports-betting",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/sports-betting/package.json",
+          "version": "2.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/strategies",
+      "publishedVersion": "2.6.0",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "packages/strategies",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/strategies/package.json",
+          "version": "2.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@neural-trader/syndicate",
+      "publishedVersion": "2.1.1",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": "neural-trader-rust/packages/syndicate",
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/syndicate/package.json",
+          "version": "2.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@qudag/cli",
+      "publishedVersion": "0.1.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@qudag/mcp-sse",
+      "publishedVersion": "0.1.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@qudag/mcp-stdio",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/QuDAG.git",
+      "directory": "packages/mcp-stdio",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@qudag/napi-core",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/QuDAG.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruv/rvcsi",
+      "publishedVersion": "0.3.1",
+      "repository": "git+https://github.com/ruvnet/rvcsi.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruv/sparc-ui",
+      "publishedVersion": "0.1.4",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/acorn-wasm",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/RuVector.git",
+      "directory": "crates/ruvector-acorn-wasm",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/agentic-integration",
+      "publishedVersion": "1.0.2",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "src/agentic-integration",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/agentic-integration/package.json",
+          "version": "1.0.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/agentic-synth",
+      "publishedVersion": "0.1.7",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "packages/agentic-synth",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/agentic-synth/package.json",
+          "version": "0.1.7"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/agentic-synth-examples",
+      "publishedVersion": "0.1.6",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "packages/agentic-synth-examples",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/agentic-synth-examples/package.json",
+          "version": "0.1.6"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/attention",
+      "publishedVersion": "2.2.2",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-attention-node/package.json",
+          "version": "0.1.4"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/attention-darwin-arm64",
+      "publishedVersion": "2.2.2",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-attention-node/npm/darwin-arm64/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/attention-darwin-x64",
+      "publishedVersion": "2.2.2",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-attention-node/npm/darwin-x64/package.json",
+          "version": "0.1.4"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/attention-linux-arm64-gnu",
+      "publishedVersion": "2.2.2",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-attention-node/npm/linux-arm64-gnu/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/attention-linux-x64-gnu",
+      "publishedVersion": "2.2.2",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-attention-node/npm/linux-x64-gnu/package.json",
+          "version": "0.1.4"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/attention-unified-wasm",
+      "publishedVersion": "0.1.29",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-attention-unified-wasm/pkg/package.json",
+          "version": "0.1.29"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/attention-wasm",
+      "publishedVersion": "2.2.2",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-attention-wasm/package.json",
+          "version": "0.1.32"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/attention-win32-x64-msvc",
+      "publishedVersion": "2.2.2",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-attention-node/npm/win32-x64-msvc/package.json",
+          "version": "0.1.4"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/burst-scaling",
+      "publishedVersion": "1.0.2",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/burst-scaling/package.json",
+          "version": "1.0.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/cli",
+      "publishedVersion": "0.1.29",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/cli/package.json",
+          "version": "0.1.29"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/cluster",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-cluster/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/cnn",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/ruvector-cnn",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvector-cnn/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/core",
+      "publishedVersion": "0.1.32",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/core",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/core/package.json",
+          "version": "0.1.17"
+        },
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/core/package.json",
+          "version": "0.1.32"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/diskann",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/diskann",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/diskann/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/diskann-darwin-arm64",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/diskann-darwin-x64",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/diskann-linux-arm64-gnu",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/diskann-linux-x64-gnu",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/diskann-win32-x64-msvc",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/economy-wasm",
+      "publishedVersion": "0.1.29",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-economy-wasm/pkg/package.json",
+          "version": "0.1.29"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/edge",
+      "publishedVersion": "0.1.9",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "examples/edge/pkg/package.json",
+          "version": "0.1.9"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/edge-full",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "examples/edge-full/pkg/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/edge-net",
+      "publishedVersion": "0.5.3",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "examples/edge-net/pkg/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/emergent-time",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/emergent-time/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/exotic-wasm",
+      "publishedVersion": "0.1.29",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-exotic-wasm/pkg/package.json",
+          "version": "0.1.29"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/gnn",
+      "publishedVersion": "0.1.25",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-gnn-node/package.json",
+          "version": "0.1.25"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/gnn-darwin-arm64",
+      "publishedVersion": "0.1.25",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-gnn-node/npm/darwin-arm64/package.json",
+          "version": "0.1.25"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/gnn-darwin-x64",
+      "publishedVersion": "0.1.25",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-gnn-node/npm/darwin-x64/package.json",
+          "version": "0.1.25"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/gnn-linux-arm64-gnu",
+      "publishedVersion": "0.1.25",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-gnn-node/npm/linux-arm64-gnu/package.json",
+          "version": "0.1.25"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/gnn-linux-arm64-musl",
+      "publishedVersion": "0.1.25",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-gnn-node/npm/linux-arm64-musl/package.json",
+          "version": "0.1.25"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/gnn-linux-x64-gnu",
+      "publishedVersion": "0.1.25",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-gnn-node/npm/linux-x64-gnu/package.json",
+          "version": "0.1.25"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/gnn-linux-x64-musl",
+      "publishedVersion": "0.1.25",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-gnn-node/npm/linux-x64-musl/package.json",
+          "version": "0.1.25"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/gnn-wasm",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-gnn-wasm/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/gnn-win32-x64-msvc",
+      "publishedVersion": "0.1.25",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-gnn-node/npm/win32-x64-msvc/package.json",
+          "version": "0.1.25"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/graph-data-generator",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "packages/graph-data-generator",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/graph-data-generator/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/graph-node",
+      "publishedVersion": "2.1.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/graph-node",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/graph-node/package.json",
+          "version": "2.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/graph-node-darwin-arm64",
+      "publishedVersion": "2.1.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/graph-node",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/graph-node/npm/darwin-arm64/package.json",
+          "version": "0.1.26"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/graph-node-darwin-x64",
+      "publishedVersion": "2.1.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/graph-node",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/graph-node/npm/darwin-x64/package.json",
+          "version": "0.1.26"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/graph-node-linux-arm64-gnu",
+      "publishedVersion": "2.1.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/graph-node",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/graph-node/npm/linux-arm64-gnu/package.json",
+          "version": "0.1.26"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/graph-node-linux-x64-gnu",
+      "publishedVersion": "2.1.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/graph-node",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/graph-node-win32-x64-msvc",
+      "publishedVersion": "2.1.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/graph-node",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/graph-node/npm/win32-x64-msvc/package.json",
+          "version": "0.1.26"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/graph-transformer",
+      "publishedVersion": "2.0.4",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-graph-transformer-node/package.json",
+          "version": "2.0.4"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/graph-transformer-darwin-arm64",
+      "publishedVersion": "2.0.4",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-graph-transformer-node/npm/darwin-arm64/package.json",
+          "version": "2.0.4"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/graph-transformer-darwin-x64",
+      "publishedVersion": "2.0.4",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-graph-transformer-node/npm/darwin-x64/package.json",
+          "version": "2.0.4"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/graph-transformer-linux-arm64-gnu",
+      "publishedVersion": "2.0.4",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-graph-transformer-node/npm/linux-arm64-gnu/package.json",
+          "version": "2.0.4"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/graph-transformer-linux-arm64-musl",
+      "publishedVersion": "2.0.4",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-graph-transformer-node/npm/linux-arm64-musl/package.json",
+          "version": "2.0.4"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/graph-transformer-linux-x64-gnu",
+      "publishedVersion": "2.0.4",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-graph-transformer-node/npm/linux-x64-gnu/package.json",
+          "version": "2.0.4"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/graph-transformer-linux-x64-musl",
+      "publishedVersion": "2.0.4",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-graph-transformer-node/npm/linux-x64-musl/package.json",
+          "version": "2.0.4"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/graph-transformer-win32-x64-msvc",
+      "publishedVersion": "2.0.4",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-graph-transformer-node/npm/win32-x64-msvc/package.json",
+          "version": "2.0.4"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/graph-wasm",
+      "publishedVersion": "2.0.3",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "crates/ruvector-graph-wasm",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-graph-wasm/package.json",
+          "version": "0.1.0"
+        },
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/graph-wasm/package.json",
+          "version": "2.0.3"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/kge",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/kge",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/kge/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/kge-darwin-arm64",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/kge-darwin-x64",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/kge-linux-arm64-gnu",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/kge-linux-x64-gnu",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/kge-win32-x64-msvc",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/learning-wasm",
+      "publishedVersion": "0.1.29",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-learning-wasm/pkg/package.json",
+          "version": "0.1.29"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/math-wasm",
+      "publishedVersion": "2.2.2",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/mincut-wasm",
+      "publishedVersion": "2.3.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/mincut-wasm",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/mincut-wasm/package.json",
+          "version": "2.3.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/nervous-system-wasm",
+      "publishedVersion": "0.1.29",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-nervous-system-wasm/pkg/package.json",
+          "version": "0.1.29"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/neural-trader-wasm",
+      "publishedVersion": "0.1.1",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/node",
+      "publishedVersion": "0.1.24",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/node",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-node/package.json",
+          "version": "0.1.19"
+        },
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/node/package.json",
+          "version": "0.1.24"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/node-darwin-arm64",
+      "publishedVersion": "0.1.18",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/node-darwin-x64",
+      "publishedVersion": "0.1.18",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/node-linux-arm64-gnu",
+      "publishedVersion": "0.1.18",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/node-linux-x64-gnu",
+      "publishedVersion": "0.1.18",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/node-win32-x64-msvc",
+      "publishedVersion": "0.1.18",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/ospipe",
+      "publishedVersion": "0.1.3",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "examples/OSpipe",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ospipe/package.json",
+          "version": "0.1.3"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/ospipe-wasm",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "examples/OSpipe",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ospipe-wasm/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/pi-brain",
+      "publishedVersion": "0.1.2",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/pi-brain",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/pi-brain/package.json",
+          "version": "0.1.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/postgres-cli",
+      "publishedVersion": "0.2.9",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/postgres-cli",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/postgres-cli/package.json",
+          "version": "0.2.9"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/rabitq-wasm",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/RuVector.git",
+      "directory": "crates/ruvector-rabitq-wasm",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/raft",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/raft",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/raft/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/replication",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/replication",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/replication/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/router",
+      "publishedVersion": "0.1.32",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/router",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/router/package.json",
+          "version": "0.1.32"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/router-darwin-arm64",
+      "publishedVersion": "0.1.32",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/router-darwin-arm64/package.json",
+          "version": "0.1.30"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/router-darwin-x64",
+      "publishedVersion": "0.1.32",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/router-darwin-x64/package.json",
+          "version": "0.1.30"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/router-linux-arm64-gnu",
+      "publishedVersion": "0.1.32",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/router-linux-arm64-gnu/package.json",
+          "version": "0.1.30"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/router-linux-x64-gnu",
+      "publishedVersion": "0.1.32",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/router-linux-x64-gnu/package.json",
+          "version": "0.1.30"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/router-wasm",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-router-wasm/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/router-win32-x64-msvc",
+      "publishedVersion": "0.1.32",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/router-win32-x64-msvc/package.json",
+          "version": "0.1.30"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/rudag",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/rudag",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/rudag/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/ruqu",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/ruqu.git",
+      "directory": "cli",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/ruqu-wasm",
+      "publishedVersion": "2.0.6",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "crates/ruqu-wasm",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/ruvector-consciousness-wasm",
+      "publishedVersion": "2.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/ruvllm",
+      "publishedVersion": "3.0.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/ruvllm",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvllm/package.json",
+          "version": "3.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/ruvllm-cli",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/ruvllm-cli",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvllm-cli/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/ruvllm-darwin-arm64",
+      "publishedVersion": "2.0.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/ruvllm-darwin-arm64",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvllm-darwin-arm64/package.json",
+          "version": "2.0.1"
+        },
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvllm/npm/darwin-arm64/package.json",
+          "version": "2.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/ruvllm-darwin-x64",
+      "publishedVersion": "2.0.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/ruvllm-darwin-x64",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvllm-darwin-x64/package.json",
+          "version": "2.0.1"
+        },
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvllm/npm/darwin-x64/package.json",
+          "version": "2.5.6"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/ruvllm-linux-arm64-gnu",
+      "publishedVersion": "2.0.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/ruvllm-linux-arm64-gnu",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvllm-linux-arm64-gnu/package.json",
+          "version": "2.0.1"
+        },
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvllm/npm/linux-arm64-gnu/package.json",
+          "version": "2.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/ruvllm-linux-x64-gnu",
+      "publishedVersion": "2.0.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/ruvllm-linux-x64-gnu",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvllm-linux-x64-gnu/package.json",
+          "version": "2.0.1"
+        },
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvllm/npm/linux-x64-gnu/package.json",
+          "version": "2.5.6"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/ruvllm-wasm",
+      "publishedVersion": "2.0.2",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvllm-wasm/package.json",
+          "version": "2.0.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/ruvllm-win32-x64-msvc",
+      "publishedVersion": "2.0.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/ruvllm-win32-x64-msvc",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvllm-win32-x64-msvc/package.json",
+          "version": "2.0.1"
+        },
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvllm/npm/win32-x64-msvc/package.json",
+          "version": "2.5.6"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/rvagent-wasm",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/RuVector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/rvdna",
+      "publishedVersion": "0.3.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/rvdna",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/rvf",
+      "publishedVersion": "0.3.4",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/rvf/package.json",
+          "version": "0.3.4"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/rvf-mcp-server",
+      "publishedVersion": "0.1.4",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/rvf-mcp-server/package.json",
+          "version": "0.1.4"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/rvf-node",
+      "publishedVersion": "0.2.3",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/rvf/rvf-node/package.json",
+          "version": "0.2.3"
+        },
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/rvf-node/package.json",
+          "version": "0.2.3"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/rvf-node-darwin-arm64",
+      "publishedVersion": "0.2.2",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/rvf/rvf-node/npm/darwin-arm64/package.json",
+          "version": "0.2.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/rvf-node-darwin-x64",
+      "publishedVersion": "0.2.2",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/rvf/rvf-node/npm/darwin-x64/package.json",
+          "version": "0.2.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/rvf-node-linux-arm64-gnu",
+      "publishedVersion": "0.2.2",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/rvf/rvf-node/npm/linux-arm64-gnu/package.json",
+          "version": "0.2.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/rvf-node-linux-x64-gnu",
+      "publishedVersion": "0.2.2",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/rvf/rvf-node/npm/linux-x64-gnu/package.json",
+          "version": "0.2.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/rvf-node-win32-x64-msvc",
+      "publishedVersion": "0.2.2",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/rvf/rvf-node/npm/win32-x64-msvc/package.json",
+          "version": "0.2.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/rvf-solver",
+      "publishedVersion": "0.1.8",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/rvf-solver/package.json",
+          "version": "0.1.8"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/rvf-wasm",
+      "publishedVersion": "0.1.9",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/rvf-wasm/package.json",
+          "version": "0.1.9"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/rvforge",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/forge",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/rvforge/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/rvlite",
+      "publishedVersion": "0.2.4",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/scipix",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/scipix",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/scipix/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/server",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-server/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/sona",
+      "publishedVersion": "0.1.8",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/sona",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/sona/package.json",
+          "version": "0.1.8"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/sona-darwin-arm64",
+      "publishedVersion": "0.1.8",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/sona/npm/darwin-arm64/package.json",
+          "version": "0.1.5"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/sona-darwin-x64",
+      "publishedVersion": "0.1.8",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/sona/npm/darwin-x64/package.json",
+          "version": "0.1.5"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/sona-linux-arm64-gnu",
+      "publishedVersion": "0.1.8",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/sona/npm/linux-arm64-gnu/package.json",
+          "version": "0.1.5"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/sona-linux-x64-gnu",
+      "publishedVersion": "0.1.8",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/sona/npm/linux-x64-gnu/package.json",
+          "version": "0.1.5"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/sona-linux-x64-musl",
+      "publishedVersion": "0.1.8",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/sona/npm/linux-x64-musl/package.json",
+          "version": "0.1.5"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/sona-win32-arm64-msvc",
+      "publishedVersion": "0.1.8",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/sona/npm/win32-arm64-msvc/package.json",
+          "version": "0.1.5"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/sona-win32-x64-msvc",
+      "publishedVersion": "0.1.8",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/sona/npm/win32-x64-msvc/package.json",
+          "version": "0.1.5"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/spiking-neural",
+      "publishedVersion": "1.0.3",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/spiking-neural/package.json",
+          "version": "1.0.3"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/tiny-dancer",
+      "publishedVersion": "0.1.22",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/tiny-dancer",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/tiny-dancer/package.json",
+          "version": "0.1.22"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/tiny-dancer-darwin-arm64",
+      "publishedVersion": "0.1.22",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/tiny-dancer-darwin-arm64/package.json",
+          "version": "0.1.22"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/tiny-dancer-darwin-x64",
+      "publishedVersion": "0.1.22",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/tiny-dancer-darwin-x64/package.json",
+          "version": "0.1.22"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/tiny-dancer-linux-arm64-gnu",
+      "publishedVersion": "0.1.22",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/tiny-dancer-linux-arm64-gnu/package.json",
+          "version": "0.1.22"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/tiny-dancer-linux-arm64-musl",
+      "publishedVersion": "0.1.22",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/tiny-dancer-linux-x64-gnu",
+      "publishedVersion": "0.1.22",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/tiny-dancer-linux-x64-gnu/package.json",
+          "version": "0.1.22"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/tiny-dancer-linux-x64-musl",
+      "publishedVersion": "0.1.22",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/tiny-dancer-wasm",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-tiny-dancer-wasm/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/tiny-dancer-win32-arm64-msvc",
+      "publishedVersion": "0.1.22",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/tiny-dancer-win32-x64-msvc",
+      "publishedVersion": "0.1.22",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/tiny-dancer-win32-x64-msvc/package.json",
+          "version": "0.1.22"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/typesafe",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/typesafe",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/typesafe/package.json",
+          "version": "0.2.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/typesafe-darwin-arm64",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/typesafe-darwin-x64",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/typesafe-linux-arm64-gnu",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/typesafe-linux-x64-gnu",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/typesafe-win32-x64-msvc",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/wasm",
+      "publishedVersion": "0.2.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-wasm/package.json",
+          "version": "0.2.0"
+        },
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvector-wasm/package.json",
+          "version": "0.1.31"
+        },
+        {
+          "checkout": "ruvector",
+          "path": "npm/wasm/package.json",
+          "version": "0.1.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvector/wasm-unified",
+      "publishedVersion": "1.0.0",
+      "repository": "git+https://github.com/ruvector/ruvector.git",
+      "directory": "packages/ruvector-wasm-unified",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvector-wasm-unified/package.json",
+          "version": "1.0.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvnet/agent-harness-generator",
+      "publishedVersion": "0.1.3",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/agent-harness-generator-lib",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/agent-harness-generator-lib/package.json",
+          "version": "0.1.3"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/agent-harness-generator-lib/package.json",
+          "version": "0.1.3"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvnet/bmssp",
+      "publishedVersion": "1.0.0",
+      "repository": "git+https://github.com/ruvnet/bmssp.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvnet/open-claude-code",
+      "publishedVersion": "2.1.0",
+      "repository": "git+https://github.com/ruvnet/open-claude-code.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvnet/ruvector-verified-wasm",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvnet/ruview",
+      "publishedVersion": "0.9.1",
+      "repository": "git+https://github.com/ruvnet/RuView.git",
+      "directory": "harness/ruview",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvnet/ruview-kernel",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/RuView.git",
+      "directory": "harness/ruview-kernel",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvnet/ruvn",
+      "publishedVersion": "0.1.1",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvnet/rvagent",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/RuView.git",
+      "directory": "tools/ruview-mcp",
+      "sourceCandidates": [
+        {
+          "checkout": "RuView",
+          "path": "tools/ruview-mcp/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "@ruvnet/strange-loop",
+      "publishedVersion": "0.3.1",
+      "repository": "git+https://github.com/ruvnet/sublinear-time-solver.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "agent-booster",
+      "publishedVersion": "0.2.2",
+      "repository": "git+https://github.com/ruvnet/agentic-flow.git",
+      "directory": "agent-booster",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "agentbbs",
+      "publishedVersion": "0.2.1",
+      "repository": "git+https://github.com/ruvnet/agentbbs.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "agentdb",
+      "publishedVersion": "3.0.0-alpha.20",
+      "repository": "git+https://github.com/ruvnet/agentdb.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "agentic-flow",
+      "publishedVersion": "2.1.4",
+      "repository": "git+https://github.com/ruvnet/agentic-flow.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "agentic-jujutsu",
+      "publishedVersion": "2.3.6",
+      "repository": "git+https://github.com/ruvnet/agentic-flow.git",
+      "directory": "packages/agentic-jujutsu",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "agentic-payments",
+      "publishedVersion": "0.1.13",
+      "repository": "git+https://github.com/agentic-catalog/agentic-payments.git",
+      "directory": "crates/agentic-payments",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "agentic-robotics",
+      "publishedVersion": "0.2.4",
+      "repository": "git+https://github.com/ruvnet/vibecast.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/agentic-robotics-node/package.json",
+          "version": "0.1.3"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "agenticow",
+      "publishedVersion": "0.2.4",
+      "repository": "git+https://github.com/ruvnet/agenticow.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "agentics-hackathon",
+      "publishedVersion": "1.3.4",
+      "repository": "git+https://github.com/agenticsorg/hackathon-tv5.git",
+      "directory": "apps/cli",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "agenticsjs",
+      "publishedVersion": "1.0.5",
+      "repository": "git+https://github.com/ruvnet/agenticjs.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ai-text-watermark",
+      "publishedVersion": "0.4.0",
+      "repository": "git+https://github.com/ruvnet/ai-text-watermark.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "aidefence",
+      "publishedVersion": "2.3.0",
+      "repository": "git+https://github.com/ruvnet/midstream.git",
+      "directory": "AIMDS",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "aidefense",
+      "publishedVersion": "2.3.0",
+      "repository": "git+https://github.com/ruvnet/midstream.git",
+      "directory": "AIMDS",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "bmssp-wasm",
+      "publishedVersion": "1.0.0",
+      "repository": "git+https://github.com/ruvnet/bmssp.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "claude-flow",
+      "publishedVersion": "3.56.5",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "package.json",
+          "version": "3.54.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "claude-flow-v3",
+      "publishedVersion": "3.0.0-alpha.1",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "cogmusic",
+      "publishedVersion": "0.1.1",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "consciousness-explorer",
+      "publishedVersion": "1.1.2",
+      "repository": "git+https://github.com/ruvnet/consciousness-explorer.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "create-sparc",
+      "publishedVersion": "1.2.4",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "cuda-wasm",
+      "publishedVersion": "1.1.1",
+      "repository": "git+https://github.com/ruvnet/ruv-FANN.git",
+      "directory": "cuda-wasm",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "dream-machine",
+      "publishedVersion": "0.1.2",
+      "repository": "git+https://github.com/ruvnet/dream-machine.git",
+      "directory": "packages/cli",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "dspy.ts",
+      "publishedVersion": "2.2.0",
+      "repository": "git+https://github.com/ruvnet/dspy.ts.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "flow-nexus",
+      "publishedVersion": "0.1.128",
+      "repository": "git+https://github.com/ruvnet/flow-nexus.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "goalie",
+      "publishedVersion": "1.3.1",
+      "repository": "git+https://github.com/ruvnet/goalie.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "homecore",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/RuView.git",
+      "directory": "harness/homecore",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "lean-agentic",
+      "publishedVersion": "0.3.2",
+      "repository": "git+https://github.com/agenticsorg/lean-agentic.git",
+      "directory": "npm/lean-agentic",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "llm-stream-reformat",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ai-text-watermark.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "metaharness",
+      "publishedVersion": "0.4.17",
+      "repository": "git+https://github.com/ruvnet/agent-harness-generator.git",
+      "directory": "packages/create-agent-harness",
+      "sourceCandidates": [
+        {
+          "checkout": "metaharness",
+          "path": "packages/create-agent-harness/package.json",
+          "version": "0.4.16"
+        },
+        {
+          "checkout": "agent-harness-generator",
+          "path": "packages/create-agent-harness/package.json",
+          "version": "0.3.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "midstreamer",
+      "publishedVersion": "0.3.1",
+      "repository": "git+https://github.com/midstream/midstream.git",
+      "directory": "npm-wasm",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "neural-trader",
+      "publishedVersion": "2.8.11",
+      "repository": "git+https://github.com/ruvnet/neural-trader.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "neural-trader",
+          "path": "neural-trader-rust/packages/neural-trader/package.json",
+          "version": "2.2.7"
+        },
+        {
+          "checkout": "neural-trader",
+          "path": "package.json",
+          "version": "2.8.11"
+        },
+        {
+          "checkout": "neural-trader",
+          "path": "package/package.json",
+          "version": "2.3.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "prime-radiant-advanced-wasm",
+      "publishedVersion": "0.1.3",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "psycho-symbolic-integration",
+      "publishedVersion": "0.2.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "packages/psycho-symbolic-integration",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "psycho-symbolic-reasoner",
+      "publishedVersion": "1.0.7",
+      "repository": "git+https://github.com/ruvnet/sublinear-time-solver.git",
+      "directory": "psycho-symbolic-reasoner",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "qudag",
+      "publishedVersion": "1.2.1",
+      "repository": "git+https://github.com/ruvnet/QuDAG.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "radio-moe",
+      "publishedVersion": "0.3.1",
+      "repository": "git+https://github.com/ruvnet/autogenous.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "autogenous",
+          "path": "packages/radio-moe/package.json",
+          "version": "0.3.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "research-swarm",
+      "publishedVersion": "1.2.2",
+      "repository": "git+https://github.com/ruvnet/agentic-flow.git",
+      "directory": "examples/research-swarm",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "rucelium-harness",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/RuCelium.git",
+      "directory": "harness",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruflo",
+      "publishedVersion": "3.56.5",
+      "repository": "git+https://github.com/ruvnet/claude-flow.git",
+      "directory": "ruflo",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "ruflo/package.json",
+          "version": "3.54.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruflo-graph-intelligence",
+      "publishedVersion": "0.1.0-alpha.1",
+      "repository": "git+https://github.com/ruvnet/ruflo.git",
+      "directory": "plugins/ruflo-graph-intelligence",
+      "sourceCandidates": [
+        {
+          "checkout": "ruflo",
+          "path": "plugins/ruflo-graph-intelligence/package.json",
+          "version": "0.1.0-alpha.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "rulake-wasm",
+      "publishedVersion": "2.3.0-alpha.1",
+      "repository": "git+https://github.com/ruvnet/RuLake.git",
+      "directory": "sdk/node-wasm",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "rupixel",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/rupixel.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruv-swarm",
+      "publishedVersion": "1.0.20",
+      "repository": "git+https://github.com/ruvnet/ruv-FANN.git",
+      "directory": "ruv-swarm/npm",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvbot",
+      "publishedVersion": "0.3.3",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/ruvbot",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvbot/package.json",
+          "version": "0.3.3"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvdrone",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruv-drone.git",
+      "directory": "agent-harness",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector",
+      "publishedVersion": "0.3.3",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/ruvector",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvector/package.json",
+          "version": "0.3.3"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector-attention-unified-wasm",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector-attention-wasm",
+      "publishedVersion": "2.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "RuView",
+          "path": "ui/pose-fusion/pkg/ruvector-attention/package.json",
+          "version": "2.0.5"
+        },
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-attention-wasm/pkg/package.json",
+          "version": "2.3.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector-core",
+      "publishedVersion": "0.1.26",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/core",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector-core-darwin-arm64",
+      "publishedVersion": "0.1.30",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/core/platforms/darwin-arm64",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/core/platforms/darwin-arm64/package.json",
+          "version": "0.1.30"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector-core-darwin-x64",
+      "publishedVersion": "0.1.30",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/core/platforms/darwin-x64",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/core/platforms/darwin-x64/package.json",
+          "version": "0.1.30"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector-core-linux-arm64-gnu",
+      "publishedVersion": "0.1.30",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/core/platforms/linux-arm64-gnu",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/core/platforms/linux-arm64-gnu/package.json",
+          "version": "0.1.30"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector-core-linux-x64-gnu",
+      "publishedVersion": "0.1.30",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/core/platforms/linux-x64-gnu",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/core/platforms/linux-x64-gnu/package.json",
+          "version": "0.1.30"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector-core-win32-x64-msvc",
+      "publishedVersion": "0.1.30",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/core/platforms/win32-x64-msvc",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/core/platforms/win32-x64-msvc/package.json",
+          "version": "0.1.30"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector-extensions",
+      "publishedVersion": "0.1.2",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/ruvector-extensions",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/ruvector-extensions/package.json",
+          "version": "0.1.2"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector-gnn-wasm",
+      "publishedVersion": "2.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector-graph-transformer-wasm",
+      "publishedVersion": "2.0.4",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "crates/ruvector-graph-transformer-wasm/pkg/package.json",
+          "version": "2.3.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector-math-wasm",
+      "publishedVersion": "0.1.32",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector-mragent",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "examples/mragent",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "examples/mragent/package.json",
+          "version": "0.1.0"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector-onnx-embeddings-wasm",
+      "publishedVersion": "0.1.2",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector-sona",
+      "publishedVersion": "0.1.4",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvector-wasm",
+      "publishedVersion": "2.1.0",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvi",
+      "publishedVersion": "1.1.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvllm-esp32",
+      "publishedVersion": "0.3.3",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "examples/ruvLLM/esp32-flash",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "examples/ruvLLM/esp32-flash/npm/package.json",
+          "version": "0.3.1"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "ruvneural",
+      "publishedVersion": "0.1.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "rvlite",
+      "publishedVersion": "0.2.6",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": "npm/packages/rvlite",
+      "sourceCandidates": [
+        {
+          "checkout": "ruvector",
+          "path": "npm/packages/rvlite/package.json",
+          "version": "0.2.6"
+        }
+      ],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "spiking-neural",
+      "publishedVersion": "1.0.1",
+      "repository": "git+https://github.com/ruvnet/ruvector.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "strange-loops",
+      "publishedVersion": "1.0.3",
+      "repository": "git+https://github.com/ruvnet/strange-loops.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "strange-loops-mcp",
+      "publishedVersion": "1.0.0",
+      "repository": "git+https://github.com/ruvnet/sublinear-time-solver.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "sublinear-time-solver",
+      "publishedVersion": "1.7.2",
+      "repository": "git+https://github.com/ruvnet/sublinear-time-solver.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "symbolic-scribe-harness",
+      "publishedVersion": "0.1.1",
+      "repository": "git+https://github.com/ruvnet/symbolic-scribe.git",
+      "directory": "harness",
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "temporal-lead-solver",
+      "publishedVersion": "0.1.0",
+      "repository": "git+https://github.com/ruvnet/sublinear-time-solver.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "temporal-neural-solver",
+      "publishedVersion": "0.1.3",
+      "repository": "git+https://github.com/temporal-neural-solver/tns.git",
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "vscode-remote-mcp",
+      "publishedVersion": "1.0.4",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "wifi-densepose-sar-harness",
+      "publishedVersion": "0.1.0",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    },
+    {
+      "name": "worldgraphs",
+      "publishedVersion": "0.1.3",
+      "repository": null,
+      "directory": null,
+      "sourceCandidates": [],
+      "publishAccessVerified": false
+    }
+  ]
+}

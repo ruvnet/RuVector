@@ -1,0 +1,418 @@
+[
+  {
+    "fixed": "0.23.45",
+    "ghsa": "GHSA-2mjx-qc3c-rqvc",
+    "manifest": "examples/vibecast-7sense/Cargo.lock",
+    "number": 132,
+    "package": "rustls",
+    "severity": "medium"
+  },
+  {
+    "fixed": "0.23.45",
+    "ghsa": "GHSA-2mjx-qc3c-rqvc",
+    "manifest": "examples/ruvLLM/Cargo.lock",
+    "number": 131,
+    "package": "rustls",
+    "severity": "medium"
+  },
+  {
+    "fixed": "0.23.45",
+    "ghsa": "GHSA-2mjx-qc3c-rqvc",
+    "manifest": "examples/onnx-embeddings/Cargo.lock",
+    "number": 130,
+    "package": "rustls",
+    "severity": "medium"
+  },
+  {
+    "fixed": "0.16.3",
+    "ghsa": "GHSA-rhfx-m35p-ff5j",
+    "manifest": "examples/exo-ai-2025/Cargo.lock",
+    "number": 129,
+    "package": "lru",
+    "severity": "low"
+  },
+  {
+    "fixed": "0.23.45",
+    "ghsa": "GHSA-2mjx-qc3c-rqvc",
+    "manifest": "examples/data/Cargo.lock",
+    "number": 128,
+    "package": "rustls",
+    "severity": "medium"
+  },
+  {
+    "fixed": "0.20.0",
+    "ghsa": "GHSA-wrw7-89jp-8q8g",
+    "manifest": "crates/rvforge-reader/Cargo.lock",
+    "number": 127,
+    "package": "glib",
+    "severity": "medium"
+  },
+  {
+    "fixed": "0.23.45",
+    "ghsa": "GHSA-2mjx-qc3c-rqvc",
+    "manifest": "crates/ruvector-raft/fuzz/Cargo.lock",
+    "number": 126,
+    "package": "rustls",
+    "severity": "medium"
+  },
+  {
+    "fixed": "0.23.45",
+    "ghsa": "GHSA-2mjx-qc3c-rqvc",
+    "manifest": "crates/ruvector-postgres/Cargo.lock",
+    "number": 125,
+    "package": "rustls",
+    "severity": "medium"
+  },
+  {
+    "fixed": "0.18.2",
+    "ghsa": "GHSA-238p-pmpm-9mq7",
+    "manifest": "ui/ruvocal/package.json",
+    "number": 124,
+    "package": "katex",
+    "severity": "low"
+  },
+  {
+    "fixed": "4.7.10",
+    "ghsa": "GHSA-xw65-4hp5-5hc7",
+    "manifest": "npm/package-lock.json",
+    "number": 123,
+    "package": "handlebars",
+    "severity": "medium"
+  },
+  {
+    "fixed": "4.7.10",
+    "ghsa": "GHSA-8r5x-fm3f-whwj",
+    "manifest": "npm/package-lock.json",
+    "number": 122,
+    "package": "handlebars",
+    "severity": "critical"
+  },
+  {
+    "fixed": "4.7.10",
+    "ghsa": "GHSA-p8wg-vrv2-v86f",
+    "manifest": "npm/package-lock.json",
+    "number": 121,
+    "package": "handlebars",
+    "severity": "critical"
+  },
+  {
+    "fixed": "1.31.0",
+    "ghsa": "GHSA-6qxp-vccf-f47h",
+    "manifest": "npm/package-lock.json",
+    "number": 120,
+    "package": "@modelcontextprotocol/sdk",
+    "severity": "high"
+  },
+  {
+    "fixed": null,
+    "ghsa": "GHSA-hp3w-g68c-fv3c",
+    "manifest": "npm/package-lock.json",
+    "number": 119,
+    "package": "sprintf-js",
+    "severity": "medium"
+  },
+  {
+    "fixed": "1.2.2",
+    "ghsa": "GHSA-68fv-2mgg-jv7q",
+    "manifest": "npm/package-lock.json",
+    "number": 118,
+    "package": "source-map-js",
+    "severity": "high"
+  },
+  {
+    "fixed": "2.0.8",
+    "ghsa": "GHSA-jqcg-44mw-7w3h",
+    "manifest": "npm/package-lock.json",
+    "number": 117,
+    "package": "proxy-addr",
+    "severity": "critical"
+  },
+  {
+    "fixed": "1.8.2",
+    "ghsa": "GHSA-vc2v-76pw-4v95",
+    "manifest": "npm/package-lock.json",
+    "number": 116,
+    "package": "compression",
+    "severity": "high"
+  },
+  {
+    "fixed": "3.1.0",
+    "ghsa": "GHSA-jggr-w7fw-pc2j",
+    "manifest": "npm/package-lock.json",
+    "number": 115,
+    "package": "fast-copy",
+    "severity": "medium"
+  },
+  {
+    "fixed": "2.1.1",
+    "ghsa": "GHSA-5gmw-xhrv-c9v3",
+    "manifest": "npm/package-lock.json",
+    "number": 114,
+    "package": "tinypool",
+    "severity": "critical"
+  },
+  {
+    "fixed": "2.1.2",
+    "ghsa": "GHSA-85c8-ppgw-ccpr",
+    "manifest": "npm/package-lock.json",
+    "number": 113,
+    "package": "tinypool",
+    "severity": "critical"
+  },
+  {
+    "fixed": null,
+    "ghsa": "GHSA-ch52-4w7c-c8xp",
+    "manifest": "npm/package-lock.json",
+    "number": 112,
+    "package": "http-cache-semantics",
+    "severity": "high"
+  },
+  {
+    "fixed": "0.8.16",
+    "ghsa": "GHSA-6g2r-675j-hx59",
+    "manifest": "Cargo.lock",
+    "number": 110,
+    "package": "xxhash-rust",
+    "severity": "low"
+  },
+  {
+    "fixed": "1.20.0",
+    "ghsa": "GHSA-j8rh-479h-cp32",
+    "manifest": "npm/package-lock.json",
+    "number": 109,
+    "package": "axios",
+    "severity": "medium"
+  },
+  {
+    "fixed": "1.20.0",
+    "ghsa": "GHSA-4hqw-qxg8-jxx2",
+    "manifest": "npm/package-lock.json",
+    "number": 108,
+    "package": "axios",
+    "severity": "medium"
+  },
+  {
+    "fixed": "1.20.0",
+    "ghsa": "GHSA-m8m8-qj5v-23w3",
+    "manifest": "npm/package-lock.json",
+    "number": 107,
+    "package": "axios",
+    "severity": "high"
+  },
+  {
+    "fixed": "1.20.0",
+    "ghsa": "GHSA-44g4-m2mj-wpvx",
+    "manifest": "npm/package-lock.json",
+    "number": 106,
+    "package": "axios",
+    "severity": "medium"
+  },
+  {
+    "fixed": "1.20.0",
+    "ghsa": "GHSA-r4gj-5m52-g5wh",
+    "manifest": "npm/package-lock.json",
+    "number": 105,
+    "package": "axios",
+    "severity": "high"
+  },
+  {
+    "fixed": "1.20.0",
+    "ghsa": "GHSA-vh66-26gq-q6x8",
+    "manifest": "npm/package-lock.json",
+    "number": 104,
+    "package": "axios",
+    "severity": "medium"
+  },
+  {
+    "fixed": "1.20.0",
+    "ghsa": "GHSA-9fr6-4gfg-395g",
+    "manifest": "npm/package-lock.json",
+    "number": 103,
+    "package": "axios",
+    "severity": "medium"
+  },
+  {
+    "fixed": "1.20.0",
+    "ghsa": "GHSA-c29m-xwm3-cm6r",
+    "manifest": "npm/package-lock.json",
+    "number": 102,
+    "package": "axios",
+    "severity": "high"
+  },
+  {
+    "fixed": "1.20.0",
+    "ghsa": "GHSA-mghh-pgcx-3jjj",
+    "manifest": "npm/package-lock.json",
+    "number": 101,
+    "package": "axios",
+    "severity": "high"
+  },
+  {
+    "fixed": "1.20.0",
+    "ghsa": "GHSA-x97p-jq2g-jp4f",
+    "manifest": "npm/package-lock.json",
+    "number": 100,
+    "package": "axios",
+    "severity": "high"
+  },
+  {
+    "fixed": "1.20.0",
+    "ghsa": "GHSA-3pq3-5fj3-cg6v",
+    "manifest": "npm/package-lock.json",
+    "number": 99,
+    "package": "axios",
+    "severity": "high"
+  },
+  {
+    "fixed": "1.20.0",
+    "ghsa": "GHSA-542g-h47m-68v8",
+    "manifest": "npm/package-lock.json",
+    "number": 98,
+    "package": "axios",
+    "severity": "high"
+  },
+  {
+    "fixed": "10.7.1",
+    "ghsa": "GHSA-j6r3-76f7-8jcv",
+    "manifest": "npm/package-lock.json",
+    "number": 97,
+    "package": "ip-address",
+    "severity": "medium"
+  },
+  {
+    "fixed": "10.7.1",
+    "ghsa": "GHSA-h3mg-xc3c-68pw",
+    "manifest": "npm/package-lock.json",
+    "number": 96,
+    "package": "ip-address",
+    "severity": "medium"
+  },
+  {
+    "fixed": "5.0.12",
+    "ghsa": "GHSA-q2hr-2g5m-vwhr",
+    "manifest": "npm/package-lock.json",
+    "number": 95,
+    "package": "brace-expansion",
+    "severity": "medium"
+  },
+  {
+    "fixed": "10.5.1",
+    "ghsa": "GHSA-rpw4-54j3-4h4q",
+    "manifest": "npm/package-lock.json",
+    "number": 92,
+    "package": "ip-address",
+    "severity": "medium"
+  },
+  {
+    "fixed": "10.5.1",
+    "ghsa": "GHSA-2vr4-cq9g-pvrc",
+    "manifest": "npm/package-lock.json",
+    "number": 91,
+    "package": "ip-address",
+    "severity": "medium"
+  },
+  {
+    "fixed": "4.3.2",
+    "ghsa": "GHSA-2883-xcg3-v3hh",
+    "manifest": "npm/package-lock.json",
+    "number": 90,
+    "package": "js-yaml",
+    "severity": "high"
+  },
+  {
+    "fixed": "3.15.2",
+    "ghsa": "GHSA-2883-xcg3-v3hh",
+    "manifest": "npm/package-lock.json",
+    "number": 89,
+    "package": "js-yaml",
+    "severity": "high"
+  },
+  {
+    "fixed": "4.1.11",
+    "ghsa": "GHSA-82fw-gwwq-j7x9",
+    "manifest": "npm/package-lock.json",
+    "number": 88,
+    "package": "vitest",
+    "severity": "medium"
+  },
+  {
+    "fixed": "4.1.11",
+    "ghsa": "GHSA-82fw-gwwq-j7x9",
+    "manifest": "examples/delta-behavior/wasm/package.json",
+    "number": 82,
+    "package": "vitest",
+    "severity": "medium"
+  },
+  {
+    "fixed": "4.1.11",
+    "ghsa": "GHSA-82fw-gwwq-j7x9",
+    "manifest": "ui/ruvocal/package.json",
+    "number": 80,
+    "package": "vitest",
+    "severity": "medium"
+  },
+  {
+    "fixed": "4.1.11",
+    "ghsa": "GHSA-82fw-gwwq-j7x9",
+    "manifest": "npm/package-lock.json",
+    "number": 79,
+    "package": "@vitest/mocker",
+    "severity": "medium"
+  },
+  {
+    "fixed": "4.1.11",
+    "ghsa": "GHSA-82fw-gwwq-j7x9",
+    "manifest": "harnesses/timesfm-harness/package.json",
+    "number": 75,
+    "package": "vitest",
+    "severity": "medium"
+  },
+  {
+    "fixed": "4.1.11",
+    "ghsa": "GHSA-82fw-gwwq-j7x9",
+    "manifest": "examples/dragnes/package.json",
+    "number": 74,
+    "package": "vitest",
+    "severity": "medium"
+  },
+  {
+    "fixed": "6.16.0",
+    "ghsa": "GHSA-4mjr-xmp4-gh2g",
+    "manifest": "npm/package-lock.json",
+    "number": 73,
+    "package": "qs",
+    "severity": "medium"
+  },
+  {
+    "fixed": "6.16.0",
+    "ghsa": "GHSA-x5fp-wj9c-mxmx",
+    "manifest": "npm/package-lock.json",
+    "number": 70,
+    "package": "qs",
+    "severity": "medium"
+  },
+  {
+    "fixed": "10.5.0",
+    "ghsa": "GHSA-qxc2-j82w-r537",
+    "manifest": "ui/ruvocal/package.json",
+    "number": 67,
+    "package": "@faker-js/faker",
+    "severity": "high"
+  },
+  {
+    "fixed": "4.3.1",
+    "ghsa": "GHSA-5p4m-2wfm-xmqj",
+    "manifest": "npm/package-lock.json",
+    "number": 60,
+    "package": "js-yaml",
+    "severity": "high"
+  },
+  {
+    "fixed": "0.16.3",
+    "ghsa": "GHSA-rhfx-m35p-ff5j",
+    "manifest": "Cargo.lock",
+    "number": 3,
+    "package": "lru",
+    "severity": "low"
+  }
+]

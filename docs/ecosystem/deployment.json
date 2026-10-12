@@ -1,0 +1,41 @@
+{
+  "observedAt": "2026-10-11",
+  "project": "ruv-dev",
+  "region": "us-central1",
+  "job": "npm-constellation-weekly",
+  "image": "us-central1-docker.pkg.dev/ruv-dev/ruvector/npm-constellation@sha256:b0d3aa0cba3df2ac3d757a0749521aca1aaaa7c9828a5f1a6172c66babaf4890",
+  "sourceSha": "619384b80723a08c6817b005d31b5d930186f612",
+  "runtimeServiceAccount": "npm-constellation@ruv-dev.iam.gserviceaccount.com",
+  "secretReference": {
+    "key": "3",
+    "name": "NPM_TOKEN"
+  },
+  "bucket": "gs://ruv-dev-npm-constellation",
+  "schedule": {
+    "name": "projects/ruv-dev/locations/us-central1/jobs/npm-constellation-weekly",
+    "schedule": "0 9 * * 1",
+    "timeZone": "America/Toronto",
+    "state": "ENABLED",
+    "scheduleTime": "2026-10-12T13:00:00Z"
+  },
+  "verifiedExecutions": [
+    {
+      "name": "npm-constellation-weekly-l77jr",
+      "sourceSha": "32b6c6bec9aa8b846dff244fdb9d74d96c6126b4",
+      "succeededCount": 1,
+      "packages": 398,
+      "complete": true
+    },
+    {
+      "name": "npm-constellation-weekly-dbvqz",
+      "sourceSha": "619384b80723a08c6817b005d31b5d930186f612",
+      "succeededCount": 1,
+      "packages": 398,
+      "complete": true,
+      "baselineAvailable": true,
+      "interactiveMapPersisted": true
+    }
+  ],
+  "publishEnabled": false,
+  "adaptiveOptimizerEnabled": false
+}

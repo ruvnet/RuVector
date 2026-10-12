@@ -1,0 +1,110 @@
+name: Constellation sealed release
+on:
+  push:
+    branches: ['release/constellation/**']
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact 40-character source commit (required for publication)
+        type: string
+        required: true
+      publish:
+        description: Publish the sealed artifact after production gates
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: constellation-release
+  cancel-in-progress: false
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install without lifecycle scripts or publish credentials
+        working-directory: npm/packages/constellation
+        run: npm ci --ignore-scripts --workspaces=false
+      - name: Test, audit, pack once, and exercise packed consumer
+        working-directory: npm/packages/constellation
+        run: node scripts/release-candidate.mjs "$RUNNER_TEMP/constellation-candidate"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: constellation-sealed-${{ github.sha }}
+          path: ${{ runner.temp }}/constellation-candidate/
+          if-no-files-found: error
+          retention-days: 30
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == true
+    needs: candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: npm-production
+    permissions:
+      contents: read
+      issues: read
+      id-token: write
+    env:
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: constellation-sealed-${{ github.sha }}
+          path: ${{ runner.temp }}/constellation-candidate
+      - name: Verify approved source, current main, blockers, and sealed bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_DIR: ${{ runner.temp }}/constellation-candidate
+        run: |
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          const { EXPECTED_SHA, GITHUB_SHA, GITHUB_REPOSITORY, GITHUB_REF } = process.env;
+          if (!/^[0-9a-f]{40}$/.test(EXPECTED_SHA || '') || EXPECTED_SHA !== GITHUB_SHA || GITHUB_REF !== 'refs/heads/main') throw Error('Publish must run from the approved exact main commit');
+          const api = path => JSON.parse(execFileSync('gh', ['api', path], { encoding: 'utf8' }));
+          if (api(`repos/${GITHUB_REPOSITORY}/commits/main`).sha !== EXPECTED_SHA) throw Error('Main advanced; create a new candidate');
+          const issues = api(`repos/${GITHUB_REPOSITORY}/issues?state=open&labels=release-blocker&per_page=1`);
+          if (!Array.isArray(issues) || issues.length) throw Error('Open release-blocker issue or invalid issue response');
+          NODE
+          node npm/packages/constellation/scripts/verify-publication.mjs "$CANDIDATE_DIR" --local-only
+      - name: Publish the exact tested tarball and verify registry bytes
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_DIR: ${{ runner.temp }}/constellation-candidate
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { join } from 'node:path';
+          import { execFileSync } from 'node:child_process';
+          const { CANDIDATE_DIR, EXPECTED_SHA, GITHUB_REPOSITORY, NODE_AUTH_TOKEN } = process.env;
+          if (!NODE_AUTH_TOKEN) throw Error('NPM_TOKEN is unavailable');
+          const main = JSON.parse(execFileSync('gh', ['api', `repos/${GITHUB_REPOSITORY}/commits/main`], { encoding: 'utf8' }));
+          if (main.sha !== EXPECTED_SHA) throw Error('Main advanced before publish');
+          const blockers = JSON.parse(execFileSync('gh', ['api', `repos/${GITHUB_REPOSITORY}/issues?state=open&labels=release-blocker&per_page=1`], { encoding: 'utf8' }));
+          if (!Array.isArray(blockers) || blockers.length) throw Error('Release blockers appeared before publish');
+          const seal = JSON.parse(readFileSync(join(CANDIDATE_DIR, 'seal.json'), 'utf8'));
+          execFileSync(process.execPath, ['npm/packages/constellation/scripts/verify-publication.mjs', CANDIDATE_DIR, '--local-only'], { stdio: 'inherit' });
+          execFileSync('npm', ['publish', join(CANDIDATE_DIR, seal.filename), '--ignore-scripts', '--access', 'public', '--provenance', '--registry', 'https://registry.npmjs.org'], { stdio: 'inherit' });
+          NODE
+          node npm/packages/constellation/scripts/verify-publication.mjs "$CANDIDATE_DIR"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: constellation-publication-${{ github.sha }}
+          path: ${{ runner.temp }}/constellation-candidate/publication-receipt.json
+          if-no-files-found: error
+          retention-days: 90

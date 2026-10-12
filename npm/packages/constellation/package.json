@@ -1,0 +1,62 @@
+{
+  "name": "@ruvector/constellation",
+  "version": "0.1.0",
+  "description": "Evidence-based npm ecosystem inventory, dependency graph, weekly improvement planning and read-only MCP tools for RuVector, Ruflo and MetaHarness",
+  "type": "module",
+  "bin": {
+    "ruvector-constellation": "src/cli.mjs"
+  },
+  "exports": {
+    ".": "./src/index.mjs",
+    "./integrations": "./src/integrations.mjs"
+  },
+  "files": [
+    "src/",
+    "skills/",
+    "README.md",
+    "LICENSE",
+    "plugin.json"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "prepack": "node scripts/prepare-skills.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "zod": "^3.25.76"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/ruvector.git",
+    "directory": "npm/packages/constellation"
+  },
+  "homepage": "https://github.com/ruvnet/ruvector/tree/main/npm/packages/constellation",
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
+  },
+  "keywords": [
+    "ruvector",
+    "ruflo",
+    "metaharness",
+    "mcp",
+    "agent-skills",
+    "dependency-graph",
+    "npm",
+    "supply-chain"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@metaharness/router": "^0.4.0"
+  },
+  "peerDependenciesMeta": {
+    "@metaharness/router": {
+      "optional": true
+    }
+  }
+}
