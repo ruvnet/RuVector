@@ -43,7 +43,7 @@ export function parseArgs(argv) {
   const a = {
     suite: 'synthetic', scorer: 'hole', dims: 256, epochs: 50, seed: 42,
     limit: undefined, ann: false, adversarial: false, tieCheck: false,
-    gate: false, reportOnly: false, out: undefined, baselineReceipt: undefined,
+    gate: false, reportOnly: false, requireEngine: false, out: undefined, baselineReceipt: undefined,
   };
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
@@ -58,11 +58,13 @@ export function parseArgs(argv) {
     else if (t === '--adversarial') a.adversarial = true;
     else if (t === '--tie-check') a.tieCheck = true;
     else if (t === '--gate') a.gate = true;
+    else if (t === '--require-engine') a.requireEngine = true;
     else if (t === '--report-only') a.reportOnly = true;
     else if (t === '--out') a.out = next();
     else if (t === '--baseline-receipt') a.baselineReceipt = next();
     else throw new Error(`unknown flag: ${t}`);
   }
+  if (a.requireEngine && !a.gate) throw new Error('--require-engine requires --gate');
   return a;
 }
 
@@ -247,7 +249,8 @@ export async function main(argv, deps = {}) {
   for (const suite of suites) {
     const run = await runSuite(suite, args, deps);
     if (run.skipped) {
-      results.push({ suite, skipped: run.skipped });
+      if (args.requireEngine) anyFail = true;
+      results.push({ suite, skipped: run.skipped, ...(args.requireEngine ? { required_engine_failed: true } : {}) });
       console.log(`\n## ${suite}\nskipped: ${run.skipped}`);
       continue;
     }
@@ -265,6 +268,19 @@ export async function main(argv, deps = {}) {
         latencyP95: run.predictLatency?.p95, backend: run.binding?.backend, limit: args.limit,
       };
       gateResult = evaluateGates(gateBag(run, baselineReceipt), ctx, loadGates());
+      // Opt-in availability gate only: does not authenticate bindings, prove
+      // successful training, require every quality arm, or establish transfer.
+      // Use --gate --require-engine in execution validation; --report-only
+      // still records failures without changing its historical zero exit.
+      if (args.requireEngine) {
+        gateResult.rows.unshift({
+          name: 'required_engine',
+          status: engineAvailable ? 'PASS' : 'FAIL',
+          detail: engineAvailable ? 'engine completed evaluation; provenance and training are separate checks' : 'required engine unavailable',
+        });
+        gateResult.anyFail ||= !engineAvailable;
+        gateResult.pass = !gateResult.anyFail;
+      }
       if (gateResult.anyFail) anyFail = true;
     }
 
