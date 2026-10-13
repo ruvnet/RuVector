@@ -1,0 +1,690 @@
+{
+  "manifest": {
+    "schema": "kge-replay-pilot/1",
+    "hypothesis": "source pretraining improves target relation MRR against matched adaptation and matched positive-example exposure controls",
+    "scope": "exploratory relation-subset pretraining with mixed replay inside one FB15k237 subgraph; not cross-domain transfer",
+    "acceptance": "all seeds improve target MRR against equal-exposure control; otherwise no retained gain",
+    "sourceHead": "18889bbddabc1ed28c95766fa32038dfdae76eb3",
+    "runner_sha256": "76af64719b85d5b15e9b923bf3972c4311af32f3fd1cb92a51ddc8ae6bfdfc0f",
+    "binding": {
+      "path": "KGE_BENCH_BINDING",
+      "backend": "native",
+      "version": "2.4.0"
+    },
+    "dataset": {
+      "train": "61099230e4439f90885ca9767739e31e8e32f54736fa1c35952b27997bc7c08a",
+      "valid": "749cbe9d923bac7b9354da5614ecfed2e0220256d442c3e04a6b303db1f273d9",
+      "test": "e2e35e8e6113de220140b6f44dc71a5207b0fc6872d575e874aefe13259b655b"
+    },
+    "config": {
+      "scorer": "hole",
+      "dims": 32,
+      "batch_size": 128,
+      "lr": 0.05,
+      "n3_lambda": 0.001,
+      "source_epochs": 8,
+      "adapt_epochs": 4,
+      "seeds": [
+        11,
+        23,
+        47
+      ]
+    },
+    "counts": {
+      "canonicalSubgraph": {
+        "train": 9749,
+        "valid": 266,
+        "test": 483,
+        "entities": 493,
+        "relations": 162,
+        "transfer": 124
+      },
+      "source": 1024,
+      "target": 1024,
+      "test": 159,
+      "excludedTest": 324,
+      "entities": 390,
+      "relations": 115,
+      "targetRelations": 52,
+      "filterTruth": 9098
+    },
+    "sampleHashes": {
+      "source": "89fed8f3928bafa7145e9329ba6fce50cda9947043e255f2d982e323d7fb0722",
+      "target": "ca902ee38fbc37b94a199696c27e1bbd322b4e43e47e00f12135fbe57c490d3e",
+      "test": "e5585af2a06f9ca1d8f6dc0fd89c0f786c42474616594dad6e29b44a74ecfce3",
+      "filterTruth": "68f7d4d2a3cdeb4e7ec96cab39edbaebaac8a8dadb6cb2c368687b05f202ec71"
+    },
+    "budgets": {
+      "warmExamples": 16384,
+      "coldExamples": 8192,
+      "equalExposureExamples": 16384,
+      "perProcessTimeoutSeconds": 60
+    },
+    "controls": "all arms clone identical untrained checkpoint; same vocabulary; target facts registered as valid before source phase; source trainer consumes only train tags; all evaluation facts registered after every checkpoint freezes; equal-exposure control uses two optimizer-reset phases",
+    "createdAt": "2026-10-13T03:56:58.713Z"
+  },
+  "originalManifestSha256": "cf0b42662452c5d126a20bcdad47fff5fd07f276f50e05fbe51d098d6f42e3d6",
+  "evaluationRunnerSha256": "22f24876f645fe8fe08f3bffd9899d4c68b164d65128ccba821b521c4408e007",
+  "results": {
+    "manifestHash": "73eb44331e09ffc5ac31a8be054e3b3510351278dec3e5cfffed6f8ced782fcb",
+    "records": [
+      {
+        "seed": 11,
+        "arm": "warm",
+        "initialHash": "c6d2441e939d5d146670a42444327b0172fca1f569cec5cd558e2597425e19c2",
+        "checkpointHash": "7eae31dab19d13d9d296e44e91ad489d792b34bda7bfef25d664091d058ed788",
+        "phases": [
+          {
+            "epochs": 8,
+            "milliseconds": 173.5894699999999,
+            "result": {
+              "batches": 8,
+              "entities": 390,
+              "epoch": 7,
+              "epochs": 8,
+              "loss": 4.606983661651611,
+              "n3Penalty": 0.007523481268435717,
+              "relations": 115,
+              "triples": 2048
+            }
+          },
+          {
+            "epochs": 4,
+            "milliseconds": 207.66130699999985,
+            "result": {
+              "batches": 16,
+              "entities": 390,
+              "epoch": 3,
+              "epochs": 4,
+              "loss": 5.663617134094238,
+              "n3Penalty": 0.008435891009867191,
+              "relations": 115,
+              "triples": 3072
+            }
+          }
+        ],
+        "metrics": {
+          "evalTriples": 159,
+          "filtered": true,
+          "note": "frozen per-triple split",
+          "report": {
+            "combined": {
+              "count": 318,
+              "hits1": 0.16352201998233795,
+              "hits10": 0.5754716992378235,
+              "hits3": 0.3836477994918823,
+              "mr": 45.632076263427734,
+              "mrr": 0.30395057797431946
+            },
+            "head": {
+              "count": 159,
+              "hits1": 0.18867924809455872,
+              "hits10": 0.5283018946647644,
+              "hits3": 0.36477985978126526,
+              "mr": 45.132076263427734,
+              "mrr": 0.3033815026283264
+            },
+            "tail": {
+              "count": 159,
+              "hits1": 0.138364776968956,
+              "hits10": 0.6226415038108826,
+              "hits3": 0.402515709400177,
+              "mr": 46.132076263427734,
+              "mrr": 0.3045196533203125
+            }
+          },
+          "split": "test",
+          "splitSource": "per-triple"
+        },
+        "mrr": 0.30395057797431946
+      },
+      {
+        "seed": 11,
+        "arm": "cold",
+        "initialHash": "c6d2441e939d5d146670a42444327b0172fca1f569cec5cd558e2597425e19c2",
+        "checkpointHash": "e9bfbe3b5df282fcf8682bb194360b6463caa4ed39ad221d352c948c9b768146",
+        "phases": [
+          {
+            "epochs": 4,
+            "milliseconds": 209.315427,
+            "result": {
+              "batches": 16,
+              "entities": 390,
+              "epoch": 3,
+              "epochs": 4,
+              "loss": 7.855569839477539,
+              "n3Penalty": 0.004156455863267183,
+              "relations": 115,
+              "triples": 3072
+            }
+          }
+        ],
+        "metrics": {
+          "evalTriples": 159,
+          "filtered": true,
+          "note": "frozen per-triple split",
+          "report": {
+            "combined": {
+              "count": 318,
+              "hits1": 0.069182388484478,
+              "hits10": 0.31446540355682373,
+              "hits3": 0.14150942862033844,
+              "mr": 64.05660247802734,
+              "mrr": 0.14854644238948822
+            },
+            "head": {
+              "count": 159,
+              "hits1": 0.0628930851817131,
+              "hits10": 0.2830188572406769,
+              "hits3": 0.138364776968956,
+              "mr": 66.47798919677734,
+              "mrr": 0.13954485952854156
+            },
+            "tail": {
+              "count": 159,
+              "hits1": 0.07547169923782349,
+              "hits10": 0.3459119498729706,
+              "hits3": 0.14465409517288208,
+              "mr": 61.63521957397461,
+              "mrr": 0.15754801034927368
+            }
+          },
+          "split": "test",
+          "splitSource": "per-triple"
+        },
+        "mrr": 0.14854644238948822
+      },
+      {
+        "seed": 11,
+        "arm": "equal_exposure",
+        "initialHash": "c6d2441e939d5d146670a42444327b0172fca1f569cec5cd558e2597425e19c2",
+        "checkpointHash": "32255e730074f10cff8110ae6cde60db73d5ada9a08e9bd4a18518915a2e9518",
+        "phases": [
+          {
+            "epochs": 4,
+            "milliseconds": 178.10698899999988,
+            "result": {
+              "batches": 16,
+              "entities": 390,
+              "epoch": 3,
+              "epochs": 4,
+              "loss": 7.855569839477539,
+              "n3Penalty": 0.004156455863267183,
+              "relations": 115,
+              "triples": 3072
+            }
+          },
+          {
+            "epochs": 4,
+            "milliseconds": 185.85023899999987,
+            "result": {
+              "batches": 16,
+              "entities": 390,
+              "epoch": 3,
+              "epochs": 4,
+              "loss": 4.919300556182861,
+              "n3Penalty": 0.009560015052556992,
+              "relations": 115,
+              "triples": 3072
+            }
+          }
+        ],
+        "metrics": {
+          "evalTriples": 159,
+          "filtered": true,
+          "note": "frozen per-triple split",
+          "report": {
+            "combined": {
+              "count": 318,
+              "hits1": 0.18553459644317627,
+              "hits10": 0.5566037893295288,
+              "hits3": 0.30817610025405884,
+              "mr": 41.55345916748047,
+              "mrr": 0.2931792438030243
+            },
+            "head": {
+              "count": 159,
+              "hits1": 0.1949685513973236,
+              "hits10": 0.553459107875824,
+              "hits3": 0.30817610025405884,
+              "mr": 42.930816650390625,
+              "mrr": 0.2915230691432953
+            },
+            "tail": {
+              "count": 159,
+              "hits1": 0.17610062658786774,
+              "hits10": 0.5597484111785889,
+              "hits3": 0.30817610025405884,
+              "mr": 40.17610168457031,
+              "mrr": 0.2948354184627533
+            }
+          },
+          "split": "test",
+          "splitSource": "per-triple"
+        },
+        "mrr": 0.2931792438030243
+      },
+      {
+        "seed": 23,
+        "arm": "warm",
+        "initialHash": "95bb64e1acc3acba0197d533d4103a0e268ec5e7c8ffd307b2f2b20e00f72552",
+        "checkpointHash": "dd2b12c8bbc34a3e0970b841cc8b1d6cc6ccf5f754a7c3015f994960702aed0e",
+        "phases": [
+          {
+            "epochs": 8,
+            "milliseconds": 197.27855800000043,
+            "result": {
+              "batches": 8,
+              "entities": 390,
+              "epoch": 7,
+              "epochs": 8,
+              "loss": 4.676065921783447,
+              "n3Penalty": 0.007030687294900417,
+              "relations": 115,
+              "triples": 2048
+            }
+          },
+          {
+            "epochs": 4,
+            "milliseconds": 216.61192699999992,
+            "result": {
+              "batches": 16,
+              "entities": 390,
+              "epoch": 3,
+              "epochs": 4,
+              "loss": 5.663799285888672,
+              "n3Penalty": 0.008241664618253708,
+              "relations": 115,
+              "triples": 3072
+            }
+          }
+        ],
+        "metrics": {
+          "evalTriples": 159,
+          "filtered": true,
+          "note": "frozen per-triple split",
+          "report": {
+            "combined": {
+              "count": 318,
+              "hits1": 0.16981132328510284,
+              "hits10": 0.5628930926322937,
+              "hits3": 0.3333333432674408,
+              "mr": 51.76100540161133,
+              "mrr": 0.29689961671829224
+            },
+            "head": {
+              "count": 159,
+              "hits1": 0.14465409517288208,
+              "hits10": 0.5220125913619995,
+              "hits3": 0.2704402506351471,
+              "mr": 54.25157165527344,
+              "mrr": 0.25597018003463745
+            },
+            "tail": {
+              "count": 159,
+              "hits1": 0.1949685513973236,
+              "hits10": 0.6037735939025879,
+              "hits3": 0.3962264060974121,
+              "mr": 49.27043914794922,
+              "mrr": 0.337829053401947
+            }
+          },
+          "split": "test",
+          "splitSource": "per-triple"
+        },
+        "mrr": 0.29689961671829224
+      },
+      {
+        "seed": 23,
+        "arm": "cold",
+        "initialHash": "95bb64e1acc3acba0197d533d4103a0e268ec5e7c8ffd307b2f2b20e00f72552",
+        "checkpointHash": "80b4fd947f586beeaafcfcb2062120a9c02f768e3d52b8de6de06c4454680ca2",
+        "phases": [
+          {
+            "epochs": 4,
+            "milliseconds": 188.7471089999999,
+            "result": {
+              "batches": 16,
+              "entities": 390,
+              "epoch": 3,
+              "epochs": 4,
+              "loss": 7.621007442474365,
+              "n3Penalty": 0.004009082447737455,
+              "relations": 115,
+              "triples": 3072
+            }
+          }
+        ],
+        "metrics": {
+          "evalTriples": 159,
+          "filtered": true,
+          "note": "frozen per-triple split",
+          "report": {
+            "combined": {
+              "count": 318,
+              "hits1": 0.17610062658786774,
+              "hits10": 0.5062893033027649,
+              "hits3": 0.2924528419971466,
+              "mr": 73.43710327148438,
+              "mrr": 0.27629995346069336
+            },
+            "head": {
+              "count": 159,
+              "hits1": 0.16352201998233795,
+              "hits10": 0.4716981053352356,
+              "hits3": 0.29559749364852905,
+              "mr": 73.44025421142578,
+              "mrr": 0.26276424527168274
+            },
+            "tail": {
+              "count": 159,
+              "hits1": 0.18867924809455872,
+              "hits10": 0.5408805012702942,
+              "hits3": 0.28930819034576416,
+              "mr": 73.4339599609375,
+              "mrr": 0.28983569145202637
+            }
+          },
+          "split": "test",
+          "splitSource": "per-triple"
+        },
+        "mrr": 0.27629995346069336
+      },
+      {
+        "seed": 23,
+        "arm": "equal_exposure",
+        "initialHash": "95bb64e1acc3acba0197d533d4103a0e268ec5e7c8ffd307b2f2b20e00f72552",
+        "checkpointHash": "185facb305c2d23d92f4d006fbd0a84cea73b1bfd54a8e8689f17903e4bef08a",
+        "phases": [
+          {
+            "epochs": 4,
+            "milliseconds": 191.28828900000008,
+            "result": {
+              "batches": 16,
+              "entities": 390,
+              "epoch": 3,
+              "epochs": 4,
+              "loss": 7.621007442474365,
+              "n3Penalty": 0.004009082447737455,
+              "relations": 115,
+              "triples": 3072
+            }
+          },
+          {
+            "epochs": 4,
+            "milliseconds": 188.45846900000015,
+            "result": {
+              "batches": 16,
+              "entities": 390,
+              "epoch": 3,
+              "epochs": 4,
+              "loss": 4.926585674285889,
+              "n3Penalty": 0.009027174673974514,
+              "relations": 115,
+              "triples": 3072
+            }
+          }
+        ],
+        "metrics": {
+          "evalTriples": 159,
+          "filtered": true,
+          "note": "frozen per-triple split",
+          "report": {
+            "combined": {
+              "count": 318,
+              "hits1": 0.1666666716337204,
+              "hits10": 0.5597484111785889,
+              "hits3": 0.32389935851097107,
+              "mr": 62.69182205200195,
+              "mrr": 0.289515882730484
+            },
+            "head": {
+              "count": 159,
+              "hits1": 0.16981132328510284,
+              "hits10": 0.5220125913619995,
+              "hits3": 0.3207547068595886,
+              "mr": 61.8301887512207,
+              "mrr": 0.28354135155677795
+            },
+            "tail": {
+              "count": 159,
+              "hits1": 0.16352201998233795,
+              "hits10": 0.597484290599823,
+              "hits3": 0.3270440399646759,
+              "mr": 63.55345916748047,
+              "mrr": 0.29549044370651245
+            }
+          },
+          "split": "test",
+          "splitSource": "per-triple"
+        },
+        "mrr": 0.289515882730484
+      },
+      {
+        "seed": 47,
+        "arm": "warm",
+        "initialHash": "fe5c09b63f3e1375734281ad50397b3f54a30e0bf2012238cb92aa3f23a4a43e",
+        "checkpointHash": "b2da2fd15a178b5b0777b6917529f5bb6503b773af52893d4d642ccf698d95fe",
+        "phases": [
+          {
+            "epochs": 8,
+            "milliseconds": 173.96677999999974,
+            "result": {
+              "batches": 8,
+              "entities": 390,
+              "epoch": 7,
+              "epochs": 8,
+              "loss": 4.688263416290283,
+              "n3Penalty": 0.0070602730847895145,
+              "relations": 115,
+              "triples": 2048
+            }
+          },
+          {
+            "epochs": 4,
+            "milliseconds": 177.23608000000013,
+            "result": {
+              "batches": 16,
+              "entities": 390,
+              "epoch": 3,
+              "epochs": 4,
+              "loss": 5.709639549255371,
+              "n3Penalty": 0.008247939869761467,
+              "relations": 115,
+              "triples": 3072
+            }
+          }
+        ],
+        "metrics": {
+          "evalTriples": 159,
+          "filtered": true,
+          "note": "frozen per-triple split",
+          "report": {
+            "combined": {
+              "count": 318,
+              "hits1": 0.16352201998233795,
+              "hits10": 0.5125786066055298,
+              "hits3": 0.33018869161605835,
+              "mr": 58.29874038696289,
+              "mrr": 0.2814139127731323
+            },
+            "head": {
+              "count": 159,
+              "hits1": 0.15094339847564697,
+              "hits10": 0.5157232880592346,
+              "hits3": 0.35849055647850037,
+              "mr": 61.4591178894043,
+              "mrr": 0.28257662057876587
+            },
+            "tail": {
+              "count": 159,
+              "hits1": 0.17610062658786774,
+              "hits10": 0.5094339847564697,
+              "hits3": 0.30188679695129395,
+              "mr": 55.138362884521484,
+              "mrr": 0.28025123476982117
+            }
+          },
+          "split": "test",
+          "splitSource": "per-triple"
+        },
+        "mrr": 0.2814139127731323
+      },
+      {
+        "seed": 47,
+        "arm": "cold",
+        "initialHash": "fe5c09b63f3e1375734281ad50397b3f54a30e0bf2012238cb92aa3f23a4a43e",
+        "checkpointHash": "da8aae8bbecdbe028bc794cb432c5c3a57a0642712bb687a9b1ce72961ac73eb",
+        "phases": [
+          {
+            "epochs": 4,
+            "milliseconds": 206.1079969999996,
+            "result": {
+              "batches": 16,
+              "entities": 390,
+              "epoch": 3,
+              "epochs": 4,
+              "loss": 7.8526434898376465,
+              "n3Penalty": 0.0038366338703781366,
+              "relations": 115,
+              "triples": 3072
+            }
+          }
+        ],
+        "metrics": {
+          "evalTriples": 159,
+          "filtered": true,
+          "note": "frozen per-triple split",
+          "report": {
+            "combined": {
+              "count": 318,
+              "hits1": 0.050314463675022125,
+              "hits10": 0.24213837087154388,
+              "hits3": 0.11320754885673523,
+              "mr": 82.39936828613281,
+              "mrr": 0.11860118806362152
+            },
+            "head": {
+              "count": 159,
+              "hits1": 0.03773584961891174,
+              "hits10": 0.22012577950954437,
+              "hits3": 0.10062892735004425,
+              "mr": 85.92453002929688,
+              "mrr": 0.10300706326961517
+            },
+            "tail": {
+              "count": 159,
+              "hits1": 0.0628930851817131,
+              "hits10": 0.2641509473323822,
+              "hits3": 0.1257861703634262,
+              "mr": 78.87421417236328,
+              "mrr": 0.13419531285762787
+            }
+          },
+          "split": "test",
+          "splitSource": "per-triple"
+        },
+        "mrr": 0.11860118806362152
+      },
+      {
+        "seed": 47,
+        "arm": "equal_exposure",
+        "initialHash": "fe5c09b63f3e1375734281ad50397b3f54a30e0bf2012238cb92aa3f23a4a43e",
+        "checkpointHash": "d9d059096ea8d5b913ff47c26b3b2aef93b7170b5de3d5c69108538b85246119",
+        "phases": [
+          {
+            "epochs": 4,
+            "milliseconds": 252.7021649999997,
+            "result": {
+              "batches": 16,
+              "entities": 390,
+              "epoch": 3,
+              "epochs": 4,
+              "loss": 7.8526434898376465,
+              "n3Penalty": 0.0038366338703781366,
+              "relations": 115,
+              "triples": 3072
+            }
+          },
+          {
+            "epochs": 4,
+            "milliseconds": 221.41255700000056,
+            "result": {
+              "batches": 16,
+              "entities": 390,
+              "epoch": 3,
+              "epochs": 4,
+              "loss": 4.934575080871582,
+              "n3Penalty": 0.009080084972083569,
+              "relations": 115,
+              "triples": 3072
+            }
+          }
+        ],
+        "metrics": {
+          "evalTriples": 159,
+          "filtered": true,
+          "note": "frozen per-triple split",
+          "report": {
+            "combined": {
+              "count": 318,
+              "hits1": 0.1320754736661911,
+              "hits10": 0.4779874086380005,
+              "hits3": 0.24213837087154388,
+              "mr": 52.80817794799805,
+              "mrr": 0.23443154990673065
+            },
+            "head": {
+              "count": 159,
+              "hits1": 0.11320754885673523,
+              "hits10": 0.42767295241355896,
+              "hits3": 0.23270440101623535,
+              "mr": 54.522010803222656,
+              "mrr": 0.21691928803920746
+            },
+            "tail": {
+              "count": 159,
+              "hits1": 0.15094339847564697,
+              "hits10": 0.5283018946647644,
+              "hits3": 0.2515723407268524,
+              "mr": 51.09434127807617,
+              "mrr": 0.25194379687309265
+            }
+          },
+          "split": "test",
+          "splitSource": "per-triple"
+        },
+        "mrr": 0.23443154990673065
+      }
+    ],
+    "paired": [
+      {
+        "seed": 11,
+        "warm": 0.30395057797431946,
+        "cold": 0.14854644238948822,
+        "equalExposure": 0.2931792438030243,
+        "vsCold": 0.15540413558483124,
+        "vsEqual": 0.010771334171295166
+      },
+      {
+        "seed": 23,
+        "warm": 0.29689961671829224,
+        "cold": 0.27629995346069336,
+        "equalExposure": 0.289515882730484,
+        "vsCold": 0.020599663257598877,
+        "vsEqual": 0.0073837339878082275
+      },
+      {
+        "seed": 47,
+        "warm": 0.2814139127731323,
+        "cold": 0.11860118806362152,
+        "equalExposure": 0.23443154990673065,
+        "vsCold": 0.1628127247095108,
+        "vsEqual": 0.04698236286640167
+      }
+    ],
+    "decision": "EXPLORATORY_GAIN_REQUIRES_CONFIRMATION",
+    "limits": "exploratory relation-subset pretraining with mixed replay inside one FB15k237 subgraph; not cross-domain transfer"
+  },
+  "note": "First evaluation aborted on flat metric assumption. Resumed frozen hash-verified checkpoints after reading report.combined.mrr. No retraining, settings changes or sample changes."
+}
