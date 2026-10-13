@@ -43,7 +43,7 @@ export function parseArgs(argv) {
   const a = {
     suite: 'synthetic', scorer: 'hole', dims: 256, epochs: 50, seed: 42,
     limit: undefined, ann: false, adversarial: false, tieCheck: false,
-    gate: false, reportOnly: false, requireEngine: false, out: undefined, baselineReceipt: undefined,
+    gate: false, reportOnly: false, requireEngine: false, strictEvidence: false, out: undefined, baselineReceipt: undefined,
   };
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
@@ -59,12 +59,14 @@ export function parseArgs(argv) {
     else if (t === '--tie-check') a.tieCheck = true;
     else if (t === '--gate') a.gate = true;
     else if (t === '--require-engine') a.requireEngine = true;
+    else if (t === '--strict-evidence') a.strictEvidence = true;
     else if (t === '--report-only') a.reportOnly = true;
     else if (t === '--out') a.out = next();
     else if (t === '--baseline-receipt') a.baselineReceipt = next();
     else throw new Error(`unknown flag: ${t}`);
   }
   if (a.requireEngine && !a.gate) throw new Error('--require-engine requires --gate');
+  if (a.strictEvidence && !a.gate) throw new Error('--strict-evidence requires --gate');
   return a;
 }
 
@@ -121,7 +123,8 @@ function runAdversarial(model, allTriples, testTriples, entities, args, config) 
   const decoys = generateSymmetryDecoys(targets, entities, allTriples, { perTarget: 3 });
   const add = addTriples(model, decoys.map((d) => ({ ...d, split: 'train' })));
   if (!add.available) return { skipped: `addTriples(decoys) unavailable: ${add.error}` };
-  train(model, config); // incremental retrain (no-op for stubs)
+  const retrain = train(model, config);
+  if (!retrain.available) return { skipped: `incremental retraining unavailable: ${retrain.error}` };
   const after = targets.map((t) => scoreTriple(model, t).score);
   // keep only targets scored on BOTH sides of the attack (a fact ranked beyond
   // the k cap returns null and cannot be compared)
@@ -223,6 +226,93 @@ async function runSuite(suite, args, deps) {
   };
 }
 
+
+function metricSetFinite(m) {
+  return !!m && Number.isFinite(m.mrr) && m.mrr >= 0 && m.mrr <= 1
+    && Number.isFinite(m.mr) && m.mr >= 1
+    && [1, 3, 10].every((k) => Number.isFinite(m.hits?.[k]) && m.hits[k] >= 0 && m.hits[k] <= 1);
+}
+
+function strictMetricStatus(run) {
+  const expected = ['valid', 'test', 'transfer'].filter((split) => run.splits?.[split]?.length);
+  const ok = expected.length > 0 && expected.every((split) => {
+    const m = run.metrics?.[split];
+    return metricSetFinite(m) && m.filtered === true
+      && metricSetFinite(m.perSide?.head) && metricSetFinite(m.perSide?.tail);
+  });
+  return {
+    ok,
+    detail: ok ? `finite filtered head/tail metrics for ${expected.join(',')}`
+      : `missing, non-finite, or unfiltered metrics for one of: ${expected.join(',') || 'none'}`,
+  };
+}
+
+function strictTrainingStatus(run, args) {
+  const t = run.training;
+  const fields = ['triplesPerSec', 'loss', 'n3Penalty', 'batches'];
+  const ok = !!t && !t.unavailable && t.epochs === args.epochs
+    && fields.every((field) => Number.isFinite(t[field]));
+  return {
+    ok,
+    detail: ok ? `completed ${t.epochs} epochs with finite training telemetry`
+      : t?.unavailable ? `training unavailable: ${t.unavailable}`
+        : 'training did not complete the requested epochs with finite telemetry',
+  };
+}
+
+function strictRequestedArmsStatus(run, args) {
+  const failed = [];
+  if (args.ann && (!run.ann || run.ann.skipped || !Number.isFinite(run.ann.recall_at_10)
+    || !Number.isFinite(run.ann.latency_ms?.p95))) failed.push('ann');
+  if (args.adversarial && (!run.adversarial || run.adversarial.skipped
+    || !Number.isFinite(run.adversarial.drop))) failed.push('adversarial');
+  if (args.tieCheck && (!run.tieCheck?.available
+    || !Number.isFinite(run.tieCheck.topMr)
+    || Math.abs(run.tieCheck.topMr - 1) > 0.5
+    || !Number.isFinite(run.tieCheck.randomMr)
+    || !Number.isFinite(run.tieCheck.nEntities))) failed.push('tie-check');
+  return {
+    ok: failed.length === 0,
+    detail: failed.length ? `requested arms unavailable: ${failed.join(',')}` : 'all requested optional arms completed',
+  };
+}
+
+const sortedEntries = (x) => JSON.stringify(Object.entries(x ?? {}).sort(([a], [b]) => a.localeCompare(b)));
+
+function strictBaselineStatus(run, args, baseline) {
+  if (!baseline) return { ok: true, detail: 'no baseline comparison requested' };
+  const mismatches = [];
+  const candidateConfig = { scorer: args.scorer, dims: args.dims, seed: args.seed, epochs: args.epochs };
+  if (baseline.schema !== 'ruvector-kge-bench/receipt@1') mismatches.push('schema');
+  if (baseline.suite !== run.suite) mismatches.push('suite');
+  if (baseline.scorer !== args.scorer) mismatches.push('scorer');
+  if (sortedEntries(baseline.config) !== sortedEntries(candidateConfig)) mismatches.push('config');
+  if (baseline.tie_break !== 'random') mismatches.push('tie_break');
+  if (baseline.dataset?.splits_hash !== run.splitsHash) mismatches.push('splits_hash');
+  if (sortedEntries(baseline.dataset?.hashes) !== sortedEntries(run.datasetHashes)) mismatches.push('dataset_hashes');
+  if (run.splits?.transfer?.length && !Number.isFinite(baseline.metrics?.transfer?.mrr)) mismatches.push('transfer_mrr');
+  return {
+    ok: mismatches.length === 0,
+    detail: mismatches.length ? `incompatible baseline identity: ${mismatches.join(',')}` : 'baseline identity matches candidate dataset and model config',
+  };
+}
+
+function addStrictEvidenceRows(gateResult, run, args, baselineReceipt, engineAvailable) {
+  const checks = [
+    ['strict_engine', { ok: engineAvailable, detail: engineAvailable ? 'engine completed evaluation' : 'engine unavailable' }],
+    ['strict_training', strictTrainingStatus(run, args)],
+    ['strict_metrics', strictMetricStatus(run)],
+    ['strict_requested_arms', strictRequestedArmsStatus(run, args)],
+    ['strict_baseline_identity', strictBaselineStatus(run, args, baselineReceipt)],
+  ];
+  const rows = checks.map(([name, check]) => ({
+    name, status: check.ok ? 'PASS' : 'FAIL', detail: check.detail,
+  }));
+  gateResult.rows.unshift(...rows);
+  gateResult.anyFail ||= rows.some((row) => row.status === 'FAIL');
+  gateResult.pass = !gateResult.anyFail;
+}
+
 /** Flat metric bag for the gate evaluator. */
 function gateBag(run, baselineReceipt) {
   const bag = {};
@@ -249,8 +339,11 @@ export async function main(argv, deps = {}) {
   for (const suite of suites) {
     const run = await runSuite(suite, args, deps);
     if (run.skipped) {
-      if (args.requireEngine) anyFail = true;
-      results.push({ suite, skipped: run.skipped, ...(args.requireEngine ? { required_engine_failed: true } : {}) });
+      if (args.requireEngine || args.strictEvidence) anyFail = true;
+      results.push({ suite, skipped: run.skipped,
+        ...(args.requireEngine ? { required_engine_failed: true } : {}),
+        ...(args.strictEvidence ? { strict_evidence_failed: true } : {}),
+      });
       console.log(`\n## ${suite}\nskipped: ${run.skipped}`);
       continue;
     }
@@ -272,7 +365,7 @@ export async function main(argv, deps = {}) {
       // successful training, require every quality arm, or establish transfer.
       // Use --gate --require-engine in execution validation; --report-only
       // still records failures without changing its historical zero exit.
-      if (args.requireEngine) {
+      if (args.requireEngine && !args.strictEvidence) {
         gateResult.rows.unshift({
           name: 'required_engine',
           status: engineAvailable ? 'PASS' : 'FAIL',
@@ -281,6 +374,7 @@ export async function main(argv, deps = {}) {
         gateResult.anyFail ||= !engineAvailable;
         gateResult.pass = !gateResult.anyFail;
       }
+      if (args.strictEvidence) addStrictEvidenceRows(gateResult, run, args, baselineReceipt, engineAvailable);
       if (gateResult.anyFail) anyFail = true;
     }
 
