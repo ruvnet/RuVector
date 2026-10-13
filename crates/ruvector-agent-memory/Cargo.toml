@@ -46,6 +46,11 @@ path = "examples/mincut_gated_forgetting_bench.rs"
 required-features = ["mincut-forget"]
 
 [[example]]
+name = "mincut_gated_forgetting_bench_exact"
+path = "examples/mincut_gated_forgetting_bench_exact.rs"
+required-features = ["mincut-forget"]
+
+[[example]]
 name = "mincut_determinism_probe"
 path = "examples/mincut_determinism_probe.rs"
 required-features = ["mincut-forget"]
@@ -53,6 +58,11 @@ required-features = ["mincut-forget"]
 [[example]]
 name = "mincut_scaling_probe"
 path = "examples/mincut_scaling_probe.rs"
+required-features = ["mincut-forget"]
+
+[[example]]
+name = "mincut_scaling_probe_exact"
+path = "examples/mincut_scaling_probe_exact.rs"
 required-features = ["mincut-forget"]
 
 [dev-dependencies]
