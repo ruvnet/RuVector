@@ -1,0 +1,82 @@
+{
+  "schema": "kge-replay-confirmation/1",
+  "partitionSalt": "confirm-20261013-v1",
+  "priorExcludedTestHash": "e5585af2a06f9ca1d8f6dc0fd89c0f786c42474616594dad6e29b44a74ecfce3",
+  "hypothesis": "source pretraining improves target relation MRR against matched adaptation and matched positive-example exposure controls",
+  "scope": "exploratory relation-subset pretraining with mixed replay inside one FB15k237 subgraph; not cross-domain transfer",
+  "acceptance": "mean paired MRR gain >0 and lower 95% seed-bootstrap bound >0; 20000 resamples, RNG seed20261013; otherwise NOT_CONFIRMED",
+  "sourceHead": "e4e8a5ca9da1aa6b1ff3331902db9fd87abb090b",
+  "runner_sha256": "c831823f385a591bdac42345488a256fabe2f7dd21d2a813c675e893fd1e3dba",
+  "binding": {
+    "path": "KGE_BENCH_BINDING",
+    "backend": "native",
+    "version": "2.4.0"
+  },
+  "dataset": {
+    "train": "61099230e4439f90885ca9767739e31e8e32f54736fa1c35952b27997bc7c08a",
+    "valid": "749cbe9d923bac7b9354da5614ecfed2e0220256d442c3e04a6b303db1f273d9",
+    "test": "e2e35e8e6113de220140b6f44dc71a5207b0fc6872d575e874aefe13259b655b"
+  },
+  "config": {
+    "scorer": "hole",
+    "dims": 32,
+    "batch_size": 128,
+    "lr": 0.05,
+    "n3_lambda": 0.001,
+    "source_epochs": 8,
+    "adapt_epochs": 4,
+    "seeds": [
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110
+    ]
+  },
+  "counts": {
+    "canonicalSubgraph": {
+      "train": 9749,
+      "valid": 266,
+      "test": 483,
+      "entities": 493,
+      "relations": 162,
+      "transfer": 124
+    },
+    "source": 1024,
+    "target": 1024,
+    "test": 62,
+    "excludedTest": 421,
+    "entities": 396,
+    "relations": 112,
+    "targetRelations": 50,
+    "filterTruth": 9240
+  },
+  "sampleHashes": {
+    "source": "96bb5fd204ae01e00ec96bbd263d25353405f2784bfb7999c55bc6715e772f66",
+    "target": "2b96e7c655097d47be896e2c610292731c047a5a4624dab85a511ddcd32df147",
+    "test": "5fa647de0b8de150aab2a61b42bc08d27373f9e112bfa5f58b60a7f83f3665cd",
+    "filterTruth": "5f7e2e23f769618b50a518d1c54d810d7ecf19bc0da2e36c49f6c18153563ebf"
+  },
+  "budgets": {
+    "warmSource": 12288,
+    "warmTarget": 4096,
+    "equalSource": 8192,
+    "equalTarget": 8192,
+    "coldSource": 4096,
+    "coldTarget": 4096,
+    "warmUpdates": 128,
+    "equalUpdates": 128,
+    "coldUpdates": 64,
+    "warmExamples": 16384,
+    "coldExamples": 8192,
+    "equalExposureExamples": 16384,
+    "perProcessTimeoutSeconds": 60
+  },
+  "controls": "all arms clone identical untrained checkpoint; same vocabulary; target facts registered as valid before source phase; source trainer consumes only train tags; all evaluation facts registered after every checkpoint freezes; equal-exposure control uses two optimizer-reset phases",
+  "createdAt": "2026-10-13T04:36:04.535Z"
+}
