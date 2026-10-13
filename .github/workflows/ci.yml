@@ -140,7 +140,7 @@ jobs:
   # faster test discovery and execution.
   test:
     name: Tests (${{ matrix.name }})
-    runs-on: ubuntu-22.04
+    runs-on: ${{ matrix.runner || 'ubuntu-22.04' }}
     # `core-and-rest` is the catch-all shard and compiles ~50 crates; on a
     # cold cache the build alone has hit ~90min, so headroom matters more
     # than tight feedback for this job. Faster shards still finish in ~10–20m.
@@ -375,6 +375,11 @@ jobs:
               -p ruvector-solver-node
               -p ruvector-tiny-dancer-node
           - name: core-and-rest
+            # ort rc.13's native ONNX archive references glibc C23 and
+            # newer libstdc++ symbols unavailable on Ubuntu 22.04. Keep
+            # the same tests on 24.04, with a separate ABI-specific cache.
+            runner: ubuntu-24.04
+            cache_key: test-core-and-rest-ubuntu-24.04
             # Everything else: core, delta, server/cluster, etc.
             # Uses --workspace + --exclude to subtract the groups above so we
             # don't have to enumerate ~100 crates by hand.
@@ -573,7 +578,7 @@ jobs:
       - name: Cache Rust
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
-          key: test-${{ matrix.name }}
+          key: ${{ matrix.cache_key || format('test-{0}', matrix.name) }}
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60
