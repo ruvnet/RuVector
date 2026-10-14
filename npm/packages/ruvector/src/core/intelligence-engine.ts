@@ -246,7 +246,11 @@ export class IntelligenceEngine {
     this.initParallel();
 
     // Initialize FastAgentDB for episode storage
-    this.agentDb = new FastAgentDB(this.config.embeddingDim, this.config.maxEpisodes);
+    this.agentDb = new FastAgentDB(
+      this.config.embeddingDim,
+      this.config.maxEpisodes,
+      this.config.storagePath ? `${this.config.storagePath}.episodes` : undefined,
+    );
 
     // Initialize ONNX embedder if enabled
     if (this.config.enableOnnx) {

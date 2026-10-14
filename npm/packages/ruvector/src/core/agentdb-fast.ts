@@ -15,6 +15,26 @@ import type {
   SearchResult,
   SearchQuery,
 } from '../types';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+
+const temporaryIndexDirs = new Set<string>();
+let cleanupRegistered = false;
+
+function temporaryIndexPath(): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ruvector-fast-agentdb-'));
+  temporaryIndexDirs.add(dir);
+  if (!cleanupRegistered) {
+    cleanupRegistered = true;
+    process.once('exit', () => {
+      for (const temporaryDir of temporaryIndexDirs) {
+        try { fs.rmSync(temporaryDir, { recursive: true, force: true }); } catch { /* best effort */ }
+      }
+    });
+  }
+  return path.join(dir, 'episodes.db');
+}
 
 // Lazy load ruvector core
 let coreModule: any = null;
@@ -79,6 +99,7 @@ export class FastAgentDB {
   private vectorDb: any = null;
   private dimensions: number;
   private maxEpisodes: number;
+  private storagePath?: string;
   private episodeOrder: string[] = []; // For LRU eviction
 
   /**
@@ -86,10 +107,12 @@ export class FastAgentDB {
    *
    * @param dimensions - Vector dimensions for state embeddings
    * @param maxEpisodes - Maximum episodes to store (LRU eviction)
+   * @param storagePath - Optional native index file; defaults to a private temporary directory
    */
-  constructor(dimensions: number = 128, maxEpisodes: number = 100000) {
+  constructor(dimensions: number = 128, maxEpisodes: number = 100000, storagePath?: string) {
     this.dimensions = dimensions;
     this.maxEpisodes = maxEpisodes;
+    this.storagePath = storagePath;
   }
 
   /**
@@ -100,9 +123,15 @@ export class FastAgentDB {
 
     try {
       const core = getCoreModule();
-      this.vectorDb = new core.VectorDB({
+      // @ruvector/core 0.1.31 exports VectorDb; newer versions also expose
+      // VectorDB. Both are permitted by this package's dependency range.
+      const VectorDb = core.VectorDb || core.VectorDB;
+      if (typeof VectorDb !== 'function') throw new Error('VectorDb class is not exported');
+      this.storagePath ??= temporaryIndexPath();
+      this.vectorDb = new VectorDb({
         dimensions: this.dimensions,
         distanceMetric: 'Cosine',
+        storagePath: this.storagePath,
       });
     } catch (e: any) {
       // Vector DB not available, use fallback similarity
@@ -191,6 +220,7 @@ export class FastAgentDB {
     queryState: number[] | Float32Array,
     k: number = 10
   ): Promise<EpisodeSearchResult[]> {
+    if (this.episodes.size === 0) return [];
     await this.initVectorDb();
 
     const query = Array.isArray(queryState) ? queryState : Array.from(queryState);
