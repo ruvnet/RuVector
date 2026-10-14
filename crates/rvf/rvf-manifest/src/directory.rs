@@ -1,7 +1,7 @@
 //! Segment Directory — the array of segment location entries
 //! stored inside the `SEGMENT_DIR` TLV record of Level 1.
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use rvf_types::{RvfError, SegmentType};
 
 /// Size of each directory entry in bytes (cache-line aligned).

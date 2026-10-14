@@ -171,6 +171,7 @@ pub fn write_tlv_records(records: &[TlvRecord]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec;
 
     #[test]
     fn tag_from_u16_known() {
