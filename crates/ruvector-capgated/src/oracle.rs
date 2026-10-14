@@ -54,7 +54,7 @@ impl CapGatedIndex for Oracle {
                 dist_sq: dist_sq(query, &e.vector),
             })
             .collect();
-        scored.sort_by(|a, b| a.dist_sq.partial_cmp(&b.dist_sq).unwrap());
+        scored.sort_by(|a, b| a.dist_sq.total_cmp(&b.dist_sq));
         scored.truncate(k);
         scored
     }

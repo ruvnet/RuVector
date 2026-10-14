@@ -116,6 +116,48 @@ pub fn recall_at_k(oracle: &[SearchResult], candidates: &[SearchResult], k: usiz
 mod tests {
     use super::*;
 
+    fn assert_nonfinite_search_is_stable(mut index: Box<dyn CapGatedIndex>) {
+        index.insert(0, vec![0.0, 0.0], CapMask::NONE);
+        index.insert(1, vec![1.0, 0.0], CapMask::NONE);
+        index.insert(2, vec![f32::NAN, 0.0], CapMask::NONE);
+        index.insert(3, vec![0.5, 0.0], CapMask::single(7));
+
+        let finite_query = index.search(&[0.0, 0.0], 3, CapMask::NONE);
+        let ids: Vec<_> = finite_query.iter().map(|result| result.id).collect();
+        assert_eq!(ids, vec![0, 1, 2]);
+        assert!(finite_query[2].dist_sq.is_nan());
+
+        let nan_query = index.search(&[f32::NAN, 0.0], 3, CapMask::NONE);
+        let repeated = index.search(&[f32::NAN, 0.0], 3, CapMask::NONE);
+        let nan_ids: Vec<_> = nan_query.iter().map(|result| result.id).collect();
+        assert_eq!(
+            nan_ids,
+            repeated.iter().map(|result| result.id).collect::<Vec<_>>()
+        );
+        assert_eq!(nan_ids.len(), 3);
+        assert!(!nan_ids.contains(&3));
+    }
+
+    #[test]
+    fn oracle_handles_nonfinite_distances() {
+        assert_nonfinite_search_is_stable(Box::new(oracle::Oracle::new(2)));
+    }
+
+    #[test]
+    fn post_filter_handles_nonfinite_distances() {
+        assert_nonfinite_search_is_stable(Box::new(post_filter::PostFilterIndex::new(2)));
+    }
+
+    #[test]
+    fn eager_mask_handles_nonfinite_distances() {
+        assert_nonfinite_search_is_stable(Box::new(eager_mask::EagerMaskIndex::new(2)));
+    }
+
+    #[test]
+    fn cap_graph_handles_nonfinite_distances() {
+        assert_nonfinite_search_is_stable(Box::new(cap_graph::CapGraphIndex::new(2, 3, 2)));
+    }
+
     #[test]
     fn cap_mask_satisfies() {
         let holder = CapMask(0b1110);
