@@ -1,0 +1,71 @@
+{
+  "protocol": "inductive-code-graph-holdout-v1",
+  "status": "locked-before-confirmation-scoring",
+  "created": "2026-10-13",
+  "question": "Does one shared typed structural code-graph reranker improve file localization on whole repositories excluded from development and prior pilots?",
+  "dataset": {
+    "id": "princeton-nlp/SWE-bench_Lite",
+    "revision": "6ec7bb89b9342f664a54a6e0a6ea6501d3437cc2",
+    "parquetSha256": "7a21f37b8bc179c7db5beeb14e88ac538ba283455c776e6b2535bbfb6e3551b4",
+    "developmentSplit": "dev",
+    "developmentRows": 23,
+    "confirmationSplit": "test",
+    "confirmationRows": 300,
+    "selectionRule": "Use all official development rows. On confirmation, order repository candidates by SHA256(\"ruvector-localization-holdout-v1:\" + canonical repository name); within each selected repository choose the row with smallest SHA256(instance_id). Selection reads only pinned dataset metadata, never issue text, patch, tests, model output, or scores."
+  },
+  "priorPilotRepos": [
+    "pallets/flask",
+    "psf/requests"
+  ],
+  "developmentRepos": [
+    "pydicom/pydicom",
+    "sqlfluff/sqlfluff",
+    "pvlib/pvlib-python",
+    "pylint-dev/astroid",
+    "marshmallow-code/marshmallow",
+    "pyvista/pyvista"
+  ],
+  "confirmationRepoOrder": [
+    "sphinx-doc/sphinx",
+    "pytest-dev/pytest",
+    "scikit-learn/scikit-learn",
+    "astropy/astropy",
+    "pydata/xarray",
+    "mwaskom/seaborn",
+    "pylint-dev/pylint",
+    "django/django",
+    "sympy/sympy",
+    "matplotlib/matplotlib"
+  ],
+  "resourceGate": {
+    "candidateUniverse": "all production Python files under the package prefix declared for the repository; identical universe for every arm",
+    "maxCodeChunksPerRepo": 1200,
+    "maxConfirmationChunks": 3600,
+    "maxSelectedRepositories": 3,
+    "eligibility": "Compute from the selected base commit before reading labels or running any scorer. Skip an ineligible repository in the frozen order and continue. Require at least three eligible independent repositories; otherwise record incomplete and do not relax caps."
+  },
+  "arms": {
+    "bm25": "k1=1.5, b=0.75 over the frozen candidate chunks",
+    "swerank": "Salesforce/SweRankEmbed-Small at 745d2a06103a66d3cfa600aa52fc0d3523010daa; max 512 tokens; CC BY NC 4.0 research comparator",
+    "graph": "One low-capacity pairwise ridge scorer; six typed relation-distance features from import/call/inheritance edges at one and two hops plus reciprocal BM25 and SWERank file ranks. Training labels are development only. Graphs are built from pinned source snapshots as text; repository code is never executed. This is a benchmark sidecar, not native @ruvector/kge integration."
+  },
+  "training": {
+    "rows": "all 23 official dev instances; group by repository",
+    "validation": "leave-one-development-repository-out over L2 in [0.01, 0.1, 1, 10]; choose maximum macro MRR, tie to smaller L2",
+    "final": "fit one model on all 23 development instances using selected L2; freeze source, weights, and hashes before confirmation labels are opened",
+    "confirmation": "one pass only; no target-repository labels, adaptation, threshold tuning, or model selection"
+  },
+  "acceptance": {
+    "gate": "At least 10% relative macro MRR gain over the best retrieval-only arm, positive paired MRR delta in at least two of three held-out repositories, and no Recall@10 regression.",
+    "interpretation": "Three repositories are development evidence only. A pass does not authorize production promotion or a broad state-of-the-art/transfer claim."
+  },
+  "integrity": {
+    "predictionsSavedBeforeLabelScoring": true,
+    "allGoldPathsMustBeInCandidateUniverse": true,
+    "labelsStoredSeparately": true,
+    "benchmarkAndModelHashesRecordedBeforeConfirmation": true,
+    "pretrainingOverlap": "unknown",
+    "denseRuntimeCap": "two Torch CPU threads and at most two CPU hours",
+    "promotion": false
+  }
+}
