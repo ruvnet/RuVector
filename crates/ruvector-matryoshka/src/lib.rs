@@ -164,7 +164,7 @@ impl Searcher for TwoStageIndex {
             .iter()
             .map(|&id| (l2_sq(&q_full, &self.full_vecs[id as usize]), id as usize))
             .collect();
-        scored.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        scored.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
         scored.into_iter().take(k).map(|(_, id)| id).collect()
     }
 
@@ -224,7 +224,7 @@ impl Searcher for ThreeStageIndex {
             .iter()
             .map(|&id| (l2_sq(&q_mid, &self.mid_vecs[id as usize]), id))
             .collect();
-        mid_scored.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        mid_scored.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
         let mid_ids: Vec<u32> = mid_scored
             .into_iter()
             .take(mid_n)
@@ -237,7 +237,7 @@ impl Searcher for ThreeStageIndex {
             .iter()
             .map(|&id| (l2_sq(&q_full, &self.full_vecs[id as usize]), id as usize))
             .collect();
-        full_scored.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        full_scored.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
         full_scored.into_iter().take(k).map(|(_, id)| id).collect()
     }
 
@@ -255,7 +255,7 @@ pub fn brute_force_knn(vectors: &[Vec<f32>], query: &[f32], k: usize, dim: usize
         .enumerate()
         .map(|(i, v)| (l2_sq_prefix(query, v, dim), i))
         .collect();
-    dists.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    dists.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
     dists.into_iter().take(k).map(|(_, i)| i).collect()
 }
 
@@ -283,6 +283,12 @@ mod tests {
     const EF: usize = 50;
     const N_QUERIES: usize = 20;
     const SEED: u64 = 0xDEAD_BEEF;
+
+    fn assert_search_stable(name: &str, search: impl Fn() -> Vec<usize>) {
+        let first = std::panic::catch_unwind(std::panic::AssertUnwindSafe(&search));
+        assert!(first.is_ok(), "{name} panicked on a non-finite query");
+        assert_eq!(first.unwrap(), search(), "{name} ordering changed");
+    }
 
     fn build_and_recall<S: Searcher>(seed: u64) -> f32 {
         let cfg = MatryoshkaConfig::default_128();
@@ -335,5 +341,64 @@ mod tests {
             let recall = recall_at_k(&gt, &gt);
             assert!((recall - 1.0).abs() < 1e-6, "brute force must be perfect");
         }
+    }
+
+    #[test]
+    fn non_finite_query_does_not_panic_in_public_search_paths() {
+        let cfg = MatryoshkaConfig {
+            full_dim: 4,
+            coarse_dim: 2,
+            mid_dim: 3,
+            m: 2,
+            ef_construction: 8,
+            two_stage_candidates: 8,
+            three_stage_coarse_candidates: 8,
+            three_stage_mid_candidates: 4,
+        };
+        let vectors: Vec<Vec<f32>> = (0..8).map(|i| vec![i as f32, 1.0, 2.0, 3.0]).collect();
+        let query = [f32::NAN, 1.0, 2.0, 3.0];
+
+        assert_search_stable("brute force", || {
+            brute_force_knn(&vectors, &query, 4, cfg.full_dim)
+        });
+        assert_search_stable("full dim HNSW", || {
+            FullDimIndex::build(&cfg, &vectors).search(&query, 4, 8)
+        });
+        assert_search_stable("two stage", || {
+            TwoStageIndex::build(&cfg, &vectors).search(&query, 4, 8)
+        });
+        assert_search_stable("three stage", || {
+            ThreeStageIndex::build(&cfg, &vectors).search(&query, 4, 8)
+        });
+    }
+
+    #[test]
+    fn non_finite_stored_vector_does_not_crash_index_construction() {
+        let cfg = MatryoshkaConfig {
+            full_dim: 4,
+            coarse_dim: 2,
+            mid_dim: 3,
+            m: 2,
+            ef_construction: 8,
+            two_stage_candidates: 8,
+            three_stage_coarse_candidates: 8,
+            three_stage_mid_candidates: 4,
+        };
+        let mut vectors: Vec<Vec<f32>> = (0..8).map(|i| vec![i as f32, 1.0, 2.0, 3.0]).collect();
+        vectors[7][0] = f32::NAN;
+        let query = [0.0, 1.0, 2.0, 3.0];
+
+        let exact = brute_force_knn(&vectors, &query, 2, 4);
+        assert_eq!(exact[0], 0);
+        assert_ne!(exact[0], 7);
+        assert!(!FullDimIndex::build(&cfg, &vectors)
+            .search(&query, 2, 8)
+            .is_empty());
+        assert!(!TwoStageIndex::build(&cfg, &vectors)
+            .search(&query, 2, 8)
+            .is_empty());
+        assert!(!ThreeStageIndex::build(&cfg, &vectors)
+            .search(&query, 2, 8)
+            .is_empty());
     }
 }
