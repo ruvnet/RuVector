@@ -192,6 +192,79 @@ mod tests {
         assert!(!log.verify_chain(), "single-bit tamper must be detected");
     }
 
+    /// 2026-10-14 nightly: `SignedWitnessSink` (ADR-347) composes with
+    /// `compact_witnessed` with no code change in either module — it was
+    /// already true mechanically (both sides of [`WitnessSink`]), but had
+    /// no end-to-end example proving it. Uses `BoundedBatchTail` so eviction
+    /// witnesses get a bounded signature-availability latency, not just an
+    /// unbounded fixed-size batch.
+    #[test]
+    fn signed_witness_sink_composes_with_compact_witnessed() {
+        use crate::witness_signing::{verify_signed_chain, SignedWitnessSink, SigningStrategy};
+        use rvf_types::ed25519::Ed25519Keypair;
+
+        let mut store = make_store(20);
+        let mut chain = EvictionWitnessChain::new();
+        let keypair = Ed25519Keypair::from_secret(&[21u8; 32]);
+        let mut sink = SignedWitnessSink::from_keypair(
+            MemoryWitnessLog::default(),
+            &keypair,
+            SigningStrategy::BoundedBatchTail {
+                batch_size: 64,
+                max_wait_ns: 5_000_000, // 5ms
+            },
+        )
+        .unwrap();
+
+        // First compaction: 20 -> 15 (5 evictions), well under batch_size,
+        // so nothing closes on arrival alone.
+        compact_witnessed(
+            &mut store,
+            &LruPolicy,
+            15,
+            &[],
+            "bench",
+            1_000,
+            &mut chain,
+            &mut sink,
+        )
+        .unwrap();
+        assert_eq!(sink.unsigned_pending(), 5);
+
+        // A background timer fires 5ms later and finds nothing due yet
+        // (records were witnessed at timestamp_ns=1_000, deadline=5_001_000).
+        assert!(!sink.seal_if_due(2_000));
+        // ...then fires again past the deadline and closes the span even
+        // though no further eviction ever arrives for it.
+        assert!(sink.seal_if_due(5_001_000));
+        assert_eq!(sink.unsigned_pending(), 0);
+
+        // Second compaction: 15 -> 10 (5 more evictions), at a later
+        // timestamp; opens a fresh pending span.
+        compact_witnessed(
+            &mut store,
+            &LruPolicy,
+            10,
+            &[],
+            "bench",
+            10_000_000,
+            &mut chain,
+            &mut sink,
+        )
+        .unwrap();
+        sink.seal(); // shutdown: sign whatever is still open
+
+        let anchor = sink.anchor();
+        let report =
+            verify_signed_chain(sink.inner(), sink.spans(), &sink.public_key(), &anchor).unwrap();
+        assert_eq!(report.records_verified, 10, "5 + 5 evictions, both signed");
+        assert_eq!(sink.inner().records.len(), 10);
+        assert!(
+            sink.inner().verify_chain(),
+            "unsigned chain walk also holds"
+        );
+    }
+
     #[test]
     fn chain_resumes_across_multiple_batches() {
         let mut store = make_store(20);

@@ -1,6 +1,6 @@
 use super::*;
 use crate::ledger::{AlwaysAdmitGate, TransactionalLedger};
-use crate::ops::MemoryWitnessLog;
+use crate::ops::{EvidenceGrade, MemoryWitnessLog};
 
 const TEST_SECRET: [u8; 32] = [7u8; 32];
 const GENESIS: SignedAnchor = SignedAnchor::genesis();
@@ -368,6 +368,171 @@ fn non_contiguous_sequence_is_refused_before_inner_commit() {
     assert!(sink.emit_batch(&[bogus]).is_err());
     assert_eq!(sink.inner().records.len(), 4);
     assert!(verify(&sink, sink.inner(), sink.spans(), &sink.anchor()).is_ok());
+}
+
+// ----------------------------------------------------- BoundedBatchTail
+
+/// Emit `n` records directly (no ledger), with `timestamp_ns` spaced
+/// `gap_ns` apart starting at `start_ns`, returning the sink.
+fn emit_timed(
+    strategy: SigningStrategy,
+    n: u64,
+    start_ns: u64,
+    gap_ns: u64,
+) -> SignedWitnessSink<MemoryWitnessLog> {
+    let mut sink = sink_for(strategy);
+    let mut prev = 0u64;
+    let records: Vec<LedgerWitnessRecord> = (0..n)
+        .map(|i| {
+            let mut r = LedgerWitnessRecord {
+                sequence: i,
+                timestamp_ns: start_ns + i * gap_ns,
+                action_kind: 0,
+                proof_tier: 0,
+                flags: crate::ops::pack_flags(None, None, EvidenceGrade::Recomputed),
+                actor_partition_id: 0,
+                target_object_id: 0,
+                capability_hash: 0,
+                payload: i,
+                prev_hash: prev,
+                record_hash: 0,
+                aux: 0,
+                evidence_grade: EvidenceGrade::Recomputed,
+            };
+            r.record_hash = r.compute_record_hash();
+            prev = r.chain_hash();
+            r
+        })
+        .collect();
+    sink.emit_batch(&records).unwrap();
+    sink
+}
+
+#[test]
+fn zero_batch_size_is_an_error_for_bounded_variant_too() {
+    let r = SignedWitnessSink::from_keypair(
+        MemoryWitnessLog::default(),
+        &keypair(),
+        SigningStrategy::BoundedBatchTail {
+            batch_size: 0,
+            max_wait_ns: 1_000,
+        },
+    );
+    assert_eq!(r.err(), Some(WitnessSignerError::ZeroBatchSize));
+}
+
+#[test]
+fn bounded_batch_tail_still_closes_on_size_when_arrivals_are_fast() {
+    // 10 records, 100ns apart, max_wait_ns huge: size trigger fires first.
+    let sink = emit_timed(
+        SigningStrategy::BoundedBatchTail {
+            batch_size: 4,
+            max_wait_ns: 1_000_000_000,
+        },
+        10,
+        0,
+        100,
+    );
+    // 2 full batches of 4 closed by size; 2 records still pending.
+    assert_eq!(sink.spans().len(), 2);
+    assert_eq!(sink.unsigned_pending(), 2);
+}
+
+#[test]
+fn bounded_batch_tail_closes_inline_once_a_later_arrival_crosses_the_deadline() {
+    // batch_size huge (never reached); max_wait_ns = 1000. First record at
+    // t=0 opens the span; a later record at t=1000 is itself included in
+    // the same span and crosses the deadline, so the arrival that crosses
+    // it closes the span immediately (no separate timer needed here).
+    let sink = emit_timed(
+        SigningStrategy::BoundedBatchTail {
+            batch_size: 1_000_000,
+            max_wait_ns: 1_000,
+        },
+        3,
+        0,
+        1_000,
+    );
+    // record 0 @ t=0 opens; record 1 @ t=1000 hits the deadline exactly and
+    // closes the span (covers 0..=1); record 2 @ t=2000 opens a new span,
+    // still pending (nothing closes it: no record 3 arrives).
+    assert_eq!(sink.spans().len(), 1);
+    assert_eq!(sink.spans()[0].covers_from_seq, 0);
+    assert_eq!(sink.spans()[0].covers_to_seq, 1);
+    assert_eq!(sink.unsigned_pending(), 1);
+}
+
+#[test]
+fn seal_if_due_bounds_latency_when_no_further_records_ever_arrive() {
+    // A single record opens a span at t=0 and nothing else ever arrives —
+    // exactly the scenario plain BatchTail cannot recover from without an
+    // explicit seal(). A timer-driven seal_if_due must close it by the
+    // deadline.
+    let mut sink = emit_timed(
+        SigningStrategy::BoundedBatchTail {
+            batch_size: 64,
+            max_wait_ns: 5_000,
+        },
+        1,
+        0,
+        0,
+    );
+    assert_eq!(sink.pending_opened_at_ns(), Some(0));
+    assert!(!sink.seal_if_due(4_999), "deadline not yet reached");
+    assert_eq!(
+        sink.unsigned_pending(),
+        1,
+        "still open just before deadline"
+    );
+    assert!(sink.seal_if_due(5_000), "deadline reached, must close");
+    assert_eq!(sink.unsigned_pending(), 0);
+    assert_eq!(sink.spans().len(), 1);
+}
+
+#[test]
+fn seal_if_due_is_a_no_op_for_plain_batch_tail_and_per_record() {
+    let mut per_record = emit_timed(SigningStrategy::PerRecord, 3, 0, 10);
+    assert!(!per_record.seal_if_due(u64::MAX));
+    let mut batch_tail = emit_timed(SigningStrategy::BatchTail { batch_size: 64 }, 3, 0, 10);
+    assert_eq!(batch_tail.unsigned_pending(), 3);
+    assert!(
+        !batch_tail.seal_if_due(u64::MAX),
+        "plain BatchTail has no deadline concept, however large now_ns is"
+    );
+    assert_eq!(batch_tail.unsigned_pending(), 3, "still open, undetected");
+}
+
+#[test]
+fn seal_if_due_is_a_no_op_with_nothing_pending() {
+    let mut sink = SignedWitnessSink::from_keypair(
+        MemoryWitnessLog::default(),
+        &keypair(),
+        SigningStrategy::BoundedBatchTail {
+            batch_size: 4,
+            max_wait_ns: 10,
+        },
+    )
+    .unwrap();
+    assert!(!sink.seal_if_due(u64::MAX));
+}
+
+#[test]
+fn bounded_batch_tail_honest_chain_verifies_after_seal_if_due() {
+    let mut sink = emit_timed(
+        SigningStrategy::BoundedBatchTail {
+            batch_size: 64,
+            max_wait_ns: 1_000,
+        },
+        5,
+        0,
+        10, // well within the deadline; nothing closes on arrival alone
+    );
+    assert_eq!(sink.unsigned_pending(), 5);
+    assert!(sink.seal_if_due(10_000));
+    let anchor = sink.anchor();
+    let report = verify(&sink, sink.inner(), sink.spans(), &anchor).unwrap();
+    assert_eq!(report.records_verified, 5);
+    assert_eq!(anchor.record_count, 5);
 }
 
 #[test]
