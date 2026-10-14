@@ -1,15 +1,16 @@
 /**
  * The public client: `createTypesafe(opts)` returns a `Typesafe` bound to one
  * engine instance. Every decision is one call across the binding seam; nothing
- * here touches the network, the filesystem, or a subprocess.
+ * ONNX on WASM reads local, manifest-pinned model bytes during construction;
+ * decision calls do not touch the network, the filesystem, or a subprocess.
  */
 
 import {
   Binding,
   EngineInstance,
   EngineOptions,
+  createEngine,
   resolveDefaultBinding,
-  toOptionsJson,
 } from './binding';
 import { isErrorShape, TypesafeError } from './errors';
 import type { CampaignReport, CampaignSpec } from './optimize';
@@ -246,7 +247,22 @@ export function createTypesafe(opts: TypesafeOptions = {}): Typesafe {
     );
   }
   maybeWarnHashEmbedder(opts);
-  const engine = new binding.Engine(toOptionsJson(opts));
+  let engine: EngineInstance;
+  try {
+    engine = createEngine(binding, opts);
+  } catch (error) {
+    // wasm-bindgen may throw a JS string (including an error envelope) rather
+    // than an Error. Keep its useful message visible to API and CLI callers.
+    if (typeof error === 'string') {
+      let message = error;
+      try {
+        const parsed: unknown = JSON.parse(error);
+        if (isErrorShape(parsed)) message = parsed.error.message;
+      } catch { /* Plain-text binding error. */ }
+      throw new TypesafeError(message, 'embedder');
+    }
+    throw error;
+  }
 
   async function decide<Q extends Record<string, AnyQuestion>>(
     state: string,
