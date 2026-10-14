@@ -174,7 +174,7 @@ impl RabitqQuantizer {
         debug_assert!(v.len() <= self.padded_dim);
         let mut buf = vec![0.0f32; self.padded_dim];
         buf[..v.len()].copy_from_slice(v);
-        let scale = 1.0 / (self.padded_dim as f32).sqrt();
+        let scale = 1.0 / crate::sqrt_f32(self.padded_dim as f32);
         for round in 0..self.rounds {
             for (i, x) in buf.iter_mut().enumerate() {
                 if self.sign_flip(round, i) {
@@ -194,7 +194,7 @@ impl RabitqQuantizer {
     pub fn rotate_inverse(&self, v: &[f32]) -> Vec<f32> {
         debug_assert_eq!(v.len(), self.padded_dim);
         let mut buf = v.to_vec();
-        let scale = 1.0 / (self.padded_dim as f32).sqrt();
+        let scale = 1.0 / crate::sqrt_f32(self.padded_dim as f32);
         for round in (0..self.rounds).rev() {
             fwht(&mut buf);
             for x in buf.iter_mut() {
@@ -230,12 +230,12 @@ impl RabitqQuantizer {
                 bits[d / 8] |= 1 << (d % 8);
             }
         }
-        let norm = norm_sq.sqrt();
+        let norm = crate::sqrt_f32(norm_sq);
         // <o_unit, s_unit> = sum |r_i| / (||r|| * sqrt(D)). For a zero
         // residual (vector == centroid) the estimator multiplies by
         // norm = 0 anyway, so any positive placeholder is fine.
         let dot_corr = if norm > f32::EPSILON {
-            (abs_sum / (norm * (self.padded_dim as f32).sqrt())).max(f32::EPSILON)
+            (abs_sum / (norm * crate::sqrt_f32(self.padded_dim as f32))).max(f32::EPSILON)
         } else {
             1.0
         };
@@ -275,7 +275,8 @@ impl RabitqQuantizer {
                 signed_sum -= x;
             }
         }
-        let est_ip = code.norm * (signed_sum / (self.padded_dim as f32).sqrt()) / code.dot_corr;
+        let est_ip =
+            code.norm * (signed_sum / crate::sqrt_f32(self.padded_dim as f32)) / code.dot_corr;
         code.norm * code.norm + query.norm_sq - 2.0 * est_ip
     }
 
@@ -331,7 +332,7 @@ impl Quantizer for RabitqQuantizer {
         // Best rank-1 reconstruction: project onto the code direction,
         // r_hat = norm * dot_corr * s / sqrt(D), then invert the rotation
         // and re-add the centroid.
-        let scale = code.norm * code.dot_corr / (self.padded_dim as f32).sqrt();
+        let scale = code.norm * code.dot_corr / crate::sqrt_f32(self.padded_dim as f32);
         let mut rotated = Vec::with_capacity(self.padded_dim);
         for d in 0..self.padded_dim {
             let sign = if (code.bits[d / 8] >> (d % 8)) & 1 == 1 {

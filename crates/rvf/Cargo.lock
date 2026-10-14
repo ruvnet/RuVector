@@ -1769,6 +1769,7 @@ name = "rvf-quant"
 version = "0.2.0"
 dependencies = [
  "approx",
+ "libm",
  "rand",
  "rvf-types",
 ]
