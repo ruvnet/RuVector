@@ -131,6 +131,17 @@ fn require_private_root(root: &Path) -> Result<()> {
             )));
         }
     }
+    #[cfg(target_os = "macos")]
+    {
+        // On macOS, an extended ACL can grant access while mode still reads
+        // 0700. getfacl returns only extended entries there. Reject all of
+        // them: even deny-only ACLs are ambiguous as a privacy boundary.
+        if !exacl::getfacl(root, None)?.is_empty() {
+            return Err(ContextIndexError::InsecureRoot(
+                "extended ACL present on index root".to_string(),
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -225,6 +236,43 @@ pub(crate) fn is_shard_name(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn private_mode_without_extended_acl_is_allowed() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let root = tempfile::tempdir().unwrap();
+        std::fs::set_permissions(root.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        assert!(prepare_root(root.path()).is_ok());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn private_mode_with_extended_acl_is_rejected() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let root = tempfile::tempdir().unwrap();
+        std::fs::set_permissions(root.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        let status = std::process::Command::new("chmod")
+            .args([
+                "+a",
+                "everyone allow read,write,execute,search,add_file,add_subdirectory,delete_child",
+            ])
+            .arg(root.path())
+            .status()
+            .unwrap();
+        assert!(status.success(), "failed to set macOS extended ACL");
+        assert_eq!(
+            std::fs::metadata(root.path()).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+
+        assert!(matches!(
+            prepare_root(root.path()),
+            Err(ContextIndexError::InsecureRoot(_))
+        ));
+    }
 
     #[test]
     fn reserved_names_are_never_mistaken_for_shards() {
