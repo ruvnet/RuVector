@@ -4,6 +4,7 @@ extern crate alloc;
 
 use alloc::collections::BTreeMap;
 use alloc::collections::BTreeSet;
+use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::hnsw::{HnswConfig, HnswGraph, HnswLayer};
