@@ -124,9 +124,11 @@ class RuVectorStore(VectorStore):
         if ids is not None and len(ids) != len(text_list):
             raise ValueError(f"ids length ({len(ids)}) must match texts length ({len(text_list)})")
         if ids is not None:
+            seen_ids = set(self._id_to_int)
             for doc_id in ids:
-                if doc_id in self._id_to_int:
+                if doc_id in seen_ids:
                     raise ValueError(f"id {doc_id!r} already exists in this RuVectorStore")
+                seen_ids.add(doc_id)
 
         if not text_list:
             return []
