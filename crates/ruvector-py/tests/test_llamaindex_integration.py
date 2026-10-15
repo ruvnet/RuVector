@@ -212,3 +212,71 @@ def test_collection_metric_property_matches_backend() -> None:
     # scores via squared L2 internally) - `.metric` must report what's
     # actually used, not echo back the ignored constructor kwarg.
     assert rabitq_coll.metric == "squared_l2"
+
+
+def test_node_id_constraint_applies_before_top_k(store: RuVectorStore) -> None:
+    _add_fruit_and_vehicle_nodes(store)
+    result = store.query(VectorStoreQuery(
+        query_embedding=_BASIS["apple"], similarity_top_k=1, node_ids=["n-banana"],
+    ))
+    assert result.ids == ["n-banana"]
+
+
+def test_document_constraint_excludes_nearer_other_document(store: RuVectorStore) -> None:
+    _add_fruit_and_vehicle_nodes(store)
+    result = store.query(VectorStoreQuery(
+        query_embedding=_BASIS["apple"], similarity_top_k=1, doc_ids=["doc-vehicle"],
+    ))
+    assert result.ids is not None and len(result.ids) == 1
+    assert result.ids[0] in {"n-car", "n-truck"}
+
+
+def test_empty_node_id_constraint_returns_no_results(store: RuVectorStore) -> None:
+    _add_fruit_and_vehicle_nodes(store)
+    result = store.query(VectorStoreQuery(
+        query_embedding=_BASIS["apple"], similarity_top_k=1, node_ids=[],
+    ))
+    assert result.ids == []
+
+
+def test_node_document_and_metadata_constraints_intersect(store: RuVectorStore) -> None:
+    _add_fruit_and_vehicle_nodes(store)
+    result = store.query(VectorStoreQuery(
+        query_embedding=_BASIS["apple"], similarity_top_k=1,
+        node_ids=["n-banana", "n-car"], doc_ids=["doc-vehicle"],
+        filters=MetadataFilters(filters=[ExactMatchFilter(key="category", value="vehicle")]),
+    ))
+    assert result.ids == ["n-car"]
+    excluded = store.query(VectorStoreQuery(
+        query_embedding=_BASIS["apple"], similarity_top_k=1,
+        node_ids=["n-banana"], doc_ids=["doc-vehicle"],
+    ))
+    assert excluded.ids == []
+
+
+def test_empty_document_constraint_returns_no_results(store: RuVectorStore) -> None:
+    _add_fruit_and_vehicle_nodes(store)
+    assert store.query(VectorStoreQuery(
+        query_embedding=_BASIS["apple"], similarity_top_k=1, doc_ids=[],
+    )).ids == []
+
+
+@pytest.mark.parametrize(
+    "present,value,expected",
+    [(False, None, True), (True, None, True), (True, "", True),
+     (True, [], True), (True, "present", False), (True, ["present"], False)],
+)
+def test_is_empty_filter_matches_optional_metadata(
+    store: RuVectorStore, present: bool, value: object, expected: bool
+) -> None:
+    node = _node("apple", node_id="optional", category="fruit")
+    if present:
+        node.metadata["optional"] = value
+    store.add([node])
+    result = store.query(VectorStoreQuery(
+        query_embedding=_BASIS["apple"], similarity_top_k=1,
+        filters=MetadataFilters(filters=[MetadataFilter(
+            key="optional", operator=FilterOperator.IS_EMPTY, value=None,
+        )]),
+    ))
+    assert result.ids == (["optional"] if expected else [])
