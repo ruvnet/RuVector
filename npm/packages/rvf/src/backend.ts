@@ -620,7 +620,19 @@ export class NodeBackend implements RvfBackend {
     const mp = this.mappingsPath();
     if (!mp) return;
     const fs = await import('fs');
-    if (!fs.existsSync(mp)) return; // fresh store: no sidecar yet is legitimate
+    if (!fs.existsSync(mp)) {
+      const path = await import('path');
+      const prefix = `${path.basename(mp)}.corrupt-`;
+      const quarantines = fs.readdirSync(path.dirname(mp)).filter(name => name.startsWith(prefix));
+      if (quarantines.length > 0) {
+        throw new RvfError(
+          RvfErrorCode.SidecarCorrupt,
+          `at ${mp}: a quarantined mapping remains (${quarantines.join(', ')}); ` +
+            'restore a valid sidecar or recreate the store before retrying',
+        );
+      }
+      return; // An ordinary fresh store without a quarantined mapping remains legitimate.
+    }
     let parsed: {
       idToLabel: Record<string, number>;
       labelToId: Record<string, string>;
