@@ -135,6 +135,15 @@ impl MincutGatedForgetting {
     /// minimum cut of the graph, so the union only adds true positives (never
     /// false ones) at the cost of also protecting bystander vertices caught
     /// by an alternate, equally-valid partition.
+    /// Public accessor for the exact min-cut boundary set, exposed (ADR-353)
+    /// so other modules — specifically the `fast_boundary` heuristics'
+    /// fidelity benchmark — can compare their cheap proxy's output against
+    /// this exact signal without duplicating the k-NN build logic. Pure
+    /// delegation; no behavior change.
+    pub fn boundary_set(&self, entries: &[MemoryEntry]) -> HashSet<usize> {
+        self.boundary_indices(entries)
+    }
+
     fn boundary_indices(&self, entries: &[MemoryEntry]) -> HashSet<usize> {
         let n = entries.len();
         if n < 4 {
