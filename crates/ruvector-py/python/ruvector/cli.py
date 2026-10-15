@@ -95,7 +95,8 @@ def insert_batch(path: str, vectors_path: str, metadata_path: Optional[str]) -> 
     coll = Collection.load(p)
     ids = _run_with_spinner(f"inserting {len(vecs)} vectors...", lambda: coll.insert_batch(vecs, metadatas=metadatas))
     coll.save(p)
-    _secho(f"inserted {len(ids)} vectors (ids {ids[0]}..{ids[-1]}); collection now has {len(coll)} rows", fg="green")
+    id_range = f" (ids {ids[0]}..{ids[-1]})" if ids else ""
+    _secho(f"inserted {len(ids)} vectors{id_range}; collection now has {len(coll)} rows", fg="green")
 
 
 def _run_with_spinner(label: str, fn: "Callable[[], _T]") -> "_T":
