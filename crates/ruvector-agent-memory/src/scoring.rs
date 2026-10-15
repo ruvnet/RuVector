@@ -1,5 +1,14 @@
 //! Vector scoring primitives: cosine similarity, L2 distance, normalization.
 
+/// Rank finite scores first, then use a total order for exceptional values.
+/// This preserves descending order for valid cosine/importance scores without
+/// allowing a non-finite input to panic a search or compaction sort.
+pub(crate) fn compare_scores_desc(a: f32, b: f32) -> std::cmp::Ordering {
+    (!a.is_finite())
+        .cmp(&(!b.is_finite()))
+        .then_with(|| b.total_cmp(&a))
+}
+
 /// Compute the dot product of two equal-length slices.
 pub fn dot(a: &[f32], b: &[f32]) -> f32 {
     a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
@@ -65,5 +74,13 @@ mod tests {
         let ctx = vec![vec![0.0, 1.0], vec![1.0, 0.0]];
         let s = coherence_score(&v, &ctx);
         assert!((s - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn score_order_puts_finite_values_before_nonfinite_values() {
+        let mut scores = [f32::NAN, f32::INFINITY, -0.5, 0.5, f32::NEG_INFINITY];
+        scores.sort_by(|a, b| compare_scores_desc(*a, *b));
+        assert_eq!(scores[..2], [0.5, -0.5]);
+        assert!(scores[2..].iter().all(|s| !s.is_finite()));
     }
 }
