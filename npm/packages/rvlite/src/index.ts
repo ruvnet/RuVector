@@ -626,6 +626,7 @@ export interface RvfFileEnvelope {
 export class BrowserWriterLease {
   private heartbeatInterval: number | null = null;
   private storeId: string | null = null;
+  private lifecycle: Promise<void> = Promise.resolve();
   private static readonly DB_NAME = '_rvlite_locks';
   private static readonly STORE_NAME = 'locks';
   private static readonly HEARTBEAT_MS = 10_000;
@@ -677,6 +678,40 @@ export class BrowserWriterLease {
     });
   }
 
+  /** Compare and mutate a lease in one committed IndexedDB transaction. */
+  private static updateLease(
+    db: IDBDatabase, storeId: string, holder: string,
+    operation: 'acquire' | 'heartbeat' | 'release'
+  ): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(BrowserWriterLease.STORE_NAME, 'readwrite');
+      const store = tx.objectStore(BrowserWriterLease.STORE_NAME);
+      let changed = false;
+      tx.oncomplete = () => resolve(changed);
+      tx.onabort = () => reject(tx.error || new Error('Lease transaction aborted'));
+      tx.onerror = () => reject(tx.error || new Error('Lease transaction failed'));
+      const request = store.get(storeId);
+      request.onsuccess = () => {
+        const existing = request.result;
+        if (operation === 'acquire') {
+          if (existing && existing.holder !== holder &&
+              Date.now() - existing.ts <= BrowserWriterLease.DEFAULT_STALE_MS) return;
+        } else if (!existing || existing.holder !== holder) {
+          return;
+        }
+        if (operation === 'release') store.delete(storeId);
+        else store.put({id: storeId, holder, ts: Date.now()});
+        changed = true;
+      };
+    });
+  }
+
+  private runLifecycle<T>(action: () => Promise<T>): Promise<T> {
+    const result = this.lifecycle.then(action);
+    this.lifecycle = result.then(() => {}, () => {});
+    return result;
+  }
+
   // ---- public API ----
 
   /**
@@ -684,9 +719,15 @@ export class BrowserWriterLease {
    *
    * @param storeId  - Unique identifier for the rvlite store being locked.
    * @param timeout  - Maximum time in ms to wait for the lease (default 5000).
-   * @returns `true` if the lease was acquired, `false` on timeout.
+   * @returns `true` if acquired; `false` on timeout or while this instance
+   * already owns a different store. Release it before changing stores.
    */
   async acquire(storeId: string, timeout: number = 5000): Promise<boolean> {
+    return this.runLifecycle(() => this.acquireLease(storeId, timeout));
+  }
+
+  private async acquireLease(storeId: string, timeout: number): Promise<boolean> {
+    if (this.storeId !== null && this.storeId !== storeId) return false;
     if (typeof indexedDB === 'undefined') {
       throw new Error('BrowserWriterLease requires IndexedDB');
     }
@@ -694,48 +735,39 @@ export class BrowserWriterLease {
     const deadline = Date.now() + timeout;
     const db = await BrowserWriterLease.openDb();
 
-    while (Date.now() < deadline) {
-      const existing = await BrowserWriterLease.idbGet(db, storeId);
-
-      if (!existing || await BrowserWriterLease.isStale(storeId)) {
-        // Write our lock record.
-        await BrowserWriterLease.idbPut(db, {
-          id: storeId,
-          holder: this.holderId(),
-          ts: Date.now(),
-        });
-
-        // Re-read to confirm we won (poor-man's CAS).
-        const confirm = await BrowserWriterLease.idbGet(db, storeId);
-        if (confirm && confirm.holder === this.holderId()) {
+    try {
+      while (Date.now() < deadline) {
+        if (await BrowserWriterLease.updateLease(db, storeId, this.holderId(), 'acquire')) {
           this.storeId = storeId;
           this.startHeartbeat(db);
           this.registerUnloadHandler();
-          db.close();
           return true;
         }
+        await new Promise(r => setTimeout(r, 200));
       }
-
-      // Back off before retrying.
-      await new Promise(r => setTimeout(r, 200));
+      return false;
+    } finally {
+      db.close();
     }
-
-    db.close();
-    return false;
   }
 
   /**
    * Release the currently held lease.
    */
   async release(): Promise<void> {
+    return this.runLifecycle(() => this.releaseLease());
+  }
+
+  private async releaseLease(): Promise<void> {
     this.stopHeartbeat();
 
     if (this.storeId === null) return;
 
     try {
       const db = await BrowserWriterLease.openDb();
-      await BrowserWriterLease.idbDelete(db, this.storeId);
-      db.close();
+      try {
+        await BrowserWriterLease.updateLease(db, this.storeId, this.holderId(), 'release');
+      } finally { db.close(); }
     } catch {
       // Best-effort release.
     }
@@ -783,12 +815,10 @@ export class BrowserWriterLease {
     const beat = async () => {
       try {
         const freshDb = await BrowserWriterLease.openDb();
-        await BrowserWriterLease.idbPut(freshDb, {
-          id: storeId,
-          holder,
-          ts: Date.now(),
-        });
-        freshDb.close();
+        try {
+          const renewed = await BrowserWriterLease.updateLease(freshDb, storeId, holder, 'heartbeat');
+          if (!renewed && this.storeId === storeId) this.stopHeartbeat();
+        } finally { freshDb.close(); }
       } catch {
         // Heartbeat failures are non-fatal.
       }
