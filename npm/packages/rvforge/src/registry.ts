@@ -206,6 +206,7 @@ export async function putObject(
   object: unknown,
 ): Promise<{ path: string; existed: boolean }> {
   const path = objectPath(registryDir, id);
+  assertObjectIdentity(id, object);
   await mkdir(dirname(path), { recursive: true });
   const body = canonicalJsonFile(object);
   try {
@@ -225,11 +226,20 @@ export async function putObject(
 /** Read a content-addressed object, or null when it is absent. */
 export async function getObject<T>(registryDir: string, id: string): Promise<T | null> {
   try {
-    return JSON.parse(await readFile(objectPath(registryDir, id), 'utf8')) as T;
+    const object: unknown = JSON.parse(await readFile(objectPath(registryDir, id), 'utf8'));
+    assertObjectIdentity(id, object);
+    return object as T;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
     if (err instanceof ForgeError) throw err;
     throw new ForgeError(ForgeErrorCode.REGISTRY, `Registry object ${id} is unreadable or malformed.`, { id });
+  }
+}
+
+function assertObjectIdentity(id: string, object: unknown): void {
+  if (!object || typeof object !== 'object' || Array.isArray(object) ||
+      objectId(object as Record<string, unknown>) !== `sha256:${digestOf(id)}`) {
+    throw new ForgeError(ForgeErrorCode.REGISTRY, `Registry object does not match content address ${id}.`, { id });
   }
 }
 
