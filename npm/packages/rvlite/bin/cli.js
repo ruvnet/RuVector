@@ -12,6 +12,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const VERSION = '0.3.0';
+// Squaring smaller norms enters subnormal precision even if the product is normal.
+const MIN_NORMAL_NORM = Math.sqrt(2.2250738585072014e-308);
 
 const program = new Command();
 
@@ -87,7 +89,6 @@ function computeNorm(vec) {
 
 // Optimized cosine similarity (using precomputed norms)
 function cosineSimilarity(a, b, normA, normB) {
-  if (normA === 0 || normB === 0) return 0;
   let dot = 0;
   // Unrolled loop for better performance
   const len = a.length;
@@ -98,7 +99,26 @@ function cosineSimilarity(a, b, normA, normB) {
   for (; i < len; i++) {
     dot += a[i] * b[i];
   }
-  return dot / (normA * normB);
+  const denominator = normA * normB;
+  if (normA >= MIN_NORMAL_NORM && normB >= MIN_NORMAL_NORM && Number.isFinite(denominator) && Number.isFinite(dot)) {
+    return dot / denominator;
+  }
+  // Scaling each side independently avoids overflow and underflow while
+  // preserving the ordinary cached-norm fast path.
+  let scaleA = 0, scaleB = 0;
+  for (let j = 0; j < len; j++) {
+    scaleA = Math.max(scaleA, Math.abs(a[j]));
+    scaleB = Math.max(scaleB, Math.abs(b[j]));
+  }
+  if (scaleA === 0 || scaleB === 0) return 0;
+  let scaledDot = 0, squaredA = 0, squaredB = 0;
+  for (let j = 0; j < len; j++) {
+    const x = a[j] / scaleA, y = b[j] / scaleB;
+    scaledDot += x * y;
+    squaredA += x * x;
+    squaredB += y * y;
+  }
+  return scaledDot / (Math.sqrt(squaredA) * Math.sqrt(squaredB));
 }
 
 // Euclidean distance (squared, for comparison only)
