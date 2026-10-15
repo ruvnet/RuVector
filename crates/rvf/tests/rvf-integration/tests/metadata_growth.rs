@@ -465,6 +465,58 @@ fn corrupt_mid_chain_delta_recovers_the_longest_valid_prefix() {
     );
 }
 
+/// Corrupt full snapshots can force the scan past more than the replay limit
+/// even though the surviving chain from an older snapshot is short enough to
+/// apply. Both open modes must recover the last complete prefix.
+#[test]
+fn corrupt_recent_snapshots_do_not_exhaust_the_applied_replay_budget() {
+    const COMMITS: u64 = 130;
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("damaged_snapshots.rvf");
+    commit_metadata_history(&path, COMMITS);
+
+    let mut bytes = std::fs::read(&path).unwrap();
+    let segments = meta_segments(&bytes);
+    assert_eq!(segments.len() as u64, COMMITS);
+    for index in [99usize, 66] {
+        let (start, len) = segments[index];
+        assert!(len > 0);
+        bytes[start + len / 2] ^= 0xFF;
+    }
+    std::fs::write(&path, &bytes).unwrap();
+
+    for writable in [false, true] {
+        let store = if writable {
+            RvfStore::open(&path)
+        } else {
+            RvfStore::open_readonly(&path)
+        }
+        .unwrap_or_else(|error| panic!("open must recover past damaged snapshots: {error:?}"));
+        let recovery = store.metadata_recovery();
+        assert_eq!(recovery.generation, 66);
+        assert_eq!(recovery.dropped_generations, 64);
+        assert_eq!(store.get_metadata(0).unwrap(), expected_record(0));
+        assert_eq!(store.get_metadata(65).unwrap(), expected_record(65));
+        assert!(store.get_metadata(66).is_none());
+        assert!(store.get_metadata(129).is_none());
+    }
+
+    // The writable recovery must re-anchor the next generation, so a later
+    // reopen sees both recovered and newly committed metadata without damage.
+    let mut store = RvfStore::open(&path).unwrap();
+    store
+        .ingest_batch_with_metadata(&[&[200.0, 1.0]], &[200], &[record(200, "after-recovery")])
+        .unwrap();
+    store.close().unwrap();
+    let reopened = RvfStore::open_readonly(&path).unwrap();
+    assert_eq!(reopened.metadata_recovery().dropped_generations, 0);
+    assert_eq!(reopened.get_metadata(65).unwrap(), expected_record(65));
+    assert_eq!(
+        reopened.get_metadata(200).unwrap(),
+        vec![record_entry("after-recovery")]
+    );
+}
+
 /// Recovery must also survive compaction: compact rewrites the file around the
 /// truncated state, and writes after that must still land.
 #[test]
