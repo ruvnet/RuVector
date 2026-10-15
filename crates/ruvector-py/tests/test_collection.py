@@ -424,6 +424,14 @@ def test_load_hnsw_rejects_inconsistent_or_non_finite_vectors(vectors: Vectors, 
     path = tmp_path / "c.rbpx"
     Collection.from_vectors(vectors[:10], backend="hnsw").save(path)
 
+    # Legacy sidecars must retain validation of the vector payload itself.
+    import json
+
+    meta = Collection.meta_path(path)
+    sidecar = json.loads(meta.read_text())
+    sidecar.pop("index_sha256", None)
+    meta.write_text(json.dumps(sidecar))
+
     np.save(path.open("wb"), vectors[:9])  # row count != len(ids)
     with pytest.raises(CollectionError):
         Collection.load(path)
@@ -436,5 +444,112 @@ def test_load_hnsw_rejects_inconsistent_or_non_finite_vectors(vectors: Vectors, 
         Collection.load(path)
 
     path.write_bytes(b"not an npy file")
+    with pytest.raises(CollectionError):
+        Collection.load(path)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("legacy", [False, True])
+@pytest.mark.parametrize("new_count", [2, 3])
+def test_interrupted_second_replace_refuses_mixed_pair(
+    vectors: Vectors, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, backend: str,
+    legacy: bool, new_count: int
+) -> None:
+    import json
+    import os
+
+    path = tmp_path / "interrupted.rbpx"
+    Collection.from_vectors(vectors[:2], metadatas=[{"record": "old-0"}, {"record": "old-1"}], backend=backend).save(path)
+    if legacy:
+        meta = Collection.meta_path(path)
+        sidecar = json.loads(meta.read_text())
+        sidecar.pop("index_sha256", None)
+        meta.write_text(json.dumps(sidecar))
+    old_index = path.read_bytes()
+    replacement = Collection.from_vectors(
+        vectors[2:2 + new_count],
+        metadatas=[{"record": f"new-{i}"} for i in range(new_count)],
+        backend=backend,
+    )
+    real_replace = os.replace
+
+    replacements = 0
+
+    def fail_index_replace(src: object, dst: object) -> None:
+        nonlocal replacements
+        replacements += 1
+        if replacements == 2:
+            raise OSError("simulated interrupted second replacement")
+        real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", fail_index_replace)
+    with pytest.raises(OSError, match="second replacement"):
+        replacement.save(path)
+    monkeypatch.undo()
+    with pytest.raises(CollectionError, match="out of sync"):
+        Collection.load(path)
+    assert path.read_bytes() == old_index
+    assert "index_sha256" in json.loads(Collection.meta_path(path).read_text())
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_legacy_sidecar_without_index_digest_still_loads(
+    vectors: Vectors, tmp_path: Path, backend: str
+) -> None:
+    import json
+
+    path = tmp_path / "legacy.rbpx"
+    Collection.from_vectors(vectors[:2], metadatas=[{"record": "0"}, {"record": "1"}], backend=backend).save(path)
+    meta = Collection.meta_path(path)
+    sidecar = json.loads(meta.read_text())
+    sidecar.pop("index_sha256", None)
+    meta.write_text(json.dumps(sidecar))
+    restored = Collection.load(path)
+    assert len(restored) == 2
+    assert restored.get_metadata(0) == {"record": "0"}
+    restored.save(path)
+    upgraded = json.loads(meta.read_text())
+    import hashlib
+
+    assert upgraded["index_sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
+    assert Collection.load(path).get_metadata(0) == {"record": "0"}
+
+
+@pytest.mark.parametrize("digest", [None, 123, "", "x" * 64])
+def test_load_rejects_malformed_index_digest(
+    vectors: Vectors, tmp_path: Path, digest: object
+) -> None:
+    import json
+
+    path = tmp_path / "malformed-digest.rbpx"
+    Collection.from_vectors(vectors[:2], backend="hnsw").save(path)
+    meta = Collection.meta_path(path)
+    sidecar = json.loads(meta.read_text())
+    sidecar["index_sha256"] = digest
+    meta.write_text(json.dumps(sidecar))
+    with pytest.raises(CollectionError, match="SHA-256 hex digest"):
+        Collection.load(path)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_interrupted_first_save_refuses_missing_index(
+    vectors: Vectors, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, backend: str
+) -> None:
+    import os
+
+    path = tmp_path / "new.rbpx"
+    coll = Collection.from_vectors(vectors[:2], backend=backend)
+    real_replace = os.replace
+
+    def fail_index(src: object, dst: object) -> None:
+        if Path(dst) == path:
+            raise OSError("interrupted first index replacement")
+        real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", fail_index)
+    with pytest.raises(OSError):
+        coll.save(path)
+    monkeypatch.undo()
+    assert not path.exists()
     with pytest.raises(CollectionError):
         Collection.load(path)
