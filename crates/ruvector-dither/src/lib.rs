@@ -40,6 +40,35 @@
 
 #![cfg_attr(feature = "no_std", no_std)]
 
+#[cfg(feature = "no_std")]
+extern crate alloc;
+#[cfg(all(test, feature = "no_std"))]
+extern crate std;
+
+#[inline]
+pub(crate) fn round_f32(value: f32) -> f32 {
+    #[cfg(feature = "no_std")]
+    {
+        libm::roundf(value)
+    }
+    #[cfg(not(feature = "no_std"))]
+    {
+        value.round()
+    }
+}
+
+#[inline]
+pub(crate) fn fract_f32(value: f32) -> f32 {
+    #[cfg(feature = "no_std")]
+    {
+        value - libm::truncf(value)
+    }
+    #[cfg(not(feature = "no_std"))]
+    {
+        value.fract()
+    }
+}
+
 pub mod channel;
 pub mod golden;
 pub mod pi;
@@ -59,5 +88,24 @@ pub trait DitherSource {
     #[inline]
     fn next(&mut self, eps_lsb: f32) -> f32 {
         self.next_unit() * eps_lsb
+    }
+}
+
+#[cfg(test)]
+mod math_tests {
+    use super::{fract_f32, round_f32};
+
+    #[test]
+    fn round_and_fract_keep_signed_and_halfway_behavior() {
+        for (value, rounded, fractional) in [
+            (-1.5, -2.0, -0.5),
+            (-1.25, -1.0, -0.25),
+            (1.25, 1.0, 0.25),
+            (1.5, 2.0, 0.5),
+        ] {
+            assert_eq!(round_f32(value), rounded);
+            assert_eq!(fract_f32(value), fractional);
+        }
+        assert_eq!(fract_f32(-0.0).to_bits(), 0.0f32.to_bits());
     }
 }
