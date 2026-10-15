@@ -666,6 +666,17 @@ impl RabitqPlusIndex {
         items: Vec<(usize, Vec<f32>)>,
     ) -> Result<Self> {
         let mut out = Self::new_with_rotation(dim, seed, rerank_factor, kind);
+        out.add_batch(items)?;
+        Ok(out)
+    }
+
+    /// Append a batch using the existing rotation, in input order.
+    ///
+    /// All dimensions are checked before mutation. Native encoding uses
+    /// Rayon; wasm32 uses the same deterministic encoding sequentially.
+    /// Single-row additions avoid the parallel task-queue overhead.
+    pub fn add_batch(&mut self, items: Vec<(usize, Vec<f32>)>) -> Result<()> {
+        let dim = self.inner.dim;
         for (_, v) in &items {
             if v.len() != dim {
                 return Err(RabitqError::DimensionMismatch {
@@ -673,6 +684,12 @@ impl RabitqPlusIndex {
                     actual: v.len(),
                 });
             }
+        }
+        if items.len() <= 1 {
+            for (id, vector) in items {
+                self.add(id, vector)?;
+            }
+            return Ok(());
         }
         // Phase 1: rotate + bit-pack every vector. On native we use rayon
         // parallel iteration (rotation matrix is read-only — no race). On
@@ -685,7 +702,7 @@ impl RabitqPlusIndex {
             items
                 .into_par_iter()
                 .map(|(id, v)| {
-                    let (packed, _) = out.inner.encode_query_packed(&v);
+                    let (packed, _) = self.inner.encode_query_packed(&v);
                     let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
                     (id, packed, norm, v)
                 })
@@ -695,7 +712,7 @@ impl RabitqPlusIndex {
         let encoded: Vec<(usize, Vec<u64>, f32, Vec<f32>)> = items
             .into_iter()
             .map(|(id, v)| {
-                let (packed, _) = out.inner.encode_query_packed(&v);
+                let (packed, _) = self.inner.encode_query_packed(&v);
                 let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
                 (id, packed, norm, v)
             })
@@ -703,20 +720,20 @@ impl RabitqPlusIndex {
         // Phase 2: commit into the SoA serially. Pre-reserve so we
         // amortize the one Vec growth.
         let n = encoded.len();
-        let n_words = out.inner.n_words;
-        out.inner.packed.reserve(n * n_words);
-        out.inner.ids.reserve(n);
-        out.inner.norms.reserve(n);
-        out.originals_flat.reserve(n * dim);
+        let n_words = self.inner.n_words;
+        self.inner.packed.reserve(n * n_words);
+        self.inner.ids.reserve(n);
+        self.inner.norms.reserve(n);
+        self.originals_flat.reserve(n * dim);
         for (id, packed, norm, v) in encoded {
             debug_assert_eq!(packed.len(), n_words);
             debug_assert_eq!(v.len(), dim);
-            out.inner.packed.extend_from_slice(&packed);
-            out.inner.ids.push(id as u32);
-            out.inner.norms.push(norm);
-            out.originals_flat.extend_from_slice(&v);
+            self.inner.packed.extend_from_slice(&packed);
+            self.inner.ids.push(id as u32);
+            self.inner.norms.push(norm);
+            self.originals_flat.extend_from_slice(&v);
         }
-        Ok(out)
+        Ok(())
     }
 
     /// Search with a per-call rerank factor override. Same body as
@@ -939,6 +956,93 @@ impl AnnIndex for RabitqAsymIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn incremental_batch_matches_serial_and_bulk_encoding() {
+        for kind in [
+            RandomRotationKind::HaarDense,
+            RandomRotationKind::HadamardSigned,
+        ] {
+            for dim in [16, 65] {
+                let items: Vec<_> = make_dataset(40, dim, 1141)
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, (_, v))| (1000 + i * 7, v))
+                    .collect();
+                let mut serial = RabitqPlusIndex::new_with_rotation(dim, 42, 5, kind);
+                for (id, v) in &items {
+                    serial.add(*id, v.clone()).unwrap();
+                }
+                let mut batch = RabitqPlusIndex::from_vectors_parallel_with_rotation(
+                    dim,
+                    42,
+                    5,
+                    kind,
+                    items[..3].to_vec(),
+                )
+                .unwrap();
+                batch.add_batch(Vec::new()).unwrap();
+                batch.add_batch(items[3..4].to_vec()).unwrap();
+                batch.add_batch(items[4..].to_vec()).unwrap();
+                let bulk = RabitqPlusIndex::from_vectors_parallel_with_rotation(
+                    dim,
+                    42,
+                    5,
+                    kind,
+                    items.clone(),
+                )
+                .unwrap();
+                for other in [&serial, &bulk] {
+                    assert_eq!(batch.memory_bytes(), other.memory_bytes());
+                    assert_eq!(batch.inner.ids, other.inner.ids);
+                    assert_eq!(batch.inner.packed, other.inner.packed);
+                    assert_eq!(batch.inner.norms, other.inner.norms);
+                    assert_eq!(batch.originals_flat, other.originals_flat);
+                    for (_, q) in &items[..5] {
+                        let a: Vec<_> = batch
+                            .search(q, 8)
+                            .unwrap()
+                            .into_iter()
+                            .map(|r| (r.id, r.score.to_bits()))
+                            .collect();
+                        let b: Vec<_> = other
+                            .search(q, 8)
+                            .unwrap()
+                            .into_iter()
+                            .map(|r| (r.id, r.score.to_bits()))
+                            .collect();
+                        assert_eq!(a, b);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn incremental_batch_dimension_error_leaves_all_storage_unchanged() {
+        let mut idx =
+            RabitqPlusIndex::from_vectors_parallel(16, 42, 5, make_dataset(3, 16, 1141)).unwrap();
+        let before = (
+            idx.inner.ids.clone(),
+            idx.inner.packed.clone(),
+            idx.inner.norms.clone(),
+            idx.originals_flat.clone(),
+        );
+        assert!(idx
+            .add_batch(vec![(100, vec![1.0; 16]), (101, vec![1.0; 15])])
+            .is_err());
+        assert_eq!(
+            before,
+            (
+                idx.inner.ids.clone(),
+                idx.inner.packed.clone(),
+                idx.inner.norms.clone(),
+                idx.originals_flat.clone()
+            )
+        );
+        idx.add_batch(vec![(100, vec![1.0; 16])]).unwrap();
+        assert_eq!(idx.external_ids(), &[0, 1, 2, 100]);
+    }
 
     /// Uniform random data — only use for non-recall tests.
     fn make_dataset(n: usize, d: usize, seed: u64) -> Vec<(usize, Vec<f32>)> {
