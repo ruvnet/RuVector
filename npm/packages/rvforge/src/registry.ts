@@ -459,6 +459,10 @@ export function inclusionProof(
 export function verifyInclusionProof(proof: InclusionProof, expectedRoot: string): boolean {
   if (proof.rootHash !== expectedRoot) return false;
   try {
+    // Buffer.from(hex) silently truncates malformed input. A wire digest must
+    // name exactly one SHA-256 value before it can enter proof verification.
+    const validDigest = (value: string): boolean => /^sha256:[0-9a-f]{64}$/.test(value);
+    if (![proof.leafHash, proof.rootHash, expectedRoot, ...proof.path].every(validDigest)) return false;
     return verifyInclusion(
       fromDigest(proof.leafHash),
       proof.leafIndex,
