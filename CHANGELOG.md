@@ -1,5 +1,7 @@
 # Changelog
 
+- Python Salesforce ingestion: reject incomplete pages without cursors and repeated pagination cursors rather than returning partial results or looping.
+
 All notable changes to RuVector will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
