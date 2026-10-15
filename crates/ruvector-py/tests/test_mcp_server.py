@@ -603,3 +603,26 @@ def test_deleted_rows_count_until_vacuumed(capped: ModuleType, backend: str) -> 
     ids = _call(m, "vector_insert_batch", name=f"cap4{backend}", vectors=[[1.0, 0.0], [0.0, 1.0]])["ids"]
     _call(m, "vector_delete", name=f"cap4{backend}", id=ids[0], vacuum=True)
     _call(m, "vector_insert", name=f"cap4{backend}", vector=[1.0, 1.0])  # vacuumed -> room again
+
+
+@pytest.mark.parametrize("backend", ["hnsw", "rabitq"])
+def test_create_preserves_existing_index_without_sidecar(server_module: ModuleType, backend: str) -> None:
+    from ruvector.collection import Collection
+    import numpy as np
+
+    m = server_module
+    path = m._safe_path("restored")
+    collection = Collection.create(dim=2, backend=backend)
+    collection.insert(np.asarray([1.0, 0.0], dtype=np.float32), metadata={"record": "keep"})
+    collection.save(path)
+    Collection.meta_path(path).unlink()
+    original = path.read_bytes()
+    failure = None
+    try:
+        _call(m, "vector_create_collection", name="restored", dim=2, backend=backend)
+    except Exception as exc:
+        failure = exc
+    assert path.read_bytes() == original, "create overwrote an existing native index"
+    assert not Collection.meta_path(path).exists()
+    assert failure is not None
+    assert "restored" not in m._cache

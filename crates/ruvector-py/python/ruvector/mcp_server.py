@@ -402,7 +402,7 @@ def vector_create_collection(
     _require_write_scope()
     with _lock:
         path = _safe_path(name)
-        if Collection.meta_path(path).exists():
+        if path.exists() or Collection.meta_path(path).exists():
             raise ValueError(f"collection {name!r} already exists")
         coll = Collection.create(dim=dim, backend=backend, rerank_factor=rerank_factor, seed=seed)
         _save(name, coll)
