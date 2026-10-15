@@ -52,7 +52,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, TypeVar
 
 import numpy as np
 
-from ..collection import Collection, SearchHit
+from ..collection import Collection, SearchHit, _validate_vector
 
 try:
     from langchain_core.documents import Document
@@ -132,15 +132,18 @@ class RuVectorStore(VectorStore):
             return []
 
         embeddings = self._embedding.embed_documents(text_list)
+        if len(embeddings) != len(text_list):
+            raise ValueError(f"embeddings length ({len(embeddings)}) must match texts length ({len(text_list)})")
+        # Validate all outputs before the first insertion can mutate the index.
+        arrays = [_validate_vector(vec, self._collection._dim, "embedding") for vec in embeddings]
         resolved_ids = list(ids) if ids is not None else [uuid.uuid4().hex for _ in text_list]
 
         out_ids: List[str] = []
-        for i, (text, vec) in enumerate(zip(text_list, embeddings)):
+        for i, (text, vec) in enumerate(zip(text_list, arrays)):
             doc_id = resolved_ids[i]
             full_metadata: Dict[str, Any] = dict(metadatas[i]) if metadatas is not None else {}
             full_metadata[self._text_key] = text
-            arr = np.asarray(vec, dtype=np.float32)
-            int_id = self._collection.insert(arr, metadata=full_metadata)
+            int_id = self._collection.insert(vec, metadata=full_metadata)
             self._id_to_int[doc_id] = int_id
             self._int_to_id[int_id] = doc_id
             out_ids.append(doc_id)
