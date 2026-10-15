@@ -1,8 +1,14 @@
 # Paper Implementation Status
 
+> Historical component inventory. The presence of these modules and small-graph
+> tests does not establish a complete implementation or complexity proof for
+> arXiv:2512.13105. `DynamicMinCut` currently uses sparse exact Stoer-Wagner
+> recomputation. The coverage percentages below have not been reverified for
+> this release.
+
 ## Reference
 El Hayek, Henzinger, Li. "Deterministic and Exact Fully Dynamic Minimum Cut
-of Superpolylogarithmic Size in Subpolynomial Time." arXiv:2512.13105, December 2024.
+of Superpolylogarithmic Size in Subpolynomial Time." arXiv:2512.13105, December 2025.
 
 ## Implementation Status
 
