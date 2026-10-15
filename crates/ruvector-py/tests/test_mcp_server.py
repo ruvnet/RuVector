@@ -603,3 +603,20 @@ def test_deleted_rows_count_until_vacuumed(capped: ModuleType, backend: str) -> 
     ids = _call(m, "vector_insert_batch", name=f"cap4{backend}", vectors=[[1.0, 0.0], [0.0, 1.0]])["ids"]
     _call(m, "vector_delete", name=f"cap4{backend}", id=ids[0], vacuum=True)
     _call(m, "vector_insert", name=f"cap4{backend}", vector=[1.0, 1.0])  # vacuumed -> room again
+
+
+@pytest.mark.parametrize("backend", ["hnsw", "rabitq"])
+def test_list_discovers_empty_persisted_collections(server_module: ModuleType, backend: str) -> None:
+    m = server_module
+    _call(m, "vector_create_collection", name="empty", dim=2, backend=backend)
+    m._cache.clear()
+    assert "empty" in _call(m, "vector_list_collections")["collections"]
+    assert _call(m, "vector_stats", name="empty")["count"] == 0
+
+
+def test_list_excludes_incomplete_index_and_deduplicates_complete_pair(server_module: ModuleType) -> None:
+    m = server_module
+    _call(m, "vector_create_collection", name="complete", dim=2)
+    _call(m, "vector_insert", name="complete", vector=[1.0, 0.0])
+    m._safe_path("incomplete").write_bytes(b"not a complete collection")
+    assert _call(m, "vector_list_collections")["collections"] == ["complete"]

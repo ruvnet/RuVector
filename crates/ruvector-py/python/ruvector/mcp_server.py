@@ -503,7 +503,7 @@ def vector_stats(name: str) -> Dict[str, Any]:
 )
 def vector_list_collections() -> Dict[str, Any]:
     root = _data_root()
-    names = sorted(p.stem for p in root.glob("*.rbpx"))
+    names = sorted(p.name.removesuffix(".rbpx.meta.json") for p in root.glob("*.rbpx.meta.json"))
     return {"collections": names, "data_root": str(root)}
 
 
