@@ -57,6 +57,7 @@ class NodeBackend {
         this.labelToId = new Map();
         this.nextLabel = 1; // RVF uses 1-based labels
         this.storePath = '';
+        this.readOnly = false;
     }
     async loadNative() {
         if (this.native)
@@ -88,6 +89,7 @@ class NodeBackend {
         finally {
             this.handle = null;
             this.storePath = '';
+            this.readOnly = false;
             this.idToLabel.clear();
             this.labelToId.clear();
             this.nextLabel = 1;
@@ -119,6 +121,7 @@ class NodeBackend {
                 }
             }
             this.handle = await this.native.create(path, mapOptionsToNative(options));
+            this.readOnly = false;
             this.storePath = path;
             this.idToLabel.clear();
             this.labelToId.clear();
@@ -160,6 +163,7 @@ class NodeBackend {
         await this.loadNative();
         try {
             this.handle = await this.native.open(path);
+            this.readOnly = false;
             this.storePath = path;
             await this.loadMappings();
         }
@@ -172,6 +176,7 @@ class NodeBackend {
         await this.loadNative();
         try {
             this.handle = await this.native.openReadonly(path);
+            this.readOnly = true;
             this.storePath = path;
             await this.loadMappings();
         }
@@ -296,7 +301,9 @@ class NodeBackend {
             return;
         let failure;
         try {
-            await this.saveMappings();
+            // A reader may hold an older mapping than a writer that has since committed.
+            if (!this.readOnly)
+                await this.saveMappings();
         }
         catch (err) {
             failure = err;
@@ -313,6 +320,7 @@ class NodeBackend {
             this.labelToId.clear();
             this.nextLabel = 1;
             this.storePath = '';
+            this.readOnly = false;
         }
         if (failure)
             throw errors_1.RvfError.fromNative(failure);
