@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "scorer": "hole",
+  "dimensions": 32,
+  "entities": 256,
+  "subjects": 8,
+  "top_k": 5,
+  "samples": 30,
+  "warmups": 5,
+  "equivalent_rankings": true,
+  "weights": "seeded initialization, not quality evidence",
+  "direct_median_us": 406.69,
+  "direct_p95_us": 580.892,
+  "adapter_median_us": 418.458,
+  "adapter_p95_us": 1520.381,
+  "language_median_us": 437.987,
+  "language_p95_us": 1000.401,
+  "language_overhead_percent": 7.695542059062177,
+  "limitations": "single process synthetic microbenchmark; direct baseline omits validation, permissions and receipt hashing",
+  "compiler": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+  "profile": "release",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.39",
+  "architecture": "x86_64",
+  "source": "crates/ruvector-language-native/examples/native_bench.rs",
+  "source_sha256": "0c0358a11306d917653819a1106c0af5b896472abb538e86e26a30e400314d91",
+  "base_commit": "46d816ddc4c2a8a06cd3613534a79b1d557d858b",
+  "command": "cargo run --release --locked --manifest-path crates/ruvector-language-native/Cargo.toml --example native_bench",
+  "measurement_date": "2026-10-16",
+  "scope": "native output bound fix; direct and adapter both rank score/index pairs and clone only top k",
+  "measurement_history": [
+    {
+      "direct_median_us": 654.912,
+      "direct_p95_us": 770.115,
+      "adapter_median_us": 659.419,
+      "adapter_p95_us": 864.336,
+      "language_median_us": 696.685,
+      "language_p95_us": 841.102,
+      "language_overhead_percent": 6.3784141991595655,
+      "scope": "before strict JSON Step boundary and borrowed graph visitor corrections; retained for variability disclosure"
+    },
+    {
+      "direct_median_us": 616.726,
+      "direct_p95_us": 693.741,
+      "adapter_median_us": 596.344,
+      "adapter_p95_us": 687.322,
+      "language_median_us": 646.25,
+      "language_p95_us": 690.546,
+      "language_overhead_percent": 4.78721506795563,
+      "scope": "before native output byte preflight and index ranking optimization"
+    }
+  ],
+  "tail_latency_note": "Observed tail variance in the shared build environment. Median overhead is not a p95 guarantee.",
+  "allocation_regression": {
+    "vocabulary_identity_bytes": 512,
+    "entities": 1000,
+    "subjects": 50,
+    "top_k": 1000,
+    "before_peak_rss_kib": 90312,
+    "after_peak_rss_kib": 9216,
+    "result": "LIMIT before candidate allocation",
+    "measurement_source": "frontend independent exact reproduction"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "seed": 42,
+  "max_work": 100000000,
+  "data": {
+    "train": [
+      {"subject": "api", "relation": "Cause", "object": "cache"},
+      {"subject": "cache", "relation": "Cause", "object": "db"},
+      {"subject": "db", "relation": "Cause", "object": "api"}
+    ],
+    "evaluation": [
+      {"subject": "api", "relation": "Cause", "object": "db"}
+    ]
+  }
+}

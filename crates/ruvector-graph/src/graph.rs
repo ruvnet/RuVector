@@ -282,12 +282,42 @@ impl GraphDB {
         self.nodes.iter().map(|e| e.value().clone()).collect()
     }
 
+    /// Visit borrowed nodes without allocating or cloning their properties.
+    ///
+    /// Stops at the first callback error. A read guard is held while the callback
+    /// runs: callbacks must not mutate or reenter this GraphDB. Iteration order is
+    /// unspecified and this is not a transaction; callers needing a consistent
+    /// snapshot must exclude all writers with their application-owned gate.
+    pub fn try_for_each_node<E>(
+        &self,
+        mut visit: impl FnMut(&Node) -> std::result::Result<(), E>,
+    ) -> std::result::Result<(), E> {
+        for entry in self.nodes.iter() {
+            visit(entry.value())?;
+        }
+        Ok(())
+    }
+
     /// Get every edge in the graph.
     ///
     /// Full scan, for the same reason as [`GraphDB::all_nodes`]: a relationship
     /// pattern with no type filter (`-[r]->`) cannot use the edge-type index.
     pub fn all_edges(&self) -> Vec<Edge> {
         self.edges.iter().map(|e| e.value().clone()).collect()
+    }
+
+    /// Visit borrowed edges, stopping at the first callback error.
+    ///
+    /// The same read-guard, reentrancy, ordering and writer-exclusion contract as
+    /// [`GraphDB::try_for_each_node`] applies. Properties are never cloned here.
+    pub fn try_for_each_edge<E>(
+        &self,
+        mut visit: impl FnMut(&Edge) -> std::result::Result<(), E>,
+    ) -> std::result::Result<(), E> {
+        for entry in self.edges.iter() {
+            visit(entry.value())?;
+        }
+        Ok(())
     }
 
     /// Get nodes by property

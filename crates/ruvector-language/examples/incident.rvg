@@ -1,0 +1,12 @@
+// Facts and predictions have different types. The clock is supplied by the host.
+program diagnose {
+    effect graph.read;
+    effect decision.emit;
+    budget 100000;
+    let service = select ["api"];
+    let dependencies = traverse service "DEPENDS_ON" depth 2;
+    let errors = observe dependencies "Failing" within 300;
+    let impacts = infer [errors] using ["failure_implies_degraded"];
+    let decisions = assess impacts;
+    emit decisions;
+}

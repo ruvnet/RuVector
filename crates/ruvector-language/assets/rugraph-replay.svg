@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="300" viewBox="0 0 960 300" role="img" aria-labelledby="title desc">
+<title id="title">Reproduce a decision</title><desc id="desc">A program, snapshot, host context and optional model artifact feed execution. Replay recomputes the receipt using identical inputs. Hashes establish integrity, not source authenticity.</desc>
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#071321"/><stop offset="1" stop-color="#15172e"/></linearGradient><linearGradient id="ink"><stop stop-color="#58edcf"/><stop offset="1" stop-color="#95a7ff"/></linearGradient></defs>
+<style>text{font-family:system-ui,Segoe UI,sans-serif;fill:#ecf3ff}.muted{fill:#a7b7ce}.line{stroke:#516b85;stroke-width:2;fill:none}.flow{stroke:#58edcf;stroke-width:3;fill:none;stroke-dasharray:8 22;animation:flow 5s linear infinite}.pulse{transform-box:fill-box;transform-origin:center;animation:pulse 4s ease-in-out infinite}@keyframes flow{to{stroke-dashoffset:-120}}@keyframes pulse{50%{opacity:.45;transform:scale(.88)}}@media(prefers-reduced-motion:reduce){.flow,.pulse{animation:none}}</style>
+<rect width="960" height="300" rx="24" fill="url(#bg)"/><rect x="1" y="1" width="958" height="298" rx="23" fill="none" stroke="#2c4057"/>
+
+<text x="36" y="43" font-size="24" font-weight="650">One execution. Inspectable inputs. Replayable output.</text>
+<rect x="36" y="80" width="266" height="155" rx="14" fill="#101e30" stroke="#516b85"/><text x="56" y="112" font-size="18">Program + snapshot</text><text x="56" y="143" font-size="16" class="muted">Clock + grants + limits</text><text x="56" y="174" font-size="16" class="muted">Optional pinned model</text><text x="56" y="211" font-size="13" class="muted">EXPLICIT HOST INPUTS</text>
+<path class="line" d="M302 155H365M595 155H658"/><path class="flow" d="M302 155H365M595 155H658"/>
+<rect x="365" y="105" width="230" height="100" rx="14" fill="#13333c" stroke="#58edcf"/><text x="480" y="147" text-anchor="middle" font-size="23">RuGraph Runtime</text><text x="480" y="177" text-anchor="middle" font-size="15" class="muted">Typed + bounded execution</text>
+<rect x="658" y="80" width="266" height="155" rx="14" fill="#101e30" stroke="#95a7ff"/><text x="678" y="112" font-size="18">Receipt + provenance</text><text x="678" y="143" font-size="16" class="muted">Output + hashes + work</text><text x="678" y="174" font-size="16" class="muted">Replay and compare</text><text x="678" y="211" font-size="13" class="muted">PIN THE EXECUTION ENVIRONMENT</text>
+<text x="36" y="273" font-size="15" class="muted">Checksums verify integrity. They do not authenticate sources or prove observations are true.</text>
+</svg>

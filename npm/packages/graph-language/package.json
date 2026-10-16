@@ -1,0 +1,32 @@
+{
+  "name": "@ruvector/graph-language",
+  "version": "0.1.0",
+  "description": "TypeScript and JavaScript client for the RuGraph evidence runtime",
+  "type": "module",
+  "main": "index.mjs",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs"
+    }
+  },
+  "files": [
+    "index.mjs",
+    "index.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/RuVector.git",
+    "directory": "npm/packages/graph-language"
+  }
+}

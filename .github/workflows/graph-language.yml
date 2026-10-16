@@ -1,0 +1,73 @@
+name: Graph language
+
+on:
+  pull_request:
+    paths:
+      - 'crates/ruvector-language/**'
+      - 'crates/ruvector-language-native/**'
+      - 'crates/ruvector-graph/**'
+      - 'crates/ruvector-kge/**'
+      - 'crates/ruvector-core/**'
+      - 'npm/packages/graph-language/**'
+      - 'python/ruvector-language/**'
+      - 'docs/adr/ADR-GL-*.md'
+      - 'docs/research/graph-language/**'
+      - 'scripts/test-graph-language.sh'
+      - 'scripts/smoke-graph-language-packages.sh'
+      - 'scripts/benchmark-rugraph-paired.py'
+      - '.github/workflows/graph-language.yml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/ruvector-language/**'
+      - 'crates/ruvector-language-native/**'
+      - 'crates/ruvector-graph/**'
+      - 'crates/ruvector-kge/**'
+      - 'crates/ruvector-core/**'
+      - 'npm/packages/graph-language/**'
+      - 'python/ruvector-language/**'
+      - 'scripts/test-graph-language.sh'
+      - 'scripts/smoke-graph-language-packages.sh'
+      - 'scripts/benchmark-rugraph-paired.py'
+      - '.github/workflows/graph-language.yml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  advisories:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60
+        with:
+          tool: cargo-audit@0.22.2
+      - name: Audit standalone language lockfiles
+        run: |
+          cargo audit --file crates/ruvector-language/Cargo.lock
+          cargo audit --file crates/ruvector-language-native/Cargo.lock
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.90.0 --profile minimal --component rustfmt --component clippy
+      - name: Compile, lint and exercise real native adapters and SDKs
+        run: bash scripts/test-graph-language.sh
+      - name: Install package build tools
+        run: python -m pip install setuptools==84.0.0 wheel==0.48.0
+      - name: Validate packed npm types and installed Python wheel
+        run: bash scripts/smoke-graph-language-packages.sh

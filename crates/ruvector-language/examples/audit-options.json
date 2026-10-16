@@ -1,0 +1,1 @@
+{"interventions":[{"kind":"observation","id":"db-error-1"},{"kind":"source","id":"telemetry-a"},{"kind":"edge","id":"api-db"}],"max_execution_work":400000}

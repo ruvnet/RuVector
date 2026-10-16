@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-labelledby="title desc">
+<title id="title">RuGraph: the graph programming language for AI</title><desc id="desc">A connected graph surrounds a decision node. Connect knowledge, reason with evidence, trace every decision. Built on RuVector.</desc>
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#071321"/><stop offset="1" stop-color="#15172e"/></linearGradient><linearGradient id="ink"><stop stop-color="#58edcf"/><stop offset="1" stop-color="#95a7ff"/></linearGradient></defs>
+<style>text{font-family:system-ui,Segoe UI,sans-serif;fill:#ecf3ff}.muted{fill:#a7b7ce}.line{stroke:#516b85;stroke-width:2;fill:none}.flow{stroke:#58edcf;stroke-width:3;fill:none;stroke-dasharray:8 22;animation:flow 5s linear infinite}.pulse{transform-box:fill-box;transform-origin:center;animation:pulse 4s ease-in-out infinite}@keyframes flow{to{stroke-dashoffset:-120}}@keyframes pulse{50%{opacity:.45;transform:scale(.88)}}@media(prefers-reduced-motion:reduce){.flow,.pulse{animation:none}}</style>
+<rect width="960" height="360" rx="24" fill="url(#bg)"/><rect x="1" y="1" width="958" height="358" rx="23" fill="none" stroke="#2c4057"/>
+
+<text x="44" y="48" font-size="13" letter-spacing="3" class="muted">BUILT ON RUVECTOR / LANGUAGE PREVIEW</text>
+<text x="40" y="128" font-size="72" font-weight="750" style="fill:url(#ink)">RuGraph</text>
+<text x="44" y="171" font-size="23">The graph programming language for AI.</text>
+<text x="44" y="222" font-size="18" class="muted">Connect knowledge. Reason with evidence.</text>
+<text x="44" y="249" font-size="18" class="muted">Trace every decision.</text>
+<rect x="44" y="285" width="356" height="36" rx="18" fill="#163840"/><text x="63" y="309" font-size="13" fill="#58edcf">8 OPERATIONS · EXPLICIT LIMITS · REPLAY</text>
+<path class="line" d="M650 88L790 158L892 80M790 158L882 270L680 286L650 88M680 286L790 158L906 184"/>
+<path class="flow" d="M650 88L790 158L882 270M680 286L790 158L892 80"/>
+<g fill="#142e40" stroke="#58edcf" stroke-width="2"><circle cx="650" cy="88" r="14"/><circle cx="892" cy="80" r="12"/><circle cx="882" cy="270" r="16"/><circle cx="680" cy="286" r="12"/><circle cx="906" cy="184" r="9"/></g>
+<circle class="pulse" cx="790" cy="158" r="49" fill="#58edcf" opacity=".12"/><circle cx="790" cy="158" r="31" fill="#132f3d" stroke="#58edcf" stroke-width="2"/><text x="790" y="164" text-anchor="middle" font-size="16">rvg</text>
+</svg>

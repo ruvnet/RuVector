@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "revision": "incident-demo-1",
+  "nodes": [
+    {"id":"api","label":"Service","vector":[1.0,0.0]},
+    {"id":"database","label":"Service","vector":[0.8,0.2]},
+    {"id":"cache","label":"Service","vector":[0.2,0.8]}
+  ],
+  "edges": [
+    {"id":"api-db","source":"api","target":"database","relation":"DEPENDS_ON"},
+    {"id":"api-cache","source":"api","target":"cache","relation":"DEPENDS_ON"}
+  ],
+  "observations": [
+    {"id":"db-error-1","subject":"database","predicate":"Failing","value":true,"source":"telemetry-a","observed_at":980,"expires_at":1100},
+    {"id":"cache-healthy-1","subject":"cache","predicate":"Failing","value":false,"source":"telemetry-b","observed_at":990,"expires_at":1100}
+  ],
+  "rules": [
+    {"id":"failure_implies_degraded","requires":[{"predicate":"Failing","value":true}],"conclusion":{"predicate":"Degraded","value":true}}
+  ]
+}
