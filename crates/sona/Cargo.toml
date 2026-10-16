@@ -74,6 +74,10 @@ once_cell = "1.19"
 name = "sona_bench"
 harness = false
 
+[[bench]]
+name = "darwin_pareto_bench"
+harness = false
+
 # Workspace cleanup pass: research-tier crate, doc/style churn deferred. Correctness + suspicious lints stay denied.
 [lints.rust]
 unexpected_cfgs = { level = "allow", priority = -1 }
