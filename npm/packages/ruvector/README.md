@@ -85,3 +85,13 @@ Review generated hooks before using them. Harness execution and hosted Brain com
 | A write tool is unavailable | Check the configured MCP profile and explicit tool policy |
 
 [Benchmarks with scope and evidence](https://github.com/ruvnet/RuVector#reproduce-the-evidence) · [Known boundaries](https://github.com/ruvnet/RuVector#known-boundaries) · [Issues](https://github.com/ruvnet/RuVector/issues) · [MIT license](https://github.com/ruvnet/RuVector/blob/main/LICENSE)
+
+
+## Explicit graph, artifact and sensing integrations
+
+The core SDK exports `createGraphReasoner` / `loadGraphReasoner` for trained KGE
+models, `validateRvfArtifact` / `stageRvfArtifact` for RVForge release tooling,
+and `createRuViewIntegration` for the real `@ruvnet/ruview/sdk`. These features
+require an explicit package installation and load only when called. RVForge
+remains a development dependency for release-only use. See [FEATURES.md](./FEATURES.md)
+for installation, examples, integrity guarantees and runtime validation limits.

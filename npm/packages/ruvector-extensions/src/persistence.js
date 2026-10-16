@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Database Persistence Module for ruvector-extensions
  *
@@ -12,48 +11,10 @@
  *
  * @module persistence
  */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.DatabasePersistence = void 0;
-exports.formatFileSize = formatFileSize;
-exports.formatTimestamp = formatTimestamp;
-exports.estimateMemoryUsage = estimateMemoryUsage;
-const fs_1 = require("fs");
-const fs_2 = require("fs");
-const path = __importStar(require("path"));
-const crypto = __importStar(require("crypto"));
+import { promises as fs } from 'fs';
+import { createReadStream } from 'fs';
+import * as path from 'path';
+import * as crypto from 'crypto';
 // ============================================================================
 // Database Persistence Manager
 // ============================================================================
@@ -80,7 +41,12 @@ const crypto = __importStar(require("crypto"));
  * await persistence.restoreSnapshot(snapshot.id);
  * ```
  */
-class DatabasePersistence {
+export class DatabasePersistence {
+    db;
+    options;
+    ready;
+    incrementalState = null;
+    autoSaveTimer = null;
     /**
      * Create a new database persistence manager
      *
@@ -88,11 +54,11 @@ class DatabasePersistence {
      * @param options - Persistence configuration
      */
     constructor(db, options) {
-        this.incrementalState = null;
-        this.autoSaveTimer = null;
         this.db = db;
         this.options = {
             baseDir: options.baseDir,
+            dimensions: options.dimensions,
+            getVectorIds: options.getVectorIds,
             format: options.format || 'json',
             compression: options.compression || 'none',
             incremental: options.incremental ?? false,
@@ -100,15 +66,15 @@ class DatabasePersistence {
             maxSnapshots: options.maxSnapshots ?? 10,
             batchSize: options.batchSize ?? 1000,
         };
-        this.initialize();
+        this.ready = this.initialize();
     }
     /**
      * Initialize persistence system
      */
     async initialize() {
         // Create base directory if it doesn't exist
-        await fs_1.promises.mkdir(this.options.baseDir, { recursive: true });
-        await fs_1.promises.mkdir(path.join(this.options.baseDir, 'snapshots'), { recursive: true });
+        await fs.mkdir(this.options.baseDir, { recursive: true });
+        await fs.mkdir(path.join(this.options.baseDir, 'snapshots'), { recursive: true });
         // Start auto-save if configured
         if (this.options.autoSaveInterval > 0) {
             this.startAutoSave();
@@ -167,7 +133,6 @@ class DatabasePersistence {
             // First save, do full save
             return this.save(options);
         }
-        const stats = this.db.stats();
         const currentVectors = await this.getAllVectorIds();
         // Detect changes
         const added = currentVectors.filter(id => !this.incrementalState.vectorIds.has(id));
@@ -205,6 +170,7 @@ class DatabasePersistence {
                 message: 'Reading from disk...',
             });
         }
+        await this.ready;
         const state = await this.readStateFromFile(options.path, format);
         if (options.verifyChecksum && state.checksum) {
             if (options.onProgress) {
@@ -245,14 +211,14 @@ class DatabasePersistence {
     async createSnapshot(name, metadata) {
         const id = crypto.randomUUID();
         const timestamp = Date.now();
-        const stats = this.db.stats();
+        const stats = await this.getDatabaseStats();
         const snapshotPath = path.join(this.options.baseDir, 'snapshots', `${id}.${this.options.format}`);
         await this.save({
             path: snapshotPath,
             format: this.options.format,
             compress: this.options.compression !== 'none',
         });
-        const fileStats = await fs_1.promises.stat(snapshotPath);
+        const fileStats = await fs.stat(snapshotPath);
         const checksum = await this.computeFileChecksum(snapshotPath);
         const snapshotMetadata = {
             id,
@@ -268,7 +234,7 @@ class DatabasePersistence {
         };
         // Save metadata
         const metadataPath = path.join(this.options.baseDir, 'snapshots', `${id}.meta.json`);
-        await fs_1.promises.writeFile(metadataPath, JSON.stringify(snapshotMetadata, null, 2));
+        await fs.writeFile(metadataPath, JSON.stringify(snapshotMetadata, null, 2));
         // Clean up old snapshots
         await this.cleanupOldSnapshots();
         return snapshotMetadata;
@@ -280,11 +246,11 @@ class DatabasePersistence {
      */
     async listSnapshots() {
         const snapshotsDir = path.join(this.options.baseDir, 'snapshots');
-        const files = await fs_1.promises.readdir(snapshotsDir);
+        const files = await fs.readdir(snapshotsDir);
         const metadataFiles = files.filter(f => f.endsWith('.meta.json'));
         const snapshots = [];
         for (const file of metadataFiles) {
-            const content = await fs_1.promises.readFile(path.join(snapshotsDir, file), 'utf-8');
+            const content = await fs.readFile(path.join(snapshotsDir, file), 'utf-8');
             snapshots.push(JSON.parse(content));
         }
         return snapshots.sort((a, b) => b.timestamp - a.timestamp);
@@ -300,7 +266,7 @@ class DatabasePersistence {
         const metadataPath = path.join(snapshotsDir, `${snapshotId}.meta.json`);
         let metadata;
         try {
-            const content = await fs_1.promises.readFile(metadataPath, 'utf-8');
+            const content = await fs.readFile(metadataPath, 'utf-8');
             metadata = JSON.parse(content);
         }
         catch (error) {
@@ -339,7 +305,7 @@ class DatabasePersistence {
         const metadataPath = path.join(snapshotsDir, `${snapshotId}.meta.json`);
         let metadata;
         try {
-            const content = await fs_1.promises.readFile(metadataPath, 'utf-8');
+            const content = await fs.readFile(metadataPath, 'utf-8');
             metadata = JSON.parse(content);
         }
         catch (error) {
@@ -347,8 +313,8 @@ class DatabasePersistence {
         }
         const snapshotPath = path.join(snapshotsDir, `${snapshotId}.${metadata.format}`);
         await Promise.all([
-            fs_1.promises.unlink(snapshotPath).catch(() => { }),
-            fs_1.promises.unlink(metadataPath).catch(() => { }),
+            fs.unlink(snapshotPath).catch(() => { }),
+            fs.unlink(metadataPath).catch(() => { }),
         ]);
     }
     // ==========================================================================
@@ -374,9 +340,7 @@ class DatabasePersistence {
      * @param options - Import options
      */
     async import(options) {
-        if (options.clear) {
-            this.db.clear();
-        }
+        // load validates the file before replacing the existing database.
         await this.load({
             path: options.path,
             format: options.format,
@@ -434,6 +398,7 @@ class DatabasePersistence {
      * Serialize database to state object
      */
     async serializeDatabase(onProgress) {
+        await this.ready;
         if (onProgress) {
             onProgress({
                 operation: 'serialize',
@@ -443,7 +408,7 @@ class DatabasePersistence {
                 message: 'Collecting database statistics...',
             });
         }
-        const stats = this.db.stats();
+        const stats = await this.getDatabaseStats();
         const vectors = [];
         if (onProgress) {
             onProgress({
@@ -457,10 +422,10 @@ class DatabasePersistence {
         // Extract all vectors
         const vectorIds = await this.getAllVectorIds();
         for (let i = 0; i < vectorIds.length; i++) {
-            const vector = this.db.get(vectorIds[i]);
-            if (vector) {
-                vectors.push(vector);
-            }
+            const vector = await this.db.get(vectorIds[i]);
+            if (!vector)
+                throw new Error(`Vector disappeared during persistence: ${vectorIds[i]}`);
+            vectors.push({ ...vector, id: vector.id ?? vectorIds[i], vector: Array.from(vector.vector ?? vector.values) });
             if (onProgress && i % this.options.batchSize === 0) {
                 const percentage = 30 + Math.floor((i / vectorIds.length) * 40);
                 onProgress({
@@ -498,6 +463,10 @@ class DatabasePersistence {
      * Deserialize state object into database
      */
     async deserializeDatabase(state, onProgress) {
+        const current = await this.getDatabaseStats();
+        if (current.dimension !== state.options.dimension) {
+            throw new Error('Saved vector dimension does not match the destination database.');
+        }
         if (onProgress) {
             onProgress({
                 operation: 'deserialize',
@@ -507,7 +476,7 @@ class DatabasePersistence {
                 message: 'Clearing existing data...',
             });
         }
-        this.db.clear();
+        await this.clearDatabase();
         if (onProgress) {
             onProgress({
                 operation: 'deserialize',
@@ -520,7 +489,7 @@ class DatabasePersistence {
         // Insert vectors in batches
         for (let i = 0; i < state.vectors.length; i += this.options.batchSize) {
             const batch = state.vectors.slice(i, i + this.options.batchSize);
-            this.db.insertBatch(batch);
+            await this.db.insertBatch(batch);
             if (onProgress) {
                 const percentage = 50 + Math.floor((i / state.vectors.length) * 40);
                 onProgress({
@@ -542,13 +511,14 @@ class DatabasePersistence {
             });
         }
         // Rebuild index
-        this.db.buildIndex();
+        if (typeof this.db.buildIndex === 'function')
+            await this.db.buildIndex();
     }
     /**
      * Write state to file in specified format
      */
     async writeStateToFile(state, filePath, format, compress) {
-        await fs_1.promises.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
         let data;
         switch (format) {
             case 'json':
@@ -565,8 +535,8 @@ class DatabasePersistence {
                 throw new Error(`Unsupported format: ${format}`);
         }
         if (compress) {
-            const { gzip, brotliCompress } = await Promise.resolve().then(() => __importStar(require('zlib')));
-            const { promisify } = await Promise.resolve().then(() => __importStar(require('util')));
+            const { gzip, brotliCompress } = await import('zlib');
+            const { promisify } = await import('util');
             if (this.options.compression === 'gzip') {
                 const gzipAsync = promisify(gzip);
                 data = await gzipAsync(data);
@@ -576,17 +546,17 @@ class DatabasePersistence {
                 data = await brotliAsync(data);
             }
         }
-        await fs_1.promises.writeFile(filePath, data);
+        await fs.writeFile(filePath, data);
     }
     /**
      * Read state from file in specified format
      */
     async readStateFromFile(filePath, format) {
-        let data = await fs_1.promises.readFile(filePath);
+        let data = await fs.readFile(filePath);
         // Detect and decompress if needed
         if (this.isCompressed(data)) {
-            const { gunzip, brotliDecompress } = await Promise.resolve().then(() => __importStar(require('zlib')));
-            const { promisify } = await Promise.resolve().then(() => __importStar(require('util')));
+            const { gunzip, brotliDecompress } = await import('zlib');
+            const { promisify } = await import('util');
             // Try gzip first
             try {
                 const gunzipAsync = promisify(gunzip);
@@ -611,22 +581,36 @@ class DatabasePersistence {
     /**
      * Get all vector IDs from database
      */
+    async getDatabaseStats() {
+        const stats = typeof this.db.stats === 'function' ? await this.db.stats() : {};
+        const count = stats.count ?? stats.vectorCount ??
+            (typeof this.db.len === 'function' ? await this.db.len() : undefined);
+        const dimension = this.options.dimensions ?? stats.dimension ?? stats.dimensions;
+        if (!Number.isInteger(count) || count < 0 || !Number.isInteger(dimension) || dimension <= 0) {
+            throw new Error('Persistence requires a valid vector count and dimension; provide dimensions for VectorDB.');
+        }
+        return { ...stats, count, dimension };
+    }
     async getAllVectorIds() {
-        // This is a workaround - in production, VectorDB should provide an iterator
-        const stats = this.db.stats();
-        const ids = [];
-        // Try to get vectors by attempting sequential IDs
-        // This is inefficient and should be replaced with a proper API
-        for (let i = 0; i < stats.count * 2; i++) {
-            const vector = this.db.get(String(i));
-            if (vector) {
-                ids.push(vector.id);
-            }
-            if (ids.length >= stats.count) {
-                break;
-            }
+        const stats = await this.getDatabaseStats();
+        if (stats.count === 0)
+            return [];
+        const ids = this.options.getVectorIds ? await this.options.getVectorIds() :
+            typeof this.db.ids === 'function' ? await this.db.ids() : stats.count === 0 ? [] : null;
+        if (!Array.isArray(ids) || ids.some(id => typeof id !== 'string') ||
+            new Set(ids).size !== ids.length || ids.length !== stats.count) {
+            throw new Error('Persistence requires getVectorIds() to return every current vector ID exactly once.');
         }
         return ids;
+    }
+    async clearDatabase() {
+        if (typeof this.db.clear === 'function') {
+            await this.db.clear();
+        }
+        else {
+            for (const id of await this.getAllVectorIds())
+                await this.db.delete(id);
+        }
     }
     /**
      * Compute checksum of state object
@@ -642,7 +626,7 @@ class DatabasePersistence {
     async computeFileChecksum(filePath) {
         return new Promise((resolve, reject) => {
             const hash = crypto.createHash('sha256');
-            const stream = (0, fs_2.createReadStream)(filePath);
+            const stream = createReadStream(filePath);
             stream.on('data', data => hash.update(data));
             stream.on('end', () => resolve(hash.digest('hex')));
             stream.on('error', reject);
@@ -685,7 +669,7 @@ class DatabasePersistence {
     async loadIncrementalState() {
         const statePath = path.join(this.options.baseDir, '.incremental.json');
         try {
-            const content = await fs_1.promises.readFile(statePath, 'utf-8');
+            const content = await fs.readFile(statePath, 'utf-8');
             const data = JSON.parse(content);
             this.incrementalState = {
                 lastSave: data.lastSave,
@@ -708,7 +692,7 @@ class DatabasePersistence {
             checksum: state.checksum || '',
         };
         const statePath = path.join(this.options.baseDir, '.incremental.json');
-        await fs_1.promises.writeFile(statePath, JSON.stringify({
+        await fs.writeFile(statePath, JSON.stringify({
             lastSave: this.incrementalState.lastSave,
             vectorIds: Array.from(this.incrementalState.vectorIds),
             checksum: this.incrementalState.checksum,
@@ -728,7 +712,6 @@ class DatabasePersistence {
         }
     }
 }
-exports.DatabasePersistence = DatabasePersistence;
 // ============================================================================
 // Utility Functions
 // ============================================================================
@@ -738,7 +721,7 @@ exports.DatabasePersistence = DatabasePersistence;
  * @param bytes - File size in bytes
  * @returns Formatted string (e.g., "1.5 MB")
  */
-function formatFileSize(bytes) {
+export function formatFileSize(bytes) {
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];
     let size = bytes;
     let unitIndex = 0;
@@ -754,7 +737,7 @@ function formatFileSize(bytes) {
  * @param timestamp - Unix timestamp in milliseconds
  * @returns ISO formatted date string
  */
-function formatTimestamp(timestamp) {
+export function formatTimestamp(timestamp) {
     return new Date(timestamp).toISOString();
 }
 /**
@@ -763,7 +746,7 @@ function formatTimestamp(timestamp) {
  * @param state - Database state
  * @returns Estimated memory usage in bytes
  */
-function estimateMemoryUsage(state) {
+export function estimateMemoryUsage(state) {
     // Rough estimation
     const vectorSize = state.stats.dimension * 4; // 4 bytes per float
     const metadataSize = 100; // Average metadata size

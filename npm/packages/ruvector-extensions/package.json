@@ -9,7 +9,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "node --test tests/*.test.js",
-    "example:ui": "tsx src/examples/ui-example.ts"
+    "example:ui": "tsx src/examples/ui-example.ts",
+    "test:native-compat": "node --test native-tests/persistence.js"
   },
   "keywords": [
     "ruvector",
@@ -29,7 +30,7 @@
     "directory": "npm/packages/ruvector-extensions"
   },
   "dependencies": {
-    "ruvector": "^0.2.0",
+    "ruvector": "^0.2.0 || ^0.3.3",
     "@anthropic-ai/sdk": "^0.24.0",
     "express": "^4.18.2",
     "ws": "^8.16.0"

@@ -4,29 +4,34 @@
  * falls back to in-memory simulation for environments without native support.
  */
 
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+
 let ruvectorCore = null;
 
 // Try to load native ruvector bindings
 async function loadRuvector() {
   if (ruvectorCore !== null) return ruvectorCore;
 
-  try {
-    // Try @ruvector/core first (native NAPI-RS bindings)
-    const core = await import('@ruvector/core');
-    ruvectorCore = core;
-    return core;
-  } catch (e1) {
+  for (const [name, rawNative] of [['ruvector', false], ['@ruvector/core', true]]) {
     try {
-      // Fall back to ruvector package
-      const ruvector = await import('ruvector');
-      ruvectorCore = ruvector;
-      return ruvector;
-    } catch (e2) {
-      // No ruvector available
-      ruvectorCore = false;
-      return false;
+      const namespace = await import(name);
+      const module = namespace.default ?? namespace;
+      if (typeof module.isNative === 'function' && !module.isNative()) continue;
+      const VectorDB = module.VectorDB ?? module.VectorDb ?? namespace.VectorDB ?? namespace.VectorDb;
+      if (typeof VectorDB === 'function') {
+        ruvectorCore = { VectorDB, rawNative };
+        return ruvectorCore;
+      }
+    } catch (error) {
+      // Missing native packages may fall back to the in-memory adapter.
+      if (error.code !== 'ERR_MODULE_NOT_FOUND' && error.code !== 'MODULE_NOT_FOUND' &&
+          !/Native module not found/.test(error.message)) throw error;
     }
   }
+  ruvectorCore = false;
+  return false;
 }
 
 export class RuvectorAdapter {
@@ -51,10 +56,11 @@ export class RuvectorAdapter {
 
       if (ruvector && ruvector.VectorDB) {
         // Use native RuVector NAPI-RS bindings
-        // VectorDB constructor takes { dimensions: number, path?: string }
-        const dbOptions = { dimensions: this.dimensions };
+        // VectorDB constructor takes { dimensions: number, storagePath?: string }
+        const dbOptions = { dimensions: this.dimensions, storagePath: join(tmpdir(), `agentic-synth-${randomUUID()}.db`) };
+        this.rawNative = ruvector.rawNative;
         if (!this.inMemory && this.path) {
-          dbOptions.path = this.path;
+          dbOptions.storagePath = this.path;
         }
         this.nativeDb = new ruvector.VectorDB(dbOptions);
         this.useNative = true;
@@ -109,10 +115,10 @@ export class RuvectorAdapter {
           ? item.vector
           : new Float32Array(item.vector);
 
-        this.nativeDb.insert({
+        await this.nativeDb.insert({
           id: item.id,
           vector: vectorArray,
-          metadata: item.metadata
+          metadata: this.rawNative && item.metadata ? JSON.stringify(item.metadata) : item.metadata
         });
         results.push({ id: item.id, status: 'inserted', native: true });
       }
@@ -148,14 +154,19 @@ export class RuvectorAdapter {
     }
 
     if (this.useNative && this.nativeDb && this.nativeDb.insertBatch) {
-      // Use native batch insert if available
-      const ids = vectors.map(v => v.id);
-      const embeddings = vectors.map(v =>
-        v.vector instanceof Float32Array ? v.vector : new Float32Array(v.vector)
-      );
-      const metadataList = vectors.map(v => v.metadata || {});
-
-      this.nativeDb.insertBatch(ids, embeddings, metadataList);
+      if (!Array.isArray(vectors)) throw new Error('Vectors must be an array');
+      const entries = vectors.map(item => {
+        if (!item.id || !item.vector) throw new Error('Each vector must have id and vector fields');
+        if (item.vector.length !== this.dimensions) {
+          throw new Error(`Vector dimension mismatch: expected ${this.dimensions}, got ${item.vector.length}`);
+        }
+        return {
+          id: item.id,
+          vector: new Float32Array(item.vector),
+          metadata: this.rawNative && item.metadata ? JSON.stringify(item.metadata) : item.metadata,
+        };
+      });
+      await this.nativeDb.insertBatch(entries);
       return vectors.map(v => ({ id: v.id, status: 'inserted', native: true }));
     }
 
@@ -185,8 +196,8 @@ export class RuvectorAdapter {
       const results = await this.nativeDb.search({ vector: queryFloat32, k });
       return results.map(r => ({
         id: r.id,
-        score: r.score || r.similarity || r.distance,
-        metadata: r.metadata
+        score: r.score ?? r.similarity ?? r.distance,
+        metadata: this.rawNative && typeof r.metadata === 'string' ? JSON.parse(r.metadata) : r.metadata
       }));
     }
 
@@ -215,7 +226,7 @@ export class RuvectorAdapter {
 
     if (this.useNative && this.nativeDb && this.nativeDb.get) {
       const result = await this.nativeDb.get(id);
-      return result ? { id: result.id, vector: result.vector, metadata: result.metadata } : null;
+      return result ? { id: result.id, vector: result.vector, metadata: this.rawNative && typeof result.metadata === 'string' ? JSON.parse(result.metadata) : result.metadata } : null;
     }
 
     const vector = this.vectorDb.vectors.get(id);

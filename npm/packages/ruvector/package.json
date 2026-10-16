@@ -1,7 +1,7 @@
 {
   "name": "ruvector",
   "version": "0.3.3",
-  "description": "Self-learning vector database for Node.js — hybrid search, Graph RAG, FlashAttention-3, HNSW, 50+ attention mechanisms",
+  "description": "Self-learning vector database for Node.js \u2014 hybrid search, Graph RAG, FlashAttention-3, HNSW, 50+ attention mechanisms",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -12,7 +12,9 @@
     "verify-dist": "node scripts/verify-dist.js",
     "prepack": "npm run build && npm run verify-dist",
     "prepublishOnly": "npm run build && npm run verify-dist",
-    "test": "node test/integration.js && node test/backend-fallback.js && node test/mincut-wasm.js && node test/metaharness-sdk.js && node test/metaharness-optional-deps.js && node test/cli-commands.js && node test/metaharness-cli.js && node test/db-workflow.js && node test/mcp-stdio.js && node test/metaharness-mcp.js && node test/sigterm-cleanup.js && node test/mcp-policy.js && node test/mcp-command-security.js && node test/mcp-handshake.js && node test/mcp-intel-durability.js && node test/startup-budget.js"
+    "test": "node test/integration.js && node test/backend-fallback.js && node test/mincut-wasm.js && node test/metaharness-sdk.js && node test/metaharness-optional-deps.js && node test/cli-commands.js && node test/metaharness-cli.js && node test/db-workflow.js && node test/mcp-stdio.js && node test/metaharness-mcp.js && node test/sigterm-cleanup.js && node test/mcp-policy.js && node test/mcp-command-security.js && node test/mcp-handshake.js && node test/mcp-intel-durability.js && node test/startup-budget.js",
+    "test:features": "node --test test/optional-integrations.js test/kge-integration.js test/rvforge-integration.js test/ruview-integration.js test/metaharness-versions.js",
+    "test:feature-pack": "node scripts/test-feature-pack.js"
   },
   "keywords": [
     "vector",
@@ -96,7 +98,8 @@
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "@ruvector/rvforge": "0.2.0"
   },
   "files": [
     "bin/",
@@ -105,7 +108,8 @@
     "src/optimizer/",
     "wasm/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "FEATURES.md"
   ],
   "peerDependencies": {
     "@metaharness/darwin": ">=0.9.1",
@@ -120,7 +124,10 @@
     "@ruvector/pi-brain": ">=0.1.0",
     "@ruvector/router": ">=0.1.0",
     "@ruvector/ruvllm": ">=2.0.0",
-    "metaharness": ">=0.4.7"
+    "metaharness": ">=0.4.7",
+    "@ruvector/kge": "^0.2.0",
+    "@ruvector/rvforge": "^0.2.0",
+    "@ruvnet/ruview": "^0.9.1"
   },
   "peerDependenciesMeta": {
     "@metaharness/darwin": {
@@ -160,6 +167,15 @@
       "optional": true
     },
     "@ruvector/diskann": {
+      "optional": true
+    },
+    "@ruvector/kge": {
+      "optional": true
+    },
+    "@ruvector/rvforge": {
+      "optional": true
+    },
+    "@ruvnet/ruview": {
       "optional": true
     }
   },

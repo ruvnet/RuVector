@@ -58,3 +58,10 @@ export { default as LearningEngine } from './learning-engine';
 export { default as AdaptiveEmbedder } from './adaptive-embedder';
 export { default as NeuralSubstrate } from './neural-embeddings';
 export { default as DiskAnnIndex } from './diskann-wrapper';
+
+// Explicitly installed feature packages; these modules do not load peers until used.
+export { IntegrationError } from '../integrations/optional-package';
+export type { IntegrationErrorCode } from '../integrations/optional-package';
+export * from '../integrations/ruview';
+export * from '../integrations/kge';
+export * from '../integrations/rvforge';

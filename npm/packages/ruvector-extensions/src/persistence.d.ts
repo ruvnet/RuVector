@@ -42,6 +42,10 @@ export type ProgressCallback = (progress: {
 export interface PersistenceOptions {
     /** Base directory for persistence files */
     baseDir: string;
+    /** Vector dimension, required when the database has no stats() API. */
+    dimensions?: number;
+    /** Complete current ID list; required when the database has no ids() API. */
+    getVectorIds?: () => string[] | Promise<string[]>;
     /** Default format for saves */
     format?: PersistenceFormat;
     /** Enable compression */
@@ -157,6 +161,7 @@ export interface ImportOptions {
 export declare class DatabasePersistence {
     private db;
     private options;
+    private ready;
     private incrementalState;
     private autoSaveTimer;
     /**
@@ -277,7 +282,9 @@ export declare class DatabasePersistence {
     /**
      * Get all vector IDs from database
      */
+    private getDatabaseStats;
     private getAllVectorIds;
+    private clearDatabase;
     /**
      * Compute checksum of state object
      */

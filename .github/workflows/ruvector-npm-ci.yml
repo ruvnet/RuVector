@@ -5,10 +5,14 @@ on:
     branches: [main]
     paths:
       - 'npm/packages/ruvector/**'
+      - 'npm/packages/agentic-synth/**'
+      - 'npm/packages/ruvector-extensions/**'
       - '.github/workflows/ruvector-npm-ci.yml'
   pull_request:
     paths:
       - 'npm/packages/ruvector/**'
+      - 'npm/packages/agentic-synth/**'
+      - 'npm/packages/ruvector-extensions/**'
       - '.github/workflows/ruvector-npm-ci.yml'
   workflow_dispatch:
 
@@ -675,6 +679,7 @@ jobs:
       - perf-benchmark
       - recall-quality
       - tarball-integrity
+      - feature-integrations
     if: always()
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -693,3 +698,33 @@ jobs:
             }
             console.log('All jobs passed.');
           "
+
+  feature-integrations:
+    name: Explicit feature integrations (Node ${{ matrix.node }})
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install explicitly selected published feature packages
+        # Optional peers do not install by default. Keep native platform
+        # optional dependencies enabled; omitting them removes real backends.
+        run: >-
+          npm install --workspaces=false --ignore-scripts --no-package-lock
+          --no-save @ruvector/kge@0.2.0 @ruvnet/ruview@0.9.1
+      - name: Build with strict TypeScript checks
+        run: npm run build && npm run verify-dist
+      - name: Exercise real feature APIs and absence/failure boundaries
+        run: npm run test:features
+      - name: Exercise real KGE WASM fallback
+        env:
+          KGE_BACKEND: wasm
+        run: node --test test/kge-integration.js
+      - name: Verify packed installation and downstream native consumers
+        run: npm run test:feature-pack

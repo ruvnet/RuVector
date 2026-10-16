@@ -1358,3 +1358,13 @@ npx @ruvector/agentic-synth interactive
 ---
 
 **Keywords:** synthetic data generation, AI training data, test data generator, machine learning datasets, time-series data, event generation, structured data, RAG systems, vector embeddings, agentic AI, LLM training, GPT, Claude, Gemini, OpenRouter, data augmentation, edge cases, ruvector, agenticdb, langchain, typescript, nodejs, nlp, natural language processing, streaming, context caching, model routing, performance optimization, automation, CI/CD testing, financial data, cryptocurrency, security testing, log analytics, swarm coordination, business intelligence, employee simulation, DSPy, prompt optimization, self-learning, reinforcement learning
+
+### Native RuVector compatibility validation
+
+The native adapter accepts RuVector 0.2.x and 0.3.3 or later within 0.3.x. Its regression test requires an explicitly installed project and verifies native batch writes, metadata, and reopening the same database file; an in-memory fallback fails the test.
+
+```sh
+RUVECTOR_NATIVE_TEST_PREFIX=/absolute/path/to/project npm run test:native-compat
+```
+
+The project must contain `ruvector` or `@ruvector/core` with its working platform binary. Both the RuVector0.3.3 wrapper and core-only0.1.32 path were validated with Linux binary0.1.30. Without the project prefix, this dedicated native contract test fails with setup instructions.
