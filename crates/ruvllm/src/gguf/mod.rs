@@ -205,8 +205,9 @@ impl GgufFile {
         let alignment = metadata
             .get("general.alignment")
             .and_then(|v| v.as_u64())
-            .map(|v| v as usize)
-            .unwrap_or(DEFAULT_ALIGNMENT);
+            .unwrap_or(DEFAULT_ALIGNMENT as u64);
+        let alignment = usize::try_from(alignment)
+            .map_err(|_| RuvLLMError::Model("GGUF alignment does not fit usize".to_owned()))?;
 
         // Parse tensor infos
         let tensors = parse_tensor_infos(&mut reader, header.tensor_count)?;
@@ -215,9 +216,14 @@ impl GgufFile {
         let current_pos = reader
             .stream_position()
             .map_err(|e| RuvLLMError::Model(format!("Failed to get stream position: {}", e)))?;
-        let data_offset = align_offset(current_pos, alignment as u64);
+        let data_offset = align_offset(current_pos, alignment as u64)?;
+        let source_len = reader
+            .get_ref()
+            .metadata()
+            .map_err(|e| RuvLLMError::Model(format!("Failed to get GGUF file length: {e}")))?
+            .len();
 
-        Ok(Self {
+        let gguf = Self {
             header,
             metadata,
             tensors,
@@ -225,7 +231,9 @@ impl GgufFile {
             mmap: None,
             data_offset,
             alignment,
-        })
+        };
+        gguf.validate_tensor_ranges(source_len)?;
+        Ok(gguf)
     }
 
     /// Open a GGUF file with memory mapping.
@@ -256,6 +264,7 @@ impl GgufFile {
                 .map_err(|e| RuvLLMError::Model(format!("Failed to memory map file: {}", e)))?
         };
 
+        gguf.validate_tensor_ranges(mmap.len() as u64)?;
         gguf.mmap = Some(MmapData { mmap });
         Ok(gguf)
     }
@@ -269,6 +278,7 @@ impl GgufFile {
         let data = std::fs::read(path)
             .map_err(|e| RuvLLMError::Model(format!("Failed to read file: {}", e)))?;
 
+        gguf.validate_tensor_ranges(data.len() as u64)?;
         gguf.mmap = Some(MmapData { data });
         Ok(gguf)
     }
@@ -564,27 +574,72 @@ impl GgufFile {
     // Private Helper Methods
     // ========================================================================
 
+    fn tensor_span(&self, info: &TensorInfo, source_len: u64) -> Result<(u64, usize)> {
+        let overflow =
+            |kind| RuvLLMError::Model(format!("GGUF tensor {kind} overflow: {}", info.name));
+        let elements = info.shape.iter().try_fold(1usize, |n, &dimension| {
+            n.checked_mul(dimension)
+                .ok_or_else(|| overflow("element count"))
+        })?;
+        let byte_size = elements
+            .div_ceil(info.dtype.block_size())
+            .checked_mul(info.dtype.type_size())
+            .ok_or_else(|| overflow("byte size"))?;
+        let length = u64::try_from(byte_size).map_err(|_| overflow("byte size"))?;
+        let start = self
+            .data_offset
+            .checked_add(info.offset)
+            .ok_or_else(|| overflow("offset"))?;
+        let end = start
+            .checked_add(length)
+            .ok_or_else(|| overflow("offset"))?;
+        if end > source_len {
+            return Err(RuvLLMError::Model(format!(
+                "GGUF tensor range outside file: {} ({start}..{end}, length {source_len})",
+                info.name
+            )));
+        }
+        Ok((start, byte_size))
+    }
+
+    fn validate_tensor_ranges(&self, source_len: u64) -> Result<()> {
+        for info in &self.tensors {
+            self.tensor_span(info, source_len)?;
+        }
+        Ok(())
+    }
+
     fn read_tensor_bytes(&self, info: &TensorInfo) -> Result<Vec<u8>> {
         if let Some(ref mmap) = self.mmap {
-            let start = (self.data_offset + info.offset) as usize;
-            let end = start + info.byte_size();
-
             #[cfg(feature = "mmap")]
-            let data = mmap.mmap[start..end].to_vec();
+            let data = &mmap.mmap[..];
             #[cfg(not(feature = "mmap"))]
-            let data = mmap.data[start..end].to_vec();
+            let data = &mmap.data[..];
 
-            return Ok(data);
+            let (start, byte_size) = self.tensor_span(info, data.len() as u64)?;
+            let start = usize::try_from(start).map_err(|_| {
+                RuvLLMError::Model(format!(
+                    "GGUF tensor offset does not fit usize: {}",
+                    info.name
+                ))
+            })?;
+            // The span is bounded by this slice's usize length before indexing.
+            return Ok(data[start..start + byte_size].to_vec());
         }
 
         // Read from file
         let mut file = File::open(&self.path)
             .map_err(|e| RuvLLMError::Model(format!("Failed to open file: {}", e)))?;
 
-        file.seek(SeekFrom::Start(self.data_offset + info.offset))
+        let source_len = file
+            .metadata()
+            .map_err(|e| RuvLLMError::Model(format!("Failed to get GGUF file length: {e}")))?
+            .len();
+        let (start, byte_size) = self.tensor_span(info, source_len)?;
+        file.seek(SeekFrom::Start(start))
             .map_err(|e| RuvLLMError::Model(format!("Failed to seek: {}", e)))?;
 
-        let mut data = vec![0u8; info.byte_size()];
+        let mut data = vec![0u8; byte_size];
         file.read_exact(&mut data)
             .map_err(|e| RuvLLMError::Model(format!("Failed to read tensor: {}", e)))?;
 
@@ -795,8 +850,16 @@ pub struct ModelConfig {
 
 /// Align an offset to the specified alignment.
 #[inline]
-fn align_offset(offset: u64, alignment: u64) -> u64 {
-    (offset + alignment - 1) / alignment * alignment
+fn align_offset(offset: u64, alignment: u64) -> Result<u64> {
+    if alignment == 0 {
+        return Err(RuvLLMError::Model(
+            "GGUF alignment must be nonzero".to_owned(),
+        ));
+    }
+    offset
+        .checked_add(alignment - 1)
+        .map(|value| value / alignment * alignment)
+        .ok_or_else(|| RuvLLMError::Model("GGUF alignment overflow".to_owned()))
 }
 
 // ============================================================================
@@ -806,14 +869,197 @@ fn align_offset(offset: u64, alignment: u64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+
+    fn tensor_fixture(
+        alignment: Option<(u32, u64)>,
+        tensor_offset: u64,
+        padding_alignment: usize,
+    ) -> tempfile::NamedTempFile {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&GGUF_MAGIC.to_le_bytes());
+        bytes.extend_from_slice(&GGUF_VERSION.to_le_bytes());
+        bytes.extend_from_slice(&1u64.to_le_bytes());
+        bytes.extend_from_slice(&u64::from(alignment.is_some()).to_le_bytes());
+        if let Some((value_type, value)) = alignment {
+            let key = b"general.alignment";
+            bytes.extend_from_slice(&(key.len() as u64).to_le_bytes());
+            bytes.extend_from_slice(key);
+            bytes.extend_from_slice(&value_type.to_le_bytes());
+            match value_type {
+                4 => bytes.extend_from_slice(&u32::try_from(value).unwrap().to_le_bytes()),
+                10 => bytes.extend_from_slice(&value.to_le_bytes()),
+                other => panic!("unsupported fixture metadata type {other}"),
+            }
+        }
+        let name = b"test.weight";
+        bytes.extend_from_slice(&(name.len() as u64).to_le_bytes());
+        bytes.extend_from_slice(name);
+        bytes.extend_from_slice(&1u32.to_le_bytes());
+        bytes.extend_from_slice(&1u64.to_le_bytes());
+        bytes.extend_from_slice(&0u32.to_le_bytes());
+        bytes.extend_from_slice(&tensor_offset.to_le_bytes());
+        bytes.resize(
+            bytes.len().div_ceil(padding_alignment) * padding_alignment,
+            0,
+        );
+        bytes.extend_from_slice(&1.0f32.to_le_bytes());
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        file.write_all(&bytes).unwrap();
+        file.flush().unwrap();
+        file
+    }
+
+    fn open_fixture(file: &tempfile::NamedTempFile, mapped: bool) -> GgufFile {
+        let result = if mapped {
+            GgufFile::open_mmap(file.path())
+        } else {
+            GgufFile::open(file.path())
+        };
+        match result {
+            Ok(file) => file,
+            Err(error) => panic!("valid GGUF fixture must open, mapped={mapped}: {error}"),
+        }
+    }
+
+    fn assert_model_error(error: RuvLLMError, diagnostic: &str) {
+        match error {
+            RuvLLMError::Model(message) => assert!(
+                message.contains(diagnostic),
+                "expected {diagnostic:?} diagnostic, got {message:?}"
+            ),
+            other => panic!("expected Model error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn valid_alignment_preserves_full_tensor_reads() {
+        for (alignment, padding) in [(None, 32), (Some((4, 32)), 32), (Some((4, 3)), 3)] {
+            let fixture = tensor_fixture(alignment, 0, padding);
+            for mapped in [false, true] {
+                let file = open_fixture(&fixture, mapped);
+                assert_eq!(file.alignment, padding);
+                assert_eq!(file.load_tensor_f32("test.weight").unwrap(), [1.0]);
+                let quantized = file.load_tensor_quantized("test.weight").unwrap();
+                assert_eq!(quantized.dtype, GgufQuantType::F32);
+                assert_eq!(quantized.shape, [1]);
+                assert_eq!(quantized.num_elements, 1);
+                assert_eq!(quantized.data, 1.0f32.to_le_bytes());
+                if mapped {
+                    assert_eq!(
+                        file.tensor_data(file.get_tensor("test.weight").unwrap()),
+                        &1.0f32.to_le_bytes()
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn malformed_alignment_returns_error_for_both_open_modes() {
+        for alignment in [0, u64::MAX] {
+            assert_model_error(align_offset(100, alignment).unwrap_err(), "alignment");
+            let value_type = if alignment == 0 { 4 } else { 10 };
+            let fixture = tensor_fixture(Some((value_type, alignment)), 0, 1);
+            for mapped in [false, true] {
+                let result = if mapped {
+                    GgufFile::open_mmap(fixture.path())
+                } else {
+                    GgufFile::open(fixture.path())
+                };
+                assert_model_error(
+                    result.err().expect("malformed alignment must refuse"),
+                    "alignment",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn invalid_tensor_headers_are_refused_before_mapped_access() {
+        for offset in [4096, 2] {
+            let fixture = tensor_fixture(Some((4, 32)), offset, 32);
+            for mapped in [false, true] {
+                let result = if mapped {
+                    GgufFile::open_mmap(fixture.path())
+                } else {
+                    GgufFile::open(fixture.path())
+                };
+                assert_model_error(
+                    result
+                        .err()
+                        .expect("tensor range must refuse before access"),
+                    "tensor range outside file",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn tensor_reads_reject_start_and_end_overflow() {
+        let fixture = tensor_fixture(Some((4, 32)), 0, 32);
+        for mapped in [false, true] {
+            let file = open_fixture(&fixture, mapped);
+            let mut info = file.get_tensor("test.weight").unwrap().clone();
+            for offset in [
+                u64::MAX - file.data_offset + 1,
+                u64::MAX - 2 - file.data_offset,
+            ] {
+                info.offset = offset;
+                assert_model_error(
+                    file.tensor_span(&info, u64::MAX).unwrap_err(),
+                    "tensor offset overflow",
+                );
+                assert_model_error(
+                    file.read_tensor_bytes(&info).unwrap_err(),
+                    "tensor offset overflow",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn tensor_reads_reject_ranges_past_source_end() {
+        let fixture = tensor_fixture(Some((4, 32)), 0, 32);
+        for mapped in [false, true] {
+            let file = open_fixture(&fixture, mapped);
+            let mut info = file.get_tensor("test.weight").unwrap().clone();
+            for offset in [4096, 2] {
+                info.offset = offset;
+                assert_model_error(
+                    file.read_tensor_bytes(&info).unwrap_err(),
+                    "tensor range outside file",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn tensor_reads_reject_size_overflow() {
+        let fixture = tensor_fixture(Some((4, 32)), 0, 32);
+        for mapped in [false, true] {
+            let file = open_fixture(&fixture, mapped);
+            let mut info = file.get_tensor("test.weight").unwrap().clone();
+            info.shape = vec![usize::MAX / 2 + 1, 2];
+            assert_model_error(
+                file.read_tensor_bytes(&info).unwrap_err(),
+                "tensor element count overflow",
+            );
+            info.shape = vec![usize::MAX / 4 + 1];
+            assert_model_error(
+                file.read_tensor_bytes(&info).unwrap_err(),
+                "tensor byte size overflow",
+            );
+        }
+    }
 
     #[test]
     fn test_align_offset() {
-        assert_eq!(align_offset(0, 32), 0);
-        assert_eq!(align_offset(1, 32), 32);
-        assert_eq!(align_offset(31, 32), 32);
-        assert_eq!(align_offset(32, 32), 32);
-        assert_eq!(align_offset(33, 32), 64);
+        assert_eq!(align_offset(0, 32).unwrap(), 0);
+        assert_eq!(align_offset(1, 32).unwrap(), 32);
+        assert_eq!(align_offset(31, 32).unwrap(), 32);
+        assert_eq!(align_offset(32, 32).unwrap(), 32);
+        assert_eq!(align_offset(33, 32).unwrap(), 64);
     }
 
     #[test]
