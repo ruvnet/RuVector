@@ -1,0 +1,23 @@
+[package]
+name = "streamcloud-model"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Geometric Context Transformer for StreamCloud (pure-Rust reconstructor + candle backend)"
+
+[features]
+default = []
+# Real-weights candle backend (heavy). The pure-Rust SyntheticReconstructor is
+# always available and is what the demo/pipeline/WASM paths use by default.
+candle = ["dep:candle-core", "dep:candle-nn", "streamcloud-tensor/candle"]
+
+[dependencies]
+streamcloud-tensor = { path = "../streamcloud-tensor" }
+anyhow.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+candle-core = { workspace = true, optional = true }
+candle-nn = { workspace = true, optional = true }

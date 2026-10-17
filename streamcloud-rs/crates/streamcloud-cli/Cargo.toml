@@ -1,0 +1,21 @@
+[package]
+name = "streamcloud-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Native demo CLI for StreamCloud: streaming reconstruction → PNG + MP4"
+
+[[bin]]
+name = "streamcloud"
+path = "src/main.rs"
+
+[dependencies]
+streamcloud-pipeline = { path = "../streamcloud-pipeline", features = ["mp4"] }
+streamcloud-model = { path = "../streamcloud-model" }
+streamcloud-io = { path = "../streamcloud-io", features = ["mp4"] }
+streamcloud-tensor = { path = "../streamcloud-tensor" }
+anyhow.workspace = true
+clap = { version = "4", features = ["derive"] }
