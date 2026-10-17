@@ -9,6 +9,27 @@
 //! - Cypher queries for property graphs
 //! - IndexedDB persistence for browsers
 //!
+//! # Cargo features
+//! - `browser` (default): wasm-bindgen exports (`RvLite`, `RvLiteConfig`,
+//!   `CypherEngine`), IndexedDB persistence and the `JsValue` glue used by the
+//!   npm package.
+//! - Without it (`default-features = false`) the crate is a plain Rust library:
+//!   the [`cypher`], [`sql`] and [`sparql`] engines plus the serde state types in
+//!   [`storage`], with no `wasm-bindgen`, `js-sys` or `web-sys` dependency of its
+//!   own. On `wasm32` targets, transitive dependencies (`getrandom`'s `js`
+//!   backend, and `chrono`/`uuid` via `ruvector-core`) still link
+//!   `wasm-bindgen`/`js-sys`; `web-sys` is never pulled in. This is the shape to
+//!   embed server-side, e.g. in a Cloudflare Worker via workers-rs.
+//!
+//! ```rust
+//! use rvlite::cypher::CypherEngine;
+//!
+//! let mut engine = CypherEngine::new();
+//! engine.run("CREATE (a:Person {name: 'Alice'})").unwrap();
+//! let result = engine.run("MATCH (n:Person) RETURN n.name").unwrap();
+//! assert_eq!(result.rows.len(), 1);
+//! ```
+//!
 //! # Example (JavaScript)
 //! ```javascript
 //! import init, { RvLite, RvLiteConfig } from './rvlite.js';
@@ -37,7 +58,9 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+#[cfg(feature = "browser")]
 use wasm_bindgen::prelude::*;
+#[cfg(feature = "browser")]
 use wasm_bindgen_futures::future_to_promise;
 
 // Import ruvector-core
@@ -53,6 +76,7 @@ pub mod storage;
 // Re-export storage types
 pub use storage::{GraphState, RvLiteState, TripleStoreState, VectorState};
 
+#[cfg(feature = "browser")]
 #[wasm_bindgen(start)]
 pub fn init() {
     console_error_panic_hook::set_once();
@@ -94,6 +118,7 @@ impl From<ruvector_core::RuvectorError> for RvLiteError {
     }
 }
 
+#[cfg(feature = "browser")]
 impl From<RvLiteError> for JsValue {
     fn from(e: RvLiteError) -> Self {
         serde_wasm_bindgen::to_value(&e).unwrap_or_else(|_| JsValue::from_str(&e.message))
@@ -119,7 +144,7 @@ impl From<sql::ParseError> for RvLiteError {
 }
 
 /// Configuration for RvLite database
-#[wasm_bindgen]
+#[cfg_attr(feature = "browser", wasm_bindgen)]
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RvLiteConfig {
     /// Vector dimensions
@@ -128,9 +153,9 @@ pub struct RvLiteConfig {
     distance_metric: String,
 }
 
-#[wasm_bindgen]
+#[cfg_attr(feature = "browser", wasm_bindgen)]
 impl RvLiteConfig {
-    #[wasm_bindgen(constructor)]
+    #[cfg_attr(feature = "browser", wasm_bindgen(constructor))]
     pub fn new(dimensions: usize) -> Self {
         RvLiteConfig {
             dimensions,
@@ -175,7 +200,9 @@ impl RvLiteConfig {
     }
 }
 
+// JavaScript-facing database handle; only built with the default `browser` feature.
 /// Main RvLite database
+#[cfg(feature = "browser")]
 #[wasm_bindgen]
 pub struct RvLite {
     db: VectorDB,
@@ -186,6 +213,7 @@ pub struct RvLite {
     storage: Option<storage::IndexedDBStorage>,
 }
 
+#[cfg(feature = "browser")]
 #[wasm_bindgen]
 impl RvLite {
     /// Create a new RvLite database
@@ -600,6 +628,7 @@ impl RvLite {
 }
 
 // Private impl block for state export/import
+#[cfg(feature = "browser")]
 impl RvLite {
     /// Export the complete database state
     fn export_state(&self) -> RvLiteState {
@@ -820,6 +849,7 @@ fn convert_sparql_result(result: &sparql::executor::QueryResult) -> serde_json::
 }
 
 // Helper functions for parsing RDF terms
+#[cfg(feature = "browser")]
 fn parse_rdf_term(s: &str) -> Result<sparql::RdfTerm, JsValue> {
     let s = s.trim();
     if s.starts_with('<') && s.ends_with('>') {
@@ -835,6 +865,7 @@ fn parse_rdf_term(s: &str) -> Result<sparql::RdfTerm, JsValue> {
     }
 }
 
+#[cfg(feature = "browser")]
 fn parse_iri(s: &str) -> Result<sparql::Iri, JsValue> {
     let s = s.trim();
     if s.starts_with('<') && s.ends_with('>') {
@@ -861,6 +892,7 @@ fn rdf_term_to_state(term: &sparql::RdfTerm) -> storage::state::RdfTermState {
     }
 }
 
+#[cfg(feature = "browser")]
 fn state_to_rdf_term(state: &storage::state::RdfTermState) -> Result<sparql::RdfTerm, JsValue> {
     use storage::state::RdfTermState;
 
