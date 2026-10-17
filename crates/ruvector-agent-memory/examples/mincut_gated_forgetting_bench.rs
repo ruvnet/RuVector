@@ -35,12 +35,23 @@
 //!
 //! Run:
 //!   cargo run --release -p ruvector-agent-memory --example mincut_gated_forgetting_bench --features mincut-forget
+//!
+//! ## Update (2026-09-28, ADR-350): `DynamicMinCut` backend comparison
+//!
+//! This exact benchmark (same hypothesis, same corpus generation, same
+//! acceptance thresholds — see docs/research/nightly/2026-09-05's own Next
+//! Research item 3, which asks for precisely this "don't move the
+//! goalposts" re-run) now also runs `MincutGatedForgetting-Soft/Hard` with
+//! [`MincutBackend::DynamicMinCut`] as two additional rows alongside the
+//! original [`MincutBackend::GraphAnalyzer`] rows, which are unchanged from
+//! 2026-09-05. See `graph_forget.rs`'s `MincutBackend` doc comment and
+//! `docs/research/nightly/2026-09-28-mincut-backend-latency/README.md`.
 
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use ruvector_agent_memory::{
     compact, compact_witnessed, recall_at_k, CoherencePolicy, CoherenceWeights, CompactionPolicy,
-    EvictionWitnessChain, MemoryStore, MemoryWitnessLog, MincutGatedForgetting,
+    EvictionWitnessChain, MemoryStore, MemoryWitnessLog, MincutBackend, MincutGatedForgetting,
 };
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
@@ -315,6 +326,12 @@ fn main() {
     soft.mincut_trials = MINCUT_TRIALS;
     let mut hard = MincutGatedForgetting::hard(CoherenceWeights::default(), PROTECT_FRACTION);
     hard.mincut_trials = MINCUT_TRIALS;
+    let mut soft_dmc = MincutGatedForgetting::soft(CoherenceWeights::default(), STRUCTURAL_BONUS)
+        .with_backend(MincutBackend::DynamicMinCut);
+    soft_dmc.mincut_trials = MINCUT_TRIALS;
+    let mut hard_dmc = MincutGatedForgetting::hard(CoherenceWeights::default(), PROTECT_FRACTION)
+        .with_backend(MincutBackend::DynamicMinCut);
+    hard_dmc.mincut_trials = MINCUT_TRIALS;
 
     struct Row {
         name: String,
@@ -323,7 +340,13 @@ fn main() {
         micros: u128,
     }
     let mut rows = Vec::new();
-    for policy in [&cow as &dyn CompactionPolicy, &soft, &hard] {
+    for policy in [
+        &cow as &dyn CompactionPolicy,
+        &soft,
+        &hard,
+        &soft_dmc,
+        &hard_dmc,
+    ] {
         let (survival, recall, dur) = run_policy(policy, seed);
         rows.push(Row {
             name: policy.name().to_string(),
@@ -352,54 +375,52 @@ fn main() {
     let baseline = &rows[0];
     let soft_row = &rows[1];
     let hard_row = &rows[2];
+    let soft_dmc_row = &rows[3];
+    let hard_dmc_row = &rows[4];
 
     println!("Tamper-detection trials (eviction witness chain)");
     let (detected, total) = run_tamper_trials(seed + 1_000);
     println!("  Detected {detected}/{total} single-byte-flip tampers\n");
 
     println!("Acceptance test");
-    let survival_gap_soft = (soft_row.survival - baseline.survival) * 100.0;
-    let survival_gap_hard = (hard_row.survival - baseline.survival) * 100.0;
-    let soft_gap_pass = survival_gap_soft >= BRIDGE_SURVIVAL_GAP_THRESHOLD_PP;
-    let hard_gap_pass = survival_gap_hard >= BRIDGE_SURVIVAL_GAP_THRESHOLD_PP;
-    println!(
-        "  Soft bridge-survival gap  ({survival_gap_soft:+.1}pp) >= {BRIDGE_SURVIVAL_GAP_THRESHOLD_PP:.0}pp : {}",
-        if soft_gap_pass { "PASS" } else { "FAIL" }
-    );
-    println!(
-        "  Hard bridge-survival gap  ({survival_gap_hard:+.1}pp) >= {BRIDGE_SURVIVAL_GAP_THRESHOLD_PP:.0}pp : {}",
-        if hard_gap_pass { "PASS" } else { "FAIL" }
-    );
+    // (label, row, checks against the *same* three thresholds every
+    // candidate has been held to since 2026-09-05 — no goalpost-moving).
+    let candidates = [
+        ("Soft (GraphAnalyzer)", soft_row),
+        ("Hard (GraphAnalyzer)", hard_row),
+        ("Soft (DynamicMinCut)", soft_dmc_row),
+        ("Hard (DynamicMinCut)", hard_dmc_row),
+    ];
+    let mut all_gap_pass = true;
+    let mut all_recall_pass = true;
+    let mut all_speed_pass = true;
+    for (label, row) in &candidates {
+        let gap = (row.survival - baseline.survival) * 100.0;
+        let gap_pass = gap >= BRIDGE_SURVIVAL_GAP_THRESHOLD_PP;
+        println!(
+            "  {label:<22} bridge-survival gap ({gap:+.1}pp) >= {BRIDGE_SURVIVAL_GAP_THRESHOLD_PP:.0}pp : {}",
+            if gap_pass { "PASS" } else { "FAIL" }
+        );
+        all_gap_pass &= gap_pass;
 
-    let recall_delta_soft = (soft_row.recall - baseline.recall).abs();
-    let recall_delta_hard = (hard_row.recall - baseline.recall).abs();
-    let soft_recall_pass = recall_delta_soft <= RECALL_TOLERANCE;
-    let hard_recall_pass = recall_delta_hard <= RECALL_TOLERANCE;
-    println!(
-        "  Soft |recall delta| ({:.2}pp) <= {:.0}pp                 : {}",
-        recall_delta_soft * 100.0,
-        RECALL_TOLERANCE * 100.0,
-        if soft_recall_pass { "PASS" } else { "FAIL" }
-    );
-    println!(
-        "  Hard |recall delta| ({:.2}pp) <= {:.0}pp                 : {}",
-        recall_delta_hard * 100.0,
-        RECALL_TOLERANCE * 100.0,
-        if hard_recall_pass { "PASS" } else { "FAIL" }
-    );
+        let recall_delta = (row.recall - baseline.recall).abs();
+        let recall_pass = recall_delta <= RECALL_TOLERANCE;
+        println!(
+            "  {label:<22} |recall delta| ({:.2}pp) <= {:.0}pp        : {}",
+            recall_delta * 100.0,
+            RECALL_TOLERANCE * 100.0,
+            if recall_pass { "PASS" } else { "FAIL" }
+        );
+        all_recall_pass &= recall_pass;
 
-    let slowdown_soft = soft_row.micros as f64 / baseline.micros.max(1) as f64;
-    let slowdown_hard = hard_row.micros as f64 / baseline.micros.max(1) as f64;
-    let soft_speed_pass = slowdown_soft <= MAX_SLOWDOWN_VS_BASELINE;
-    let hard_speed_pass = slowdown_hard <= MAX_SLOWDOWN_VS_BASELINE;
-    println!(
-        "  Soft compaction slowdown  ({slowdown_soft:.1}x) <= {MAX_SLOWDOWN_VS_BASELINE:.0}x                : {}",
-        if soft_speed_pass { "PASS" } else { "FAIL" }
-    );
-    println!(
-        "  Hard compaction slowdown  ({slowdown_hard:.1}x) <= {MAX_SLOWDOWN_VS_BASELINE:.0}x                : {}",
-        if hard_speed_pass { "PASS" } else { "FAIL" }
-    );
+        let slowdown = row.micros as f64 / baseline.micros.max(1) as f64;
+        let speed_pass = slowdown <= MAX_SLOWDOWN_VS_BASELINE;
+        println!(
+            "  {label:<22} compaction slowdown ({slowdown:.1}x) <= {MAX_SLOWDOWN_VS_BASELINE:.0}x           : {}",
+            if speed_pass { "PASS" } else { "FAIL" }
+        );
+        all_speed_pass &= speed_pass;
+    }
 
     let tamper_pass = detected == total;
     println!(
@@ -408,13 +429,17 @@ fn main() {
     );
     println!();
 
-    let all_pass = soft_gap_pass
-        && hard_gap_pass
-        && soft_recall_pass
-        && hard_recall_pass
-        && soft_speed_pass
-        && hard_speed_pass
-        && tamper_pass;
+    // DynamicMinCut-specific comparison: does it change the *speed*
+    // verdict the 2026-09-05 nightly rejected the GraphAnalyzer backend on,
+    // holding effectiveness (bridge-survival gap) to the same bar?
+    let dmc_speedup_vs_ga_soft = soft_row.micros as f64 / soft_dmc_row.micros.max(1) as f64;
+    let dmc_speedup_vs_ga_hard = hard_row.micros as f64 / hard_dmc_row.micros.max(1) as f64;
+    println!("DynamicMinCut vs. GraphAnalyzer backend (same corpus, same policy logic)");
+    println!("  Soft: {dmc_speedup_vs_ga_soft:.1}x faster compaction");
+    println!("  Hard: {dmc_speedup_vs_ga_hard:.1}x faster compaction");
+    println!();
+
+    let all_pass = all_gap_pass && all_recall_pass && all_speed_pass && tamper_pass;
 
     if all_pass {
         println!("=> ACCEPT: mincut-gated forgetting protects structural bridges at no material recall or witness-integrity cost.");
