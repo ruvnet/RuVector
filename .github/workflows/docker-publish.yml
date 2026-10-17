@@ -6,10 +6,10 @@
 # - Manual workflow dispatch
 #
 # Images published:
-# - ruvector/ruvector-postgres:latest
-# - ruvector/ruvector-postgres:2.0.0
-# - ruvector/ruvector-postgres:2.0.0-pg17
-# - ruvector/ruvector-postgres:pg17
+# - ruvnet/ruvector-postgres:latest
+# - ruvnet/ruvector-postgres:2.0.0
+# - ruvnet/ruvector-postgres:2.0.0-pg17
+# - ruvnet/ruvector-postgres:pg17
 # - (Same for pg14, pg15, pg16)
 
 name: Docker Hub Publish
@@ -20,18 +20,18 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (e.g., 2.0.0)'
+        description: 'Version to publish (e.g., 2.0.6)'
         required: true
-        default: '2.0.0'
+        default: '2.0.6'
       pg_versions:
         description: 'PostgreSQL versions (comma-separated)'
         required: false
         default: '14,15,16,17'
 
 env:
-  DOCKER_REGISTRY: ruvector
+  DOCKER_REGISTRY: ruvnet
   IMAGE_NAME: ruvector-postgres
-  RUST_VERSION: '1.83'
+  RUST_VERSION: '1.86'
 
 jobs:
   # ============================================================================
@@ -40,6 +40,9 @@ jobs:
   build-and-push:
     name: Build & Push PG${{ matrix.pg_version }}
     runs-on: ubuntu-latest
+    # Only postgres releases (tag ruvector-postgres-vX.Y.Z) or manual dispatch;
+    # other releases in this repo (esp32, rvf, crates) must not move :latest.
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'ruvector-postgres-v')
     permissions:
       contents: read
       packages: write
@@ -58,7 +61,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "release" ]; then
             VERSION="${{ github.event.release.tag_name }}"
-            VERSION="${VERSION#v}"
+            VERSION="${VERSION#ruvector-postgres-v}"
           else
             VERSION="${{ github.event.inputs.version }}"
           fi
@@ -74,8 +77,8 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ env.DOCKER_REGISTRY }}
+          password: ${{ secrets.DOCKER_PERSONAL_ACCESS_TOKEN }}
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
@@ -156,8 +159,8 @@ jobs:
       - name: Update Docker Hub description
         uses: peter-evans/dockerhub-description@432a30c9e07499fd01da9f8a49f0faf9e0ca5b77
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ env.DOCKER_REGISTRY }}
+          password: ${{ secrets.DOCKER_PERSONAL_ACCESS_TOKEN }}
           repository: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}
           readme-filepath: crates/ruvector-postgres/docker/README.md
           short-description: "RuVector v2 - High-performance PostgreSQL vector extension with 230+ SQL functions, SIMD, Flash Attention, GNN, hybrid search"
