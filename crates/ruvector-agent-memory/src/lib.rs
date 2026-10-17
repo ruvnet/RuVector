@@ -57,6 +57,8 @@ pub mod memory;
 pub mod observation;
 pub mod ops;
 pub mod scoring;
+#[cfg(feature = "mincut-forget")]
+pub mod structural_witness;
 pub mod witness_signing;
 pub mod witnessed_compaction;
 
@@ -75,7 +77,7 @@ pub use diagnostic::{
 };
 pub use fusion::{CausalEpisodicGraph, ClusterId, FusedCluster, FusionError, NodeRef};
 #[cfg(feature = "mincut-forget")]
-pub use graph_forget::{ForgetMode, MincutGatedForgetting};
+pub use graph_forget::{ForgetDecision, ForgetMode, MincutGatedForgetting};
 #[cfg(feature = "proof-gate")]
 pub use ledger::WriteGateAdapter;
 pub use ledger::{replay_history, AlwaysAdmitGate, LedgerEntry, ProofGate, TransactionalLedger};
@@ -88,6 +90,12 @@ pub use ops::{
     MemoryWitnessLog, NoopWitnessSink, TransitionKind, TransitionRecord, WitnessSink,
 };
 pub use scoring::{coherence_score, cosine_sim, normalize};
+#[cfg(feature = "mincut-forget")]
+pub use structural_witness::{
+    audit_structural_evictions, compact_witnessed_structural, decode_structural_aux,
+    encode_structural_aux, is_hard_mode, StructuralAuditReport, AUX_BOUNDARY_BIT,
+    AUX_HARD_MODE_BIT, AUX_SCORE_SHIFT,
+};
 pub use witness_signing::{
     verify_signed_chain, SignPurpose, SignedAnchor, SignedChainError, SignedChainReport,
     SignedSpan, SignedWitnessSink, SigningStrategy, WitnessSignerError,
