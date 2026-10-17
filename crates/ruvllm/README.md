@@ -336,6 +336,16 @@ let pipeline = HybridPipeline::new(HybridConfig {
 
 </details>
 
+## Model LoRA Adapters
+
+The macOS Lattice backend applies PEFT SafeTensors adapters during Qwen3.5 generation. Use `LlmBackend::load_lora_adapter` with an adapter file or directory and a scale, `active_lora_adapter` to inspect the active adapter, and `unload_lora_adapter` to restore base-model generation. These methods return `ModelAdapterError` on failure. The scale multiplies the adapter's configured `alpha / rank`; a negative finite scale is accepted and negates the adapter delta. Validation failures preserve the previously active adapter. Installation failures restore the previous adapter; if restoration also fails, the error states that no adapter is active and the active query returns `None`. Other backends return a typed unsupported error for these methods.
+
+Place `adapter_config.json` beside the adapter file. Supported adapters use uniform-rank PEFT A/B tensors for full-attention `q_proj`, `k_proj`, `v_proj`, `o_proj`, and dense MLP `gate_proj`, `up_proj`, `down_proj`. GDN, MoE MLP, DoRA, rank-stabilized LoRA, saved bias/modules, and nonuniform rank/alpha patterns are rejected. Geometry, rank and target validation govern loading; the declared base name and revision are reported in `AdapterInfo::declared_base_model` and `AdapterInfo::declared_revision` so callers can enforce their own identity policy. `task_type` can be absent, null or `CAUSAL_LM`. Unknown configuration fields are accepted only when null, false, an empty object or an empty array; `peft_version` also accepts any string. Known unsupported variants remain rejected. Adapter files are limited to 1 GiB and JSON headers/configs to 16 MiB. Replacement retains adapter-sized host weights for restoration; it does not reload the base model. Sparse layer selectors and specialized initializers are rejected; every compatible active layer must have complete pairs for the declared targets.
+
+Tensor keys must use the prefix `base_model.model.model.layers.` followed by the layer, block, projection, and `lora_A.weight` or `lora_B.weight`. Retained host factors are f32, so BF16/F16 factors occupy about twice their on-disk tensor size, plus a transient copy during installation.
+
+MicroLoRA and SONA operate on supplied embeddings. Updating those vector adapters does not attach their weights to the generation model; model-generation adapters use the backend API above.
+
 ## MicroLoRA Real-Time Adaptation
 
 RuvLLM supports per-request fine-tuning using MicroLoRA:

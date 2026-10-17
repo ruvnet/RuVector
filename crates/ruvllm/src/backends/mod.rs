@@ -126,8 +126,9 @@ pub use mistral_backend::{
     PagedAttentionConfigExt, XLoraConfig, XLoraManager, XLoraManagerStats, XLoraMixingMode,
 };
 
-use crate::error::{Result, RuvLLMError};
+use crate::error::{ModelAdapterError, Result, RuvLLMError};
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 
@@ -804,6 +805,45 @@ pub trait LlmBackend: Send + Sync {
     /// Returns an error if the model cannot be loaded (not found, invalid format, etc.)
     fn load_model(&mut self, model_id: &str, config: ModelConfig) -> Result<()>;
 
+    /// Load and activate a PEFT adapter from a SafeTensors file or directory.
+    ///
+    /// `scale` multiplies the adapter's configured `alpha / rank` factor.
+    /// A successful load replaces the active adapter for subsequent generation.
+    /// Validation failures leave the previously active adapter unchanged. Backends
+    /// that restore after an installation failure report restoration failures
+    /// explicitly; query `active_lora_adapter` to inspect the resulting state.
+    ///
+    /// The default implementation returns [`ModelAdapterError::UnsupportedBackend`].
+    fn load_lora_adapter(
+        &mut self,
+        _path: &Path,
+        _scale: f32,
+    ) -> std::result::Result<(), ModelAdapterError> {
+        Err(ModelAdapterError::UnsupportedBackend {
+            operation: "load_lora_adapter",
+        })
+    }
+
+    /// Remove the active model adapter and restore base-model generation.
+    ///
+    /// Supported backends leave an already inactive loaded model unchanged.
+    /// The default implementation returns [`ModelAdapterError::UnsupportedBackend`].
+    fn unload_lora_adapter(&mut self) -> std::result::Result<(), ModelAdapterError> {
+        Err(ModelAdapterError::UnsupportedBackend {
+            operation: "unload_lora_adapter",
+        })
+    }
+
+    /// Return the active model adapter, or `None` when none is active.
+    ///
+    /// The default implementation returns [`ModelAdapterError::UnsupportedBackend`],
+    /// distinguishing an unsupported backend from one with no active adapter.
+    fn active_lora_adapter(&self) -> std::result::Result<Option<AdapterInfo>, ModelAdapterError> {
+        Err(ModelAdapterError::UnsupportedBackend {
+            operation: "active_lora_adapter",
+        })
+    }
+
     /// Generate text from a prompt
     ///
     /// # Arguments
@@ -953,6 +993,26 @@ pub struct SpecialTokens {
     pub pad_token_id: Option<u32>,
     /// Unknown token
     pub unk_token_id: Option<u32>,
+}
+
+/// Information about an adapter currently applied to model generation.
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub struct AdapterInfo {
+    /// Path of the loaded adapter SafeTensors file.
+    pub path: PathBuf,
+    /// Caller multiplier applied in addition to the configured `alpha / rank`.
+    pub scale: f32,
+    /// Rank of each low-rank adapter pair.
+    pub rank: usize,
+    /// PEFT alpha from the adapter configuration.
+    pub alpha: f32,
+    /// Projection module names targeted by the adapter.
+    pub target_modules: Vec<String>,
+    /// Base model name or path declared by the adapter, without an identity check.
+    pub declared_base_model: Option<String>,
+    /// Revision declared by the adapter, without an identity check.
+    pub declared_revision: Option<String>,
 }
 
 /// Information about a loaded model
@@ -1171,6 +1231,56 @@ pub use async_stream::{AsyncTokenStream, LlmBackendAsync};
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn adapter_trait_methods_return_model_adapter_error() {
+        let mut backend = NoopBackend;
+        let backend: &mut dyn LlmBackend = &mut backend;
+        let load: std::result::Result<(), ModelAdapterError> =
+            backend.load_lora_adapter(Path::new("missing-adapter.safetensors"), 1.0);
+        let unload: std::result::Result<(), ModelAdapterError> = backend.unload_lora_adapter();
+        let active: std::result::Result<Option<AdapterInfo>, ModelAdapterError> =
+            backend.active_lora_adapter();
+        assert!(load.is_err());
+        assert!(unload.is_err());
+        assert!(active.is_err());
+    }
+
+    #[test]
+    fn default_adapter_load_returns_typed_unsupported() {
+        let mut backend = NoopBackend;
+        let backend: &mut dyn LlmBackend = &mut backend;
+        let result = backend.load_lora_adapter(Path::new("missing-adapter.safetensors"), 1.0);
+        assert!(matches!(
+            result,
+            Err(ModelAdapterError::UnsupportedBackend {
+                operation: "load_lora_adapter"
+            })
+        ));
+    }
+
+    #[test]
+    fn default_adapter_unload_returns_typed_unsupported() {
+        let mut backend = NoopBackend;
+        let backend: &mut dyn LlmBackend = &mut backend;
+        assert!(matches!(
+            backend.unload_lora_adapter(),
+            Err(ModelAdapterError::UnsupportedBackend {
+                operation: "unload_lora_adapter"
+            })
+        ));
+    }
+
+    #[test]
+    fn default_active_adapter_returns_typed_unsupported() {
+        let backend: &dyn LlmBackend = &NoopBackend;
+        assert!(matches!(
+            backend.active_lora_adapter(),
+            Err(ModelAdapterError::UnsupportedBackend {
+                operation: "active_lora_adapter"
+            })
+        ));
+    }
 
     #[test]
     fn test_quantization_bytes() {
