@@ -65,6 +65,7 @@ fn create_test_config(storage_path: &str) -> RuvLLMConfig {
     }
 }
 
+#[cfg(feature = "async-runtime")]
 #[tokio::test]
 #[ignore] // Requires model download
 async fn test_full_inference_pipeline() {
@@ -295,6 +296,7 @@ fn test_concurrent_kv_cache_access() {
     assert!(stats.total_tokens > 0);
 }
 
+#[cfg(feature = "async-runtime")]
 #[tokio::test]
 async fn test_concurrent_requests() {
     let temp_dir = create_test_dir();

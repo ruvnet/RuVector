@@ -239,7 +239,6 @@ pub use claude_integration::{
     Message,
     MessageRole,
     QualityMonitor,
-    ResponseStreamer,
     StepResult,
     StreamEvent,
     StreamStats,
@@ -249,6 +248,9 @@ pub use claude_integration::{
     WorkflowResult,
     WorkflowStep,
 };
+
+#[cfg(feature = "async-runtime")]
+pub use claude_integration::ResponseStreamer;
 
 // Model Router exports (NEW)
 pub use model_router::{

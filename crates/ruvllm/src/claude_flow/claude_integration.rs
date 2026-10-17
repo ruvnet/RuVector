@@ -31,6 +31,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+#[cfg(feature = "async-runtime")]
 use tokio::sync::mpsc;
 
 use super::{AgentType, ClaudeFlowAgent, ClaudeFlowTask};
@@ -341,6 +342,7 @@ impl QualityMonitor {
 }
 
 /// Response streamer for real-time token handling
+#[cfg(feature = "async-runtime")]
 pub struct ResponseStreamer {
     /// Request ID
     pub request_id: String,
@@ -360,6 +362,7 @@ pub struct ResponseStreamer {
     is_complete: bool,
 }
 
+#[cfg(feature = "async-runtime")]
 impl ResponseStreamer {
     /// Create new response streamer
     pub fn new(request_id: String, model: ClaudeModel, sender: mpsc::Sender<StreamEvent>) -> Self {
