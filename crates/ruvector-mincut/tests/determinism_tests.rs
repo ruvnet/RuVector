@@ -20,7 +20,7 @@
 //! (`crates/ruvector-agent-memory/examples/mincut_determinism_probe.rs`) and
 //! assert the fixed, deterministic behavior.
 
-use ruvector_mincut::RuVectorGraphAnalyzer;
+use ruvector_mincut::{ConnectivityBackend, RuVectorGraphAnalyzer};
 
 fn normalize3(v: [f64; 3]) -> Vec<f64> {
     let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
@@ -137,6 +137,53 @@ fn partition_is_stable_across_repeated_calls() {
             ),
         }
     }
+}
+
+/// Nightly research regression (2026-10-07,
+/// `docs/research/nightly/2026-10-07-mincut-polylog-connectivity-backend/`):
+/// `RuVectorGraphAnalyzer::partition()` must return the *same* partition
+/// regardless of which `ConnectivityBackend` the wrapper uses internally.
+/// This is the correctness counterpart to that run's latency finding: the
+/// connectivity backend only answers the wrapper's whole-graph
+/// `is_connected()` fast path, never `BoundedInstance`'s cut search, so
+/// switching it must be a no-op for the returned witness, not just "close
+/// enough."
+#[test]
+fn partition_matches_across_connectivity_backends() {
+    let (_bridge_idx, neighbors) = two_cluster_bridge_neighbors();
+
+    let mut euler =
+        RuVectorGraphAnalyzer::from_knn_with_backend(&neighbors, ConnectivityBackend::EulerTour);
+    let mut polylog =
+        RuVectorGraphAnalyzer::from_knn_with_backend(&neighbors, ConnectivityBackend::Polylog);
+
+    let (mut euler_a, mut euler_b) = euler.partition().expect("euler partition should succeed");
+    let (mut poly_a, mut poly_b) = polylog
+        .partition()
+        .expect("polylog partition should succeed");
+
+    euler_a.sort_unstable();
+    euler_b.sort_unstable();
+    poly_a.sort_unstable();
+    poly_b.sort_unstable();
+
+    let canon_euler = if euler_a.contains(&0) {
+        (euler_a, euler_b)
+    } else {
+        (euler_b, euler_a)
+    };
+    let canon_poly = if poly_a.contains(&0) {
+        (poly_a, poly_b)
+    } else {
+        (poly_b, poly_a)
+    };
+
+    assert_eq!(
+        canon_euler, canon_poly,
+        "partition() must be identical across connectivity backends: they \
+         both only answer the whole-graph is_connected() fast path, not the \
+         BoundedInstance cut search that determines the witness"
+    );
 }
 
 /// `DynamicGraph::vertices()` must return a canonical (sorted) order
