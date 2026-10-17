@@ -238,6 +238,21 @@ curl -H "Authorization: Bearer $KEY" "https://pi.ruv.io/v1/memories/list?limit=1
 | `docs/research/` | Research documents (per-project subdirectories) |
 | `scripts/` | Utility and deployment scripts |
 
+## Deploy Configuration (configured by /setup-deploy)
+- Platform: none — library/tool project (Rust crates + npm packages), not a hosted web app
+- Production URL: n/a
+- Deploy workflow: `.github/workflows/release.yml` (validate + tag-triggered release) and `.github/workflows/publish-all.yml` (publish to crates.io + npm on `v*` tag push, also `workflow_dispatch`)
+- Deploy status command: `gh run list --workflow=release.yml --limit 5` (check latest tag-triggered run)
+- Merge method: n/a — releases are cut by pushing a `v*` tag, not by merging to a specific branch
+- Project type: library / CLI (Rust crate + npm packages, e.g. `ruvector-cnn`, `@ruvector/cnn`, `rvf`)
+- Post-deploy health check: none — success is a green `release.yml`/`publish-all.yml` run and the new version showing up on crates.io/npm
+
+### Custom deploy hooks
+- Pre-merge: `npm run build` / `npm test` (see Build & Test section above)
+- Deploy trigger: push a `v*` git tag (or `workflow_dispatch` with a version input)
+- Deploy status: `gh run list --workflow=publish-all.yml --limit 5`
+- Health check: none — verify via `npm view <package> version` / crates.io API after release
+
 ## Support
 
 - Documentation: https://github.com/ruvnet/claude-flow
