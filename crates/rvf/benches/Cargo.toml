@@ -8,8 +8,12 @@ publish = false
 name = "rvf_benchmarks"
 harness = false
 
+[[bench]]
+name = "witness_wasm_bench"
+harness = false
+
 [dependencies]
-rvf-types = { path = "../rvf-types", features = ["std"] }
+rvf-types = { path = "../rvf-types", features = ["std", "ed25519"] }
 rvf-wire = { path = "../rvf-wire" }
 rvf-manifest = { path = "../rvf-manifest" }
 rvf-index = { path = "../rvf-index", features = ["std"] }
@@ -18,5 +22,7 @@ rvf-crypto = { path = "../rvf-crypto", features = ["std"] }
 rvf-runtime = { path = "../rvf-runtime", features = ["std"] }
 criterion = { version = "0.5", features = ["html_reports"] }
 rand = "0.8"
+rand_core = { version = "0.6", default-features = false }
 tempfile = "3"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
+wasmtime = { version = "27", default-features = false, features = ["cranelift", "runtime"] }

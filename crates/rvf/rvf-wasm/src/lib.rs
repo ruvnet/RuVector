@@ -15,6 +15,8 @@ mod memory;
 mod segment;
 mod store;
 mod topk;
+#[cfg(feature = "witness-signing")]
+mod witness;
 
 use memory::*;
 
