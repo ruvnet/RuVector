@@ -1,0 +1,255 @@
+Raw benchmark output — ruvector-voi-router
+Command: cargo run --release -p ruvector-voi-router --bin benchmark
+Rust: rustc 1.94.1 (e408947bf 2026-03-25), OS: Linux vm 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0 x86_64 x86_64 x86_64 GNU/Linux
+
+# VoI-Gated Coherence Routing — Benchmark
+
+## Dataset
+
+- Clusters: 8 × 250 = 2000 vectors, D=32, std=0.15
+- Graph: M=16 local + 6 long-jump, ef=80, k=10, fixed entry=0
+- Calibration queries: 300 (seed 0x0C4B_CA11, disjoint from eval)
+- Evaluation queries: 400 (seed 0xCAFE_BABE)
+
+## Calibration (threshold search, 300 queries, never used for evaluation)
+
+| Gen | Pct | Threshold | Recall | Mean (µs) | Fitness | Hard-constraint |
+|-----|-----|-----------|--------|-----------|---------|------------------|
+| 1 | 10 | 0.1779 | 92.3% | 97.50 | 0.3752 | PASS |
+| 1 | 35 | 1.6896 | 93.3% | 76.00 | 0.5276 | PASS |
+| 1 | 60 | 1.8753 | 93.2% | 76.63 | 0.5228 | PASS |
+| 1 | 85 | 2.1119 | 93.2% | 74.48 | 0.5362 | PASS |
+| 2 | 70 | 1.9559 | 93.2% | 71.96 | 0.5529 | PASS |
+| 2 | 80 | 2.0449 | 93.2% | 78.73 | 0.5082 | PASS |
+| 2 | 90 | 2.1520 | 93.2% | 75.29 | 0.5309 | PASS |
+| 2 | 100 | 2.4846 | 93.2% | 73.54 | 0.5424 | PASS |
+| 3 | 65 | 1.9031 | 93.2% | 96.07 | 0.3938 | PASS |
+| 3 | 68 | 1.9270 | 93.2% | 90.69 | 0.4293 | PASS |
+| 3 | 72 | 1.9717 | 93.2% | 89.76 | 0.4354 | PASS |
+| 3 | 75 | 2.0042 | 93.2% | 74.15 | 0.5384 | PASS |
+
+  Promoted: percentile=70 → distance_threshold=1.9559
+
+## Evaluation (400 queries, 44 easy / 356 hard by true-nearest-cluster)
+
+| Policy | Recall@10 | Mean (µs) | p95 (µs) | QPS |
+|--------|-----------|-----------|----------|-----|
+| Baseline | 92.8% | 82.21 | 120.94 | 12164 |
+| AlwaysGated | 90.1% | 72.63 | 116.33 | 13769 |
+| VoiRouted | 92.8% | 80.71 | 128.40 | 12390 |
+
+- VoiRouted routed 33.8% of eval queries to AlwaysGated, 66.2% to Baseline
+
+### Breakdown by true difficulty group
+
+| Policy | Group | Recall@10 | Mean (µs) |
+|--------|-------|-----------|-----------|
+| Baseline | easy | 94.3% | 44.83 |
+| Baseline | hard | 92.6% | 85.70 |
+| AlwaysGated | easy | 73.2% | 2.58 |
+| AlwaysGated | hard | 92.2% | 91.56 |
+| VoiRouted | easy | 94.3% | 42.65 |
+| VoiRouted | hard | 92.6% | 77.30 |
+
+- Graph build: 43 ms; memory: 421.9 KB
+
+## Acceptance Tests
+
+  [PASS] Baseline recall@10 >= 85%: 92.8%
+  [PASS] AlwaysGated recall@10 >= 82%: 90.1%
+  [PASS] VoiRouted recall within 1pp of AlwaysGated: 92.8% vs 90.1%
+  [FAIL] VoiRouted mean latency <= AlwaysGated * 1.02: 80.71us vs 72.63us
+  [PASS] VoiRouted matches Baseline on easy group (latency <= 1.1x, recall within 1pp): 42.65us/94.3% vs 44.83us/94.3%
+  [PASS] VoiRouted hard-group recall within 1pp of AlwaysGated hard-group: 92.6% vs 92.2%
+
+## Overall
+
+  REJECT — VoiRouted is either unsafe (recall) or strictly worse than the AlwaysGated parent.
+
+=== 3 additional independent repeated runs (same seeds/config), showing calibration-noise sensitivity discussed in ADR-350 ===
+=================== RUN 1 ===================
+# VoI-Gated Coherence Routing — Benchmark
+
+## Dataset
+
+- Clusters: 8 × 250 = 2000 vectors, D=32, std=0.15
+- Graph: M=16 local + 6 long-jump, ef=80, k=10, fixed entry=0
+- Calibration queries: 300 (seed 0x0C4B_CA11, disjoint from eval)
+- Evaluation queries: 400 (seed 0xCAFE_BABE)
+
+## Calibration (threshold search, 300 queries, never used for evaluation)
+
+| Gen | Pct | Threshold | Recall | Mean (µs) | Fitness | Hard-constraint |
+|-----|-----|-----------|--------|-----------|---------|------------------|
+| 1 | 10 | 0.1779 | 92.3% | 69.40 | 0.4863 | PASS |
+| 1 | 35 | 1.6896 | 93.3% | 71.16 | 0.4835 | PASS |
+| 1 | 60 | 1.8753 | 93.2% | 70.14 | 0.4906 | PASS |
+| 1 | 85 | 2.1119 | 93.2% | 70.26 | 0.4889 | PASS |
+| 2 | 45 | 1.7457 | 93.3% | 70.60 | 0.4878 | PASS |
+| 2 | 55 | 1.8157 | 93.3% | 70.68 | 0.4872 | PASS |
+| 2 | 65 | 1.9031 | 93.2% | 70.35 | 0.4883 | PASS |
+| 2 | 75 | 2.0042 | 93.2% | 70.64 | 0.4860 | PASS |
+| 3 | 63 | 1.8952 | 93.2% | 70.50 | 0.4871 | PASS |
+| 3 | 67 | 1.9218 | 93.2% | 71.48 | 0.4796 | PASS |
+| 3 | 70 | 1.9559 | 93.2% | 71.69 | 0.4780 | PASS |
+
+  Promoted: percentile=60 → distance_threshold=1.8753
+
+## Evaluation (400 queries, 44 easy / 356 hard by true-nearest-cluster)
+
+| Policy | Recall@10 | Mean (µs) | p95 (µs) | QPS |
+|--------|-----------|-----------|----------|-----|
+| Baseline | 92.8% | 73.63 | 105.84 | 13581 |
+| AlwaysGated | 90.1% | 74.32 | 117.75 | 13456 |
+| VoiRouted | 92.8% | 81.08 | 137.71 | 12333 |
+
+- VoiRouted routed 44.5% of eval queries to AlwaysGated, 55.5% to Baseline
+
+### Breakdown by true difficulty group
+
+| Policy | Group | Recall@10 | Mean (µs) |
+|--------|-------|-----------|-----------|
+| Baseline | easy | 94.3% | 48.36 |
+| AlwaysGated | hard | 92.2% | 80.74 |
+| VoiRouted | easy | 94.3% | 44.29 |
+| VoiRouted | hard | 92.6% | 79.26 |
+
+- Graph build: 42 ms; memory: 421.9 KB
+
+## Acceptance Tests
+
+  [PASS] Baseline recall@10 >= 85%: 92.8%
+  [PASS] AlwaysGated recall@10 >= 82%: 90.1%
+  [PASS] VoiRouted recall within 1pp of AlwaysGated: 92.8% vs 90.1%
+  [FAIL] VoiRouted mean latency <= AlwaysGated * 1.02: 81.08us vs 74.32us
+  [PASS] VoiRouted matches Baseline on easy group (latency <= 1.1x, recall within 1pp): 44.29us/94.3% vs 48.36us/94.3%
+  [PASS] VoiRouted hard-group recall within 1pp of AlwaysGated hard-group: 92.6% vs 92.2%
+
+## Overall
+
+  REJECT — VoiRouted is either unsafe (recall) or strictly worse than the AlwaysGated parent.
+EXIT_CODE=1
+=================== RUN 2 ===================
+# VoI-Gated Coherence Routing — Benchmark
+
+## Dataset
+
+- Clusters: 8 × 250 = 2000 vectors, D=32, std=0.15
+- Graph: M=16 local + 6 long-jump, ef=80, k=10, fixed entry=0
+- Calibration queries: 300 (seed 0x0C4B_CA11, disjoint from eval)
+- Evaluation queries: 400 (seed 0xCAFE_BABE)
+
+## Calibration (threshold search, 300 queries, never used for evaluation)
+
+| Gen | Pct | Threshold | Recall | Mean (µs) | Fitness | Hard-constraint |
+|-----|-----|-----------|--------|-----------|---------|------------------|
+| 1 | 10 | 0.1779 | 92.3% | 70.35 | 0.4977 | PASS |
+| 1 | 35 | 1.6896 | 93.3% | 73.71 | 0.4835 | PASS |
+| 1 | 60 | 1.8753 | 93.2% | 98.14 | 0.3020 | PASS |
+| 1 | 85 | 2.1119 | 93.2% | 76.35 | 0.4625 | PASS |
+| 2 | 0 | 0.0916 | 90.7% | 70.93 | 0.4754 | PASS |
+| 2 | 5 | 0.1395 | 91.3% | 71.61 | 0.4767 | PASS |
+| 2 | 15 | 1.4616 | 93.4% | 73.39 | 0.4866 | PASS |
+| 2 | 25 | 1.5933 | 93.4% | 74.52 | 0.4783 | PASS |
+| 3 | 13 | 0.2846 | 93.4% | 73.10 | 0.4888 | PASS |
+| 3 | 17 | 1.5184 | 93.4% | 70.74 | 0.5062 | PASS |
+| 3 | 20 | 1.5485 | 93.4% | 72.10 | 0.4962 | PASS |
+
+  Promoted: percentile=17 → distance_threshold=1.5184
+
+## Evaluation (400 queries, 44 easy / 356 hard by true-nearest-cluster)
+
+| Policy | Recall@10 | Mean (µs) | p95 (µs) | QPS |
+|--------|-----------|-----------|----------|-----|
+| Baseline | 92.8% | 73.19 | 103.58 | 13664 |
+| AlwaysGated | 90.1% | 69.10 | 107.04 | 14472 |
+| VoiRouted | 92.4% | 72.99 | 104.76 | 13701 |
+
+- VoiRouted routed 84.5% of eval queries to AlwaysGated, 15.5% to Baseline
+
+### Breakdown by true difficulty group
+
+| Policy | Group | Recall@10 | Mean (µs) |
+|--------|-------|-----------|-----------|
+| Baseline | easy | 94.3% | 42.80 |
+| AlwaysGated | hard | 92.2% | 78.00 |
+| VoiRouted | easy | 94.3% | 43.96 |
+| VoiRouted | hard | 92.2% | 77.55 |
+
+- Graph build: 44 ms; memory: 421.9 KB
+
+## Acceptance Tests
+
+  [PASS] Baseline recall@10 >= 85%: 92.8%
+  [PASS] AlwaysGated recall@10 >= 82%: 90.1%
+  [PASS] VoiRouted recall within 1pp of AlwaysGated: 92.4% vs 90.1%
+  [FAIL] VoiRouted mean latency <= AlwaysGated * 1.02: 72.99us vs 69.10us
+  [PASS] VoiRouted matches Baseline on easy group (latency <= 1.1x, recall within 1pp): 43.96us/94.3% vs 42.80us/94.3%
+  [PASS] VoiRouted hard-group recall within 1pp of AlwaysGated hard-group: 92.2% vs 92.2%
+
+## Overall
+
+  REJECT — VoiRouted is either unsafe (recall) or strictly worse than the AlwaysGated parent.
+EXIT_CODE=1
+=================== RUN 3 ===================
+# VoI-Gated Coherence Routing — Benchmark
+
+## Dataset
+
+- Clusters: 8 × 250 = 2000 vectors, D=32, std=0.15
+- Graph: M=16 local + 6 long-jump, ef=80, k=10, fixed entry=0
+- Calibration queries: 300 (seed 0x0C4B_CA11, disjoint from eval)
+- Evaluation queries: 400 (seed 0xCAFE_BABE)
+
+## Calibration (threshold search, 300 queries, never used for evaluation)
+
+| Gen | Pct | Threshold | Recall | Mean (µs) | Fitness | Hard-constraint |
+|-----|-----|-----------|--------|-----------|---------|------------------|
+| 1 | 10 | 0.1779 | 92.3% | 76.14 | 0.4711 | PASS |
+| 1 | 35 | 1.6896 | 93.3% | 75.54 | 0.4861 | PASS |
+| 1 | 60 | 1.8753 | 93.2% | 76.51 | 0.4784 | PASS |
+| 1 | 85 | 2.1119 | 93.2% | 75.22 | 0.4869 | PASS |
+| 2 | 70 | 1.9559 | 93.2% | 75.97 | 0.4815 | PASS |
+| 2 | 80 | 2.0449 | 93.2% | 76.06 | 0.4809 | PASS |
+| 2 | 90 | 2.1520 | 93.2% | 75.12 | 0.4876 | PASS |
+| 2 | 100 | 2.4846 | 93.2% | 75.79 | 0.4828 | PASS |
+| 3 | 88 | 2.1426 | 93.2% | 75.61 | 0.4841 | PASS |
+| 3 | 92 | 2.1715 | 93.2% | 77.85 | 0.4680 | PASS |
+| 3 | 95 | 2.2234 | 93.2% | 72.83 | 0.5041 | PASS |
+
+  Promoted: percentile=95 → distance_threshold=2.2234
+
+## Evaluation (400 queries, 44 easy / 356 hard by true-nearest-cluster)
+
+| Policy | Recall@10 | Mean (µs) | p95 (µs) | QPS |
+|--------|-----------|-----------|----------|-----|
+| Baseline | 92.8% | 78.11 | 120.69 | 12803 |
+| AlwaysGated | 90.1% | 77.28 | 136.24 | 12940 |
+| VoiRouted | 92.8% | 79.34 | 112.93 | 12604 |
+
+- VoiRouted routed 4.0% of eval queries to AlwaysGated, 96.0% to Baseline
+
+### Breakdown by true difficulty group
+
+| Policy | Group | Recall@10 | Mean (µs) |
+|--------|-------|-----------|-----------|
+| Baseline | easy | 94.3% | 44.11 |
+| AlwaysGated | hard | 92.2% | 79.66 |
+| VoiRouted | easy | 94.3% | 45.15 |
+| VoiRouted | hard | 92.6% | 80.44 |
+
+- Graph build: 54 ms; memory: 421.9 KB
+
+## Acceptance Tests
+
+  [PASS] Baseline recall@10 >= 85%: 92.8%
+  [PASS] AlwaysGated recall@10 >= 82%: 90.1%
+  [PASS] VoiRouted recall within 1pp of AlwaysGated: 92.8% vs 90.1%
+  [FAIL] VoiRouted mean latency <= AlwaysGated * 1.02: 79.34us vs 77.28us
+  [PASS] VoiRouted matches Baseline on easy group (latency <= 1.1x, recall within 1pp): 45.15us/94.3% vs 44.11us/94.3%
+  [PASS] VoiRouted hard-group recall within 1pp of AlwaysGated hard-group: 92.6% vs 92.2%
+
+## Overall
+
+  REJECT — VoiRouted is either unsafe (recall) or strictly worse than the AlwaysGated parent.
+EXIT_CODE=1
