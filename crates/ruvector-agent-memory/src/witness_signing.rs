@@ -67,6 +67,7 @@ use crate::ops::{LedgerError, LedgerWitnessRecord, MemoryWitnessLog, WitnessSink
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use rvf_types::ed25519::Ed25519Keypair;
 use rvf_types::sha256::{sha256, Sha256};
+use std::time::Instant;
 
 const MSG_TAG: &[u8] = b"ruvector-agent-memory:witness-signer:v2:span\0";
 const RECORDS_TAG: &[u8] = b"ruvector-agent-memory:witness-signer:v2:records\0";
@@ -165,8 +166,34 @@ pub enum SigningStrategy {
     PerRecord,
     /// Sign once every `batch_size` records (and on [`SignedWitnessSink::seal`]).
     /// `batch_size` must be at least 1.
+    ///
+    /// Worst-case signature-availability latency for the first record of a
+    /// span that never fills (e.g. arrivals stop, or a crash) is unbounded:
+    /// the record stays in [`SignedWitnessSink::unsigned_pending`] until a
+    /// caller explicitly calls [`SignedWitnessSink::seal`]. See
+    /// [`SigningStrategy::BatchTailTimeout`] for a bounded alternative.
     BatchTail {
         batch_size: usize,
+    },
+    /// [`SigningStrategy::BatchTail`] with a wall-clock upper bound: a
+    /// pending span also closes once `max_wait_ns` nanoseconds have
+    /// elapsed since its *oldest* unsealed record was forwarded, whichever
+    /// of batch-size or timeout happens first — the same hybrid
+    /// count-or-timeout policy `ruvector-retrieval-receipt::batch_fill`
+    /// validated for signed-receipt batching, ported here (not reused as
+    /// a dependency) because [`SignedWitnessSink`] commits through the
+    /// [`WitnessSink`] trait, not a standalone scheduler.
+    ///
+    /// Both `batch_size` and `max_wait_ns` must be at least 1. The timeout
+    /// is enforced two ways: opportunistically on every
+    /// [`SignedWitnessSink::emit_batch`] call (using the wall clock), and
+    /// precisely by a caller invoking [`SignedWitnessSink::check_timeout`]
+    /// (or the deterministic [`SignedWitnessSink::check_timeout_at`]) —
+    /// e.g. from a periodic maintenance tick — which is required to
+    /// guarantee the bound when arrivals stop entirely.
+    BatchTailTimeout {
+        batch_size: usize,
+        max_wait_ns: u64,
     },
 }
 
@@ -174,12 +201,14 @@ pub enum SigningStrategy {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum WitnessSignerError {
     ZeroBatchSize,
+    ZeroMaxWait,
 }
 
 impl std::fmt::Display for WitnessSignerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ZeroBatchSize => write!(f, "BatchTail batch_size must be at least 1"),
+            Self::ZeroBatchSize => write!(f, "BatchTail(Timeout) batch_size must be at least 1"),
+            Self::ZeroMaxWait => write!(f, "BatchTailTimeout max_wait_ns must be at least 1"),
         }
     }
 }
@@ -191,6 +220,10 @@ struct PendingSpan {
     to: u64,
     count: usize,
     hasher: RecordsHasher,
+    /// Wall-clock time (nanoseconds since the sink's `clock_start`) at
+    /// which this span's first record was forwarded. Only meaningful
+    /// under [`SigningStrategy::BatchTailTimeout`].
+    opened_at_ns: u64,
 }
 
 /// A [`WitnessSink`] decorator that signs spans of the records it forwards
@@ -205,6 +238,11 @@ pub struct SignedWitnessSink<S: WitnessSink> {
     pending: Option<PendingSpan>,
     head: SignedAnchor,
     spans: Vec<SignedSpan>,
+    /// Reference instant for the wall-clock timestamps
+    /// [`SigningStrategy::BatchTailTimeout`] uses; only read through
+    /// `wall_clock_now_ns`, so tests can bypass it entirely via
+    /// `emit_batch_at`/`check_timeout_at`.
+    clock_start: Instant,
 }
 
 impl<S: WitnessSink> SignedWitnessSink<S> {
@@ -213,8 +251,15 @@ impl<S: WitnessSink> SignedWitnessSink<S> {
         signing_key: SigningKey,
         strategy: SigningStrategy,
     ) -> Result<Self, WitnessSignerError> {
-        if let SigningStrategy::BatchTail { batch_size: 0 } = strategy {
-            return Err(WitnessSignerError::ZeroBatchSize);
+        match strategy {
+            SigningStrategy::BatchTail { batch_size: 0 }
+            | SigningStrategy::BatchTailTimeout { batch_size: 0, .. } => {
+                return Err(WitnessSignerError::ZeroBatchSize);
+            }
+            SigningStrategy::BatchTailTimeout { max_wait_ns: 0, .. } => {
+                return Err(WitnessSignerError::ZeroMaxWait);
+            }
+            _ => {}
         }
         Ok(Self {
             inner,
@@ -224,6 +269,7 @@ impl<S: WitnessSink> SignedWitnessSink<S> {
             pending: None,
             head: SignedAnchor::genesis(),
             spans: Vec::new(),
+            clock_start: Instant::now(),
         })
     }
 
@@ -245,6 +291,11 @@ impl<S: WitnessSink> SignedWitnessSink<S> {
         self.signing_key.verifying_key().to_bytes()
     }
 
+    /// The signing strategy this sink was constructed with.
+    pub fn strategy(&self) -> SigningStrategy {
+        self.strategy
+    }
+
     /// Every span signed so far, in emission order.
     pub fn spans(&self) -> &[SignedSpan] {
         &self.spans
@@ -264,6 +315,53 @@ impl<S: WitnessSink> SignedWitnessSink<S> {
     /// span (always 0 under `PerRecord`).
     pub fn unsigned_pending(&self) -> usize {
         self.pending.as_ref().map_or(0, |p| p.count)
+    }
+
+    /// Wall-clock nanoseconds since this sink was constructed, used as
+    /// `now_ns` by the trait-driven [`WitnessSink::emit_batch`] and
+    /// [`check_timeout`](Self::check_timeout). Monotonic, so safe for
+    /// deadline arithmetic even though it is not calendar time.
+    fn wall_clock_now_ns(&self) -> u64 {
+        self.clock_start.elapsed().as_nanos() as u64
+    }
+
+    /// Under [`SigningStrategy::BatchTailTimeout`], the deadline (in the
+    /// same `now_ns` units as [`emit_batch_at`](Self::emit_batch_at)) at
+    /// which the currently pending span must be force-sealed to keep the
+    /// configured bound. `None` if nothing is pending, or the strategy has
+    /// no timeout. A caller driving an exact wakeup (rather than polling
+    /// via [`check_timeout`](Self::check_timeout)) schedules it here.
+    pub fn next_timeout_deadline_ns(&self) -> Option<u64> {
+        let SigningStrategy::BatchTailTimeout { max_wait_ns, .. } = self.strategy else {
+            return None;
+        };
+        self.pending.as_ref().map(|p| p.opened_at_ns + max_wait_ns)
+    }
+
+    /// If a pending span's timeout has elapsed as of `now_ns`, force-seal
+    /// it and return `true`. Deterministic: takes `now_ns` explicitly
+    /// rather than reading the wall clock, so tests can drive exact
+    /// boundary cases without sleeping. A no-op (`false`) under
+    /// [`SigningStrategy::PerRecord`] and [`SigningStrategy::BatchTail`],
+    /// which have no timeout concept.
+    pub fn check_timeout_at(&mut self, now_ns: u64) -> bool {
+        match self.next_timeout_deadline_ns() {
+            Some(deadline) if now_ns >= deadline => {
+                self.seal();
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// [`check_timeout_at`](Self::check_timeout_at) driven by the real
+    /// wall clock. A caller (e.g. a periodic maintenance tick) must call
+    /// this — or `check_timeout_at` — even with no further arrivals, to
+    /// guarantee [`SigningStrategy::BatchTailTimeout`]'s bound: nothing
+    /// inside this sink spawns its own timer.
+    pub fn check_timeout(&mut self) -> bool {
+        let now_ns = self.wall_clock_now_ns();
+        self.check_timeout_at(now_ns)
     }
 
     fn close(&mut self, purpose: SignPurpose, from: u64, to: u64, records_digest: [u8; 32]) {
@@ -291,8 +389,20 @@ impl<S: WitnessSink> SignedWitnessSink<S> {
     }
 }
 
-impl<S: WitnessSink> WitnessSink for SignedWitnessSink<S> {
-    fn emit_batch(&mut self, records: &[LedgerWitnessRecord]) -> Result<(), LedgerError> {
+impl<S: WitnessSink> SignedWitnessSink<S> {
+    /// The real [`WitnessSink::emit_batch`] logic, with `now_ns` supplied
+    /// explicitly instead of read from the wall clock. Under
+    /// [`SigningStrategy::BatchTailTimeout`] this is what stamps a newly
+    /// opened pending span's `opened_at_ns` and opportunistically closes
+    /// it if `now_ns` already clears the deadline (e.g. a caller batching
+    /// up records before forwarding them). Deterministic, so tests use it
+    /// directly instead of the trait method; the trait method is a thin
+    /// wrapper over this using the real clock.
+    pub fn emit_batch_at(
+        &mut self,
+        records: &[LedgerWitnessRecord],
+        now_ns: u64,
+    ) -> Result<(), LedgerError> {
         for (i, r) in records.iter().enumerate() {
             let expected = self.next_seq + i as u64;
             if r.sequence != expected {
@@ -320,6 +430,34 @@ impl<S: WitnessSink> WitnessSink for SignedWitnessSink<S> {
                         to: r.sequence,
                         count: 0,
                         hasher: RecordsHasher::new(),
+                        opened_at_ns: now_ns,
+                    });
+                    p.hasher.push(r);
+                    p.to = r.sequence;
+                    p.count += 1;
+                    if p.count >= batch_size {
+                        self.seal();
+                    }
+                }
+            }
+            SigningStrategy::BatchTailTimeout { batch_size, .. } => {
+                // Opportunistic: force-seal a span that is ALREADY stale
+                // relative to this call's `now_ns` before any new record
+                // is merged into it. Ordering matters — merging first
+                // would silently fold a late-arriving record into the
+                // stale span's signature, stretching its actual
+                // availability latency past `max_wait_ns` instead of
+                // bounding it. A caller that only drives `emit_batch` (no
+                // separate `check_timeout` tick) still gets the bound as
+                // long as *some* record keeps arriving.
+                self.check_timeout_at(now_ns);
+                for r in records {
+                    let p = self.pending.get_or_insert_with(|| PendingSpan {
+                        from: r.sequence,
+                        to: r.sequence,
+                        count: 0,
+                        hasher: RecordsHasher::new(),
+                        opened_at_ns: now_ns,
                     });
                     p.hasher.push(r);
                     p.to = r.sequence;
@@ -331,6 +469,13 @@ impl<S: WitnessSink> WitnessSink for SignedWitnessSink<S> {
             }
         }
         Ok(())
+    }
+}
+
+impl<S: WitnessSink> WitnessSink for SignedWitnessSink<S> {
+    fn emit_batch(&mut self, records: &[LedgerWitnessRecord]) -> Result<(), LedgerError> {
+        let now_ns = self.wall_clock_now_ns();
+        self.emit_batch_at(records, now_ns)
     }
 }
 
