@@ -214,6 +214,9 @@ impl fmt::Display for ToolResult {
 // ---------------------------------------------------------------------------
 
 /// Core tool trait. Built-in tools use enum dispatch; dynamic tools use vtable.
+// `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+// already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait Tool: Send + Sync {
     /// Tool name (used for matching tool_call.name).
