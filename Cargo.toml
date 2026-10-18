@@ -365,6 +365,9 @@ members = [
     "crates/ruvector-streaming-qng",
     # Entropy-adaptive ANN beam search: live Shannon entropy gates beam width (ADR-303)
     "crates/ruvector-entropy-ann",
+    # Frontier-cut conductance adaptive ANN beam search: topological signal
+    # tested against the ADR-303 entropy-signal negative result (ADR-353)
+    "crates/ruvector-frontier-cut-ann",
     # PIR #859 workspace-membership sweep: these crates were dangling —
     # present under crates/ but neither in members nor exclude, so their
     # tests and lints never ran in CI.
