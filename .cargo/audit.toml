@@ -69,6 +69,14 @@ ignore = [
     "RUSTSEC-2026-0195",
 
     # ------------------------------------------------------------------
+    # ZIP extraction advisories: temporary source-reachability exception.
+    # Locked parents use archive read/write only; CI checksum-verifies and scans
+    # their source with scripts/check-zip-extraction-scope.mjs. Not a fix.
+    # Re-review by 2026-11-01; remove when parents support ZIP >=9.
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0368",
+    "RUSTSEC-2026-0369",
+
     # Soundness/unsoundness notices in deps we do not directly control
     # ------------------------------------------------------------------
 
