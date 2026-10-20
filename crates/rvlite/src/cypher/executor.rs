@@ -3,7 +3,7 @@
 use super::ast::*;
 use super::graph_store::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -101,17 +101,24 @@ impl ExecutionResult {
 /// Cypher query executor
 pub struct Executor<'a> {
     graph: &'a mut PropertyGraph,
+    /// Set once a MATCH has run in the current query, so an empty `matched_rows`
+    /// means "no rows" rather than "no MATCH".
+    matched: bool,
 }
 
 impl<'a> Executor<'a> {
     pub fn new(graph: &'a mut PropertyGraph) -> Self {
-        Self { graph }
+        Self {
+            graph,
+            matched: false,
+        }
     }
 
     /// Execute a parsed Cypher query
     pub fn execute(&mut self, query: &Query) -> Result<ExecutionResult, ExecutionError> {
         let mut context = ExecutionContext::new();
         let mut result = None;
+        self.matched = false;
 
         for statement in &query.statements {
             result = Some(self.execute_statement(statement, &mut context)?);
@@ -256,11 +263,21 @@ impl<'a> Executor<'a> {
         clause: &MatchClause,
         context: &mut ExecutionContext,
     ) -> Result<ExecutionResult, ExecutionError> {
-        let mut matches = Vec::new();
+        // Comma-separated patterns combine as a cross product; a variable that
+        // appears in more than one pattern must bind to the same element.
+        let mut matches = vec![ExecutionContext::new()];
 
         for pattern in &clause.patterns {
             let pattern_matches = self.match_pattern(pattern)?;
-            matches.extend(pattern_matches);
+            let mut combined = Vec::new();
+            for left in &matches {
+                for right in &pattern_matches {
+                    if let Some(ctx) = merge_bindings(left, right) {
+                        combined.push(ctx);
+                    }
+                }
+            }
+            matches = combined;
         }
 
         // Apply WHERE filter if present
@@ -273,8 +290,29 @@ impl<'a> Executor<'a> {
 
         // Store each matched binding set as a separate row so RETURN can iterate all of them
         context.matched_rows = matches.into_iter().map(|ctx| ctx.variables).collect();
+        self.matched = true;
 
         Ok(ExecutionResult::new(vec![]))
+    }
+
+    /// One context per matched row, each holding the outer bindings plus that
+    /// row's bindings. Without a preceding MATCH this is the outer context alone.
+    fn row_contexts(&self, context: &ExecutionContext) -> Vec<ExecutionContext> {
+        if !self.matched {
+            return vec![context.clone()];
+        }
+        context
+            .matched_rows
+            .iter()
+            .map(|bindings| {
+                let mut row_ctx = ExecutionContext::new();
+                row_ctx.variables = context.variables.clone();
+                for (k, v) in bindings {
+                    row_ctx.bind(k.clone(), v.clone());
+                }
+                row_ctx
+            })
+            .collect()
     }
 
     fn match_pattern(&self, pattern: &Pattern) -> Result<Vec<ExecutionContext>, ExecutionError> {
@@ -421,13 +459,7 @@ impl<'a> Executor<'a> {
     ) -> Result<ExecutionResult, ExecutionError> {
         let mut columns = Vec::new();
         for item in &clause.items {
-            let col_name = item
-                .alias
-                .clone()
-                .unwrap_or_else(|| match &item.expression {
-                    Expression::Variable(var) => var.clone(),
-                    _ => "?column?".to_string(),
-                });
+            let col_name = column_name(item);
             if !columns.contains(&col_name) {
                 columns.push(col_name);
             }
@@ -435,40 +467,14 @@ impl<'a> Executor<'a> {
 
         let mut result = ExecutionResult::new(columns.clone());
 
-        // If MATCH produced multiple rows, iterate each row; otherwise use the current context
-        let row_bindings: Vec<&HashMap<String, ContextValue>> = if !context.matched_rows.is_empty()
-        {
-            context.matched_rows.iter().collect()
-        } else {
-            vec![&context.variables]
-        };
-
-        for bindings in row_bindings {
-            // Build a temporary context for this row by merging matched bindings with outer context
-            let mut row_ctx = ExecutionContext::new();
-            for (k, v) in &context.variables {
-                row_ctx.bind(k.clone(), v.clone());
-            }
-            for (k, v) in bindings {
-                row_ctx.bind(k.clone(), v.clone());
-            }
-
+        for row_ctx in self.row_contexts(context) {
             let mut row = HashMap::new();
             for col_name in &columns {
                 // Find the expression for this column
                 let expr = clause
                     .items
                     .iter()
-                    .find(|item| {
-                        let name = item
-                            .alias
-                            .clone()
-                            .unwrap_or_else(|| match &item.expression {
-                                Expression::Variable(var) => var.clone(),
-                                _ => "?column?".to_string(),
-                            });
-                        &name == col_name
-                    })
+                    .find(|item| &column_name(item) == col_name)
                     .map(|item| &item.expression);
 
                 if let Some(expr) = expr {
@@ -487,24 +493,26 @@ impl<'a> Executor<'a> {
         clause: &SetClause,
         context: &ExecutionContext,
     ) -> Result<ExecutionResult, ExecutionError> {
-        for item in &clause.items {
-            match item {
-                SetItem::Property {
-                    variable,
-                    property,
-                    value,
-                } => {
-                    let val = self.evaluate_expression(value, context)?;
-                    if let Some(ContextValue::Node(node)) = context.get(variable) {
-                        if let Some(node_mut) = self.graph.get_node_mut(&node.id) {
-                            node_mut.set_property(property.clone(), val);
+        for row_ctx in self.row_contexts(context) {
+            for item in &clause.items {
+                match item {
+                    SetItem::Property {
+                        variable,
+                        property,
+                        value,
+                    } => {
+                        let val = self.evaluate_expression(value, &row_ctx)?;
+                        if let Some(ContextValue::Node(node)) = row_ctx.get(variable) {
+                            if let Some(node_mut) = self.graph.get_node_mut(&node.id) {
+                                node_mut.set_property(property.clone(), val);
+                            }
                         }
                     }
-                }
-                _ => {
-                    return Err(ExecutionError::UnsupportedOperation(
-                        "Only property SET supported".to_string(),
-                    ))
+                    _ => {
+                        return Err(ExecutionError::UnsupportedOperation(
+                            "Only property SET supported".to_string(),
+                        ))
+                    }
                 }
             }
         }
@@ -517,24 +525,34 @@ impl<'a> Executor<'a> {
         clause: &DeleteClause,
         context: &ExecutionContext,
     ) -> Result<ExecutionResult, ExecutionError> {
-        for expr in &clause.expressions {
-            if let Expression::Variable(var) = expr {
-                if let Some(ctx_val) = context.get(var) {
-                    match ctx_val {
-                        ContextValue::Node(node) => {
-                            if clause.detach {
-                                self.graph.delete_node(&node.id)?;
-                            } else {
-                                return Err(ExecutionError::ExecutionError(
-                                    "Cannot delete node with relationships without DETACH"
-                                        .to_string(),
-                                ));
+        // Cross products can bind the same element in several rows; delete it once.
+        let mut deleted_nodes = HashSet::new();
+        let mut deleted_edges = HashSet::new();
+
+        for row_ctx in self.row_contexts(context) {
+            for expr in &clause.expressions {
+                if let Expression::Variable(var) = expr {
+                    if let Some(ctx_val) = row_ctx.get(var) {
+                        match ctx_val {
+                            ContextValue::Node(node) => {
+                                if clause.detach {
+                                    if deleted_nodes.insert(node.id.clone()) {
+                                        self.graph.delete_node(&node.id)?;
+                                    }
+                                } else {
+                                    return Err(ExecutionError::ExecutionError(
+                                        "Cannot delete node with relationships without DETACH"
+                                            .to_string(),
+                                    ));
+                                }
                             }
+                            ContextValue::Edge(edge) => {
+                                if deleted_edges.insert(edge.id.clone()) {
+                                    self.graph.delete_edge(&edge.id)?;
+                                }
+                            }
+                            _ => {}
                         }
-                        ContextValue::Edge(edge) => {
-                            self.graph.delete_edge(&edge.id)?;
-                        }
-                        _ => {}
                     }
                 }
             }
@@ -652,4 +670,40 @@ impl<'a> Executor<'a> {
             )),
         }
     }
+}
+
+/// Column name for a RETURN item: its alias, else `n` or `n.prop`.
+fn column_name(item: &ReturnItem) -> String {
+    if let Some(alias) = &item.alias {
+        return alias.clone();
+    }
+    match &item.expression {
+        Expression::Variable(var) => var.clone(),
+        Expression::Property { object, property } => match &**object {
+            Expression::Variable(var) => format!("{}.{}", var, property),
+            _ => "?column?".to_string(),
+        },
+        _ => "?column?".to_string(),
+    }
+}
+
+/// Combine two binding sets, or `None` if they bind one variable to different elements.
+fn merge_bindings(left: &ExecutionContext, right: &ExecutionContext) -> Option<ExecutionContext> {
+    let mut merged = left.clone();
+    for (var, value) in &right.variables {
+        if let Some(existing) = merged.get(var) {
+            let same = match (existing, value) {
+                (ContextValue::Node(a), ContextValue::Node(b)) => a.id == b.id,
+                (ContextValue::Edge(a), ContextValue::Edge(b)) => a.id == b.id,
+                (ContextValue::Value(a), ContextValue::Value(b)) => a == b,
+                _ => false,
+            };
+            if !same {
+                return None;
+            }
+        } else {
+            merged.bind(var.clone(), value.clone());
+        }
+    }
+    Some(merged)
 }

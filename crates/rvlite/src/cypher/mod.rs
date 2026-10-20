@@ -230,6 +230,75 @@ mod tests {
         assert_eq!(stats.edge_count, 1);
     }
 
+    /// Issue #269: MATCH returns one row per match, not only the last one.
+    #[test]
+    fn test_match_returns_multiple_rows() {
+        let mut engine = CypherEngine::new();
+        run(
+            &mut engine,
+            "CREATE (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'}), (c:Person {name: 'Charlie'})",
+        );
+
+        let result = run(&mut engine, "MATCH (n:Person) RETURN n");
+
+        assert_eq!(result.rows.len(), 3);
+        assert_eq!(result.columns, vec!["n"]);
+    }
+
+    /// RETURN n.name names its column "n.name" and yields one value per row.
+    #[test]
+    fn test_match_return_properties() {
+        let mut engine = CypherEngine::new();
+        run(
+            &mut engine,
+            "CREATE (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'})",
+        );
+
+        let result = run(&mut engine, "MATCH (n:Person) RETURN n.name");
+
+        assert_eq!(result.columns, vec!["n.name"]);
+        assert_eq!(string_column(&result, "n.name"), vec!["Alice", "Bob"]);
+    }
+
+    #[test]
+    fn test_match_where_filter() {
+        let mut engine = CypherEngine::new();
+        run(
+            &mut engine,
+            "CREATE (a:Person {name: 'Alice', age: 30}), (b:Person {name: 'Bob', age: 25}), (c:Person {name: 'Charlie', age: 35})",
+        );
+
+        let result = run(
+            &mut engine,
+            "MATCH (n:Person) WHERE n.age > 28 RETURN n.name",
+        );
+
+        assert_eq!(string_column(&result, "n.name"), vec!["Alice", "Charlie"]);
+    }
+
+    /// A MATCH with no matches gives zero rows, not an unbound-variable error.
+    #[test]
+    fn test_match_no_results() {
+        let mut engine = CypherEngine::new();
+        run(&mut engine, "CREATE (a:Person {name: 'Alice'})");
+
+        let result = run(&mut engine, "MATCH (n:Animal) RETURN n");
+
+        assert_eq!(result.rows.len(), 0);
+    }
+
+    #[test]
+    fn test_match_many_nodes() {
+        let mut engine = CypherEngine::new();
+        for i in 0..100 {
+            run(&mut engine, &format!("CREATE (n:Item {{id: {}}})", i));
+        }
+
+        let result = run(&mut engine, "MATCH (n:Item) RETURN n");
+
+        assert_eq!(result.rows.len(), 100);
+    }
+
     #[test]
     fn test_match_nodes() {
         let mut engine = CypherEngine::new();
@@ -261,6 +330,93 @@ mod tests {
         for query in queries {
             let result = parse_cypher(query);
             assert!(result.is_ok(), "Failed to parse: {}", query);
+        }
+    }
+
+    fn run(engine: &mut CypherEngine, query: &str) -> ExecutionResult {
+        let ast = parse_cypher(query).unwrap();
+        let mut executor = Executor::new(&mut engine.graph);
+        executor.execute(&ast).unwrap()
+    }
+
+    fn string_column(result: &ExecutionResult, column: &str) -> Vec<String> {
+        let mut values: Vec<String> = result
+            .rows
+            .iter()
+            .filter_map(|row| match row.get(column) {
+                Some(ContextValue::Value(Value::String(s))) => Some(s.clone()),
+                _ => None,
+            })
+            .collect();
+        values.sort();
+        values
+    }
+
+    #[test]
+    fn test_return_multiple_property_columns() {
+        let mut engine = CypherEngine::new();
+        run(
+            &mut engine,
+            "CREATE (a:Person {name: 'Alice', city: 'Oslo'}), (b:Person {name: 'Bob', city: 'Rome'})",
+        );
+
+        let result = run(&mut engine, "MATCH (n:Person) RETURN n.name, n.city");
+
+        assert_eq!(result.columns, vec!["n.name", "n.city"]);
+        assert_eq!(string_column(&result, "n.name"), vec!["Alice", "Bob"]);
+        assert_eq!(string_column(&result, "n.city"), vec!["Oslo", "Rome"]);
+    }
+
+    #[test]
+    fn test_match_set_updates_every_row() {
+        let mut engine = CypherEngine::new();
+        run(
+            &mut engine,
+            "CREATE (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'}), (c:Person {name: 'Charlie'})",
+        );
+
+        run(&mut engine, "MATCH (n:Person) SET n.seen = 'yes'");
+
+        let result = run(
+            &mut engine,
+            "MATCH (n:Person) WHERE n.seen = 'yes' RETURN n.name",
+        );
+        assert_eq!(
+            string_column(&result, "n.name"),
+            vec!["Alice", "Bob", "Charlie"]
+        );
+    }
+
+    #[test]
+    fn test_match_detach_delete_every_row() {
+        let mut engine = CypherEngine::new();
+        run(
+            &mut engine,
+            "CREATE (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'}), (c:Item {id: 1})",
+        );
+
+        run(&mut engine, "MATCH (n:Person) DETACH DELETE n");
+
+        assert_eq!(engine.graph.stats().node_count, 1);
+        assert!(engine.graph.find_nodes_by_label("Person").is_empty());
+    }
+
+    #[test]
+    fn test_match_comma_patterns_cross_product() {
+        let mut engine = CypherEngine::new();
+        run(
+            &mut engine,
+            "CREATE (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'}), (x:Company {name: 'Acme'}), (y:Company {name: 'Initech'}), (z:Company {name: 'Umbrella'})",
+        );
+
+        let result = run(
+            &mut engine,
+            "MATCH (p:Person), (c:Company) RETURN p.name, c.name",
+        );
+
+        assert_eq!(result.rows.len(), 6);
+        for row in &result.rows {
+            assert!(row.contains_key("p.name") && row.contains_key("c.name"));
         }
     }
 }
