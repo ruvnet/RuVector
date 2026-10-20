@@ -390,7 +390,7 @@ export function calculateModularity(graph: Graph, partition: string[][]): number
   for (const { weight = 1 } of graph.edges) {
     m += weight;
   }
-  m /= 2;
+  // Adjacency is symmetric, but graph.edges already counts each edge once.
 
   if (m === 0) return 0;
 
