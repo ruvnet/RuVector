@@ -226,17 +226,26 @@ class Intelligence {
     // Initialize full engine if available
     if (engineAvailable && IntelligenceEngine) {
       try {
+        // The native binding's implicit ./ruvector.db is relative to the MCP
+        // host's cwd, which is often the user's project root. Keep this server's
+        // index beside its intelligence store unless explicitly redirected.
+        const storagePath = path.resolve(
+          process.env.RUVECTOR_STORAGE_PATH || path.join(path.dirname(this.intelPath), 'vectors.db')
+        );
+        fs.mkdirSync(path.dirname(storagePath), { recursive: true, mode: 0o700 });
         this.engine = new IntelligenceEngine({
           embeddingDim: 256,
           maxMemories: 100000,
           enableSona: true,
           enableAttention: true,
+          storagePath,
         });
         // Import existing data
         if (this.data) {
           this.engine.import(this.convertLegacyData(this.data), true);
         }
       } catch (e) {
+        console.error(`ruvector: IntelligenceEngine unavailable (${e.message}); using fallback`);
         this.engine = null;
       }
     }
@@ -609,7 +618,7 @@ class Intelligence {
       const stats = this.engine.getStats();
       return {
         engine: true,
-        vectorDb: true,
+        vectorDb: this.engine.hasVectorDb(),
         sona: stats.sonaEnabled,
         attention: stats.attentionEnabled,
         embeddingDim: stats.memoryDimensions,
