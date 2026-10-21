@@ -31,7 +31,11 @@ if (JSON.stringify(gotVersions) !== JSON.stringify(wantVersions)) {
 for (const [version, expected] of expectedZip) {
   const zip = zips.find(p => p.version === version);
   if (zip.checksum !== expected.checksum) throw new Error("ZIP checksum changed: " + version);
-  const parents = blocks.filter(p => p.deps.includes("zip " + version));
+  // Cargo package IDs may include a source qualifier when sources overlap.
+  // Match that notation too, so a new direct caller cannot evade this scope.
+  const parents = blocks.filter(p => p.deps.some(dep =>
+    dep === "zip " + version || dep.startsWith("zip " + version + " (")
+  ));
   if (parents.length !== 1 || parents[0].name !== expected.parent || parents[0].version !== expected.parentVersion) {
     throw new Error("Unexpected reverse dependency for zip " + version + ": " + parents.map(p => p.name + " " + p.version).join(", "));
   }
