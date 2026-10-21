@@ -103,11 +103,10 @@ impl MultiHeadAttention {
     /// # Errors
     /// Returns `GnnError::LayerConfig` if `embed_dim` is not divisible by `num_heads`.
     pub fn new(embed_dim: usize, num_heads: usize) -> Result<Self, GnnError> {
-        if embed_dim
-            .checked_rem(num_heads)
-            .expect("attempt to calculate the remainder with a divisor of zero")
-            != 0
-        {
+        if num_heads == 0 {
+            return Err(GnnError::layer_config("Number of heads must be positive"));
+        }
+        if !embed_dim.is_multiple_of(num_heads) {
             return Err(GnnError::layer_config(format!(
                 "Embedding dimension ({}) must be divisible by number of heads ({})",
                 embed_dim, num_heads
@@ -351,8 +350,8 @@ impl RuvectorLayer {
     /// * `dropout` - Dropout rate (0.0 to 1.0)
     ///
     /// # Errors
-    /// Returns `GnnError::LayerConfig` if `dropout` is outside `[0.0, 1.0]` or
-    /// if `hidden_dim` is not divisible by `heads`.
+    /// Returns `GnnError::LayerConfig` for zero hidden or overflowing dimensions,
+    /// invalid heads, or `dropout` outside `[0.0, 1.0]`.
     pub fn new(
         input_dim: usize,
         hidden_dim: usize,
@@ -366,6 +365,8 @@ impl RuvectorLayer {
             )));
         }
 
+        Self::validate_dimensions(input_dim, hidden_dim, heads)?;
+
         Ok(Self {
             w_msg: Linear::new(input_dim, hidden_dim),
             w_agg: Linear::new(hidden_dim, hidden_dim),
@@ -374,6 +375,80 @@ impl RuvectorLayer {
             norm: LayerNorm::new(hidden_dim, 1e-5),
             dropout,
         })
+    }
+
+    fn validate_dimensions(input: usize, hidden: usize, heads: usize) -> Result<(), GnnError> {
+        if hidden == 0 || heads == 0 || !hidden.is_multiple_of(heads) {
+            return Err(GnnError::layer_config(
+                "Hidden dimension and heads must be positive, and hidden dimension divisible by heads",
+            ));
+        }
+        // ndarray allocations and shape strides must fit an addressable slice.
+        for (rows, cols) in [(hidden, input), (hidden, hidden)] {
+            if rows.checked_add(cols).is_none()
+                || !rows
+                    .checked_mul(cols)
+                    .and_then(|n| n.checked_mul(std::mem::size_of::<f32>()))
+                    .is_some_and(|bytes| bytes <= isize::MAX as usize)
+            {
+                return Err(GnnError::layer_config("Layer dimensions overflow"));
+            }
+        }
+        Ok(())
+    }
+
+    /// Validate internal shapes after deserialization, before running a forward pass.
+    pub fn validate(&self) -> Result<(), GnnError> {
+        let input = self.input_dim();
+        let hidden = self.output_dim();
+        Self::validate_dimensions(input, hidden, self.attention.num_heads)?;
+        let check_linear = |linear: &Linear, cols: usize, rows: usize| {
+            if linear.weights.shape() != [rows, cols] || linear.bias.len() != rows {
+                Err(GnnError::layer_config(
+                    "Inconsistent serialized linear shape",
+                ))
+            } else {
+                Ok(())
+            }
+        };
+        check_linear(&self.w_msg, input, hidden)?;
+        for linear in [
+            &self.w_agg,
+            &self.w_update.w_z,
+            &self.w_update.u_z,
+            &self.w_update.w_r,
+            &self.w_update.u_r,
+            &self.w_update.w_h,
+            &self.w_update.u_h,
+            &self.attention.q_linear,
+            &self.attention.k_linear,
+            &self.attention.v_linear,
+            &self.attention.out_linear,
+        ] {
+            check_linear(linear, hidden, hidden)?;
+        }
+        if self.attention.head_dim != hidden / self.attention.num_heads
+            || self.norm.gamma.len() != hidden
+            || self.norm.beta.len() != hidden
+            || !self.norm.eps.is_finite()
+            || self.norm.eps <= 0.0
+            || !(0.0..=1.0).contains(&self.dropout)
+        {
+            return Err(GnnError::layer_config(
+                "Inconsistent serialized layer configuration",
+            ));
+        }
+        Ok(())
+    }
+
+    /// Dimension expected for node and neighbor embeddings.
+    pub fn input_dim(&self) -> usize {
+        self.w_msg.weights.shape()[1]
+    }
+
+    /// Dimension produced by this layer.
+    pub fn output_dim(&self) -> usize {
+        self.w_msg.output_dim()
     }
 
     /// Forward pass through the GNN layer
@@ -505,6 +580,12 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("divisible"));
+    }
+
+    #[test]
+    fn test_multihead_attention_rejects_zero_heads() {
+        assert!(MultiHeadAttention::new(8, 0).is_err());
+        assert!(RuvectorLayer::new(2, 2, 0, 0.0).is_err());
     }
 
     #[test]
