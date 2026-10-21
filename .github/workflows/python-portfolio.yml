@@ -64,14 +64,14 @@ jobs:
           python -m venv /tmp/sdist-test
           /tmp/sdist-test/bin/pip install /tmp/native/*.whl dist/*.tar.gz pytest==9.1.1
           /tmp/sdist-test/bin/python -m pytest python/portfolio/tests -q
-      - name: Verify actual released runtime compatibility
+      - name: Verify candidate runtime compatibility in a clean environment
         run: |
-          python -m venv /tmp/published-test
-          /tmp/published-test/bin/pip install pip==26.2.1
-          /tmp/published-test/bin/pip install --only-binary=:all: dist/*.whl pytest==9.1.1
-          /tmp/published-test/bin/python -m pytest python/portfolio/tests -q
-          /tmp/published-test/bin/pip freeze > /tmp/runtime-requirements.txt
-          python -m pip_audit --path /tmp/published-test/lib/python3.12/site-packages
+          python -m venv /tmp/candidate-test
+          /tmp/candidate-test/bin/pip install pip==26.2.1
+          /tmp/candidate-test/bin/pip install --only-binary=:all: /tmp/native/*.whl dist/*.whl pytest==9.1.1
+          /tmp/candidate-test/bin/python -m pytest python/portfolio/tests -q
+          /tmp/candidate-test/bin/pip freeze > /tmp/runtime-requirements.txt
+          python -m pip_audit --path /tmp/candidate-test/lib/python3.12/site-packages
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: portfolio-dist
@@ -145,7 +145,8 @@ jobs:
           else
             PY=verify-env/bin/python
           fi
-          python -c 'import json,pathlib; m=json.loads(pathlib.Path("python/portfolio/manifest.json").read_text()); pathlib.Path("release-requirements.txt").write_text("\n".join(p+"=="+m["version"] for p in m["packages"])+"\n")'
+          python -c 'import json,pathlib; m=json.loads(pathlib.Path("python/portfolio/manifest.json").read_text()); pathlib.Path("release-requirements.txt").write_text("ruvector=="+m["runtime"]+"\n"+"\n".join(p+"=="+m["version"] for p in m["packages"])+"\n")'
           "$PY" -m pip install --index-url https://pypi.org/simple --only-binary=:all: --no-cache-dir -r release-requirements.txt pytest==9.1.1
+          "$PY" -c 'import importlib.metadata as d,json,pathlib,ruvector; m=json.loads(pathlib.Path("python/portfolio/manifest.json").read_text()); assert d.version("ruvector") == ruvector.__version__ == m["runtime"]'
           "$PY" -m pytest python/portfolio/tests -q
           "$PY" python/portfolio/check_examples.py

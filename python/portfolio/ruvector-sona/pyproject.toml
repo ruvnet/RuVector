@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ruvector-sona"
-version = "0.2.0"
+version = "0.2.1"
 description = "Validated batch inference over the native SONA LoRA hooks."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [{name = "RuVector Team"}]
-dependencies = ["ruvector==0.1.4", "numpy>=1.21"]
+dependencies = ["ruvector==0.1.5", "numpy>=1.21"]
 keywords = ["ruvector", "rust", "sona", "embeddings", "ai"]
 classifiers = [
   "Development Status :: 3 - Alpha",

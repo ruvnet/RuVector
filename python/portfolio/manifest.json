@@ -1,6 +1,6 @@
 {
-  "version": "0.2.0",
-  "runtime": "0.1.4",
+  "version": "0.2.1",
+  "runtime": "0.1.5",
   "packages": [
     "ruvector-attention",
     "ruvector-cluster",
