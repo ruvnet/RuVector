@@ -116,6 +116,9 @@ objc2-foundation = { version = "0.3", optional = true, features = ["NSString", "
 objc2-core-ml = { version = "0.3", optional = true, features = ["MLModel", "MLModelConfiguration", "MLFeatureProvider", "MLFeatureValue", "MLMultiArray", "MLPredictionOptions", "MLModelDescription", "MLFeatureDescription", "MLDictionaryFeatureProvider", "MLModelError"] }
 block2 = { version = "0.6", optional = true }
 
+[build-dependencies]
+rustc_version = "0.4"
+
 [dev-dependencies]
 criterion = { workspace = true }
 tempfile = "3.13"

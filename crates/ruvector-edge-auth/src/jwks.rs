@@ -249,7 +249,7 @@ impl JwksCachePolicy {
     fn kid_accepted(&self, kid: &str) -> bool {
         self.accepted_kids
             .as_ref()
-            .map_or(true, |list| list.iter().any(|k| k == kid))
+            .is_none_or(|list| list.iter().any(|k| k == kid))
     }
 }
 

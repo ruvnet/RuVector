@@ -103,7 +103,11 @@ impl MultiHeadAttention {
     /// # Errors
     /// Returns `GnnError::LayerConfig` if `embed_dim` is not divisible by `num_heads`.
     pub fn new(embed_dim: usize, num_heads: usize) -> Result<Self, GnnError> {
-        if embed_dim % num_heads != 0 {
+        if embed_dim
+            .checked_rem(num_heads)
+            .expect("attempt to calculate the remainder with a divisor of zero")
+            != 0
+        {
             return Err(GnnError::layer_config(format!(
                 "Embedding dimension ({}) must be divisible by number of heads ({})",
                 embed_dim, num_heads

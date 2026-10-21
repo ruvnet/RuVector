@@ -57,7 +57,7 @@ impl Turbo4Codec {
     /// Build a codec. `dim` must be even and ≥ 2 (all practical embedding
     /// widths are; evenness keeps the two-run nibble layout exact).
     pub fn new(dim: usize, rotation_seed: u64) -> Result<Self, TurboQuantError> {
-        if dim < 2 || dim % 2 != 0 {
+        if dim < 2 || !dim.is_multiple_of(2) {
             return Err(TurboQuantError::InvalidDimension(dim));
         }
         Ok(Self {

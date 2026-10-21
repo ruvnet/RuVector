@@ -94,7 +94,7 @@ fn dense_weighted_graphs_match_exhaustive_oracle() {
                     state ^= state << 13;
                     state ^= state >> 7;
                     state ^= state << 17;
-                    if state % 5 != 0 {
+                    if !state.is_multiple_of(5) {
                         edges.push((u, v, ((state >> 8) % 97) as f64 / 4.0));
                     }
                 }
