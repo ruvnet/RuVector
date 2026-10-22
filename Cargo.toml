@@ -121,6 +121,11 @@ members = [
     # OpenJev v0 trainer (ADR-008): candle fine-tune + ONNX transplant (openjev).
     "crates/ruvector-typesafe-train",
     "crates/ruvector-retrieval-receipt",
+    # Signature-verified cut-partition import for cross-agent memory
+    # transfer (ADR-353, 2026-10-22 nightly). Self-contained Stoer-Wagner
+    # reference baseline + Ed25519 cut certificates; no path dependency on
+    # ruvector-mincut (see crate README for why).
+    "crates/ruvector-partition-import",
     "crates/ruvector-gnn-rerank",
     "crates/ruvector-gnn-node",
     "crates/ruvector-gnn-wasm",

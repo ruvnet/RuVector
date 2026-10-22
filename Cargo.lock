@@ -10753,6 +10753,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-partition-import"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "rand 0.8.6",
+ "serde",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "ruvector-perception"
 version = "2.3.0"
 dependencies = [
