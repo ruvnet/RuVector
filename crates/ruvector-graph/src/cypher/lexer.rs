@@ -193,7 +193,25 @@ fn parse_token(input: &str) -> IResult<&str, (TokenKind, &str)> {
     ))(input)
 }
 
+/// Matches a keyword only at a word boundary. Without this check a relationship
+/// type such as `[:ORDERED]` lexes as `OR` followed by `DERED`, and `ASSET`,
+/// `INDEX`, `NOTE` and `ENDS` split the same way.
 fn parse_keyword(input: &str) -> IResult<&str, (TokenKind, &str)> {
+    let (rest, token) = parse_keyword_tag(input)?;
+    if rest
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_')
+    {
+        return Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        )));
+    }
+    Ok((rest, token))
+}
+
+fn parse_keyword_tag(input: &str) -> IResult<&str, (TokenKind, &str)> {
     let (input, _) = multispace0(input)?;
 
     // Split into nested alt() calls since nom's alt() supports max 21 alternatives
@@ -382,6 +400,30 @@ pub enum LexerError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_keyword_prefixes_lex_as_identifiers() {
+        // Identifiers that start with a keyword must not be split at the keyword.
+        let input = "(a)-[:ORDERED]->(b) ASSET.index NOTE ENDS";
+        let tokens = tokenize(input).unwrap();
+        let idents: Vec<_> = tokens
+            .iter()
+            .filter_map(|t| match &t.kind {
+                TokenKind::Identifier(s) => Some(s.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            idents,
+            vec!["a", "ORDERED", "b", "ASSET", "index", "NOTE", "ENDS"]
+        );
+        assert!(!tokens.iter().any(|t| t.kind == TokenKind::Or));
+
+        // Real keywords still lex when followed by a space or punctuation.
+        let tokens = tokenize("OR x AND(y)").unwrap();
+        assert_eq!(tokens[0].kind, TokenKind::Or);
+        assert_eq!(tokens[2].kind, TokenKind::And);
+    }
 
     #[test]
     fn test_tokenize_simple_match() {

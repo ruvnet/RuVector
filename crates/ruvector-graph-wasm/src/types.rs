@@ -2,7 +2,7 @@
 
 use js_sys::{Array, Object, Reflect};
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen::{from_value, to_value};
+use serde_wasm_bindgen::{from_value, Serializer};
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
@@ -39,7 +39,7 @@ impl JsNode {
 
     #[wasm_bindgen(getter)]
     pub fn properties(&self) -> JsValue {
-        to_value(&self.properties).unwrap_or(JsValue::NULL)
+        to_js_object(&self.properties)
     }
 
     #[wasm_bindgen(getter)]
@@ -52,7 +52,7 @@ impl JsNode {
     pub fn get_property(&self, key: &str) -> JsValue {
         self.properties
             .get(key)
-            .map(|v| to_value(v).unwrap())
+            .map(|v| to_js_object(v))
             .unwrap_or(JsValue::NULL)
     }
 
@@ -98,14 +98,14 @@ impl JsEdge {
 
     #[wasm_bindgen(getter)]
     pub fn properties(&self) -> JsValue {
-        to_value(&self.properties).unwrap_or(JsValue::NULL)
+        to_js_object(&self.properties)
     }
 
     #[wasm_bindgen(js_name = getProperty)]
     pub fn get_property(&self, key: &str) -> JsValue {
         self.properties
             .get(key)
-            .map(|v| to_value(v).unwrap())
+            .map(|v| to_js_object(v))
             .unwrap_or(JsValue::NULL)
     }
 }
@@ -151,7 +151,7 @@ impl JsHyperedge {
 
     #[wasm_bindgen(getter)]
     pub fn properties(&self) -> JsValue {
-        to_value(&self.properties).unwrap_or(JsValue::NULL)
+        to_js_object(&self.properties)
     }
 
     #[wasm_bindgen(getter)]
@@ -188,11 +188,16 @@ impl QueryResult {
 
     #[wasm_bindgen(getter)]
     pub fn data(&self) -> JsValue {
-        to_value(&self.data).unwrap_or(JsValue::NULL)
+        to_js_object(&self.data)
     }
 
+    /// Number of rows when the query returned rows, otherwise the number of graph
+    /// elements (nodes, edges and hyperedges) returned.
     #[wasm_bindgen(getter)]
     pub fn count(&self) -> usize {
+        if !self.data.is_empty() {
+            return self.data.len();
+        }
         self.nodes.len() + self.edges.len() + self.hyperedges.len()
     }
 
@@ -201,6 +206,14 @@ impl QueryResult {
     pub fn is_empty(&self) -> bool {
         self.count() == 0
     }
+}
+
+/// Serializes Rust maps as plain JS objects rather than ES `Map`s, so results can be
+/// read with `.name` and round-tripped through `JSON.stringify`.
+pub(crate) fn to_js_object<T: Serialize + ?Sized>(value: &T) -> JsValue {
+    value
+        .serialize(&Serializer::json_compatible())
+        .unwrap_or(JsValue::NULL)
 }
 
 /// WASM-specific error type

@@ -25,8 +25,10 @@ use wasm_bindgen::prelude::*;
 use web_sys::console;
 
 pub mod async_ops;
+mod cypher_exec;
 pub mod types;
 
+use cypher_exec::Store;
 use types::{
     js_object_to_hashmap, Edge, EdgeId, GraphError, Hyperedge, HyperedgeId, JsEdge, JsHyperedge,
     JsNode, Node, NodeId, QueryResult,
@@ -84,19 +86,22 @@ impl GraphDB {
         })
     }
 
-    /// Execute a Cypher query (basic implementation)
+    /// Execute a Cypher query
+    ///
+    /// Supports MATCH (with WHERE and OPTIONAL MATCH), CREATE (including
+    /// relationships between nodes bound by an earlier MATCH), RETURN with
+    /// DISTINCT, count/sum/avg/min/max/collect, ORDER BY, SKIP and LIMIT.
+    /// WITH, MERGE, SET, REMOVE, DELETE, variable-length paths and regex
+    /// operators are rejected with an error.
     ///
     /// # Arguments
     /// * `cypher` - Cypher query string
     ///
     /// # Returns
-    /// Promise<QueryResult> with matching nodes, edges, and hyperedges
+    /// Promise<QueryResult>. Rows are in `data`. Bare node and edge values are also
+    /// listed in `nodes` and `edges`.
     #[wasm_bindgen]
     pub async fn query(&self, cypher: String) -> Result<QueryResult, JsValue> {
-        console::log_1(&format!("Executing Cypher: {}", cypher).into());
-
-        // Parse and execute basic Cypher queries
-        // This is a simplified implementation - a full Cypher parser would be more complex
         let result = self
             .execute_cypher(&cypher)
             .map_err(|e| JsValue::from(GraphError::from(e)))?;
@@ -114,43 +119,8 @@ impl GraphDB {
     /// Node ID
     #[wasm_bindgen(js_name = createNode)]
     pub fn create_node(&self, labels: Vec<String>, properties: JsValue) -> Result<String, JsValue> {
-        let id = Uuid::new_v4().to_string();
         let props = js_object_to_hashmap(properties).map_err(|e| JsValue::from_str(&e))?;
-
-        // Extract embedding if present
-        let embedding = props
-            .get("embedding")
-            .and_then(|v| serde_json::from_value::<Vec<f32>>(v.clone()).ok());
-
-        let node = Node {
-            id: id.clone(),
-            labels: labels.clone(),
-            properties: props,
-            embedding: embedding.clone(),
-        };
-
-        // Store node
-        self.nodes.lock().insert(id.clone(), node);
-
-        // Update label index
-        let mut labels_index = self.labels_index.lock();
-        for label in &labels {
-            labels_index
-                .entry(label.clone())
-                .or_insert_with(Vec::new)
-                .push(id.clone());
-        }
-
-        // Add to hypergraph if embedding exists
-        if let Some(emb) = embedding {
-            self.hypergraph.lock().add_entity(id.clone(), emb);
-        }
-
-        // Initialize edge lists
-        self.node_edges_out.lock().insert(id.clone(), Vec::new());
-        self.node_edges_in.lock().insert(id.clone(), Vec::new());
-
-        Ok(id)
+        Ok(self.lock_store().insert_node(labels, props))
     }
 
     /// Create a new edge (relationship)
@@ -171,50 +141,10 @@ impl GraphDB {
         edge_type: String,
         properties: JsValue,
     ) -> Result<String, JsValue> {
-        // Verify nodes exist
-        let nodes = self.nodes.lock();
-        if !nodes.contains_key(&from) {
-            return Err(JsValue::from_str(&format!("Node {} not found", from)));
-        }
-        if !nodes.contains_key(&to) {
-            return Err(JsValue::from_str(&format!("Node {} not found", to)));
-        }
-        drop(nodes);
-
-        let id = Uuid::new_v4().to_string();
         let props = js_object_to_hashmap(properties).map_err(|e| JsValue::from_str(&e))?;
-
-        let edge = Edge {
-            id: id.clone(),
-            from: from.clone(),
-            to: to.clone(),
-            edge_type: edge_type.clone(),
-            properties: props,
-        };
-
-        // Store edge
-        self.edges.lock().insert(id.clone(), edge);
-
-        // Update indices
-        self.edge_types_index
-            .lock()
-            .entry(edge_type)
-            .or_insert_with(Vec::new)
-            .push(id.clone());
-
-        self.node_edges_out
-            .lock()
-            .entry(from)
-            .or_insert_with(Vec::new)
-            .push(id.clone());
-
-        self.node_edges_in
-            .lock()
-            .entry(to)
-            .or_insert_with(Vec::new)
-            .push(id.clone());
-
-        Ok(id)
+        self.lock_store()
+            .insert_edge(from, to, edge_type, props)
+            .map_err(|e| JsValue::from_str(&e))
     }
 
     /// Create a hyperedge (n-ary relationship)
@@ -478,40 +408,44 @@ impl GraphDB {
 
 // Internal helper methods
 impl GraphDB {
-    fn execute_cypher(&self, cypher: &str) -> Result<QueryResult, String> {
-        let cypher = cypher.trim();
-
-        // Very basic Cypher parsing - in production, use a proper parser
-        if cypher.to_uppercase().starts_with("MATCH") {
-            self.execute_match_query(cypher)
-        } else if cypher.to_uppercase().starts_with("CREATE") {
-            self.execute_create_query(cypher)
-        } else {
-            Err(format!("Unsupported Cypher statement: {}", cypher))
+    /// Locks every graph map in one fixed order and returns a view over them.
+    fn lock_store(&self) -> Store<'_> {
+        Store {
+            nodes: self.nodes.lock(),
+            edges: self.edges.lock(),
+            labels_index: self.labels_index.lock(),
+            edge_types_index: self.edge_types_index.lock(),
+            node_edges_out: self.node_edges_out.lock(),
+            node_edges_in: self.node_edges_in.lock(),
+            hypergraph: self.hypergraph.lock(),
         }
     }
 
-    fn execute_match_query(&self, _cypher: &str) -> Result<QueryResult, String> {
-        // Simplified MATCH implementation
-        // In production, parse the pattern and execute accordingly
+    fn execute_cypher(&self, cypher: &str) -> Result<QueryResult, String> {
+        let mut store = self.lock_store();
+        let output = cypher_exec::execute(&mut store, cypher.trim())?;
+
+        let nodes = output
+            .node_ids
+            .iter()
+            .filter_map(|id| store.nodes.get(id).map(Node::to_js))
+            .collect();
+        let edges = output
+            .edge_ids
+            .iter()
+            .filter_map(|id| store.edges.get(id).map(Edge::to_js))
+            .collect();
+        let data = output
+            .rows
+            .into_iter()
+            .map(|row| row.into_iter().collect::<HashMap<_, _>>())
+            .collect();
 
         Ok(QueryResult {
-            nodes: Vec::new(),
-            edges: Vec::new(),
+            nodes,
+            edges,
             hyperedges: Vec::new(),
-            data: Vec::new(),
-        })
-    }
-
-    fn execute_create_query(&self, _cypher: &str) -> Result<QueryResult, String> {
-        // Simplified CREATE implementation
-        // Parse CREATE statement and create nodes/relationships
-
-        Ok(QueryResult {
-            nodes: Vec::new(),
-            edges: Vec::new(),
-            hyperedges: Vec::new(),
-            data: Vec::new(),
+            data,
         })
     }
 

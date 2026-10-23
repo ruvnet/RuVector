@@ -856,9 +856,64 @@ impl Parser {
                 op,
                 right: Box::new(right),
             };
+        } else if self.match_token(&[TokenKind::Is]) {
+            // IS NULL and IS NOT NULL
+            let negated = self.match_token(&[TokenKind::Not]);
+            self.consume(TokenKind::Null, "NULL")?;
+            let op = if negated {
+                UnaryOperator::IsNotNull
+            } else {
+                UnaryOperator::IsNull
+            };
+            expr = Expression::UnaryOp {
+                op,
+                operand: Box::new(expr),
+            };
+        } else if self.match_token(&[TokenKind::In]) {
+            let right = self.parse_additive()?;
+            expr = Expression::BinaryOp {
+                left: Box::new(expr),
+                op: BinaryOperator::In,
+                right: Box::new(right),
+            };
+        } else if let Some(op) = self.parse_string_predicate_op() {
+            let right = self.parse_additive()?;
+            expr = Expression::BinaryOp {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+            };
         }
 
         Ok(expr)
+    }
+
+    /// CONTAINS, STARTS WITH and ENDS WITH. These are not keywords in the lexer,
+    /// so they are matched as identifiers.
+    fn parse_string_predicate_op(&mut self) -> Option<BinaryOperator> {
+        let word = match &self.peek().kind {
+            TokenKind::Identifier(name) => name.to_ascii_uppercase(),
+            _ => return None,
+        };
+        match word.as_str() {
+            "CONTAINS" => {
+                self.advance();
+                Some(BinaryOperator::Contains)
+            }
+            "STARTS" | "ENDS" => {
+                if self.tokens.get(self.current + 1).map(|t| &t.kind) != Some(&TokenKind::With) {
+                    return None;
+                }
+                self.advance();
+                self.advance();
+                Some(if word == "STARTS" {
+                    BinaryOperator::StartsWith
+                } else {
+                    BinaryOperator::EndsWith
+                })
+            }
+            _ => None,
+        }
     }
 
     fn parse_comparison_op(&mut self) -> Option<BinaryOperator> {
@@ -1008,6 +1063,38 @@ impl Parser {
                     Ok(Expression::Variable(name))
                 }
             }
+            TokenKind::Case => {
+                self.advance();
+                // Simple form: CASE subject WHEN value THEN ... ; searched form: CASE WHEN cond THEN ...
+                let expression = if self.check(&TokenKind::When) {
+                    None
+                } else {
+                    Some(Box::new(self.parse_expression()?))
+                };
+                let mut alternatives = Vec::new();
+                while self.match_token(&[TokenKind::When]) {
+                    let condition = self.parse_expression()?;
+                    self.consume(TokenKind::Then, "THEN")?;
+                    let result = self.parse_expression()?;
+                    alternatives.push((condition, result));
+                }
+                if alternatives.is_empty() {
+                    return Err(ParseError::InvalidSyntax(
+                        "CASE requires at least one WHEN branch".to_string(),
+                    ));
+                }
+                let default = if self.match_token(&[TokenKind::Else]) {
+                    Some(Box::new(self.parse_expression()?))
+                } else {
+                    None
+                };
+                self.consume(TokenKind::End, "END")?;
+                Ok(Expression::Case {
+                    expression,
+                    alternatives,
+                    default,
+                })
+            }
             TokenKind::LeftParen => {
                 self.advance();
                 let expr = self.parse_expression()?;
@@ -1087,6 +1174,16 @@ impl Parser {
     }
 
     fn parse_function_call(&mut self, name: String) -> ParseResult<Expression> {
+        // count(*) counts rows. It is encoded as count over the marker variable `*`.
+        if name.eq_ignore_ascii_case("count") && self.match_token(&[TokenKind::Star]) {
+            self.consume(TokenKind::RightParen, ")")?;
+            return Ok(Expression::Aggregation {
+                function: AggregationFunction::Count,
+                expression: Box::new(Expression::Variable("*".to_string())),
+                distinct: false,
+            });
+        }
+
         let mut args = vec![];
 
         if !self.check(&TokenKind::RightParen) {
