@@ -102,8 +102,6 @@ impl GraphDB {
     /// listed in `nodes` and `edges`.
     #[wasm_bindgen]
     pub async fn query(&self, cypher: String) -> Result<QueryResult, JsValue> {
-        console::log_1(&format!("Executing Cypher: {}", cypher).into());
-
         let result = self
             .execute_cypher(&cypher)
             .map_err(|e| JsValue::from(GraphError::from(e)))?;
