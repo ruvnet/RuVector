@@ -101,6 +101,16 @@ const TASK_ALGORITHM_MAP: Record<TaskType, LearningConfig> = {
   },
 };
 
+// Settings for a task that is not one of the six above (a caller's own task name). Without them getConfig()
+// returned undefined, so update() threw, and configure() with a partial config stored no learning rate, so every
+// update returned a null delta and nothing was learned.
+const DEFAULT_TASK_CONFIG: LearningConfig = {
+  algorithm: 'q-learning',
+  learningRate: 0.1,
+  discountFactor: 0.95,
+  epsilon: 0.1,
+};
+
 export class LearningEngine {
   private configs: Map<TaskType, LearningConfig> = new Map();
   private qTables: Map<string, Map<string, number>> = new Map();
@@ -138,7 +148,7 @@ export class LearningEngine {
    * Configure algorithm for a specific task type
    */
   configure(task: TaskType, config: Partial<LearningConfig>): void {
-    const existing = this.configs.get(task) || TASK_ALGORITHM_MAP[task];
+    const existing = this.configs.get(task) || TASK_ALGORITHM_MAP[task] || DEFAULT_TASK_CONFIG;
     this.configs.set(task, { ...existing, ...config });
   }
 
@@ -146,7 +156,7 @@ export class LearningEngine {
    * Get current configuration for a task
    */
   getConfig(task: TaskType): LearningConfig {
-    return this.configs.get(task) || TASK_ALGORITHM_MAP[task];
+    return this.configs.get(task) || TASK_ALGORITHM_MAP[task] || { ...DEFAULT_TASK_CONFIG };
   }
 
   /**
