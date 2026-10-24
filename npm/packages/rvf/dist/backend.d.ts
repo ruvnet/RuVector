@@ -56,6 +56,7 @@ export declare class NodeBackend implements RvfBackend {
     private labelToId;
     private nextLabel;
     private storePath;
+    private readOnly;
     private loadNative;
     private ensureHandle;
     /** Release a native handle without persisting mappings after open failed. */

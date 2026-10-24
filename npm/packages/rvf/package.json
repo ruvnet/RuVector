@@ -23,7 +23,8 @@
     "smoke:idmap": "node scripts/smoke-idmap-durability.mjs",
     "smoke:cow": "node scripts/smoke-cow-durability.mjs",
     "bench": "tsx bench/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:readonly": "node --test tests/readonly.test.cjs"
   },
   "keywords": [
     "vector",
