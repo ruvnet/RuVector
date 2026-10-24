@@ -13,8 +13,16 @@ pub mod cap_graph;
 /// | PostFilter     | scan all, discard unauthorised   | 100%   | O(n)          |
 /// | EagerMask      | skip unauthorised before dot-prod| 100%   | O(auth_frac·n)|
 /// | CapGraph       | graph walk, prune unauth nodes   | ≤100%  | O(deg·steps)  |
+///
+/// A fourth variant, `HierarchicalCapGraph` (see [`hierarchical`]), isolates
+/// `CapGraph`'s documented "replace with HNSW for production" TODO: it adds
+/// a sparse top layer for entry-point seeding while keeping base-layer
+/// degree and traversal policy identical, so recall/QPS deltas are
+/// attributable to seeding quality alone. See
+/// `docs/research/nightly/2026-10-08-acorn-capgated-selectivity/`.
 pub mod dataset;
 pub mod eager_mask;
+pub mod hierarchical;
 pub mod oracle;
 pub mod post_filter;
 
