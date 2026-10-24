@@ -202,28 +202,45 @@ impl MincutGatedForgetting {
     }
 }
 
-impl CompactionPolicy for MincutGatedForgetting {
-    fn name(&self) -> &str {
-        match self.mode {
-            ForgetMode::Soft => "MincutGatedForgetting-Soft",
-            ForgetMode::Hard => "MincutGatedForgetting-Hard",
-        }
-    }
+/// The full result of one [`MincutGatedForgetting`] decision: which indices
+/// survive, which indices sit on the mincut boundary (computed exactly
+/// once — see [`MincutGatedForgetting::decide`]), and the scalar
+/// [`weighted_importance`] every index got. [`crate::structural_witness`]
+/// uses `boundary` and `scalar` to annotate eviction witness records with
+/// *why* each entry was evicted, without re-running the (expensive,
+/// per-call-nondeterministic — see [`MincutGatedForgetting::boundary_indices`]'s
+/// doc) mincut partition a second time.
+#[derive(Debug, Clone)]
+pub struct ForgetDecision {
+    pub survivors: Vec<usize>,
+    pub boundary: HashSet<usize>,
+    pub scalar: Vec<f32>,
+}
 
-    fn select_survivors(
+impl MincutGatedForgetting {
+    /// Compute survivors, the mincut-boundary set, and scalar importance in
+    /// one pass. [`CompactionPolicy::select_survivors`] delegates to this and
+    /// discards everything but `survivors`; call this directly when the
+    /// boundary/scalar signal is itself needed (e.g. to annotate witness
+    /// records), so the partition is computed exactly once per decision.
+    pub fn decide(
         &self,
         entries: &[MemoryEntry],
         target_size: usize,
         context: &[Vec<f32>],
-    ) -> Vec<usize> {
+    ) -> ForgetDecision {
         if entries.is_empty() {
-            return Vec::new();
+            return ForgetDecision {
+                survivors: Vec::new(),
+                boundary: HashSet::new(),
+                scalar: Vec::new(),
+            };
         }
 
         let boundary = self.boundary_indices(entries);
         let scalar = weighted_importance(entries, &self.weights, context);
 
-        match self.mode {
+        let survivors = match self.mode {
             ForgetMode::Soft => {
                 let mut scored: Vec<(usize, f32)> = scalar
                     .iter()
@@ -270,7 +287,31 @@ impl CompactionPolicy for MincutGatedForgetting {
                 survivors.extend(rest.into_iter().take(remaining_budget).map(|(i, _)| i));
                 survivors
             }
+        };
+
+        ForgetDecision {
+            survivors,
+            boundary,
+            scalar,
         }
+    }
+}
+
+impl CompactionPolicy for MincutGatedForgetting {
+    fn name(&self) -> &str {
+        match self.mode {
+            ForgetMode::Soft => "MincutGatedForgetting-Soft",
+            ForgetMode::Hard => "MincutGatedForgetting-Hard",
+        }
+    }
+
+    fn select_survivors(
+        &self,
+        entries: &[MemoryEntry],
+        target_size: usize,
+        context: &[Vec<f32>],
+    ) -> Vec<usize> {
+        self.decide(entries, target_size, context).survivors
     }
 }
 
