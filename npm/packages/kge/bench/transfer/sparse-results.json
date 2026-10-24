@@ -1,0 +1,1001 @@
+{
+  "graphs": {
+    "countries_s1": {
+      "table": [
+        {
+          "nominalFraction": 0.01,
+          "support": {
+            "nominalFraction": 0.01,
+            "actualFraction": 0.010810810810810811,
+            "count": 12,
+            "originalCount": 1110,
+            "relationFloor": 2,
+            "sha256": "183212affaf59af02dec0874fed78b11834c57a14e36964cebbb8ab5b1fc7637"
+          },
+          "mrr": {
+            "frozen": 0.006518137501707065,
+            "adapted": 0.015382271111546306,
+            "scratch": 0.014916754228823563,
+            "kge50": 0.015940086916089058,
+            "kgeTimed": 0.01755336361626784
+          },
+          "timingMismatches": [],
+          "trainingSeconds": {
+            "adapted": 2.0064903836658536,
+            "scratch": 2.0185861446661875,
+            "kge50": 0.04118938800000004,
+            "kgeTimed": 2.031474955
+          },
+          "coverage": {
+            "supportedNodes": 23,
+            "allNodes": 271,
+            "testFactsBothEndpointsSupported": 0,
+            "testFacts": 24
+          }
+        },
+        {
+          "nominalFraction": 0.05,
+          "support": {
+            "nominalFraction": 0.05,
+            "actualFraction": 0.05045045045045045,
+            "count": 56,
+            "originalCount": 1110,
+            "relationFloor": 2,
+            "sha256": "6461abf86cd298bd76eabda078ab890080339e2d7eb9e1cecf7f193c552bde50"
+          },
+          "mrr": {
+            "frozen": 0.17455541628563706,
+            "adapted": 0.18919541030002865,
+            "scratch": 0.20102807732987665,
+            "kge50": 0.010945689864456654,
+            "kgeTimed": 0.010658517790337404
+          },
+          "timingMismatches": [
+            {
+              "arm": "kgeTimed",
+              "seed": 101,
+              "seconds": 1.7131678480000003
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 202,
+              "seconds": 1.7978641319999997
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 303,
+              "seconds": 1.6730353519999999
+            }
+          ],
+          "trainingSeconds": {
+            "adapted": 2.027138922334416,
+            "scratch": 2.015010273663696,
+            "kge50": 0.04851624833333305,
+            "kgeTimed": 1.728022444
+          },
+          "coverage": {
+            "supportedNodes": 84,
+            "allNodes": 271,
+            "testFactsBothEndpointsSupported": 5,
+            "testFacts": 24
+          }
+        },
+        {
+          "nominalFraction": 0.1,
+          "support": {
+            "nominalFraction": 0.1,
+            "actualFraction": 0.1,
+            "count": 111,
+            "originalCount": 1110,
+            "relationFloor": 2,
+            "sha256": "805f44b9fc6dc38b264c9f5d434d60c0bd459b3100ea0ff3aac3eb8c118b46cb"
+          },
+          "mrr": {
+            "frozen": 0.22565368253890458,
+            "adapted": 0.22989318895287572,
+            "scratch": 0.22178481707205192,
+            "kge50": 0.013695237847665945,
+            "kgeTimed": 0.014642427364985148
+          },
+          "timingMismatches": [
+            {
+              "arm": "kgeTimed",
+              "seed": 202,
+              "seconds": 1.686992835
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 303,
+              "seconds": 1.6494266480000006
+            }
+          ],
+          "trainingSeconds": {
+            "adapted": 2.0103946926634912,
+            "scratch": 2.0390228489995934,
+            "kge50": 0.0743623986666665,
+            "kgeTimed": 1.741127444666667
+          },
+          "coverage": {
+            "supportedNodes": 128,
+            "allNodes": 271,
+            "testFactsBothEndpointsSupported": 12,
+            "testFacts": 24
+          }
+        },
+        {
+          "nominalFraction": 0.25,
+          "support": {
+            "nominalFraction": 0.25,
+            "actualFraction": 0.25045045045045045,
+            "count": 278,
+            "originalCount": 1110,
+            "relationFloor": 2,
+            "sha256": "3c5a6d793852a402800ea96a80563919b2989bd63ad0354ce9053f3776a9243b"
+          },
+          "mrr": {
+            "frozen": 0.6640663140805791,
+            "adapted": 0.5984573233745332,
+            "scratch": 0.23318927960907482,
+            "kge50": 0.0573401985069116,
+            "kgeTimed": 0.07703373705347379
+          },
+          "timingMismatches": [
+            {
+              "arm": "kgeTimed",
+              "seed": 101,
+              "seconds": 1.4618690450000005
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 202,
+              "seconds": 1.1431471699999993
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 303,
+              "seconds": 1.3720558189999992
+            }
+          ],
+          "trainingSeconds": {
+            "adapted": 2.022642548334261,
+            "scratch": 2.0435453700022967,
+            "kge50": 0.1412281143333333,
+            "kgeTimed": 1.3256906779999997
+          },
+          "coverage": {
+            "supportedNodes": 194,
+            "allNodes": 271,
+            "testFactsBothEndpointsSupported": 19,
+            "testFacts": 24
+          }
+        }
+      ],
+      "aggregateMRR": {
+        "frozen": 0.26769838760170694,
+        "adapted": 0.25823204843474595,
+        "scratch": 0.16772973205995673,
+        "kge50": 0.024480303283780813,
+        "kgeTimed": 0.029972011456266046
+      },
+      "relativeGains": {
+        "scratch": 0.5395722944482988,
+        "kge50": 9.548564102383285,
+        "kgeTimed": 7.61577304584805
+      },
+      "allFractionsBeatScratch": false,
+      "timingMatched": false,
+      "qualityGate": false,
+      "acceptancePassed": false
+    },
+    "kinships": {
+      "table": [
+        {
+          "nominalFraction": 0.01,
+          "support": {
+            "nominalFraction": 0.01,
+            "actualFraction": 0.010065543071161049,
+            "count": 86,
+            "originalCount": 8544,
+            "relationFloor": 25,
+            "sha256": "db35b87c245be79eb41b1e491f8a4a4c337ad0ead09fac8131523dc8739420c7"
+          },
+          "mrr": {
+            "frozen": 0.05132939713773013,
+            "adapted": 0.05665250665986185,
+            "scratch": 0.048925294441879014,
+            "kge50": 0.05856470515330633,
+            "kgeTimed": 0.05428384989500046
+          },
+          "timingMismatches": [
+            {
+              "arm": "kgeTimed",
+              "seed": 101,
+              "seconds": 2.2364366790000005
+            }
+          ],
+          "trainingSeconds": {
+            "adapted": 2.022727589333954,
+            "scratch": 2.034331080666258,
+            "kge50": 0.03772226100000004,
+            "kgeTimed": 2.119080948
+          },
+          "coverage": {
+            "supportedNodes": 85,
+            "allNodes": 104,
+            "testFactsBothEndpointsSupported": 45,
+            "testFacts": 64
+          }
+        },
+        {
+          "nominalFraction": 0.05,
+          "support": {
+            "nominalFraction": 0.05,
+            "actualFraction": 0.050093632958801496,
+            "count": 428,
+            "originalCount": 8544,
+            "relationFloor": 25,
+            "sha256": "adbdf5b721ef1896d4577aef8391a779c8e4331171b2946ff438416d070b5034"
+          },
+          "mrr": {
+            "frozen": 0.052045858684586915,
+            "adapted": 0.06139545147622952,
+            "scratch": 0.05664849142083545,
+            "kge50": 0.06533064444859822,
+            "kgeTimed": 0.07245424389839172
+          },
+          "timingMismatches": [
+            {
+              "arm": "adapted",
+              "seed": 101,
+              "seconds": 2.305112071997428
+            },
+            {
+              "arm": "scratch",
+              "seed": 202,
+              "seconds": 2.3049302940053167
+            },
+            {
+              "arm": "adapted",
+              "seed": 202,
+              "seconds": 2.298634451995895
+            },
+            {
+              "arm": "scratch",
+              "seed": 303,
+              "seconds": 2.2674949950014707
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 202,
+              "seconds": 1.73630353
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 303,
+              "seconds": 1.7522652880000005
+            }
+          ],
+          "trainingSeconds": {
+            "adapted": 2.233862891999403,
+            "scratch": 2.2144629690034585,
+            "kge50": 0.1278072266666668,
+            "kgeTimed": 1.7876065893333335
+          },
+          "coverage": {
+            "supportedNodes": 104,
+            "allNodes": 104,
+            "testFactsBothEndpointsSupported": 64,
+            "testFacts": 64
+          }
+        },
+        {
+          "nominalFraction": 0.1,
+          "support": {
+            "nominalFraction": 0.1,
+            "actualFraction": 0.10007022471910113,
+            "count": 855,
+            "originalCount": 8544,
+            "relationFloor": 25,
+            "sha256": "38a3b77a0f35265b6651519df30ea90d8d29f08ce34ee83fac7942d770640d87"
+          },
+          "mrr": {
+            "frozen": 0.05792192465177242,
+            "adapted": 0.0530603950288229,
+            "scratch": 0.05424830370936337,
+            "kge50": 0.13319178422292074,
+            "kgeTimed": 0.14966219663619995
+          },
+          "timingMismatches": [
+            {
+              "arm": "kgeTimed",
+              "seed": 303,
+              "seconds": 1.6994492659999996
+            }
+          ],
+          "trainingSeconds": {
+            "adapted": 2.132030023332239,
+            "scratch": 2.13326809166756,
+            "kge50": 0.27140319866666685,
+            "kgeTimed": 1.852653634333333
+          },
+          "coverage": {
+            "supportedNodes": 104,
+            "allNodes": 104,
+            "testFactsBothEndpointsSupported": 64,
+            "testFacts": 64
+          }
+        },
+        {
+          "nominalFraction": 0.25,
+          "support": {
+            "nominalFraction": 0.25,
+            "actualFraction": 0.25,
+            "count": 2136,
+            "originalCount": 8544,
+            "relationFloor": 25,
+            "sha256": "388bc38ef45b76109567d98ccb7fac88ddfe78553cb990109a2c9e18c34fec0c"
+          },
+          "mrr": {
+            "frozen": 0.09396409005536589,
+            "adapted": 0.09461148643389379,
+            "scratch": 0.05529200655031439,
+            "kge50": 0.30032936731974286,
+            "kgeTimed": 0.29115291436513263
+          },
+          "timingMismatches": [
+            {
+              "arm": "adapted",
+              "seed": 101,
+              "seconds": 2.3475678119939403
+            },
+            {
+              "arm": "scratch",
+              "seed": 101,
+              "seconds": 2.3308601589960745
+            },
+            {
+              "arm": "scratch",
+              "seed": 202,
+              "seconds": 2.3085110669999267
+            },
+            {
+              "arm": "adapted",
+              "seed": 202,
+              "seconds": 2.3116434939947794
+            },
+            {
+              "arm": "adapted",
+              "seed": 303,
+              "seconds": 2.3658083629998146
+            },
+            {
+              "arm": "scratch",
+              "seed": 303,
+              "seconds": 2.2917522139978246
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 202,
+              "seconds": 1.709957359
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 303,
+              "seconds": 1.753262829000003
+            }
+          ],
+          "trainingSeconds": {
+            "adapted": 2.341673222996178,
+            "scratch": 2.3103744799979418,
+            "kge50": 0.6019336486666664,
+            "kgeTimed": 1.7803967830000014
+          },
+          "coverage": {
+            "supportedNodes": 104,
+            "allNodes": 104,
+            "testFactsBothEndpointsSupported": 64,
+            "testFacts": 64
+          }
+        }
+      ],
+      "aggregateMRR": {
+        "frozen": 0.06381531763236384,
+        "adapted": 0.06642995989970202,
+        "scratch": 0.05377852403059806,
+        "kge50": 0.13935412528614205,
+        "kgeTimed": 0.14188830119868118
+      },
+      "relativeGains": {
+        "scratch": 0.235250708292138,
+        "kge50": -0.5233010880496116,
+        "kgeTimed": -0.5318151014671569
+      },
+      "allFractionsBeatScratch": false,
+      "timingMatched": false,
+      "qualityGate": false,
+      "acceptancePassed": false
+    },
+    "nations": {
+      "table": [
+        {
+          "nominalFraction": 0.01,
+          "support": {
+            "nominalFraction": 0.01,
+            "actualFraction": 0.034547738693467334,
+            "count": 55,
+            "originalCount": 1592,
+            "relationFloor": 55,
+            "sha256": "b4ea8af4b9cec30d253a3da949f39313337f4f955ce3c8b8684406bc02760b0f"
+          },
+          "mrr": {
+            "frozen": 0.42982419056637805,
+            "adapted": 0.4606002938034188,
+            "scratch": 0.5675604921698671,
+            "kge50": 0.41062010327974957,
+            "kgeTimed": 0.40076446533203125
+          },
+          "timingMismatches": [],
+          "trainingSeconds": {
+            "adapted": 2.1170342053325535,
+            "scratch": 2.0791392403358864,
+            "kge50": 0.021642805666666844,
+            "kgeTimed": 2.0828443226666664
+          },
+          "coverage": {
+            "supportedNodes": 14,
+            "allNodes": 14,
+            "testFactsBothEndpointsSupported": 64,
+            "testFacts": 64
+          }
+        },
+        {
+          "nominalFraction": 0.05,
+          "support": {
+            "nominalFraction": 0.05,
+            "actualFraction": 0.05025125628140704,
+            "count": 80,
+            "originalCount": 1592,
+            "relationFloor": 55,
+            "sha256": "c6f0e4302bb32cef0c0921e5f322e4a559eb26d7c7d89f3746fa59a9f76341f1"
+          },
+          "mrr": {
+            "frozen": 0.46850198412698413,
+            "adapted": 0.5095539659992785,
+            "scratch": 0.5687534759800384,
+            "kge50": 0.374232550462087,
+            "kgeTimed": 0.3969458242257436
+          },
+          "timingMismatches": [
+            {
+              "arm": "scratch",
+              "seed": 202,
+              "seconds": 2.225341240002308
+            },
+            {
+              "arm": "adapted",
+              "seed": 202,
+              "seconds": 2.202711816004012
+            }
+          ],
+          "trainingSeconds": {
+            "adapted": 2.1790827353324858,
+            "scratch": 2.190773543334217,
+            "kge50": 0.022980779333333468,
+            "kgeTimed": 1.8718627860000003
+          },
+          "coverage": {
+            "supportedNodes": 14,
+            "allNodes": 14,
+            "testFactsBothEndpointsSupported": 64,
+            "testFacts": 64
+          }
+        },
+        {
+          "nominalFraction": 0.1,
+          "support": {
+            "nominalFraction": 0.1,
+            "actualFraction": 0.10050251256281408,
+            "count": 160,
+            "originalCount": 1592,
+            "relationFloor": 55,
+            "sha256": "5530fecbc8f55ca989874760a63a4d20c150f70d833e5ac7951cf1a6986978d4"
+          },
+          "mrr": {
+            "frozen": 0.5086036142676768,
+            "adapted": 0.5205545033670034,
+            "scratch": 0.47484934047434046,
+            "kge50": 0.40015771985054016,
+            "kgeTimed": 0.3909241358439128
+          },
+          "timingMismatches": [
+            {
+              "arm": "adapted",
+              "seed": 101,
+              "seconds": 2.4864120570055093
+            },
+            {
+              "arm": "scratch",
+              "seed": 101,
+              "seconds": 2.4717970860001515
+            },
+            {
+              "arm": "scratch",
+              "seed": 202,
+              "seconds": 2.45355564700003
+            },
+            {
+              "arm": "adapted",
+              "seed": 202,
+              "seconds": 2.4503540820005583
+            },
+            {
+              "arm": "adapted",
+              "seed": 303,
+              "seconds": 2.4253380760055734
+            },
+            {
+              "arm": "scratch",
+              "seed": 303,
+              "seconds": 2.5346912720051478
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 101,
+              "seconds": 1.310866543
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 202,
+              "seconds": 1.277400998
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 303,
+              "seconds": 1.2793085579999997
+            }
+          ],
+          "trainingSeconds": {
+            "adapted": 2.4540347383372136,
+            "scratch": 2.4866813350017765,
+            "kge50": 0.034996864333333176,
+            "kgeTimed": 1.289192033
+          },
+          "coverage": {
+            "supportedNodes": 14,
+            "allNodes": 14,
+            "testFactsBothEndpointsSupported": 64,
+            "testFacts": 64
+          }
+        },
+        {
+          "nominalFraction": 0.25,
+          "support": {
+            "nominalFraction": 0.25,
+            "actualFraction": 0.25,
+            "count": 398,
+            "originalCount": 1592,
+            "relationFloor": 55,
+            "sha256": "c5a892ef2f378f3e7cea1c0e4dd3edf03fe088e9f6a547c0c5090221d7113fa7"
+          },
+          "mrr": {
+            "frozen": 0.5802830199314575,
+            "adapted": 0.5985584077380952,
+            "scratch": 0.46489344712000963,
+            "kge50": 0.4499462842941284,
+            "kgeTimed": 0.45087186495463055
+          },
+          "timingMismatches": [
+            {
+              "arm": "adapted",
+              "seed": 101,
+              "seconds": 2.8297952029970475
+            },
+            {
+              "arm": "scratch",
+              "seed": 101,
+              "seconds": 2.85129106399836
+            },
+            {
+              "arm": "scratch",
+              "seed": 202,
+              "seconds": 2.939052563000587
+            },
+            {
+              "arm": "adapted",
+              "seed": 202,
+              "seconds": 2.9158386009949027
+            },
+            {
+              "arm": "adapted",
+              "seed": 303,
+              "seconds": 2.796846643999743
+            },
+            {
+              "arm": "scratch",
+              "seed": 303,
+              "seconds": 2.882033270005195
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 202,
+              "seconds": 1.7700216020000004
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 303,
+              "seconds": 1.4807210570000007
+            }
+          ],
+          "trainingSeconds": {
+            "adapted": 2.847493482663898,
+            "scratch": 2.890792299001381,
+            "kge50": 0.08148212533333314,
+            "kgeTimed": 1.7513472220000004
+          },
+          "coverage": {
+            "supportedNodes": 14,
+            "allNodes": 14,
+            "testFactsBothEndpointsSupported": 64,
+            "testFacts": 64
+          }
+        }
+      ],
+      "aggregateMRR": {
+        "frozen": 0.49680320222312413,
+        "adapted": 0.522316792726949,
+        "scratch": 0.5190141889360639,
+        "kge50": 0.4087391644716263,
+        "kgeTimed": 0.40987657258907956
+      },
+      "relativeGains": {
+        "scratch": 0.006363224476878315,
+        "kge50": 0.2778731233209413,
+        "kgeTimed": 0.2743270234441919
+      },
+      "allFractionsBeatScratch": false,
+      "timingMatched": false,
+      "qualityGate": false,
+      "acceptancePassed": false
+    },
+    "umls": {
+      "table": [
+        {
+          "nominalFraction": 0.01,
+          "support": {
+            "nominalFraction": 0.01,
+            "actualFraction": 0.010161042944785276,
+            "count": 53,
+            "originalCount": 5216,
+            "relationFloor": 46,
+            "sha256": "30c62357ac84d6df811cfddd3774a8426385df1b8fff8d5312c21373400c31de"
+          },
+          "mrr": {
+            "frozen": 0.11574970871048593,
+            "adapted": 0.14255599591272727,
+            "scratch": 0.09905113604662173,
+            "kge50": 0.0464889220893383,
+            "kgeTimed": 0.04932809869448344
+          },
+          "timingMismatches": [],
+          "trainingSeconds": {
+            "adapted": 2.0262621073294818,
+            "scratch": 2.023145397666667,
+            "kge50": 0.0576388559999998,
+            "kgeTimed": 1.9625630866666668
+          },
+          "coverage": {
+            "supportedNodes": 63,
+            "allNodes": 135,
+            "testFactsBothEndpointsSupported": 22,
+            "testFacts": 64
+          }
+        },
+        {
+          "nominalFraction": 0.05,
+          "support": {
+            "nominalFraction": 0.05,
+            "actualFraction": 0.05003834355828221,
+            "count": 261,
+            "originalCount": 5216,
+            "relationFloor": 46,
+            "sha256": "2d79cba60ed392e84e4490184ba9e1593ae6ac3b48c2a61aae20dcbd2829b036"
+          },
+          "mrr": {
+            "frozen": 0.2528815760100732,
+            "adapted": 0.2220684717434224,
+            "scratch": 0.23554859945467843,
+            "kge50": 0.07033472632368405,
+            "kgeTimed": 0.0773426095644633
+          },
+          "timingMismatches": [
+            {
+              "arm": "kgeTimed",
+              "seed": 303,
+              "seconds": 1.6261694560000006
+            }
+          ],
+          "trainingSeconds": {
+            "adapted": 2.1155665469996165,
+            "scratch": 2.0942917590000434,
+            "kge50": 0.10009073033333349,
+            "kgeTimed": 1.8120568250000002
+          },
+          "coverage": {
+            "supportedNodes": 110,
+            "allNodes": 135,
+            "testFactsBothEndpointsSupported": 59,
+            "testFacts": 64
+          }
+        },
+        {
+          "nominalFraction": 0.1,
+          "support": {
+            "nominalFraction": 0.1,
+            "actualFraction": 0.10007668711656442,
+            "count": 522,
+            "originalCount": 5216,
+            "relationFloor": 46,
+            "sha256": "1b77d22b4e5e38386203e3a7d12bfb7054698276f79142d6264ec90d08a1b7f2"
+          },
+          "mrr": {
+            "frozen": 0.29285920863454584,
+            "adapted": 0.3314244607305193,
+            "scratch": 0.2581487688219059,
+            "kge50": 0.08862987657388051,
+            "kgeTimed": 0.09690080831448238
+          },
+          "timingMismatches": [
+            {
+              "arm": "adapted",
+              "seed": 101,
+              "seconds": 2.250845255999593
+            },
+            {
+              "arm": "scratch",
+              "seed": 101,
+              "seconds": 2.2460596930031898
+            },
+            {
+              "arm": "scratch",
+              "seed": 202,
+              "seconds": 2.238659759001166
+            },
+            {
+              "arm": "adapted",
+              "seed": 202,
+              "seconds": 2.2287979380053002
+            },
+            {
+              "arm": "adapted",
+              "seed": 303,
+              "seconds": 2.293073897002614
+            },
+            {
+              "arm": "scratch",
+              "seed": 303,
+              "seconds": 2.452149783995992
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 101,
+              "seconds": 1.731331639
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 202,
+              "seconds": 1.5995173779999996
+            },
+            {
+              "arm": "kgeTimed",
+              "seed": 303,
+              "seconds": 1.6645902440000009
+            }
+          ],
+          "trainingSeconds": {
+            "adapted": 2.257572363669169,
+            "scratch": 2.3122897453334494,
+            "kge50": 0.19913604099999976,
+            "kgeTimed": 1.6651464203333335
+          },
+          "coverage": {
+            "supportedNodes": 125,
+            "allNodes": 135,
+            "testFactsBothEndpointsSupported": 64,
+            "testFacts": 64
+          }
+        },
+        {
+          "nominalFraction": 0.25,
+          "support": {
+            "nominalFraction": 0.25,
+            "actualFraction": 0.25,
+            "count": 1304,
+            "originalCount": 5216,
+            "relationFloor": 46,
+            "sha256": "845ad36f8c3ced65203037a94b4d0f7729c310aed4ca5ed42e74ee8ab0611bab"
+          },
+          "mrr": {
+            "frozen": 0.5067123254291459,
+            "adapted": 0.5090074347998916,
+            "scratch": 0.11128989695153062,
+            "kge50": 0.4101850191752116,
+            "kgeTimed": 0.3951426645119985
+          },
+          "timingMismatches": [
+            {
+              "arm": "adapted",
+              "seed": 101,
+              "seconds": 2.3929951140016783
+            },
+            {
+              "arm": "scratch",
+              "seed": 101,
+              "seconds": 2.362299330998212
+            },
+            {
+              "arm": "scratch",
+              "seed": 202,
+              "seconds": 2.440577070003201
+            },
+            {
+              "arm": "adapted",
+              "seed": 202,
+              "seconds": 2.3039468959977967
+            },
+            {
+              "arm": "adapted",
+              "seed": 303,
+              "seconds": 2.3439198180058156
+            },
+            {
+              "arm": "scratch",
+              "seed": 303,
+              "seconds": 2.3769915249940823
+            }
+          ],
+          "trainingSeconds": {
+            "adapted": 2.34695394266843,
+            "scratch": 2.393289308665165,
+            "kge50": 0.4402998853333326,
+            "kgeTimed": 1.8891326093333338
+          },
+          "coverage": {
+            "supportedNodes": 132,
+            "allNodes": 135,
+            "testFactsBothEndpointsSupported": 64,
+            "testFacts": 64
+          }
+        }
+      ],
+      "aggregateMRR": {
+        "frozen": 0.2920507046960627,
+        "adapted": 0.3012640907966401,
+        "scratch": 0.17600960031868418,
+        "kge50": 0.15390963604052862,
+        "kgeTimed": 0.1546785452713569
+      },
+      "relativeGains": {
+        "scratch": 0.7116344236403545,
+        "kge50": 0.9574088962000342,
+        "kgeTimed": 0.9476785889608936
+      },
+      "allFractionsBeatScratch": false,
+      "timingMatched": false,
+      "qualityGate": false,
+      "acceptancePassed": false
+    }
+  },
+  "confirmationGraph": "countries_s1",
+  "confirmationPassed": false,
+  "promotion": false,
+  "limits": [
+    "A capped wall-time experiment, not equal FLOPs or equal examples",
+    "Coverage floors can exceed nominal fractions; use recorded actual fractions",
+    "Countries is a new whole-graph check with only 24 test facts, not production evidence",
+    "Diagnostic graphs reuse prior 64 queries; no independent confirmation claim for them",
+    "No cross-graph source replay arm; evaluation filters know withheld truths, training does not"
+  ],
+  "receiptSha256": "96c51da1a0677b9292875b2df2b3f0c73f7128a8e3081c4001d409f319e0811b",
+  "manifest": {
+    "protocol": {
+      "fractions": [
+        0.01,
+        0.05,
+        0.1,
+        0.25
+      ],
+      "seeds": [
+        101,
+        202,
+        303
+      ],
+      "seconds": 2.0,
+      "maxSteps": 1000,
+      "trainingThreads": 1,
+      "batchSize": 8,
+      "negatives": 16,
+      "lr": 0.0005,
+      "weightDecay": 0.01,
+      "primary": "equal-weight mean adapted-minus-scratch MRR across four fractions and three seeds",
+      "acceptance": "relative aggregate MRR gain >= 10% versus scratch ULTRA AND both KGE controls; all four fractions positive versus scratch; adapted/scratch/kgeTimed durations within 10% of 2 seconds (kge50 excluded)",
+      "training": "support-only strict negatives; remove batch positive edges and inverse edges before rebuilding relation graph; BCE equal positive/negative group weights",
+      "selection": "nested hash sample with one support fact per relation floor",
+      "querySelection": "fixed prior 64 SHA-selected facts on diagnostic graphs; all 24 official Countries S1 test facts for confirmation",
+      "limits": "Timing checked between updates permits one-step overrun. Wall time is not equal compute. No production promotion."
+    },
+    "inputHashes": {
+      "/workspace/scratch/83b0d7057773/transfer-data/nations.json": "25503259e045011e6c6e9b9cea9889dc829df5626c4cde982b183ec0b9552034",
+      "/workspace/scratch/83b0d7057773/transfer-data/kinships.json": "c7276584118002b690a773a1369d50a941f4bce2cda8fa6e1d0952beb536a418",
+      "/workspace/scratch/83b0d7057773/transfer-data/umls.json": "d7935cd3c996b617ac8a1b235357aef42c216ef5291f2a959b1a1dc14258c912",
+      "/workspace/scratch/83b0d7057773/transfer-data/countries_s1.json": "2ca77cccbae606e0ce123880e01e4b2d96e57bcdc75e147971852d4da5c2547c"
+    },
+    "binding": {
+      "wrapperPath": "/workspace/scratch/83b0d7057773/kge-runtime/node_modules/@ruvector/kge/index.js",
+      "wrapperHash": "c0f5199760ddca2cafd4e012b8e69d69c49762246d83313a0f987d57707609fc",
+      "nativePath": "/workspace/scratch/83b0d7057773/kge-runtime/node_modules/@ruvector/kge/native/kge.linux-x64-gnu.node",
+      "nativeHash": "4a32175eab0256d0e48b2e619388fae21b3c25dfb0269c1988a74c48c0920463"
+    },
+    "sourceHashes": {
+      "sparse_transfer.py": "430ff7257215018fc8644dc4931cb8e230b5377006747734da6d88f1f62d3bf4",
+      "ultra_adapter.py": "353745fc9865335221ec1a30a02f3c160c76b55b53e5671da375fd3aea82ee70",
+      "sparse_kge.mjs": "d8fc644affbf522d3adc29be33d3ed942d454269f43daacd68612a5665b790ed"
+    }
+  },
+  "frozenCommit": "b1b445e3b4f95cfc93253f93c4181cb688da5aa4",
+  "manifestSha256": "a1e8fe01e673a67f769cadd405eaba4d299c8c1c716089d9d4829bb1c748696b",
+  "recordCount": 208,
+  "verifiedULTRACheckpoints": 96,
+  "inputs": {
+    "nations": {
+      "name": "nations",
+      "source": "https://github.com/pykeen/pykeen",
+      "sourceCommit": "cbc1ea107afd7bebc531c1739c210c620f908fbf",
+      "fileHashes": {
+        "train": "0830fa9da8e5bba2ccdaa45b7bdc9130451ba66b09ff2708f35fccaf82473e57",
+        "valid": "2b337a62e51a2f45c283eac98a70d21b7e0e102136be1539b2a52c652a7b0530",
+        "test": "3971085165b47b6aeaec68058c6d8d98b3005e929db81268410b95ae4db770ab"
+      },
+      "selection": "first 64 test triples by sha256 of JSON [s,r,o]; other test facts filter-only valid",
+      "originalTestCount": 201
+    },
+    "kinships": {
+      "name": "kinships",
+      "source": "https://github.com/pykeen/pykeen",
+      "sourceCommit": "cbc1ea107afd7bebc531c1739c210c620f908fbf",
+      "fileHashes": {
+        "train": "738612111a6acf0e39662bde24c7e72a4d1edf20931beea077da367dda689731",
+        "valid": "c56f8630a583178b1e569f11a64aa535ae1ce0b0912d8b1e24716be2b37f04da",
+        "test": "05e5733265761d55be9c05bfaff5a8d0808df46f9c1e9d66cc3f2fe114e43d88"
+      },
+      "selection": "first 64 test triples by sha256 of JSON [s,r,o]; other test facts filter-only valid",
+      "originalTestCount": 1074
+    },
+    "umls": {
+      "name": "umls",
+      "source": "https://github.com/pykeen/pykeen",
+      "sourceCommit": "cbc1ea107afd7bebc531c1739c210c620f908fbf",
+      "fileHashes": {
+        "train": "873ef4925516b83e7f6f8cc02b4be51d848828710a7f65a956f0ac4a9e452f35",
+        "valid": "025c98f8a4891e2a6582ec5b40ee0d904031edad9c52554522f4b7904820c98e",
+        "test": "a7eb529a3d2810fcc96341ccc97c625a5e202f8389673aa6bd317eeebbb79014"
+      },
+      "selection": "first 64 test triples by sha256 of JSON [s,r,o]; other test facts filter-only valid",
+      "originalTestCount": 661
+    },
+    "countries_s1": {
+      "name": "countries_s1",
+      "source": "https://raw.githubusercontent.com/ZhenfengLei/KGDatasets/3f8c12defd62c94cc512a693228906b019ff73b9/Countries/Countries_S1/",
+      "sourceCommit": "3f8c12defd62c94cc512a693228906b019ff73b9",
+      "fileHashes": {
+        "train": "5256bf3fc4181d7e87d819571e3acfa5425fc5af365b9ebe5c113740534ca561",
+        "valid": "f4b27648148a44f87e627140ec3a02ca4c884c32d348591147ca72f1d6fff5b0",
+        "test": "262ca5ae5ed3aa1927026e0f258cc52b10830185b93465b93b9360727e719158"
+      },
+      "selection": "all official test facts; untouched whole-graph check",
+      "normalization": {
+        "removedExactWithinSplitDuplicates": 1,
+        "crossSplitOverlap": "rejected"
+      }
+    }
+  }
+}
