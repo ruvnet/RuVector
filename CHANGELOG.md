@@ -5,6 +5,12 @@ All notable changes to RuVector will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Keep generated memory-storage IDs from overwriting live caller-selected rows, reserve explicit IDs in mixed batches, and refuse generated-counter wraparound while preserving intentional explicit upserts.
+
 ## [@ruvector/router 0.1.32] - 2026-09-30
 ### Fixed
 - `maxElements` was typed and documented as "Maximum number of elements" but
