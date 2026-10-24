@@ -14,10 +14,21 @@ rust-version = "1.87"
 [lib]
 crate-type = ["cdylib"]
 
+[features]
+default = []
+# Opt-in Ed25519 witness-record signing/verification exports (ADR-361).
+# Off by default: the tile's existing <8 KB target and exported-function
+# count are unaffected unless a consumer explicitly builds with this
+# feature. See docs/research/nightly/2026-10-17-wasm-witness-signing-cost/.
+witness-signing = ["rvf-types/ed25519"]
+
 [dependencies]
 rvf-types = { version = "0.2.0", path = "../rvf-types", default-features = false }
 rvf-crypto = { version = "0.2.0", path = "../rvf-crypto", default-features = false }
 dlmalloc = { version = "0.2", features = ["global"] }
+
+[dev-dependencies]
+rand_core = { version = "0.6", default-features = false }
 
 [profile.release]
 opt-level = "z"
