@@ -354,6 +354,9 @@ members = [
     "crates/ruvector-timesfm",
     # Speculative ANN search: draft-verify with adaptive candidate multiplier (ADR-272)
     "crates/ruvector-speculative-ann",
+    # Coherence-gated mixed-precision quantization: mincut-derived per-vector
+    # coherence drives Turbo4/1-bit code allocation for agent memory (ADR-353)
+    "crates/ruvector-coherence-quant",
     # Hierarchical cluster-summary retrieval for agent-memory RAG (ADR-300)
     "crates/ruvector-cluster-rag",
     # S-T mincut namespace routing for multi-namespace search (ADR-299)

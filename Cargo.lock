@@ -9447,6 +9447,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-coherence-quant"
+version = "2.3.0"
+dependencies = [
+ "ruvector-attn-mincut",
+ "ruvector-turboquant 2.3.0",
+ "serde",
+]
+
+[[package]]
 name = "ruvector-collections"
 version = "2.3.0"
 dependencies = [
