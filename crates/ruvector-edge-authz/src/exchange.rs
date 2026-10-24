@@ -251,9 +251,7 @@ pub fn exchange_scopes(
     let mut out: Vec<String> = Vec::new();
     for s in subject.split(' ').filter_map(|s| exchange_scope(vocab, s)) {
         let keep = s != OFFLINE_ACCESS
-            && requested
-                .as_ref()
-                .map_or(true, |r| r.iter().any(|x| x == s))
+            && requested.as_ref().is_none_or(|r| r.iter().any(|x| x == s))
             && ceiling.iter().any(|c| c == s)
             && entry.allows(s)
             && !out.iter().any(|o| o == s);

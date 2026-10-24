@@ -3,8 +3,9 @@
 //! Parses and writes the block directory, columnar vector data, ID map with
 //! delta-varint encoding, and per-block CRC32C.
 
-use crate::delta::{decode_delta, encode_delta};
+use crate::delta::encode_delta;
 use crate::hash::compute_crc32c;
+use crate::varint::decode_varint;
 
 /// A single entry in the block directory.
 #[derive(Clone, Debug, PartialEq)]
@@ -152,8 +153,14 @@ pub fn read_vec_block(payload: &[u8], entry: &BlockDirEntry) -> Result<VecBlock,
     let block_data = &payload[offset..];
 
     let elem_size = dtype_element_size(entry.dtype);
-    let vector_data_len = entry.vector_count as usize * entry.dim as usize * elem_size;
-    if block_data.len() < vector_data_len + 1 + 2 + 4 {
+    let vector_data_len = (entry.vector_count as usize)
+        .checked_mul(entry.dim as usize)
+        .and_then(|n| n.checked_mul(elem_size))
+        .ok_or("vector data size overflow")?;
+    let header_end = vector_data_len
+        .checked_add(7)
+        .ok_or("block size overflow")?;
+    if block_data.len() < header_end {
         return Err("block data truncated");
     }
     let vector_data = block_data[..vector_data_len].to_vec();
@@ -165,12 +172,40 @@ pub fn read_vec_block(payload: &[u8], entry: &BlockDirEntry) -> Result<VecBlock,
     pos += 2;
     let id_count = u32::from_le_bytes(block_data[pos..pos + 4].try_into().unwrap()) as usize;
     pos += 4;
+    if id_count != entry.vector_count as usize {
+        return Err("ID count does not match vector count");
+    }
 
     let ids = if encoding == 1 {
-        // Delta-varint encoded
-        decode_delta(&block_data[pos..], id_count, restart_interval as u32)
-    } else {
+        // The low-level decode_delta API panics on malformed input. This
+        // public Result-returning reader must validate before allocation and
+        // propagate decoding/overflow failures instead.
+        if restart_interval == 0 {
+            return Err("restart interval must be positive");
+        }
+        if id_count > block_data.len() - pos {
+            return Err("delta ID data truncated");
+        }
+        let mut ids = Vec::with_capacity(id_count);
+        let mut previous = 0u64;
+        for i in 0..id_count {
+            let (value, consumed) =
+                decode_varint(&block_data[pos..]).map_err(|_| "delta ID data truncated")?;
+            pos += consumed;
+            previous = if i % restart_interval as usize == 0 {
+                value
+            } else {
+                previous.checked_add(value).ok_or("delta ID overflow")?
+            };
+            ids.push(previous);
+        }
+        ids
+    } else if encoding == 0 {
         // Raw u64 IDs
+        let raw_len = id_count.checked_mul(8).ok_or("raw ID size overflow")?;
+        if raw_len > block_data.len() - pos {
+            return Err("raw ID data truncated");
+        }
         let mut ids = Vec::with_capacity(id_count);
         for i in 0..id_count {
             let id_offset = pos + i * 8;
@@ -182,6 +217,8 @@ pub fn read_vec_block(payload: &[u8], entry: &BlockDirEntry) -> Result<VecBlock,
             ));
         }
         ids
+    } else {
+        return Err("unsupported ID encoding");
     };
 
     Ok(VecBlock {

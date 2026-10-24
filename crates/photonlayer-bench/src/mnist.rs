@@ -245,7 +245,7 @@ mod tests {
         img.extend_from_slice(&1u32.to_be_bytes());
         img.extend_from_slice(&(SRC_DIM as u32).to_be_bytes());
         img.extend_from_slice(&(SRC_DIM as u32).to_be_bytes());
-        img.extend(std::iter::repeat(127u8).take(SRC_DIM * SRC_DIM));
+        img.extend(std::iter::repeat_n(127u8, SRC_DIM * SRC_DIM));
         let (pix, c) = parse_idx_images(&img).unwrap();
         assert_eq!(c, 1);
         assert_eq!(pix.len(), SRC_DIM * SRC_DIM);

@@ -60,7 +60,8 @@ toml = "0.8"
 
 # Data formats
 csv = "1.3"
-ndarray-npy = "0.9"
+# This loader reads .npy only; NPZ support would add an unused ZIP dependency.
+ndarray-npy = { version = "0.9", default-features = false }
 ndarray = { workspace = true }
 
 # Terminal colors

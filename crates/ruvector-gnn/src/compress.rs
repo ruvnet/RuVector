@@ -220,7 +220,11 @@ impl TensorCompress {
         let dim = embedding.len();
         let subvectors = subvectors as usize;
 
-        if dim % subvectors != 0 {
+        if dim
+            .checked_rem(subvectors)
+            .expect("attempt to calculate the remainder with a divisor of zero")
+            != 0
+        {
             return Err(GnnError::InvalidInput(format!(
                 "Dimension {} not divisible by subvectors {}",
                 dim, subvectors
@@ -260,7 +264,11 @@ impl TensorCompress {
         let dim = embedding.len();
         let subvectors = subvectors as usize;
 
-        if dim % subvectors != 0 {
+        if dim
+            .checked_rem(subvectors)
+            .expect("attempt to calculate the remainder with a divisor of zero")
+            != 0
+        {
             return Err(GnnError::InvalidInput(format!(
                 "Dimension {} not divisible by subvectors {}",
                 dim, subvectors
