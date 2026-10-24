@@ -10,6 +10,15 @@ use serde::{Deserialize, Serialize};
 /// Optimal batch size for processing (benchmark-validated)
 pub const OPTIMAL_BATCH_SIZE: usize = 32;
 
+/// Largest gradient norm a single MicroLoRA update may apply. Larger
+/// gradients are scaled down to this norm before the learning rate.
+pub const MICRO_LORA_MAX_GRAD_NORM: f32 = 1.0;
+
+/// Upper bound on the MicroLoRA gain: `|forward(x)| <= MICRO_LORA_MAX_GAIN * |x|`.
+/// Keeps repeated feedback, or a high learning rate, from growing the
+/// adapter without limit.
+pub const MICRO_LORA_MAX_GAIN: f32 = 1.0;
+
 /// Micro-LoRA for per-request adaptation
 ///
 /// Uses rank 1-2 for ultra-low latency updates.
@@ -58,11 +67,15 @@ impl MicroLoRA {
             rank
         );
 
-        // Initialize down with small random-like values (deterministic for reproducibility)
+        // Initialize down with deterministic random-like values in
+        // [-1/sqrt(hidden_dim), 1/sqrt(hidden_dim)], the usual LoRA (Kaiming
+        // uniform) bound. Updates to `up` scale with (down . x)^2, so a much
+        // smaller bound makes learning stall.
+        let bound = 1.0 / (hidden_dim.max(1) as f32).sqrt();
         let down_proj: Vec<f32> = (0..hidden_dim * rank)
             .map(|i| {
                 let x = (i as f32 * 0.618_034) % 1.0;
-                (x - 0.5) * 0.02
+                (x - 0.5) * 2.0 * bound
             })
             .collect();
 
@@ -189,20 +202,38 @@ impl MicroLoRA {
     }
 
     /// Accumulate gradient from learning signal
+    ///
+    /// `gradient_estimate` is the output-space direction that raises the
+    /// reward for `query_embedding`. It is back-propagated through
+    /// `delta = scale * up^T (down x)`:
+    ///
+    /// - `d/d up[r][i]   = scale * (down[r] . x) * g[i]`
+    /// - `d/d down[r][j] = scale * (up[r] . g) * x[j]`
+    ///
+    /// so the update depends on the input and always moves `forward(x)`
+    /// toward `g` for that input.
     pub fn accumulate_gradient(&mut self, signal: &LearningSignal) {
-        if signal.gradient_estimate.len() != self.hidden_dim {
+        let dim = self.hidden_dim;
+        if signal.gradient_estimate.len() != dim || signal.query_embedding.len() != dim {
             return;
         }
 
         let quality = signal.quality_score;
+        let x = &signal.query_embedding;
+        let g = &signal.gradient_estimate;
 
-        // Simplified gradient: outer product scaled by quality
-        // This approximates the true gradient for rank-1 LoRA
         for r in 0..self.rank {
-            for i in 0..self.hidden_dim {
-                let grad_idx = r * self.hidden_dim + i;
-                // Update up projection gradient (main target)
-                self.grad_up[grad_idx] += signal.gradient_estimate[i] * quality;
+            let offset = r * dim;
+            let down = &self.down_proj[offset..offset + dim];
+            let up = &self.up_proj[offset..offset + dim];
+            let h: f32 = down.iter().zip(x).map(|(d, x)| d * x).sum();
+            let up_dot_g: f32 = up.iter().zip(g).map(|(u, g)| u * g).sum();
+
+            let up_coeff = quality * self.scale * h;
+            let down_coeff = quality * self.scale * up_dot_g;
+            for i in 0..dim {
+                self.grad_up[offset + i] += up_coeff * g[i];
+                self.grad_down[offset + i] += down_coeff * x[i];
             }
         }
 
@@ -211,21 +242,116 @@ impl MicroLoRA {
 
     /// Apply accumulated gradients with learning rate
     pub fn apply_accumulated(&mut self, learning_rate: f32) {
+        if let Some(gradient) = self.take_accumulated() {
+            self.apply_gradient(&gradient, learning_rate);
+        }
+    }
+
+    /// Take the averaged pending gradient as one flat vector laid out as
+    /// `[down.., up..]` (see [`MicroLoRA::flat_weights`]) and reset the
+    /// accumulators. Returns `None` when no update is pending.
+    pub fn take_accumulated(&mut self) -> Option<Vec<f32>> {
         if self.update_count == 0 {
-            return;
+            return None;
         }
 
-        let scale = learning_rate / self.update_count as f32;
+        let n = self.update_count as f32;
+        let mut gradient = Vec::with_capacity(self.grad_down.len() + self.grad_up.len());
+        gradient.extend(self.grad_down.iter().map(|g| g / n));
+        gradient.extend(self.grad_up.iter().map(|g| g / n));
 
-        // Update up projection (main adaptation target)
-        for (w, g) in self.up_proj.iter_mut().zip(self.grad_up.iter()) {
-            *w += g * scale;
-        }
-
-        // Reset accumulators
         self.grad_up.fill(0.0);
         self.grad_down.fill(0.0);
         self.update_count = 0;
+        Some(gradient)
+    }
+
+    /// Apply a flat `[down.., up..]` gradient step.
+    ///
+    /// The gradient is clipped to [`MICRO_LORA_MAX_GRAD_NORM`] and the
+    /// adapter gain is then capped at [`MICRO_LORA_MAX_GAIN`], so the output
+    /// stays bounded for any learning rate or amount of feedback.
+    pub fn apply_gradient(&mut self, gradient: &[f32], learning_rate: f32) {
+        let split = self.down_proj.len();
+        if gradient.len() != split + self.up_proj.len() {
+            return;
+        }
+
+        let norm = gradient.iter().map(|g| g * g).sum::<f32>().sqrt();
+        if !norm.is_finite() {
+            return;
+        }
+        let clip = if norm > MICRO_LORA_MAX_GRAD_NORM {
+            MICRO_LORA_MAX_GRAD_NORM / norm
+        } else {
+            1.0
+        };
+        let step = learning_rate * clip;
+
+        for (w, g) in self.down_proj.iter_mut().zip(&gradient[..split]) {
+            *w += g * step;
+        }
+        for (w, g) in self.up_proj.iter_mut().zip(&gradient[split..]) {
+            *w += g * step;
+        }
+
+        self.limit_gain();
+    }
+
+    /// Cap the adapter gain. `|forward(x)| <= scale * sum_r |down_r| |up_r| |x|`,
+    /// so each rank's `|down_r| |up_r|` is limited and both factors are
+    /// rescaled equally when it is exceeded.
+    fn limit_gain(&mut self) {
+        let denom = self.scale.abs() * self.rank as f32;
+        if denom <= 0.0 {
+            return;
+        }
+        let cap = MICRO_LORA_MAX_GAIN / denom;
+        let dim = self.hidden_dim;
+
+        for r in 0..self.rank {
+            let range = r * dim..(r + 1) * dim;
+            let down_norm = self.down_proj[range.clone()]
+                .iter()
+                .map(|w| w * w)
+                .sum::<f32>()
+                .sqrt();
+            let up_norm = self.up_proj[range.clone()]
+                .iter()
+                .map(|w| w * w)
+                .sum::<f32>()
+                .sqrt();
+            let gain = down_norm * up_norm;
+            if gain > cap {
+                let factor = (cap / gain).sqrt();
+                self.down_proj[range.clone()]
+                    .iter_mut()
+                    .for_each(|w| *w *= factor);
+                self.up_proj[range].iter_mut().for_each(|w| *w *= factor);
+            }
+        }
+    }
+
+    /// All weights as one flat vector laid out as `[down.., up..]`, the same
+    /// layout used by [`MicroLoRA::take_accumulated`].
+    pub fn flat_weights(&self) -> Vec<f32> {
+        let mut weights = Vec::with_capacity(self.down_proj.len() + self.up_proj.len());
+        weights.extend_from_slice(&self.down_proj);
+        weights.extend_from_slice(&self.up_proj);
+        weights
+    }
+
+    /// Replace all weights from a flat `[down.., up..]` vector (see
+    /// [`MicroLoRA::flat_weights`]). The gain cap is applied afterwards.
+    /// Vectors of the wrong length are ignored.
+    pub fn set_flat_weights(&mut self, weights: &[f32]) {
+        let split = self.down_proj.len();
+        if weights.len() != split + self.up_proj.len() {
+            return;
+        }
+        self.down_proj.copy_from_slice(&weights[..split]);
+        self.up_proj.copy_from_slice(&weights[split..]);
+        self.limit_gain();
     }
 
     /// Reset adapter to initial state
@@ -473,6 +599,112 @@ impl LoRAEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Deterministic pseudo-random unit vector.
+    fn unit(dim: usize, seed: u64) -> Vec<f32> {
+        let mut s = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15).wrapping_add(1);
+        let mut v: Vec<f32> = (0..dim)
+            .map(|_| {
+                s = s
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                ((s >> 33) as f32 / (1u64 << 31) as f32) - 0.5
+            })
+            .collect();
+        let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+        v.iter_mut().for_each(|x| *x /= n);
+        v
+    }
+
+    fn dot(a: &[f32], b: &[f32]) -> f32 {
+        a.iter().zip(b).map(|(x, y)| x * y).sum()
+    }
+
+    fn lora_delta(lora: &MicroLoRA, x: &[f32]) -> Vec<f32> {
+        let mut out = vec![0.0; x.len()];
+        lora.forward(x, &mut out);
+        out
+    }
+
+    #[test]
+    fn test_micro_lora_update_moves_output_toward_feedback() {
+        // Every single update must move forward(x) toward the feedback
+        // direction for that input. The previous rule ignored the input, so
+        // the sign depended on the fixed down projection (17 of 40 here).
+        for k in 0..40 {
+            let x = unit(64, 100 + k);
+            let g = unit(64, 900 + k);
+            let mut lora = MicroLoRA::new(64, 2);
+            lora.accumulate_gradient(&LearningSignal::with_gradient(x.clone(), g.clone(), 1.0));
+            lora.apply_accumulated(0.002);
+            let delta = lora_delta(&lora, &x);
+            assert!(
+                dot(&delta, &g) > 0.0,
+                "input {} moved away from feedback",
+                k
+            );
+        }
+    }
+
+    #[test]
+    fn test_micro_lora_update_depends_on_input() {
+        // Two inputs trained toward two different targets must each end up
+        // closer to their own target. The previous rule gave both inputs the
+        // same update, so input 2 moved away from its own target.
+        let (x1, x2, g1, g2) = (unit(64, 1), unit(64, 2), unit(64, 3), unit(64, 4));
+        let mut lora = MicroLoRA::new(64, 2);
+        for _ in 0..200 {
+            lora.accumulate_gradient(&LearningSignal::with_gradient(x1.clone(), g1.clone(), 1.0));
+            lora.accumulate_gradient(&LearningSignal::with_gradient(x2.clone(), g2.clone(), 1.0));
+            lora.apply_accumulated(0.05);
+        }
+        let d1 = lora_delta(&lora, &x1);
+        let d2 = lora_delta(&lora, &x2);
+        assert!(dot(&d1, &g1) > dot(&d1, &g2) + 0.5);
+        assert!(dot(&d2, &g2) > dot(&d2, &g1) + 0.5);
+    }
+
+    #[test]
+    fn test_micro_lora_output_stays_bounded() {
+        // Repeated feedback at a high learning rate used to grow `up` without
+        // limit (|up| 707 after 5,000 steps at lr 0.1).
+        let x = unit(64, 7);
+        let g = unit(64, 8);
+        let mut lora = MicroLoRA::new(64, 2);
+        for _ in 0..5000 {
+            lora.accumulate_gradient(&LearningSignal::with_gradient(x.clone(), g.clone(), 1.0));
+            lora.apply_accumulated(0.1);
+        }
+        for k in 0..20 {
+            let probe = if k == 0 { x.clone() } else { unit(64, 50 + k) };
+            let d = lora_delta(&lora, &probe);
+            let gain = dot(&d, &d).sqrt();
+            assert!(
+                gain.is_finite() && gain <= MICRO_LORA_MAX_GAIN + 1e-4,
+                "gain {} above cap",
+                gain
+            );
+        }
+    }
+
+    #[test]
+    fn test_micro_lora_flat_weights_round_trip() {
+        let mut lora = MicroLoRA::new(16, 2);
+        lora.accumulate_gradient(&LearningSignal::with_gradient(
+            unit(16, 1),
+            unit(16, 2),
+            1.0,
+        ));
+        let gradient = lora.take_accumulated().expect("pending gradient");
+        assert_eq!(gradient.len(), lora.param_count());
+        assert_eq!(lora.pending_updates(), 0);
+
+        lora.apply_gradient(&gradient, 0.1);
+        let weights = lora.flat_weights();
+        let mut copy = MicroLoRA::new(16, 2);
+        copy.set_flat_weights(&weights);
+        assert_eq!(copy.flat_weights(), weights);
+    }
 
     #[test]
     fn test_micro_lora_creation() {
