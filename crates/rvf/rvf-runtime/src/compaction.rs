@@ -13,8 +13,7 @@
 //! 4. Cold OVERLAY_SEGs
 
 /// Compaction trigger thresholds.
-#[allow(dead_code)]
-pub(crate) struct CompactionThresholds {
+pub struct CompactionThresholds {
     /// Minimum dead space ratio to trigger compaction.
     pub dead_space_ratio: f64,
     /// Maximum segment count before compaction.
@@ -38,8 +37,7 @@ impl Default for CompactionThresholds {
 
 /// Compaction decision.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[allow(dead_code)]
-pub(crate) enum CompactionDecision {
+pub enum CompactionDecision {
     /// No compaction needed.
     None,
     /// Normal compaction should run.
@@ -49,8 +47,7 @@ pub(crate) enum CompactionDecision {
 }
 
 /// Evaluate whether compaction should run.
-#[allow(dead_code)]
-pub(crate) fn evaluate_triggers(
+pub fn evaluate_triggers(
     dead_space_ratio: f64,
     segment_count: u32,
     secs_since_last: u64,
@@ -190,6 +187,104 @@ mod tests {
         // Even though dead_space and segment_count exceed thresholds,
         // interval hasn't passed.
         assert_eq!(decision, CompactionDecision::None);
+    }
+
+    // --- the policy is now REACHABLE from the store, not just from these tests ---
+    //
+    // Every input evaluate_triggers needs was already tracked on RvfStore
+    // (dead_space_ratio and total_segments via status(), last_compaction_time stamped
+    // by compact()). These drive a REAL store rather than passing numbers straight to
+    // evaluate_triggers, so they lock the WIRING -- the part that was missing -- and
+    // not just the arithmetic, which the tests above already cover.
+
+    use crate::options::DistanceMetric;
+    use crate::store::RvfStore;
+    use crate::RvfOptions;
+    use tempfile::TempDir;
+
+    fn store_with(dir: &TempDir, name: &str, count: u64, delete: u64) -> RvfStore {
+        let options = RvfOptions {
+            dimension: 4,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+        let mut store = RvfStore::create(&dir.path().join(name), options).unwrap();
+        if count > 0 {
+            let vecs: Vec<Vec<f32>> = (0..count).map(|i| vec![i as f32, 1.0, 0.0, 0.0]).collect();
+            let refs: Vec<&[f32]> = vecs.iter().map(|v| v.as_slice()).collect();
+            let ids: Vec<u64> = (0..count).collect();
+            store.ingest_batch(&refs, &ids, None).unwrap();
+        }
+        if delete > 0 {
+            let doomed: Vec<u64> = (0..delete).collect();
+            store.delete(&doomed).unwrap();
+        }
+        store
+    }
+
+    #[test]
+    fn a_store_with_no_dead_space_is_not_due() {
+        let dir = TempDir::new().unwrap();
+        let store = store_with(&dir, "clean.rvf", 10, 0);
+
+        assert_eq!(store.should_compact(), CompactionDecision::None);
+    }
+
+    #[test]
+    fn dead_space_over_the_threshold_is_read_from_LIVE_state() {
+        // 6 of 10 deleted = 0.60: over the 0.20 normal trigger, under the 0.70 emergency.
+        // This is the case that could not be reached before, because nothing called the
+        // policy with the store's real numbers.
+        let dir = TempDir::new().unwrap();
+        let store = store_with(&dir, "dirty.rvf", 10, 6);
+
+        assert!(
+            store.status().dead_space_ratio > 0.20,
+            "precondition: real dead space"
+        );
+        assert_eq!(store.should_compact(), CompactionDecision::Normal);
+    }
+
+    #[test]
+    fn dead_space_over_the_emergency_ratio_escalates() {
+        // 8 of 10 deleted = 0.80, above the 0.70 emergency ratio.
+        let dir = TempDir::new().unwrap();
+        let store = store_with(&dir, "emergency.rvf", 10, 8);
+
+        assert_eq!(store.should_compact(), CompactionDecision::Emergency);
+    }
+
+    #[test]
+    fn compact_if_needed_distinguishes_not_needed_from_ran_and_found_nothing() {
+        let dir = TempDir::new().unwrap();
+        let mut clean = store_with(&dir, "skip.rvf", 10, 0);
+        let mut dirty = store_with(&dir, "run.rvf", 10, 6);
+
+        // None => the policy declined. That must NOT look like a compaction that ran and
+        // reclaimed zero, which is Some(result) -- the distinction is why this returns an
+        // Option rather than a bare CompactionResult.
+        assert!(clean.compact_if_needed().unwrap().is_none());
+        assert!(dirty.compact_if_needed().unwrap().is_some());
+    }
+
+    #[test]
+    fn custom_thresholds_are_honoured() {
+        let dir = TempDir::new().unwrap();
+        let store = store_with(&dir, "custom.rvf", 10, 0);
+
+        // A store the default policy declines must flip under a stricter threshold,
+        // which proves should_compact_with reads live state rather than a constant.
+        assert_eq!(store.should_compact(), CompactionDecision::None);
+        let eager = CompactionThresholds {
+            dead_space_ratio: 0.20,
+            max_segment_count: 0,
+            min_interval_secs: 0,
+            emergency_ratio: 0.70,
+        };
+        assert_eq!(
+            store.should_compact_with(&eager),
+            CompactionDecision::Normal
+        );
     }
 
     #[test]
