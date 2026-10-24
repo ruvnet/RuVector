@@ -46,8 +46,9 @@ use crate::error::{Result, RuvLLMError};
 
 use lattice_inference::forward::metal_qwen35::MetalQwen35State;
 use lattice_inference::model::qwen35::Qwen35Model;
-use lattice_inference::model::qwen35_config::{GenerateConfig, Qwen35Config};
+use lattice_inference::model::qwen35_config::Qwen35Config;
 use lattice_inference::tokenizer::bpe::BpeTokenizer;
+use lattice_inference::GenerateConfig;
 // Brought into scope for method-resolution only (`.tokenize()`/`.decode()` on
 // `BpeTokenizer` are trait-provided, not inherent), aliased because ruvllm
 // already has its own `Tokenizer` trait (`super::Tokenizer`) in this file.
@@ -97,16 +98,17 @@ struct WorkerReady {
 /// generation loops only honor EOS/`stop_token_ids` today, so the backend
 /// additionally enforces string stops itself via [`StopScan`].
 fn to_generate_config(params: &GenerateParams) -> GenerateConfig {
-    GenerateConfig {
-        max_new_tokens: params.max_tokens,
-        temperature: params.temperature,
-        top_k: params.top_k,
-        top_p: params.top_p,
-        repetition_penalty: params.repetition_penalty,
-        seed: params.seed,
-        stop_strings: params.stop_sequences.clone(),
-        ..GenerateConfig::default()
-    }
+    // `GenerateConfig` is `#[non_exhaustive]`, so it is built from its default
+    // and the mapped fields are assigned one by one.
+    let mut cfg = GenerateConfig::default();
+    cfg.max_new_tokens = params.max_tokens;
+    cfg.temperature = params.temperature;
+    cfg.top_k = params.top_k;
+    cfg.top_p = params.top_p;
+    cfg.repetition_penalty = params.repetition_penalty;
+    cfg.seed = params.seed;
+    cfg.stop_strings = params.stop_sequences.clone();
+    cfg
 }
 
 /// Reject `GenerateParams` values this backend cannot honor, instead of
