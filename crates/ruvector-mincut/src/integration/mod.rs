@@ -6,6 +6,7 @@
 // Integration module - allow missing docs for internal helpers
 #![allow(missing_docs)]
 
+use crate::connectivity::ConnectivityBackend;
 use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
 use crate::wrapper::{MinCutResult, MinCutWrapper};
 use std::sync::Arc;
@@ -31,7 +32,22 @@ pub struct RuVectorGraphAnalyzer {
 impl RuVectorGraphAnalyzer {
     /// Create analyzer for a graph
     pub fn new(graph: Arc<DynamicGraph>) -> Self {
-        let mut wrapper = MinCutWrapper::new(Arc::clone(&graph));
+        Self::new_with_backend(graph, ConnectivityBackend::EulerTour)
+    }
+
+    /// Create an analyzer for a graph with an explicitly selected
+    /// connectivity backend (see [`ConnectivityBackend`]).
+    ///
+    /// `ConnectivityBackend::EulerTour` (the default used by [`Self::new`])
+    /// and `ConnectivityBackend::Polylog` are both real, correct, tested
+    /// backends for the wrapper's whole-graph `is_connected()` fast path.
+    /// Neither changes `partition()`'s dominant cost, which is inside
+    /// `BoundedInstance`'s own cut search — see the module-level doc on
+    /// [`ConnectivityBackend`] and
+    /// `docs/research/nightly/2026-10-07-mincut-polylog-connectivity-backend/`
+    /// for the measurement establishing that.
+    pub fn new_with_backend(graph: Arc<DynamicGraph>, backend: ConnectivityBackend) -> Self {
+        let mut wrapper = MinCutWrapper::new_with_backend(Arc::clone(&graph), backend);
 
         // Sync wrapper with existing graph edges
         for edge in graph.edges() {
@@ -70,6 +86,15 @@ impl RuVectorGraphAnalyzer {
 
     /// Build k-NN graph from vectors
     pub fn from_knn(neighbors: &[(usize, Vec<(usize, f64)>)]) -> Self {
+        Self::from_knn_with_backend(neighbors, ConnectivityBackend::EulerTour)
+    }
+
+    /// Build a k-NN graph from vectors with an explicitly selected
+    /// connectivity backend (see [`Self::new_with_backend`]).
+    pub fn from_knn_with_backend(
+        neighbors: &[(usize, Vec<(usize, f64)>)],
+        backend: ConnectivityBackend,
+    ) -> Self {
         let graph = Arc::new(DynamicGraph::new());
 
         for &(vertex, ref nn_list) in neighbors {
@@ -80,7 +105,7 @@ impl RuVectorGraphAnalyzer {
             }
         }
 
-        Self::new(graph)
+        Self::new_with_backend(graph, backend)
     }
 
     /// Compute minimum cut
