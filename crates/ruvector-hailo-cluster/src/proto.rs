@@ -11,6 +11,11 @@
 // come from tonic — we cannot box it without hand-editing generated output on
 // every build, and tonic-build offers no hook to reshape the error type.
 #![allow(clippy::result_large_err)]
+// tonic-build's generated server trait wraps each async method's boxed-future
+// return type with a bare `#[must_use]`, which clippy 1.99 flags as
+// double_must_use since the boxed future is already `#[must_use]` itself —
+// tonic-build offers no hook to suppress this in the generated output.
+#![allow(clippy::double_must_use)]
 
 tonic::include_proto!("ruvector.hailo.v1");
 

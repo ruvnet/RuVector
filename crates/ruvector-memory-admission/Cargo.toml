@@ -15,6 +15,7 @@ name = "benchmark"
 path = "src/bin/benchmark.rs"
 
 [dependencies]
+ruvector-sona = { version = "0.2", path = "../sona", default-features = false, features = ["serde-support"] }
 
 [lints.rust]
 dead_code = "allow"

@@ -43,7 +43,7 @@ pub trait AdmissionPolicy {
 /// weight itself. With `c >= 2`, a point isolated on its own side of the
 /// cut (empty `group`) despite >= 2 clusters existing elsewhere in the
 /// graph *is* a genuine structural-outlier signal, independent of `tau`.
-fn should_spawn(c: usize, avg_cut: f32, group: &[usize], tau: f32) -> bool {
+pub(crate) fn should_spawn(c: usize, avg_cut: f32, group: &[usize], tau: f32) -> bool {
     if c == 1 {
         avg_cut < tau
     } else if group.is_empty() {
@@ -55,7 +55,7 @@ fn should_spawn(c: usize, avg_cut: f32, group: &[usize], tau: f32) -> bool {
 
 /// Merge target when not spawning: the best-matching cluster in `group`, or
 /// cluster 0 when `group` is empty (the `c == 1` degenerate case above).
-fn merge_target(point: &[f32], group: &[usize], centroids: &[Vec<f32>]) -> usize {
+pub(crate) fn merge_target(point: &[f32], group: &[usize], centroids: &[Vec<f32>]) -> usize {
     if group.is_empty() {
         return 0;
     }
@@ -69,7 +69,7 @@ fn merge_target(point: &[f32], group: &[usize], centroids: &[Vec<f32>]) -> usize
         .expect("group non-empty here")
 }
 
-fn running_mean_update(centroid: &mut [f32], count: usize, point: &[f32]) {
+pub(crate) fn running_mean_update(centroid: &mut [f32], count: usize, point: &[f32]) {
     let n = count as f32;
     for (c, &p) in centroid.iter_mut().zip(point.iter()) {
         *c = (*c * n + p) / (n + 1.0);
