@@ -250,6 +250,9 @@ impl GnnLayer {
             .take();
         let inner: RuvectorLayer = serde_json::from_value(layer_value)
             .map_err(|e| RuVectorError::new_err(format!("deserialize GnnLayer: {e}")))?;
+        inner
+            .validate_checkpoint(input_dim, hidden_dim, heads, dropout)
+            .map_err(to_pyerr_gnn)?;
         Ok(Self {
             inner,
             input_dim,
