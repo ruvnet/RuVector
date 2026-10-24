@@ -210,8 +210,10 @@ Without EWC++:                    With EWC++:
 ```
 
 EWC++ protects both the MicroLoRA (instant loop) and the background loop. When
-the application knows the task changed, mark the boundary explicitly; it is
-also detected automatically. `ewc_lambda` trades protection of old tasks
+the application knows the task changed, mark the boundary explicitly with
+`startNewTask()`. Automatic detection from gradient statistics is
+conservative and may not fire when only the feedback targets change.
+`ewc_lambda` trades protection of old tasks
 against learning speed on new ones, and `0` turns EWC++ off for the
 MicroLoRA. In WASM, `recordStepWithActivations` passes the representation a
 step produced, so the MicroLoRA learns to move a query toward the steps that
