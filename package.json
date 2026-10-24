@@ -56,6 +56,7 @@
   },
   "dependencies": {
     "@claude-flow/memory": "^3.0.0-alpha.7",
-    "hnswlib-node": "^3.0.0"
+    "hnswlib-node": "^3.0.0",
+    "ruvector": "^0.2.33"
   }
 }
