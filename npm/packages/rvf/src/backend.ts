@@ -229,14 +229,7 @@ export class NodeBackend implements RvfBackend {
       // Flatten individual vectors into a single contiguous Float32Array.
       const n = entries.length;
       if (n === 0) return { accepted: 0, rejected: 0, epoch: 0 };
-      const first = entries[0].vector;
-      const dim = first instanceof Float32Array ? first.length : first.length;
-      const flat = new Float32Array(n * dim);
-      for (let i = 0; i < n; i++) {
-        const v = entries[i].vector;
-        const f32 = v instanceof Float32Array ? v : new Float32Array(v);
-        flat.set(f32, i * dim);
-      }
+      const flat = flattenVectors(entries, this.handle.dimension());
       // Map string IDs to numeric labels for the N-API layer.
       // The native Rust HNSW expects i64 labels — non-numeric strings cause
       // silent data loss (NaN → dropped).  We maintain a bidirectional
@@ -789,16 +782,8 @@ export class WasmBackend implements RvfBackend {
       rejectUnsupportedMetadata(entries);
       const n = entries.length;
       if (n === 0) return { accepted: 0, rejected: 0, epoch: 0 };
-      const dim = this.dim || (entries[0].vector instanceof Float32Array
-        ? entries[0].vector.length : entries[0].vector.length);
-      const flat = new Float32Array(n * dim);
-      const ids = new BigUint64Array(n);
-      for (let i = 0; i < n; i++) {
-        const v = entries[i].vector;
-        const f32 = v instanceof Float32Array ? v : new Float32Array(v);
-        flat.set(f32, i * dim);
-        ids[i] = BigInt(entries[i].id);
-      }
+      const flat = flattenVectors(entries, this.dim);
+      const ids = new BigUint64Array(entries.map(entry => BigInt(entry.id)));
       // Allocate in WASM memory and call
       const vecsPtr = this.wasm.rvf_alloc(flat.byteLength);
       const idsPtr = this.wasm.rvf_alloc(ids.byteLength);
@@ -1018,6 +1003,23 @@ export function resolveBackend(type: BackendType): RvfBackend {
 // ---------------------------------------------------------------------------
 // Mapping helpers (TS options -> native/wasm shapes)
 // ---------------------------------------------------------------------------
+
+/** Validate the original row lengths before flattening can pad or overlap vectors. */
+function flattenVectors(entries: RvfIngestEntry[], dimension: number): Float32Array {
+  for (let i = 0; i < entries.length; i++) {
+    if (entries[i].vector.length !== dimension) {
+      throw new RvfError(
+        RvfErrorCode.InvalidArgument,
+        `Vector ${i} has dimension ${entries[i].vector.length}; expected ${dimension}`,
+      );
+    }
+  }
+  const flat = new Float32Array(entries.length * dimension);
+  for (let i = 0; i < entries.length; i++) {
+    flat.set(entries[i].vector, i * dimension);
+  }
+  return flat;
+}
 
 function mapMetricToNative(metric: string | undefined): string {
   switch (metric) {
