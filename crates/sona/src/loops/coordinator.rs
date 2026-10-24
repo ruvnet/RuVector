@@ -44,8 +44,11 @@ impl LoopCoordinator {
             ..Default::default()
         })));
 
+        // The background loop feeds EWC++ one gradient per cycle, computed
+        // from pattern centroids, so it has `embedding_dim` entries. A
+        // different `param_count` makes every EWC++ call return early.
         let ewc = Arc::new(RwLock::new(EwcPlusPlus::new(EwcConfig {
-            param_count: config.hidden_dim * config.base_lora_rank * 2,
+            param_count: config.embedding_dim,
             initial_lambda: config.ewc_lambda,
             ..Default::default()
         })));
@@ -115,6 +118,18 @@ impl LoopCoordinator {
         self.instant.flush();
     }
 
+    /// Mark a task boundary for EWC++ in both loops, so that what was learned
+    /// so far is protected while the next task trains.
+    pub fn start_new_task(&self) {
+        self.instant.start_new_task();
+        self.ewc.write().start_new_task();
+    }
+
+    /// Get the instant loop (Loop A)
+    pub fn instant(&self) -> &InstantLoop {
+        &self.instant
+    }
+
     /// Get micro-LoRA for inference
     pub fn micro_lora(&self) -> &Arc<RwLock<MicroLoRA>> {
         self.instant.micro_lora()
@@ -171,6 +186,7 @@ impl LoopCoordinator {
             patterns_stored: self.reasoning_bank.read().pattern_count(),
             patterns_learned: self.reasoning_bank.read().pattern_count(),
             ewc_tasks: self.ewc.read().task_count(),
+            instant_ewc_tasks: self.instant.ewc_task_count(),
             instant_enabled: self.instant_enabled,
             background_enabled: self.background_enabled,
         }
@@ -232,6 +248,9 @@ pub struct CoordinatorStats {
     #[cfg_attr(feature = "serde-support", serde(alias = "patternsLearned"))]
     pub patterns_learned: usize,
     pub ewc_tasks: usize,
+    /// Tasks EWC++ protects in the micro-LoRA (instant loop)
+    #[cfg_attr(feature = "serde-support", serde(default))]
+    pub instant_ewc_tasks: usize,
     pub instant_enabled: bool,
     pub background_enabled: bool,
 }
@@ -253,6 +272,39 @@ mod tests {
         let coord = LoopCoordinator::new(256);
         let stats = coord.stats();
         assert_eq!(stats.trajectories_buffered, 0);
+    }
+
+    #[test]
+    fn test_background_cycles_feed_ewc() {
+        // EWC++ used to be sized hidden_dim * base_lora_rank * 2 while the
+        // background gradient has embedding_dim entries, so every EWC++ call
+        // returned early and samples_seen stayed 0.
+        let coord = LoopCoordinator::new(256);
+        for cycle in 0..3 {
+            for i in 0..5 {
+                coord.on_inference(make_trajectory(cycle * 10 + i));
+            }
+            coord.force_background();
+        }
+        assert_eq!(coord.ewc().read().samples_seen(), 3);
+    }
+
+    #[test]
+    fn test_start_new_task_registers_in_both_loops() {
+        let coord = LoopCoordinator::new(64);
+        coord.start_new_task();
+        let stats = coord.stats();
+        assert_eq!(stats.ewc_tasks, 1);
+        assert_eq!(stats.instant_ewc_tasks, 1);
+
+        let disabled = LoopCoordinator::with_config(SonaConfig {
+            hidden_dim: 64,
+            embedding_dim: 64,
+            ewc_lambda: 0.0,
+            ..Default::default()
+        });
+        disabled.start_new_task();
+        assert_eq!(disabled.stats().instant_ewc_tasks, 0);
     }
 
     #[test]
