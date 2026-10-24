@@ -266,7 +266,14 @@ def _load(name: str) -> "Collection":
 
 
 def _save(name: str, coll: "Collection") -> None:
-    coll.save(_safe_path(name))
+    try:
+        coll.save(_safe_path(name))
+    except Exception:
+        # Mutators edit the cached Collection before persisting. A rejected
+        # write must not remain visible or be saved by a later retry. Reload
+        # disk state on the next call; incomplete on-disk pairs stay errors.
+        _cache.pop(name, None)
+        raise
     _cache[name] = coll
 
 

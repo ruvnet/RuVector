@@ -81,6 +81,37 @@ def test_insert_batch(server_module: ModuleType) -> None:
     assert r["count"] == 3
 
 
+@pytest.mark.parametrize("operation", ["vector_insert", "vector_insert_batch", "vector_delete"])
+def test_failed_save_does_not_leave_unacknowledged_cached_changes(
+    server_module: ModuleType, monkeypatch: pytest.MonkeyPatch, operation: str
+) -> None:
+    from ruvector.collection import Collection
+
+    m = server_module
+    _call(m, "vector_create_collection", name="durable", dim=2)
+    _call(m, "vector_insert", name="durable", vector=[1.0, 0.0], metadata={"state": "saved"})
+    path = m._safe_path("durable")
+    before = (path.read_bytes(), Collection.meta_path(path).read_bytes())
+    with monkeypatch.context() as patch:
+        def failed_save(self: Collection, path: Any) -> None:
+            raise OSError("test storage failure before writing")
+
+        patch.setattr(Collection, "save", failed_save)
+        arguments = {"vector": [0.0, 1.0]} if operation == "vector_insert" else (
+            {"vectors": [[0.0, 1.0]]} if operation == "vector_insert_batch" else {"id": 0}
+        )
+        with pytest.raises(Exception):
+            _call(m, operation, name="durable", **arguments)
+    assert (path.read_bytes(), Collection.meta_path(path).read_bytes()) == before
+    assert _call(m, "vector_stats", name="durable")["count"] == 1
+    hits = _call(m, "vector_search", name="durable", query=[1.0, 0.0], k=5)["hits"]
+    assert [hit["id"] for hit in hits] == [0]
+    assert hits[0]["metadata"] == {"state": "saved"}
+    _call(m, "vector_insert", name="durable", vector=[0.0, 1.0])
+    m._cache.clear()
+    assert _call(m, "vector_stats", name="durable")["count"] == 2
+
+
 def test_search_filter(server_module: ModuleType) -> None:
     m = server_module
     _call(m, "vector_create_collection", name="t3", dim=2)
