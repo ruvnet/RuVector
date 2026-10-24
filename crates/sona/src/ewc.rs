@@ -171,12 +171,28 @@ impl EwcPlusPlus {
         avg_z > self.config.boundary_threshold
     }
 
+    /// Online Fisher estimate for the current task, corrected for the EMA's
+    /// zero start. Without the correction the estimate after `n` samples is
+    /// only `1 - decay^n` of the true value (about 5% after 50 samples at the
+    /// default decay of 0.999), which makes the penalty almost inert.
+    fn current_fisher_estimate(&self) -> Vec<f32> {
+        if self.samples_seen == 0 {
+            return self.current_fisher.clone();
+        }
+        let correction = 1.0 - (self.config.fisher_ema_decay as f64).powf(self.samples_seen as f64);
+        if correction <= 0.0 {
+            return self.current_fisher.clone();
+        }
+        let inv = (1.0 / correction) as f32;
+        self.current_fisher.iter().map(|f| f * inv).collect()
+    }
+
     /// Start new task - saves current Fisher to memory
     pub fn start_new_task(&mut self) {
         // Save current task's Fisher
         let task_fisher = TaskFisher {
             task_id: self.current_task_id,
-            fisher: self.current_fisher.clone(),
+            fisher: self.current_fisher_estimate(),
             optimal_weights: self.current_weights.clone(),
             importance: 1.0,
         };
@@ -244,6 +260,35 @@ impl EwcPlusPlus {
         }
 
         constrained
+    }
+
+    /// Pull `weights` back toward each remembered task's optimal weights in
+    /// proportion to that task's Fisher importance.
+    ///
+    /// This is the closed-form (proximal) step for the EWC penalty
+    /// `lambda / 2 * F_i * (w_i - w*_i)^2` after a gradient step of size
+    /// `learning_rate`: `w_i = (w_i + k * w*_i) / (1 + k)` with
+    /// `k = learning_rate * lambda * F_i`. Unlike an explicit penalty
+    /// gradient it cannot overshoot, whatever the values of lambda and the
+    /// learning rate. [`EwcPlusPlus::apply_constraints`] only slows changes
+    /// to important weights; this step also restores them.
+    pub fn apply_anchor(&self, weights: &mut [f32], learning_rate: f32) {
+        if weights.len() != self.config.param_count {
+            return;
+        }
+
+        for task in &self.task_memory {
+            for ((w, &optimal), &fisher) in weights
+                .iter_mut()
+                .zip(task.optimal_weights.iter())
+                .zip(task.fisher.iter())
+            {
+                let k = learning_rate * self.lambda * fisher * task.importance;
+                if k > 1e-8 {
+                    *w = (*w + k * optimal) / (1.0 + k);
+                }
+            }
+        }
     }
 
     /// Compute EWC regularization loss
@@ -338,7 +383,7 @@ impl EwcPlusPlus {
 
     /// Get parameter importance scores
     pub fn importance_scores(&self) -> Vec<f32> {
-        let mut scores = self.current_fisher.clone();
+        let mut scores = self.current_fisher_estimate();
 
         for task in &self.task_memory {
             for (i, &f) in task.fisher.iter().enumerate() {
@@ -475,6 +520,55 @@ mod tests {
 
         ewc.consolidate_all_tasks();
         assert_eq!(ewc.task_count(), 1);
+    }
+
+    #[test]
+    fn test_stored_fisher_is_bias_corrected() {
+        // 50 samples of a constant gradient 0.5 have E[g^2] = 0.25. The raw
+        // EMA (decay 0.999) is only about 0.012 at this point.
+        let mut ewc = EwcPlusPlus::new(EwcConfig {
+            param_count: 4,
+            ..Default::default()
+        });
+        for _ in 0..50 {
+            ewc.update_fisher(&[0.5; 4]);
+        }
+        ewc.start_new_task();
+        let stored = &ewc.task_memory[0].fisher;
+        assert!(
+            stored.iter().all(|f| (f - 0.25).abs() < 1e-3),
+            "{:?}",
+            stored
+        );
+    }
+
+    #[test]
+    fn test_anchor_restores_only_important_weights() {
+        let mut ewc = EwcPlusPlus::new(EwcConfig {
+            param_count: 2,
+            initial_lambda: 1000.0,
+            ..Default::default()
+        });
+        // Parameter 0 matters for the task, parameter 1 does not.
+        for _ in 0..20 {
+            ewc.update_fisher(&[0.5, 0.0]);
+        }
+        ewc.set_optimal_weights(&[1.0, 1.0]);
+        ewc.start_new_task();
+
+        let mut weights = vec![-1.0, -1.0];
+        ewc.apply_anchor(&mut weights, 0.1);
+        assert!(
+            weights[0] > 0.9,
+            "important weight not restored: {}",
+            weights[0]
+        );
+        assert_eq!(weights[1], -1.0, "unimportant weight moved");
+
+        // The proximal step never overshoots the stored optimum.
+        let mut weights = vec![-1.0, -1.0];
+        ewc.apply_anchor(&mut weights, 1.0e6);
+        assert!(weights[0] <= 1.0 && weights[0] > 0.99);
     }
 
     #[test]

@@ -2,6 +2,7 @@
 //!
 //! Per-request adaptation with <1ms overhead.
 
+use crate::ewc::{EwcConfig, EwcPlusPlus};
 use crate::lora::MicroLoRA;
 use crate::trajectory::{TrajectoryBuffer, TrajectoryIdGen};
 use crate::types::{LearningSignal, QueryTrajectory, SonaConfig};
@@ -20,6 +21,9 @@ pub struct InstantLoopConfig {
     pub buffer_capacity: usize,
     /// Flush threshold (apply updates every N signals)
     pub flush_threshold: usize,
+    /// EWC++ strength protecting micro-LoRA weights learned for earlier
+    /// tasks. `0.0` disables EWC++ for the instant loop.
+    pub ewc_lambda: f32,
 }
 
 impl Default for InstantLoopConfig {
@@ -29,6 +33,7 @@ impl Default for InstantLoopConfig {
             micro_lora_lr: 0.001,
             buffer_capacity: 10000,
             flush_threshold: 100,
+            ewc_lambda: 2000.0,
         }
     }
 }
@@ -40,6 +45,7 @@ impl From<&SonaConfig> for InstantLoopConfig {
             micro_lora_lr: config.micro_lora_lr,
             buffer_capacity: config.trajectory_capacity,
             flush_threshold: 100,
+            ewc_lambda: config.ewc_lambda,
         }
     }
 }
@@ -65,6 +71,8 @@ pub struct InstantLoop {
     trajectory_buffer: Arc<TrajectoryBuffer>,
     /// Micro-LoRA adapter
     micro_lora: Arc<RwLock<MicroLoRA>>,
+    /// EWC++ over the flat micro-LoRA weights (`None` when disabled)
+    ewc: Option<RwLock<EwcPlusPlus>>,
     /// ID generator
     id_gen: TrajectoryIdGen,
     /// Pending signal count
@@ -76,12 +84,18 @@ pub struct InstantLoop {
 impl InstantLoop {
     /// Create new instant loop
     pub fn new(hidden_dim: usize, config: InstantLoopConfig) -> Self {
+        let micro_lora = MicroLoRA::new(hidden_dim, config.micro_lora_rank);
+        let ewc = (config.ewc_lambda > 0.0).then(|| {
+            RwLock::new(EwcPlusPlus::new(EwcConfig {
+                param_count: micro_lora.param_count(),
+                initial_lambda: config.ewc_lambda,
+                ..Default::default()
+            }))
+        });
         Self {
             trajectory_buffer: Arc::new(TrajectoryBuffer::new(config.buffer_capacity)),
-            micro_lora: Arc::new(RwLock::new(MicroLoRA::new(
-                hidden_dim,
-                config.micro_lora_rank,
-            ))),
+            micro_lora: Arc::new(RwLock::new(micro_lora)),
+            ewc,
             id_gen: TrajectoryIdGen::new(),
             pending_signals: AtomicU64::new(0),
             config,
@@ -135,8 +149,29 @@ impl InstantLoop {
 
     fn flush_internal(&self, lora: &mut MicroLoRA) {
         let pending = lora.pending_updates();
-        if pending > 0 {
-            lora.apply_accumulated(self.config.micro_lora_lr);
+        if let Some(gradient) = lora.take_accumulated() {
+            let gradient = match &self.ewc {
+                Some(ewc) => {
+                    let mut ewc = ewc.write();
+                    if ewc.detect_task_boundary(&gradient) {
+                        ewc.set_optimal_weights(&lora.flat_weights());
+                        ewc.start_new_task();
+                    }
+                    let constrained = ewc.apply_constraints(&gradient);
+                    ewc.update_fisher(&gradient);
+                    constrained
+                }
+                None => gradient,
+            };
+            lora.apply_gradient(&gradient, self.config.micro_lora_lr);
+            if let Some(ewc) = &self.ewc {
+                let ewc = ewc.read();
+                if ewc.task_count() > 0 {
+                    let mut weights = lora.flat_weights();
+                    ewc.apply_anchor(&mut weights, self.config.micro_lora_lr);
+                    lora.set_flat_weights(&weights);
+                }
+            }
             self.pending_signals.store(0, Ordering::Relaxed);
             self.metrics
                 .flushes_performed
@@ -145,6 +180,30 @@ impl InstantLoop {
                 .updates_applied
                 .fetch_add(pending as u64, Ordering::Relaxed);
         }
+    }
+
+    /// Mark a task boundary for EWC++: pending updates are applied, then the
+    /// importance of the current micro-LoRA weights is stored so that later
+    /// tasks change them less. Boundaries are also detected automatically.
+    pub fn start_new_task(&self) {
+        let Some(ewc) = &self.ewc else {
+            return;
+        };
+        let mut lora = self.micro_lora.write();
+        self.flush_internal(&mut lora);
+        let mut ewc = ewc.write();
+        ewc.set_optimal_weights(&lora.flat_weights());
+        ewc.start_new_task();
+    }
+
+    /// Number of tasks EWC++ protects in the micro-LoRA (0 when disabled)
+    pub fn ewc_task_count(&self) -> usize {
+        self.ewc.as_ref().map_or(0, |ewc| ewc.read().task_count())
+    }
+
+    /// EWC++ state for the micro-LoRA (`None` when disabled)
+    pub fn ewc(&self) -> Option<&RwLock<EwcPlusPlus>> {
+        self.ewc.as_ref()
     }
 
     /// Drain trajectories for background processing

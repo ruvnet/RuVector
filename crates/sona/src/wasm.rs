@@ -171,6 +171,54 @@ impl WasmSonaEngine {
         }
     }
 
+    /// Record a step with its own activation vector
+    ///
+    /// `recordStep` uses the query embedding as the step activation, so the
+    /// learning signal can only point back along the query. Passing the
+    /// representation the step produced (for example the embedding of the
+    /// option that was chosen) lets the micro-LoRA learn to move the query
+    /// toward the steps that scored well and away from those that did not.
+    ///
+    /// # Arguments
+    /// * `trajectory_id` - ID returned from start_trajectory
+    /// * `node_id` - Graph node visited
+    /// * `activations` - Step activation vector (same size as the query)
+    /// * `score` - Step quality score [0.0, 1.0]
+    ///
+    /// # Example
+    /// ```javascript
+    /// engine.recordStepWithActivations(trajectoryId, 7, chosenEmbedding, 0.9);
+    /// ```
+    #[wasm_bindgen(js_name = recordStepWithActivations)]
+    pub fn record_step_with_activations(
+        &self,
+        trajectory_id: u64,
+        node_id: u32,
+        activations: Vec<f32>,
+        score: f32,
+    ) {
+        let mut active = self.active_trajectories.write();
+        if let Some((builder, _)) = active.get_mut(&trajectory_id) {
+            builder.add_named_step(&format!("node-{}", node_id), activations, Vec::new(), score);
+        }
+    }
+
+    /// Mark a task boundary for EWC++
+    ///
+    /// Stores the importance of what has been learned so far, so that
+    /// feedback for the next task (for example, a new season) changes those
+    /// weights less. Boundaries are also detected automatically; call this
+    /// when the application knows the task changed.
+    ///
+    /// # Example
+    /// ```javascript
+    /// engine.startNewTask();
+    /// ```
+    #[wasm_bindgen(js_name = startNewTask)]
+    pub fn start_new_task(&self) {
+        self.inner.read().start_new_task();
+    }
+
     /// End the trajectory and submit for learning
     ///
     /// # Arguments
