@@ -1,8 +1,20 @@
 //! Obstruction Detection
 //!
 //! Obstructions are cohomological objects that indicate global inconsistency.
-//! A non-trivial obstruction means that local data cannot be patched together
-//! into a global section.
+//!
+//! Precisely (ADR-272): for a *linear* sheaf the zero section is always a
+//! global section, so a nontrivial `H^1` does **not** mean "no global
+//! section exists". The correct statements on a graph are:
+//!
+//! - `H^0(G, F) = ker delta` is the space of global sections;
+//! - `H^1(G, F) = C^1 / im delta` measures **edge data** that cannot be
+//!   written as the coboundary of any vertex assignment.
+//!
+//! A non-trivial obstruction therefore means the *observed edge data*
+//! (affine constraints) cannot be explained by any global vertex assignment
+//! — an irreducible contradiction in the observations, not the absence of
+//! global sections. The affine syndrome engine built on this correction
+//! lives in the `ruvector-cohomology` crate.
 
 use super::cocycle::{Cocycle, SheafCoboundary};
 use super::laplacian::{HarmonicRepresentative, LaplacianConfig, SheafLaplacian};
