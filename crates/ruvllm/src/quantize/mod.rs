@@ -138,7 +138,10 @@ pub use pi_quant_simd::{
 pub use pi_quant_simd::pi_dequantize_neon;
 
 #[cfg(target_arch = "x86_64")]
-pub use pi_quant_simd::{pi_dequantize_avx2, pi_dequantize_avx512, pi_quantize_avx512};
+pub use pi_quant_simd::pi_dequantize_avx2;
+
+#[cfg(all(target_arch = "x86_64", ruvllm_stable_avx512))]
+pub use pi_quant_simd::{pi_dequantize_avx512, pi_quantize_avx512};
 
 // High-performance quantization (ADR-090 >1 GB/s target)
 pub use pi_quant::{

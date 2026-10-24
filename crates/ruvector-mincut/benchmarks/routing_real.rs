@@ -134,7 +134,9 @@ fn main() {
     println!("{{\"type\":\"closures\",\"pairs\":{}}}", traces.len());
     // Fair scan baseline: precompute the same unit-sphere representation once.
     let projected: Vec<[f64; 3]> = coords
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|c| {
             let a = c[0].to_radians();
             let b = c[1].to_radians();

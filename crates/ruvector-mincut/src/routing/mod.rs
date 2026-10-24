@@ -227,13 +227,15 @@ impl RoadRouter {
             || n > MAX_NODES
             || costs.len() > MAX_ARCS
             || endpoints.len() != costs.len() * 2
-            || turns.len() % 2 != 0
+            || !turns.len().is_multiple_of(2)
             || turns.len() / 2 > MAX_ARCS
         {
             return Err(RoutingError::InvalidInput("array lengths or graph size"));
         }
         let arcs = endpoints
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .zip(costs)
             .map(|(e, &cost)| Arc {
                 source: e[0],
@@ -244,7 +246,12 @@ impl RoadRouter {
         Self::new(
             n,
             arcs,
-            turns.chunks_exact(2).map(|t| (t[0], t[1])).collect(),
+            turns
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|t| (t[0], t[1]))
+                .collect(),
         )
     }
     pub fn node_count(&self) -> usize {
@@ -479,7 +486,7 @@ fn tick(
     if *work >= budget {
         return Err(RoutingError::BudgetExceeded);
     }
-    if *work % 1024 == 0 && cancelled() {
+    if (*work).is_multiple_of(1024) && cancelled() {
         return Err(RoutingError::Cancelled);
     }
     *work += 1;

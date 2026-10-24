@@ -1,5 +1,5 @@
 [workspace]
-exclude = ["external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf", "crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/ruvector-hyperbolic-hnsw-wasm", "examples/ruvLLM/esp32", "examples/ruvLLM/esp32-flash", "examples/edge-net", "examples/data", "examples/ruvLLM", "examples/delta-behavior", "crates/rvf", "crates/rvf/*", "crates/rvf/*/*", "examples/rvf-desktop", "crates/mcp-brain-server",
+exclude = ["patches/candle-core-0.8.4", "patches/candle-core-0.9.2", "external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf", "crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/ruvector-hyperbolic-hnsw-wasm", "examples/ruvLLM/esp32", "examples/ruvLLM/esp32-flash", "examples/edge-net", "examples/data", "examples/ruvLLM", "examples/delta-behavior", "crates/rvf", "crates/rvf/*", "crates/rvf/*/*", "examples/rvf-desktop", "crates/mcp-brain-server",
     # emergent-time-wasm: standalone cdylib with own opt-level=z, panic=abort
     "crates/emergent-time-wasm",
     # sonic-ct crates: self-contained detached workspaces
@@ -383,7 +383,7 @@ unused_unit = "allow"
 [workspace.package]
 version = "2.3.0"
 edition = "2021"
-rust-version = "1.77"
+rust-version = "1.88"
 license = "MIT"
 authors = ["Ruvector Team"]
 repository = "https://github.com/ruvnet/ruvector"
@@ -478,3 +478,6 @@ opt-level = 3
 # This resolves the getrandom version conflict (0.2 vs 0.3)
 [patch.crates-io]
 hnsw_rs = { path = "./patches/hnsw_rs" }
+
+candle-core-084 = { package = "candle-core", path = "patches/candle-core-0.8.4" }
+candle-core-092 = { package = "candle-core", path = "patches/candle-core-0.9.2" }

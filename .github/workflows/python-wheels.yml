@@ -253,18 +253,27 @@ jobs:
           path: ${{ env.PACKAGE_DIR }}/dist/*.tar.gz
 
   macos:
-    runs-on: macos-14
+    runs-on: ${{ matrix.runner }}
     name: macOS ${{ matrix.target }}
     strategy:
       fail-fast: false
       matrix:
-        target: [x86_64-apple-darwin, aarch64-apple-darwin]
+        include:
+          - target: x86_64-apple-darwin
+            runner: macos-15-intel
+            architecture: x64
+            machine: x86_64
+          - target: aarch64-apple-darwin
+            runner: macos-14
+            architecture: arm64
+            machine: arm64
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
         with:
           python-version: '3.12'
+          architecture: ${{ matrix.architecture }}
 
       - name: Build abi3 wheel
         uses: PyO3/maturin-action@423a6347767a8b16e65c2a7a7042e4a921528da8
@@ -273,12 +282,13 @@ jobs:
           target: ${{ matrix.target }}
           args: --release --out dist
 
-      - name: Test wheel (native arch only)
-        if: matrix.target == 'aarch64-apple-darwin'
+      - name: Test wheel on matching native architecture
         working-directory: ${{ env.PACKAGE_DIR }}
         run: |
+          python3 -c 'import platform; assert platform.machine() == "${{ matrix.machine }}", platform.machine()'
           python3 -m venv /tmp/wheel-venv
-          /tmp/wheel-venv/bin/pip install dist/*.whl pytest numpy
+          /tmp/wheel-venv/bin/python -m pip install --only-binary=:all: dist/*.whl pytest numpy
+          /tmp/wheel-venv/bin/python -c 'import platform, ruvector; assert platform.machine() == "${{ matrix.machine }}", platform.machine()'
           /tmp/wheel-venv/bin/python -m pytest tests/test_smoke.py tests/test_collection.py tests/test_portfolio_extensions.py tests/test_native_rvf.py -q
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

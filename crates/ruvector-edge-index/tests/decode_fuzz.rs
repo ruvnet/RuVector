@@ -26,7 +26,7 @@ fn index() -> (HnswIndex, Vec<f32>) {
         ..HnswParams::default()
     };
     let mut idx = HnswIndex::new(p, q).unwrap();
-    for (i, v) in base.chunks_exact(D).enumerate() {
+    for (i, v) in base.as_chunks::<D>().0.iter().enumerate() {
         idx.insert(i as u32, v, &mut op_rng(i as u64)).unwrap();
     }
     for i in (0..N as u32).step_by(13) {
@@ -41,7 +41,7 @@ fn body(c: &mut IndexChunk) -> &mut [u8] {
 
 /// Whatever decodes must behave.
 fn exercise(idx: &mut HnswIndex, base: &[f32]) {
-    for q in base.chunks_exact(D).take(5) {
+    for q in base.as_chunks::<D>().0.iter().take(5) {
         let _ = idx.search(q, 10, 20).unwrap();
     }
     let next = idx.params().iid_base + idx.node_count();
@@ -66,7 +66,9 @@ fn upper_link_to_a_lower_level_node_is_rejected() {
     let b = body(&mut c[0]);
     let at = b.len() - lvl * m * 4;
     let row: Vec<u32> = b[at..at + m * 4]
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .map(|w| u32::from_le_bytes([w[0], w[1], w[2], w[3]]))
         .collect();
     let low = (0..N as u32)
@@ -98,7 +100,7 @@ fn oversized_dims_and_counts_are_malformed_not_wrapped() {
     let (base, _) = data(100, D, 0);
     let q = QuantParams::train(Metric::L2, D, &base, 1).unwrap();
     let mut f = QuantFlatIndex::new(q, 1 << 16).unwrap();
-    for (i, v) in base.chunks_exact(D).enumerate() {
+    for (i, v) in base.as_chunks::<D>().0.iter().enumerate() {
         f.upsert(i as u32, v).unwrap();
     }
     let mut c = f.to_chunks(1, MAX_CHUNK_BYTES).unwrap().chunks;

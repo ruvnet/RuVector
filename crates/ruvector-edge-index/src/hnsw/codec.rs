@@ -203,7 +203,7 @@ impl HnswIndex {
             off = off.checked_add(u32::from(l)).ok_or(LINK)?;
         }
         let dead: u32 = deleted.iter().map(|w| w.count_ones()).sum();
-        let tail_ok = n % 64 == 0 || deleted.last().map_or(true, |w| w >> (n % 64) == 0);
+        let tail_ok = n % 64 == 0 || deleted.last().is_none_or(|w| w >> (n % 64) == 0);
         if !tail_ok || dead > n || live != n - dead {
             return Err(DecodeError::Malformed("tombstone bitmap"));
         }

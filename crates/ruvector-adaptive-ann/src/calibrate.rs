@@ -89,7 +89,10 @@ impl<'g> Calibrator<'g> {
     ) -> CalibrationTable {
         assert!(k > 0, "calibration k must be greater than zero");
         assert!(
-            sample_queries.len() % self.graph.config.dims == 0,
+            (sample_queries.len())
+                .checked_rem(self.graph.config.dims)
+                .expect("attempt to calculate the remainder with a divisor of zero")
+                == 0,
             "sample query buffer must contain whole vectors"
         );
         self.ef_candidates.sort_unstable();

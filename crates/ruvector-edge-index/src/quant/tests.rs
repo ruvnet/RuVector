@@ -122,7 +122,7 @@ fn oversized_dim_in_payload_is_malformed_on_every_platform() {
     buf.put_u8(2);
     buf.put_u32(1 << 16);
     buf.put_u64(0);
-    buf.extend(std::iter::repeat(0u8).take(64));
+    buf.extend(std::iter::repeat_n(0u8, 64));
     let n = buf.len();
     let mut src = Segs(vec![buf]);
     let err = QuantParams::read(&mut Reader::new(&mut src, n)).unwrap_err();

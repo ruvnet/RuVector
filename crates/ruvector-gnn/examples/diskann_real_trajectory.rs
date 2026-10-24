@@ -248,7 +248,11 @@ fn train_trajectory(
             snapshots.push(emb.clone());
         }
     }
-    if (epochs % snap_every) != 0 {
+    if (epochs)
+        .checked_rem(snap_every)
+        .expect("attempt to calculate the remainder with a divisor of zero")
+        != 0
+    {
         snapshots.push(emb.clone()); // ensure ET is captured
     }
     Trajectory {
@@ -354,7 +358,11 @@ fn train_nodeclass_trajectory(
             snapshots.push(emb.clone());
         }
     }
-    if epochs % snap_every != 0 {
+    if (epochs)
+        .checked_rem(snap_every)
+        .expect("attempt to calculate the remainder with a divisor of zero")
+        != 0
+    {
         snapshots.push(emb.clone());
     }
     Trajectory {
