@@ -26,6 +26,13 @@ The first semantic command downloads a local embedding model. Memory belongs to 
 
 ## Claude Code
 
+The MCP server keeps its native memory index beside its `intelligence.json`
+store as `vectors.db`, under the selected `.ruvector` directory. Set
+`RUVECTOR_STORAGE_PATH=/absolute/path/to/vectors.db` to choose a different
+database file. If another process holds that file, the server reports the
+lock error on stderr and `hooks_capabilities` reports the fallback index.
+
+
 ```bash
 claude mcp add --scope project --env RUVECTOR_MCP_PROFILE=readonly --transport stdio ruvector -- npx -y ruvector mcp start
 claude mcp get ruvector
