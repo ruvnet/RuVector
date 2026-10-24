@@ -10,7 +10,7 @@ const {
   hierarchicalForward,
   getCompressionLevel,
   init
-} = require('../index.js');
+} = require(process.env.RUVECTOR_GNN_BINDING || '../index.js');
 
 test('initialization', () => {
   const result = init();
@@ -105,7 +105,7 @@ test('TensorCompress with explicit level', () => {
   const embedding = new Float32Array(Array.from({ length: 64 }, (_, i) => i * 0.1));
 
   const level = {
-    level_type: 'half',
+    levelType: 'half',
     scale: 1.0
   };
 

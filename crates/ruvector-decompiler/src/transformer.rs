@@ -454,7 +454,12 @@ fn parse_bin_tensors(
             )));
         }
         let mut float_data = vec![0.0f32; numel];
-        for (i, chunk) in data[pos..pos + byte_len].chunks_exact(4).enumerate() {
+        for (i, chunk) in data[pos..pos + byte_len]
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .enumerate()
+        {
             float_data[i] = f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
         }
         cur.set_position((pos + byte_len) as u64);

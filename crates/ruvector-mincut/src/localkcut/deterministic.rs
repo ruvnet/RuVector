@@ -283,7 +283,7 @@ impl DeterministicLocalKCut {
         if let Some(forest_id) = self.forests.insert_edge(u, v) {
             // Assign color in red-blue family based on forest
             for coloring in &mut self.red_blue_colorings {
-                let color = if (u + v + forest_id as u64) % 2 == 0 {
+                let color = if (u + v + forest_id as u64).is_multiple_of(2) {
                     EdgeColor::Blue
                 } else {
                     EdgeColor::Red
@@ -293,7 +293,7 @@ impl DeterministicLocalKCut {
         } else {
             // Non-tree edge: assign color in green-yellow family
             for coloring in &mut self.green_yellow_colorings {
-                let color = if (u * v) % 2 == 0 {
+                let color = if (u * v).is_multiple_of(2) {
                     EdgeColor::Green
                 } else {
                     EdgeColor::Yellow

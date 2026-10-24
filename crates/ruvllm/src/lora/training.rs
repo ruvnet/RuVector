@@ -515,7 +515,11 @@ impl TrainingPipeline {
         // Check if we should apply updates
         let step = self.total_steps.fetch_add(1, Ordering::SeqCst);
 
-        if (step + 1) as usize % self.config.batch_size == 0 {
+        if ((step + 1) as usize)
+            .checked_rem(self.config.batch_size)
+            .expect("attempt to calculate the remainder with a divisor of zero")
+            == 0
+        {
             self.apply_step(lora, step)?;
         }
 

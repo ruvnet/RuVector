@@ -132,7 +132,7 @@ impl<F: HttpFetch, C: Clock> JwksCache<F, C> {
             self.policy.cold_retry_interval_secs
         };
         st.last_refetch_attempt
-            .map_or(true, |t| now.saturating_sub(t) >= interval)
+            .is_none_or(|t| now.saturating_sub(t) >= interval)
     }
 
     /// Age-bounded lookup: `Some(result)` if a set younger than `max_age`

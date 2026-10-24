@@ -47,7 +47,7 @@ impl PyKVCache {
             || max_tokens > 65536
             || dimensions
                 .checked_mul(max_tokens)
-                .map_or(true, |n| n > MAX_ELEMENTS)
+                .is_none_or(|n| n > MAX_ELEMENTS)
         {
             return Err(PyValueError::new_err("require dimensions in 1..=4096, max_tokens in 1..=65536, and their product <= 8388608"));
         }
@@ -87,7 +87,13 @@ impl PyKVCache {
     /// Append one or more tokens. Equal nonempty flat arrays must contain a
     /// multiple of dimensions values. Invalid calls leave the cache unchanged.
     fn append(&mut self, keys: Vec<f32>, values: Vec<f32>) -> PyResult<()> {
-        if keys.is_empty() || keys.len() != values.len() || keys.len() % self.dimensions != 0 {
+        if keys.is_empty()
+            || keys.len() != values.len()
+            || (keys.len())
+                .checked_rem(self.dimensions)
+                .expect("attempt to calculate the remainder with a divisor of zero")
+                != 0
+        {
             return Err(PyValueError::new_err(
                 "keys and values must have equal nonzero lengths divisible by dimensions",
             ));

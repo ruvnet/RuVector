@@ -44,7 +44,7 @@ pub fn experiment_embedding(mask: &PhaseMask, frame: &OpticalFrame) -> Vec<f32> 
 pub fn mask_embedding(mask: &PhaseMask) -> Vec<f32> {
     let mut emb = Vec::with_capacity(EMBED_DIM);
     emb.extend_from_slice(&mask.phase_histogram(MASK_BINS));
-    emb.extend(std::iter::repeat(0.0f32).take(FRAME_BINS));
+    emb.extend(std::iter::repeat_n(0.0f32, FRAME_BINS));
     l2_normalize(&mut emb);
     emb
 }
