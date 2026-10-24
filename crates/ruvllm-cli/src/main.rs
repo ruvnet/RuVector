@@ -11,7 +11,7 @@
 //! - `ruvllm serve <model>` - Start inference server
 //! - `ruvllm chat <model>` - Interactive chat mode
 //! - `ruvllm benchmark <model>` - Run performance benchmarks
-//! - `ruvllm quantize <model>` - Quantize model to GGUF format (not yet implemented; fails closed, #968)
+//! - `ruvllm quantize --model <model> --quant q8_0` - Convert supported SafeTensors to GGUF
 
 use clap::{Parser, Subcommand};
 use colored::Colorize;
@@ -212,14 +212,13 @@ enum Commands {
         format: String,
     },
 
-    /// Quantize a model to GGUF format (NOT YET IMPLEMENTED)
+    /// Convert llama or qwen2 SafeTensors checkpoints to F16 or Q8_0 GGUF
     ///
-    /// The GGUF tensor writer is not implemented yet: this command validates
-    /// its arguments and exits with an error without writing any output (#968).
-    /// Use llama.cpp's convert_hf_to_gguf.py + llama-quantize meanwhile.
+    /// Supports a local .safetensors file or an indexed HuggingFace directory.
+    /// GGUF input, K-quants and unsupported model/tokenizer configurations fail closed.
     #[command(alias = "quant")]
     Quantize {
-        /// Model to quantize (path or HuggingFace ID)
+        /// Local model path or an identifier already present in the model cache
         #[arg(short, long)]
         model: String,
 
@@ -227,7 +226,7 @@ enum Commands {
         #[arg(short, long, default_value = "")]
         output: String,
 
-        /// Quantization format: q4_k_m, q5_k_m, q8_0, f16
+        /// Quantization format (supported: q8_0, f16; q4_k_m and q5_k_m fail closed)
         ///
         /// Memory estimates for 0.5B model:
         /// - q4_k_m: ~300 MB (best quality/size tradeoff)
@@ -236,12 +235,12 @@ enum Commands {
         #[arg(short, long, default_value = "q4_k_m")]
         quant: String,
 
-        /// Enable ANE-optimized weight layouts (16-byte aligned, tiled)
+        /// Compatibility option; conversion uses standard GGUF tensor layouts
         #[arg(long, default_value = "true")]
         ane_optimize: bool,
 
-        /// Keep embedding layer in FP16 (recommended for quality)
-        #[arg(long, default_value = "true")]
+        /// Keep token embeddings in F16 for Q8_0 (default: quantize)
+        #[arg(long, default_value = "false", default_missing_value = "true", num_args = 0..=1, action = clap::ArgAction::Set)]
         keep_embed_fp16: bool,
 
         /// Keep output/LM head layer in FP16 (recommended for quality)
