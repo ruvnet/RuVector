@@ -160,7 +160,7 @@ impl<'s> Reader<'s> {
         while left > 0 {
             let take = left.min(BUF / 4);
             self.take_into(&mut buf[..take * 4])?;
-            for w in buf[..take * 4].chunks_exact(4) {
+            for w in buf[..take * 4].as_chunks::<4>().0 {
                 v.push(u32::from_le_bytes([w[0], w[1], w[2], w[3]]));
             }
             left -= take;

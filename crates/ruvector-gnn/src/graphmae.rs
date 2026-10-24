@@ -374,7 +374,12 @@ impl GraphMAE {
     /// # Errors
     /// Returns `GnnError::LayerConfig` if dimensions are incompatible.
     pub fn new(config: GraphMAEConfig) -> Result<Self, GnnError> {
-        if config.hidden_dim % config.num_heads != 0 {
+        if config
+            .hidden_dim
+            .checked_rem(config.num_heads)
+            .expect("attempt to calculate the remainder with a divisor of zero")
+            != 0
+        {
             return Err(GnnError::layer_config(format!(
                 "hidden_dim ({}) must be divisible by num_heads ({})",
                 config.hidden_dim, config.num_heads

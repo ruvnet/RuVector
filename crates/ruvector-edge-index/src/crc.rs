@@ -43,8 +43,8 @@ impl Crc32c {
 
     pub fn update(&mut self, b: &[u8]) {
         let mut c = self.0;
-        let mut words = b.chunks_exact(8);
-        for w in &mut words {
+        let (words, remainder) = b.as_chunks::<8>();
+        for w in words {
             let lo = c ^ u32::from_le_bytes([w[0], w[1], w[2], w[3]]);
             let hi = u32::from_le_bytes([w[4], w[5], w[6], w[7]]);
             c = T[7][(lo & 0xFF) as usize]
@@ -56,7 +56,7 @@ impl Crc32c {
                 ^ T[1][((hi >> 16) & 0xFF) as usize]
                 ^ T[0][(hi >> 24) as usize];
         }
-        for &x in words.remainder() {
+        for &x in remainder {
             c = (c >> 8) ^ T[0][((c ^ u32::from(x)) & 0xFF) as usize];
         }
         self.0 = c;

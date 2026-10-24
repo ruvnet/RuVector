@@ -146,7 +146,7 @@ mod tests {
     #[test]
     fn vectors_are_unit_normalized() {
         let data = random_unit_vectors(10, 8, 42);
-        for chunk in data.chunks_exact(8) {
+        for chunk in data.as_chunks::<8>().0 {
             let norm: f32 = chunk.iter().map(|x| x * x).sum::<f32>().sqrt();
             assert!((norm - 1.0).abs() < 1e-5, "norm = {norm}");
         }
@@ -167,7 +167,7 @@ mod tests {
         let (data, assignments) = clustered_unit_vectors(4, 25, 8, 0.1, 7);
         assert_eq!(data.len(), 4 * 25 * 8);
         assert_eq!(assignments.len(), 100);
-        for chunk in data.chunks_exact(8) {
+        for chunk in data.as_chunks::<8>().0 {
             let norm: f32 = chunk.iter().map(|x| x * x).sum::<f32>().sqrt();
             assert!((norm - 1.0).abs() < 1e-4, "norm = {norm}");
         }
