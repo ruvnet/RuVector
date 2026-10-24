@@ -828,6 +828,41 @@ fn crypto_benchmarks(c: &mut Criterion) {
         })
     });
 
+    // -- ed25519_sign_raw_128b / ed25519_verify_raw_128b --
+    //
+    // Native baseline for the nightly WASM edge-signing research (see
+    // docs/research/nightly/*-edge-witness-signing): the raw generic
+    // `rvf_types::ed25519` primitive (no SegmentHeader canonicalization),
+    // at a 128-byte payload size matching the witness-record-sized
+    // message used by the `rvf-witness-wasm` in-browser latency
+    // measurement, for an apples-to-apples native-vs-WASM comparison.
+    use rvf_types::ed25519::{ed25519_sign, ed25519_verify};
+
+    let raw_secret: [u8; 32] = key.to_bytes();
+    let raw_payload = make_random_bytes(128, 600);
+
+    group.bench_function("ed25519_sign_raw_128b", |b| {
+        b.iter(|| {
+            black_box(ed25519_sign(
+                black_box(&raw_secret),
+                black_box(&raw_payload),
+            ));
+        })
+    });
+
+    let raw_signature = ed25519_sign(&raw_secret, &raw_payload);
+    let raw_public: [u8; 32] = pubkey.to_bytes();
+
+    group.bench_function("ed25519_verify_raw_128b", |b| {
+        b.iter(|| {
+            black_box(ed25519_verify(
+                black_box(&raw_public),
+                black_box(&raw_payload),
+                black_box(&raw_signature),
+            ));
+        })
+    });
+
     group.finish();
 }
 

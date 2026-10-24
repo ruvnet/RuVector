@@ -1830,6 +1830,7 @@ name = "rvf-wasm"
 version = "0.1.0"
 dependencies = [
  "dlmalloc",
+ "ed25519-dalek",
  "rvf-crypto",
  "rvf-types",
 ]
@@ -1844,6 +1845,14 @@ dependencies = [
  "subtle",
  "tempfile",
  "xxhash-rust",
+]
+
+[[package]]
+name = "rvf-witness-wasm"
+version = "0.1.0"
+dependencies = [
+ "dlmalloc",
+ "rvf-types",
 ]
 
 [[package]]

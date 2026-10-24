@@ -11,6 +11,7 @@ members = [
     "rvf-kernel",
     "rvf-wasm",
     "rvf-solver-wasm",
+    "rvf-witness-wasm",
     "rvf-node",
     "rvf-server",
     "rvf-import",
@@ -61,3 +62,28 @@ sha3 = "0.10"
 ed25519-dalek = "2"
 rand = "0.8"
 tempfile = "3"
+
+# Size-optimized release overrides for edge/WASM cdylib crates. These were
+# previously declared as `[profile.release]` inside each crate's own
+# Cargo.toml, which Cargo silently ignores for non-root workspace members
+# (see the "profiles for the non root package will be ignored" warning) --
+# meaning rvf-wasm and rvf-solver-wasm have been shipping with the default
+# release profile (opt-level=3, no strip) rather than the size-optimized
+# one their own manifests claimed. `lto` is not an overridable per-package
+# key in Cargo, so full LTO for just these crates isn't reachable this way;
+# giving each its own standalone one-crate workspace (as `crates/rvf` itself
+# is relative to the repo root workspace) would be the next step for that.
+[profile.release.package.rvf-wasm]
+opt-level = "z"
+codegen-units = 1
+strip = true
+
+[profile.release.package.rvf-solver-wasm]
+opt-level = "z"
+codegen-units = 1
+strip = true
+
+[profile.release.package.rvf-witness-wasm]
+opt-level = "z"
+codegen-units = 1
+strip = true

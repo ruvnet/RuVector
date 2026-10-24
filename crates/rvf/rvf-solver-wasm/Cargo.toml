@@ -21,8 +21,7 @@ libm = "0.2"
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 
-[profile.release]
-opt-level = "z"
-lto = true
-codegen-units = 1
-strip = true
+# Release profile for this crate is set via
+# `[profile.release.package.rvf-solver-wasm]` at the rvf workspace root --
+# a `[profile.release]` block here is silently ignored by Cargo for
+# non-root workspace members.
