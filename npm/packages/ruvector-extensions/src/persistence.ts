@@ -58,6 +58,10 @@ export type ProgressCallback = (progress: {
 export interface PersistenceOptions {
   /** Base directory for persistence files */
   baseDir: string;
+  /** Vector dimension, required when the database has no stats() API. */
+  dimensions?: number;
+  /** Complete current ID list; required when the database has no ids() API. */
+  getVectorIds?: () => string[] | Promise<string[]>;
   /** Default format for saves */
   format?: PersistenceFormat;
   /** Enable compression */
@@ -193,7 +197,8 @@ export interface ImportOptions {
  */
 export class DatabasePersistence {
   private db: VectorDBInstance;
-  private options: Required<PersistenceOptions>;
+  private options: Required<Omit<PersistenceOptions, 'dimensions' | 'getVectorIds'>> & Pick<PersistenceOptions, 'dimensions' | 'getVectorIds'>;
+  private ready: Promise<void>;
   private incrementalState: IncrementalState | null = null;
   private autoSaveTimer: NodeJS.Timeout | null = null;
 
@@ -207,6 +212,8 @@ export class DatabasePersistence {
     this.db = db;
     this.options = {
       baseDir: options.baseDir,
+      dimensions: options.dimensions,
+      getVectorIds: options.getVectorIds,
       format: options.format || 'json',
       compression: options.compression || 'none',
       incremental: options.incremental ?? false,
@@ -215,7 +222,7 @@ export class DatabasePersistence {
       batchSize: options.batchSize ?? 1000,
     };
 
-    this.initialize();
+    this.ready = this.initialize();
   }
 
   /**
@@ -304,7 +311,6 @@ export class DatabasePersistence {
       return this.save(options);
     }
 
-    const stats = this.db.stats();
     const currentVectors = await this.getAllVectorIds();
 
     // Detect changes
@@ -356,6 +362,7 @@ export class DatabasePersistence {
       });
     }
 
+    await this.ready;
     const state = await this.readStateFromFile(options.path, format);
 
     if (options.verifyChecksum && state.checksum) {
@@ -405,7 +412,7 @@ export class DatabasePersistence {
   ): Promise<SnapshotMetadata> {
     const id = crypto.randomUUID();
     const timestamp = Date.now();
-    const stats = this.db.stats();
+    const stats = await this.getDatabaseStats();
 
     const snapshotPath = path.join(
       this.options.baseDir,
@@ -573,10 +580,7 @@ export class DatabasePersistence {
    * @param options - Import options
    */
   async import(options: ImportOptions): Promise<void> {
-    if (options.clear) {
-      this.db.clear();
-    }
-
+    // load validates the file before replacing the existing database.
     await this.load({
       path: options.path,
       format: options.format,
@@ -642,6 +646,7 @@ export class DatabasePersistence {
   private async serializeDatabase(
     onProgress?: ProgressCallback
   ): Promise<DatabaseState> {
+    await this.ready;
     if (onProgress) {
       onProgress({
         operation: 'serialize',
@@ -652,7 +657,7 @@ export class DatabasePersistence {
       });
     }
 
-    const stats = this.db.stats();
+    const stats = await this.getDatabaseStats();
     const vectors: VectorEntry[] = [];
 
     if (onProgress) {
@@ -668,10 +673,9 @@ export class DatabasePersistence {
     // Extract all vectors
     const vectorIds = await this.getAllVectorIds();
     for (let i = 0; i < vectorIds.length; i++) {
-      const vector = this.db.get(vectorIds[i]);
-      if (vector) {
-        vectors.push(vector);
-      }
+      const vector = await this.db.get(vectorIds[i]);
+      if (!vector) throw new Error(`Vector disappeared during persistence: ${vectorIds[i]}`);
+      vectors.push({ ...vector, id: vector.id ?? vectorIds[i], vector: Array.from(vector.vector ?? vector.values) });
 
       if (onProgress && i % this.options.batchSize === 0) {
         const percentage = 30 + Math.floor((i / vectorIds.length) * 40);
@@ -718,6 +722,10 @@ export class DatabasePersistence {
     state: DatabaseState,
     onProgress?: ProgressCallback
   ): Promise<void> {
+    const current = await this.getDatabaseStats();
+    if (current.dimension !== state.options.dimension) {
+      throw new Error('Saved vector dimension does not match the destination database.');
+    }
     if (onProgress) {
       onProgress({
         operation: 'deserialize',
@@ -728,7 +736,7 @@ export class DatabasePersistence {
       });
     }
 
-    this.db.clear();
+    await this.clearDatabase();
 
     if (onProgress) {
       onProgress({
@@ -743,7 +751,7 @@ export class DatabasePersistence {
     // Insert vectors in batches
     for (let i = 0; i < state.vectors.length; i += this.options.batchSize) {
       const batch = state.vectors.slice(i, i + this.options.batchSize);
-      this.db.insertBatch(batch);
+      await this.db.insertBatch(batch);
 
       if (onProgress) {
         const percentage = 50 + Math.floor((i / state.vectors.length) * 40);
@@ -768,7 +776,7 @@ export class DatabasePersistence {
     }
 
     // Rebuild index
-    this.db.buildIndex();
+    if (typeof this.db.buildIndex === 'function') await this.db.buildIndex();
   }
 
   /**
@@ -859,24 +867,35 @@ export class DatabasePersistence {
   /**
    * Get all vector IDs from database
    */
-  private async getAllVectorIds(): Promise<string[]> {
-    // This is a workaround - in production, VectorDB should provide an iterator
-    const stats = this.db.stats();
-    const ids: string[] = [];
-
-    // Try to get vectors by attempting sequential IDs
-    // This is inefficient and should be replaced with a proper API
-    for (let i = 0; i < stats.count * 2; i++) {
-      const vector = this.db.get(String(i));
-      if (vector) {
-        ids.push(vector.id);
-      }
-      if (ids.length >= stats.count) {
-        break;
-      }
+  private async getDatabaseStats(): Promise<DbStats> {
+    const stats = typeof this.db.stats === 'function' ? await this.db.stats() : {};
+    const count = stats.count ?? stats.vectorCount ??
+      (typeof this.db.len === 'function' ? await this.db.len() : undefined);
+    const dimension = this.options.dimensions ?? stats.dimension ?? stats.dimensions;
+    if (!Number.isInteger(count) || count < 0 || !Number.isInteger(dimension) || dimension <= 0) {
+      throw new Error('Persistence requires a valid vector count and dimension; provide dimensions for VectorDB.');
     }
+    return { ...stats, count, dimension };
+  }
 
+  private async getAllVectorIds(): Promise<string[]> {
+    const stats = await this.getDatabaseStats();
+    if (stats.count === 0) return [];
+    const ids = this.options.getVectorIds ? await this.options.getVectorIds() :
+      typeof this.db.ids === 'function' ? await this.db.ids() : stats.count === 0 ? [] : null;
+    if (!Array.isArray(ids) || ids.some(id => typeof id !== 'string') ||
+        new Set(ids).size !== ids.length || ids.length !== stats.count) {
+      throw new Error('Persistence requires getVectorIds() to return every current vector ID exactly once.');
+    }
     return ids;
+  }
+
+  private async clearDatabase(): Promise<void> {
+    if (typeof this.db.clear === 'function') {
+      await this.db.clear();
+    } else {
+      for (const id of await this.getAllVectorIds()) await this.db.delete(id);
+    }
   }
 
   /**

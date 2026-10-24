@@ -26,18 +26,22 @@ import { VectorDB } from 'ruvector';
 import { DatabasePersistence } from 'ruvector-extensions';
 
 // Create a vector database
-const db = new VectorDB({ dimension: 384 });
+const db = new VectorDB({ dimensions: 384 });
+const currentIds = new Set<string>();
 
 // Add vectors
-db.insert({
+await db.insert({
   id: 'doc1',
   vector: [0.1, 0.2, ...], // 384-dimensional vector
   metadata: { title: 'My Document' }
 });
+currentIds.add('doc1');
 
 // Create persistence manager
 const persistence = new DatabasePersistence(db, {
   baseDir: './data',
+  dimensions: 384,
+  getVectorIds: () => [...currentIds],
   format: 'json',
   compression: 'gzip',
   autoSaveInterval: 60000, // Auto-save every minute
@@ -69,6 +73,8 @@ new DatabasePersistence(db: VectorDB, options: PersistenceOptions)
 
 **Options:**
 - `baseDir` (string): Base directory for persistence files
+- `dimensions` (number): Vector dimension; required for modern `VectorDB`, which exposes `len()` instead of `stats()`
+- `getVectorIds` (function): Returns all current IDs, synchronously or asynchronously; required unless the database provides `ids()`. Keep this list synchronized with inserts, deletes, and restores. Incomplete or duplicate lists are rejected.
 - `format` (string): Default format - 'json', 'binary', or 'sqlite'
 - `compression` (string): Compression type - 'none', 'gzip', or 'brotli'
 - `incremental` (boolean): Enable incremental saves
@@ -384,3 +390,13 @@ Contributions welcome! Please see the main [ruvector repository](https://github.
 - Documentation: https://github.com/ruvnet/ruvector
 - Issues: https://github.com/ruvnet/ruvector/issues
 - Discord: [Join our community](https://discord.gg/ruvector)
+
+### Native compatibility validation
+
+The native regression test uses an explicitly installed RuVector project and refuses an in-memory fallback. It checks nonnumeric IDs, vectors, metadata, save/load, snapshots, and reopening the native database.
+
+```sh
+RUVECTOR_NATIVE_TEST_PREFIX=/absolute/path/to/project npm run test:native-compat
+```
+
+The project must contain `ruvector` and its working platform binary. RuVector 0.3.3 with `@ruvector/core` 0.1.32 and `ruvector-core-linux-x64-gnu` 0.1.30 was validated on Linux x64. Normal native package installation selects the platform binary; globally omitting optional dependencies also removes those binaries. The dedicated native contract test fails with setup instructions when the project prefix is absent.

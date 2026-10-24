@@ -5,11 +5,15 @@
  * Keeping native import() intact also means importing `ruvector` does not pay the
  * startup or side-effect cost of loading research infrastructure.
  */
+import { readFile, stat } from 'node:fs/promises';
+import { join } from 'node:path';
+
 const nativeImport = new Function(
   'specifier',
   'return import(specifier)',
 ) as (specifier: string) => Promise<Record<string, any>>;
 
+/** Compatibility baselines, not a record of the versions installed at runtime. */
 export const METAHARNESS_VERSIONS = Object.freeze({
   metaharness: '0.4.7',
   darwin: '0.9.2',
@@ -39,7 +43,10 @@ export type MetaHarnessCapabilityName = keyof typeof METAHARNESS_VERSIONS;
 export interface MetaHarnessCapabilityStatus {
   name: MetaHarnessCapabilityName;
   package: string;
+  /** Installed package metadata, or "unknown" when absent or unreadable. */
   version: string;
+  /** The SDK's compatibility baseline; does not imply this version is installed. */
+  baselineVersion: string;
   available: boolean;
   detail: string;
 }
@@ -105,6 +112,32 @@ function assertFiniteVector(name: string, vector: number[]): void {
   }
 }
 
+async function installedPackageVersion(packageName: string): Promise<string> {
+  // MetaHarness exposes import-only entrypoints and blocks /package.json in
+  // exports. Inspect metadata at Node's package lookup locations without
+  // requiring its ESM entrypoint or guessing a version from loaded symbols.
+  for (const directory of require.resolve.paths(packageName) ?? []) {
+    const packageDirectory = join(directory, packageName);
+    try {
+      await stat(packageDirectory);
+    } catch (error: any) {
+      if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') continue;
+      return 'unknown';
+    }
+    try {
+      const metadata = JSON.parse(await readFile(join(packageDirectory, 'package.json'), 'utf8'));
+      return metadata.name === packageName && typeof metadata.version === 'string' && metadata.version.trim()
+        ? metadata.version.trim()
+        : 'unknown';
+    } catch {
+      // A nearer installation with unreadable metadata shadows outer copies.
+      // Do not attribute another installation's version to the loaded package.
+      return 'unknown';
+    }
+  }
+  return 'unknown';
+}
+
 export async function getMetaHarnessCapabilities(): Promise<MetaHarnessCapabilityStatus[]> {
   const checks: Record<MetaHarnessCapabilityName, [string, string]> = {
     metaharness: ['scaffold', 'core scaffold and orchestration exports loaded'],
@@ -120,12 +153,14 @@ export async function getMetaHarnessCapabilities(): Promise<MetaHarnessCapabilit
   return Promise.all((Object.keys(METAHARNESS_VERSIONS) as MetaHarnessCapabilityName[]).map(async (name) => {
     const packageName = PACKAGE_NAMES[name];
     const [symbol, detail] = checks[name];
+    const version = await installedPackageVersion(packageName);
     try {
       const loaded = await loadPackage(packageName);
       return {
         name,
         package: packageName,
-        version: METAHARNESS_VERSIONS[name],
+        version,
+        baselineVersion: METAHARNESS_VERSIONS[name],
         available: symbol ? typeof loaded[symbol] !== 'undefined' : true,
         detail,
       };
@@ -133,7 +168,8 @@ export async function getMetaHarnessCapabilities(): Promise<MetaHarnessCapabilit
       return {
         name,
         package: packageName,
-        version: METAHARNESS_VERSIONS[name],
+        version,
+        baselineVersion: METAHARNESS_VERSIONS[name],
         available: false,
         detail: error?.message || String(error),
       };

@@ -55,7 +55,8 @@
     "format": "prettier --write \"src/**/*.{ts,js}\" \"tests/**/*.{ts,js}\" \"training/**/*.{ts,js}\"",
     "format:check": "prettier --check \"src/**/*.{ts,js}\" \"tests/**/*.{ts,js}\" \"training/**/*.{ts,js}\"",
     "prepublishOnly": "npm run build:all",
-    "benchmark": "node benchmarks/run.js"
+    "benchmark": "node benchmarks/run.js",
+    "test:native-compat": "node --test native-tests/ruvector.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -67,7 +68,7 @@
     "agentic-robotics": "^1.0.0",
     "dspy.ts": "^2.2.0",
     "midstreamer": "^1.0.0",
-    "ruvector": "^0.2.0"
+    "ruvector": "^0.2.0 || ^0.3.3"
   },
   "peerDependenciesMeta": {
     "dspy.ts": {
