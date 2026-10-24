@@ -243,7 +243,7 @@ pub fn should_use_ane(batch_size: usize, dim: usize) -> bool {
         && batch_size >= ANE_MIN_BATCH
         && batch_size <= ANE_MAX_BATCH
         && dim >= ANE_MIN_DIM
-        && dim % 16 == 0 // ANE prefers 16-aligned dimensions
+        && dim.is_multiple_of(16) // ANE prefers 16-aligned dimensions
 }
 
 /// Check if matrix dimensions are optimal for ANE
@@ -283,7 +283,7 @@ pub fn should_use_ane_matmul(m: usize, k: usize, n: usize) -> bool {
         return m >= 1
             && m <= ANE_MAX_BATCH
             && total_ops < 100_000_000  // ~100M ops threshold
-            && (k % 16 == 0 || n % 16 == 0);
+            && (k.is_multiple_of(16) || n.is_multiple_of(16));
     }
 
     // Above crossover, only use ANE for small batch single-token inference
@@ -291,7 +291,7 @@ pub fn should_use_ane_matmul(m: usize, k: usize, n: usize) -> bool {
         && k >= ANE_MIN_DIM
         && n >= ANE_MIN_DIM
         && max_dim <= ANE_MATMUL_CROSSOVER_DIM
-        && (k % 16 == 0 || n % 16 == 0)
+        && (k.is_multiple_of(16) || n.is_multiple_of(16))
 }
 
 /// Check if ANE should be used for activation functions
@@ -307,7 +307,7 @@ pub fn should_use_ane_activation(batch_size: usize, dim: usize) -> bool {
         && batch_size <= ANE_MAX_BATCH * 2  // More lenient for activations
         && dim >= ANE_MIN_DIM
         && total_size < ANE_ACTIVATION_MAX_SIZE  // Very large = GPU
-        && dim % 16 == 0
+        && dim.is_multiple_of(16)
 }
 
 /// Get ANE strategy recommendation with detailed reasoning

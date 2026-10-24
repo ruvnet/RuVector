@@ -800,7 +800,7 @@ pub fn dequantize_tensor_2bit(
 /// Number of bytes written to output.
 pub fn quantize_3bit_fast(weights: &[f32], step: f32, output: &mut [u8]) -> usize {
     debug_assert!(
-        weights.len() % PI3_BLOCK_WEIGHTS == 0,
+        weights.len().is_multiple_of(PI3_BLOCK_WEIGHTS),
         "Weight length must be multiple of 8"
     );
 
@@ -883,7 +883,7 @@ unsafe fn quantize_3bit_inner(
 /// Number of bytes written to output.
 pub fn quantize_2bit_fast(weights: &[f32], step: f32, output: &mut [u8]) -> usize {
     debug_assert!(
-        weights.len() % PI2_BLOCK_WEIGHTS == 0,
+        weights.len().is_multiple_of(PI2_BLOCK_WEIGHTS),
         "Weight length must be multiple of 4"
     );
 

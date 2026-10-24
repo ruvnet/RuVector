@@ -614,7 +614,9 @@ impl GgufFile {
                 .map_err(|e| RuvLLMError::Model(format!("Failed to read: {}", e)))?;
 
             let floats: Vec<f32> = buffer[..byte_count]
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
                 .collect();
 
@@ -648,7 +650,9 @@ impl GgufFile {
                 .map_err(|e| RuvLLMError::Model(format!("Failed to read: {}", e)))?;
 
             let floats: Vec<f32> = buffer[..byte_count]
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|b| {
                     let bits = u16::from_le_bytes([b[0], b[1]]);
                     half::f16::from_bits(bits).to_f32()

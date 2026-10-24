@@ -29,7 +29,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
   schedule:
     # Weekly Tuesday 09:23 UTC — offset 6 min from sublinear's 09:17
     # so the two crates don't pile onto the GH Actions scheduler at

@@ -318,7 +318,11 @@ impl RlmRefiner {
         }
 
         // Apply gradients every `batch_size` steps
-        if (self.global_step + 1) % self.config.batch_size == 0 {
+        if (self.global_step + 1)
+            .checked_rem(self.config.batch_size)
+            .expect("attempt to calculate the remainder with a divisor of zero")
+            == 0
+        {
             let ewc_states: HashMap<TargetModule, EwcState> = TargetModule::mlp()
                 .into_iter()
                 .filter_map(|m| self.ewc.get_state(&m).cloned().map(|s| (m, s)))
@@ -348,7 +352,12 @@ impl RlmRefiner {
         self.global_step += 1;
 
         // -- Checkpoint --
-        if self.global_step % self.config.checkpoint_every_n == 0 {
+        if self
+            .global_step
+            .checked_rem(self.config.checkpoint_every_n)
+            .expect("attempt to calculate the remainder with a divisor of zero")
+            == 0
+        {
             let _ = self.save_checkpoint(self.global_step);
         }
 

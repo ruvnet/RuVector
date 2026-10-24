@@ -630,7 +630,12 @@ impl HooksIntegration {
 
         // Check if consolidation needed
         let patterns_added = *self.patterns_added.read();
-        if patterns_added > 0 && patterns_added % self.config.consolidation_threshold == 0 {
+        if patterns_added > 0
+            && patterns_added
+                .checked_rem(self.config.consolidation_threshold)
+                .expect("attempt to calculate the remainder with a divisor of zero")
+                == 0
+        {
             self.consolidate_patterns()?;
         }
 

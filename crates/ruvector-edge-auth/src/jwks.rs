@@ -62,8 +62,8 @@ impl Jwk {
             Ok(p256::FieldBytes::from(bytes))
         };
         let (x, y) = (coord(&self.x)?, coord(&self.y)?);
-        let point = p256::EncodedPoint::from_affine_coordinates(&x, &y, false);
-        let key = VerifyingKey::from_encoded_point(&point)
+        let point = p256::Sec1Point::from_affine_coordinates(&x, &y, false);
+        let key = VerifyingKey::from_sec1_point(&point)
             .map_err(|_| AuthError::InvalidConfig("jwk point not on curve"))?;
         if self.kid != self.thumbprint() {
             return Err(AuthError::InvalidConfig("jwk kid != thumbprint"));
@@ -74,7 +74,7 @@ impl Jwk {
     /// Export a verifying key as a JWK with `kid` = its thumbprint,
     /// `alg=ES256`, `use=sig` (used by the edge AS to publish its JWKS).
     pub fn from_verifying_key(key: &VerifyingKey) -> Jwk {
-        let point = key.to_encoded_point(false);
+        let point = key.to_sec1_point(false);
         let x = point
             .x()
             .map(|b| crate::jws::b64url_encode(b))
@@ -249,7 +249,7 @@ impl JwksCachePolicy {
     fn kid_accepted(&self, kid: &str) -> bool {
         self.accepted_kids
             .as_ref()
-            .map_or(true, |list| list.iter().any(|k| k == kid))
+            .is_none_or(|list| list.iter().any(|k| k == kid))
     }
 }
 
