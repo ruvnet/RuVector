@@ -99,6 +99,7 @@
     "typescript": "^5.9.3"
   },
   "files": [
+    "AGENTS.md",
     "bin/",
     "dist/",
     "src/decompiler/",
