@@ -379,3 +379,276 @@ fn second_ledger_restarting_at_sequence_zero_is_refused() {
     assert_eq!(sink.inner().records.len(), 6);
     assert!(verify(&sink, sink.inner(), sink.spans(), &sink.anchor()).is_ok());
 }
+
+// -------------------------------------------------------- BatchTailTimeout
+//
+// A dedicated section (2026-10-11 nightly, ADR-348): bounds the worst-case
+// signature-availability latency of a pending `BatchTail` span under
+// sparse arrivals. `mk_records` manufactures a self-consistent hash chain
+// directly (bypassing `TransactionalLedger`) so these tests can drive
+// `emit_batch_at`/`check_timeout_at` with explicit `now_ns` values instead
+// of the real wall clock — fully deterministic, no sleeping.
+
+fn mk_records(start_seq: u64, n: usize, mut prev_hash: u64) -> Vec<LedgerWitnessRecord> {
+    let grade = crate::ops::EvidenceGrade::Recomputed;
+    let mut out = Vec::with_capacity(n);
+    for i in 0..n {
+        let mut r = LedgerWitnessRecord {
+            sequence: start_seq + i as u64,
+            timestamp_ns: 0,
+            action_kind: 0,
+            proof_tier: 0,
+            flags: crate::ops::pack_flags(None, None, grade),
+            actor_partition_id: 0,
+            target_object_id: 0,
+            capability_hash: 0,
+            payload: 0xA11CE_u64.wrapping_add(i as u64),
+            prev_hash,
+            record_hash: 0,
+            aux: 0,
+            evidence_grade: grade,
+        };
+        r.record_hash = r.compute_record_hash();
+        prev_hash = r.chain_hash();
+        out.push(r);
+    }
+    out
+}
+
+#[test]
+fn zero_max_wait_is_an_error_not_a_panic() {
+    let r = SignedWitnessSink::from_keypair(
+        MemoryWitnessLog::default(),
+        &keypair(),
+        SigningStrategy::BatchTailTimeout {
+            batch_size: 4,
+            max_wait_ns: 0,
+        },
+    );
+    assert_eq!(r.err(), Some(WitnessSignerError::ZeroMaxWait));
+}
+
+#[test]
+fn zero_batch_size_is_an_error_for_timeout_variant_too() {
+    let r = SignedWitnessSink::from_keypair(
+        MemoryWitnessLog::default(),
+        &keypair(),
+        SigningStrategy::BatchTailTimeout {
+            batch_size: 0,
+            max_wait_ns: 10,
+        },
+    );
+    assert_eq!(r.err(), Some(WitnessSignerError::ZeroBatchSize));
+}
+
+#[test]
+fn plain_batch_tail_has_no_timeout_bound_at_any_elapsed_time() {
+    // The pre-existing problem this run fixes, stated as a property: under
+    // `BatchTail`, there is no deadline to check at all, however much
+    // wall-clock time passes — `next_timeout_deadline_ns` is always `None`.
+    let mut sink = sink_for(SigningStrategy::BatchTail { batch_size: 100 });
+    sink.emit_batch_at(&mk_records(0, 1, 0), 0).unwrap();
+    assert_eq!(sink.unsigned_pending(), 1);
+    assert_eq!(sink.next_timeout_deadline_ns(), None);
+    assert!(!sink.check_timeout_at(u64::MAX));
+    assert_eq!(sink.unsigned_pending(), 1); // still stuck, at any elapsed time
+}
+
+#[test]
+fn batch_tail_timeout_behaves_like_batch_tail_under_dense_arrivals() {
+    // Dense arrivals (now_ns pinned at 0) never reach the deadline, so the
+    // timeout variant must amortize signatures identically to plain
+    // BatchTail at the same batch_size.
+    let batch_size = 5;
+    let max_wait_ns = 50;
+    let mut plain = sink_for(SigningStrategy::BatchTail { batch_size });
+    let mut timed = sink_for(SigningStrategy::BatchTailTimeout {
+        batch_size,
+        max_wait_ns,
+    });
+    let records = mk_records(0, 23, 0);
+    for r in &records {
+        plain.emit_batch_at(std::slice::from_ref(r), 0).unwrap();
+        timed.emit_batch_at(std::slice::from_ref(r), 0).unwrap();
+    }
+    assert_eq!(plain.spans().len(), timed.spans().len());
+    assert_eq!(plain.unsigned_pending(), timed.unsigned_pending());
+    plain.seal();
+    timed.seal();
+    assert_eq!(plain.spans().len(), timed.spans().len());
+}
+
+#[test]
+fn batch_tail_timeout_does_not_force_seal_before_the_deadline() {
+    let mut sink = sink_for(SigningStrategy::BatchTailTimeout {
+        batch_size: 100,
+        max_wait_ns: 1_000,
+    });
+    sink.emit_batch_at(&mk_records(0, 1, 0), 0).unwrap();
+    assert_eq!(sink.next_timeout_deadline_ns(), Some(1_000));
+    assert!(!sink.check_timeout_at(999));
+    assert_eq!(sink.unsigned_pending(), 1);
+    assert_eq!(sink.spans().len(), 0);
+}
+
+#[test]
+fn batch_tail_timeout_force_seals_exactly_at_the_deadline() {
+    let mut sink = sink_for(SigningStrategy::BatchTailTimeout {
+        batch_size: 100,
+        max_wait_ns: 1_000,
+    });
+    sink.emit_batch_at(&mk_records(0, 3, 0), 0).unwrap();
+    assert_eq!(sink.unsigned_pending(), 3);
+    assert!(sink.check_timeout_at(1_000));
+    assert_eq!(sink.unsigned_pending(), 0);
+    assert_eq!(sink.spans().len(), 1);
+    assert_eq!(sink.spans()[0].covers_from_seq, 0);
+    assert_eq!(sink.spans()[0].covers_to_seq, 2);
+    // Idempotent: a later check with nothing pending is a no-op.
+    assert!(!sink.check_timeout_at(2_000));
+}
+
+#[test]
+fn batch_tail_timeout_count_close_wins_when_it_happens_first() {
+    let mut sink = sink_for(SigningStrategy::BatchTailTimeout {
+        batch_size: 3,
+        max_wait_ns: 1_000_000,
+    });
+    // Count-close fires at now_ns=2, long before the 1_000_000ns deadline.
+    sink.emit_batch_at(&mk_records(0, 3, 0), 2).unwrap();
+    assert_eq!(sink.unsigned_pending(), 0);
+    assert_eq!(sink.spans().len(), 1);
+}
+
+#[test]
+fn batch_tail_timeout_opportunistic_seal_on_a_late_arrival() {
+    // A new arrival that itself lands at/after the deadline closes the
+    // stale pending span before opening its own — exercised purely through
+    // `emit_batch_at`, with no separate `check_timeout` call.
+    let mut sink = sink_for(SigningStrategy::BatchTailTimeout {
+        batch_size: 100,
+        max_wait_ns: 1_000,
+    });
+    sink.emit_batch_at(&mk_records(0, 1, 0), 0).unwrap();
+    let chained = mk_records(1, 1, sink.inner().records[0].chain_hash());
+    sink.emit_batch_at(&chained, 5_000).unwrap();
+    assert_eq!(sink.spans().len(), 1); // record 0's stale span, force-sealed
+    assert_eq!(sink.spans()[0].covers_to_seq, 0);
+    assert_eq!(sink.unsigned_pending(), 1); // record 1's fresh span, still open
+    assert_eq!(sink.next_timeout_deadline_ns(), Some(6_000));
+}
+
+#[test]
+fn batch_tail_timeout_bounds_worst_case_pending_age_under_a_poller() {
+    // Property test: drive a pseudo-random mix of sparse/bursty arrivals
+    // and a fixed-cadence poller (`check_timeout_at` every `tick` ns).
+    // Claim under test: whenever something is pending, its age never
+    // exceeds `max_wait_ns + tick` — the poller's own granularity is the
+    // only slack, not an unbounded wait. `BatchTail` offers no such bound
+    // at all (see `plain_batch_tail_has_no_timeout_bound_at_any_elapsed_time`).
+    let max_wait_ns: u64 = 10_000;
+    let tick: u64 = 1_000;
+    let mut seed: u64 = 0x9E3779B97F4A7C15;
+    let mut next_rand = move || {
+        // xorshift64 — deterministic, no external RNG dependency.
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        seed
+    };
+
+    // Trial/step counts are deliberately modest (not the much larger
+    // sweep an offline simulation could afford): every force-seal and
+    // every verification below signs/verifies a real Ed25519 signature,
+    // which this sandboxed debug build measured at roughly 20ms/op —
+    // slow enough that a large sweep turns this unit test into a
+    // multi-minute run. 8 trials x 20 steps (160 arrivals, randomized
+    // batch_size and gaps) still exercises the boundary repeatedly while
+    // staying a fast `cargo test`; the dedicated benchmark example
+    // covers the release-mode, larger-N regime with real wall-clock
+    // timing instead.
+    for trial in 0..8u64 {
+        let batch_size = 1 + (next_rand() % 20) as usize;
+        let mut sink = sink_for(SigningStrategy::BatchTailTimeout {
+            batch_size,
+            max_wait_ns,
+        });
+        let mut now_ns: u64 = 0;
+        let mut prev_hash: u64 = 0;
+        let mut max_observed_age: u64 = 0;
+        for seq in 0..20u64 {
+            // Sparse: a gap of 0..=4*max_wait_ns before the next arrival.
+            now_ns += next_rand() % (4 * max_wait_ns);
+            let rec = mk_records(seq, 1, prev_hash);
+            prev_hash = rec[0].chain_hash();
+            sink.emit_batch_at(&rec, now_ns).unwrap();
+            // The poller ticks forward in `tick`-sized steps up to now_ns,
+            // the only thing standing between "arrival" and "force-sealed".
+            let mut poll_ns = now_ns;
+            loop {
+                if let Some(p) = &sink_pending_opened_at(&sink) {
+                    max_observed_age = max_observed_age.max(poll_ns.saturating_sub(*p));
+                }
+                sink.check_timeout_at(poll_ns);
+                if sink.unsigned_pending() == 0 {
+                    break;
+                }
+                poll_ns += tick;
+                if poll_ns > now_ns + max_wait_ns + tick {
+                    break; // safety valve; the assertion below still fires
+                }
+            }
+        }
+        sink.seal();
+        assert!(
+            max_observed_age <= max_wait_ns + tick,
+            "trial {trial}: observed pending age {max_observed_age}ns exceeded \
+             max_wait_ns ({max_wait_ns}) + poller tick ({tick})"
+        );
+        let pk = sink.public_key();
+        assert!(
+            verify_signed_chain(sink.inner(), sink.spans(), &pk, &SignedAnchor::genesis()).is_ok()
+        );
+    }
+}
+
+/// Test-only accessor: the open pending span's `opened_at_ns`, if any.
+/// Lives outside `SignedWitnessSink`'s public API on purpose — production
+/// callers only need `next_timeout_deadline_ns`/`check_timeout(_at)`; this
+/// exists solely so the property test above can assert on raw age.
+fn sink_pending_opened_at<S: WitnessSink>(sink: &SignedWitnessSink<S>) -> Option<u64> {
+    sink.next_timeout_deadline_ns()
+        .map(|deadline| deadline - max_wait_ns_of(sink))
+}
+
+fn max_wait_ns_of<S: WitnessSink>(sink: &SignedWitnessSink<S>) -> u64 {
+    match sink.strategy() {
+        SigningStrategy::BatchTailTimeout { max_wait_ns, .. } => max_wait_ns,
+        _ => 0,
+    }
+}
+
+#[test]
+fn honest_chain_verifies_under_batch_tail_timeout_with_forced_partial_seals() {
+    // Mix count-closes and a deliberate timeout-forced partial seal, then
+    // confirm the whole thing still verifies end to end — the new strategy
+    // must not weaken any existing guarantee from `verify_signed_chain`.
+    let mut sink = sink_for(SigningStrategy::BatchTailTimeout {
+        batch_size: 4,
+        max_wait_ns: 100,
+    });
+    let batch1 = mk_records(0, 4, 0); // exactly fills -> count-close
+    sink.emit_batch_at(&batch1, 0).unwrap();
+    assert_eq!(sink.spans().len(), 1);
+    let prev = sink.inner().records.last().unwrap().chain_hash();
+    let batch2 = mk_records(4, 2, prev); // partial, never fills
+    sink.emit_batch_at(&batch2, 10).unwrap();
+    assert_eq!(sink.unsigned_pending(), 2);
+    assert!(sink.check_timeout_at(110)); // forced by timeout, not count
+    assert_eq!(sink.spans().len(), 2);
+    sink.seal(); // no-op, nothing pending
+    let pk = sink.public_key();
+    let report = verify_signed_chain(sink.inner(), sink.spans(), &pk, &SignedAnchor::genesis())
+        .expect("signed chain verifies");
+    assert_eq!(report.records_verified, 6);
+}
