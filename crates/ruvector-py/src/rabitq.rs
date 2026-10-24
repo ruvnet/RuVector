@@ -55,6 +55,16 @@ pub struct RabitqIndex {
     ids: HashSet<u32>,
 }
 
+/// The core exporter returns row positions; Python exposes external IDs.
+fn external_items(index: &RabitqPlusIndex) -> Vec<(usize, Vec<f32>)> {
+    index
+        .external_ids()
+        .iter()
+        .zip(index.export_items())
+        .map(|(&id, (_, vector))| (id as usize, vector))
+        .collect()
+}
+
 /// Describe a Python object for an error message (dtype and ndim when it is an array).
 fn describe(obj: &Bound<'_, PyAny>) -> String {
     match (obj.getattr("dtype"), obj.getattr("ndim")) {
@@ -290,7 +300,7 @@ impl RabitqIndex {
 
     /// Save the index to `path` using the `.rbpx` v1 format.
     fn save(&self, path: &str) -> PyResult<()> {
-        let items = self.inner.export_items();
+        let items = external_items(&self.inner);
         let f =
             File::create(path).map_err(|e| PyIOError::new_err(format!("create {path}: {e}")))?;
         let mut w = BufWriter::new(f);
@@ -481,8 +491,7 @@ impl RabitqIndex {
     /// without them (the underlying index has no `delete`, only `add` — see
     /// ADR-352 "Security"/limitations note).
     fn export_items<'py>(&self, py: Python<'py>) -> Vec<(u32, Bound<'py, numpy::PyArray1<f32>>)> {
-        self.inner
-            .export_items()
+        external_items(&self.inner)
             .into_iter()
             .map(|(id, v)| (id as u32, numpy::PyArray1::from_vec(py, v)))
             .collect()
