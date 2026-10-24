@@ -332,6 +332,8 @@ members = [
     "crates/photonlayer-wasm",
     # Matryoshka coarse-to-fine ANN search: three-variant funnel with recall/latency tradeoffs (ADR-264)
     "crates/ruvector-matryoshka",
+    # RaBitQ 1-bit brute-force coarse stage for the Matryoshka funnel (ADR-353)
+    "crates/ruvector-matryoshka-rabitq",
     # PQ-ADC: Product Quantization with Asymmetric Distance Computation (64× compression)
     "crates/ruvector-pq-search",
     # SOTA benchmark suite (ADR-265)
