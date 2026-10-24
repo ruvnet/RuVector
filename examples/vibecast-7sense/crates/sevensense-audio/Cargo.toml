@@ -10,39 +10,29 @@ authors.workspace = true
 readme = "README.md"
 
 [dependencies]
-# Internal crates
-sevensense-core = { workspace = true, version = "0.1.0" }
-
-# Async runtime
-tokio = { workspace = true }
-async-trait = { workspace = true }
-
-# Logging
+# Always available: the pure-DSP core (features, streaming) depends only on
+# these, so it builds for wasm32-unknown-unknown where tokio and the audio I/O
+# stack do not. See ADR-010.
 tracing = { workspace = true }
-
-# Error handling
 thiserror = { workspace = true }
-
-# Serialization
 serde = { workspace = true }
-
-# Audio I/O
-hound = { workspace = true }
-symphonia = { workspace = true }
-rubato = { workspace = true }
-
-# Numerical processing
+realfft = "3.3"
 ndarray = { workspace = true }
 
-# Parallel processing
-rayon = "1.10"
-
-# FFT for spectrogram
-realfft = "3.3"
+# Native-only: async orchestration, file decoding, and the offline pipeline.
+# Gated behind the `full` feature so a browser build can opt out.
+sevensense-core = { workspace = true, version = "0.1.0", optional = true }
+tokio = { workspace = true, optional = true }
+async-trait = { workspace = true, optional = true }
+hound = { workspace = true, optional = true }
+symphonia = { workspace = true, optional = true }
+rubato = { workspace = true, optional = true }
+rayon = { version = "1.10", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util", "macros"] }
 approx = "0.5"
+serde_json = { workspace = true }
 tempfile = "3.10"
 criterion = { version = "0.5", features = ["html_reports"] }
 
@@ -51,4 +41,21 @@ name = "spectrogram_bench"
 harness = false
 
 [features]
-default = []
+default = ["full"]
+
+# The complete native pipeline: file decoding, resampling, mel spectrograms,
+# offline segmentation, and the async ingestion service. Disabling it leaves
+# `features` and `streaming`, which are pure computation and build for wasm.
+full = [
+    "parallel",
+    "dep:sevensense-core",
+    "dep:tokio",
+    "dep:async-trait",
+    "dep:hound",
+    "dep:symphonia",
+    "dep:rubato",
+]
+
+# Multi-threaded STFT via rayon. Off for wasm32, which has no threads without
+# the atomics proposal; the sequential path produces identical output.
+parallel = ["dep:rayon"]

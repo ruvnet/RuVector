@@ -18,3 +18,9 @@ thiserror = "1.0"
 uuid = { version = "1.10", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 async-trait = "0.1"
+
+# uuid's v4 generator needs a randomness source named explicitly on
+# wasm32-unknown-unknown, where there is no OS entropy API. Without this the
+# crate fails to compile for the browser target that ADR-010 depends on.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+uuid = { version = "1.10", features = ["v4", "serde", "js"] }
