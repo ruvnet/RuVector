@@ -217,7 +217,8 @@ conservative and may not fire when only the feedback targets change.
 against learning speed on new ones, and `0` turns EWC++ off for the
 MicroLoRA. In WASM, `recordStepWithActivations` passes the representation a
 step produced, so the MicroLoRA learns to move a query toward the steps that
-scored well:
+scored well. Updates are applied when the instant loop flushes, so call
+`runInstantCycle()` after feedback; without it they apply only occasionally:
 
 ```javascript
 const id = engine.startTrajectory(queryEmbedding);
