@@ -173,18 +173,9 @@ fn main() {
 
     let baseline = run_baseline();
     let per_record = run_signed("candidate_a", SigningStrategy::PerRecord);
-    let batch_16 = run_signed(
-        "candidate_b16",
-        SigningStrategy::BatchTail { batch_size: 16 },
-    );
-    let batch_64 = run_signed(
-        "candidate_b64",
-        SigningStrategy::BatchTail { batch_size: 64 },
-    );
-    let batch_256 = run_signed(
-        "candidate_b256",
-        SigningStrategy::BatchTail { batch_size: 256 },
-    );
+    let batch_16 = run_signed("candidate_b16", SigningStrategy::batch_tail(16));
+    let batch_64 = run_signed("candidate_b64", SigningStrategy::batch_tail(64));
+    let batch_256 = run_signed("candidate_b256", SigningStrategy::batch_tail(256));
 
     report(&baseline);
     report(&per_record);
@@ -195,10 +186,7 @@ fn main() {
     println!("\nDiligent-forgery rejection (chain-walk-alone fooled, signed check must reject):");
     for (label, strategy) in [
         ("candidate_a", SigningStrategy::PerRecord),
-        (
-            "candidate_b64",
-            SigningStrategy::BatchTail { batch_size: 64 },
-        ),
+        ("candidate_b64", SigningStrategy::batch_tail(64)),
     ] {
         let ok = diligent_forgery_is_rejected(strategy);
         println!(

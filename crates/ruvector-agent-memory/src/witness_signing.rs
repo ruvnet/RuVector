@@ -47,6 +47,14 @@
 //!
 //! ## Limits (not guaranteed)
 //!
+//! - **The fill-timeout needs a driver.** [`SigningStrategy::BatchTail`]'s
+//!   `max_wait_ns` bounds *signature availability* latency only if some
+//!   caller actually invokes [`SignedWitnessSink::seal_on_timeout`] at or
+//!   after [`SignedWitnessSink::pending_deadline_ns`] — this sink runs no
+//!   background thread or async timer of its own (consistent with the
+//!   rest of this crate being synchronous). A caller that never calls it
+//!   gets the original unbounded-wait behavior regardless of what
+//!   `max_wait_ns` is set to.
 //! - **Rollback above the anchor.** Records appended after the anchor was
 //!   captured can be truncated (log + spans together) without detection.
 //!   Callers must persist [`SignedChainReport::head`] (or
@@ -167,7 +175,40 @@ pub enum SigningStrategy {
     /// `batch_size` must be at least 1.
     BatchTail {
         batch_size: usize,
+        /// Close the pending span once this many wall-clock nanoseconds
+        /// have elapsed since its oldest pending record's own
+        /// `timestamp_ns`, even if `batch_size` has not been reached.
+        /// `None` keeps the original fixed-size-only behavior: a partial
+        /// span never closes early, however long it waits — see
+        /// [`SignedWitnessSink::seal_on_timeout`] and ADR-347 Next
+        /// Research item 1.
+        max_wait_ns: Option<u64>,
     },
+}
+
+impl SigningStrategy {
+    /// Fixed-size-only `BatchTail`: a span closes only at `batch_size`
+    /// records, with no wall-clock bound. Equivalent to today's original
+    /// (pre-timeout) behavior.
+    pub const fn batch_tail(batch_size: usize) -> Self {
+        Self::BatchTail {
+            batch_size,
+            max_wait_ns: None,
+        }
+    }
+
+    /// `BatchTail` with a wall-clock fill timeout: a span closes at
+    /// `batch_size` records, or after `max_wait_ns` since the oldest
+    /// pending record's `timestamp_ns`, whichever comes first — the same
+    /// two-trigger shape as
+    /// `ruvector_retrieval_receipt::batch_fill::BatchFillPolicy::hybrid`,
+    /// applied here to witness-signing spans rather than receipt batches.
+    pub const fn batch_tail_timed(batch_size: usize, max_wait_ns: u64) -> Self {
+        Self::BatchTail {
+            batch_size,
+            max_wait_ns: Some(max_wait_ns),
+        }
+    }
 }
 
 /// Construction errors for [`SignedWitnessSink`].
@@ -191,6 +232,11 @@ struct PendingSpan {
     to: u64,
     count: usize,
     hasher: RecordsHasher,
+    /// The `timestamp_ns` carried by this span's first (oldest) record —
+    /// the basis for [`SignedWitnessSink::pending_deadline_ns`], mirroring
+    /// `batch_fill::BatchScheduler::oldest_pending_arrival_ns`'s role in
+    /// `ruvector-retrieval-receipt`.
+    oldest_timestamp_ns: u64,
 }
 
 /// A [`WitnessSink`] decorator that signs spans of the records it forwards
@@ -213,7 +259,7 @@ impl<S: WitnessSink> SignedWitnessSink<S> {
         signing_key: SigningKey,
         strategy: SigningStrategy,
     ) -> Result<Self, WitnessSignerError> {
-        if let SigningStrategy::BatchTail { batch_size: 0 } = strategy {
+        if let SigningStrategy::BatchTail { batch_size: 0, .. } = strategy {
             return Err(WitnessSignerError::ZeroBatchSize);
         }
         Ok(Self {
@@ -289,6 +335,51 @@ impl<S: WitnessSink> SignedWitnessSink<S> {
             self.close(SignPurpose::BatchTail, p.from, p.to, p.hasher.finish());
         }
     }
+
+    /// The wall-clock deadline (nanoseconds, same clock as
+    /// [`LedgerWitnessRecord::timestamp_ns`]) at which the pending span
+    /// must close even though it has not reached `batch_size`. `None`
+    /// when nothing is pending, the strategy is [`SigningStrategy::PerRecord`]
+    /// (never pends), or `max_wait_ns` is `None` (fixed-size-only).
+    ///
+    /// This sink holds no timer of its own: a caller drives the timeout by
+    /// scheduling a wake-up at this deadline and then calling
+    /// [`Self::seal_on_timeout`] — the same caller-driven shape
+    /// `ruvector_retrieval_receipt::batch_fill::BatchScheduler::oldest_pending_arrival_ns`
+    /// uses for receipt batches.
+    pub fn pending_deadline_ns(&self) -> Option<u64> {
+        let max_wait_ns = match self.strategy {
+            SigningStrategy::BatchTail {
+                max_wait_ns: Some(w),
+                ..
+            } => w,
+            _ => return None,
+        };
+        self.pending
+            .as_ref()
+            .map(|p| p.oldest_timestamp_ns.saturating_add(max_wait_ns))
+    }
+
+    /// Close the pending span if its [`Self::pending_deadline_ns`] has
+    /// elapsed by `now_ns`. Returns `true` if a span was closed (and thus
+    /// signed via the ordinary [`Self::close`] path — a timeout-closed
+    /// span carries no weaker guarantee than a size-closed one; both call
+    /// the same signing code). Returns `false` on a stale/early/no-op
+    /// wake-up: nothing pending, the deadline has not elapsed yet, or the
+    /// strategy has no timeout.
+    ///
+    /// Bridges the gap ADR-347's Next Research item 1 named: without this,
+    /// a `BatchTail` span that never reaches `batch_size` stays unsigned
+    /// forever, however long a deployment is idle.
+    pub fn seal_on_timeout(&mut self, now_ns: u64) -> bool {
+        match self.pending_deadline_ns() {
+            Some(deadline) if now_ns >= deadline => {
+                self.seal();
+                true
+            }
+            _ => false,
+        }
+    }
 }
 
 impl<S: WitnessSink> WitnessSink for SignedWitnessSink<S> {
@@ -313,13 +404,14 @@ impl<S: WitnessSink> WitnessSink for SignedWitnessSink<S> {
                     self.close(SignPurpose::PerRecord, r.sequence, r.sequence, h.finish());
                 }
             }
-            SigningStrategy::BatchTail { batch_size } => {
+            SigningStrategy::BatchTail { batch_size, .. } => {
                 for r in records {
                     let p = self.pending.get_or_insert_with(|| PendingSpan {
                         from: r.sequence,
                         to: r.sequence,
                         count: 0,
                         hasher: RecordsHasher::new(),
+                        oldest_timestamp_ns: r.timestamp_ns,
                     });
                     p.hasher.push(r);
                     p.to = r.sequence;
