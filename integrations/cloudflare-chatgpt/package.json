@@ -1,0 +1,33 @@
+{
+  "name": "@ruvector/cloudflare-chatgpt",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Tenant isolated RuVector MCP app on Cloudflare Workers",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "prepare:wasm": "node scripts/prepare-wasm.mjs",
+    "prebuild": "npm run prepare:wasm",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "predev": "npm run prepare:wasm",
+    "dev": "wrangler dev",
+    "predeploy": "npm run prepare:wasm",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.0.0",
+    "@ruvector/mincut-wasm": "2.3.0",
+    "@ruvector/rvf-wasm": "0.1.9",
+    "agents": "0.24.0",
+    "jose": "^6.1.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260929.1",
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3",
+    "wrangler": "4.143.0"
+  }
+}
