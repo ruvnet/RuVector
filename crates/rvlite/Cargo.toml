@@ -1,6 +1,6 @@
 [package]
 name = "rvlite"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Standalone vector database with SQL, SPARQL, and Cypher - powered by RuVector WASM"
 license = "MIT OR Apache-2.0"
@@ -22,11 +22,11 @@ ruvector-core = { version = "2.0.1", path = "../ruvector-core", default-features
 # ===== NEW - SQL Engine (to be added later) =====
 # sqlparser = { version = "0.49", optional = true }
 
-# ===== WASM Bindings =====
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
-js-sys = "0.3"
-web-sys = { version = "0.3", features = [
+# ===== WASM Bindings (behind the default-on `browser` feature) =====
+wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+js-sys = { version = "0.3", optional = true }
+web-sys = { version = "0.3", optional = true, features = [
     "console",
     "Window",
     "Event",
@@ -44,8 +44,8 @@ web-sys = { version = "0.3", features = [
     "IdbKeyRange",
     "IdbCursorDirection",
 ] }
-serde-wasm-bindgen = "0.6"
-console_error_panic_hook = "0.1"
+serde-wasm-bindgen = { version = "0.6", optional = true }
+console_error_panic_hook = { version = "0.1", optional = true }
 
 # ===== RVF Backend (optional) =====
 rvf-runtime = { path = "../rvf/rvf-runtime", features = ["std"], optional = true }
@@ -69,7 +69,18 @@ wasm-bindgen-test = "0.3"
 getrandom = { version = "0.2", features = ["js"] }
 
 [features]
-default = []
+# `browser` (default) builds the wasm-bindgen / IndexedDB bindings used by the
+# published npm package. Disable it (`default-features = false`) to embed the
+# pure-Rust Cypher, SQL and SPARQL engines server-side, e.g. in workers-rs.
+default = ["browser"]
+browser = [
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+    "dep:js-sys",
+    "dep:web-sys",
+    "dep:serde-wasm-bindgen",
+    "dep:console_error_panic_hook",
+]
 rvf-backend = ["dep:rvf-runtime", "dep:rvf-types", "dep:fs2"]
 # Feature flags to be added later
 # sql = ["dep:sqlparser"]
