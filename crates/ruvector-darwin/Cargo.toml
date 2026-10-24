@@ -1,0 +1,21 @@
+[package]
+name = "ruvector-darwin"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Bounded, deterministic evolutionary parameter search for RuVector research candidates"
+readme = "README.md"
+keywords = ["evolution", "hyperparameter-search", "optimization", "research"]
+categories = ["algorithms"]
+
+[dependencies]
+rand = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[lib]
+name = "ruvector_darwin"
+crate-type = ["rlib"]
