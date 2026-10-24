@@ -370,7 +370,9 @@ impl WasmMinCut {
             return Err(JsError::new("Expected two endpoints per weight"));
         }
         let edges: Vec<_> = endpoints
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .zip(weights)
             .map(|(uv, &w)| (u64::from(uv[0]), u64::from(uv[1]), w))
             .collect();

@@ -10,17 +10,25 @@ on:
     tags:
       - 'v*'
   pull_request:
-    branches: [main]
     paths:
       - 'crates/ruvector-gnn/**'
       - 'crates/ruvector-gnn-node/**'
+      - '.github/workflows/build-gnn.yml'
   workflow_dispatch:
     inputs:
+      update_binaries:
+        description: 'Commit generated binaries to this branch (independent of publishing)'
+        required: false
+        type: boolean
+        default: false
       publish:
         description: 'Publish to npm after build'
         required: false
         type: boolean
         default: false
+
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -40,7 +48,7 @@ jobs:
           - host: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
-          - host: macos-14
+          - host: macos-15-intel
             target: x86_64-apple-darwin
             platform: darwin-x64
           - host: macos-14
@@ -109,17 +117,41 @@ jobs:
         run: |
           mkdir -p gnn-artifacts/${{ matrix.settings.platform }}
 
-          # Find the built .node file
-          NODE_FILE=$(find crates/ruvector-gnn-node -name "ruvector-gnn.*.node" -type f | head -1)
+          # napi --platform writes this exact matrix target at the crate root.
+          # Never select a checked-in npm/* binary through a recursive search.
+          NODE_FILE="crates/ruvector-gnn-node/ruvector-gnn.${{ matrix.settings.platform }}.node"
 
-          if [ -z "$NODE_FILE" ]; then
-            echo "ERROR: No .node file found"
+          if [ ! -f "$NODE_FILE" ]; then
+            echo "ERROR: Expected fresh matrix artifact $NODE_FILE"
             find crates/ruvector-gnn-node -name "*.node" -type f
             exit 1
           fi
 
           echo "Found: $NODE_FILE"
           cp -v "$NODE_FILE" "gnn-artifacts/${{ matrix.settings.platform }}/"
+
+      - name: Test native binding on matching host
+        shell: bash
+        env:
+          GNN_PLATFORM: ${{ matrix.settings.platform }}
+        run: |
+          NODE_HOST=$(node -p 'process.platform + "-" + process.arch')
+          case "$GNN_PLATFORM" in
+            darwin-x64) test "$NODE_HOST" = darwin-x64 ;;
+            darwin-arm64) test "$NODE_HOST" = darwin-arm64 ;;
+          esac
+          case "$GNN_PLATFORM:$NODE_HOST" in
+            linux-x64-gnu:linux-x64|darwin-x64:darwin-x64|darwin-arm64:darwin-arm64|win32-x64-msvc:win32-x64)
+              ;;
+            *)
+              echo "Cross-built artifact $GNN_PLATFORM cannot run on $NODE_HOST; runtime tests require a matching host."
+              exit 0
+              ;;
+          esac
+          NODE_FILE=$(find "gnn-artifacts/$GNN_PLATFORM" -maxdepth 1 -name '*.node' -type f | head -1)
+          test -n "$NODE_FILE"
+          ulimit -c 0 || true
+          RUVECTOR_GNN_BINDING="$(pwd)/$NODE_FILE" node --test crates/ruvector-gnn-node/test/*.test.js
 
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -132,7 +164,7 @@ jobs:
     name: Commit Built GNN Binaries
     runs-on: ubuntu-22.04
     needs: build
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'workflow_dispatch' && inputs.update_binaries == true
     permissions:
       contents: write
 
@@ -191,10 +223,10 @@ jobs:
   publish:
     name: Publish GNN Platform Packages
     runs-on: ubuntu-22.04
-    needs: [build, commit-binaries]
+    needs: build
     if: |
-      inputs.publish == true ||
-      startsWith(github.ref, 'refs/tags/v')
+      (github.event_name == 'workflow_dispatch' && inputs.publish == true) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262

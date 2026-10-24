@@ -79,6 +79,14 @@ impl RuvectorLayer {
         neighbor_embeddings: Vec<Float32Array>,
         edge_weights: Float32Array,
     ) -> Result<Float32Array> {
+        validate_dimension(
+            "node_embedding",
+            node_embedding.len(),
+            self.inner.input_dim(),
+        )?;
+        for neighbor in &neighbor_embeddings {
+            validate_dimension("neighbor_embedding", neighbor.len(), self.inner.input_dim())?;
+        }
         let node_slice = node_embedding.as_ref();
         let neighbors_vec: Vec<Vec<f32>> = neighbor_embeddings
             .into_iter()
@@ -107,12 +115,11 @@ impl RuvectorLayer {
     /// Deserialize the layer from JSON
     #[napi(factory)]
     pub fn from_json(json: String) -> Result<Self> {
-        let inner: RustRuvectorLayer = serde_json::from_str(&json).map_err(|e| {
-            Error::new(
-                Status::GenericFailure,
-                format!("Deserialization error: {}", e),
-            )
-        })?;
+        let inner: RustRuvectorLayer = serde_json::from_str(&json)
+            .map_err(|e| Error::new(Status::InvalidArg, format!("Deserialization error: {}", e)))?;
+        inner
+            .validate()
+            .map_err(|e| Error::new(Status::InvalidArg, e.to_string()))?;
         Ok(Self { inner })
     }
 }
@@ -321,6 +328,9 @@ pub fn differentiable_search(
     k: u32,
     temperature: f64,
 ) -> Result<SearchResult> {
+    for candidate in &candidate_embeddings {
+        validate_dimension("candidate_embedding", candidate.len(), query.len())?;
+    }
     let query_slice = query.as_ref();
     let candidates_vec: Vec<Vec<f32>> = candidate_embeddings
         .into_iter()
@@ -370,14 +380,32 @@ pub fn hierarchical_forward(
     let gnn_layers: Vec<RustRuvectorLayer> = gnn_layers_json
         .iter()
         .map(|json| {
-            serde_json::from_str(json).map_err(|e| {
+            let layer: RustRuvectorLayer = serde_json::from_str(json).map_err(|e| {
                 Error::new(
-                    Status::GenericFailure,
+                    Status::InvalidArg,
                     format!("Layer deserialization error: {}", e),
                 )
-            })
+            })?;
+            layer
+                .validate()
+                .map_err(|e| Error::new(Status::InvalidArg, e.to_string()))?;
+            Ok(layer)
         })
         .collect::<Result<Vec<_>>>()?;
+
+    // Mirror the core's skipped empty layers and projection dimensions before
+    // entering code that assumes matching vector/matrix shapes.
+    let mut dimension = query.len();
+    for (embeddings, layer) in embeddings_f32.iter().zip(&gnn_layers) {
+        if embeddings.is_empty() {
+            continue;
+        }
+        validate_dimension("layer query", dimension, layer.input_dim())?;
+        for embedding in embeddings {
+            validate_dimension("layer embedding", embedding.len(), dimension)?;
+        }
+        dimension = layer.output_dim();
+    }
 
     let result = rust_hierarchical_forward(query_slice, &embeddings_f32, &gnn_layers);
 
@@ -385,6 +413,16 @@ pub fn hierarchical_forward(
 }
 
 // ==================== Helper Functions ====================
+
+fn validate_dimension(name: &str, actual: usize, expected: usize) -> Result<()> {
+    if actual != expected {
+        return Err(Error::new(
+            Status::InvalidArg,
+            format!("{} dimension must be {}, got {}", name, expected, actual),
+        ));
+    }
+    Ok(())
+}
 
 /// Get the compression level that would be selected for a given access frequency
 ///

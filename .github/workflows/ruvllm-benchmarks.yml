@@ -5,6 +5,7 @@ on:
     paths:
       - 'crates/ruvllm/**'
       - '.github/workflows/ruvllm-benchmarks.yml'
+      - '.github/scripts/ruvllm-benchmark-cases.py'
   push:
     branches:
       - main
@@ -14,12 +15,12 @@ on:
   workflow_dispatch:
     inputs:
       run_ane_benchmarks:
-        description: 'Run ANE benchmarks (macOS only)'
+        description: 'Run Apple CPU/Accelerate API microbenchmarks (macOS only)'
         required: false
         default: 'true'
         type: boolean
       run_full_suite:
-        description: 'Run full benchmark suite (takes longer)'
+        description: 'Opt-in full characterization: one job per case (100+ jobs; max parallel 2/harness, 10 total)'
         required: false
         default: 'false'
         type: boolean
@@ -33,11 +34,16 @@ permissions:
   pull-requests: write
   issues: write
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  # macOS ARM64 benchmarks (Apple Silicon with ANE)
+  # macOS ARM64 CPU/Accelerate microbenchmarks
   macos-arm64-benchmarks:
     name: macOS ARM64 Benchmarks (M-series)
     runs-on: macos-14  # M1/M2 runner
+    if: inputs.run_full_suite != true
     timeout-minutes: 45
 
     steps:
@@ -66,94 +72,55 @@ jobs:
             ${{ runner.os }}-cargo-build-ruvllm-bench-
             ${{ runner.os }}-cargo-build-
 
-      - name: Build ruvllm with ANE support
+      - name: Build ruvllm with Apple API support
         run: |
-          cargo build --release -p ruvllm --features "coreml,accelerate"
+          cargo build --locked --release -p ruvllm --features "coreml,accelerate"
 
-      - name: Run ANE vs NEON benchmarks
+      - name: Run Apple CPU and Accelerate microbenchmarks
         if: github.event.inputs.run_ane_benchmarks != 'false'
         working-directory: crates/ruvllm
         run: |
-          # Run the ANE comparison benchmarks
-          cargo bench --features "coreml,accelerate" --bench ane_bench -- \
-            --output-format bencher 2>&1 | tee ../../ane_bench_results.txt
-
-      - name: Run crossover detection benchmark
-        if: github.event.inputs.run_full_suite == 'true'
-        working-directory: crates/ruvllm
-        run: |
-          cargo bench --features "coreml,accelerate" --bench ane_bench -- \
-            crossover_detection --output-format bencher 2>&1 | tee -a ../../ane_bench_results.txt
-
-      - name: Run hybrid pipeline benchmark
-        if: github.event.inputs.run_full_suite == 'true'
-        working-directory: crates/ruvllm
-        run: |
-          cargo bench --features "coreml,accelerate" --bench ane_bench -- \
-            hybrid_pipeline --output-format bencher 2>&1 | tee -a ../../ane_bench_results.txt
+          filter='^(gemm_ane_vs_neon/(neon|ane|accelerate)/(1x128x128|1x4096x4096)|rmsnorm_ane_vs_neon/(neon|ane)/1x4096)$'
+          cargo bench --locked --features "coreml,accelerate" --bench ane_bench -- \
+            "$filter" --output-format bencher 2>&1 | tee ../../ane_bench_results.txt
 
       - name: Run matmul benchmarks
         working-directory: crates/ruvllm
         run: |
-          cargo bench --features "coreml,accelerate" --bench matmul_bench -- \
-            --output-format bencher 2>&1 | tee ../../matmul_bench_results.txt
+          filter='^(gemv/(256x256/65536|4096x4096/16777216)|gemm/128x128x128/2097152|gemm_non_square/1x4096x4096/1)$'
+          cargo bench --locked --features "coreml,accelerate" --bench matmul_bench -- \
+            "$filter" --output-format bencher 2>&1 | tee ../../matmul_bench_results.txt
 
       - name: Run attention benchmarks
         working-directory: crates/ruvllm
         run: |
-          cargo bench --features "coreml,accelerate" --bench attention_bench -- \
-            --output-format bencher 2>&1 | tee ../../attention_bench_results.txt
+          filter='^(flash_attention/(seq_128_head_64/8192|seq_2048_head_128/262144)|paged_attention/block_16_tokens_64/64)$'
+          cargo bench --locked --features "coreml,accelerate" --bench attention_bench -- \
+            "$filter" --output-format bencher 2>&1 | tee ../../attention_bench_results.txt
 
       - name: Generate benchmark summary
+        if: always()
         run: |
           cat > benchmark_summary.md << 'EOF'
-          # RuvLLM Benchmark Results (macOS ARM64 with ANE)
+          # RuVLLM CPU microbenchmarks (macOS ARM64)
 
-          ## System Information
-          - Runner: macOS 14 (Apple Silicon M-series)
-          - Features: coreml, accelerate
-
-          ## ANE vs NEON Performance
-
-          The ANE (Apple Neural Engine) benchmarks measure:
-          - Matrix multiplication at various sizes
-          - Activation functions (SiLU, GELU, Softmax)
-          - Normalization (LayerNorm, RMSNorm)
-          - Hybrid pipeline (ANE + GPU coordination)
-
-          ### Expected Performance Characteristics (M4 Pro)
-
-          | Matrix Size | ANE Advantage |
-          |-------------|---------------|
-          | < 512       | +30-50% faster |
-          | 512-1024    | +10-30% faster |
-          | 1024-1536   | ~Similar       |
-          | 1536-2048   | GPU preferred  |
-          | > 2048      | GPU wins 30-50%|
-
-          ## Results
-
-          ### ANE Benchmark Results
-          ```
+          Features: coreml, accelerate. The `ane` matmul API currently uses
+          Accelerate CBLAS; these results do not establish ANE/GPU execution.
+          Matmul/attention harnesses include local kernels, not end-to-end model inference.
+          Default mode samples representative shapes with unchanged Criterion sample counts.
+          Opt-in full characterization prebuilds once and measures each enumerated case
+          in a separate job; timeout/cancellation is incomplete evidence, never a pass.
           EOF
-          head -n 100 ane_bench_results.txt >> benchmark_summary.md
-          cat >> benchmark_summary.md << 'EOF'
-          ```
-
-          ### Matrix Multiplication Results
-          ```
-          EOF
-          head -n 50 matmul_bench_results.txt >> benchmark_summary.md
-          cat >> benchmark_summary.md << 'EOF'
-          ```
-
-          ### Attention Results
-          ```
-          EOF
-          head -n 50 attention_bench_results.txt >> benchmark_summary.md
-          echo '```' >> benchmark_summary.md
+          for result in ane_bench_results.txt matmul_bench_results.txt attention_bench_results.txt; do
+            printf '\n## %s\n```\n' "$result" >> benchmark_summary.md
+            if [ -f "$result" ]; then head -n 100 "$result" >> benchmark_summary.md
+            else echo 'Not run (disabled or interrupted).' >> benchmark_summary.md; fi
+            echo '```' >> benchmark_summary.md
+          done
+          cat benchmark_summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload benchmark results
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ruvllm-macos-arm64-benchmarks
@@ -180,10 +147,11 @@ jobs:
               body: summary
             });
 
-  # Linux benchmarks (NEON only baseline)
+  # Linux x86_64 portable CPU microbenchmarks
   linux-benchmarks:
-    name: Linux Benchmarks (NEON baseline)
+    name: Linux Benchmarks (x86_64 portable CPU)
     runs-on: ubuntu-latest
+    if: inputs.run_full_suite != true
     timeout-minutes: 30
 
     steps:
@@ -201,17 +169,20 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-ruvllm-bench-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Run matmul benchmarks (NEON simulation)
+      - name: Run portable CPU matmul microbenchmarks
         working-directory: crates/ruvllm
         run: |
-          cargo bench --bench matmul_bench -- --output-format bencher 2>&1 | tee ../../linux_matmul_bench.txt
+          filter='^(gemv/(256x256/65536|4096x4096/16777216)|gemm/128x128x128/2097152|gemm_non_square/1x4096x4096/1)$'
+          cargo bench --locked --bench matmul_bench -- "$filter" --output-format bencher 2>&1 | tee ../../linux_matmul_bench.txt
 
       - name: Run attention benchmarks
         working-directory: crates/ruvllm
         run: |
-          cargo bench --bench attention_bench -- --output-format bencher 2>&1 | tee ../../linux_attention_bench.txt
+          filter='^(flash_attention/(seq_128_head_64/8192|seq_2048_head_128/262144)|paged_attention/block_16_tokens_64/64)$'
+          cargo bench --locked --bench attention_bench -- "$filter" --output-format bencher 2>&1 | tee ../../linux_attention_bench.txt
 
       - name: Upload Linux benchmark results
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ruvllm-linux-benchmarks
@@ -245,11 +216,13 @@ jobs:
           cat > comparison.md << 'EOF'
           # Cross-Platform Benchmark Comparison
 
-          ## macOS ARM64 (Apple Silicon with ANE)
+          ## macOS ARM64 (CPU and Accelerate APIs)
 
           ```
           EOF
-          head -n 30 macos-results/ane_bench_results.txt >> comparison.md
+          if [ -f macos-results/ane_bench_results.txt ]; then
+            head -n 30 macos-results/ane_bench_results.txt >> comparison.md
+          else echo 'Apple API microbenchmarks disabled.' >> comparison.md; fi
           cat >> comparison.md << 'EOF'
           ```
 
@@ -266,3 +239,185 @@ jobs:
           name: benchmark-comparison
           path: comparison.md
           retention-days: 30
+
+  prepare-full-macos:
+    name: Prebuild full characterization (macos)
+    if: github.event_name == 'workflow_dispatch' && inputs.run_full_suite == true
+    runs-on: macos-14
+    timeout-minutes: 45
+    outputs:
+      matmul_bench: ${{ steps.cases.outputs.matmul_bench }}
+      attention_bench: ${{ steps.cases.outputs.attention_bench }}
+      ane_bench: ${{ steps.cases.outputs.ane_bench }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          key: full-microbench-macos
+      - name: Build executables and enumerate cases (maximum 256 per harness)
+        id: cases
+        run: python3 .github/scripts/ruvllm-benchmark-cases.py prepare --features coreml,accelerate
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: full-benchmark-binaries-macos
+          path: benchmark-binaries/
+          if-no-files-found: error
+
+  full-macos-matmul-bench:
+    name: Full macos matmul_bench / ${{ matrix.case }}
+    needs: prepare-full-macos
+    if: github.event_name == 'workflow_dispatch' && inputs.run_full_suite == true
+    runs-on: macos-14
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.prepare-full-macos.outputs.matmul_bench) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: full-benchmark-binaries-macos
+          path: benchmark-binaries
+      - name: Measure exact case with unchanged Criterion sampling
+        env:
+          BENCHMARK_CASE: ${{ matrix.case }}
+        run: |
+          python3 .github/scripts/ruvllm-benchmark-cases.py run --bench matmul_bench 2>&1 | tee case-result.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: full-macos-matmul_bench-${{ strategy.job-index }}
+          path: case-result.txt
+
+  full-macos-attention-bench:
+    name: Full macos attention_bench / ${{ matrix.case }}
+    needs: prepare-full-macos
+    if: github.event_name == 'workflow_dispatch' && inputs.run_full_suite == true
+    runs-on: macos-14
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.prepare-full-macos.outputs.attention_bench) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: full-benchmark-binaries-macos
+          path: benchmark-binaries
+      - name: Measure exact case with unchanged Criterion sampling
+        env:
+          BENCHMARK_CASE: ${{ matrix.case }}
+        run: |
+          python3 .github/scripts/ruvllm-benchmark-cases.py run --bench attention_bench 2>&1 | tee case-result.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: full-macos-attention_bench-${{ strategy.job-index }}
+          path: case-result.txt
+
+  full-macos-ane-bench:
+    name: Full macos ane_bench / ${{ matrix.case }}
+    needs: prepare-full-macos
+    if: github.event_name == 'workflow_dispatch' && inputs.run_full_suite == true && inputs.run_ane_benchmarks == true
+    runs-on: macos-14
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.prepare-full-macos.outputs.ane_bench) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: full-benchmark-binaries-macos
+          path: benchmark-binaries
+      - name: Measure exact case with unchanged Criterion sampling
+        env:
+          BENCHMARK_CASE: ${{ matrix.case }}
+        run: |
+          python3 .github/scripts/ruvllm-benchmark-cases.py run --bench ane_bench 2>&1 | tee case-result.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: full-macos-ane_bench-${{ strategy.job-index }}
+          path: case-result.txt
+
+  prepare-full-linux:
+    name: Prebuild full characterization (linux)
+    if: github.event_name == 'workflow_dispatch' && inputs.run_full_suite == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      matmul_bench: ${{ steps.cases.outputs.matmul_bench }}
+      attention_bench: ${{ steps.cases.outputs.attention_bench }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          key: full-microbench-linux
+      - name: Build executables and enumerate cases (maximum 256 per harness)
+        id: cases
+        run: python3 .github/scripts/ruvllm-benchmark-cases.py prepare
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: full-benchmark-binaries-linux
+          path: benchmark-binaries/
+          if-no-files-found: error
+
+  full-linux-matmul-bench:
+    name: Full linux matmul_bench / ${{ matrix.case }}
+    needs: prepare-full-linux
+    if: github.event_name == 'workflow_dispatch' && inputs.run_full_suite == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.prepare-full-linux.outputs.matmul_bench) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: full-benchmark-binaries-linux
+          path: benchmark-binaries
+      - name: Measure exact case with unchanged Criterion sampling
+        env:
+          BENCHMARK_CASE: ${{ matrix.case }}
+        run: |
+          python3 .github/scripts/ruvllm-benchmark-cases.py run --bench matmul_bench 2>&1 | tee case-result.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: full-linux-matmul_bench-${{ strategy.job-index }}
+          path: case-result.txt
+
+  full-linux-attention-bench:
+    name: Full linux attention_bench / ${{ matrix.case }}
+    needs: prepare-full-linux
+    if: github.event_name == 'workflow_dispatch' && inputs.run_full_suite == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.prepare-full-linux.outputs.attention_bench) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: full-benchmark-binaries-linux
+          path: benchmark-binaries
+      - name: Measure exact case with unchanged Criterion sampling
+        env:
+          BENCHMARK_CASE: ${{ matrix.case }}
+        run: |
+          python3 .github/scripts/ruvllm-benchmark-cases.py run --bench attention_bench 2>&1 | tee case-result.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: full-linux-attention_bench-${{ strategy.job-index }}
+          path: case-result.txt

@@ -25,7 +25,7 @@ fn params(base: u32) -> HnswParams {
 fn build(base: &[f32], iid_base: u32) -> HnswIndex {
     let q = QuantParams::train(Metric::L2, D, &base[..500 * D], 1).unwrap();
     let mut idx = HnswIndex::new(params(iid_base), q).unwrap();
-    for (i, v) in base.chunks_exact(D).enumerate() {
+    for (i, v) in base.as_chunks::<D>().0.iter().enumerate() {
         let iid = iid_base + i as u32;
         idx.insert(iid, v, &mut op_rng(u64::from(iid))).unwrap();
     }
@@ -35,7 +35,9 @@ fn build(base: &[f32], iid_base: u32) -> HnswIndex {
 /// Exact top-k over live iids (`iid_base = 0`).
 fn exact_live(idx: &HnswIndex, base: &[f32], q: &[f32], k: usize) -> Vec<u32> {
     let mut all: Vec<(f32, u32)> = base
-        .chunks_exact(D)
+        .as_chunks::<D>()
+        .0
+        .iter()
         .enumerate()
         .filter(|(i, _)| idx.contains(*i as u32))
         .map(|(i, v)| (distance(Metric::L2, q, v), i as u32))
@@ -48,7 +50,7 @@ fn exact_live(idx: &HnswIndex, base: &[f32], q: &[f32], k: usize) -> Vec<u32> {
 fn tombstones_never_take_result_slots() {
     let (base, queries) = data(2000, D, 20);
     let mut idx = build(&base, 0);
-    for q in queries.chunks_exact(D) {
+    for q in queries.as_chunks::<D>().0.iter() {
         for iid in exact_live(&idx, &base, q, 5) {
             assert!(idx.delete(iid));
         }
@@ -63,7 +65,7 @@ fn tombstones_never_take_result_slots() {
         }
     }
     let mut fetch = SliceFetch::new(&base, D);
-    for q in queries.chunks_exact(D) {
+    for q in queries.as_chunks::<D>().0.iter() {
         assert_eq!(idx.search(q, 10, 10).unwrap().len(), 10);
         let rr = idx.search_rerank(q, 10, 10, &mut fetch).unwrap();
         assert_eq!(rr.len(), 10);
@@ -96,7 +98,7 @@ fn update_moves_nodes_in_place_and_revives_tombstones() {
     // replaying the same op sequence gives the same bytes.
     let moved = World::new(D).points(4, 300);
     let ops = |idx: &mut HnswIndex| {
-        for (j, v) in moved.chunks_exact(D).enumerate() {
+        for (j, v) in moved.as_chunks::<D>().0.iter().enumerate() {
             idx.update(
                 (j * 5) as u32,
                 &v.iter().map(|x| x * 1.01).collect::<Vec<_>>(),
@@ -113,7 +115,7 @@ fn update_moves_nodes_in_place_and_revives_tombstones() {
         b.to_chunks(1, CHUNK).unwrap().sha256
     );
     let mut now = base.clone();
-    for (j, v) in moved.chunks_exact(D).enumerate() {
+    for (j, v) in moved.as_chunks::<D>().0.iter().enumerate() {
         for (o, x) in now[j * 5 * D..(j * 5 + 1) * D].iter_mut().zip(v) {
             *o = x * 1.01;
         }
@@ -121,7 +123,9 @@ fn update_moves_nodes_in_place_and_revives_tombstones() {
     let mut fetch = SliceFetch::new(&now, D);
     let t = truth(Metric::L2, &now, &queries, D, 10);
     let r: f64 = queries
-        .chunks_exact(D)
+        .as_chunks::<D>()
+        .0
+        .iter()
         .zip(&t)
         .map(|(q, t)| recall(t, &a.search_rerank(q, 10, 64, &mut fetch).unwrap()))
         .sum::<f64>()
@@ -148,7 +152,7 @@ fn store_shaped_iids_starting_at_one_encode_without_renumbering() {
         .chain(base.iter().copied())
         .collect();
     let mut fetch = SliceFetch::new(&shifted, D);
-    for q in queries.chunks_exact(D) {
+    for q in queries.as_chunks::<D>().0.iter() {
         let hits = back.search_rerank(q, 10, 48, &mut fetch).unwrap();
         assert_eq!(hits.len(), 10);
         assert!(hits.iter().all(|h| (1..=800).contains(&h.iid)));
@@ -182,7 +186,9 @@ fn purge_reclaims_tombstones_with_sliced_repair() {
     }
     assert!((idx.dead_ratio() - 0.3).abs() < 1e-9);
     let t: Vec<Vec<u32>> = queries
-        .chunks_exact(D)
+        .as_chunks::<D>()
+        .0
+        .iter()
         .map(|q| exact_live(&idx, &base, q, 10))
         .collect();
     let mut cursor = 0;
@@ -208,7 +214,9 @@ fn purge_reclaims_tombstones_with_sliced_repair() {
     }
     let mut fetch = SliceFetch::new(&dense, D);
     let r: f64 = queries
-        .chunks_exact(D)
+        .as_chunks::<D>()
+        .0
+        .iter()
         .zip(&t)
         .map(|(q, t)| {
             let want: Vec<u32> = t.iter().map(|&i| map[i as usize]).collect();
@@ -247,7 +255,7 @@ fn lazy_load_then_replay_grows_by_bounded_steps() {
     );
     let (before, preview) = (idx.memory_bytes(), idx.growth_bytes(5000));
     assert!(preview > 0);
-    for (j, v) in extra.chunks_exact(D).enumerate() {
+    for (j, v) in extra.as_chunks::<D>().0.iter().enumerate() {
         let iid = 5000 + j as u32;
         if j == 0 {
             idx.insert(iid, v, &mut op_rng(u64::from(iid))).unwrap();
@@ -275,7 +283,7 @@ fn lazy_load_then_replay_grows_by_bounded_steps() {
     let mut idx = HnswIndex::from_chunks(&enc.chunks, None).unwrap();
     idx.reserve(200);
     let reserved = idx.memory_bytes();
-    for (j, v) in extra.chunks_exact(D).enumerate() {
+    for (j, v) in extra.as_chunks::<D>().0.iter().enumerate() {
         let iid = 5000 + j as u32;
         idx.insert(iid, v, &mut op_rng(u64::from(iid))).unwrap();
     }
@@ -290,7 +298,7 @@ fn flat_compaction_is_in_place_and_starts_at_the_store_base() {
     let (base, queries) = data(2000, D, 10);
     let q = QuantParams::train(Metric::L2, D, &base[..500 * D], 1).unwrap();
     let mut f = QuantFlatIndex::new(q, 1 << 20).unwrap();
-    for (i, v) in base.chunks_exact(D).enumerate() {
+    for (i, v) in base.as_chunks::<D>().0.iter().enumerate() {
         f.upsert(1 + i as u32, v).unwrap();
     }
     for iid in (1..=2000u32).filter(|i| i % 2 == 0) {
@@ -298,12 +306,14 @@ fn flat_compaction_is_in_place_and_starts_at_the_store_base() {
     }
     assert!(f.dead_ratio() > 0.49);
     let hits: Vec<_> = queries
-        .chunks_exact(D)
+        .as_chunks::<D>()
+        .0
+        .iter()
         .map(|q| f.search(q, 10).unwrap())
         .collect();
     let map = f.compact_ids(1).unwrap();
     assert_eq!((f.slots(), f.len()), (1001, 1000));
-    for (q, h) in queries.chunks_exact(D).zip(&hits) {
+    for (q, h) in queries.as_chunks::<D>().0.iter().zip(&hits) {
         let moved: Vec<u32> = h.iter().map(|h| map[h.iid as usize]).collect();
         let got: Vec<u32> = f.search(q, 10).unwrap().iter().map(|h| h.iid).collect();
         assert_eq!(moved, got);

@@ -18,7 +18,7 @@ test-util = []
 # ES256 only. `ecdsa` implies `arithmetic` + `sha256`. No `std` feature: it
 # turns on rand_core/getrandom. No RNG is needed to
 # verify (or to sign with RFC 6979), so getrandom never enters the wasm graph.
-p256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
+p256 = { version = "0.14", default-features = false, features = ["ecdsa"] }
 sha2 = "0.10"
 base64ct = { version = "1", features = ["alloc"] }
 serde = { workspace = true }

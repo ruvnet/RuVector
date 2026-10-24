@@ -639,7 +639,9 @@ cd RuVector
 cargo test --workspace
 ```
 
-The workspace requires Rust 1.77 or newer. RVF and PostgreSQL have separate build instructions in their component documentation.
+The workspace declares Rust 1.88 as its minimum, including the ZIP 9 dependency used by Candle-backed components. RVF and PostgreSQL have separate build instructions in their component documentation.
+
+The Candle backports apply to builds from this workspace and are included in Python source distributions. Cargo does not carry workspace patches into published Rust dependencies; Candle-based crates.io releases still require fixed upstream dependencies or a published fork dependency chain.
 
 ## Frequently asked questions
 

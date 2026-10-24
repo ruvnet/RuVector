@@ -15,12 +15,12 @@ fn trained(metric: Metric, base: &[f32]) -> QuantParams {
 
 fn flat_recall(q: QuantParams, base: &[f32], queries: &[f32], truth: &[Vec<u32>]) -> (f64, f64) {
     let mut idx = QuantFlatIndex::with_capacity(q, N as u32, N).unwrap();
-    for (i, v) in base.chunks_exact(DIM).enumerate() {
+    for (i, v) in base.as_chunks::<DIM>().0.iter().enumerate() {
         idx.upsert(i as u32, v).unwrap();
     }
     let mut fetch = SliceFetch::new(base, DIM);
     let (mut raw, mut rr) = (0.0, 0.0);
-    for (qv, t) in queries.chunks_exact(DIM).zip(truth) {
+    for (qv, t) in queries.as_chunks::<DIM>().0.iter().zip(truth) {
         raw += recall(t, &idx.search(qv, K).unwrap());
         rr += recall(t, &idx.search_rerank(qv, K, 4 * K, &mut fetch).unwrap());
     }
@@ -30,7 +30,7 @@ fn flat_recall(q: QuantParams, base: &[f32], queries: &[f32], truth: &[Vec<u32>]
 
 fn build_hnsw(q: QuantParams, base: &[f32]) -> HnswIndex {
     let mut idx = HnswIndex::with_capacity(HnswParams::default(), q, N).unwrap();
-    for (i, v) in base.chunks_exact(DIM).enumerate() {
+    for (i, v) in base.as_chunks::<DIM>().0.iter().enumerate() {
         idx.insert(i as u32, v, &mut op_rng(i as u64)).unwrap();
     }
     idx
@@ -45,7 +45,7 @@ fn hnsw_recall(
 ) -> (f64, f64) {
     let mut fetch = SliceFetch::new(base, DIM);
     let (mut raw, mut rr) = (0.0, 0.0);
-    for (qv, t) in queries.chunks_exact(DIM).zip(truth) {
+    for (qv, t) in queries.as_chunks::<DIM>().0.iter().zip(truth) {
         raw += recall(t, &idx.search(qv, K, ef).unwrap());
         rr += recall(t, &idx.search_rerank(qv, K, ef, &mut fetch).unwrap());
     }
