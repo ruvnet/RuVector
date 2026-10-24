@@ -10057,6 +10057,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-frontier-cut-ann"
+version = "0.1.0"
+dependencies = [
+ "ruvector-entropy-ann",
+]
+
+[[package]]
 name = "ruvector-gnn"
 version = "2.3.0"
 dependencies = [

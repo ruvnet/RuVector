@@ -1,0 +1,24 @@
+[package]
+name = "ruvector-frontier-cut-ann"
+version = "0.1.0"
+edition = "2021"
+description = "Frontier-cut conductance as a per-query adaptive ef_search signal for HNSW-style ANN beam search, benchmarked against the refuted heap-entropy signal (ADR-303)"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/ruvector"
+keywords = ["ann", "hnsw", "mincut", "conductance", "vector-search"]
+categories = ["algorithms", "data-structures"]
+
+[dependencies]
+# Reuses the exact dataset generators, FlatGraph, FixedEfSearch baseline,
+# Searcher trait and recall_at_k from the 2026-08-13 entropy-adaptive-ann
+# nightly (ADR-303) so the two signals are measured under identical
+# conditions — same corpus, same graph, same baseline implementation.
+ruvector-entropy-ann = { path = "../ruvector-entropy-ann" }
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
