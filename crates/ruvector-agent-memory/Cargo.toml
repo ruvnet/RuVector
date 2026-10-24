@@ -39,11 +39,22 @@ ruvector-mincut = { version = "2.3.0", path = "../ruvector-mincut", optional = t
 default = []
 proof-gate = ["dep:ruvector-proof-gate"]
 mincut-forget = ["dep:ruvector-mincut"]
+# ADR-353 (nightly 2026-10-15): cheap O(V*k) structural-boundary proxies
+# (clustering coefficient, label propagation) attacking the latency
+# bottleneck that got `mincut-forget`'s exact-mincut integration rejected
+# for production use at realistic corpus sizes. No new dependency: pure
+# std + this crate's own `compaction`/`scoring` modules.
+fast-boundary-forget = []
 
 [[example]]
 name = "mincut_gated_forgetting_bench"
 path = "examples/mincut_gated_forgetting_bench.rs"
 required-features = ["mincut-forget"]
+
+[[example]]
+name = "boundary_fidelity_and_scale_bench"
+path = "examples/boundary_fidelity_and_scale_bench.rs"
+required-features = ["mincut-forget", "fast-boundary-forget"]
 
 [[example]]
 name = "mincut_determinism_probe"
