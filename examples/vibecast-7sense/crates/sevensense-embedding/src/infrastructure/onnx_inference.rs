@@ -72,7 +72,7 @@ impl OnnxInference {
         inter_op_threads: usize,
         providers: &[ExecutionProvider],
     ) -> Result<Self, InferenceError> {
-        let builder = Session::builder()
+        let mut builder = Session::builder()
             .map_err(|e| InferenceError::SessionCreation(e.to_string()))?
             .with_intra_threads(intra_op_threads)
             .map_err(|e| InferenceError::SessionCreation(e.to_string()))?
