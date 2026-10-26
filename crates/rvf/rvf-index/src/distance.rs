@@ -37,7 +37,7 @@ fn cosine_distance_scalar(a: &[f32], b: &[f32]) -> f32 {
         norm_a += x * x;
         norm_b += y * y;
     }
-    let denom = (norm_a * norm_b).sqrt();
+    let denom = crate::sqrt_f32(norm_a * norm_b);
     if denom < f32::EPSILON {
         return 1.0;
     }
@@ -57,7 +57,7 @@ fn dot_product_scalar(a: &[f32], b: &[f32]) -> f32 {
 
 // ── x86_64 AVX2+FMA implementations ────────────────────────────────
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(feature = "std", target_arch = "x86_64"))]
 mod avx2 {
     #[target_feature(enable = "avx2", enable = "fma")]
     pub(super) unsafe fn l2_distance_avx2(a: &[f32], b: &[f32]) -> f32 {
@@ -149,7 +149,7 @@ mod avx2 {
             norm_b += y * y;
         }
 
-        let denom = (norm_a * norm_b).sqrt();
+        let denom = crate::sqrt_f32(norm_a * norm_b);
         if denom < f32::EPSILON {
             return 1.0;
         }
@@ -195,7 +195,7 @@ mod avx2 {
 
 // ── aarch64 NEON implementations ────────────────────────────────────
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(feature = "std", target_arch = "aarch64"))]
 mod neon {
     #[target_feature(enable = "neon")]
     pub(super) unsafe fn l2_distance_neon(a: &[f32], b: &[f32]) -> f32 {
@@ -264,7 +264,7 @@ mod neon {
             norm_b += y * y;
         }
 
-        let denom = (norm_a * norm_b).sqrt();
+        let denom = crate::sqrt_f32(norm_a * norm_b);
         if denom < f32::EPSILON {
             return 1.0;
         }
@@ -322,7 +322,7 @@ const SCALAR_KERNELS: Kernels = Kernels {
 /// Resolve the best kernels for this CPU once and cache them, so each
 /// distance call is a single indirect call instead of re-running CPU
 /// feature detection (atomic loads + branches) on every invocation.
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#[cfg(all(feature = "std", any(target_arch = "x86_64", target_arch = "aarch64")))]
 fn kernels() -> &'static Kernels {
     use std::sync::OnceLock;
     static KERNELS: OnceLock<Kernels> = OnceLock::new();
@@ -347,7 +347,7 @@ fn kernels() -> &'static Kernels {
     })
 }
 
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[cfg(not(all(feature = "std", any(target_arch = "x86_64", target_arch = "aarch64"))))]
 #[inline]
 fn kernels() -> &'static Kernels {
     &SCALAR_KERNELS

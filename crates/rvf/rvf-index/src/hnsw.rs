@@ -163,7 +163,7 @@ impl HnswGraph {
             m0: config.m0,
             ef_construction: config.ef_construction,
             alpha: DEFAULT_ALPHA,
-            ml: 1.0 / (config.m as f64).ln(),
+            ml: 1.0 / crate::ln_f64(config.m as f64),
         }
     }
 
@@ -171,7 +171,7 @@ impl HnswGraph {
     /// Level = floor(-ln(uniform(0,1)) * ml).
     fn random_level(&self, rng_val: f64) -> usize {
         let r = if rng_val <= 0.0 { 1e-10 } else { rng_val };
-        (-r.ln() * self.ml).floor() as usize
+        crate::floor_f64(-crate::ln_f64(r) * self.ml) as usize
     }
 
     /// Insert a new node into the HNSW graph.
