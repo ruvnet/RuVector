@@ -4,18 +4,32 @@
 
 Python access to the ten most downloaded RuVector npm packages. Eight new companion distributions join the existing `ruvector` SDK and `ruvector-graph`. Previously released clustering and reranking remain available. Every companion has its own introduction, animated diagram, runnable getting started example and explicit capability limits.
 
-## Release status, October 12, 2026
+## Release status, October 26, 2026
 
-The 0.2.0 portfolio is **partially published**. Attention and cluster wheels are
-available; both source archives and nine target releases are still missing.
-The original files pin native `ruvector==0.1.3`. Current source targets 0.1.4
-and must not replace immutable 0.2.0 artifacts. See the
-[verified inventory and recovery evidence](../../docs/python-portfolio/evidence/2026-10-12/README.md)
-and [recovery design](../../docs/python-portfolio/resume-release-adr.md).
+The delivery target is native **`ruvector==0.1.5`** plus all eleven companion
+**`0.2.1`** distributions. These are **unpublished successor candidates**;
+candidate wheels/sdists and tests do not establish public PyPI availability.
+The [release disposition](../../docs/python-portfolio/resume-release-adr.md)
+records the selected successor and the remaining review/publication prerequisites.
 
-The published attention package has a
-[tested synthetic-data tutorial](tutorials/README.md). Other implemented tracks
-below describe source capabilities and do not establish PyPI availability.
+The original `0.2.0` release remains incomplete and security-blocked: public
+registry readback found eight wheels, no sdists, and no rvf/rvf-wasm/sona releases.
+Those original artifacts pin native `0.1.3`, whose frozen dependency audit now
+rejects `tokio 1.52.3` under RUSTSEC-2026-0386. Missing original uploads are no
+longer the delivery plan. Preserve public files and the immutable inventory;
+do not rebuild old identities, replay the supervisor, or waive the frozen audit.
+
+The [October 12 inventory](../../docs/python-portfolio/evidence/2026-10-12/README.md)
+and [attention tutorial](tutorials/README.md) retain historical evidence for the
+old release. The tutorial's pinned native `0.1.3` environment is not the current
+successor recommendation. Package guide commands below may also describe the
+historical release; consult the dated disposition before using registry versions.
+
+Actual successor release requires independent review, explicit release approval,
+native-first publication, exact public-artifact reconciliation and fresh consumer
+tests. The current two main-triggered publishers do not enforce native-first
+ordering, so an ordered landing plan or qualified dependency is still needed.
+No publication is authorized by this README.
 
 ## Which packages are most popular?
 
@@ -34,14 +48,24 @@ Measured npm downloads for September 11 through October 10, 2026. These are pack
 | 9 | `@ruvector/core` | 341,954 | [`ruvector-core`](https://pypi.org/project/ruvector-core/) | Validated vector indexing and search |
 | 10 | `@ruvector/rvf-wasm` | 328,808 | [`ruvector-rvf-wasm`](https://pypi.org/project/ruvector-rvf-wasm/) | Actual RVF WASM in a bounded Wasmtime host |
 
-## Getting started
+## Candidate qualification before publication
+
+Use the approved native wheel and companion wheels from the same reviewed CI
+candidate. Download only the native wheel matching your host platform, plus
+the eleven pure-Python companion wheels. For example, after downloading those
+artifacts locally:
 
 ```sh
 python -m venv .venv
 # Activate the environment using your platform's normal command.
-python -m pip install ruvector-attention==0.2.0 ruvector==0.1.3 numpy==2.2.6
-# Run the published-package example in tutorials/attention_quickstart.py.
+python -m pip install /path/to/native/ruvector-0.1.5-*.whl /path/to/companions/*-0.2.1-*.whl
+python -m pip check
 ```
+
+These paths are placeholders for reviewed build artifacts, not public download
+URLs. Do not request unpublished versions from PyPI or substitute older native
+versions to make installation succeed. Public installation examples must be
+verified against the actual authorized release after publication.
 
 Choose a task and open its package guide:
 
@@ -55,7 +79,7 @@ Choose a task and open its package guide:
 * [ruvector-core](ruvector-core/README.md): Validated vector indexing and search.
 * [ruvector-rvf-wasm](ruvector-rvf-wasm/README.md): Actual RVF WASM in a bounded Wasmtime host.
 
-The base SDK guide is [here](../../crates/ruvector-py/README.md). All companions pin the same `ruvector==0.1.4` native runtime, avoiding duplicate Rust extensions. RVF WASM additionally pins Wasmtime and bundles an integrity verified upstream module. It requires no Node, browser, WASI, network downloads or npm install at runtime.
+The base SDK guide is [here](../../crates/ruvector-py/README.md). The successor companions pin the same `ruvector==0.1.5` native runtime, avoiding duplicate Rust extensions; historical `0.2.0` artifacts retain their `ruvector==0.1.3` pin. RVF WASM additionally pins Wasmtime and bundles an integrity verified upstream module. It requires no Node, browser, WASI, network downloads or npm install at runtime.
 
 ## What is supported?
 
