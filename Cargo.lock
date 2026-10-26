@@ -10055,6 +10055,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-fisher-ann"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.6",
+ "ruvector-sona 0.2.1",
+]
+
+[[package]]
 name = "ruvector-fpga-transformer"
 version = "0.1.0"
 dependencies = [
