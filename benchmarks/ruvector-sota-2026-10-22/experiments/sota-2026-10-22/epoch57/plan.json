@@ -1,0 +1,233 @@
+{
+  "BGE_batch_size": 32,
+  "BGE_forward_cap": 9,
+  "BGE_initialization_cap": 2,
+  "BGE_model_revision": "Xenova/bge-small-en-v1.5@ea104dacec62c0de699686887e3f920caeb4f3e3",
+  "BGE_pooling": "CLS_hidden_state_index0_then_L2_normalize_float32",
+  "BGE_quantized_artifact": "onnx/model_quantized.onnx",
+  "BGE_texts_cap": 272,
+  "BGE_token_cap": 256,
+  "BM25_policy": {
+    "b": 0.75,
+    "idf": "log(1+(N-df+.5)/(df+.5))",
+    "k1": 1.5,
+    "query_term_multiplicity": true,
+    "tokenizer": "Unicode\\w+ lowercase"
+  },
+  "CPU_affinity": [
+    0,
+    1
+  ],
+  "GPU_calls_authorized": 0,
+  "KILL_backstop_seconds": 585,
+  "NLI_forwards_authorized": 0,
+  "TERM_backstop_seconds": 580,
+  "ablation_scope": "Native and exactcosine share identical INT8 F32 corpus/query embeddings; BM25 is deterministic lexical comparator on same text inputs. FP32 is never a retrieval arm.",
+  "automatic_retry_authorized": false,
+  "benchmark_generalization_claim": false,
+  "bge_fp32_model": {
+    "bytes": 133093490,
+    "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/models/bge-small-en-v1.5/model.onnx",
+    "sha256": "828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35"
+  },
+  "bge_model": {
+    "bytes": 34014426,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/model-assets/model_quantized.onnx",
+    "sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4"
+  },
+  "bge_tokenizer": {
+    "bytes": 711396,
+    "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/models/bge-small-en-v1.5/tokenizer.json",
+    "sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66"
+  },
+  "calibration_calls_authorized": 0,
+  "candidate_promoted": false,
+  "compute_threads": 2,
+  "corpus_document_count": 128,
+  "engineering_features": {
+    "bytes": 817572,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/epoch57/ENGINEERING_AUTHORED_INPUTS.v1.json",
+    "sha256": "cdfa5cde8246ee0cf1019860e3dea6344a59a8d5976b5f28b29a4cb2b9f15566"
+  },
+  "engineering_gate": {
+    "maximum_projection_seconds": 420,
+    "minimum_speedup": 1.25,
+    "numerical_cosine_floor": 0.97,
+    "projection_safety_factor": 2,
+    "reserve_seconds": 90
+  },
+  "epoch": 57,
+  "epoch_maximum_native_corpus_batches": 2,
+  "failure_policy": "Retain all partial observations/in-flight uncertainty; no retry, reduction, fallback, parameter change or Gold after failure.",
+  "full_benchmark_placement": null,
+  "gold_paths_forbidden_to_worker": [
+    "/tmp/ruvector-sota-2026-10-22/epoch56-parser-ffdd0699f325/assets/scifact-test-qrels.tsv"
+  ],
+  "guard_sources": {
+    "inherited_guards": {
+      "bytes": 4994,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/runtime/epoch56/retrieval/inherited_guards.py",
+      "sha256": "2d3aad4713828a69eba4becbee5fb1c731164638a0000742aaa5bef24376f7dc"
+    },
+    "io_guard": {
+      "bytes": 4849,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/runtime/epoch56/retrieval/io_guard.py",
+      "sha256": "9bcb717c704114f9d9fb69ca6ed1838482e37a8491d81ca1162f54126056c13b"
+    },
+    "search_policy": {
+      "bytes": 3007,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/runtime/epoch56/retrieval/search_policy.py",
+      "sha256": "356f42fc110155bd9340ab35c8ebe69db5b88a907d903dc2eeffaba6a1f0505e"
+    }
+  },
+  "identity_namespace": "RuVector:E57:new-authored-CC0-engineering-v1",
+  "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
+  "latest_scientific_finish_unix": 1793123100,
+  "latest_scientific_start_unix": 1793122500,
+  "launch_environment": {
+    "BLIS_NUM_THREADS": "2",
+    "CUDA_VISIBLE_DEVICES": "",
+    "HF_DATASETS_OFFLINE": "1",
+    "HF_HUB_DISABLE_TELEMETRY": "1",
+    "HF_HUB_OFFLINE": "1",
+    "MKL_DYNAMIC": "FALSE",
+    "MKL_NUM_THREADS": "2",
+    "NUMEXPR_NUM_THREADS": "2",
+    "OMP_NUM_THREADS": "2",
+    "OMP_THREAD_LIMIT": "2",
+    "OPENBLAS_NUM_THREADS": "2",
+    "RAYON_NUM_THREADS": "2",
+    "TOKENIZERS_PARALLELISM": "false",
+    "TRANSFORMERS_OFFLINE": "1",
+    "UV_THREADPOOL_SIZE": "2",
+    "VECLIB_MAXIMUM_THREADS": "2"
+  },
+  "maximum_native_batches": 1,
+  "maximum_outer_seconds": 600,
+  "maximum_worker_deadline_seconds_from_outer_start": 570,
+  "metadata_search_policy": {
+    "archive_access_authorized": false,
+    "entries": [
+      {
+        "canonical_inside_interpreter_base_prefix": true,
+        "canonical_interpreter_base_prefix_sha256": "efcfda75ce54aa587ac394cf331f9042446ffe8552f32d7f6dd68f69674108da",
+        "canonical_path_sha256": "8fcb1aef73cec2f82e7730beb2453fcd293aa21b478eb129a57bf005f18d7b35",
+        "exists": false,
+        "inside_interpreter_base_prefix": true,
+        "is_directory": false,
+        "is_regular": false,
+        "is_symlink": false,
+        "path_is_absolute": true,
+        "path_sha256": "8fcb1aef73cec2f82e7730beb2453fcd293aa21b478eb129a57bf005f18d7b35",
+        "standard_interpreter_zip_basename": true,
+        "suffix": ".zip",
+        "sys_path_index": 1
+      }
+    ],
+    "kind": "REMOVE_EXACT_PROVEN_ABSENT_INTERPRETER_ZIP_SEARCH_ENTRY",
+    "suffix_denies_unchanged": true
+  },
+  "minimum_pre_CLI_shared_cgroup_headroom_bytes": 3221225472,
+  "model_independent_admission_ref": {
+    "bytes": 3067,
+    "path": "/dev/shm/ruvector-e57-audit/INT8_ASSET_ACTUAL_HASH_LICENSE_AND_CLOSED_PROCESS_INDEPENDENT_ADMISSION.v1.json",
+    "sha256": "ea0587e3f2e505fddc70367345fe76b487c305fb517ad28fd68dca9a2d57ed0d"
+  },
+  "model_training_test_nonuse_lineage": "UNQUALIFIED; engineering/previously exposed DEV only; no champion promotion.",
+  "native_accounting_source": {
+    "bytes": 10650,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/runtime/epoch56/retrieval/native_accounting.py",
+    "sha256": "379588fcbe15f9db598c899740c54c280237d1853a3fea6575b72d0898ff21be"
+  },
+  "native_binary": {
+    "bytes": 5403040,
+    "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/retrieval/node_modules/ruvector-core-linux-x64-gnu/ruvector.node",
+    "sha256": "ff559e9fac2e3d29a8b32e890fdb047bcd4bd28f389b4731ad72148b221d5a2e"
+  },
+  "native_bridge_source": {
+    "bytes": 14096,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/runtime/epoch57/native_bridge.py",
+    "sha256": "2a72dc0fb1cde3117a80077fffe3041ee076c175fb49ba88bc14ddb2e62ae0bc"
+  },
+  "native_helper_max_seconds": 60,
+  "native_helper_source": {
+    "bytes": 15631,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/runtime/epoch57/native_helper.cjs",
+    "sha256": "c1f5c2078b38ba7b3dcce368a25b5f926b1da0def4f9c34b0cd533a70a49e77d"
+  },
+  "native_process_timeout_seconds": 85,
+  "native_root": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project",
+  "new_paid_API_calls_authorized": 0,
+  "node": {
+    "bytes": 125989464,
+    "path": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+    "sha256": "bc17c508ffeed0ec622934f9b7fa72f8e78da65350e63c3eceb56fa688aa5e12"
+  },
+  "official_goal_verified": false,
+  "official_rank": null,
+  "owner_ref": {
+    "bytes": 709,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/owner.json",
+    "sha256": "a98d0e355925de7cf2fbe8711dc35afc4c3765e07fe5dfab8bd59f0309f733e5"
+  },
+  "phase": "engineering",
+  "project_root": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project",
+  "python_executable": "/tmp/ruvector-sota-2026-10-22/epoch33-0522a2c521c9/runtime/.venv/bin/python",
+  "qrels_asset_ref": {
+    "bytes": 5389,
+    "path": "/tmp/ruvector-sota-2026-10-22/epoch56-parser-ffdd0699f325/assets/scifact-test-qrels.tsv",
+    "sha256": "0864bb985e0ca2367ba217977e72004d549054b2b06666ed9d4825ac7c21284c"
+  },
+  "query_count": 16,
+  "ranking_ties": "Exactcosine/BM25 descending score then docID lexical; native only returned adjacent exactequal-score groups docIDlex, outside-top10 cutoff ties unverified.",
+  "roles": {
+    "authored_engineering_corpus": 128,
+    "authored_engineering_queries": 16,
+    "calibration": [],
+    "development": [],
+    "fresh_confirmation": [],
+    "train": []
+  },
+  "runtime_versions": {
+    "numpy": "2.2.6",
+    "onnxruntime": "1.22.1",
+    "tokenizers": "0.21.4"
+  },
+  "schema_version": 1,
+  "selected_query_ids": [
+    "E57-Q00",
+    "E57-Q01",
+    "E57-Q02",
+    "E57-Q03",
+    "E57-Q04",
+    "E57-Q05",
+    "E57-Q06",
+    "E57-Q07",
+    "E57-Q08",
+    "E57-Q09",
+    "E57-Q10",
+    "E57-Q11",
+    "E57-Q12",
+    "E57-Q13",
+    "E57-Q14",
+    "E57-Q15"
+  ],
+  "source_checkpoint": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+  "source_freeze_path": "experiments/sota-2026-10-22/epoch57/SOURCE_FREEZE.json",
+  "supervisor_source": {
+    "bytes": 20954,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/runtime/epoch57/supervisor.py",
+    "sha256": "6c771f65bbd915af08c2398ba91519e95b345799ab752f5d07cdcba90a6745d2"
+  },
+  "throughput_measurement_policy": "OneFP32init+4full32corpusforwards128texts then sessionclose; oneINT8init+4full32samecorpusforwards128texts+separate16queryforward; no warmups. All original input token counts>=256, tensors exactly256. Projection is engineering estimate only, never proof of fullpilot runtime.",
+  "top_k": 10,
+  "training_calls_authorized": 0,
+  "typed_model_initializations_authorized": 0,
+  "used_confirmation_identities": [],
+  "work_root": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada",
+  "worker_source": {
+    "bytes": 4470,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/runtime/epoch57/engineering_worker.py",
+    "sha256": "a56067f176e1ac5e2f31db2af8b4873217ed07dc0d802df7e87e887f5e4f823d"
+  }
+}

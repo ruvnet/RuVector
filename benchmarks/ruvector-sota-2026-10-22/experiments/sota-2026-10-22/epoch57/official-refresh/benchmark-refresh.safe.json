@@ -1,0 +1,259 @@
+{
+  "ClaimBench": {
+    "RuVector_in_aggregate": false,
+    "RuVector_score": null,
+    "access_candidate_links_on_current_page_not_followed": [],
+    "aggregate_URL_verified_from_current_official_page": true,
+    "aggregate_bytes_equal_epoch56": true,
+    "decision_leader": {
+      "accuracy_percent": 100.0,
+      "model": "decision/d1-ultra"
+    },
+    "decision_runner_up": {
+      "accuracy_percent": 99.694,
+      "model": "decision/decider-v1.2"
+    },
+    "full_dataset_scorer_license_submission_access": "UNVERIFIED. Public examples, metadata and aggregate JSON do not establish full labelled cases, exact scorer, redistribution licence or submission access.",
+    "historical_access_probes_repeated": false,
+    "language_models_at100": [
+      {
+        "accuracy_percent": 100.0,
+        "model": "anthropic/claude-sonnet-5-5"
+      },
+      {
+        "accuracy_percent": 100.0,
+        "model": "anthropic/claude-haiku-5-5"
+      },
+      {
+        "accuracy_percent": 100.0,
+        "model": "anthropic/claude-opus-5-5"
+      },
+      {
+        "accuracy_percent": 100.0,
+        "model": "openai/gpt-6.1-sol"
+      }
+    ],
+    "official_aggregate": {
+      "TLS_verification_enabled": true,
+      "bytes": 91270,
+      "content_type": "application/json; charset=utf-8",
+      "etag": "\"ece282be7430e6a6375a4ef05a8327b4\"",
+      "final_url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json",
+      "last_modified": "Tue, 27 Oct 2026 10:55:35 GMT",
+      "raw_body_persisted": false,
+      "read_cap_bytes": 2097152,
+      "request_started_at": "2026-10-27T16:50:12.697754+00:00",
+      "retrieved_at": "2026-10-27T16:50:13.155967+00:00",
+      "sha256": "6aa89f0db85e2bdc765ff8d942de0d491dd37f2f2e635bb4a95b0f92746fc6d3",
+      "status": 200,
+      "url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json"
+    },
+    "pilot_executed": false,
+    "publisher_metadata_dataset_type": "public",
+    "publisher_updated": "2026-10-23",
+    "publisher_version": "1",
+    "retrieval_scope": "ONLY supplied 10-K excerpts. A retrieval miss cannot establish insufficient evidence or NEI.",
+    "source": {
+      "TLS_verification_enabled": true,
+      "bytes": 267188,
+      "content_type": "text/html; charset=utf-8",
+      "etag": "\"00889c18e703b87c1c12219c4b64fab2\"",
+      "final_url": "https://www.vals.ai/benchmarks/claimbench",
+      "last_modified": "Tue, 27 Oct 2026 10:55:34 GMT",
+      "raw_body_persisted": false,
+      "read_cap_bytes": 2097152,
+      "request_started_at": "2026-10-27T16:50:12.263085+00:00",
+      "retrieved_at": "2026-10-27T16:50:12.676369+00:00",
+      "sha256": "2a3bb2141ba79416efe3bd841b4123cd2d0c030a2d83a7f2595bcdf89b097b7b",
+      "status": 200,
+      "url": "https://www.vals.ai/benchmarks/claimbench"
+    },
+    "source_bytes_equal_epoch56": true,
+    "total_models": 25,
+    "verified_dataset_access_scope": "Current official public page examples and linked aggregate only."
+  },
+  "Claim_deadline_scope": "urllib45s is a socket-I/O timeout. The once-executed foreground command used external100s TERM+2s KILL supervision and exited0; no retry or background process.",
+  "Claim_pilot_authorized_or_executed": false,
+  "JevBench": {
+    "RuVector_page_text_matches": 0,
+    "all_capability_rows_sha256": "84efd265ee86ffd332240e378e6ed0a4afd7348fc225bbd3a8c983acaed08e37",
+    "board_updated": "2026-10-26",
+    "board_version": "v1.7.48",
+    "current_questions_scorer_license_access": "UNVERIFIED. Parsed aggregate board does not establish exact labelled current300 questions/scorer, redistribution licence, sealed full-set access or submission eligibility.",
+    "first_official_capability_rows": [
+      {
+        "Capability": 84.339,
+        "model_id": "h2o-lightning-31b"
+      },
+      {
+        "Capability": 82.132,
+        "model_id": "basal-omni-1.0-ultra"
+      },
+      {
+        "Capability": 82.034,
+        "model_id": "dopest-1.0-31b"
+      }
+    ],
+    "historical_access_probes_repeated": false,
+    "leader_equals_last_verified_epoch56": true,
+    "method_header": "10 s rule",
+    "method_revision": "v1.7",
+    "official_RuVector_eligibility": "UNVERIFIED",
+    "official_RuVector_rank": null,
+    "official_RuVector_score": null,
+    "open_weights_Capability_leader": {
+      "Capability": 84.339,
+      "model": "H2O-Lightning-31B v1.0.7",
+      "model_id": "h2o-lightning-31b"
+    },
+    "ranked_open_weights_systems": 232,
+    "source": {
+      "Content_Length": "21098331",
+      "TLS_verification_enabled": true,
+      "bytes": 21098331,
+      "deadline_seconds": 30.0,
+      "final_url": "https://benchmarkheaven.com/jev-models",
+      "raw_body_persisted": false,
+      "read_cap_bytes": 67108864,
+      "retrieved_at": "2026-10-27T16:49:42.061314+00:00",
+      "sha256": "ef586534b09a486e4b9d0cd6da32f2eafdcf83348ff74d8b7a7f7555ce087fd4",
+      "status": 200,
+      "url": "https://benchmarkheaven.com/jev-models",
+      "wall_seconds": 8.540993224014528
+    },
+    "stream_result_ref": {
+      "bytes": 2397,
+      "path": "/dev/shm/ruvector-e57-data/official-refresh/JEV_STREAM_RESULT.actual.v1.json",
+      "sha256": "1c493f1cc42669df10f60ac277929fa882e8f4e1375c84acbca7f2c00408b551"
+    },
+    "submission_reference_page_matches": 0,
+    "verified_capability_rows_count": 238
+  },
+  "TLS_verification_enabled": true,
+  "actual_public_command_receipts": [
+    {
+      "bytes": 1108,
+      "path": "/dev/shm/ruvector-e57-data/official-refresh/JEV_ROOT_EXECUTION.actual.v1.json",
+      "sha256": "0d80624d77c655bbc768ecfa43ad538b99623b2f0247baa5740de3a2cf52870e"
+    },
+    {
+      "bytes": 974,
+      "path": "/dev/shm/ruvector-e57-data/official-refresh/CLAIM_ROOT_EXECUTION.actual.v1.json",
+      "sha256": "feeaf86c07564fe6852f3b26828dbb10893e7be06efaa203c0a16c5a26cf04a0"
+    }
+  ],
+  "actual_request_breakdown": {
+    "Claim_linked_aggregate_GETs": 1,
+    "Claim_page_GETs": 1,
+    "Jev_bounded_stream_GETs": 1,
+    "redirect_retry_alternate_endpoint_GETs": 0
+  },
+  "champion_promoted": false,
+  "created_at": "2026-10-27T16:58:58.585672+00:00",
+  "direct_public_GETs": 3,
+  "epoch": 57,
+  "inherited_proxy_preserved": true,
+  "kind": "FRESH_OFFICIAL_JEV_CLAIM_AND_SCOPED_PUBLISHER_METADATA_REFRESH",
+  "known_unchanged_access_limits": [
+    "Current Jev300 labelled public questions/scorer/licence and sealed publisher protocol remain unverified; the official board is aggregate evidence only.",
+    "Two profile-verified configured accounts received one exact7FEA2738 metadata query each. Receipt-class and date metadata are scoped observations only; bodies and message identity were not checked. This cannot establish global result absence, an official score/rank/eligibility or current queue progress. Historical115 is an evaluation queue position, never rank.",
+    "Claim public examples and official aggregate do not verify complete cases, exact scorer, case redistribution licence or submission access. No RuVector ClaimBench score exists.",
+    "Exact model checkpoint TEST-nonuse provenance remains unqualified; no repeated probe or author contact."
+  ],
+  "meaningful_verified_official_result_or_leader_change": false,
+  "model_native_DATA_Gold_or_paid_GPU_calls": 0,
+  "new_verified_full_dataset_or_scorer_access": false,
+  "official_goal_verified": false,
+  "official_rank": null,
+  "outgoing_messages_submissions_author_contacts": 0,
+  "private_mail_selectors_identifiers_addresses_headers_body_or_snippet_files_persisted": false,
+  "project_or_Git_mutations": 0,
+  "publisher_metadata_reads": {
+    "body_thread_attachment_reads": 0,
+    "configured_account_profiles": 2,
+    "exact_reference_searches": 2,
+    "snippets_inspected": 0
+  },
+  "publisher_scope_expanded_before_reads": true,
+  "publisher_scope_expansion_reason": "The original private account selector was intentionally absent from public checkpoint artifacts. Root authorized both configured profiles and one exact-reference metadata query each before any calls. No personal-status inference from domain, no alternate-reference or unbounded account search.",
+  "publisher_status": {
+    "account_personal_status_inferred_from_domain": false,
+    "body_messageID_match_to_original_receipt_verified": false,
+    "body_thread_attachment_reads": 0,
+    "checked_at": "2026-10-27T16:52:12.654Z",
+    "configured_account_profile_reads": 2,
+    "configured_accounts_covered": 2,
+    "configured_profile_identities_verified": 2,
+    "coverage_other_accounts_or_channels_verified": false,
+    "covered_accounts_with_matching_messages": 1,
+    "current_queue_progress": "UNVERIFIED",
+    "date_metadata_scope": "Only email_ts metadata was consumed; date-only values retained when valid. No raw headers, addresses, message IDs, snippets, body or thread content was read or persisted.",
+    "eligibility_confirmed": false,
+    "epoch": 57,
+    "exact_reference_searches": 2,
+    "has_more_results": false,
+    "historical_regular_evaluation_queue_position": 115,
+    "matching_message_date_metadata_verified": true,
+    "matching_message_dates": [
+      "2026-10-22"
+    ],
+    "matching_messages": 1,
+    "messages_read": 0,
+    "metadata_schema_recognized_for_all_covered_accounts": true,
+    "metadata_subject_candidate_result_score_rank_or_eligibility_count": 0,
+    "metadata_subject_receipt_or_submission_classification_count": 1,
+    "new_verified_publisher_result_found": false,
+    "official_rank": null,
+    "official_score": null,
+    "original_acknowledgement_metadata_consistent": true,
+    "original_private_account_selector_recovered": false,
+    "outgoing_messages_or_submissions": 0,
+    "private_selector_identifiers_addresses_subject_headers_body_snippet_files_persisted": false,
+    "queue_scope": "Historical acknowledgement evaluation queue position; never rank. Current position/progress unverified.",
+    "read_scope": "Aggregate subject-class and date metadata only across the two configured accounts; this cannot establish global result absence or an official score/rank/eligibility.",
+    "reference": "7FEA2738",
+    "schema_version": 1,
+    "snippets_inspected": 0,
+    "source_kind": "One exact connected Gmail metadata search on each of two profile-verified configured accounts; Root explicitly expanded read-only coverage before calls because the original private selector is not recoverable from public artifacts."
+  },
+  "raw_public_bodies_persisted": false,
+  "schema_version": 1,
+  "source_checkpoint": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+  "source_receipts": [
+    {
+      "TLS_verification_enabled": true,
+      "bytes": 267188,
+      "content_type": "text/html; charset=utf-8",
+      "etag": "\"00889c18e703b87c1c12219c4b64fab2\"",
+      "final_url": "https://www.vals.ai/benchmarks/claimbench",
+      "last_modified": "Tue, 27 Oct 2026 10:55:34 GMT",
+      "raw_body_persisted": false,
+      "read_cap_bytes": 2097152,
+      "request_started_at": "2026-10-27T16:50:12.263085+00:00",
+      "retrieved_at": "2026-10-27T16:50:12.676369+00:00",
+      "sha256": "2a3bb2141ba79416efe3bd841b4123cd2d0c030a2d83a7f2595bcdf89b097b7b",
+      "status": 200,
+      "url": "https://www.vals.ai/benchmarks/claimbench"
+    },
+    {
+      "TLS_verification_enabled": true,
+      "bytes": 91270,
+      "content_type": "application/json; charset=utf-8",
+      "etag": "\"ece282be7430e6a6375a4ef05a8327b4\"",
+      "final_url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json",
+      "last_modified": "Tue, 27 Oct 2026 10:55:35 GMT",
+      "raw_body_persisted": false,
+      "read_cap_bytes": 2097152,
+      "request_started_at": "2026-10-27T16:50:12.697754+00:00",
+      "retrieved_at": "2026-10-27T16:50:13.155967+00:00",
+      "sha256": "6aa89f0db85e2bdc765ff8d942de0d491dd37f2f2e635bb4a95b0f92746fc6d3",
+      "status": 200,
+      "url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json"
+    }
+  ],
+  "unchanged_qualification_not_retested": {
+    "FinNLI": "Official paper data/license requires author-mediated access; no contact or repeated access probes.",
+    "FinQA": "Program task/source-rights/model-nonuse holds remain; exposed README case/page/filing identities remain DEV forever.",
+    "ModernBERT": "Exact training/test nonuse unverified; no repeated model-card probes or weights."
+  }
+}

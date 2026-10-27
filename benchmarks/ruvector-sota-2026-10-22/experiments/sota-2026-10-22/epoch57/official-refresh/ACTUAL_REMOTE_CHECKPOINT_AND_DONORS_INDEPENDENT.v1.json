@@ -1,0 +1,139 @@
+{
+  "CP_bytes": 562104335,
+  "CP_rows": 8962,
+  "E56_source_manifest_and_epoch_manifest_full_closure_verified": true,
+  "Git_leaves": 8969,
+  "actual_commit": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+  "all_Git_and_CP_physical_donors_full_hash_verified": true,
+  "bootstrap_and_restore_fresh_remote_bytes_unchanged": true,
+  "champion": "SubmittedNative104/RRF10 unchanged",
+  "checks_passed": true,
+  "direct_fresh_critical_bodies": [
+    {
+      "bytes": 5601,
+      "path": "bootstrap.py",
+      "sha256": "eceb2ca259feaf642bc81172aca57a2a209cc34cd17f9b281861c51f21b95806"
+    },
+    {
+      "bytes": 1556,
+      "path": "restore_checkpoint.py",
+      "sha256": "affd9ecf660f380c3632f78cd14fb7a36e00797ceb097cf48c0c60136fac0be8"
+    },
+    {
+      "bytes": 14753,
+      "path": "experiments/sota-2026-10-22/epoch56/plan.json",
+      "sha256": "0d2e93b16520353de2eece63a5c88b07d757fc447985b426b548d3b8b7b65e01"
+    },
+    {
+      "bytes": 29698,
+      "path": "experiments/sota-2026-10-22/epoch56/SOURCE_FREEZE.json",
+      "sha256": "cb06539e8fc4e46b8415504970238b363af087eafd8b6d69d06417519af381cc"
+    },
+    {
+      "bytes": 37324,
+      "path": "experiments/sota-2026-10-22/epoch56/EPOCH_MANIFEST.json",
+      "sha256": "b6889e0bb8fa05fc9e023794d97a8bddbabec62df152850bb91ec7c88367c6eb"
+    },
+    {
+      "bytes": 17359,
+      "path": "experiments/sota-2026-10-22/epoch56/RESULTS.json",
+      "sha256": "57ba1cfd06ddb39e1a751a0fd7695b101f6a29b6afa114cf32147392fd88274c"
+    },
+    {
+      "bytes": 255197,
+      "path": "experiments/sota-2026-10-22/epoch56/REJECTION_LEDGER.json",
+      "sha256": "51e774e36593bcaf621c5a2f6c86bb1fa6fc046287450289b59e3e71db9027e8"
+    },
+    {
+      "bytes": 12083,
+      "path": "experiments/sota-2026-10-22/epoch56/USED_IDENTITIES.json",
+      "sha256": "aaf27b485e78377ad7a70b2f9006a38be6e15210c44f81f1c19039f2cb180b1b"
+    },
+    {
+      "bytes": 12141,
+      "path": "experiments/sota-2026-10-22/epoch56/USED_CONFIRMATION.json",
+      "sha256": "04be0d236e0d8b9f93ac7c0fe6cce15b7e1a6bb5049eadb246395c7b86617501"
+    },
+    {
+      "bytes": 11415,
+      "path": "experiments/sota-2026-10-22/epoch56/LEARNINGS.json",
+      "sha256": "84f4023ea3894053b4a239667cc36349c0f9d085973c9661102250c51ea96711"
+    },
+    {
+      "bytes": 3673,
+      "path": "experiments/sota-2026-10-22/epoch56/MASTER_PROTOCOL.v1.json",
+      "sha256": "3a59e92923f742d74a0f34e11d7a787e72b1c86496a2a4128e28d305af0258b8"
+    },
+    {
+      "bytes": 10755,
+      "path": "experiments/sota-2026-10-22/audit/epoch56/independent/ENGINEERING_ACTUAL_ACCEPTANCE_INDEPENDENT.v1.json",
+      "sha256": "00d415d0444a1d6a5076f592c374fbf1ad6da5d754792f7b8b7d5a606ab6b374"
+    },
+    {
+      "bytes": 4262,
+      "path": "experiments/sota-2026-10-22/audit/epoch56/retrieval/independent/RETRIEVAL_ACTUAL_ACCEPTANCE_INDEPENDENT.v1.json",
+      "sha256": "3f80cf39437c0860fea7ed924ff7dda6921069be93585873ded22d660006bb05"
+    },
+    {
+      "bytes": 4165,
+      "path": "experiments/sota-2026-10-22/epoch56/retrieval/runs/rejected-partial-results.json",
+      "sha256": "eee359bd24ac0c707ea31c05a0edb2c7293b909fed52a833308c4f61adad72e6"
+    },
+    {
+      "bytes": 10524,
+      "path": "experiments/sota-2026-10-22/epoch56/retrieval/plan.json",
+      "sha256": "8ab6a499cc5ea6ea57e899d47ffbf99c89e84f72cdb249cc59b8c67d66791886"
+    },
+    {
+      "bytes": 10975,
+      "path": "experiments/sota-2026-10-22/epoch56/official-refresh/benchmark-refresh.safe.json",
+      "sha256": "dc3aa9ff96ad0e88357ccb41c75d13637326eece04287af4b823ab365a6cc1f4"
+    },
+    {
+      "bytes": 10650,
+      "path": "experiments/sota-2026-10-22/runtime/epoch56/native_accounting.py",
+      "sha256": "379588fcbe15f9db598c899740c54c280237d1853a3fea6575b72d0898ff21be"
+    },
+    {
+      "bytes": 4945,
+      "path": "experiments/sota-2026-10-22/epoch56/preparation/reconstruct_sources.py",
+      "sha256": "8831d9e07646549c7355c7b710a5c39bf438fd72ec54b5ccad3a8122b9640b06"
+    },
+    {
+      "bytes": 2576,
+      "path": "experiments/sota-2026-10-22/epoch56/preparation/SOURCE_RESTORATION_COMPLETE.v1.json",
+      "sha256": "944542796a9958e60475391c303c67c5098dfe3d5788f24ca8b1beedeb65b7dd"
+    },
+    {
+      "bytes": 20229,
+      "path": "experiments/sota-2026-10-22/epoch56/publication/guard.py",
+      "sha256": "c9aaafc848f5dfa6518ef4788f110a21c927a2386095f8687fcc1b85bb683800"
+    }
+  ],
+  "epoch": 57,
+  "forbidden_Git_objects": [
+    "3d5a61f9068acf2dabd2ae5c6bd531d9a9b464c5",
+    "486888de9602bbb5d817a55f707b4fcfd11c65e0",
+    "a68b7ba587332f176f65d0348de3e910aa16e77a"
+  ],
+  "goal_met": false,
+  "main_unchanged": "c44d7337c0c5ad2ecd2294178475387facb96516",
+  "new_model_DATA_payload_Gold_native_Git_mutations": 0,
+  "no_forbidden_Git_object_queried_recreated_or_live_referenced": true,
+  "official_rank": null,
+  "original_blob5_execution": "UNKNOWN_PERMANENTLY",
+  "recursive_Merkle_entries": 9885,
+  "review_source": {
+    "bytes": 6780,
+    "path": "/dev/shm/ruvector-e57-data/verify_initial_readback.py",
+    "sha256": "113290c7a2fc209dc9d2742a192841907b62cc46dca46d88e831063ad8da160f"
+  },
+  "schema_version": 1,
+  "scope_history_latest_commit_is_E56_final_no_newer_scope_continuation": true,
+  "scope_history_ref": {
+    "bytes": 2979,
+    "path": "/dev/shm/ruvector-e57-data/readback/scope_history.raw.json",
+    "sha256": "bc3a9852442938cbab04d1f0c45be17e35ebdc7b3b097dd39ce806cfff2af7ae"
+  },
+  "sole_parent": "60dfc923eee70bfd319489e30afdbd8d2a3bc035"
+}

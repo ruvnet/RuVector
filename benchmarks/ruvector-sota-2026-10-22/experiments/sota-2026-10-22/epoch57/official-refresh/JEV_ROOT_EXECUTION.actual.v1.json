@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "epoch": 57,
+  "kind": "ONE_BOUNDED_JEV_FOREGROUND_COMMAND",
+  "command_scope": "taskset -c 0,1 python -I -B refresh_jev_stream.py",
+  "actual_invocations": 1,
+  "tool_return": {
+    "chunk_id": "a04455",
+    "wall_time_seconds": 8.452095485,
+    "exit_code": 0,
+    "original_token_count": 115,
+    "output": "{\"result\": {\"path\": \"/dev/shm/ruvector-e57-data/official-refresh/JEV_STREAM_RESULT.actual.v1.json\", \"bytes\": 2397, \"sha256\": \"1c493f1cc42669df10f60ac277929fa882e8f4e1375c84acbca7f2c00408b551\"}, \"status\": \"FRESH_OFFICIAL_JEV_STREAM_COMPLETE\", \"bytes_streamed\": 21098331, \"Content_Length\": \"21098331\", \"wall_seconds\": 8.540993224014528, \"leader\": {\"model\": \"H2O-Lightning-31B v1.0.7\", \"model_id\": \"h2o-lightning-31b\", \"Capability\": 84.339}, \"error_code\": null}\n"
+  },
+  "foreground_command_closed_observation": true,
+  "closure_scope": "tools.exec_command returned exit_code0 and no live session; source creates no background child process.",
+  "new_model_native_Gold_paid_GPU_or_Git_calls": 0,
+  "raw_public_body_retained": false
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "epoch": 57,
+  "kind": "ONE_BOUNDED_CLAIM_FOREGROUND_COMMAND",
+  "command_scope": "timeout -s TERM -k 2s 100s taskset -c 0,1 python -I -B refresh_claim_only.py",
+  "actual_invocations": 1,
+  "tool_return": {
+    "chunk_id": "65f7f0",
+    "wall_time_seconds": 0.805339964,
+    "exit_code": 0,
+    "original_token_count": 78,
+    "output": "{\"decision_leader\": {\"model\": \"decision/d1-ultra\", \"accuracy_percent\": 100.0}, \"decision_runner_up\": {\"model\": \"decision/decider-v1.2\", \"accuracy_percent\": 99.694}, \"source_bytes_equal_epoch56\": true, \"aggregate_bytes_equal_epoch56\": true, \"actual_claim_GETs\": 2, \"total_official_GETs_including_Jev_stream\": 3}\n"
+  },
+  "foreground_command_closed_observation": true,
+  "closure_scope": "tools.exec_command returned exit_code0 and no live session; source creates no background child process.",
+  "new_model_native_Gold_paid_GPU_or_Git_calls": 0,
+  "raw_public_body_retained": false
+}

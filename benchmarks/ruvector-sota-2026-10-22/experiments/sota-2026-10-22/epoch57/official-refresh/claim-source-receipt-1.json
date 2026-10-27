@@ -1,0 +1,15 @@
+{
+  "TLS_verification_enabled": true,
+  "bytes": 267188,
+  "content_type": "text/html; charset=utf-8",
+  "etag": "\"00889c18e703b87c1c12219c4b64fab2\"",
+  "final_url": "https://www.vals.ai/benchmarks/claimbench",
+  "last_modified": "Tue, 27 Oct 2026 10:55:34 GMT",
+  "raw_body_persisted": false,
+  "read_cap_bytes": 2097152,
+  "request_started_at": "2026-10-27T16:50:12.263085+00:00",
+  "retrieved_at": "2026-10-27T16:50:12.676369+00:00",
+  "sha256": "2a3bb2141ba79416efe3bd841b4123cd2d0c030a2d83a7f2595bcdf89b097b7b",
+  "status": 200,
+  "url": "https://www.vals.ai/benchmarks/claimbench"
+}

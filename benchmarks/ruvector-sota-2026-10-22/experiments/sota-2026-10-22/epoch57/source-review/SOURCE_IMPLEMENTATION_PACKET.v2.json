@@ -1,0 +1,339 @@
+{
+  "Root_actual_asset_independent_admission": {
+    "bytes": 3067,
+    "path": "/dev/shm/ruvector-e57-audit/INT8_ASSET_ACTUAL_HASH_LICENSE_AND_CLOSED_PROCESS_INDEPENDENT_ADMISSION.v1.json",
+    "sha256": "ea0587e3f2e505fddc70367345fe76b487c305fb517ad28fd68dca9a2d57ed0d"
+  },
+  "Root_owns": [
+    "One actual candidateasset GET and actual independent licence/hash admission.",
+    "Copy reviewedsource byte-identically to listed targets, create BOTH plans once before first SCI, build+publish SOURCE withCAS/fullreadback.",
+    "Late independent dispatch admission, Rootone-shot CLI, actuals600cap/2CPU/max2nativebatch/zero paidGPU.",
+    "Independent engineering acceptance with actual_results_ref then optionalsamecandidatefullpilot.",
+    "Singlelazyselected16Gold onlyafterfull48forecastseal+indphysicalclosure; noGoldifpartial orfailedgate.",
+    "Reviewpublicsource/results, immutable epochmanifest, rejectionledger, USED DEVidentities andpublication."
+  ],
+  "actual_engineering_result_report_contract": [
+    "epoch",
+    "kind",
+    "phase",
+    "status",
+    "reason",
+    "independent_review_complete",
+    "all_owned_processes_closed",
+    "engineering_qualified",
+    "throughput_gate_passed",
+    "actual_execution_independently_derived",
+    "native_counter_accounting",
+    "latency_and_resources",
+    "throughput_measurements",
+    "actual_results_ref"
+  ],
+  "actual_root_acquisition_status": "One closed Root opaqueGET exactmodelSHA independently admitted forlocalresearch, no redistribution andlineage caveats; no inference authorized by this metadata fact.",
+  "benchmark_generalization_claim": false,
+  "candidate_count": 1,
+  "champion_changed": false,
+  "confirmation_identities": [],
+  "epoch": 57,
+  "files": [
+    {
+      "bytes": 26633,
+      "path": "/dev/shm/ruvector-e57-candidate/worker_impl/runtime_common.py",
+      "sha256": "ecf687ff68bea0c33b50fe50fc912f55162990add597d45b8eb07adcc8c71468",
+      "target": "experiments/sota-2026-10-22/runtime/epoch57/runtime_common.py"
+    },
+    {
+      "bytes": 4470,
+      "path": "/dev/shm/ruvector-e57-candidate/worker_impl/engineering_worker.py",
+      "sha256": "a56067f176e1ac5e2f31db2af8b4873217ed07dc0d802df7e87e887f5e4f823d",
+      "target": "experiments/sota-2026-10-22/runtime/epoch57/engineering_worker.py"
+    },
+    {
+      "bytes": 2810,
+      "path": "/dev/shm/ruvector-e57-candidate/worker_impl/pilot_worker.py",
+      "sha256": "af4f5f0ef1d56c3fab1f33d8aa95393551e7059ea6a5d61aca257b5207fd7b54",
+      "target": "experiments/sota-2026-10-22/runtime/epoch57/pilot_worker.py"
+    },
+    {
+      "bytes": 14096,
+      "path": "/dev/shm/ruvector-e57-candidate/native_impl/native_bridge.py",
+      "sha256": "2a72dc0fb1cde3117a80077fffe3041ee076c175fb49ba88bc14ddb2e62ae0bc",
+      "target": "experiments/sota-2026-10-22/runtime/epoch57/native_bridge.py"
+    },
+    {
+      "bytes": 15631,
+      "path": "/dev/shm/ruvector-e57-candidate/native_impl/native_helper.cjs",
+      "sha256": "c1f5c2078b38ba7b3dcce368a25b5f926b1da0def4f9c34b0cd533a70a49e77d",
+      "target": "experiments/sota-2026-10-22/runtime/epoch57/native_helper.cjs"
+    },
+    {
+      "bytes": 20954,
+      "path": "/dev/shm/ruvector-e57-candidate/supervisor.py",
+      "sha256": "6c771f65bbd915af08c2398ba91519e95b345799ab752f5d07cdcba90a6745d2",
+      "target": "experiments/sota-2026-10-22/runtime/epoch57/supervisor.py"
+    },
+    {
+      "bytes": 4272,
+      "path": "/dev/shm/ruvector-e57-candidate/run_cli_once.py",
+      "sha256": "65a0c86ab78f3586eb0b47c83dca652f4dbbad570742d74f091b3efea4a65705",
+      "target": "experiments/sota-2026-10-22/runtime/epoch57/run_cli_once.py"
+    },
+    {
+      "bytes": 10244,
+      "path": "/dev/shm/ruvector-e57-candidate/score_sealed_retrieval.py",
+      "sha256": "c99fd4eac6192c16e4b7d7e5109888e1f0585d8ecf4b638016a36161a395429b",
+      "target": "experiments/sota-2026-10-22/runtime/epoch57/score_sealed_retrieval.py"
+    },
+    {
+      "bytes": 11448,
+      "path": "/dev/shm/ruvector-e57-candidate/worker_impl/test_runtime_inert.py",
+      "sha256": "03a65bdf09f5a78cb8990a3478e0a99ff5c87e5032bb77bcf28c14b5eea64e86",
+      "target": "experiments/sota-2026-10-22/runtime/epoch57/test_runtime_inert.py"
+    },
+    {
+      "bytes": 9564,
+      "path": "/dev/shm/ruvector-e57-candidate/native_impl/test_native_inert.py",
+      "sha256": "7af2e083849d7dd4495c6f6821785c9ae6581000431bd8af56ec4bf2a680a332",
+      "target": "experiments/sota-2026-10-22/runtime/epoch57/test_native_inert.py"
+    },
+    {
+      "bytes": 11330,
+      "path": "/dev/shm/ruvector-e57-candidate/test_scorer_inert.py",
+      "sha256": "e1a58996301a0557f67f5cb516b84b696dbc71268ef76e925292737fa87cb82c",
+      "target": "experiments/sota-2026-10-22/runtime/epoch57/test_scorer_inert.py"
+    },
+    {
+      "bytes": 8269,
+      "path": "/dev/shm/ruvector-e57-candidate/build_plans.py",
+      "sha256": "54562382cad14a992af4910ee34f1cae9de35be33d9af9f14e09eb903676a122",
+      "target": "experiments/sota-2026-10-22/epoch57/preparation/build_plans.py"
+    },
+    {
+      "bytes": 4235,
+      "path": "/dev/shm/ruvector-e57-candidate/worker_impl/WORKER_INERT_REPORT.v3.json",
+      "sha256": "ef95ad0ab3fa72a4fea87f97fe4fe99505b9d0dc1313af9e0fadb5ca4d39af21",
+      "target": "experiments/sota-2026-10-22/epoch57/source-review/WORKER_INERT_REPORT.v3.json"
+    },
+    {
+      "bytes": 817572,
+      "path": "/dev/shm/ruvector-e57-candidate/ENGINEERING_AUTHORED_INPUTS.v1.json",
+      "sha256": "cdfa5cde8246ee0cf1019860e3dea6344a59a8d5976b5f28b29a4cb2b9f15566",
+      "target": "experiments/sota-2026-10-22/epoch57/ENGINEERING_AUTHORED_INPUTS.v1.json"
+    },
+    {
+      "bytes": 3879,
+      "path": "/dev/shm/ruvector-e57-candidate/BGE_EXACT_REVISION_API.json",
+      "sha256": "8a51c5ad48c28a626e576d4962523fc3da3fb842612517ee6147393c5052b42b",
+      "target": "experiments/sota-2026-10-22/epoch57/model-source/BGE_EXACT_REVISION_API.json"
+    },
+    {
+      "bytes": 3134,
+      "path": "/dev/shm/ruvector-e57-candidate/BGE_EXACT_REVISION_README.md",
+      "sha256": "ce711ead2cb11725c9c6de69779d918c500ab12c74c5c2437ff0c448ed1566a5",
+      "target": "experiments/sota-2026-10-22/epoch57/model-source/BGE_EXACT_REVISION_README.md"
+    },
+    {
+      "bytes": 674,
+      "path": "/dev/shm/ruvector-e57-candidate/BGE_EXACT_REVISION_QUANTIZE_CONFIG.json",
+      "sha256": "0e60fbafb996a0ff2656cf0e41c13fdf81c8f21faf564840c3b9d478c6e78479",
+      "target": "experiments/sota-2026-10-22/epoch57/model-source/BGE_EXACT_REVISION_QUANTIZE_CONFIG.json"
+    },
+    {
+      "bytes": 150339,
+      "path": "/dev/shm/ruvector-e57-candidate/BGE_UPSTREAM_OFFICIAL_API.json",
+      "sha256": "fff3a75a8c6f990e481b376d7f42a8144131a7414e059d9eff185588a0e9b270",
+      "target": "experiments/sota-2026-10-22/epoch57/model-source/BGE_UPSTREAM_OFFICIAL_API.json"
+    },
+    {
+      "bytes": 94783,
+      "path": "/dev/shm/ruvector-e57-candidate/BGE_UPSTREAM_EXACT_REVISION_README.md",
+      "sha256": "ddb964361a55c6e5dfca6361615854b260c9c960205d04c7520151aaa1d75837",
+      "target": "experiments/sota-2026-10-22/epoch57/model-source/BGE_UPSTREAM_EXACT_REVISION_README.md"
+    },
+    {
+      "bytes": 9814,
+      "path": "/dev/shm/ruvector-e57-candidate/MODEL_SOURCE_QUALIFICATION_AND_ASSET_PLAN.v2.json",
+      "sha256": "6fdcef0548ebfa3ba4226409618e31263470e1cf4bcb1df6a47ecc90c76eb81a",
+      "target": "experiments/sota-2026-10-22/epoch57/model-source/MODEL_SOURCE_QUALIFICATION_AND_ASSET_PLAN.v2.json"
+    }
+  ],
+  "implementation_actual_model_native_benchmark_Gold_calls": 0,
+  "independent_actual_report_scope": "Workernevermarksindependent_review_complete orengineering_qualifiedtrue; Qownsboth after actualraw/closures. actual_results_ref iscanonicalrelativeR3ref andpilotfencecrossbindsthis to exactengineeringplan/SOURCE/localgate/nativepass.",
+  "inert_tests_observed": {
+    "Gold18": "Implementationagentexecuted authoredtoy18 tests .016s againstE57c99scorer; onlyfreshroot/epoch/owner changed vsreviewedE56a432; nobenchmarklabels/model/native. BASE is the test file directory so published co-located source tests do not depend on candidate scratch.",
+    "native10": "Childexecuted authoredtoy10 tests afterzero/shortprogresswrite correction; exactraweventgeometry N+37/14keys unchanged, noactualnative. Test resolves the freshly reconstructed R ledger by exact10650/379588 pin, never old candidate scratch.",
+    "worker18": "Childexecuted authoredtoy18 tests after prepared-feature-epoch56 provenance correction, captured sourceboundreportref included. Includes saved/chained exception retention after handler exits."
+  },
+  "inherited_source_rows_for_SOURCE_FREEZE": [
+    {
+      "bytes": 4994,
+      "path": "experiments/sota-2026-10-22/runtime/epoch56/retrieval/inherited_guards.py",
+      "sha256": "2d3aad4713828a69eba4becbee5fb1c731164638a0000742aaa5bef24376f7dc"
+    },
+    {
+      "bytes": 4849,
+      "path": "experiments/sota-2026-10-22/runtime/epoch56/retrieval/io_guard.py",
+      "sha256": "9bcb717c704114f9d9fb69ca6ed1838482e37a8491d81ca1162f54126056c13b"
+    },
+    {
+      "bytes": 3007,
+      "path": "experiments/sota-2026-10-22/runtime/epoch56/retrieval/search_policy.py",
+      "sha256": "356f42fc110155bd9340ab35c8ebe69db5b88a907d903dc2eeffaba6a1f0505e"
+    },
+    {
+      "bytes": 10650,
+      "path": "experiments/sota-2026-10-22/runtime/epoch56/retrieval/native_accounting.py",
+      "sha256": "379588fcbe15f9db598c899740c54c280237d1853a3fea6575b72d0898ff21be"
+    },
+    {
+      "bytes": 4010,
+      "path": "experiments/sota-2026-10-22/runtime/epoch56/retrieval/beir_custom_metrics.py",
+      "sha256": "3b315c1473115dc4e41d3038423fe5f1963868c3b9c92d5386839bde33472157"
+    }
+  ],
+  "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
+  "licence_scope": "Qmetadataadmission accepts upstreamMIT+explicitconverterderivative forlocalresearch; exactconversioninput/scriptrevision/trainingnonuse unknown;no redistribution/CF/generalization/promotion.",
+  "model_artifact": "Xenova/bge-small-en-v1.5@ea104dacec62c0de699686887e3f920caeb4f3e3/onnx/model_quantized.onnx34014426B SHA6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4",
+  "new_artifact_count_excluding_this_packet": 20,
+  "phase_contract": {
+    "engineering": {
+      "FP32_forward_calls_and_texts": [
+        4,
+        128
+      ],
+      "INT8_forward_calls_and_texts": [
+        5,
+        144
+      ],
+      "all_tensors_tokens": 256,
+      "gate": {
+        "maximum_projection_seconds": 420,
+        "minimum_speedup": 1.25,
+        "numerical_cosine_floor": 0.97,
+        "projection_safety_factor": 2,
+        "reserve_seconds": 90
+      },
+      "hidden_warmups": 0,
+      "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
+      "native_geometry": [
+        128,
+        16,
+        10
+      ],
+      "plan_target": "experiments/sota-2026-10-22/epoch57/plan.json",
+      "retrieval": "OnlyINT8sameF32vectors fornative/exact;BM25lexicalcomparator;FP32timing/driftdiagnosticsonly.",
+      "roles": "NewauthoredCC0engineering128docs+16queries,nobenchmarklabelsorqualitygeneralization."
+    },
+    "retrieval_development": {
+      "INT8_forward_calls_and_texts": [
+        163,
+        5199
+      ],
+      "all_tensors_tokens": 256,
+      "batch_size": 32,
+      "conditional": "Source-fixed independentactualengineering throughput/numerical/native/closure gate accepted before onepilot.",
+      "kind": "REAL_NATIVE_SCIFACT_RETRIEVAL_DEV_PILOT",
+      "native_geometry": [
+        5183,
+        16,
+        10
+      ],
+      "plan_target": "experiments/sota-2026-10-22/epoch57/retrieval/plan.json",
+      "prepared_feature_source_epoch": 56,
+      "roles": "Exactlyalreadyexposed16SciFactDEVforever, samefull5183corpus;noCF/promotion."
+    }
+  },
+  "pre_freeze_delta": [
+    {
+      "new": {
+        "bytes": 26633,
+        "path": "/dev/shm/ruvector-e57-candidate/worker_impl/runtime_common.py",
+        "sha256": "ecf687ff68bea0c33b50fe50fc912f55162990add597d45b8eb07adcc8c71468"
+      },
+      "old": {
+        "bytes": 26581,
+        "path": "/dev/shm/ruvector-e57-candidate/worker_impl/runtime_common.py",
+        "sha256": "fed64c6bcbf5b10f788c990df435e39c7509b36eb2dde7567f8da267f4f47b1a"
+      },
+      "target": "experiments/sota-2026-10-22/runtime/epoch57/runtime_common.py"
+    },
+    {
+      "new": {
+        "bytes": 11448,
+        "path": "/dev/shm/ruvector-e57-candidate/worker_impl/test_runtime_inert.py",
+        "sha256": "03a65bdf09f5a78cb8990a3478e0a99ff5c87e5032bb77bcf28c14b5eea64e86"
+      },
+      "old": {
+        "bytes": 10204,
+        "path": "/dev/shm/ruvector-e57-candidate/worker_impl/test_runtime_inert.py",
+        "sha256": "cfdf1ade61b3edd0ddcb5a4981923b9ee9a95b399a44316a2734a73712aa5d9e"
+      },
+      "target": "experiments/sota-2026-10-22/runtime/epoch57/test_runtime_inert.py"
+    },
+    {
+      "new": {
+        "bytes": 9564,
+        "path": "/dev/shm/ruvector-e57-candidate/native_impl/test_native_inert.py",
+        "sha256": "7af2e083849d7dd4495c6f6821785c9ae6581000431bd8af56ec4bf2a680a332"
+      },
+      "old": {
+        "bytes": 9483,
+        "path": "/dev/shm/ruvector-e57-candidate/native_impl/test_native_inert.py",
+        "sha256": "383c28207092a7c3b9427f08a3094eb2725c2a29bb11e57f57a40488b7d5a12f"
+      },
+      "target": "experiments/sota-2026-10-22/runtime/epoch57/test_native_inert.py"
+    },
+    {
+      "new": {
+        "bytes": 11330,
+        "path": "/dev/shm/ruvector-e57-candidate/test_scorer_inert.py",
+        "sha256": "e1a58996301a0557f67f5cb516b84b696dbc71268ef76e925292737fa87cb82c"
+      },
+      "old": {
+        "bytes": 11338,
+        "path": "/dev/shm/ruvector-e57-candidate/test_scorer_inert.py",
+        "sha256": "f1f0f7c770087d47f2f8f4069a069bff30c032442ae84d73bd095b54c3863dcf"
+      },
+      "target": "experiments/sota-2026-10-22/runtime/epoch57/test_scorer_inert.py"
+    },
+    {
+      "new": {
+        "bytes": 4235,
+        "path": "/dev/shm/ruvector-e57-candidate/worker_impl/WORKER_INERT_REPORT.v3.json",
+        "sha256": "ef95ad0ab3fa72a4fea87f97fe4fe99505b9d0dc1313af9e0fadb5ca4d39af21"
+      },
+      "old": {
+        "bytes": 4065,
+        "path": "/dev/shm/ruvector-e57-candidate/worker_impl/WORKER_INERT_REPORT.v2.json",
+        "sha256": "298690a859a26bb33c4278d9960595930ec162eecb7f7002a363e60bad5d1373"
+      },
+      "target": "experiments/sota-2026-10-22/epoch57/source-review/WORKER_INERT_REPORT.v3.json"
+    }
+  ],
+  "root_CLI_argv_length": 18,
+  "root_CLI_config_required_keys": [
+    "epoch",
+    "kind",
+    "phase",
+    "CPU_affinity",
+    "environment",
+    "argv"
+  ],
+  "schema_version": 1,
+  "scientific_deadlines_UTC": {
+    "KILL_seconds": 585,
+    "TERM_seconds": 580,
+    "absolute_inclusive_seconds_per_batch": 600,
+    "latest_finish": "2026-10-27T17:45:00Z",
+    "latest_start": "2026-10-27T17:35:00Z",
+    "worker_deadline_from_supervisor_start_seconds": 570
+  },
+  "scientific_model_gate_candidate_parameters_changed": false,
+  "source_checkpoint": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+  "status": "STATIC_SOURCE_BUNDLE_READY_NO_SCIENTIFIC_EXECUTION_BY_IMPLEMENTATION_AGENT",
+  "supersedes_packet": {
+    "bytes": 11989,
+    "path": "/dev/shm/ruvector-e57-candidate/SOURCE_IMPLEMENTATION_PACKET.v1.json",
+    "sha256": "b5d1cddfbb28ceaacc4e0409a4301446c80681d07300258d52e58cd5792c35e4"
+  },
+  "supervisor_CLI": "--phase engineering|retrieval_development --plan PATH --expected-plan-sha256 SHA --admission PATH --expected-admission-sha256 SHA --approval PATH --expected-approval-sha256 SHA"
+}

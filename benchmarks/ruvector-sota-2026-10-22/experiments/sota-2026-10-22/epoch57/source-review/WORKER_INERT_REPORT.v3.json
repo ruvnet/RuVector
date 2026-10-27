@@ -1,0 +1,51 @@
+{
+  "GPU_calls": 0,
+  "actual_benchmark_or_native_execution": false,
+  "benchmark_generalization_claim": false,
+  "candidate_promoted": false,
+  "epoch": 57,
+  "execution_evidence": {
+    "exit_code": 0,
+    "observed_outer_wall_seconds": 0.20697177102556452,
+    "stderr": "test_authored_engineering_features_exact_ids_and_no_labels (__main__.RuntimeInertTests.test_authored_engineering_features_exact_ids_and_no_labels) ... ok\ntest_bm25_authored_ties_and_matching_word_evidence (__main__.RuntimeInertTests.test_bm25_authored_ties_and_matching_word_evidence) ... ok\ntest_byte_identical_e56_prepared_features_require_frozen_source_epoch (__main__.RuntimeInertTests.test_byte_identical_e56_prepared_features_require_frozen_source_epoch) ... ok\ntest_exact_gate_projection_and_speedup (__main__.RuntimeInertTests.test_exact_gate_projection_and_speedup) ... ok\ntest_exact_ref_hash_and_bytes_and_no_symlink (__main__.RuntimeInertTests.test_exact_ref_hash_and_bytes_and_no_symlink) ... ok\ntest_exact_reviewed_guard_hash_contract (__main__.RuntimeInertTests.test_exact_reviewed_guard_hash_contract) ... ok\ntest_finish_retains_exception_and_chain_after_handler_exits (__main__.RuntimeInertTests.test_finish_retains_exception_and_chain_after_handler_exits) ... ok\ntest_fixed_tensor_shape_caps_no_hidden_warmup_or_gold_metrics (__main__.RuntimeInertTests.test_fixed_tensor_shape_caps_no_hidden_warmup_or_gold_metrics) ... ok\ntest_fp32_never_retrieval_arm_and_pilot_rejects_fp32 (__main__.RuntimeInertTests.test_fp32_never_retrieval_arm_and_pilot_rejects_fp32) ... ok\ntest_gate_refuses_speed_projection_and_drift_separately (__main__.RuntimeInertTests.test_gate_refuses_speed_projection_and_drift_separately) ... ok\ntest_gate_refuses_unfrozen_floor_invalid_or_missing_batches (__main__.RuntimeInertTests.test_gate_refuses_unfrozen_floor_invalid_or_missing_batches) ... ok\ntest_gold_guard_denies_path_and_payload_before_io (__main__.RuntimeInertTests.test_gold_guard_denies_path_and_payload_before_io) ... ok\ntest_gold_guard_installed_before_first_plan_or_source_read (__main__.RuntimeInertTests.test_gold_guard_installed_before_first_plan_or_source_read) ... ok\ntest_output_is_immutable_and_short_write_fails (__main__.RuntimeInertTests.test_output_is_immutable_and_short_write_fails) ... ok\ntest_percentiles_and_invalid_values (__main__.RuntimeInertTests.test_percentiles_and_invalid_values) ... ok\ntest_signal_is_deferred_then_deadline_refuses (__main__.RuntimeInertTests.test_signal_is_deferred_then_deadline_refuses) ... ok\ntest_source_ast_all_three_workers (__main__.RuntimeInertTests.test_source_ast_all_three_workers) ... ok\ntest_stdlib_only_module_import (__main__.RuntimeInertTests.test_stdlib_only_module_import) ... ok\n\n----------------------------------------------------------------------\nRan 18 tests in 0.069s\n\nOK\n",
+    "stdout": ""
+  },
+  "kind": "SOURCE_ONLY_AUTHORED_TOY_ENGINEERING_TESTS",
+  "model_or_benchmark_payload_reads": 0,
+  "paid_API_calls": 0,
+  "reason_for_verification": "Exception object traceback retention after except handler exits; authored chained-error test proves exact saved messages and stack.",
+  "schema_version": 1,
+  "science_runtime_initializations": 0,
+  "source_files": [
+    {
+      "bytes": 4470,
+      "path": "/dev/shm/ruvector-e57-candidate/worker_impl/engineering_worker.py",
+      "sha256": "a56067f176e1ac5e2f31db2af8b4873217ed07dc0d802df7e87e887f5e4f823d"
+    },
+    {
+      "bytes": 2810,
+      "path": "/dev/shm/ruvector-e57-candidate/worker_impl/pilot_worker.py",
+      "sha256": "af4f5f0ef1d56c3fab1f33d8aa95393551e7059ea6a5d61aca257b5207fd7b54"
+    },
+    {
+      "bytes": 26633,
+      "path": "/dev/shm/ruvector-e57-candidate/worker_impl/runtime_common.py",
+      "sha256": "ecf687ff68bea0c33b50fe50fc912f55162990add597d45b8eb07adcc8c71468"
+    },
+    {
+      "bytes": 11448,
+      "path": "/dev/shm/ruvector-e57-candidate/worker_impl/test_runtime_inert.py",
+      "sha256": "03a65bdf09f5a78cb8990a3478e0a99ff5c87e5032bb77bcf28c14b5eea64e86"
+    }
+  ],
+  "test_command": [
+    "taskset",
+    "-c",
+    "0,1",
+    "python",
+    "-I",
+    "-B",
+    "/dev/shm/ruvector-e57-candidate/worker_impl/test_runtime_inert.py"
+  ],
+  "used_confirmation_identities": []
+}

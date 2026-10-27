@@ -1,0 +1,195 @@
+{
+  "FP32_engineering_comparator_only": {
+    "bytes": 133093490,
+    "new_download_authorized": false,
+    "path": "onnx/model.onnx",
+    "repository": "Xenova/bge-small-en-v1.5",
+    "retrieval_arm": false,
+    "revision": "ea104dacec62c0de699686887e3f920caeb4f3e3",
+    "sha256": "828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35"
+  },
+  "Root_only_once_acquisition_plan": {
+    "CPU_affinity": [
+      0,
+      1
+    ],
+    "asset_tmpfs_bytes_count_against_cgroup": true,
+    "destination": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/model-assets/model_quantized.onnx",
+    "destination_policy": "New tmpfs asset directory under W57; no /tmp target under its currently inadequate free-space condition; Root may reclaim reviewed unused cache without changing bytes before a fresh metadata preflight.",
+    "expected_weight_bytes": 34014426,
+    "expected_weight_sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4",
+    "maximum_candidate_weight_GETs": 1,
+    "maximum_in_memory_stream_chunk_bytes": 1048576,
+    "maximum_network_seconds": 90,
+    "maximum_weight_bytes": 34014426,
+    "minimum_after_GET_shared_cgroup_headroom_bytes": 3221225472,
+    "minimum_pre_GET_disk_free_bytes": 100663296,
+    "minimum_pre_GET_shared_cgroup_headroom_bytes": 3355443200,
+    "output_policy": "New isolated epoch57 asset directory, O_EXCL attempt and .partial, stream hash+count, final rename only on exact complete SHA/bytes, retain every partial/failure; no automatic retry/resume. Never write global environment or any original checkpoint/model file.",
+    "post_fetch_admission": "Independent actual file SHA/size and source/license/provenance admission before ORT/model initialization.",
+    "redirect_receipts": "Record public final host/path with query stripped; never publish signed query credentials.",
+    "required_outer_closed_process_envelope_seconds": 120,
+    "static_graph_inspection": "Only if exact licensed asset admitted, use pinned already-present parser or approved bounded parser; no new unaudited dependency import."
+  },
+  "actual_weight_downloads_model_native_Gold_calls": 0,
+  "budget": {
+    "latest_scientific_finish_UTC": "2026-10-27T17:45:00Z",
+    "latest_scientific_start_UTC": "2026-10-27T17:35:00Z",
+    "maximum_CPU_threads": 2,
+    "maximum_native_corpus_batches_epoch": 2,
+    "maximum_new_paid_API_GPU_calls": 0,
+    "maximum_seconds_per_inclusive_batch": 600,
+    "publication_reserve_minutes_before_guardian_expiry": 38
+  },
+  "candidate_count": 1,
+  "engineering_scope": {
+    "BGE_batch_size": 32,
+    "FP32_forward_calls": 4,
+    "FP32_initializations": 1,
+    "FP32_texts": 128,
+    "INT8_forward_calls": 5,
+    "INT8_full_corpus_timing_batches": 4,
+    "INT8_initializations": 1,
+    "INT8_separate_query_forward_size": 16,
+    "INT8_texts": 144,
+    "ORT_threads": {
+      "inter_op": 1,
+      "intra_op": 2
+    },
+    "ablation": "Native and exactcosine use identical INT8 F32vectors; BM25 is the deterministic lexical comparator on same supplied authored corpus/query strings. FP32 is used only for engineering timing/numerical drift.",
+    "benchmark_cases_or_truth_labels": 0,
+    "corpus_documents": 128,
+    "fixed_tensor_token_length": 256,
+    "hidden_warmups": 0,
+    "minimum_original_BGE_tokens_before_truncation": 256,
+    "native_geometry": {
+      "F32_hit_validations": 160,
+      "binary_loads": 1,
+      "indexes": 1,
+      "insertions": 128,
+      "len_calls": 2,
+      "network_operations": 0,
+      "queries": 16,
+      "top_k": 10,
+      "version_calls": 1
+    },
+    "new_authored_license": "CC0-1.0",
+    "parallel_sessions": false,
+    "pooling": "CLS hidden-state index0, attention/tokenization/prefix policy identical to current method; L2 normalize finite384D then F32",
+    "provider": "CPUExecutionProvider only",
+    "queries": 16,
+    "runtime_versions": {
+      "numpy": "2.2.6",
+      "onnxruntime": "1.22.1",
+      "tokenizers": "0.21.4"
+    },
+    "source_inputs": {
+      "bytes": 817572,
+      "path": "/dev/shm/ruvector-e57-candidate/ENGINEERING_AUTHORED_INPUTS.v1.json",
+      "sha256": "cdfa5cde8246ee0cf1019860e3dea6344a59a8d5976b5f28b29a4cb2b9f15566"
+    }
+  },
+  "epoch": 57,
+  "frozen_gate_proposal": {
+    "additional_conditions": [
+      "All128 original token lengths >=256 and all tensors exactly[batch,256]; all outputs finite384D/unit normalized.",
+      "No model/network/forbidden file violations; actual native engineering ledger qualified and independently physically closed.",
+      "Corresponding128 FP32/INT8 normalized embeddings min cosine >=0.97; numerical guard is authored engineering only, not benchmark accuracy equivalence.",
+      "All engineering and conditional pilot plans/source/roles frozen before first engineering model/native operation.",
+      "If any gate fails, no fullcorpus pilot, no retry/configuration grid."
+    ],
+    "maximum_projection_seconds": 420,
+    "minimum_speedup": 1.25,
+    "numerical_cosine_floor": 0.97,
+    "projection_formula": "2 * max(actual four INT8 full32 batch seconds) * ceil(5199/32) + measured INT8 initialization seconds +90 <=420",
+    "projection_safety_factor": 2,
+    "reserve_seconds": 90
+  },
+  "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
+  "licence_provenance": {
+    "converter_explicit_statement": "https://huggingface.co/BAAI/bge-small-en-v1.5 with ONNX weights to be compatible with Transformers.js.",
+    "converter_modelcard": {
+      "bytes": 3134,
+      "path": "/dev/shm/ruvector-e57-candidate/BGE_EXACT_REVISION_README.md",
+      "sha256": "ce711ead2cb11725c9c6de69779d918c500ab12c74c5c2437ff0c448ed1566a5"
+    },
+    "converter_repository_own_LICENSE_or_license_card_field_present": false,
+    "lineage_limits": [
+      "Converter modelcard links the upstream model family; exact upstream input checkpoint/conversion script revision not declared.",
+      "Do not call Xenova export an upstream-official quantization, or imply identical FP32/INT8 weight bytes.",
+      "Independent admission must accept the explicit upstream MIT grant and derivative-conversion provenance, retaining MIT notices/attribution; otherwise stop artifact acquisition.",
+      "Training/test nonuse lineage remains unqualified; no fresh-confirmation or champion-promotion claim."
+    ],
+    "upstream_API_evidence": {
+      "bytes": 150339,
+      "path": "/dev/shm/ruvector-e57-candidate/BGE_UPSTREAM_OFFICIAL_API.json",
+      "sha256": "fff3a75a8c6f990e481b376d7f42a8144131a7414e059d9eff185588a0e9b270"
+    },
+    "upstream_author_model": "BAAI/bge-small-en-v1.5",
+    "upstream_explicit_model_license": "mit",
+    "upstream_license_evidence": {
+      "bytes": 94783,
+      "path": "/dev/shm/ruvector-e57-candidate/BGE_UPSTREAM_EXACT_REVISION_README.md",
+      "sha256": "ddb964361a55c6e5dfca6361615854b260c9c960205d04c7520151aaa1d75837"
+    },
+    "upstream_metadata_revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a"
+  },
+  "metadata_sources": {
+    "BGE_EXACT_REVISION_API.json": {
+      "bytes": 3879,
+      "path": "/dev/shm/ruvector-e57-candidate/BGE_EXACT_REVISION_API.json",
+      "sha256": "8a51c5ad48c28a626e576d4962523fc3da3fb842612517ee6147393c5052b42b"
+    },
+    "BGE_EXACT_REVISION_QUANTIZE_CONFIG.json": {
+      "bytes": 674,
+      "path": "/dev/shm/ruvector-e57-candidate/BGE_EXACT_REVISION_QUANTIZE_CONFIG.json",
+      "sha256": "0e60fbafb996a0ff2656cf0e41c13fdf81c8f21faf564840c3b9d478c6e78479"
+    },
+    "BGE_EXACT_REVISION_README.md": {
+      "bytes": 3134,
+      "path": "/dev/shm/ruvector-e57-candidate/BGE_EXACT_REVISION_README.md",
+      "sha256": "ce711ead2cb11725c9c6de69779d918c500ab12c74c5c2437ff0c448ed1566a5"
+    },
+    "BGE_UPSTREAM_EXACT_REVISION_README.md": {
+      "bytes": 94783,
+      "path": "/dev/shm/ruvector-e57-candidate/BGE_UPSTREAM_EXACT_REVISION_README.md",
+      "sha256": "ddb964361a55c6e5dfca6361615854b260c9c960205d04c7520151aaa1d75837"
+    },
+    "BGE_UPSTREAM_OFFICIAL_API.json": {
+      "bytes": 150339,
+      "path": "/dev/shm/ruvector-e57-candidate/BGE_UPSTREAM_OFFICIAL_API.json",
+      "sha256": "fff3a75a8c6f990e481b376d7f42a8144131a7414e059d9eff185588a0e9b270"
+    }
+  },
+  "optional_pilot": {
+    "batch_size": 32,
+    "benchmark_generalization_claim": false,
+    "candidate_promoted": false,
+    "corpus_documents": 5183,
+    "fixed_DEV_queries": 16,
+    "forward_calls": 163,
+    "native_exact_cosine_BM25": "same corpus/queries; native/exact identical vectors; BM25 lexical",
+    "new_confirmation_identities": [],
+    "same_INT8_model_all_retrieval_comparisons": true,
+    "total_texts": 5199
+  },
+  "rejected_routes_not_reprobed": [
+    "ModernBERT exact training script/revision/test nonuse remains unqualified per freshly reviewed checkpoint.",
+    "sileod DeBERTa-large already measured/rejected E40/E42.",
+    "FinNLI author contact/probe not authorized or repeated.",
+    "Unchanged E56 fullcorpus FP32/batch16 plan is rejected, not retried."
+  ],
+  "schema_version": 1,
+  "selected_artifact": {
+    "Git_LFS_pointer_blob": "e5f3a4e07c216a5b862d3ce4858052a8521ac3c9",
+    "bytes": 34014426,
+    "declared_transform": "Pinned converter quantize_config declares QInt8/per_channel=true/reduce_range=true; quantized graph/weights not yet inspected or fetched.",
+    "path": "onnx/model_quantized.onnx",
+    "pinned_download_url": "https://huggingface.co/Xenova/bge-small-en-v1.5/resolve/ea104dacec62c0de699686887e3f920caeb4f3e3/onnx/model_quantized.onnx",
+    "repository": "Xenova/bge-small-en-v1.5",
+    "revision": "ea104dacec62c0de699686887e3f920caeb4f3e3",
+    "sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4"
+  },
+  "status": "METADATA_QUALIFIED_ASSET_FETCH_REQUIRES_ROOT_AND_INDEPENDENT_ADMISSION",
+  "supersedes": "v1 destination-unspecified proposal; no candidate asset GET has occurred"
+}

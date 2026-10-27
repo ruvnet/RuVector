@@ -1,11 +1,11 @@
 {
   "OS_lock_observation_scope": "PREPUBLICATION_SNAPSHOT_NOT_CURRENT_REMOTE_LEASE",
-  "epoch": 56,
+  "epoch": 57,
   "experiments_active": false,
-  "kind": "REAL_NATIVE_SOURCE_FRAGMENT_CAPACITY_QUALIFICATION",
-  "owner_sha256": "1cd0cb9c7ac46476cba887ef0e9ef751daebea307fc8eb0678531af2a7799086",
-  "phase": "final",
+  "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
+  "owner_sha256": "a98d0e355925de7cf2fbe8711dc35afc4c3765e07fe5dfab8bd59f0309f733e5",
+  "phase": "source",
   "publication_is_not_scientific_authorization": true,
-  "source_checkpoint": "ffdd0699f3254c5dd09437533d38111a8521c920",
-  "work_active": false
+  "source_checkpoint": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+  "work_active": true
 }

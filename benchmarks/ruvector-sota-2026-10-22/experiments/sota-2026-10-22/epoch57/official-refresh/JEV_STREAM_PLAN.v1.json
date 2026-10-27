@@ -1,0 +1,20 @@
+{
+  "TLS_verification_enabled": true,
+  "attempt_nonretryable": true,
+  "deadline_mechanism": "SIGALRM ITIMER_REAL covers open/read/hash/parse; no retry or fallback endpoint",
+  "epoch": 57,
+  "inherited_bounded_capture_plan": "Reviewed E54 streaming plan retained:64MiB cap/30s complete operation, one GET without redirect or retry. Old E52 size issue already resolved.",
+  "inherited_proxy_preserved": true,
+  "kind": "NEW_BOUNDED_OFFICIAL_JEV_STREAM_CAPTURE_PLAN",
+  "maximum_bytes": 67108864,
+  "maximum_initial_GET_requests": 1,
+  "maximum_redirect_GET_requests": 0,
+  "paid_API_GPU_model_native_DATA_Gold_calls": 0,
+  "persisted": "Exact HTTP header/status/Content-Length, byte count, digest, parse fields, timing and safe failure code; no raw body, page text or executable content",
+  "schema_version": 1,
+  "source_checkpoint": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+  "source_sha256": "b34648e43633c223b7dba5a1ec8143f7fc30cca6fa1e5581f0ebd244d28328f4",
+  "stream_chunk_bytes": 262144,
+  "url": "https://benchmarkheaven.com/jev-models",
+  "whole_operation_deadline_seconds": 30.0
+}

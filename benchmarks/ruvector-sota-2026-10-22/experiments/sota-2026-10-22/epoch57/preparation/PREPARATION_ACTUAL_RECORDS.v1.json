@@ -1,0 +1,347 @@
+{
+  "epoch": 57,
+  "future_donor_resolution": "Verified project R first, then only retained K fallback; do not assume pre-retirement full K persists.",
+  "historical_initial_full_kit_restoration_then_cache_twin_retirement": true,
+  "model_weights_redistribution": false,
+  "no_paid_API_or_GPU_or_NLI_or_confirmation_admission": true,
+  "records": {
+    "CURRENT_RUNTIME_AND_TOKENIZER_ASSET_VERIFICATION.v1.json": {
+      "actual_record": {
+        "CPU_affinity": [
+          0,
+          1
+        ],
+        "assets": {
+          "bge_model": {
+            "bytes": 133093490,
+            "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/models/bge-small-en-v1.5/model.onnx",
+            "sha256": "828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35"
+          },
+          "bge_tokenizer": {
+            "bytes": 711396,
+            "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/models/bge-small-en-v1.5/tokenizer.json",
+            "sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66"
+          },
+          "native_binary": {
+            "bytes": 5403040,
+            "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/retrieval/node_modules/ruvector-core-linux-x64-gnu/ruvector.node",
+            "sha256": "ff559e9fac2e3d29a8b32e890fdb047bcd4bd28f389b4731ad72148b221d5a2e"
+          },
+          "native_origin_lock": {
+            "bytes": 4800,
+            "path": "experiments/sota-2026-10-22/runtime/epoch47/NATIVE_PYTHON_RUNTIME_ORIGIN_LOCK.json",
+            "sha256": "137310d3973e23aaaea3e474aee3b545cb3af54008c01a12a010322d20b4769f"
+          },
+          "node": {
+            "bytes": 125989464,
+            "path": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+            "sha256": "bc17c508ffeed0ec622934f9b7fa72f8e78da65350e63c3eceb56fa688aa5e12"
+          }
+        },
+        "benchmark_archives_read_or_parsed": false,
+        "checks_passed": true,
+        "current_cpu_affinity": [
+          0,
+          1
+        ],
+        "epoch": 57,
+        "hash_chunk_bytes": 1048576,
+        "inference_or_label_calls": 0,
+        "installed_bytes": 885284577,
+        "installed_members_fresh_hash_verified": 17498,
+        "learned_NLI_weights_read_or_loaded": false,
+        "model_tokenizer_native_initializations": 0,
+        "python_member_manifest": {
+          "bytes": 4640799,
+          "path": "experiments/sota-2026-10-22/epoch26/preparation/runtime-members/python-wheel-members.json",
+          "sha256": "87254bbf6ec2aba6d08a4b55ff189faf29f78e1b1dd278fe8ffef9a8cc5523b9"
+        },
+        "runtime_directory": "/tmp/ruvector-sota-2026-10-22/epoch33-0522a2c521c9/runtime/.venv",
+        "schema_version": 1,
+        "source_checkpoint": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+        "tokenizer_assets": [
+          {
+            "bytes": 3826,
+            "path": "/dev/shm/ruvector-e51-data/assets/contractnli-bert-nda-standard-ac92b6b512d7/README.md",
+            "sha256": "50d814736a690894cc46876a99bfd5674685ced5573360098f90761ab2eb3f52"
+          },
+          {
+            "bytes": 863,
+            "path": "/dev/shm/ruvector-e51-data/assets/contractnli-bert-nda-standard-ac92b6b512d7/config.json",
+            "sha256": "389b48b55be138039705982041265239dcddab44a8d68dd5105b4cfd135717f0"
+          },
+          {
+            "bytes": 125,
+            "path": "/dev/shm/ruvector-e51-data/assets/contractnli-bert-nda-standard-ac92b6b512d7/special_tokens_map.json",
+            "sha256": "b6d346be366a7d1d48332dbc9fdf3bf8960b5d879522b7799ddba59e76237ee3"
+          },
+          {
+            "bytes": 711661,
+            "path": "/dev/shm/ruvector-e51-data/assets/contractnli-bert-nda-standard-ac92b6b512d7/tokenizer.json",
+            "sha256": "cb374d6bc042c22455946f4e09a89d29882a199fdaf8fb25be00dc8b8857a448"
+          },
+          {
+            "bytes": 1221,
+            "path": "/dev/shm/ruvector-e51-data/assets/contractnli-bert-nda-standard-ac92b6b512d7/tokenizer_config.json",
+            "sha256": "1f92c93d2e31974acffab86d48e80a9357acb18c68346c5472ef1d12c72d5d77"
+          },
+          {
+            "bytes": 231508,
+            "path": "/dev/shm/ruvector-e51-data/assets/contractnli-bert-nda-standard-ac92b6b512d7/vocab.txt",
+            "sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3"
+          }
+        ],
+        "wall_seconds": 1.2566261190222576
+      },
+      "original_bytes": 3514,
+      "original_sha256": "295cd47c4b62c46e71467530be8e1909d04750d281b9d7f7890b2dc4c607304d"
+    },
+    "INT8_ASSET_GET_RESULT.actual.v1.json": {
+      "actual_record": {
+        "after": {
+          "current": 13454282752,
+          "headroom": 3725586432,
+          "max": 17179869184
+        },
+        "automatic_retry": false,
+        "before": {
+          "current": 13418819584,
+          "headroom": 3761049600,
+          "max": 17179869184
+        },
+        "checks_passed": true,
+        "epoch": 57,
+        "error": null,
+        "expected_bytes": 34014426,
+        "expected_sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4",
+        "final_asset": {
+          "bytes": 34014426,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/model-assets/model_quantized.onnx",
+          "sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4"
+        },
+        "final_host_without_URL_query_or_headers": "us.aws.cdn.hf.co",
+        "model_tokenizer_native_Gold_training_calibration_paid_GPU_calls": 0,
+        "observed_stream_bytes": 34014426,
+        "observed_stream_sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4",
+        "original_pinned_URL": "https://huggingface.co/Xenova/bge-small-en-v1.5/resolve/ea104dacec62c0de699686887e3f920caeb4f3e3/onnx/model_quantized.onnx",
+        "partial_retained_on_failure": false,
+        "wall_seconds": 4.002999997988809
+      },
+      "original_bytes": 1132,
+      "original_sha256": "2fa19a3801bd2b2037fb28c0cf2e8accbedf817ca4ced7d02203724429d1c069"
+    },
+    "KIT_TWIN_RETIREMENT.actual.v1.json": {
+      "actual_record": {
+        "after": {
+          "memory_current_bytes": 13435121664,
+          "memory_max_bytes": 17179869184,
+          "shared_headroom_bytes": 3744747520,
+          "shm_free_bytes": 6029877248
+        },
+        "all8962_CP_bytes_remain_in_R": true,
+        "all9048_project_mirrors_and46_kit_only_files_full_hash_preserved": true,
+        "all_kit_directories_preserved": true,
+        "all_private_metadata_model_runtime_and_R_paths_preserved": true,
+        "approval": {
+          "bytes": 2208,
+          "path": "/dev/shm/ruvector-e57-audit/KIT_TWIN_RETIREMENT_INDEPENDENT_APPROVAL.v1.json",
+          "sha256": "ac941834d5a48f82ee86dc4704213194d12b0feae9437656498d8efa3294c5b7"
+        },
+        "before": {
+          "memory_current_bytes": 14034743296,
+          "memory_max_bytes": 17179869184,
+          "shared_headroom_bytes": 3145125888,
+          "shm_free_bytes": 5442830336
+        },
+        "checks_passed": true,
+        "epoch": 57,
+        "exact_kit_files_retired": 9048,
+        "logical_bytes_retired": 566927615,
+        "new_native_model_Gold_paid_GPU_Git_calls": 0,
+        "plan": {
+          "bytes": 1596,
+          "path": "/dev/shm/ruvector-e57-data/kit-twin-retirement/KIT_TWIN_RETIREMENT_PLAN.v1.json",
+          "sha256": "efcbdc2c834f902ecc6bb40b4f287f506b08d419463845870bf376ab8ccb9319"
+        },
+        "preserved_kit_files": 46,
+        "schema_version": 1,
+        "scientific_dispatch_authorized": false,
+        "shared_snapshot_scope": "Shared snapshots; no sole-cause or guaranteed incremental-memory claim.",
+        "wall_seconds": 0.8161309059942141
+      },
+      "original_bytes": 1391,
+      "original_sha256": "e40aca6c40b2c563d14734c8cd6c9a149b630cbd8b21ba77de371d6a6079aa47"
+    },
+    "OLD_W56_PUBLIC_DUPLICATE_CLEANUP.actual.v1.json": {
+      "actual_record": {
+        "after": {
+          "headroom_bytes": 3127160832,
+          "memory_current_bytes": 14052708352,
+          "memory_max_bytes": 17179869184,
+          "shm_free_bytes": 5452357632
+        },
+        "before": {
+          "headroom_bytes": 1923108864,
+          "memory_current_bytes": 15256760320,
+          "memory_max_bytes": 17179869184,
+          "shm_free_bytes": 4270682112
+        },
+        "checks_passed": true,
+        "epoch": 57,
+        "every_old_byte_had_separate_inode_SHA_verified_preserved_mirror": true,
+        "exact_deleted_public_targets": [
+          "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/kit",
+          "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project"
+        ],
+        "logical_bytes_retired": 1141447362,
+        "native_tokenizer_BGE_typed_model_Git_calls": 0,
+        "old_parent_siblings_controls_private_private_run_publication_journals_basecache_and_runtime_assets_preserved": true,
+        "regular_files_retired": 18097,
+        "schema_version": 1,
+        "science_dispatch_authorized": false,
+        "shared_cgroup_scope": "Shared snapshots, not incremental use or sole cause attribution.",
+        "wall_seconds": 0.13150582800153643
+      },
+      "original_bytes": 1060,
+      "original_sha256": "3a9d45b96b9eec4a83ed16c265ad3cbf879aad095793a31e1ed2928b6276beb8"
+    },
+    "ROOT_INT8_ACQUISITION_OUTER.actual.v1.json": {
+      "actual_record": {
+        "automatic_retry": false,
+        "child_after_wait": null,
+        "child_identity": {
+          "pid": 187567,
+          "startticks": 44352686,
+          "state": "R"
+        },
+        "child_spawn_scope": "Acquisition worker source spawns no descendants; parent created separate process group and waited exact child.",
+        "epoch": 57,
+        "exit_code": 0,
+        "model_native_Gold_calls": 0,
+        "owned_group_closed": true,
+        "timed_out": false,
+        "wall_seconds": 4.092822981998324,
+        "within120": true
+      },
+      "original_bytes": 462,
+      "original_sha256": "3e74c00ed4c86da56962289bb521b9600b1b4925adc77afa875ddfa0fa56790e"
+    },
+    "SOURCE_RESTORATION_COMPLETE.v1.json": {
+      "actual_record": {
+        "Git_leaves_verified_in_kit": 8969,
+        "actual_commit": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+        "all_passed": true,
+        "base_files": 48,
+        "checkpoint_manifest_sha256": "1520b99a2233e54b2da642486df176eb93444c1172c42ed9d36a07c5fb30ca16",
+        "checkpoint_rows_verified_per_root": 8962,
+        "counts": {
+          "base-cache": 48,
+          "kit": 9094,
+          "project": 9172
+        },
+        "epoch": 57,
+        "immutable_bootstrap_sha256": "eceb2ca259feaf642bc81172aca57a2a209cc34cd17f9b281861c51f21b95806",
+        "immutable_restore_sha256": "affd9ecf660f380c3632f78cd14fb7a36e00797ceb097cf48c0c60136fac0be8",
+        "native_model_Gold_EVAL_Git_calls": 0,
+        "physical_copy_no_hardlinks": true,
+        "schema_version": 1,
+        "source_checkpoint_sha256": "0522861bf0511e4896a47a809cb2e4fbea3b8616c81d6c920fb829962258197c",
+        "source_only_steps": [
+          {
+            "bytes": 1858,
+            "path": "E42-archive-materialized.json",
+            "sha256": "fa2d6cc3877a0bcf37d480e7f66c086b5250f66ea6e885a8d4640b586fbe79c4"
+          },
+          {
+            "bytes": 1661,
+            "path": "legacy22-verified.json",
+            "sha256": "88e1ad8f46f50cb04ce8eac9c02a3d71298a919ae80722a884922b585adec22d"
+          },
+          {
+            "bytes": 1818,
+            "path": "legacy26-verified.json",
+            "sha256": "59e7108e6ecc218a77cd0612aa3a2770c6303238d6c0ee5263e8db3eba2bcba5"
+          },
+          {
+            "bytes": 8404,
+            "path": "bootstrap-source-verified.json",
+            "sha256": "dbd7805089d005cdf5a3cd42e32ab200a23e3d5395c0d13a80e5f279c2143584"
+          },
+          {
+            "bytes": 776,
+            "path": "checkpoint-restored.json",
+            "sha256": "323317e3769b0156b3e9198bc56c439cb5100d6a228593a06a2360e1d14bc1dd"
+          },
+          {
+            "bytes": 797,
+            "path": "checkpoint-verify-only.json",
+            "sha256": "2584f0621acbf38613f71c9e35562f704e9990fec9497549bce748a2636ddd73"
+          },
+          {
+            "bytes": 1878,
+            "path": "E42-archive-verify-only.json",
+            "sha256": "3085994c812338385da992d21b70f1461a19f089826dc32325fad8263c6c9fb1"
+          },
+          {
+            "bytes": 1425,
+            "path": "E44-overlay-restored.json",
+            "sha256": "8bdc329df902d1c1fa78473dd620f893a0372d647cf72de24d7faa61de81d1f6"
+          },
+          {
+            "bytes": 1445,
+            "path": "E44-overlay-verified.json",
+            "sha256": "febf0fc381c8a64468efb048a78ab9854117797989c85d4f34941ed51ad63676"
+          },
+          {
+            "bytes": 1043,
+            "path": "E49-overlay-restored.json",
+            "sha256": "e82e1e20dea2610db501bb1a675e19f87aa5de710c4b45fd69251378cccd6fb0"
+          },
+          {
+            "bytes": 1062,
+            "path": "E49-overlay-verified.json",
+            "sha256": "11e06d40318ba42f3db38bf73a26509ee1a91ee7951fe580982dd5b5af09f8e0"
+          }
+        ]
+      },
+      "original_bytes": 2576,
+      "original_sha256": "80d43e13e7ac6be7c6a066dec3fe559ae4467fac67dcfa1e74deb98be0425346"
+    },
+    "UNUSED_TORCH_CACHE_HINT.actual.v1.json": {
+      "actual_record": {
+        "after": {
+          "current_bytes": 14000807936,
+          "headroom_bytes": 3179061248,
+          "max_bytes": 17179869184
+        },
+        "automatic_retry": false,
+        "before": {
+          "current_bytes": 14000807936,
+          "headroom_bytes": 3179061248,
+          "max_bytes": 17179869184
+        },
+        "cache_hint_scope": "Advisory clean file-page discard only; mapped pages may remain, no global cache drop and no host-exclusive use or sole attribution claim.",
+        "descriptor_was_read_only": true,
+        "epoch": 57,
+        "error": null,
+        "file_mutation_or_deletion_calls": 0,
+        "file_stat_signature_unchanged": true,
+        "hint_completed": true,
+        "model_tokenizer_native_or_library_initializations": 0,
+        "paid_API_GPU_calls": 0,
+        "target_bytes": 418117016,
+        "target_sha256_before_hint": "5d4a2afb0c94f8c2cb44eae9c7d303ebcb64700d49933ff8894b09eea61b3f1d"
+      },
+      "original_bytes": 813,
+      "original_sha256": "54173d9f5e6427d6c83012712e07f1a4117ac45d8677179767121d7cb0f4f30c"
+    }
+  },
+  "rejected_unexecuted_reconstruction_draft": {
+    "actual_corrected_source_sha256": "6406160850d547973dd9842cac7ef6fc09637ab7bce28fe3e1b0a21d2a8e0a3e",
+    "issue": "Numeric count replacement corrupted first permanent deny literal; exactliteral-only repair audited before any execution.",
+    "sha256": "9d6e58124795c2b4418ce225df68979cc16fb122192bf59b5eeec79bc3a77c1d"
+  },
+  "schema_version": 1,
+  "scope": "Source/runtime reconstruction, exact public duplicate-cache retirement, ineffective one-shot read-only cache hint, and one opaque model acquisition. No model/tokenizer/native/Gold measurement occurred in preparation.",
+  "source_checkpoint": "5e426edd8ada8c0fdcec38ec8807054affc89e3c"
+}

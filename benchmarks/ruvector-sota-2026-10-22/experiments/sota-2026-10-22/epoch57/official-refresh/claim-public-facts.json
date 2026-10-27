@@ -1,0 +1,122 @@
+{
+  "ClaimBench": {
+    "RuVector_in_aggregate": false,
+    "RuVector_score": null,
+    "access_candidate_links_on_current_page_not_followed": [],
+    "aggregate_URL_verified_from_current_official_page": true,
+    "aggregate_bytes_equal_epoch56": true,
+    "decision_leader": {
+      "accuracy_percent": 100.0,
+      "model": "decision/d1-ultra"
+    },
+    "decision_runner_up": {
+      "accuracy_percent": 99.694,
+      "model": "decision/decider-v1.2"
+    },
+    "full_dataset_scorer_license_submission_access": "UNVERIFIED. Public examples, metadata and aggregate JSON do not establish full labelled cases, exact scorer, redistribution licence or submission access.",
+    "historical_access_probes_repeated": false,
+    "language_models_at100": [
+      {
+        "accuracy_percent": 100.0,
+        "model": "anthropic/claude-sonnet-5-5"
+      },
+      {
+        "accuracy_percent": 100.0,
+        "model": "anthropic/claude-haiku-5-5"
+      },
+      {
+        "accuracy_percent": 100.0,
+        "model": "anthropic/claude-opus-5-5"
+      },
+      {
+        "accuracy_percent": 100.0,
+        "model": "openai/gpt-6.1-sol"
+      }
+    ],
+    "official_aggregate": {
+      "TLS_verification_enabled": true,
+      "bytes": 91270,
+      "content_type": "application/json; charset=utf-8",
+      "etag": "\"ece282be7430e6a6375a4ef05a8327b4\"",
+      "final_url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json",
+      "last_modified": "Tue, 27 Oct 2026 10:55:35 GMT",
+      "raw_body_persisted": false,
+      "read_cap_bytes": 2097152,
+      "request_started_at": "2026-10-27T16:50:12.697754+00:00",
+      "retrieved_at": "2026-10-27T16:50:13.155967+00:00",
+      "sha256": "6aa89f0db85e2bdc765ff8d942de0d491dd37f2f2e635bb4a95b0f92746fc6d3",
+      "status": 200,
+      "url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json"
+    },
+    "pilot_executed": false,
+    "publisher_metadata_dataset_type": "public",
+    "publisher_updated": "2026-10-23",
+    "publisher_version": "1",
+    "retrieval_scope": "ONLY supplied 10-K excerpts. A retrieval miss cannot establish insufficient evidence or NEI.",
+    "source": {
+      "TLS_verification_enabled": true,
+      "bytes": 267188,
+      "content_type": "text/html; charset=utf-8",
+      "etag": "\"00889c18e703b87c1c12219c4b64fab2\"",
+      "final_url": "https://www.vals.ai/benchmarks/claimbench",
+      "last_modified": "Tue, 27 Oct 2026 10:55:34 GMT",
+      "raw_body_persisted": false,
+      "read_cap_bytes": 2097152,
+      "request_started_at": "2026-10-27T16:50:12.263085+00:00",
+      "retrieved_at": "2026-10-27T16:50:12.676369+00:00",
+      "sha256": "2a3bb2141ba79416efe3bd841b4123cd2d0c030a2d83a7f2595bcdf89b097b7b",
+      "status": 200,
+      "url": "https://www.vals.ai/benchmarks/claimbench"
+    },
+    "source_bytes_equal_epoch56": true,
+    "total_models": 25,
+    "verified_dataset_access_scope": "Current official public page examples and linked aggregate only."
+  },
+  "TLS_verification_enabled": true,
+  "created_at": "2026-10-27T16:50:13.156697+00:00",
+  "direct_public_GETs_in_this_step": 2,
+  "earlier_Jev_stream_GETs": 1,
+  "epoch": 57,
+  "goal_verified": false,
+  "inherited_proxy_preserved": true,
+  "kind": "FRESH_OFFICIAL_CLAIM_PUBLIC_SOURCE_AND_LINKED_AGGREGATE_READ_ONLY",
+  "model_native_gold_or_paid_GPU_calls": 0,
+  "official_SOTA_verified": false,
+  "outgoing_messages_submissions_or_author_contacts": 0,
+  "project_or_Git_mutations": 0,
+  "raw_public_bodies_persisted": false,
+  "schema_version": 1,
+  "source_receipts": [
+    {
+      "TLS_verification_enabled": true,
+      "bytes": 267188,
+      "content_type": "text/html; charset=utf-8",
+      "etag": "\"00889c18e703b87c1c12219c4b64fab2\"",
+      "final_url": "https://www.vals.ai/benchmarks/claimbench",
+      "last_modified": "Tue, 27 Oct 2026 10:55:34 GMT",
+      "raw_body_persisted": false,
+      "read_cap_bytes": 2097152,
+      "request_started_at": "2026-10-27T16:50:12.263085+00:00",
+      "retrieved_at": "2026-10-27T16:50:12.676369+00:00",
+      "sha256": "2a3bb2141ba79416efe3bd841b4123cd2d0c030a2d83a7f2595bcdf89b097b7b",
+      "status": 200,
+      "url": "https://www.vals.ai/benchmarks/claimbench"
+    },
+    {
+      "TLS_verification_enabled": true,
+      "bytes": 91270,
+      "content_type": "application/json; charset=utf-8",
+      "etag": "\"ece282be7430e6a6375a4ef05a8327b4\"",
+      "final_url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json",
+      "last_modified": "Tue, 27 Oct 2026 10:55:35 GMT",
+      "raw_body_persisted": false,
+      "read_cap_bytes": 2097152,
+      "request_started_at": "2026-10-27T16:50:12.697754+00:00",
+      "retrieved_at": "2026-10-27T16:50:13.155967+00:00",
+      "sha256": "6aa89f0db85e2bdc765ff8d942de0d491dd37f2f2e635bb4a95b0f92746fc6d3",
+      "status": 200,
+      "url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json"
+    }
+  ],
+  "total_epoch_official_public_GETs": 3
+}

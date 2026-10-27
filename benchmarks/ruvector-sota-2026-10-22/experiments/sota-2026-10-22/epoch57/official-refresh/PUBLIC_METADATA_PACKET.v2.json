@@ -1,0 +1,83 @@
+{
+  "Git_mutations": 0,
+  "epoch": 57,
+  "files": [
+    {
+      "bytes": 7729,
+      "path": "/dev/shm/ruvector-e57-data/official-refresh/refresh_jev_stream.py",
+      "sha256": "b34648e43633c223b7dba5a1ec8143f7fc30cca6fa1e5581f0ebd244d28328f4"
+    },
+    {
+      "bytes": 5603,
+      "path": "/dev/shm/ruvector-e57-data/official-refresh/refresh_claim_only.py",
+      "sha256": "395547bc2dc529a9e5a3277a86058907b7b5db8aa29fc4f59777a12ae86d304c"
+    },
+    {
+      "bytes": 1095,
+      "path": "/dev/shm/ruvector-e57-data/official-refresh/JEV_STREAM_PLAN.v1.json",
+      "sha256": "962524a74c0d203fc3c87749070ded8a1cd7312aa80a2f36e57d3bed274087f3"
+    },
+    {
+      "bytes": 2397,
+      "path": "/dev/shm/ruvector-e57-data/official-refresh/JEV_STREAM_RESULT.actual.v1.json",
+      "sha256": "1c493f1cc42669df10f60ac277929fa882e8f4e1375c84acbca7f2c00408b551"
+    },
+    {
+      "bytes": 591,
+      "path": "/dev/shm/ruvector-e57-data/official-refresh/claim-source-receipt-1.json",
+      "sha256": "82f93c43aa760e9c75bacea0117f3f97885da5912a7237cd1e8c73a41c2f5120"
+    },
+    {
+      "bytes": 647,
+      "path": "/dev/shm/ruvector-e57-data/official-refresh/claim-source-receipt-2.json",
+      "sha256": "9972fd4d2efda1d38bea8809d400bb0035ceeae161259153ad7f9dcfff10cac9"
+    },
+    {
+      "bytes": 4949,
+      "path": "/dev/shm/ruvector-e57-data/official-refresh/claim-public-facts.json",
+      "sha256": "c4af5661d2ef7a88558e53c1e4fa22970d62b075760e666f3aa1f3390838efff"
+    },
+    {
+      "bytes": 2181,
+      "path": "/dev/shm/ruvector-e57-data/official-refresh/MAIL_STATUS.safe.json",
+      "sha256": "c8d47d3d924f4c22a147bce584c83b3c412d737863458c7ade6ffa0f6a58d891"
+    },
+    {
+      "bytes": 12267,
+      "path": "/dev/shm/ruvector-e57-data/official-refresh/benchmark-refresh.safe.v2.json",
+      "sha256": "24e811c8dbe1a0c0ad1a84aa22f77c2921ab07268b0795e0635ff933cc058cc4"
+    },
+    {
+      "bytes": 1108,
+      "path": "/dev/shm/ruvector-e57-data/official-refresh/JEV_ROOT_EXECUTION.actual.v1.json",
+      "sha256": "0d80624d77c655bbc768ecfa43ad538b99623b2f0247baa5740de3a2cf52870e"
+    },
+    {
+      "bytes": 974,
+      "path": "/dev/shm/ruvector-e57-data/official-refresh/CLAIM_ROOT_EXECUTION.actual.v1.json",
+      "sha256": "feeaf86c07564fe6852f3b26828dbb10893e7be06efaa203c0a16c5a26cf04a0"
+    },
+    {
+      "bytes": 6142,
+      "path": "/dev/shm/ruvector-e57-data/PRIOR_CHECKPOINT_AND_REJECTIONS_REVIEW.v1.json",
+      "sha256": "b1fa67c01dfad93d8194b72f687808846b01c87759a86bb3e382ef6e6e083d29"
+    },
+    {
+      "bytes": 5458,
+      "path": "/dev/shm/ruvector-e57-data/readback/ACTUAL_REMOTE_CHECKPOINT_AND_DONORS_INDEPENDENT.v1.json",
+      "sha256": "318d5cd54a318d27b452487932afc838e071b08b4131da7ac909fba9e3f5616c"
+    },
+    {
+      "bytes": 6624,
+      "path": "/dev/shm/ruvector-e57-data/assemble_official_metadata.v2.py",
+      "sha256": "906e630d8233b7ed14fc1a95424db8ee4000938bd1363442217adf4cedd988c2"
+    }
+  ],
+  "kind": "PUBLIC_SAFE_OFFICIAL_REFRESH_AND_ACTUAL_PRIOR_REVIEW_PACKET",
+  "new_qualification_probes": 0,
+  "raw_bodies_private_mail_fields_or_data_payloads_included": false,
+  "schema_version": 1,
+  "science_calls": 0,
+  "source_checkpoint": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+  "used_confirmation_identities": []
+}

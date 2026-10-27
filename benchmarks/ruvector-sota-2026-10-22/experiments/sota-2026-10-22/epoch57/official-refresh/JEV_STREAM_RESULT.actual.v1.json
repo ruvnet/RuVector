@@ -1,0 +1,67 @@
+{
+  "Content_Length": "21098331",
+  "HTTP_status": 200,
+  "RuVector_page_text_matches": 0,
+  "TLS_verification_enabled": true,
+  "all_capability_rows_sha256": "84efd265ee86ffd332240e378e6ed0a4afd7348fc225bbd3a8c983acaed08e37",
+  "board_updated": "2026-10-26",
+  "board_version": "v1.7.48",
+  "body_sha256": "ef586534b09a486e4b9d0cd6da32f2eafdcf83348ff74d8b7a7f7555ce087fd4",
+  "bytes_streamed": 21098331,
+  "complete_body": true,
+  "content_type": "text/html; charset=utf-8",
+  "current_questions_scorer_license_access": "UNVERIFIED. Parsed aggregate board does not establish exact labelled current300 questions/scorer, redistribution licence, sealed full-set access or submission eligibility.",
+  "current_queue_progress": "UNVERIFIED",
+  "deadline_seconds": 30.0,
+  "epoch": 57,
+  "error_code": null,
+  "etag": "\"ww9dutlwigcjab9\"",
+  "final_url": "https://benchmarkheaven.com/jev-models",
+  "first_official_capability_rows": [
+    {
+      "Capability": 84.339,
+      "model_id": "h2o-lightning-31b"
+    },
+    {
+      "Capability": 82.132,
+      "model_id": "basal-omni-1.0-ultra"
+    },
+    {
+      "Capability": 82.034,
+      "model_id": "dopest-1.0-31b"
+    }
+  ],
+  "headline_display": 84.3,
+  "historical_access_probes_repeated": false,
+  "historical_original_queue_position": 115,
+  "initial_GET_attempts": 1,
+  "last_modified": null,
+  "live_open_weights_Capability_leader": {
+    "Capability": 84.339,
+    "model": "H2O-Lightning-31B v1.0.7",
+    "model_id": "h2o-lightning-31b"
+  },
+  "maximum_bytes": 67108864,
+  "method_header": "10 s rule",
+  "method_revision": "v1.7",
+  "model_native_DATA_Gold_paid_GPU_calls": 0,
+  "official_RuVector_eligibility": "UNVERIFIED",
+  "official_RuVector_rank": null,
+  "official_RuVector_score": null,
+  "official_goal_verified": false,
+  "outgoing_messages_submissions_author_contacts": 0,
+  "partial_stream_sha256": null,
+  "queue_is_rank": false,
+  "ranked_open_weights_systems": 232,
+  "raw_body_persisted": false,
+  "raw_page_text_or_body_files_retained": false,
+  "redirect_GETs": 0,
+  "request_started_at": "2026-10-27T16:49:33.520335+00:00",
+  "retrieved_at": "2026-10-27T16:49:42.061314+00:00",
+  "schema_version": 1,
+  "status": "FRESH_OFFICIAL_JEV_STREAM_COMPLETE",
+  "submission_reference_page_matches": 0,
+  "url": "https://benchmarkheaven.com/jev-models",
+  "verified_capability_rows_count": 238,
+  "wall_seconds": 8.540993224014528
+}

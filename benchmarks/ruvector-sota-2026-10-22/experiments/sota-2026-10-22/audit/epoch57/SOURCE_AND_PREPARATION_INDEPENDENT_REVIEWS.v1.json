@@ -1,0 +1,1287 @@
+{
+  "epoch": 57,
+  "independent_scientific_or_Gold_executions": 0,
+  "reviews": [
+    {
+      "independent_review": {
+        "actual_auditor_model_native_parser_Gold_Git_calls": 0,
+        "checks_passed": true,
+        "epoch": 57,
+        "exact_delta_from_reviewed_E56_guardian": "run_id/generation/epoch/purpose and stronger FD3 original inode assertion only; TTL7200 unchanged",
+        "historical_E56_processes_currently_original_identity_absent": [
+          {
+            "original_identity_absent": true,
+            "pid": 184876,
+            "startticks": 43392193
+          },
+          {
+            "original_identity_absent": true,
+            "pid": 184877,
+            "startticks": 43392224
+          },
+          {
+            "original_identity_absent": true,
+            "pid": 184880,
+            "startticks": 43393006
+          },
+          {
+            "original_identity_absent": true,
+            "pid": 184965,
+            "startticks": 43415017
+          },
+          {
+            "original_identity_absent": true,
+            "pid": 184966,
+            "startticks": 43415057
+          },
+          {
+            "original_identity_absent": true,
+            "pid": 181168,
+            "startticks": 42762589
+          },
+          {
+            "original_identity_absent": true,
+            "pid": 185161,
+            "startticks": 43496514
+          }
+        ],
+        "nonblocking_conflict_exit": 73,
+        "original_scope_lock": {
+          "auditor_flock_acquisitions": 0,
+          "device": 33,
+          "inode": 13626,
+          "matching_proc_locks_rows": [],
+          "nonmutating_observation_only": true,
+          "observed_unix": 1793118203.8957546,
+          "path": "/tmp/ruvector-sota-2026-10-22/exclusive.work.lock"
+        },
+        "prior_final_release_proof_ref": {
+          "bytes": 2962,
+          "path": "/dev/shm/ruvector-e56-audit/FINAL_IMMUTABLE_PROJECT_PROCESS_AND_LOCK_RELEASE_INDEPENDENT.v1.json",
+          "sha256": "0784c49cdea294c7f9cee7ea33a3ec08ffe97207a2955ead5cf5c88570fbbcf5"
+        },
+        "required_root_launch_and_actual_checks": [
+          "Launch under exactly two CPU affinity threads and verify actual owner23 PID/startticks/FD3/dev33/inode13626/boot/PIDnamespace/FLOCK after acquisition.",
+          "Stop if acquisition fails/busy or owner creation outcome uncertain; do not retry an uncertain operation.",
+          "Lock acquisition alone grants no scientific authority; all actual source/data/model/runtime/caps and late admissions remain required.",
+          "Reserve approximately40minutes for immutable closing/publication/readback before7200second lease expiry; no late600second science if it would consume that reserve."
+        ],
+        "schema_version": 1,
+        "scientific_execution_approved": false,
+        "source_ref": {
+          "bytes": 1819,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/lock_supervisor.py",
+          "sha256": "9079c6a1c666f64b36a97e3fd85a10e770febdae16e6a3d089cf4550523defab"
+        },
+        "status": "GUARDIAN23_SOURCE_APPROVED_FOR_ONE_ROOT_NONBLOCKING_ACQUISITION_ONLY"
+      },
+      "name": "GUARDIAN23_SOURCE_AND_PRIOR_RELEASE_INDEPENDENT_APPROVAL.v1.json",
+      "original_bytes": 2610,
+      "original_sha256": "5bb3a3141f30f7e18ee626ae6a10619d94395f26bc513979e94d7c68e7a15fb5"
+    },
+    {
+      "independent_review": {
+        "actual_CPU_affinity": [
+          0,
+          1
+        ],
+        "actual_FD": 3,
+        "actual_lock_device": 33,
+        "actual_lock_inode": 13626,
+        "actual_owner_pid": 186899,
+        "actual_owner_startticks": 44193256,
+        "actual_proc_lock_record": "1: FLOCK  ADVISORY  WRITE 186899 00:21:13626 0 EOF",
+        "auditor_lock_operations": 0,
+        "auditor_native_model_parser_Gold_Git_calls": 0,
+        "checks_passed": true,
+        "epoch": 57,
+        "observed_unix": 1793118255.707323,
+        "old_E56_owners_unmodified_and_closed": true,
+        "owner_ref": {
+          "bytes": 709,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/owner.json",
+          "sha256": "a98d0e355925de7cf2fbe8711dc35afc4c3765e07fe5dfab8bd59f0309f733e5"
+        },
+        "required_finish_reserve_seconds_at_cutoff": 2330.650631,
+        "same_kernel_boot_and_PID_namespace": true,
+        "schema_version": 1,
+        "scientific_cutoff_UTC": "2026-10-27T17:45:00Z",
+        "scientific_dispatch_authorized": false,
+        "scientific_latest_start_UTC": "2026-10-27T17:35:00Z",
+        "status": "GUARDIAN23_EXCLUSIVE_ORIGINAL_FLOCK_ACTUALLY_VERIFIED_READ_ONLY"
+      },
+      "name": "GUARDIAN23_ACTUAL_EXCLUSIVE_ORIGINAL_LOCK_INDEPENDENT.v1.json",
+      "original_bytes": 1046,
+      "original_sha256": "ad1e8a011cbe1f66c156c081df8ad2bbbfbfdd9845115dc7b7953322eedbb0d3"
+    },
+    {
+      "independent_review": {
+        "CP_bytes_per_root": 562104335,
+        "CP_kit_and_project_distinct_physical_inodes_verified": true,
+        "CP_rows_per_kit_and_project_fresh_hash_verified": 8962,
+        "Git_donor_and_kit_distinct_physical_inodes_verified": true,
+        "Git_kit_bodies_fresh_hash_verified": 8969,
+        "actual_base_commit": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+        "auditor_native_tokenizer_BGE_NLI_parser_Gold_Git_calls": 0,
+        "base_cache_fresh_hash_verified": 48,
+        "checks_passed": true,
+        "eleven_source_only_restoration_commands_exit0": true,
+        "epoch": 57,
+        "exact_E1_E2_rejections_and_E56_engineering_and_partial_uncertainty_preserved": true,
+        "native104_and_historical_roles_preserved": true,
+        "original_bootstrap_and_restore_unchanged": true,
+        "prior_E56_source118_and_manifest168_members_plus_self169_exact": true,
+        "restoration_actual_ref": {
+          "bytes": 2576,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/SOURCE_RESTORATION_COMPLETE.v1.json",
+          "sha256": "80d43e13e7ac6be7c6a066dec3fe559ae4467fac67dcfa1e74deb98be0425346"
+        },
+        "schema_version": 1,
+        "scope": "Independent source-only restoration verification. No model/runtime/corpus semantic import or scientific dispatch.",
+        "status": "SOURCE_RESTORATION_AND_REJECTION_HISTORY_INDEPENDENTLY_VERIFIED",
+        "wall_seconds": 2.9975667989929207
+      },
+      "name": "SOURCE_RESTORATION_AND_REJECTION_HISTORY_INDEPENDENT.v1.json",
+      "original_bytes": 1312,
+      "original_sha256": "c7d7fca9669ba76c006585dd57f8fdc0a69d6fd2d38bf0582b8183e31e8bb889"
+    },
+    {
+      "independent_review": {
+        "BGE_model_tokenizer_native_binary_node_exactpins": true,
+        "Root_current_runtime_receipt": {
+          "bytes": 3514,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/CURRENT_RUNTIME_AND_TOKENIZER_ASSET_VERIFICATION.v1.json",
+          "sha256": "295cd47c4b62c46e71467530be8e1909d04750d281b9d7f7890b2dc4c607304d"
+        },
+        "actual_installed_bytes_independently_rehashed": 885284577,
+        "actual_installed_members_independently_rehashed": 17498,
+        "actual_model_tokenizer_native_DATA_Gold_calls": 0,
+        "all_passed": true,
+        "epoch": 57,
+        "learned_NLI_weights_or_benchmark_archives_read_or_loaded": false,
+        "native_origin_lock_assets_independently_rehashed": 10,
+        "pinned_BERT_tokenizer_assets_rehashed": 6,
+        "schema_version": 1,
+        "source_only_physical_hash_verification": true,
+        "wall_seconds": 1.2275918750092387
+      },
+      "name": "CURRENT_RUNTIME_TOKENIZER_NATIVE_ASSETS_INDEPENDENT.v1.json",
+      "original_bytes": 828,
+      "original_sha256": "c80963c4ec2d1a6178cf03f9351b4ef9a75e002bfde2c30d83938beb63e6a59f"
+    },
+    {
+      "independent_review": {
+        "actual_Root_retirement_ref": {
+          "bytes": 1391,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/KIT_TWIN_RETIREMENT.actual.v1.json",
+          "sha256": "e40aca6c40b2c563d14734c8cd6c9a149b630cbd8b21ba77de371d6a6079aa47"
+        },
+        "after_shared_headroom_bytes": 3744747520,
+        "all46_retained_K_files_fresh_hash_verified": true,
+        "all8962_CP_source_rows_preserved_in_R": true,
+        "all8969_Git_bodies_resolved_and_fresh_hash_verified_after_cache_retirement": {
+          "R": 8923,
+          "retained_K": 46
+        },
+        "all9048_project_mirrors_fresh_full_hash_and_signatures_verified": true,
+        "all926_K_directory_identity_modes_preserved": true,
+        "auditor_deletions_or_scientific_calls": 0,
+        "before_shared_headroom_bytes": 3145125888,
+        "cache_hint_actual": "PrioroneTorchDONTNEED completed but before/afterheadroom3179061248wasunchanged; no repeat. NoTorchfilebytes changed byread-onlyhint.",
+        "checks_passed": true,
+        "current_K_file_count": 46,
+        "epoch": 57,
+        "exact_K_files_retired": 9048,
+        "historical_full_K_reconstruction_proof_preserved": true,
+        "live_source_body_lookup_policy": "R-first then retainedK fallback; noassumption retiredKtwinsremain.",
+        "logical_duplicate_bytes_retired": 566927615,
+        "schema_version": 1,
+        "scientific_dispatch_authorized": false,
+        "shared_scope": "Snapshotdifference isnotsole-cause/incrementalcandidate attribution.",
+        "status": "ACTUAL_NEW_K_CACHE_TWINS_RETIRED_ALL_R_SOURCE_BYTES_PRESERVED"
+      },
+      "name": "ACTUAL_KIT_CACHE_TWIN_RETIREMENT_AND_SOURCE_PRESERVATION_INDEPENDENT.v1.json",
+      "original_bytes": 1449,
+      "original_sha256": "c376b40a5b6379c9d9bc9eb404035ea0e52abd075d0885d8a3573cfba12a4878"
+    },
+    {
+      "independent_review": {
+        "actual_acquisition_outer_wall_seconds": 4.092822981998324,
+        "actual_asset_stream_wall_seconds": 4.002999997988809,
+        "actual_child_identity": {
+          "pid": 187567,
+          "startticks": 44352686,
+          "state": "R"
+        },
+        "actual_logical_candidate_weight_GET_operations": 1,
+        "actual_outer_exit_code": 0,
+        "asset_ref": {
+          "bytes": 34014426,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/model-assets/model_quantized.onnx",
+          "sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4"
+        },
+        "auditor_model_tokenizer_native_parser_Gold_Git_calls": 0,
+        "checks_passed": true,
+        "epoch": 57,
+        "exact_pinned_Xenova_revision": "ea104dacec62c0de699686887e3f920caeb4f3e3",
+        "final_host_only_no_signedquery_or_headers_retained": "us.aws.cdn.hf.co",
+        "license_admission": "PinnedupstreamMITreleasedmodel grant and explicitXenovaONNXderivative link support localresearch use; preserve bothmodelcards/notices. Converterexactinputcheckpoint/script andownlicense declaration absent; no strongerlineage claim.",
+        "numerical_fidelity_or_throughput_qualified": false,
+        "original_child_absent_and_owned_group_no_current_members": true,
+        "post_GET_headroom_bytes": 3725586432,
+        "pre_GET_headroom_bytes": 3761049600,
+        "quantized_graph_parsed_or_model_initialized": false,
+        "receipts": [
+          {
+            "bytes": 176,
+            "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/ROOT_INT8_ACQUISITION_ATTEMPT.actual.v1.json",
+            "sha256": "d145e9827c91ed704f967d6bf476b2986e6c756a813a20e5d5f8b10c6b1b0da1"
+          },
+          {
+            "bytes": 103,
+            "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/ROOT_INT8_ACQUISITION_CHILD_STARTED.actual.v1.json",
+            "sha256": "4f0199c1665a856f86ef1d20db9203595612055b2cc59ab4beaa9cd3480742e6"
+          },
+          {
+            "bytes": 566,
+            "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/INT8_ASSET_GET_ATTEMPT.actual.v1.json",
+            "sha256": "2bc90e664e54739604913eebd0394bc6b98d5a842bf6edf76f83abc7dfc49180"
+          },
+          {
+            "bytes": 1132,
+            "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/INT8_ASSET_GET_RESULT.actual.v1.json",
+            "sha256": "2fa19a3801bd2b2037fb28c0cf2e8accbedf817ca4ced7d02203724429d1c069"
+          },
+          {
+            "bytes": 462,
+            "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/ROOT_INT8_ACQUISITION_OUTER.actual.v1.json",
+            "sha256": "3e74c00ed4c86da56962289bb521b9600b1b4925adc77afa875ddfa0fa56790e"
+          }
+        ],
+        "redirect_HTTP_request_count": "NOT_INSTRUMENTED; one urllib logicalGET followed publicCDNredirects",
+        "required_next": "Freezeexactruntime/candidate/bothplans/master/sourcebefore model/native measurement; lateindependentRootadmission and freshresource/owner/timechecks required.",
+        "schema_version": 1,
+        "scientific_dispatch_authorized": false,
+        "source_and_plan_exact_pins_verified": true,
+        "status": "OPAQUE_QUANTIZED_ASSET_FULLHASH_LICENSE_AND_CLOSED_ACQUISITION_INDEPENDENTLY_ADMITTED",
+        "training_test_nonuse_lineage": "UNQUALIFIED_NO_FRESH_CONFIRMATION_OR_PROMOTION"
+      },
+      "name": "INT8_ASSET_ACTUAL_HASH_LICENSE_AND_CLOSED_PROCESS_INDEPENDENT_ADMISSION.v1.json",
+      "original_bytes": 3067,
+      "original_sha256": "ea0587e3f2e505fddc70367345fe76b487c305fb517ad28fd68dca9a2d57ed0d"
+    },
+    {
+      "independent_review": {
+        "actual_auditor_reporter_summarize_close_invocations": 0,
+        "auditor_model_native_parser_Gold_Git_calls": 0,
+        "checks_passed": true,
+        "epoch": 57,
+        "exact_pre_freeze_corrections": [
+          "Bind independentengineering actual_results_ref to exact checkedengineering_result ref.",
+          "Explicitcompletedunpromotedpilot status, separate from rejectedpartial/noexecution."
+        ],
+        "prior_unexecuted_draft_SHA256": "e71db611fe9df9a8fdefb2b6c9c62b9a530128aa503c1b9f3fc6f05b79640c6c",
+        "required_before_any_actual_reporter_execution": [
+          "Freeze exactsource before measurements and verify exactWcopy equals frozenRsource.",
+          "Independentlyreview actualreportingconfig and allactualrefs/counters/closure; no planned-workfill.",
+          "Reviewfinalpublicsummary/privacy/inventory beforeclose."
+        ],
+        "reviewed_semantics": [
+          "Every includedactual scientificreport requires independent_review_complete/all_owned_processes_closed.",
+          "Engineeringraw/pilotresults/source receipts are exacthashchecked; plans neverfillactualcounts.",
+          "Partialoperationuncertainty and nullactuals pass through independentlyderiveddictionaries.",
+          "Optionalpilot is actualonly withreserved/scored/feature/labelonlyidentities, nofreshCF/promotion/rank.",
+          "No-pilot branchrequires independentzeroCLI/Gold nonexecutionreview.",
+          "Classificationaccuracy/Brier/NLL remainnull; retrievalrelevance onlyinownauditedactualpilot.",
+          "E56usedroles referenced and oldrejectionobject deepcopiedbefore uniqueepoch57append.",
+          "Closingrequires independentexactcurrentpublicinventory equality, O_EXCLreviewcopy+selfimmutablemanifest."
+        ],
+        "schema_version": 1,
+        "scientific_dispatch_authorized": false,
+        "source_ref": {
+          "bytes": 10481,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/report_actual.py",
+          "sha256": "c92acbd18ff1b77b4e9345db7c3b1d3a06a33c0ae7af651cad913cb82c62345a"
+        },
+        "status": "METADATA_ONLY_ACTUAL_REPORTER_SOURCE_APPROVED_AFTER_BINDING_CORRECTION"
+      },
+      "name": "METADATA_REPORTER_SOURCE_INDEPENDENT_APPROVAL.v2.json",
+      "original_bytes": 1990,
+      "original_sha256": "ee8aeadc0edca7fcc6bbb1febe04e508e14f56a6ff355134b8b0eeeac584da06"
+    },
+    {
+      "independent_review": {
+        "AST_changes_only_reviewed_constants": {
+          "controller.js_exact_identifier_renames": {
+            "BRANCH56": "BRANCH57",
+            "CONTEXT56": "CONTEXT57",
+            "DENY56": "DENY57",
+            "PUB56": "PUB57",
+            "REPO56": "REPO57",
+            "SUCCESS56": "SUCCESS57",
+            "W56": "W57",
+            "capture56": "capture57",
+            "checkLeaves56": "checkLeaves57",
+            "get56": "get57",
+            "guard56": "guard57",
+            "mutate56": "mutate57",
+            "payload56": "payload57",
+            "persistE56Receipt": "persistE57Receipt",
+            "pin56": "pin57",
+            "proof56": "proof57",
+            "publishE56Phase": "publishE57Phase",
+            "q56": "q57",
+            "rawGet56": "rawGet57",
+            "read56": "read57",
+            "readText56": "readText57",
+            "sh56": "sh57",
+            "siblings56": "siblings57",
+            "un56": "un57"
+          },
+          "guard.py": [
+            {
+              "current": "E57 publication metadata guard. No dataset, model or scientific entrypoint.\n\nActual CLI modes are Root-only. A publication receipt grants no SCI authority.\nEvery returned mutation object is durably captured BEFORE response parsing or\npost-call owner checks. Any incomplete/invalid transaction stops; no replay.\n",
+              "prior": "E56 publication metadata guard. No dataset, model or scientific entrypoint.\n\nActual CLI modes are Root-only. A publication receipt grants no SCI authority.\nEvery returned mutation object is durably captured BEFORE response parsing or\npost-call owner checks. Any incomplete/invalid transaction stops; no replay.\n"
+            },
+            {
+              "current": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+              "prior": "ffdd0699f3254c5dd09437533d38111a8521c920"
+            },
+            {
+              "current": "3d1b5edcf40713720ce3830eb97944c0b6a758e1",
+              "prior": "57377523e1fc8dc7275293d14a7c56331b499810"
+            },
+            {
+              "current": "f02086b61bd89e483837082950baa75521b93829",
+              "prior": "2f4ed5468de0c0c5fe3f579740bab6789a3f8453"
+            },
+            {
+              "current": "92b30fdb3a9a6430b31b594042b8cdbc82cc4422",
+              "prior": "a99efedcd6be05f98e3e0dbf1f82b83b21eaa6c0"
+            },
+            {
+              "current": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
+              "prior": "REAL_NATIVE_SOURCE_FRAGMENT_CAPACITY_QUALIFICATION"
+            },
+            {
+              "current": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada",
+              "prior": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325"
+            },
+            {
+              "current": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project",
+              "prior": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project"
+            },
+            {
+              "current": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/owner.json",
+              "prior": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/owner.json"
+            },
+            {
+              "current": 709,
+              "prior": 711
+            },
+            {
+              "current": "a98d0e355925de7cf2fbe8711dc35afc4c3765e07fe5dfab8bd59f0309f733e5",
+              "prior": "1cd0cb9c7ac46476cba887ef0e9ef751daebea307fc8eb0678531af2a7799086"
+            },
+            {
+              "current": "exact guardian23 owner",
+              "prior": "exact guardian21 owner"
+            },
+            {
+              "current": 23,
+              "prior": 21
+            },
+            {
+              "current": "epoch57/",
+              "prior": "epoch56/"
+            },
+            {
+              "current": "audit/epoch57/",
+              "prior": "audit/epoch56/"
+            },
+            {
+              "current": "runtime/epoch57/",
+              "prior": "runtime/epoch56/"
+            },
+            {
+              "current": 57,
+              "prior": 56
+            },
+            {
+              "current": 23,
+              "prior": 21
+            },
+            {
+              "current": 186899,
+              "prior": 181168
+            },
+            {
+              "current": 44193256,
+              "prior": 42762589
+            },
+            {
+              "current": 44193256,
+              "prior": 42762589
+            },
+            {
+              "current": "/proc/186899/fd/3",
+              "prior": "/proc/181168/fd/3"
+            },
+            {
+              "current": 57,
+              "prior": 56
+            },
+            {
+              "current": 57,
+              "prior": 56
+            },
+            {
+              "current": "-g23",
+              "prior": "-g21"
+            },
+            {
+              "current": "e57-(source|final)-g23-[a-z0-9-]+",
+              "prior": "e56-(source|final)-g21-[a-z0-9-]+"
+            },
+            {
+              "current": 186899,
+              "prior": 181168
+            },
+            {
+              "current": "e57-",
+              "prior": "e56-"
+            },
+            {
+              "current": "186899",
+              "prior": "181168"
+            },
+            {
+              "current": 23,
+              "prior": 21
+            },
+            {
+              "current": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada",
+              "prior": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325"
+            },
+            {
+              "current": "/proc/186899/stat",
+              "prior": "/proc/181168/stat"
+            }
+          ],
+          "stagebuilder.py": [
+            {
+              "current": "Root-only E57 SOURCE/FINAL metadata staging. No Git or scientific call.\n\nIndependent preparation approval precedes this CLI; independent full desired-tree\napproval follows it. The resulting publication stage grants no SCI authority.\n",
+              "prior": "Root-only E56 SOURCE/FINAL metadata staging. No Git or scientific call.\n\nIndependent preparation approval precedes this CLI; independent full desired-tree\napproval follows it. The resulting publication stage grants no SCI authority.\n"
+            },
+            {
+              "current": "epoch57_source",
+              "prior": "epoch56_source"
+            },
+            {
+              "current": "epoch57_frozen_study",
+              "prior": "epoch56_frozen_study"
+            },
+            {
+              "current": "epoch57_data_roles",
+              "prior": "epoch56_data_roles"
+            },
+            {
+              "current": "epoch57_final",
+              "prior": "epoch56_final"
+            },
+            {
+              "current": "epoch57_",
+              "prior": "epoch56_"
+            },
+            {
+              "current": "new E57 phase/owner/kind",
+              "prior": "new E56 phase/owner/kind"
+            },
+            {
+              "current": "-g23",
+              "prior": "-g21"
+            },
+            {
+              "current": 57,
+              "prior": 56
+            },
+            {
+              "current": "fresh actual E57 source base",
+              "prior": "fresh actual E56 source base"
+            },
+            {
+              "current": "e57-",
+              "prior": "e56-"
+            },
+            {
+              "current": 57,
+              "prior": 56
+            },
+            {
+              "current": 57,
+              "prior": 56
+            },
+            {
+              "current": 57,
+              "prior": 56
+            },
+            {
+              "current": 8969,
+              "prior": 8800
+            },
+            {
+              "current": 8962,
+              "prior": 8793
+            },
+            {
+              "current": 57,
+              "prior": 56
+            },
+            {
+              "current": 57,
+              "prior": 56
+            },
+            {
+              "current": "epoch57_actual_execution",
+              "prior": "epoch56_actual_execution"
+            }
+          ]
+        },
+        "Node_syntax_check_exit_code": 0,
+        "UNKNOWN_intent_stop_no_reconciliation_or_retry_semantics_unchanged": true,
+        "actual_base_Merkle_root_bench_scope_independently_recomputed": true,
+        "audit_side_initial_comparison_note": "An unexecuted broadidentifier-discovery comparison also matchedsha256; rejected thatreviewtransform and used explicit24identifier allowlist. Targetsourcebytes neverchanged.",
+        "auditor_owner_stage_capture_Git_or_scientific_CLI_invocations": 0,
+        "checks_passed": true,
+        "compare_and_set_nonforce_branch_only_main_readonly_guards_unchanged": true,
+        "constraints": "Rootlatephaseinput+concretestage+desiredtree approvals remainrequired. NoE56lease22bridge. Use exact-bytepubliclog copies withapproved .txt suffix before immutableclose.",
+        "empty_stdout_txt_accepted": true,
+        "epoch": 57,
+        "exact_owner23_and_three_permanent_denies_verified": true,
+        "files": [
+          {
+            "bytes": 20232,
+            "path": "/dev/shm/ruvector-e57-data/publication-helpers/guard.py",
+            "sha256": "64f1ca3e65d0a9a6f58ed626e2aee500474793d30456a2fc7837e96552b2faf7"
+          },
+          {
+            "bytes": 16285,
+            "path": "/dev/shm/ruvector-e57-data/publication-helpers/stagebuilder.py",
+            "sha256": "d346f3d63698c0685c5167be86bbea13d52da89031325ce9ca281f8d961e4e93"
+          },
+          {
+            "bytes": 9592,
+            "path": "/dev/shm/ruvector-e57-data/publication-helpers/controller.js",
+            "sha256": "fb2abd378fff34b81a8d7e2e681b56734e597501d28a5c15fd94d15d74ff58d2"
+          }
+        ],
+        "original_public_suffix_allowlist_unchanged_and_two_suffix_rejections_tested": true,
+        "publication_phase_execution_allowed_by_this_report": false,
+        "raw_capture_first_owner_or_response_parse_later_semantics_unchanged": true,
+        "schema_version": 1,
+        "status": "METADATA_PUBLICATION_HELPER_SOURCE_BUNDLE_INDEPENDENTLY_APPROVED"
+      },
+      "name": "PUBLICATION_HELPER_BUNDLE_INDEPENDENT_SOURCE_REVIEW.v1.json",
+      "original_bytes": 8513,
+      "original_sha256": "731cbdfc109d211f1586050ac40826e853f80bf67d157ad4b6632999cd558525"
+    },
+    {
+      "independent_review": {
+        "actual_auditor_model_native_parser_Gold_Git_calls": 0,
+        "actual_token_length_at_least256_must_be_measured_under_frozen_worker": true,
+        "changed_runtime_hypothesis": "One quantizedONNX candidate plus batch32 instead of oldFP32/batch16; fixed256cap and conservative163forwardprojection qualified on NEWauthoredengineering only.",
+        "checks_passed": true,
+        "engineering_corpus_documents": 128,
+        "engineering_inputs_ref": {
+          "bytes": 817572,
+          "path": "/dev/shm/ruvector-e57-candidate/ENGINEERING_AUTHORED_INPUTS.v1.json",
+          "sha256": "cdfa5cde8246ee0cf1019860e3dea6344a59a8d5976b5f28b29a4cb2b9f15566"
+        },
+        "engineering_inputs_schema_no_truth_labels_verified": true,
+        "engineering_minimum_corpus_whitespace_words": 869,
+        "engineering_query_strings": 16,
+        "epoch": 57,
+        "frozen_source_and_both_plans_before_first_measurement_required": true,
+        "gate_source_proposal": {
+          "additional_conditions": [
+            "All128 original token lengths >=256 and all tensors exactly[batch,256]; all outputs finite384D/unit normalized.",
+            "No model/network/forbidden file violations; actual native engineering ledger qualified and independently physically closed.",
+            "Corresponding128 FP32/INT8 normalized embeddings min cosine >=0.97; numerical guard is authored engineering only, not benchmark accuracy equivalence.",
+            "All engineering and conditional pilot plans/source/roles frozen before first engineering model/native operation.",
+            "If any gate fails, no fullcorpus pilot, no retry/configuration grid."
+          ],
+          "maximum_projection_seconds": 420,
+          "minimum_speedup": 1.25,
+          "numerical_cosine_floor": 0.97,
+          "projection_formula": "2 * max(actual four INT8 full32 batch seconds) * ceil(5199/32) + measured INT8 initialization seconds +90 <=420",
+          "projection_safety_factor": 2,
+          "reserve_seconds": 90
+        },
+        "license_assessment": {
+          "conversion_input_checkpoint_and_script_revision": "NOT_DECLARED",
+          "converter_explicit_ONNX_derivative_link_verified": true,
+          "converter_own_license_declaration": false,
+          "explicit_pinned_upstream_MIT_release_statement_and_API_license_verified": true,
+          "local_research_acquisition_of_derivative_supported_by_upstream_license": true,
+          "no_model_weight_redistribution_approved": true,
+          "not_upstream_official_quantization": true,
+          "preserve_upstream_and_converter_READMEs_notices_attribution": true,
+          "training_test_nonuse_lineage": "UNQUALIFIED_NO_FRESH_CONFIRMATION_OR_PROMOTION"
+        },
+        "model_asset_plan_ref": {
+          "bytes": 9814,
+          "path": "/dev/shm/ruvector-e57-candidate/MODEL_SOURCE_QUALIFICATION_AND_ASSET_PLAN.v2.json",
+          "sha256": "6fdcef0548ebfa3ba4226409618e31263470e1cf4bcb1df6a47ecc90c76eb81a"
+        },
+        "same_model_ablation": "Nativeandexact share identicalINT8vectors; BM25 deterministiclexical on samecorpus/queries; FP32 onlyengineeringtiming/drift.",
+        "schema_version": 1,
+        "selected_asset": {
+          "Git_LFS_pointer_blob": "e5f3a4e07c216a5b862d3ce4858052a8521ac3c9",
+          "bytes": 34014426,
+          "declared_transform": "Pinned converter quantize_config declares QInt8/per_channel=true/reduce_range=true; quantized graph/weights not yet inspected or fetched.",
+          "path": "onnx/model_quantized.onnx",
+          "pinned_download_url": "https://huggingface.co/Xenova/bge-small-en-v1.5/resolve/ea104dacec62c0de699686887e3f920caeb4f3e3/onnx/model_quantized.onnx",
+          "repository": "Xenova/bge-small-en-v1.5",
+          "revision": "ea104dacec62c0de699686887e3f920caeb4f3e3",
+          "sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4"
+        },
+        "status": "EXACT_MODEL_METADATA_LICENSE_AND_CHANGED_ENGINEERING_HYPOTHESIS_QUALIFIED_CONDITIONAL_ON_REVIEWED_ONCE_ACQUISITION_SOURCE",
+        "weight_GET_or_ORT_import_or_native_or_Gold_approved_by_this_report": false
+      },
+      "name": "MODEL_METADATA_LICENSE_AND_ENGINEERING_DIRECTION_INDEPENDENT.v1.json",
+      "original_bytes": 3782,
+      "original_sha256": "6703920b098f1f7cf7ba75c48889dfe712ff40e39e37ea3cbe290e8cb5dc7976"
+    },
+    {
+      "independent_review": {
+        "actual_auditor_model_tokenizer_native_parser_Gold_Git_calls": 0,
+        "all20_adopted_R_targets_byte_identical_to_packet": true,
+        "all20_new_files_and5_inherited_source_rows_current_fullhash_verified": true,
+        "checks_passed": true,
+        "component_scope": "Worker/common/nativebridge/helper and theirinerttests; childseparateGold/supervisor/timer/builderapprovals required. This report itself grants no actualscientific/Gold dispatch.",
+        "epoch": 57,
+        "independent_inert_checks_ref": {
+          "bytes": 4799,
+          "path": "/dev/shm/ruvector-e57-audit/SOURCE_INERT_INDEPENDENT_CHECKS.v2.json",
+          "sha256": "f1ca0a62c46b88483e1ef32183bd7efe82cb349e5d0683fb2ed5373dbdee4023"
+        },
+        "independent_native_inert_tests": 10,
+        "independent_worker_inert_tests": 18,
+        "premeasurement_corrections_retained": [
+          "Savedexceptiontrace rendering correctedbeforeanyrealrun; chainedexceptionregression passes.",
+          "Nativeprogressshort/zerowrite correctedbeforeanyrealrun; mockBEFOREcallbacknotinvoked.",
+          "Inertnativeledgerlookup uses reconstructedR+exact3795pin rather than oldcloudcandidatepath."
+        ],
+        "reviewed_contract": [
+          "CPUExecutionProvider only, ORTintra2/inter1, fixedpad/truncation256, CLS/L2finite384DF32; exactmodel/tokenizer/runtime pins and sequentialFP32thenINT8sessions.",
+          "Engineeringnewauthored128corpus+16queries, FP324forwards128texts/INT85forwards144texts; nohiddenwarmups. Runtimefulltokenminimum256checkedbeforeforward.",
+          "Speedup>=1.25, min128pairedcosine>=.97, projection2*max4INT8batchseconds*163+observedINT8init+90<=420 are all frozen before measurements. Forwardonlytiming exclusions explicit; actualinclusiveouter600 remainsauthoritative.",
+          "OptionalpilotonlyINT8,5199texts163forwards; allsame16SciFactDEV identities preserved; noGold/scorerimports inworkers.",
+          "Native/exactcosine consume identicalsourceF32vectors. BM25lexical on samecorpus/queries. NoFP32retrievalarm, native rawscoreorientation unchanged, equalreturnedties normalizedonlylocally withglobalboundarytiesexplicitunverified.",
+          "ActualRuVectorbinary/Node/coreversions pinned; dynamicnative1index/128or5183inserts/16queries/160F32hitvalidations,14-keycaps, onechildwithinownedgroup.",
+          "Onlycapturedhelperobservationspopulateparentcounters byassignment. Expectedtotalsvalidateonly; missing/partial/invalidcaptures latchuncertainty; one-shotcapture; no expectedfill/retries.",
+          "Nativeprogressshort/zerowrite nowthrowsbeforeactualcallback; N+37eventrowgeometry/eventvocabulary unchanged. Helper\u226460/process\u226485 cleanupandterminalsource/PID/progresshashbindings verified.",
+          "WorkerGold/file/networkaudits activebefore model/data operation; exactqrels paths denied beforeIO. FullfeatureIDs/exposureuncertainty separate from scoring; finish preserves actualexception+chain outsidehandler and partialobservations.",
+          "Everyrealoperation remainsRoot-owned, with SOURCECAS/fullreadback, bothconcreteplans/master/sourcefreeze and lateindependent admission before SCI."
+        ],
+        "schema_version": 1,
+        "scientific_dispatch_authorized": false,
+        "source_packet_ref": {
+          "bytes": 15526,
+          "path": "/dev/shm/ruvector-e57-candidate/SOURCE_IMPLEMENTATION_PACKET.v2.json",
+          "sha256": "35a1998693f8fad376aafc290995b70b41743d65c12839e68e54558cb1e72027"
+        },
+        "status": "NEW_QUANTIZED_WORKER_AND_REAL_NATIVE_BRIDGE_SOURCE_INDEPENDENTLY_APPROVED"
+      },
+      "name": "WORKER_NATIVE_SOURCE_INDEPENDENT_REVIEW.v2.json",
+      "original_bytes": 3371,
+      "original_sha256": "f6e611cfd5158b9cb6249b566b32225713ab14093f4acd42b2a168247c1f8148"
+    },
+    {
+      "independent_review": {
+        "Claim_observation": {
+          "RuVector_score": null,
+          "decision_leader": {
+            "accuracy_percent": 100.0,
+            "model": "decision/d1-ultra"
+          },
+          "decision_runner_up": {
+            "accuracy_percent": 99.694,
+            "model": "decision/decider-v1.2"
+          },
+          "full_data_scorer_license_submission_access": "UNVERIFIED",
+          "language_models_at100_count": 4,
+          "pilot_executed": false,
+          "retrieval_rule": "Only supplied10Kexcerpts; retrievalmiss doesnot proveinsufficient evidence."
+        },
+        "Jev_leader_changed": false,
+        "Jev_openweights_Capability_leader": {
+          "Capability": 84.339,
+          "model": "H2O-Lightning-31B v1.0.7",
+          "model_id": "h2o-lightning-31b"
+        },
+        "actual_auditor_GETs_mail_model_native_Gold_Git_calls": 0,
+        "actual_public_GETs": 3,
+        "actual_redirects_retries": 0,
+        "all14_selected_file_hashes_UTF8_JSON_and_no_credentials_private_email_or_raw_pages_verified": true,
+        "both_actual_commands_exit0_and_no_live_sessions": true,
+        "checks_passed": true,
+        "epoch": 57,
+        "merged_safe_facts_ref": {
+          "bytes": 12267,
+          "path": "/dev/shm/ruvector-e57-data/official-refresh/benchmark-refresh.safe.v2.json",
+          "sha256": "24e811c8dbe1a0c0ad1a84aa22f77c2921ab07268b0795e0635ff933cc058cc4"
+        },
+        "official_goal_verified": false,
+        "packet_ref": {
+          "bytes": 3270,
+          "path": "/dev/shm/ruvector-e57-data/PUBLIC_METADATA_PACKET.v2.json",
+          "sha256": "b63b6236fa7aeb6e5f5709495ebdcaf8c51202208bc1d695ca53bc19a3b2c0ed"
+        },
+        "pre_review_metadata_correction": "Inheritedone-account sentence correctedbeforepublication to actualtwo-profile/two-query scope; no new network/mail query repeated.",
+        "publisher_metadata_scope": {
+          "body_message_ID_match_verified": false,
+          "configured_profiles": 2,
+          "exact_reference_queries": 2,
+          "global_absence_proven": false,
+          "historical115": "Evaluationqueue position only, never rank.",
+          "matching_message_dates": [
+            "2026-10-22"
+          ],
+          "matching_receipt_class": 1,
+          "official_score_rank_eligibility_verified": false,
+          "result_score_rank_eligibility_subject_candidates": 0
+        },
+        "raw_public_bodies_private_mail_fields_or_new_sends_included": false,
+        "schema_version": 1,
+        "status": "ACTUAL_OFFICIAL_SOURCE_FACTS_AND_PUBLIC_PRIVACY_PACKET_INDEPENDENTLY_REVIEWED",
+        "unchanged_FinNLI_ModernBERT_or_other_qualification_probes_repeated": false
+      },
+      "name": "OFFICIAL_PUBLIC_FACTS_AND_PRIVACY_INDEPENDENT_REVIEW.v2.json",
+      "original_bytes": 2349,
+      "original_sha256": "45f4570781c7802f6fcc318dc319cdc9a8556cbffcd94481d3783fa060fe942a"
+    },
+    {
+      "independent_review": {
+        "CPU_threads": 2,
+        "Gold_prerequisites": "OneRootlazyselected16 decode onlyaftercomplete48forecasts sealed + independentphysicalclosure; noGoldafterpartial/failedgate; Rootmustbound<=60andstart+60<=17:45.",
+        "SCI_latest_finish_UTC": "17:45",
+        "SCI_latest_start_UTC": "17:35",
+        "actual_scientific_dispatch_approved": false,
+        "all16SciFactDEV_forever_and1109_sourcepool_unqualifiedCF": true,
+        "all_canonical_source_asset_and_metadata_refs_fresh_hash_verified": 25,
+        "auditor_model_tokenizer_native_parser_Gold_Git_calls": 0,
+        "checks_passed": true,
+        "conditional_pilot_caps": {
+          "BGE_initializations": 1,
+          "BGE_texts": 5199,
+          "INT8_forwards": 163,
+          "native_F32_hit_validations": 160,
+          "native_indexes": 1,
+          "native_insertions": 5183,
+          "native_queries": 16
+        },
+        "engineering_calls_caps": {
+          "BGE_initializations": 2,
+          "BGE_texts": 272,
+          "FP32_forwards": 4,
+          "INT8_forwards": 5,
+          "native_F32_hit_validations": 160,
+          "native_indexes": 1,
+          "native_insertions": 128,
+          "native_queries": 16
+        },
+        "engineering_plan_ref": {
+          "bytes": 9963,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/epoch57/plan.json",
+          "sha256": "1bb5fe27b6ccbd376c2b8c2b68d11170be7ee1f0f7f49e210af6c7c40244ec05"
+        },
+        "epoch": 57,
+        "exact_same_INT8_vectors_native_vs_exact_and_BM25_same_texts": true,
+        "frozen_gate": {
+          "maximum_projection_seconds": 420,
+          "minimum_speedup": 1.25,
+          "numerical_cosine_floor": 0.97,
+          "projection_safety_factor": 2,
+          "reserve_seconds": 90
+        },
+        "identity_roles_exact": true,
+        "inclusive_seconds_per_batch": 600,
+        "master_protocol_ref": {
+          "bytes": 8282,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/epoch57/MASTER_PROTOCOL.v1.json",
+          "sha256": "2e05c650eda5e6c15aba591e378ee8432f949976c5771b5ab5944b1f649bcb3a"
+        },
+        "native_batches_epoch_cap": 2,
+        "new_authored_engineering_IDs_corpus128_queries16_frozen": true,
+        "one_candidate_no_retry_grid_no_hidden_warmups": true,
+        "qrels_scope": "Opaque5KBchecksum only; no TSV/doc/relevance decoding, no labels or scoring.",
+        "qrels_semantic_decodes": 0,
+        "reserved_publication_seconds": 2330,
+        "retrieval_DEV_plan_ref": {
+          "bytes": 11187,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/epoch57/retrieval/plan.json",
+          "sha256": "fdff29b7204551df337cd5aae5e2daa291b12bc1e11fac1983914288a0981e8d"
+        },
+        "schema_version": 1,
+        "source_freeze_and_actual_SOURCE_CAS_full_readback_before_SCI_required": true,
+        "status": "BOTH_CONCRETE_PREMEASUREMENT_PLANS_AND_MASTER_INDEPENDENTLY_APPROVED"
+      },
+      "name": "BOTH_CONCRETE_PLANS_AND_MASTER_INDEPENDENT_APPROVAL.v1.json",
+      "original_bytes": 2703,
+      "original_sha256": "bac75e0c727f4f5523b162ca86502bc15dc4ae73f4aba96234268567972669ef"
+    },
+    {
+      "independent_review": {
+        "auditor_science_or_external_mutations": 0,
+        "checks_passed": false,
+        "epoch": 57,
+        "new_root_reconstruction_executed": false,
+        "observed_incorrect_literal": "489698de9602bbb5d817a55f707b4fcfd11c65e0",
+        "other_static_checks_completed": [
+          "All11 E56 source-only argv receipts SHA/sizeverified and exactargv read; no model/install/native/Gold flags.",
+          "Git8969/CP8962, actualbase5e426 and CP1520b99a bindings match freshcheckpoint.",
+          "Bootstrap/restore exact unchanged eceb/affd source hashes from fresh critical Git bodies."
+        ],
+        "reason": "Proposal review narrative claimed correctdeny but actual source disagreed. Stop relayed before Root execution. Correct exactliteral only, keep old historicalsources unchanged, re-review newsource.",
+        "required_permanent_deny_literal": "486888de9602bbb5d817a55f707b4fcfd11c65e0",
+        "schema_version": 1,
+        "source_ref": {
+          "bytes": 6647,
+          "path": "/dev/shm/ruvector-e57-audit/reconstruct_sources.rejected-preexecution.v1.py",
+          "sha256": "9d6e58124795c2b4418ce225df68979cc16fb122192bf59b5eeec79bc3a77c1d"
+        },
+        "status": "REJECTED_PREEXECUTION_INCORRECT_FIRST_PERMANENT_DENY_LITERAL"
+      },
+      "name": "SOURCE_RECONSTRUCTION_INITIAL_PREEXECUTION_REJECTION.v1.json",
+      "original_bytes": 1157,
+      "original_sha256": "9ee6fa075aafd59fe8fe2869efd937db6f7b8ebecd1a7ccf2af326155a79eb18"
+    },
+    {
+      "independent_review": {
+        "actual_auditor_cache_hint_or_file_mutations": 0,
+        "actual_shared_cgroup_headroom_requires_fresh_independent_snapshot_after_hint": true,
+        "checks_passed": true,
+        "epoch": 57,
+        "exact_target_pinned_in_already_verified_runtime_manifest": {
+          "bytes": 418117016,
+          "path": "/tmp/ruvector-sota-2026-10-22/epoch33-0522a2c521c9/runtime/.venv/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so",
+          "sha256": "5d4a2afb0c94f8c2cb44eae9c7d303ebcb64700d49933ff8894b09eea61b3f1d"
+        },
+        "expected_memory_effect_guaranteed": false,
+        "once_controls": [
+          "Exactowner23FD3originalFLOCK/time/CPU2 fence.",
+          "O_NOFOLLOW/ancestor-symlink checks, readonlyFD, fullSHA/sizebeforehint and stablefstats.",
+          "O_EXCLfsyncedattempt before singlecall; everyerror retained; no retry.",
+          "Postcallfstat/pathsignature verifies sameinode/bytesize/mtime/ctime/nlink. No posthash whichwouldrefillcache."
+        ],
+        "schema_version": 1,
+        "scientific_or_asset_GET_dispatch_authorized": false,
+        "scope": "OnePOSIX_FADV_DONTNEED advisory call on exactcleanlocalTorchfile unneededbyE57ORT/tokenizers route. No deletion, filebyteswrite,globaldropcache,libraryimport or model/nativecall.",
+        "source_ref": {
+          "bytes": 2969,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/release_unused_torch_file_cache_once.py",
+          "sha256": "d1032669e6a0a0cb689a4d52f312b7db28c7591a17297b7cc468c22b5a69702f"
+        },
+        "status": "ONE_EXACT_READ_ONLY_FILE_CACHE_HINT_SOURCE_APPROVED_NO_SCIENTIFIC_AUTHORITY"
+      },
+      "name": "EXACT_UNUSED_TORCH_CACHE_HINT_SOURCE_INDEPENDENT_APPROVAL.v1.json",
+      "original_bytes": 1503,
+      "original_sha256": "897daf9d61c6d2fe229639102fbc65ba7448f708f7c54e2e50b68f62ec27e429"
+    },
+    {
+      "independent_review": {
+        "after_acquisition": "IndependentactualfileSHA/size and closedprocess admission requiredbefore anymodelinitialization.",
+        "asset_plan_ref": {
+          "bytes": 9814,
+          "path": "/dev/shm/ruvector-e57-candidate/MODEL_SOURCE_QUALIFICATION_AND_ASSET_PLAN.v2.json",
+          "sha256": "6fdcef0548ebfa3ba4226409618e31263470e1cf4bcb1df6a47ecc90c76eb81a"
+        },
+        "auditor_GETs_or_wrapper_execution": 0,
+        "checks_passed": true,
+        "epoch": 57,
+        "independent_license_direction_ref": {
+          "bytes": 3782,
+          "path": "/dev/shm/ruvector-e57-audit/MODEL_METADATA_LICENSE_AND_ENGINEERING_DIRECTION_INDEPENDENT.v1.json",
+          "sha256": "6703920b098f1f7cf7ba75c48889dfe712ff40e39e37ea3cbe290e8cb5dc7976"
+        },
+        "pre_review_unexecuted_drafts_retained": [
+          "Initialsocket90timeout didnotenforcewhole90networkdeadline; noGETapproved.",
+          "IntermediateSIGALRMdraft movedsetitimerinsidetry tocatchimmediatealarm; noGETapproved."
+        ],
+        "required_before_Root_once_launch": "Complete approvednewKcachetwinretirement and take freshactualheadroom/free/owner/sourcehash preflight before consumingROOTattempt. Ifinsufficient, do notlaunch orrepeat unchangedblocker.",
+        "reviewed_boundaries": [
+          "ExactfixedpublicassetURL/revision/34014426bytes/SHA6c9c...; one logicalcandidateweightGET,noautomaticretry/resume.",
+          "CPU[0,1]/owner23/originalFD3FLOCK/time and nonoptimizedassertfences.",
+          "FreshpreGETheadroom3355443200/free100663296 and postGETheadroom3221225472.",
+          "Streamchunksatmost1MiB,bytes+hash bound, O_EXCLattempt/partial and hardlinkEXCLfinalonlyafterexactmatch; retainfailures.",
+          "SIGALRM90minusSTART wholeoperation watchdog coversopen/read/hash/flush/commit and iscancelled/handlerrestored in finally.",
+          "Outer115seconds plusTERM2/KILL2 wait and actualwall<120 check; exactchild identity/closedstate mustbe independentlyverified afterward.",
+          "No signedquery/header/rawmodelbytes in publicreceipts; onlyfixedpublicURL+finalhostname+digest/count.",
+          "No model/library/tokenizer/native/parser/Gold import or initialization."
+        ],
+        "schema_version": 1,
+        "scientific_model_native_Gold_dispatch_allowed": false,
+        "source_files": [
+          {
+            "bytes": 4435,
+            "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/acquire_int8_asset_once.py",
+            "sha256": "f855d0f4e966f7ed777c9e393398a4c7885d1441f39042b1d8be9e50e3b3db35"
+          },
+          {
+            "bytes": 2222,
+            "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/run_int8_acquisition_once.py",
+            "sha256": "1c287892c461de639c7e72234af9d1fb9b746252a0b94aa9e508cbb39d53a04a"
+          }
+        ],
+        "status": "ONE_ROOT_OPAQUE_MODEL_ASSET_ACQUISITION_SOURCE_APPROVED_AFTER_WHOLE_DEADLINE_FIX"
+      },
+      "name": "INT8_OPAQUE_ASSET_ACQUISITION_SOURCE_INDEPENDENT_APPROVAL.v3.json",
+      "original_bytes": 2676,
+      "original_sha256": "7b277f017296021cf983b28d86cc209359cba5565e4151005526757b1ad71c1d"
+    },
+    {
+      "independent_review": {
+        "Git_leaves": 8969,
+        "Root_once_execution_allowed": "Only exact reviewed script placedat W57; source-only11steps; do not repeatuncertain/partially completed reconstruction; retain allstepreceipts.",
+        "actual_source_base": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+        "all11_old_argv_receipts_fullSHA_pinned_and_independently_read": true,
+        "all_three_permanent_deny_literals_exact": true,
+        "auditor_execution_of_wrapper": false,
+        "base_cache_donors": 48,
+        "checkpoint_rows": 8962,
+        "checks_passed": true,
+        "correction_scope": "Exactly one489698...literal changed to permanent486888...; no other byte change from reviewed initialproposal.",
+        "epoch": 57,
+        "expected_CP_only_overlay_rows": 70,
+        "fresh_remote_donor_proof_ref": {
+          "bytes": 5458,
+          "path": "/dev/shm/ruvector-e57-data/readback/ACTUAL_REMOTE_CHECKPOINT_AND_DONORS_INDEPENDENT.v1.json",
+          "sha256": "318d5cd54a318d27b452487932afc838e071b08b4131da7ac909fba9e3f5616c"
+        },
+        "original_bootstrap_sha256": "eceb2ca259feaf642bc81172aca57a2a209cc34cd17f9b281861c51f21b95806",
+        "original_restore_sha256": "affd9ecf660f380c3632f78cd14fb7a36e00797ceb097cf48c0c60136fac0be8",
+        "physical_copy_O_EXCL_no_hardlink_and_postcopy_hashes": true,
+        "prior_rejected_source_SHA256": "9d6e58124795c2b4418ce225df68979cc16fb122192bf59b5eeec79bc3a77c1d",
+        "runtime_install_model_acquisition_or_science_allowed": false,
+        "schema_version": 1,
+        "source_only_steps": 11,
+        "source_ref": {
+          "bytes": 6647,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/reconstruct_sources.py",
+          "sha256": "6406160850d547973dd9842cac7ef6fc09637ab7bce28fe3e1b0a21d2a8e0a3e"
+        },
+        "status": "SOURCE_ONLY_RECONSTRUCTION_WRAPPER_APPROVED_AFTER_EXACT_LITERAL_CORRECTION"
+      },
+      "name": "SOURCE_RECONSTRUCTION_WRAPPER_INDEPENDENT_APPROVAL.v2.json",
+      "original_bytes": 1738,
+      "original_sha256": "7ca08a59be1fb06bc52e83d043cde2c1529b1b8cf534c604614be95fce7073bb"
+    },
+    {
+      "independent_review": {
+        "Gold_controls": {
+          "all48forecasts_exact3arms_10rankcodes_and_seal_prerequisite": true,
+          "exact16_only_before_any_selected_label_decode": true,
+          "full_before_after_progress_write_checked_then_fsynced": true,
+          "ks": [
+            1,
+            10
+          ],
+          "no_core_selfID_filter_nDCG_pytrec_or_NLI_parity_claim": true,
+          "no_worker_or_supervisor_label_scoring": true,
+          "official_metric_functions": [
+            "mrr",
+            "top_k_accuracy",
+            "recall_cap"
+          ],
+          "official_metrics_source_sha256": "3b315c1473115dc4e41d3038423fe5f1963868c3b9c92d5386839bde33472157",
+          "once_only_scoring_attempt_and_progress": true,
+          "qualified_raw_plus_outer_RootCLI_and_fresh_independent_physical_closure_before_Gold": true,
+          "rankcodes": "10..1encodefrozenrank only; rawnative scores/ranks remain separate, notprobabilities",
+          "selected_qid_filter_precedes_doc_or_grade_split_decode": true,
+          "short_after_write_retains_durable_before_and_aborts": true,
+          "short_before_write_aborts_before_labeldecode": true
+        },
+        "Gold_source_delta": "Exactwholefileallowed substitutions from E56approveda432 only: W57workroot, epoch57record/controlchecks, guardian23ownerSHA. All shortwritefix/lazyfilter/seal/closure/officialmetrics unchanged.",
+        "actual_Gold_call_allowed": false,
+        "actual_scientific_dispatch_allowed": false,
+        "all20_packet_file_hashes_stable_verified": true,
+        "approved_source_refs": [
+          {
+            "bytes": 10244,
+            "path": "/dev/shm/ruvector-e57-candidate/score_sealed_retrieval.py",
+            "sha256": "c99fd4eac6192c16e4b7d7e5109888e1f0585d8ecf4b638016a36161a395429b"
+          },
+          {
+            "bytes": 20954,
+            "path": "/dev/shm/ruvector-e57-candidate/supervisor.py",
+            "sha256": "6c771f65bbd915af08c2398ba91519e95b345799ab752f5d07cdcba90a6745d2"
+          },
+          {
+            "bytes": 4272,
+            "path": "/dev/shm/ruvector-e57-candidate/run_cli_once.py",
+            "sha256": "65a0c86ab78f3586eb0b47c83dca652f4dbbad570742d74f091b3efea4a65705"
+          }
+        ],
+        "auditor_actual": {
+          "E56R_or_E57R_writes": 0,
+          "Git_mutations": 0,
+          "actual_label_or_feature_payload_semantic_reads": 0,
+          "actual_parser_model_native_inference_benchmark_or_Gold_execution": 0,
+          "network_requests": 0,
+          "scorer_main_or_supervisor_main_or_fence_calls": 0,
+          "writes_only_under": "/dev/shm/ruvector-e57-audit/retrieval-source-review"
+        },
+        "checks_passed": true,
+        "confirmed_product_defects": [],
+        "epoch": 57,
+        "failures_retained": [
+          {
+            "classification": "Auditor harness eval NameError for comprehension namespace, not product failure. v1source+failedlogretained; corrected v2harness passes all9 with unchanged supervisorhash.",
+            "ref": {
+              "bytes": 2352,
+              "path": "/dev/shm/ruvector-e57-audit/retrieval-source-review/E57_SUPERVISOR_CONTROL_TOY_INDEPENDENT.v1.json",
+              "sha256": "cca8ca202815f2f20914e947b9eb53ee00ff20a42c9cff005de0d61d1527856e"
+            }
+          },
+          {
+            "classification": "Fullpacketv1becamestale duringauthorizedfive-filefinalfixes. Pinnedwriterfailedclosedbeforebuilderapproval; finalstablev2all20hashesnowmatch.",
+            "ref": {
+              "bytes": 2267,
+              "path": "/dev/shm/ruvector-e57-audit/retrieval-source-review/E57_PACKET_STABILITY_OBSERVATION.v1.json",
+              "sha256": "8c4ba3b669cc94fa28862e6dc102c7eaa6bc376fa908768857ac613322b0978d"
+            }
+          }
+        ],
+        "full_stable_packet_approval": false,
+        "inert_pass_counts": {
+          "Gold_authored_toy_tests": 18,
+          "supervisor_source_predicate_toy_checks": 9
+        },
+        "inert_verification_refs": [
+          {
+            "bytes": 1336,
+            "path": "/dev/shm/ruvector-e57-audit/retrieval-source-review/E57_GOLD_SCORER_TOY_INDEPENDENT.v2.json",
+            "sha256": "98d6cf10d35562f2d09a7264f927511029377b13af538c2bd1bbf7cfc7c6ab5d"
+          },
+          {
+            "bytes": 1666,
+            "path": "/dev/shm/ruvector-e57-audit/retrieval-source-review/E57_SUPERVISOR_CONTROL_TOY_INDEPENDENT.v2.json",
+            "sha256": "10f1f5f35c919199fbb3aa64a6ab0e04f34b1bb3f66daea114896d74f5f3e2e1"
+          }
+        ],
+        "kind": "INDEPENDENT_GOLD_SEAL_SUPERVISOR_STATIC_APPROVAL_V2_PACKET_BOUND",
+        "mandatory_remaining_holds": [
+          "Finalstablev2packet includes nativeprogressfullwritefix andmetadata planbuilder545623 approved separately; parentfullworker/nativeandbothconcreteplansreview/masterfreeze stillrequired before actualSCI.",
+          "Actualquantizedmodel boundedacquisition/hash/license and exact same16SciFactDEV/full5183preparedfeature refs qualified before plans/sourcefreeze.",
+          "Both actualplans must use exactguardian23ownerref, sameSOURCEcommit/fulltreeproof, validlateRootadmissions and current3GiBheadroom/lateststart/cutoff.",
+          "Noopaque qrelslabelpayload may be placed in masterSOURCE_FREEZE.files/admission.source_files because supervisor hashes allsourcefiles before workerlabeldeny; compare qrelsrefs to prioropaquequalifiedmetadata without auditor labelread.",
+          "Staticapproval is not actual600secondfeasibility, processclosure, throughputgate or quality proof. Each real attempt gets one invocation and partialuncertainty is retained without replay.",
+          "Goldrequires later newexactconfig+allforecastsseal+actualsuccessfulCLI/outer+fresh independentphysicalclosure and newbounded60sRootone-shot envelope; no future/circular approvals."
+        ],
+        "metadata_plan_builder_review": {
+          "bytes": 5199,
+          "path": "/dev/shm/ruvector-e57-audit/retrieval-source-review/E57_BOTH_PLAN_BUILDER_SOURCE_APPROVAL.v1.json",
+          "sha256": "6901401412299871e50416c4469594d22c04eaa7cf147a63621014845745fb63"
+        },
+        "prior_component_review": {
+          "bytes": 8388,
+          "path": "/dev/shm/ruvector-e57-audit/retrieval-source-review/E57_GOLD_AND_SUPERVISOR_SOURCE_APPROVAL.v1.json",
+          "sha256": "44cc2285b538aa7c602faaf99939a457a1c702c6ce4c8aeff50128dbd11d0ff1"
+        },
+        "residual_scope": [
+          "Python/proc/filesystem operations and fsync have cooperative bounds; no hardrealtimepreemption guarantee. Anyoverrun/crash/closureuncertainty fails qualification.",
+          "Supervisorinitialsnap/registration and inherited cleanup remain failure-sensitive; fresh independentphysicalclosure is mandatory, never inferred solely from sourcecontrol flags.",
+          "RootCLI wrapper relies on supervised worker/nativecleanup and independentactualclosure, notjust supervisorPID disappearance.",
+          "E56actualpartial116completed/117attempted with117uncertain is retained; earlystop does not prove600secondinfeasibility.",
+          "All16sourceofficialtestidentities are DEVforever; entire1109pool remains unqualifiedfreshCF, modeltraining/test nonuse lineageunknown; no promotion/officialplacement/NLIproperloss."
+        ],
+        "reviewer": "/root/e56_audit/retrieval_source",
+        "schema_version": 1,
+        "seal_interface_source_inspected_only": {
+          "pilot_worker": {
+            "bytes": 2810,
+            "path": "/dev/shm/ruvector-e57-candidate/worker_impl/pilot_worker.py",
+            "sha256": "af4f5f0ef1d56c3fab1f33d8aa95393551e7059ea6a5d61aca257b5207fd7b54"
+          },
+          "runtime_common": {
+            "bytes": 26633,
+            "path": "/dev/shm/ruvector-e57-candidate/worker_impl/runtime_common.py",
+            "sha256": "ecf687ff68bea0c33b50fe50fc912f55162990add597d45b8eb07adcc8c71468"
+          },
+          "scope": "Only noGold/forecast/raw source interface and all48seal compatibility read. Fullmodel/worker/native accounting review belongs parent; no completeworker approval by this record.",
+          "v2_delta_scope": "runtime_common private saved-exception rendering regressionfix reviewedbyparent; Gold/forecastinterface unchanged. Fullmodel/native implementationreview remainsparentowned."
+        },
+        "source_component_approval": true,
+        "stable_full_packet_v2": {
+          "bytes": 15526,
+          "path": "/dev/shm/ruvector-e57-candidate/SOURCE_IMPLEMENTATION_PACKET.v2.json",
+          "sha256": "35a1998693f8fad376aafc290995b70b41743d65c12839e68e54558cb1e72027"
+        },
+        "supervisor_controls": {
+          "BGE_batch": 32,
+          "BGE_token_cap": 256,
+          "CPU_affinity": [
+            0,
+            1
+          ],
+          "KILL_backstop": 585,
+          "Root_CLI_TERM_wait_KILL_wait": [
+            590,
+            5,
+            2
+          ],
+          "TERM_backstop": 580,
+          "accepted_actual_engineering_result_must_match_same_frozen_engineering_plan_and_SOURCEcommit": true,
+          "actual_source_publication_masterfreeze_and_all_source_refs_bound": true,
+          "both_phase_plans_must_be_frozen_before_first_SCI": true,
+          "deferred_signal_flags_during_spawn_registration": true,
+          "exact_guardian23_PID": 186899,
+          "exact_startticks": 44193256,
+          "finally_bounded_owned_cleanup_and_zero_resource_terminal_gate": true,
+          "finish_backstop_UTC": "2026-10-27T17:45:00Z",
+          "kernel_FLOCK_boot_namespace_affinity_busy_probe_source_present": true,
+          "latest_start_UTC": "2026-10-27T17:35:00Z",
+          "minimum_Root_CLI_headroom_bytes": 3221225472,
+          "minimum_guardian_margin_after_prehash_seconds": 600,
+          "native_batches_per_phase": 1,
+          "original_lock_dev_inode": [
+            33,
+            13626
+          ],
+          "outer_seconds": 600,
+          "owned_new_worker_session_and_transitive_PID_startticks_group_tracking": true,
+          "owner_ref_required_in_actual_plan": {
+            "bytes": 709,
+            "sha256": "a98d0e355925de7cf2fbe8711dc35afc4c3765e07fe5dfab8bd59f0309f733e5"
+          },
+          "phase_geometry": {
+            "engineering": {
+              "BGE_forwards_cap": 9,
+              "BGE_initializations_cap": 2,
+              "BGE_texts_cap": 272,
+              "documents": 128,
+              "queries": 16
+            },
+            "pilot": {
+              "BGE_forwards_cap": 163,
+              "BGE_initializations_cap": 1,
+              "BGE_texts_cap": 5199,
+              "documents": 5183,
+              "queries": 16
+            }
+          },
+          "pilot_requires_independent_engineering_throughput_native_closure_pass": true,
+          "prehash_limit_seconds": 30,
+          "worker_deadline": 570
+        },
+        "test_location_delta_verified": "Only BASE changed to co-locatedtestsourceparent; exactreverse replacement reproducesf1f0priorhash; all18testsindependentlyrerunPASS.",
+        "toy_test_source": {
+          "bytes": 11330,
+          "path": "/dev/shm/ruvector-e57-candidate/test_scorer_inert.py",
+          "sha256": "e1a58996301a0557f67f5cb516b84b696dbc71268ef76e925292737fa87cb82c"
+        }
+      },
+      "name": "retrieval-source-review/E57_GOLD_AND_SUPERVISOR_SOURCE_APPROVAL.v2.json",
+      "original_bytes": 10011,
+      "original_sha256": "a3dffc8d923fd82d446ad4dd2b0cbce548233cadc327fb624ecf4281159f463d"
+    },
+    {
+      "independent_review": {
+        "Root_one_metadata_assembly_allowed_for_exact_inputs": true,
+        "actual_SCI_or_Gold_dispatch_allowed": false,
+        "all_inherited_source_hashes_verified": 5,
+        "all_packet_new_source_hashes_verified": 20,
+        "approved_Root_entry": "TrustedPython-I-B no-O/-OO, exactbuilder545623 --quantized-model /dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/model-assets/model_quantized.onnx --asset-admission exactea0587file --asset-admission-sha256 ea0587e3f2e505fddc70367345fe76b487c305fb517ad28fd68dca9a2d57ed0d; exactlyonce beforeanySCI.",
+        "approved_quantized_asset_ref_METADATA_ONLY": {
+          "bytes": 34014426,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/model-assets/model_quantized.onnx",
+          "sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4"
+        },
+        "auditor_actual": {
+          "actual_parser_model_native_inference_label_Gold_calls": 0,
+          "builder_executed": false,
+          "model_asset_rehashed_or_graph_parsed": false,
+          "network_Git_Rwrites": 0,
+          "writes_only_under": "/dev/shm/ruvector-e57-audit/retrieval-source-review"
+        },
+        "checks_passed": true,
+        "controls": {
+          "asset_admission_SHA_epoch57_checkstrue": 23,
+          "both_new_O_EXCLplans_before_sourcefreeze_and_firstSCI": 33,
+          "engineering2inits9forwards272texts_FP32diagnosticsonly": 31,
+          "exact_candidate_weight34014426_SHA6c9c": 22,
+          "exact_guardian23_owner709_SHAa98d": 27,
+          "new_authoredCC0_128corpus16query_engineering": 30,
+          "pilotINT8only_5183corpus16sameDEV_163forwards5199texts": 32,
+          "preSCI_allfour_phaseattempt_CLI_sentinels_absent": 21,
+          "runtime_base5e426_and_FP32_tokenizer_native_Node_equal_old_frozen_plan": [
+            24,
+            25,
+            26
+          ],
+          "sources_and_CPU2_600s_32batch_256token_2epoch_nativebatch_cap": 29
+        },
+        "epoch": 57,
+        "exact_asset_admission": {
+          "bytes": 3067,
+          "path": "/dev/shm/ruvector-e57-audit/INT8_ASSET_ACTUAL_HASH_LICENSE_AND_CLOSED_PROCESS_INDEPENDENT_ADMISSION.v1.json",
+          "sha256": "ea0587e3f2e505fddc70367345fe76b487c305fb517ad28fd68dca9a2d57ed0d"
+        },
+        "inherited_E56_plan_metadata": {
+          "bytes": 10524,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/epoch56/retrieval/plan.json",
+          "sha256": "8ab6a499cc5ea6ea57e899d47ffbf99c89e84f72cdb249cc59b8c67d66791886"
+        },
+        "kind": "BOTH_PLAN_METADATA_BUILDER_INDEPENDENT_STATIC_SOURCE_APPROVAL",
+        "output_paths": [
+          "experiments/sota-2026-10-22/epoch57/plan.json",
+          "experiments/sota-2026-10-22/epoch57/retrieval/plan.json"
+        ],
+        "owner23_ref_metadata": {
+          "bytes": 709,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/owner.json",
+          "sha256": "a98d0e355925de7cf2fbe8711dc35afc4c3765e07fe5dfab8bd59f0309f733e5"
+        },
+        "prior_stale_v1_packet_failure_retained": {
+          "bytes": 2267,
+          "path": "/dev/shm/ruvector-e57-audit/retrieval-source-review/E57_PACKET_STABILITY_OBSERVATION.v1.json",
+          "sha256": "8c4ba3b669cc94fa28862e6dc102c7eaa6bc376fa908768857ac613322b0978d"
+        },
+        "remaining_exact_conditions": [
+          "Constrained to actualea0587admission whose asset_ref exactlymatches approvedq above. Genericbuildercode only checks QSHAtextmembership in admissionJSON, so no alternateadmission substitution is covered.",
+          "All safety asserts require no-O/-OO entry; builder has no ownoptimizationrefusal.",
+          "Rootadopts stablev2sourcebyte-identically beforebuilder; parent must compare BOTHconcreteplans/currentrefs to v2+assetadmission/roles/caps before masterSOURCEfreeze/publication.",
+          "SeparateO_EXCLplanwrites are notatomictransaction; partialassembly is retained, never silently overwritten/retried. Bothplans mustbevalid/frozen beforefirstSCI.",
+          "Hashhelper notfullconcurrent-stabilityproof; stableadoptedfiles/read-onlyassets plus later exactSourcefreeze/actualplanreview mandatory.",
+          "Same16SciFactDEVforever and1109poolfreshCFunqualified, conversion/trainingnonuselineageunknown; no promotion/officialplacement.",
+          "Actualengineeringgate/sourcepublishedproof/currentheadroom/owner/UTC and separatepilot/Goldadmissions remain required. This approval grants no SCI."
+        ],
+        "reviewer": "/root/e56_audit/retrieval_source",
+        "runtime_metadata": {
+          "bytes": 3514,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/CURRENT_RUNTIME_AND_TOKENIZER_ASSET_VERIFICATION.v1.json",
+          "sha256": "295cd47c4b62c46e71467530be8e1909d04750d281b9d7f7890b2dc4c607304d"
+        },
+        "schema_version": 1,
+        "source": {
+          "bytes": 8269,
+          "path": "/dev/shm/ruvector-e57-candidate/build_plans.py",
+          "sha256": "54562382cad14a992af4910ee34f1cae9de35be33d9af9f14e09eb903676a122"
+        },
+        "source_IO": "OnlystdlibmetadataJSON and opaque source/asset hashing. NewauthoredCC0engineeringinput JSON parsed for epoch/license/shape/queryIDs. No modelgraph/parser/scorer/native import, subprocess,network,Gold orbenchmarklabelread. Qrels path/hash copied from oldplanmetadata without opening payload.",
+        "source_approval": true,
+        "stable_full_packet_v2": {
+          "bytes": 15526,
+          "path": "/dev/shm/ruvector-e57-candidate/SOURCE_IMPLEMENTATION_PACKET.v2.json",
+          "sha256": "35a1998693f8fad376aafc290995b70b41743d65c12839e68e54558cb1e72027"
+        }
+      },
+      "name": "retrieval-source-review/E57_BOTH_PLAN_BUILDER_SOURCE_APPROVAL.v1.json",
+      "original_bytes": 5199,
+      "original_sha256": "6901401412299871e50416c4469594d22c04eaa7cf147a63621014845745fb63"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "Independent source/metadata/preparation admissions before any model/tokenizer/native/Gold measurement. Actual science requires separately verified SOURCE publication and late dispatch approval."
+}
