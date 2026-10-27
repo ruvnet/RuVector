@@ -11105,6 +11105,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-shm-ring"
+version = "0.1.0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "ruvector-snapshot"
 version = "2.3.0"
 dependencies = [

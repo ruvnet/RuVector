@@ -136,6 +136,7 @@ members = [
     "crates/ruvector-mincut-gated-transformer-wasm",
     # NOTE: ruvector-postgres is in workspace `exclude` (pgrx env requirement).
     "crates/ruvector-nervous-system",
+    "crates/ruvector-shm-ring",
     # Iter 219 — hailo backend rejoined the workspace (closes
     # ADR-178 Gap E folded into Gap B). All three build clean on
     # x86 with default features; opting into the actual NPU path
