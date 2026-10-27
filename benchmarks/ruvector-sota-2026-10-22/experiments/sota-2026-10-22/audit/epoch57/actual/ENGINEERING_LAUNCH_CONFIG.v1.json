@@ -1,0 +1,47 @@
+{
+  "CPU_affinity": [
+    0,
+    1
+  ],
+  "argv": [
+    "/tmp/ruvector-sota-2026-10-22/epoch33-0522a2c521c9/runtime/.venv/bin/python",
+    "-I",
+    "-B",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/runtime/epoch57/supervisor.py",
+    "--phase",
+    "engineering",
+    "--plan",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/epoch57/plan.json",
+    "--expected-plan-sha256",
+    "1bb5fe27b6ccbd376c2b8c2b68d11170be7ee1f0f7f49e210af6c7c40244ec05",
+    "--admission",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/ROOT_ENGINEERING_ADMISSION.v1.json",
+    "--expected-admission-sha256",
+    "428da2da5174fcda8a5ca7432ead23d30fba1b2415e19bcabcdd41237d0d6e3e",
+    "--approval",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/ENGINEERING_DISPATCH_INDEPENDENT_APPROVAL.v1.json",
+    "--expected-approval-sha256",
+    "f6a9a84c96ed8d49ca0cd3f6346336b882de5cfebe676a06cf8ed77cd38787b6"
+  ],
+  "environment": {
+    "BLIS_NUM_THREADS": "2",
+    "CUDA_VISIBLE_DEVICES": "",
+    "HF_DATASETS_OFFLINE": "1",
+    "HF_HUB_DISABLE_TELEMETRY": "1",
+    "HF_HUB_OFFLINE": "1",
+    "MKL_DYNAMIC": "FALSE",
+    "MKL_NUM_THREADS": "2",
+    "NUMEXPR_NUM_THREADS": "2",
+    "OMP_NUM_THREADS": "2",
+    "OMP_THREAD_LIMIT": "2",
+    "OPENBLAS_NUM_THREADS": "2",
+    "RAYON_NUM_THREADS": "2",
+    "TOKENIZERS_PARALLELISM": "false",
+    "TRANSFORMERS_OFFLINE": "1",
+    "UV_THREADPOOL_SIZE": "2",
+    "VECLIB_MAXIMUM_THREADS": "2"
+  },
+  "epoch": 57,
+  "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
+  "phase": "engineering"
+}

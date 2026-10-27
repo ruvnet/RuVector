@@ -1,0 +1,30 @@
+{
+  "absolute_monotonic_deadline": 445888.02927974,
+  "absolute_monotonic_start": 445288.02927974,
+  "automatic_retry": false,
+  "epoch": 57,
+  "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
+  "schema_version": 1,
+  "supervisor_identity": {
+    "FDSize": 64,
+    "pgid": 189121,
+    "pid": 189124,
+    "ppid": 189123,
+    "sid": 189121,
+    "startticks": 44528801,
+    "state": "R",
+    "statm": [
+      9753,
+      3170,
+      1120,
+      6827,
+      0,
+      2455,
+      0
+    ],
+    "wait_status": 0
+  },
+  "supplied_admission_sha256": "428da2da5174fcda8a5ca7432ead23d30fba1b2415e19bcabcdd41237d0d6e3e",
+  "supplied_approval_sha256": "f6a9a84c96ed8d49ca0cd3f6346336b882de5cfebe676a06cf8ed77cd38787b6",
+  "supplied_plan_sha256": "1bb5fe27b6ccbd376c2b8c2b68d11170be7ee1f0f7f49e210af6c7c40244ec05"
+}

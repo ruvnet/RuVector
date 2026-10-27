@@ -1,0 +1,12 @@
+{
+  "automatic_retry": false,
+  "epoch": 57,
+  "headroom_bytes": 3699273728,
+  "latest_scientific_finish_UTC": "2026-10-27T17:45:00Z",
+  "latest_scientific_start_UTC": "2026-10-27T17:35:00Z",
+  "minimum_bytes": 3221225472,
+  "observed_at_unix": 1793121586.0310333,
+  "original_owner23_fence_passed": true,
+  "pilot_or_Gold_dispatch_allowed": false,
+  "source_actual_commit": "3be77adfc5d3ceec3e71df01e2b4bd18490818b0"
+}

@@ -1,0 +1,31 @@
+{
+  "CPU_threads": 2,
+  "actual_auditor_model_tokenizer_native_parser_Gold_Git_calls": 0,
+  "admission_sha256": "428da2da5174fcda8a5ca7432ead23d30fba1b2415e19bcabcdd41237d0d6e3e",
+  "all57_source_members_current_hashes_exact": true,
+  "checks_passed": true,
+  "dispatch_allowed": true,
+  "epoch": 57,
+  "epoch_engineering_native_batch_cap": 1,
+  "inclusive_seconds": 600,
+  "intended_operational_approval_target": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/ENGINEERING_DISPATCH_INDEPENDENT_APPROVAL.v1.json",
+  "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
+  "native_model_plan_unchanged": true,
+  "observed_shared_cgroup_headroom_bytes": 3697762304,
+  "observed_unix": 1793121484.2364128,
+  "optional_pilot_and_Gold_hold_reason": "Frozenprerequisite bool-vs-observedcountsdict schema conflict430879. No amendment/replay/bypass or duplicateincompatibleaudit; unchangedengineering phaseunaffected.",
+  "optional_pilot_dispatch_allowed": false,
+  "owner23_exclusive_original_lock_currently_verified_readonly": true,
+  "phase": "engineering",
+  "plan_sha256": "1bb5fe27b6ccbd376c2b8c2b68d11170be7ee1f0f7f49e210af6c7c40244ec05",
+  "required_before_once_Root_CLI": "Exact18argv/config independentreview; freshowner/sourcehash/headroom\u22653GiB/start\u226417:35 and600s+cleanup before17:45. Stopifanyattemptsentinel appears; no retry.",
+  "schema_version": 1,
+  "source60_intent_response_pairs_allaccepted_no_UNKNOWN": true,
+  "source_commit": "3be77adfc5d3ceec3e71df01e2b4bd18490818b0",
+  "source_publication_proof_ref": {
+    "bytes": 3663,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/SOURCE_ACTUAL_REMOTE_READBACK_INDEPENDENT.v1.json",
+    "sha256": "2b28421a9ce6470d86769c54d3bb828455611bbd754912b543c43561c6a145b2"
+  },
+  "status": "ONE_ENGINEERING_COMPONENT_EXACT_LATE_DISPATCH_INDEPENDENTLY_APPROVED"
+}

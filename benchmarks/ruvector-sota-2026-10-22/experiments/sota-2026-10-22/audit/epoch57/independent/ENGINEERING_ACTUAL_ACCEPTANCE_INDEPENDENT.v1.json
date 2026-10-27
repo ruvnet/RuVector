@@ -1,0 +1,639 @@
+{
+  "actual_auditor_model_native_tokenizer_parser_Gold_Git_calls": 0,
+  "actual_execution_independently_derived": {
+    "BGE_forward_calls_attempted": 9,
+    "BGE_forward_calls_completed": 9,
+    "BGE_initializations": 2,
+    "BGE_texts_attempted": 272,
+    "BGE_texts_completed": 272,
+    "FP32_forwards": 4,
+    "FP32_texts": 128,
+    "GPU_calls": 0,
+    "Gold_scoring_calls": 0,
+    "INT8_forwards": 5,
+    "INT8_texts": 144,
+    "NLI_forwards_attempted": 0,
+    "NLI_forwards_completed": 0,
+    "Root_CLI_invocations": 1,
+    "actual_native_helper_starts": 1,
+    "actual_worker_starts": 1,
+    "calibration_calls": 0,
+    "native_F32_hit_validations": 160,
+    "native_corpus_batches": 1,
+    "native_corpus_batches_completed": 1,
+    "native_corpus_batches_started": 1,
+    "native_indexes": 1,
+    "native_insertions": 128,
+    "native_queries": 16,
+    "paid_API_calls": 0,
+    "training_calls": 0,
+    "typed_model_initializations": 0
+  },
+  "actual_results_ref": {
+    "bytes": 234421,
+    "path": "experiments/sota-2026-10-22/epoch57/runs/engineering/raw.json",
+    "sha256": "7e7af94bec20b7d174acd8293f9fc34faf28b9cf10dcf255bf7b5710035967be"
+  },
+  "all_owned_processes_closed": true,
+  "benchmark_generalization_claim": false,
+  "candidate_promoted": false,
+  "classification_quality_metrics": {
+    "Brier": null,
+    "NLL": null,
+    "accuracy": null
+  },
+  "engineering_qualified": false,
+  "epoch": 57,
+  "further_scientific_dispatch_allowed": false,
+  "independent_review_complete": true,
+  "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
+  "latency_and_resources": {
+    "actual_inclusive_Root_CLI_seconds": 24.102830723975785,
+    "independent_per_query_latency": {
+      "bm25": {
+        "N": 16,
+        "p50_seconds": 0.0022248085006140172,
+        "p95_seconds": 0.0038440359785454348
+      },
+      "exact_cosine": {
+        "N": 16,
+        "p50_seconds": 0.000137186492793262,
+        "p95_seconds": 0.0003277629875810817
+      },
+      "native": {
+        "N": 16,
+        "p50_seconds": 0.0007022975000000002,
+        "p95_seconds": 0.005774261750000001
+      }
+    },
+    "latency": {
+      "bm25": {
+        "observations": 16,
+        "p50_seconds": 0.0022248085006140172,
+        "p95_seconds": 0.0038440359785454348
+      },
+      "exact_cosine": {
+        "observations": 16,
+        "p50_seconds": 0.000137186492793262,
+        "p95_seconds": 0.0003277629875810817
+      },
+      "native": {
+        "observations": 16,
+        "p50_seconds": 0.0007022975000000002,
+        "p95_seconds": 0.005774261750000001
+      }
+    },
+    "latency_scope": "Per-query search only; shared BGE/corpus/index/init/capture/cleanup separately recorded. Inclusive supervisor/CLI clock is batch cap.",
+    "resources": {
+      "CPU_affinity": [
+        0,
+        1
+      ],
+      "RSS_scope": "Separate SELF and CHILDREN highwater; never summed.",
+      "children_max_RSS_KiB": 677004,
+      "children_system_seconds": 0.031854,
+      "children_user_seconds": 0.105735,
+      "compute_threads": 2,
+      "shared_cgroup": {
+        "headroom_bytes": 3490230272,
+        "memory_current_bytes": 13689638912,
+        "memory_events": {
+          "high": 0,
+          "low": 0,
+          "max": 83996,
+          "oom": 3,
+          "oom_group_kill": 0,
+          "oom_kill": 1
+        },
+        "memory_max_bytes": 17179869184,
+        "scope": "Shared cgroup snapshot; not candidate incremental use or cause proof."
+      },
+      "worker_max_RSS_KiB": 677004,
+      "worker_system_seconds": 1.5404369999999998,
+      "worker_user_seconds": 41.972619
+    }
+  },
+  "native_counter_accounting": {
+    "actual_native_events_independently_counted": {
+      "COMPLETE": 1,
+      "INDEX_BEFORE": 1,
+      "INSERT_BEFORE": 128,
+      "NATIVE_LOAD_BEFORE": 1,
+      "NATIVE_LOAD_COMPLETE": 1,
+      "NATIVE_VERSION_BEFORE": 1,
+      "QUERY_BEFORE": 16,
+      "QUERY_COMPLETE": 16
+    },
+    "capture_complete": true,
+    "capture_ref": {
+      "bytes": 92569,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/private-run/engineering/native-progress.jsonl",
+      "sha256": "2cde7ea9b1d18b59904696b603674706df35aba229f38ff6c335b90b54c1cccc"
+    },
+    "expected_totals_validation_only": {
+      "Node_network_operations_attempted": 0,
+      "native_binary_loads_attempted": 1,
+      "native_binary_loads_completed": 1,
+      "native_hit_source_validations": 160,
+      "native_index_initializations_attempted": 1,
+      "native_index_initializations_completed": 1,
+      "native_insertions_attempted": 128,
+      "native_insertions_completed": 128,
+      "native_len_calls_attempted": 2,
+      "native_len_calls_completed": 2,
+      "native_queries_attempted": 16,
+      "native_queries_completed": 16,
+      "native_version_calls_attempted": 1,
+      "native_version_calls_completed": 1
+    },
+    "idempotence_scope": "Identical validated snapshot rows only. Full progress-file capture is one-shot; recapture fails closed.",
+    "identical_counter_snapshot_replays": 1,
+    "independently_recomputed_expected_validation_bounds": {
+      "Node_network_operations_attempted": 0,
+      "native_binary_loads_attempted": 1,
+      "native_binary_loads_completed": 1,
+      "native_hit_source_validations": 160,
+      "native_index_initializations_attempted": 1,
+      "native_index_initializations_completed": 1,
+      "native_insertions_attempted": 128,
+      "native_insertions_completed": 128,
+      "native_len_calls_attempted": 2,
+      "native_len_calls_completed": 2,
+      "native_queries_attempted": 16,
+      "native_queries_completed": 16,
+      "native_version_calls_attempted": 1,
+      "native_version_calls_completed": 1
+    },
+    "inflight_native_call_outcome_uncertain": false,
+    "last_event": "COMPLETE",
+    "latest_validated_snapshot": {
+      "Node_network_operations_attempted": 0,
+      "native_binary_loads_attempted": 1,
+      "native_binary_loads_completed": 1,
+      "native_hit_source_validations": 160,
+      "native_index_initializations_attempted": 1,
+      "native_index_initializations_completed": 1,
+      "native_insertions_attempted": 128,
+      "native_insertions_completed": 128,
+      "native_len_calls_attempted": 2,
+      "native_len_calls_completed": 2,
+      "native_queries_attempted": 16,
+      "native_queries_completed": 16,
+      "native_version_calls_attempted": 1,
+      "native_version_calls_completed": 1
+    },
+    "merge_semantics": "Direct per-key assignment, never Counter.update or expected-value fill.",
+    "native_parent_totals_equal_captured_terminal": true,
+    "pending_attempt_completion_gap": false,
+    "qualified": true,
+    "raw_helper_progress_exact14key_agreement": true,
+    "schema_version": 1,
+    "single_source_of_truth": "Captured validated native helper progress plus exact terminal agreement.",
+    "snapshot_records": 165,
+    "validated_unique_event_counts": {
+      "COMPLETE": 1,
+      "INDEX_BEFORE": 1,
+      "INSERT_BEFORE": 128,
+      "NATIVE_LOAD_BEFORE": 1,
+      "NATIVE_LOAD_COMPLETE": 1,
+      "NATIVE_VERSION_BEFORE": 1,
+      "QUERY_BEFORE": 16,
+      "QUERY_COMPLETE": 16
+    },
+    "validation_failure_latched": false
+  },
+  "native_same_INT8_fidelity": {
+    "all144_vector_unit_norms_finite": true,
+    "all160_returned_source_vector_sha256_bits_match_bundle": true,
+    "mean_top10_overlap": 1.0,
+    "scope": "Authored engineering only; globalANNcutoffties unverified, no relevance labels.",
+    "top10_overlap_fractions": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ]
+  },
+  "numerical_fidelity_scope": "128paired cosine observations produced by frozen worker; aggregates/gates independently recomputed. FP32 rawembeddingmatrix not retained, so pairwisecosines are source-bound workerobservations rather than independently re-inferred outputs. No extra inference wasrun.",
+  "official_goal_verified": false,
+  "phase": "engineering",
+  "physical_process_observations": [
+    {
+      "current": null,
+      "identity": {
+        "pid": 189124,
+        "startticks": 44528801,
+        "state": "R"
+      },
+      "original_process_closed": true
+    },
+    {
+      "current": null,
+      "identity": {
+        "FDSize": 0,
+        "pgid": 189125,
+        "pid": 189125,
+        "ppid": 189124,
+        "sid": 189125,
+        "startticks": 44528845,
+        "state": "Z",
+        "statm": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wait_status": 0
+      },
+      "original_process_closed": true
+    },
+    {
+      "current": null,
+      "identity": {
+        "FDSize": 64,
+        "pgid": 189125,
+        "pid": 189129,
+        "ppid": 189125,
+        "sid": 189125,
+        "startticks": 44531173,
+        "state": "R",
+        "statm": [
+          441397,
+          12952,
+          7139,
+          10944,
+          0,
+          150965,
+          0
+        ],
+        "wait_status": 0
+      },
+      "original_process_closed": true
+    }
+  ],
+  "plan_sha256": "1bb5fe27b6ccbd376c2b8c2b68d11170be7ee1f0f7f49e210af6c7c40244ec05",
+  "reason": "Frozen conservative full-corpus engineering projection failed: 628.914452094s >420s; observed INT8 forward speedup 2.171000440x and min paired cosine 0.995409029426 passed their1.25/.97 gates. Actual native/accounting/source/closure gates passed. Projection is not proof of600s infeasibility. Optionalpilot also held by independent430879 bool-vs-count-dict schema conflict.",
+  "references": {
+    "Root_CLI_wall": {
+      "bytes": 491,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/ROOT_ENGINEERING_CLI_WALL.actual.v1.json",
+      "sha256": "cd0d8fbc21f35be459256b7dc4ca026621f375997fcd9915eaa7e6c405b308ec"
+    },
+    "bundle": {
+      "bytes": 297257,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/private-run/engineering/native-bundle.json",
+      "sha256": "9815588d373419a83b8a9f421b73a613fd7c48838fd8e9fdbc46cca5b5d00d68"
+    },
+    "forecast": {
+      "bytes": 41375,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/private-run/engineering/forecasts.json",
+      "sha256": "0ce59bb81c556a014dcbd9762e78fcd030ab76bbacb7e715567644403546d588"
+    },
+    "helper": {
+      "bytes": 60702,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/private-run/engineering/native-result.json",
+      "sha256": "0e2c8f172231d5c0845c53aaadaf27505fca41190fc2909318e5debc22d20e60"
+    },
+    "native_progress": {
+      "bytes": 92569,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/private-run/engineering/native-progress.jsonl",
+      "sha256": "2cde7ea9b1d18b59904696b603674706df35aba229f38ff6c335b90b54c1cccc"
+    },
+    "outer": {
+      "bytes": 4967,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/ENGINEERING_OUTER_EXECUTION.actual.v1.json",
+      "sha256": "00ed37513f2853a9583da69869a4ddfc1d2943dc68760edb4ad1d227569cbd7c"
+    },
+    "private_raw": {
+      "bytes": 234421,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/private-run/engineering/raw.json",
+      "sha256": "7e7af94bec20b7d174acd8293f9fc34faf28b9cf10dcf255bf7b5710035967be"
+    }
+  },
+  "schema_version": 1,
+  "source_commit": "3be77adfc5d3ceec3e71df01e2b4bd18490818b0",
+  "status": "REJECTED_FROZEN_FULL_CORPUS_THROUGHPUT_PROJECTION_GATE",
+  "throughput_gate_passed": false,
+  "throughput_measurements": {
+    "FP32": {
+      "batch_measurements": [
+        {
+          "finite_normalized_postprocessing_completed": true,
+          "forward_seconds": 3.2647192790172994,
+          "group": "corpus",
+          "group_start": 0,
+          "tensor_shape": [
+            32,
+            256
+          ],
+          "texts": 32
+        },
+        {
+          "finite_normalized_postprocessing_completed": true,
+          "forward_seconds": 3.4796724529587664,
+          "group": "corpus",
+          "group_start": 32,
+          "tensor_shape": [
+            32,
+            256
+          ],
+          "texts": 32
+        },
+        {
+          "finite_normalized_postprocessing_completed": true,
+          "forward_seconds": 3.787191483017523,
+          "group": "corpus",
+          "group_start": 64,
+          "tensor_shape": [
+            32,
+            256
+          ],
+          "texts": 32
+        },
+        {
+          "finite_normalized_postprocessing_completed": true,
+          "forward_seconds": 3.2903581259888597,
+          "group": "corpus",
+          "group_start": 96,
+          "tensor_shape": [
+            32,
+            256
+          ],
+          "texts": 32
+        }
+      ],
+      "batch_size": 32,
+      "embedding_only_truncation": true,
+      "initialization_seconds": 0.5153213860467076,
+      "inter_op_threads": 1,
+      "intra_op_threads": 2,
+      "label": "FP32",
+      "model_ref": {
+        "bytes": 133093490,
+        "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/models/bge-small-en-v1.5/model.onnx",
+        "sha256": "828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35"
+      },
+      "provider": "CPUExecutionProvider",
+      "session_closed": true,
+      "tensor_token_length": 256,
+      "total_init_forward_tokenize_capture_seconds": 14.852553656033706
+    },
+    "FP32_corpus_forward_p50_p95_seconds": [
+      3.385015289473813,
+      3.741063628508709
+    ],
+    "INT8": {
+      "batch_measurements": [
+        {
+          "finite_normalized_postprocessing_completed": true,
+          "forward_seconds": 1.6526182670495473,
+          "group": "corpus",
+          "group_start": 0,
+          "tensor_shape": [
+            32,
+            256
+          ],
+          "texts": 32
+        },
+        {
+          "finite_normalized_postprocessing_completed": true,
+          "forward_seconds": 1.6049444809905253,
+          "group": "corpus",
+          "group_start": 32,
+          "tensor_shape": [
+            32,
+            256
+          ],
+          "texts": 32
+        },
+        {
+          "finite_normalized_postprocessing_completed": true,
+          "forward_seconds": 1.5511936440016143,
+          "group": "corpus",
+          "group_start": 64,
+          "tensor_shape": [
+            32,
+            256
+          ],
+          "texts": 32
+        },
+        {
+          "finite_normalized_postprocessing_completed": true,
+          "forward_seconds": 1.5578666100045666,
+          "group": "corpus",
+          "group_start": 96,
+          "tensor_shape": [
+            32,
+            256
+          ],
+          "texts": 32
+        },
+        {
+          "finite_normalized_postprocessing_completed": true,
+          "forward_seconds": 0.7207503760000691,
+          "group": "queries",
+          "group_start": 0,
+          "tensor_shape": [
+            16,
+            256
+          ],
+          "texts": 16
+        }
+      ],
+      "batch_size": 32,
+      "embedding_only_truncation": true,
+      "initialization_seconds": 0.1608970359666273,
+      "inter_op_threads": 1,
+      "intra_op_threads": 2,
+      "label": "INT8",
+      "model_ref": {
+        "bytes": 34014426,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/model-assets/model_quantized.onnx",
+        "sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4"
+      },
+      "provider": "CPUExecutionProvider",
+      "session_closed": true,
+      "tensor_token_length": 256,
+      "total_init_forward_tokenize_capture_seconds": 7.870101558975875
+    },
+    "INT8_corpus_forward_p50_p95_seconds": [
+      1.581405545497546,
+      1.645467199140694
+    ],
+    "engineering_gate": {
+      "FP32_128_forward_seconds": 13.821941340982448,
+      "INT8_128_forward_seconds": 6.3666230020462535,
+      "conservative_5199_projection_seconds": 628.914452094119,
+      "conservative_runtime_projection_pass": false,
+      "frozen_gate": {
+        "maximum_projection_seconds": 420,
+        "minimum_speedup": 1.25,
+        "numerical_cosine_floor": 0.97,
+        "projection_safety_factor": 2,
+        "reserve_seconds": 90
+      },
+      "limitations": "Authored stress inputs only. Projection excludes unmeasured corpus specifics; parent independent gate/admission and 600s supervisor remain required.",
+      "local_gate_passed": false,
+      "mean_paired_cosine": 0.9972810376400437,
+      "minimum_paired_cosine": 0.9954090294256608,
+      "observed_FP32_over_INT8_throughput_ratio": 2.171000440349622,
+      "observed_throughput_speedup_pass": true,
+      "paired_cosine_drift_pass": true,
+      "paired_normalized_vector_cosines": [
+        0.9970486741950647,
+        0.9963550152997231,
+        0.9973310918967605,
+        0.9972523000019191,
+        0.9971732462913316,
+        0.9973404759229395,
+        0.9967298608436996,
+        0.9968893771527215,
+        0.996992348174682,
+        0.9971807055503903,
+        0.9967027437492503,
+        0.9974340220186819,
+        0.9972797368668619,
+        0.9971325030838496,
+        0.997417952917878,
+        0.9974888652369754,
+        0.9968354041196028,
+        0.9976104592714135,
+        0.9978452977819101,
+        0.9970108900171986,
+        0.9976890065252979,
+        0.9975453966057292,
+        0.9974790875400722,
+        0.9975686930755928,
+        0.9969282166975914,
+        0.9971461736448358,
+        0.9966822519653018,
+        0.9972768393468215,
+        0.9973909553545668,
+        0.9973783473531393,
+        0.9972479609114169,
+        0.9978134691092098,
+        0.9962967570150352,
+        0.9970227420457132,
+        0.9969258264707144,
+        0.9972898940534338,
+        0.9977232961648812,
+        0.9976137051796763,
+        0.997425240881106,
+        0.9973527681131474,
+        0.9968913018824023,
+        0.9973951041490339,
+        0.9972959920891147,
+        0.9973048579477358,
+        0.9970172567244048,
+        0.9970536226792704,
+        0.9971806946311746,
+        0.9970488276591648,
+        0.9965711990975687,
+        0.9970419783853093,
+        0.9964224618027965,
+        0.9967073126268985,
+        0.9970482135737683,
+        0.9965187681349186,
+        0.9975143655276395,
+        0.9972738183798489,
+        0.9970012872119713,
+        0.9954090294256608,
+        0.9971221052634965,
+        0.9962119523822377,
+        0.9966884257222455,
+        0.9962959914235785,
+        0.9968756950454126,
+        0.9964147036174027,
+        0.9974960041704858,
+        0.9978593704793722,
+        0.9979488625512613,
+        0.9973258576594841,
+        0.9980955891422673,
+        0.9975688937669887,
+        0.9973845486678503,
+        0.9979689024606125,
+        0.997143232392172,
+        0.9974922716620369,
+        0.9968995213375669,
+        0.997100422876332,
+        0.9973885677071197,
+        0.9970956371110647,
+        0.9957782003672067,
+        0.9973844431464879,
+        0.9978827666990637,
+        0.9976578141235569,
+        0.9974501612741461,
+        0.9978421178810367,
+        0.9975903857588908,
+        0.9983071441272142,
+        0.9979328007319399,
+        0.9978739482306537,
+        0.9979646079366616,
+        0.9976829874734525,
+        0.9978122621344567,
+        0.9978794912175396,
+        0.9978915497099254,
+        0.9980693049936016,
+        0.9976929567386867,
+        0.9978266480049345,
+        0.9963571303571345,
+        0.9974286568587546,
+        0.997058649742994,
+        0.9973978320148975,
+        0.9977593335451989,
+        0.9975586591083585,
+        0.9976245253612828,
+        0.9968356290276155,
+        0.9966769892418984,
+        0.9963121995208682,
+        0.9969525870782726,
+        0.9973125420776314,
+        0.9970752764048182,
+        0.9974980573476363,
+        0.9963646855085575,
+        0.996428509646122,
+        0.9978638094254682,
+        0.9978390550246705,
+        0.9977652241358056,
+        0.9977567844604756,
+        0.9982039661888158,
+        0.997621061219889,
+        0.9981835326639964,
+        0.9980299166609922,
+        0.9970741178417345,
+        0.9977697112011725,
+        0.9975048226538487,
+        0.9971217683142878,
+        0.9972787154441751,
+        0.9977180933703079,
+        0.9973905130850307,
+        0.9977706270296276
+      ],
+      "pilot_execution_authorized_by_this_report": false,
+      "projection_formula": "2*max(four INT8 corpus32 forward seconds)*ceil(5199/32)+observed INT8 init seconds+90"
+    },
+    "independent_projection_seconds": 628.914452094119,
+    "independent_recomputed_flags": {
+      "conservative_runtime_projection_pass": false,
+      "observed_throughput_speedup_pass": true,
+      "paired_cosine_drift_pass": true
+    },
+    "independent_speedup": 2.171000440349622
+  },
+  "used_confirmation_identities": []
+}

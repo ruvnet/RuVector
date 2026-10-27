@@ -1,0 +1,22 @@
+{
+  "SourceCAS_late_preparation_and_desired_tree_approval_still_required": true,
+  "actual_auditor_scientific_calls": 0,
+  "all57_frozen_member_hashes_exact": true,
+  "all_scientific_model_native_Gold_calls_before_freeze": 0,
+  "checks_passed": true,
+  "epoch": 57,
+  "exact_current_new_public_inventory_matches_freeze_plus_self": true,
+  "independent_inventory_review_exact": true,
+  "inherited_rows": 5,
+  "master_and_both_plans_unchanged": true,
+  "new_source_artifacts_including_freeze": 53,
+  "new_source_rows": 52,
+  "schema_version": 1,
+  "scientific_dispatch_authorized": false,
+  "source_freeze_ref": {
+    "bytes": 17141,
+    "path": "experiments/sota-2026-10-22/epoch57/SOURCE_FREEZE.json",
+    "sha256": "c277357524d87a9339d1c6161ce2fcfbdf2f2df735c156ec4d487c0793d8078b"
+  },
+  "status": "IMMUTABLE_PREMEASUREMENT_SOURCE_FREEZE_INDEPENDENTLY_VERIFIED"
+}

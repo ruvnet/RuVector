@@ -3236,6 +3236,618 @@
     "status": "FROZEN_ENGINEERING_AND_CONDITIONAL_RETRIEVAL_DEV_SOURCE_NOT_DISPATCH_ADMISSION",
     "typed_decision_model_initializations": 0
   },
+  "epoch57_final": {
+    "actual_SOURCE_commit": "3be77adfc5d3ceec3e71df01e2b4bd18490818b0",
+    "actual_engineering_execution": {
+      "BGE_forward_calls_attempted": 9,
+      "BGE_forward_calls_completed": 9,
+      "BGE_initializations": 2,
+      "BGE_texts_attempted": 272,
+      "BGE_texts_completed": 272,
+      "FP32_forwards": 4,
+      "FP32_texts": 128,
+      "GPU_calls": 0,
+      "Gold_scoring_calls": 0,
+      "INT8_forwards": 5,
+      "INT8_texts": 144,
+      "NLI_forwards_attempted": 0,
+      "NLI_forwards_completed": 0,
+      "Root_CLI_invocations": 1,
+      "actual_native_helper_starts": 1,
+      "actual_worker_starts": 1,
+      "calibration_calls": 0,
+      "native_F32_hit_validations": 160,
+      "native_corpus_batches": 1,
+      "native_corpus_batches_completed": 1,
+      "native_corpus_batches_started": 1,
+      "native_indexes": 1,
+      "native_insertions": 128,
+      "native_queries": 16,
+      "paid_API_calls": 0,
+      "training_calls": 0,
+      "typed_model_initializations": 0
+    },
+    "all_further_epoch57_scientific_slots_closed": true,
+    "authored_projection_not_measured_full_corpus_600second_infeasibility": true,
+    "benchmark_generalization_claim": false,
+    "candidate_promoted": false,
+    "confirmation_lineage_status": "UNQUALIFIED_HOLD_UNUSED",
+    "engineering_audit": {
+      "bytes": 20730,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/independent/ENGINEERING_ACTUAL_ACCEPTANCE_INDEPENDENT.v1.json",
+      "sha256": "2feb78dd79119251ec8d73c6acf006a496723ee7d762cf868519e7af98bd78d4"
+    },
+    "engineering_latency_and_resources": {
+      "actual_inclusive_Root_CLI_seconds": 24.102830723975785,
+      "independent_per_query_latency": {
+        "bm25": {
+          "N": 16,
+          "p50_seconds": 0.0022248085006140172,
+          "p95_seconds": 0.0038440359785454348
+        },
+        "exact_cosine": {
+          "N": 16,
+          "p50_seconds": 0.000137186492793262,
+          "p95_seconds": 0.0003277629875810817
+        },
+        "native": {
+          "N": 16,
+          "p50_seconds": 0.0007022975000000002,
+          "p95_seconds": 0.005774261750000001
+        }
+      },
+      "latency": {
+        "bm25": {
+          "observations": 16,
+          "p50_seconds": 0.0022248085006140172,
+          "p95_seconds": 0.0038440359785454348
+        },
+        "exact_cosine": {
+          "observations": 16,
+          "p50_seconds": 0.000137186492793262,
+          "p95_seconds": 0.0003277629875810817
+        },
+        "native": {
+          "observations": 16,
+          "p50_seconds": 0.0007022975000000002,
+          "p95_seconds": 0.005774261750000001
+        }
+      },
+      "latency_scope": "Per-query search only; shared BGE/corpus/index/init/capture/cleanup separately recorded. Inclusive supervisor/CLI clock is batch cap.",
+      "resources": {
+        "CPU_affinity": [
+          0,
+          1
+        ],
+        "RSS_scope": "Separate SELF and CHILDREN highwater; never summed.",
+        "children_max_RSS_KiB": 677004,
+        "children_system_seconds": 0.031854,
+        "children_user_seconds": 0.105735,
+        "compute_threads": 2,
+        "shared_cgroup": {
+          "headroom_bytes": 3490230272,
+          "memory_current_bytes": 13689638912,
+          "memory_events": {
+            "high": 0,
+            "low": 0,
+            "max": 83996,
+            "oom": 3,
+            "oom_group_kill": 0,
+            "oom_kill": 1
+          },
+          "memory_max_bytes": 17179869184,
+          "scope": "Shared cgroup snapshot; not candidate incremental use or cause proof."
+        },
+        "worker_max_RSS_KiB": 677004,
+        "worker_system_seconds": 1.5404369999999998,
+        "worker_user_seconds": 41.972619
+      }
+    },
+    "engineering_qualified": false,
+    "engineering_result": {
+      "bytes": 234421,
+      "path": "experiments/sota-2026-10-22/epoch57/runs/engineering/raw.json",
+      "sha256": "7e7af94bec20b7d174acd8293f9fc34faf28b9cf10dcf255bf7b5710035967be"
+    },
+    "engineering_throughput_measurements": {
+      "FP32": {
+        "batch_measurements": [
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 3.2647192790172994,
+            "group": "corpus",
+            "group_start": 0,
+            "tensor_shape": [
+              32,
+              256
+            ],
+            "texts": 32
+          },
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 3.4796724529587664,
+            "group": "corpus",
+            "group_start": 32,
+            "tensor_shape": [
+              32,
+              256
+            ],
+            "texts": 32
+          },
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 3.787191483017523,
+            "group": "corpus",
+            "group_start": 64,
+            "tensor_shape": [
+              32,
+              256
+            ],
+            "texts": 32
+          },
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 3.2903581259888597,
+            "group": "corpus",
+            "group_start": 96,
+            "tensor_shape": [
+              32,
+              256
+            ],
+            "texts": 32
+          }
+        ],
+        "batch_size": 32,
+        "embedding_only_truncation": true,
+        "initialization_seconds": 0.5153213860467076,
+        "inter_op_threads": 1,
+        "intra_op_threads": 2,
+        "label": "FP32",
+        "model_ref": {
+          "bytes": 133093490,
+          "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/models/bge-small-en-v1.5/model.onnx",
+          "sha256": "828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35"
+        },
+        "provider": "CPUExecutionProvider",
+        "session_closed": true,
+        "tensor_token_length": 256,
+        "total_init_forward_tokenize_capture_seconds": 14.852553656033706
+      },
+      "FP32_corpus_forward_p50_p95_seconds": [
+        3.385015289473813,
+        3.741063628508709
+      ],
+      "INT8": {
+        "batch_measurements": [
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 1.6526182670495473,
+            "group": "corpus",
+            "group_start": 0,
+            "tensor_shape": [
+              32,
+              256
+            ],
+            "texts": 32
+          },
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 1.6049444809905253,
+            "group": "corpus",
+            "group_start": 32,
+            "tensor_shape": [
+              32,
+              256
+            ],
+            "texts": 32
+          },
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 1.5511936440016143,
+            "group": "corpus",
+            "group_start": 64,
+            "tensor_shape": [
+              32,
+              256
+            ],
+            "texts": 32
+          },
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 1.5578666100045666,
+            "group": "corpus",
+            "group_start": 96,
+            "tensor_shape": [
+              32,
+              256
+            ],
+            "texts": 32
+          },
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 0.7207503760000691,
+            "group": "queries",
+            "group_start": 0,
+            "tensor_shape": [
+              16,
+              256
+            ],
+            "texts": 16
+          }
+        ],
+        "batch_size": 32,
+        "embedding_only_truncation": true,
+        "initialization_seconds": 0.1608970359666273,
+        "inter_op_threads": 1,
+        "intra_op_threads": 2,
+        "label": "INT8",
+        "model_ref": {
+          "bytes": 34014426,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/model-assets/model_quantized.onnx",
+          "sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4"
+        },
+        "provider": "CPUExecutionProvider",
+        "session_closed": true,
+        "tensor_token_length": 256,
+        "total_init_forward_tokenize_capture_seconds": 7.870101558975875
+      },
+      "INT8_corpus_forward_p50_p95_seconds": [
+        1.581405545497546,
+        1.645467199140694
+      ],
+      "engineering_gate": {
+        "FP32_128_forward_seconds": 13.821941340982448,
+        "INT8_128_forward_seconds": 6.3666230020462535,
+        "conservative_5199_projection_seconds": 628.914452094119,
+        "conservative_runtime_projection_pass": false,
+        "frozen_gate": {
+          "maximum_projection_seconds": 420,
+          "minimum_speedup": 1.25,
+          "numerical_cosine_floor": 0.97,
+          "projection_safety_factor": 2,
+          "reserve_seconds": 90
+        },
+        "limitations": "Authored stress inputs only. Projection excludes unmeasured corpus specifics; parent independent gate/admission and 600s supervisor remain required.",
+        "local_gate_passed": false,
+        "mean_paired_cosine": 0.9972810376400437,
+        "minimum_paired_cosine": 0.9954090294256608,
+        "observed_FP32_over_INT8_throughput_ratio": 2.171000440349622,
+        "observed_throughput_speedup_pass": true,
+        "paired_cosine_drift_pass": true,
+        "paired_normalized_vector_cosines": [
+          0.9970486741950647,
+          0.9963550152997231,
+          0.9973310918967605,
+          0.9972523000019191,
+          0.9971732462913316,
+          0.9973404759229395,
+          0.9967298608436996,
+          0.9968893771527215,
+          0.996992348174682,
+          0.9971807055503903,
+          0.9967027437492503,
+          0.9974340220186819,
+          0.9972797368668619,
+          0.9971325030838496,
+          0.997417952917878,
+          0.9974888652369754,
+          0.9968354041196028,
+          0.9976104592714135,
+          0.9978452977819101,
+          0.9970108900171986,
+          0.9976890065252979,
+          0.9975453966057292,
+          0.9974790875400722,
+          0.9975686930755928,
+          0.9969282166975914,
+          0.9971461736448358,
+          0.9966822519653018,
+          0.9972768393468215,
+          0.9973909553545668,
+          0.9973783473531393,
+          0.9972479609114169,
+          0.9978134691092098,
+          0.9962967570150352,
+          0.9970227420457132,
+          0.9969258264707144,
+          0.9972898940534338,
+          0.9977232961648812,
+          0.9976137051796763,
+          0.997425240881106,
+          0.9973527681131474,
+          0.9968913018824023,
+          0.9973951041490339,
+          0.9972959920891147,
+          0.9973048579477358,
+          0.9970172567244048,
+          0.9970536226792704,
+          0.9971806946311746,
+          0.9970488276591648,
+          0.9965711990975687,
+          0.9970419783853093,
+          0.9964224618027965,
+          0.9967073126268985,
+          0.9970482135737683,
+          0.9965187681349186,
+          0.9975143655276395,
+          0.9972738183798489,
+          0.9970012872119713,
+          0.9954090294256608,
+          0.9971221052634965,
+          0.9962119523822377,
+          0.9966884257222455,
+          0.9962959914235785,
+          0.9968756950454126,
+          0.9964147036174027,
+          0.9974960041704858,
+          0.9978593704793722,
+          0.9979488625512613,
+          0.9973258576594841,
+          0.9980955891422673,
+          0.9975688937669887,
+          0.9973845486678503,
+          0.9979689024606125,
+          0.997143232392172,
+          0.9974922716620369,
+          0.9968995213375669,
+          0.997100422876332,
+          0.9973885677071197,
+          0.9970956371110647,
+          0.9957782003672067,
+          0.9973844431464879,
+          0.9978827666990637,
+          0.9976578141235569,
+          0.9974501612741461,
+          0.9978421178810367,
+          0.9975903857588908,
+          0.9983071441272142,
+          0.9979328007319399,
+          0.9978739482306537,
+          0.9979646079366616,
+          0.9976829874734525,
+          0.9978122621344567,
+          0.9978794912175396,
+          0.9978915497099254,
+          0.9980693049936016,
+          0.9976929567386867,
+          0.9978266480049345,
+          0.9963571303571345,
+          0.9974286568587546,
+          0.997058649742994,
+          0.9973978320148975,
+          0.9977593335451989,
+          0.9975586591083585,
+          0.9976245253612828,
+          0.9968356290276155,
+          0.9966769892418984,
+          0.9963121995208682,
+          0.9969525870782726,
+          0.9973125420776314,
+          0.9970752764048182,
+          0.9974980573476363,
+          0.9963646855085575,
+          0.996428509646122,
+          0.9978638094254682,
+          0.9978390550246705,
+          0.9977652241358056,
+          0.9977567844604756,
+          0.9982039661888158,
+          0.997621061219889,
+          0.9981835326639964,
+          0.9980299166609922,
+          0.9970741178417345,
+          0.9977697112011725,
+          0.9975048226538487,
+          0.9971217683142878,
+          0.9972787154441751,
+          0.9977180933703079,
+          0.9973905130850307,
+          0.9977706270296276
+        ],
+        "pilot_execution_authorized_by_this_report": false,
+        "projection_formula": "2*max(four INT8 corpus32 forward seconds)*ceil(5199/32)+observed INT8 init seconds+90"
+      },
+      "independent_projection_seconds": 628.914452094119,
+      "independent_recomputed_flags": {
+        "conservative_runtime_projection_pass": false,
+        "observed_throughput_speedup_pass": true,
+        "paired_cosine_drift_pass": true
+      },
+      "independent_speedup": 2.171000440349622
+    },
+    "epoch": 57,
+    "epoch_manifest": {
+      "bytes": 18675,
+      "path": "experiments/sota-2026-10-22/epoch57/EPOCH_MANIFEST.json",
+      "sha256": "69e3d434687500e949fe5e7991104d01ba91d02b887fa40585aa585d3372aa9b"
+    },
+    "existing16_DEV_and1109_pool_caveat_preserved": true,
+    "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
+    "learnings": {
+      "bytes": 2509,
+      "path": "experiments/sota-2026-10-22/epoch57/LEARNINGS.json",
+      "sha256": "eaeed88f8cee40c17189ee4db00572f7ef9da8e7db208b0ed6f7eb3a1a85ebf6"
+    },
+    "native104_champion_preserved": true,
+    "native_counter_accounting": {
+      "actual_native_events_independently_counted": {
+        "COMPLETE": 1,
+        "INDEX_BEFORE": 1,
+        "INSERT_BEFORE": 128,
+        "NATIVE_LOAD_BEFORE": 1,
+        "NATIVE_LOAD_COMPLETE": 1,
+        "NATIVE_VERSION_BEFORE": 1,
+        "QUERY_BEFORE": 16,
+        "QUERY_COMPLETE": 16
+      },
+      "capture_complete": true,
+      "capture_ref": {
+        "bytes": 92569,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/private-run/engineering/native-progress.jsonl",
+        "sha256": "2cde7ea9b1d18b59904696b603674706df35aba229f38ff6c335b90b54c1cccc"
+      },
+      "expected_totals_validation_only": {
+        "Node_network_operations_attempted": 0,
+        "native_binary_loads_attempted": 1,
+        "native_binary_loads_completed": 1,
+        "native_hit_source_validations": 160,
+        "native_index_initializations_attempted": 1,
+        "native_index_initializations_completed": 1,
+        "native_insertions_attempted": 128,
+        "native_insertions_completed": 128,
+        "native_len_calls_attempted": 2,
+        "native_len_calls_completed": 2,
+        "native_queries_attempted": 16,
+        "native_queries_completed": 16,
+        "native_version_calls_attempted": 1,
+        "native_version_calls_completed": 1
+      },
+      "idempotence_scope": "Identical validated snapshot rows only. Full progress-file capture is one-shot; recapture fails closed.",
+      "identical_counter_snapshot_replays": 1,
+      "independently_recomputed_expected_validation_bounds": {
+        "Node_network_operations_attempted": 0,
+        "native_binary_loads_attempted": 1,
+        "native_binary_loads_completed": 1,
+        "native_hit_source_validations": 160,
+        "native_index_initializations_attempted": 1,
+        "native_index_initializations_completed": 1,
+        "native_insertions_attempted": 128,
+        "native_insertions_completed": 128,
+        "native_len_calls_attempted": 2,
+        "native_len_calls_completed": 2,
+        "native_queries_attempted": 16,
+        "native_queries_completed": 16,
+        "native_version_calls_attempted": 1,
+        "native_version_calls_completed": 1
+      },
+      "inflight_native_call_outcome_uncertain": false,
+      "last_event": "COMPLETE",
+      "latest_validated_snapshot": {
+        "Node_network_operations_attempted": 0,
+        "native_binary_loads_attempted": 1,
+        "native_binary_loads_completed": 1,
+        "native_hit_source_validations": 160,
+        "native_index_initializations_attempted": 1,
+        "native_index_initializations_completed": 1,
+        "native_insertions_attempted": 128,
+        "native_insertions_completed": 128,
+        "native_len_calls_attempted": 2,
+        "native_len_calls_completed": 2,
+        "native_queries_attempted": 16,
+        "native_queries_completed": 16,
+        "native_version_calls_attempted": 1,
+        "native_version_calls_completed": 1
+      },
+      "merge_semantics": "Direct per-key assignment, never Counter.update or expected-value fill.",
+      "native_parent_totals_equal_captured_terminal": true,
+      "pending_attempt_completion_gap": false,
+      "qualified": true,
+      "raw_helper_progress_exact14key_agreement": true,
+      "schema_version": 1,
+      "single_source_of_truth": "Captured validated native helper progress plus exact terminal agreement.",
+      "snapshot_records": 165,
+      "validated_unique_event_counts": {
+        "COMPLETE": 1,
+        "INDEX_BEFORE": 1,
+        "INSERT_BEFORE": 128,
+        "NATIVE_LOAD_BEFORE": 1,
+        "NATIVE_LOAD_COMPLETE": 1,
+        "NATIVE_VERSION_BEFORE": 1,
+        "QUERY_BEFORE": 16,
+        "QUERY_COMPLETE": 16
+      },
+      "validation_failure_latched": false
+    },
+    "new_actionable_prerequisite_schema_blocker": "E57 optional retrieval pilot was held without invocation: frozen supervisor requires actual_execution_independently_derived to be boolean True, while the frozen reporter and agreed independent audit contract require the same field to be the observed count dictionary. No optional pilot CLI, model/native call, rankings or Gold occurred. Preserve the published source unchanged; correct this cross-component prerequisite schema only in a new future source epoch before any pilot attempt. Do not rerun the unchanged incompatible gate or relabel existing DEV as confirmation.",
+    "new_actionable_throughput_gate_blocker": "Measured authored-input engineering FP32/INT8 corpus-forward speed ratio 2.171000440349622 and minimum paired-vector cosine 0.9954090294256608 are engineering observations. The frozen conservative projection is 628.914452094119 seconds, exceeding the fixed admission threshold 420 seconds. The full benchmark corpus was not run. This projection is not a measured 600-second infeasibility result or benchmark generalization. Keep the optional pilot unexecuted; a future attempt needs a new credible frozen throughput/time plan and the separate prerequisite schema correction.",
+    "new_submission": false,
+    "next_research_priority": "Preserve SubmittedNative104. Retain the exact E57 engineering throughput/numerical/native verdict and any separately audited retrieval DEV result, including every failure and pending operation uncertainty. Same INT8 vectors must feed native and exact cosine; FP32 is only a separate engineering throughput/drift control. Authored tests and public DEV relevance cannot establish benchmark generalization, NLI accuracy, fresh confirmation or official placement. Do not repeat an unchanged rejected runtime/time plan or exposed-question grid. Any next attempt requires a new source/identity/resource freeze and credible whole-epoch time reserve. Stronger typed NLI remains the quality priority when licensed aligned data/scorer and exact model/training-test provenance are available; do not repeat unchanged FinNLI author-access or ModernBERT lineage probes. All easy48/Legal96 and prepared SciFact16 are DEV forever; the entire1109 query pool remains unqualified for fresh confirmation. Existing confirmation stays UNQUALIFIED_HOLD and unused. No paid API/GPU authorization or publisher submission follows; official success requires the matching publisher result/rank and eligibility. E57 engineering did not admit the full-corpus throughput gate; do not dispatch or retry the pilot under this unchanged plan. E57 optional retrieval pilot was held without invocation: frozen supervisor requires actual_execution_independently_derived to be boolean True, while the frozen reporter and agreed independent audit contract require the same field to be the observed count dictionary. No optional pilot CLI, model/native call, rankings or Gold occurred. Preserve the published source unchanged; correct this cross-component prerequisite schema only in a new future source epoch before any pilot attempt. Do not rerun the unchanged incompatible gate or relabel existing DEV as confirmation. E57 throughput gate blocker: Measured authored-input engineering FP32/INT8 corpus-forward speed ratio 2.171000440349622 and minimum paired-vector cosine 0.9954090294256608 are engineering observations. The frozen conservative projection is 628.914452094119 seconds, exceeding the fixed admission threshold 420 seconds. The full benchmark corpus was not run. This projection is not a measured 600-second infeasibility result or benchmark generalization. Keep the optional pilot unexecuted; a future attempt needs a new credible frozen throughput/time plan and the separate prerequisite schema correction.",
+    "official_goal_verified": false,
+    "official_rank": null,
+    "official_refresh": {
+      "bytes": 12267,
+      "path": "experiments/sota-2026-10-22/epoch57/official-refresh/benchmark-refresh.safe.json",
+      "sha256": "24e811c8dbe1a0c0ad1a84aa22f77c2921ab07268b0795e0635ff933cc058cc4"
+    },
+    "optional_retrieval_CLI_invocations": 0,
+    "optional_retrieval_Gold_scoring_calls": 0,
+    "publisher_status_latest_observation": {
+      "account_personal_status_inferred_from_domain": false,
+      "body_messageID_match_to_original_receipt_verified": false,
+      "body_thread_attachment_reads": 0,
+      "checked_at": "2026-10-27T16:52:12.654Z",
+      "configured_account_profile_reads": 2,
+      "configured_accounts_covered": 2,
+      "configured_profile_identities_verified": 2,
+      "coverage_other_accounts_or_channels_verified": false,
+      "covered_accounts_with_matching_messages": 1,
+      "current_queue_progress": "UNVERIFIED",
+      "date_metadata_scope": "Only email_ts metadata was consumed; date-only values retained when valid. No raw headers, addresses, message IDs, snippets, body or thread content was read or persisted.",
+      "eligibility_confirmed": false,
+      "epoch": 57,
+      "exact_reference_searches": 2,
+      "has_more_results": false,
+      "historical_regular_evaluation_queue_position": 115,
+      "matching_message_date_metadata_verified": true,
+      "matching_message_dates": [
+        "2026-10-22"
+      ],
+      "matching_messages": 1,
+      "messages_read": 0,
+      "metadata_schema_recognized_for_all_covered_accounts": true,
+      "metadata_subject_candidate_result_score_rank_or_eligibility_count": 0,
+      "metadata_subject_receipt_or_submission_classification_count": 1,
+      "new_verified_publisher_result_found": false,
+      "official_rank": null,
+      "official_score": null,
+      "original_acknowledgement_metadata_consistent": true,
+      "original_private_account_selector_recovered": false,
+      "outgoing_messages_or_submissions": 0,
+      "private_selector_identifiers_addresses_subject_headers_body_snippet_files_persisted": false,
+      "queue_scope": "Historical acknowledgement evaluation queue position; never rank. Current position/progress unverified.",
+      "read_scope": "Aggregate subject-class and date metadata only across the two configured accounts; this cannot establish global result absence or an official score/rank/eligibility.",
+      "reference": "7FEA2738",
+      "schema_version": 1,
+      "snippets_inspected": 0,
+      "source_kind": "One exact connected Gmail metadata search on each of two profile-verified configured accounts; Root explicitly expanded read-only coverage before calls because the original private selector is not recoverable from public artifacts."
+    },
+    "quality_metrics": {
+      "Brier": null,
+      "NLL": null,
+      "classification_accuracy": null
+    },
+    "rejection_ledger": {
+      "bytes": 257793,
+      "path": "experiments/sota-2026-10-22/epoch57/REJECTION_LEDGER.json",
+      "sha256": "09f75450a503d95344ca1c7db75284f945e12300c40e3f040b6f79694362f2fd"
+    },
+    "results": {
+      "bytes": 20102,
+      "path": "experiments/sota-2026-10-22/epoch57/RESULTS.json",
+      "sha256": "a38fdb949d2aa3ff5c6ee17e33713858af7fdacf4ba3662f3d0dff8d556786ac"
+    },
+    "retrieval_DEV_pilot": null,
+    "retrieval_nonexecution_review": {
+      "bytes": 3854,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/independent/RETRIEVAL_NONEXECUTION_INDEPENDENT.v1.json",
+      "sha256": "45ddfe42539a894e4c6d1c0fabaf7d0d9c0e3275c05ef1134049b17aed65f777"
+    },
+    "schema_version": 1,
+    "source_checkpoint": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+    "status": "REJECTED_FROZEN_FULL_CORPUS_THROUGHPUT_PROJECTION_GATE",
+    "throughput_gate_passed": false,
+    "used_confirmation": {
+      "bytes": 4357,
+      "path": "experiments/sota-2026-10-22/epoch57/USED_CONFIRMATION.json",
+      "sha256": "9d1615a84e5f650ad66c97a123a194caf4a19dd86a376c0d4315554618f8e422"
+    },
+    "used_confirmation_identities": [],
+    "used_identities": {
+      "bytes": 4357,
+      "path": "experiments/sota-2026-10-22/epoch57/USED_IDENTITIES.json",
+      "sha256": "9d1615a84e5f650ad66c97a123a194caf4a19dd86a376c0d4315554618f8e422"
+    }
+  },
   "epoch57_source": {
     "NLI_forwards": 0,
     "actual_Gold_calls": 0,
@@ -14041,6 +14653,11 @@
       "sha256": "3f80cf39437c0860fea7ed924ff7dda6921069be93585873ded22d660006bb05"
     },
     {
+      "bytes": 19897,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/FINAL_PUBLIC_SUMMARY_AND_INVENTORY_INDEPENDENT_REVIEW.v1.json",
+      "sha256": "2854d6098fa2e710419c5484d21defd2d1b29760e5891649d349f2dc1229d14e"
+    },
+    {
       "bytes": 12659,
       "path": "experiments/sota-2026-10-22/audit/epoch57/MASTER_AND_PUBLIC_SOURCE_INVENTORY_INDEPENDENT_APPROVAL.v1.json",
       "sha256": "b9382220e33d2567de4eef3cbc555bf2b25a49e84feba5943f86c162b362d7bb"
@@ -14049,6 +14666,91 @@
       "bytes": 67057,
       "path": "experiments/sota-2026-10-22/audit/epoch57/SOURCE_AND_PREPARATION_INDEPENDENT_REVIEWS.v1.json",
       "sha256": "f92f5e54b0cd5c0ec87248d07b1ea10e34ca343a89976a334b46a3d4094d9b80"
+    },
+    {
+      "bytes": 1862,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/actual/ENGINEERING_DISPATCH_INDEPENDENT_APPROVAL.v1.json",
+      "sha256": "f6a9a84c96ed8d49ca0cd3f6346336b882de5cfebe676a06cf8ed77cd38787b6"
+    },
+    {
+      "bytes": 1648,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/actual/ENGINEERING_LAUNCH_CONFIG.v1.json",
+      "sha256": "ed0d72664eea1bc6de7f47fcde625bc420d87c031fa16c08d157d8d3b434b3a2"
+    },
+    {
+      "bytes": 819,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/actual/ENGINEERING_OUTER_ATTEMPT.actual.v1.json",
+      "sha256": "2b7f942bba8412c9fd0df15e89fb8e6be11a84791adefaeed7a983fdb9909ae8"
+    },
+    {
+      "bytes": 4967,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/actual/ENGINEERING_OUTER_EXECUTION.actual.v1.json",
+      "sha256": "00ed37513f2853a9583da69869a4ddfc1d2943dc68760edb4ad1d227569cbd7c"
+    },
+    {
+      "bytes": 1571,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/actual/ENGINEERING_WORKER_STARTED.actual.v1.json",
+      "sha256": "2981dde207e80b4c1a8ec4cbde40eba4a253ffdebacaf3ee058194919646698a"
+    },
+    {
+      "bytes": 17159,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/actual/ROOT_ENGINEERING_ADMISSION.v1.json",
+      "sha256": "428da2da5174fcda8a5ca7432ead23d30fba1b2415e19bcabcdd41237d0d6e3e"
+    },
+    {
+      "bytes": 1301,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/actual/ROOT_ENGINEERING_CLI_LAUNCH.actual.v1.json",
+      "sha256": "8557bb3a47048cc6486f046c65c83d24121739c31e512eba25d7aaebeac711aa"
+    },
+    {
+      "bytes": 208,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/actual/ROOT_ENGINEERING_CLI_STARTED.actual.v1.json",
+      "sha256": "e11b80f3609c883d41b69ff1839b52e2405b7cadcd4390a9e15ac84ff383250a"
+    },
+    {
+      "bytes": 491,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/actual/ROOT_ENGINEERING_CLI_WALL.actual.v1.json",
+      "sha256": "cd0d8fbc21f35be459256b7dc4ca026621f375997fcd9915eaa7e6c405b308ec"
+    },
+    {
+      "bytes": 420,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/actual/ROOT_PRE_CLI_CGROUP_ADMISSION.actual.v1.json",
+      "sha256": "16e52faeda568c5ff4354c9c3aa36d9bade39670fa3246f428226dc81d38f376"
+    },
+    {
+      "bytes": 1286,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/independent/ACTUAL_REPORTING_CONFIG_INDEPENDENT_APPROVAL.v1.json",
+      "sha256": "9627af34c99e47dc0497ab42809276e13e6fd19eed8cb3c9fe5fbad1373b2819"
+    },
+    {
+      "bytes": 20730,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/independent/ENGINEERING_ACTUAL_ACCEPTANCE_INDEPENDENT.v1.json",
+      "sha256": "2feb78dd79119251ec8d73c6acf006a496723ee7d762cf868519e7af98bd78d4"
+    },
+    {
+      "bytes": 2587,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/independent/ENGINEERING_EXACT_LAUNCH_CONFIG_INDEPENDENT_APPROVAL.v1.json",
+      "sha256": "6ae1388e97126f42bcdb0d82813d205733af34d84fc2673d4f868510b01b0ab4"
+    },
+    {
+      "bytes": 866,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/independent/IMMUTABLE_SOURCE_FREEZE_INDEPENDENT_VERIFICATION.v1.json",
+      "sha256": "29a376264c9cb78a8582be0690f9af386598e3b11bfbd6472152988669087674"
+    },
+    {
+      "bytes": 2452,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/independent/PREMEASUREMENT_ENGINEERING_REPORT_CROSS_SCHEMA_REJECTION.v1.json",
+      "sha256": "430879bfc5688e03d235de120423d25f4407775f8b6e286d41182aac7bb55eb1"
+    },
+    {
+      "bytes": 3854,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/independent/RETRIEVAL_NONEXECUTION_INDEPENDENT.v1.json",
+      "sha256": "45ddfe42539a894e4c6d1c0fabaf7d0d9c0e3275c05ef1134049b17aed65f777"
+    },
+    {
+      "bytes": 3663,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/independent/SOURCE_ACTUAL_REMOTE_READBACK_INDEPENDENT.v1.json",
+      "sha256": "2b28421a9ce6470d86769c54d3bb828455611bbd754912b543c43561c6a145b2"
     },
     {
       "bytes": 5800,
@@ -41566,14 +42268,44 @@
       "sha256": "cdfa5cde8246ee0cf1019860e3dea6344a59a8d5976b5f28b29a4cb2b9f15566"
     },
     {
+      "bytes": 18675,
+      "path": "experiments/sota-2026-10-22/epoch57/EPOCH_MANIFEST.json",
+      "sha256": "69e3d434687500e949fe5e7991104d01ba91d02b887fa40585aa585d3372aa9b"
+    },
+    {
+      "bytes": 2509,
+      "path": "experiments/sota-2026-10-22/epoch57/LEARNINGS.json",
+      "sha256": "eaeed88f8cee40c17189ee4db00572f7ef9da8e7db208b0ed6f7eb3a1a85ebf6"
+    },
+    {
       "bytes": 8282,
       "path": "experiments/sota-2026-10-22/epoch57/MASTER_PROTOCOL.v1.json",
       "sha256": "2e05c650eda5e6c15aba591e378ee8432f949976c5771b5ab5944b1f649bcb3a"
     },
     {
+      "bytes": 257793,
+      "path": "experiments/sota-2026-10-22/epoch57/REJECTION_LEDGER.json",
+      "sha256": "09f75450a503d95344ca1c7db75284f945e12300c40e3f040b6f79694362f2fd"
+    },
+    {
+      "bytes": 20102,
+      "path": "experiments/sota-2026-10-22/epoch57/RESULTS.json",
+      "sha256": "a38fdb949d2aa3ff5c6ee17e33713858af7fdacf4ba3662f3d0dff8d556786ac"
+    },
+    {
       "bytes": 17141,
       "path": "experiments/sota-2026-10-22/epoch57/SOURCE_FREEZE.json",
       "sha256": "c277357524d87a9339d1c6161ce2fcfbdf2f2df735c156ec4d487c0793d8078b"
+    },
+    {
+      "bytes": 4357,
+      "path": "experiments/sota-2026-10-22/epoch57/USED_CONFIRMATION.json",
+      "sha256": "9d1615a84e5f650ad66c97a123a194caf4a19dd86a376c0d4315554618f8e422"
+    },
+    {
+      "bytes": 4357,
+      "path": "experiments/sota-2026-10-22/epoch57/USED_IDENTITIES.json",
+      "sha256": "9d1615a84e5f650ad66c97a123a194caf4a19dd86a376c0d4315554618f8e422"
     },
     {
       "bytes": 3879,
@@ -41736,6 +42468,11 @@
       "sha256": "64f1ca3e65d0a9a6f58ed626e2aee500474793d30456a2fc7837e96552b2faf7"
     },
     {
+      "bytes": 1077,
+      "path": "experiments/sota-2026-10-22/epoch57/publication/publication-source-result.json",
+      "sha256": "c0bd6fef7753f6013ad4288f2c1fdaa696b625a5c9140940ca9a70275e332894"
+    },
+    {
       "bytes": 16285,
       "path": "experiments/sota-2026-10-22/epoch57/publication/stagebuilder.py",
       "sha256": "d346f3d63698c0685c5167be86bbea13d52da89031325ce9ca281f8d961e4e93"
@@ -41749,6 +42486,46 @@
       "bytes": 11187,
       "path": "experiments/sota-2026-10-22/epoch57/retrieval/plan.json",
       "sha256": "fdff29b7204551df337cd5aae5e2daa291b12bc1e11fac1983914288a0981e8d"
+    },
+    {
+      "bytes": 41375,
+      "path": "experiments/sota-2026-10-22/epoch57/runs/engineering/forecasts.json",
+      "sha256": "0ce59bb81c556a014dcbd9762e78fcd030ab76bbacb7e715567644403546d588"
+    },
+    {
+      "bytes": 2200,
+      "path": "experiments/sota-2026-10-22/epoch57/runs/engineering/native-accounting-final.json",
+      "sha256": "a49a088fb91db502c0a2221b656c0a3005cd287fd0fc6dedf1b6c1c3b86f843e"
+    },
+    {
+      "bytes": 827,
+      "path": "experiments/sota-2026-10-22/epoch57/runs/engineering/native-bindings.json",
+      "sha256": "bb85c4068727fe73d2b2d2a6b5bcd606c495e4613028131dee1ebf466fee8459"
+    },
+    {
+      "bytes": 4396,
+      "path": "experiments/sota-2026-10-22/epoch57/runs/engineering/native-process-closure.json",
+      "sha256": "ebb9126c49ef7e1393b0598e97d865277c5017c7a8b448ca8b2eaa3dee276d53"
+    },
+    {
+      "bytes": 92569,
+      "path": "experiments/sota-2026-10-22/epoch57/runs/engineering/native-progress.jsonl",
+      "sha256": "2cde7ea9b1d18b59904696b603674706df35aba229f38ff6c335b90b54c1cccc"
+    },
+    {
+      "bytes": 60702,
+      "path": "experiments/sota-2026-10-22/epoch57/runs/engineering/native-result.json",
+      "sha256": "0e2c8f172231d5c0845c53aaadaf27505fca41190fc2909318e5debc22d20e60"
+    },
+    {
+      "bytes": 234421,
+      "path": "experiments/sota-2026-10-22/epoch57/runs/engineering/raw.json",
+      "sha256": "7e7af94bec20b7d174acd8293f9fc34faf28b9cf10dcf255bf7b5710035967be"
+    },
+    {
+      "bytes": 39261,
+      "path": "experiments/sota-2026-10-22/epoch57/runs/engineering/worker-progress.jsonl",
+      "sha256": "e24667cb2067a3b996d2b7cc2b249472908430c0932e41dacbdc4023ff61ee3c"
     },
     {
       "bytes": 15526,

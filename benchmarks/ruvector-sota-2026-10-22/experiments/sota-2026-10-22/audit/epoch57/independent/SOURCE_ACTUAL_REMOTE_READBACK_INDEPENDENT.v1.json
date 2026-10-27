@@ -1,0 +1,88 @@
+{
+  "CP_bytes_physically_rehashed": 563627609,
+  "CP_rows_physically_rehashed": 9015,
+  "Git_leaves": 9022,
+  "SF_members_physically_rehashed": 57,
+  "active_snapshot_work_false": false,
+  "actual_parent": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+  "actual_publication_receipt": {
+    "bytes": 1077,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/publication/publication-source-result.json",
+    "sha256": "c0bd6fef7753f6013ad4288f2c1fdaa696b625a5c9140940ca9a70275e332894"
+  },
+  "all_current_epoch_public_Git_bodies_rehashed": 53,
+  "all_recursive_Merkle_entries_independently_replayed": 9948,
+  "all_scope_Git_bodies_physically_rehashed": 9022,
+  "bench_sha": "a5565696699b51d2bd3d943d5df7cda33079d9c1",
+  "champion_goal_rank_confirmation_history_preserved": true,
+  "checks_passed": true,
+  "commit": "3be77adfc5d3ceec3e71df01e2b4bd18490818b0",
+  "current_closed_epoch_artifacts": null,
+  "direct_fresh_critical_bodies_Git_and_SHA_verified": [
+    {
+      "bytes": 9963,
+      "path": "experiments/sota-2026-10-22/epoch57/plan.json",
+      "sha256": "1bb5fe27b6ccbd376c2b8c2b68d11170be7ee1f0f7f49e210af6c7c40244ec05"
+    },
+    {
+      "bytes": 17141,
+      "path": "experiments/sota-2026-10-22/epoch57/SOURCE_FREEZE.json",
+      "sha256": "c277357524d87a9339d1c6161ce2fcfbdf2f2df735c156ec4d487c0793d8078b"
+    },
+    {
+      "bytes": 8282,
+      "path": "experiments/sota-2026-10-22/epoch57/MASTER_PROTOCOL.v1.json",
+      "sha256": "2e05c650eda5e6c15aba591e378ee8432f949976c5771b5ab5944b1f649bcb3a"
+    },
+    {
+      "bytes": 11187,
+      "path": "experiments/sota-2026-10-22/epoch57/retrieval/plan.json",
+      "sha256": "fdff29b7204551df337cd5aae5e2daa291b12bc1e11fac1983914288a0981e8d"
+    },
+    {
+      "bytes": 4470,
+      "path": "experiments/sota-2026-10-22/runtime/epoch57/engineering_worker.py",
+      "sha256": "a56067f176e1ac5e2f31db2af8b4873217ed07dc0d802df7e87e887f5e4f823d"
+    },
+    {
+      "bytes": 20954,
+      "path": "experiments/sota-2026-10-22/runtime/epoch57/supervisor.py",
+      "sha256": "6c771f65bbd915af08c2398ba91519e95b345799ab752f5d07cdcba90a6745d2"
+    },
+    {
+      "bytes": 20232,
+      "path": "experiments/sota-2026-10-22/epoch57/publication/guard.py",
+      "sha256": "64f1ca3e65d0a9a6f58ed626e2aee500474793d30456a2fc7837e96552b2faf7"
+    }
+  ],
+  "epoch": 57,
+  "forbidden_Git_objects_not_queried_recreated_or_live_referenced": [
+    "3d5a61f9068acf2dabd2ae5c6bd531d9a9b464c5",
+    "486888de9602bbb5d817a55f707b4fcfd11c65e0",
+    "a68b7ba587332f176f65d0348de3e910aa16e77a"
+  ],
+  "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
+  "main_unchanged": "c44d7337c0c5ad2ecd2294178475387facb96516",
+  "original_blob5_execution": "UNKNOWN_PERMANENTLY",
+  "phase": "source",
+  "physical_layout_after_verified_K_twin_retirement": {
+    "K_fallback": 43,
+    "R": 8976,
+    "fresh_controls": 3
+  },
+  "review_source": {
+    "bytes": 8615,
+    "path": "/dev/shm/ruvector-e57-data/verify_actual_phase_readback.py",
+    "sha256": "947ba2c9120d91fba6e6cdd18cab6f25847cbc5c41b09fbe2102ad8ecbbfe5ee"
+  },
+  "reviewer_model_native_Gold_dataset_decode_Git_mutations": 0,
+  "schema_version": 1,
+  "scope_sha": "12829461aa300934674c51ebdf5ae37bbbeb9058",
+  "source_commit": "3be77adfc5d3ceec3e71df01e2b4bd18490818b0",
+  "source_freeze_sha256": "c277357524d87a9339d1c6161ce2fcfbdf2f2df735c156ec4d487c0793d8078b",
+  "source_full_tree_verified": true,
+  "source_plan_sha256": "1bb5fe27b6ccbd376c2b8c2b68d11170be7ee1f0f7f49e210af6c7c40244ec05",
+  "source_publication_independently_verified": true,
+  "tree_sha": "90361df7e2023c9534e579ab711f596a34b3e91f",
+  "verified_actual_remote_readback": true
+}

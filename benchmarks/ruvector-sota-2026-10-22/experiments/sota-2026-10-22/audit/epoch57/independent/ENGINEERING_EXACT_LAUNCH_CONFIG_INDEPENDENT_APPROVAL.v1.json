@@ -1,0 +1,60 @@
+{
+  "actual_auditor_model_native_Gold_calls": 0,
+  "checks_passed": true,
+  "epoch": 57,
+  "exact_argv": [
+    "/tmp/ruvector-sota-2026-10-22/epoch33-0522a2c521c9/runtime/.venv/bin/python",
+    "-I",
+    "-B",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/runtime/epoch57/supervisor.py",
+    "--phase",
+    "engineering",
+    "--plan",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/epoch57/plan.json",
+    "--expected-plan-sha256",
+    "1bb5fe27b6ccbd376c2b8c2b68d11170be7ee1f0f7f49e210af6c7c40244ec05",
+    "--admission",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/ROOT_ENGINEERING_ADMISSION.v1.json",
+    "--expected-admission-sha256",
+    "428da2da5174fcda8a5ca7432ead23d30fba1b2415e19bcabcdd41237d0d6e3e",
+    "--approval",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/ENGINEERING_DISPATCH_INDEPENDENT_APPROVAL.v1.json",
+    "--expected-approval-sha256",
+    "f6a9a84c96ed8d49ca0cd3f6346336b882de5cfebe676a06cf8ed77cd38787b6"
+  ],
+  "exact_environment": {
+    "BLIS_NUM_THREADS": "2",
+    "CUDA_VISIBLE_DEVICES": "",
+    "HF_DATASETS_OFFLINE": "1",
+    "HF_HUB_DISABLE_TELEMETRY": "1",
+    "HF_HUB_OFFLINE": "1",
+    "MKL_DYNAMIC": "FALSE",
+    "MKL_NUM_THREADS": "2",
+    "NUMEXPR_NUM_THREADS": "2",
+    "OMP_NUM_THREADS": "2",
+    "OMP_THREAD_LIMIT": "2",
+    "OPENBLAS_NUM_THREADS": "2",
+    "RAYON_NUM_THREADS": "2",
+    "TOKENIZERS_PARALLELISM": "false",
+    "TRANSFORMERS_OFFLINE": "1",
+    "UV_THREADPOOL_SIZE": "2",
+    "VECLIB_MAXIMUM_THREADS": "2"
+  },
+  "frozen_wrapper_ref": {
+    "bytes": 4272,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/runtime/epoch57/run_cli_once.py",
+    "sha256": "65a0c86ab78f3586eb0b47c83dca652f4dbbad570742d74f091b3efea4a65705"
+  },
+  "hold_reason": "430879crossschema; frozenR/SFunchanged.",
+  "launch_config_ref": {
+    "bytes": 1648,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/ENGINEERING_LAUNCH_CONFIG.v1.json",
+    "sha256": "ed0d72664eea1bc6de7f47fcde625bc420d87c031fa16c08d157d8d3b434b3a2"
+  },
+  "no_retry_or_after_failure_amendment_authorized": true,
+  "one_Root_CLI_launch_allowed_after_fresh_owner_time_memory_source_checks": true,
+  "optional_pilot_or_Gold_dispatch_allowed": false,
+  "prior_late_dispatch_approval_SHA256": "f6a9a84c96ed8d49ca0cd3f6346336b882de5cfebe676a06cf8ed77cd38787b6",
+  "schema_version": 1,
+  "status": "EXACT_ENGINEERING_18_ARGV_ENVIRONMENT_AND_FROZEN_CLI_WRAPPER_INDEPENDENTLY_APPROVED"
+}

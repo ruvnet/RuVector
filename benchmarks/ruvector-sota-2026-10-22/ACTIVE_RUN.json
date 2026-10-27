@@ -4,8 +4,8 @@
   "experiments_active": false,
   "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
   "owner_sha256": "a98d0e355925de7cf2fbe8711dc35afc4c3765e07fe5dfab8bd59f0309f733e5",
-  "phase": "source",
+  "phase": "final",
   "publication_is_not_scientific_authorization": true,
   "source_checkpoint": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
-  "work_active": true
+  "work_active": false
 }

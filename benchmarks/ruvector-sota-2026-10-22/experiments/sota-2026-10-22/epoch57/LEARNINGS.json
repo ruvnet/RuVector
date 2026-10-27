@@ -1,0 +1,25 @@
+{
+  "actual_SOURCE_commit": "3be77adfc5d3ceec3e71df01e2b4bd18490818b0",
+  "benchmark_generalization_claim": false,
+  "candidate_promoted": false,
+  "engineering_audit": {
+    "bytes": 20730,
+    "path": "experiments/sota-2026-10-22/audit/epoch57/independent/ENGINEERING_ACTUAL_ACCEPTANCE_INDEPENDENT.v1.json",
+    "sha256": "2feb78dd79119251ec8d73c6acf006a496723ee7d762cf868519e7af98bd78d4"
+  },
+  "engineering_qualified": false,
+  "epoch": 57,
+  "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
+  "native104_champion_preserved": true,
+  "new_submission": false,
+  "next_research_priority": "Preserve SubmittedNative104. Retain the exact E57 engineering throughput/numerical/native verdict and any separately audited retrieval DEV result, including every failure and pending operation uncertainty. Same INT8 vectors must feed native and exact cosine; FP32 is only a separate engineering throughput/drift control. Authored tests and public DEV relevance cannot establish benchmark generalization, NLI accuracy, fresh confirmation or official placement. Do not repeat an unchanged rejected runtime/time plan or exposed-question grid. Any next attempt requires a new source/identity/resource freeze and credible whole-epoch time reserve. Stronger typed NLI remains the quality priority when licensed aligned data/scorer and exact model/training-test provenance are available; do not repeat unchanged FinNLI author-access or ModernBERT lineage probes. All easy48/Legal96 and prepared SciFact16 are DEV forever; the entire1109 query pool remains unqualified for fresh confirmation. Existing confirmation stays UNQUALIFIED_HOLD and unused. No paid API/GPU authorization or publisher submission follows; official success requires the matching publisher result/rank and eligibility. E57 engineering did not admit the full-corpus throughput gate; do not dispatch or retry the pilot under this unchanged plan.",
+  "official_goal_verified": false,
+  "official_rank": null,
+  "results_scope": "Authored engineering speed/numerical/native fidelity is not benchmark quality. A separately frozen actual SciFact PROJECT_DEV pilot may have relevance metrics only; no typed NLI classification, fresh confirmation or official rank is measured.",
+  "retrieval_DEV_pilot": null,
+  "schema_version": 1,
+  "source_checkpoint": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+  "status": "REJECTED_FROZEN_FULL_CORPUS_THROUGHPUT_PROJECTION_GATE",
+  "throughput_gate_passed": false,
+  "used_confirmation_identities": []
+}

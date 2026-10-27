@@ -5,10 +5,10 @@
     "experiments_active": false,
     "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
     "owner_sha256": "a98d0e355925de7cf2fbe8711dc35afc4c3765e07fe5dfab8bd59f0309f733e5",
-    "phase": "source",
+    "phase": "final",
     "publication_is_not_scientific_authorization": true,
     "source_checkpoint": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
-    "work_active": true
+    "work_active": false
   },
   "artifact_transport": {
     "archive": {
@@ -72,7 +72,7 @@
       "RuVector_score": null,
       "access_candidate_links_on_current_page_not_followed": [],
       "aggregate_URL_verified_from_current_official_page": true,
-      "aggregate_bytes_equal_epoch55": true,
+      "aggregate_bytes_equal_epoch56": true,
       "decision_leader": {
         "accuracy_percent": 100.0,
         "model": "decision/d1-ultra"
@@ -110,8 +110,8 @@
         "last_modified": "Tue, 27 Oct 2026 10:55:35 GMT",
         "raw_body_persisted": false,
         "read_cap_bytes": 2097152,
-        "request_started_at": "2026-10-27T12:30:20.377460+00:00",
-        "retrieved_at": "2026-10-27T12:30:20.792124+00:00",
+        "request_started_at": "2026-10-27T16:50:12.697754+00:00",
+        "retrieved_at": "2026-10-27T16:50:13.155967+00:00",
         "sha256": "6aa89f0db85e2bdc765ff8d942de0d491dd37f2f2e635bb4a95b0f92746fc6d3",
         "status": 200,
         "url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json"
@@ -130,16 +130,17 @@
         "last_modified": "Tue, 27 Oct 2026 10:55:34 GMT",
         "raw_body_persisted": false,
         "read_cap_bytes": 2097152,
-        "request_started_at": "2026-10-27T12:30:20.002214+00:00",
-        "retrieved_at": "2026-10-27T12:30:20.360129+00:00",
+        "request_started_at": "2026-10-27T16:50:12.263085+00:00",
+        "retrieved_at": "2026-10-27T16:50:12.676369+00:00",
         "sha256": "2a3bb2141ba79416efe3bd841b4123cd2d0c030a2d83a7f2595bcdf89b097b7b",
         "status": 200,
         "url": "https://www.vals.ai/benchmarks/claimbench"
       },
-      "source_bytes_equal_epoch55": true,
+      "source_bytes_equal_epoch56": true,
       "total_models": 25,
       "verified_dataset_access_scope": "Current official public page examples and linked aggregate only."
     },
+    "Claim_deadline_scope": "urllib45s is a socket-I/O timeout. The once-executed foreground command used external100s TERM+2s KILL supervision and exited0; no retry or background process.",
     "Claim_pilot_authorized_or_executed": false,
     "JevBench": {
       "RuVector_page_text_matches": 0,
@@ -162,7 +163,7 @@
         }
       ],
       "historical_access_probes_repeated": false,
-      "leader_equals_last_verified_epoch55": true,
+      "leader_equals_last_verified_epoch56": true,
       "method_header": "10 s rule",
       "method_revision": "v1.7",
       "official_RuVector_eligibility": "UNVERIFIED",
@@ -182,40 +183,51 @@
         "final_url": "https://benchmarkheaven.com/jev-models",
         "raw_body_persisted": false,
         "read_cap_bytes": 67108864,
-        "retrieved_at": "2026-10-27T12:30:23.133660+00:00",
-        "sha256": "3d3378ad428e8c18bbc1d9253ba6716ea01f8a9fad9b532c3867675236f7765a",
+        "retrieved_at": "2026-10-27T16:49:42.061314+00:00",
+        "sha256": "ef586534b09a486e4b9d0cd6da32f2eafdcf83348ff74d8b7a7f7555ce087fd4",
         "status": 200,
         "url": "https://benchmarkheaven.com/jev-models",
-        "wall_seconds": 8.298292592982762
+        "wall_seconds": 8.540993224014528
       },
       "stream_result_ref": {
         "bytes": 2397,
-        "path": "/dev/shm/ruvector-e56-data/official-refresh/JEV_STREAM_RESULT.actual.v1.json",
-        "sha256": "871864193daa61af6bd36070b26cbeb110d365336f8a2ddc66d1c998e5d253e9"
+        "path": "/dev/shm/ruvector-e57-data/official-refresh/JEV_STREAM_RESULT.actual.v1.json",
+        "sha256": "1c493f1cc42669df10f60ac277929fa882e8f4e1375c84acbca7f2c00408b551"
       },
       "submission_reference_page_matches": 0,
       "verified_capability_rows_count": 238
     },
     "TLS_verification_enabled": true,
+    "actual_public_command_receipts": [
+      {
+        "bytes": 1108,
+        "path": "/dev/shm/ruvector-e57-data/official-refresh/JEV_ROOT_EXECUTION.actual.v1.json",
+        "sha256": "0d80624d77c655bbc768ecfa43ad538b99623b2f0247baa5740de3a2cf52870e"
+      },
+      {
+        "bytes": 974,
+        "path": "/dev/shm/ruvector-e57-data/official-refresh/CLAIM_ROOT_EXECUTION.actual.v1.json",
+        "sha256": "feeaf86c07564fe6852f3b26828dbb10893e7be06efaa203c0a16c5a26cf04a0"
+      }
+    ],
     "actual_request_breakdown": {
       "Claim_linked_aggregate_GETs": 1,
       "Claim_page_GETs": 1,
       "Jev_bounded_stream_GETs": 1,
-      "redirect_retry_alternate_endpoint_or_header_failure_GETs": 0
+      "redirect_retry_alternate_endpoint_GETs": 0
     },
     "champion_promoted": false,
-    "created_at": "2026-10-27T12:31:37.443854+00:00",
+    "created_at": "2026-10-27T16:58:58.585672+00:00",
     "direct_public_GETs": 3,
-    "epoch": 56,
+    "epoch": 57,
     "inherited_proxy_preserved": true,
     "kind": "FRESH_OFFICIAL_JEV_CLAIM_AND_SCOPED_PUBLISHER_METADATA_REFRESH",
     "known_unchanged_access_limits": [
       "Current Jev300 labelled public questions/scorer/licence and sealed publisher protocol remain unverified; the official board is aggregate evidence only.",
-      "The one selected-account exact publisher metadata search matches a historical receipt class and date. It does not prove global absence of publisher results or confirm rank/score/eligibility.115 is a historical evaluation queue position, never rank.",
+      "Two profile-verified configured accounts received one exact7FEA2738 metadata query each. Receipt-class and date metadata are scoped observations only; bodies and message identity were not checked. This cannot establish global result absence, an official score/rank/eligibility or current queue progress. Historical115 is an evaluation queue position, never rank.",
       "Claim public examples and official aggregate do not verify complete cases, exact scorer, case redistribution licence or submission access. No RuVector ClaimBench score exists.",
       "Exact model checkpoint TEST-nonuse provenance remains unqualified; no repeated probe or author contact."
     ],
-    "legacy_field_name_clarification": "Claim helper retained historical stdout key total_official_GETs_including_Jev_header_failure with value3. E56 had no header failure; the value is3successful official GETs as enumerated above. No request was repeated.",
     "meaningful_verified_official_result_or_leader_change": false,
     "model_native_DATA_Gold_or_paid_GPU_calls": 0,
     "new_verified_full_dataset_or_scorer_access": false,
@@ -226,46 +238,55 @@
     "project_or_Git_mutations": 0,
     "publisher_metadata_reads": {
       "body_thread_attachment_reads": 0,
-      "exact_reference_search": 1,
-      "profile": 1,
+      "configured_account_profiles": 2,
+      "exact_reference_searches": 2,
       "snippets_inspected": 0
     },
+    "publisher_scope_expanded_before_reads": true,
+    "publisher_scope_expansion_reason": "The original private account selector was intentionally absent from public checkpoint artifacts. Root authorized both configured profiles and one exact-reference metadata query each before any calls. No personal-status inference from domain, no alternate-reference or unbounded account search.",
     "publisher_status": {
+      "account_personal_status_inferred_from_domain": false,
       "body_messageID_match_to_original_receipt_verified": false,
       "body_thread_attachment_reads": 0,
-      "checked_at": "2026-10-27T12:29:26.714Z",
-      "coverage_other_accounts_verified": false,
+      "checked_at": "2026-10-27T16:52:12.654Z",
+      "configured_account_profile_reads": 2,
+      "configured_accounts_covered": 2,
+      "configured_profile_identities_verified": 2,
+      "coverage_other_accounts_or_channels_verified": false,
+      "covered_accounts_with_matching_messages": 1,
       "current_queue_progress": "UNVERIFIED",
-      "date_metadata_scope": "UNVERIFIED in current metadata classification. Search schema date field was not consumed; raw result discarded and no second query was made. Historical receipt date remains an inherited fact, not a newly verified current message match.",
+      "date_metadata_scope": "Only email_ts metadata was consumed; date-only values retained when valid. No raw headers, addresses, message IDs, snippets, body or thread content was read or persisted.",
       "eligibility_confirmed": false,
-      "epoch": 56,
-      "exact_reference_searches": 1,
+      "epoch": 57,
+      "exact_reference_searches": 2,
       "has_more_results": false,
       "historical_regular_evaluation_queue_position": 115,
-      "matching_message_date_metadata_verified": false,
-      "matching_message_dates": [],
+      "matching_message_date_metadata_verified": true,
+      "matching_message_dates": [
+        "2026-10-22"
+      ],
       "matching_messages": 1,
       "messages_read": 0,
+      "metadata_schema_recognized_for_all_covered_accounts": true,
       "metadata_subject_candidate_result_score_rank_or_eligibility_count": 0,
       "metadata_subject_receipt_or_submission_classification_count": 1,
       "new_verified_publisher_result_found": false,
       "official_rank": null,
       "official_score": null,
-      "original_acknowledgement_metadata_consistent": null,
-      "original_publisher_account_profile_reads": 1,
+      "original_acknowledgement_metadata_consistent": true,
+      "original_private_account_selector_recovered": false,
       "outgoing_messages_or_submissions": 0,
       "private_selector_identifiers_addresses_subject_headers_body_snippet_files_persisted": false,
       "queue_scope": "Historical acknowledgement evaluation queue position; never rank. Current position/progress unverified.",
-      "read_scope": "Subject-class and date metadata only; selected-account status cannot establish global result absence.",
+      "read_scope": "Aggregate subject-class and date metadata only across the two configured accounts; this cannot establish global result absence or an official score/rank/eligibility.",
       "reference": "7FEA2738",
       "schema_version": 1,
-      "selected_personal_publisher_account_profile_verified": true,
       "snippets_inspected": 0,
-      "source_kind": "One exact connected Gmail metadata search on profile-verified selected personal publisher account; no second-account fallback."
+      "source_kind": "One exact connected Gmail metadata search on each of two profile-verified configured accounts; Root explicitly expanded read-only coverage before calls because the original private selector is not recoverable from public artifacts."
     },
     "raw_public_bodies_persisted": false,
     "schema_version": 1,
-    "source_checkpoint": "ffdd0699f3254c5dd09437533d38111a8521c920",
+    "source_checkpoint": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
     "source_receipts": [
       {
         "TLS_verification_enabled": true,
@@ -276,8 +297,8 @@
         "last_modified": "Tue, 27 Oct 2026 10:55:34 GMT",
         "raw_body_persisted": false,
         "read_cap_bytes": 2097152,
-        "request_started_at": "2026-10-27T12:30:20.002214+00:00",
-        "retrieved_at": "2026-10-27T12:30:20.360129+00:00",
+        "request_started_at": "2026-10-27T16:50:12.263085+00:00",
+        "retrieved_at": "2026-10-27T16:50:12.676369+00:00",
         "sha256": "2a3bb2141ba79416efe3bd841b4123cd2d0c030a2d83a7f2595bcdf89b097b7b",
         "status": 200,
         "url": "https://www.vals.ai/benchmarks/claimbench"
@@ -291,16 +312,16 @@
         "last_modified": "Tue, 27 Oct 2026 10:55:35 GMT",
         "raw_body_persisted": false,
         "read_cap_bytes": 2097152,
-        "request_started_at": "2026-10-27T12:30:20.377460+00:00",
-        "retrieved_at": "2026-10-27T12:30:20.792124+00:00",
+        "request_started_at": "2026-10-27T16:50:12.697754+00:00",
+        "retrieved_at": "2026-10-27T16:50:13.155967+00:00",
         "sha256": "6aa89f0db85e2bdc765ff8d942de0d491dd37f2f2e635bb4a95b0f92746fc6d3",
         "status": 200,
         "url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json"
       }
     ],
     "unchanged_qualification_not_retested": {
-      "FinNLI": "Official paper data/license requires author access; no contact or repeated access probes.",
-      "FinQA": "Program task and source rights/model nonuse holds remain; exposed README case/page/filing identities stay DEV forever.",
+      "FinNLI": "Official paper data/license requires author-mediated access; no contact or repeated access probes.",
+      "FinQA": "Program task/source-rights/model-nonuse holds remain; exposed README case/page/filing identities remain DEV forever.",
       "ModernBERT": "Exact training/test nonuse unverified; no repeated model-card probes or weights."
     }
   },
@@ -424,7 +445,7 @@
     }
   },
   "champion": "SubmittedNative104/RRF10 unchanged",
-  "checkpoint_manifest_sha256": "7ae0dfb310214ccb56472aa519b4a4561dc74967bf23f920469a02e151811a50",
+  "checkpoint_manifest_sha256": "ae9b6df276bbd2b3446fd21b4a3a6b2a8e3e2b96083716a3f1478318c4144d8f",
   "cumulative_budget_ledger": {
     "allowed_further_attempts_in_closed_study": 0,
     "closed_epoch10_study": {
@@ -2169,6 +2190,82 @@
       "typed_model_initializations": 0,
       "uncertain_operation_total_fields": [],
       "whole_epoch_maximum_native_corpus_batches": 2
+    },
+    "epoch57_actual_execution": {
+      "BGE_forward_calls_attempted": 9,
+      "BGE_forward_calls_completed": 9,
+      "BGE_initializations": 2,
+      "BGE_texts_attempted": 272,
+      "BGE_texts_completed": 272,
+      "FP32_forwards": 4,
+      "FP32_texts": 128,
+      "GPU_calls": 0,
+      "Gold_scoring_calls": 0,
+      "INT8_forwards": 5,
+      "INT8_texts": 144,
+      "NLI_forwards_attempted": 0,
+      "NLI_forwards_completed": 0,
+      "Root_CLI_invocations": 1,
+      "actual_native_helper_starts": 1,
+      "actual_worker_starts": 1,
+      "all_remaining_epoch57_scientific_slots_closed": true,
+      "calibration_calls": 0,
+      "engineering_component_exact_actuals": {
+        "BGE_forward_calls_attempted": 9,
+        "BGE_forward_calls_completed": 9,
+        "BGE_initializations": 2,
+        "BGE_texts_attempted": 272,
+        "BGE_texts_completed": 272,
+        "FP32_forwards": 4,
+        "FP32_texts": 128,
+        "GPU_calls": 0,
+        "Gold_scoring_calls": 0,
+        "INT8_forwards": 5,
+        "INT8_texts": 144,
+        "NLI_forwards_attempted": 0,
+        "NLI_forwards_completed": 0,
+        "Root_CLI_invocations": 1,
+        "actual_native_helper_starts": 1,
+        "actual_worker_starts": 1,
+        "calibration_calls": 0,
+        "native_F32_hit_validations": 160,
+        "native_corpus_batches": 1,
+        "native_corpus_batches_completed": 1,
+        "native_corpus_batches_started": 1,
+        "native_indexes": 1,
+        "native_insertions": 128,
+        "native_queries": 16,
+        "paid_API_calls": 0,
+        "training_calls": 0,
+        "typed_model_initializations": 0
+      },
+      "engineering_independent_evidence": {
+        "bytes": 20730,
+        "path": "experiments/sota-2026-10-22/audit/epoch57/independent/ENGINEERING_ACTUAL_ACCEPTANCE_INDEPENDENT.v1.json",
+        "sha256": "2feb78dd79119251ec8d73c6acf006a496723ee7d762cf868519e7af98bd78d4"
+      },
+      "future_paid_GPU_authorization": false,
+      "native_F32_hit_validations": 160,
+      "native_corpus_batches": 1,
+      "native_corpus_batches_completed": 1,
+      "native_corpus_batches_started": 1,
+      "native_indexes": 1,
+      "native_insertions": 128,
+      "native_queries": 16,
+      "optional_retrieval_CLI_invocations": 0,
+      "optional_retrieval_Gold_scoring_calls": 0,
+      "optional_retrieval_held_for_frozen_prerequisite_schema_conflict": true,
+      "optional_retrieval_nonexecution_evidence": {
+        "bytes": 3854,
+        "path": "experiments/sota-2026-10-22/audit/epoch57/independent/RETRIEVAL_NONEXECUTION_INDEPENDENT.v1.json",
+        "sha256": "45ddfe42539a894e4c6d1c0fabaf7d0d9c0e3275c05ef1134049b17aed65f777"
+      },
+      "paid_API_budget_remaining": 0,
+      "paid_API_calls": 0,
+      "source_frozen_metadata_reporter_executed": true,
+      "training_calls": 0,
+      "typed_model_initializations": 0,
+      "whole_epoch_native_corpus_batch_cap": 2
     },
     "new_study_attempt_cap": 1,
     "new_study_attempts_remaining": 0,
@@ -11493,6 +11590,618 @@
     "selected16_query_features_DEV_forever": true,
     "source_feature_exposure_caveat": "These16sourcequeries already exposedDEVforever inE56. All1109possibleArrowinternalquerypage exposure cannot be claimed freshconfirmation. No newcases/labels forselection."
   },
+  "epoch57_final": {
+    "actual_SOURCE_commit": "3be77adfc5d3ceec3e71df01e2b4bd18490818b0",
+    "actual_engineering_execution": {
+      "BGE_forward_calls_attempted": 9,
+      "BGE_forward_calls_completed": 9,
+      "BGE_initializations": 2,
+      "BGE_texts_attempted": 272,
+      "BGE_texts_completed": 272,
+      "FP32_forwards": 4,
+      "FP32_texts": 128,
+      "GPU_calls": 0,
+      "Gold_scoring_calls": 0,
+      "INT8_forwards": 5,
+      "INT8_texts": 144,
+      "NLI_forwards_attempted": 0,
+      "NLI_forwards_completed": 0,
+      "Root_CLI_invocations": 1,
+      "actual_native_helper_starts": 1,
+      "actual_worker_starts": 1,
+      "calibration_calls": 0,
+      "native_F32_hit_validations": 160,
+      "native_corpus_batches": 1,
+      "native_corpus_batches_completed": 1,
+      "native_corpus_batches_started": 1,
+      "native_indexes": 1,
+      "native_insertions": 128,
+      "native_queries": 16,
+      "paid_API_calls": 0,
+      "training_calls": 0,
+      "typed_model_initializations": 0
+    },
+    "all_further_epoch57_scientific_slots_closed": true,
+    "authored_projection_not_measured_full_corpus_600second_infeasibility": true,
+    "benchmark_generalization_claim": false,
+    "candidate_promoted": false,
+    "confirmation_lineage_status": "UNQUALIFIED_HOLD_UNUSED",
+    "engineering_audit": {
+      "bytes": 20730,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/independent/ENGINEERING_ACTUAL_ACCEPTANCE_INDEPENDENT.v1.json",
+      "sha256": "2feb78dd79119251ec8d73c6acf006a496723ee7d762cf868519e7af98bd78d4"
+    },
+    "engineering_latency_and_resources": {
+      "actual_inclusive_Root_CLI_seconds": 24.102830723975785,
+      "independent_per_query_latency": {
+        "bm25": {
+          "N": 16,
+          "p50_seconds": 0.0022248085006140172,
+          "p95_seconds": 0.0038440359785454348
+        },
+        "exact_cosine": {
+          "N": 16,
+          "p50_seconds": 0.000137186492793262,
+          "p95_seconds": 0.0003277629875810817
+        },
+        "native": {
+          "N": 16,
+          "p50_seconds": 0.0007022975000000002,
+          "p95_seconds": 0.005774261750000001
+        }
+      },
+      "latency": {
+        "bm25": {
+          "observations": 16,
+          "p50_seconds": 0.0022248085006140172,
+          "p95_seconds": 0.0038440359785454348
+        },
+        "exact_cosine": {
+          "observations": 16,
+          "p50_seconds": 0.000137186492793262,
+          "p95_seconds": 0.0003277629875810817
+        },
+        "native": {
+          "observations": 16,
+          "p50_seconds": 0.0007022975000000002,
+          "p95_seconds": 0.005774261750000001
+        }
+      },
+      "latency_scope": "Per-query search only; shared BGE/corpus/index/init/capture/cleanup separately recorded. Inclusive supervisor/CLI clock is batch cap.",
+      "resources": {
+        "CPU_affinity": [
+          0,
+          1
+        ],
+        "RSS_scope": "Separate SELF and CHILDREN highwater; never summed.",
+        "children_max_RSS_KiB": 677004,
+        "children_system_seconds": 0.031854,
+        "children_user_seconds": 0.105735,
+        "compute_threads": 2,
+        "shared_cgroup": {
+          "headroom_bytes": 3490230272,
+          "memory_current_bytes": 13689638912,
+          "memory_events": {
+            "high": 0,
+            "low": 0,
+            "max": 83996,
+            "oom": 3,
+            "oom_group_kill": 0,
+            "oom_kill": 1
+          },
+          "memory_max_bytes": 17179869184,
+          "scope": "Shared cgroup snapshot; not candidate incremental use or cause proof."
+        },
+        "worker_max_RSS_KiB": 677004,
+        "worker_system_seconds": 1.5404369999999998,
+        "worker_user_seconds": 41.972619
+      }
+    },
+    "engineering_qualified": false,
+    "engineering_result": {
+      "bytes": 234421,
+      "path": "experiments/sota-2026-10-22/epoch57/runs/engineering/raw.json",
+      "sha256": "7e7af94bec20b7d174acd8293f9fc34faf28b9cf10dcf255bf7b5710035967be"
+    },
+    "engineering_throughput_measurements": {
+      "FP32": {
+        "batch_measurements": [
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 3.2647192790172994,
+            "group": "corpus",
+            "group_start": 0,
+            "tensor_shape": [
+              32,
+              256
+            ],
+            "texts": 32
+          },
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 3.4796724529587664,
+            "group": "corpus",
+            "group_start": 32,
+            "tensor_shape": [
+              32,
+              256
+            ],
+            "texts": 32
+          },
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 3.787191483017523,
+            "group": "corpus",
+            "group_start": 64,
+            "tensor_shape": [
+              32,
+              256
+            ],
+            "texts": 32
+          },
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 3.2903581259888597,
+            "group": "corpus",
+            "group_start": 96,
+            "tensor_shape": [
+              32,
+              256
+            ],
+            "texts": 32
+          }
+        ],
+        "batch_size": 32,
+        "embedding_only_truncation": true,
+        "initialization_seconds": 0.5153213860467076,
+        "inter_op_threads": 1,
+        "intra_op_threads": 2,
+        "label": "FP32",
+        "model_ref": {
+          "bytes": 133093490,
+          "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/models/bge-small-en-v1.5/model.onnx",
+          "sha256": "828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35"
+        },
+        "provider": "CPUExecutionProvider",
+        "session_closed": true,
+        "tensor_token_length": 256,
+        "total_init_forward_tokenize_capture_seconds": 14.852553656033706
+      },
+      "FP32_corpus_forward_p50_p95_seconds": [
+        3.385015289473813,
+        3.741063628508709
+      ],
+      "INT8": {
+        "batch_measurements": [
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 1.6526182670495473,
+            "group": "corpus",
+            "group_start": 0,
+            "tensor_shape": [
+              32,
+              256
+            ],
+            "texts": 32
+          },
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 1.6049444809905253,
+            "group": "corpus",
+            "group_start": 32,
+            "tensor_shape": [
+              32,
+              256
+            ],
+            "texts": 32
+          },
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 1.5511936440016143,
+            "group": "corpus",
+            "group_start": 64,
+            "tensor_shape": [
+              32,
+              256
+            ],
+            "texts": 32
+          },
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 1.5578666100045666,
+            "group": "corpus",
+            "group_start": 96,
+            "tensor_shape": [
+              32,
+              256
+            ],
+            "texts": 32
+          },
+          {
+            "finite_normalized_postprocessing_completed": true,
+            "forward_seconds": 0.7207503760000691,
+            "group": "queries",
+            "group_start": 0,
+            "tensor_shape": [
+              16,
+              256
+            ],
+            "texts": 16
+          }
+        ],
+        "batch_size": 32,
+        "embedding_only_truncation": true,
+        "initialization_seconds": 0.1608970359666273,
+        "inter_op_threads": 1,
+        "intra_op_threads": 2,
+        "label": "INT8",
+        "model_ref": {
+          "bytes": 34014426,
+          "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/model-assets/model_quantized.onnx",
+          "sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4"
+        },
+        "provider": "CPUExecutionProvider",
+        "session_closed": true,
+        "tensor_token_length": 256,
+        "total_init_forward_tokenize_capture_seconds": 7.870101558975875
+      },
+      "INT8_corpus_forward_p50_p95_seconds": [
+        1.581405545497546,
+        1.645467199140694
+      ],
+      "engineering_gate": {
+        "FP32_128_forward_seconds": 13.821941340982448,
+        "INT8_128_forward_seconds": 6.3666230020462535,
+        "conservative_5199_projection_seconds": 628.914452094119,
+        "conservative_runtime_projection_pass": false,
+        "frozen_gate": {
+          "maximum_projection_seconds": 420,
+          "minimum_speedup": 1.25,
+          "numerical_cosine_floor": 0.97,
+          "projection_safety_factor": 2,
+          "reserve_seconds": 90
+        },
+        "limitations": "Authored stress inputs only. Projection excludes unmeasured corpus specifics; parent independent gate/admission and 600s supervisor remain required.",
+        "local_gate_passed": false,
+        "mean_paired_cosine": 0.9972810376400437,
+        "minimum_paired_cosine": 0.9954090294256608,
+        "observed_FP32_over_INT8_throughput_ratio": 2.171000440349622,
+        "observed_throughput_speedup_pass": true,
+        "paired_cosine_drift_pass": true,
+        "paired_normalized_vector_cosines": [
+          0.9970486741950647,
+          0.9963550152997231,
+          0.9973310918967605,
+          0.9972523000019191,
+          0.9971732462913316,
+          0.9973404759229395,
+          0.9967298608436996,
+          0.9968893771527215,
+          0.996992348174682,
+          0.9971807055503903,
+          0.9967027437492503,
+          0.9974340220186819,
+          0.9972797368668619,
+          0.9971325030838496,
+          0.997417952917878,
+          0.9974888652369754,
+          0.9968354041196028,
+          0.9976104592714135,
+          0.9978452977819101,
+          0.9970108900171986,
+          0.9976890065252979,
+          0.9975453966057292,
+          0.9974790875400722,
+          0.9975686930755928,
+          0.9969282166975914,
+          0.9971461736448358,
+          0.9966822519653018,
+          0.9972768393468215,
+          0.9973909553545668,
+          0.9973783473531393,
+          0.9972479609114169,
+          0.9978134691092098,
+          0.9962967570150352,
+          0.9970227420457132,
+          0.9969258264707144,
+          0.9972898940534338,
+          0.9977232961648812,
+          0.9976137051796763,
+          0.997425240881106,
+          0.9973527681131474,
+          0.9968913018824023,
+          0.9973951041490339,
+          0.9972959920891147,
+          0.9973048579477358,
+          0.9970172567244048,
+          0.9970536226792704,
+          0.9971806946311746,
+          0.9970488276591648,
+          0.9965711990975687,
+          0.9970419783853093,
+          0.9964224618027965,
+          0.9967073126268985,
+          0.9970482135737683,
+          0.9965187681349186,
+          0.9975143655276395,
+          0.9972738183798489,
+          0.9970012872119713,
+          0.9954090294256608,
+          0.9971221052634965,
+          0.9962119523822377,
+          0.9966884257222455,
+          0.9962959914235785,
+          0.9968756950454126,
+          0.9964147036174027,
+          0.9974960041704858,
+          0.9978593704793722,
+          0.9979488625512613,
+          0.9973258576594841,
+          0.9980955891422673,
+          0.9975688937669887,
+          0.9973845486678503,
+          0.9979689024606125,
+          0.997143232392172,
+          0.9974922716620369,
+          0.9968995213375669,
+          0.997100422876332,
+          0.9973885677071197,
+          0.9970956371110647,
+          0.9957782003672067,
+          0.9973844431464879,
+          0.9978827666990637,
+          0.9976578141235569,
+          0.9974501612741461,
+          0.9978421178810367,
+          0.9975903857588908,
+          0.9983071441272142,
+          0.9979328007319399,
+          0.9978739482306537,
+          0.9979646079366616,
+          0.9976829874734525,
+          0.9978122621344567,
+          0.9978794912175396,
+          0.9978915497099254,
+          0.9980693049936016,
+          0.9976929567386867,
+          0.9978266480049345,
+          0.9963571303571345,
+          0.9974286568587546,
+          0.997058649742994,
+          0.9973978320148975,
+          0.9977593335451989,
+          0.9975586591083585,
+          0.9976245253612828,
+          0.9968356290276155,
+          0.9966769892418984,
+          0.9963121995208682,
+          0.9969525870782726,
+          0.9973125420776314,
+          0.9970752764048182,
+          0.9974980573476363,
+          0.9963646855085575,
+          0.996428509646122,
+          0.9978638094254682,
+          0.9978390550246705,
+          0.9977652241358056,
+          0.9977567844604756,
+          0.9982039661888158,
+          0.997621061219889,
+          0.9981835326639964,
+          0.9980299166609922,
+          0.9970741178417345,
+          0.9977697112011725,
+          0.9975048226538487,
+          0.9971217683142878,
+          0.9972787154441751,
+          0.9977180933703079,
+          0.9973905130850307,
+          0.9977706270296276
+        ],
+        "pilot_execution_authorized_by_this_report": false,
+        "projection_formula": "2*max(four INT8 corpus32 forward seconds)*ceil(5199/32)+observed INT8 init seconds+90"
+      },
+      "independent_projection_seconds": 628.914452094119,
+      "independent_recomputed_flags": {
+        "conservative_runtime_projection_pass": false,
+        "observed_throughput_speedup_pass": true,
+        "paired_cosine_drift_pass": true
+      },
+      "independent_speedup": 2.171000440349622
+    },
+    "epoch": 57,
+    "epoch_manifest": {
+      "bytes": 18675,
+      "path": "experiments/sota-2026-10-22/epoch57/EPOCH_MANIFEST.json",
+      "sha256": "69e3d434687500e949fe5e7991104d01ba91d02b887fa40585aa585d3372aa9b"
+    },
+    "existing16_DEV_and1109_pool_caveat_preserved": true,
+    "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
+    "learnings": {
+      "bytes": 2509,
+      "path": "experiments/sota-2026-10-22/epoch57/LEARNINGS.json",
+      "sha256": "eaeed88f8cee40c17189ee4db00572f7ef9da8e7db208b0ed6f7eb3a1a85ebf6"
+    },
+    "native104_champion_preserved": true,
+    "native_counter_accounting": {
+      "actual_native_events_independently_counted": {
+        "COMPLETE": 1,
+        "INDEX_BEFORE": 1,
+        "INSERT_BEFORE": 128,
+        "NATIVE_LOAD_BEFORE": 1,
+        "NATIVE_LOAD_COMPLETE": 1,
+        "NATIVE_VERSION_BEFORE": 1,
+        "QUERY_BEFORE": 16,
+        "QUERY_COMPLETE": 16
+      },
+      "capture_complete": true,
+      "capture_ref": {
+        "bytes": 92569,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/private-run/engineering/native-progress.jsonl",
+        "sha256": "2cde7ea9b1d18b59904696b603674706df35aba229f38ff6c335b90b54c1cccc"
+      },
+      "expected_totals_validation_only": {
+        "Node_network_operations_attempted": 0,
+        "native_binary_loads_attempted": 1,
+        "native_binary_loads_completed": 1,
+        "native_hit_source_validations": 160,
+        "native_index_initializations_attempted": 1,
+        "native_index_initializations_completed": 1,
+        "native_insertions_attempted": 128,
+        "native_insertions_completed": 128,
+        "native_len_calls_attempted": 2,
+        "native_len_calls_completed": 2,
+        "native_queries_attempted": 16,
+        "native_queries_completed": 16,
+        "native_version_calls_attempted": 1,
+        "native_version_calls_completed": 1
+      },
+      "idempotence_scope": "Identical validated snapshot rows only. Full progress-file capture is one-shot; recapture fails closed.",
+      "identical_counter_snapshot_replays": 1,
+      "independently_recomputed_expected_validation_bounds": {
+        "Node_network_operations_attempted": 0,
+        "native_binary_loads_attempted": 1,
+        "native_binary_loads_completed": 1,
+        "native_hit_source_validations": 160,
+        "native_index_initializations_attempted": 1,
+        "native_index_initializations_completed": 1,
+        "native_insertions_attempted": 128,
+        "native_insertions_completed": 128,
+        "native_len_calls_attempted": 2,
+        "native_len_calls_completed": 2,
+        "native_queries_attempted": 16,
+        "native_queries_completed": 16,
+        "native_version_calls_attempted": 1,
+        "native_version_calls_completed": 1
+      },
+      "inflight_native_call_outcome_uncertain": false,
+      "last_event": "COMPLETE",
+      "latest_validated_snapshot": {
+        "Node_network_operations_attempted": 0,
+        "native_binary_loads_attempted": 1,
+        "native_binary_loads_completed": 1,
+        "native_hit_source_validations": 160,
+        "native_index_initializations_attempted": 1,
+        "native_index_initializations_completed": 1,
+        "native_insertions_attempted": 128,
+        "native_insertions_completed": 128,
+        "native_len_calls_attempted": 2,
+        "native_len_calls_completed": 2,
+        "native_queries_attempted": 16,
+        "native_queries_completed": 16,
+        "native_version_calls_attempted": 1,
+        "native_version_calls_completed": 1
+      },
+      "merge_semantics": "Direct per-key assignment, never Counter.update or expected-value fill.",
+      "native_parent_totals_equal_captured_terminal": true,
+      "pending_attempt_completion_gap": false,
+      "qualified": true,
+      "raw_helper_progress_exact14key_agreement": true,
+      "schema_version": 1,
+      "single_source_of_truth": "Captured validated native helper progress plus exact terminal agreement.",
+      "snapshot_records": 165,
+      "validated_unique_event_counts": {
+        "COMPLETE": 1,
+        "INDEX_BEFORE": 1,
+        "INSERT_BEFORE": 128,
+        "NATIVE_LOAD_BEFORE": 1,
+        "NATIVE_LOAD_COMPLETE": 1,
+        "NATIVE_VERSION_BEFORE": 1,
+        "QUERY_BEFORE": 16,
+        "QUERY_COMPLETE": 16
+      },
+      "validation_failure_latched": false
+    },
+    "new_actionable_prerequisite_schema_blocker": "E57 optional retrieval pilot was held without invocation: frozen supervisor requires actual_execution_independently_derived to be boolean True, while the frozen reporter and agreed independent audit contract require the same field to be the observed count dictionary. No optional pilot CLI, model/native call, rankings or Gold occurred. Preserve the published source unchanged; correct this cross-component prerequisite schema only in a new future source epoch before any pilot attempt. Do not rerun the unchanged incompatible gate or relabel existing DEV as confirmation.",
+    "new_actionable_throughput_gate_blocker": "Measured authored-input engineering FP32/INT8 corpus-forward speed ratio 2.171000440349622 and minimum paired-vector cosine 0.9954090294256608 are engineering observations. The frozen conservative projection is 628.914452094119 seconds, exceeding the fixed admission threshold 420 seconds. The full benchmark corpus was not run. This projection is not a measured 600-second infeasibility result or benchmark generalization. Keep the optional pilot unexecuted; a future attempt needs a new credible frozen throughput/time plan and the separate prerequisite schema correction.",
+    "new_submission": false,
+    "next_research_priority": "Preserve SubmittedNative104. Retain the exact E57 engineering throughput/numerical/native verdict and any separately audited retrieval DEV result, including every failure and pending operation uncertainty. Same INT8 vectors must feed native and exact cosine; FP32 is only a separate engineering throughput/drift control. Authored tests and public DEV relevance cannot establish benchmark generalization, NLI accuracy, fresh confirmation or official placement. Do not repeat an unchanged rejected runtime/time plan or exposed-question grid. Any next attempt requires a new source/identity/resource freeze and credible whole-epoch time reserve. Stronger typed NLI remains the quality priority when licensed aligned data/scorer and exact model/training-test provenance are available; do not repeat unchanged FinNLI author-access or ModernBERT lineage probes. All easy48/Legal96 and prepared SciFact16 are DEV forever; the entire1109 query pool remains unqualified for fresh confirmation. Existing confirmation stays UNQUALIFIED_HOLD and unused. No paid API/GPU authorization or publisher submission follows; official success requires the matching publisher result/rank and eligibility. E57 engineering did not admit the full-corpus throughput gate; do not dispatch or retry the pilot under this unchanged plan. E57 optional retrieval pilot was held without invocation: frozen supervisor requires actual_execution_independently_derived to be boolean True, while the frozen reporter and agreed independent audit contract require the same field to be the observed count dictionary. No optional pilot CLI, model/native call, rankings or Gold occurred. Preserve the published source unchanged; correct this cross-component prerequisite schema only in a new future source epoch before any pilot attempt. Do not rerun the unchanged incompatible gate or relabel existing DEV as confirmation. E57 throughput gate blocker: Measured authored-input engineering FP32/INT8 corpus-forward speed ratio 2.171000440349622 and minimum paired-vector cosine 0.9954090294256608 are engineering observations. The frozen conservative projection is 628.914452094119 seconds, exceeding the fixed admission threshold 420 seconds. The full benchmark corpus was not run. This projection is not a measured 600-second infeasibility result or benchmark generalization. Keep the optional pilot unexecuted; a future attempt needs a new credible frozen throughput/time plan and the separate prerequisite schema correction.",
+    "official_goal_verified": false,
+    "official_rank": null,
+    "official_refresh": {
+      "bytes": 12267,
+      "path": "experiments/sota-2026-10-22/epoch57/official-refresh/benchmark-refresh.safe.json",
+      "sha256": "24e811c8dbe1a0c0ad1a84aa22f77c2921ab07268b0795e0635ff933cc058cc4"
+    },
+    "optional_retrieval_CLI_invocations": 0,
+    "optional_retrieval_Gold_scoring_calls": 0,
+    "publisher_status_latest_observation": {
+      "account_personal_status_inferred_from_domain": false,
+      "body_messageID_match_to_original_receipt_verified": false,
+      "body_thread_attachment_reads": 0,
+      "checked_at": "2026-10-27T16:52:12.654Z",
+      "configured_account_profile_reads": 2,
+      "configured_accounts_covered": 2,
+      "configured_profile_identities_verified": 2,
+      "coverage_other_accounts_or_channels_verified": false,
+      "covered_accounts_with_matching_messages": 1,
+      "current_queue_progress": "UNVERIFIED",
+      "date_metadata_scope": "Only email_ts metadata was consumed; date-only values retained when valid. No raw headers, addresses, message IDs, snippets, body or thread content was read or persisted.",
+      "eligibility_confirmed": false,
+      "epoch": 57,
+      "exact_reference_searches": 2,
+      "has_more_results": false,
+      "historical_regular_evaluation_queue_position": 115,
+      "matching_message_date_metadata_verified": true,
+      "matching_message_dates": [
+        "2026-10-22"
+      ],
+      "matching_messages": 1,
+      "messages_read": 0,
+      "metadata_schema_recognized_for_all_covered_accounts": true,
+      "metadata_subject_candidate_result_score_rank_or_eligibility_count": 0,
+      "metadata_subject_receipt_or_submission_classification_count": 1,
+      "new_verified_publisher_result_found": false,
+      "official_rank": null,
+      "official_score": null,
+      "original_acknowledgement_metadata_consistent": true,
+      "original_private_account_selector_recovered": false,
+      "outgoing_messages_or_submissions": 0,
+      "private_selector_identifiers_addresses_subject_headers_body_snippet_files_persisted": false,
+      "queue_scope": "Historical acknowledgement evaluation queue position; never rank. Current position/progress unverified.",
+      "read_scope": "Aggregate subject-class and date metadata only across the two configured accounts; this cannot establish global result absence or an official score/rank/eligibility.",
+      "reference": "7FEA2738",
+      "schema_version": 1,
+      "snippets_inspected": 0,
+      "source_kind": "One exact connected Gmail metadata search on each of two profile-verified configured accounts; Root explicitly expanded read-only coverage before calls because the original private selector is not recoverable from public artifacts."
+    },
+    "quality_metrics": {
+      "Brier": null,
+      "NLL": null,
+      "classification_accuracy": null
+    },
+    "rejection_ledger": {
+      "bytes": 257793,
+      "path": "experiments/sota-2026-10-22/epoch57/REJECTION_LEDGER.json",
+      "sha256": "09f75450a503d95344ca1c7db75284f945e12300c40e3f040b6f79694362f2fd"
+    },
+    "results": {
+      "bytes": 20102,
+      "path": "experiments/sota-2026-10-22/epoch57/RESULTS.json",
+      "sha256": "a38fdb949d2aa3ff5c6ee17e33713858af7fdacf4ba3662f3d0dff8d556786ac"
+    },
+    "retrieval_DEV_pilot": null,
+    "retrieval_nonexecution_review": {
+      "bytes": 3854,
+      "path": "experiments/sota-2026-10-22/audit/epoch57/independent/RETRIEVAL_NONEXECUTION_INDEPENDENT.v1.json",
+      "sha256": "45ddfe42539a894e4c6d1c0fabaf7d0d9c0e3275c05ef1134049b17aed65f777"
+    },
+    "schema_version": 1,
+    "source_checkpoint": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+    "status": "REJECTED_FROZEN_FULL_CORPUS_THROUGHPUT_PROJECTION_GATE",
+    "throughput_gate_passed": false,
+    "used_confirmation": {
+      "bytes": 4357,
+      "path": "experiments/sota-2026-10-22/epoch57/USED_CONFIRMATION.json",
+      "sha256": "9d1615a84e5f650ad66c97a123a194caf4a19dd86a376c0d4315554618f8e422"
+    },
+    "used_confirmation_identities": [],
+    "used_identities": {
+      "bytes": 4357,
+      "path": "experiments/sota-2026-10-22/epoch57/USED_IDENTITIES.json",
+      "sha256": "9d1615a84e5f650ad66c97a123a194caf4a19dd86a376c0d4315554618f8e422"
+    }
+  },
   "epoch57_frozen_study": {
     "conditional_retrieval_DEV_plan": {
       "bytes": 11187,
@@ -15306,11 +16015,11 @@
   },
   "goal_met": false,
   "latest_learning": {
-    "bytes": 11415,
-    "path": "experiments/sota-2026-10-22/epoch56/LEARNINGS.json",
-    "sha256": "84f4023ea3894053b4a239667cc36349c0f9d085973c9661102250c51ea96711"
+    "bytes": 2509,
+    "path": "experiments/sota-2026-10-22/epoch57/LEARNINGS.json",
+    "sha256": "eaeed88f8cee40c17189ee4db00572f7ef9da8e7db208b0ed6f7eb3a1a85ebf6"
   },
-  "next_research_priority": "Preserve SubmittedNative104. E56 must retain the independent actual accounting/capacity verdict, raw counters, helper terminal/progress evidence and any failures unchanged. Native snapshot integration uses a single validated source with direct assignment, never adding expected counters as observations. Do not rerun old engineering fixtures as benchmark generalization. Any separately frozen licensed retrieval DEV pilot measures only its explicit public slice and exact scorer; model training/test-nonuse remains unqualified and it cannot establish a full-benchmark rank, NLI accuracy, fresh confirmation or promotion. E55 metadata-probe six denied opens remain historical; E54 denied targets remain unknown; all five suffix denies stay enabled. Stronger typed-reader quality work still requires new aligned licensed data/scoring access and exact training/test-nonuse provenance. Do not repeat unchanged FinNLI access or ModernBERT card probes. DOC17 remains unused publisher-development-exposed DEV; all existing confirmation is UNQUALIFIED_HOLD and unused. No new submission, paid API or GPU cap is granted. Official success requires a matching publisher result/rank and eligibility. E56 actionable runtime/finalization blocker: the full-corpus pilot was stopped once after221.440748016seconds of inclusive Root CLI wall to preserve the mandatory checkpoint publication window. Durable BGE progress records116 completed forwards from117 attempted, with one in-flight outcome uncertain; no native helper, rankings or Gold execution occurred. This early stop does not prove600second infeasibility. Before another full-corpus attempt, freeze a credible CPU2 throughput and whole-epoch publication time plan qualified on engineering-only inputs. Do not repeat the unchanged runtime/corpus/finalization plan, and never treat these exposed questions as fresh confirmation.",
+  "next_research_priority": "Preserve SubmittedNative104. Retain the exact E57 engineering throughput/numerical/native verdict and any separately audited retrieval DEV result, including every failure and pending operation uncertainty. Same INT8 vectors must feed native and exact cosine; FP32 is only a separate engineering throughput/drift control. Authored tests and public DEV relevance cannot establish benchmark generalization, NLI accuracy, fresh confirmation or official placement. Do not repeat an unchanged rejected runtime/time plan or exposed-question grid. Any next attempt requires a new source/identity/resource freeze and credible whole-epoch time reserve. Stronger typed NLI remains the quality priority when licensed aligned data/scorer and exact model/training-test provenance are available; do not repeat unchanged FinNLI author-access or ModernBERT lineage probes. All easy48/Legal96 and prepared SciFact16 are DEV forever; the entire1109 query pool remains unqualified for fresh confirmation. Existing confirmation stays UNQUALIFIED_HOLD and unused. No paid API/GPU authorization or publisher submission follows; official success requires the matching publisher result/rank and eligibility. E57 engineering did not admit the full-corpus throughput gate; do not dispatch or retry the pilot under this unchanged plan. E57 optional retrieval pilot was held without invocation: frozen supervisor requires actual_execution_independently_derived to be boolean True, while the frozen reporter and agreed independent audit contract require the same field to be the observed count dictionary. No optional pilot CLI, model/native call, rankings or Gold occurred. Preserve the published source unchanged; correct this cross-component prerequisite schema only in a new future source epoch before any pilot attempt. Do not rerun the unchanged incompatible gate or relabel existing DEV as confirmation. E57 throughput gate blocker: Measured authored-input engineering FP32/INT8 corpus-forward speed ratio 2.171000440349622 and minimum paired-vector cosine 0.9954090294256608 are engineering observations. The frozen conservative projection is 628.914452094119 seconds, exceeding the fixed admission threshold 420 seconds. The full benchmark corpus was not run. This projection is not a measured 600-second infeasibility result or benchmark generalization. Keep the optional pilot unexecuted; a future attempt needs a new credible frozen throughput/time plan and the separate prerequisite schema correction.",
   "objective": "Reach independently verified SOTA using actual RuVector; initial target JevBench open-weights Capability under official caps.",
   "official_rank": null,
   "official_result_status": {
@@ -15346,43 +16055,50 @@
     "sha256": "aea2849bf4f411da00aae3f8d8ecedcd385a4060393cf3a7e8e1cdcec7129b69"
   },
   "publisher_status": {
+    "account_personal_status_inferred_from_domain": false,
     "body_messageID_match_to_original_receipt_verified": false,
     "body_thread_attachment_reads": 0,
-    "checked_at": "2026-10-27T12:29:26.714Z",
-    "coverage_other_accounts_verified": false,
+    "checked_at": "2026-10-27T16:52:12.654Z",
+    "configured_account_profile_reads": 2,
+    "configured_accounts_covered": 2,
+    "configured_profile_identities_verified": 2,
+    "coverage_other_accounts_or_channels_verified": false,
+    "covered_accounts_with_matching_messages": 1,
     "current_queue_progress": "UNVERIFIED",
-    "date_metadata_scope": "UNVERIFIED in current metadata classification. Search schema date field was not consumed; raw result discarded and no second query was made. Historical receipt date remains an inherited fact, not a newly verified current message match.",
+    "date_metadata_scope": "Only email_ts metadata was consumed; date-only values retained when valid. No raw headers, addresses, message IDs, snippets, body or thread content was read or persisted.",
     "eligibility_confirmed": false,
-    "epoch": 56,
-    "exact_reference_searches": 1,
+    "epoch": 57,
+    "exact_reference_searches": 2,
     "has_more_results": false,
     "historical_regular_evaluation_queue_position": 115,
-    "matching_message_date_metadata_verified": false,
-    "matching_message_dates": [],
+    "matching_message_date_metadata_verified": true,
+    "matching_message_dates": [
+      "2026-10-22"
+    ],
     "matching_messages": 1,
     "messages_read": 0,
+    "metadata_schema_recognized_for_all_covered_accounts": true,
     "metadata_subject_candidate_result_score_rank_or_eligibility_count": 0,
     "metadata_subject_receipt_or_submission_classification_count": 1,
     "new_verified_publisher_result_found": false,
     "official_rank": null,
     "official_score": null,
-    "original_acknowledgement_metadata_consistent": null,
-    "original_publisher_account_profile_reads": 1,
+    "original_acknowledgement_metadata_consistent": true,
+    "original_private_account_selector_recovered": false,
     "outgoing_messages_or_submissions": 0,
     "private_selector_identifiers_addresses_subject_headers_body_snippet_files_persisted": false,
     "queue_scope": "Historical acknowledgement evaluation queue position; never rank. Current position/progress unverified.",
-    "read_scope": "Subject-class and date metadata only; selected-account status cannot establish global result absence.",
+    "read_scope": "Aggregate subject-class and date metadata only across the two configured accounts; this cannot establish global result absence or an official score/rank/eligibility.",
     "reference": "7FEA2738",
     "schema_version": 1,
-    "selected_personal_publisher_account_profile_verified": true,
     "snippets_inspected": 0,
-    "source_kind": "One exact connected Gmail metadata search on profile-verified selected personal publisher account; no second-account fallback."
+    "source_kind": "One exact connected Gmail metadata search on each of two profile-verified configured accounts; Root explicitly expanded read-only coverage before calls because the original private selector is not recoverable from public artifacts."
   },
   "publisher_status_refresh_scope": "Exact reference search returned the original submission acknowledgment. It confirms regular evaluation queue position115 and contains no evaluation score or rank. No global absence of other publisher results or eligibility determination is inferred.",
   "rejection_ledger": {
-    "bytes": 255197,
-    "path": "experiments/sota-2026-10-22/epoch56/REJECTION_LEDGER.json",
-    "sha256": "51e774e36593bcaf621c5a2f6c86bb1fa6fc046287450289b59e3e71db9027e8"
+    "bytes": 257793,
+    "path": "experiments/sota-2026-10-22/epoch57/REJECTION_LEDGER.json",
+    "sha256": "09f75450a503d95344ca1c7db75284f945e12300c40e3f040b6f79694362f2fd"
   },
   "restoration_boundary": "Epoch16 freshly verified2293 Gitblob files and2220projectCP+48base using reviewed bootstrap/restore; exact7officialNLI+BGE2/native22 restored separately. No model/native session occurred before reviewed source freeze/publication; actual oneDEV process is in epoch16_final. Never rerun archived controllers.",
   "restoration_boundary_prior_epoch13": "All public source/data/results hashrestored; native22filehelper verified. Coldproof explicitly lists deferredmodelassetpins(old/new); weights acquiredseparately via reviewedhelpers/exactofficialrevision+hashes. No inference or archivedcontroller rerun duringrestore.",

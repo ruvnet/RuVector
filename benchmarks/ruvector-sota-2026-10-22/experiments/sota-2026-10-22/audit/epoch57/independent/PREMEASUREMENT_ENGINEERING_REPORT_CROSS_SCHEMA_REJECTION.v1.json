@@ -1,0 +1,46 @@
+{
+  "Root_STOP_sent_before_any_scientific_measurement": true,
+  "actual_publication_state_at_report": "Notassumed; Rootmustresolvejournal/phase state beforeamending or choosingengineering-onlyheldpilot.",
+  "auditor_real_model_native_parser_Gold_Git_calls": 0,
+  "checks_passed": false,
+  "conflicting_field": "actual_execution_independently_derived",
+  "earlier_auditor_review_scope_correction": "Earliercomponent/concreteplan approval missed crosscomponentfield compatibility. This negative crossschemafinding supersedes any implication the unchangedoptionalpilot is dispatchable.",
+  "epoch": 57,
+  "existing_gate_only_no_new_acceptance_gate": true,
+  "frozen_source_manifest_ref": {
+    "bytes": 17141,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/project/experiments/sota-2026-10-22/epoch57/SOURCE_FREEZE.json",
+    "sha256": "c277357524d87a9339d1c6161ce2fcfbdf2f2df735c156ec4d487c0793d8078b"
+  },
+  "reporter_required_type": "dictwithobservedcounts andpaid_API/GPU0",
+  "reporter_source_ref": {
+    "bytes": 10481,
+    "path": "experiments/sota-2026-10-22/epoch57/reporting/report_actual.py",
+    "sha256": "c92acbd18ff1b77b4e9345db7c3b1d3a06a33c0ae7af651cad913cb82c62345a"
+  },
+  "safe_resolutions": [
+    "IfnoSOURCEexternalmutation, retain exactfrozen53snapshot and explicitpremeasurementamendment withminimal supervisor dictionary/countpredicate correction, update source/plan/master/SF hashes before allSCI.",
+    "IfSOURCEalreadyimmutablepublished/uncertain, preservefrozenruntime and holdoptionalpilot; engineeringonly maystillproduce usefulboundedactualqualification. No bypass/replay or duplicateincompatible auditreports."
+  ],
+  "same_report_can_satisfy_both": false,
+  "schema_version": 1,
+  "static_synthetic_cases": [
+    {
+      "satisfies_reporter_dictionary_contract": false,
+      "satisfies_supervisor_identity_True": true,
+      "synthetic_value_kind": "boolean_true"
+    },
+    {
+      "satisfies_reporter_dictionary_contract": true,
+      "satisfies_supervisor_identity_True": false,
+      "synthetic_value_kind": "observed_count_dictionary"
+    }
+  ],
+  "status": "PREMEASUREMENT_CROSS_COMPONENT_ENGINEERING_REPORT_SCHEMA_CONFLICT_STOP",
+  "supervisor_required_type": "LiteralTrueidentity",
+  "supervisor_source_ref": {
+    "bytes": 20954,
+    "path": "experiments/sota-2026-10-22/runtime/epoch57/supervisor.py",
+    "sha256": "6c771f65bbd915af08c2398ba91519e95b345799ab752f5d07cdcba90a6745d2"
+  }
+}

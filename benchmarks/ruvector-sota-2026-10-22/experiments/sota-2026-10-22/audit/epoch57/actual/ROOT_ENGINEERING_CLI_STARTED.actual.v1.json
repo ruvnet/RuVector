@@ -1,0 +1,10 @@
+{
+  "epoch": 57,
+  "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
+  "phase": "engineering",
+  "supervisor_identity": {
+    "pid": 189124,
+    "startticks": 44528801,
+    "state": "R"
+  }
+}

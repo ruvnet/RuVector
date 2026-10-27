@@ -1,0 +1,22 @@
+{
+  "actual_auditor_reporter_or_model_native_Gold_Git_calls": 0,
+  "all_actual_refs_and_source_bindings_verified": true,
+  "checks_passed": true,
+  "config_ref": {
+    "bytes": 6416,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/ACTUAL_REPORTING_CONFIG.v1.json",
+    "sha256": "657583d674fdd2d54d3b35d82e1f3c03cbb9625104eb66a567efa5338c345262"
+  },
+  "engineering_acceptance": "REJECTED_frozenprojection628.914452>420; speedupanddriftpasstheirseparatefrozengates.",
+  "engineering_report_observedcountsdictionary_contract_matches_reporter": true,
+  "epoch": 57,
+  "final_output_privacy_inventory_review_still_required_before_close": true,
+  "new144_authored_engineering_IDs_match_exact_inputs": true,
+  "oldDEV_CF_and_rejection_ledger_preserved_by_frozenreporter": true,
+  "once_summary_execution_allowed_at": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/report_actual.py",
+  "optional_pilot_and_Gold": "Actual0; bothruntimegatefailureandschema430879holdpreserved; noplannedpilotreportedexecuted.",
+  "reporter_SHA256": "c92acbd18ff1b77b4e9345db7c3b1d3a06a33c0ae7af651cad913cb82c62345a",
+  "schema_version": 1,
+  "status": "EXACT_ACTUAL_REPORTING_CONFIG_AND_FROZEN_REPORTER_INDEPENDENTLY_APPROVED",
+  "summary_only_no_source_or_science_changes": true
+}
