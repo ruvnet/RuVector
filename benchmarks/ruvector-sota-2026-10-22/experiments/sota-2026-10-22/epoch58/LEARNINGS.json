@@ -1,0 +1,24 @@
+{
+  "DEV_pilot": null,
+  "actual_SOURCE_commit": "e2a101ec83cd10eaf8f5bd456a9bd6a6443d2c22",
+  "benchmark_generalization_claim": false,
+  "candidate_promoted": false,
+  "engineering_audit": {
+    "bytes": 8808,
+    "path": "experiments/sota-2026-10-22/audit/epoch58/actual/ENGINEERING_ACTUAL_INDEPENDENT_AUDIT.v1.json",
+    "sha256": "3e1d45c8b7fd04c9af8e23d24a5c0d986cfe4b21c44b60c9a9518839231cfbb2"
+  },
+  "epoch": 58,
+  "independent_reason": "Conservative frozen projection exceeds420; no DEV batch or Gold authorized.",
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "native104_champion_preserved": true,
+  "new_submission": false,
+  "next_research_priority": "Preserve SubmittedNative104. Retain exact E58 typed-NLI coverage/order outcomes, proper scores, latency, resource limits and every failure. The17 paired claims share ONE DEV NDA; this cannot establish independent-document or benchmark-wide generalization. All actually exposed DOC17 identities are DEV forever. Do not repeat an unchanged rejected runtime or exposed-question grid. Any further attempt needs a new source/identity/resource freeze. Stronger licensed typed decision models with verified training/test provenance remain the quality priority; do not repeat unchanged FinNLI author-access or ModernBERT lineage probes. Existing easy48/Legal96/SciFact16 roles,1109query-pool caveat and unqualified confirmation holds stay unchanged. No paid API/GPU or publisher-submission authorization follows. Official success requires the matching publisher result/rank and eligibility. E58 did not admit its frozen DOC17 projection gate; do not dispatch the unchanged optional DEV plan.",
+  "official_goal_verified": false,
+  "official_rank": null,
+  "results_scope": "One source-licensed ContractNLI DEV document with17 fixed claims. Paired claim differences share one NDA and are not independent-document generalization evidence. Authored engineering performance is not benchmark quality. No fresh confirmation or official rank is measured.",
+  "schema_version": 1,
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "status": "REJECTED_FROZEN_THROUGHPUT_GATE",
+  "used_confirmation_identities": []
+}

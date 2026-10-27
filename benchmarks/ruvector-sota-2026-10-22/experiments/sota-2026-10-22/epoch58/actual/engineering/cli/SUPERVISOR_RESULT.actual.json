@@ -1,0 +1,68 @@
+{
+  "PID_namespace": "pid:[4026532200]",
+  "actual_results_ref": {
+    "bytes": 21570,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/engineering-worker/RESULT.actual.json",
+    "sha256": "d40d33bb85a2803020b0bd1f61ebef511ae8dc44c1e0ac6f3ead74ad9b602a2b"
+  },
+  "all_owned_processes_closed": false,
+  "attempt_ref": {
+    "bytes": 518,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/engineering-cli/SUPERVISOR_ATTEMPT.actual.json",
+    "sha256": "2c98280182b61f03ce68d12872411d08431d2f32213d7a6c7e002634f038624c"
+  },
+  "child_resource_usage": {
+    "ru_inblock": 0,
+    "ru_maxrss": 1261804,
+    "ru_oublock": 0,
+    "ru_stime": 9.902816,
+    "ru_utime": 51.560665
+  },
+  "children_physically_closed": true,
+  "epoch": 58,
+  "errors": [],
+  "kernel_boot_id": "4632fb06-b0ef-4df5-b72b-0e875bbad810",
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "owned_process_identities": [
+    {
+      "pgid": 195948,
+      "pid": 195948,
+      "sid": 195948,
+      "startticks": 45752835
+    },
+    {
+      "pgid": 195948,
+      "pid": 195949,
+      "sid": 195948,
+      "startticks": 45752843
+    },
+    {
+      "pgid": 195948,
+      "pid": 195952,
+      "sid": 195948,
+      "startticks": 45755096
+    }
+  ],
+  "phase": "engineering",
+  "schema_version": 1,
+  "status": "WORKER_COMPLETED_AWAITING_INDEPENDENT_ACTUAL_AUDIT",
+  "supervisor_resource_usage": {
+    "ru_inblock": 0,
+    "ru_maxrss": 44032,
+    "ru_oublock": 0,
+    "ru_stime": 0.454601,
+    "ru_utime": 0.9665419999999999
+  },
+  "wall_seconds": 35.11795542802429,
+  "worker_exit_code": 0,
+  "worker_stderr_raw_ref": {
+    "bytes": 0,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/engineering-cli/worker.stderr.raw",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "worker_stdout_raw_ref": {
+    "bytes": 0,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/engineering-cli/worker.stdout.raw",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

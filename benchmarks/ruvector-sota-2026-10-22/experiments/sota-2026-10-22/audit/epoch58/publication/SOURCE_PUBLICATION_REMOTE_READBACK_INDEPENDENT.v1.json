@@ -1,0 +1,93 @@
+{
+  "CP_local_body_bytes_rehashed": 565441854,
+  "CP_only_paths": 70,
+  "CP_rows": 9169,
+  "Git_leaves": 9176,
+  "Git_local_body_bytes_rehashed": 520999923,
+  "actual_control_identity_refs": [
+    {
+      "bytes": 2148017,
+      "path": "/dev/shm/ruvector-e58-data/source-readback/CHECKPOINT_MANIFEST.json",
+      "sha256": "639f758e3e8d5a91e8c5162feead1c0533777cbfb0ea6d8578c11f4c20eecc81"
+    },
+    {
+      "bytes": 683672,
+      "path": "/dev/shm/ruvector-e58-data/source-readback/CONTINUATION.json",
+      "sha256": "0f6d15eeee9bc44ccac83422bc774f5d8d697466855e2fa946baba2cf0532908"
+    },
+    {
+      "bytes": 762,
+      "path": "/dev/shm/ruvector-e58-data/source-readback/ACTIVE_RUN.json",
+      "sha256": "9997a2ff885079f88c89ab09f59cb21505295463d3f5ea9818d2fb85d8a34c99"
+    }
+  ],
+  "actual_map_ref": {
+    "bytes": 3154339,
+    "path": "/dev/shm/ruvector-e58-data/source-readback/actual-git-map.json",
+    "sha256": "e82f07435ddf7b4f7f2b40d02caae14e41f70a2e6f20403b4c618364937caeef"
+  },
+  "actual_parent": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "actual_publication_receipt_ref": {
+    "bytes": 1158,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/publication/publication-source-result.json",
+    "sha256": "56708042abad2b0e99f09ffd13bac8f80e0f41b4e9c8a3b6690a22ceac8dcd79"
+  },
+  "all_remote_Git_and_CP_body_hashes_matched": true,
+  "all_subtrees_Merkle_recomputed": 952,
+  "bench": "0d8f04d951d2b75beb4227cd704c38dcb4da247e",
+  "checks_passed": true,
+  "commit": "e2a101ec83cd10eaf8f5bd456a9bd6a6443d2c22",
+  "elapsed_seconds": 2.9412231870228425,
+  "epoch": 58,
+  "forbidden_objects_live_queries_recreation_or_references": 0,
+  "fresh_connected_Git_response_refs": [
+    {
+      "bytes": 434,
+      "path": "/dev/shm/ruvector-e58-data/source-readback/ref-before.json",
+      "sha256": "9f9fbc63acc20c837d5d36a9e337a8506a932661f04cd756eae1047ae2627bdf"
+    },
+    {
+      "bytes": 1102,
+      "path": "/dev/shm/ruvector-e58-data/source-readback/commit.json",
+      "sha256": "eb10433c0d2116b7c2501b3db9e690fe9241d0b7b7b6103a4dd7081969e422fb"
+    },
+    {
+      "bytes": 9349,
+      "path": "/dev/shm/ruvector-e58-data/source-readback/root.json",
+      "sha256": "ac927df6f434abd987b3c615e44db612c534e3234d89176ef8d50b63c3d429fd"
+    },
+    {
+      "bytes": 2961,
+      "path": "/dev/shm/ruvector-e58-data/source-readback/bench.json",
+      "sha256": "1ef5c35a73e3b03d033cce273658f98e32371ddb8af78a9ea222567639e1265b"
+    },
+    {
+      "bytes": 2862387,
+      "path": "/dev/shm/ruvector-e58-data/source-readback/scope.json",
+      "sha256": "f21e8964622d725eefbd0dd971d48593e95ac5b180ccf540c5df0b0e7f2fc347"
+    },
+    {
+      "bytes": 434,
+      "path": "/dev/shm/ruvector-e58-data/source-readback/ref-after.json",
+      "sha256": "9f9fbc63acc20c837d5d36a9e337a8506a932661f04cd756eae1047ae2627bdf"
+    }
+  ],
+  "kind": "ACTUAL_FULL_SOURCE_REMOTE_READBACK",
+  "model_native_Gold_scientific_calls": 0,
+  "remote_control_body_identity_method": "Fresh actual full-scope Git Merkle leaf SHA matched independently rehashed exact local proposed control bytes. No raw control-body fetch is claimed.",
+  "root": "fff3482af96a4808d618168ad9237393403f06b7",
+  "runtime_sources_hash_only": 145,
+  "schema_version": 1,
+  "scientific_dispatch_authorization_granted": false,
+  "scope": "8f876fc545cd9314e810854ab1f64d368371aa80",
+  "source_files": 120,
+  "source_freeze_sha256": "83df175d66f562b687cc16fb6f850afcf81f774a16154ff831fc260f1ae4d4cd",
+  "source_plan_sha256": "85cfc6eaa850d9278881ab46a903d8abf068fd587937a09edfd3785c9ba2ac96",
+  "stage_metadata_ref": {
+    "bytes": 115803,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/stage-source/metadata.json",
+    "sha256": "b9542dd1afd3d4b576c62bd3122b0dddec39d4cedf2ca7bfcfe196d754007fff"
+  },
+  "unrelated_root_and_bench_siblings_unchanged": true,
+  "verified_actual_remote_readback": true
+}

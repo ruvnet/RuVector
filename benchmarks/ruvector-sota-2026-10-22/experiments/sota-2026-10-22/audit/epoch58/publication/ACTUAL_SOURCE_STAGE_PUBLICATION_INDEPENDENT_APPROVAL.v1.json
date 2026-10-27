@@ -1,0 +1,34 @@
+{
+  "checks_passed": true,
+  "dual_unknown_denylist_reviewed": true,
+  "epoch": 58,
+  "expected_final_root_sha": "fff3482af96a4808d618168ad9237393403f06b7",
+  "forbidden_Git_objects": [
+    "3d5a61f9068acf2dabd2ae5c6bd531d9a9b464c5",
+    "486888de9602bbb5d817a55f707b4fcfd11c65e0",
+    "a68b7ba587332f176f65d0348de3e910aa16e77a"
+  ],
+  "independent_checks": {
+    "CP_only": 70,
+    "CP_rows_rehashed": 9169,
+    "bounded_sparse_tree_entries": 124,
+    "changed_regular_blobs": 124,
+    "fresh_connected_Git_ref_observed": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+    "live_owner26_verified": true,
+    "requests_rehashed": 130,
+    "scientific_batches_executed": 0,
+    "semantic_Gold_decoded": 0,
+    "sourcefiles_rehashed": 120,
+    "unrelated_siblings_preserved": true,
+    "whole_scope_Merkle": 9176
+  },
+  "original_blob5_execution": "UNKNOWN_PERMANENTLY",
+  "owner_sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac",
+  "phase": "source",
+  "publication_phase_allowed": true,
+  "scientific_authorization_granted": false,
+  "source_and_denylist_review_passed": true,
+  "source_freeze_sha256": "83df175d66f562b687cc16fb6f850afcf81f774a16154ff831fc260f1ae4d4cd",
+  "source_parent": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "stage_metadata_sha256": "b9542dd1afd3d4b576c62bd3122b0dddec39d4cedf2ca7bfcfe196d754007fff"
+}

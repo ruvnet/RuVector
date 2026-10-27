@@ -1,0 +1,21 @@
+{
+  "Content_Length": "21101655",
+  "HTTP_status": 200,
+  "body_sha256": "bb09002a5c37c84e21cadf373b9d9dbca626b1aa95e28c0a9109b7ed25bbd429",
+  "bytes_streamed": 21101655,
+  "complete_body": true,
+  "content_type": "text/html; charset=utf-8",
+  "error_code": null,
+  "etag": "\"qka8aq72socjcvh\"",
+  "final_url": "https://benchmarkheaven.com/jev-models",
+  "initial_GET_attempts": 1,
+  "last_modified": null,
+  "maximum_bytes": 67108864,
+  "partial_stream_sha256": null,
+  "raw_body_persisted": false,
+  "redirect_GETs": 0,
+  "request_started_at": "2026-10-27T20:23:39.083350+00:00",
+  "retrieved_at": "2026-10-27T20:23:47.103225+00:00",
+  "url": "https://benchmarkheaven.com/jev-models",
+  "wall_seconds": 8.019873520999681
+}

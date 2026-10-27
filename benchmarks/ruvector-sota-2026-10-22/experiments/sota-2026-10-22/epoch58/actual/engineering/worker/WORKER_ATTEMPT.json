@@ -1,0 +1,17 @@
+{
+  "automatic_retry": false,
+  "config_ref": {
+    "bytes": 7020,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/ENGINEERING_WORKER_CONFIGURATION.v1.json",
+    "sha256": "eb404f9ead15cac6314f48eba99aa9cdb5f3eb43d6b4d178646ed2bc6120db9e"
+  },
+  "epoch": 58,
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "process_identity": {
+    "pgid": 195948,
+    "pid": 195949,
+    "sid": 195948,
+    "startticks": 45752843
+  },
+  "schema_version": 1
+}

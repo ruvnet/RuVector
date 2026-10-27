@@ -1,0 +1,81 @@
+{
+  "ClaimBench_access": "UNVERIFIED full data/scorer/license/submission access; public page plus current officially linked aggregate only.",
+  "ClaimBench_decision_leader": {
+    "accuracy_percent": 100.0,
+    "model": "decision/d1-ultra"
+  },
+  "ClaimBench_decision_runner_up": {
+    "accuracy_percent": 99.694,
+    "model": "decision/decider-v1.2"
+  },
+  "ClaimBench_language_models_at100": [
+    {
+      "accuracy_percent": 100.0,
+      "model": "anthropic/claude-sonnet-5-5"
+    },
+    {
+      "accuracy_percent": 100.0,
+      "model": "anthropic/claude-haiku-5-5"
+    },
+    {
+      "accuracy_percent": 100.0,
+      "model": "anthropic/claude-opus-5-5"
+    },
+    {
+      "accuracy_percent": 100.0,
+      "model": "openai/gpt-6.1-sol"
+    }
+  ],
+  "JevBench_leader_status": "UNVERIFIED; HTTP200 complete source was received but frozen parser rejected UNIQUE_CAPABILITY_ROWS_ORDER before category result. No retry or mixed-board leader attribution.",
+  "JevBench_open_weights_Capability_leader": null,
+  "RuVector_ClaimBench_score": null,
+  "RuVector_official_rank": null,
+  "actual_initial_GET_attempts": 3,
+  "actual_redirect_GETs": 0,
+  "actual_refresh_result_ref": {
+    "bytes": 5385,
+    "path": "/dev/shm/ruvector-e58-data/official-refresh/PUBLIC_REFRESH_RESULT.actual.v3.json",
+    "sha256": "36ea19286ee9938a93b2b90fbf308656361929df9afaef6594f40be0d88226a9"
+  },
+  "automation_disable_required": false,
+  "checks_passed": true,
+  "epoch": 58,
+  "historical_queue115_is_rank": false,
+  "kind": "ACTUAL_OFFICIAL_PUBLIC_METADATA_DURABLE_REVIEW",
+  "official_goal_verified": false,
+  "once_marker_count": 1,
+  "plan_ref": {
+    "bytes": 5642,
+    "path": "/dev/shm/ruvector-e58-data/official-refresh/PUBLIC_REFRESH_PLAN.v3.json",
+    "sha256": "3d692e8d370198589342c34f0144451a089be715d049aa4ef8633b293e87049d"
+  },
+  "private_identifiers_credentials_or_raw_bodies_in_review": false,
+  "review_model_native_calls": 0,
+  "review_network_calls": 0,
+  "review_payload_or_Gold_decodes": 0,
+  "runtime_limitations": "Only durable typed metadata, once-marker and source receipts reviewed. No independently observed process exit code claimed by this resumed reviewer.",
+  "schema_version": 1,
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "source_receipt_refs": [
+    {
+      "bytes": 726,
+      "path": "/dev/shm/ruvector-e58-data/official-refresh/PUBLIC_SOURCE_RECEIPT_1.v3.json",
+      "sha256": "d743536d393abc8e0a2cb8203c9205c7846daba195f0adf34fd9dfd7bd30fa8c"
+    },
+    {
+      "bytes": 772,
+      "path": "/dev/shm/ruvector-e58-data/official-refresh/PUBLIC_SOURCE_RECEIPT_2.v3.json",
+      "sha256": "696218d34381afc3824f42898c7b90a113241d1680fd22172360c51506e87f68"
+    },
+    {
+      "bytes": 827,
+      "path": "/dev/shm/ruvector-e58-data/official-refresh/PUBLIC_SOURCE_RECEIPT_3.v3.json",
+      "sha256": "e5d33d2bd51d7b289fdfcaa8758478b8c0f3780243f2976f5b7ee993e7995185"
+    }
+  ],
+  "source_ref": {
+    "bytes": 15694,
+    "path": "/dev/shm/ruvector-e58-data/official-refresh/refresh_public.v3.py",
+    "sha256": "c564f0a6198bcceb4eaa76c9009544299fa21fac579ae9bf0eeab336a8a0a565"
+  }
+}

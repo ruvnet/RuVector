@@ -1,0 +1,149 @@
+{
+  "ClaimBench": {
+    "RuVector_in_aggregate": false,
+    "RuVector_rank": null,
+    "RuVector_score": null,
+    "aggregate_URL_verified_from_current_official_page": true,
+    "decision_leader": {
+      "accuracy_percent": 100.0,
+      "model": "decision/d1-ultra"
+    },
+    "decision_runner_up": {
+      "accuracy_percent": 99.694,
+      "model": "decision/decider-v1.2"
+    },
+    "full_dataset_scorer_license_submission_access": "UNVERIFIED. Public examples and aggregate results establish no full labelled dataset/scorer/licence/submission access.",
+    "historical_access_probes_repeated": false,
+    "language_models_at100": [
+      {
+        "accuracy_percent": 100.0,
+        "model": "anthropic/claude-sonnet-5-5"
+      },
+      {
+        "accuracy_percent": 100.0,
+        "model": "anthropic/claude-haiku-5-5"
+      },
+      {
+        "accuracy_percent": 100.0,
+        "model": "anthropic/claude-opus-5-5"
+      },
+      {
+        "accuracy_percent": 100.0,
+        "model": "openai/gpt-6.1-sol"
+      }
+    ],
+    "pilot_executed": false,
+    "publisher_metadata_dataset_type": "public",
+    "publisher_updated": "2026-10-23",
+    "publisher_version": "1",
+    "retrieval_scope": "ONLY supplied10-K excerpts; a retrieval miss cannot prove insufficient evidence.",
+    "status": "FRESH_CURRENT_PAGE_AND_LINKED_AGGREGATE_PARSED",
+    "total_models": 25,
+    "verified_access_scope": "Official public page and its current linked aggregate only."
+  },
+  "JevBench": {
+    "historical_original_evaluation_queue_position": 115,
+    "official_RuVector_eligibility": "UNVERIFIED",
+    "official_RuVector_rank": null,
+    "official_RuVector_score": null,
+    "queue_position_is_rank": false,
+    "status": "FAILED_CLOSED_NO_RETRY"
+  },
+  "actual_initial_GET_attempts": 3,
+  "actual_redirect_GETs": 0,
+  "attempts": [
+    {
+      "started_at": "2026-10-27T20:23:39.083339+00:00",
+      "url": "https://benchmarkheaven.com/jev-models"
+    },
+    {
+      "started_at": "2026-10-27T20:23:47.131259+00:00",
+      "url": "https://www.vals.ai/benchmarks/claimbench"
+    },
+    {
+      "started_at": "2026-10-27T20:23:47.535443+00:00",
+      "url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json"
+    }
+  ],
+  "epoch": 58,
+  "errors": [
+    {
+      "error_code": "UNIQUE_CAPABILITY_ROWS_ORDER",
+      "step": "JevBench"
+    }
+  ],
+  "finished_at": "2026-10-27T20:23:48.027235+00:00",
+  "kind": "FRESH_OFFICIAL_PUBLIC_METADATA_ONLY",
+  "model_native_DATA_Gold_paid_API_GPU_calls": 0,
+  "official_goal_verified": false,
+  "outgoing_messages_submissions_author_contacts": 0,
+  "publisher_profile_or_mail_queries": 0,
+  "raw_public_bodies_or_page_text_persisted": false,
+  "schema_version": 1,
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "source_receipts": [
+    {
+      "Content_Length": "21101655",
+      "HTTP_status": 200,
+      "body_sha256": "bb09002a5c37c84e21cadf373b9d9dbca626b1aa95e28c0a9109b7ed25bbd429",
+      "bytes_streamed": 21101655,
+      "complete_body": true,
+      "content_type": "text/html; charset=utf-8",
+      "error_code": null,
+      "etag": "\"qka8aq72socjcvh\"",
+      "final_url": "https://benchmarkheaven.com/jev-models",
+      "initial_GET_attempts": 1,
+      "last_modified": null,
+      "maximum_bytes": 67108864,
+      "partial_stream_sha256": null,
+      "raw_body_persisted": false,
+      "redirect_GETs": 0,
+      "request_started_at": "2026-10-27T20:23:39.083350+00:00",
+      "retrieved_at": "2026-10-27T20:23:47.103225+00:00",
+      "url": "https://benchmarkheaven.com/jev-models",
+      "wall_seconds": 8.019873520999681
+    },
+    {
+      "Content_Length": "267188",
+      "HTTP_status": 200,
+      "body_sha256": "ce0e7179e69423eea7b7b75382f8d3462464aefc6ca53f7fd7f3f56b38f44963",
+      "bytes_streamed": 267188,
+      "complete_body": true,
+      "content_type": "text/html; charset=utf-8",
+      "error_code": null,
+      "etag": "\"57d757f264167e7727589536f90e1465\"",
+      "final_url": "https://www.vals.ai/benchmarks/claimbench",
+      "initial_GET_attempts": 1,
+      "last_modified": "Tue, 27 Oct 2026 19:25:46 GMT",
+      "maximum_bytes": 2097152,
+      "partial_stream_sha256": null,
+      "raw_body_persisted": false,
+      "redirect_GETs": 0,
+      "request_started_at": "2026-10-27T20:23:47.131293+00:00",
+      "retrieved_at": "2026-10-27T20:23:47.527537+00:00",
+      "url": "https://www.vals.ai/benchmarks/claimbench",
+      "wall_seconds": 0.3962543969973922
+    },
+    {
+      "Content_Length": "91270",
+      "HTTP_status": 200,
+      "body_sha256": "6aa89f0db85e2bdc765ff8d942de0d491dd37f2f2e635bb4a95b0f92746fc6d3",
+      "bytes_streamed": 91270,
+      "complete_body": true,
+      "content_type": "application/json; charset=utf-8",
+      "error_code": null,
+      "etag": "\"ece282be7430e6a6375a4ef05a8327b4\"",
+      "final_url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json",
+      "initial_GET_attempts": 1,
+      "last_modified": "Tue, 27 Oct 2026 20:23:47 GMT",
+      "maximum_bytes": 2097152,
+      "partial_stream_sha256": null,
+      "raw_body_persisted": false,
+      "redirect_GETs": 0,
+      "request_started_at": "2026-10-27T20:23:47.535458+00:00",
+      "retrieved_at": "2026-10-27T20:23:48.021438+00:00",
+      "url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json",
+      "wall_seconds": 0.4859778810059652
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "actual_SOURCE_mutation_ACKs_independently_verified": 130,
+  "actual_SOURCE_uncertain_outcomes": 0,
+  "calibration_ids": [],
+  "checks_passed": true,
+  "confirmation_status": "UNQUALIFIED_HOLD",
+  "epoch": 58,
+  "fresh_confirmation_ids": [],
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "no_promotion_allowed": true,
+  "owner_ref": {
+    "bytes": 831,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner.json",
+    "sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac"
+  },
+  "phase": "engineering",
+  "plan_ref": {
+    "bytes": 13949,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/experiments/sota-2026-10-22/epoch58/plan.json",
+    "sha256": "85cfc6eaa850d9278881ab46a903d8abf068fd587937a09edfd3785c9ba2ac96"
+  },
+  "schema_version": 1,
+  "scientific_execution_allowed": true,
+  "scope": "Noncircular worker source admission only; actual concrete worker/supervisor configurations still require independent dispatch and Root admission. One frozen bounded phase, no retry.",
+  "source_freeze_ref": {
+    "bytes": 59360,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/experiments/sota-2026-10-22/epoch58/SOURCE_FREEZE.json",
+    "sha256": "83df175d66f562b687cc16fb6f850afcf81f774a16154ff831fc260f1ae4d4cd"
+  },
+  "source_publication_ref": {
+    "bytes": 3895,
+    "path": "/dev/shm/ruvector-e58-data/SOURCE_PUBLICATION_REMOTE_READBACK_INDEPENDENT.v1.json",
+    "sha256": "85e8f5626501a6b7e217e06e202112f3a74d919e981a73da72dedea6aa4d25b1"
+  },
+  "train_ids": []
+}

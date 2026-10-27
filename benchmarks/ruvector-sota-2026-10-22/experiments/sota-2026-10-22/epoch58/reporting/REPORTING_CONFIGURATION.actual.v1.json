@@ -1,0 +1,362 @@
+{
+  "DEV_nonexecution_review": {
+    "bytes": 5147,
+    "path": "experiments/sota-2026-10-22/audit/epoch58/actual/DEV_NONEXECUTION_INDEPENDENT.v2.json",
+    "sha256": "c1edb7fdeb13d818ed56a5e2c7f1448d7e534a053be64878617ad079c2765a5d"
+  },
+  "DEV_pilot": null,
+  "DEV_plan": {
+    "bytes": 13949,
+    "path": "experiments/sota-2026-10-22/epoch58/plan.json",
+    "sha256": "85cfc6eaa850d9278881ab46a903d8abf068fd587937a09edfd3785c9ba2ac96"
+  },
+  "data_preparation_result": {
+    "bytes": 6322,
+    "path": "experiments/sota-2026-10-22/epoch58/data/DATA_REPORT.public.v1.json",
+    "sha256": "77bbc84683a9a77dd8dc04fb6ab88126b3b30daccfafce3f5784f8a42bc1e5c2"
+  },
+  "data_preparation_review": {
+    "bytes": 30142,
+    "path": "experiments/sota-2026-10-22/audit/epoch58/publication/PHYSICAL_PUBLIC_SOURCE_AND_DATA_ORIGIN_INDEPENDENT.v1.json",
+    "sha256": "463389354eefc0ea0f7d36e6d83e6711ec92582c0b4e4d0cd6e71e4f27b44d8e"
+  },
+  "engineering_audit": {
+    "bytes": 8808,
+    "path": "experiments/sota-2026-10-22/audit/epoch58/actual/ENGINEERING_ACTUAL_INDEPENDENT_AUDIT.v1.json",
+    "sha256": "3e1d45c8b7fd04c9af8e23d24a5c0d986cfe4b21c44b60c9a9518839231cfbb2"
+  },
+  "engineering_plan": {
+    "bytes": 13949,
+    "path": "experiments/sota-2026-10-22/epoch58/plan.json",
+    "sha256": "85cfc6eaa850d9278881ab46a903d8abf068fd587937a09edfd3785c9ba2ac96"
+  },
+  "engineering_result": {
+    "bytes": 21570,
+    "path": "experiments/sota-2026-10-22/epoch58/actual/engineering/RESULT.actual.json",
+    "sha256": "d40d33bb85a2803020b0bd1f61ebef511ae8dc44c1e0ac6f3ead74ad9b602a2b"
+  },
+  "epoch": 58,
+  "initial_CONT": {
+    "bytes": 673541,
+    "path": "/dev/shm/ruvector-e58-data/current/CONTINUATION.json",
+    "sha256": "0d93366dbc58a93cc1ace001d2ce676886039a81e60ceb6c0fb32bec5a29d734"
+  },
+  "initial_rejection_ledger": {
+    "bytes": 257793,
+    "path": "experiments/sota-2026-10-22/epoch57/REJECTION_LEDGER.json",
+    "sha256": "09f75450a503d95344ca1c7db75284f945e12300c40e3f040b6f79694362f2fd"
+  },
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "official_refresh": {
+    "actual_new_submissions_or_author_contacts": 0,
+    "official_goal_verified": false,
+    "official_rank": null,
+    "public_benchmarks": {
+      "ClaimBench": {
+        "RuVector_in_aggregate": false,
+        "RuVector_rank": null,
+        "RuVector_score": null,
+        "aggregate_URL_verified_from_current_official_page": true,
+        "decision_leader": {
+          "accuracy_percent": 100.0,
+          "model": "decision/d1-ultra"
+        },
+        "decision_runner_up": {
+          "accuracy_percent": 99.694,
+          "model": "decision/decider-v1.2"
+        },
+        "full_dataset_scorer_license_submission_access": "UNVERIFIED. Public examples and aggregate results establish no full labelled dataset/scorer/licence/submission access.",
+        "historical_access_probes_repeated": false,
+        "language_models_at100": [
+          {
+            "accuracy_percent": 100.0,
+            "model": "anthropic/claude-sonnet-5-5"
+          },
+          {
+            "accuracy_percent": 100.0,
+            "model": "anthropic/claude-haiku-5-5"
+          },
+          {
+            "accuracy_percent": 100.0,
+            "model": "anthropic/claude-opus-5-5"
+          },
+          {
+            "accuracy_percent": 100.0,
+            "model": "openai/gpt-6.1-sol"
+          }
+        ],
+        "pilot_executed": false,
+        "publisher_metadata_dataset_type": "public",
+        "publisher_updated": "2026-10-23",
+        "publisher_version": "1",
+        "retrieval_scope": "ONLY supplied10-K excerpts; a retrieval miss cannot prove insufficient evidence.",
+        "status": "FRESH_CURRENT_PAGE_AND_LINKED_AGGREGATE_PARSED",
+        "total_models": 25,
+        "verified_access_scope": "Official public page and its current linked aggregate only."
+      },
+      "JevBench": {
+        "current_300_questions_scorer_access": "NOT_PUBLICLY_LOCATED_IN_VERIFIED_SOURCES; sealed evaluation belongs to publisher",
+        "historical_original_evaluation_queue_position": 115,
+        "official_RuVector_eligibility": "UNVERIFIED",
+        "official_RuVector_rank": null,
+        "official_RuVector_score": null,
+        "open_weights_Capability_leader": null,
+        "open_weights_Capability_leader_status": "UNVERIFIED_CURRENT_PARSE_FAILED_CLOSED",
+        "previous_epoch57_84_339_open_weights_category_attribution": "UNVERIFIED_MIXED_BOARD_CATEGORY_ATTRIBUTION; no current open-weights leaderboard claim follows",
+        "queue_position_is_rank": false,
+        "status": "FAILED_CLOSED_NO_RETRY",
+        "submission_reference": "7FEA2738"
+      },
+      "actual_initial_GET_attempts": 3,
+      "actual_redirect_GETs": 0,
+      "attempts": [
+        {
+          "started_at": "2026-10-27T20:23:39.083339+00:00",
+          "url": "https://benchmarkheaven.com/jev-models"
+        },
+        {
+          "started_at": "2026-10-27T20:23:47.131259+00:00",
+          "url": "https://www.vals.ai/benchmarks/claimbench"
+        },
+        {
+          "started_at": "2026-10-27T20:23:47.535443+00:00",
+          "url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json"
+        }
+      ],
+      "epoch": 58,
+      "errors": [
+        {
+          "error_code": "UNIQUE_CAPABILITY_ROWS_ORDER",
+          "step": "JevBench"
+        }
+      ],
+      "finished_at": "2026-10-27T20:23:48.027235+00:00",
+      "kind": "FRESH_OFFICIAL_PUBLIC_METADATA_ONLY",
+      "model_native_DATA_Gold_paid_API_GPU_calls": 0,
+      "official_goal_verified": false,
+      "outgoing_messages_submissions_author_contacts": 0,
+      "publisher_profile_or_mail_queries": 0,
+      "raw_public_bodies_or_page_text_persisted": false,
+      "schema_version": 1,
+      "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+      "source_receipts": [
+        {
+          "Content_Length": "21101655",
+          "HTTP_status": 200,
+          "body_sha256": "bb09002a5c37c84e21cadf373b9d9dbca626b1aa95e28c0a9109b7ed25bbd429",
+          "bytes_streamed": 21101655,
+          "complete_body": true,
+          "content_type": "text/html; charset=utf-8",
+          "error_code": null,
+          "etag": "\"qka8aq72socjcvh\"",
+          "final_url": "https://benchmarkheaven.com/jev-models",
+          "initial_GET_attempts": 1,
+          "last_modified": null,
+          "maximum_bytes": 67108864,
+          "partial_stream_sha256": null,
+          "raw_body_persisted": false,
+          "redirect_GETs": 0,
+          "request_started_at": "2026-10-27T20:23:39.083350+00:00",
+          "retrieved_at": "2026-10-27T20:23:47.103225+00:00",
+          "url": "https://benchmarkheaven.com/jev-models",
+          "wall_seconds": 8.019873520999681
+        },
+        {
+          "Content_Length": "267188",
+          "HTTP_status": 200,
+          "body_sha256": "ce0e7179e69423eea7b7b75382f8d3462464aefc6ca53f7fd7f3f56b38f44963",
+          "bytes_streamed": 267188,
+          "complete_body": true,
+          "content_type": "text/html; charset=utf-8",
+          "error_code": null,
+          "etag": "\"57d757f264167e7727589536f90e1465\"",
+          "final_url": "https://www.vals.ai/benchmarks/claimbench",
+          "initial_GET_attempts": 1,
+          "last_modified": "Tue, 27 Oct 2026 19:25:46 GMT",
+          "maximum_bytes": 2097152,
+          "partial_stream_sha256": null,
+          "raw_body_persisted": false,
+          "redirect_GETs": 0,
+          "request_started_at": "2026-10-27T20:23:47.131293+00:00",
+          "retrieved_at": "2026-10-27T20:23:47.527537+00:00",
+          "url": "https://www.vals.ai/benchmarks/claimbench",
+          "wall_seconds": 0.3962543969973922
+        },
+        {
+          "Content_Length": "91270",
+          "HTTP_status": 200,
+          "body_sha256": "6aa89f0db85e2bdc765ff8d942de0d491dd37f2f2e635bb4a95b0f92746fc6d3",
+          "bytes_streamed": 91270,
+          "complete_body": true,
+          "content_type": "application/json; charset=utf-8",
+          "error_code": null,
+          "etag": "\"ece282be7430e6a6375a4ef05a8327b4\"",
+          "final_url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json",
+          "initial_GET_attempts": 1,
+          "last_modified": "Tue, 27 Oct 2026 20:23:47 GMT",
+          "maximum_bytes": 2097152,
+          "partial_stream_sha256": null,
+          "raw_body_persisted": false,
+          "redirect_GETs": 0,
+          "request_started_at": "2026-10-27T20:23:47.535458+00:00",
+          "retrieved_at": "2026-10-27T20:23:48.021438+00:00",
+          "url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json",
+          "wall_seconds": 0.4859778810059652
+        }
+      ]
+    },
+    "publisher_status": {
+      "body_messageID_match_to_original_receipt_verified": false,
+      "body_thread_attachment_reads": 0,
+      "checked_at": "2026-10-27T20:10:05.791Z",
+      "configured_account_profile_reads": 2,
+      "configured_accounts_covered": 2,
+      "configured_profile_identities_verified": 2,
+      "coverage_other_accounts_or_channels_verified": false,
+      "covered_accounts_with_matching_messages": 1,
+      "current_queue_progress": "UNVERIFIED",
+      "eligibility_confirmed": false,
+      "epoch": 58,
+      "exact_reference_searches": 2,
+      "has_more_results": null,
+      "historical_regular_evaluation_queue_position": 115,
+      "invalid_date_metadata_rows": 0,
+      "matching_message_date_metadata_verified": false,
+      "matching_message_dates": [
+        "2026-10-22"
+      ],
+      "matching_messages": 1,
+      "maximum_results_per_search": 10,
+      "metadata_schema_recognized_for_all_covered_accounts": false,
+      "metadata_subject_candidate_result_score_rank_or_eligibility_count": 0,
+      "metadata_subject_receipt_or_submission_classification_count": 1,
+      "new_verified_publisher_result_found": false,
+      "official_rank": null,
+      "official_score": null,
+      "outgoing_messages_or_submissions": 0,
+      "oversized_metadata_responses": 0,
+      "private_selectors_identifiers_addresses_subject_headers_body_snippet_files_persisted": false,
+      "queue_scope": "Historical evaluation queue position, never rank; current progress unverified.",
+      "read_scope": "Only aggregate subject classification and date metadata across the two configured verified profiles. No body/thread/attachment/snippet/headers read. This does not establish global result absence or official score/rank/eligibility.",
+      "reference": "7FEA2738",
+      "schema_version": 1,
+      "snippets_inspected": 0
+    }
+  },
+  "plan": {
+    "bytes": 13949,
+    "path": "experiments/sota-2026-10-22/epoch58/plan.json",
+    "sha256": "85cfc6eaa850d9278881ab46a903d8abf068fd587937a09edfd3785c9ba2ac96"
+  },
+  "pre_science_preparation": {
+    "BGE_model_initializations": 0,
+    "DATA_preparation_calls": 1,
+    "GPU_calls": 0,
+    "NLI_forward_calls": 0,
+    "NLI_model_initializations": 0,
+    "catalog_preparation_calls": 1,
+    "catalog_tokenizer_initializations": 2,
+    "frozen_window_count": 9,
+    "native_corpus_batches": 0,
+    "native_queries": 0,
+    "observation_scope": "PREPUBLICATION_SOURCE_PREPARATION_SNAPSHOT; no engineering/DEV CLI has been dispatched",
+    "paid_API_calls": 0,
+    "scored_forecasts": 0,
+    "selected_document_text_decodes": 1,
+    "selected_hypothesis_text_decodes": 17,
+    "semantic_Gold_decodes": 0,
+    "source_units": 73,
+    "used_confirmation_identities": []
+  },
+  "publication_guard": {
+    "bytes": 19448,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/publication-helpers-g26/guard.py",
+    "sha256": "cc27e9f31b9a59d89ebc205a0f0e83d52a0bdad95f916d08502ad6fc18adfc3f"
+  },
+  "qualification": {
+    "actual_DATA_Gold_decodes_by_C": 0,
+    "actual_Root_GET_result_refs": {
+      "nli_model": {
+        "bytes": 1169,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/nli_model.GET_RESULT.actual.json",
+        "sha256": "cba1db93845625b43f3f9236a557f13d1d32ccf420be2e7bd5f2c7173e9577b4"
+      },
+      "nli_tokenizer": {
+        "bytes": 1154,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/nli_tokenizer.GET_RESULT.actual.json",
+        "sha256": "13fa9ac22b2025a61c3983bf8c379fa53944f06cc620c68bad6d243515798a27"
+      }
+    },
+    "actual_asset_GETs_by_C": 0,
+    "actual_model_native_initializations_by_C": 0,
+    "agreed_final_hypothesis_protocol": {
+      "bytes": 7018,
+      "path": "/dev/shm/ruvector-e58-candidate/CANDIDATE_PROTOCOL.v1.json",
+      "sha256": "c3b5cc057711295504341a5abfe3411347e9993fad54fa292832cffea7e3fcf1"
+    },
+    "calibration_ids": [],
+    "claimed_benchmark_result": null,
+    "epoch": 58,
+    "exact_export_recipe_revision_verified": false,
+    "exact_training_revisions_verified": false,
+    "fresh_confirmation_ids": [],
+    "fresh_confirmation_qualification": "UNQUALIFIED_HOLD",
+    "historical_exact_protocol_review": {
+      "bytes": 5371,
+      "path": "/dev/shm/ruvector-e58-candidate/HISTORICAL_PROTOCOL_AND_DOC17_INTERFACE_REVIEW.v1.json",
+      "sha256": "db17c4954ecb8706648127d8de9d0c1f84b0fb2cdce46346eb12361d9c1926f2"
+    },
+    "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+    "label_map": {
+      "0": "Contradiction",
+      "1": "Entailment",
+      "2": "NotMentioned"
+    },
+    "model_asset": {
+      "bytes": 172503006,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/model.onnx",
+      "sha256": "a1da6815c8da542d16381c7d84892d409b4b6604d655bb3054ecb15dd8714e6e"
+    },
+    "model_repository": "cross-encoder/nli-deberta-v3-small",
+    "model_revision": "fa2804872c3b4bd748f38c0185cc85775361e735",
+    "official_result_or_rank": null,
+    "promotion_allowed": false,
+    "publisher_declared_training_corpora": [
+      "SNLI",
+      "MultiNLI"
+    ],
+    "publisher_license": "Apache-2.0",
+    "schema_version": 1,
+    "source_only_prior_qualification": {
+      "bytes": 5939,
+      "path": "/dev/shm/ruvector-e58-candidate/MODEL_AND_HYPOTHESIS_SOURCE_QUALIFICATION.v1.json",
+      "sha256": "fe710fa4dc17139fff8fc6da2bf3cabfbdc774c25c2fb9485d38adf845d4a040"
+    },
+    "status": "PINNED_SOURCE_ASSETS_ACQUIRED_BY_ROOT_NO_MODEL_NATIVE_EXECUTION",
+    "stronger_than_prior_larger_model_claim": false,
+    "tokenizer_asset": {
+      "bytes": 8656624,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/tokenizer.json",
+      "sha256": "5124ef2ead1a10a717703bc436de7f353da76d6340e4587719b42b1693707964"
+    },
+    "tokenizer_body_GitSHA": "12cc2e86bad0e731393847b017b32a7405ebd4f8",
+    "train_ids": [],
+    "training_test_nonuse_verified": false
+  },
+  "reporter_source": {
+    "bytes": 29017,
+    "path": "experiments/sota-2026-10-22/epoch58/reporting/report_actual.py",
+    "sha256": "871873387fe646271cb2307a4d25b092ad97f8b5afe592e25fbe55687045ec1d"
+  },
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "source_freeze": {
+    "bytes": 59360,
+    "path": "experiments/sota-2026-10-22/epoch58/SOURCE_FREEZE.json",
+    "sha256": "83df175d66f562b687cc16fb6f850afcf81f774a16154ff831fc260f1ae4d4cd"
+  },
+  "source_receipt": {
+    "bytes": 1158,
+    "path": "experiments/sota-2026-10-22/epoch58/publication/ACTUAL_SOURCE_PUBLICATION_RECEIPT.v1.json",
+    "sha256": "56708042abad2b0e99f09ffd13bac8f80e0f41b4e9c8a3b6690a22ceac8dcd79"
+  }
+}

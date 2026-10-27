@@ -1,0 +1,21 @@
+{
+  "Content_Length": "91270",
+  "HTTP_status": 200,
+  "body_sha256": "6aa89f0db85e2bdc765ff8d942de0d491dd37f2f2e635bb4a95b0f92746fc6d3",
+  "bytes_streamed": 91270,
+  "complete_body": true,
+  "content_type": "application/json; charset=utf-8",
+  "error_code": null,
+  "etag": "\"ece282be7430e6a6375a4ef05a8327b4\"",
+  "final_url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json",
+  "initial_GET_attempts": 1,
+  "last_modified": "Tue, 27 Oct 2026 20:23:47 GMT",
+  "maximum_bytes": 2097152,
+  "partial_stream_sha256": null,
+  "raw_body_persisted": false,
+  "redirect_GETs": 0,
+  "request_started_at": "2026-10-27T20:23:47.535458+00:00",
+  "retrieved_at": "2026-10-27T20:23:48.021438+00:00",
+  "url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json",
+  "wall_seconds": 0.4859778810059652
+}

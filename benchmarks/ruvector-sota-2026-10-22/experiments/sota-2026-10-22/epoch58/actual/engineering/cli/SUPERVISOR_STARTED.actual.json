@@ -1,0 +1,34 @@
+{
+  "argv": [
+    "/tmp/ruvector-sota-2026-10-22/epoch33-0522a2c521c9/runtime/.venv/bin/python",
+    "-I",
+    "-B",
+    "/dev/shm/ruvector-e58-candidate/supervisor_impl/supervisor.v2.py",
+    "--config",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/ENGINEERING_SUPERVISOR_CONFIGURATION.v1.json",
+    "--expected-config-sha256",
+    "ecefccdc194e3395a60ef74ceabd3e223d38de7ab6860588e5f2b8f638d65e91",
+    "--deadline-monotonic-seconds",
+    "458108.253960807"
+  ],
+  "epoch": 58,
+  "outer_identity": {
+    "pgid": 195947,
+    "pid": 195947,
+    "sid": 195947,
+    "startticks": 45752822
+  },
+  "process_identity": {
+    "pgid": 195948,
+    "pid": 195948,
+    "sid": 195948,
+    "startticks": 45752835
+  },
+  "schema_version": 1,
+  "started_monotonic_seconds": 457528.353599304,
+  "supervisor_source_ref": {
+    "bytes": 16258,
+    "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/supervisor.v2.py",
+    "sha256": "647cc6be8d87dade6bb02859d10720bd34544b6c8569e74221736e932d5a1931"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "Q_provider_calls": 0,
+  "Root_once_intent_ref": {
+    "bytes": 376,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/PUBLISHER_METADATA_READ_INTENT.v1.json",
+    "sha256": "b24ca3776a32fa2b925c6a5aecd781a22edbe0a4e49f91de9e8970c44ba51510"
+  },
+  "Root_reported_actual_exact_reference_searches": 2,
+  "Root_reported_actual_profile_reads": 2,
+  "actual_safe_result_ref": {
+    "bytes": 1689,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/PUBLISHER_METADATA_REFRESH.safe.v1.json",
+    "sha256": "465da43b80b5f0a2b34456f1c659355d81ce0441d5dab3adec37091ba474b9fd"
+  },
+  "authorized_additional_queries_or_outgoing_calls": 0,
+  "automation_disable_goal_triggered": false,
+  "basis": "Rehashed and fully read actual Root safe output plus exact once intent, earlier independent full source/privacy review and Root reported fully awaited dispatch. Q did not inspect raw provider objects or private selectors, addresses, subjects, headers, bodies, snippets or attachments.",
+  "checks_passed": true,
+  "eligibility_confirmed": false,
+  "epoch": 58,
+  "factual_conclusion": "No verified new publisher result is established by this bounded metadata observation. Current queue progress, official rank/score and eligibility remain UNVERIFIED. Missing complete metadata/pagination semantics prevents a global no-result or complete-coverage claim.",
+  "historical_queue_position_never_rank": 115,
+  "matching_date_verified": false,
+  "matching_messages_reported": 1,
+  "metadata_schema_fully_recognized": false,
+  "no_repeat_policy": "Preserve this completed once-only observation; no retry of metadata schema uncertainty within this epoch.",
+  "observed_at_UTC": "2026-10-27T20:15:30.602762+00:00",
+  "official_goal_verified": false,
+  "official_rank": null,
+  "official_score": null,
+  "pagination_complete_verified": false,
+  "public_metadata_review_passed": true,
+  "publication_excludes_private_values": true,
+  "receipt_subject_classifications_reported": 1,
+  "result_candidate_subject_classifications_reported": 0,
+  "role": "Q_ACTUAL_SAFE_PUBLISHER_METADATA_FACTUAL_AND_PRIVACY_REVIEW",
+  "schema_version": 1
+}

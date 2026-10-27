@@ -1,0 +1,21 @@
+{
+  "TERM_deadline_monotonic_seconds": 458118.253960807,
+  "automatic_retry": false,
+  "config_ref": {
+    "bytes": 3882,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/ENGINEERING_SUPERVISOR_CONFIGURATION.v1.json",
+    "sha256": "ecefccdc194e3395a60ef74ceabd3e223d38de7ab6860588e5f2b8f638d65e91"
+  },
+  "epoch": 58,
+  "hard_exit_deadline_monotonic_seconds": 458126.253960807,
+  "maximum_inclusive_seconds": 600,
+  "origin_monotonic_seconds": 457528.253960807,
+  "process_identity": {
+    "pgid": 195947,
+    "pid": 195947,
+    "sid": 195947,
+    "startticks": 45752822
+  },
+  "schema_version": 1,
+  "worker_deadline_monotonic_seconds": 458108.253960807
+}

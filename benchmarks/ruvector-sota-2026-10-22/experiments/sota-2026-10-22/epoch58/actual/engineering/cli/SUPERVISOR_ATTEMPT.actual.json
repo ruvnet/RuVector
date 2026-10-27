@@ -1,0 +1,18 @@
+{
+  "automatic_retry": false,
+  "config_ref": {
+    "bytes": 3882,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/ENGINEERING_SUPERVISOR_CONFIGURATION.v1.json",
+    "sha256": "ecefccdc194e3395a60ef74ceabd3e223d38de7ab6860588e5f2b8f638d65e91"
+  },
+  "epoch": 58,
+  "monotonic_started": 457528.38017459,
+  "process_identity": {
+    "pgid": 195948,
+    "pid": 195948,
+    "sid": 195948,
+    "startticks": 45752835
+  },
+  "schema_version": 1,
+  "worker_deadline_monotonic_seconds": 458108.253960807
+}

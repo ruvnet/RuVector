@@ -1,0 +1,34 @@
+{
+  "ClaimBench_current_aggregate_leader": {
+    "accuracy_percent": 100.0,
+    "model": "decision/d1-ultra"
+  },
+  "ClaimBench_language_models_at100": 4,
+  "ClaimBench_runner_up_percent": 99.694,
+  "JevBench_category_status": "UNVERIFIED; frozen parser failed UNIQUE_CAPABILITY_ROWS_ORDER on complete HTTP200 response; no retry. Prior84.339 category attribution must remain unverified.",
+  "JevBench_open_weights_Capability_leader": null,
+  "RuVector_ClaimBench_score": null,
+  "RuVector_official_rank": null,
+  "actual_result_ref": {
+    "bytes": 5385,
+    "path": "/dev/shm/ruvector-e58-data/official-refresh/PUBLIC_REFRESH_RESULT.actual.v3.json",
+    "sha256": "36ea19286ee9938a93b2b90fbf308656361929df9afaef6594f40be0d88226a9"
+  },
+  "automation_disable_required": false,
+  "checks_passed": true,
+  "data_custodian_durable_review_ref": {
+    "bytes": 3126,
+    "path": "/dev/shm/ruvector-e58-data/ACTUAL_OFFICIAL_PUBLIC_REFRESH_DURABLE_REVIEW.v1.json",
+    "sha256": "74c12f160682cdb444aac9065142804fb6d4133199f07ea6ec9daa1f1182a69e"
+  },
+  "epoch": 58,
+  "full_ClaimBench_access": "UNVERIFIED",
+  "kind": "ACTUAL_OFFICIAL_REFRESH_SAFE_PUBLIC_ARTIFACT_REVIEW",
+  "official_goal_verified": false,
+  "private_identifier_credentials_raw_body_content_found": false,
+  "public_artifacts_allowed": true,
+  "queue115_is_rank": false,
+  "review_network_model_native_Gold_calls": 0,
+  "review_scope": "Independent durable metadata and source receipt hash review; no repeat GETs, no claim of independently observed original process exit. Raw bodies unavailable by design, so aggregate parsing not independently replayed.",
+  "schema_version": 1
+}

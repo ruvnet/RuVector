@@ -1,0 +1,809 @@
+{
+  "counters": {
+    "BGE_forward_calls_attempted": 9,
+    "BGE_forward_calls_completed": 9,
+    "BGE_model_initializations_attempted": 1,
+    "BGE_model_initializations_completed": 1,
+    "BGE_texts_attempted": 144,
+    "BGE_texts_completed": 144,
+    "BGE_tokenizations_attempted": 144,
+    "BGE_tokenizations_completed": 144,
+    "BGE_tokenizer_initializations_attempted": 1,
+    "BGE_tokenizer_initializations_completed": 1,
+    "GPU_calls": 0,
+    "Gold_labels_decoded": 0,
+    "NLI_forward_calls_attempted": 4,
+    "NLI_forward_calls_completed": 4,
+    "NLI_model_initializations_attempted": 1,
+    "NLI_model_initializations_completed": 1,
+    "NLI_pair_inferences_attempted": 32,
+    "NLI_pair_inferences_completed": 32,
+    "NLI_tokenizer_initializations_attempted": 1,
+    "NLI_tokenizer_initializations_completed": 1,
+    "Node_network_operations_attempted": 0,
+    "Python_network_operations_attempted": 0,
+    "forecasts_completed": 0,
+    "native_binary_loads_attempted": 1,
+    "native_binary_loads_completed": 1,
+    "native_hit_source_validations": 2048,
+    "native_index_initializations_attempted": 1,
+    "native_index_initializations_completed": 1,
+    "native_insertions_attempted": 128,
+    "native_insertions_completed": 128,
+    "native_len_calls_attempted": 2,
+    "native_len_calls_completed": 2,
+    "native_processes_attempted": 1,
+    "native_processes_completed": 1,
+    "native_queries_attempted": 16,
+    "native_queries_completed": 16,
+    "native_version_calls_attempted": 1,
+    "native_version_calls_completed": 1,
+    "numerical_flagged_cases": 0,
+    "paid_API_calls": 0,
+    "pair_tokenizations_attempted": 32,
+    "pair_tokenizations_completed": 32
+  },
+  "engineering_pairs": [
+    {
+      "id": "e58:engineering:nli:00",
+      "log_probabilities": [
+        -0.12226963041215644,
+        -3.8548547029295515,
+        -2.3653802573481153
+      ],
+      "logits": [
+        1.99087655544281,
+        -1.741708517074585,
+        -0.2522340714931488
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.8849097377557071,
+        0.021176679996159648,
+        0.09391358224813305
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:01",
+      "log_probabilities": [
+        -0.0014491559165801249,
+        -7.183560896028885,
+        -7.280057478060135
+      ],
+      "logits": [
+        4.818970203399658,
+        -2.3631415367126465,
+        -2.4596381187438965
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.9985518936028215,
+        0.0007589604453963895,
+        0.000689145951781938
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:02",
+      "log_probabilities": [
+        -0.5226315326947812,
+        -2.0603872604627256,
+        -1.2742619655985479
+      ],
+      "logits": [
+        0.8316894173622131,
+        -0.7060663104057312,
+        0.0800589844584465
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.5929581044227863,
+        0.12740462156740784,
+        0.27963727400980587
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:03",
+      "log_probabilities": [
+        -0.002188931970151131,
+        -6.882486831216367,
+        -6.7585187068267185
+      ],
+      "logits": [
+        4.51931095123291,
+        -2.3609869480133057,
+        -2.2370188236236572
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.9978134619943735,
+        0.0010255904010253085,
+        0.0011609476046017758
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:04",
+      "log_probabilities": [
+        -0.32319672985189185,
+        -2.4121805040370727,
+        -1.679061910344293
+      ],
+      "logits": [
+        1.2128664255142212,
+        -0.8761173486709595,
+        -0.14299875497817993
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.723831441107701,
+        0.08961966532253789,
+        0.18654889356976098
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:05",
+      "log_probabilities": [
+        -0.006800000707645637,
+        -5.72120744470789,
+        -5.65465528253748
+      ],
+      "logits": [
+        3.755768060684204,
+        -1.95863938331604,
+        -1.8920872211456299
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.9932230669807848,
+        0.0032757532225916974,
+        0.0035011797966235637
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:06",
+      "log_probabilities": [
+        -0.3136859636239764,
+        -2.659615586274123,
+        -1.6130624215535876
+      ],
+      "logits": [
+        1.2462832927703857,
+        -1.0996463298797607,
+        -0.053093165159225464
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.7307484737328869,
+        0.06997511597011821,
+        0.19927641029699486
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:07",
+      "log_probabilities": [
+        -0.002802118203099724,
+        -6.747649415871557,
+        -6.422517761132177
+      ],
+      "logits": [
+        4.3757710456848145,
+        -2.3690762519836426,
+        -2.0439445972442627
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.9972018040657035,
+        0.0011736351090789123,
+        0.001624560825217613
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:08",
+      "log_probabilities": [
+        -1.045946121699873,
+        -0.653769404180113,
+        -2.0513666575027143
+      ],
+      "logits": [
+        0.2573191821575165,
+        0.6494958996772766,
+        -0.7481013536453247
+      ],
+      "prediction": "Entailment",
+      "probabilities": [
+        0.3513592334742652,
+        0.5200816792920452,
+        0.12855908723368958
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:09",
+      "log_probabilities": [
+        -0.0030692919227544024,
+        -6.415897975775904,
+        -6.550615440222925
+      ],
+      "logits": [
+        4.3070549964904785,
+        -2.105773687362671,
+        -2.2404911518096924
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.9969354135383235,
+        0.00163535074324689,
+        0.0014292357184297491
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:10",
+      "log_probabilities": [
+        -0.21102191460432262,
+        -2.8682763720780775,
+        -2.014051332595961
+      ],
+      "logits": [
+        1.5287461280822754,
+        -1.1285083293914795,
+        -0.2742832899093628
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.8097563211974554,
+        0.05679673870448175,
+        0.13344694009806266
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:11",
+      "log_probabilities": [
+        -0.0044740796657034565,
+        -5.9029561639399954,
+        -6.358058607635064
+      ],
+      "logits": [
+        4.064716339111328,
+        -1.8337657451629639,
+        -2.2888681888580322
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.9955359141188393,
+        0.0027313585288676013,
+        0.00173272735229305
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:12",
+      "log_probabilities": [
+        -0.7527795899425251,
+        -1.0299224126849873,
+        -1.76078449373586
+      ],
+      "logits": [
+        0.48883330821990967,
+        0.2116904854774475,
+        -0.5191715955734253
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.4710553905126849,
+        0.35703466085524027,
+        0.1719099486320748
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:13",
+      "log_probabilities": [
+        -0.0035349394726136296,
+        -6.162430670444904,
+        -6.555990841572223
+      ],
+      "logits": [
+        4.212315559387207,
+        -1.946580171585083,
+        -2.3401403427124023
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.9964713010704442,
+        0.00210712531484432,
+        0.0014215736147114302
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:14",
+      "log_probabilities": [
+        -0.4890453865412776,
+        -1.9218781044367854,
+        -1.4252155473116939
+      ],
+      "logits": [
+        0.8472191691398621,
+        -0.5856135487556458,
+        -0.0889509916305542
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.6132114948135078,
+        0.14633187734414654,
+        0.24045662784234553
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:15",
+      "log_probabilities": [
+        -0.003665441138421599,
+        -6.37970089302746,
+        -6.23322963104931
+      ],
+      "logits": [
+        4.173996925354004,
+        -2.202038526535034,
+        -2.0555672645568848
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.99634126839065,
+        0.0016956300555535217,
+        0.0019631015537961813
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:16",
+      "log_probabilities": [
+        -0.4570559663623528,
+        -1.7015431625693993,
+        -1.6903591556400017
+      ],
+      "logits": [
+        0.873939573764801,
+        -0.3705476224422455,
+        -0.3593636155128479
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.633144904254029,
+        0.18240183108129612,
+        0.18445326466467474
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:17",
+      "log_probabilities": [
+        -0.006262267847374936,
+        -5.5353021276191035,
+        -6.075853551645593
+      ],
+      "logits": [
+        3.8507566452026367,
+        -1.6782832145690918,
+        -2.218834638595581
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.9937572992857387,
+        0.003945016557456944,
+        0.002297684156804286
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:18",
+      "log_probabilities": [
+        -0.3813572786089472,
+        -1.8986538312670282,
+        -1.7879902682539515
+      ],
+      "logits": [
+        1.01992666721344,
+        -0.4973698854446411,
+        -0.38670632243156433
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.6829338483717876,
+        0.14977009940400018,
+        0.16729605222421218
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:19",
+      "log_probabilities": [
+        -0.0025230275130647684,
+        -6.7071731911635775,
+        -6.647136055085697
+      ],
+      "logits": [
+        4.418624401092529,
+        -2.2860257625579834,
+        -2.2259886264801025
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.9974801526457461,
+        0.0012221139287890497,
+        0.0012977334254650693
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:20",
+      "log_probabilities": [
+        -2.2583838712379194,
+        -0.2162399899169658,
+        -2.4086260806724287
+      ],
+      "logits": [
+        -0.6034836173057556,
+        1.4386602640151978,
+        -0.7537258267402649
+      ],
+      "prediction": "Entailment",
+      "probabilities": [
+        0.10451926492302042,
+        0.8055419567266575,
+        0.08993877835032207
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:21",
+      "log_probabilities": [
+        -0.003015243992566141,
+        -6.408476316914319,
+        -6.59794255493617
+      ],
+      "logits": [
+        4.3055853843688965,
+        -2.0998756885528564,
+        -2.289341926574707
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.9969892972900961,
+        0.0016475329086029181,
+        0.0013631698013009
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:22",
+      "log_probabilities": [
+        -0.27409396014587806,
+        -2.2914670451678507,
+        -1.9760091348685496
+      ],
+      "logits": [
+        1.2902605533599854,
+        -0.7271125316619873,
+        -0.41165462136268616
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.7602606377043689,
+        0.10111800830101443,
+        0.1386213539946167
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:23",
+      "log_probabilities": [
+        -0.003058649638640887,
+        -6.494029738048065,
+        -6.4749767557177424
+      ],
+      "logits": [
+        4.2993340492248535,
+        -2.1916370391845703,
+        -2.172584056854248
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.996946023264693,
+        0.0015124419665053389,
+        0.0015415347688017857
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:24",
+      "log_probabilities": [
+        -1.510734874001884,
+        -0.7573915600694652,
+        -1.170008174321794
+      ],
+      "logits": [
+        -0.28142696619033813,
+        0.4719163477420807,
+        0.059299733489751816
+      ],
+      "prediction": "Entailment",
+      "probabilities": [
+        0.2207476965953,
+        0.4688878991680977,
+        0.3103644042366021
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:25",
+      "log_probabilities": [
+        -0.007061638020873229,
+        -5.6559564248555905,
+        -5.643590129994751
+      ],
+      "logits": [
+        3.738231897354126,
+        -1.9106628894805908,
+        -1.898296594619751
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.9929632367582271,
+        0.003496627225840394,
+        0.0035401360159326043
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:26",
+      "log_probabilities": [
+        -0.06830389560243244,
+        -3.919420433650223,
+        -3.0754076367714083
+      ],
+      "logits": [
+        2.2910044193267822,
+        -1.5601121187210083,
+        -0.7160993218421936
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.9339765990640598,
+        0.019852597308154342,
+        0.046170803627785674
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:27",
+      "log_probabilities": [
+        -0.003047604424828876,
+        -6.393949885232324,
+        -6.591977972848291
+      ],
+      "logits": [
+        4.306625843048096,
+        -2.0842764377593994,
+        -2.282304525375366
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.9969570348074913,
+        0.0016716403565187749,
+        0.0013713248359902858
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:28",
+      "log_probabilities": [
+        -2.7752650469731703,
+        -0.18485380115026406,
+        -2.240162113327922
+      ],
+      "logits": [
+        -0.9779995083808899,
+        1.6124117374420166,
+        -0.4428965747356415
+      ],
+      "prediction": "Entailment",
+      "probabilities": [
+        0.06233295333942679,
+        0.8312257992249229,
+        0.10644124743565038
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:29",
+      "log_probabilities": [
+        -0.001510258226305794,
+        -7.260723228959948,
+        -7.122783537416369
+      ],
+      "logits": [
+        4.777920246124268,
+        -2.481292724609375,
+        -2.343353033065796
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.9984908816397463,
+        0.0007025997113527274,
+        0.0008065186489011085
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:30",
+      "log_probabilities": [
+        -0.20174868596394036,
+        -3.020045952924084,
+        -2.0106566269477124
+      ],
+      "logits": [
+        1.5868823528289795,
+        -1.2314149141311646,
+        -0.22202558815479279
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.8173003011719284,
+        0.04879897585485563,
+        0.13390072297321595
+      ]
+    },
+    {
+      "id": "e58:engineering:nli:31",
+      "log_probabilities": [
+        -0.002730230337725459,
+        -6.633606771475421,
+        -6.563388208395587
+      ],
+      "logits": [
+        4.387596607208252,
+        -2.2432799339294434,
+        -2.1730613708496094
+      ],
+      "prediction": "Contradiction",
+      "probabilities": [
+        0.997273493351509,
+        0.0013154101360137083,
+        0.001411096512477676
+      ]
+    }
+  ],
+  "epoch": 58,
+  "errors": [],
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "latency_and_resources": {
+    "per_forecast_elapsed_semantics": "first submitted batch start through decision; includes interbatch queue and tokenization/forward; excludes prefirstsubmit queue; not singlequery deployment latency",
+    "per_forecast_p50_seconds": null,
+    "per_forecast_p95_seconds": null,
+    "resource_usage": {
+      "CPU_affinity": [
+        0,
+        1
+      ],
+      "cgroup_memory_current_bytes": 14616690688,
+      "cgroup_memory_max_bytes": 17179869184,
+      "children_max_RSS_kib": 623000,
+      "children_system_seconds": 0.019299999999999998,
+      "children_user_seconds": 0.16968899999999998,
+      "headroom_bytes": 2563178496,
+      "involuntary_context_switches": 1243,
+      "major_page_faults": 0,
+      "max_RSS_kib": 1261804,
+      "minor_page_faults": 8646916,
+      "self_max_RSS_kib": 1261804,
+      "self_system_seconds": 9.87555,
+      "self_user_seconds": 51.362732,
+      "voluntary_context_switches": 14319
+    },
+    "whole_worker_elapsed_seconds": 34.90111746604089
+  },
+  "native_adapter_state": {
+    "native_adapter_closure_ref": {
+      "bytes": 1514,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/engineering-worker/native/NATIVE_CHILD_CLOSED.json",
+      "sha256": "25a03d87e2b7d9cf5479359fc6b60ca83b88735ed3f9dede5e8319c171d963aa"
+    },
+    "native_adapter_elapsed_seconds": 0.4551272139651701,
+    "native_adapter_error": null,
+    "native_adapter_inclusive_elapsed_seconds": 0.4557884599780664,
+    "native_adapter_within_inclusive_bound": true,
+    "native_counter_accounting_certain": true,
+    "native_process_exit_code": 0,
+    "native_process_identity_ref": {
+      "bytes": 359,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/engineering-worker/native/NATIVE_CHILD_STARTED.json",
+      "sha256": "f3dddbb8119446f35822f947a42e2f6954603df7c3aa0be5c119902faf30344e"
+    },
+    "native_process_physically_closed": true,
+    "native_progress_ref": {
+      "bytes": 94245,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/engineering-worker/native/native-progress.jsonl",
+      "sha256": "cd259b1b40d4925c8854df310f90f3abaae30308402d7bbf86470f3f518654d3"
+    },
+    "native_result_validated": true,
+    "native_stdio_refs": {
+      "native-stderr.log": {
+        "bytes": 0,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/engineering-worker/native/native-stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "native-stdout.log": {
+        "bytes": 0,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/engineering-worker/native/native-stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "raw_result_ref": {
+      "bytes": 963997,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/engineering-worker/native/native-result.json",
+      "sha256": "78509c56a7f593aaa4e07407a5f335a15578739203a63d42ab9ac76d0e9a390f"
+    }
+  },
+  "native_results_ref": {
+    "bytes": 963997,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/engineering-worker/native/native-result.json",
+    "sha256": "78509c56a7f593aaa4e07407a5f335a15578739203a63d42ab9ac76d0e9a390f"
+  },
+  "owned_process_identities": [
+    {
+      "pgid": 195948,
+      "pid": 195949,
+      "sid": 195948,
+      "startticks": 45752843
+    },
+    {
+      "pgid": 195948,
+      "pid": 195952,
+      "sid": 195948,
+      "startticks": 45755096
+    }
+  ],
+  "phase": "engineering",
+  "plan_sha256": "85cfc6eaa850d9278881ab46a903d8abf068fd587937a09edfd3785c9ba2ac96",
+  "progress_ref": {
+    "bytes": 655806,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/engineering-worker/progress.jsonl",
+    "sha256": "c7ee4cca84af8c3ae0b8f80e1a91d4d5f909e284ec5ffa2e8bfe711f3f6c00a4"
+  },
+  "reserved_ids": [
+    "e58:engineering:query:00",
+    "e58:engineering:query:01",
+    "e58:engineering:query:02",
+    "e58:engineering:query:03",
+    "e58:engineering:query:04",
+    "e58:engineering:query:05",
+    "e58:engineering:query:06",
+    "e58:engineering:query:07",
+    "e58:engineering:query:08",
+    "e58:engineering:query:09",
+    "e58:engineering:query:10",
+    "e58:engineering:query:11",
+    "e58:engineering:query:12",
+    "e58:engineering:query:13",
+    "e58:engineering:query:14",
+    "e58:engineering:query:15"
+  ],
+  "rows": [],
+  "schema_version": 1,
+  "selected_query_ids": [
+    "e58:engineering:query:00",
+    "e58:engineering:query:01",
+    "e58:engineering:query:02",
+    "e58:engineering:query:03",
+    "e58:engineering:query:04",
+    "e58:engineering:query:05",
+    "e58:engineering:query:06",
+    "e58:engineering:query:07",
+    "e58:engineering:query:08",
+    "e58:engineering:query:09",
+    "e58:engineering:query:10",
+    "e58:engineering:query:11",
+    "e58:engineering:query:12",
+    "e58:engineering:query:13",
+    "e58:engineering:query:14",
+    "e58:engineering:query:15"
+  ],
+  "source_freeze_sha256": "83df175d66f562b687cc16fb6f850afcf81f774a16154ff831fc260f1ae4d4cd",
+  "status": "ENGINEERING_EXECUTED_PENDING_INDEPENDENT_AUDIT",
+  "throughput_measurements": {
+    "frozen_DEV_window_count": 9,
+    "frozen_projection_limit_seconds": 420,
+    "full8_NLI_forward_seconds": [
+      4.30461044900585,
+      2.327744470036123,
+      2.298244256002363,
+      2.282843539956957
+    ],
+    "measured_modelinit_total": 1.1017233160091564,
+    "model_initialization_seconds": {
+      "bge": 0.34186489100102335,
+      "nli": 0.759858425008133
+    },
+    "projection_seconds": 590.4365354006877
+  }
+}

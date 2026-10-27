@@ -1,0 +1,100 @@
+{
+  "actual_measurement": {
+    "GPU_calls": 0,
+    "Gold_labels_decoded": 0,
+    "NLI_pairs_completed": 32,
+    "NLI_physical_forward_calls_completed": 4,
+    "errors": [],
+    "forward_p50_seconds": 2.312994363019243,
+    "forward_p95_seconds": 4.00808055216039,
+    "full8_NLI_forward_seconds": [
+      4.30461044900585,
+      2.327744470036123,
+      2.298244256002363,
+      2.282843539956957
+    ],
+    "max_RSS_kib": 1261804,
+    "model_initialization_seconds": {
+      "bge": 0.34186489100102335,
+      "nli": 0.759858425008133
+    },
+    "native_hit_source_validations": 2048,
+    "native_insertions_completed": 128,
+    "native_queries_completed": 16,
+    "paid_API_calls": 0,
+    "quantile_method": "linear interpolation rank(n-1)*p; n=4 actual forwards; descriptive only",
+    "whole_CLI_elapsed_seconds_inclusive": 35.3063279199996,
+    "whole_worker_elapsed_seconds": 34.90111746604089
+  },
+  "author_role": "candidate implementation author; interpretation is not independent acceptance",
+  "decision": {
+    "DEV_slot": "CLOSED_WITHOUT_EXECUTION",
+    "Gold": "NOT_AUTHORIZED_NOT_EXECUTED",
+    "candidate_promotion": false,
+    "fresh_confirmation_ids": [],
+    "official_rank": null,
+    "official_score": null,
+    "submitted_native104_champion": "UNCHANGED"
+  },
+  "epoch": 58,
+  "frozen_gate": {
+    "W": 9,
+    "actual_DEV_runtime_measured": false,
+    "first_forward_was_actual_measurement_not_discardable_warmup": true,
+    "formula": "2*ceil(3*17*W/8)*max(actual full8 NLI forward seconds)+measured_modelinit_total+90 <=420",
+    "passed": false,
+    "projection_limit_seconds": 420,
+    "projection_seconds": 590.4365354006877,
+    "worst_case_physical_DEV_forward_calls": 58
+  },
+  "interpretation": [
+    "New pretrained typed NLI head and actual native128/16 pipeline executed successfully within35.307seconds inclusive. The separately frozen conservative worst-case DEV cost gate failed; successful engineering execution is not benchmark improvement.",
+    "The largest observed full8/padded512 forward was4.304610449seconds; subsequent observed forwards were2.327744470,2.298244256,2.282843540seconds. Why the first was slower was not independently measured. No sample may be dropped or relabeled as warmup.",
+    "Projection590.436535seconds is an estimate under the frozen safety multiplier, not an actual DEV runtime or proof that DEV could not finish600seconds. The policy nevertheless bars this epoch DEV execution."
+  ],
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "next_direction": {
+    "direction_changed": "Resolve a material model/runtime compute improvement with source-only prequalification before any new head-quality DEV measurement; do not repeat unchanged E58 fixed512 batch or reinterpret the frozen gate.",
+    "do_not_repeat": "Do not rerun unchanged E58 fixed512 engineering or execute its DEV after gate failure. No paid calls, publisher resubmission or author outreach.",
+    "executed": false,
+    "feasibility_unknown": "Length-aware padding is an unselected future hypothesis only. Greedily packed supplied windows can be near512, so savings may be small. First inspect frozen label-blind token-length geometry before proposing any new model call; reject unchanged geometry that cannot materially reduce compute. No claim that it will pass current bounds.",
+    "new_hypothesis": "A future separately frozen source could test length-aware padded minibatches over the same complete supplied windows, retaining every token, identical typed model and aggregation, allwindows neutral rule, and matched same-model native/source/full arms. This changes compute handling and must be measured anew; it is not an unchanged fixed512 rerun.",
+    "required_before_any_future_execution": [
+      "new independent source/protocol review and source freeze before measurements",
+      "source-licensed feature identities and exact model/scorer revisions frozen; doc17 remains DEV forever",
+      "genuinely unused and qualified confirmation before any promotion; model training/export/testnonuse lineage remains unqualified",
+      "new engineering admission, max2native batches/2CPU/600seconds each/$0paid/GPU retained unless actually authorized future budget",
+      "no hidden warmup, no removal of slow samples, no gate relaxation after measurement"
+    ]
+  },
+  "outer_result_ref": {
+    "bytes": 1675,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/engineering-cli/OUTER_RESULT.actual.json",
+    "sha256": "bd23b0ee1ac260107f4603c65e7f3182c36f1ecbf0ec66508fd02edc5057f686"
+  },
+  "quality": {
+    "Brier": null,
+    "NLL": null,
+    "accuracy": null,
+    "per_forecast_p50_seconds": null,
+    "per_forecast_p95_seconds": null,
+    "reason": "Authored32pairs and128documents/16queries are engineering fixtures only. No DEV forecasts or Gold decode executed, no matched-arm benchmark quality measurement."
+  },
+  "raw_engineering_ref": {
+    "bytes": 21570,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/engineering-worker/RESULT.actual.json",
+    "sha256": "d40d33bb85a2803020b0bd1f61ebef511ae8dc44c1e0ac6f3ead74ad9b602a2b"
+  },
+  "schema_version": 1,
+  "source_plan_ref": {
+    "bytes": 13949,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/experiments/sota-2026-10-22/epoch58/plan.json",
+    "sha256": "85cfc6eaa850d9278881ab46a903d8abf068fd587937a09edfd3785c9ba2ac96"
+  },
+  "status": "ENGINEERING_THROUGHPUT_GATE_REJECTED_DEV_NOT_AUTHORIZED",
+  "supersedes_interpretation_only": {
+    "bytes": 4877,
+    "path": "/dev/shm/ruvector-e58-candidate/ACTUAL_ENGINEERING_HYPOTHESIS_REJECTION_AND_NEXT_DIRECTION.v1.json",
+    "sha256": "dc12167e7ebe0661ae8033f21ee457286f3704b2ad34aefea1169b2575cefc8a"
+  }
+}
