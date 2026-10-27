@@ -1,0 +1,352 @@
+{
+  "blind_data_schema": {
+    "bank_fields": [
+      "schema_version",
+      "epoch",
+      "kind",
+      "source_checkpoint",
+      "role",
+      "source_archive_sha256",
+      "source_member_sha256",
+      "documents",
+      "cases"
+    ],
+    "case_fields": [
+      "id",
+      "document_id",
+      "hypothesis_id",
+      "claim",
+      "input_sha256"
+    ],
+    "data_semantic_gold_decodes": 0,
+    "document_fields": [
+      "document_id",
+      "record_ordinal",
+      "source_group_sha256",
+      "source_document_sha256",
+      "normalized_document_sha256",
+      "source_filename_key_sha256",
+      "evidence"
+    ],
+    "documents_count": 1,
+    "evidence_fields": [
+      "unit_id",
+      "start",
+      "end",
+      "sentence"
+    ],
+    "opaque_token_rule": "Copy selected choice JSON-string raw bytes as base64; do not parse or map their contents. No unselected document/label value decoding.",
+    "opaque_tokens": 17,
+    "source_text_rule": "Raw selected text, exact character offsets and spelling. Concatenated evidence sentences equal the original selected source. No source rewriting."
+  },
+  "calibration_ids": [],
+  "catalog": {
+    "all17_capacity_rule": "One shared contiguous exact-offset source partition. Every NLI context/claim pair must fit<=512 tokens for every one of the17 fixed claims; BGE full windows and prefixed queries must each fit<=512.",
+    "catalog_is_private": true,
+    "catalog_required_fields": [
+      "schema_version",
+      "epoch",
+      "kind",
+      "role",
+      "selected_query_ids",
+      "reserved_ids",
+      "document_id",
+      "source_document_sha256",
+      "frozen_window_count",
+      "windows",
+      "cases",
+      "all17_pair_capacity_checked",
+      "BGE_query_prefix",
+      "max_tokens",
+      "max_windows",
+      "no_label_or_model_output_access"
+    ],
+    "max_windows": 24,
+    "no_length_or_class_replacement": true,
+    "no_retuning_or_second_catalog_after_W_failure": true,
+    "owner": "candidate agent standalone preparation source",
+    "window_fields": [
+      "window_id",
+      "start",
+      "end",
+      "source_unit_ids",
+      "text",
+      "text_sha256"
+    ]
+  },
+  "confirmation_lineage_status": "UNQUALIFIED_HOLD",
+  "development_caveat": "This is one project-unused official DEV document already publisher/checkpoint-development/model-selection-exposed; never a fresh confirmation or full-benchmark generalization estimate.",
+  "document_ids": [
+    17
+  ],
+  "epoch": 58,
+  "exposure_interruptions": {
+    "DATA_once_attempt_file_exists_even_if_report_cannot_complete": true,
+    "after": "Confirms exactly1 selected source document decoded.",
+    "before_only": "Retire all17 DEV forever conservatively and mark source-decode uncertainty; do not claim confirmed source decode.",
+    "private_journals": [
+      "SOURCE_TEXT_ACCESS_BEFORE.json",
+      "SOURCE_TEXT_ACCESS_AFTER.json"
+    ],
+    "public_journals_contain_no_text_or_labels": true
+  },
+  "forecasts": {
+    "arms": [
+      "native_order",
+      "source_order",
+      "full_reference"
+    ],
+    "coverage_rule": "A retrieval miss never proves NotMentioned. NotMentioned requires every frozen supplied source window consumed. full_reference always consumes all windows without early exit.",
+    "label_order": [
+      "Contradiction",
+      "Entailment",
+      "NotMentioned"
+    ],
+    "model_label_indices": {
+      "0": "Contradiction",
+      "1": "Entailment",
+      "2": "NotMentioned"
+    },
+    "numeric_rule": "Claim numeric literals only; either flag disables early exit. No heuristic label or NEI override.",
+    "numerical_flags": [
+      "claim_has_numerals",
+      "claim_numeral_not_in_supplied_context"
+    ],
+    "probability_rule": "Finite strictly positive double-softmax probabilities; sum tolerance1e-6. Finite stable log probabilities, no clipping or renormalization, abs(exp(logp)-p)<=1e-12. Underflow is an error.",
+    "row_fields": [
+      "case_id",
+      "arm",
+      "probabilities",
+      "log_probabilities",
+      "elapsed_seconds",
+      "actual_model_forward_calls",
+      "actual_pair_inferences",
+      "context_window_ids",
+      "all_source_windows_covered",
+      "early_exit",
+      "numeric_flags",
+      "prediction"
+    ],
+    "row_order": "For each of17 fixed case IDs, native_order then source_order then full_reference. Exactly51 rows.",
+    "top_level_fields": [
+      "schema_version",
+      "epoch",
+      "kind",
+      "phase",
+      "plan_sha256",
+      "source_freeze_sha256",
+      "labels",
+      "arms",
+      "selected_query_ids",
+      "reserved_ids",
+      "rows"
+    ]
+  },
+  "fresh_confirmation_ids": [],
+  "gold": {
+    "canonical_rows": [
+      "case_id",
+      "label"
+    ],
+    "catalog_validation": "Custody rehashes exact catalog and original raw bank, independently checks all17 original cases, exact W/schema, contiguous whole-source slices, source-unit overlap membership, source/text hashes and all-source coverage. Token capacity was established under the separately frozen blind tokenizer preparation and independently reviewed; no tokenizer, native or model is rerun at Gold.",
+    "count_rule": "EXPLICIT JOINT_LATE_GOLD_CLOSURE report: actual_execution_independently_derived has exact nested engineering/dev dictionaries, each exact42 strict nonnegative integer keys from COUNTER_SCHEMA.v1.json; completed<=attempted; known worker-zero keys0; positive actual NLI/native completions. Q derives each dictionary independently from actual durable progress; custody physically rehashes exact raw worker/native results and requires exact counter equality, plan/freeze equality and all51 physical DEV rows equal the sealed forecast rows. No empty, arbitrary, boolean or flat fallback; never fill expected counts. At most2 actual native corpus-batch attempts.",
+    "data_report_immutable": true,
+    "forecast_binding": "Admission and Q audit carry the exact same canonical path/bytes/SHA256 typed reference; custody physically rehashes it and validates all51 rows before any semantic Gold decode.",
+    "independent_audit_fields": [
+      "report_type",
+      "epoch",
+      "kind",
+      "checks_passed",
+      "all_owned_processes_closed",
+      "actual_execution_independently_derived",
+      "raw_worker_results",
+      "native_result_refs",
+      "plan_ref",
+      "source_freeze_ref",
+      "kernel_boot_id",
+      "PID_namespace",
+      "owned_process_identities",
+      "sealed_forecasts_ref",
+      "catalog_ref"
+    ],
+    "joint_audit_report_type": "JOINT_LATE_GOLD_CLOSURE",
+    "label_event_fields": [
+      "actual_label_decoded_case_ids",
+      "semantic_labels_decoded",
+      "semantic_decode_count_uncertain"
+    ],
+    "official_codec_mapping_caveat": "Official loader enum has its own integer numbering, but custody never executes it. Gold joins the literal official string labels only. Forecast model indices0/1/2 remain Contradiction/Entailment/NotMentioned.",
+    "official_literals": [
+      "Contradiction",
+      "Entailment",
+      "NotMentioned"
+    ],
+    "per_phase_audit_schema": "Separate engineering/dev gate audits may use a flat exact42 observed dictionary for that phase. These are not accepted as the joint late-Gold closure artifact.",
+    "required_admission_fields": [
+      "sealed_forecasts_ref",
+      "independent_actual_audit_ref",
+      "frozen_window_count",
+      "catalog_ref"
+    ],
+    "scoring_owner": "Candidate scorer, which separately emits actual_scored_case_ids; publication derives label-only exposures without mutating raw worker results."
+  },
+  "hypothesis_ids": [
+    "nda-1",
+    "nda-10",
+    "nda-11",
+    "nda-12",
+    "nda-13",
+    "nda-15",
+    "nda-16",
+    "nda-17",
+    "nda-18",
+    "nda-19",
+    "nda-2",
+    "nda-20",
+    "nda-3",
+    "nda-4",
+    "nda-5",
+    "nda-7",
+    "nda-8"
+  ],
+  "identity_namespace": "contractnli:eced6528:dev:17",
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "limits": {
+    "CPU_affinity": [
+      0,
+      1
+    ],
+    "GPU_calls": 0,
+    "paid_API_calls": 0,
+    "preparation_no_native_no_NLI_no_model_session": true,
+    "scientific_batch_count_max": 2,
+    "seconds_inclusive_per_batch_max": 600,
+    "threads": 2
+  },
+  "local_DATA_admission": {
+    "Q_approval_fields": [
+      "checks_passed",
+      "phase",
+      "source_checkpoint",
+      "owner_ref",
+      "preparation_plan_sha256",
+      "preparation_source_freeze_sha256"
+    ],
+    "actual_Git_publication_required_at_this_local_preparation_phase": false,
+    "all_candidate_source_must_publish_before_measurements": true,
+    "mode": "DATA",
+    "phase": "BLIND_CATALOG_PREPARATION_ONLY",
+    "required_fields": [
+      "schema_version",
+      "epoch",
+      "kind",
+      "phase",
+      "mode",
+      "allowed_ids",
+      "owner_ref",
+      "train_ids",
+      "calibration_ids",
+      "fresh_confirmation_ids",
+      "confirmation_materialization_authorized",
+      "plan_ref",
+      "source_freeze_ref",
+      "independent_preparation_approval_ref"
+    ],
+    "source_freeze_files": "Absolute typed refs to exact D58/data-v5 custody.py, span_json.py, source_catalog.py, official_codec.source.py, DATA_PROTOCOL.v5.json, local preparation plan, shared owner_fence_v2.py; additional frozen tokenizer/runtime/preparation artifacts may also be included. Include exact public COUNTER_SCHEMA.v1.json5114/SHA4011439770df89a74bc95f90e7798db9bacb5a638e556804fd8be0ceec18f791."
+  },
+  "operation_order": [
+    "Freeze exact local preparation plan, source hashes, all17 identities and tokenizer asset revisions before DATA.",
+    "Obtain independent preparation-source approval and current exclusive original-inode owner26 proof.",
+    "One bounded CPU2 DATA decode into a raw exact-offset bank and17 opaque choice tokens; no semantic Gold.",
+    "One fixed tokenizer-only catalog packing over all17 hypotheses; W<=24 or stop without replacement or retuning.",
+    "Freeze and publish/read back the full candidate source, actual bank/catalog hashes, identities and resource/acceptance gates before either native/NLI measurement.",
+    "Run at most two conditional native batches under the master frozen plan.",
+    "Seal all51 forecasts and independently establish physical closure of every owned native/NLI process/group/session.",
+    "One strictly late DEV Gold join bound to the exact sealed forecast artifact and exact independent audit."
+  ],
+  "owner": {
+    "generation": 26,
+    "lock_alone_grants_scientific_authority": false,
+    "owner_ref": {
+      "bytes": 831,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner.json",
+      "sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac"
+    },
+    "shared_fence_ref": {
+      "bytes": 3376,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner_fence_v2.py",
+      "sha256": "5b56fa209a1d947d1bbabe31e5e4ed3d52e8dc9d2258e76fa8577c36b459d693"
+    }
+  },
+  "preparation_phase": "BLIND_CATALOG_PREPARATION_ONLY",
+  "privacy": {
+    "credentials_or_private_data": false,
+    "public_bank_or_vault_or_gold_payload": false,
+    "public_metadata_only": true,
+    "publisher_submissions_or_messages": false
+  },
+  "public_exposure_report_fields": [
+    "schema_version",
+    "epoch",
+    "kind",
+    "source_checkpoint",
+    "identity_namespace",
+    "reserved_development_case_ids",
+    "reserved_role",
+    "actual_feature_case_ids",
+    "source_text_exposed_case_ids",
+    "actual_hypothesis_exposed_case_ids",
+    "semantic_gold_decodes",
+    "used_confirmation_identities"
+  ],
+  "reserved_development_case_ids": [
+    "contractnli:eced6528:dev:17:nda-1",
+    "contractnli:eced6528:dev:17:nda-10",
+    "contractnli:eced6528:dev:17:nda-11",
+    "contractnli:eced6528:dev:17:nda-12",
+    "contractnli:eced6528:dev:17:nda-13",
+    "contractnli:eced6528:dev:17:nda-15",
+    "contractnli:eced6528:dev:17:nda-16",
+    "contractnli:eced6528:dev:17:nda-17",
+    "contractnli:eced6528:dev:17:nda-18",
+    "contractnli:eced6528:dev:17:nda-19",
+    "contractnli:eced6528:dev:17:nda-2",
+    "contractnli:eced6528:dev:17:nda-20",
+    "contractnli:eced6528:dev:17:nda-3",
+    "contractnli:eced6528:dev:17:nda-4",
+    "contractnli:eced6528:dev:17:nda-5",
+    "contractnli:eced6528:dev:17:nda-7",
+    "contractnli:eced6528:dev:17:nda-8"
+  ],
+  "schema_version": 5,
+  "source": {
+    "archive_bytes": 65362913,
+    "archive_git_blob": "757fd1dafd29a997fba00c60c6d40b2930a36159",
+    "archive_sha256": "e03fc77bbf8b53e2976a250e81d8a294bc3d5e5fb014521e477dee9340d6287b",
+    "attribution": "ContractNLI, Stanford NLP; dataset by Yuta Koreeda and Christopher D. Manning. Cite the official ContractNLI repository and ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts.",
+    "data_license_proof": "experiments/sota-2026-10-22/epoch53/data/DATA_SOURCE_ELIGIBILITY.v1.json",
+    "data_license_proof_bytes": 2415,
+    "data_license_proof_sha256": "761d0d944f49b262ccb18c7f44cb38d2d61c70cdcc3a3258c626e7baf46cfc37",
+    "dataset_license": "CC-BY-4.0",
+    "member": "contract-nli/dev.json",
+    "member_bytes": 1183107,
+    "member_sha256": "310af7d661d2ab50ee3700169cef524c75f39fb296bbf5a515c229eb0f42e68e",
+    "normalized_document_sha256": "4c3e5f88c04ef038b431d74af57d26cb7a620301e020cae2f5ab334c32f494b4",
+    "normalized_filename_key_sha256": "1adda6fa1bf7f15abd0c828743f5b550092119b03189a335e9ec0c619376adff",
+    "official_code_license": "Apache-2.0",
+    "official_codec_source_bytes": 5754,
+    "official_codec_source_sha256": "9c63102a01576c230da94695f593fd7bd4fe2d0b20672b74e8a7f62aba426fc4",
+    "repository": "stanfordnlp/contract-nli",
+    "revision": "eced6528dd3c1d14d73f9a87df8f7bdbc03126f9"
+  },
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "source_revision_reason": "Preserve unexecuted v4; require physical raw-worker42 counter keys/values to be strict integers too, preventing Python bool/float equality from substituting for exact raw numeric types.",
+  "source_text_access_retires_all17_as": "DEV_FOREVER",
+  "superseded_unexecuted_draft": {
+    "bytes": 16426,
+    "path": "/dev/shm/ruvector-e58-data/pre-freeze-revisions/v1-owner25/custody.py",
+    "reason": "Owner25 was lost before any DATA/science. New explicitly local blind preparation precedes full candidate publication; frozen identities and source/packing rules still precede measurements.",
+    "sha256": "851a7e2007bbcc0c11b06c5a355b79e51b3442cd4da52a83057a5ca087911c1a"
+  },
+  "train_ids": []
+}

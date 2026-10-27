@@ -1,0 +1,65 @@
+{
+  "Gold_authorization_granted": false,
+  "actual_DATA_CATALOG_model_native_Gold_or_Git_calls_by_auditor": 0,
+  "all17_case_ids": [
+    "contractnli:eced6528:dev:17:nda-1",
+    "contractnli:eced6528:dev:17:nda-10",
+    "contractnli:eced6528:dev:17:nda-11",
+    "contractnli:eced6528:dev:17:nda-12",
+    "contractnli:eced6528:dev:17:nda-13",
+    "contractnli:eced6528:dev:17:nda-15",
+    "contractnli:eced6528:dev:17:nda-16",
+    "contractnli:eced6528:dev:17:nda-17",
+    "contractnli:eced6528:dev:17:nda-18",
+    "contractnli:eced6528:dev:17:nda-19",
+    "contractnli:eced6528:dev:17:nda-2",
+    "contractnli:eced6528:dev:17:nda-20",
+    "contractnli:eced6528:dev:17:nda-3",
+    "contractnli:eced6528:dev:17:nda-4",
+    "contractnli:eced6528:dev:17:nda-5",
+    "contractnli:eced6528:dev:17:nda-7",
+    "contractnli:eced6528:dev:17:nda-8"
+  ],
+  "all26_local_source_metadata_and_plan_files_rehashed": true,
+  "archive_opaque_bytes_and_GitSHA_reverified_without_zip_member_or_text_decode": true,
+  "both_actual_tokenizer_assets_source_hashes_reverified_without_tokenizer_initialization": true,
+  "catalog_preparation_allowed_after_exact_DATA_receipt_and_separate_Root_admission": true,
+  "checks_passed": true,
+  "custody_static_v5_review_ref": {
+    "bytes": 6271,
+    "path": "/dev/shm/ruvector-e58-audit/custody-source-review/STATIC_CUSTODY_PROTOCOL_REVIEW.v5.json",
+    "sha256": "75beeb944b07fb2e8e497ed2d72893d7f6f3cbcd6e1cfbc529300013a3172e2c"
+  },
+  "data_preparation_allowed": true,
+  "epoch": 58,
+  "fixed_document_id": 17,
+  "gate_boundary": "Local source/identityfreeze allows only blind extraction/tokenizercatalog. WholecandidateSOURCE includingactualfeature/cataloghashes/W/exposuremustbefrozen,published,independentlyreadbackBEFOREengineeringorDEVmodel/nativecalls. Goldrequireslaterexactjointactualclosure+sealedforecast/catalog refs, notthisapproval.",
+  "historical_scope": "DOC17 is project-unused officialDEV but publisher checkpoint-development exposed; never freshconfirmation. HistoricalE52/E53roles verified fromcurrentCONT, allolderexposedgroups preserved.",
+  "observed_unix": 1793130094.6513436,
+  "once_and_bounds": "Root grantsdistinctDATA thenCATALOG admissions; CPU01/TOKENIZERS_PARALLELISM=false, eachstrictboundedouter<=120seconds includingcleanup, no retries after attemptmarker. Current outputdirectories absent.",
+  "owner_ref": {
+    "bytes": 831,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner.json",
+    "sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac"
+  },
+  "phase": "BLIND_CATALOG_PREPARATION_ONLY",
+  "preparation_plan_ref": {
+    "bytes": 12949,
+    "path": "/dev/shm/ruvector-e58-data/local-preparation/LOCAL_PREPARATION_PLAN.v1.json",
+    "sha256": "812aea76ebfdf1611f522ac9f6eca292ad6563395afbe5a361507c1576efc5f0"
+  },
+  "preparation_plan_sha256": "812aea76ebfdf1611f522ac9f6eca292ad6563395afbe5a361507c1576efc5f0",
+  "preparation_source_freeze_ref": {
+    "bytes": 6774,
+    "path": "/dev/shm/ruvector-e58-data/local-preparation/LOCAL_PREPARATION_SOURCE_FREEZE.v1.json",
+    "sha256": "0e763f415273d2d923e3cb751d27bac5901c4eb23fb6a18c4dab9c2713669884"
+  },
+  "preparation_source_freeze_sha256": "0e763f415273d2d923e3cb751d27bac5901c4eb23fb6a18c4dab9c2713669884",
+  "promotion_allowed": false,
+  "schema_version": 1,
+  "scientific_authorization_granted": false,
+  "source_algorithm_review": "Full custodyv5/sharedstdlibcommon14910+prepare4912 read; lexicalfixedDoc17/all17 features only; two verified tokenizer objects; exactcontiguoussource offsets, untruncatedcapacityALL17 andBGE, fixedgreedy partition(max24) thenHOLD no replacement/retuning. Notanoptimalpartitionorqualityproof.",
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "source_exposure_retirement": "Firstselectedsource-access marker irreversiblyretireall17DEVforever; before-only preservesuncertainty, no claimconfirmeddecode withoutAFTERreceipt. Featureprepared/forwarded/labeldecoded/scored identities remainseparate.",
+  "train_calibration_confirmation_empty": true
+}

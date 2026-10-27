@@ -1,0 +1,84 @@
+{
+  "TLS_verification_inherited_proxy": true,
+  "assets": {
+    "nli_model": {
+      "Hub_blob_or_pointer_GitSHA": "af96cb2855679035eada34f005ee72b6f78f31f1",
+      "body_GitSHA": null,
+      "bytes": 172503006,
+      "filename": "model.onnx",
+      "repository_path": "onnx/model_qint8_avx512_vnni.onnx",
+      "sha256": "a1da6815c8da542d16381c7d84892d409b4b6604d655bb3054ecb15dd8714e6e",
+      "url": "https://huggingface.co/cross-encoder/nli-deberta-v3-small/resolve/fa2804872c3b4bd748f38c0185cc85775361e735/onnx/model_qint8_avx512_vnni.onnx"
+    },
+    "nli_tokenizer": {
+      "Hub_blob_or_pointer_GitSHA": "12cc2e86bad0e731393847b017b32a7405ebd4f8",
+      "body_GitSHA": "12cc2e86bad0e731393847b017b32a7405ebd4f8",
+      "bytes": 8656624,
+      "filename": "tokenizer.json",
+      "repository_path": "tokenizer.json",
+      "sha256": null,
+      "url": "https://huggingface.co/cross-encoder/nli-deberta-v3-small/resolve/fa2804872c3b4bd748f38c0185cc85775361e735/tokenizer.json"
+    }
+  },
+  "downloader_source": {
+    "bytes": 8073,
+    "path": "/dev/shm/ruvector-e58-candidate/download_asset_once.g26.py",
+    "sha256": "c71a4d5ba6fc31af1795959d6b53ea0a848c9716ae91302e50ee46d7ede17be5"
+  },
+  "epoch": 58,
+  "fence_source": {
+    "bytes": 3376,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner_fence_v2.py",
+    "sha256": "5b56fa209a1d947d1bbabe31e5e4ed3d52e8dc9d2258e76fa8577c36b459d693"
+  },
+  "inner_whole_worker_alarm_seconds": 100,
+  "max_attempts_per_asset": 1,
+  "metadata_only_source_checks": {
+    "config": {
+      "bytes": 1052,
+      "path": "/dev/shm/ruvector-e58-candidate/source-research/nli-deberta-v3-small.config.json",
+      "sha256": "885d0dceae8fa5c136da9209121ec9eb11160488e840de3bc1f29353674e5712"
+    },
+    "readme": {
+      "bytes": 2864,
+      "path": "/dev/shm/ruvector-e58-candidate/source-research/nli-deberta-v3-small.README.md",
+      "sha256": "a9aa108025ad1984374c5e80365406bafe331aea5abc30239e1796ec0a7c267d"
+    },
+    "tokenizer_config": {
+      "bytes": 1346,
+      "path": "/dev/shm/ruvector-e58-candidate/source-research/nli-deberta-v3-small.tokenizer_config.json",
+      "sha256": "f3eecd07c370ef0bf7dd3780d3cd68cf9c8b00c267e21a208ddcd8f82bfec1a6"
+    }
+  },
+  "mode": "SOURCE_ONLY_ASSET_GET_NO_SCI",
+  "model_API_source": {
+    "bytes": 9383,
+    "path": "/dev/shm/ruvector-e58-candidate/source-research/nli-deberta-v3-small.model-api.json",
+    "sha256": "5875eea4cb6ba80ccb3e6b8b637d5a2cfeb135a0b4d2457df86c2737f33a9fd1"
+  },
+  "model_revision": "fa2804872c3b4bd748f38c0185cc85775361e735",
+  "no_automatic_retry": true,
+  "outer_maximum_TERM_plus_KILL_seconds": 110,
+  "output_directory": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli",
+  "owner": {
+    "bytes": 831,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner.json",
+    "sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac"
+  },
+  "post_GET_headroom_bytes": 1932735283,
+  "pre_GET_headroom_bytes": 2147483648,
+  "qualification_scope": "Official pinned Apache2 typedNLI research assets; training revisions/export recipe/testnonuse remain unqualified, CF[] HOLD, no promotion.",
+  "raw_redirect_URL_headers_secrets_persisted": false,
+  "required_outer_command": "taskset -c 0,1 timeout --signal=TERM --kill-after=2s 108s python -I -B <download_asset_once.py> --plan <plan> --expected-plan-sha256 <sha> --admission <QsourceGETapproval> --expected-admission-sha256 <sha> --asset <nli_model|nli_tokenizer>",
+  "schema_version": 1,
+  "scientific_authorization_granted": false,
+  "separately_admitted_blind_tokenizer_catalog_preparation_before_SOURCE_freeze": "Root contract requires actual shared W<=24 before source freeze; permitted only after fixed identity/source algorithm admission, no NLI forward/native/model initialization, no Gold.",
+  "source_freeze_after_actual_asset_hashes_before_ANY_NLI_model_or_native_execution": true,
+  "supersedes_unexecuted_asset_plan": {
+    "bytes": 4371,
+    "path": "/dev/shm/ruvector-e58-candidate/SOURCE_ASSET_GET_PLAN.v3.g26.json",
+    "reason": "Bind strict typedref fence v2; no GET occurred and no payload/budget change.",
+    "sha256": "e64b6af3cbe48ca84fa661b6521ecf1ec97c287e574092dbea70b0ffc250387c"
+  },
+  "weights_or_tokenizer_redistribution": false
+}

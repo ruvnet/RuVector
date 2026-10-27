@@ -1,0 +1,128 @@
+{
+  "dataset": {
+    "all17_claims": true,
+    "code_license": "Apache-2.0",
+    "data_license": "CC-BY-4.0",
+    "fresh_confirmation": false,
+    "project_unused_before_E58": true,
+    "repository": "stanfordnlp/contract-nli",
+    "revision": "eced6528dd3c1d14d73f9a87df8f7bdbc03126f9",
+    "role": "DEV_FOREVER",
+    "selected_document": 17,
+    "source_refs": [
+      {
+        "bytes": 3100,
+        "path": "/dev/shm/ruvector-e58-candidate/verified-history/experiments/sota-2026-10-22/epoch53/data/source_catalog.py",
+        "sha256": "46b8ab06ec6030df94797307b3ad1da7b5a5a60e4d4479bc11af1b718467bc6a"
+      },
+      {
+        "bytes": 38928,
+        "path": "/dev/shm/ruvector-e58-candidate/verified-history/experiments/sota-2026-10-22/epoch53/data/e53_custody.py",
+        "sha256": "94bccea2ce5ad65f02e4dc1d5d4a7254b4b5d10f863141f837a519d19ba70444"
+      },
+      {
+        "bytes": 12978,
+        "path": "/dev/shm/ruvector-e58-candidate/verified-history/experiments/sota-2026-10-22/epoch53/data/DATA_CONTRACT.v1.json",
+        "sha256": "4a2cd4a6ed8414acb8597fc6beae19ef1786983edc00097801649f326b2f44e3"
+      },
+      {
+        "bytes": 18049,
+        "path": "/dev/shm/ruvector-e58-candidate/verified-history/experiments/sota-2026-10-22/runtime/epoch53/reader.py",
+        "sha256": "108a842198a96d0d28af53d92b7f3edcb1fbe0012c422917a6f63667d76b95c1"
+      },
+      {
+        "bytes": 25255,
+        "path": "/dev/shm/ruvector-e58-candidate/verified-history/experiments/sota-2026-10-22/runtime/epoch53/packing.py",
+        "sha256": "10d2d59e1ba860700e1e22e12010756130b15973bc2c4f25885b1bd654341c5b"
+      }
+    ]
+  },
+  "epoch": 58,
+  "epoch3": {
+    "decision": "REJECTED proper scores despite native accuracy gain; no confirmation.",
+    "lexical": {
+      "Brier": 0.767831688488455,
+      "NLL": 1.5631617522844965,
+      "correct": 13,
+      "total": 24
+    },
+    "model": "Xenova/nli-deberta-v3-xsmall",
+    "native": {
+      "Brier": 0.5435533614049913,
+      "NLL": 1.0073352020452995,
+      "correct": 16,
+      "total": 24
+    },
+    "native104": {
+      "Brier": 0.5011988951048693,
+      "NLL": 0.6943461242398817,
+      "correct": 11,
+      "total": 24
+    },
+    "positional": {
+      "Brier": 0.6997558179813614,
+      "NLL": 1.4963217782644933,
+      "correct": 15,
+      "total": 24
+    },
+    "posthoc_evidence_coverage": {
+      "causal_attribution_proven": false,
+      "lexical_ALL": 3,
+      "lexical_ANY": 5,
+      "native_ALL": 4,
+      "native_ANY": 6,
+      "positional_ALL": 3,
+      "positional_ANY": 5,
+      "supported_cases": 13
+    },
+    "protocol": "Top2 chunks selected by native/lexical/positional retrieval. Binary Yes=max entailment; No=1-Yes collapses contradiction+neutral. No typed3way exhaustive neutral policy.",
+    "revision": "2a4f614a701367a02d51389039afc998faeda637",
+    "source_refs": [
+      {
+        "bytes": 4708,
+        "path": "/dev/shm/ruvector-e58-candidate/verified-history/experiments/sota-2026-10-22/candidate/epoch3/models.py",
+        "sha256": "c5cf3500a89837e71adc754f0dc96d090e172068031545fc55ee349e80210716"
+      },
+      {
+        "bytes": 14155,
+        "path": "/dev/shm/ruvector-e58-candidate/verified-history/experiments/sota-2026-10-22/candidate/epoch3/runtime.py",
+        "sha256": "fdca85cf34c5fb50c1fa622192ad36c1d322fd7fee909c80e9e0d0f95154e649"
+      },
+      {
+        "bytes": 3910,
+        "path": "/dev/shm/ruvector-e58-candidate/verified-history/experiments/sota-2026-10-22/candidate/epoch3/model-api.json",
+        "sha256": "029531026ea66279e7245ef5e8641a631a4a5b629a7505999c17d7930478e851"
+      },
+      {
+        "bytes": 49008,
+        "path": "/dev/shm/ruvector-e58-candidate/verified-history/experiments/sota-2026-10-22/audit/epoch3/retry2-actual-independent-v1.json",
+        "sha256": "e6682faa7dc6f6d98d67cfbb76079416d5f7fed9c7fd1ebdde8dbe22b23b0c37"
+      },
+      {
+        "bytes": 23278,
+        "path": "/dev/shm/ruvector-e58-candidate/verified-history/experiments/sota-2026-10-22/epoch3/retry2/plan.json",
+        "sha256": "d3e8e2ebc09ecb33e0e1f8649935023941258d3f7624a3c242b28df6e88f307f"
+      }
+    ],
+    "weights": {
+      "bytes": 87246587,
+      "sha256": "3fac2500c45c75af42c7711de0d1b93d59577456100208be0dc1f9e8811946b6"
+    }
+  },
+  "method": "Historical donor files were read only after matching fresh checkpoint SHA256/size AND fresh Git blob body identity. No new DOC17 source text/labels decoded by C.",
+  "novel_hypothesis": "Distinct official SMALL qint8 NLI with typed C/E/N output and exhaustive supplied-source NotMentioned policy; native vs source order share same fixed early exit and same-model full reference. E3 coverage is motivation, not causal proof. No claim this small model is stronger than prior large readers.",
+  "old_E53_interface_reused_only_as_reviewed_source": "Old E53 materialize/worker hardcode4docs/12cases/3claims and guardian IDs, so not invoked; new D58 custody and new all17 catalog used instead.",
+  "restrictions": {
+    "calibration": [],
+    "confirmation_qualification": "UNQUALIFIED_HOLD",
+    "fresh_confirmation": [],
+    "native104_champion_unchanged": true,
+    "new_GPU_calls": 0,
+    "new_paid_API_calls": 0,
+    "official_score_or_rank_claim": false,
+    "promotion_allowed": false,
+    "train": []
+  },
+  "schema_version": 1,
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e"
+}

@@ -1,0 +1,145 @@
+{
+  "CP_pinned_original_E57_source_refs": [
+    {
+      "bytes": 20232,
+      "path": "experiments/sota-2026-10-22/epoch57/publication/guard.py",
+      "sha256": "64f1ca3e65d0a9a6f58ed626e2aee500474793d30456a2fc7837e96552b2faf7"
+    },
+    {
+      "bytes": 16285,
+      "path": "experiments/sota-2026-10-22/epoch57/publication/stagebuilder.py",
+      "sha256": "d346f3d63698c0685c5167be86bbea13d52da89031325ce9ca281f8d961e4e93"
+    },
+    {
+      "bytes": 9592,
+      "path": "experiments/sota-2026-10-22/epoch57/publication/controller.js",
+      "sha256": "fb2abd378fff34b81a8d7e2e681b56734e597501d28a5c15fd94d15d74ff58d2"
+    }
+  ],
+  "R_or_existing_project_artifacts_modified_by_this_agent": false,
+  "actual_checks": {
+    "Node_syntax_only": "PASS",
+    "Python_syntax_only": "PASS",
+    "exact_three_live_forbidden_objects_tested": true,
+    "inert_metadata_safety_tests": {
+      "errors": 0,
+      "failures": 0,
+      "run": 14,
+      "wall_seconds": 0.003
+    },
+    "source_text_privacy_pattern_scan": "PASS_ALL_FOUR_CURRENT_G26_V2_SOURCE_FILES"
+  },
+  "actual_live_guard_CLI_staging_Git_model_native_DATA_Gold_calls_by_this_agent": 0,
+  "diff_refs": [
+    {
+      "bytes": 1124,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/guard.py.vs-g26v1.diff",
+      "sha256": "272f2ab0002004ebaea9a8af700f32c0db6b36ea5b6b6ea77233e06be821f6a5"
+    },
+    {
+      "bytes": 0,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/stagebuilder.py.vs-g26v1.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/controller.js.vs-g26v1.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "epoch": 58,
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "operational_contract": {
+    "CP_only_paths_preserved": 70,
+    "E44_overlay55_kept_separate": true,
+    "O_EXCL_reserve_durable_intent_before_every_MCP_mutation": true,
+    "actual_commit_sole_parent_and_postCAS_readback_required": true,
+    "exact_source_parent_nonforce_scoped_branch_CAS": true,
+    "full_scope_Merkle_and_unrelated_siblings_verified_before_commit": true,
+    "main_mutation_requests_allowed": 0,
+    "main_policy": "Fresh read-only main before and after; validate ref/SHA, record equality only if equal. No mutation can target main. Scoped benchmark parent advance always stops.",
+    "mutation_ID_prefixes": [
+      "e58-source-g26",
+      "e58-final-g26"
+    ],
+    "no_unknown_mutation_replay": true,
+    "operational_helper_directory": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/publication-helpers-g26",
+    "owner_ref": {
+      "bytes": 831,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner.json",
+      "sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac"
+    },
+    "pinned_shared_fence_ref": {
+      "bytes": 3376,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner_fence_v2.py",
+      "sha256": "5b56fa209a1d947d1bbabe31e5e4ed3d52e8dc9d2258e76fa8577c36b459d693"
+    },
+    "public_fence_path": "experiments/sota-2026-10-22/runtime/epoch58/ownership/owner_fence.py",
+    "public_transport_directory": "experiments/sota-2026-10-22/epoch58/publication/",
+    "scientific_authorization_granted": false,
+    "source_phase_base_CP_rows": 9048,
+    "source_phase_base_Git_leaves": 9055,
+    "whole_raw_capture_before_owner_or_response_parse": true
+  },
+  "parent_draft_source_refs": [
+    {
+      "bytes": 19445,
+      "path": "/dev/shm/ruvector-e58-publication/g26/guard.py",
+      "sha256": "67d4724fb10b4109761f42a1c3968c39e28b2e9c2655032568b18ca203bf22e1"
+    },
+    {
+      "bytes": 16468,
+      "path": "/dev/shm/ruvector-e58-publication/g26/stagebuilder.py",
+      "sha256": "bfaaa050bec6c4782aece47c57c8eac0411a28855626500cc1b7b1ebbedf2afb"
+    },
+    {
+      "bytes": 9874,
+      "path": "/dev/shm/ruvector-e58-publication/g26/controller.js",
+      "sha256": "1de9449bdddab66b0e6444edf7e24872cc2945af26a7ecaf887ef8ca73e79b95"
+    }
+  ],
+  "reporter_source_review": "Pending exact C counter/D data schemas; not yet frozen/integrated.",
+  "retained_g25_source_refs": [
+    {
+      "bytes": 20351,
+      "path": "/dev/shm/ruvector-e58-publication/guard.py",
+      "sha256": "9ce9046e3cc63bea24f2827837a0a52e688408c1dc0dcc3b89b9e68bd0851814"
+    },
+    {
+      "bytes": 16285,
+      "path": "/dev/shm/ruvector-e58-publication/stagebuilder.py",
+      "sha256": "a864fca0ce9eb15776230dbbae94292f77d1b4649d68d6bd1ec49adb7361ac9a"
+    },
+    {
+      "bytes": 9870,
+      "path": "/dev/shm/ruvector-e58-publication/controller.js",
+      "sha256": "b18af84c758daec196e7609a160c1a727eec75b268f57094869421f6e0b61877"
+    }
+  ],
+  "schema_version": 1,
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "source_refs": [
+    {
+      "bytes": 19448,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/guard.py",
+      "sha256": "cc27e9f31b9a59d89ebc205a0f0e83d52a0bdad95f916d08502ad6fc18adfc3f"
+    },
+    {
+      "bytes": 16468,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/stagebuilder.py",
+      "sha256": "bfaaa050bec6c4782aece47c57c8eac0411a28855626500cc1b7b1ebbedf2afb"
+    },
+    {
+      "bytes": 9874,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/controller.js",
+      "sha256": "1de9449bdddab66b0e6444edf7e24872cc2945af26a7ecaf887ef8ca73e79b95"
+    },
+    {
+      "bytes": 7524,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/test_publication_inert.py",
+      "sha256": "9b9c8d9e83f832a5a2dda527fbed6180ee7afac65727fc27fdc30ebe115db530"
+    }
+  ],
+  "status": "SOURCE_ONLY_REQUIRES_INDEPENDENT_Q_REVIEW_AND_ROOT_INTEGRATION",
+  "supersedes_unpublished_packet": "PUBLICATION_CORE_SOURCE_REVIEW_PACKET.v1.json (clarifies actually executed scan scope)"
+}

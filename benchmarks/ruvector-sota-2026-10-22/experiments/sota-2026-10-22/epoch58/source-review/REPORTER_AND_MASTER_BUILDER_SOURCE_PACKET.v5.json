@@ -1,0 +1,103 @@
+{
+  "C_cross_schema_source_refs": [
+    {
+      "bytes": 18406,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/scorer.v3.py",
+      "sha256": "774c19982bb48609c1fa24c1afbab9479db7465010fe16a880bea23fe76bb203"
+    },
+    {
+      "bytes": 5114,
+      "path": "/dev/shm/ruvector-e58-candidate/COUNTER_SCHEMA.v1.json",
+      "sha256": "4011439770df89a74bc95f90e7798db9bacb5a638e556804fd8be0ceec18f791"
+    }
+  ],
+  "actual_checks": {
+    "Python_compile_all_latest_sources": "PASS",
+    "master_freeze_builder_inert": {
+      "errors": 0,
+      "failures": 0,
+      "run": 5,
+      "wall_seconds": 0.09
+    },
+    "public_text_scans_all6_latest_files": "PASS",
+    "reporter_cross_schema_inert": {
+      "actual_C_pure_scorer_v3_and42counter_schema_used": true,
+      "errors": 0,
+      "failures": 0,
+      "run": 12,
+      "wall_seconds": 0.149
+    }
+  },
+  "actual_live_guard_CLI_staging_reporting_Git_model_native_DATA_Gold_calls_by_this_agent": 0,
+  "current_R_or_existing_scientific_artifacts_modified_by_this_agent": false,
+  "epoch": 58,
+  "inert_scope": "Authored probabilities/counters/Gold and stub guard entirely inside temporary projects. No real NDA text, model, native corpus, network, current source-project write or dataset Gold read. C source pureevaluate() only; never CLI/scientificpath.",
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "latest_reporter_refs": [
+    {
+      "bytes": 29017,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/report_actual_v4.py",
+      "sha256": "871873387fe646271cb2307a4d25b092ad97f8b5afe592e25fbe55687045ec1d"
+    },
+    {
+      "bytes": 19534,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/test_reporting_inert_v4.py",
+      "sha256": "07a61aece7c08ebd47e9f3e4099a24c9b2676e244fe7462edd77b5e77b369ce1"
+    },
+    {
+      "bytes": 10225,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/REPORTING_SCHEMA.v6.json",
+      "sha256": "24876c00d0be4849245e9df7a54d1e9cde45183e895e12c204898cf8cb7a2de0"
+    }
+  ],
+  "master_builder_source_policy": [
+    "Exactcurrentpublicinventory equalsQreviewfiles beforeanygeneratedwrite",
+    "Streamhashvalidateallabsolute runtime refs, no semanticmodel/bank/vaultdecode and no bodiescopied",
+    "Master IDs/WmustmatchactualblindDATAandCATALOGreports, not expected-fill",
+    "NoSCI/native/Gold/paid/GPU in actualcatalog metadata",
+    "No currentSFhash inMaster; plan thenSourceManifest thenSFselfexcluded",
+    "Liveoriginalscopeownerfence beforeallthreeOEXCL/fsyncedwrites",
+    "Generatedmaster/sourcemanifest/SFneveroverwritten orreplayed"
+  ],
+  "master_freeze_builder_refs": [
+    {
+      "bytes": 12666,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/build_master_and_freeze.py",
+      "sha256": "bf7ec9ab8d897e30888e4cee3f5782e5f84a2eb381c3efb5124ed805eae2a2d5"
+    },
+    {
+      "bytes": 7120,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/test_master_freeze_inert.py",
+      "sha256": "a2b43d8bc1ba7e9fdf9a2d4bb113838fc6ebbbf2c30267c098e3eab33dcfaebd"
+    },
+    {
+      "bytes": 4028,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/MASTER_FREEZE_CONFIGURATION_SCHEMA.v1.json",
+      "sha256": "e647b16fd4a2bb75942abd2e638dbc3f20fc92e13f7302271cff834a38a90639"
+    }
+  ],
+  "preserved_prior_reporter_packet": {
+    "bytes": 3853,
+    "path": "/dev/shm/ruvector-e58-publication/g26v2/ACTUAL_REPORTER_SOURCE_REVIEW_PACKET.v1.json",
+    "sha256": "abae36e8d2eb4d9dafd532636faaaa84a623634e1561a0f227b3c671b129a611"
+  },
+  "preserved_prior_source_packet": {
+    "bytes": 4094,
+    "path": "/dev/shm/ruvector-e58-publication/g26v2/REPORTER_AND_MASTER_BUILDER_SOURCE_PACKET.v2.json",
+    "sha256": "a03931de7c982f453fbdc33682e3dca5b47f47fc1ffc829011c40f143feb67da"
+  },
+  "public_source_paths": {
+    "builder": "experiments/sota-2026-10-22/epoch58/preparation/build_master_and_freeze.py",
+    "reporter": "experiments/sota-2026-10-22/epoch58/reporting/report_actual.py"
+  },
+  "reporter_changes_v4": [
+    "Strict42counterformat/rawQequality separate from zero-cap/attempt-completion acceptancepolicy; failedobservedcounts retained with rejectedacceptance",
+    "Completedquality validates51actualforecastseal/errors0/NotMentionedfullcoverage/frozengaterecompute; measuredlossesretained",
+    "DATAreview separatelybinds physicallyhashedprivateactualorigin andexact-bytecanonicalpublicprojection",
+    "Cscorer.v3 arms/Brier/NLL/case_forward_participations/model_forward_accounting explicit; nooldaliasfallback",
+    "Schema clarifies zero worker execution errors does not require perfect classification."
+  ],
+  "schema_revision": 5,
+  "schema_version": 1,
+  "status": "SOURCE_ONLY_PENDING_Q_FINAL_COMPONENT_REVIEW_AND_ROOT_INTEGRATION"
+}

@@ -1,0 +1,289 @@
+{
+  "CP_bytes_physically_rehashed_per_root": 564498011,
+  "Kit_project_CP_distinct_inode_pairs": 9048,
+  "Kit_project_counts_observed": {
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/base-cache": 48,
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit": 9180,
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project": 9258
+  },
+  "actual_completion_ref": {
+    "bytes": 2467,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/SOURCE_RESTORATION_COMPLETE.v1.json",
+    "sha256": "f03e3d2f7abbcd74d99a1db8c1f4fa3f43b4446b654018441dd5970da821bc82"
+  },
+  "actual_source_only_success_receipts": [
+    {
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+        "-I",
+        "-B",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/recoveries/epoch42-publication-20261026/restore_epoch42_archive.py",
+        "--kit-root",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit",
+        "--dest",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project",
+        "--restore-scope",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1",
+        "--archive",
+        "recoveries/epoch42-publication-20261026/immutable-e42-artifacts.zip",
+        "--projection",
+        "recoveries/epoch42-publication-20261026/ARCHIVE_PROJECTED_FILES.v1.json"
+      ],
+      "exit_code": 0,
+      "ref": {
+        "bytes": 1863,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/E42-archive-materialized.json",
+        "sha256": "5632c24f79832ca8012c2006132c84de0930b6e1d33fa0a21fe49743ee69f9a6"
+      },
+      "wall_seconds": 0.5857746980036609
+    },
+    {
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+        "-I",
+        "-B",
+        "/dev/shm/ruvector-e58-data/legacy22_cp_bound_adapter.py"
+      ],
+      "exit_code": 0,
+      "ref": {
+        "bytes": 1494,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/legacy22-verified-cap4m.json",
+        "sha256": "9b6a4cc79384f062e09ac9beb9ad619c4cc023e22f4bdbb6f07f300cc02709d4"
+      },
+      "wall_seconds": 0.5824308379669674
+    },
+    {
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+        "-I",
+        "-B",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/experiments/sota-2026-10-22/epoch26/publication/restore_epoch26_archives_v1.py",
+        "--kit-root",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit",
+        "--manifest",
+        "experiments/sota-2026-10-22/epoch26/publication/archive-transport.v1.json",
+        "--expected-manifest-sha256",
+        "9b79fc0119e1e5d15470201b7180f4b39e55b687a207dac1ff9f333d91a8ef24",
+        "--verify-only"
+      ],
+      "exit_code": 0,
+      "ref": {
+        "bytes": 1824,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/legacy26-verified.json",
+        "sha256": "93456cd6d1ae7aec03caca32cad44b4ad4c99e4e553d25ef8a4a1eb94a0ac19d"
+      },
+      "wall_seconds": 6.535717282968108
+    },
+    {
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+        "-I",
+        "-B",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/bootstrap.py",
+        "--dest",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project",
+        "--base-local-directory",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/base-cache"
+      ],
+      "exit_code": 0,
+      "ref": {
+        "bytes": 8409,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/bootstrap-source-verified.json",
+        "sha256": "12bb20814e3c3e8f8b615e8ae46aadd5e553403aa82b0767044f35bd0869915f"
+      },
+      "wall_seconds": 0.07850283198058605
+    },
+    {
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+        "-I",
+        "-B",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/restore_checkpoint.py",
+        "--dest",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project",
+        "--base-local-directory",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/base-cache"
+      ],
+      "exit_code": 0,
+      "ref": {
+        "bytes": 780,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/checkpoint-restored.json",
+        "sha256": "cf76d39ad18023fc024b037ae370a41a5e64c6932d3b1797a5c9649f3e10b180"
+      },
+      "wall_seconds": 3.212905875989236
+    },
+    {
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+        "-I",
+        "-B",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/restore_checkpoint.py",
+        "--dest",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project",
+        "--base-local-directory",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/base-cache",
+        "--verify-only"
+      ],
+      "exit_code": 0,
+      "ref": {
+        "bytes": 801,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/checkpoint-verify-only.json",
+        "sha256": "08280c52a3397b59b3c94f4f939002bce6621555ca956ca22c45a9d55964f648"
+      },
+      "wall_seconds": 2.674704126024153
+    },
+    {
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+        "-I",
+        "-B",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/recoveries/epoch42-publication-20261026/restore_epoch42_archive.py",
+        "--kit-root",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit",
+        "--dest",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project",
+        "--restore-scope",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1",
+        "--archive",
+        "recoveries/epoch42-publication-20261026/immutable-e42-artifacts.zip",
+        "--projection",
+        "recoveries/epoch42-publication-20261026/ARCHIVE_PROJECTED_FILES.v1.json",
+        "--verify-only"
+      ],
+      "exit_code": 0,
+      "ref": {
+        "bytes": 1883,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/E42-archive-verify-only.json",
+        "sha256": "d7a5a917803c8a6e369a2f512c311b80ba736f7b039069a68ec989d93cd107bf"
+      },
+      "wall_seconds": 0.5262066359864548
+    },
+    {
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+        "-I",
+        "-B",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/recoveries/epoch44-publication-20261026-g9/restore_epoch44_overlay.py",
+        "--restore-scope",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1",
+        "--kit",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit",
+        "--dest",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project",
+        "--envelope",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/recoveries/epoch44-publication-20261026-g9/PUBLIC_ARTIFACTS.envelope.v1.json",
+        "--expected-envelope-sha",
+        "fc0f741eb7bd840a941e9ef3505b6924ab9be7842cd561722d4236bd98cf1d1d",
+        "--overlay",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/recoveries/epoch44-publication-20261026-g9/ARCHIVE_OVERLAY.v1.json",
+        "--expected-overlay-sha",
+        "815aaa11a602de738b1b62b4f9cd057639b8201b59007b3633588aaa674ba01d"
+      ],
+      "exit_code": 0,
+      "ref": {
+        "bytes": 1420,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/E44-overlay-restored.json",
+        "sha256": "f81679065f0e36bf396e7b717d396690c6100f10ab848f27e5e3247c975a67aa"
+      },
+      "wall_seconds": 0.10055748198647052
+    },
+    {
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+        "-I",
+        "-B",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/recoveries/epoch44-publication-20261026-g9/restore_epoch44_overlay.py",
+        "--restore-scope",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1",
+        "--kit",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit",
+        "--dest",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project",
+        "--envelope",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/recoveries/epoch44-publication-20261026-g9/PUBLIC_ARTIFACTS.envelope.v1.json",
+        "--expected-envelope-sha",
+        "fc0f741eb7bd840a941e9ef3505b6924ab9be7842cd561722d4236bd98cf1d1d",
+        "--overlay",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/recoveries/epoch44-publication-20261026-g9/ARCHIVE_OVERLAY.v1.json",
+        "--expected-overlay-sha",
+        "815aaa11a602de738b1b62b4f9cd057639b8201b59007b3633588aaa674ba01d",
+        "--verify-only"
+      ],
+      "exit_code": 0,
+      "ref": {
+        "bytes": 1439,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/E44-overlay-verified.json",
+        "sha256": "17fbd53e2a7303889307710222766a11611ac266e524c6d4bc2a6fdbc4a789a5"
+      },
+      "wall_seconds": 0.1081883620354347
+    },
+    {
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+        "-I",
+        "-B",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/recoveries/epoch49-stop-publication-20261027-g15/restore_e49_overlay.py",
+        "--envelope",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/recoveries/epoch49-stop-publication-20261027-g15/PUBLIC_RECOVERY.envelope.v1.json",
+        "--manifest",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/recoveries/epoch49-stop-publication-20261027-g15/ARCHIVE_OVERLAY.v1.json",
+        "--project",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project"
+      ],
+      "exit_code": 0,
+      "ref": {
+        "bytes": 1038,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/E49-overlay-restored.json",
+        "sha256": "eb6f6ad32f5f5395d344a763ef89b4762ff8d11b251370e706afc16f2dcb15de"
+      },
+      "wall_seconds": 0.11013709602411836
+    },
+    {
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+        "-I",
+        "-B",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/recoveries/epoch49-stop-publication-20261027-g15/restore_e49_overlay.py",
+        "--envelope",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/recoveries/epoch49-stop-publication-20261027-g15/PUBLIC_RECOVERY.envelope.v1.json",
+        "--manifest",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/recoveries/epoch49-stop-publication-20261027-g15/ARCHIVE_OVERLAY.v1.json",
+        "--project",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project",
+        "--verify-only"
+      ],
+      "exit_code": 0,
+      "ref": {
+        "bytes": 1057,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/E49-overlay-verified.json",
+        "sha256": "3e5fffe95e9c7aeff71e07008eded64754f791089cee28737ae0c9c497f4c519"
+      },
+      "wall_seconds": 0.10983382898848504
+    }
+  ],
+  "additional_old_donor_inode_comparisons": 9048,
+  "all_CP_rows_physically_rehashed_per_Kit_and_project": 9048,
+  "all_Kit_Git_leaves_physically_rehashed": 9055,
+  "all_rehashed_inputs_regular_and_no_symlink_ancestry": true,
+  "base_files_physically_rehashed": 48,
+  "checks_passed": true,
+  "current_commit": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "effective_metadata_bound_only_override": {
+    "METADATA_LIMIT_before": 2097152,
+    "METADATA_LIMIT_effective": 4194304
+  },
+  "epoch": 58,
+  "initial_E42_source_write_not_repeated": true,
+  "kind": "INDEPENDENT_ACTUAL_SOURCE_RESTORATION_HASH_INODE_AND_RECEIPT_VERIFICATION",
+  "live_original_guardian25_fence_verified_before_during_after": true,
+  "no_model_tokenizer_native_Gold_or_Git_mutations_by_auditor": true,
+  "observed_unix": 1793127363.4762938,
+  "preserved_initial_failed_legacy22_receipt": {
+    "bytes": 1836,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/legacy22-verified.json",
+    "sha256": "615f784f8b23bf915e532540d63a302ddb01e08c903b1d41ccb08daef28402ac"
+  },
+  "reviewed_bootstrap_and_restore_exact_hashes_unchanged": true,
+  "schema_version": 1,
+  "scientific_dispatch_authorized": false
+}

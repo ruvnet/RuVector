@@ -1,0 +1,119 @@
+{
+  "CPU_affinity": [
+    0,
+    1
+  ],
+  "assets": {
+    "models/bge-small-en-v1.5/model.onnx": {
+      "bytes": 133093490,
+      "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/models/bge-small-en-v1.5/model.onnx",
+      "sha256": "828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35"
+    },
+    "models/bge-small-en-v1.5/tokenizer.json": {
+      "bytes": 711396,
+      "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/models/bge-small-en-v1.5/tokenizer.json",
+      "sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66"
+    },
+    "retrieval/node_modules/@ruvector/core/README.md": {
+      "bytes": 7890,
+      "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/retrieval/node_modules/@ruvector/core/README.md",
+      "sha256": "82b4f4845e0753732a66dc88ddd801502449b60ad1100b273ae34d1035e8b932"
+    },
+    "retrieval/node_modules/@ruvector/core/index.d.ts": {
+      "bytes": 768,
+      "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/retrieval/node_modules/@ruvector/core/index.d.ts",
+      "sha256": "36411710e6879c76dca228c4cff97993c4e95cee70388c2f936c79b01536ac54"
+    },
+    "retrieval/node_modules/@ruvector/core/index.js": {
+      "bytes": 1357,
+      "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/retrieval/node_modules/@ruvector/core/index.js",
+      "sha256": "eeba197be4085adb3492b8bc53cd61870f57d6bc18a9a5f1cd2ebec4b1908bee"
+    },
+    "retrieval/node_modules/@ruvector/core/package.json": {
+      "bytes": 1669,
+      "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/retrieval/node_modules/@ruvector/core/package.json",
+      "sha256": "729e07f6c040bd47ba687cde8ad5681088187e53812e89d77d646ff48088a5e4"
+    },
+    "retrieval/node_modules/ruvector-core-linux-x64-gnu/README.md": {
+      "bytes": 3727,
+      "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/retrieval/node_modules/ruvector-core-linux-x64-gnu/README.md",
+      "sha256": "dd25a68639af6bf44b4e0cd1388eb119047a7bd4f21ef99ece9ded424d3a4a89"
+    },
+    "retrieval/node_modules/ruvector-core-linux-x64-gnu/index.js": {
+      "bytes": 330,
+      "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/retrieval/node_modules/ruvector-core-linux-x64-gnu/index.js",
+      "sha256": "f392127e6cd14141107fa432a43bbccc2fa1d574630a6fe2611688c66a48a7e9"
+    },
+    "retrieval/node_modules/ruvector-core-linux-x64-gnu/package.json": {
+      "bytes": 1130,
+      "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/retrieval/node_modules/ruvector-core-linux-x64-gnu/package.json",
+      "sha256": "afca994434efaadf637eb7d28bfd48da9dda69f24513bfb498c4ab9459d2fdf4"
+    },
+    "retrieval/node_modules/ruvector-core-linux-x64-gnu/ruvector.node": {
+      "bytes": 5403040,
+      "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/retrieval/node_modules/ruvector-core-linux-x64-gnu/ruvector.node",
+      "sha256": "ff559e9fac2e3d29a8b32e890fdb047bcd4bd28f389b4731ad72148b221d5a2e"
+    }
+  },
+  "benchmark_archives_read_or_parsed": false,
+  "bge_quantized_model": {
+    "bytes": 34014426,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/model-assets/model_quantized.onnx",
+    "sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4"
+  },
+  "bge_tokenizer": {
+    "bytes": 711396,
+    "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/models/bge-small-en-v1.5/tokenizer.json",
+    "sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66"
+  },
+  "checks_passed": true,
+  "epoch": 58,
+  "installed_bytes": 885284577,
+  "installed_members_fresh_hash_verified": 17498,
+  "learned_NLI_weights_read": false,
+  "model_tokenizer_native_initializations": 0,
+  "native_asset_root": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project",
+  "native_module_root": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/retrieval/node_modules",
+  "node": {
+    "bytes": 125989464,
+    "path": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+    "sha256": "bc17c508ffeed0ec622934f9b7fa72f8e78da65350e63c3eceb56fa688aa5e12"
+  },
+  "node_version": "v24.19.0",
+  "owner": {
+    "bytes": 831,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner.json",
+    "sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac"
+  },
+  "python_invocation": "/tmp/ruvector-sota-2026-10-22/epoch33-0522a2c521c9/runtime/.venv/bin/python",
+  "python_member_manifest": {
+    "bytes": 4640799,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/experiments/sota-2026-10-22/epoch26/preparation/runtime-members/python-wheel-members.json",
+    "sha256": "87254bbf6ec2aba6d08a4b55ff189faf29f78e1b1dd278fe8ffef9a8cc5523b9"
+  },
+  "python_resolved_binary": {
+    "bytes": 30894944,
+    "path": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "sha256": "fa67443527ed9647f760d807e2a38f26340757123e643c4639cf273ed15d5ea7"
+  },
+  "python_venv_config": {
+    "bytes": 389,
+    "path": "/tmp/ruvector-sota-2026-10-22/epoch33-0522a2c521c9/runtime/.venv/pyvenv.cfg",
+    "sha256": "73fc338a1b07b818c095edc00afa4c00695869bc26356cf33ae38bf1ef639332"
+  },
+  "python_versions": {
+    "numpy": "2.2.6",
+    "onnxruntime": "1.22.1",
+    "python": "3.12.14",
+    "tokenizers": "0.21.4"
+  },
+  "runtime_directory": "/tmp/ruvector-sota-2026-10-22/epoch33-0522a2c521c9/runtime/.venv",
+  "runtime_origin_lock": {
+    "bytes": 4800,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/experiments/sota-2026-10-22/runtime/epoch47/NATIVE_PYTHON_RUNTIME_ORIGIN_LOCK.json",
+    "sha256": "137310d3973e23aaaea3e474aee3b545cb3af54008c01a12a010322d20b4769f"
+  },
+  "schema_version": 1,
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "wall_seconds": 3.540057398029603
+}

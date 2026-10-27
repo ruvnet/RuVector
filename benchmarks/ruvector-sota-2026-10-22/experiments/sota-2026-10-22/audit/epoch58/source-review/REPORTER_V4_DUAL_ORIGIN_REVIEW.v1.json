@@ -1,0 +1,102 @@
+{
+  "all8_source_refs_bytes_sha256_verified": true,
+  "epoch": 58,
+  "final_source_packet_verified": {
+    "bytes": 4703,
+    "path": "/dev/shm/ruvector-e58-publication/g26v2/REPORTER_AND_MASTER_BUILDER_SOURCE_PACKET.v5.json",
+    "sha256": "c0b38ed41b1ee9277e294a92e8ea622b3049d7c0b4d85298879f061f7a6713b0"
+  },
+  "full_delta_read": "report_actual_v3.py to report_actual_v4.py adds only exact safe_public_projection_ref binding and physical private origin hash/size plus strict parsed metadata equality. All counter failure retention, quality, role/exposure and physical-call accounting fixes remain unchanged.",
+  "latest_reporter_refs": [
+    {
+      "bytes": 29017,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/report_actual_v4.py",
+      "sha256": "871873387fe646271cb2307a4d25b092ad97f8b5afe592e25fbe55687045ec1d"
+    },
+    {
+      "bytes": 19534,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/test_reporting_inert_v4.py",
+      "sha256": "07a61aece7c08ebd47e9f3e4099a24c9b2676e244fe7462edd77b5e77b369ce1"
+    },
+    {
+      "bytes": 10225,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/REPORTING_SCHEMA.v6.json",
+      "sha256": "24876c00d0be4849245e9df7a54d1e9cde45183e895e12c204898cf8cb7a2de0"
+    }
+  ],
+  "master_builder_source_approval_retained": {
+    "bytes": 12666,
+    "path": "/dev/shm/ruvector-e58-publication/g26v2/build_master_and_freeze.py",
+    "sha256": "bf7ec9ab8d897e30888e4cee3f5782e5f84a2eb381c3efb5124ed805eae2a2d5"
+  },
+  "master_tests_retained": {
+    "count": 5,
+    "failures": 0,
+    "reason": "source byte-identical to previously fully reviewed and executed copied synthetic suite; no rerun justified by metadata-only reporter delta",
+    "suite": "test_master_freeze_inert.py"
+  },
+  "prior_full_component_review_retained": {
+    "bytes": 10448,
+    "path": "/dev/shm/ruvector-e58-audit/worker-source-review/REPORTER_MASTER_STATIC_REVIEW.v2.finalsource.json",
+    "sha256": "cfa212ef2bb227544e5535612afa45a4dcf194aadc9ee317f508654de4806766"
+  },
+  "publication_authorized": false,
+  "remaining": "Root/Q exact public source inventory/configuration integration, actual SOURCE publication/full readback, and separate execution admissions remain required. This static component report grants none of those actions.",
+  "review_activities": {
+    "Git_calls": 0,
+    "Gold_decodes": 0,
+    "actual_DATA_metadata_origin_reads": 0,
+    "current_project_writes": 0,
+    "live_guard_or_CLI_calls": 0,
+    "model_tokenizer_ORT_native_initializations": 0,
+    "real_DATA_bank_decodes": 0,
+    "scientific_batches": 0
+  },
+  "schema_review": {
+    "dual_origin_binding_matches_code": true,
+    "failed_actual_counts_separate_from_acceptance_policy": true,
+    "reviewed_full_v5_and_complete_v6_diff": true,
+    "source": {
+      "bytes": 10225,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/REPORTING_SCHEMA.v6.json",
+      "sha256": "24876c00d0be4849245e9df7a54d1e9cde45183e895e12c204898cf8cb7a2de0"
+    },
+    "zero_execution_errors_distinct_from_classification_errors": true
+  },
+  "schema_version": 1,
+  "scientific_execution_authorized": false,
+  "scope": "V4_METADATA_DATA_ORIGIN_PUBLIC_PROJECTION_DELTA_AND_FINAL_SCHEMA_ONLY",
+  "source_findings": [
+    "Public config data_preparation_result must equal independent safe_public_projection_ref exactly, including canonical relative project path.",
+    "Private actual_data_report_ref remains absolute metadata origin; checked(origin) physically hashes bytes and parses its metadata.",
+    "Both actual origin and public copy must have identical size/SHA256 and strict parsed values. No bank/vault/model/catalog text body is read by this added path.",
+    "Prior SOURCE publication/admission, independent actual phase counter equality, late-Gold uncertainty, completed-quality and source exposure rules remain unchanged."
+  ],
+  "status": "STATIC_SOURCE_COMPONENT_PASS_REPORTER_V4_MASTER_UNCHANGED",
+  "tests_actually_run": [
+    {
+      "count": 12,
+      "failures": 0,
+      "scope": "copied scratch reporter with existing authored fixtures, pure C evaluate and inert guard; good fake CLI path exercises new dual binding",
+      "suite": {
+        "bytes": 19534,
+        "path": "/dev/shm/ruvector-e58-publication/g26v2/test_reporting_inert_v4.py",
+        "sha256": "07a61aece7c08ebd47e9f3e4099a24c9b2676e244fe7462edd77b5e77b369ce1"
+      }
+    },
+    {
+      "count": 2,
+      "failures": 0,
+      "scope": "additional authored fake CLI boundary tests: valid-hashed but wrong private origin rejected; same-byte but wrong public projection path rejected; no RESULTS file written on either rejection",
+      "suite": {
+        "bytes": 2681,
+        "path": "/dev/shm/ruvector-e58-audit/worker-source-review/publication/test_reporter_v4_dual_origin_negative.py",
+        "sha256": "c8b26200c2396e171c2c48f45084c797958f3144dc69ebf1d5f78e641725bd37"
+      }
+    },
+    {
+      "check": "source pin rehash and import-free Python compilation",
+      "result": "PASS"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "CPU_affinity": [
+    0,
+    1
+  ],
+  "actual_FD3_original_lock_device_inode": [
+    33,
+    13626
+  ],
+  "actual_SID_and_PGID": 192464,
+  "actual_kernel_FLOCK_rows": [
+    "8: FLOCK  ADVISORY  WRITE 192464 00:21:13626 0 EOF"
+  ],
+  "actual_launch_result_ref": {
+    "bytes": 450,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/launch.actual.json",
+    "sha256": "e42769ebc322c5a363812ea9a6d0ff737d63faebbdca6d73193e74331f8f7d3c"
+  },
+  "actual_pid": 192464,
+  "actual_startticks": 45182825,
+  "checks_passed": true,
+  "current_parent_PID": 1,
+  "epoch": 58,
+  "future_kernel_or_container_survival_guaranteed": false,
+  "generation": 26,
+  "historical_owner25_lost_evidence_unchanged_no_normal_release_fabricated": true,
+  "independent_nonblocking_probe_busy": true,
+  "kind": "DETACHED_GUARDIAN26_LIVE_ORIGINAL_INODE_EXCLUSIVITY_INDEPENDENT",
+  "next_gate": "Review shared26fence source, rebindONLYunexecuted asset/cleanup/preparation/publication plans with old25versions retained; separate source/data freeze gates remain.",
+  "observed_unix": 1793128173.3915164,
+  "owner_ref": {
+    "bytes": 831,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner.json",
+    "sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac"
+  },
+  "probe_FD_closed": true,
+  "same_boot_and_namespace": true,
+  "schema_version": 1,
+  "scientific_dispatch_authorized_by_this_proof": false,
+  "separate_bounded_detached_session_observed": true
+}

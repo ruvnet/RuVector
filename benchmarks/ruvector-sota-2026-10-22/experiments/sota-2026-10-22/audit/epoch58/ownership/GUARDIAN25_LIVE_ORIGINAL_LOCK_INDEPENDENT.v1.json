@@ -1,0 +1,37 @@
+{
+  "CPU_affinity": [
+    0,
+    1
+  ],
+  "actual_FD3_original_inode_verified": true,
+  "actual_kernel_FLOCK_rows": [
+    "1: FLOCK  ADVISORY  WRITE 191872 00:21:13626 0 EOF"
+  ],
+  "actual_pid": 191872,
+  "actual_startticks": 45020273,
+  "checks_passed": true,
+  "epoch": 58,
+  "generation": 25,
+  "guardian_source_ref": {
+    "bytes": 4092,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/lock_supervisor.py",
+    "sha256": "c25d3510ba2e5584ca7de79b6e9993dbafc262dc5fa34f4a3ec08c29a9bd396a"
+  },
+  "independent_nonblocking_probe_busy": true,
+  "no_new_owner_lock_or_Git_mutation_created_by_auditor": true,
+  "observed_unix": 1793126551.903342,
+  "original_lock_device_inode": [
+    33,
+    13626
+  ],
+  "owner_ref": {
+    "bytes": 710,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/owner.json",
+    "sha256": "3eb3df852ccca79425f8c129d4e9efaabb1a8cbbce33706da9b8dc08873d3fa3"
+  },
+  "probe_descriptor_closed": true,
+  "same_boot_and_namespace_verified": true,
+  "schema_version": 1,
+  "scientific_dispatch_authorized_by_this_proof": false,
+  "source_project_restoration_may_proceed_only_under_separate_reviewed_source_plan": true
+}

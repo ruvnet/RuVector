@@ -1,0 +1,288 @@
+{
+  "DEV_diagnostic_acceptance": {
+    "PASS_meaning": "DEV mechanism diagnostic only, no confirmation/promotion/official claim; one document cluster, no independent-document CI",
+    "native_Brier_and_NLL_vs_full": "<= full +1e-6",
+    "native_Brier_and_NLL_vs_source": "<= source +1e-6",
+    "native_correct_vs_full": "at least full correct",
+    "native_correct_vs_source": "at least +1 of17",
+    "other": "all51 complete, errors0, NotMentioned fullcoverage, actual runtime<=600,CPU2,genuine native; labels only after source freeze/forecasts/processclosure",
+    "tolerance": 1e-06
+  },
+  "actual_preparation_scope": {
+    "DATA_source_freeze_sha256": "0e763f415273d2d923e3cb751d27bac5901c4eb23fb6a18c4dab9c2713669884",
+    "DATA_source_plan_sha256": "812aea76ebfdf1611f522ac9f6eca292ad6563395afbe5a361507c1576efc5f0",
+    "actual_hypothesis_exposed_case_ids": [
+      "contractnli:eced6528:dev:17:nda-1",
+      "contractnli:eced6528:dev:17:nda-10",
+      "contractnli:eced6528:dev:17:nda-11",
+      "contractnli:eced6528:dev:17:nda-12",
+      "contractnli:eced6528:dev:17:nda-13",
+      "contractnli:eced6528:dev:17:nda-15",
+      "contractnli:eced6528:dev:17:nda-16",
+      "contractnli:eced6528:dev:17:nda-17",
+      "contractnli:eced6528:dev:17:nda-18",
+      "contractnli:eced6528:dev:17:nda-19",
+      "contractnli:eced6528:dev:17:nda-2",
+      "contractnli:eced6528:dev:17:nda-20",
+      "contractnli:eced6528:dev:17:nda-3",
+      "contractnli:eced6528:dev:17:nda-4",
+      "contractnli:eced6528:dev:17:nda-5",
+      "contractnli:eced6528:dev:17:nda-7",
+      "contractnli:eced6528:dev:17:nda-8"
+    ],
+    "feature_ids_exposed": [
+      "contractnli:eced6528:dev:17:nda-1",
+      "contractnli:eced6528:dev:17:nda-10",
+      "contractnli:eced6528:dev:17:nda-11",
+      "contractnli:eced6528:dev:17:nda-12",
+      "contractnli:eced6528:dev:17:nda-13",
+      "contractnli:eced6528:dev:17:nda-15",
+      "contractnli:eced6528:dev:17:nda-16",
+      "contractnli:eced6528:dev:17:nda-17",
+      "contractnli:eced6528:dev:17:nda-18",
+      "contractnli:eced6528:dev:17:nda-19",
+      "contractnli:eced6528:dev:17:nda-2",
+      "contractnli:eced6528:dev:17:nda-20",
+      "contractnli:eced6528:dev:17:nda-3",
+      "contractnli:eced6528:dev:17:nda-4",
+      "contractnli:eced6528:dev:17:nda-5",
+      "contractnli:eced6528:dev:17:nda-7",
+      "contractnli:eced6528:dev:17:nda-8"
+    ],
+    "frozen_window_count": 9,
+    "semantic_gold_decodes": 0,
+    "separate_local_source_before_candidate_SOURCE": true,
+    "source_text_exposed_case_ids": [
+      "contractnli:eced6528:dev:17:nda-1",
+      "contractnli:eced6528:dev:17:nda-10",
+      "contractnli:eced6528:dev:17:nda-11",
+      "contractnli:eced6528:dev:17:nda-12",
+      "contractnli:eced6528:dev:17:nda-13",
+      "contractnli:eced6528:dev:17:nda-15",
+      "contractnli:eced6528:dev:17:nda-16",
+      "contractnli:eced6528:dev:17:nda-17",
+      "contractnli:eced6528:dev:17:nda-18",
+      "contractnli:eced6528:dev:17:nda-19",
+      "contractnli:eced6528:dev:17:nda-2",
+      "contractnli:eced6528:dev:17:nda-20",
+      "contractnli:eced6528:dev:17:nda-3",
+      "contractnli:eced6528:dev:17:nda-4",
+      "contractnli:eced6528:dev:17:nda-5",
+      "contractnli:eced6528:dev:17:nda-7",
+      "contractnli:eced6528:dev:17:nda-8"
+    ],
+    "source_units": 73,
+    "used_confirmation_identities": []
+  },
+  "aggregation": {
+    "C": "max(window_C_logit-window_N_logit)",
+    "E": "max(window_E_logit-window_N_logit)",
+    "N": 0,
+    "NotMentioned": "Only after ALL supplied windows. Native missing/incomplete hitlist forces complete source-order fallback with early exit disabled.",
+    "early_exit": "native/source only, after all actual same-state windows in a batch; E or C support>=log9 AND margin over opposite>=log3; no numeric flags; full reference never exits",
+    "numeric_flags": [
+      "claim_has_numerals",
+      "claim_numeral_not_in_supplied_context"
+    ],
+    "numeric_policy": "Only claim numeric literals flag; exact comma-stripped/+stripped lexical token set diagnostic. Any flag disables early exit, never changes logits or decision. Context-only numbered clauses do not flag.",
+    "probabilities": "untempered stable double softmax [C,E,N], no clipping/fitting/renormalization"
+  },
+  "arms": [
+    "native_order",
+    "source_order",
+    "full_reference"
+  ],
+  "batch1": {
+    "NLI_batch_size": 8,
+    "NLI_forwards": 4,
+    "NLI_pairs": 32,
+    "NLI_sequence_length": 512,
+    "gate": "Independent genuine native/count/resource/IO audit plus 2*ceil(3*17*W/8)*max(full8_forward_seconds)+measured_modelinit_total+90 <=420. Hash+tokenizer+ORT initialization included measured_modelinit_total; no retries.",
+    "native_corpus_documents": 128,
+    "native_queries": 16,
+    "role": "AUTHORED_ENGINEERING_ONLY_NO_GENERALIZATION",
+    "source": {
+      "bytes": 85890,
+      "path": "/dev/shm/ruvector-e58-candidate/ENGINEERING_AUTHORED_INPUTS.v1.json",
+      "sha256": "798b88330397d8b54745b6ddca42b13333ebb44d08e35db7258f15b4ee148557"
+    },
+    "warmup_forwards": 0
+  },
+  "batch2": {
+    "Gold_access": "Only after all51forecasts sealed and all owned processes/PG/SIDs independently physically closed; no selection after labels.",
+    "conditional_on": "Independent accepted batch1 and frozen projection<=420",
+    "forecasts": 51,
+    "role": "ONE_DOC17_ALL17_DEV_MECHANISM_ONLY",
+    "same_model_retrieval_ablation": true
+  },
+  "batching": "Roundrobin active case-arm states: one next window per state per rotation, fill8, revisit if fewer8active states. Same actual minibatch head for all arms, no cached/replayed arm outputs. Decision only after actual current batch consumed. All NLI inputs padded512; lastbatch<=8. Full-coverage bound ceil(3*17*W/8).",
+  "calibration_ids": [],
+  "candidate_promotion_allowed": false,
+  "candidate_source_ref": {
+    "bytes": 8804,
+    "path": "experiments/sota-2026-10-22/epoch58/source-review/CANDIDATE_SOURCE_PACKET.v6.finalreview.json",
+    "sha256": "cf9cddd2cdd8bc35db241fe14fb1006d6ff9619d909f0b5f407bca22c1a11adc"
+  },
+  "champion": "SubmittedNative104/RRF10 unchanged; no candidate promotion with fresh-confirmation qualification held.",
+  "configuration_contract_ref": {
+    "bytes": 9631,
+    "path": "experiments/sota-2026-10-22/runtime/epoch58/candidate/CONFIGURATION_CONTRACT.v6.finalreview.json",
+    "sha256": "ca878f201123c822e92f27019e73b3a1c4ce40ef043a904a5932a831ec2142e7"
+  },
+  "counter_schema_ref": {
+    "bytes": 5114,
+    "path": "experiments/sota-2026-10-22/runtime/epoch58/candidate/COUNTER_SCHEMA.v1.json",
+    "sha256": "4011439770df89a74bc95f90e7798db9bacb5a638e556804fd8be0ceec18f791"
+  },
+  "development_ids": [
+    "contractnli:eced6528:dev:17:nda-1",
+    "contractnli:eced6528:dev:17:nda-10",
+    "contractnli:eced6528:dev:17:nda-11",
+    "contractnli:eced6528:dev:17:nda-12",
+    "contractnli:eced6528:dev:17:nda-13",
+    "contractnli:eced6528:dev:17:nda-15",
+    "contractnli:eced6528:dev:17:nda-16",
+    "contractnli:eced6528:dev:17:nda-17",
+    "contractnli:eced6528:dev:17:nda-18",
+    "contractnli:eced6528:dev:17:nda-19",
+    "contractnli:eced6528:dev:17:nda-2",
+    "contractnli:eced6528:dev:17:nda-20",
+    "contractnli:eced6528:dev:17:nda-3",
+    "contractnli:eced6528:dev:17:nda-4",
+    "contractnli:eced6528:dev:17:nda-5",
+    "contractnli:eced6528:dev:17:nda-7",
+    "contractnli:eced6528:dev:17:nda-8"
+  ],
+  "epoch": 58,
+  "forward_accounting": {
+    "arm_metric": "case_forward_participations",
+    "global_physical_calls": "raw.counters.NLI_forward_calls_completed",
+    "per_case_actual_model_forward_calls": "Shared-batch participations of that case-arm, never sum as global physicalcalls."
+  },
+  "fresh_confirmation_ids": [],
+  "frozen_candidate_protocol_ref": {
+    "bytes": 7977,
+    "path": "experiments/sota-2026-10-22/runtime/epoch58/candidate/CANDIDATE_PROTOCOL.v2.archival.json",
+    "sha256": "c4accfc52f8d387490cc4389ba6f68dc4c71e1782cbf1717f94418ddaaa14d38"
+  },
+  "frozen_window_count": 9,
+  "hypothesis": "Fixed typed NLI decisions over complete supplied ContractNLI context windows, native RuVector orders evidence windows for coverage-preserving early decisions; source-order and full-reference use the exact same pretrained model with fixed typed aggregation and numerical checks. Measure actual quality and cost rather than infer a quality benefit from retrieval.",
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "labels": [
+    "Contradiction",
+    "Entailment",
+    "NotMentioned"
+  ],
+  "late_Gold_policy": "Only after all51forecasts sealed and all owned processes/PG/SIDs independently physically closed; no selection after labels.",
+  "latency_semantics": "Per-state elapsed first submitted batch start through decision, including interbatch queue+tokenization/forward; excludes wait before firstsubmit. Report p50/p95 as batched mechanism latency; wholeCLI actual dominant; no singlequery deployment speedclaim.",
+  "limits": {
+    "CPU_threads": 2,
+    "GPU_calls": 0,
+    "inclusive_CLI_seconds_per_batch": 600,
+    "native_corpus_batches": 2,
+    "paid_API_calls": 0
+  },
+  "measurement_policy": "Actual accuracy, Brier, NLL, confusion/errors, p50/p95 batched-state elapsed and whole-CLI resource/time. No fitting or selection on labels; preserve losses and interruption uncertainty. One NDA/17 dependent claims cannot establish benchmark generalization or an independent-document confidence interval.",
+  "official_goal": {
+    "goal_met": false,
+    "rank": null,
+    "success_requires": "Actual matching publisher result/rank and confirmed eligibility. Queue position115 is not rank. No new candidate submission or author email in this epoch."
+  },
+  "prior_outcome_review_ref": {
+    "bytes": 6004,
+    "path": "experiments/sota-2026-10-22/audit/epoch58/preparation/CURRENT_CHECKPOINT_IDENTITY_AND_E57_OUTCOME_INDEPENDENT.v1.json",
+    "sha256": "8185db649c6e02e8ca8be2c0843ba7706c208ffcb7610ee481cfebce7fc861c4"
+  },
+  "raw_DEV_archival": {
+    "each_actual_pair": [
+      "batch_id",
+      "row_index",
+      "case_id",
+      "arm",
+      "window_id",
+      "raw_logits3",
+      "source_window_sha256",
+      "claim_input_sha256"
+    ],
+    "each_batch": [
+      "input_tensor_receipts",
+      "output_tensor_receipt",
+      "model_weight_sha256",
+      "label_order"
+    ],
+    "purpose": "Independent typed-max-logodds/early-exit/coverage replay for all51forecasts; no cache/replayed outputs or extra forwards.",
+    "timing": "Input/output hashing and durable per-batch output archival excluded only from measured session.run forwardseconds; included wholeCLI and case decision elapsed."
+  },
+  "resource_caps": {
+    "BGE_closed_before_NLI_init": true,
+    "CLI_inclusive_seconds_each": 600,
+    "GPU_calls": 0,
+    "ORT_inter_threads": 1,
+    "ORT_intra_threads": 2,
+    "cpu_affinity": [
+      0,
+      1
+    ],
+    "minimum_model_headroom_bytes": 1073741824,
+    "native_corpus_batches_max": 2,
+    "paid_API_calls": 0,
+    "worker_budget_seconds": 580
+  },
+  "roles": {
+    "calibration": [],
+    "development": "All17 doc17 claims are permanently DEV after actual source preparation. Engineering inputs are authored structure/throughput fixtures only.",
+    "fresh_confirmation": [],
+    "fresh_confirmation_qualification": "UNQUALIFIED_HOLD",
+    "train": [],
+    "used_confirmation_identities": []
+  },
+  "runtime_versions": {
+    "numpy": "2.2.6",
+    "onnxruntime": "1.22.1",
+    "tokenizers": "0.21.4"
+  },
+  "schedule_is_not_actual_execution_evidence": true,
+  "schema_version": 1,
+  "scientific_dispatch_policy": "Source publication is not scientific dispatch authorization. Both bounded phases require matching actual SOURCE readback and phase-specific independent admission. Conditional DEV only after independently accepted engineering and actual frozen conservative projection <=420 seconds. No replay of uncertain CLI.",
+  "scorer_source_ref": {
+    "bytes": 18406,
+    "path": "experiments/sota-2026-10-22/runtime/epoch58/candidate/supervisor_impl/scorer.v3.py",
+    "sha256": "774c19982bb48609c1fa24c1afbab9479db7465010fe16a880bea23fe76bb203"
+  },
+  "shared_catalog": {
+    "before_final_source_freeze": "Separately admitted blind DATA/tokenizer-only actual W+catalog SHA frozen; no model/native/Gold.",
+    "max_tokens": 512,
+    "max_windows": 24,
+    "method": "Exact contiguous source-unit partition. Oversized units deterministic largest-fitting binary-search codepoint prefix; adjacent fragments greedily merge only if ALL17 NLI pair encodings and whole BGE window fit<=512. No hidden truncation, no labels/model logits. Source blank units attached to preceding fragment; inability to fit or W>24 fails closed."
+  },
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "source_freeze_path": "experiments/sota-2026-10-22/epoch58/SOURCE_FREEZE.json",
+  "source_only_premeasurement_state": "Plan freezes methods and identities; no scientific measurements are implied by planned batch counts or projected counters.",
+  "source_qualification_ref": {
+    "bytes": 2828,
+    "path": "experiments/sota-2026-10-22/runtime/epoch58/candidate/MODEL_AND_HYPOTHESIS_SOURCE_QUALIFICATION.v2.assets.json",
+    "sha256": "0dfe9bd6be30b5a24ba431d1287fed8658827b441fa21c0be1b11fcd31718138"
+  },
+  "train_ids": [],
+  "typed_NLI": {
+    "bytes": 172503006,
+    "exact_training_revision_verified": false,
+    "export_recipe_revision_verified": false,
+    "model": "cross-encoder/nli-deberta-v3-small",
+    "official_asset": "onnx/model_qint8_avx512_vnni.onnx",
+    "output_label_map": {
+      "0": "contradiction",
+      "1": "entailment",
+      "2": "neutral"
+    },
+    "publisher_license": "Apache-2.0",
+    "publisher_training_corpora_declared": [
+      "SNLI",
+      "MultiNLI"
+    ],
+    "revision": "fa2804872c3b4bd748f38c0185cc85775361e735",
+    "sha256": "a1da6815c8da542d16381c7d84892d409b4b6604d655bb3054ecb15dd8714e6e",
+    "temperature": 1.0,
+    "training_test_nonuse_verified": false
+  }
+}

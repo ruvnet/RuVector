@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-I",
+    "-B",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/experiments/sota-2026-10-22/epoch22/publication/restore_archived_artifact_v1.py",
+    "--kit-root",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit",
+    "--archive",
+    "experiments/sota-2026-10-22/epoch22/publication/actualarchive.dev.raw.v1.json",
+    "--expected-archive-sha256",
+    "8ab3d8ec7856b423e6ff295f8e5ef74fc81dcaa3d3382fa2757e21563e0a99c6",
+    "--verify-only"
+  ],
+  "exit_code": 1,
+  "model_native_Gold_Git_calls": 0,
+  "stderr": "Traceback (most recent call last):\n  File \"/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/experiments/sota-2026-10-22/epoch22/publication/restore_archived_artifact_v1.py\", line 263, in <module>\n    main()\n  File \"/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/experiments/sota-2026-10-22/epoch22/publication/restore_archived_artifact_v1.py\", line 257, in main\n    result = restore(arguments.kit_root, arguments.archive,\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/experiments/sota-2026-10-22/epoch22/publication/restore_archived_artifact_v1.py\", line 175, in restore\n    cp_data = read_bounded(safe_path(root, 'CHECKPOINT_MANIFEST.json'), METADATA_LIMIT)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/experiments/sota-2026-10-22/epoch22/publication/restore_archived_artifact_v1.py\", line 100, in read_bounded\n    raise ValueError('File exceeds bounded read')\nValueError: File exceeds bounded read\n",
+  "stdout": "",
+  "wall_seconds": 0.030665163008961827
+}

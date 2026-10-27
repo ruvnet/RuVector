@@ -1,0 +1,279 @@
+{
+  "Gold_authorized": false,
+  "actual_review_activities": {
+    "Gold_decodes": 0,
+    "ORT_initializations": 0,
+    "actual_tokenizer_initializations": 0,
+    "asset_GETs": 0,
+    "git_operations": 0,
+    "model_initializations": 0,
+    "native_initializations": 0,
+    "ownership_or_fence_operations": 0,
+    "real_DATA_decodes": 0,
+    "scientific_batches": 0,
+    "subagents_spawned": 0,
+    "supervisor_or_worker_CLI_invocations": 0
+  },
+  "all_reported_source_blockers_resolved": true,
+  "component_source_refs": [
+    {
+      "bytes": 14910,
+      "path": "/dev/shm/ruvector-e58-candidate/runtime_common.py",
+      "sha256": "c3f54a0afaa68216f589c29c6206c1883a60ab46e046142e9728da7d86ad20af"
+    },
+    {
+      "bytes": 5114,
+      "path": "/dev/shm/ruvector-e58-candidate/COUNTER_SCHEMA.v1.json",
+      "sha256": "4011439770df89a74bc95f90e7798db9bacb5a638e556804fd8be0ceec18f791"
+    },
+    {
+      "bytes": 15603,
+      "path": "/dev/shm/ruvector-e58-candidate/native_impl/native_helper.cjs",
+      "sha256": "9278e5fe5c2a2a470a504e98b6b5e7bfae1fddd18f4cda4f0cb0b5324d004c46"
+    },
+    {
+      "bytes": 27748,
+      "path": "/dev/shm/ruvector-e58-candidate/native_impl/native_adapter.v2.py",
+      "sha256": "d212a33a2b242027b8c3129438bfa0f24689d309139344f23fc88488df975672"
+    },
+    {
+      "bytes": 18406,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/scorer.v3.py",
+      "sha256": "774c19982bb48609c1fa24c1afbab9479db7465010fe16a880bea23fe76bb203"
+    },
+    {
+      "bytes": 20454,
+      "path": "/dev/shm/ruvector-e58-candidate/worker.v2.py",
+      "sha256": "b65c67eecffc2faaa1c78f39c396973b1e1524a131f450b946a89b52c4c64657"
+    },
+    {
+      "bytes": 7977,
+      "path": "/dev/shm/ruvector-e58-candidate/CANDIDATE_PROTOCOL.v2.archival.json",
+      "sha256": "c4accfc52f8d387490cc4389ba6f68dc4c71e1782cbf1717f94418ddaaa14d38"
+    },
+    {
+      "bytes": 9631,
+      "path": "/dev/shm/ruvector-e58-candidate/CONFIGURATION_CONTRACT.v6.finalreview.json",
+      "sha256": "ca878f201123c822e92f27019e73b3a1c4ce40ef043a904a5932a831ec2142e7"
+    },
+    {
+      "bytes": 16258,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/supervisor.v2.py",
+      "sha256": "647cc6be8d87dade6bb02859d10720bd34544b6c8569e74221736e932d5a1931"
+    },
+    {
+      "bytes": 13481,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/run_cli_once.v5.py",
+      "sha256": "0cde78ea585e7f8889044ccc1c887b268e6008cc66f3ce13002ef1fefc6dfcda"
+    }
+  ],
+  "epoch": 58,
+  "findings": [
+    {
+      "id": "OUTER_UNOBSERVED_CHILD",
+      "original": "run_cli_once.py can exit without closing live direct Popen if identity observation fails.",
+      "residual": "Actual process/session closure remains an execution-time independent audit; only authored FakePopen paths were run.",
+      "status": "RESOLVED_SOURCE_OUTER_V5"
+    },
+    {
+      "id": "SCORER_SHARED_BATCH_COUNT",
+      "original": "Sum per-case shared forward participations mislabeled as arm physical model calls.",
+      "resolution": "arm case_forward_participations plus explicit model_forward_accounting, actual global count in raw canonical NLI_forward_calls and unique batch records.",
+      "status": "RESOLVED_SOURCE_V3"
+    },
+    {
+      "id": "JOINED_GOLD_SCHEMA",
+      "original": "scorer v1 required actual_label_decoded_case_ids absent from custody-v5 joined value.",
+      "resolution": "ids,label_order,strictint semantic_labels_decoded=17 validated.",
+      "status": "RESOLVED_SOURCE_V3"
+    },
+    {
+      "id": "CLEANUP_OBSERVATION_CAN_ABORT_SIGNALS",
+      "original": "run_cli_once.v3 finally begins fallible observe() before any termination/reaping; supervisor.close_children likewise begins fallible observe(). A journal/proc exception can bypass closure and exit before hardalarm. Outer observe also scans unvalidated identity.",
+      "resolution": "Best-effort cleanup observation records errors; nested final direct-owned-Popen termination/reap executes regardless observation failure; outer observes groups only after validated identity.",
+      "status": "RESOLVED_SOURCE_SUPERVISOR_V2_OUTER_V5"
+    },
+    {
+      "id": "HARD_ALARM_OBSERVATION_FAILURE",
+      "original": "Fallible proc/group observation inside one-shot hard alarm could bypass final os._exit(124).",
+      "resolution": "hard_kill_owned catches observation errors and finally attempts direct-owned-Popen kill then exits124; authored proc-OSError FakePopen/fake-exit test passed.",
+      "status": "RESOLVED_SOURCE_OUTER_V5"
+    }
+  ],
+  "full_source_read": [
+    "runtime_common.py",
+    "worker.py",
+    "native_adapter.v2.py",
+    "native_helper.cjs",
+    "supervisor.py",
+    "run_cli_once.py",
+    "run_cli_once.v2.py",
+    "run_cli_once.v3.py",
+    "scorer.py",
+    "scorer.v2.py",
+    "scorer.v3.py",
+    "test_candidate_inert.py",
+    "test_native_inert.v2.py",
+    "test_inert.py",
+    "test_inert.v3.py",
+    "test_inert.v4.py",
+    "test_inert.v5.py",
+    "four pinned native JS/package closure sources",
+    "supervisor.v2.py",
+    "run_cli_once.v4.py",
+    "run_cli_once.v5.py",
+    "test_inert.v6.py",
+    "test_inert.v7.py",
+    "worker.v2.py archive-only diff against fully-read worker.py",
+    "test_candidate_inert.v2.py",
+    "configuration v6 diff",
+    "protocol v2 archival diff"
+  ],
+  "future_actual_audit_requirements": [
+    "Source publication/full readback and exact phase-specific independent+Root admission before any model/native init.",
+    "Every owned identity and group/session physically closed before Gold; uncertain accounting forbids acceptance.",
+    "Reconcile actual pair sum with NLI_pair_inferences_completed and pair_tokenizations_completed.",
+    "Reconcile unique NLI_batch_records batch_index with canonical global NLI_forward_calls_completed and durable forward progress.",
+    "Engineering BGE forward9/texts144; DEV BGE forward ceil(W/16)+2/texts W+17 are inferred expected bounds only.",
+    "Reconstruct each state max-logodds and early-exit decision from archived raw3-logits; bind each logit row to exact batch row, case/arm/window/source hash and claim-input hash.",
+    "Recompute float32le output receipt from archived 3-logits and compare against recorded per-batch tensor hash/shape/bytes; actual input int64le receipts remain hash evidence for source-bound tokenization."
+  ],
+  "integration_requirements": [
+    "Use EXACT final v6 source packet and corrected component refs in final source freeze/publication/config.",
+    "Configuration v6 explicitly uses supervisor.v2 helpers required by outer.v5, worker.v2 and scorer.v3.",
+    "No admission is granted by this report. Parent Q/Root must reconcile final public source catalog, actual preparation W/catalog, runtime/fence/owner refs and all exact execution approvals."
+  ],
+  "latest_component_test_count": 56,
+  "latest_component_test_count_semantics": "14 archival worker/common +14 native +28 corrected supervisor/scorer authored tests; earlier regression versions listed separately.",
+  "limitations": [
+    "No actual runtime feasibility, latency, memory peak or scientific score is established.",
+    "Preparation/DATA custody reviewed independently by parent Q.",
+    "Import-free compilation and authored tests do not authorize execution."
+  ],
+  "optional_nonblocking_improvement": "COMPLETED_SOURCE_ONLY in worker.v2: DEV NLI_batch_records retain raw3-logits, input/output tensor receipts, task/source-window/claim identities, model hash and label map. Durable batch archival precedes decision elapsed capture; no extra forward/cache, thresholds, selection or local catalog change.",
+  "schema_version": 1,
+  "scientific_execution_authorized": false,
+  "scope": "INDEPENDENT_STATIC_WORKER_NATIVE_SUPERVISOR_SCORER_SOURCE_REVIEW_ONLY",
+  "source_level_findings_not_measurements": [
+    "Same fixed typed head and catalog in all three arms; canonical C/E/neutral mapping; stable max typed odds and neutral baseline.",
+    "Fixed log9/log3 native/source early exit only; numeric flags disable exit, never override probabilities.",
+    "NotMentioned requires exhaustive W; native retrieval miss forces full source-order fallback.",
+    "No crossarm output cache or hidden warmup in inspected source.",
+    "Engineering calls four full8 padded512 NLI batches and one native corpus128/query16.",
+    "Conditional DEV projection literal formula uses 2*ceil(51*W/8)*max engineering full8 forward + measured BGE/NLI model init +90 <=420.",
+    "Worker emits canonical42 strict-integer counters. Q must independently reconstruct raw durable progress and verify exact dictionary equality; expected bounds are not observations.",
+    "Scorer Brier is mean sum over3 labels, NLL from stable log probability, accuracy/error/confusion and p50/p95 calculations align with specified conventions.",
+    "Sources require source/publication/phase admissions before model/native init; actual frozen-source publication and runtime owner checks remain Q/Root work."
+  ],
+  "source_packets_verified": [
+    {
+      "bytes": 8546,
+      "path": "/dev/shm/ruvector-e58-candidate/CANDIDATE_SOURCE_PACKET.v2.assets.json",
+      "sha256": "4e6e885d0d962f34e1f88a699f62b9ec1943eee7afe7e8b07ccc34a48b30e2a2"
+    },
+    {
+      "bytes": 8781,
+      "path": "/dev/shm/ruvector-e58-candidate/CANDIDATE_SOURCE_PACKET.v5.reviewfixes.json",
+      "sha256": "512276e336535ffe20bb9c765e46c96d3fbd96a2cdc4555a2822cbd34ce4e2a5"
+    },
+    {
+      "bytes": 8804,
+      "path": "/dev/shm/ruvector-e58-candidate/CANDIDATE_SOURCE_PACKET.v6.finalreview.json",
+      "sha256": "cf9cddd2cdd8bc35db241fe14fb1006d6ff9619d909f0b5f407bca22c1a11adc"
+    }
+  ],
+  "source_ref_validation": {
+    "all_bytes_and_sha256_match": true,
+    "v2_refs": 21,
+    "v5_refs": 21,
+    "v6_refs": 21
+  },
+  "status": "STATIC_COMPONENT_REVIEW_PASS_FINAL_CANDIDATE_PACKET_V6",
+  "supersedes": {
+    "bytes": 10883,
+    "path": "/dev/shm/ruvector-e58-audit/worker-source-review/COMPONENT_SOURCE_REVIEW.v2.json",
+    "sha256": "187b2be211df41e93b24064f7ea2134ad471af537f1d19bbb8306387ec8daba8"
+  },
+  "tests_actually_run": [
+    {
+      "failures": 0,
+      "model_or_native_execution": false,
+      "suite": "test_candidate_inert.py",
+      "tests": 13
+    },
+    {
+      "failures": 0,
+      "model_or_native_execution": false,
+      "suite": "test_native_inert.v2.py",
+      "tests": 14
+    },
+    {
+      "failures": 0,
+      "model_or_native_execution": false,
+      "suite": "test_inert.py",
+      "tests": 17
+    },
+    {
+      "failures": 0,
+      "model_or_native_execution": false,
+      "suite": "test_inert.v5.py",
+      "tests": 25
+    },
+    {
+      "check": "Python builtin compile of every packet Python source",
+      "exec_or_import_actual_runtime": false,
+      "result": "PASS"
+    },
+    {
+      "check": "node --check native_helper.cjs scratch copy",
+      "native_load": false,
+      "result": "PASS"
+    },
+    {
+      "failures": 0,
+      "model_or_native_execution": false,
+      "source_refs": [
+        {
+          "bytes": 10953,
+          "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/test_inert.v7.py",
+          "sha256": "e975775fd6f09b6bbbc9bef47ddc0b5cc2d8c8ef7a0d7de10d26efebbf02dc96"
+        },
+        {
+          "bytes": 18406,
+          "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/scorer.v3.py",
+          "sha256": "774c19982bb48609c1fa24c1afbab9479db7465010fe16a880bea23fe76bb203"
+        },
+        {
+          "bytes": 16258,
+          "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/supervisor.v2.py",
+          "sha256": "647cc6be8d87dade6bb02859d10720bd34544b6c8569e74221736e932d5a1931"
+        },
+        {
+          "bytes": 13481,
+          "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/run_cli_once.v5.py",
+          "sha256": "0cde78ea585e7f8889044ccc1c887b268e6008cc66f3ce13002ef1fefc6dfcda"
+        }
+      ],
+      "suite": "test_inert.v7.py",
+      "tests": 28
+    },
+    {
+      "failures": 0,
+      "model_or_native_execution": false,
+      "source_refs": [
+        {
+          "bytes": 6522,
+          "path": "/dev/shm/ruvector-e58-candidate/test_candidate_inert.v2.py",
+          "sha256": "4ca34b90bf07bd5d37207447b1cfb4b9a6e4929d00710240b9ca84b9bac4ab0c"
+        },
+        {
+          "bytes": 20454,
+          "path": "/dev/shm/ruvector-e58-candidate/worker.v2.py",
+          "sha256": "b65c67eecffc2faaa1c78f39c396973b1e1524a131f450b946a89b52c4c64657"
+        }
+      ],
+      "suite": "test_candidate_inert.v2.py",
+      "tests": 14
+    }
+  ]
+}

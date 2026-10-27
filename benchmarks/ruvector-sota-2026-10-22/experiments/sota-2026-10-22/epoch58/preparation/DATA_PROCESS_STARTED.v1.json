@@ -1,0 +1,11 @@
+{
+  "epoch": 58,
+  "identity": {
+    "pgid": 193335,
+    "pid": 193335,
+    "sid": 193335,
+    "startticks": 45417935
+  },
+  "mode": "DATA",
+  "root_admission_sha256": "ea3d2abd83643ffcd94d1cd4689e1aa745477bddf252da6705a79331102ec3c1"
+}

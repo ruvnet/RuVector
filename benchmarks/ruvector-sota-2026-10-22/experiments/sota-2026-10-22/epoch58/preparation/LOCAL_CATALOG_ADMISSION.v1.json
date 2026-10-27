@@ -1,0 +1,98 @@
+{
+  "BGE_tokenizer": {
+    "bytes": 711396,
+    "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/models/bge-small-en-v1.5/tokenizer.json",
+    "sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66"
+  },
+  "Gold_authorization_granted": false,
+  "NLI_tokenizer": {
+    "bytes": 8656624,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/tokenizer.json",
+    "sha256": "5124ef2ead1a10a717703bc436de7f353da76d6340e4587719b42b1693707964"
+  },
+  "allowed_ids": [
+    "contractnli:eced6528:dev:17:nda-1",
+    "contractnli:eced6528:dev:17:nda-10",
+    "contractnli:eced6528:dev:17:nda-11",
+    "contractnli:eced6528:dev:17:nda-12",
+    "contractnli:eced6528:dev:17:nda-13",
+    "contractnli:eced6528:dev:17:nda-15",
+    "contractnli:eced6528:dev:17:nda-16",
+    "contractnli:eced6528:dev:17:nda-17",
+    "contractnli:eced6528:dev:17:nda-18",
+    "contractnli:eced6528:dev:17:nda-19",
+    "contractnli:eced6528:dev:17:nda-2",
+    "contractnli:eced6528:dev:17:nda-20",
+    "contractnli:eced6528:dev:17:nda-3",
+    "contractnli:eced6528:dev:17:nda-4",
+    "contractnli:eced6528:dev:17:nda-5",
+    "contractnli:eced6528:dev:17:nda-7",
+    "contractnli:eced6528:dev:17:nda-8"
+  ],
+  "automatic_retry": false,
+  "calibration_ids": [],
+  "confirmation_materialization_authorized": false,
+  "data_report_ref": {
+    "bytes": 6322,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/private-data/DATA_REPORT.json",
+    "sha256": "77bbc84683a9a77dd8dc04fb6ab88126b3b30daccfafce3f5784f8a42bc1e5c2"
+  },
+  "epoch": 58,
+  "features_ref": {
+    "bytes": 31269,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/private-data/FEATURES.json",
+    "sha256": "3926bee857a6dcf6f88ba9ff2925a382aeb243c08bbc5a6f6c0b5939237ffce1"
+  },
+  "fence_source": {
+    "bytes": 3376,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner_fence_v2.py",
+    "sha256": "5b56fa209a1d947d1bbabe31e5e4ed3d52e8dc9d2258e76fa8577c36b459d693"
+  },
+  "fresh_confirmation_ids": [],
+  "independent_preparation_approval_ref": {
+    "bytes": 4072,
+    "path": "/dev/shm/ruvector-e58-audit/LOCAL_BLIND_PREPARATION_SOURCE_AND_IDENTITY_INDEPENDENT_APPROVAL.v1.json",
+    "sha256": "5c7989a39e90f88aa81de09f4f0af3d18aefdcb85ac2173cfa7de2253c03569a"
+  },
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "maximum_seconds": 120,
+  "mode": "CATALOG",
+  "output_directory": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/private-catalog",
+  "owner_ref": {
+    "bytes": 831,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner.json",
+    "sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac"
+  },
+  "phase": "BLIND_CATALOG_PREPARATION_ONLY",
+  "plan_ref": {
+    "bytes": 12949,
+    "path": "/dev/shm/ruvector-e58-data/local-preparation/LOCAL_PREPARATION_PLAN.v1.json",
+    "sha256": "812aea76ebfdf1611f522ac9f6eca292ad6563395afbe5a361507c1576efc5f0"
+  },
+  "runtime_versions": {
+    "numpy": "2.2.6",
+    "onnxruntime": "1.22.1",
+    "tokenizers": "0.21.4"
+  },
+  "schema_version": 1,
+  "scientific_authorization_granted": false,
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "source_files": [
+    {
+      "bytes": 4912,
+      "path": "/dev/shm/ruvector-e58-candidate/prepare_catalog.py",
+      "sha256": "8057a63cb289fd93239280d7e6e2a9108a29f0fac750bae153b45cf330d0b074"
+    },
+    {
+      "bytes": 14910,
+      "path": "/dev/shm/ruvector-e58-candidate/runtime_common.py",
+      "sha256": "c3f54a0afaa68216f589c29c6206c1883a60ab46e046142e9728da7d86ad20af"
+    }
+  ],
+  "source_freeze_ref": {
+    "bytes": 6774,
+    "path": "/dev/shm/ruvector-e58-data/local-preparation/LOCAL_PREPARATION_SOURCE_FREEZE.v1.json",
+    "sha256": "0e763f415273d2d923e3cb751d27bac5901c4eb23fb6a18c4dab9c2713669884"
+  },
+  "train_ids": []
+}

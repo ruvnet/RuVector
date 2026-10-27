@@ -1,0 +1,238 @@
+{
+  "MASTER_required_fields": {
+    "calibration_ids": [],
+    "epoch": 58,
+    "fresh_confirmation_ids": [],
+    "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+    "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+    "train_ids": []
+  },
+  "NLI_model_config": {
+    "bytes": 1052,
+    "path": "/dev/shm/ruvector-e58-candidate/source-research/nli-deberta-v3-small.config.json",
+    "sha256": "885d0dceae8fa5c136da9209121ec9eb11160488e840de3bc1f29353674e5712"
+  },
+  "actual_asset_GET_result_refs": {
+    "nli_model": {
+      "bytes": 1169,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/nli_model.GET_RESULT.actual.json",
+      "sha256": "cba1db93845625b43f3f9236a557f13d1d32ccf420be2e7bd5f2c7173e9577b4"
+    },
+    "nli_tokenizer": {
+      "bytes": 1154,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/nli_tokenizer.GET_RESULT.actual.json",
+      "sha256": "13fa9ac22b2025a61c3983bf8c379fa53944f06cc620c68bad6d243515798a27"
+    }
+  },
+  "asset_verification_note": "Root completed exactlyone GET perasset; metadata result bodies independently rehashed by C. Q independent actual source-asset validation still required before preparation. No C model/tokenizer/native initialization.",
+  "assets": {
+    "BGE_model": {
+      "bytes": 34014426,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/model-assets/model_quantized.onnx",
+      "sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4"
+    },
+    "BGE_tokenizer": {
+      "bytes": 711396,
+      "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/models/bge-small-en-v1.5/tokenizer.json",
+      "sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66"
+    },
+    "NLI_model": {
+      "bytes": 172503006,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/model.onnx",
+      "sha256": "a1da6815c8da542d16381c7d84892d409b4b6604d655bb3054ecb15dd8714e6e"
+    },
+    "NLI_tokenizer": {
+      "bytes": 8656624,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/tokenizer.json",
+      "sha256": "5124ef2ead1a10a717703bc436de7f353da76d6340e4587719b42b1693707964"
+    }
+  },
+  "engineering_qualification_required_forDEV": {
+    "engineering_qualified": true,
+    "plan_ref": "exactfinalplan",
+    "projection_seconds": "actualindependent<=420",
+    "throughput_gate_passed": true
+  },
+  "epoch": 58,
+  "frozen_protocol": {
+    "bytes": 7977,
+    "path": "/dev/shm/ruvector-e58-candidate/CANDIDATE_PROTOCOL.v2.archival.json",
+    "sha256": "c4accfc52f8d387490cc4389ba6f68dc4c71e1782cbf1717f94418ddaaa14d38"
+  },
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "late_scorer_source": {
+    "bytes": 18406,
+    "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/scorer.v3.py",
+    "sha256": "774c19982bb48609c1fa24c1afbab9479db7465010fe16a880bea23fe76bb203"
+  },
+  "minimum_model_headroom_bytes": 1073741824,
+  "native_adapter_source": {
+    "bytes": 27748,
+    "path": "/dev/shm/ruvector-e58-candidate/native_impl/native_adapter.v2.py",
+    "sha256": "d212a33a2b242027b8c3129438bfa0f24689d309139344f23fc88488df975672"
+  },
+  "native_config_fixed_values": {
+    "corpus_document_count": "128 engineering or frozenW DEV",
+    "epoch": 58,
+    "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+    "native_binary": {
+      "bytes": 5403040,
+      "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/retrieval/node_modules/ruvector-core-linux-x64-gnu/ruvector.node",
+      "sha256": "ff559e9fac2e3d29a8b32e890fdb047bcd4bd28f389b4731ad72148b221d5a2e"
+    },
+    "native_closure_sources": [
+      {
+        "bytes": 1357,
+        "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/retrieval/node_modules/@ruvector/core/index.js",
+        "sha256": "eeba197be4085adb3492b8bc53cd61870f57d6bc18a9a5f1cd2ebec4b1908bee"
+      },
+      {
+        "bytes": 1669,
+        "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/retrieval/node_modules/@ruvector/core/package.json",
+        "sha256": "729e07f6c040bd47ba687cde8ad5681088187e53812e89d77d646ff48088a5e4"
+      },
+      {
+        "bytes": 330,
+        "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/retrieval/node_modules/ruvector-core-linux-x64-gnu/index.js",
+        "sha256": "f392127e6cd14141107fa432a43bbccc2fa1d574630a6fe2611688c66a48a7e9"
+      },
+      {
+        "bytes": 1130,
+        "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/retrieval/node_modules/ruvector-core-linux-x64-gnu/package.json",
+        "sha256": "afca994434efaadf637eb7d28bfd48da9dda69f24513bfb498c4ab9459d2fdf4"
+      }
+    ],
+    "native_helper_max_seconds": 60,
+    "native_helper_source": {
+      "bytes": 15603,
+      "path": "/dev/shm/ruvector-e58-candidate/native_impl/native_helper.cjs",
+      "sha256": "9278e5fe5c2a2a470a504e98b6b5e7bfae1fddd18f4cda4f0cb0b5324d004c46"
+    },
+    "native_process_timeout_seconds": 85,
+    "native_root": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project",
+    "node": {
+      "bytes": 125989464,
+      "path": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "sha256": "bc17c508ffeed0ec622934f9b7fa72f8e78da65350e63c3eceb56fa688aa5e12"
+    },
+    "phase": "<engineering|dev>",
+    "plan_sha256": "<actual final plan SHA256>",
+    "query_count": "16 engineering or17 DEV",
+    "schema_version": 1,
+    "selected_query_ids": "exact16 authored IDs or17DEV IDs"
+  },
+  "no_sourceweights_redistribution": true,
+  "outer_source": {
+    "bytes": 13481,
+    "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/run_cli_once.v5.py",
+    "sha256": "0cde78ea585e7f8889044ccc1c887b268e6008cc66f3ce13002ef1fefc6dfcda"
+  },
+  "preparation_admission_required_fields": [
+    "schema_version",
+    "epoch",
+    "kind",
+    "mode=CATALOG",
+    "phase=BLIND_CATALOG_PREPARATION_ONLY",
+    "allowed_ids",
+    "train_ids=[]",
+    "calibration_ids=[]",
+    "fresh_confirmation_ids=[]",
+    "scientific_authorization_granted=false",
+    "Gold_authorization_granted=false",
+    "source_files",
+    "fence_source",
+    "owner_ref",
+    "independent_preparation_approval_ref",
+    "plan_ref",
+    "source_freeze_ref",
+    "output_directory",
+    "runtime_versions",
+    "NLI_tokenizer",
+    "BGE_tokenizer",
+    "features_ref",
+    "data_report_ref",
+    "maximum_seconds<=120"
+  ],
+  "preparation_local_freeze": "files absolute typedrefs includes all preparation sources, shared fence and prepplan; Q compares exact plan/freeze hashes; no premeasurement model/native. InnerSIGALRM100 required Rootoutertimeout<=120inclusive.",
+  "runtime_versions": {
+    "numpy": "2.2.6",
+    "onnxruntime": "1.22.1",
+    "tokenizers": "0.21.4"
+  },
+  "schema_version": 1,
+  "source_files_policy": "Supervisor.required_sources and worker.source_files contain source/helper closure only; do not copy all runtime_sources including large model/node binaries. Assets are pinned/verified by their designated model/native loaders.",
+  "source_helper_contracts": [
+    {
+      "bytes": 4967,
+      "path": "/dev/shm/ruvector-e58-candidate/native_impl/NATIVE_SOURCE_PACKET.v2.json",
+      "sha256": "7c213ae74e5d7d8d51c2e26935b29e967c750e5cbcf1c85596bd275a6544293a"
+    },
+    {
+      "bytes": 8133,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/SUPERVISOR_SCORER_SOURCE_PACKET.v5.json",
+      "sha256": "9d665c03019778a2a6d5a2d2f71b1f898c14bc46668736c4d74d131a8f96e00d"
+    }
+  ],
+  "source_publication_required": [
+    "checks_passed=true",
+    "verified_actual_remote_readback=true",
+    "actual_parent",
+    "commit",
+    "source_plan_sha256",
+    "source_freeze_sha256"
+  ],
+  "status": "NONEXECUTABLE_CONFIGURATION_CONTRACT_NOT_ACTUAL_ADMISSION",
+  "strict_counter_schema": {
+    "bytes": 5114,
+    "path": "/dev/shm/ruvector-e58-candidate/COUNTER_SCHEMA.v1.json",
+    "sha256": "4011439770df89a74bc95f90e7798db9bacb5a638e556804fd8be0ceec18f791"
+  },
+  "supervisor_source": {
+    "bytes": 16258,
+    "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/supervisor.v2.py",
+    "sha256": "647cc6be8d87dade6bb02859d10720bd34544b6c8569e74221736e932d5a1931"
+  },
+  "worker_dev_only": [
+    "catalog_ref",
+    "engineering_qualification"
+  ],
+  "worker_engineering_only": [
+    "engineering_inputs"
+  ],
+  "worker_independent_source_admission_required": {
+    "checks_passed": true,
+    "owner_ref": "exact",
+    "phase": "exactengineering|dev",
+    "plan_ref": "exact",
+    "scientific_execution_allowed": true,
+    "source_freeze_ref": "exact",
+    "worker_config_ref": "ABSENT to avoid cycle"
+  },
+  "worker_ref_values": "Every field named plan/source_freeze/source_publication/independent_admission/owner/fence_source/engineering_inputs/catalog_ref/engineering_qualification/native_adapter_source is exact typed3ref. source_files exact operational closure refs; sourcefreeze.runtime_sources includes them, public files bodymatches.",
+  "worker_required_fields": [
+    "schema_version",
+    "epoch",
+    "kind",
+    "phase",
+    "plan",
+    "source_freeze",
+    "source_publication",
+    "independent_admission",
+    "owner",
+    "fence_source",
+    "source_files",
+    "runtime_versions",
+    "frozen_window_count",
+    "minimum_model_headroom_bytes",
+    "assets",
+    "NLI_model_config",
+    "native_adapter_source",
+    "native_config",
+    "output_directory"
+  ],
+  "worker_source": {
+    "bytes": 20454,
+    "path": "/dev/shm/ruvector-e58-candidate/worker.v2.py",
+    "sha256": "b65c67eecffc2faaa1c78f39c396973b1e1524a131f450b946a89b52c4c64657"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "automatic_retry": false,
+  "epoch": 58,
+  "generation": 26,
+  "launcher_observed_child_exit_code": null,
+  "launcher_parent_exits_after_result": true,
+  "native_model_Gold_Git_calls": 0,
+  "owner_ref": {
+    "bytes": 831,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner.json",
+    "sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac"
+  },
+  "pid": 192464,
+  "status": "OWNER_READY"
+}

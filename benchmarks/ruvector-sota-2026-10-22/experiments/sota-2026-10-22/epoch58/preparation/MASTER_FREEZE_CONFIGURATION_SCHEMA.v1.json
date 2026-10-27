@@ -1,0 +1,80 @@
+{
+  "CLI": "taskset -c 0,1 python -I -B <reviewed build_master_and_freeze.py> --input <config> --input-sha <SHA> --approval <Qexactinputapproval> --approval-sha <SHA>",
+  "Manifest_to_Master": "actualtypedref",
+  "Master_to_SF": "pathonly",
+  "SF_to_Master_and_Manifest": "actualtypedrefs; acyclic",
+  "actual_SCI_or_Git_calls": 0,
+  "actual_preparation": {
+    "DATA_report": "project metadata ref; exactactualfeatureIDs==reservedIDs==masterdevelopment_ids; semanticGold0,CF[]",
+    "catalog_report": "project metadata ref; BLIND_CATALOG_READY/all17capacitytrue/W==masterW; NLI/native/Gold/paid/GPU0",
+    "local_plan": "project exactearlierLOCAL_PREPARATION_PLAN ref",
+    "local_source_freeze": "project exactearlierLOCAL_SOURCE_FREEZE ref"
+  },
+  "all_content_validation_before_first_generated_write": true,
+  "builder_public_path": "experiments/sota-2026-10-22/epoch58/preparation/build_master_and_freeze.py",
+  "epoch": 58,
+  "independent_builder_approval_fields": [
+    "epoch58",
+    "checks_passed=true",
+    "source_metadata_preparation_allowed=true",
+    "phase_input_sha256=<exactinputSHA>",
+    "builder_source_sha256=<exactexecutedbuilderSHA>"
+  ],
+  "independent_public_source_review_fields": [
+    "epoch58",
+    "checks_passed=true",
+    "public_inventory_review_passed=true",
+    "files=exactsortedpublic_artifacts"
+  ],
+  "inherited_public_sources": "canonical PROJECT typed3refs outside currentepochnamespaces; exactcurrentCP/Gitprovenance willalso becheckedbystagebuilder",
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "master_fields_additional_optional": "Rootreviewedcompletepolicy/gates/model/data/scorer/sourcequalification/actualpreparation provenance; no currentSOURCE_FREEZE hash/ref (pathonlyavoidscycle).",
+  "master_fields_additional_required": {
+    "development_ids": "exact17actualDATAreservedandpreparedcaseIDs",
+    "frozen_window_count": "exactactualBLIND_CATALOG_READYreportW, int1..24",
+    "limits": {
+      "CPU_threads": "int1..2",
+      "GPU_calls": 0,
+      "inclusive_CLI_seconds_per_batch": "int1..600",
+      "native_corpus_batches": "int1..2",
+      "paid_API_calls": 0
+    }
+  },
+  "master_fields_fixed_or_injected": {
+    "calibration_ids": [],
+    "candidate_promotion_allowed": false,
+    "epoch": 58,
+    "fresh_confirmation_ids": [],
+    "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+    "schedule_is_not_actual_execution_evidence": true,
+    "schema_version": 1,
+    "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+    "source_freeze_path": "experiments/sota-2026-10-22/epoch58/SOURCE_FREEZE.json",
+    "train_ids": []
+  },
+  "no_overwrite_or_retry": true,
+  "outputs_in_order": [
+    "epoch58/plan.json",
+    "epoch58/SOURCE_MANIFEST.json",
+    "epoch58/SOURCE_FREEZE.json"
+  ],
+  "public_artifacts": "exact all existing current epoch58/audit58/runtime58 canonical project typed3refs; excludes generated plan/SOURCE_MANIFEST/SOURCE_FREEZE; must match actualdirectoryinventory AND Qreview.files exactly",
+  "publication_guard": "absolute typed3ref to W58/publication-helpers-g26/guard.py; byte-identical public publication/guard.py and actual builder source already copied in public_artifacts",
+  "required_input_keys": [
+    "epoch",
+    "kind",
+    "source_checkpoint",
+    "owner",
+    "publication_guard",
+    "public_artifacts",
+    "runtime_sources",
+    "inherited_public_sources",
+    "independent_public_source_review",
+    "master_fields",
+    "actual_preparation",
+    "source_qualification"
+  ],
+  "runtime_sources": "list of unique ABSOLUTE typed3refs; allverified by stable streamingSHA256 without semanticdecode orbodypublication. Includes private featurebank/catalog/modelassets/operationalhelpers as approved; C worker source_files list isONLYoperationalsourceclosure, not fullruntime_sources binaries.",
+  "schema_version": 1,
+  "source_freeze_shape": "files(relativepublic+inheritedtypedrefs, selfexcluded); runtime_sources(absoluteexactlist); master_plan/source_manifest refs; owner and DEV/train/cal/CFrolemetadata"
+}

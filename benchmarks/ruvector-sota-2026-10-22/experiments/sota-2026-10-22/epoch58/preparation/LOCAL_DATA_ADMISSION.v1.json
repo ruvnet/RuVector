@@ -1,0 +1,102 @@
+{
+  "Gold_authorization_granted": false,
+  "allowed_ids": [
+    "contractnli:eced6528:dev:17:nda-1",
+    "contractnli:eced6528:dev:17:nda-10",
+    "contractnli:eced6528:dev:17:nda-11",
+    "contractnli:eced6528:dev:17:nda-12",
+    "contractnli:eced6528:dev:17:nda-13",
+    "contractnli:eced6528:dev:17:nda-15",
+    "contractnli:eced6528:dev:17:nda-16",
+    "contractnli:eced6528:dev:17:nda-17",
+    "contractnli:eced6528:dev:17:nda-18",
+    "contractnli:eced6528:dev:17:nda-19",
+    "contractnli:eced6528:dev:17:nda-2",
+    "contractnli:eced6528:dev:17:nda-20",
+    "contractnli:eced6528:dev:17:nda-3",
+    "contractnli:eced6528:dev:17:nda-4",
+    "contractnli:eced6528:dev:17:nda-5",
+    "contractnli:eced6528:dev:17:nda-7",
+    "contractnli:eced6528:dev:17:nda-8"
+  ],
+  "archive_ref": {
+    "GitSHA": "757fd1dafd29a997fba00c60c6d40b2930a36159",
+    "bytes": 65362913,
+    "member": "contract-nli/dev.json",
+    "member_bytes": 1183107,
+    "member_sha256": "310af7d661d2ab50ee3700169cef524c75f39fb296bbf5a515c229eb0f42e68e",
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch48-37b29244dcf5/assets/data/contract-nli-eced6528.zip",
+    "sha256": "e03fc77bbf8b53e2976a250e81d8a294bc3d5e5fb014521e477dee9340d6287b"
+  },
+  "automatic_retry": false,
+  "calibration_ids": [],
+  "confirmation_materialization_authorized": false,
+  "epoch": 58,
+  "fence_source": {
+    "bytes": 3376,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner_fence_v2.py",
+    "sha256": "5b56fa209a1d947d1bbabe31e5e4ed3d52e8dc9d2258e76fa8577c36b459d693"
+  },
+  "fresh_confirmation_ids": [],
+  "independent_preparation_approval_ref": {
+    "bytes": 4072,
+    "path": "/dev/shm/ruvector-e58-audit/LOCAL_BLIND_PREPARATION_SOURCE_AND_IDENTITY_INDEPENDENT_APPROVAL.v1.json",
+    "sha256": "5c7989a39e90f88aa81de09f4f0af3d18aefdcb85ac2173cfa7de2253c03569a"
+  },
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "maximum_seconds": 120,
+  "mode": "DATA",
+  "output_directory": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/private-data",
+  "owner_ref": {
+    "bytes": 831,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner.json",
+    "sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac"
+  },
+  "phase": "BLIND_CATALOG_PREPARATION_ONLY",
+  "plan_ref": {
+    "bytes": 12949,
+    "path": "/dev/shm/ruvector-e58-data/local-preparation/LOCAL_PREPARATION_PLAN.v1.json",
+    "sha256": "812aea76ebfdf1611f522ac9f6eca292ad6563395afbe5a361507c1576efc5f0"
+  },
+  "schema_version": 1,
+  "scientific_authorization_granted": false,
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "source_files": [
+    {
+      "bytes": 28522,
+      "path": "/dev/shm/ruvector-e58-data/data-v5/custody.py",
+      "sha256": "e0653b5ffb44fb21ddbdf22cb3a0c0cb2743a9650e6e1c8907a7a5a32b717afd"
+    },
+    {
+      "bytes": 4377,
+      "path": "/dev/shm/ruvector-e58-data/data-v5/span_json.py",
+      "sha256": "5ebc4171bc35930bf837101230ff0de02543e19454c9d6dc7b4deba9a6e09387"
+    },
+    {
+      "bytes": 3100,
+      "path": "/dev/shm/ruvector-e58-data/data-v5/source_catalog.py",
+      "sha256": "46b8ab06ec6030df94797307b3ad1da7b5a5a60e4d4479bc11af1b718467bc6a"
+    },
+    {
+      "bytes": 5754,
+      "path": "/dev/shm/ruvector-e58-data/data-v5/official_codec.source.py",
+      "sha256": "9c63102a01576c230da94695f593fd7bd4fe2d0b20672b74e8a7f62aba426fc4"
+    },
+    {
+      "bytes": 14457,
+      "path": "/dev/shm/ruvector-e58-data/data-v5/DATA_PROTOCOL.v5.json",
+      "sha256": "e1bb003c2b92003d53dc757e17b0ec650ffe749bdf553b7b7db45dddb2c00bd2"
+    },
+    {
+      "bytes": 5114,
+      "path": "/dev/shm/ruvector-e58-data/data-v5/COUNTER_SCHEMA.v1.json",
+      "sha256": "4011439770df89a74bc95f90e7798db9bacb5a638e556804fd8be0ceec18f791"
+    }
+  ],
+  "source_freeze_ref": {
+    "bytes": 6774,
+    "path": "/dev/shm/ruvector-e58-data/local-preparation/LOCAL_PREPARATION_SOURCE_FREEZE.v1.json",
+    "sha256": "0e763f415273d2d923e3cb751d27bac5901c4eb23fb6a18c4dab9c2713669884"
+  },
+  "train_ids": []
+}

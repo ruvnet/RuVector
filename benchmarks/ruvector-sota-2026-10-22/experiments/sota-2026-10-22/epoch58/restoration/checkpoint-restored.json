@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-I",
+    "-B",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/restore_checkpoint.py",
+    "--dest",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project",
+    "--base-local-directory",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/base-cache"
+  ],
+  "exit_code": 0,
+  "model_native_Gold_Git_calls": 0,
+  "stderr": "",
+  "stdout": "{\"status\": \"PUBLIC_CHECKPOINT_RESTORED\", \"projected_base_files\": 48, \"checkpoint_files\": 9048, \"destination\": \"/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project\", \"native_or_paid_calls\": 0, \"dependency_or_model_installation\": false}\n",
+  "wall_seconds": 3.212905875989236
+}

@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-I",
+    "-B",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/experiments/sota-2026-10-22/epoch26/publication/restore_epoch26_archives_v1.py",
+    "--kit-root",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit",
+    "--manifest",
+    "experiments/sota-2026-10-22/epoch26/publication/archive-transport.v1.json",
+    "--expected-manifest-sha256",
+    "9b79fc0119e1e5d15470201b7180f4b39e55b687a207dac1ff9f333d91a8ef24",
+    "--verify-only"
+  ],
+  "exit_code": 0,
+  "model_native_Gold_Git_calls": 0,
+  "stderr": "",
+  "stdout": "{\"artifacts\": [{\"artifact\": {\"bytes\": 22784264, \"path\": \"experiments/sota-2026-10-22/epoch26/runs/dev/raw.json\", \"sha256\": \"0e35f4d7c49baefbfaeb40d37d23579782551228315ea928e20f17e68e6fac28\"}, \"status\": \"VERIFIED_EXISTING\"}, {\"artifact\": {\"bytes\": 9541777, \"path\": \"experiments/sota-2026-10-22/epoch26/runs/dev/native-result.json\", \"sha256\": \"e0c5475d8a93a01975230c3c416825a9a9e697a9abee9f55476b08f98371ddcc\"}, \"status\": \"VERIFIED_EXISTING\"}], \"checkpoint_files_verified\": 9048, \"checkpoint_manifest_sha256\": \"ae9b6df276bbd2b3446fd21b4a3a6b2a8e3e2b96083716a3f1478318c4144d8f\", \"epoch\": 26, \"manifest\": {\"bytes\": 2105, \"path\": \"experiments/sota-2026-10-22/epoch26/publication/archive-transport.v1.json\", \"sha256\": \"9b79fc0119e1e5d15470201b7180f4b39e55b687a207dac1ff9f333d91a8ef24\"}, \"model_native_tokenizer_Git_network_calls\": 0, \"required_before_bootstrap\": true, \"run_unchanged_bootstrap_and_restore_next\": true, \"schema_version\": 1, \"scientific_acceptance_changed\": false, \"source_commit\": \"00d49880e0b6a7dc2aea8cb155d64549f423c782\", \"verify_only\": true}\n",
+  "wall_seconds": 6.535717282968108
+}

@@ -1,0 +1,35 @@
+{
+  "actual_lock_acquisition_observed": false,
+  "checks_passed": true,
+  "diff_recomputed": "--- verified_guardian24\n+++ actual_guardian25\n@@ -1,9 +1,9 @@\n-\"\"\"Exclusive publication-only guardian; acquiring this lock authorizes no science.\"\"\"\n+\"\"\"Exclusive E58 work guardian; acquiring this lock alone authorizes no science.\"\"\"\n from pathlib import Path\n from datetime import datetime, timezone\n import fcntl, json, os, signal, stat, sys, time\n \n-BASE = Path('/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/publication-recovery-g24')\n+BASE = Path('/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1')\n LOCK = Path('/tmp/ruvector-sota-2026-10-22/exclusive.work.lock')\n BOOT = '4632fb06-b0ef-4df5-b72b-0e875bbad810'\n NAMESPACE = 'pid:[4026532200]'\n@@ -30,8 +30,7 @@\n     assert os.readlink('/proc/self/ns/pid') == NAMESPACE\n     assert sorted(os.sched_getaffinity(0)) == [0, 1]\n     for name in ('owner.json', 'release.request', 'released.json', 'heartbeat.txt'):\n-        assert not os.path.lexists(BASE / name), 'existing guardian24 evidence: STOP'\n-    assert not Path('/proc/186899').exists(), 'historical guardian23 PID present: STOP'\n+        assert not os.path.lexists(BASE / name), 'existing guardian25 evidence: STOP'\n     fd = os.open(LOCK, os.O_RDWR | os.O_NOFOLLOW)\n     st = os.fstat(fd)\n     assert fd == 3 and stat.S_ISREG(st.st_mode) and (st.st_dev, st.st_ino) == (33, 13626)\n@@ -49,17 +48,16 @@\n     expiry = started + 7200\n     ticks = int(Path('/proc/self/stat').read_text().rsplit(')', 1)[1].split()[19])\n     owner = {\n-        'run_id': 'epoch57-final-publication-only-generation24',\n-        'epoch': 57, 'generation': 24, 'pid': os.getpid(), 'startticks': ticks,\n+        'run_id': 'epoch58-db7b9b21f4a1-generation25',\n+        'epoch': 58, 'generation': 25, 'pid': os.getpid(), 'startticks': ticks,\n         'lock': str(LOCK), 'lock_device': 33, 'lock_inode': 13626, 'lock_fd': 3,\n         'started_unix': started, 'expires_unix': expiry,\n         'started_at': datetime.fromtimestamp(started, timezone.utc).isoformat(),\n         'expires_at': datetime.fromtimestamp(expiry, timezone.utc).isoformat(),\n         'CPU_affinity': [0, 1], 'kernel_boot_id': BOOT, 'PID_namespace': NAMESPACE,\n         'scope': 'ruvnet/RuVector:benchmarks/ruvector-sota-2026-10-22',\n-        'purpose': 'METADATA_ONLY_FINAL_CHECKPOINT_PUBLICATION_NO_SCIENTIFIC_AUTHORITY',\n+        'purpose': 'BOUNDED_RESEARCH_E58_TYPED_NLI_AND_NATIVE_EVIDENCE',\n         'scientific_invocation_authorized_by_lock_alone': False,\n-        'historical_payload_generation': 23,\n     }\n     try:\n         durable_new(BASE / 'owner.json', owner)\n@@ -72,10 +70,10 @@\n             finally: os.close(heartbeat)\n             time.sleep(1)\n         durable_new(BASE / 'released.json', {\n-            'epoch': 57, 'generation': 24, 'pid': os.getpid(), 'startticks': ticks,\n+            'epoch': 58, 'generation': 25, 'pid': os.getpid(), 'startticks': ticks,\n             'released_at': datetime.now(timezone.utc).isoformat(),\n             'reason': 'signal' if stop['requested'] else ('expiry' if time.time() >= expiry else 'release.request'),\n-            'scientific_invocations': 0,\n+            'scientific_invocations_by_guardian': 0,\n         })\n     finally:\n         fcntl.flock(fd, fcntl.LOCK_UN)\n",
+  "epoch": 58,
+  "generation": 25,
+  "guardian_source_launch_allowed": true,
+  "launch_contract": "Root may once run taskset -c 0,1 python -I -B <exact source>; no optimization, one explicit acquisition. Busy exit73 means STOP, no retry/overlap.",
+  "next_gate": "Actual independently verified owner25 PID/birthticks/FD3/originalkernelFLOCK and busy independent probe before scientific/source mutation; later source/identity/resource freeze and dispatch approvals remain separate.",
+  "observed_unix": 1793126478.724967,
+  "reviewed_checks": [
+    "actual source rehashed and read in full; actualdiff recomputed after counterrename",
+    "existing original lock opened O_RDWR|O_NOFOLLOW without O_CREAT; fixed33:13626 and FD3 checked",
+    "FLOCK_EX|FLOCK_NB; active scope returns73 STOP",
+    "boot/ns/CPU0,1 exact,2hexpiry, E58/gen25/fixedrepository+branch scope",
+    "new owner/release evidence O_EXCL+file/directory fsync; existing evidence stops",
+    "guardian lease alone explicitly grants no science; guardian count scoped only to own scientific invocations",
+    "release request/signal/expiry writes released record then unlocks/closes in finally",
+    "obsolete old PID23 condition removed without weakening actual kernel nonblocking exclusion"
+  ],
+  "reviewer_FLOCK_acquisitions": 0,
+  "reviewer_actual_scientific_Git_or_model_calls": 0,
+  "schema_version": 1,
+  "scientific_dispatch_authorized": false,
+  "source": {
+    "bytes": 4092,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/lock_supervisor.py",
+    "sha256": "c25d3510ba2e5584ca7de79b6e9993dbafc262dc5fa34f4a3ec08c29a9bd396a"
+  },
+  "verified_reference_source": {
+    "bytes": 4266,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/publication-recovery-g24/lock_supervisor.py",
+    "sha256": "2acbb1dec01877c78884690745eb9695e75d66af4bfccdedbc31dfbcef3728eb"
+  }
+}

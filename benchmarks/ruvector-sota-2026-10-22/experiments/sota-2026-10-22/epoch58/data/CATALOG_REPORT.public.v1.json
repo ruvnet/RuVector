@@ -1,0 +1,46 @@
+{
+  "GPU_calls": 0,
+  "Gold_labels_decoded": 0,
+  "NLI_forward_calls": 0,
+  "all17_claims_capacity_checked": true,
+  "catalog_ref": {
+    "bytes": 26434,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/private-catalog/CATALOG.json",
+    "sha256": "4d4fd618bc3f690a3fd04c130b45cee2843d3e45530c24cff71ce5af310c522e"
+  },
+  "elapsed_seconds": 1.178987587976735,
+  "epoch": 58,
+  "errors": [],
+  "frozen_window_count": 9,
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "mode": "CATALOG",
+  "native_corpus_batches": 0,
+  "paid_API_calls": 0,
+  "schema_version": 1,
+  "selected_query_ids": [
+    "contractnli:eced6528:dev:17:nda-1",
+    "contractnli:eced6528:dev:17:nda-10",
+    "contractnli:eced6528:dev:17:nda-11",
+    "contractnli:eced6528:dev:17:nda-12",
+    "contractnli:eced6528:dev:17:nda-13",
+    "contractnli:eced6528:dev:17:nda-15",
+    "contractnli:eced6528:dev:17:nda-16",
+    "contractnli:eced6528:dev:17:nda-17",
+    "contractnli:eced6528:dev:17:nda-18",
+    "contractnli:eced6528:dev:17:nda-19",
+    "contractnli:eced6528:dev:17:nda-2",
+    "contractnli:eced6528:dev:17:nda-20",
+    "contractnli:eced6528:dev:17:nda-3",
+    "contractnli:eced6528:dev:17:nda-4",
+    "contractnli:eced6528:dev:17:nda-5",
+    "contractnli:eced6528:dev:17:nda-7",
+    "contractnli:eced6528:dev:17:nda-8"
+  ],
+  "source_features_ref": {
+    "bytes": 31269,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/private-data/FEATURES.json",
+    "sha256": "3926bee857a6dcf6f88ba9ff2925a382aeb243c08bbc5a6f6c0b5939237ffce1"
+  },
+  "status": "BLIND_CATALOG_READY",
+  "tokenizers_initialized": 2
+}

@@ -1,0 +1,40 @@
+{
+  "after": {
+    "memory_current_bytes": 14179545088,
+    "memory_max_bytes": 17179869184,
+    "shared_headroom_bytes": 3000324096,
+    "shm_free_bytes": 5304774656
+  },
+  "all9048_CP_bytes_remain_in_R": true,
+  "all9134_project_mirrors_and46_kit_only_files_full_hash_preserved": true,
+  "all_kit_directories_preserved": true,
+  "all_private_metadata_model_runtime_and_R_paths_preserved": true,
+  "approval": {
+    "bytes": 2128,
+    "path": "/dev/shm/ruvector-e58-audit/KIT_TWIN_RETIREMENT_G26_INDEPENDENT_APPROVAL.v1.json",
+    "sha256": "c68cf4219610d720ec748827bb6eeb8021418ba448a9aed456cfc3fcaabc1d32"
+  },
+  "before": {
+    "memory_current_bytes": 14782013440,
+    "memory_max_bytes": 17179869184,
+    "shared_headroom_bytes": 2397855744,
+    "shm_free_bytes": 4715139072
+  },
+  "checks_passed": true,
+  "epoch": 58,
+  "exact_kit_files_retired": 9134,
+  "execution_generation": 26,
+  "historical_source_restoration_generation": 25,
+  "logical_bytes_retired": 569321291,
+  "new_native_model_Gold_paid_GPU_Git_calls": 0,
+  "plan": {
+    "bytes": 1199,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit-twin-retirement/KIT_TWIN_RETIREMENT_PLAN.v1.json",
+    "sha256": "3f4a7409a3f5aaf1b8caeb00e45df997c353323b9bcf1473aabac7f749c3696b"
+  },
+  "preserved_kit_files": 46,
+  "schema_version": 1,
+  "scientific_dispatch_authorized": false,
+  "shared_snapshot_scope": "Shared snapshots; no sole-cause or guaranteed incremental-memory claim.",
+  "wall_seconds": 0.7713845469988883
+}

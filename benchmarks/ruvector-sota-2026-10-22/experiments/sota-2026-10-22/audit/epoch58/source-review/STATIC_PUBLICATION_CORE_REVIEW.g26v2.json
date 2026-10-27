@@ -1,0 +1,155 @@
+{
+  "actual_checks": {
+    "copies_only_in_assigned_scratch": true,
+    "current_parent_g25_original_E57_and_supplied_diff_ref_pins_verified": true,
+    "exact_direct_core_diffs_against_retained_g25_and_CP_pinned_E57_read": true,
+    "inert_test_elapsed_seconds": 0.004,
+    "node_syntax_check_passed": true,
+    "packet_fully_read": true,
+    "scratch_TMPDIR_used": true,
+    "supplied_inert_metadata_ACK_tests_passed": 14,
+    "supplied_inert_metadata_ACK_tests_run": 14,
+    "test_source_changes": false,
+    "three_core_sources_and_supplied_inert_tests_fully_read": true,
+    "three_python_files_compiled_in_memory": true
+  },
+  "blocking_source_findings": [],
+  "component_source_checks_passed": true,
+  "disposition": "APPROVE_PINNED_G26V2_PUBLICATION_CORE_STATIC_SOURCE_FOR_PARENT_INTEGRATION_ONLY; REPORTER_AND_ACTUAL_STAGE_REQUIRE_SEPARATE_REVIEW",
+  "epoch": 58,
+  "forbidden_actions_performed": {
+    "actual_guard_or_stage_CLI_calls": 0,
+    "actual_owner_fence_import_invocation_or_ownership_operations": 0,
+    "controller_execution": 0,
+    "live_Git_queries_mutations_or_forbidden_object_operations": 0,
+    "model_tokenizer_native_calls": 0,
+    "operational_workspace_cleanup": 0,
+    "real_DATA_Gold_confirmation_or_assets_access": 0
+  },
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "operational_publication_authorized": false,
+  "original_E57_source_refs": [
+    {
+      "bytes": 20232,
+      "path": "experiments/sota-2026-10-22/epoch57/publication/guard.py",
+      "sha256": "64f1ca3e65d0a9a6f58ed626e2aee500474793d30456a2fc7837e96552b2faf7"
+    },
+    {
+      "bytes": 16285,
+      "path": "experiments/sota-2026-10-22/epoch57/publication/stagebuilder.py",
+      "sha256": "d346f3d63698c0685c5167be86bbea13d52da89031325ce9ca281f8d961e4e93"
+    },
+    {
+      "bytes": 9592,
+      "path": "experiments/sota-2026-10-22/epoch57/publication/controller.js",
+      "sha256": "fb2abd378fff34b81a8d7e2e681b56734e597501d28a5c15fd94d15d74ff58d2"
+    }
+  ],
+  "packet_ref": {
+    "bytes": 5877,
+    "path": "/dev/shm/ruvector-e58-publication/g26v2/PUBLICATION_CORE_SOURCE_REVIEW_PACKET.v2.json",
+    "sha256": "4ae50d86d771bbe26635700b75cc2c17cd9bf0f09ee96cd8d9e18befd1039aa8"
+  },
+  "required_separate_reviews_and_limits": [
+    "Reporter is explicitly excluded from this core packet and this approval; no final reporting correctness or raw worker/scoring evidence approval is implied.",
+    "Root/Q must separately approve exact phase input, stage metadata SHA, frozen full source/artifact inventory, public payload privacy/factual content, expected full desired tree and fresh operational owner proof before any publication.",
+    "This review verifies source-level enforcement of base9055/CP9048 and history constraints, not the actual current live repository, stage, journal, owner, source assets or Git readbacks.",
+    "Inert tests exercise pure metadata validation, ACK cases, pending/failed journal rejection, path/body safety, hashes and synthetic preservation. They do not execute controller publication, guard/stage CLI, real MCP calls or actual full-stage Merkle verification.",
+    "Approved final metadata patch values including reporting/ledger additions still require exact stage review; generic text filtering alone does not establish absence of private data.",
+    "No SCI, DATA, Gold, model/native, Git mutation or source-publication authority is granted by this static component report."
+  ],
+  "retained_g25_source_refs": [
+    {
+      "bytes": 20351,
+      "path": "/dev/shm/ruvector-e58-publication/guard.py",
+      "sha256": "9ce9046e3cc63bea24f2827837a0a52e688408c1dc0dcc3b89b9e68bd0851814"
+    },
+    {
+      "bytes": 16285,
+      "path": "/dev/shm/ruvector-e58-publication/stagebuilder.py",
+      "sha256": "a864fca0ce9eb15776230dbbae94292f77d1b4649d68d6bd1ec49adb7361ac9a"
+    },
+    {
+      "bytes": 9870,
+      "path": "/dev/shm/ruvector-e58-publication/controller.js",
+      "sha256": "b18af84c758daec196e7609a160c1a727eec75b268f57094869421f6e0b61877"
+    }
+  ],
+  "role": "Q_INDEPENDENT_STATIC_PUBLICATION_CORE_REVIEW",
+  "schema_version": 1,
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "source_findings": [
+    {
+      "basis": "SOURCE_INSPECTION",
+      "conclusion": "PASS",
+      "detail": "Controller awaits the complete first returned MCP mutation object capture before post-call owner checks, fresh ref read or unwrap/ack parsing. capture-raw branches before load_stage/owner fence and writes O_EXCL/fsync file+directory. A thrown transport exception is separately recorded as transport_error and stops; no returned MCP object is replaced by a parsed subset.",
+      "id": "RAW_FIRST_RETURN_CAPTURE",
+      "source": "controller.js:34-49; guard.py:255-264,288-304"
+    },
+    {
+      "basis": "SOURCE_INSPECTION_PLUS_SUPPLIED_INERT_TESTS",
+      "conclusion": "PASS",
+      "detail": "O_EXCL concrete request reservation precedes fsynced intent and tool call. Phase/generation26/owner/exact completed prefix are enforced. Odd pending intent, failed/uncertain response, unknown transport, invalid ACK or stale proof stops without replay/reconciliation. The controller has one explicit phase context and no auto invocation/retry.",
+      "id": "DURABLE_RESERVATION_AND_NO_REPLAY",
+      "source": "guard.py:84-89,182-193,220-241,275-303; controller.js:34-49,63-65"
+    },
+    {
+      "basis": "SOURCE_INSPECTION_PLUS_SUPPLIED_INERT_TESTS",
+      "conclusion": "PASS",
+      "detail": "Blob/tree identifying ACK SHA matches frozen expected SHA. Commit ACK is then re-read to prove exact tree and one exact parent. Ref ACK must identify exact scoped ref/target, or be exact known bare success=True plus fresh scoped ref GET matching target; fresh ref proof is required in either case. Proof capture is exclusive/durable before validation.",
+      "id": "IDENTIFYING_ACK_AND_FRESH_CAS_PROOF",
+      "source": "guard.py:157-176,248-253,268-274,296-303; controller.js:45-49,84-89"
+    },
+    {
+      "basis": "SOURCE_INSPECTION_PLUS_SUPPLIED_INERT_TESTS",
+      "conclusion": "PASS",
+      "detail": "Only ruvnet/RuVector supported mutation tools; tree updates restricted to fixed benchmark current epoch/audit/runtime roots and three controls. Ref updates require only benchmarks/ruvector-sota-2026-10-22, force=False and exact expected parent. Three permanently forbidden object SHAs reject live keyed refs and queries; exact blob identity recreation is blocked. Historical SHA string metadata remains allowed.",
+      "id": "FIXED_MUTATION_SCOPE_AND_FORBIDDEN_OBJECTS",
+      "source": "guard.py:19-31,125-155; stagebuilder.py:157-180; controller.js:5-11"
+    },
+    {
+      "basis": "SOURCE_INSPECTION",
+      "conclusion": "PASS",
+      "detail": "Staging checks actual root/bench/scope Merkle chain, E58 base9055 Git leaves/9048 CP rows, unchanged70 CP-only paths and separate E44 overlay55. New inventory is exact, frozen, append-only current paths; source artifacts immutable at FINAL. Controller verifies root/bench sibling preservation and complete nontruncated exact scope leaves before sole-parent commit and scoped CAS; any scoped parent advance stops.",
+      "id": "WHOLE_TREE_PARENT_AND_HISTORY_PRESERVATION",
+      "source": "stagebuilder.py:32-76,99-158,169-190; controller.js:51-61,70-89"
+    },
+    {
+      "basis": "SOURCE_INSPECTION_AND_EXACT_E57_DIFF",
+      "conclusion": "PASS",
+      "detail": "Fresh main before/after refs are validated as read-only snapshots. External main advancement is allowed; receipt records actual before/after values and computed unchanged_within_phase equality. No request can mutate main and no false unchanged assertion is inserted.",
+      "id": "MAIN_READ_ONLY_AND_HONEST_SNAPSHOT",
+      "source": "controller.js:70-72,90-91"
+    },
+    {
+      "basis": "SOURCE_INSPECTION",
+      "conclusion": "PASS",
+      "detail": "Exact operational owner_fence_v2.py3376/SHA5b56... source checked before import, verify_owner receives exact owner831/SHA78d... typed ref. Public runtime/epoch58/ownership/owner_fence.py bytes/hash must be source-frozen. This reviewer did not invoke/import actual fence or observe actual owner/lock.",
+      "id": "PINNED_SHARED_OWNER26_FENCE",
+      "source": "guard.py:25-29,117-122,212-217; stagebuilder.py:92-98"
+    }
+  ],
+  "source_refs": [
+    {
+      "bytes": 19448,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/guard.py",
+      "sha256": "cc27e9f31b9a59d89ebc205a0f0e83d52a0bdad95f916d08502ad6fc18adfc3f"
+    },
+    {
+      "bytes": 16468,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/stagebuilder.py",
+      "sha256": "bfaaa050bec6c4782aece47c57c8eac0411a28855626500cc1b7b1ebbedf2afb"
+    },
+    {
+      "bytes": 9874,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/controller.js",
+      "sha256": "1de9449bdddab66b0e6444edf7e24872cc2945af26a7ecaf887ef8ca73e79b95"
+    },
+    {
+      "bytes": 7524,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/test_publication_inert.py",
+      "sha256": "9b9c8d9e83f832a5a2dda527fbed6180ee7afac65727fc27fdc30ebe115db530"
+    }
+  ],
+  "synthetic_fixture_note": "Supplied TemporaryDirectory safety test creates/removes only generated fixture files under assigned scratch TMPDIR; no operational cleanup."
+}

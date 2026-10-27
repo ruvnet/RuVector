@@ -1,0 +1,28 @@
+{
+  "all9048_CP_rows_remain_in_R": true,
+  "delete_exact_individual_kit_files_only": true,
+  "directory_removal_authorized": false,
+  "epoch": 58,
+  "full_manifest": {
+    "bytes": 9309238,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit-twin-retirement/KIT_TWIN_RETIREMENT_MANIFEST.v1.json",
+    "sha256": "f934d6ba2f533553b83970f63e4c16d9801434442ef305e6224c51499d35d415"
+  },
+  "kit_root": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit",
+  "kit_twin_files_to_retire": 9134,
+  "logical_bytes_reclaimable": 569321291,
+  "model_native_Gold_Git_calls": 0,
+  "preserved_kit_files": 46,
+  "preserved_project_root": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project",
+  "schema_version": 1,
+  "source_inventory": {
+    "bytes": 3471,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/prepare_kit_twins.py",
+    "sha256": "0f9adb513a82866cd3f4e1593faa69c15eb8dd5aaddf76e6bb3cb79db7b800a0"
+  },
+  "source_restoration_independent_proof": {
+    "bytes": 12612,
+    "path": "/dev/shm/ruvector-e58-audit/ACTUAL_SOURCE_RESTORATION_INDEPENDENT.v1.json",
+    "sha256": "5c2788f5fc22b8dab4235c16fdd9b6aac01111c25b9de775185b7afba5fba140"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "actual_source_text_decodes_before_dispatch": 0,
+  "epoch": 58,
+  "mode": "DATA",
+  "model_native_Gold_calls": 0,
+  "once_only": true,
+  "root_admission_sha256": "ea3d2abd83643ffcd94d1cd4689e1aa745477bddf252da6705a79331102ec3c1",
+  "source_sha256": "e0653b5ffb44fb21ddbdf22cb3a0c0cb2743a9650e6e1c8907a7a5a32b717afd"
+}

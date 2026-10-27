@@ -1,0 +1,60 @@
+{
+  "DEV_source_licenses_identities_roles_status": "PENDING_D_BLIND_CONTRACT",
+  "acceptance_conditions": [
+    "exactlocaldownloadedweights/tokenizerhashes and labelmap/frozenruntime/scorer required before model initialization",
+    "sameNLI model/preprocessing/catalog for native/source/fullreference arms; no outcome-driven earlyexit tuning",
+    "neutral/insufficient must cover allprovidedwindows; any retrieval miss/capacity issue must not proveNEI",
+    "numericaldiagnosticflags cannot forceNEI or alter probabilities after observingGold",
+    "no classifier/NLL/Brier/benchmark generalization claim from metadata or authoredtests"
+  ],
+  "all8_pinned_metadata_bodies_rehashed": true,
+  "asset_download_authorized_by_this_review": false,
+  "checks_passed": true,
+  "declared_license": "apache-2.0",
+  "declared_training_corpora": [
+    "SNLI",
+    "MultiNLI"
+  ],
+  "epoch": 58,
+  "exact_E3_alias_and_weight_history_status": "PENDING_D_INDEPENDENT_REVIEW",
+  "fresh_confirmation_status": "UNQUALIFIED_HOLD_UNUSED",
+  "kind": "INDEPENDENT_PINNED_MODEL_METADATA_REVIEW_PENDING_HISTORY_DATA_AND_RUNTIME",
+  "label_order": [
+    "contradiction",
+    "entailment",
+    "neutral"
+  ],
+  "materially_stronger_than_prior_large_readers_proven": false,
+  "max_position_embeddings": 512,
+  "model_repo": "cross-encoder/nli-deberta-v3-small",
+  "model_revision": "fa2804872c3b4bd748f38c0185cc85775361e735",
+  "no_model_runtime_native_Gold_Git_mutations_by_auditor": true,
+  "observed_unix": 1793127160.8933163,
+  "official_weight": {
+    "blobId": "af96cb2855679035eada34f005ee72b6f78f31f1",
+    "lfs": {
+      "pointerSize": 134,
+      "sha256": "a1da6815c8da542d16381c7d84892d409b4b6604d655bb3054ecb15dd8714e6e",
+      "size": 172503006
+    },
+    "rfilename": "onnx/model_qint8_avx512_vnni.onnx",
+    "size": 172503006
+  },
+  "packet_ref": {
+    "bytes": 5939,
+    "path": "/dev/shm/ruvector-e58-candidate/MODEL_AND_HYPOTHESIS_SOURCE_QUALIFICATION.v1.json",
+    "sha256": "fe710fa4dc17139fff8fc6da2bf3cabfbdc774c25c2fb9485d38adf845d4a040"
+  },
+  "publisher_reported_quality_not_RuVector_score": {
+    "MNLI_mismatched_accuracy": 87.55,
+    "SNLI_test_accuracy": 91.65
+  },
+  "schema_version": 1,
+  "scientific_dispatch_authorized": false,
+  "tokenizer_source_identity": {
+    "blobId": "12cc2e86bad0e731393847b017b32a7405ebd4f8",
+    "rfilename": "tokenizer.json",
+    "size": 8656624
+  },
+  "training_dataset_revisions_and_nonuse_qualified": false
+}

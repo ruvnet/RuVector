@@ -1,0 +1,75 @@
+{
+  "active_snapshot": {
+    "OS_lock_observation_scope": "PREPUBLICATION_SNAPSHOT_NOT_CURRENT_REMOTE_LEASE",
+    "epoch": 57,
+    "experiments_active": false,
+    "kind": "REAL_NATIVE_QUANTIZED_CPU_THROUGHPUT_AND_RETRIEVAL_DEV",
+    "owner_sha256": "a98d0e355925de7cf2fbe8711dc35afc4c3765e07fe5dfab8bd59f0309f733e5",
+    "phase": "final",
+    "publication_is_not_scientific_authorization": true,
+    "source_checkpoint": "5e426edd8ada8c0fdcec38ec8807054affc89e3c",
+    "work_active": false
+  },
+  "active_snapshot_body_verified_against_current_connected_Git_blob": {
+    "GitSHA": "bc233f33e04b3eb0306e16e61de66d0b79862d29",
+    "bytes": 452,
+    "path": "/dev/shm/ruvector-e57-data/final-readback/ACTIVE_RUN.json",
+    "sha256": "de2080c0ee017f58cfcbe316119f8ed2d8483ba38d39af94d876b877e49ada7b"
+  },
+  "actual_connected_branch_HEAD": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "actual_connected_root": "0af3d6ef88f233830c46be72e9873b27dded037f",
+  "actual_connected_scope": "c65ae43bd4ed4f19d175cfafce04b10117201b0a",
+  "actual_connected_sole_parent": "3be77adfc5d3ceec3e71df01e2b4bd18490818b0",
+  "champion": "SubmittedNative104/RRF10 unchanged",
+  "checks_passed": true,
+  "connected_current_CONT_blob": "e170a9cbcbb1f6b6e44fd261053748976e592c35",
+  "current_rejection_ledger_verified": {
+    "bytes": 257793,
+    "path": "experiments/sota-2026-10-22/epoch57/REJECTION_LEDGER.json",
+    "sha256": "09f75450a503d95344ca1c7db75284f945e12300c40e3f040b6f79694362f2fd"
+  },
+  "epoch": 58,
+  "goal_met": false,
+  "kind": "INDEPENDENT_CURRENT_CHECKPOINT_IDENTITY_AND_PRIOR_OUTCOME_REVIEW",
+  "last_epoch_actual_quality_metrics": {
+    "Brier": null,
+    "NLL": null,
+    "classification_accuracy": null
+  },
+  "last_epoch_optional_Gold_calls": 0,
+  "last_epoch_optional_pilot_CLI": 0,
+  "last_epoch_results_ref": {
+    "bytes": 20102,
+    "path": "experiments/sota-2026-10-22/epoch57/RESULTS.json",
+    "sha256": "a38fdb949d2aa3ff5c6ee17e33713858af7fdacf4ba3662f3d0dff8d556786ac"
+  },
+  "last_epoch_status": "REJECTED_FROZEN_FULL_CORPUS_THROUGHPUT_PROJECTION_GATE",
+  "last_source_freeze_verified": {
+    "bytes": 17141,
+    "path": "experiments/sota-2026-10-22/epoch57/SOURCE_FREEZE.json",
+    "sha256": "c277357524d87a9339d1c6161ce2fcfbdf2f2df735c156ec4d487c0793d8078b"
+  },
+  "last_source_members_independently_rehashed": 57,
+  "local_CONT_body_verified_against_current_connected_Git_blob": {
+    "GitSHA": "e170a9cbcbb1f6b6e44fd261053748976e592c35",
+    "bytes": 673541,
+    "path": "/dev/shm/ruvector-e57-data/final-readback/CONTINUATION.json",
+    "sha256": "0d93366dbc58a93cc1ace001d2ce676886039a81e60ceb6c0fb32bec5a29d734"
+  },
+  "next_priority": "Preserve SubmittedNative104. Retain the exact E57 engineering throughput/numerical/native verdict and any separately audited retrieval DEV result, including every failure and pending operation uncertainty. Same INT8 vectors must feed native and exact cosine; FP32 is only a separate engineering throughput/drift control. Authored tests and public DEV relevance cannot establish benchmark generalization, NLI accuracy, fresh confirmation or official placement. Do not repeat an unchanged rejected runtime/time plan or exposed-question grid. Any next attempt requires a new source/identity/resource freeze and credible whole-epoch time reserve. Stronger typed NLI remains the quality priority when licensed aligned data/scorer and exact model/training-test provenance are available; do not repeat unchanged FinNLI author-access or ModernBERT lineage probes. All easy48/Legal96 and prepared SciFact16 are DEV forever; the entire1109 query pool remains unqualified for fresh confirmation. Existing confirmation stays UNQUALIFIED_HOLD and unused. No paid API/GPU authorization or publisher submission follows; official success requires the matching publisher result/rank and eligibility. E57 engineering did not admit the full-corpus throughput gate; do not dispatch or retry the pilot under this unchanged plan. E57 optional retrieval pilot was held without invocation: frozen supervisor requires actual_execution_independently_derived to be boolean True, while the frozen reporter and agreed independent audit contract require the same field to be the observed count dictionary. No optional pilot CLI, model/native call, rankings or Gold occurred. Preserve the published source unchanged; correct this cross-component prerequisite schema only in a new future source epoch before any pilot attempt. Do not rerun the unchanged incompatible gate or relabel existing DEV as confirmation. E57 throughput gate blocker: Measured authored-input engineering FP32/INT8 corpus-forward speed ratio 2.171000440349622 and minimum paired-vector cosine 0.9954090294256608 are engineering observations. The frozen conservative projection is 628.914452094119 seconds, exceeding the fixed admission threshold 420 seconds. The full benchmark corpus was not run. This projection is not a measured 600-second infeasibility result or benchmark generalization. Keep the optional pilot unexecuted; a future attempt needs a new credible frozen throughput/time plan and the separate prerequisite schema correction.",
+  "observed_unix": 1793126433.7306867,
+  "official_rank": null,
+  "preservation": {
+    "all_closed_studies_remain_closed": true,
+    "no_E58_scientific_dispatch_authorized": true,
+    "no_confirmation_labels_opened": true,
+    "stronger_NLI_lineage_access_holds_unchanged": true
+  },
+  "schema_version": 1,
+  "scope": "Independent connected current branch/commit/scope identity and cryptographically matched local control/ledger/result/source bodies only; full freshCP/Git restoration review remains pending D58.",
+  "used_confirmation_sets": [
+    "All48easy tasks nowexposedDEV; nofuturefreshconfirmationclaim",
+    "All96four-taskLegalBench clauses nowexposedDEV; nofuturefreshconfirmationclaim",
+    "originalContractNLIdev96 f01894b231b744c8297344615ce6037524b6eb0794c7548e931839d2936cd79f consumed/attempted epoch8; conservatively permanentlyDEV"
+  ]
+}

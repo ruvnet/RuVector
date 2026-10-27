@@ -1,0 +1,75 @@
+{
+  "E42_completed_source_materialization_must_not_be_repeated": true,
+  "actual_receipts": [
+    {
+      "actual_argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+        "-I",
+        "-B",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/recoveries/epoch42-publication-20261026/restore_epoch42_archive.py",
+        "--kit-root",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit",
+        "--dest",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project",
+        "--restore-scope",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1",
+        "--archive",
+        "recoveries/epoch42-publication-20261026/immutable-e42-artifacts.zip",
+        "--projection",
+        "recoveries/epoch42-publication-20261026/ARCHIVE_PROJECTED_FILES.v1.json"
+      ],
+      "actual_exit_code": 0,
+      "actual_stderr": "",
+      "actual_wall_seconds": 0.5857746980036609,
+      "bytes": 1863,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/E42-archive-materialized.json",
+      "sha256": "5632c24f79832ca8012c2006132c84de0930b6e1d33fa0a21fe49743ee69f9a6"
+    },
+    {
+      "actual_argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+        "-I",
+        "-B",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/experiments/sota-2026-10-22/epoch22/publication/restore_archived_artifact_v1.py",
+        "--kit-root",
+        "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit",
+        "--archive",
+        "experiments/sota-2026-10-22/epoch22/publication/actualarchive.dev.raw.v1.json",
+        "--expected-archive-sha256",
+        "8ab3d8ec7856b423e6ff295f8e5ef74fc81dcaa3d3382fa2757e21563e0a99c6",
+        "--verify-only"
+      ],
+      "actual_exit_code": 1,
+      "actual_stderr": "Traceback (most recent call last):\n  File \"/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/experiments/sota-2026-10-22/epoch22/publication/restore_archived_artifact_v1.py\", line 263, in <module>\n    main()\n  File \"/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/experiments/sota-2026-10-22/epoch22/publication/restore_archived_artifact_v1.py\", line 257, in main\n    result = restore(arguments.kit_root, arguments.archive,\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/experiments/sota-2026-10-22/epoch22/publication/restore_archived_artifact_v1.py\", line 175, in restore\n    cp_data = read_bounded(safe_path(root, 'CHECKPOINT_MANIFEST.json'), METADATA_LIMIT)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/experiments/sota-2026-10-22/epoch22/publication/restore_archived_artifact_v1.py\", line 100, in read_bounded\n    raise ValueError('File exceeds bounded read')\nValueError: File exceeds bounded read\n",
+      "actual_wall_seconds": 0.030665163008961827,
+      "bytes": 1836,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/legacy22-verified.json",
+      "sha256": "615f784f8b23bf915e532540d63a302ddb01e08c903b1d41ccb08daef28402ac"
+    }
+  ],
+  "checks_passed": true,
+  "current_CP_bytes": 2117492,
+  "current_CP_excess_bytes": 20340,
+  "epoch": 58,
+  "failed_verify_only_step_stopped_before_any_target_write": true,
+  "kind": "SOURCE_RESTORATION_METADATA_SIZE_STOP_INDEPENDENT_CLASSIFICATION",
+  "newK_and_B_copy_phase_completed_by_control_flow_before_E42": true,
+  "next_gate": "Separate exact new wrapper and fixed remaining10steps source review; no source or hash relaxation, no E42 or K/B replay; all finaltarget hashes required.",
+  "observed_unix": 1793126982.3721974,
+  "old_helper_body_ref": {
+    "bytes": 11810,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/experiments/sota-2026-10-22/epoch22/publication/restore_archived_artifact_v1.py",
+    "sha256": "7691256e21cb201e9b64c64b2f880fd6d0274b562cfb4acfa03c5ce673a4ba8f"
+  },
+  "old_metadata_limit_bytes": 2097152,
+  "original_reconstruction_restart_allowed": false,
+  "own_source_invariant": "E22 compares __file__ to its CP-pinned kit extractor and rehashes own file. An outside operational copy cannot satisfy it; a reviewed wrapper may import unchanged original and override only bounded metadata capacity while preserving own source/location checks.",
+  "partial_R_not_full_project_restoration": true,
+  "schema_version": 1,
+  "scientific_dispatch_authorized": false,
+  "static_remaining_helper_limit_review": {
+    "E26_metadata_limit_bytes": 4194304,
+    "E44_E49_global_CP2MiB_size_cap_found": false,
+    "bootstrap_and_restore_CP_global_size_cap": null
+  }
+}

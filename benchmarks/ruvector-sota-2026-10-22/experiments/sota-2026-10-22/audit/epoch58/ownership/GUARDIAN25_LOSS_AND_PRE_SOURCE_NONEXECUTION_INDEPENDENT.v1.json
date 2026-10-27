@@ -1,0 +1,58 @@
+{
+  "CP_rows_rehashed_per_Kit_and_project_current_after_reconnect": 9048,
+  "E58_scientific_source_freeze_and_run_publication_directories_absent": true,
+  "Kit_Git_bodies_rehashed_current_after_reconnect": 9055,
+  "Kit_files_observed": 9180,
+  "checks_passed": true,
+  "current_restored_project_and_sources_remain_intact": true,
+  "epoch": 58,
+  "evidence_scope": "Fresh connected unchanged scopedHEAD, complete physical source hashes and absence of mandatory controlled entrypoint records, plus Root direct report no E58 model/native/Gold/asset/publication dispatch. No global untracked HTTP/Git-object absence is inferred. Source-only reconstruction receipts remain actual and source metadata research GETs are distinct from model/tokenizer asset GETs.",
+  "fresh_connected_scoped_branch_still": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "kind": "GUARDIAN25_LOSS_AND_NO_PRE_SOURCE_DISPATCH_INDEPENDENT_OBSERVATION",
+  "kit_cleanup_exact_intent_absent": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/KIT_TWIN_RETIREMENT_INTENT.actual.v1.json",
+  "kit_full_physical_hashes_unchanged_no_cleanup_occurred": true,
+  "lost_owner25_ref": {
+    "bytes": 710,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/owner.json",
+    "sha256": "3eb3df852ccca79425f8c129d4e9efaabb1a8cbbce33706da9b8dc08873d3fa3"
+  },
+  "model_asset_once_entrypoint_attempts_unstarted": true,
+  "model_weight_tokenizer_asset_output_directory_absent": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli",
+  "new_owner_required": "Separately reviewed bounded original-inode guardian26 and launcher, actual live/exclusive proof, and new unexecuted source/asset/cleanup plan fences preserving original25 evidence.",
+  "no_new_E58_Git_or_scientific_dispatch_authorized_in_controlled_workflow": true,
+  "no_nonblocking_probe_or_new_owner_created_by_auditor": true,
+  "no_original_inode_kernel_FLOCK_row": true,
+  "normal_owner25_release_request_and_record_absent": true,
+  "observed_unix": 1793127937.2332177,
+  "old_owner25_dispatch_denied": true,
+  "original_lock_device_inode": [
+    33,
+    13626
+  ],
+  "owner25_pid_absent": true,
+  "prepared_unexecuted_source_pins_reverified": [
+    {
+      "bytes": 9108,
+      "path": "/dev/shm/ruvector-e58-candidate/download_asset_once.py",
+      "sha256": "28159215be43196df71d01700efbbe1729c270f3600212389db1c2f91307a9af"
+    },
+    {
+      "bytes": 4128,
+      "path": "/dev/shm/ruvector-e58-candidate/SOURCE_ASSET_GET_PLAN.v2.json",
+      "sha256": "087eea3ae0918600230daefe093e52f0fd8db927a7b9d31d394c5a509964a973"
+    },
+    {
+      "bytes": 6003,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/retire_verified_kit_twins_once.py",
+      "sha256": "847b66ccd09f77fb6e61326bff4d4fd5cb51f74555f2abb140dbb7ef59fa0681"
+    },
+    {
+      "bytes": 1199,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit-twin-retirement/KIT_TWIN_RETIREMENT_PLAN.v1.json",
+      "sha256": "3f4a7409a3f5aaf1b8caeb00e45df997c353323b9bcf1473aabac7f749c3696b"
+    }
+  ],
+  "project_files_observed": 9258,
+  "same_boot_and_PID_namespace": true,
+  "schema_version": 1
+}

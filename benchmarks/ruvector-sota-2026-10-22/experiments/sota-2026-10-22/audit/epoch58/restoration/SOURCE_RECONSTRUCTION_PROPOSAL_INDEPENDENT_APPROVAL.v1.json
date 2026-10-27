@@ -1,0 +1,38 @@
+{
+  "CP_rows": 9048,
+  "checks": [
+    "newK/R/B must all be absent",
+    "original live guardian25 PID/birthticks/FD3/kernelFLOCK/CPU2 lease fences before each phase and128copy/verify batches",
+    "current fullGit map andCP exact pins, all3 permanent forbiddenIDs unchanged",
+    "each donor fullbody hash checked before distinct inode copy; no hardlinks/source mutation",
+    "fixed manual11 source-only helper argv, everyhelper freshGitSHA rechecked before invocation; timeout60 each",
+    "bootstrap/restore source read; default source-only; local base directory supplied; no install/model flags",
+    "all9048CP rows rehashed in bothnewK/R and all9055Git leaves innewK after restore"
+  ],
+  "checks_passed": true,
+  "current_commit": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "current_scope_sha": "c65ae43bd4ed4f19d175cfafce04b10117201b0a",
+  "epoch": 58,
+  "fresh_connected_scope_identity_independently_recomputed_from_all_Git_leaves": 9055,
+  "fresh_critical_bodies_independently_rehashed": 92,
+  "local_read_only_review_preparation_corrections": [
+    "An initial metadata review command expected CP.files and stopped; actual CP.project_files schema inspected and corrected before this successful full verification.",
+    "One schema-inspection command had a Python tokenization typo; corrected read-only; no project/model/native/Git effects."
+  ],
+  "next_gate": "After exactly one reviewed reconstruction, independently verify actual argv/exit0 receipts, allCP/Git target hashes anddistinct donors; no scientific admission from restoration.",
+  "no_model_native_Gold_Git_calls_by_auditor": true,
+  "observed_pre_reconstruction_shared_cgroup_headroom_bytes": 3659948032,
+  "observed_unix": 1793126786.462036,
+  "proposal_ref": {
+    "bytes": 8954,
+    "path": "/dev/shm/ruvector-e58-data/reconstruct_sources.proposed.py",
+    "sha256": "e6632280704fe3d40efc6b3dfee3137370dcddb32a0837cbe7d41f1904e5bb7a"
+  },
+  "resource_scope": "Observed shared cgroup headroom only, no inference/runtime admission or future peak guarantee.",
+  "reviewed_bootstrap_SHA256": "eceb2ca259feaf642bc81172aca57a2a209cc34cd17f9b281861c51f21b95806",
+  "reviewed_restore_SHA256": "affd9ecf660f380c3632f78cd14fb7a36e00797ceb097cf48c0c60136fac0be8",
+  "schema_version": 1,
+  "scientific_dispatch_authorized": false,
+  "source_only_steps_reviewed": 11,
+  "source_reconstruction_execution_allowed": true
+}

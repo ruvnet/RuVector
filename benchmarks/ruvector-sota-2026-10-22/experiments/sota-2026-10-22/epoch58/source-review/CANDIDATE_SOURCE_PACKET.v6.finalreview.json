@@ -1,0 +1,203 @@
+{
+  "actual_activities_by_C": {
+    "DATA_decodes": 0,
+    "Gold_decodes": 0,
+    "asset_GETs": 0,
+    "inert_authored_structure_tests": 14,
+    "model_or_native_initializations": 0,
+    "native_adapter_inert_tests": 14,
+    "scientific_batches": 0,
+    "supervisor_scorer_inert_tests": 28
+  },
+  "epoch": 58,
+  "frozen_protocol": {
+    "bytes": 7977,
+    "path": "/dev/shm/ruvector-e58-candidate/CANDIDATE_PROTOCOL.v2.archival.json",
+    "sha256": "c4accfc52f8d387490cc4389ba6f68dc4c71e1782cbf1717f94418ddaaa14d38"
+  },
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "limits_and_uncertainty": [
+    "No small-model superiority claim over prior larger NLI models; exact training revisions/export lineage/testnonuse unqualified.",
+    "DOC17 all17 is DEV forever; no confirmation or official score.",
+    "Exact source coverage and allwindows neutral do not establish cross-window semantic completeness. No retrieval miss evidence-absence conclusion.",
+    "Perstate batched latency excludes prefirstsubmission queue; wholeCLI resource/timing reported.",
+    "Code/source-only tests do not establish actual model/runtime feasibility."
+  ],
+  "model_source_refs": [
+    {
+      "bytes": 9383,
+      "path": "/dev/shm/ruvector-e58-candidate/source-research/nli-deberta-v3-small.model-api.json",
+      "sha256": "5875eea4cb6ba80ccb3e6b8b637d5a2cfeb135a0b4d2457df86c2737f33a9fd1"
+    },
+    {
+      "bytes": 2864,
+      "path": "/dev/shm/ruvector-e58-candidate/source-research/nli-deberta-v3-small.README.md",
+      "sha256": "a9aa108025ad1984374c5e80365406bafe331aea5abc30239e1796ec0a7c267d"
+    },
+    {
+      "bytes": 1052,
+      "path": "/dev/shm/ruvector-e58-candidate/source-research/nli-deberta-v3-small.config.json",
+      "sha256": "885d0dceae8fa5c136da9209121ec9eb11160488e840de3bc1f29353674e5712"
+    },
+    {
+      "bytes": 1346,
+      "path": "/dev/shm/ruvector-e58-candidate/source-research/nli-deberta-v3-small.tokenizer_config.json",
+      "sha256": "f3eecd07c370ef0bf7dd3780d3cd68cf9c8b00c267e21a208ddcd8f82bfec1a6"
+    }
+  ],
+  "remaining": [
+    "Q source review+any versioned corrections",
+    "Q independent actual source-asset validation, no more GETs; actual tokenizer SHA256 now pinned before preparation/freeze.",
+    "Q approved local blind DATA+tokenizer catalog and actualW<=24",
+    "exact final candidate/data/source identities freeze",
+    "actual SOURCE publication and independent full readback",
+    "Q+Root phase engineering dispatch admission",
+    "actual engineering/native/NLI execution and independent acceptance",
+    "conditionalDEV only if frozenprojection<=420; allclosed then lateGold"
+  ],
+  "runtime_provenance": {
+    "bytes": 5944,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/CURRENT_RUNTIME_AND_CACHED_BGE_VERIFICATION.v1.json",
+    "sha256": "930f81889d5c3664777cb9ea05aa0b88e6621337ab9c5b18ddfc2bfb918a2603"
+  },
+  "schema_version": 1,
+  "source_asset_GET_result_refs": {
+    "nli_model": {
+      "bytes": 1169,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/nli_model.GET_RESULT.actual.json",
+      "sha256": "cba1db93845625b43f3f9236a557f13d1d32ccf420be2e7bd5f2c7173e9577b4"
+    },
+    "nli_tokenizer": {
+      "bytes": 1154,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/nli_tokenizer.GET_RESULT.actual.json",
+      "sha256": "13fa9ac22b2025a61c3983bf8c379fa53944f06cc620c68bad6d243515798a27"
+    }
+  },
+  "source_asset_refs": {
+    "nli_model": {
+      "bytes": 172503006,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/model.onnx",
+      "sha256": "a1da6815c8da542d16381c7d84892d409b4b6604d655bb3054ecb15dd8714e6e"
+    },
+    "nli_tokenizer": {
+      "bytes": 8656624,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/tokenizer.json",
+      "sha256": "5124ef2ead1a10a717703bc436de7f353da76d6340e4587719b42b1693707964"
+    }
+  },
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "source_files": [
+    {
+      "bytes": 14910,
+      "path": "/dev/shm/ruvector-e58-candidate/runtime_common.py",
+      "sha256": "c3f54a0afaa68216f589c29c6206c1883a60ab46e046142e9728da7d86ad20af"
+    },
+    {
+      "bytes": 4912,
+      "path": "/dev/shm/ruvector-e58-candidate/prepare_catalog.py",
+      "sha256": "8057a63cb289fd93239280d7e6e2a9108a29f0fac750bae153b45cf330d0b074"
+    },
+    {
+      "bytes": 85890,
+      "path": "/dev/shm/ruvector-e58-candidate/ENGINEERING_AUTHORED_INPUTS.v1.json",
+      "sha256": "798b88330397d8b54745b6ddca42b13333ebb44d08e35db7258f15b4ee148557"
+    },
+    {
+      "bytes": 5114,
+      "path": "/dev/shm/ruvector-e58-candidate/COUNTER_SCHEMA.v1.json",
+      "sha256": "4011439770df89a74bc95f90e7798db9bacb5a638e556804fd8be0ceec18f791"
+    },
+    {
+      "bytes": 5371,
+      "path": "/dev/shm/ruvector-e58-candidate/HISTORICAL_PROTOCOL_AND_DOC17_INTERFACE_REVIEW.v1.json",
+      "sha256": "db17c4954ecb8706648127d8de9d0c1f84b0fb2cdce46346eb12361d9c1926f2"
+    },
+    {
+      "bytes": 15603,
+      "path": "/dev/shm/ruvector-e58-candidate/native_impl/native_helper.cjs",
+      "sha256": "9278e5fe5c2a2a470a504e98b6b5e7bfae1fddd18f4cda4f0cb0b5324d004c46"
+    },
+    {
+      "bytes": 27748,
+      "path": "/dev/shm/ruvector-e58-candidate/native_impl/native_adapter.v2.py",
+      "sha256": "d212a33a2b242027b8c3129438bfa0f24689d309139344f23fc88488df975672"
+    },
+    {
+      "bytes": 10152,
+      "path": "/dev/shm/ruvector-e58-candidate/native_impl/test_native_inert.v2.py",
+      "sha256": "4e35690c3c32699a3bd1924198d611cc8c8e7c1f7aa47db11ffb56392880b1d1"
+    },
+    {
+      "bytes": 4967,
+      "path": "/dev/shm/ruvector-e58-candidate/native_impl/NATIVE_SOURCE_PACKET.v2.json",
+      "sha256": "7c213ae74e5d7d8d51c2e26935b29e967c750e5cbcf1c85596bd275a6544293a"
+    },
+    {
+      "bytes": 2828,
+      "path": "/dev/shm/ruvector-e58-candidate/MODEL_AND_HYPOTHESIS_SOURCE_QUALIFICATION.v2.assets.json",
+      "sha256": "0dfe9bd6be30b5a24ba431d1287fed8658827b441fa21c0be1b11fcd31718138"
+    },
+    {
+      "bytes": 18406,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/scorer.v3.py",
+      "sha256": "774c19982bb48609c1fa24c1afbab9479db7465010fe16a880bea23fe76bb203"
+    },
+    {
+      "bytes": 20454,
+      "path": "/dev/shm/ruvector-e58-candidate/worker.v2.py",
+      "sha256": "b65c67eecffc2faaa1c78f39c396973b1e1524a131f450b946a89b52c4c64657"
+    },
+    {
+      "bytes": 6522,
+      "path": "/dev/shm/ruvector-e58-candidate/test_candidate_inert.v2.py",
+      "sha256": "4ca34b90bf07bd5d37207447b1cfb4b9a6e4929d00710240b9ca84b9bac4ab0c"
+    },
+    {
+      "bytes": 7977,
+      "path": "/dev/shm/ruvector-e58-candidate/CANDIDATE_PROTOCOL.v2.archival.json",
+      "sha256": "c4accfc52f8d387490cc4389ba6f68dc4c71e1782cbf1717f94418ddaaa14d38"
+    },
+    {
+      "bytes": 9631,
+      "path": "/dev/shm/ruvector-e58-candidate/CONFIGURATION_CONTRACT.v6.finalreview.json",
+      "sha256": "ca878f201123c822e92f27019e73b3a1c4ce40ef043a904a5932a831ec2142e7"
+    },
+    {
+      "bytes": 1662,
+      "path": "/dev/shm/ruvector-e58-candidate/CANDIDATE_INERT_VALIDATION.v4.json",
+      "sha256": "4542837e7d4286bb09143627c45eacdb1e33378d8370ce15c6693ba71167edc5"
+    },
+    {
+      "bytes": 16258,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/supervisor.v2.py",
+      "sha256": "647cc6be8d87dade6bb02859d10720bd34544b6c8569e74221736e932d5a1931"
+    },
+    {
+      "bytes": 13481,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/run_cli_once.v5.py",
+      "sha256": "0cde78ea585e7f8889044ccc1c887b268e6008cc66f3ce13002ef1fefc6dfcda"
+    },
+    {
+      "bytes": 10953,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/test_inert.v7.py",
+      "sha256": "e975775fd6f09b6bbbc9bef47ddc0b5cc2d8c8ef7a0d7de10d26efebbf02dc96"
+    },
+    {
+      "bytes": 8133,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/SUPERVISOR_SCORER_SOURCE_PACKET.v5.json",
+      "sha256": "9d665c03019778a2a6d5a2d2f71b1f898c14bc46668736c4d74d131a8f96e00d"
+    },
+    {
+      "bytes": 1920,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/INERT_VALIDATION.v5.json",
+      "sha256": "fe22b230174927ff3d2d2ae26eaa3dbeca6fa4f1797d1cde4a9baff67386879b"
+    }
+  ],
+  "status": "SOURCE_ONLY_READY_FOR_INDEPENDENT_REVIEW_NOT_FROZEN_OR_EXECUTED",
+  "supersedes_unexecuted_source_packet": {
+    "bytes": 8781,
+    "path": "/dev/shm/ruvector-e58-candidate/CANDIDATE_SOURCE_PACKET.v5.reviewfixes.json",
+    "sha256": "512276e336535ffe20bb9c765e46c96d3fbd96a2cdc4555a2822cbd34ce4e2a5"
+  },
+  "version_reason": "Final Q-reviewed cleanup fault handling plus Root-approved archival-only per-window logits/tensor receipts. All parameters/data identities/gates/localDATA/prepare/common unchanged."
+}

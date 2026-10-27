@@ -1,0 +1,295 @@
+{
+  "BGE_tokenizer": {
+    "bytes": 711396,
+    "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/models/bge-small-en-v1.5/tokenizer.json",
+    "sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66"
+  },
+  "BGE_tokenizer_GitSHA": "688882a79f44442ddc1f60d70334a7ff5df0fb47",
+  "Gold_authorization_granted": false,
+  "NLI_tokenizer": {
+    "bytes": 8656624,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/tokenizer.json",
+    "sha256": "5124ef2ead1a10a717703bc436de7f353da76d6340e4587719b42b1693707964"
+  },
+  "NLI_tokenizer_GitSHA": "12cc2e86bad0e731393847b017b32a7405ebd4f8",
+  "actual_preparation_calls_so_far": 0,
+  "actual_source_archive_payload_hash_verified_without_member_open": true,
+  "all17_DEVDOC17_retired_forever_on_any_source_access": true,
+  "allowed_ids": [
+    "contractnli:eced6528:dev:17:nda-1",
+    "contractnli:eced6528:dev:17:nda-10",
+    "contractnli:eced6528:dev:17:nda-11",
+    "contractnli:eced6528:dev:17:nda-12",
+    "contractnli:eced6528:dev:17:nda-13",
+    "contractnli:eced6528:dev:17:nda-15",
+    "contractnli:eced6528:dev:17:nda-16",
+    "contractnli:eced6528:dev:17:nda-17",
+    "contractnli:eced6528:dev:17:nda-18",
+    "contractnli:eced6528:dev:17:nda-19",
+    "contractnli:eced6528:dev:17:nda-2",
+    "contractnli:eced6528:dev:17:nda-20",
+    "contractnli:eced6528:dev:17:nda-3",
+    "contractnli:eced6528:dev:17:nda-4",
+    "contractnli:eced6528:dev:17:nda-5",
+    "contractnli:eced6528:dev:17:nda-7",
+    "contractnli:eced6528:dev:17:nda-8"
+  ],
+  "archive": {
+    "GitSHA": "757fd1dafd29a997fba00c60c6d40b2930a36159",
+    "bytes": 65362913,
+    "member": "contract-nli/dev.json",
+    "member_bytes": 1183107,
+    "member_sha256": "310af7d661d2ab50ee3700169cef524c75f39fb296bbf5a515c229eb0f42e68e",
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch48-37b29244dcf5/assets/data/contract-nli-eced6528.zip",
+    "sha256": "e03fc77bbf8b53e2976a250e81d8a294bc3d5e5fb014521e477dee9340d6287b"
+  },
+  "archive_member_or_DOC17_source_text_or_Gold_semantic_decodes_so_far": 0,
+  "bounds": {
+    "CPU_affinity": [
+      0,
+      1
+    ],
+    "GPU_calls": 0,
+    "KILL_reap_grace_seconds": 2,
+    "NLI_forward_calls": 0,
+    "TERM_grace_seconds": 2,
+    "TOKENIZERS_PARALLELISM": "false",
+    "archive_expansion": "Exactly one dev member only; no train/test/confirmation member access.",
+    "maximum_BGE_tokens": 512,
+    "maximum_CATALOG_inner_seconds": 100,
+    "maximum_CATALOG_outer_seconds": 120,
+    "maximum_DATA_outer_seconds": 120,
+    "maximum_claim_bytes": 65536,
+    "maximum_document_bytes": 1048576,
+    "maximum_joint_NLI_tokens": 512,
+    "maximum_raw_source_units": 1024,
+    "maximum_windows": 24,
+    "native_corpus_batches": 0,
+    "no_truncation": true,
+    "paid_API_calls": 0,
+    "selected_document_count": 1,
+    "selected_hypotheses": 17,
+    "semantic_Gold_decodes": 0,
+    "threads": 2
+  },
+  "calibration_ids": [],
+  "catalog_sources": [
+    {
+      "bytes": 4912,
+      "path": "/dev/shm/ruvector-e58-candidate/prepare_catalog.py",
+      "sha256": "8057a63cb289fd93239280d7e6e2a9108a29f0fac750bae153b45cf330d0b074"
+    },
+    {
+      "bytes": 14910,
+      "path": "/dev/shm/ruvector-e58-candidate/runtime_common.py",
+      "sha256": "c3f54a0afaa68216f589c29c6206c1883a60ab46e046142e9728da7d86ad20af"
+    }
+  ],
+  "confirmation_materialization_authorized": false,
+  "data_protocol_ref": {
+    "bytes": 14457,
+    "path": "/dev/shm/ruvector-e58-data/data-v5/DATA_PROTOCOL.v5.json",
+    "sha256": "e1bb003c2b92003d53dc757e17b0ec650ffe749bdf553b7b7db45dddb2c00bd2"
+  },
+  "data_report_required_fields": [
+    "schema_version",
+    "epoch",
+    "kind",
+    "source_checkpoint",
+    "identity_namespace",
+    "reserved_development_case_ids",
+    "reserved_role",
+    "actual_feature_case_ids",
+    "source_text_exposed_case_ids",
+    "actual_hypothesis_exposed_case_ids",
+    "semantic_gold_decodes",
+    "used_confirmation_identities"
+  ],
+  "data_sources": [
+    {
+      "bytes": 28522,
+      "path": "/dev/shm/ruvector-e58-data/data-v5/custody.py",
+      "sha256": "e0653b5ffb44fb21ddbdf22cb3a0c0cb2743a9650e6e1c8907a7a5a32b717afd"
+    },
+    {
+      "bytes": 4377,
+      "path": "/dev/shm/ruvector-e58-data/data-v5/span_json.py",
+      "sha256": "5ebc4171bc35930bf837101230ff0de02543e19454c9d6dc7b4deba9a6e09387"
+    },
+    {
+      "bytes": 3100,
+      "path": "/dev/shm/ruvector-e58-data/data-v5/source_catalog.py",
+      "sha256": "46b8ab06ec6030df94797307b3ad1da7b5a5a60e4d4479bc11af1b718467bc6a"
+    },
+    {
+      "bytes": 5754,
+      "path": "/dev/shm/ruvector-e58-data/data-v5/official_codec.source.py",
+      "sha256": "9c63102a01576c230da94695f593fd7bd4fe2d0b20672b74e8a7f62aba426fc4"
+    },
+    {
+      "bytes": 14457,
+      "path": "/dev/shm/ruvector-e58-data/data-v5/DATA_PROTOCOL.v5.json",
+      "sha256": "e1bb003c2b92003d53dc757e17b0ec650ffe749bdf553b7b7db45dddb2c00bd2"
+    },
+    {
+      "bytes": 5114,
+      "path": "/dev/shm/ruvector-e58-data/data-v5/COUNTER_SCHEMA.v1.json",
+      "sha256": "4011439770df89a74bc95f90e7798db9bacb5a638e556804fd8be0ceec18f791"
+    }
+  ],
+  "document_ids": [
+    17
+  ],
+  "epoch": 58,
+  "exact_export_recipe_or_training_revisions_verified": false,
+  "fence_source": {
+    "bytes": 3376,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner_fence_v2.py",
+    "sha256": "5b56fa209a1d947d1bbabe31e5e4ed3d52e8dc9d2258e76fa8577c36b459d693"
+  },
+  "fresh_confirmation_ids": [],
+  "fresh_confirmation_status": "UNQUALIFIED_HOLD",
+  "frozen_packing_rule": "Keep original whole source units when they fit all17 NLI pairs and BGE; split oversized units by fixed largest fitting codepoint prefix binary search, then greedy adjacent merge if combined text fits all17 and BGE. Fixed original text/offsets only; all17 claim capacity checked. Never select by labels, logits, length or class. W>24 fails closed; no replacement, retry, retuning or second grid.",
+  "hypothesis_ids": [
+    "nda-1",
+    "nda-10",
+    "nda-11",
+    "nda-12",
+    "nda-13",
+    "nda-15",
+    "nda-16",
+    "nda-17",
+    "nda-18",
+    "nda-19",
+    "nda-2",
+    "nda-20",
+    "nda-3",
+    "nda-4",
+    "nda-5",
+    "nda-7",
+    "nda-8"
+  ],
+  "interruption_policy": {
+    "DATA_once_attempt_file_exists_even_if_report_cannot_complete": true,
+    "after": "Confirms exactly1 selected source document decoded.",
+    "before_only": "Retire all17 DEV forever conservatively and mark source-decode uncertainty; do not claim confirmed source decode.",
+    "private_journals": [
+      "SOURCE_TEXT_ACCESS_BEFORE.json",
+      "SOURCE_TEXT_ACCESS_AFTER.json"
+    ],
+    "public_journals_contain_no_text_or_labels": true
+  },
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "model_or_benchmark_generality_claim": false,
+  "next_science_fixed_budget": {
+    "DEV_admission_requires_frozen_projection_at_most420": true,
+    "engineering_full_batch_size": 8,
+    "engineering_pairs": 32,
+    "maximum_CPU_threads": 2,
+    "maximum_frozen_DEV_W": 24,
+    "maximum_native_corpus_batches": 2,
+    "maximum_seconds_inclusive_per_batch": 600,
+    "projection_formula": "2*ceil(3*17*W/8)*max(actual full8 NLI forward seconds)+measured initialization total+90<=420"
+  },
+  "output_directories": {
+    "CATALOG": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/private-catalog",
+    "DATA": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/private-data"
+  },
+  "owner_ref": {
+    "bytes": 831,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner.json",
+    "sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac"
+  },
+  "phase": "BLIND_CATALOG_PREPARATION_ONLY",
+  "promotion_allowed": false,
+  "public_banks_vault_Gold_or_tokenizer_assets_to_publish": false,
+  "publication_rule": "This exact local packet precedes blind preparation. Full candidate source including actual bank/catalog hashes/W and source exposure identities must be frozen, published and independently read back BEFORE any engineering NLI/native measurement.",
+  "python_invocation": "/tmp/ruvector-sota-2026-10-22/epoch33-0522a2c521c9/runtime/.venv/bin/python",
+  "reserved_development_case_ids": [
+    "contractnli:eced6528:dev:17:nda-1",
+    "contractnli:eced6528:dev:17:nda-10",
+    "contractnli:eced6528:dev:17:nda-11",
+    "contractnli:eced6528:dev:17:nda-12",
+    "contractnli:eced6528:dev:17:nda-13",
+    "contractnli:eced6528:dev:17:nda-15",
+    "contractnli:eced6528:dev:17:nda-16",
+    "contractnli:eced6528:dev:17:nda-17",
+    "contractnli:eced6528:dev:17:nda-18",
+    "contractnli:eced6528:dev:17:nda-19",
+    "contractnli:eced6528:dev:17:nda-2",
+    "contractnli:eced6528:dev:17:nda-20",
+    "contractnli:eced6528:dev:17:nda-3",
+    "contractnli:eced6528:dev:17:nda-4",
+    "contractnli:eced6528:dev:17:nda-5",
+    "contractnli:eced6528:dev:17:nda-7",
+    "contractnli:eced6528:dev:17:nda-8"
+  ],
+  "runtime_import_closure": "DATA is Python standard library plus frozen custody/span/catalog helpers. CATALOG imports only frozen runtime_common.py (standard library) and exact tokenizers0.21.4; importlib.metadata checks exact configured numpy/onnxruntime/tokenizers distributions but no ONNX/Numpy/model module is initialized.",
+  "runtime_verified_ref": {
+    "bytes": 5944,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/CURRENT_RUNTIME_AND_CACHED_BGE_VERIFICATION.v1.json",
+    "sha256": "930f81889d5c3664777cb9ea05aa0b88e6621337ab9c5b18ddfc2bfb918a2603"
+  },
+  "runtime_versions": {
+    "numpy": "2.2.6",
+    "onnxruntime": "1.22.1",
+    "tokenizers": "0.21.4"
+  },
+  "schema_version": 1,
+  "scientific_authorization_granted": false,
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "source_dataset": {
+    "archive_bytes": 65362913,
+    "archive_git_blob": "757fd1dafd29a997fba00c60c6d40b2930a36159",
+    "archive_sha256": "e03fc77bbf8b53e2976a250e81d8a294bc3d5e5fb014521e477dee9340d6287b",
+    "attribution": "ContractNLI, Stanford NLP; dataset by Yuta Koreeda and Christopher D. Manning. Cite the official ContractNLI repository and ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts.",
+    "data_license_proof": "experiments/sota-2026-10-22/epoch53/data/DATA_SOURCE_ELIGIBILITY.v1.json",
+    "data_license_proof_bytes": 2415,
+    "data_license_proof_sha256": "761d0d944f49b262ccb18c7f44cb38d2d61c70cdcc3a3258c626e7baf46cfc37",
+    "dataset_license": "CC-BY-4.0",
+    "member": "contract-nli/dev.json",
+    "member_bytes": 1183107,
+    "member_sha256": "310af7d661d2ab50ee3700169cef524c75f39fb296bbf5a515c229eb0f42e68e",
+    "normalized_document_sha256": "4c3e5f88c04ef038b431d74af57d26cb7a620301e020cae2f5ab334c32f494b4",
+    "normalized_filename_key_sha256": "1adda6fa1bf7f15abd0c828743f5b550092119b03189a335e9ec0c619376adff",
+    "official_code_license": "Apache-2.0",
+    "official_codec_source_bytes": 5754,
+    "official_codec_source_sha256": "9c63102a01576c230da94695f593fd7bd4fe2d0b20672b74e8a7f62aba426fc4",
+    "repository": "stanfordnlp/contract-nli",
+    "revision": "eced6528dd3c1d14d73f9a87df8f7bdbc03126f9"
+  },
+  "source_licenses": {
+    "attribution": "ContractNLI, Stanford NLP; dataset by Yuta Koreeda and Christopher D. Manning. Cite the official ContractNLI repository and ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts.",
+    "code": "Apache-2.0",
+    "dataset": "CC-BY-4.0",
+    "proof_refs": [
+      {
+        "bytes": 18656,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/experiments/sota-2026-10-22/epoch40/preparation/data-source/source_metadata/contract_LICENSE.txt",
+        "sha256": "9e5f1b3c610b9c2da5c313bf81d577a7d1acec686bdb0384edefa6df0f90cd94"
+      },
+      {
+        "bytes": 11357,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/experiments/sota-2026-10-22/epoch40/preparation/data-source/source_metadata/code_LICENSE.txt",
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      },
+      {
+        "bytes": 160,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/experiments/sota-2026-10-22/epoch40/preparation/data-source/source_metadata/contract_README.md",
+        "sha256": "375a1024337b82d2331bc9ab63cda3044dc10e5019033eb66332a0fc4e626b52"
+      }
+    ]
+  },
+  "source_model_license": "Apache-2.0",
+  "source_model_repository": "cross-encoder/nli-deberta-v3-small",
+  "source_model_revision": "fa2804872c3b4bd748f38c0185cc85775361e735",
+  "source_qualification_ref": {
+    "bytes": 2828,
+    "path": "/dev/shm/ruvector-e58-candidate/MODEL_AND_HYPOTHESIS_SOURCE_QUALIFICATION.v2.assets.json",
+    "sha256": "0dfe9bd6be30b5a24ba431d1287fed8658827b441fa21c0be1b11fcd31718138"
+  },
+  "train_ids": [],
+  "training_test_nonuse_verified": false,
+  "unchanged_previous_engineering_failure_not_retested": true,
+  "used_confirmation_identities": []
+}

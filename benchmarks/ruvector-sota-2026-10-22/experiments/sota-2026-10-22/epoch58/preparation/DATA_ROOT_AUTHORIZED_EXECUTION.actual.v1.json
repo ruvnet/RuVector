@@ -1,0 +1,24 @@
+{
+  "checks_passed": true,
+  "direct_timeout_process_physically_reaped": true,
+  "epoch": 58,
+  "exit_code": 0,
+  "identity": {
+    "pgid": 193335,
+    "pid": 193335,
+    "sid": 193335,
+    "startticks": 45417935
+  },
+  "live_processes_in_owned_group_or_session": [],
+  "mode": "DATA",
+  "new_NLI_native_Gold_paid_GPU_calls": 0,
+  "outer_fallback_timeout": false,
+  "phase": "BLIND_CATALOG_PREPARATION_ONLY",
+  "root_admission_sha256": "ea3d2abd83643ffcd94d1cd4689e1aa745477bddf252da6705a79331102ec3c1",
+  "schema_version": 1,
+  "stderr_bytes": 0,
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stdout_bytes": 103,
+  "stdout_sha256": "b7da3d8fb53d85433a203b1e8bfca053f5310184f90c83a61eb72d6ab7130d42",
+  "wall_seconds": 0.7108615100150928
+}

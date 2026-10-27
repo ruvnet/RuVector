@@ -1,0 +1,45 @@
+{
+  "checks": [
+    "full1723adapter and6256continuation source read, exactpins and syntax checked",
+    "unchangedoriginalE22module imported from CP/Git-pinned kit path with original__file__; ownsource/location/archive/CPchecks remain intact",
+    "only effective runtime METADATA_LIMIT2097152->4194304; fixedverify-only restore; no source/hash/manifest relaxation",
+    "known completeE42write receipt and known failedlegacy22receipt bound exactly; K/B never recopied; E42materialization never replayed",
+    "all9055K Gitbodies/9048K CP/48B sourcefiles rechecked before remainingsteps",
+    "exact10 source-only pendingsteps; all newreceiptpaths absent; everyoriginalhelper freshGitSHA or explicitnewadapterhash checked immediately before call",
+    "liveoriginalguardian25originalinodefence before eachstep; CPU0,1 inherited; timeout60 perstep",
+    "finalall9048CP K/R and9055K Gitbodyhashes required; no install/acquisition/scoring flags"
+  ],
+  "checks_passed": true,
+  "effective_metadata_bound_bytes": 4194304,
+  "epoch": 58,
+  "independent_classification_ref": {
+    "bytes": 4783,
+    "path": "/dev/shm/ruvector-e58-audit/RESTORATION_METADATA_CAP_STOP_INDEPENDENT.v1.json",
+    "sha256": "8b5af21742bd1e686679f79ed6f021963a54d00261a7a721b0dce3700016e265"
+  },
+  "new_scientific_calls_authorized": 0,
+  "next_gate": "After exact once source continuation: independent actualallCP/Git/criticalbodies/distinctinode/argv/receipt and liveowner25 verification before any separately approved scientific sourcefreeze.",
+  "observed_unix": 1793127056.084848,
+  "original_metadata_bound_bytes": 2097152,
+  "preserved_failed_legacy22_receipt_ref": {
+    "bytes": 1836,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/legacy22-verified.json",
+    "sha256": "615f784f8b23bf915e532540d63a302ddb01e08c903b1d41ccb08daef28402ac"
+  },
+  "reviewed_current_commit": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "schema_version": 1,
+  "scientific_dispatch_authorized": false,
+  "source_continuation_execution_allowed": true,
+  "source_refs": [
+    {
+      "bytes": 1723,
+      "path": "/dev/shm/ruvector-e58-data/legacy22_cp_bound_adapter.py",
+      "sha256": "8e85377429c3455a8c774e60984716724d2050c9255aaa0e3cf546cbbaa39114"
+    },
+    {
+      "bytes": 6256,
+      "path": "/dev/shm/ruvector-e58-data/continue_sources_after_metadata_bound.py",
+      "sha256": "a1fc8b18d7f9b51044f616036ae97a43ceecf083e73f59317d4b2d6f6accc011"
+    }
+  ]
+}

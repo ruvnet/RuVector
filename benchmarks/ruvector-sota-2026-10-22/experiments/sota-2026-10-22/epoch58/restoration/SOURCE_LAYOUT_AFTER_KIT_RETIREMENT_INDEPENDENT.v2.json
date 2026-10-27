@@ -1,0 +1,45 @@
+{
+  "CP_bytes_rehashed_in_R": 564498011,
+  "CP_rows_rehashed_in_R": 9048,
+  "Git_leaves_rehashed_current_layout": 9055,
+  "R_old_donor_distinct_inode_checks": 9048,
+  "base_cache_files_rehashed": 48,
+  "checkpoint_manifest_ref": {
+    "bytes": 2117492,
+    "path": "/dev/shm/ruvector-e58-data/current/CHECKPOINT_MANIFEST.json",
+    "sha256": "ae9b6df276bbd2b3446fd21b4a3a6b2a8e3e2b96083716a3f1478318c4144d8f"
+  },
+  "checks_passed": true,
+  "data_payload_semantic_decodes_model_native_Gold_network_Git_or_cleanup_mutations": 0,
+  "donor_map_ref": {
+    "bytes": 4050433,
+    "path": "/dev/shm/ruvector-e58-data/CURRENT_VERIFIED_DONOR_MAP_POST_KIT.v2.json",
+    "sha256": "a797df533e0722734a0073583fc6f6f585e80fd6cc65ee49c8d89b34d23814c2"
+  },
+  "epoch": 58,
+  "historical_full_Kit_restoration_proof": {
+    "bytes": 3459,
+    "path": "/dev/shm/ruvector-e58-data/SOURCE_RESTORATION_PHYSICAL_TARGETS_INDEPENDENT.v1.json",
+    "sha256": "295d628904041936378cfbde841181b2d428433266709ff19ed26a70e7dc71c5"
+  },
+  "physical_layout_Git": {
+    "base-cache": 0,
+    "current": 3,
+    "kit": 43,
+    "project": 9009
+  },
+  "retained_Kit_files_rehashed": 46,
+  "retired_Kit_twins_absent_and_R_mirrors_rehashed": 9134,
+  "retirement_receipt_ref": {
+    "bytes": 1503,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/KIT_TWIN_RETIREMENT.actual.v1.json",
+    "sha256": "a93c80187c8e092cf694b2dbafada46af331129ac0fcf907f8eb3e279d9f56ec"
+  },
+  "schema_version": 2,
+  "source_checkpoint_commit": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "source_map_ref": {
+    "bytes": 3112129,
+    "path": "/dev/shm/ruvector-e58-data/actual-git-map.json",
+    "sha256": "554e42b12b10c0142f19f526bd5846fe14619ac2de5fce14297116e3722d0636"
+  }
+}

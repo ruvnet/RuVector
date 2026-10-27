@@ -1,0 +1,22 @@
+{
+  "actual9134_Kit_paths_absent": true,
+  "actual_new_native_model_Gold_Git_calls_by_auditor": 0,
+  "actual_retirement_receipt_ref": {
+    "bytes": 1503,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/KIT_TWIN_RETIREMENT.actual.v1.json",
+    "sha256": "a93c80187c8e092cf694b2dbafada46af331129ac0fcf907f8eb3e279d9f56ec"
+  },
+  "actual_unlinks_by_auditor": 0,
+  "all46_retained_Kit_files_signature_hash_preserved": true,
+  "all9048CP_rows_physically_rehashed_in_R": true,
+  "all9055Git_body_identities_still_resolve_in_R_or_retained_Kit": true,
+  "all9134_R_mirrors_signature_hash_preserved": true,
+  "all940_Kit_directories_original_identity_mode_preserved": true,
+  "checks_passed": true,
+  "current_owner26_fence_verified": true,
+  "epoch": 58,
+  "kind": "INDEPENDENT_ACTUAL_KIT_TWIN_RETIREMENT_VERIFICATION",
+  "memory_observation_scope": "Root actual before/after sharedcgroup snapshots only; no sole-cause or guaranteed incremental memory claim.",
+  "observed_unix": 1793128933.487311,
+  "schema_version": 1
+}

@@ -1,0 +1,193 @@
+{
+  "DATA_report_copy_policy": "Exact original metadata bytes; no raw source text, hypothesis values, choice tokens or labels occur in this report. Private bank/vault bodies excluded.",
+  "DATA_report_original_ref": {
+    "bytes": 6322,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/private-data/DATA_REPORT.json",
+    "sha256": "77bbc84683a9a77dd8dc04fb6ab88126b3b30daccfafce3f5784f8a42bc1e5c2"
+  },
+  "DATA_report_public_target": "experiments/sota-2026-10-22/epoch58/data/DATA_REPORT.public.v1.json",
+  "actual_feature_case_ids": [
+    "contractnli:eced6528:dev:17:nda-1",
+    "contractnli:eced6528:dev:17:nda-10",
+    "contractnli:eced6528:dev:17:nda-11",
+    "contractnli:eced6528:dev:17:nda-12",
+    "contractnli:eced6528:dev:17:nda-13",
+    "contractnli:eced6528:dev:17:nda-15",
+    "contractnli:eced6528:dev:17:nda-16",
+    "contractnli:eced6528:dev:17:nda-17",
+    "contractnli:eced6528:dev:17:nda-18",
+    "contractnli:eced6528:dev:17:nda-19",
+    "contractnli:eced6528:dev:17:nda-2",
+    "contractnli:eced6528:dev:17:nda-20",
+    "contractnli:eced6528:dev:17:nda-3",
+    "contractnli:eced6528:dev:17:nda-4",
+    "contractnli:eced6528:dev:17:nda-5",
+    "contractnli:eced6528:dev:17:nda-7",
+    "contractnli:eced6528:dev:17:nda-8"
+  ],
+  "actual_frozen_window_count": 9,
+  "actual_hypothesis_exposed_case_ids": [
+    "contractnli:eced6528:dev:17:nda-1",
+    "contractnli:eced6528:dev:17:nda-10",
+    "contractnli:eced6528:dev:17:nda-11",
+    "contractnli:eced6528:dev:17:nda-12",
+    "contractnli:eced6528:dev:17:nda-13",
+    "contractnli:eced6528:dev:17:nda-15",
+    "contractnli:eced6528:dev:17:nda-16",
+    "contractnli:eced6528:dev:17:nda-17",
+    "contractnli:eced6528:dev:17:nda-18",
+    "contractnli:eced6528:dev:17:nda-19",
+    "contractnli:eced6528:dev:17:nda-2",
+    "contractnli:eced6528:dev:17:nda-20",
+    "contractnli:eced6528:dev:17:nda-3",
+    "contractnli:eced6528:dev:17:nda-4",
+    "contractnli:eced6528:dev:17:nda-5",
+    "contractnli:eced6528:dev:17:nda-7",
+    "contractnli:eced6528:dev:17:nda-8"
+  ],
+  "actual_source_counts": {
+    "document_IDs_seen": 61,
+    "opaque_selected_choice_tokens_copied": 17,
+    "selected_document_text_decodes": 1,
+    "selected_hypothesis_text_decodes": 17,
+    "semantic_gold_decodes": 0,
+    "source_units": 73,
+    "unselected_document_or_choice_decodes": 0,
+    "value_decoder_counts": {
+      "field_name": 532,
+      "legacy_dev_text": 0,
+      "metadata": 1,
+      "selected_document": 1,
+      "selected_hypothesis": 17
+    }
+  },
+  "calibration_ids": [],
+  "catalog_metadata_ref": {
+    "bytes": 26434,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/private-catalog/CATALOG.json",
+    "sha256": "4d4fd618bc3f690a3fd04c130b45cee2843d3e45530c24cff71ce5af310c522e"
+  },
+  "catalog_report_original_ref": {
+    "bytes": 1623,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/private-catalog/CATALOG_REPORT.json",
+    "sha256": "47a223fbaf11c808b6255a51a8cf1e05486998eb721627669d7c70587d167e42"
+  },
+  "confirmation_status": "UNQUALIFIED_HOLD",
+  "epoch": 58,
+  "features_metadata_ref": {
+    "bytes": 31269,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/private-data/FEATURES.json",
+    "sha256": "3926bee857a6dcf6f88ba9ff2925a382aeb243c08bbc5a6f6c0b5939237ffce1"
+  },
+  "fresh_confirmation_ids": [],
+  "identity_namespace": "contractnli:eced6528:dev:17",
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "local_preparation_plan_ref": {
+    "bytes": 12949,
+    "path": "/dev/shm/ruvector-e58-data/local-preparation/LOCAL_PREPARATION_PLAN.v1.json",
+    "sha256": "812aea76ebfdf1611f522ac9f6eca292ad6563395afbe5a361507c1576efc5f0"
+  },
+  "local_preparation_source_freeze_ref": {
+    "bytes": 6774,
+    "path": "/dev/shm/ruvector-e58-data/local-preparation/LOCAL_PREPARATION_SOURCE_FREEZE.v1.json",
+    "sha256": "0e763f415273d2d923e3cb751d27bac5901c4eb23fb6a18c4dab9c2713669884"
+  },
+  "native104_champion_preserved": true,
+  "no_RuVector_ClaimBench_score": true,
+  "no_benchmark_metrics_or_rank_from_preparation": true,
+  "official_goal_verified": false,
+  "publication_excludes": [
+    "Raw NDA feature bank",
+    "Opaque choice-token vault",
+    "Raw Gold tokens",
+    "Model/tokenizer bodies",
+    "Raw HTML",
+    "Private publisher account selectors/mail headers/bodies/addresses"
+  ],
+  "reserved_development_case_ids": [
+    "contractnli:eced6528:dev:17:nda-1",
+    "contractnli:eced6528:dev:17:nda-10",
+    "contractnli:eced6528:dev:17:nda-11",
+    "contractnli:eced6528:dev:17:nda-12",
+    "contractnli:eced6528:dev:17:nda-13",
+    "contractnli:eced6528:dev:17:nda-15",
+    "contractnli:eced6528:dev:17:nda-16",
+    "contractnli:eced6528:dev:17:nda-17",
+    "contractnli:eced6528:dev:17:nda-18",
+    "contractnli:eced6528:dev:17:nda-19",
+    "contractnli:eced6528:dev:17:nda-2",
+    "contractnli:eced6528:dev:17:nda-20",
+    "contractnli:eced6528:dev:17:nda-3",
+    "contractnli:eced6528:dev:17:nda-4",
+    "contractnli:eced6528:dev:17:nda-5",
+    "contractnli:eced6528:dev:17:nda-7",
+    "contractnli:eced6528:dev:17:nda-8"
+  ],
+  "reserved_role": "DEV_FOREVER",
+  "schema_version": 1,
+  "semantic_gold_decodes": 0,
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "source_dataset": {
+    "archive_bytes": 65362913,
+    "archive_git_blob": "757fd1dafd29a997fba00c60c6d40b2930a36159",
+    "archive_sha256": "e03fc77bbf8b53e2976a250e81d8a294bc3d5e5fb014521e477dee9340d6287b",
+    "attribution": "ContractNLI, Stanford NLP; dataset by Yuta Koreeda and Christopher D. Manning. Cite the official ContractNLI repository and ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts.",
+    "data_license_proof": "experiments/sota-2026-10-22/epoch53/data/DATA_SOURCE_ELIGIBILITY.v1.json",
+    "data_license_proof_bytes": 2415,
+    "data_license_proof_sha256": "761d0d944f49b262ccb18c7f44cb38d2d61c70cdcc3a3258c626e7baf46cfc37",
+    "dataset_license": "CC-BY-4.0",
+    "member": "contract-nli/dev.json",
+    "member_bytes": 1183107,
+    "member_sha256": "310af7d661d2ab50ee3700169cef524c75f39fb296bbf5a515c229eb0f42e68e",
+    "normalized_document_sha256": "4c3e5f88c04ef038b431d74af57d26cb7a620301e020cae2f5ab334c32f494b4",
+    "normalized_filename_key_sha256": "1adda6fa1bf7f15abd0c828743f5b550092119b03189a335e9ec0c619376adff",
+    "official_code_license": "Apache-2.0",
+    "official_codec_source_bytes": 5754,
+    "official_codec_source_sha256": "9c63102a01576c230da94695f593fd7bd4fe2d0b20672b74e8a7f62aba426fc4",
+    "repository": "stanfordnlp/contract-nli",
+    "revision": "eced6528dd3c1d14d73f9a87df8f7bdbc03126f9"
+  },
+  "source_licenses": {
+    "attribution": "ContractNLI, Stanford NLP; dataset by Yuta Koreeda and Christopher D. Manning. Cite the official ContractNLI repository and ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts.",
+    "code": "Apache-2.0",
+    "dataset": "CC-BY-4.0",
+    "proof_refs": [
+      {
+        "bytes": 18656,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/experiments/sota-2026-10-22/epoch40/preparation/data-source/source_metadata/contract_LICENSE.txt",
+        "sha256": "9e5f1b3c610b9c2da5c313bf81d577a7d1acec686bdb0384edefa6df0f90cd94"
+      },
+      {
+        "bytes": 11357,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/experiments/sota-2026-10-22/epoch40/preparation/data-source/source_metadata/code_LICENSE.txt",
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      },
+      {
+        "bytes": 160,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/experiments/sota-2026-10-22/epoch40/preparation/data-source/source_metadata/contract_README.md",
+        "sha256": "375a1024337b82d2331bc9ab63cda3044dc10e5019033eb66332a0fc4e626b52"
+      }
+    ]
+  },
+  "source_text_exposed_case_ids": [
+    "contractnli:eced6528:dev:17:nda-1",
+    "contractnli:eced6528:dev:17:nda-10",
+    "contractnli:eced6528:dev:17:nda-11",
+    "contractnli:eced6528:dev:17:nda-12",
+    "contractnli:eced6528:dev:17:nda-13",
+    "contractnli:eced6528:dev:17:nda-15",
+    "contractnli:eced6528:dev:17:nda-16",
+    "contractnli:eced6528:dev:17:nda-17",
+    "contractnli:eced6528:dev:17:nda-18",
+    "contractnli:eced6528:dev:17:nda-19",
+    "contractnli:eced6528:dev:17:nda-2",
+    "contractnli:eced6528:dev:17:nda-20",
+    "contractnli:eced6528:dev:17:nda-3",
+    "contractnli:eced6528:dev:17:nda-4",
+    "contractnli:eced6528:dev:17:nda-5",
+    "contractnli:eced6528:dev:17:nda-7",
+    "contractnli:eced6528:dev:17:nda-8"
+  ],
+  "train_ids": [],
+  "used_confirmation_identities": []
+}

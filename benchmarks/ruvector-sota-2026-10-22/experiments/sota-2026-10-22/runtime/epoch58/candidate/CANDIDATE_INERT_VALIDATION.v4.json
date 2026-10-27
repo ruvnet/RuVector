@@ -1,0 +1,49 @@
+{
+  "actual_DATA_or_Gold_decodes": 0,
+  "actual_asset_GETs": 0,
+  "actual_model_or_native_initializations": 0,
+  "actual_scientific_batches": 0,
+  "actual_test_groups": [
+    {
+      "failed": 0,
+      "passed": 14,
+      "source": {
+        "bytes": 6522,
+        "path": "/dev/shm/ruvector-e58-candidate/test_candidate_inert.v2.py",
+        "sha256": "4ca34b90bf07bd5d37207447b1cfb4b9a6e4929d00710240b9ca84b9bac4ab0c"
+      },
+      "tests_run": 14
+    },
+    {
+      "failed": 0,
+      "passed": 14,
+      "source": {
+        "bytes": 10152,
+        "path": "/dev/shm/ruvector-e58-candidate/native_impl/test_native_inert.v2.py",
+        "sha256": "4e35690c3c32699a3bd1924198d611cc8c8e7c1f7aa47db11ffb56392880b1d1"
+      },
+      "tests_run": 14
+    },
+    {
+      "failed": 0,
+      "passed": 28,
+      "source": {
+        "bytes": 10953,
+        "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/test_inert.v7.py",
+        "sha256": "e975775fd6f09b6bbbc9bef47ddc0b5cc2d8c8ef7a0d7de10d26efebbf02dc96"
+      },
+      "tests_run": 28
+    }
+  ],
+  "checks_passed": true,
+  "epoch": 58,
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "limitations": [
+    "Authored in-memory fixture/head functions only; no actual model/runtime/benchmark quality evidence.",
+    "Containment source tested only via inert IO/current process identity reads, not actual scientific child lifecycle.",
+    "No acceptance or speed/accuracy score inferred."
+  ],
+  "schema_version": 1,
+  "status": "INERT_SOURCE_STRUCTURE_TESTS_PASS_NOT_BENCHMARK_RESULTS",
+  "version_reason": "Final Q cleanup faults and rawlogit archival structural coverage; no runtime entrypoints."
+}

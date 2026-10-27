@@ -1,0 +1,38 @@
+{
+  "checks": [
+    "sourcehash checked beforeimport",
+    "stable831-byte ownerbody/duplicateJSON/nonfinite rejected",
+    "currentPPID1/SID=PGID=PID/CPU01/FD3original33:13626/kernelFLOCK andbusyNBprobe descriptorclosed",
+    "sameboot/ns/exactbirth/scope/purpose/expiry/unreleased",
+    "callerCPU01 required; identity fence grants noSCI authority"
+  ],
+  "checks_passed": true,
+  "epoch": 58,
+  "exact_diff_read": "--- preserved_unexecuted_v1\n+++ typed_v2\n@@ -10,7 +10,7 @@\n   need(k not in out,'duplicate owner JSON key');out[k]=v\n  return out\n def verify_owner(expected_owner):\n- need(type(expected_owner)is dict and expected_owner==EXPECTED_OWNER,'exact typed owner26 reference required')\n+ need(type(expected_owner)is dict and set(expected_owner)=={'path','bytes','sha256'} and type(expected_owner['path'])is str and type(expected_owner['bytes'])is int and type(expected_owner['sha256'])is str and expected_owner==EXPECTED_OWNER,'exact typed owner26 reference required')\n  need(os.sched_getaffinity(0)=={0,1},'caller CPU0,1 required')\n  p=Path(EXPECTED_OWNER['path']);need(not any(x.is_symlink()for x in[p,*p.parents]),'owner path symlink')\n  before=p.stat();need(stat.S_ISREG(before.st_mode),'regular owner file');raw=p.read_bytes();after=p.stat()\n",
+  "expected_owner_ref": {
+    "bytes": 831,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner.json",
+    "sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac"
+  },
+  "generation": 26,
+  "next_gate": "New operational plans must pin this3376/v2source SHA BEFOREimport and exact831 ownerref; preserve stale25/v1plansunexecuted. Separate asset/cleanup/prep/source/SCI admissions remain required.",
+  "noncanonical_float_byte_reference_rejected_before_any_live_probe": true,
+  "observed_unix": 1793128326.203292,
+  "previous_unexecuted_v1_ref": {
+    "bytes": 3205,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner_fence.py",
+    "sha256": "9f4dc0ec1458672e75f0ab0ae543967eef591227dc706917ec9f53465ca50bc3"
+  },
+  "readonly_valid_actual_birthticks": 45182825,
+  "readonly_valid_actual_pid": 192464,
+  "readonly_valid_live_owner_call_count": 1,
+  "schema_version": 1,
+  "scientific_dispatch_authorized": false,
+  "shared_owner_fence_approved": true,
+  "source_ref": {
+    "bytes": 3376,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner_fence_v2.py",
+    "sha256": "5b56fa209a1d947d1bbabe31e5e4ed3d52e8dc9d2258e76fa8577c36b459d693"
+  },
+  "typed_path_bytes_SHA_and_exactkeys_verified": true
+}

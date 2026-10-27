@@ -1,0 +1,102 @@
+{
+  "Gold_labels_decoded": 0,
+  "asset_GETs": 0,
+  "bounds": {
+    "DEV_corpus_max": 24,
+    "DEV_queries": 17,
+    "automatic_retries": false,
+    "dimensions": 384,
+    "engineering_corpus": 128,
+    "engineering_queries": 16,
+    "native_adapter_inclusive_max_seconds": 85,
+    "native_helper_max_seconds": 60,
+    "native_progress_max_bytes": 4194304,
+    "native_result_max_bytes": 8388608,
+    "new_sessions_created": false,
+    "same_enclosing_PG_SID": true,
+    "stdout_or_stderr_max_bytes_each": 65536
+  },
+  "change_from_v1": "Retain nonnegative observed over-cap failure counters (including blocked network attempts), flag cap violation, reject acceptance. Do not replace failed actuals with expected zero.",
+  "epoch": 58,
+  "files": [
+    {
+      "bytes": 15603,
+      "path": "/dev/shm/ruvector-e58-candidate/native_impl/native_helper.cjs",
+      "sha256": "9278e5fe5c2a2a470a504e98b6b5e7bfae1fddd18f4cda4f0cb0b5324d004c46"
+    },
+    {
+      "bytes": 27748,
+      "path": "/dev/shm/ruvector-e58-candidate/native_impl/native_adapter.v2.py",
+      "sha256": "d212a33a2b242027b8c3129438bfa0f24689d309139344f23fc88488df975672"
+    },
+    {
+      "bytes": 10152,
+      "path": "/dev/shm/ruvector-e58-candidate/native_impl/test_native_inert.v2.py",
+      "sha256": "4e35690c3c32699a3bd1924198d611cc8c8e7c1f7aa47db11ffb56392880b1d1"
+    }
+  ],
+  "inert_tests": {
+    "command": "python -I -B /dev/shm/ruvector-e58-candidate/native_impl/test_native_inert.v2.py",
+    "earlier_inert_test_fixture_alias_bug_fixed": "Fixture shared query-ID list with config; test initially mutated both. Fixed copying; no scientific execution.",
+    "failures": 0,
+    "fake_in_memory_vectors_and_model_free_source_validation_only": true,
+    "runtime_seconds_last_observed": 0.022,
+    "tests_run": 14
+  },
+  "interface": {
+    "call": "run_native(config,bundle,external,progress,deadline,*,counters=None,state=None)",
+    "counter_keys": [
+      "native_index_initializations_attempted",
+      "native_index_initializations_completed",
+      "native_insertions_attempted",
+      "native_insertions_completed",
+      "native_queries_attempted",
+      "native_queries_completed",
+      "native_len_calls_attempted",
+      "native_len_calls_completed",
+      "native_hit_source_validations",
+      "native_binary_loads_attempted",
+      "native_binary_loads_completed",
+      "native_version_calls_attempted",
+      "native_version_calls_completed",
+      "Node_network_operations_attempted",
+      "native_processes_attempted",
+      "native_processes_completed"
+    ],
+    "deadline": "absolute time.monotonic float",
+    "external": "existing empty canonical absolute directory",
+    "native_processes_completed_semantics": "started helper reaped and physically closed, including failure exit",
+    "state_process_identities": "list of actual {pid,startticks,pgid,sid}",
+    "state_raw_result_ref": "typed immutable raw-result or failure-result ref; source-bound validation after child physically closed"
+  },
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "model_initializations": 0,
+  "native_batches_executed": 0,
+  "original_native_helper_preserved": true,
+  "public_or_private_data_access": false,
+  "remaining_admission": [
+    "Parent Root source freeze/publication/readback and independent scientific admission before calling adapter",
+    "Fresh verified runtime refs and guardian26 fence at enclosing worker/supervisor",
+    "Actual runtime/native readiness remains unmeasured; inert tests are not native engineering results",
+    "Whole 600-second CLI/session closure remains enclosing supervisor responsibility; adapter only controls its direct helper PID",
+    "If child identity cannot be observed, direct owned unreaped Popen is closed and uncertainty forces failure; never accepted as fully recorded execution"
+  ],
+  "schema_version": 1,
+  "status": "SOURCE_DRAFT_AND_INERT_TESTS_ONLY_NO_NATIVE_OR_MODEL_EXECUTION",
+  "supersedes_unexecuted_source_packet": {
+    "bytes": 4516,
+    "path": "/dev/shm/ruvector-e58-candidate/native_impl/NATIVE_SOURCE_PACKET.v1.json",
+    "sha256": "ace7b31234beb242b06b3a12a48ed500558eff8e1747208ae91708c248d2912e"
+  },
+  "validation": [
+    "F32 hash/dimensions/normalization and unique fixed source/query IDs before launch",
+    "source-pinned Node/helper/native binary and four wrapper closure refs",
+    "native raw order retained except exact returned-score ties sorted by source ID",
+    "each native hit source vector bits bound via receipt, no metadata or unknown IDs",
+    "native misses remain misses and require full supplied-source fallback",
+    "exact cosine recomputation diagnostic never substitutes native order",
+    "terminal observed counters and durable monotonic native progress validated, no expected-count fill",
+    "PID/startticks/PG/SID exact child birth and physical closure with PID-reuse-safe signaling",
+    "failure raw files/progress retained; incomplete counts marked uncertain"
+  ]
+}

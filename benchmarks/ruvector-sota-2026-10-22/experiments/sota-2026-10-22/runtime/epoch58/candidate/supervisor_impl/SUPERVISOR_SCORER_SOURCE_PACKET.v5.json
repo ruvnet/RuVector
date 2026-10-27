@@ -1,0 +1,167 @@
+{
+  "Gold_join_required_fields": [
+    "schema_version=1",
+    "epoch=58",
+    "kind",
+    "phase=dev",
+    "sealed_forecasts_ref",
+    "ids:fixed17",
+    "label_order:C/E/NotMentioned",
+    "semantic_labels_decoded:strictint17",
+    "rows:[{case_id,label}]"
+  ],
+  "actual_activities": {
+    "DATA_GOLD_opens": 0,
+    "asset_GETs": 0,
+    "model_native_initializations": 0,
+    "scientific_batches": 0
+  },
+  "all_refs": "Exact {path,bytes,sha256}. No symlink data/source refs. Venv Python leaf alone may symlink to pinned python_realpath; executable still uses leaf path to retain venv.",
+  "containment": {
+    "CLI_retries": 0,
+    "capture_bytes_per_stream": 8388608,
+    "closure_truth": "Owned process cannot claim its own physical closure. Both supervisor and outer leave all_owned_processes_closed=false. Independent Q must inspect every recorded identity and session after CLI exit.",
+    "outer_TERM_deadline_seconds": 590,
+    "outer_final_hard_exit_seconds": 598,
+    "outer_launch": "Root must launch run_cli_once.py as a unique session leader, e.g. setsid taskset -c 0,1 <pinnedPython> -I -B <run_cli_once.py> ...; attached shared PG/SID is rejected.",
+    "supervisor": "Popen start_new_session=true from outer. Supervisor PID=PGID=SID.",
+    "uncertain_direct_Popen": "If exact distinct supervisor identity is unavailable or invalid, close only owned unreaped Popen via TERM/KILL/reap, retain uncertainty, never signal guessed group or claim session closure; acceptance fails. Hard limit kills owned Popen if identity unvalidated.",
+    "whole_limit_seconds": 600,
+    "worker_and_native": "Worker Popen start_new_session=false and all child native processes must inherit exact supervisor PG/SID.",
+    "worker_deadline_seconds_from_outer_origin": 580
+  },
+  "epoch": 58,
+  "fence_API": "config.fence_source exact typed ref imported only after hash; module.verify_owner(config.owner) returns owner. No owner fallback.",
+  "files": [
+    {
+      "bytes": 16258,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/supervisor.v2.py",
+      "sha256": "647cc6be8d87dade6bb02859d10720bd34544b6c8569e74221736e932d5a1931"
+    },
+    {
+      "bytes": 13481,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/run_cli_once.v5.py",
+      "sha256": "0cde78ea585e7f8889044ccc1c887b268e6008cc66f3ce13002ef1fefc6dfcda"
+    },
+    {
+      "bytes": 18406,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/scorer.v3.py",
+      "sha256": "774c19982bb48609c1fa24c1afbab9479db7465010fe16a880bea23fe76bb203"
+    },
+    {
+      "bytes": 10953,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/test_inert.v7.py",
+      "sha256": "e975775fd6f09b6bbbc9bef47ddc0b5cc2d8c8ef7a0d7de10d26efebbf02dc96"
+    }
+  ],
+  "forecast_arms": [
+    "native_order",
+    "source_order",
+    "full_reference"
+  ],
+  "forecast_labels": [
+    "Contradiction",
+    "Entailment",
+    "NotMentioned"
+  ],
+  "forecast_rows": "51 case-major rows; exactly17 fixed DOC17 IDs, then the three fixed arms.",
+  "inert_validation": {
+    "bytes": 1920,
+    "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/INERT_VALIDATION.v5.json",
+    "sha256": "fe22b230174927ff3d2d2ae26eaa3dbeca6fa4f1797d1cde4a9baff67386879b"
+  },
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "late_scoring_admission": "epoch58,phase dev,scoring_allowed true,exact owner_ref/sealed_forecasts_ref/joined_gold_ref/independent_actual_audit_ref/plan_ref/source_freeze_ref. Independent audit binds sealed_forecasts_ref and actual countdict, checks_passed+all_owned_processes_closed true/current boot+namespace/all owned process identities.",
+  "noncircular_admissions": {
+    "supervisor.Q_admission": "Final Q dispatch: checks_passed true, scientific_execution_allowed true, epoch/kind/phase, exact owner_ref/plan_ref/source_freeze_ref/source_publication_ref/worker_config_ref/source_admission_ref.",
+    "supervisor.root_admission": "Root final execution: checks_passed true, execution_allowed true, epoch/kind/phase, exact owner_ref/plan_ref/source_freeze_ref/source_publication_ref/worker_config_ref/Q_admission_ref.",
+    "worker_config.independent_admission": "Q source/scientific phase approval bound plan, freeze, owner. Does not reference worker config."
+  },
+  "numeric_flags": [
+    [
+      "claim_has_numerals"
+    ],
+    [
+      "claim_has_numerals",
+      "claim_numeral_not_in_supplied_context"
+    ]
+  ],
+  "remaining_before_execution": [
+    "Parent integration and independent source review",
+    "Fresh exact runtime refs and live guardian26 admission",
+    "Actual SOURCE publication/full remote readback",
+    "Final exact dispatch config/Q+Root approvals",
+    "Conditional second native corpus only after independent engineering projection gate"
+  ],
+  "schema_version": 1,
+  "score_metrics": {
+    "actual_scored_case_ids": "exact17 IDs only in scorer output, no mutation of raw worker forecast identities.",
+    "arms": "count,correct,accuracy,Brier(mean sum3),NLL(mean stable unclipped log probability),confusion_matrix_gold_rows_prediction_columns,errors(classification rows),error_count,latency_seconds p50/p95/total/count,case_forward_participations,actual_pair_inferences,early_exit_count,full_context_count.",
+    "gate": "quality gate tolerance1e-6: native correct>=source+1; native proper<=source; native correct>=full; native proper<=full. Final combined result additionally requires independent operational checks_passed.",
+    "global_forward_accounting": "True physical NLI calls are raw_worker.counters.NLI_forward_calls_completed, reconciled by unique raw NLI_batch_records batch_index and durable forward progress. Per-row actual_model_forward_calls means case-arm participation; summed participation is not physical calls.",
+    "paired_comparisons": "native wins/losses/both-correct/both-wrong, all17 paired rows with native-minus-comparator Brier/NLL and means.",
+    "uncertainty": "One NDA cluster17 dependent claims; no independent-document CI, generalization/rank inference, promotion or official score."
+  },
+  "scorer_config_required_fields": [
+    "epoch",
+    "kind",
+    "phase",
+    "owner",
+    "fence_source",
+    "root_admission",
+    "independent_actual_audit",
+    "sealed_forecasts",
+    "joined_gold",
+    "scorer_source",
+    "output"
+  ],
+  "source_freeze_views": "files is unique relative public source catalog. runtime_sources is exact absolute operational typed refs. Each operational source ref must be in runtime_sources and have equal bytes/SHA represented in files.",
+  "source_publication_fields_required": [
+    "checks_passed=true",
+    "verified_actual_remote_readback=true",
+    "actual_parent=db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+    "commit:actual40hex different from parent",
+    "source_plan_sha256",
+    "source_freeze_sha256"
+  ],
+  "status": "DRAFT_READY_FOR_PARENT_AND_INDEPENDENT_REVIEW_NO_SCI",
+  "supersedes_unexecuted_source_packet": {
+    "bytes": 8016,
+    "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/SUPERVISOR_SCORER_SOURCE_PACKET.v4.json",
+    "sha256": "86360f1552d0ea986bc0c1b3ff97216249ee02b9a894e0ac1868daf51a5fcbdc"
+  },
+  "supervisor_config_required_fields": [
+    "schema_version",
+    "epoch",
+    "kind",
+    "phase",
+    "output_directory",
+    "owner",
+    "fence_source",
+    "plan",
+    "source_freeze",
+    "source_publication",
+    "Q_admission",
+    "root_admission",
+    "worker",
+    "worker_config",
+    "python",
+    "python_realpath",
+    "required_sources",
+    "supervisor_source",
+    "outer_source"
+  ],
+  "version_reason": "Final Q source corrections: cleanup observation is best effort with retained failure, owned direct Popen always gets termination/reap attempt, hard598 limit always exits124 in finally despite proc/group exceptions; no guessed/unvalidated group signals. Gold join+forward accounting unchanged from priorcorrectedversions.",
+  "worker_argv": [
+    "<pinnedPythonLeaf>",
+    "-I",
+    "-B",
+    "<worker>",
+    "--config",
+    "<worker_config.path>",
+    "--expected-config-sha256",
+    "<worker_config.sha256>",
+    "--deadline-monotonic-seconds",
+    "<outer_origin+580>"
+  ]
+}

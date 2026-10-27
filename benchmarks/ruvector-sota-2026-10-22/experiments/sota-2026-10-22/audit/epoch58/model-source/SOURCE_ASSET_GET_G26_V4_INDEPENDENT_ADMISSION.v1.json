@@ -1,0 +1,44 @@
+{
+  "asset_metadata_binding": "Exact officialfa280 LFS model172503006/a1da and regular tokenizer8656624/Git12cc; tokenizer actual SHA256 must be recorded and frozen after GET before any scientificSOURCE dispatch.",
+  "checks_passed": true,
+  "current_sources_and_once_asset_directory_absent_verified": true,
+  "download_allowed": true,
+  "downloader_source": {
+    "bytes": 8073,
+    "path": "/dev/shm/ruvector-e58-candidate/download_asset_once.g26.py",
+    "sha256": "c71a4d5ba6fc31af1795959d6b53ea0a848c9716ae91302e50ee46d7ede17be5"
+  },
+  "epoch": 58,
+  "fence_source": {
+    "bytes": 3376,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner_fence_v2.py",
+    "sha256": "5b56fa209a1d947d1bbabe31e5e4ed3d52e8dc9d2258e76fa8577c36b459d693"
+  },
+  "inner_whole_worker_alarm_seconds": 100,
+  "max_assets": 2,
+  "max_attempts_per_asset": 1,
+  "observed_unix": 1793128933.4877908,
+  "outer_contract": "Root once per nli_model and nli_tokenizer must use taskset CPU0,1 timeout TERM108s kill-after2s <=110s total; no retries or duplicate attempt IDs. Each child must be fully awaited and actual result/hash independently reviewed.",
+  "owner": {
+    "bytes": 831,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner.json",
+    "sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac"
+  },
+  "plan_ref": {
+    "bytes": 4328,
+    "path": "/dev/shm/ruvector-e58-candidate/SOURCE_ASSET_GET_PLAN.v4.g26.json",
+    "sha256": "267cf8174b5c83593743b5d24d9e8ddc9cd71320429570220221b87c4860e3c8"
+  },
+  "post_GET_headroom_bytes": 1932735283,
+  "post_kit_physical_verification_ref": {
+    "bytes": 1036,
+    "path": "/dev/shm/ruvector-e58-audit/ACTUAL_KIT_TWIN_RETIREMENT_G26_INDEPENDENT.v1.json",
+    "sha256": "ff1e18b7df8f1012518396d44b34c5b8edb1946c15645359412110d92d5dd757"
+  },
+  "pre_GET_headroom_bytes": 2147483648,
+  "qualification_holds": "Exact training revisions/export recipe/testnonuse remain unqualified; CF[]HOLD and native104 unchanged. Separately admitted blind tokenizer/catalog prep may precede wholeSOURCE only under its own exact packet; NLI/native initialization require wholeSOURCEpublication/readback and later admission.",
+  "resource_scope": "Each actual worker checks current shared headroom before/after; this source approval is not a future memory guarantee.",
+  "schema_version": 1,
+  "scientific_authorization_granted": false,
+  "scope": "Source-only public asset GETs, TLS/inheritedproxy preserved; no redirect URLs/headers/credentials persisted, no weight/tokenizer redistribution. Exact source code read; approval bound before any request. No model/session/native/Gold calls granted."
+}

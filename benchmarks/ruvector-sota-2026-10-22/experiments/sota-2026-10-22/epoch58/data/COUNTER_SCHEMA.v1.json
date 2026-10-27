@@ -1,0 +1,169 @@
+{
+  "Gold_closure_shape": {
+    "actual_execution_independently_derived": {
+      "dev": "exact42counterdict",
+      "engineering": "exact42counterdict"
+    },
+    "catalog_ref": "exacttypedref",
+    "raw_worker_results": {
+      "dev": "typedref",
+      "engineering": "typedref"
+    },
+    "sealed_forecasts_ref": "exacttypedref"
+  },
+  "all_types": "exact int, not bool; >=0",
+  "attempt_completion_pairs": [
+    [
+      "NLI_tokenizer_initializations_attempted",
+      "NLI_tokenizer_initializations_completed"
+    ],
+    [
+      "BGE_tokenizer_initializations_attempted",
+      "BGE_tokenizer_initializations_completed"
+    ],
+    [
+      "NLI_model_initializations_attempted",
+      "NLI_model_initializations_completed"
+    ],
+    [
+      "BGE_model_initializations_attempted",
+      "BGE_model_initializations_completed"
+    ],
+    [
+      "NLI_forward_calls_attempted",
+      "NLI_forward_calls_completed"
+    ],
+    [
+      "NLI_pair_inferences_attempted",
+      "NLI_pair_inferences_completed"
+    ],
+    [
+      "BGE_forward_calls_attempted",
+      "BGE_forward_calls_completed"
+    ],
+    [
+      "BGE_texts_attempted",
+      "BGE_texts_completed"
+    ],
+    [
+      "pair_tokenizations_attempted",
+      "pair_tokenizations_completed"
+    ],
+    [
+      "BGE_tokenizations_attempted",
+      "BGE_tokenizations_completed"
+    ],
+    [
+      "native_index_initializations_attempted",
+      "native_index_initializations_completed"
+    ],
+    [
+      "native_insertions_attempted",
+      "native_insertions_completed"
+    ],
+    [
+      "native_queries_attempted",
+      "native_queries_completed"
+    ],
+    [
+      "native_len_calls_attempted",
+      "native_len_calls_completed"
+    ],
+    [
+      "native_binary_loads_attempted",
+      "native_binary_loads_completed"
+    ],
+    [
+      "native_version_calls_attempted",
+      "native_version_calls_completed"
+    ],
+    [
+      "native_processes_attempted",
+      "native_processes_completed"
+    ]
+  ],
+  "attempts_at_least_completed": true,
+  "epoch": 58,
+  "failure_uncertainty": "Retain real partial/over-cap counts. Any uncertain accounting forbids accepted engineering/DEV, never expected-fill.",
+  "keys": [
+    "NLI_tokenizer_initializations_attempted",
+    "NLI_tokenizer_initializations_completed",
+    "BGE_tokenizer_initializations_attempted",
+    "BGE_tokenizer_initializations_completed",
+    "NLI_model_initializations_attempted",
+    "NLI_model_initializations_completed",
+    "BGE_model_initializations_attempted",
+    "BGE_model_initializations_completed",
+    "NLI_forward_calls_attempted",
+    "NLI_forward_calls_completed",
+    "NLI_pair_inferences_attempted",
+    "NLI_pair_inferences_completed",
+    "BGE_forward_calls_attempted",
+    "BGE_forward_calls_completed",
+    "BGE_texts_attempted",
+    "BGE_texts_completed",
+    "pair_tokenizations_attempted",
+    "pair_tokenizations_completed",
+    "BGE_tokenizations_attempted",
+    "BGE_tokenizations_completed",
+    "native_index_initializations_attempted",
+    "native_index_initializations_completed",
+    "native_insertions_attempted",
+    "native_insertions_completed",
+    "native_queries_attempted",
+    "native_queries_completed",
+    "native_len_calls_attempted",
+    "native_len_calls_completed",
+    "native_binary_loads_attempted",
+    "native_binary_loads_completed",
+    "native_version_calls_attempted",
+    "native_version_calls_completed",
+    "native_processes_attempted",
+    "native_processes_completed",
+    "native_hit_source_validations",
+    "Node_network_operations_attempted",
+    "forecasts_completed",
+    "numerical_flagged_cases",
+    "Python_network_operations_attempted",
+    "paid_API_calls",
+    "GPU_calls",
+    "Gold_labels_decoded"
+  ],
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "phase_raw_actual_execution_independently_derived": "exact dict equality with physically rehashed raw worker counters and independently reconstructed durable progress counts; never fill from expected counts",
+  "positive_actual_dev_completed_keys": [
+    "NLI_model_initializations_completed",
+    "BGE_model_initializations_completed",
+    "NLI_forward_calls_completed",
+    "NLI_pair_inferences_completed",
+    "BGE_forward_calls_completed",
+    "BGE_texts_completed",
+    "native_binary_loads_completed",
+    "native_index_initializations_completed",
+    "native_insertions_completed",
+    "native_queries_completed",
+    "native_processes_completed",
+    "forecasts_completed"
+  ],
+  "positive_actual_engineering_completed_keys": [
+    "NLI_model_initializations_completed",
+    "BGE_model_initializations_completed",
+    "NLI_forward_calls_completed",
+    "NLI_pair_inferences_completed",
+    "BGE_forward_calls_completed",
+    "BGE_texts_completed",
+    "native_binary_loads_completed",
+    "native_index_initializations_completed",
+    "native_insertions_completed",
+    "native_queries_completed",
+    "native_processes_completed"
+  ],
+  "schema_version": 1,
+  "worker_zero_keys": [
+    "Python_network_operations_attempted",
+    "Node_network_operations_attempted",
+    "paid_API_calls",
+    "GPU_calls",
+    "Gold_labels_decoded"
+  ]
+}

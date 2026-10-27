@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-I",
+    "-B",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/recoveries/epoch42-publication-20261026/restore_epoch42_archive.py",
+    "--kit-root",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit",
+    "--dest",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project",
+    "--restore-scope",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1",
+    "--archive",
+    "recoveries/epoch42-publication-20261026/immutable-e42-artifacts.zip",
+    "--projection",
+    "recoveries/epoch42-publication-20261026/ARCHIVE_PROJECTED_FILES.v1.json"
+  ],
+  "exit_code": 0,
+  "model_native_Gold_Git_calls": 0,
+  "stderr": "",
+  "stdout": "{\"Git_model_native_Gold_EVAL_calls\": 0, \"archive_Git_blob_sha1\": \"22669777496cdcb3d957bbe237bb8e5b70f5fde5\", \"archive_bytes\": 4531795, \"archive_members_verified\": 357, \"archive_sha256\": \"b1563d4bd7b8ea54e69f6a2d1047130b95a94748d58e83fabcf465431c64cbca\", \"archive_uncompressed_bytes_verified\": 20067025, \"both_destinations_complete\": true, \"dest\": \"/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project\", \"dest_identical_existing_verified\": 0, \"dest_written\": 287, \"epoch\": 42, \"hardlinks_created\": 0, \"kit_identical_existing_verified\": 287, \"kit_root\": \"/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit\", \"kit_written\": 0, \"manifest_bodies_verified\": 356, \"nonselected_members_extracted\": 0, \"overwrites\": 0, \"projection_sha256\": \"749265d94e7c5389671642bda12e9a2c83d4d618589961ec5303c671c6471823\", \"schema_version\": 1, \"selected_bytes_verified\": 4900638, \"selected_files_verified\": 287, \"status\": \"EXACT_ARCHIVE_PUBLIC_PROJECTION_RESTORED\", \"verify_only\": false}\n",
+  "wall_seconds": 0.5857746980036609
+}

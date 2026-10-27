@@ -1,0 +1,33 @@
+{
+  "HTTP_GET_attempts": 1,
+  "HTTP_GET_completed": 1,
+  "after_memory": {
+    "available": 2844622848,
+    "current": 14335246336,
+    "maximum": 17179869184
+  },
+  "asset": "nli_model",
+  "asset_ref": {
+    "bytes": 172503006,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/model.onnx",
+    "sha256": "a1da6815c8da542d16381c7d84892d409b4b6604d655bb3054ecb15dd8714e6e"
+  },
+  "before_memory": {
+    "available": 3019157504,
+    "current": 14160711680,
+    "maximum": 17179869184
+  },
+  "body_GitSHA": "6a42ba874fc29dbb8a1a3b2a2454df1aa1b29ee6",
+  "bytes_read": 172503006,
+  "epoch": 58,
+  "errors": [],
+  "model_tokenizer_native_initializations": 0,
+  "paid_API_or_GPU_calls": 0,
+  "redirect_urls_headers_and_credentials_not_persisted": true,
+  "requested_pinned_public_url": "https://huggingface.co/cross-encoder/nli-deberta-v3-small/resolve/fa2804872c3b4bd748f38c0185cc85775361e735/onnx/model_qint8_avx512_vnni.onnx",
+  "required_outer_timeout_seconds": 108,
+  "schema_version": 1,
+  "source_GET_inner_SIGALRM_seconds": 100,
+  "status": "COMPLETE_VERIFIED_SOURCE_ASSET_ONLY",
+  "whole_worker_elapsed_seconds": 17.24722463701619
+}

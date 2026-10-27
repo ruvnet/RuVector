@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-I",
+    "-B",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/recoveries/epoch49-stop-publication-20261027-g15/restore_e49_overlay.py",
+    "--envelope",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/recoveries/epoch49-stop-publication-20261027-g15/PUBLIC_RECOVERY.envelope.v1.json",
+    "--manifest",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project/recoveries/epoch49-stop-publication-20261027-g15/ARCHIVE_OVERLAY.v1.json",
+    "--project",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project",
+    "--verify-only"
+  ],
+  "exit_code": 0,
+  "model_native_Gold_Git_calls": 0,
+  "stderr": "",
+  "stdout": "{\"CP_rows_added\": 0, \"Git_member_blobs_created\": 0, \"canonical_members\": 76, \"checks_passed\": true, \"old_requests_or_slots_executed\": 0, \"scientific_authorization_granted\": false, \"verify_only\": true, \"written\": 0}\n",
+  "wall_seconds": 0.10983382898848504
+}

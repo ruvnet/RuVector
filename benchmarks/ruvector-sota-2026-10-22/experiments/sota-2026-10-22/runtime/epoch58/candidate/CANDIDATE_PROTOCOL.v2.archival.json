@@ -1,0 +1,178 @@
+{
+  "DEV_acceptance": {
+    "PASS_meaning": "DEV mechanism diagnostic only, no confirmation/promotion/official claim; one document cluster, no independent-document CI",
+    "native_Brier_and_NLL_vs_full": "<= full +1e-6",
+    "native_Brier_and_NLL_vs_source": "<= source +1e-6",
+    "native_correct_vs_full": "at least full correct",
+    "native_correct_vs_source": "at least +1 of17",
+    "other": "all51 complete, errors0, NotMentioned fullcoverage, actual runtime<=600,CPU2,genuine native; labels only after source freeze/forecasts/processclosure",
+    "tolerance": 1e-06
+  },
+  "aggregation": {
+    "C": "max(window_C_logit-window_N_logit)",
+    "E": "max(window_E_logit-window_N_logit)",
+    "N": 0,
+    "NotMentioned": "Only after ALL supplied windows. Native missing/incomplete hitlist forces complete source-order fallback with early exit disabled.",
+    "early_exit": "native/source only, after all actual same-state windows in a batch; E or C support>=log9 AND margin over opposite>=log3; no numeric flags; full reference never exits",
+    "numeric_flags": [
+      "claim_has_numerals",
+      "claim_numeral_not_in_supplied_context"
+    ],
+    "numeric_policy": "Only claim numeric literals flag; exact comma-stripped/+stripped lexical token set diagnostic. Any flag disables early exit, never changes logits or decision. Context-only numbered clauses do not flag.",
+    "probabilities": "untempered stable double softmax [C,E,N], no clipping/fitting/renormalization"
+  },
+  "arms": [
+    "native_order",
+    "source_order",
+    "full_reference"
+  ],
+  "batch1": {
+    "NLI_batch_size": 8,
+    "NLI_forwards": 4,
+    "NLI_pairs": 32,
+    "NLI_sequence_length": 512,
+    "gate": "Independent genuine native/count/resource/IO audit plus 2*ceil(3*17*W/8)*max(full8_forward_seconds)+measured_modelinit_total+90 <=420. Hash+tokenizer+ORT initialization included measured_modelinit_total; no retries.",
+    "native_corpus_documents": 128,
+    "native_queries": 16,
+    "role": "AUTHORED_ENGINEERING_ONLY_NO_GENERALIZATION",
+    "source": {
+      "bytes": 85890,
+      "path": "/dev/shm/ruvector-e58-candidate/ENGINEERING_AUTHORED_INPUTS.v1.json",
+      "sha256": "798b88330397d8b54745b6ddca42b13333ebb44d08e35db7258f15b4ee148557"
+    },
+    "warmup_forwards": 0
+  },
+  "batch2": {
+    "Gold_access": "Only after all51forecasts sealed and all owned processes/PG/SIDs independently physically closed; no selection after labels.",
+    "conditional_on": "Independent accepted batch1 and frozen projection<=420",
+    "forecasts": 51,
+    "role": "ONE_DOC17_ALL17_DEV_MECHANISM_ONLY",
+    "same_model_retrieval_ablation": true
+  },
+  "batching": "Roundrobin active case-arm states: one next window per state per rotation, fill8, revisit if fewer8active states. Same actual minibatch head for all arms, no cached/replayed arm outputs. Decision only after actual current batch consumed. All NLI inputs padded512; lastbatch<=8. Full-coverage bound ceil(3*17*W/8).",
+  "cached_BGE_model": {
+    "bytes": 34014426,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/model-assets/model_quantized.onnx",
+    "sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4"
+  },
+  "cached_BGE_tokenizer": {
+    "bytes": 711396,
+    "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/models/bge-small-en-v1.5/tokenizer.json",
+    "sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66"
+  },
+  "calibration_ids": [],
+  "confirmation_status": "UNQUALIFIED_HOLD",
+  "dataset_or_Gold_decodes_by_C": 0,
+  "epoch": 58,
+  "forward_accounting": {
+    "arm_metric": "case_forward_participations",
+    "global_physical_calls": "raw.counters.NLI_forward_calls_completed",
+    "per_case_actual_model_forward_calls": "Shared-batch participations of that case-arm, never sum as global physicalcalls."
+  },
+  "fresh_confirmation_ids": [],
+  "frozen_runtime_provenance": {
+    "bytes": 5944,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/CURRENT_RUNTIME_AND_CACHED_BGE_VERIFICATION.v1.json",
+    "sha256": "930f81889d5c3664777cb9ea05aa0b88e6621337ab9c5b18ddfc2bfb918a2603"
+  },
+  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
+  "labels": [
+    "Contradiction",
+    "Entailment",
+    "NotMentioned"
+  ],
+  "latency_semantics": "Per-state elapsed first submitted batch start through decision, including interbatch queue+tokenization/forward; excludes wait before firstsubmit. Report p50/p95 as batched mechanism latency; wholeCLI actual dominant; no singlequery deployment speedclaim.",
+  "model_or_native_initializations_by_C": 0,
+  "promotion_allowed": false,
+  "raw_DEV_archival": {
+    "each_actual_pair": [
+      "batch_id",
+      "row_index",
+      "case_id",
+      "arm",
+      "window_id",
+      "raw_logits3",
+      "source_window_sha256",
+      "claim_input_sha256"
+    ],
+    "each_batch": [
+      "input_tensor_receipts",
+      "output_tensor_receipt",
+      "model_weight_sha256",
+      "label_order"
+    ],
+    "purpose": "Independent typed-max-logodds/early-exit/coverage replay for all51forecasts; no cache/replayed outputs or extra forwards.",
+    "timing": "Input/output hashing and durable per-batch output archival excluded only from measured session.run forwardseconds; included wholeCLI and case decision elapsed."
+  },
+  "resource_caps": {
+    "BGE_closed_before_NLI_init": true,
+    "CLI_inclusive_seconds_each": 600,
+    "GPU_calls": 0,
+    "ORT_inter_threads": 1,
+    "ORT_intra_threads": 2,
+    "cpu_affinity": [
+      0,
+      1
+    ],
+    "minimum_model_headroom_bytes": 1073741824,
+    "native_corpus_batches_max": 2,
+    "paid_API_calls": 0,
+    "worker_budget_seconds": 580
+  },
+  "runtime_versions": {
+    "numpy": "2.2.6",
+    "onnxruntime": "1.22.1",
+    "tokenizers": "0.21.4"
+  },
+  "schema_version": 1,
+  "selected_ids": [
+    "contractnli:eced6528:dev:17:nda-1",
+    "contractnli:eced6528:dev:17:nda-10",
+    "contractnli:eced6528:dev:17:nda-11",
+    "contractnli:eced6528:dev:17:nda-12",
+    "contractnli:eced6528:dev:17:nda-13",
+    "contractnli:eced6528:dev:17:nda-15",
+    "contractnli:eced6528:dev:17:nda-16",
+    "contractnli:eced6528:dev:17:nda-17",
+    "contractnli:eced6528:dev:17:nda-18",
+    "contractnli:eced6528:dev:17:nda-19",
+    "contractnli:eced6528:dev:17:nda-2",
+    "contractnli:eced6528:dev:17:nda-20",
+    "contractnli:eced6528:dev:17:nda-3",
+    "contractnli:eced6528:dev:17:nda-4",
+    "contractnli:eced6528:dev:17:nda-5",
+    "contractnli:eced6528:dev:17:nda-7",
+    "contractnli:eced6528:dev:17:nda-8"
+  ],
+  "shared_catalog": {
+    "before_final_source_freeze": "Separately admitted blind DATA/tokenizer-only actual W+catalog SHA frozen; no model/native/Gold.",
+    "max_tokens": 512,
+    "max_windows": 24,
+    "method": "Exact contiguous source-unit partition. Oversized units deterministic largest-fitting binary-search codepoint prefix; adjacent fragments greedily merge only if ALL17 NLI pair encodings and whole BGE window fit<=512. No hidden truncation, no labels/model logits. Source blank units attached to preceding fragment; inability to fit or W>24 fails closed."
+  },
+  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
+  "status": "SOURCE_DRAFT_UNEXECUTED_NOT_A_RESULT",
+  "train_ids": [],
+  "typed_NLI": {
+    "bytes": 172503006,
+    "exact_training_revision_verified": false,
+    "export_recipe_revision_verified": false,
+    "model": "cross-encoder/nli-deberta-v3-small",
+    "official_asset": "onnx/model_qint8_avx512_vnni.onnx",
+    "output_label_map": {
+      "0": "contradiction",
+      "1": "entailment",
+      "2": "neutral"
+    },
+    "publisher_license": "Apache-2.0",
+    "publisher_training_corpora_declared": [
+      "SNLI",
+      "MultiNLI"
+    ],
+    "revision": "fa2804872c3b4bd748f38c0185cc85775361e735",
+    "sha256": "a1da6815c8da542d16381c7d84892d409b4b6604d655bb3054ecb15dd8714e6e",
+    "temperature": 1.0,
+    "training_test_nonuse_verified": false
+  },
+  "used_confirmation_identities": []
+}

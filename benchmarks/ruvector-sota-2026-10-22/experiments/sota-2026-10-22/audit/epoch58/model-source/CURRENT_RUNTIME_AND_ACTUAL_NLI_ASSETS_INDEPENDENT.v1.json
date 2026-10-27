@@ -1,0 +1,66 @@
+{
+  "HTTP_scope": "Each asset had one admitted logical initial pinned-urlopen; urllib may follow officialCDN redirects. Exact physical request count was not measured. No redirectURL/header/privatecredential data persisted.",
+  "actual_newNLI_source_assets": [
+    {
+      "actual_asset_ref": {
+        "bytes": 172503006,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/model.onnx",
+        "sha256": "a1da6815c8da542d16381c7d84892d409b4b6604d655bb3054ecb15dd8714e6e"
+      },
+      "body_GitSHA": "6a42ba874fc29dbb8a1a3b2a2454df1aa1b29ee6",
+      "logical_initial_urlopen_attempts": 1,
+      "result_ref": {
+        "bytes": 1169,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/nli_model.GET_RESULT.actual.json",
+        "sha256": "cba1db93845625b43f3f9236a557f13d1d32ccf420be2e7bd5f2c7173e9577b4"
+      },
+      "status": "COMPLETE_VERIFIED_SOURCE_ASSET_ONLY",
+      "whole_worker_seconds": 17.24722463701619
+    },
+    {
+      "actual_asset_ref": {
+        "bytes": 8656624,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/tokenizer.json",
+        "sha256": "5124ef2ead1a10a717703bc436de7f353da76d6340e4587719b42b1693707964"
+      },
+      "body_GitSHA": "12cc2e86bad0e731393847b017b32a7405ebd4f8",
+      "logical_initial_urlopen_attempts": 1,
+      "result_ref": {
+        "bytes": 1154,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/assets/new-nli/nli_tokenizer.GET_RESULT.actual.json",
+        "sha256": "13fa9ac22b2025a61c3983bf8c379fa53944f06cc620c68bad6d243515798a27"
+      },
+      "status": "COMPLETE_VERIFIED_SOURCE_ASSET_ONLY",
+      "whole_worker_seconds": 1.307424433005508
+    }
+  ],
+  "asset_command_closure_scope": "Root fully awaited each approved timeout108s TERM+2s KILL command and observed exit0. Reviewed downloader spawns no subprocesses; download records did not capture worker PID identities, so no independent PID-census claim is made.",
+  "checks_passed": true,
+  "epoch": 58,
+  "fresh_confirmation_status": "UNQUALIFIED_HOLD_UNUSED",
+  "kind": "INDEPENDENT_CURRENT_RUNTIME_AND_ACTUAL_SOURCE_ASSETS_VERIFICATION",
+  "logical_initial_pinned_urlopen_attempts": 2,
+  "model_NLI_runtime_OR_Tokenizer_objects_or_nativeRuVector_initializations_by_auditor": 0,
+  "native_origin_assets_independently_rehashed": 10,
+  "next_gate": "Exact local BLIND_CATALOG_PREPARATION_ONLY plan/sourcefreeze and independentapproval before tokenizer objects/DATAfeatures; wholecandidateSOURCEpublication/readback and lateradmission before NLI/native measures.",
+  "node_and_python_binary_config_and_cachedBGE_hashes_reverified": true,
+  "observed_unix": 1793129420.1392443,
+  "owner_ref": {
+    "bytes": 831,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/guardian26/owner.json",
+    "sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac"
+  },
+  "physical_HTTP_requests_including_opaque_redirects_counted": false,
+  "runtime_installed_bytes": 885284577,
+  "runtime_installed_members_independently_physically_rehashed": 17498,
+  "runtime_original_report_ref": {
+    "bytes": 5944,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/CURRENT_RUNTIME_AND_CACHED_BGE_VERIFICATION.v1.json",
+    "sha256": "930f81889d5c3664777cb9ea05aa0b88e6621337ab9c5b18ddfc2bfb918a2603"
+  },
+  "runtime_version_probe_scope": "Root source read and report verified: Python module imports numpy/onnxruntime/tokenizers and Node--version occurred for version metadata; no ORT session/Tokenizer object/RuVector addon initialization. Auditor rehashed all installed source/binary bytes without rerunning version imports.",
+  "schema_version": 1,
+  "scientific_dispatch_authorized": false,
+  "training_revision_exportrecipe_nonuse_qualification": false,
+  "weights_or_tokenizer_redistributed": false
+}

@@ -1,0 +1,27 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-I",
+    "-B",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/recoveries/epoch44-publication-20261026-g9/restore_epoch44_overlay.py",
+    "--restore-scope",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1",
+    "--kit",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit",
+    "--dest",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/project",
+    "--envelope",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/recoveries/epoch44-publication-20261026-g9/PUBLIC_ARTIFACTS.envelope.v1.json",
+    "--expected-envelope-sha",
+    "fc0f741eb7bd840a941e9ef3505b6924ab9be7842cd561722d4236bd98cf1d1d",
+    "--overlay",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/kit/recoveries/epoch44-publication-20261026-g9/ARCHIVE_OVERLAY.v1.json",
+    "--expected-overlay-sha",
+    "815aaa11a602de738b1b62b4f9cd057639b8201b59007b3633588aaa674ba01d"
+  ],
+  "exit_code": 0,
+  "model_native_Gold_Git_calls": 0,
+  "stderr": "",
+  "stdout": "{\"CP_project_files_modified\": false, \"all137_members_validated_before_write\": true, \"checks_passed\": true, \"epoch\": 44, \"new55_canonical_overlay_per_root\": 55, \"science_or_model_or_Gold_or_API_calls\": 0, \"source82_byte_identical\": true, \"verify_only\": false}\n",
+  "wall_seconds": 0.10055748198647052
+}

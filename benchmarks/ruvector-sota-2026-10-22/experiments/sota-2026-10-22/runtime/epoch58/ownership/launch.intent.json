@@ -1,0 +1,8 @@
+{
+  "automatic_retry": false,
+  "epoch": 58,
+  "generation": 26,
+  "guardian_source_sha256": "65cc23d3909322bf61259f9c17aadcaca55e09d528699f9c5aac2f845fdd8fcd",
+  "monotonic": 451828.25072307,
+  "science_authority": false
+}

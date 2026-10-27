@@ -1,0 +1,51 @@
+{
+  "DATA_or_GOLD_cli_calls": 0,
+  "actual_asset_GETs": 0,
+  "actual_model_initializations": 0,
+  "actual_native_initializations": 0,
+  "command": [
+    "python",
+    "-I",
+    "-B",
+    "/dev/shm/ruvector-e58-candidate/supervisor_impl/test_inert.v7.py"
+  ],
+  "epoch": 58,
+  "exit_code": 0,
+  "kind": "SOURCE_ONLY_AUTHORED_INERT_TESTS",
+  "reported_test_seconds": 0.142,
+  "reported_tests_run": 28,
+  "schema_version": 1,
+  "scientific_measurements": 0,
+  "source_files": [
+    {
+      "bytes": 16258,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/supervisor.v2.py",
+      "sha256": "647cc6be8d87dade6bb02859d10720bd34544b6c8569e74221736e932d5a1931"
+    },
+    {
+      "bytes": 13481,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/run_cli_once.v5.py",
+      "sha256": "0cde78ea585e7f8889044ccc1c887b268e6008cc66f3ce13002ef1fefc6dfcda"
+    },
+    {
+      "bytes": 18406,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/scorer.v3.py",
+      "sha256": "774c19982bb48609c1fa24c1afbab9479db7465010fe16a880bea23fe76bb203"
+    },
+    {
+      "bytes": 10953,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/test_inert.v7.py",
+      "sha256": "e975775fd6f09b6bbbc9bef47ddc0b5cc2d8c8ef7a0d7de10d26efebbf02dc96"
+    }
+  ],
+  "source_revision_note": "Q corrected fallible-observation cleanup and final hardexit; exact owned-Popen fallback. Correct Gold join/participation semantics. No runtime entrypoints.",
+  "status": "PASS",
+  "supersedes_metadata_only_report": {
+    "bytes": 1943,
+    "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/INERT_VALIDATION.v3.json",
+    "sha256": "89f6321ece3a2d4a49065713dc527c267ee9ef534dee68aa8ce9923cda881c1f"
+  },
+  "test_scope": "Authored probabilities/labels, strict JSON/refs/O_EXCL/symlink and own-process identity utilities only. No subprocess launch or real data opens.",
+  "tests_passed": 28,
+  "tests_run": 28
+}

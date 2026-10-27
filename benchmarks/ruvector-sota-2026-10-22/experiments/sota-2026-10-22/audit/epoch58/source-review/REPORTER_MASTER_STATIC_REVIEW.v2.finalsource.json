@@ -1,0 +1,172 @@
+{
+  "actual_review_activities": {
+    "Gold_decodes": 0,
+    "asset_GETs": 0,
+    "current_R_writes": 0,
+    "git_operations": 0,
+    "live_CLI_or_guard_invocations": 0,
+    "model_tokenizer_ORT_native_initializations": 0,
+    "real_DATA_decodes": 0,
+    "scientific_batches": 0
+  },
+  "all_provided_bytes_sha256_pins_match": true,
+  "all_reported_code_findings_resolved": true,
+  "corrected_reporter_source": {
+    "bytes": 28692,
+    "path": "/dev/shm/ruvector-e58-publication/g26v2/report_actual_v3.py",
+    "sha256": "c5cedea3c7ffcbe6cb63e91b0d1fb6835a69ff76d0ae6efc6b38e931706d7f6c"
+  },
+  "corrected_reporter_test_source": {
+    "bytes": 19372,
+    "path": "/dev/shm/ruvector-e58-publication/g26v2/test_reporting_inert_v3.py",
+    "sha256": "fa8426e1fd5ad186b9a3d9287ce37b1c6b123f2756b74a3ec9ac3cc9f6fb81ef"
+  },
+  "epoch": 58,
+  "extra_source_read_and_copied_for_test_stub_only": {
+    "bytes": 19448,
+    "path": "/dev/shm/ruvector-e58-publication/g26v2/guard.py",
+    "sha256": "cc27e9f31b9a59d89ebc205a0f0e83d52a0bdad95f916d08502ad6fc18adfc3f"
+  },
+  "findings": [
+    {
+      "detail": "Universal zero-cap rejection prevents reporting honest failed/blocked operations with matching raw+Q strict42 nonnegative counters. Canonical counter-schema failure policy requires retaining observed partial/over-cap counts and rejecting acceptance, not suppressing the report or expected-filling zeros.",
+      "id": "REPORTER_FORBIDDEN_COUNTER_FAILURE_LOSS",
+      "location": "report_actual_v2.py counters()",
+      "requested": "Keep strict42 integer/attempt>=completed validation for every observation, preserve actual nonzero forbidden counters in failure outcomes, enforce zero caps only for qualified/completed accepted outcomes.",
+      "resolution": "Strict42-key/int>=0 exact raw/Q equality retained. Counter cap/invariant breaches now remain in public actual counts and explicit policy-violation lists with forced REJECTED status; no zero-fill or observation suppression.",
+      "severity": "BLOCKER",
+      "status": "RESOLVED_SOURCE_REPORTER_V3"
+    },
+    {
+      "detail": "Completed scoring branch trusts audit flags and matched metrics but does not itself require raw errors empty, validate per-row NotMentioned exhaustive coverage, or explicitly retain frozen quality-gate acceptance semantics. Parent contract requires completed-quality evidence errors0, all51, full NEI coverage and exact quality comparisons.",
+      "id": "REPORTER_COMPLETED_QUALITY_EVIDENCE",
+      "requested": "Validate completed-quality evidence while preserving measured losing scores as rejected-quality outcomes; avoid turning measured quality failure into absent metrics.",
+      "resolution": "Completed quality checks raw errors empty, actual scored forecast count51, strict raw row equality to original sealed rows, NotMentioned full-source coverage and consistency with all six recomputed frozen quality comparisons. Actual measured losing metrics remain available with derived rejected status.",
+      "severity": "REVIEW_GAP",
+      "status": "RESOLVED_SOURCE_REPORTER_V3"
+    }
+  ],
+  "latest_tests": 17,
+  "latest_tests_semantics": "12 corrected reporter authored tests plus5 unchanged MASTER authored tests; earlier9 reporter regressions also actually run and listed separately.",
+  "limitations": [
+    "Authored tests do not establish actual source-metadata build/reporting feasibility or authorization.",
+    "Final exact configurations, public privacy inventory, local actual W/data/catalog proof and source publication/readback remain Parent Q/Root responsibilities.",
+    "P is updating final schema/source packet to describe failure retention. Final source freeze must select exact corrected reporter_v3 source and unchanged reviewed MASTER builder; later metadata updates are not runtime authority."
+  ],
+  "master_builder_source": {
+    "bytes": 12666,
+    "path": "/dev/shm/ruvector-e58-publication/g26v2/build_master_and_freeze.py",
+    "sha256": "bf7ec9ab8d897e30888e4cee3f5782e5f84a2eb381c3efb5124ed805eae2a2d5"
+  },
+  "publication_authorized": false,
+  "read_scope": [
+    "full report_actual_v2.py",
+    "reporter diff against preserved prior report_actual.py",
+    "full build_master_and_freeze.py",
+    "full REPORTING_SCHEMA.v3.json",
+    "full MASTER_FREEZE_CONFIGURATION_SCHEMA.v1.json",
+    "full test_reporting_inert_v2.py",
+    "full test_master_freeze_inert.py",
+    "full guard.py source; live guard never imported or invoked; tests replace owner_fence in an isolated copied stub before importing it",
+    "previously fully reviewed actual C pure scorer.v3 and counter schema used by authored tests",
+    "complete report_actual_v3.py content via previously fully-read v2 plus complete current preserved-version diff",
+    "full test_reporting_inert_v3.py source before copying/executing"
+  ],
+  "reviewed_source_packet": {
+    "bytes": 4094,
+    "path": "/dev/shm/ruvector-e58-publication/g26v2/REPORTER_AND_MASTER_BUILDER_SOURCE_PACKET.v2.json",
+    "sha256": "a03931de7c982f453fbdc33682e3dca5b47f47fc1ffc829011c40f143feb67da"
+  },
+  "schema_version": 1,
+  "scientific_execution_authorized": false,
+  "scope": "STATIC_REPORTER_AND_MASTER_BUILDER_COMPONENT_REVIEW_ONLY",
+  "source_level_pass_findings": [
+    "Per-phase actual_execution_independently_derived must be a plain exact42 int>=0 dictionary, equal by strict typed comparison to raw.counters; nested joint Gold shape, bool, float and missing keys are rejected.",
+    "Joint pre-Gold physical closure is distinct from per-phase actual evidence and is not coerced into counter dictionary.",
+    "No native count double-add or source expected-count fill was found.",
+    "Gold-report absence requires verified-not-attempted zero lower bound or explicit unresolved uncertainty; uncertainty blocks scoring-completed claim.",
+    "Prepared/source/hypothesis-exposed DOC17 identities remain DEV even if optional model execution does not occur; prepared/forwarded/scored/decoded/label-only sets are separately retained.",
+    "Current C scorer.v3 arms/count/correct/accuracy/Brier/NLL/paired_comparisons mapping is used directly; physical global forwards are clearly separated from case-forward participations.",
+    "Unrun quality remains null, candidate promotion false, confirmation empty, official rank null, one-document dependent-claim uncertainty explicit.",
+    "Master builder verifies exact existing public inventory against independently reviewed inventory before generated writes.",
+    "Every absolute runtime reference is stable-stream-hashed without semantic model/bank/catalog/vault decode or body publication.",
+    "Master W is strict1..24 and matches actual BLIND_CATALOG_READY metadata; DEV IDs match actual DATA reserved/prepared IDs and actual catalog selected IDs.",
+    "Master->manifest->SOURCE_FREEZE uses acyclic typed references, freeze self excluded; plan has freeze path only.",
+    "All three generated O_EXCL/fsynced source-metadata writes follow source-pinned guard live owner checks; review itself invoked no live guard.",
+    "Counter failure-policy violations now force derived rejected status while retaining exact matched raw/Q observations, original independent status and all actually measured scores.",
+    "Completed-quality evidence and six exact frozen quality gate comparisons are recomputed independently from source-bound reported score metrics; gate failure is distinguished from absent/unrun metrics."
+  ],
+  "source_refs_verified": [
+    {
+      "bytes": 25692,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/report_actual_v2.py",
+      "sha256": "a23ac014bf0d239b397918114d255cf7cdab68cf5ffd6a0b3ed0118b30de12a5"
+    },
+    {
+      "bytes": 16218,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/test_reporting_inert_v2.py",
+      "sha256": "24b58a1d2e73e5d9826a90eb7d328427ab3e9f6cfb3e284075bfe1650cca9b92"
+    },
+    {
+      "bytes": 8421,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/REPORTING_SCHEMA.v3.json",
+      "sha256": "e9692cb605b2135d614b8c469f1b5704d54c873585949ef6ddf6d10019f85cfa"
+    },
+    {
+      "bytes": 12666,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/build_master_and_freeze.py",
+      "sha256": "bf7ec9ab8d897e30888e4cee3f5782e5f84a2eb381c3efb5124ed805eae2a2d5"
+    },
+    {
+      "bytes": 7120,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/test_master_freeze_inert.py",
+      "sha256": "a2b43d8bc1ba7e9fdf9a2d4bb113838fc6ebbbf2c30267c098e3eab33dcfaebd"
+    },
+    {
+      "bytes": 4028,
+      "path": "/dev/shm/ruvector-e58-publication/g26v2/MASTER_FREEZE_CONFIGURATION_SCHEMA.v1.json",
+      "sha256": "e647b16fd4a2bb75942abd2e638dbc3f20fc92e13f7302271cff834a38a90639"
+    },
+    {
+      "bytes": 18406,
+      "path": "/dev/shm/ruvector-e58-candidate/supervisor_impl/scorer.v3.py",
+      "sha256": "774c19982bb48609c1fa24c1afbab9479db7465010fe16a880bea23fe76bb203"
+    },
+    {
+      "bytes": 5114,
+      "path": "/dev/shm/ruvector-e58-candidate/COUNTER_SCHEMA.v1.json",
+      "sha256": "4011439770df89a74bc95f90e7798db9bacb5a638e556804fd8be0ceec18f791"
+    }
+  ],
+  "status": "STATIC_SOURCE_PASS_CORRECTED_REPORTER_V3_MASTER_BUILDER_V1",
+  "supersedes": {
+    "bytes": 7631,
+    "path": "/dev/shm/ruvector-e58-audit/worker-source-review/REPORTER_MASTER_STATIC_REVIEW.v1.json",
+    "sha256": "c1521ac4e2168cb688bfb454ad79bcbad0abf0ef51880c26fc1444c9770a4cff"
+  },
+  "tests_actually_run": [
+    {
+      "failures": 0,
+      "scope": "copied scratch source, authored probabilities/counts/labels, pure C evaluate and stub metadata guard; no real DATA/Gold/SCI/live guard",
+      "suite": "test_reporting_inert_v2.py",
+      "tests": 9
+    },
+    {
+      "failures": 0,
+      "scope": "copied scratch source, fake runtime bytes and isolated temporary public inventory, patched inert owner_fence; no current project writes",
+      "suite": "test_master_freeze_inert.py",
+      "tests": 5
+    },
+    {
+      "check": "Python builtin compilation of copied source",
+      "module_execution": false,
+      "result": "PASS"
+    },
+    {
+      "failures": 0,
+      "scope": "copied scratch current reporter source; actual C scorer.v3 pure evaluate with authored probabilities/labels, strict C42counter schema and fake guard; includes blocked network attempt1 retention/rejection, nonempty raw errors, NEI coverage and seal mismatch rejection while retaining measured losses",
+      "suite": "test_reporting_inert_v3.py",
+      "tests": 12
+    }
+  ]
+}
