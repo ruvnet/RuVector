@@ -175,7 +175,10 @@ impl<'p, T: Transport> StreamClient<'p, T> {
                         if upto > data0 {
                             let _ = f.write_all(&bytes[..(upto - data0) as usize]);
                         } else if out.refused.is_some() {
+                            // set_len does not move the cursor: seek back too, or the next
+                            // write lands past a hole of zeros and recover() stops there.
                             let _ = f.set_len(upto);
+                            let _ = f.seek(SeekFrom::Start(upto));
                         }
                     }
                     if let Some(code) = out.refused {
