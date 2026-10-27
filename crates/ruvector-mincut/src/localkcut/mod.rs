@@ -28,6 +28,7 @@
 //! - Deterministic (no randomization)
 
 pub mod deterministic;
+pub mod incremental;
 pub mod paper_impl;
 
 // Re-export paper implementation types
@@ -35,6 +36,10 @@ pub use paper_impl::{
     DeterministicFamilyGenerator, DeterministicLocalKCut, LocalKCutOracle, LocalKCutQuery,
     LocalKCutResult,
 };
+
+// Re-export the incremental-boundary oracle (see `incremental` module doc
+// for the latency root cause it closes and the equivalence guarantee).
+pub use incremental::{GraphView, IncrementalLocalKCut};
 
 use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
 use crate::{MinCutError, Result};

@@ -8,7 +8,7 @@ pub mod stub;
 pub mod traits;
 pub mod witness;
 
-pub use bounded::BoundedInstance;
+pub use bounded::{BoundedInstance, CutSearchStrategy};
 pub use stub::StubInstance;
 pub use traits::{InstanceResult, ProperCutInstance};
 pub use witness::{ImplicitWitness, Witness, WitnessHandle};
