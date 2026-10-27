@@ -1,0 +1,28 @@
+{
+  "600second_infeasibility_proven": false,
+  "epoch": 56,
+  "last_actual_progress": {
+    "counters": {
+      "BGE_forward_calls_attempted": 117,
+      "BGE_forward_calls_completed": 116,
+      "BGE_initializations_attempted": 1,
+      "BGE_initializations_completed": 1,
+      "BGE_texts_attempted": 1872,
+      "BGE_texts_completed": 1856
+    },
+    "monotonic_seconds": 434370.575337199,
+    "stage": "BGE_FORWARD_BEFORE"
+  },
+  "no_reduced_corpus_retry_or_Gold_authorized": true,
+  "observed_at_unix": 1793110669.4652913,
+  "once_only": true,
+  "progress_rows_observed": 234,
+  "rate_projection_is_estimate_only": true,
+  "reason": "EXCLUSIVE_LEASE_FINALIZATION_WINDOW_INSUFFICIENT_AT_OBSERVED_FULL_CORPUS_ENCODING_PROGRESS",
+  "signal": "SIGTERM",
+  "supervisor_identity": {
+    "pid": 184965,
+    "startticks": 43415017,
+    "state": "R"
+  }
+}

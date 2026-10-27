@@ -1,0 +1,30 @@
+{
+  "absolute_monotonic_deadline": 434521.949764817,
+  "absolute_monotonic_start": 433921.949764817,
+  "automatic_retry": false,
+  "epoch": 56,
+  "kind": "REAL_NATIVE_SOURCE_FRAGMENT_CAPACITY_QUALIFICATION",
+  "schema_version": 1,
+  "supervisor_identity": {
+    "FDSize": 64,
+    "pgid": 184873,
+    "pid": 184876,
+    "ppid": 184875,
+    "sid": 184873,
+    "startticks": 43392193,
+    "state": "R",
+    "statm": [
+      9702,
+      3109,
+      1115,
+      6827,
+      0,
+      2404,
+      0
+    ],
+    "wait_status": 0
+  },
+  "supplied_admission_sha256": "1dee5f23446526ec3e6828941f311119606513e5e96808d6b8fbcd7463f1d34c",
+  "supplied_approval_sha256": "b8a57e0afdff3d06f1443e1b1377b252d89ce57cee6393542bb9ea93f833c29e",
+  "supplied_plan_sha256": "0d2e93b16520353de2eece63a5c88b07d757fc447985b426b548d3b8b7b65e01"
+}

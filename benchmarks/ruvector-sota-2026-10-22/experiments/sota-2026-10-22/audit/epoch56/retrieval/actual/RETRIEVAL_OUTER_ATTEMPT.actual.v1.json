@@ -1,0 +1,30 @@
+{
+  "absolute_monotonic_deadline": 434750.198270186,
+  "absolute_monotonic_start": 434150.198270186,
+  "automatic_retry": false,
+  "epoch": 56,
+  "kind": "REAL_NATIVE_SCIFACT_RETRIEVAL_DEV_PILOT",
+  "schema_version": 1,
+  "supervisor_identity": {
+    "FDSize": 64,
+    "pgid": 184963,
+    "pid": 184965,
+    "ppid": 184964,
+    "sid": 184963,
+    "startticks": 43415017,
+    "state": "R",
+    "statm": [
+      9709,
+      3118,
+      1116,
+      6827,
+      0,
+      2411,
+      0
+    ],
+    "wait_status": 0
+  },
+  "supplied_admission_sha256": "8191a00a20cd9094efc06d573d9d9ce4fa9548ba178d0f91b5d494124e122249",
+  "supplied_approval_sha256": "54ed7fec6024deaa8b4138ae30c69a2dc37483847d60e17f09425a5bbcffdc05",
+  "supplied_plan_sha256": "8ab6a499cc5ea6ea57e899d47ffbf99c89e84f72cdb249cc59b8c67d66791886"
+}

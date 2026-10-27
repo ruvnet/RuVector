@@ -1,0 +1,2149 @@
+{
+  "actual_network_Git_mutations_model_native_DATA_EVAL_calls_by_this_verifier": 0,
+  "all_requests_exact_frozen_and_sole_parent_nonforce_CAS": true,
+  "all_reserved_requests_and_whole_raw_returns_rehashed_against_journal": true,
+  "all_stage_receipt_request_raw_return_saved_commit_ref_and_expected_Merkle_pins_matched": true,
+  "bare_CAS_success_ACKs_with_exact_fresh_postCAS_refs": 1,
+  "checks_passed": true,
+  "combined_paired_journal_rows": 256,
+  "commit": "60dfc923eee70bfd319489e30afdbd8d2a3bc035",
+  "complete_exact_order_g21_prefixes_no_outstanding_or_unknown": true,
+  "completed_accepted_mutations": 128,
+  "durability_interpretation": "Actual closed records and source fsync calls verified; no power-loss durability experiment.",
+  "durability_source_contract_verified": [
+    "O_EXCL exact reservations",
+    "whole-MCP capture before response parse/owner fence",
+    "fsync request/raw/journal writes and containing directories",
+    "no replay after uncertain/outstanding mutation"
+  ],
+  "epoch": 56,
+  "exact_transactions": [
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-0",
+      "identifying_ACK_SHA": "3cb5e86dcf19f55948c7351939f5fd25d59f87dc",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 575,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-0.json",
+        "sha256": "b702f60f01cbd2e4ea6f514886f056efd13a9c003926fd3a38393738a9611a60"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-0.raw-tool-return.json",
+        "sha256": "67f3d88ba3a127d17b057f51d1d1cbafabbdd89e94d06cc9fc425b6695482dff"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-1",
+      "identifying_ACK_SHA": "1f9cad70d5e6507adb14ca2611638de08243ad24",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 2183003,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-1.json",
+        "sha256": "ef09c60a54da708d3d472bb1f4541bca5b1e85c19dce6572b134f5237ede6063"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-1.raw-tool-return.json",
+        "sha256": "573a9636c0116a481c44db4faca1dda45c6413b8fbff3cb3bd727c5a9a7248c4"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-2",
+      "identifying_ACK_SHA": "8ed12e61fb501fb99b8777b74752151dec300fbf",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 643560,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-2.json",
+        "sha256": "ceb3f7f6147ab36c7bd2a03a57f54554aae6b27185d1f2d074b7b0e1dfa2a981"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-2.raw-tool-return.json",
+        "sha256": "0e47e955c9f2afc53df8b2bd4e1e8dff57fef1942923b2c3fec09ddd8413e983"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-3",
+      "identifying_ACK_SHA": "3765c11e30b335e81026200bb4487c1a3cb6c909",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5038,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-3.json",
+        "sha256": "e3a48435ebd110e8481c9234e5975465622993b1c92c293923df7d1770c15536"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-3.raw-tool-return.json",
+        "sha256": "c8d88724993a69417a71a6647a2d91f7004f067beb272d46df8be7b8bb730f5f"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-4",
+      "identifying_ACK_SHA": "941025b5a2926fc39a27cb9f37c64bfc733e5d47",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 3657,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-4.json",
+        "sha256": "c52d8cfa02eae90767c695499aa917228aebe825e355e04c7e58bab14f514cd7"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-4.raw-tool-return.json",
+        "sha256": "689324f4f23892e79c0a988d5361596fc075c315ab8e4d3a0000a381bdb48400"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-5",
+      "identifying_ACK_SHA": "17814b4a0b007f513c24a30d79ef7ed2bdc7ad4e",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 970,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-5.json",
+        "sha256": "f773ce3a76af436fd0a1956e3869e57ae93bc47cfbb8ec14e7163033d6a663c9"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-5.raw-tool-return.json",
+        "sha256": "3f0fad938fe008c3259304f8168f3e5dc6070a2b7d2a98b0e5db3a7d98114f5e"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-6",
+      "identifying_ACK_SHA": "7d3e9862b021f611a6990405c0d4a00e78630ac8",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 3852,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-6.json",
+        "sha256": "8955128046b567fbc39b9dda983d6d21851a815be4ef3fc4e020d0126ffd289c"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-6.raw-tool-return.json",
+        "sha256": "b747ec099a64be4e2421057a872903b009e3c1debfcabb36cd6b11ab3bef9162"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-7",
+      "identifying_ACK_SHA": "41fc09cc475842701e029066d285813c03103630",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 765,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-7.json",
+        "sha256": "34df5f06dab6612bfbde8bb1508089fe8a4bc48982cf7eff7c5a9e9b219ef65c"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-7.raw-tool-return.json",
+        "sha256": "e85c44fb922fef53d6fff2c0f4f857a16199c9b7fcac41642e165b51ba885810"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-8",
+      "identifying_ACK_SHA": "c0d3e4f481f4c23098c71a11dd4fa626c90327b2",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 31463,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-8.json",
+        "sha256": "37d76993fae683fedd2efb06362537fbe47ee14f540ef8a0bdc0a699cc3362eb"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-8.raw-tool-return.json",
+        "sha256": "7fc8f1b447c469870e36bbf54b5c8a09436301fa40e594ecceee72bc871014e4"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-9",
+      "identifying_ACK_SHA": "faea4aa35d1f8cf5d0768069d91fc0d016c3aba8",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1753,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-9.json",
+        "sha256": "344c40dd1a81a67bcfb81a5d5e3043ae846a0b22ead9fcf00ecc92191952dca1"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-9.raw-tool-return.json",
+        "sha256": "1420dd2b725ccfe36f3860be6dbcecf880edf90aa2d0dc6fe4deb4cf1a2fa282"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-10",
+      "identifying_ACK_SHA": "1a5933aed2ab806bbe7a5cd159f06083578d2b16",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 2315,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-10.json",
+        "sha256": "34143e0fe91427f5250fd7a0ec1cdd30261d5693de825ae2628ec297e82b01b1"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-10.raw-tool-return.json",
+        "sha256": "94dc3d410f235b25d125775ef2b8d51f496bc7f2cf45b2fc77844bcea7db341b"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-11",
+      "identifying_ACK_SHA": "e2f862bb57521d62fc02cce768a1ff3df7f2ef90",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 2886,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-11.json",
+        "sha256": "38340b4d64e8c804b8806bf50b990bdb3c238873409b4a66982132c4e51f2e6d"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-11.raw-tool-return.json",
+        "sha256": "68c64261fac1d94e77a35369cdd6f91f9ef26eb4a3a809144bf544a7772f65af"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-12",
+      "identifying_ACK_SHA": "fedb2e343c50117cdc23f2fbd502b8f282221deb",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 2280,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-12.json",
+        "sha256": "92c42fc2c4b4ee7fcaeef292436596ed33667717c9bd5f044bbc4dd0ae93c125"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-12.raw-tool-return.json",
+        "sha256": "c7edae7991c9544e3d41802cfadf041d0a8e78ec6ed0eaaf58da58c94c983c3d"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-13",
+      "identifying_ACK_SHA": "92f0ef50d8ef212eb1b6dbd95b3e170cb87ecd81",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1301,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-13.json",
+        "sha256": "a97e89fcecefda48b09fc97e52a69da10b63851cdde7e29834bac2f65b1617bd"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-13.raw-tool-return.json",
+        "sha256": "0227bc930c0e863786de9dbc6a8d2b96c26975aafa06741619c85fae1666c811"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-14",
+      "identifying_ACK_SHA": "fb9463e70f0635b017f1fd57bf4a47b1bfb15568",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1682,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-14.json",
+        "sha256": "f790894cb88adf2a1b10adb5054f95ffb9238de42de2ec1312608ddbc4efb79a"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-14.raw-tool-return.json",
+        "sha256": "7b2db14726bc0da8b4a54e299a89f78bf10e73d7f330ff5dcd99385faf4fa577"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-15",
+      "identifying_ACK_SHA": "18d29cea61bf7ae4d9ca80542aea8bb1a8265c82",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 3224,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-15.json",
+        "sha256": "acd3ca81d06ca8c2b22eba256a42df2a11345c7dd07aeb665871ff296a99a0b6"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-15.raw-tool-return.json",
+        "sha256": "02756eb20cdf7742d078aee4d17fa376f91a7299e4938c5cf529af32acbf24bf"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-16",
+      "identifying_ACK_SHA": "fd6a05a0608ee13a723ad7e7f547005cf4afbfb8",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 2981,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-16.json",
+        "sha256": "c5337734ae76d958c60b35812286a81585fe57155faf9bbc44f9d0cf6aa659e2"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-16.raw-tool-return.json",
+        "sha256": "03a8934905f72caf9b3af9c48bf3aa566424d0ce8ae50a6d12a24a9e30e0a79e"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-17",
+      "identifying_ACK_SHA": "11fb2124a5bdb8e9839789cef2d461d407fc4ab5",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 6299,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-17.json",
+        "sha256": "74c64ca36f6c54ddd5c4b14134e705d837b433b6d890935c8e4621f19b1c9e40"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-17.raw-tool-return.json",
+        "sha256": "3fab2157932aabcae371280204d7622999526e14655ea0c1ef64fe0c7fc5acd9"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-18",
+      "identifying_ACK_SHA": "a48675698adb90f5921c04ed6bf655cf06a596d7",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1785,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-18.json",
+        "sha256": "ca59634a18c6568697699252126ebf77deba987fe2b1ba541d6e9052c1d741c8"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-18.raw-tool-return.json",
+        "sha256": "b0390fa7782436627114861bfa12c9033a792af803f93baa006339771c07abbf"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-19",
+      "identifying_ACK_SHA": "48ecde0b565505035603c3f5453caaf6b6143b44",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 891,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-19.json",
+        "sha256": "ce35e1ddb3b1349214e805504d700d61077243c2fe4e6a8514ac73a3cdec8e52"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-19.raw-tool-return.json",
+        "sha256": "cf06ee82428c981f285ab4a4bc32136cda58a421d98684a9bd35f61b902822eb"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-20",
+      "identifying_ACK_SHA": "27b68a9e23a2bdb89eb5d182328f69e8f1bc439e",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 4696,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-20.json",
+        "sha256": "885d78a62dab0d7cfa80ca48c8fc204d34931113bc49d4f3a9dd82a6c30d4dbd"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-20.raw-tool-return.json",
+        "sha256": "cc743d6f92e218f7327a2e3ed1342a06cd0e934f8e39fe60e528302bc1c39f9d"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-21",
+      "identifying_ACK_SHA": "5eb29f6a209edd8ebe96f71cfb28ace5df4f27fe",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 2492,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-21.json",
+        "sha256": "1860fd7a13de7b2aae6dce93705daee0faf580d9e757ca9bc32ab9e272ab6be5"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-21.raw-tool-return.json",
+        "sha256": "1132fabcff5c2a64bf2b1e67b92023837db86aa709d4711407a039c047390c9b"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-22",
+      "identifying_ACK_SHA": "a138d06fd9d9b2678acc507aec1247bd04f339c3",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 6034,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-22.json",
+        "sha256": "f081afbc2a99c4e410138b2323b9ba0d3b15fc2b33388a9a912f9b049948c8dc"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-22.raw-tool-return.json",
+        "sha256": "9d2c81f20b19b3cd4e3b9ea974ba2b0c34e3864180e9ffdf8e04dd12e7d246e4"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-23",
+      "identifying_ACK_SHA": "04393b0478233d24c9691241a712bf726e239ede",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5930,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-23.json",
+        "sha256": "fe63fab9ef4de715842563c740c7939f29512d5a2b9b6fc8ee2ea75a954be397"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-23.raw-tool-return.json",
+        "sha256": "53766d19ed5140413f031c46f8e637cd8e612a2bb21f8270fb53127b9aaf05aa"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-24",
+      "identifying_ACK_SHA": "efaf393022fb482e3c29a46485fdb87069200e1a",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5893,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-24.json",
+        "sha256": "b746aed2ad31c2c668476e9740a80864efedaeab1b77dda453856a6973eb8e1d"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-24.raw-tool-return.json",
+        "sha256": "86251b1d9aadca0efb39661398b70c98dc8ec2ccaf4e5ad39fb14cf776545e04"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-25",
+      "identifying_ACK_SHA": "be866c25a60517d5b1c8ab2d1cd92c493024eb78",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 2508,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-25.json",
+        "sha256": "c43481926190988f51e0476c934966770886e62fe98c03bbf5651e53fb5c5894"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-25.raw-tool-return.json",
+        "sha256": "7089cd672e53d1651905233e3bed9e547f86ee03e8b728bf16c62533c7aa1cd5"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-26",
+      "identifying_ACK_SHA": "4945a517955279a8ff9b05e63661a2cb45132956",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5177,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-26.json",
+        "sha256": "351a6e0aa88dcd7da2fdd429a23ea698c6f6b5c82444978ca5e44ea7f9273d6d"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-26.raw-tool-return.json",
+        "sha256": "4fbaaad16aa8f0a6a58d674a5a3cb1c33c37204869100af67dadab30081bdf4d"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-27",
+      "identifying_ACK_SHA": "ad07805498da1493c4eb28011e3bf519ebd31de6",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 4007,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-27.json",
+        "sha256": "5c93321b6f566de415bbf2a31722b44efff5a92cb43095c130de4f773f4e17a0"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-27.raw-tool-return.json",
+        "sha256": "eb0c233cc38c1a78baa2e8491c5a71f70a3595c2782c0881a60c2b354490e31e"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-28",
+      "identifying_ACK_SHA": "97954bc523ca628ea4636f99fc6de57615cbfc3f",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 31724,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-28.json",
+        "sha256": "38ebd0bb22a8ae6a45f64fd487dd84d8ade98e5fc6a75dfb48756dda3c45829f"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-28.raw-tool-return.json",
+        "sha256": "1586372caaa27f5156fbc1b533093f787af641789b75f9c426c274a7026edc0b"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-29",
+      "identifying_ACK_SHA": "9339fe389592676e8eab088087e41e9fb8608dd7",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5785,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-29.json",
+        "sha256": "94fb3ec653e2e57dde77a6837d878929ac318a8f83e6aea7867136d5c168ee91"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-29.raw-tool-return.json",
+        "sha256": "7a529835f91416aedd22b9f550f234d9ccbd34e6a4ad054f2681c01fb755e797"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-30",
+      "identifying_ACK_SHA": "4f9c322d2b4b1a8b23ead29041c7062064a65da4",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 11507,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-30.json",
+        "sha256": "c31ddaf5ea0457f5ef89df470ede5dfbde4d31372ce5015450648d5b22c8e918"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-30.raw-tool-return.json",
+        "sha256": "ca3beb1685e1d3f10bdbfbbdfd6bca90819a36a14f706b3db05d4026f9314ac8"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-31",
+      "identifying_ACK_SHA": "e715c3f3332cc0918e21e4c6b48a93acaa12fdc5",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 9158,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-31.json",
+        "sha256": "404bd4dcacdf21e49e346c8970108103fb4479e9f2716ed2960e625115da82a1"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-31.raw-tool-return.json",
+        "sha256": "5ca8b99e9a987f7b5f89ee35dc08767f0eb92710cb4da38216b9c82a4e47bd5c"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-32",
+      "identifying_ACK_SHA": "bac608a79d12fe614fa989354485433911e02b46",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1899,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-32.json",
+        "sha256": "04b1864a738847245438cdf86df5b692a95a0253f08a2d96f303e7bef99a07a8"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-32.raw-tool-return.json",
+        "sha256": "4a205a014290848fc1699f05adc9a85fefb700ef351aa2db8385dd213588acf9"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-33",
+      "identifying_ACK_SHA": "485cea7527ddd69d85658794f7aace1959dd27d2",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 3309,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-33.json",
+        "sha256": "beabe0a12dc5f2dcefbe4ee618f2fa16c84d4620ede2cade3a3fda72f0824279"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-33.raw-tool-return.json",
+        "sha256": "148aede68c3def9d557eae83a9da41f0d6da2a5abc3128e15ebc89638afd321b"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-34",
+      "identifying_ACK_SHA": "5e69379ed1b343ca6711e35ae5ba788433d0e2ae",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 4156,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-34.json",
+        "sha256": "7d18ed1e4a44d9de90dd153380dbc37f1a412cfbbf298e8889f35c654ddd5ec5"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-34.raw-tool-return.json",
+        "sha256": "31d9640aa67c6787f18eafd80074766af09810051dc17931bf0485af236c760b"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-35",
+      "identifying_ACK_SHA": "3765c11e30b335e81026200bb4487c1a3cb6c909",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5038,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-35.json",
+        "sha256": "e3a48435ebd110e8481c9234e5975465622993b1c92c293923df7d1770c15536"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-35.raw-tool-return.json",
+        "sha256": "c8d88724993a69417a71a6647a2d91f7004f067beb272d46df8be7b8bb730f5f"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-36",
+      "identifying_ACK_SHA": "ec4ec1ee93d6c23cdb67862f576ec23160b7c8f3",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1253,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-36.json",
+        "sha256": "3f4047eea91d42141d5883bb2283650c2c6efea8377db3422980aaba2402ca29"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-36.raw-tool-return.json",
+        "sha256": "e96e2c621ae954af550a87113b762c3fbf4caea72f132484d991327eac7f18ec"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-37",
+      "identifying_ACK_SHA": "98f04c1eb9d02499dbc5c8c6ecb15c1fc7a87dd8",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 2714,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-37.json",
+        "sha256": "1591a0b627dea2f3664c5e54406da43d60f057b06c6905a680a1f5a496456172"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-37.raw-tool-return.json",
+        "sha256": "acc7398f39cec89fa92b38b478ca7fd6ca6e631162c8f3a68879d219d83642da"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-38",
+      "identifying_ACK_SHA": "9f8e074f74b4828c599d9418a9c75c96ace061eb",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 2008,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-38.json",
+        "sha256": "232774e2dbb58d1fc797d2ce21ed55784d5d0528ccbaef8d7a8da1977c3905d1"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-38.raw-tool-return.json",
+        "sha256": "3326693e39317299af9c31fc285632162028ea041fa70aba0be6ab39a98edb8b"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-39",
+      "identifying_ACK_SHA": "9e16737c76f266169074dfe0da62258405d4915a",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 7475,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-39.json",
+        "sha256": "39cd3513faad12b7bbd398f7a1cfcefac90702283cae931d8ded360491c94674"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-39.raw-tool-return.json",
+        "sha256": "075236c08779cd296b9658f349edffe3d283394960874b52ab3bf11706c82190"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-40",
+      "identifying_ACK_SHA": "1f996a37c5c7a77debd714de04568ac79616af63",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 3146,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-40.json",
+        "sha256": "9b80fec028bfef5c9f22d1f8712940d9773c32d96461ae57e11f51d0c127af2b"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-40.raw-tool-return.json",
+        "sha256": "9fcc497e32a67fb54a1ea441954a772713e8ae0af5766d4af0a4cdb5398d0366"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-41",
+      "identifying_ACK_SHA": "4113d24f5ac192a8df5b14a184b9f5e44543de51",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 4755,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-41.json",
+        "sha256": "79ae8dbedfeb04f7c1a887ad38f2f725b52fa25c264f80b298f3c4e332cf8fc9"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-41.raw-tool-return.json",
+        "sha256": "ea0603395a78e993124e5518af0e054cda14336d74c21ce9b50a9b0e0be11f92"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-42",
+      "identifying_ACK_SHA": "27245a4aec3bdb24faf4d9296d0babdc0b2bc0e3",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 11873,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-42.json",
+        "sha256": "5a816af9c53cedc49c133b2d4280cc1c02c6348b4e00bc0c9b99d1634b13e2c7"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-42.raw-tool-return.json",
+        "sha256": "eacd3ea7252f22f35a87afb30715e46e995a7c7647b43f4b9cb14d347d621a75"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-43",
+      "identifying_ACK_SHA": "771e835cbf985a9cc50cca6f188db8297fa4320a",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5469,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-43.json",
+        "sha256": "87b62ce841749d2ea1280262e2a1be9ee2ada23e7c703307806958b8477d93ca"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-43.raw-tool-return.json",
+        "sha256": "1facdf9f0c198adb37b075565c01ee3ff12ec655e2e3e89c72e0b355e35c3f8f"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-44",
+      "identifying_ACK_SHA": "03c42c793fb1c4492a557e7920030173598d3311",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 740,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-44.json",
+        "sha256": "06c0d4cc7624b72568ad06cc1b6a94e40a236bcff9f9961f3a38e7744698a3d0"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-44.raw-tool-return.json",
+        "sha256": "a29d0f31155fb4df4b2e0eeb0c9bd9009c68412cdd167e7962186565d964425a"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-45",
+      "identifying_ACK_SHA": "7dd0b95fa62b854b09d52e59c05a9f0eb284f572",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 796,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-45.json",
+        "sha256": "83e85a103e2bb147a43cf1e6889f93b7983e1823c2cb4d7df4450eac6ebc1791"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-45.raw-tool-return.json",
+        "sha256": "264b7c39507af8140681d791448dd23ef8d5526e107b2e03abda030f63bdf930"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-46",
+      "identifying_ACK_SHA": "18989bef30faa51a61dd8111933ba683ed9c5686",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5755,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-46.json",
+        "sha256": "d736eb41c2be0428e35ce08efdf71b444ea5c06d246e2fd44431362e7fe0ef5d"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-46.raw-tool-return.json",
+        "sha256": "61bcfd3475b44d502c01f3286823517a561aa917be7fbef487a552394ef1de43"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-47",
+      "identifying_ACK_SHA": "3261b4d1119ccb766da47dd65cab63556e87df62",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 7915,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-47.json",
+        "sha256": "b9b312aac0da14f579109c4a3007a68a3ddcf7868c36437dfd8058cf754051fa"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-47.raw-tool-return.json",
+        "sha256": "7bb5b8390d8a54a46956664bbe01b84453d60433e75e42be20ea442059677bb8"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-48",
+      "identifying_ACK_SHA": "ea55abd008aaab9696f597d9ee76a27c5d1abebb",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 15878,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-48.json",
+        "sha256": "55b06c5bc826fac271b1e8156da290bc193488b2d5addb0cc75f755a7db6e496"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-48.raw-tool-return.json",
+        "sha256": "2715cb963811aeb20bde4cb40a6b1e700727007f00427c39941aa6aa697c8f84"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-49",
+      "identifying_ACK_SHA": "241abead611265490da9d4d3172bdc5b56302a89",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 3416,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-49.json",
+        "sha256": "e9e3bcb50dd4fddf4dd6c7634a2f3de7763484167ed555b0495e0e69428e3a51"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-49.raw-tool-return.json",
+        "sha256": "eb74d37e2a4fe4f1f1863bc4c3ed2493f789bb5fe2b38e2a49a79800be9297d2"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-50",
+      "identifying_ACK_SHA": "5f36e64d2615cfbf18d2e48c6cf7acdad221f268",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 3859,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-50.json",
+        "sha256": "ab268120bec837f0d8ac5102832d8e58833d4076e0aaf0ff0cb485e6545017dc"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-50.raw-tool-return.json",
+        "sha256": "18b038da559687434f2f891c4656b4f28cba850efedd1bb138acbbbeecc1bdaf"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-51",
+      "identifying_ACK_SHA": "21573ef4b66c5128cb523393155a0a617b735a09",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1227,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-51.json",
+        "sha256": "301bd3b30bd3d68c1b62bf8d8c13d6aa04b2bb42a6a16d4145febc94da2e4c9d"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-51.raw-tool-return.json",
+        "sha256": "0a500cf522177dbb0c22e91bbcf15df2fe5856c4d832bd9782c530173ee09ec1"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-52",
+      "identifying_ACK_SHA": "c22a58f2374e71d877ba98e44f1dc30359b05038",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1072,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-52.json",
+        "sha256": "da880bc0f8be5f7e0c44704ba38a52517a388121ca501e7d3582a7dac0874070"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-52.raw-tool-return.json",
+        "sha256": "fccfc643c08e7be6e9a54f8060ca4e9fc9d03c2ef020d521836c135456ee376e"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-53",
+      "identifying_ACK_SHA": "118612593b86da2214ec3036f654aa4ed74b760d",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1992,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-53.json",
+        "sha256": "916d3ab83fb6fe1eaa439cb1c8ea00506548c658725d5b1c19c350f417970269"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-53.raw-tool-return.json",
+        "sha256": "f9aac58b516b905fd9819cb1bff88720f0904b1c2b2517475b1b858b089e33f6"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-54",
+      "identifying_ACK_SHA": "12de2c9d22911e5c6778d74d71bfe7894ab79964",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 2897,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-54.json",
+        "sha256": "7f33d787262b4b89fb1a308cf78fdcfa493ace72467be4af8cc29cd394adb353"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-54.raw-tool-return.json",
+        "sha256": "38465cac34bddd9daef61d234df29e29d7f19cd399d7735f361f9dbba9deddd0"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-55",
+      "identifying_ACK_SHA": "bf8c59cb311375b7e16b9f708f12a75cf3472376",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 4400,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-55.json",
+        "sha256": "93e88dd973253aa55e2b66e5f138ec1fdcf39e7a94f9ac53b16542c5ab132686"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-55.raw-tool-return.json",
+        "sha256": "34f7fe773d728a7a1b661ba11775a4b9b177e2dbaae94d52c960fd939362665a"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-56",
+      "identifying_ACK_SHA": "fdfe2519613413b1184b4792399a5d8f6d77abed",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5084,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-56.json",
+        "sha256": "8f601060b3aaaf31185d6e9c508389f3353b3187fb3ef7da6bbf684ff941f02f"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-56.raw-tool-return.json",
+        "sha256": "9fc0f84a129bb109b7b200f4fb41b7b5ad8ed24c0d75993758060199f24a2000"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-57",
+      "identifying_ACK_SHA": "82abf79fbfbe73fba334f687069f5ef484fc869a",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1803,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-57.json",
+        "sha256": "7cf70e051ed1da5ec7a037c4ed8ce7596500a33ac0ce9679c70ba8f7736e3d34"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-57.raw-tool-return.json",
+        "sha256": "f7bcd86f69b79e12d12d4d6622b7f96288287eb5a91a53d7a95ec4d59f7c547d"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-58",
+      "identifying_ACK_SHA": "16b7d58dde2e68eecb1623efcab333fb0d547222",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 9793,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-58.json",
+        "sha256": "112b1d4ae00956b23b4ce1fb94662e289e3eae23b550278b607b3098a0ce09c9"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-58.raw-tool-return.json",
+        "sha256": "46e36e347924cca8cdad7832aa621e7765e7ae6d2d6e64d810506280109749ad"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-59",
+      "identifying_ACK_SHA": "fbccce92936fb70b6c69fc07f6f8406a53027826",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 20655,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-59.json",
+        "sha256": "4dae9ceb58d4e0580b190afda2c6f658e8ef988f09482b81daa19b12cda31457"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-59.raw-tool-return.json",
+        "sha256": "d7fa326404b22d7fd31df78c55b9f5ef64d0c9ec31d742f92efe8a9204caf47e"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-60",
+      "identifying_ACK_SHA": "4fc0cfb052b035073ba609dc47e259d1666da765",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 16573,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-60.json",
+        "sha256": "c10968f7120831215df27eb9157c3c75ee29cb2e02279ed8622ccec35623ab02"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-60.raw-tool-return.json",
+        "sha256": "df01c41bd2d529d91981c565caf0d8bae95afbc5b1b58f441443ee8bea38117e"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-61",
+      "identifying_ACK_SHA": "bf7d2ff9d3207d27a3c327accca28bc463a278cb",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 15650,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-61.json",
+        "sha256": "3dc9de6979269699f9730ee317ad241ae26f256f1bb1b0b33705e18916f08f2d"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-61.raw-tool-return.json",
+        "sha256": "3d74a75a48e1f22c96867082e9db74cb7cb1cb4b7ba363265e7ab1e315e24802"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-62",
+      "identifying_ACK_SHA": "cb993f3020b19ba6f9d9c734ffdd2102915d78ff",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 11677,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-62.json",
+        "sha256": "feb2ffae814596f60b13ea5a27b763980c7c83491b68583bad6cd9a96e455ef1"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-62.raw-tool-return.json",
+        "sha256": "466ddc27a0f2f192cf87bb692e3639cbbf7d04b9d37c6afc9828713e45b255de"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-63",
+      "identifying_ACK_SHA": "46200bac9c69e879ee3efd703ab7c8753e6e7fdf",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 4004,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-63.json",
+        "sha256": "4858e6b0fd2568773972a66e4bb92257a03e48e10de1d9f4da0b5e1363afdc7c"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-63.raw-tool-return.json",
+        "sha256": "73fa61453b2c18730b9d84e625eb15b8ee359ce8e4b67ed86ac5964ecaad2b53"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-64",
+      "identifying_ACK_SHA": "18a738e109d7e3b28935a75d2134c5ccd602f403",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 644,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-64.json",
+        "sha256": "e77d0ab2436613c0f20a1f7fd33bbbe958d7e6f6eccb03e1146fce318c654b89"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-64.raw-tool-return.json",
+        "sha256": "535dda7b3156b2f1aa6f54fd57da633332c345d70eeb60bce8fbc35bf4f7d254"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-65",
+      "identifying_ACK_SHA": "833c80e4fad262e7f573d15dbd407d67ea44e9b9",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1902,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-65.json",
+        "sha256": "54377b5cac2d109335c94cd8611b617352f2b3a7826fe837bc06c5fa80441829"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-65.raw-tool-return.json",
+        "sha256": "609e4105ded05f461c0938712ab49a59f35b0e36cf23af0901e06b76fa301aa7"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-66",
+      "identifying_ACK_SHA": "c23ccc95ece6743ab0779019db36b0dc34477a58",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 8027,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-66.json",
+        "sha256": "b889f791d9518510955009473ca4ca534b83c93204f908ebc9d5d06527e46195"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-66.raw-tool-return.json",
+        "sha256": "10608933a193eaf6039e839be6ec1b6c9a6e5c53071a8c8851bd85c8b2adf6d4"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-67",
+      "identifying_ACK_SHA": "91aaf2bff505b7a9d8669d3c98c39a0bf3394715",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5787,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-67.json",
+        "sha256": "307bc0c085dfcb1b2c65e4ff368d737d94de229a00f2ea3c33cdaa701f677ee6"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-67.raw-tool-return.json",
+        "sha256": "4a3fdc75c6650084fd89ff20b384d5a3d48ca784152cb6e72997bae0be11c17d"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-68",
+      "identifying_ACK_SHA": "e81c05ab0ea23bbe29d18676429f6b2b5bce5d9b",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 11475,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-68.json",
+        "sha256": "59ee9a37906a34d0aac2e089dab6368133d49b3927322b56ab78ca184eec7df3"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-68.raw-tool-return.json",
+        "sha256": "ed8062508eb4965e9f0e841c13a39f9e38b9c18195410ea6efa8960f55dd2549"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-69",
+      "identifying_ACK_SHA": "f9719560cac875f639ba957e88087ddb63d3ba8b",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 2841,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-69.json",
+        "sha256": "497129428d4131caa3413afe219ce3f5f9bf247fb89f409d27b8dcad5430ce1a"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-69.raw-tool-return.json",
+        "sha256": "99b5b883710b172d086263f0503aae580a9b71798bd20cdbbf2bab4089330b7e"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-70",
+      "identifying_ACK_SHA": "66fa6b6b6ab973cad61e1fba4ddb93373121b89e",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1272,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-70.json",
+        "sha256": "353999d85a9a471c897b7fe35ff323dab17a2ad1509d483d314d51eb2b30cb95"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-70.raw-tool-return.json",
+        "sha256": "8c98b85bd8c3a5fe908bef9bc7eca3dfe23d0234b4edf599154d28aec6bcf58d"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-71",
+      "identifying_ACK_SHA": "5986914447a767edbed40f1b01c79f7ee36a7069",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1248,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-71.json",
+        "sha256": "192cfab66e8e034c73763dacfb51f4f41e790a39502204d3478e752e3f1afe2d"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-71.raw-tool-return.json",
+        "sha256": "ad9676847746310f397cd20b9b6c9ca8606022bd0df36dca82a7c6e1369a30a0"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-72",
+      "identifying_ACK_SHA": "e89904a6991dbf7078f7afd46e0a1b8f90a02fa4",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1286,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-72.json",
+        "sha256": "b1467ea69d4c9b6161f5d0ea81d1bb9699f9384e16268111bd6fd2ece6c0436d"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-72.raw-tool-return.json",
+        "sha256": "5f5a39dc47aea852ad607d5712072bf88e16f6c180481bf6c9e51304497713aa"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-73",
+      "identifying_ACK_SHA": "7f04ebbb940df01df2c196aa03b71cdba3067acf",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1715,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-73.json",
+        "sha256": "a9dc9424747ed6ca001736ae9d2246115f7fce3a140f0dd925e2376a2c6fca1f"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-73.raw-tool-return.json",
+        "sha256": "78e3a1594783c1e1e744d9159736347dd480e4839dd8234c670266d536b63682"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-74",
+      "identifying_ACK_SHA": "6dae4a3c2f436ef1accf7bb46d25c724dce73627",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 23251,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-74.json",
+        "sha256": "6a606bb2541455d73e0ee977ec8db613e27f0fdaf23ce9ea8a0b4b832aeb6085"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-74.raw-tool-return.json",
+        "sha256": "2e7b7a97dc0490dc973cb8cc74500bb675c8dc6ff2d5a79c9f0d23ee86f059c5"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-75",
+      "identifying_ACK_SHA": "a4aa3ee2761d5d4f032a5392ed03e121e9023391",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 663,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-75.json",
+        "sha256": "71ebe470122766c8cb4602cae5aaf5051d2ac8705a53d1f88a74ca5b1fe98c97"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-75.raw-tool-return.json",
+        "sha256": "980c276732250ff46233b88eff1c99c409e0558c6f5384a0ad277838a7e3e05c"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-76",
+      "identifying_ACK_SHA": "84143b8efc467009587249b896f8bd45db90683e",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1338,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-76.json",
+        "sha256": "9a3c7f689475fb0d09fff644ca4c990699f6903b3b1c14fb80a595ddfc9d56fc"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-76.raw-tool-return.json",
+        "sha256": "9a2ce6e95c2d2e2f4f2a1637c99575d381eb6c4ff77d651b386bdeb0226d7fd7"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-77",
+      "identifying_ACK_SHA": "53d5a0df792d8960e4a29dce735e68fbdc2f8104",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1322,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-77.json",
+        "sha256": "859a58a2684d9f4438b5e32497ffbabc180307e3e92abaaac71f50000a564789"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-77.raw-tool-return.json",
+        "sha256": "c50650a562332c043cc5a3d8135f89b1460a26b9e97d2d2e348d96922f21998b"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-78",
+      "identifying_ACK_SHA": "690ccf3edddef0e811c408657c8baee0105e88f0",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 203683,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-78.json",
+        "sha256": "d55b1e8e0df6cdced73444dec751c5140fc1604655e1a103cec084b6357c4c91"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-78.raw-tool-return.json",
+        "sha256": "f2b8f77fa757af345324c396aebded175c4648c7c47ab14564989280dac33e24"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-79",
+      "identifying_ACK_SHA": "c4433dddaceed189199056bfa31c86b7d9fad50e",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 3027,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-79.json",
+        "sha256": "6f1771cd0922b7cbda6ea5931800a49e6614d8b16462475680d503d867f2d137"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-79.raw-tool-return.json",
+        "sha256": "0f7e3f5a4d564ab5d52c77ad1ad9182382ef7922b14336e7e0830808d3c7475d"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-80",
+      "identifying_ACK_SHA": "faca667ce9b4603e9b0dbfe3dd44dd8d997e3e79",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1074,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-80.json",
+        "sha256": "f995ebcd34d9f8c3f385252e6be8f1a090bbc091f39e81994e17a4d4b4fb3c65"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-80.raw-tool-return.json",
+        "sha256": "c5d1ab6d2cc745d7fd580cfa85e1b387eb7fd45351cbd564f7489bff71ee565b"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-81",
+      "identifying_ACK_SHA": "19c1e562e1e27572233578cfbaf1870a8c5d2c7b",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 1288,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-81.json",
+        "sha256": "91e2f28d609b20a0d9e0dc72bf6a235567f0999bd9699c37c4f1c4b6703efd58"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-81.raw-tool-return.json",
+        "sha256": "b3ee9c3bee7cf0e3b60d2dcab2f45aea1c7d2327f034d8ee7091968ec22a17fa"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-82",
+      "identifying_ACK_SHA": "18a738e109d7e3b28935a75d2134c5ccd602f403",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 644,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-82.json",
+        "sha256": "e77d0ab2436613c0f20a1f7fd33bbbe958d7e6f6eccb03e1146fce318c654b89"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-82.raw-tool-return.json",
+        "sha256": "535dda7b3156b2f1aa6f54fd57da633332c345d70eeb60bce8fbc35bf4f7d254"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-83",
+      "identifying_ACK_SHA": "118033e56795c0e358b03e5528fda4a7a8838f25",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 13773,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-83.json",
+        "sha256": "b9ff931aa279df001e62bd228d4b1020e33fd25bf79115f5ddaef53c034a373a"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-83.raw-tool-return.json",
+        "sha256": "0f60f46c9f1a46ed2359280ddfc175c884bd75416c8f51f78720edb5ba00243b"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-84",
+      "identifying_ACK_SHA": "c2b53a00ca9a009b9640c62ddef85514de1cb272",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5473,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-84.json",
+        "sha256": "07b15daa61e1abccb8668742a4148c2768ad3868e4f9e83a8d0f0dcea5e1fb00"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-84.raw-tool-return.json",
+        "sha256": "e5fa23319340edcdf5fb569a02ade041fac7d4a80b2c694994ae147f0f515dc6"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-85",
+      "identifying_ACK_SHA": "d43ec8f9ae78914a65270ce07436fca3668dfad3",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 6482,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-85.json",
+        "sha256": "0db86ed0b437ac7d57cb12a31eb25f1fa88431d99e3d0d6df802d9625281a488"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-85.raw-tool-return.json",
+        "sha256": "825bba3213c413cbf9636e7c89448b5fe612f99e804bfd5998bcae6c9b2fe6b1"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-86",
+      "identifying_ACK_SHA": "5086e82814efe44a1d44bd2cc8de9972f86471d5",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 6862,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-86.json",
+        "sha256": "aabc42b352539661744c413c8b16657d8703e99ad5e5ed3f14c58cdc59e3b81e"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-86.raw-tool-return.json",
+        "sha256": "710009330857a112936bdd4a84b9fbb3f1d1cb8fa21f2edce023b416a8d734d8"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-87",
+      "identifying_ACK_SHA": "248194649845424dfd6545e6410e3e9ce063c2a4",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 6640,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-87.json",
+        "sha256": "6e5c531a0cc21c45a7ea5daa9644732f0260daaf0d08c6799f6f67d4076c865f"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-87.raw-tool-return.json",
+        "sha256": "4a2245f0e10272fb30536fdbade0ec779b8b24ed611605b92d8aeeec9b93239c"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-88",
+      "identifying_ACK_SHA": "93cf1d24797182eb9dbeb6e67584e0bc7b7ea53c",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 9173,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-88.json",
+        "sha256": "0aec6083bb9d5a3bb2b40f4df2ba733bd48e35253280d4c6f1f8eb7c36043d7e"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-88.raw-tool-return.json",
+        "sha256": "a6fa754cb7311e890afa66b25a2e7d1f48231e588107b47c4888461d090565e2"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-89",
+      "identifying_ACK_SHA": "bfde8f84a0e640cfbe814e988c41e2324091dd28",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 4549,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-89.json",
+        "sha256": "3321001fbaa3b0847d9fa8171568c7be27b2376425bc77b224fa09521755599c"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-89.raw-tool-return.json",
+        "sha256": "c8b4cbbe03ac61de26dd47c7e49dd8ea957913d0d592e21ebd51bfa4d1d1f8ff"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-90",
+      "identifying_ACK_SHA": "6df60f8992429f8be441c002764d1330562f809d",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5356,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-90.json",
+        "sha256": "f694eada5f40bbc1482afbed7e336abd8aed881faec2e1b81e56a6417ecc5ade"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-90.raw-tool-return.json",
+        "sha256": "183e110559a34fc4a29100639e3a56d26e3940c2a22393ce484977c164dff3f2"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-91",
+      "identifying_ACK_SHA": "0cb63759141e32321f91bad78b673239429c5675",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5424,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-91.json",
+        "sha256": "fd5107080d4b07a386349aff5312ddf552d2b3309c745ee2d19073cc105e0560"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-91.raw-tool-return.json",
+        "sha256": "4a184a5e7a45084c4b85501cbeb525a479e1de9051c99f6a00d5d33e1bea4592"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-92",
+      "identifying_ACK_SHA": "0610054f600e04daf4f193d0a1d376b3faa82e45",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5454,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-92.json",
+        "sha256": "d615d6d515f92a6814b859ddf2bcb818db1d3d34e8e184d29ec189d2f940f972"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-92.raw-tool-return.json",
+        "sha256": "e6412e189502d308c970152620c265c8863d8c042757fdc650815af30565752d"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-93",
+      "identifying_ACK_SHA": "20e489cc8bf2725dbf7d599e3c0345de2b01d9e2",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5562,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-93.json",
+        "sha256": "6da264e21360f0c78c25eb2fdaad0cb8d88da4eea0a923d5ed64598fe54ebfb3"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-93.raw-tool-return.json",
+        "sha256": "d4c7cc794b60858c2f93a1405fbe35a796434f5bb2ae2789e4eb5027032e7112"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-94",
+      "identifying_ACK_SHA": "77f839ed50d5a2f4c1891513b3f4b94168f2420b",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5499,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-94.json",
+        "sha256": "e750e83373a9bfb173be3699df4c1a2f7c3999ed61f0fd6dcdc80ecff86cd989"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-94.raw-tool-return.json",
+        "sha256": "5b5d2cc13af767310dc390ccfb3b054e44c7ac15576440486092b3f24dcf69b0"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-95",
+      "identifying_ACK_SHA": "1d99ecec6543c879323e878788c030e3b920051f",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 12481,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-95.json",
+        "sha256": "7ba7180ab1c00eef1f372dae324e4a846af7752864552abcf3b286406fcbca95"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-95.raw-tool-return.json",
+        "sha256": "76d728ca3b97675f2e857010bbd45be2de39161d0626354038dbfa21aebe1cb3"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-96",
+      "identifying_ACK_SHA": "96d5d67258ff48345de21ffb7589f87f7e78cca1",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 51771,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-96.json",
+        "sha256": "ef798d8f788f465223f64b40c93490d79b8bfc581342b7c36680330cd9df408c"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-96.raw-tool-return.json",
+        "sha256": "75a6c73ca4274d1e3f66d55d4024e4c8a412f90de73e96788fd97e5fc4aea9de"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-97",
+      "identifying_ACK_SHA": "b92b33bd8b0a0488f59862d9b72442fa0e9639ba",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5183,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-97.json",
+        "sha256": "7b9a54ebaa1c3dd9e1e82bc07fce916d4545bad343bd8514dde71f75237b3015"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-97.raw-tool-return.json",
+        "sha256": "6eefefa78ff056bf2ffb40a1008281492f276cc5c7db79fab3715de617700426"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-98",
+      "identifying_ACK_SHA": "65e5be9d7abf44e9815d44d7f22ff497d7a04adb",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 25806,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-98.json",
+        "sha256": "939b6fcb69c374c519f21bea4c32e2162d583310cb2200c15f0b388a9bb7eee5"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-98.raw-tool-return.json",
+        "sha256": "d6a4eb23ce8fd26d5c3ac334a504be80fa6f62d88fbcc117c1c699113e5c071f"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-99",
+      "identifying_ACK_SHA": "597b501c40e1f15bd58c6071b9823d6bfeab42b5",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 18462,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-99.json",
+        "sha256": "58f956b0ea548e91db91fe38bb450ca7e86d0522a62ad1b1979b8a94275f5b33"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-99.raw-tool-return.json",
+        "sha256": "94f887f0f561e72d2461278545054ab27eaeab31d984171c0a858996ace2fa0a"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-100",
+      "identifying_ACK_SHA": "9ed4a978f8dd49446c88d661f51a3d095494382e",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5057,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-100.json",
+        "sha256": "904e646d6f3061cadedf1c290ac6b301edca3a7c564d08be129c4d97f84c1a75"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-100.raw-tool-return.json",
+        "sha256": "24f803fbddc296146f123838fa351130f64805ec301f2eaf716bda0f818a0622"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-101",
+      "identifying_ACK_SHA": "863929371b822b6c59f3d3bba0ad33d98419e821",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 10951,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-101.json",
+        "sha256": "21e1dbd14c374737825b747201ef84a9c668988f765c8fd44bec43f67bfa76dd"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-101.raw-tool-return.json",
+        "sha256": "d101065c3951c19a59486e3ddb5f737b7c66907d8c7c5b4dcdacf81d9b755621"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-102",
+      "identifying_ACK_SHA": "32dcbc6c665930605db124e96109cd2f37e72520",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 9614,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-102.json",
+        "sha256": "7ee794d88c6f835932961a02306615d335dd9a369c049ddc63f23c9ce2a0bd9c"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-102.raw-tool-return.json",
+        "sha256": "c11174c908f17b81ec34857d42079d25583be2055adf0538855afe6e0684b175"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-103",
+      "identifying_ACK_SHA": "097828c23f4f36a1e20a1c79b7e61188085082d6",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 4284,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-103.json",
+        "sha256": "6cc89b653defd95cc30d8a93611c7c50ec41ad01081f70faffe3e81ba3ddaaf5"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-103.raw-tool-return.json",
+        "sha256": "d5ef1b40a956c011baa3de0df7110132517d3ca60293865a002ac8b80c040bb9"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-104",
+      "identifying_ACK_SHA": "b92b33bd8b0a0488f59862d9b72442fa0e9639ba",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5183,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-104.json",
+        "sha256": "7b9a54ebaa1c3dd9e1e82bc07fce916d4545bad343bd8514dde71f75237b3015"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-104.raw-tool-return.json",
+        "sha256": "6eefefa78ff056bf2ffb40a1008281492f276cc5c7db79fab3715de617700426"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-105",
+      "identifying_ACK_SHA": "9ed4a978f8dd49446c88d661f51a3d095494382e",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5057,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-105.json",
+        "sha256": "904e646d6f3061cadedf1c290ac6b301edca3a7c564d08be129c4d97f84c1a75"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-105.raw-tool-return.json",
+        "sha256": "24f803fbddc296146f123838fa351130f64805ec301f2eaf716bda0f818a0622"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-106",
+      "identifying_ACK_SHA": "863929371b822b6c59f3d3bba0ad33d98419e821",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 10951,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-106.json",
+        "sha256": "21e1dbd14c374737825b747201ef84a9c668988f765c8fd44bec43f67bfa76dd"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-106.raw-tool-return.json",
+        "sha256": "d101065c3951c19a59486e3ddb5f737b7c66907d8c7c5b4dcdacf81d9b755621"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-107",
+      "identifying_ACK_SHA": "62e377ff5959dac8dee2d10e60370d9275691c99",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 13428,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-107.json",
+        "sha256": "227027aaaedad948184486710a8c0a271f8d5d8b6a187afe374dfe0cea08cafd"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-107.raw-tool-return.json",
+        "sha256": "9710b12f118d443d61ab0a4276640e73dc99b418d8d815e252fb7a061491bf5b"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-108",
+      "identifying_ACK_SHA": "6117e28b5a8ca2df914c971590fdb8db3207146e",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 18079,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-108.json",
+        "sha256": "341452e7b4f7cb8d0998c7595eb0d28fe8a54a3efd971e795fad62fea50cf736"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-108.raw-tool-return.json",
+        "sha256": "a5aad5357d7e4bc0c01d40a3916b1bbe1727be61d5b8c3d015d6035febcb3a83"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-109",
+      "identifying_ACK_SHA": "f9a307b561c85a21eb8aad25b7b09d829e172b7f",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 11408,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-109.json",
+        "sha256": "7ed224b5afd3e3460343f4cccb62d592a1e64ee2b6926767ab9119db250f0d3e"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-109.raw-tool-return.json",
+        "sha256": "33c320eeadfb69ee5ba1b6612cecced7ab116a3d36865e932b05a482a8c5d2e0"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-110",
+      "identifying_ACK_SHA": "efef434bdad9aa8c9489545b7982a2eb5de4e094",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 10835,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-110.json",
+        "sha256": "b99db1d8e8437ee94056a2163af3dd92b7f26560fc065b18077eb755223d0d17"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-110.raw-tool-return.json",
+        "sha256": "9bfbc0ae79a83b5bb465768b6d53b9002f4abbc5bb71f8ae3927a6cdc43b1468"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-111",
+      "identifying_ACK_SHA": "dd5fa30ba0423e2aca9202ba6f4e34fbb7d71427",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 10424,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-111.json",
+        "sha256": "f10d5bb4fa6d6161720c04be025f441322f19d46463cef2178aeb0fd8ef7d121"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-111.raw-tool-return.json",
+        "sha256": "f7cc7f5c416831996144b3da79ce9378627a22da0ec99d185738a7d520fa0160"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-112",
+      "identifying_ACK_SHA": "91261ac9d0d7ff5f1f94cc5464573dd102e3092a",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 3154,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-112.json",
+        "sha256": "3dc6797c0b38b7fb8f821dea4bce115ccaaf07874eb1980ca332b995009941e0"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-112.raw-tool-return.json",
+        "sha256": "51140179670718e8bfbe292e46a75856c0aba05cac6fd3a25b514d82439854af"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-113",
+      "identifying_ACK_SHA": "e3436cab39bf4bbcbe251a8fcef1cadb1e1f43da",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 5647,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-113.json",
+        "sha256": "5690d45d3e60201c7e9c6740b9dfaf77cd4160ce65be75c54b97c529f0b172fc"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-113.raw-tool-return.json",
+        "sha256": "ffeb15b06a9e73d94946b740df11b1aad6c4753697877bccf96a1189815b0905"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-114",
+      "identifying_ACK_SHA": "b67b265e73a31d8426ce27838c3b92bb6653d965",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 4429,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-114.json",
+        "sha256": "6ea2cd5eba528e475a0a678a46de719a21101e2cd15aae34778d567deb396e89"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-114.raw-tool-return.json",
+        "sha256": "d87248cb45c9dd3837d587fa3bf2ff9663bb8ddde59e94744602b7ad347386ba"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-115",
+      "identifying_ACK_SHA": "81e4a6e2294b7dce5263a5ef138a9a89b8a3ebd4",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 11545,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-115.json",
+        "sha256": "fbe2abfb6905a0862aebe484bf2b73f096c7f74ce3674fecd409b7d2be4b5276"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-115.raw-tool-return.json",
+        "sha256": "d47caffe982200ecb865c6c2257b45013df249eb7498d90b2dea6da65fc3423b"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-116",
+      "identifying_ACK_SHA": "91261ac9d0d7ff5f1f94cc5464573dd102e3092a",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 3154,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-116.json",
+        "sha256": "3dc6797c0b38b7fb8f821dea4bce115ccaaf07874eb1980ca332b995009941e0"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-116.raw-tool-return.json",
+        "sha256": "51140179670718e8bfbe292e46a75856c0aba05cac6fd3a25b514d82439854af"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-117",
+      "identifying_ACK_SHA": "fb4a48009e89efe8b6ab9e049cc9353092a93f96",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 17314,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-117.json",
+        "sha256": "80773358bb0da4c53bcce4b2053d7af7b91c0c74c84c908f7a3a989d39e8b8d4"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-117.raw-tool-return.json",
+        "sha256": "120cbc9544152d08eb6f861409e9336c84eecc1dac5c19adf9b4aa4b57b1f5dc"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-118",
+      "identifying_ACK_SHA": "6d276ee5bc1fc32b7a3d854f4b72b1a0a4827e76",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 13061,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-118.json",
+        "sha256": "174c4ce071f08b7d578d6795798edc0255147da466a211b926e62b1b6c3c3050"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-118.raw-tool-return.json",
+        "sha256": "365ce72d586729d8edd0be71bda4af7822ad4cd542df76c442228c8b4f097661"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-119",
+      "identifying_ACK_SHA": "4f831413c577462265dec184b3eaae798b92707f",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 15394,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-119.json",
+        "sha256": "9886071e35619db06d2992a365679bdcac02861307e5269f84fd9fd91c0c3d3c"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-119.raw-tool-return.json",
+        "sha256": "d99ddb2c4fd2375672a79f04374f455babef77d20f21563b0b8c663b2469110e"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-120",
+      "identifying_ACK_SHA": "c6be59662c5e36c32fa895236bbc5d755def6c83",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 17695,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-120.json",
+        "sha256": "8bb7e968d0065d1da9ae4c18343bf35c46b2874b5496659ab5135f4464c80084"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-120.raw-tool-return.json",
+        "sha256": "c500fc5ac196db3286e05852d53bd3c721225ec0af27ec83c205cb9964712205"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-blob-121",
+      "identifying_ACK_SHA": "80d7fee321250a15a06d6d2c4f8fc4c743d67e48",
+      "kind": "mcp__codex_apps__github_create_blob",
+      "request": {
+        "bytes": 20226,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-121.json",
+        "sha256": "f62bcda6aff47d717d882b15f1703ab072a2dcc30efd116369a96c6e6168e61e"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-blob-121.raw-tool-return.json",
+        "sha256": "e29a4147586e75d1fa369794ac0f78aa0af5d9b083ed9b6bc124eaff283b3394"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-tree-0",
+      "identifying_ACK_SHA": "3e4598dad145ffca77eacb0792537c4a33c63a66",
+      "kind": "mcp__codex_apps__github_create_tree",
+      "request": {
+        "bytes": 8294,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-tree-0.json",
+        "sha256": "6a4ee3aed25372c8efdad7d4ff7c8cebd2736477bad1cfc6d8c95f792013d59f"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-tree-0.raw-tool-return.json",
+        "sha256": "4901731f03a06a8019459624e9de2f20ead8a6c16558553f2db53c5d3734aa11"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-tree-1",
+      "identifying_ACK_SHA": "d87871bb8088ebced9fb2f2eeff2fb308a2a41bb",
+      "kind": "mcp__codex_apps__github_create_tree",
+      "request": {
+        "bytes": 8102,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-tree-1.json",
+        "sha256": "a8ef0870f5e1485cbdfb8aba737cd38a7d1b16527c3ad55d786e5dba9053e510"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-tree-1.raw-tool-return.json",
+        "sha256": "cd54a1b5608244a048044ca206ecf6b72b44bccb923ee5fe300fe2b025f8f8b0"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-tree-2",
+      "identifying_ACK_SHA": "ee60674339d3e75b54bd700a0b1bc77bcdd8dd75",
+      "kind": "mcp__codex_apps__github_create_tree",
+      "request": {
+        "bytes": 8412,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-tree-2.json",
+        "sha256": "50bbf39bdc6ad0829aba84222603f62f33a7d27e613e7f50fe767d46ced2a6f2"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-tree-2.raw-tool-return.json",
+        "sha256": "e3a8b87b756484e5025ab610c8b73f2687aa015a58b6a960febfb46d02c24478"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-tree-3",
+      "identifying_ACK_SHA": "f4305fe1bf4c476221cb1a531f7f1c019740f821",
+      "kind": "mcp__codex_apps__github_create_tree",
+      "request": {
+        "bytes": 6274,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-tree-3.json",
+        "sha256": "19f5838da61e6749d6588370749afd03db425ca5133c79f4468f3fee21116401"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-tree-3.raw-tool-return.json",
+        "sha256": "b2fcc94ca8ccd0a15d89a2b7a593c48b0540e2320c2bb75ca667a16b86d7a4c1"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": false,
+      "id": "e56-source-g21-commit",
+      "identifying_ACK_SHA": "60dfc923eee70bfd319489e30afdbd8d2a3bc035",
+      "kind": "mcp__codex_apps__github_create_commit",
+      "request": {
+        "bytes": 295,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-commit.json",
+        "sha256": "1b41adeed55da89b265d95640198cb85e26008131f64dfc966a7c2a8186ea6e7"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 143,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-commit.raw-tool-return.json",
+        "sha256": "64338ff2742ac8cf92a00c11a59879788427dd93c2ede04c4b040d68306e4d36"
+      }
+    },
+    {
+      "bare_CAS_ACK_proven_by_exact_fresh_ref": true,
+      "id": "e56-source-g21-ref",
+      "identifying_ACK_SHA": null,
+      "kind": "mcp__codex_apps__github_update_ref",
+      "request": {
+        "bytes": 237,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-ref.json",
+        "sha256": "ba57a0d130f537db34574c8603d961c169c7a02366225cb8c1f72aab745334c5"
+      },
+      "whole_MCP_raw_return": {
+        "bytes": 109,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/requests/e56-source-g21-ref.raw-tool-return.json",
+        "sha256": "40222101ee97b4f8d77eb5c78634ffda639fe20753cc498a6e8652a6cf156550"
+      }
+    }
+  ],
+  "forbidden_Git_objects": [
+    "3d5a61f9068acf2dabd2ae5c6bd531d9a9b464c5",
+    "486888de9602bbb5d817a55f707b4fcfd11c65e0",
+    "a68b7ba587332f176f65d0348de3e910aa16e77a"
+  ],
+  "forbidden_objects_never_live_requested_or_ACKed_in_actual_journal": true,
+  "identifying_Git_object_ACKs": 127,
+  "journal": {
+    "bytes": 180868,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/mutation-journal.jsonl",
+    "sha256": "ca470f66e76f8539eedbde04a776d98bad758bec26d906855c3a5bd61c428df3"
+  },
+  "kind": "ACTUAL_COMPLETED_SOURCE_PUBLICATION_JOURNAL_INDEPENDENT_VERIFICATION",
+  "main_before_after": {
+    "after": "c44d7337c0c5ad2ecd2294178475387facb96516",
+    "before": "c44d7337c0c5ad2ecd2294178475387facb96516"
+  },
+  "mutation_kinds": {
+    "mcp__codex_apps__github_create_blob": 122,
+    "mcp__codex_apps__github_create_commit": 1,
+    "mcp__codex_apps__github_create_tree": 4,
+    "mcp__codex_apps__github_update_ref": 1
+  },
+  "original_lock_owner_held_at_check": {
+    "bytes": 711,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/owner.json",
+    "sha256": "1cd0cb9c7ac46476cba887ef0e9ef751daebea307fc8eb0678531af2a7799086"
+  },
+  "parent": "ffdd0699f3254c5dd09437533d38111a8521c920",
+  "phases": {
+    "source": {
+      "CP_rows": 8912,
+      "Git_leaves": 8919,
+      "accepted_mutations": 128,
+      "actual_record_minimum_inter_intent_seconds": 3.6231672763824463,
+      "bare_CAS_success_ACKs_with_exact_fresh_postCAS_ref": 1,
+      "bench": "3a0b9761d7089e19094d90f348b46e408ca2ea46",
+      "commit": "60dfc923eee70bfd319489e30afdbd8d2a3bc035",
+      "identifying_Git_object_ACKs": 127,
+      "mutation_kinds": {
+        "mcp__codex_apps__github_create_blob": 122,
+        "mcp__codex_apps__github_create_commit": 1,
+        "mcp__codex_apps__github_create_tree": 4,
+        "mcp__codex_apps__github_update_ref": 1
+      },
+      "paired_journal_rows": 256,
+      "parent": "ffdd0699f3254c5dd09437533d38111a8521c920",
+      "raw_MCP_top_level_key_sets_counts": {
+        "content,isError,structuredContent": 128
+      },
+      "receipt": {
+        "bytes": 1073,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/publication-source-result.json",
+        "sha256": "4fd779d51f7a372ca205e2fec82e6bb1b62c22879251b6fa589558d489170327"
+      },
+      "root": "f4305fe1bf4c476221cb1a531f7f1c019740f821",
+      "scope": "994149a2fe89e63588ca096ebfffc19242086365",
+      "stage": {
+        "bytes": 114032,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/stage-source/metadata.json",
+        "sha256": "9188e7ab46468bcec5fce4d893a34c852f03c3a106e1f5b5eec834567ffbcf96"
+      }
+    }
+  },
+  "plan": {
+    "bytes": 14753,
+    "path": "experiments/sota-2026-10-22/epoch56/plan.json",
+    "sha256": "0d2e93b16520353de2eece63a5c88b07d757fc447985b426b548d3b8b7b65e01"
+  },
+  "proof_scope": "Local actual journal/request/whole-raw/ACK and saved sole-parent/CAS readback consistency. Primary audit separately performs fresh connected remote tree/body reads.",
+  "reserved_request_files": 128,
+  "schema_version": 1,
+  "scientific_authorization_granted": false,
+  "source_freeze": {
+    "bytes": 29698,
+    "path": "experiments/sota-2026-10-22/epoch56/SOURCE_FREEZE.json",
+    "sha256": "cb06539e8fc4e46b8415504970238b363af087eafd8b6d69d06417519af381cc"
+  },
+  "whole_MCP_raw_return_files": 128
+}

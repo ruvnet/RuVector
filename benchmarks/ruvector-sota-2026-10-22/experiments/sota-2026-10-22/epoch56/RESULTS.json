@@ -1,0 +1,439 @@
+{
+  "Brier": null,
+  "CLI_wall_including_supervisor_interpreter_bootstrap": {
+    "actual_CLI_wall_seconds_including_interpreter_bootstrap_capture": 9.885435926960781,
+    "automatic_retry": false,
+    "epoch": 56,
+    "exit_code": 0,
+    "requires_independent_worker_native_physical_closure": true,
+    "supervisor_after_wait": null,
+    "supervisor_identity": {
+      "pid": 184876,
+      "startticks": 43392193,
+      "state": "R"
+    },
+    "timed_out": false,
+    "within_600_seconds": true
+  },
+  "NLL": null,
+  "actual_SOURCE_commit": "60dfc923eee70bfd319489e30afdbd8d2a3bc035",
+  "actual_execution_independently_derived": {
+    "BGE_forwards": 12,
+    "BGE_initializations": 1,
+    "GPU_calls": 0,
+    "Gold_scoring_calls": 0,
+    "Gold_train_calibration_paid_GPU": 0,
+    "NLI_forwards": 0,
+    "NLI_forwards_attempted": 0,
+    "NLI_forwards_completed": 0,
+    "Root_CLI_invocations": 1,
+    "actual_native_helper_starts": 1,
+    "actual_worker_starts": 1,
+    "calibration_calls": 0,
+    "engineered_contexts": 48,
+    "native_F32_hit_validations": 135,
+    "native_corpus_batches": 1,
+    "native_corpus_batches_completed": 1,
+    "native_corpus_batches_started": 1,
+    "native_indexes": 4,
+    "native_insertions": 45,
+    "native_queries": 12,
+    "packed_packets": 108,
+    "paid_API_calls": 0,
+    "tokenizer_initializations": 1,
+    "training_calls": 0,
+    "typed_model_initializations": 0
+  },
+  "additional_retrieval_DEV_pilot": {
+    "frozen_plan": {
+      "bytes": 10524,
+      "path": "experiments/sota-2026-10-22/epoch56/retrieval/plan.json",
+      "sha256": "8ab6a499cc5ea6ea57e899d47ffbf99c89e84f72cdb249cc59b8c67d66791886"
+    },
+    "independent_acceptance": {
+      "bytes": 4262,
+      "path": "experiments/sota-2026-10-22/audit/epoch56/retrieval/independent/RETRIEVAL_ACTUAL_ACCEPTANCE_INDEPENDENT.v1.json",
+      "sha256": "3f80cf39437c0860fea7ed924ff7dda6921069be93585873ded22d660006bb05"
+    },
+    "results": {
+      "bytes": 4165,
+      "path": "experiments/sota-2026-10-22/epoch56/retrieval/runs/rejected-partial-results.json",
+      "sha256": "eee359bd24ac0c707ea31c05a0edb2c7293b909fed52a833308c4f61adad72e6"
+    }
+  },
+  "all_remaining_epoch56_scientific_slots_closed": true,
+  "benchmark_accepted": false,
+  "benchmark_generalization_claim": false,
+  "candidate_promoted": false,
+  "classification_accuracy": null,
+  "engineering_branch_gates": {
+    "actual_branch_counts": {
+      "ZWJ_boundary_crossings": 1,
+      "blank_boundaries": 1,
+      "capacity_fitting_groups": 1,
+      "coalesced_boundaries": 5,
+      "combining_boundary_crossings": 1,
+      "over_capacity_groups": 4,
+      "protected_regex_boundary_crossings": 2
+    },
+    "checks_passed": true,
+    "documents": {
+      "authored:e56:diacritic-boundary": {
+        "all_characters_once": true,
+        "all_three_queries_real_pair_capacity_at_most512": true,
+        "coalesced_group_original_real_pair_counts": [
+          {
+            "counts": {
+              "nda-1": 1897,
+              "nda-10": 1900,
+              "nda-16": 1900
+            },
+            "over_capacity": true
+          }
+        ],
+        "expected_coalesced_offsets": [
+          28
+        ],
+        "final_fragments": 11,
+        "original_source_units": 2,
+        "over_capacity_groups": 1,
+        "parent_offsets_hashes_valid": true,
+        "protected_numeric_date_currency_negation_multiset_preserved": true,
+        "source_characters": 11141,
+        "unsafe_Unicode_boundaries_not_used": true
+      },
+      "authored:e56:harbor-manifest": {
+        "all_characters_once": true,
+        "all_three_queries_real_pair_capacity_at_most512": true,
+        "coalesced_group_original_real_pair_counts": [
+          {
+            "counts": {
+              "nda-1": 1885,
+              "nda-10": 1888,
+              "nda-16": 1888
+            },
+            "over_capacity": true
+          }
+        ],
+        "expected_coalesced_offsets": [],
+        "final_fragments": 11,
+        "original_source_units": 1,
+        "over_capacity_groups": 1,
+        "parent_offsets_hashes_valid": true,
+        "protected_numeric_date_currency_negation_multiset_preserved": true,
+        "source_characters": 11075,
+        "unsafe_Unicode_boundaries_not_used": true
+      },
+      "authored:e56:joined-annotation": {
+        "all_characters_once": true,
+        "all_three_queries_real_pair_capacity_at_most512": true,
+        "coalesced_group_original_real_pair_counts": [
+          {
+            "counts": {
+              "nda-1": 1900,
+              "nda-10": 1903,
+              "nda-16": 1903
+            },
+            "over_capacity": true
+          }
+        ],
+        "expected_coalesced_offsets": [
+          26
+        ],
+        "final_fragments": 11,
+        "original_source_units": 2,
+        "over_capacity_groups": 1,
+        "parent_offsets_hashes_valid": true,
+        "protected_numeric_date_currency_negation_multiset_preserved": true,
+        "source_characters": 11144,
+        "unsafe_Unicode_boundaries_not_used": true
+      },
+      "authored:e56:reserve-boundaries": {
+        "all_characters_once": true,
+        "all_three_queries_real_pair_capacity_at_most512": true,
+        "coalesced_group_original_real_pair_counts": [
+          {
+            "counts": {
+              "nda-1": 42,
+              "nda-10": 45,
+              "nda-16": 45
+            },
+            "over_capacity": false
+          },
+          {
+            "counts": {
+              "nda-1": 1885,
+              "nda-10": 1888,
+              "nda-16": 1888
+            },
+            "over_capacity": true
+          }
+        ],
+        "expected_coalesced_offsets": [
+          36,
+          71,
+          105
+        ],
+        "final_fragments": 12,
+        "original_source_units": 5,
+        "over_capacity_groups": 1,
+        "parent_offsets_hashes_valid": true,
+        "protected_numeric_date_currency_negation_multiset_preserved": true,
+        "source_characters": 11183,
+        "unsafe_Unicode_boundaries_not_used": true
+      }
+    },
+    "scope": "Source/capacity/substrings only; no semantic arithmetic, absence, classification or generalization proof."
+  },
+  "engineering_phase_classification_quality_measured": false,
+  "engineering_qualified": true,
+  "epoch": 56,
+  "errors": [],
+  "fixture_ref": {
+    "bytes": 51087,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/runtime/epoch56/authored_fixtures.json",
+    "sha256": "9207b7019d0f05d1e8c4a822511cfd7df3332ce5df2f34262cd4db9d658b999b"
+  },
+  "independent_acceptance": {
+    "bytes": 10755,
+    "path": "experiments/sota-2026-10-22/audit/epoch56/independent/ENGINEERING_ACTUAL_ACCEPTANCE_INDEPENDENT.v1.json",
+    "sha256": "00d415d0444a1d6a5076f592c374fbf1ad6da5d754792f7b8b7d5a606ab6b374"
+  },
+  "independent_acceptance_or_rejection_reason": "All frozen engineering source/capacity/whole-unit/protected-substring gates and newly frozen exact native14-key accounting gate pass on the one actual closed batch. E55 raw counter defect/history unchanged. No semantic benchmark or confirmation measured.",
+  "kind": "REAL_NATIVE_SOURCE_FRAGMENT_CAPACITY_QUALIFICATION",
+  "latency_scope": "Context preparation includes packing and real pair tokenizations; common catalog/BGE/index/init/cleanup excluded and reported separately. Native query includes returned-hit validation. Inclusive outer clock is authoritative whole-batch bound.",
+  "model_and_data_qualification": {
+    "DOC17": "PROJECT_UNUSED_PUBLISHER_DEVELOPMENT_EXPOSED_DEV_NOT_FRESH_CONFIRMATION",
+    "exact_model_and_scorer": "Both pinned component plans and master SOURCE freeze; SciFact exact BEIR custom metrics only after full forecasts and independent physical closure.",
+    "existing_confirmation": "UNQUALIFIED_HOLD_UNUSED",
+    "stronger_typed_reader_data_scoring_access_and_nonuse_lineage": "Unchanged precise HOLD; no repeated FinNLI access or ModernBERT lineage probe, no author message.",
+    "this_epoch": "Source/accounting engineering and conditionally separately frozen licensed16query public SciFact DEV retrieval pilot; no NLI classification, fresh confirmation, champion promotion or official placement."
+  },
+  "native104_champion_preserved": true,
+  "native_counter_accounting": {
+    "capture_complete": true,
+    "capture_ref": {
+      "bytes": 42882,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/private-run/engineering/native-progress.jsonl",
+      "sha256": "c6259a0ceb2691e0a2f0dbc5000bb5fa31bf58553a1d496f59bf59e44e0842c3"
+    },
+    "expected_totals_validation_only": {
+      "Node_network_operations_attempted": 0,
+      "native_binary_loads_attempted": 1,
+      "native_binary_loads_completed": 1,
+      "native_hit_source_validations": 135,
+      "native_index_initializations_attempted": 4,
+      "native_index_initializations_completed": 4,
+      "native_insertions_attempted": 45,
+      "native_insertions_completed": 45,
+      "native_len_calls_attempted": 8,
+      "native_len_calls_completed": 8,
+      "native_queries_attempted": 12,
+      "native_queries_completed": 12,
+      "native_version_calls_attempted": 1,
+      "native_version_calls_completed": 1
+    },
+    "idempotence_scope": "Identical validated snapshot rows only. Full progress-file capture is one-shot; recapture fails closed.",
+    "identical_counter_snapshot_replays": 1,
+    "independent_expected_from_actual_bundle_geometry": {
+      "Node_network_operations_attempted": 0,
+      "native_binary_loads_attempted": 1,
+      "native_binary_loads_completed": 1,
+      "native_hit_source_validations": 135,
+      "native_index_initializations_attempted": 4,
+      "native_index_initializations_completed": 4,
+      "native_insertions_attempted": 45,
+      "native_insertions_completed": 45,
+      "native_len_calls_attempted": 8,
+      "native_len_calls_completed": 8,
+      "native_queries_attempted": 12,
+      "native_queries_completed": 12,
+      "native_version_calls_attempted": 1,
+      "native_version_calls_completed": 1
+    },
+    "inflight_native_call_outcome_uncertain": false,
+    "last_event": "COMPLETE",
+    "latest_validated_snapshot": {
+      "Node_network_operations_attempted": 0,
+      "native_binary_loads_attempted": 1,
+      "native_binary_loads_completed": 1,
+      "native_hit_source_validations": 135,
+      "native_index_initializations_attempted": 4,
+      "native_index_initializations_completed": 4,
+      "native_insertions_attempted": 45,
+      "native_insertions_completed": 45,
+      "native_len_calls_attempted": 8,
+      "native_len_calls_completed": 8,
+      "native_queries_attempted": 12,
+      "native_queries_completed": 12,
+      "native_version_calls_attempted": 1,
+      "native_version_calls_completed": 1
+    },
+    "merge_semantics": "Direct per-key assignment, never Counter.update or expected-value fill.",
+    "native_parent_totals_equal_captured_terminal": true,
+    "pending_attempt_completion_gap": false,
+    "qualified": true,
+    "raw_helper_progress_exact14key_agreement": true,
+    "schema_version": 1,
+    "single_source_of_truth": "Captured validated native helper progress plus exact terminal agreement.",
+    "snapshot_records": 77,
+    "validated_unique_event_counts": {
+      "COMPLETE": 1,
+      "INDEX_BEFORE": 4,
+      "INSERT_BEFORE": 45,
+      "NATIVE_LOAD_BEFORE": 1,
+      "NATIVE_LOAD_COMPLETE": 1,
+      "NATIVE_VERSION_BEFORE": 1,
+      "QUERY_BEFORE": 12,
+      "QUERY_COMPLETE": 12
+    },
+    "validation_failure_latched": false
+  },
+  "native_query_and_hit_validation_latency": {
+    "p50_seconds": 0.0004850050000000081,
+    "p95_seconds": 0.003252101749999993,
+    "unique_queries": 12
+  },
+  "new_submission": false,
+  "official_goal_verified": false,
+  "official_rank": null,
+  "official_refresh": {
+    "bytes": 10975,
+    "path": "experiments/sota-2026-10-22/epoch56/official-refresh/benchmark-refresh.safe.json",
+    "sha256": "dc3aa9ff96ad0e88357ccb41c75d13637326eece04287af4b823ab365a6cc1f4"
+  },
+  "outer_actual_receipt": {
+    "bytes": 4700,
+    "path": "experiments/sota-2026-10-22/audit/epoch56/actual/ENGINEERING_OUTER_EXECUTION.actual.v1.json",
+    "sha256": "e07487f06e9397a3bc9dae632a647560f361200efe802ea7d768e3e80fa20b52"
+  },
+  "per_arm_context_preparation_latency": {
+    "lexical": {
+      "completed_contexts": 12,
+      "p50_seconds": 0.01408346398966387,
+      "p95_seconds": 0.017213544459082186
+    },
+    "native": {
+      "completed_contexts": 12,
+      "p50_seconds": 0.014489976485492662,
+      "p95_seconds": 0.02157662285608239
+    },
+    "source_order": {
+      "completed_contexts": 12,
+      "p50_seconds": 0.014260772004490718,
+      "p95_seconds": 0.023024185109534287
+    },
+    "whole_source": {
+      "completed_contexts": 12,
+      "p50_seconds": 0.021265520015731454,
+      "p95_seconds": 0.025899974914500485
+    }
+  },
+  "percentile_definition": "Sorted values; linear interpolation at q*(n-1).",
+  "pre_science_metadata_preparation": {
+    "IDs_only_root_calls": 1,
+    "cp312_R2_acquisition": "completed after exact public duplicate retirement and changed disk/ABI guards",
+    "features_only_root_calls": 1,
+    "first_cp312_acquisition": "FAILED_ENOSPC; partial retained; no import or science",
+    "first_wrong_ABI_cp311_acquisition": "completed externalbytesdownload/extract; import denied before scientific use",
+    "native_model_Gold_calls": 0,
+    "prepared_query_feature_IDs": 16,
+    "prior_E54_denied_open_targets": "UNKNOWN",
+    "prior_E55_metadata_probe_denied_opens": 6,
+    "same_five_suffix_denies_preserved": true,
+    "selected_query_Gold_decodes_before_forecast_seal": 0,
+    "whole_source1109_query_pool_freshness": "UNQUALIFIED due possible internal Arrow text-page decoding"
+  },
+  "publisher_submission_authorized": false,
+  "quality_metric_scope": "Engineering phase has no semantic labels or typed NLI forwards. A separate actual retrieval DEV pilot, if referenced, may score public relevance labels; no NLI classification or generalization follows.",
+  "raw_actual_result": {
+    "bytes": 343295,
+    "path": "experiments/sota-2026-10-22/epoch56/runs/engineering/raw.json",
+    "sha256": "8171655f0894448ab2979adfe77f0790428363f925923730527bde6b767966a7"
+  },
+  "raw_recorded_counters_unmodified": {
+    "BGE_forward_calls_attempted": 12,
+    "BGE_forward_calls_completed": 12,
+    "BGE_initializations_attempted": 1,
+    "BGE_initializations_completed": 1,
+    "BGE_texts_attempted": 57,
+    "BGE_texts_completed": 57,
+    "GPU_calls": 0,
+    "NLI_forwards_attempted": 0,
+    "NLI_forwards_completed": 0,
+    "Node_network_operations_attempted": 0,
+    "Python_network_operations_attempted": 1,
+    "Python_network_operations_blocked": 1,
+    "calibration_calls": 0,
+    "engineering_contexts_completed": 48,
+    "forbidden_model_or_archive_file_access_attempts": 0,
+    "native_binary_loads_attempted": 1,
+    "native_binary_loads_completed": 1,
+    "native_corpus_batches": 1,
+    "native_corpus_batches_attempted": 1,
+    "native_corpus_batches_completed": 1,
+    "native_hit_source_validations": 135,
+    "native_index_initializations_attempted": 4,
+    "native_index_initializations_completed": 4,
+    "native_insertions_attempted": 45,
+    "native_insertions_completed": 45,
+    "native_len_calls_attempted": 8,
+    "native_len_calls_completed": 8,
+    "native_queries_attempted": 12,
+    "native_queries_completed": 12,
+    "native_version_calls_attempted": 1,
+    "native_version_calls_completed": 1,
+    "paid_API_calls": 0,
+    "reader_capacity_tokenizations": 48,
+    "reader_fragmentation_pair_tokenizations": 147,
+    "reader_fragmentation_pair_tokenizations_completed": 147,
+    "reader_packing_pair_tokenizations": 708,
+    "reader_packing_pair_tokenizations_completed": 708,
+    "reader_pair_tokenizations": 855,
+    "reader_pair_tokenizations_completed": 855,
+    "semantic_gold_decodes": 0,
+    "tokenizer_initializations_attempted": 1,
+    "tokenizer_initializations_completed": 1,
+    "training_calls": 0,
+    "typed_model_initializations": 0
+  },
+  "retrieval_DEV_scored_query_count": 0,
+  "schema_version": 1,
+  "source_checkpoint": "ffdd0699f3254c5dd09437533d38111a8521c920",
+  "source_frozen_reporter_executed": true,
+  "status": "ENGINEERING_CAPACITY_AND_IDEMPOTENT_NATIVE_ACCOUNTING_QUALIFIED_NOT_BENCHMARK_SCORED",
+  "used_confirmation_identities": [],
+  "worker_resources": {
+    "CPU_affinity": [
+      0,
+      1
+    ],
+    "RSS_scope": "SELF versus CHILDREN high-water recorded separately, never summed.",
+    "children_max_RSS_KiB": 530736,
+    "children_system_seconds": 0.040667999999999996,
+    "children_user_seconds": 0.067812,
+    "compute_threads": 2,
+    "shared_cgroup": {
+      "headroom_bytes": 2974691328,
+      "memory_current_bytes": 14205177856,
+      "memory_events": {
+        "high": 0,
+        "low": 0,
+        "max": 83996,
+        "oom": 3,
+        "oom_group_kill": 0,
+        "oom_kill": 1
+      },
+      "memory_max_bytes": 17179869184,
+      "scope": "Shared cgroup snapshot; not candidate incremental use or cause proof."
+    },
+    "worker_max_RSS_KiB": 530736,
+    "worker_system_seconds": 0.641936,
+    "worker_user_seconds": 11.304889
+  },
+  "worker_timing": {
+    "completed_monotonic_seconds": 433931.103701679,
+    "started_monotonic_seconds": 433922.31471431,
+    "worker_wall_seconds_including_init_cleanup": 8.788986216997728
+  }
+}

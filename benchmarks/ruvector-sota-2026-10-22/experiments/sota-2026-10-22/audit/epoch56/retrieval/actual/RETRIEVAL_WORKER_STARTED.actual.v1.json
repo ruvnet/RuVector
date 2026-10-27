@@ -1,0 +1,49 @@
+{
+  "command": [
+    "/tmp/ruvector-sota-2026-10-22/epoch33-0522a2c521c9/runtime/.venv/bin/python",
+    "-I",
+    "-B",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/runtime/epoch56/retrieval/retrieval_worker.py",
+    "--plan",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/epoch56/retrieval/plan.json",
+    "--expected-plan-sha256",
+    "8ab6a499cc5ea6ea57e899d47ffbf99c89e84f72cdb249cc59b8c67d66791886",
+    "--admission",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ROOT_RETRIEVAL_ADMISSION.v1.json",
+    "--expected-admission-sha256",
+    "8191a00a20cd9094efc06d573d9d9ce4fa9548ba178d0f91b5d494124e122249",
+    "--out-dir",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/private-run/retrieval_development",
+    "--deadline",
+    "434720.198270186"
+  ],
+  "epoch": 56,
+  "identity": {
+    "FDSize": 64,
+    "pgid": 184966,
+    "pid": 184966,
+    "ppid": 184965,
+    "sid": 184966,
+    "startticks": 43415057,
+    "state": "R",
+    "statm": [
+      6899,
+      22,
+      13,
+      6827,
+      0,
+      568,
+      0
+    ],
+    "wait_status": 0
+  },
+  "kind": "REAL_NATIVE_SCIFACT_RETRIEVAL_DEV_PILOT",
+  "outer_attempt_ref": {
+    "bytes": 806,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/RETRIEVAL_OUTER_ATTEMPT.actual.v1.json",
+    "sha256": "1f3f042b0dd95d78d18b635491ca3c26fded0fb53c0b4c8c372f2f47ed4385d8"
+  },
+  "outer_start_monotonic": 434150.198270186,
+  "schema_version": 1,
+  "worker_soft_deadline": 434720.198270186
+}

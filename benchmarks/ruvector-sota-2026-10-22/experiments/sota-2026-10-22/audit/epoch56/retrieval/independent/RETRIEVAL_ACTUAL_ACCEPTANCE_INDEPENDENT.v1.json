@@ -1,0 +1,108 @@
+{
+  "Gold_calls": 0,
+  "Root_CLI_wall_ref": {
+    "bytes": 451,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ROOT_RETRIEVAL_CLI_WALL.actual.v1.json",
+    "sha256": "0ef9cc87d704513c66f30916f1ba6fa4b3a7a13e61a49e78e0ac47b4ebe1e05c"
+  },
+  "actual_execution_independently_derived": {
+    "BGE_actual_forward_completions_total": null,
+    "BGE_forward_calls_attempted": 117,
+    "BGE_forward_calls_completed": 116,
+    "BGE_forwards": 116,
+    "BGE_inflight_outcome_uncertain": true,
+    "BGE_initializations": 1,
+    "BGE_texts_attempted": 1872,
+    "BGE_texts_completed": 1856,
+    "GPU_calls": 0,
+    "Gold_scoring_calls": 0,
+    "NLI_forwards_attempted": 0,
+    "NLI_forwards_completed": 0,
+    "Root_CLI_invocations": 1,
+    "actual_native_helper_starts": 0,
+    "actual_worker_starts": 1,
+    "calibration_calls": 0,
+    "native_F32_hit_validations": 0,
+    "native_corpus_batches": 0,
+    "native_corpus_batches_completed": 0,
+    "native_corpus_batches_started": 0,
+    "native_indexes": 0,
+    "native_insertions": 0,
+    "native_queries": 0,
+    "paid_API_calls": 0,
+    "training_calls": 0,
+    "typed_model_initializations": 0
+  },
+  "actual_results_ref": {
+    "bytes": 4165,
+    "path": "experiments/sota-2026-10-22/epoch56/retrieval/runs/rejected-partial-results.json",
+    "sha256": "eee359bd24ac0c707ea31c05a0edb2c7293b909fed52a833308c4f61adad72e6"
+  },
+  "actual_scored_query_ids": [],
+  "all_owned_processes_closed": true,
+  "auditor_actual_native_model_parser_Gold_calls": 0,
+  "benchmark_generalization_claim": false,
+  "candidate_promoted": false,
+  "checks_passed": false,
+  "epoch": 56,
+  "independent_review_complete": true,
+  "kind": "REAL_NATIVE_SCIFACT_RETRIEVAL_DEV_PILOT",
+  "metrics": null,
+  "native_counter_accounting": {
+    "actual_native_operations_zero_confirmed": true,
+    "basis": "Frozenworker requires all325durableBGEforward completions before nativepath. Complete234-rowprogress ends117BEFORE/116COMPLETE, noNativeevent/artifact, and soleownedchildwasworker. Noexpectedoperationsfilled.",
+    "native_helper_started": false,
+    "qualified": false
+  },
+  "new_actionable_blocker": "ThisfullcorpusCPU2embedding run could not finishandpublishwithinthe remainingexclusiveleasewindow. Do not rerununchangedruntime/corpus/cleanupplan; prepare a genuinely changed,frozen throughput/time/finalization plan in a newepoch.",
+  "observed_progress_ref": {
+    "bytes": 66379,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/private-run/retrieval_development/worker-progress.jsonl",
+    "sha256": "2425b6543518d3cd5f4b2607c58a808349bacbf8f7e8ebcf67755c65709a4bf7"
+  },
+  "official_goal_verified": false,
+  "outer_ref": {
+    "bytes": 3807,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/RETRIEVAL_OUTER_EXECUTION.actual.v1.json",
+    "sha256": "cdc80a01ba7044d8229aaf4e8971b44ea673ef89a7667811437d9f063e031170"
+  },
+  "physical_process_observations": [
+    {
+      "identity": {
+        "pid": 184965,
+        "startticks": 43415017,
+        "state": "R"
+      },
+      "original_closed": true
+    },
+    {
+      "identity": {
+        "FDSize": 0,
+        "pgid": 184966,
+        "pid": 184966,
+        "ppid": 184965,
+        "sid": 184966,
+        "startticks": 43415057,
+        "state": "Z",
+        "statm": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wait_status": 15
+      },
+      "original_closed": true
+    }
+  ],
+  "reason": "Root stopped at observed slow full-corpus progress to retain mandatory FINAL publication+independent readback within original exclusive lease; observed-rate extrapolation is not proof the600secondlimit cannot finish. No retry, resizing, labels, scores or promotion.",
+  "retrieval_p50_p95": null,
+  "schema_version": 1,
+  "status": "REJECTED_PARTIAL_ENCODING_EARLY_STOP_FOR_EXCLUSIVE_LEASE_FINALIZATION",
+  "uncertainty": "117thBGEforward may have completed in flight without a durable COMPLETE receipt; totalactualcompletions unknown. Workerfinalraw/peakRSS/forecastseal absent. 600secondinfeasibility NOTproven; observedslowprogress plus mandatoryfinalization/lease budget causedearlystop.",
+  "used_confirmation_identities": [],
+  "worker_peak_RSS_KiB": null
+}

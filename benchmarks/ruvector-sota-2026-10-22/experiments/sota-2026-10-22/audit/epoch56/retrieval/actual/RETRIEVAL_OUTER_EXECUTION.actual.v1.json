@@ -1,0 +1,135 @@
+{
+  "Gold_EVAL_calls": 0,
+  "NLI_forwards": 0,
+  "actual_worker_starts": 1,
+  "admission_ref": {
+    "bytes": 34818,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ROOT_RETRIEVAL_ADMISSION.v1.json",
+    "sha256": "8191a00a20cd9094efc06d573d9d9ce4fa9548ba178d0f91b5d494124e122249"
+  },
+  "all_owned_experiment_processes_physically_closed": true,
+  "all_recorded_terminal_process_resources_zero": true,
+  "automatic_retry": false,
+  "checks_passed": false,
+  "epoch": 56,
+  "errors": [],
+  "final_process_snapshots": [
+    {
+      "current": null,
+      "identity": {
+        "FDSize": 0,
+        "pgid": 184966,
+        "pid": 184966,
+        "ppid": 184965,
+        "sid": 184966,
+        "startticks": 43415057,
+        "state": "Z",
+        "statm": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wait_status": 15
+      }
+    }
+  ],
+  "forced_reason": "EXTERNAL_SUPERVISOR_SIGNAL",
+  "independent_approval_ref": {
+    "bytes": 2738,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/RETRIEVAL_DISPATCH_INDEPENDENT_APPROVAL.v1.json",
+    "sha256": "54ed7fec6024deaa8b4138ae30c69a2dc37483847d60e17f09425a5bbcffdc05"
+  },
+  "killed": false,
+  "kind": "REAL_NATIVE_SCIFACT_RETRIEVAL_DEV_PILOT",
+  "live_owned_processes": [],
+  "nonsecret_environment_overrides": {
+    "BLIS_NUM_THREADS": "2",
+    "CUDA_VISIBLE_DEVICES": "",
+    "HF_DATASETS_OFFLINE": "1",
+    "HF_HUB_DISABLE_TELEMETRY": "1",
+    "HF_HUB_OFFLINE": "1",
+    "MKL_DYNAMIC": "FALSE",
+    "MKL_NUM_THREADS": "2",
+    "NUMEXPR_NUM_THREADS": "2",
+    "OMP_NUM_THREADS": "2",
+    "OMP_THREAD_LIMIT": "2",
+    "OPENBLAS_NUM_THREADS": "2",
+    "RAYON_NUM_THREADS": "2",
+    "TOKENIZERS_PARALLELISM": "false",
+    "TRANSFORMERS_OFFLINE": "1",
+    "UV_THREADPOOL_SIZE": "2",
+    "VECLIB_MAXIMUM_THREADS": "2"
+  },
+  "outer_attempt_ref": {
+    "bytes": 806,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/RETRIEVAL_OUTER_ATTEMPT.actual.v1.json",
+    "sha256": "1f3f042b0dd95d78d18b635491ca3c26fded0fb53c0b4c8c372f2f47ed4385d8"
+  },
+  "outer_wall_seconds_including_preflight_hash_init_native_capture_cleanup": 221.34839512995677,
+  "owned_process_identities": [
+    {
+      "FDSize": 0,
+      "pgid": 184966,
+      "pid": 184966,
+      "ppid": 184965,
+      "sid": 184966,
+      "startticks": 43415057,
+      "state": "Z",
+      "statm": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "wait_status": 15
+    }
+  ],
+  "owner_ref": {
+    "bytes": 711,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/owner.json",
+    "sha256": "1cd0cb9c7ac46476cba887ef0e9ef751daebea307fc8eb0678531af2a7799086"
+  },
+  "phase": "retrieval_development",
+  "plan_ref": {
+    "bytes": 10524,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/epoch56/retrieval/plan.json",
+    "sha256": "8ab6a499cc5ea6ea57e899d47ffbf99c89e84f72cdb249cc59b8c67d66791886"
+  },
+  "schema_version": 1,
+  "semantic_quality_metrics": null,
+  "source_commit": "60dfc923eee70bfd319489e30afdbd8d2a3bc035",
+  "source_freeze_ref": {
+    "bytes": 29698,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/epoch56/SOURCE_FREEZE.json",
+    "sha256": "cb06539e8fc4e46b8415504970238b363af087eafd8b6d69d06417519af381cc"
+  },
+  "supervisor_identity": {
+    "FDSize": 64,
+    "pgid": 184963,
+    "pid": 184965,
+    "ppid": 184964,
+    "sid": 184963,
+    "startticks": 43415017,
+    "state": "R",
+    "statm": [
+      10232,
+      3507,
+      1156,
+      6827,
+      0,
+      2934,
+      0
+    ],
+    "wait_status": 0
+  },
+  "typed_model_initializations": 0,
+  "within_600_seconds": true,
+  "worker_exit_code": -15
+}

@@ -1,0 +1,123 @@
+{
+  "600second_infeasibility_proven": false,
+  "BGE_inflight_outcome_uncertain": true,
+  "Gold_scoring_calls": 0,
+  "actual_execution_raw_counters_observed": {
+    "BGE_forward_calls_attempted": 117,
+    "BGE_forward_calls_completed": 116,
+    "BGE_initializations_attempted": 1,
+    "BGE_initializations_completed": 1,
+    "BGE_texts_attempted": 1872,
+    "BGE_texts_completed": 1856
+  },
+  "actual_feature_ID_provenance": "Inferred from frozen source successful features validation preceding durable BGE_BEFORE; no final raw survived external SIGTERM. All16 already prepared and retired DEV.",
+  "actual_feature_query_ids": [
+    "1",
+    "100",
+    "1012",
+    "1014",
+    "1019",
+    "1020",
+    "1021",
+    "1024",
+    "1029",
+    "1041",
+    "1049",
+    "1062",
+    "1086",
+    "1088",
+    "1089",
+    "1099"
+  ],
+  "actual_native_batches": 0,
+  "actual_pilot_attempted": true,
+  "actual_scored_query_ids": [],
+  "benchmark_generalization_claim": false,
+  "candidate_promoted": false,
+  "classification_quality_metrics": {
+    "Brier": null,
+    "NLL": null,
+    "accuracy": null
+  },
+  "epoch": 56,
+  "final_worker_raw_missing": true,
+  "forecast_seal_missing": true,
+  "frozen_plan": {
+    "bytes": 10524,
+    "path": "experiments/sota-2026-10-22/epoch56/retrieval/plan.json",
+    "sha256": "8ab6a499cc5ea6ea57e899d47ffbf99c89e84f72cdb249cc59b8c67d66791886"
+  },
+  "identity_namespace": "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV",
+  "kind": "REAL_NATIVE_SCIFACT_RETRIEVAL_DEV_PILOT",
+  "label_only_exposed_query_ids": [],
+  "last_durable_progress": {
+    "counters": {
+      "BGE_forward_calls_attempted": 117,
+      "BGE_forward_calls_completed": 116,
+      "BGE_initializations_attempted": 1,
+      "BGE_initializations_completed": 1,
+      "BGE_texts_attempted": 1872,
+      "BGE_texts_completed": 1856
+    },
+    "monotonic_seconds": 434370.575337199,
+    "stage": "BGE_FORWARD_BEFORE"
+  },
+  "metrics": null,
+  "native_helper_execution_observed": false,
+  "native_zero_scope": "Frozen source calls native only after full325BGEforwards; last durable117BEFORE prevents native path, and supervisor owned only worker. Requires independent review.",
+  "reason": "Root stopped at observed slow full-corpus progress to retain mandatory FINAL publication+independent readback within original exclusive lease; observed-rate extrapolation is not proof the600secondlimit cannot finish. No retry, resizing, labels, scores or promotion.",
+  "reserved_development_query_ids": [
+    "1",
+    "100",
+    "1012",
+    "1014",
+    "1019",
+    "1020",
+    "1021",
+    "1024",
+    "1029",
+    "1041",
+    "1049",
+    "1062",
+    "1086",
+    "1088",
+    "1089",
+    "1099"
+  ],
+  "resource_use": {
+    "CPU_affinity": [
+      0,
+      1
+    ],
+    "compute_threads_limit": 2,
+    "inclusive_Root_CLI_wall_seconds": 221.44074801600073,
+    "peak_memory_unknown_due_missing_worker_final_raw": true,
+    "worker_peak_RSS_KiB": null
+  },
+  "retained_partial_evidence": {
+    "ROOT_RETRIEVAL_EARLY_STOP_INTENT.actual.v1.json": {
+      "bytes": 852,
+      "path": "experiments/sota-2026-10-22/audit/epoch56/retrieval/actual/ROOT_RETRIEVAL_EARLY_STOP_INTENT.actual.v1.json",
+      "sha256": "3b2cd4fdbc6bedbb646eeba01f325a92fb23dd8f33788c92bd2105ebf97fdcc7"
+    },
+    "worker-progress.jsonl": {
+      "bytes": 66379,
+      "path": "experiments/sota-2026-10-22/epoch56/retrieval/runs/worker-progress.jsonl",
+      "sha256": "2425b6543518d3cd5f4b2607c58a808349bacbf8f7e8ebcf67755c65709a4bf7"
+    },
+    "worker.stderr": {
+      "bytes": 0,
+      "path": "experiments/sota-2026-10-22/epoch56/retrieval/runs/worker.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "worker.stdout": {
+      "bytes": 0,
+      "path": "experiments/sota-2026-10-22/epoch56/retrieval/runs/worker.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "retrieval_p50_p95": null,
+  "schema_version": 1,
+  "status": "REJECTED_PARTIAL_ENCODING_EARLY_STOP_FOR_EXCLUSIVE_LEASE_FINALIZATION",
+  "used_confirmation_identities": []
+}

@@ -1,0 +1,181 @@
+{
+  "Gold_EVAL_calls": 0,
+  "NLI_forwards": 0,
+  "actual_worker_starts": 1,
+  "admission_ref": {
+    "bytes": 34494,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ROOT_ENGINEERING_ADMISSION.v1.json",
+    "sha256": "1dee5f23446526ec3e6828941f311119606513e5e96808d6b8fbcd7463f1d34c"
+  },
+  "all_owned_experiment_processes_physically_closed": true,
+  "all_recorded_terminal_process_resources_zero": true,
+  "automatic_retry": false,
+  "checks_passed": true,
+  "epoch": 56,
+  "errors": [],
+  "final_process_snapshots": [
+    {
+      "current": null,
+      "identity": {
+        "FDSize": 0,
+        "pgid": 184877,
+        "pid": 184877,
+        "ppid": 184876,
+        "sid": 184877,
+        "startticks": 43392224,
+        "state": "Z",
+        "statm": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wait_status": 0
+      }
+    },
+    {
+      "current": null,
+      "identity": {
+        "FDSize": 64,
+        "pgid": 184877,
+        "pid": 184880,
+        "ppid": 184877,
+        "sid": 184877,
+        "startticks": 43393006,
+        "state": "R",
+        "statm": [
+          27463,
+          514,
+          464,
+          10944,
+          0,
+          175,
+          0
+        ],
+        "wait_status": 0
+      }
+    }
+  ],
+  "forced_reason": null,
+  "independent_approval_ref": {
+    "bytes": 3931,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ENGINEERING_DISPATCH_INDEPENDENT_APPROVAL.v1.json",
+    "sha256": "b8a57e0afdff3d06f1443e1b1377b252d89ce57cee6393542bb9ea93f833c29e"
+  },
+  "killed": false,
+  "kind": "REAL_NATIVE_SOURCE_FRAGMENT_CAPACITY_QUALIFICATION",
+  "live_owned_processes": [],
+  "nonsecret_environment_overrides": {
+    "BLIS_NUM_THREADS": "2",
+    "CUDA_VISIBLE_DEVICES": "",
+    "HF_DATASETS_OFFLINE": "1",
+    "HF_HUB_DISABLE_TELEMETRY": "1",
+    "HF_HUB_OFFLINE": "1",
+    "MKL_DYNAMIC": "FALSE",
+    "MKL_NUM_THREADS": "2",
+    "NUMEXPR_NUM_THREADS": "2",
+    "OMP_NUM_THREADS": "2",
+    "OMP_THREAD_LIMIT": "2",
+    "OPENBLAS_NUM_THREADS": "2",
+    "RAYON_NUM_THREADS": "2",
+    "TOKENIZERS_PARALLELISM": "false",
+    "TRANSFORMERS_OFFLINE": "1",
+    "UV_THREADPOOL_SIZE": "2",
+    "VECLIB_MAXIMUM_THREADS": "2"
+  },
+  "outer_attempt_ref": {
+    "bytes": 817,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ENGINEERING_OUTER_ATTEMPT.actual.v1.json",
+    "sha256": "c2f3fb7127bc179266bf187b4730126e1b5335844fc6d033c57c249c0a84dfe6"
+  },
+  "outer_wall_seconds_including_preflight_hash_init_native_capture_cleanup": 9.829092849977314,
+  "owned_process_identities": [
+    {
+      "FDSize": 0,
+      "pgid": 184877,
+      "pid": 184877,
+      "ppid": 184876,
+      "sid": 184877,
+      "startticks": 43392224,
+      "state": "Z",
+      "statm": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "wait_status": 0
+    },
+    {
+      "FDSize": 64,
+      "pgid": 184877,
+      "pid": 184880,
+      "ppid": 184877,
+      "sid": 184877,
+      "startticks": 43393006,
+      "state": "R",
+      "statm": [
+        27463,
+        514,
+        464,
+        10944,
+        0,
+        175,
+        0
+      ],
+      "wait_status": 0
+    }
+  ],
+  "owner_ref": {
+    "bytes": 711,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/owner.json",
+    "sha256": "1cd0cb9c7ac46476cba887ef0e9ef751daebea307fc8eb0678531af2a7799086"
+  },
+  "phase": "engineering",
+  "plan_ref": {
+    "bytes": 14753,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/epoch56/plan.json",
+    "sha256": "0d2e93b16520353de2eece63a5c88b07d757fc447985b426b548d3b8b7b65e01"
+  },
+  "raw_ref": {
+    "bytes": 343295,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/private-run/engineering/raw.json",
+    "sha256": "8171655f0894448ab2979adfe77f0790428363f925923730527bde6b767966a7"
+  },
+  "schema_version": 1,
+  "semantic_quality_metrics": null,
+  "source_commit": "60dfc923eee70bfd319489e30afdbd8d2a3bc035",
+  "source_freeze_ref": {
+    "bytes": 29698,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/epoch56/SOURCE_FREEZE.json",
+    "sha256": "cb06539e8fc4e46b8415504970238b363af087eafd8b6d69d06417519af381cc"
+  },
+  "supervisor_identity": {
+    "FDSize": 64,
+    "pgid": 184873,
+    "pid": 184876,
+    "ppid": 184875,
+    "sid": 184873,
+    "startticks": 43392193,
+    "state": "R",
+    "statm": [
+      10469,
+      3628,
+      1149,
+      6827,
+      0,
+      3171,
+      0
+    ],
+    "wait_status": 0
+  },
+  "typed_model_initializations": 0,
+  "within_600_seconds": true,
+  "worker_exit_code": 0
+}

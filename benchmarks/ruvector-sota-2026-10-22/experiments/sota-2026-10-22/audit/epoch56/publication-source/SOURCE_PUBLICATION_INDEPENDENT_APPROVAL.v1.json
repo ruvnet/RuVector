@@ -1,0 +1,34 @@
+{
+  "CP_rows": 8912,
+  "all_desired_scope_leaves_and70_CPonly_archival_separation_verified": true,
+  "all_requests_payloads_source_refs_control_bodies_and_sparse_tree_chain_replayed": true,
+  "checks_passed": true,
+  "dual_unknown_denylist_reviewed": true,
+  "epoch": 56,
+  "expected_final_root_sha": "f4305fe1bf4c476221cb1a531f7f1c019740f821",
+  "forbidden_Git_objects": [
+    "3d5a61f9068acf2dabd2ae5c6bd531d9a9b464c5",
+    "486888de9602bbb5d817a55f707b4fcfd11c65e0",
+    "a68b7ba587332f176f65d0348de3e910aa16e77a"
+  ],
+  "independent_own_Git_Merkle_and_control_serialization_used": true,
+  "kind": "REAL_NATIVE_SOURCE_FRAGMENT_CAPACITY_QUALIFICATION",
+  "new_Git_leaves": 8919,
+  "no_Git_mutation_or_scientific_call_by_review": true,
+  "original_blob5_execution": "UNKNOWN_PERMANENTLY",
+  "owner_sha256": "1cd0cb9c7ac46476cba887ef0e9ef751daebea307fc8eb0678531af2a7799086",
+  "phase": "source",
+  "planned_actual_mutations": 128,
+  "publication_only_not_scientific_admission": true,
+  "publication_phase_allowed": true,
+  "review_source": {
+    "bytes": 11190,
+    "path": "/dev/shm/ruvector-e56-data/review_publication_stage.py",
+    "sha256": "b017f46459b8d11b6b77b93701981372a43e6272b504724ebbd60dac1fbe1fc1"
+  },
+  "schema_version": 1,
+  "source_and_denylist_review_passed": true,
+  "source_freeze_sha256": "cb06539e8fc4e46b8415504970238b363af087eafd8b6d69d06417519af381cc",
+  "source_parent": "ffdd0699f3254c5dd09437533d38111a8521c920",
+  "stage_metadata_sha256": "9188e7ab46468bcec5fce4d893a34c852f03c3a106e1f5b5eec834567ffbcf96"
+}

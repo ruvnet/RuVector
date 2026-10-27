@@ -4,8 +4,8 @@
   "experiments_active": false,
   "kind": "REAL_NATIVE_SOURCE_FRAGMENT_CAPACITY_QUALIFICATION",
   "owner_sha256": "1cd0cb9c7ac46476cba887ef0e9ef751daebea307fc8eb0678531af2a7799086",
-  "phase": "source",
+  "phase": "final",
   "publication_is_not_scientific_authorization": true,
   "source_checkpoint": "ffdd0699f3254c5dd09437533d38111a8521c920",
-  "work_active": true
+  "work_active": false
 }

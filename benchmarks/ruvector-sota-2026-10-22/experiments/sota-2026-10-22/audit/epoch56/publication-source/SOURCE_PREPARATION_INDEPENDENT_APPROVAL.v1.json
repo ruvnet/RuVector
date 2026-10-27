@@ -1,0 +1,47 @@
+{
+  "actual_parent_commit": "ffdd0699f3254c5dd09437533d38111a8521c920",
+  "actual_previous_Git_leaves": 8800,
+  "at_most2native_batches_each_CPU2_600seconds_zero_paid_GPU_NLI": true,
+  "checks_passed": true,
+  "conditional16DEV_query_ids_and_entire1109_pool_freshness_caveat_bound_to_master_and_pilot_plan": true,
+  "epoch": 56,
+  "forbidden_Git_objects": [
+    "3d5a61f9068acf2dabd2ae5c6bd531d9a9b464c5",
+    "486888de9602bbb5d817a55f707b4fcfd11c65e0",
+    "a68b7ba587332f176f65d0348de3e910aa16e77a"
+  ],
+  "fresh_connected_actual_HEAD_ref": {
+    "bytes": 473,
+    "path": "/dev/shm/ruvector-e56-data/SOURCE_PREPARATION_ACTUAL_HEAD.raw.json",
+    "sha256": "2a883f46d6ecf80378aafa36a7d3d6315881b6515af9a611290e0b21b1b1d95d"
+  },
+  "fresh_connected_actual_MAIN_ref": {
+    "bytes": 367,
+    "path": "/dev/shm/ruvector-e56-data/SOURCE_PREPARATION_ACTUAL_MAIN.raw.json",
+    "sha256": "6ff32fff104c7387bb491851f055758360f47d9dc4021ca28fabba80b823d330"
+  },
+  "kind": "REAL_NATIVE_SOURCE_FRAGMENT_CAPACITY_QUALIFICATION",
+  "native104_champion_goal_rank_confirmation_and_all_old_DEV_and_budget_history_preserved": true,
+  "only3allowed_current_source_CONT_fields_and3controls_preserve_history": true,
+  "original_blob5_execution": "UNKNOWN_PERMANENTLY",
+  "owner_sha256": "1cd0cb9c7ac46476cba887ef0e9ef751daebea307fc8eb0678531af2a7799086",
+  "phase": "source",
+  "phase_input_sha256": "7ac6d0e5e33c8b7e4b22cdcdd3fa28b46dd6e3d46e1f2622f51366d02fa61988",
+  "phase_preparation_allowed": true,
+  "previous_CP_physical_rows_rehashed": 8793,
+  "projected_CP_rows": 8912,
+  "projected_Git_leaves": 8919,
+  "review_source": {
+    "bytes": 8345,
+    "path": "/dev/shm/ruvector-e56-data/review_source_preparation.py",
+    "sha256": "5fc4f257d50287b4757deaa36d6a564007f4d320cd381b66a104f1578c219d64"
+  },
+  "reviewer_Git_mutations_science_Gold_reporting_executions": 0,
+  "same70_CP_only_archival_transport_separation_verified": true,
+  "schema_version": 1,
+  "source_actual_zero_native_BGE_tokenizer_typed_model_Gold_and_scoring_counts_honest": true,
+  "source_artifacts_physically_rehashed": 119,
+  "source_freeze_members_physically_rehashed": 118,
+  "source_freeze_sha256": "cb06539e8fc4e46b8415504970238b363af087eafd8b6d69d06417519af381cc",
+  "stage_preparation_only_not_scientific_admission": true
+}

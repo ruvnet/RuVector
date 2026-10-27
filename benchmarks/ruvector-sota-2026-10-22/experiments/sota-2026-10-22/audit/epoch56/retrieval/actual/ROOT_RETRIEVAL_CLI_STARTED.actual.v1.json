@@ -1,0 +1,9 @@
+{
+  "epoch": 56,
+  "kind": "REAL_NATIVE_SCIFACT_RETRIEVAL_DEV_PILOT",
+  "supervisor_identity": {
+    "pid": 184965,
+    "startticks": 43415017,
+    "state": "R"
+  }
+}

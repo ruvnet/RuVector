@@ -1,0 +1,49 @@
+{
+  "command": [
+    "/tmp/ruvector-sota-2026-10-22/epoch33-0522a2c521c9/runtime/.venv/bin/python",
+    "-I",
+    "-B",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/runtime/epoch56/worker.py",
+    "--plan",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/epoch56/plan.json",
+    "--expected-plan-sha256",
+    "0d2e93b16520353de2eece63a5c88b07d757fc447985b426b548d3b8b7b65e01",
+    "--admission",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ROOT_ENGINEERING_ADMISSION.v1.json",
+    "--expected-admission-sha256",
+    "1dee5f23446526ec3e6828941f311119606513e5e96808d6b8fbcd7463f1d34c",
+    "--out-dir",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/private-run/engineering",
+    "--deadline",
+    "434491.949764817"
+  ],
+  "epoch": 56,
+  "identity": {
+    "FDSize": 64,
+    "pgid": 184877,
+    "pid": 184877,
+    "ppid": 184876,
+    "sid": 184877,
+    "startticks": 43392224,
+    "state": "R",
+    "statm": [
+      6899,
+      22,
+      14,
+      6827,
+      0,
+      568,
+      0
+    ],
+    "wait_status": 0
+  },
+  "kind": "REAL_NATIVE_SOURCE_FRAGMENT_CAPACITY_QUALIFICATION",
+  "outer_attempt_ref": {
+    "bytes": 817,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ENGINEERING_OUTER_ATTEMPT.actual.v1.json",
+    "sha256": "c2f3fb7127bc179266bf187b4730126e1b5335844fc6d033c57c249c0a84dfe6"
+  },
+  "outer_start_monotonic": 433921.949764817,
+  "schema_version": 1,
+  "worker_soft_deadline": 434491.949764817
+}

@@ -5,10 +5,10 @@
     "experiments_active": false,
     "kind": "REAL_NATIVE_SOURCE_FRAGMENT_CAPACITY_QUALIFICATION",
     "owner_sha256": "1cd0cb9c7ac46476cba887ef0e9ef751daebea307fc8eb0678531af2a7799086",
-    "phase": "source",
+    "phase": "final",
     "publication_is_not_scientific_authorization": true,
     "source_checkpoint": "ffdd0699f3254c5dd09437533d38111a8521c920",
-    "work_active": true
+    "work_active": false
   },
   "artifact_transport": {
     "archive": {
@@ -72,7 +72,7 @@
       "RuVector_score": null,
       "access_candidate_links_on_current_page_not_followed": [],
       "aggregate_URL_verified_from_current_official_page": true,
-      "aggregate_bytes_equal_epoch54": true,
+      "aggregate_bytes_equal_epoch55": true,
       "decision_leader": {
         "accuracy_percent": 100.0,
         "model": "decision/d1-ultra"
@@ -110,8 +110,8 @@
         "last_modified": "Tue, 27 Oct 2026 10:55:35 GMT",
         "raw_body_persisted": false,
         "read_cap_bytes": 2097152,
-        "request_started_at": "2026-10-27T10:55:34.918902+00:00",
-        "retrieved_at": "2026-10-27T10:55:35.432086+00:00",
+        "request_started_at": "2026-10-27T12:30:20.377460+00:00",
+        "retrieved_at": "2026-10-27T12:30:20.792124+00:00",
         "sha256": "6aa89f0db85e2bdc765ff8d942de0d491dd37f2f2e635bb4a95b0f92746fc6d3",
         "status": 200,
         "url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json"
@@ -130,13 +130,13 @@
         "last_modified": "Tue, 27 Oct 2026 10:55:34 GMT",
         "raw_body_persisted": false,
         "read_cap_bytes": 2097152,
-        "request_started_at": "2026-10-27T10:55:34.463363+00:00",
-        "retrieved_at": "2026-10-27T10:55:34.901899+00:00",
+        "request_started_at": "2026-10-27T12:30:20.002214+00:00",
+        "retrieved_at": "2026-10-27T12:30:20.360129+00:00",
         "sha256": "2a3bb2141ba79416efe3bd841b4123cd2d0c030a2d83a7f2595bcdf89b097b7b",
         "status": 200,
         "url": "https://www.vals.ai/benchmarks/claimbench"
       },
-      "source_bytes_equal_epoch54": true,
+      "source_bytes_equal_epoch55": true,
       "total_models": 25,
       "verified_dataset_access_scope": "Current official public page examples and linked aggregate only."
     },
@@ -162,7 +162,7 @@
         }
       ],
       "historical_access_probes_repeated": false,
-      "leader_equals_last_verified_epoch54": true,
+      "leader_equals_last_verified_epoch55": true,
       "method_header": "10 s rule",
       "method_revision": "v1.7",
       "official_RuVector_eligibility": "UNVERIFIED",
@@ -182,16 +182,16 @@
         "final_url": "https://benchmarkheaven.com/jev-models",
         "raw_body_persisted": false,
         "read_cap_bytes": 67108864,
-        "retrieved_at": "2026-10-27T10:55:42.288891+00:00",
+        "retrieved_at": "2026-10-27T12:30:23.133660+00:00",
         "sha256": "3d3378ad428e8c18bbc1d9253ba6716ea01f8a9fad9b532c3867675236f7765a",
         "status": 200,
         "url": "https://benchmarkheaven.com/jev-models",
-        "wall_seconds": 7.835729360987898
+        "wall_seconds": 8.298292592982762
       },
       "stream_result_ref": {
         "bytes": 2397,
-        "path": "/dev/shm/ruvector-e55-data/official-refresh/JEV_STREAM_RESULT.actual.v1.json",
-        "sha256": "ed733a49ce6e62e10ceb73febd861fada2c4edaf35d4d40fdb5096a7144fb13e"
+        "path": "/dev/shm/ruvector-e56-data/official-refresh/JEV_STREAM_RESULT.actual.v1.json",
+        "sha256": "871864193daa61af6bd36070b26cbeb110d365336f8a2ddc66d1c998e5d253e9"
       },
       "submission_reference_page_matches": 0,
       "verified_capability_rows_count": 238
@@ -204,9 +204,9 @@
       "redirect_retry_alternate_endpoint_or_header_failure_GETs": 0
     },
     "champion_promoted": false,
-    "created_at": "2026-10-27T10:56:03.597796+00:00",
+    "created_at": "2026-10-27T12:31:37.443854+00:00",
     "direct_public_GETs": 3,
-    "epoch": 55,
+    "epoch": 56,
     "inherited_proxy_preserved": true,
     "kind": "FRESH_OFFICIAL_JEV_CLAIM_AND_SCOPED_PUBLISHER_METADATA_REFRESH",
     "known_unchanged_access_limits": [
@@ -215,7 +215,7 @@
       "Claim public examples and official aggregate do not verify complete cases, exact scorer, case redistribution licence or submission access. No RuVector ClaimBench score exists.",
       "Exact model checkpoint TEST-nonuse provenance remains unqualified; no repeated probe or author contact."
     ],
-    "legacy_field_name_clarification": "Claim helper retained historical stdout key total_official_GETs_including_Jev_header_failure with value3. E55 had no header failure; the value is3successful official GETs as enumerated above. No request was repeated.",
+    "legacy_field_name_clarification": "Claim helper retained historical stdout key total_official_GETs_including_Jev_header_failure with value3. E56 had no header failure; the value is3successful official GETs as enumerated above. No request was repeated.",
     "meaningful_verified_official_result_or_leader_change": false,
     "model_native_DATA_Gold_or_paid_GPU_calls": 0,
     "new_verified_full_dataset_or_scorer_access": false,
@@ -233,17 +233,17 @@
     "publisher_status": {
       "body_messageID_match_to_original_receipt_verified": false,
       "body_thread_attachment_reads": 0,
-      "checked_at": "2026-10-27T10:55:04.714Z",
+      "checked_at": "2026-10-27T12:29:26.714Z",
       "coverage_other_accounts_verified": false,
       "current_queue_progress": "UNVERIFIED",
+      "date_metadata_scope": "UNVERIFIED in current metadata classification. Search schema date field was not consumed; raw result discarded and no second query was made. Historical receipt date remains an inherited fact, not a newly verified current message match.",
       "eligibility_confirmed": false,
-      "epoch": 55,
+      "epoch": 56,
       "exact_reference_searches": 1,
       "has_more_results": false,
       "historical_regular_evaluation_queue_position": 115,
-      "matching_message_dates": [
-        "2026-10-22"
-      ],
+      "matching_message_date_metadata_verified": false,
+      "matching_message_dates": [],
       "matching_messages": 1,
       "messages_read": 0,
       "metadata_subject_candidate_result_score_rank_or_eligibility_count": 0,
@@ -251,7 +251,7 @@
       "new_verified_publisher_result_found": false,
       "official_rank": null,
       "official_score": null,
-      "original_acknowledgement_metadata_consistent": true,
+      "original_acknowledgement_metadata_consistent": null,
       "original_publisher_account_profile_reads": 1,
       "outgoing_messages_or_submissions": 0,
       "private_selector_identifiers_addresses_subject_headers_body_snippet_files_persisted": false,
@@ -265,7 +265,7 @@
     },
     "raw_public_bodies_persisted": false,
     "schema_version": 1,
-    "source_checkpoint": "b27d25773a62ca72f38931f8a007ff0bedc0b89f",
+    "source_checkpoint": "ffdd0699f3254c5dd09437533d38111a8521c920",
     "source_receipts": [
       {
         "TLS_verification_enabled": true,
@@ -276,8 +276,8 @@
         "last_modified": "Tue, 27 Oct 2026 10:55:34 GMT",
         "raw_body_persisted": false,
         "read_cap_bytes": 2097152,
-        "request_started_at": "2026-10-27T10:55:34.463363+00:00",
-        "retrieved_at": "2026-10-27T10:55:34.901899+00:00",
+        "request_started_at": "2026-10-27T12:30:20.002214+00:00",
+        "retrieved_at": "2026-10-27T12:30:20.360129+00:00",
         "sha256": "2a3bb2141ba79416efe3bd841b4123cd2d0c030a2d83a7f2595bcdf89b097b7b",
         "status": 200,
         "url": "https://www.vals.ai/benchmarks/claimbench"
@@ -291,8 +291,8 @@
         "last_modified": "Tue, 27 Oct 2026 10:55:35 GMT",
         "raw_body_persisted": false,
         "read_cap_bytes": 2097152,
-        "request_started_at": "2026-10-27T10:55:34.918902+00:00",
-        "retrieved_at": "2026-10-27T10:55:35.432086+00:00",
+        "request_started_at": "2026-10-27T12:30:20.377460+00:00",
+        "retrieved_at": "2026-10-27T12:30:20.792124+00:00",
         "sha256": "6aa89f0db85e2bdc765ff8d942de0d491dd37f2f2e635bb4a95b0f92746fc6d3",
         "status": 200,
         "url": "https://www.vals.ai/_astro/benchmark_view_claimbench.BvSwQswS.json"
@@ -424,7 +424,7 @@
     }
   },
   "champion": "SubmittedNative104/RRF10 unchanged",
-  "checkpoint_manifest_sha256": "b4f76afa38471f5d954494949855e6e90968320683f22e658d9ac5886ff5ef0e",
+  "checkpoint_manifest_sha256": "1520b99a2233e54b2da642486df176eb93444c1172c42ed9d36a07c5fb30ca16",
   "cumulative_budget_ledger": {
     "allowed_further_attempts_in_closed_study": 0,
     "closed_epoch10_study": {
@@ -2048,6 +2048,127 @@
       "tokenizer_initializations_completed": 1,
       "training_calls": 0,
       "typed_model_initializations": 0
+    },
+    "epoch56_actual_execution": {
+      "GPU_calls": 0,
+      "Gold_scoring_calls": 0,
+      "Root_CLI_invocations": 2,
+      "actual_native_helper_starts": 1,
+      "actual_worker_starts": 2,
+      "all_remaining_epoch56_scientific_slots_closed": true,
+      "calibration_calls": 0,
+      "classification_accuracy_Brier_NLL": null,
+      "component_evidence": {
+        "engineering": {
+          "bytes": 10755,
+          "path": "experiments/sota-2026-10-22/audit/epoch56/independent/ENGINEERING_ACTUAL_ACCEPTANCE_INDEPENDENT.v1.json",
+          "sha256": "00d415d0444a1d6a5076f592c374fbf1ad6da5d754792f7b8b7d5a606ab6b374"
+        },
+        "retrieval_development": {
+          "bytes": 4262,
+          "path": "experiments/sota-2026-10-22/audit/epoch56/retrieval/independent/RETRIEVAL_ACTUAL_ACCEPTANCE_INDEPENDENT.v1.json",
+          "sha256": "3f80cf39437c0860fea7ed924ff7dda6921069be93585873ded22d660006bb05"
+        }
+      },
+      "components": {
+        "engineering": {
+          "BGE_forwards": 12,
+          "BGE_initializations": 1,
+          "GPU_calls": 0,
+          "Gold_scoring_calls": 0,
+          "Gold_train_calibration_paid_GPU": 0,
+          "NLI_forwards": 0,
+          "NLI_forwards_attempted": 0,
+          "NLI_forwards_completed": 0,
+          "Root_CLI_invocations": 1,
+          "actual_native_helper_starts": 1,
+          "actual_worker_starts": 1,
+          "calibration_calls": 0,
+          "engineered_contexts": 48,
+          "native_F32_hit_validations": 135,
+          "native_corpus_batches": 1,
+          "native_corpus_batches_completed": 1,
+          "native_corpus_batches_started": 1,
+          "native_indexes": 4,
+          "native_insertions": 45,
+          "native_queries": 12,
+          "packed_packets": 108,
+          "paid_API_calls": 0,
+          "tokenizer_initializations": 1,
+          "training_calls": 0,
+          "typed_model_initializations": 0
+        },
+        "retrieval_development": {
+          "BGE_actual_forward_completions_total": null,
+          "BGE_forward_calls_attempted": 117,
+          "BGE_forward_calls_completed": 116,
+          "BGE_forwards": 116,
+          "BGE_inflight_outcome_uncertain": true,
+          "BGE_initializations": 1,
+          "BGE_texts_attempted": 1872,
+          "BGE_texts_completed": 1856,
+          "GPU_calls": 0,
+          "Gold_scoring_calls": 0,
+          "NLI_forwards_attempted": 0,
+          "NLI_forwards_completed": 0,
+          "Root_CLI_invocations": 1,
+          "actual_native_helper_starts": 0,
+          "actual_worker_starts": 1,
+          "calibration_calls": 0,
+          "native_F32_hit_validations": 0,
+          "native_corpus_batches": 0,
+          "native_corpus_batches_completed": 0,
+          "native_corpus_batches_started": 0,
+          "native_indexes": 0,
+          "native_insertions": 0,
+          "native_queries": 0,
+          "paid_API_calls": 0,
+          "training_calls": 0,
+          "typed_model_initializations": 0
+        }
+      },
+      "future_epoch_paid_GPU_authorization": false,
+      "maximum_CPU_threads_per_component": 2,
+      "maximum_inclusive_seconds_per_component": 600,
+      "native_corpus_batches": 1,
+      "native_corpus_batches_completed": 1,
+      "native_corpus_batches_started": 1,
+      "native_hit_source_validations": 135,
+      "native_index_initializations_completed": 4,
+      "native_insertions_completed": 45,
+      "native_queries_completed": 12,
+      "official_score_or_rank_inferred": false,
+      "paid_API_budget_remaining": 0,
+      "paid_API_calls": 0,
+      "prepared16_DEV_feature_ids_exposed_even_without_pilot_execution": [
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:100",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1012",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1014",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1019",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1020",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1021",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1024",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1029",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1041",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1049",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1062",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1086",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1088",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1089",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1099"
+      ],
+      "source_frozen_metadata_reporter_executed": true,
+      "source_publication_accepted_mutations_already_verified": 128,
+      "source_publication_independent_journal_evidence": {
+        "bytes": 103901,
+        "path": "/dev/shm/ruvector-e56-data/source-journal/ACTUAL_SOURCE_JOURNAL_INDEPENDENT_VERIFICATION.v1.json",
+        "sha256": "945e570ee5924c7fb2ea45d8a7800465b65365062e0808b7752457469e453494"
+      },
+      "training_calls": 0,
+      "typed_model_initializations": 0,
+      "uncertain_operation_total_fields": [],
+      "whole_epoch_maximum_native_corpus_batches": 2
     },
     "new_study_attempt_cap": 1,
     "new_study_attempts_remaining": 0,
@@ -10729,6 +10850,393 @@
     "selected16_query_features_DEV_forever": true,
     "source_feature_exposure_caveat": "Arrowfiltermayinternallydecodetextpagesbeyond16; entire1109sourcequerypoolcannotbeclaimedfreshconfirmation."
   },
+  "epoch56_final": {
+    "CLI_wall_including_supervisor_interpreter_bootstrap": {
+      "actual_CLI_wall_seconds_including_interpreter_bootstrap_capture": 9.885435926960781,
+      "automatic_retry": false,
+      "epoch": 56,
+      "exit_code": 0,
+      "requires_independent_worker_native_physical_closure": true,
+      "supervisor_after_wait": null,
+      "supervisor_identity": {
+        "pid": 184876,
+        "startticks": 43392193,
+        "state": "R"
+      },
+      "timed_out": false,
+      "within_600_seconds": true
+    },
+    "actual_SOURCE_commit": "60dfc923eee70bfd319489e30afdbd8d2a3bc035",
+    "actual_execution_independently_derived": {
+      "BGE_forwards": 12,
+      "BGE_initializations": 1,
+      "GPU_calls": 0,
+      "Gold_scoring_calls": 0,
+      "Gold_train_calibration_paid_GPU": 0,
+      "NLI_forwards": 0,
+      "NLI_forwards_attempted": 0,
+      "NLI_forwards_completed": 0,
+      "Root_CLI_invocations": 1,
+      "actual_native_helper_starts": 1,
+      "actual_worker_starts": 1,
+      "calibration_calls": 0,
+      "engineered_contexts": 48,
+      "native_F32_hit_validations": 135,
+      "native_corpus_batches": 1,
+      "native_corpus_batches_completed": 1,
+      "native_corpus_batches_started": 1,
+      "native_indexes": 4,
+      "native_insertions": 45,
+      "native_queries": 12,
+      "packed_packets": 108,
+      "paid_API_calls": 0,
+      "tokenizer_initializations": 1,
+      "training_calls": 0,
+      "typed_model_initializations": 0
+    },
+    "additional_retrieval_DEV_pilot": {
+      "frozen_plan": {
+        "bytes": 10524,
+        "path": "experiments/sota-2026-10-22/epoch56/retrieval/plan.json",
+        "sha256": "8ab6a499cc5ea6ea57e899d47ffbf99c89e84f72cdb249cc59b8c67d66791886"
+      },
+      "independent_acceptance": {
+        "bytes": 4262,
+        "path": "experiments/sota-2026-10-22/audit/epoch56/retrieval/independent/RETRIEVAL_ACTUAL_ACCEPTANCE_INDEPENDENT.v1.json",
+        "sha256": "3f80cf39437c0860fea7ed924ff7dda6921069be93585873ded22d660006bb05"
+      },
+      "results": {
+        "bytes": 4165,
+        "path": "experiments/sota-2026-10-22/epoch56/retrieval/runs/rejected-partial-results.json",
+        "sha256": "eee359bd24ac0c707ea31c05a0edb2c7293b909fed52a833308c4f61adad72e6"
+      }
+    },
+    "all_further_epoch56_scientific_slots_closed": true,
+    "benchmark_accepted": false,
+    "benchmark_generalization_claim": false,
+    "candidate_promoted": false,
+    "confirmation_lineage_status": "UNQUALIFIED_HOLD",
+    "engineering_qualified": true,
+    "epoch": 56,
+    "epoch_actual_totals": {
+      "GPU_calls": 0,
+      "Gold_scoring_calls": 0,
+      "Root_CLI_invocations": 2,
+      "actual_native_helper_starts": 1,
+      "actual_worker_starts": 2,
+      "calibration_calls": 0,
+      "native_corpus_batches": 1,
+      "native_corpus_batches_completed": 1,
+      "native_corpus_batches_started": 1,
+      "native_hit_source_validations": 135,
+      "native_index_initializations_completed": 4,
+      "native_insertions_completed": 45,
+      "native_queries_completed": 12,
+      "paid_API_calls": 0,
+      "training_calls": 0,
+      "typed_model_initializations": 0,
+      "uncertain_operation_total_fields": []
+    },
+    "epoch_manifest": {
+      "bytes": 37324,
+      "path": "experiments/sota-2026-10-22/epoch56/EPOCH_MANIFEST.json",
+      "sha256": "b6889e0bb8fa05fc9e023794d97a8bddbabec62df152850bb91ec7c88367c6eb"
+    },
+    "independent_acceptance": {
+      "bytes": 10755,
+      "path": "experiments/sota-2026-10-22/audit/epoch56/independent/ENGINEERING_ACTUAL_ACCEPTANCE_INDEPENDENT.v1.json",
+      "sha256": "00d415d0444a1d6a5076f592c374fbf1ad6da5d754792f7b8b7d5a606ab6b374"
+    },
+    "kind": "REAL_NATIVE_SOURCE_FRAGMENT_CAPACITY_QUALIFICATION",
+    "learnings": {
+      "bytes": 11415,
+      "path": "experiments/sota-2026-10-22/epoch56/LEARNINGS.json",
+      "sha256": "84f4023ea3894053b4a239667cc36349c0f9d085973c9661102250c51ea96711"
+    },
+    "native104_champion_preserved": true,
+    "native_counter_accounting": {
+      "capture_complete": true,
+      "capture_ref": {
+        "bytes": 42882,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/private-run/engineering/native-progress.jsonl",
+        "sha256": "c6259a0ceb2691e0a2f0dbc5000bb5fa31bf58553a1d496f59bf59e44e0842c3"
+      },
+      "expected_totals_validation_only": {
+        "Node_network_operations_attempted": 0,
+        "native_binary_loads_attempted": 1,
+        "native_binary_loads_completed": 1,
+        "native_hit_source_validations": 135,
+        "native_index_initializations_attempted": 4,
+        "native_index_initializations_completed": 4,
+        "native_insertions_attempted": 45,
+        "native_insertions_completed": 45,
+        "native_len_calls_attempted": 8,
+        "native_len_calls_completed": 8,
+        "native_queries_attempted": 12,
+        "native_queries_completed": 12,
+        "native_version_calls_attempted": 1,
+        "native_version_calls_completed": 1
+      },
+      "idempotence_scope": "Identical validated snapshot rows only. Full progress-file capture is one-shot; recapture fails closed.",
+      "identical_counter_snapshot_replays": 1,
+      "independent_expected_from_actual_bundle_geometry": {
+        "Node_network_operations_attempted": 0,
+        "native_binary_loads_attempted": 1,
+        "native_binary_loads_completed": 1,
+        "native_hit_source_validations": 135,
+        "native_index_initializations_attempted": 4,
+        "native_index_initializations_completed": 4,
+        "native_insertions_attempted": 45,
+        "native_insertions_completed": 45,
+        "native_len_calls_attempted": 8,
+        "native_len_calls_completed": 8,
+        "native_queries_attempted": 12,
+        "native_queries_completed": 12,
+        "native_version_calls_attempted": 1,
+        "native_version_calls_completed": 1
+      },
+      "inflight_native_call_outcome_uncertain": false,
+      "last_event": "COMPLETE",
+      "latest_validated_snapshot": {
+        "Node_network_operations_attempted": 0,
+        "native_binary_loads_attempted": 1,
+        "native_binary_loads_completed": 1,
+        "native_hit_source_validations": 135,
+        "native_index_initializations_attempted": 4,
+        "native_index_initializations_completed": 4,
+        "native_insertions_attempted": 45,
+        "native_insertions_completed": 45,
+        "native_len_calls_attempted": 8,
+        "native_len_calls_completed": 8,
+        "native_queries_attempted": 12,
+        "native_queries_completed": 12,
+        "native_version_calls_attempted": 1,
+        "native_version_calls_completed": 1
+      },
+      "merge_semantics": "Direct per-key assignment, never Counter.update or expected-value fill.",
+      "native_parent_totals_equal_captured_terminal": true,
+      "pending_attempt_completion_gap": false,
+      "qualified": true,
+      "raw_helper_progress_exact14key_agreement": true,
+      "schema_version": 1,
+      "single_source_of_truth": "Captured validated native helper progress plus exact terminal agreement.",
+      "snapshot_records": 77,
+      "validated_unique_event_counts": {
+        "COMPLETE": 1,
+        "INDEX_BEFORE": 4,
+        "INSERT_BEFORE": 45,
+        "NATIVE_LOAD_BEFORE": 1,
+        "NATIVE_LOAD_COMPLETE": 1,
+        "NATIVE_VERSION_BEFORE": 1,
+        "QUERY_BEFORE": 12,
+        "QUERY_COMPLETE": 12
+      },
+      "validation_failure_latched": false
+    },
+    "native_query_and_hit_validation_latency": {
+      "p50_seconds": 0.0004850050000000081,
+      "p95_seconds": 0.003252101749999993,
+      "unique_queries": 12
+    },
+    "new_actionable_runtime_finalization_blocker": "ThisfullcorpusCPU2embedding run could not finishandpublishwithinthe remainingexclusiveleasewindow. Do not rerununchangedruntime/corpus/cleanupplan; prepare a genuinely changed,frozen throughput/time/finalization plan in a newepoch.",
+    "new_submission": false,
+    "next_research_priority": "Preserve SubmittedNative104. E56 must retain the independent actual accounting/capacity verdict, raw counters, helper terminal/progress evidence and any failures unchanged. Native snapshot integration uses a single validated source with direct assignment, never adding expected counters as observations. Do not rerun old engineering fixtures as benchmark generalization. Any separately frozen licensed retrieval DEV pilot measures only its explicit public slice and exact scorer; model training/test-nonuse remains unqualified and it cannot establish a full-benchmark rank, NLI accuracy, fresh confirmation or promotion. E55 metadata-probe six denied opens remain historical; E54 denied targets remain unknown; all five suffix denies stay enabled. Stronger typed-reader quality work still requires new aligned licensed data/scoring access and exact training/test-nonuse provenance. Do not repeat unchanged FinNLI access or ModernBERT card probes. DOC17 remains unused publisher-development-exposed DEV; all existing confirmation is UNQUALIFIED_HOLD and unused. No new submission, paid API or GPU cap is granted. Official success requires a matching publisher result/rank and eligibility. E56 actionable runtime/finalization blocker: the full-corpus pilot was stopped once after221.440748016seconds of inclusive Root CLI wall to preserve the mandatory checkpoint publication window. Durable BGE progress records116 completed forwards from117 attempted, with one in-flight outcome uncertain; no native helper, rankings or Gold execution occurred. This early stop does not prove600second infeasibility. Before another full-corpus attempt, freeze a credible CPU2 throughput and whole-epoch publication time plan qualified on engineering-only inputs. Do not repeat the unchanged runtime/corpus/finalization plan, and never treat these exposed questions as fresh confirmation.",
+    "official_goal_verified": false,
+    "official_rank": null,
+    "official_refresh": {
+      "bytes": 10975,
+      "path": "experiments/sota-2026-10-22/epoch56/official-refresh/benchmark-refresh.safe.json",
+      "sha256": "dc3aa9ff96ad0e88357ccb41c75d13637326eece04287af4b823ab365a6cc1f4"
+    },
+    "per_arm_context_preparation_latency": {
+      "lexical": {
+        "completed_contexts": 12,
+        "p50_seconds": 0.01408346398966387,
+        "p95_seconds": 0.017213544459082186
+      },
+      "native": {
+        "completed_contexts": 12,
+        "p50_seconds": 0.014489976485492662,
+        "p95_seconds": 0.02157662285608239
+      },
+      "source_order": {
+        "completed_contexts": 12,
+        "p50_seconds": 0.014260772004490718,
+        "p95_seconds": 0.023024185109534287
+      },
+      "whole_source": {
+        "completed_contexts": 12,
+        "p50_seconds": 0.021265520015731454,
+        "p95_seconds": 0.025899974914500485
+      }
+    },
+    "pre_science_metadata_preparation": {
+      "IDs_only_root_calls": 1,
+      "cp312_R2_acquisition": "completed after exact public duplicate retirement and changed disk/ABI guards",
+      "features_only_root_calls": 1,
+      "first_cp312_acquisition": "FAILED_ENOSPC; partial retained; no import or science",
+      "first_wrong_ABI_cp311_acquisition": "completed externalbytesdownload/extract; import denied before scientific use",
+      "native_model_Gold_calls": 0,
+      "prepared_query_feature_IDs": 16,
+      "prior_E54_denied_open_targets": "UNKNOWN",
+      "prior_E55_metadata_probe_denied_opens": 6,
+      "same_five_suffix_denies_preserved": true,
+      "selected_query_Gold_decodes_before_forecast_seal": 0,
+      "whole_source1109_query_pool_freshness": "UNQUALIFIED due possible internal Arrow text-page decoding"
+    },
+    "prepared16_DEV_identities": [
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:100",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1012",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1014",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1019",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1020",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1021",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1024",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1029",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1041",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1049",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1062",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1086",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1088",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1089",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1099"
+    ],
+    "promotion_or_publisher_submission_authorized": false,
+    "publication_finalization_lease22": {
+      "new_scientific_attempts": 0,
+      "no_overlap_after_owner21_released_at_UTC": "2026-10-27T14:25:24.780819+00:00",
+      "no_scientific_execution_authorized": true,
+      "operational_generation": 22,
+      "owner": {
+        "bytes": 716,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication-lease22/owner.json",
+        "sha256": "256cf7ce4b749ff15497ba981d4f977bf94a538c71cd3fa7c350c4fb3f079ebe"
+      },
+      "physical_lock_device": 33,
+      "physical_lock_inode": 13626,
+      "publication_only": true,
+      "scientific_owner21_is_historical_unchanged": true,
+      "scope": "Metadata-only FINAL staging/publication/readback under a fresh exclusive lease. Frozen source, source owner21, phase payload provenance and169-file immutable project remain unchanged."
+    },
+    "publisher_status_latest_observation": {
+      "body_messageID_match_to_original_receipt_verified": false,
+      "body_thread_attachment_reads": 0,
+      "checked_at": "2026-10-27T12:29:26.714Z",
+      "coverage_other_accounts_verified": false,
+      "current_queue_progress": "UNVERIFIED",
+      "date_metadata_scope": "UNVERIFIED in current metadata classification. Search schema date field was not consumed; raw result discarded and no second query was made. Historical receipt date remains an inherited fact, not a newly verified current message match.",
+      "eligibility_confirmed": false,
+      "epoch": 56,
+      "exact_reference_searches": 1,
+      "has_more_results": false,
+      "historical_regular_evaluation_queue_position": 115,
+      "matching_message_date_metadata_verified": false,
+      "matching_message_dates": [],
+      "matching_messages": 1,
+      "messages_read": 0,
+      "metadata_subject_candidate_result_score_rank_or_eligibility_count": 0,
+      "metadata_subject_receipt_or_submission_classification_count": 1,
+      "new_verified_publisher_result_found": false,
+      "official_rank": null,
+      "official_score": null,
+      "original_acknowledgement_metadata_consistent": null,
+      "original_publisher_account_profile_reads": 1,
+      "outgoing_messages_or_submissions": 0,
+      "private_selector_identifiers_addresses_subject_headers_body_snippet_files_persisted": false,
+      "queue_scope": "Historical acknowledgement evaluation queue position; never rank. Current position/progress unverified.",
+      "read_scope": "Subject-class and date metadata only; selected-account status cannot establish global result absence.",
+      "reference": "7FEA2738",
+      "schema_version": 1,
+      "selected_personal_publisher_account_profile_verified": true,
+      "snippets_inspected": 0,
+      "source_kind": "One exact connected Gmail metadata search on profile-verified selected personal publisher account; no second-account fallback."
+    },
+    "quality_metrics": {
+      "Brier": null,
+      "NLL": null,
+      "accuracy": null
+    },
+    "raw_actual_result": {
+      "bytes": 343295,
+      "path": "experiments/sota-2026-10-22/epoch56/runs/engineering/raw.json",
+      "sha256": "8171655f0894448ab2979adfe77f0790428363f925923730527bde6b767966a7"
+    },
+    "raw_counter_integrity_qualified": true,
+    "raw_recorded_counters_unmodified": {
+      "BGE_forward_calls_attempted": 12,
+      "BGE_forward_calls_completed": 12,
+      "BGE_initializations_attempted": 1,
+      "BGE_initializations_completed": 1,
+      "BGE_texts_attempted": 57,
+      "BGE_texts_completed": 57,
+      "GPU_calls": 0,
+      "NLI_forwards_attempted": 0,
+      "NLI_forwards_completed": 0,
+      "Node_network_operations_attempted": 0,
+      "Python_network_operations_attempted": 1,
+      "Python_network_operations_blocked": 1,
+      "calibration_calls": 0,
+      "engineering_contexts_completed": 48,
+      "forbidden_model_or_archive_file_access_attempts": 0,
+      "native_binary_loads_attempted": 1,
+      "native_binary_loads_completed": 1,
+      "native_corpus_batches": 1,
+      "native_corpus_batches_attempted": 1,
+      "native_corpus_batches_completed": 1,
+      "native_hit_source_validations": 135,
+      "native_index_initializations_attempted": 4,
+      "native_index_initializations_completed": 4,
+      "native_insertions_attempted": 45,
+      "native_insertions_completed": 45,
+      "native_len_calls_attempted": 8,
+      "native_len_calls_completed": 8,
+      "native_queries_attempted": 12,
+      "native_queries_completed": 12,
+      "native_version_calls_attempted": 1,
+      "native_version_calls_completed": 1,
+      "paid_API_calls": 0,
+      "reader_capacity_tokenizations": 48,
+      "reader_fragmentation_pair_tokenizations": 147,
+      "reader_fragmentation_pair_tokenizations_completed": 147,
+      "reader_packing_pair_tokenizations": 708,
+      "reader_packing_pair_tokenizations_completed": 708,
+      "reader_pair_tokenizations": 855,
+      "reader_pair_tokenizations_completed": 855,
+      "semantic_gold_decodes": 0,
+      "tokenizer_initializations_attempted": 1,
+      "tokenizer_initializations_completed": 1,
+      "training_calls": 0,
+      "typed_model_initializations": 0
+    },
+    "rejection_ledger": {
+      "bytes": 255197,
+      "path": "experiments/sota-2026-10-22/epoch56/REJECTION_LEDGER.json",
+      "sha256": "51e774e36593bcaf621c5a2f6c86bb1fa6fc046287450289b59e3e71db9027e8"
+    },
+    "results": {
+      "bytes": 17359,
+      "path": "experiments/sota-2026-10-22/epoch56/RESULTS.json",
+      "sha256": "57ba1cfd06ddb39e1a751a0fd7695b101f6a29b6afa114cf32147392fd88274c"
+    },
+    "retrieval_DEV_status": "REJECTED_PARTIAL_ENCODING_EARLY_STOP_FOR_EXCLUSIVE_LEASE_FINALIZATION",
+    "schema_version": 1,
+    "source_checkpoint": "ffdd0699f3254c5dd09437533d38111a8521c920",
+    "source_frozen_reporter_executed": true,
+    "status": "ENGINEERING_CAPACITY_AND_IDEMPOTENT_NATIVE_ACCOUNTING_QUALIFIED_NOT_BENCHMARK_SCORED",
+    "used_confirmation": {
+      "bytes": 12141,
+      "path": "experiments/sota-2026-10-22/epoch56/USED_CONFIRMATION.json",
+      "sha256": "04be0d236e0d8b9f93ac7c0fe6cce15b7e1a6bb5049eadb246395c7b86617501"
+    },
+    "used_confirmation_identities": [],
+    "used_identities": {
+      "bytes": 12083,
+      "path": "experiments/sota-2026-10-22/epoch56/USED_IDENTITIES.json",
+      "sha256": "aaf27b485e78377ad7a70b2f9006a38be6e15210c44f81f1c19039f2cb180b1b"
+    },
+    "whole1109_query_pool_fresh_confirmation_qualification": "UNQUALIFIED; Arrow may have internally decoded other text pages."
+  },
   "epoch56_frozen_study": {
     "conditional_retrieval_DEV_plan": {
       "bytes": 10524,
@@ -14450,6 +14958,82 @@
         "ETR/2016/page_23.pdf",
         "INTC/2015/page_41.pdf"
       ]
+    },
+    {
+      "actual_label_only_exposed_identities": [],
+      "actual_scored_development_identities": [],
+      "actual_used_development_identities": [
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:100",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1012",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1014",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1019",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1020",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1021",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1024",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1029",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1041",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1049",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1062",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1086",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1088",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1089",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1099"
+      ],
+      "entire_source_query_pool_count": 1109,
+      "entire_source_query_pool_fresh_confirmation_qualified": false,
+      "epoch": 56,
+      "identity_namespace": "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV",
+      "model_nonuse_lineage": "UNQUALIFIED; DEVpilotonly, no promotion/freshconfirmation.",
+      "prepared_feature_receipt": {
+        "bytes": 2706,
+        "path": "experiments/sota-2026-10-22/epoch56/retrieval/preparation/PREPARED_FEATURES_NO_GOLD.actual.v1.json",
+        "sha256": "8fd7e44769c896b5db819ee29afc2e64d535cb8df9807593aeac1cd0a1dd0c7c"
+      },
+      "selected16_feature_texts_DEV_forever": true,
+      "selected_prepared_DEV_identities": [
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:100",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1012",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1014",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1019",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1020",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1021",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1024",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1029",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1041",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1049",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1062",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1086",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1088",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1089",
+        "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1099"
+      ],
+      "selected_prepared_DEV_query_ids": [
+        "1",
+        "100",
+        "1012",
+        "1014",
+        "1019",
+        "1020",
+        "1021",
+        "1024",
+        "1029",
+        "1041",
+        "1049",
+        "1062",
+        "1086",
+        "1088",
+        "1089",
+        "1099"
+      ],
+      "source_feature_exposure_caveat": "Arrowfiltermayinternallydecodetextpagesbeyond16; entire1109sourcequerypoolcannotbeclaimedfreshconfirmation.",
+      "used_confirmation_identities": [],
+      "used_identity_record": {
+        "bytes": 12083,
+        "path": "experiments/sota-2026-10-22/epoch56/USED_IDENTITIES.json",
+        "sha256": "aaf27b485e78377ad7a70b2f9006a38be6e15210c44f81f1c19039f2cb180b1b"
+      }
     }
   ],
   "future_epoch_limits": {
@@ -14462,11 +15046,11 @@
   },
   "goal_met": false,
   "latest_learning": {
-    "bytes": 10661,
-    "path": "experiments/sota-2026-10-22/epoch55/LEARNINGS.json",
-    "sha256": "aca2b045db86f50f6e2a2198338929a649bfadbb389b47c446e9ca119f52e30a"
+    "bytes": 11415,
+    "path": "experiments/sota-2026-10-22/epoch56/LEARNINGS.json",
+    "sha256": "84f4023ea3894053b4a239667cc36349c0f9d085973c9661102250c51ea96711"
   },
-  "next_research_priority": "Preserve SubmittedNative104. E55 executed one native engineering batch on new authored CC0 sources; it measured source/capacity integrity and actual context latency, not semantic quality or benchmark generalization. Keep the independent acceptance decision and raw counters unchanged. The frozen Python Counter.update adds the native COMPLETE snapshot and then the same expected counters, doubling native totals in the worker raw summary. Before any separately frozen future native measurement, repair counter aggregation with a single validated, idempotent source of truth and meaningful no-double-addition regression/operation-cap checks. Do not rerun E55 or retroactively modify its source, raw counters or acceptance gates. Six E55 metadata-only probe denies and zero native-batch suffix denies are separate; E54 historical targets remain unknown. The exact absent interpreter ZIP search-entry removal retained all five suffix denials. Stronger typed-model quality work still needs new licensed aligned data/scorer access and qualified exact training/test-nonuse provenance; do not repeat unchanged access/card probes. DOC17 stays unused publisher-development-exposed DEV; existing confirmation remains UNQUALIFIED_HOLD and unused. No promotion, new submission or paid/GPU cap is granted. Official success requires a matching publisher result/rank and eligibility.",
+  "next_research_priority": "Preserve SubmittedNative104. E56 must retain the independent actual accounting/capacity verdict, raw counters, helper terminal/progress evidence and any failures unchanged. Native snapshot integration uses a single validated source with direct assignment, never adding expected counters as observations. Do not rerun old engineering fixtures as benchmark generalization. Any separately frozen licensed retrieval DEV pilot measures only its explicit public slice and exact scorer; model training/test-nonuse remains unqualified and it cannot establish a full-benchmark rank, NLI accuracy, fresh confirmation or promotion. E55 metadata-probe six denied opens remain historical; E54 denied targets remain unknown; all five suffix denies stay enabled. Stronger typed-reader quality work still requires new aligned licensed data/scoring access and exact training/test-nonuse provenance. Do not repeat unchanged FinNLI access or ModernBERT card probes. DOC17 remains unused publisher-development-exposed DEV; all existing confirmation is UNQUALIFIED_HOLD and unused. No new submission, paid API or GPU cap is granted. Official success requires a matching publisher result/rank and eligibility. E56 actionable runtime/finalization blocker: the full-corpus pilot was stopped once after221.440748016seconds of inclusive Root CLI wall to preserve the mandatory checkpoint publication window. Durable BGE progress records116 completed forwards from117 attempted, with one in-flight outcome uncertain; no native helper, rankings or Gold execution occurred. This early stop does not prove600second infeasibility. Before another full-corpus attempt, freeze a credible CPU2 throughput and whole-epoch publication time plan qualified on engineering-only inputs. Do not repeat the unchanged runtime/corpus/finalization plan, and never treat these exposed questions as fresh confirmation.",
   "objective": "Reach independently verified SOTA using actual RuVector; initial target JevBench open-weights Capability under official caps.",
   "official_rank": null,
   "official_result_status": {
@@ -14504,17 +15088,17 @@
   "publisher_status": {
     "body_messageID_match_to_original_receipt_verified": false,
     "body_thread_attachment_reads": 0,
-    "checked_at": "2026-10-27T10:55:04.714Z",
+    "checked_at": "2026-10-27T12:29:26.714Z",
     "coverage_other_accounts_verified": false,
     "current_queue_progress": "UNVERIFIED",
+    "date_metadata_scope": "UNVERIFIED in current metadata classification. Search schema date field was not consumed; raw result discarded and no second query was made. Historical receipt date remains an inherited fact, not a newly verified current message match.",
     "eligibility_confirmed": false,
-    "epoch": 55,
+    "epoch": 56,
     "exact_reference_searches": 1,
     "has_more_results": false,
     "historical_regular_evaluation_queue_position": 115,
-    "matching_message_dates": [
-      "2026-10-22"
-    ],
+    "matching_message_date_metadata_verified": false,
+    "matching_message_dates": [],
     "matching_messages": 1,
     "messages_read": 0,
     "metadata_subject_candidate_result_score_rank_or_eligibility_count": 0,
@@ -14522,7 +15106,7 @@
     "new_verified_publisher_result_found": false,
     "official_rank": null,
     "official_score": null,
-    "original_acknowledgement_metadata_consistent": true,
+    "original_acknowledgement_metadata_consistent": null,
     "original_publisher_account_profile_reads": 1,
     "outgoing_messages_or_submissions": 0,
     "private_selector_identifiers_addresses_subject_headers_body_snippet_files_persisted": false,
@@ -14536,9 +15120,9 @@
   },
   "publisher_status_refresh_scope": "Exact reference search returned the original submission acknowledgment. It confirms regular evaluation queue position115 and contains no evaluation score or rank. No global absence of other publisher results or eligibility determination is inferred.",
   "rejection_ledger": {
-    "bytes": 248294,
-    "path": "experiments/sota-2026-10-22/epoch55/REJECTION_LEDGER.json",
-    "sha256": "1ac6aa7ef6665a4c13fdd0bc64f4e28fd6178c99f3e6350e4f67ffef49fcc3cc"
+    "bytes": 255197,
+    "path": "experiments/sota-2026-10-22/epoch56/REJECTION_LEDGER.json",
+    "sha256": "51e774e36593bcaf621c5a2f6c86bb1fa6fc046287450289b59e3e71db9027e8"
   },
   "restoration_boundary": "Epoch16 freshly verified2293 Gitblob files and2220projectCP+48base using reviewed bootstrap/restore; exact7officialNLI+BGE2/native22 restored separately. No model/native session occurred before reviewed source freeze/publication; actual oneDEV process is in epoch16_final. Never rerun archived controllers.",
   "restoration_boundary_prior_epoch13": "All public source/data/results hashrestored; native22filehelper verified. Coldproof explicitly lists deferredmodelassetpins(old/new); weights acquiredseparately via reviewedhelpers/exactofficialrevision+hashes. No inference or archivedcontroller rerun duringrestore.",

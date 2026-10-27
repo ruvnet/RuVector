@@ -1,0 +1,310 @@
+{
+  "CLI_wall_ref": {
+    "bytes": 396,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ROOT_ENGINEERING_CLI_WALL.actual.v1.json",
+    "sha256": "e8f145786ed02295b1b0c51f121baf2308cf8408baa7c411aeb0cf7ed4a86d35"
+  },
+  "actual_execution_independently_derived": {
+    "BGE_forwards": 12,
+    "BGE_initializations": 1,
+    "GPU_calls": 0,
+    "Gold_scoring_calls": 0,
+    "Gold_train_calibration_paid_GPU": 0,
+    "NLI_forwards": 0,
+    "NLI_forwards_attempted": 0,
+    "NLI_forwards_completed": 0,
+    "Root_CLI_invocations": 1,
+    "actual_native_helper_starts": 1,
+    "actual_worker_starts": 1,
+    "calibration_calls": 0,
+    "engineered_contexts": 48,
+    "native_F32_hit_validations": 135,
+    "native_corpus_batches": 1,
+    "native_corpus_batches_completed": 1,
+    "native_corpus_batches_started": 1,
+    "native_indexes": 4,
+    "native_insertions": 45,
+    "native_queries": 12,
+    "packed_packets": 108,
+    "paid_API_calls": 0,
+    "tokenizer_initializations": 1,
+    "training_calls": 0,
+    "typed_model_initializations": 0
+  },
+  "actual_raw_ref": {
+    "bytes": 343295,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/private-run/engineering/raw.json",
+    "sha256": "8171655f0894448ab2979adfe77f0790428363f925923730527bde6b767966a7"
+  },
+  "actual_results_ref": {
+    "bytes": 343295,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/private-run/engineering/raw.json",
+    "sha256": "8171655f0894448ab2979adfe77f0790428363f925923730527bde6b767966a7"
+  },
+  "all_owned_processes_closed": true,
+  "auditor_actual_model_native_tokenizer_parser_Gold_calls": 0,
+  "benchmark_generalization_claim": false,
+  "branch_counts": {
+    "ZWJ_boundary_crossings": 1,
+    "blank_boundaries": 1,
+    "capacity_fitting_groups": 1,
+    "coalesced_boundaries": 5,
+    "combining_boundary_crossings": 1,
+    "over_capacity_groups": 4,
+    "protected_regex_boundary_crossings": 2
+  },
+  "candidate_promoted": false,
+  "classification_quality_metrics": {
+    "Brier": null,
+    "NLL": null,
+    "accuracy": null
+  },
+  "engineering_qualified": true,
+  "epoch": 56,
+  "fragment_source_checks": {
+    "authored:e56:diacritic-boundary": {
+      "fragments": 11,
+      "over_capacity_groups": 1,
+      "source_characters": 11141
+    },
+    "authored:e56:harbor-manifest": {
+      "fragments": 11,
+      "over_capacity_groups": 1,
+      "source_characters": 11075
+    },
+    "authored:e56:joined-annotation": {
+      "fragments": 11,
+      "over_capacity_groups": 1,
+      "source_characters": 11144
+    },
+    "authored:e56:reserve-boundaries": {
+      "fragments": 12,
+      "over_capacity_groups": 1,
+      "source_characters": 11183
+    }
+  },
+  "independent_review_complete": true,
+  "independently_derived_latency": {
+    "context_preparation_by_arm": {
+      "lexical": {
+        "N": 12,
+        "p50_seconds": 0.01408346398966387,
+        "p95_seconds": 0.017213544459082186
+      },
+      "native": {
+        "N": 12,
+        "p50_seconds": 0.014489976485492662,
+        "p95_seconds": 0.02157662285608239
+      },
+      "source_order": {
+        "N": 12,
+        "p50_seconds": 0.014260772004490718,
+        "p95_seconds": 0.023024185109534287
+      },
+      "whole_source": {
+        "N": 12,
+        "p50_seconds": 0.021265520015731454,
+        "p95_seconds": 0.025899974914500485
+      }
+    },
+    "native_unique12queries": {
+      "N": 12,
+      "p50_seconds": 0.0004850050000000081,
+      "p95_seconds": 0.003252101749999993
+    },
+    "percentile_definition": "Linearinterpolation q*(N-1); shared catalog/BGE/index/init/cleanup excluded from query/context times; actualCLI inclusive clock separate."
+  },
+  "kind": "REAL_NATIVE_SOURCE_FRAGMENT_CAPACITY_QUALIFICATION",
+  "latency_scope": "Context preparation includes packing and real pair tokenizations; common catalog/BGE/index/init/cleanup excluded and reported separately. Native query includes returned-hit validation. Inclusive outer clock is authoritative whole-batch bound.",
+  "native_counter_accounting": {
+    "capture_complete": true,
+    "capture_ref": {
+      "bytes": 42882,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/private-run/engineering/native-progress.jsonl",
+      "sha256": "c6259a0ceb2691e0a2f0dbc5000bb5fa31bf58553a1d496f59bf59e44e0842c3"
+    },
+    "expected_totals_validation_only": {
+      "Node_network_operations_attempted": 0,
+      "native_binary_loads_attempted": 1,
+      "native_binary_loads_completed": 1,
+      "native_hit_source_validations": 135,
+      "native_index_initializations_attempted": 4,
+      "native_index_initializations_completed": 4,
+      "native_insertions_attempted": 45,
+      "native_insertions_completed": 45,
+      "native_len_calls_attempted": 8,
+      "native_len_calls_completed": 8,
+      "native_queries_attempted": 12,
+      "native_queries_completed": 12,
+      "native_version_calls_attempted": 1,
+      "native_version_calls_completed": 1
+    },
+    "idempotence_scope": "Identical validated snapshot rows only. Full progress-file capture is one-shot; recapture fails closed.",
+    "identical_counter_snapshot_replays": 1,
+    "independent_expected_from_actual_bundle_geometry": {
+      "Node_network_operations_attempted": 0,
+      "native_binary_loads_attempted": 1,
+      "native_binary_loads_completed": 1,
+      "native_hit_source_validations": 135,
+      "native_index_initializations_attempted": 4,
+      "native_index_initializations_completed": 4,
+      "native_insertions_attempted": 45,
+      "native_insertions_completed": 45,
+      "native_len_calls_attempted": 8,
+      "native_len_calls_completed": 8,
+      "native_queries_attempted": 12,
+      "native_queries_completed": 12,
+      "native_version_calls_attempted": 1,
+      "native_version_calls_completed": 1
+    },
+    "inflight_native_call_outcome_uncertain": false,
+    "last_event": "COMPLETE",
+    "latest_validated_snapshot": {
+      "Node_network_operations_attempted": 0,
+      "native_binary_loads_attempted": 1,
+      "native_binary_loads_completed": 1,
+      "native_hit_source_validations": 135,
+      "native_index_initializations_attempted": 4,
+      "native_index_initializations_completed": 4,
+      "native_insertions_attempted": 45,
+      "native_insertions_completed": 45,
+      "native_len_calls_attempted": 8,
+      "native_len_calls_completed": 8,
+      "native_queries_attempted": 12,
+      "native_queries_completed": 12,
+      "native_version_calls_attempted": 1,
+      "native_version_calls_completed": 1
+    },
+    "merge_semantics": "Direct per-key assignment, never Counter.update or expected-value fill.",
+    "native_parent_totals_equal_captured_terminal": true,
+    "pending_attempt_completion_gap": false,
+    "qualified": true,
+    "raw_helper_progress_exact14key_agreement": true,
+    "schema_version": 1,
+    "single_source_of_truth": "Captured validated native helper progress plus exact terminal agreement.",
+    "snapshot_records": 77,
+    "validated_unique_event_counts": {
+      "COMPLETE": 1,
+      "INDEX_BEFORE": 4,
+      "INSERT_BEFORE": 45,
+      "NATIVE_LOAD_BEFORE": 1,
+      "NATIVE_LOAD_COMPLETE": 1,
+      "NATIVE_VERSION_BEFORE": 1,
+      "QUERY_BEFORE": 12,
+      "QUERY_COMPLETE": 12
+    },
+    "validation_failure_latched": false
+  },
+  "native_helper_ref": {
+    "bytes": 40611,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/private-run/engineering/native-result.json",
+    "sha256": "ea983d8b7fe1d6e18c046209fd75959cd8a1ee779d5a36d6dcebe0690084aa93"
+  },
+  "native_progress_ref": {
+    "bytes": 42882,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/private-run/engineering/native-progress.jsonl",
+    "sha256": "c6259a0ceb2691e0a2f0dbc5000bb5fa31bf58553a1d496f59bf59e44e0842c3"
+  },
+  "official_goal_verified": false,
+  "outer_ref": {
+    "bytes": 4700,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ENGINEERING_OUTER_EXECUTION.actual.v1.json",
+    "sha256": "e07487f06e9397a3bc9dae632a647560f361200efe802ea7d768e3e80fa20b52"
+  },
+  "physical_process_observations": [
+    {
+      "current_absent": true,
+      "identity": {
+        "pid": 184876,
+        "startticks": 43392193,
+        "state": "R"
+      },
+      "original_closed": true
+    },
+    {
+      "current_absent": true,
+      "identity": {
+        "FDSize": 0,
+        "pgid": 184877,
+        "pid": 184877,
+        "ppid": 184876,
+        "sid": 184877,
+        "startticks": 43392224,
+        "state": "Z",
+        "statm": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wait_status": 0
+      },
+      "original_closed": true
+    },
+    {
+      "current_absent": true,
+      "identity": {
+        "FDSize": 64,
+        "pgid": 184877,
+        "pid": 184880,
+        "ppid": 184877,
+        "sid": 184877,
+        "startticks": 43393006,
+        "state": "R",
+        "statm": [
+          27463,
+          514,
+          464,
+          10944,
+          0,
+          175,
+          0
+        ],
+        "wait_status": 0
+      },
+      "original_closed": true
+    }
+  ],
+  "plan_ref": {
+    "bytes": 14753,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/epoch56/plan.json",
+    "sha256": "0d2e93b16520353de2eece63a5c88b07d757fc447985b426b548d3b8b7b65e01"
+  },
+  "reason": "All frozen engineering source/capacity/whole-unit/protected-substring gates and newly frozen exact native14-key accounting gate pass on the one actual closed batch. E55 raw counter defect/history unchanged. No semantic benchmark or confirmation measured.",
+  "resources": {
+    "CPU_affinity": [
+      0,
+      1
+    ],
+    "RSS_scope": "SELF versus CHILDREN high-water recorded separately, never summed.",
+    "children_max_RSS_KiB": 530736,
+    "children_system_seconds": 0.040667999999999996,
+    "children_user_seconds": 0.067812,
+    "compute_threads": 2,
+    "shared_cgroup": {
+      "headroom_bytes": 2974691328,
+      "memory_current_bytes": 14205177856,
+      "memory_events": {
+        "high": 0,
+        "low": 0,
+        "max": 83996,
+        "oom": 3,
+        "oom_group_kill": 0,
+        "oom_kill": 1
+      },
+      "memory_max_bytes": 17179869184,
+      "scope": "Shared cgroup snapshot; not candidate incremental use or cause proof."
+    },
+    "worker_max_RSS_KiB": 530736,
+    "worker_system_seconds": 0.641936,
+    "worker_user_seconds": 11.304889
+  },
+  "schema_version": 1,
+  "source_commit": "60dfc923eee70bfd319489e30afdbd8d2a3bc035",
+  "source_freeze_sha256": "cb06539e8fc4e46b8415504970238b363af087eafd8b6d69d06417519af381cc",
+  "status": "ENGINEERING_CAPACITY_AND_IDEMPOTENT_NATIVE_ACCOUNTING_QUALIFIED_NOT_BENCHMARK_SCORED",
+  "used_confirmation_identities": []
+}

@@ -1,0 +1,18 @@
+{
+  "CPU_affinity": [
+    0,
+    1
+  ],
+  "automatic_retry": false,
+  "checks_passed": true,
+  "epoch": 56,
+  "headroom_bytes": 3257012224,
+  "maximum_native_batches_authorized_this_component": 1,
+  "memory_current_bytes": 13922856960,
+  "memory_max_bytes": 17179869184,
+  "minimum_headroom_bytes": 3221225472,
+  "native_batches_already_attempted_epoch": 1,
+  "observed_at_unix": 1793110448.1798275,
+  "original_owner_fence_passed": true,
+  "whole_epoch_native_batch_cap": 2
+}

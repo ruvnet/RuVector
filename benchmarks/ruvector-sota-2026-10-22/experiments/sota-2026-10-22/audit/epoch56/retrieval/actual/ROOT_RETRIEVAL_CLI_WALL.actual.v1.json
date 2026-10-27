@@ -1,0 +1,16 @@
+{
+  "actual_CLI_wall_seconds_including_interpreter_bootstrap_capture": 221.44074801600073,
+  "automatic_retry": false,
+  "epoch": 56,
+  "exit_code": 17,
+  "kind": "REAL_NATIVE_SCIFACT_RETRIEVAL_DEV_PILOT",
+  "requires_independent_worker_native_physical_closure": true,
+  "supervisor_after_wait": null,
+  "supervisor_identity": {
+    "pid": 184965,
+    "startticks": 43415017,
+    "state": "R"
+  },
+  "timed_out": false,
+  "within_600_seconds": true
+}

@@ -1,0 +1,85 @@
+{
+  "CP_bytes_physically_rehashed": 560900480,
+  "CP_rows_physically_rehashed": 8912,
+  "Git_leaves": 8919,
+  "active_snapshot_work_false": false,
+  "actual_parent": "ffdd0699f3254c5dd09437533d38111a8521c920",
+  "actual_publication_receipt": {
+    "bytes": 1073,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/publication/publication-source-result.json",
+    "sha256": "4fd779d51f7a372ca205e2fec82e6bb1b62c22879251b6fa589558d489170327"
+  },
+  "all_current_public_Git_blob_bodies_physically_rehashed": 119,
+  "all_recursive_intermediate_Merkle_entries_independently_replayed": 9827,
+  "all_scope_Git_blob_bodies_physically_rehashed": 8919,
+  "all_scope_Git_leaves_match_frozen_stage": true,
+  "bench_sha": "3a0b9761d7089e19094d90f348b46e408ca2ea46",
+  "champion_goal_rank_confirmation_all_preserved": true,
+  "checks_passed": true,
+  "commit": "60dfc923eee70bfd319489e30afdbd8d2a3bc035",
+  "current_epoch_manifest_members_plus_self": null,
+  "direct_fresh_critical_bodies_Git_and_SHA256_verified": [
+    {
+      "bytes": 14753,
+      "path": "experiments/sota-2026-10-22/epoch56/plan.json",
+      "sha256": "0d2e93b16520353de2eece63a5c88b07d757fc447985b426b548d3b8b7b65e01"
+    },
+    {
+      "bytes": 29698,
+      "path": "experiments/sota-2026-10-22/epoch56/SOURCE_FREEZE.json",
+      "sha256": "cb06539e8fc4e46b8415504970238b363af087eafd8b6d69d06417519af381cc"
+    },
+    {
+      "bytes": 3673,
+      "path": "experiments/sota-2026-10-22/epoch56/MASTER_PROTOCOL.v1.json",
+      "sha256": "3a59e92923f742d74a0f34e11d7a787e72b1c86496a2a4128e28d305af0258b8"
+    },
+    {
+      "bytes": 10524,
+      "path": "experiments/sota-2026-10-22/epoch56/retrieval/plan.json",
+      "sha256": "8ab6a499cc5ea6ea57e899d47ffbf99c89e84f72cdb249cc59b8c67d66791886"
+    },
+    {
+      "bytes": 10650,
+      "path": "experiments/sota-2026-10-22/runtime/epoch56/native_accounting.py",
+      "sha256": "379588fcbe15f9db598c899740c54c280237d1853a3fea6575b72d0898ff21be"
+    },
+    {
+      "bytes": 19845,
+      "path": "experiments/sota-2026-10-22/runtime/epoch56/worker.py",
+      "sha256": "91ec6393ad3977d2da6d466858f84fea6adbe27417f2f4e9af5b6efa853b3622"
+    },
+    {
+      "bytes": 10643,
+      "path": "experiments/sota-2026-10-22/runtime/epoch56/retrieval/retrieval_worker.py",
+      "sha256": "fd02babb1bd4c5e188f4b79d78c9772214bc384203c54027399d56451e5141af"
+    },
+    {
+      "bytes": 10244,
+      "path": "experiments/sota-2026-10-22/runtime/epoch56/retrieval/score_sealed_retrieval.py",
+      "sha256": "a4325e2068735ea3b3e1fdda8d5dd7666f617e873e88012ed8b23bad170de174"
+    },
+    {
+      "bytes": 15319,
+      "path": "experiments/sota-2026-10-22/epoch56/reporting/report_actual.py",
+      "sha256": "9f8fbcbdc6feaa2518cb4d21bb06d74dbeb3a12b5f10cd4389bf9c337afc0048"
+    }
+  ],
+  "epoch": 56,
+  "kind": "REAL_NATIVE_SOURCE_FRAGMENT_CAPACITY_QUALIFICATION",
+  "main_unchanged": "c44d7337c0c5ad2ecd2294178475387facb96516",
+  "no_Git_mutation_DATA_model_native_Gold_calls_by_reviewer": true,
+  "original_blob5_execution": "UNKNOWN_PERMANENTLY",
+  "phase": "source",
+  "schema_version": 1,
+  "scope_sha": "994149a2fe89e63588ca096ebfffc19242086365",
+  "source_commit": "60dfc923eee70bfd319489e30afdbd8d2a3bc035",
+  "source_freeze_members_physically_rehashed": 118,
+  "source_freeze_sha256": "cb06539e8fc4e46b8415504970238b363af087eafd8b6d69d06417519af381cc",
+  "source_full_tree_verified": true,
+  "source_plan_sha256": "0d2e93b16520353de2eece63a5c88b07d757fc447985b426b548d3b8b7b65e01",
+  "source_publication_independently_verified": true,
+  "three_UNKNOWN_objects_not_queried_recreated_or_live_referenced": true,
+  "tree_sha": "f4305fe1bf4c476221cb1a531f7f1c019740f821",
+  "verified_actual_remote_readback": true
+}

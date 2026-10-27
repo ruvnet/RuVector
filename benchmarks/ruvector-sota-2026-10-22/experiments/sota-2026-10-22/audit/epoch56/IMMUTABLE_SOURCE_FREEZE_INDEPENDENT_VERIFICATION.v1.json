@@ -1,0 +1,54 @@
+{
+  "all_scientific_counters_at_freeze_zero": true,
+  "auditor_actual_native_model_parser_Gold_Git_calls": 0,
+  "checks_passed": true,
+  "complete_public_inventory117plus_independent_approval": true,
+  "epoch": 56,
+  "exact118rows_fullhashed": true,
+  "qrels_payload_absent": true,
+  "schema_version": 1,
+  "scientific_dispatch_allowed": false,
+  "source_freeze_ref": {
+    "bytes": 29698,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/epoch56/SOURCE_FREEZE.json",
+    "sha256": "cb06539e8fc4e46b8415504970238b363af087eafd8b6d69d06417519af381cc"
+  },
+  "source_roles": {
+    "calibration": [],
+    "development": [
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:100",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1012",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1014",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1019",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1020",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1021",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1024",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1029",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1041",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1049",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1062",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1086",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1088",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1089",
+      "BeIR/scifact@b3b5335604bf5ee3c4447671af975ea25143d4f5:qrels@2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029:test:PROJECT_DEV:1099"
+    ],
+    "engineering": [
+      "authored:e56:harbor-manifest:query-1",
+      "authored:e56:harbor-manifest:query-2",
+      "authored:e56:harbor-manifest:query-3",
+      "authored:e56:reserve-boundaries:query-1",
+      "authored:e56:reserve-boundaries:query-2",
+      "authored:e56:reserve-boundaries:query-3",
+      "authored:e56:diacritic-boundary:query-1",
+      "authored:e56:diacritic-boundary:query-2",
+      "authored:e56:diacritic-boundary:query-3",
+      "authored:e56:joined-annotation:query-1",
+      "authored:e56:joined-annotation:query-2",
+      "authored:e56:joined-annotation:query-3"
+    ],
+    "fresh_confirmation": [],
+    "train": []
+  },
+  "status": "IMMUTABLE_LOCAL_SOURCE_FREEZE_118_ROWS_VERIFIED_ACTUAL_REMOTE_SOURCE_AND_LATE_ADMISSION_REQUIRED"
+}

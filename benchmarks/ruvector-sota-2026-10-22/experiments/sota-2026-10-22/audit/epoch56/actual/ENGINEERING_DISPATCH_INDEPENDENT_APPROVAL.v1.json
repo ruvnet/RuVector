@@ -1,0 +1,96 @@
+{
+  "CPU_affinity": [
+    0,
+    1
+  ],
+  "actual_scientific_execution_by_review": false,
+  "admission_ref": {
+    "bytes": 34494,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ROOT_ENGINEERING_ADMISSION.v1.json",
+    "sha256": "1dee5f23446526ec3e6828941f311119606513e5e96808d6b8fbcd7463f1d34c"
+  },
+  "admission_sha256": "1dee5f23446526ec3e6828941f311119606513e5e96808d6b8fbcd7463f1d34c",
+  "approved_Root_approval_target": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ENGINEERING_DISPATCH_INDEPENDENT_APPROVAL.v1.json",
+  "approved_scope": "Exactly one first E56 engineering component CLI under frozen118source rows; no retrieval, Gold, classifier training/calibration or paid/GPU authority.",
+  "candidate_promoted": false,
+  "checks_passed": true,
+  "compute_threads": 2,
+  "dispatch_allowed": true,
+  "epoch": 56,
+  "expected_argv_flags": [
+    "--plan",
+    "--expected-plan-sha256",
+    "--admission",
+    "--expected-admission-sha256",
+    "--approval",
+    "--expected-approval-sha256"
+  ],
+  "expected_argv_prefix": [
+    "/tmp/ruvector-sota-2026-10-22/epoch33-0522a2c521c9/runtime/.venv/bin/python",
+    "-I",
+    "-B",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/runtime/epoch56/supervisor.py"
+  ],
+  "fresh_shared_cgroup_review": {
+    "headroom_bytes": 3266555904,
+    "memory_current_bytes": 13913313280,
+    "memory_max_bytes": 17179869184,
+    "observed_unix": 1793110149.2873392,
+    "scope": "Actual shared cgroup at auditor admission review; Root must freshly recheck before CLI and worker independently rechecks."
+  },
+  "independent_review_complete": true,
+  "kind": "REAL_NATIVE_SOURCE_FRAGMENT_CAPACITY_QUALIFICATION",
+  "launch_environment": {
+    "BLIS_NUM_THREADS": "2",
+    "CUDA_VISIBLE_DEVICES": "",
+    "HF_DATASETS_OFFLINE": "1",
+    "HF_HUB_DISABLE_TELEMETRY": "1",
+    "HF_HUB_OFFLINE": "1",
+    "MKL_DYNAMIC": "FALSE",
+    "MKL_NUM_THREADS": "2",
+    "NUMEXPR_NUM_THREADS": "2",
+    "OMP_NUM_THREADS": "2",
+    "OMP_THREAD_LIMIT": "2",
+    "OPENBLAS_NUM_THREADS": "2",
+    "RAYON_NUM_THREADS": "2",
+    "TOKENIZERS_PARALLELISM": "false",
+    "TRANSFORMERS_OFFLINE": "1",
+    "UV_THREADPOOL_SIZE": "2",
+    "VECLIB_MAXIMUM_THREADS": "2"
+  },
+  "maximum_native_batches": 1,
+  "maximum_outer_seconds": 600,
+  "no_automatic_retry": true,
+  "official_goal_verified": false,
+  "owner_ref": {
+    "bytes": 711,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/owner.json",
+    "sha256": "1cd0cb9c7ac46476cba887ef0e9ef751daebea307fc8eb0678531af2a7799086"
+  },
+  "plan_sha256": "0d2e93b16520353de2eece63a5c88b07d757fc447985b426b548d3b8b7b65e01",
+  "required_postexecution_acceptance_fields": [
+    "independent_review_complete",
+    "all_owned_processes_closed",
+    "status",
+    "engineering_qualified",
+    "actual_execution_independently_derived",
+    "native_counter_accounting",
+    "reason"
+  ],
+  "requires_exact_launch_config_review_before_invocation": true,
+  "requires_fresh_Root_pre_CLI_headroom": true,
+  "retrieval_prerequisite": "Engineering report must have epoch56, independent_review_complete:true, engineering_qualified:true, all_owned_processes_closed:true and native_counter_accounting.qualified:true, based on actual evidence.",
+  "schema_version": 1,
+  "source_commit": "60dfc923eee70bfd319489e30afdbd8d2a3bc035",
+  "source_freeze_ref": {
+    "bytes": 29698,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/epoch56/SOURCE_FREEZE.json",
+    "sha256": "cb06539e8fc4e46b8415504970238b363af087eafd8b6d69d06417519af381cc"
+  },
+  "source_publication_proof_ref": {
+    "bytes": 3725,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/SOURCE_ACTUAL_REMOTE_READBACK_INDEPENDENT.v1.json",
+    "sha256": "9d19183204c2e8d45a2c92496c2c2a0af2294b6343d6e8c905466ec8525b489d"
+  },
+  "used_confirmation_identities": []
+}

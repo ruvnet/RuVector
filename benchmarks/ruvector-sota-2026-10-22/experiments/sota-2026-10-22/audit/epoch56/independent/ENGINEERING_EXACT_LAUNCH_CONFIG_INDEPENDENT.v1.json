@@ -1,0 +1,57 @@
+{
+  "Root_must_freshly_check_owner_and_cgroup_3GiB_before_CLI": true,
+  "actual_scientific_execution_by_review": false,
+  "admission_ref": {
+    "bytes": 34494,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ROOT_ENGINEERING_ADMISSION.v1.json",
+    "sha256": "1dee5f23446526ec3e6828941f311119606513e5e96808d6b8fbcd7463f1d34c"
+  },
+  "approval_ref": {
+    "bytes": 3931,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ENGINEERING_DISPATCH_INDEPENDENT_APPROVAL.v1.json",
+    "sha256": "b8a57e0afdff3d06f1443e1b1377b252d89ce57cee6393542bb9ea93f833c29e"
+  },
+  "approved_native_batch_count": 1,
+  "automatic_retry_authorized": false,
+  "candidate_promoted": false,
+  "checks_passed": true,
+  "dispatch_allowed": true,
+  "epoch": 56,
+  "exact16argv": [
+    "/tmp/ruvector-sota-2026-10-22/epoch33-0522a2c521c9/runtime/.venv/bin/python",
+    "-I",
+    "-B",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/runtime/epoch56/supervisor.py",
+    "--plan",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/epoch56/plan.json",
+    "--expected-plan-sha256",
+    "0d2e93b16520353de2eece63a5c88b07d757fc447985b426b548d3b8b7b65e01",
+    "--admission",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ROOT_ENGINEERING_ADMISSION.v1.json",
+    "--expected-admission-sha256",
+    "1dee5f23446526ec3e6828941f311119606513e5e96808d6b8fbcd7463f1d34c",
+    "--approval",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ENGINEERING_DISPATCH_INDEPENDENT_APPROVAL.v1.json",
+    "--expected-approval-sha256",
+    "b8a57e0afdff3d06f1443e1b1377b252d89ce57cee6393542bb9ea93f833c29e"
+  ],
+  "exact_original_CPU2_offline_environment": true,
+  "independent_review_complete": true,
+  "kind": "REAL_NATIVE_SOURCE_FRAGMENT_CAPACITY_QUALIFICATION",
+  "launch_config_ref": {
+    "bytes": 1584,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ENGINEERING_LAUNCH_CONFIG.v1.json",
+    "sha256": "e74ee4b434d236ed7858b79f55fd5bc169d841e7be03ca3a9dd8a69d4edbaeb0"
+  },
+  "maximum_inclusive_seconds": 600,
+  "official_goal_verified": false,
+  "review_unix": 1793110202.0238907,
+  "schema_version": 1,
+  "status": "EXACT_FIRST_ENGINEERING_LAUNCH_CONFIG_APPROVED_ROOT_FRESH_PREFLIGHT_REQUIRED",
+  "used_confirmation_identities": [],
+  "wrapper_ref": {
+    "bytes": 3142,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/run_engineering_cli_once.py",
+    "sha256": "b18e8b429024690b42eda42cc3c7433d0fdbcf544615d5a6fb09f4e2f0db998a"
+  }
+}

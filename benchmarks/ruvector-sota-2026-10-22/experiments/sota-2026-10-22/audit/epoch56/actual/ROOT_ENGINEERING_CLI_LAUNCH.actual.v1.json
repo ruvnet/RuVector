@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "/tmp/ruvector-sota-2026-10-22/epoch33-0522a2c521c9/runtime/.venv/bin/python",
+    "-I",
+    "-B",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/runtime/epoch56/supervisor.py",
+    "--plan",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/epoch56/plan.json",
+    "--expected-plan-sha256",
+    "0d2e93b16520353de2eece63a5c88b07d757fc447985b426b548d3b8b7b65e01",
+    "--admission",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ROOT_ENGINEERING_ADMISSION.v1.json",
+    "--expected-admission-sha256",
+    "1dee5f23446526ec3e6828941f311119606513e5e96808d6b8fbcd7463f1d34c",
+    "--approval",
+    "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ENGINEERING_DISPATCH_INDEPENDENT_APPROVAL.v1.json",
+    "--expected-approval-sha256",
+    "b8a57e0afdff3d06f1443e1b1377b252d89ce57cee6393542bb9ea93f833c29e"
+  ],
+  "automatic_retry": false,
+  "epoch": 56,
+  "launch_config_sha256": "e74ee4b434d236ed7858b79f55fd5bc169d841e7be03ca3a9dd8a69d4edbaeb0",
+  "started_monotonic": 433921.917175322
+}

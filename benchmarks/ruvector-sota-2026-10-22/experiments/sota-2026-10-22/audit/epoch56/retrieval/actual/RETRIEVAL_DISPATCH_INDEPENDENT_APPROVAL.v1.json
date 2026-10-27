@@ -1,0 +1,60 @@
+{
+  "CPU_affinity": [
+    0,
+    1
+  ],
+  "Gold_execution_authorized_by_this_approval": false,
+  "Root_must_freshly_recheck_before_CLI": true,
+  "actual_prior_native_batches": 1,
+  "actual_scientific_execution_by_auditor": false,
+  "actual_source_files_verified": 118,
+  "admission_ref": {
+    "bytes": 34818,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/ROOT_RETRIEVAL_ADMISSION.v1.json",
+    "sha256": "8191a00a20cd9094efc06d573d9d9ce4fa9548ba178d0f91b5d494124e122249"
+  },
+  "admission_sha256": "8191a00a20cd9094efc06d573d9d9ce4fa9548ba178d0f91b5d494124e122249",
+  "approved_Root_approval_target": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/RETRIEVAL_DISPATCH_INDEPENDENT_APPROVAL.v1.json",
+  "candidate_promoted": false,
+  "checks_passed": true,
+  "compute_threads": 2,
+  "dispatch_allowed": true,
+  "epoch": 56,
+  "first_actual_native_batch_completed_and_independently_closed": true,
+  "fresh_cgroup_at_review": {
+    "headroom_bytes": 3259695104,
+    "memory_current_bytes": 13920174080,
+    "memory_max_bytes": 17179869184,
+    "observed_unix": 1793110375.30887
+  },
+  "independent_review_complete": true,
+  "kind": "REAL_NATIVE_SCIFACT_RETRIEVAL_DEV_PILOT",
+  "labels_before_all_forecasts_seal_and_independent_physical_closure_authorized": false,
+  "maximum_native_batches": 1,
+  "maximum_outer_seconds": 600,
+  "no_automatic_retry": true,
+  "official_goal_verified": false,
+  "plan_sha256": "8ab6a499cc5ea6ea57e899d47ffbf99c89e84f72cdb249cc59b8c67d66791886",
+  "prerequisite_engineering_acceptance_ref": {
+    "bytes": 10755,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/audit/epoch56/independent/ENGINEERING_ACTUAL_ACCEPTANCE_INDEPENDENT.v1.json",
+    "sha256": "00d415d0444a1d6a5076f592c374fbf1ad6da5d754792f7b8b7d5a606ab6b374"
+  },
+  "remaining_native_batches": 1,
+  "requires_exact16argv_config_review": true,
+  "schema_version": 1,
+  "source_commit": "60dfc923eee70bfd319489e30afdbd8d2a3bc035",
+  "source_freeze_ref": {
+    "bytes": 29698,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/project/experiments/sota-2026-10-22/epoch56/SOURCE_FREEZE.json",
+    "sha256": "cb06539e8fc4e46b8415504970238b363af087eafd8b6d69d06417519af381cc"
+  },
+  "source_publication_proof_ref": {
+    "bytes": 3725,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch56-ffdd0699f325/SOURCE_ACTUAL_REMOTE_READBACK_INDEPENDENT.v1.json",
+    "sha256": "9d19183204c2e8d45a2c92496c2c2a0af2294b6343d6e8c905466ec8525b489d"
+  },
+  "status": "CONDITIONAL_SECOND_RETRIEVAL_COMPONENT_ADMISSION_APPROVED_EXACT_CONFIG_AND_ROOT_FRESH_PREFLIGHT_REQUIRED",
+  "used_confirmation_identities": [],
+  "whole_epoch_maximum_native_corpus_batches": 2
+}
