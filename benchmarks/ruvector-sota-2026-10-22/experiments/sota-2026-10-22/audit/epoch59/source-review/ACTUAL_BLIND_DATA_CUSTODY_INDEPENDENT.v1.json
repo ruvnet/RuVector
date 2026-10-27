@@ -1,0 +1,91 @@
+{
+  "CATALOG_not_yet_executed": true,
+  "DATA_direct_process_absent_or_birth_changed_or_zero_RSS_zombie": true,
+  "DATA_execution_receipt_ref": {
+    "bytes": 811,
+    "path": "/dev/shm/ruvector-e59-data/local-preparation/DATA_ROOT_AUTHORIZED_EXECUTION.actual.v1.json",
+    "sha256": "8379678e26df98f533ef052c6e0af45dc50b33fa38db8c1d21546ff8dc4c151d"
+  },
+  "DATA_group_session_no_live_processes": true,
+  "DATA_process_identity": {
+    "pgid": 199564,
+    "pid": 199564,
+    "sid": 199564,
+    "startticks": 46531654
+  },
+  "actual_DATA_report_ref": {
+    "bytes": 7178,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/private-data/DATA_REPORT.json",
+    "sha256": "7543ee3cdd26a6a224e3515734a7017eb670c2bf0bc127abd1b4e27c705694c5"
+  },
+  "actual_counts": {
+    "document_IDs_seen": 423,
+    "opaque_selected_choice_tokens_copied": 17,
+    "selected_document_text_decodes": 1,
+    "selected_hypothesis_text_decodes": 17,
+    "semantic_gold_decodes": 0,
+    "source_units": 28,
+    "unselected_document_or_choice_decodes": 0,
+    "value_decoder_counts": {
+      "field_name": 3066,
+      "legacy_dev_text": 0,
+      "metadata": 1,
+      "selected_document": 1,
+      "selected_hypothesis": 17
+    }
+  },
+  "actual_source_units": 28,
+  "all17_dev_forever": true,
+  "archive_reopened_or_redecoded_by_Q": false,
+  "case_input_sha256_independently_recomputed_all17": true,
+  "checks_passed": true,
+  "epoch": 59,
+  "exact_contiguous_source_coverage_independently_verified": true,
+  "features_ref": {
+    "bytes": 17527,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/private-data/FEATURES.json",
+    "sha256": "7fcc8d94547597b42b25fb4a5e6feecaaebe8674e10e5ad0e6b84b051a1f6f21"
+  },
+  "kind": "REAL_NATIVE_TYPED_READER_BOUNDED_RESEARCH",
+  "normalized_document_sha256": "d9c341c8757f6616004a579576c4ae29e64f7346a0bf4e98c182ad431730fd37",
+  "project_role_semantics": "PROJECT_DEV_DIAGNOSTIC_NO_FITTING_NO_CONFIRMATION",
+  "schema_version": 1,
+  "scientific_execution_allowed": false,
+  "selected_document_filename_key_sha256": "f2c24152484c19386c32caac5c3a1f593fdecff2d4a3534c95a4d65b05f60406",
+  "selected_ids": [
+    "contractnli:eced6528:train:473:nda-1",
+    "contractnli:eced6528:train:473:nda-10",
+    "contractnli:eced6528:train:473:nda-11",
+    "contractnli:eced6528:train:473:nda-12",
+    "contractnli:eced6528:train:473:nda-13",
+    "contractnli:eced6528:train:473:nda-15",
+    "contractnli:eced6528:train:473:nda-16",
+    "contractnli:eced6528:train:473:nda-17",
+    "contractnli:eced6528:train:473:nda-18",
+    "contractnli:eced6528:train:473:nda-19",
+    "contractnli:eced6528:train:473:nda-2",
+    "contractnli:eced6528:train:473:nda-20",
+    "contractnli:eced6528:train:473:nda-3",
+    "contractnli:eced6528:train:473:nda-4",
+    "contractnli:eced6528:train:473:nda-5",
+    "contractnli:eced6528:train:473:nda-7",
+    "contractnli:eced6528:train:473:nda-8"
+  ],
+  "semantic_Gold_decodes_by_Q": 0,
+  "source_after_ref": {
+    "bytes": 1110,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/private-data/SOURCE_TEXT_ACCESS_AFTER.json",
+    "sha256": "832a344e2a077f1b2d626106d0733786dd00a34cb9223d98b948cd83d7b6883b"
+  },
+  "source_and_claims_independent_hash_validation": true,
+  "source_before_ref": {
+    "bytes": 1110,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/private-data/SOURCE_TEXT_ACCESS_BEFORE.json",
+    "sha256": "2e2613ca47cda08003b47f33467b4756e3969dacf58a8e6452a4ba3d6246bfd7"
+  },
+  "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "source_document_sha256": "9074050e7dc77a015135cb0628f4cd24ad083ef87661368152094dd3ebe5a350",
+  "source_split": "train",
+  "used_confirmation_identities": [],
+  "vault_or_choices_body_opened_by_Q": false
+}

@@ -1,0 +1,1 @@
+{"unk_token": "<unk>", "bos_token": "<s>", "eos_token": "</s>", "add_prefix_space": false, "errors": "replace", "sep_token": "</s>", "cls_token": "<s>", "pad_token": "<pad>", "mask_token": "<mask>", "model_max_length": 512, "special_tokens_map_file": null, "name_or_path": "nreimers/MiniLMv2-L6-H768-distilled-from-RoBERTa-Large"}

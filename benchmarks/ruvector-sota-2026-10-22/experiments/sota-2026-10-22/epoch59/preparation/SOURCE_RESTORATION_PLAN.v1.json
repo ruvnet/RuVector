@@ -1,0 +1,28 @@
+{
+  "Git9232_CP9225_CPonly70": true,
+  "actual_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "configuration": {
+    "bytes": 2326,
+    "path": "/dev/shm/ruvector-e59-data/SOURCE_RESTORATION_CONFIGURATION.v1.json",
+    "sha256": "296dd749ffa243a9dbfeff5e1a578e47e3ae4fe779bd894f72d90015562b488b"
+  },
+  "epoch": 59,
+  "kind": "SOURCE_ONLY_HASH_VERIFIED_RECONSTRUCTION_PLAN",
+  "legacy22_in_memory_metadata_bound_override": [
+    2097152,
+    4194304
+  ],
+  "no_old_publication_controller_replay": true,
+  "operational_code": {
+    "bytes": 13223,
+    "path": "/dev/shm/ruvector-e59-data/reconstruct_sources.v1.py",
+    "sha256": "acb23c07ea57842265456fdb502bdd57d7a361ed6eee0bba278b8c8672c40e38"
+  },
+  "original_donors_unchanged_and_reverified": true,
+  "requires_Root_and_independent_Q_admission_before_execution": true,
+  "restoration_writes_only_new_W59_kit_project_basecache_and_receipts": true,
+  "schema_version": 1,
+  "scientific_entrypoints_dispatched": [],
+  "unchanged_original_bootstrap_SHA256": "eceb2ca259feaf642bc81172aca57a2a209cc34cd17f9b281861c51f21b95806",
+  "unchanged_original_restore_SHA256": "affd9ecf660f380c3632f78cd14fb7a36e00797ceb097cf48c0c60136fac0be8"
+}

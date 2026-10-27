@@ -1,0 +1,84 @@
+{
+  "Root_reported_Git_mutations": 0,
+  "Root_reported_controller_invocations": 0,
+  "Root_reported_scientific_dispatches": 0,
+  "all_scientific_sources_and_gates_remain_exact": true,
+  "detected_at_UTC": "2026-10-27T23:02:09.410337+00:00",
+  "epoch": 59,
+  "exclusive_guardian27_retained": true,
+  "fault": "Ppubliccopyproposal placed unchanged reviewed reporter at epoch59/report_actual.py, but its activate() requires source-frozen epoch59/reporting/report_actual.py. Finalreportercouldnotactivate.",
+  "historical_archive_refs": {
+    "original_master_plan": {
+      "bytes": 17338,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/abandoned-source-generation1/plan.json",
+      "sha256": "9bfdac9b1e311dfa7598e704f009817efdb84313c8f4ef872c7b9ab22bbf527b"
+    },
+    "original_source_freeze": {
+      "bytes": 33429,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/abandoned-source-generation1/SOURCE_FREEZE.json",
+      "sha256": "facedc639c28d36e6cbc74be2eb46289d7e76aaa3156ff277d8ff98f22243818"
+    },
+    "original_source_manifest": {
+      "bytes": 35200,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/abandoned-source-generation1/SOURCE_MANIFEST.json",
+      "sha256": "63b732644a644f8eb0f24beb315e1affa619a4ac41312424f6ca270afeaeccb6"
+    },
+    "original_stage_metadata": {
+      "bytes": 78159,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/abandoned-source-generation1/stage-source/metadata.json",
+      "sha256": "14ba434dc912c4739e5075c09354b549df96ce4707d4d68fce66d598d2518fd1"
+    }
+  },
+  "incorrect_alias": "experiments/sota-2026-10-22/epoch59/report_actual.py",
+  "independent_nonexecution_and_preservation_verification_required": true,
+  "kind": "PREMEASUREMENT_LOCAL_METADATA_ALIAS_REJECTION",
+  "no_measurement_informed_selection": true,
+  "original_blob5_execution": "UNKNOWN_PERMANENTLY",
+  "original_master_configuration": {
+    "bytes": 53184,
+    "path": "/dev/shm/ruvector-e59-publication/MASTER_FREEZE_CONFIGURATION.v1.json",
+    "sha256": "959543c10a9ac6cd9a62d82e4a8d5cdfc6225af8532ddbfa8abe4eec51d5e8f8"
+  },
+  "original_master_plan": {
+    "bytes": 17338,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/project/experiments/sota-2026-10-22/epoch59/plan.json",
+    "sha256": "9bfdac9b1e311dfa7598e704f009817efdb84313c8f4ef872c7b9ab22bbf527b"
+  },
+  "original_public_copy_proposal": {
+    "bytes": 27254,
+    "path": "/dev/shm/ruvector-e59-publication/PUBLIC_SOURCE_COPY_PROPOSAL.v1.json",
+    "sha256": "be44ec1a97fb3d9b46a3bff9eb456b88ccdb6629ba85cdbd8cb3917e6f8f3dbc"
+  },
+  "original_ref_semantics": "original_master_plan/manifest/freeze/stage refs above identify rejected historical bodies at their pre-retirement locations. After retirement canonical paths may contain a newly generated body with a different hash; use historical_archive_refs for original bodies, never treat historical refs as current.",
+  "original_source_freeze": {
+    "bytes": 33429,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/project/experiments/sota-2026-10-22/epoch59/SOURCE_FREEZE.json",
+    "sha256": "facedc639c28d36e6cbc74be2eb46289d7e76aaa3156ff277d8ff98f22243818"
+  },
+  "original_source_manifest": {
+    "bytes": 35200,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/project/experiments/sota-2026-10-22/epoch59/SOURCE_MANIFEST.json",
+    "sha256": "63b732644a644f8eb0f24beb315e1affa619a4ac41312424f6ca270afeaeccb6"
+  },
+  "original_source_phase_input": {
+    "bytes": 37947,
+    "path": "/dev/shm/ruvector-e59-publication/SOURCE_PHASE_INPUT.v1.json",
+    "sha256": "d5c40a2b29a670f21da0f8758e117d1330d4e76aa6cc5c2a6057cc6725ee8d2d"
+  },
+  "original_stage_metadata": {
+    "bytes": 78159,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/stage-source/metadata.json",
+    "sha256": "14ba434dc912c4739e5075c09354b549df96ce4707d4d68fce66d598d2518fd1"
+  },
+  "repair_policy": "Preserve ONLY three rejected generated plan/manifest/freeze files plus unexecuted stage directory unchanged under abandoned-source-generation1. Keep all original74 public source files unchanged, retain wrong reporteralias as inerthistoricalsource, add corrected same-byte reporteralias and explicitfailure/history4 metadata. Build a new reviewed local metadata generation before Git/science. No old controller/stage replay or overwrite.",
+  "reporter_source": {
+    "bytes": 32532,
+    "path": "/dev/shm/ruvector-e59-publication/source-v2/report_actual.py",
+    "sha256": "adead47ef5f36de95118ad21a245dbee09421c76aaea2eedefbe7f214eb85cd9"
+  },
+  "required_alias": "experiments/sota-2026-10-22/epoch59/reporting/report_actual.py",
+  "schema_version": 1,
+  "scientific_candidate_code_model_data_identities_or_gates_changed": false,
+  "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "status": "REJECTED_LOCAL_SOURCE_GENERATION_1_NO_GIT_OR_SCIENCE_DISPATCH"
+}

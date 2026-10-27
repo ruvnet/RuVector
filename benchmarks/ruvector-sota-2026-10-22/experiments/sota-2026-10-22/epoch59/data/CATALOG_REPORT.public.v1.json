@@ -1,0 +1,46 @@
+{
+  "GPU_calls": 0,
+  "Gold_labels_decoded": 0,
+  "NLI_forward_calls": 0,
+  "all17_claims_capacity_checked": true,
+  "catalog_ref": {
+    "bytes": 16564,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/private-catalog/CATALOG.json",
+    "sha256": "5672d07e59a177684f1a0e1e9333e0d41f1849319b3e6f1d5199a9e8bac00591"
+  },
+  "elapsed_seconds": 0.48761946300510317,
+  "epoch": 59,
+  "errors": [],
+  "frozen_window_count": 4,
+  "kind": "REAL_NATIVE_TYPED_READER_BOUNDED_RESEARCH",
+  "mode": "CATALOG",
+  "native_corpus_batches": 0,
+  "paid_API_calls": 0,
+  "schema_version": 1,
+  "selected_query_ids": [
+    "contractnli:eced6528:train:473:nda-1",
+    "contractnli:eced6528:train:473:nda-10",
+    "contractnli:eced6528:train:473:nda-11",
+    "contractnli:eced6528:train:473:nda-12",
+    "contractnli:eced6528:train:473:nda-13",
+    "contractnli:eced6528:train:473:nda-15",
+    "contractnli:eced6528:train:473:nda-16",
+    "contractnli:eced6528:train:473:nda-17",
+    "contractnli:eced6528:train:473:nda-18",
+    "contractnli:eced6528:train:473:nda-19",
+    "contractnli:eced6528:train:473:nda-2",
+    "contractnli:eced6528:train:473:nda-20",
+    "contractnli:eced6528:train:473:nda-3",
+    "contractnli:eced6528:train:473:nda-4",
+    "contractnli:eced6528:train:473:nda-5",
+    "contractnli:eced6528:train:473:nda-7",
+    "contractnli:eced6528:train:473:nda-8"
+  ],
+  "source_features_ref": {
+    "bytes": 17527,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/private-data/FEATURES.json",
+    "sha256": "7fcc8d94547597b42b25fb4a5e6feecaaebe8674e10e5ad0e6b84b051a1f6f21"
+  },
+  "status": "BLIND_CATALOG_READY",
+  "tokenizers_initialized": 2
+}

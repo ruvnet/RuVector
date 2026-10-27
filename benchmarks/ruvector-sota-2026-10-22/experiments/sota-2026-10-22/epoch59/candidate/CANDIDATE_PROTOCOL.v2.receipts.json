@@ -1,0 +1,184 @@
+{
+  "DEV_diagnostic_gate": {
+    "missing_class": "Explicitpresent/absent lists, perclasscounts/correct; absentclass neverpassesoffasallclasscompetence. all_class_competence_claim remainsFalse foroneNDA.",
+    "native_Brier_and_NLL_vs_full": "<=full+1e-6",
+    "native_Brier_and_NLL_vs_source": "<=source+1e-6",
+    "native_correct_each_present_Gold_class": "atleast1correct foreachclass withactualGoldcount>0; classcounts onlyderived aftersealedforecasts/closure/lateGold.",
+    "native_correct_vs_full": "atleastfull",
+    "native_correct_vs_source": "atleastsource+1of17",
+    "other": "All51forecastscomplete/errors0/genuineactualnative/runtimeCPUbounds/NotMentionedfullsourcecoverage/independentreplay.",
+    "pass_scope": "ProjectDEV mechanism diagnostic only. OneNDAclusterwithdependentclaims: no independent-documentCI, source-train generalization, promotion, officialscore/rank orpublishereligibility."
+  },
+  "arms": [
+    "native_order",
+    "source_order",
+    "full_reference"
+  ],
+  "data": {
+    "DEV_ids": [
+      "contractnli:eced6528:train:473:nda-1",
+      "contractnli:eced6528:train:473:nda-10",
+      "contractnli:eced6528:train:473:nda-11",
+      "contractnli:eced6528:train:473:nda-12",
+      "contractnli:eced6528:train:473:nda-13",
+      "contractnli:eced6528:train:473:nda-15",
+      "contractnli:eced6528:train:473:nda-16",
+      "contractnli:eced6528:train:473:nda-17",
+      "contractnli:eced6528:train:473:nda-18",
+      "contractnli:eced6528:train:473:nda-19",
+      "contractnli:eced6528:train:473:nda-2",
+      "contractnli:eced6528:train:473:nda-20",
+      "contractnli:eced6528:train:473:nda-3",
+      "contractnli:eced6528:train:473:nda-4",
+      "contractnli:eced6528:train:473:nda-5",
+      "contractnli:eced6528:train:473:nda-7",
+      "contractnli:eced6528:train:473:nda-8"
+    ],
+    "archive_sha256": "e03fc77bbf8b53e2976a250e81d8a294bc3d5e5fb014521e477dee9340d6287b",
+    "bank_role_field": "dev",
+    "calibration_ids": [],
+    "confirmation_qualification": "UNQUALIFIED_HOLD",
+    "dataset": "stanfordnlp/contract-nli",
+    "document_id": 473,
+    "filename_alias_qualification": "Fixed metadata-only qualification before any selectedNDAfeatures; abort/no replacement on collision. Dataset/data algorithms/identities freeze before source/Gold materialization.",
+    "fresh_confirmation_ids": [],
+    "hypothesis_keys": [
+      "nda-1",
+      "nda-10",
+      "nda-11",
+      "nda-12",
+      "nda-13",
+      "nda-15",
+      "nda-16",
+      "nda-17",
+      "nda-18",
+      "nda-19",
+      "nda-2",
+      "nda-20",
+      "nda-3",
+      "nda-4",
+      "nda-5",
+      "nda-7",
+      "nda-8"
+    ],
+    "license": "CC-BY-4.0 originaldata; Apache2code",
+    "member": "contract-nli/train.json",
+    "new_official_DEV_test_or_fresh_confirmation_claim": false,
+    "normalized_document_sha256": "d9c341c8757f6616004a579576c4ae29e64f7346a0bf4e98c182ad431730fd37",
+    "note": "No unused originalDEV/TESTgroup qualified under durable exposure census. OriginalTRAIN origin is explicit; projectDEV diagnostic cannot establish publisher/full-benchmark generalization. All exposed identities becomeDEVforever.",
+    "original_split": "train",
+    "project_role": "PROJECT_DEV_DIAGNOSTIC_NO_FITTING_NO_CONFIRMATION",
+    "revision": "eced6528dd3c1d14d73f9a87df8f7bdbc03126f9",
+    "train_ids": []
+  },
+  "decision": {
+    "NotMentioned_requires": "Allsuppliedsourcewindowsconsumed, independentofretrievalmiss. This is procedural sourcecoverage, not semanticcompletenessproof.",
+    "aggregation": "For consumedwindows C=max log(pC/pN),E=max log(pE/pN),N=0; stable softmax(C,E,0), canonicalargmaxfirsttie.",
+    "early_exit": "Only C/E winner withwinnerlogodds>=ln9 andmarginagainstopposite>=ln3; fixedbeforemeasurements. No NotMentionedearlyexit.",
+    "numerical_checks": "Exactnumeral-token diagnostics onclaimandfullsource; flaggedcase disablesexit,neverforceslabelorprovesarithmetic. Sourcecatalog preservesexactsubstrings.",
+    "probabilities": "Stable raw3logit softmax C/E/N T1; no calibration/fitting."
+  },
+  "engineering_gate": {
+    "failure": "CloseconditionalDEVslot; no furthermodel/nativebatch/Gold/scorer; preserveexactfailure anduncertainty, no rewarm/dropfirst/relaxgate/retry.",
+    "formula": "2*ceil(3*17*W/8)*max(ALL four actual full8NLI forwardseconds including firstcold)+actualBGEandNLIinitializationseconds+90",
+    "maximum_projection_seconds": 420,
+    "other": "All32pairs/native128+16complete,finite3logits, archivedrawmodel/native/progressevidence, noerrors/forbiddenIO, exactactual42/nativeF32accounting/resources/CPU2/CLI600/physicalclosure; Qindependentqualification required. Engineering input/outputtensorhashes are not archived; do not claim them."
+  },
+  "epoch": 59,
+  "execution": {
+    "CPU_threads": 2,
+    "DEV_geometry": "One frozen suppliedTRAIN473NDA/all17claims,3matchedarms, atmostceil(3*17*W/8) actualNLIforwards; full8exceptfinalifneeded.",
+    "GPU_calls": 0,
+    "actual_accounting": "Exactly42nonnegativeintegercounters derivedfromdurableevents and independentlyreconciled native14keys/F32source/cosine/hits. Rawcounts retained iffailure; scheduledintent is not completedwork.",
+    "engineering_geometry": {
+      "NLI_batch_size": 8,
+      "NLI_pairs": 32,
+      "NLI_sequence_length": 512,
+      "native_documents": 128,
+      "native_queries": 16,
+      "physical_NLI_forwards": 4
+    },
+    "engineering_inputs": {
+      "bytes": 81159,
+      "path": "/dev/shm/ruvector-e59-candidate/ENGINEERING_AUTHORED_INPUTS.v1.json",
+      "sha256": "e749d017df7c588090245a61cf8f34071158c65cf0bcfee1bb568aafd425c835"
+    },
+    "forward_receipts": "ENGINEERING: exact32authoredpair inputs pinned by source; 32raw3logit records; durable events give4full8x512physicalforwards/timings. No engineering perbatch input/outputtensorhashes are archived. DEV: everybatch archives WHOLE-BATCH inputtensorhashes/outputtensorhashes and everyrow raw3logits+case/arm/window/batch IDs; no perrowtensorhashes. Perrow model-forward field counts caseparticipation; globalphysicalcalls derive fromevents/uniquebatches. Batchinguncertainty diagnostic joins semanticpair identities, physicalrowbitequality remainsunverified.",
+    "inclusive_CLI_seconds_per_phase": 600,
+    "latency": "perstatefirstsubmittedbatchstart todecision includesinterbatchqueue/forward/tokenization; excludesprefirstsubmissionqueue, notisolatedsinglequerydeploymentlatency. WholeCLI includes allinit/capture/cleanup.",
+    "native_corpus_batch_cap": 2,
+    "new_paid_API_calls": 0,
+    "no_hidden_warmup_or_retry": true,
+    "outer_alarm_seconds": 598,
+    "physical_closure": "AllownedPIDbirth/PGID/SIDsclosed andindependentactualaudit beforelateGold/scoring. UniqueouterPID=SID=PGID; safeownedPopencleanup evenifobservationfails.",
+    "scheduling": "Roundrobinactivecase-armstates, nextwindowperrotation/revisitifunder8states, pack8withoutsharedoutputcache. Scores/exitafteractualbatchconsumption.",
+    "scientific_phases": [
+      "engineering",
+      "conditionaldev"
+    ],
+    "worker_deadline_seconds": 580
+  },
+  "hypothesis": "Different compact absolute-position six-layer RoBERTa-distilled typedNLI may fit complete supplied-document context inside the unchanged conservative CPU qualification, then native evidence ordering may improve typed decisions versus matched same-model source ordering/full-reference. These are unmeasured hypotheses, not stronger-than-E58 or generalization claims.",
+  "kind": "REAL_NATIVE_TYPED_READER_BOUNDED_RESEARCH",
+  "model": {
+    "architecture": "6layer768RobertaForSequenceClassification, absolutepositions514, padid1, sourcepairedtokenlimit512",
+    "asset_bytes": 82823065,
+    "asset_sha256": "449024a8711a3e655cad410cb2192158f9897fc2a32b65dbb817922351150db7",
+    "canonical_label_order": [
+      "Contradiction",
+      "Entailment",
+      "NotMentioned"
+    ],
+    "declared_license": "Apache-2.0",
+    "declared_supervised_data": [
+      "SNLI",
+      "MultiNLI"
+    ],
+    "exact_training_selection_calibration_export_lineage": "UNQUALIFIED",
+    "official_asset": "onnx/model_qint8_avx512.onnx",
+    "official_id2label": {
+      "0": "contradiction",
+      "1": "entailment",
+      "2": "neutral"
+    },
+    "repository": "cross-encoder/nli-MiniLM2-L6-H768",
+    "revision": "b95119ce93d3e065de6214e38cd4a97b0f2f2c6d",
+    "stronger_than_E58_verified": false
+  },
+  "schema_version": 1,
+  "scorer_contract": {
+    "D_report_class_counts": "actual_decoded_label_class_counts",
+    "Q_count_origin": "IndependentlyfromactualsealedforecastsandlateGold; reportermustcrosscheckD/Q/scorer, neverinferlabelsfromexpectedcounts.",
+    "absent_gold_classes": "canonicalorderedabsentlabels",
+    "actual_gold_class_counts": "canonicalC/E/NotMentioned -> actualintegercounts",
+    "all_class_competence_claim": false,
+    "all_gold_classes_present": "bool",
+    "arms_per_class": "eacharm.per_class[label]={count:int,correct:int}",
+    "new_gate_key": "mechanism_quality_gate.checks.native_correct_each_present_Gold_class",
+    "present_gold_classes": "canonicalorderedpresentlabels"
+  },
+  "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "source_context": {
+    "actualW": "Mustbe measured by separatelysource-frozenlabelblindDATA/tokenizerpreparation and source-freeze exactcatalogref before ANY model/native measurement.",
+    "catalog": "Deterministic exactcontiguousoriginalsource partition; whole source units when they fit, otherwise maximal fitting codepoint fragments; greedy adjacent merging under actualNLIpair512 forall17claims andBGE512. No text/truncation/drop or label/model-output-based selection.",
+    "full_reference": "All Wwindows sourceorder. native_order/source_order mayearlyexit only after measuredpositivewitness thresholds; everyarmusesidenticalmodel/aggregation.",
+    "maximum_windows": 24,
+    "native_index_scope": "Only windows from the one suppliedNDA; exact17claimqueryvectors. Never cross-documentoroutside-excerptretrieval.",
+    "native_miss_policy": "Forcefullsourcecoverage/sourceorder; neverinferinsufficient evidence from missedhit."
+  },
+  "source_only_status": "Original v1protocol was written before ANY E59 model/tokenizer/native/data/Gold initialization. This v2 metadata-only receiptclarification precedes scientificmodel/native measurements; unchanged executable code/localpreparationfreeze/gates/model/IDs.",
+  "source_qualification": {
+    "ClaimBench_pilot": "Notadmittedwithoutofficialdata/scorer/license/submissionaccess; noRuVectorClaimBenchscore.",
+    "fresh_confirmation_ids": [],
+    "native104_champion_preserved": true,
+    "no_new_publisher_submission_or_author_messages": true,
+    "official_goal_verified": false,
+    "promotion_allowed": false
+  },
+  "supersedes_protocol_ref": {
+    "bytes": 10135,
+    "path": "/dev/shm/ruvector-e59-candidate/CANDIDATE_PROTOCOL.v1.json",
+    "sha256": "60ada0d3a7e2371b4353381f3f46fddf33dca58ec3446e6f869e372bdf5f8eeb"
+  },
+  "version_reason": "Root+Q accepted metadata-only distinction between actual archived engineeringlogits/events versus DEVwholebatchtensorreceipts. No executable, identity, model, precision, numerical or acceptancegate change; no extra execution authorized."
+}

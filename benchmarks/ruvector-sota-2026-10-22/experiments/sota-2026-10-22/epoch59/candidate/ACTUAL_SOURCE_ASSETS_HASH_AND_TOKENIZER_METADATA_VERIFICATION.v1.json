@@ -1,0 +1,61 @@
+{
+  "actual_C_model_tokenizer_native_initializations": 0,
+  "actual_Root_source_GET_result_refs": {
+    "nli_model": {
+      "bytes": 1160,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/assets/new-nli/nli_model.GET_RESULT.actual.json",
+      "sha256": "8b221ac541af6a25d85a789f6bb8e23485102dfa8a3dfd4363efa4456a382e80"
+    },
+    "nli_tokenizer": {
+      "bytes": 1154,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/assets/new-nli/nli_tokenizer.GET_RESULT.actual.json",
+      "sha256": "2ea003655f900c9f2344c7f78f8cc49ed0fa6e6977a662dd0cd506a4d6c56c33"
+    }
+  },
+  "assets": {
+    "BGE_model": {
+      "bytes": 34014426,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/model-assets/model_quantized.onnx",
+      "sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4"
+    },
+    "BGE_tokenizer": {
+      "bytes": 711396,
+      "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/models/bge-small-en-v1.5/tokenizer.json",
+      "sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66"
+    },
+    "NLI_model": {
+      "bytes": 82823065,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/assets/new-nli/model.onnx",
+      "sha256": "449024a8711a3e655cad410cb2192158f9897fc2a32b65dbb817922351150db7"
+    },
+    "NLI_tokenizer": {
+      "bytes": 1356048,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/assets/new-nli/tokenizer.json",
+      "sha256": "82139106e603ee4e1d5bc99d056ccbed5a92bc24848b1b5a7137c26e00d0dbf6"
+    }
+  },
+  "epoch": 59,
+  "kind": "REAL_NATIVE_TYPED_READER_BOUNDED_RESEARCH",
+  "lineage": "Officialdirectexport bytes verified; exacttrainingdataset/exportrecipe/testnonuse stillUNQUALIFIED_HOLD, notcleanconfirmation.",
+  "schema_version": 1,
+  "source_weights_or_tokenizer_redistributed": false,
+  "tokenizer_static_JSON_metadata": {
+    "builtin_padding": "BatchLongest/right/padid1 present; source executor calls no_padding() and explicitlyrightpads NLIinputids1/mask0/type0 to512",
+    "builtin_truncation": "LongestFirst512 present in officialJSON; source executor calls no_truncation() before all encodings",
+    "cls": [
+      "<s>",
+      0
+    ],
+    "model_type": "BPE",
+    "pad": [
+      "<pad>",
+      1
+    ],
+    "post_processor": "RobertaProcessing",
+    "sep": [
+      "</s>",
+      2
+    ]
+  },
+  "verification_only_no_initializations": true
+}

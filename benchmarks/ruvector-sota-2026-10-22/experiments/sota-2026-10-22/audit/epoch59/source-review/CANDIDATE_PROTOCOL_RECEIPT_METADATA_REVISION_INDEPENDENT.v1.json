@@ -1,0 +1,38 @@
+{
+  "accepted_clarification": "Engineering retains authored32pairs/raw32logits/4full8x512durableforwardevents/times, butnotwholebatchinput/outputtensorreceipts; DEV haswholebatchtensorreceipts+rowlogits. Engineeringinputtensorbitsnotindependentlyreplayable; no fabricatedreceipts. Noadditionalforwards/warmup/retry/gateadjustment.",
+  "all_executable_refs_exactly_unchanged": true,
+  "checks_passed": true,
+  "engineering_gate_and_DEV_gates_and_data_exactly_unchanged": true,
+  "epoch": 59,
+  "metadata_changed_paths": [
+    ".source_only_status",
+    ".supersedes_protocol_ref",
+    ".execution.forward_receipts",
+    ".version_reason",
+    ".engineering_gate.other"
+  ],
+  "new_candidate_packet_ref": {
+    "bytes": 9505,
+    "path": "/dev/shm/ruvector-e59-candidate/CANDIDATE_SOURCE_PACKET.v4.receipts.json",
+    "sha256": "11062b71810444e357c3fcbdda340795cf26afa28d1607bf94c0255c2534d9a2"
+  },
+  "new_configuration_contract_ref": {
+    "bytes": 11484,
+    "path": "/dev/shm/ruvector-e59-candidate/CONFIGURATION_CONTRACT.v2.receipts.json",
+    "sha256": "12c22a431b74c19553bf292404314222e64cea3cad4f1416e5ddad80598b2213"
+  },
+  "new_protocol_ref": {
+    "bytes": 11181,
+    "path": "/dev/shm/ruvector-e59-candidate/CANDIDATE_PROTOCOL.v2.receipts.json",
+    "sha256": "59c741145034878bba27d743d7d90432c7dbc08c43222a7a34730b74b094dc10"
+  },
+  "prior_independent_review_ref": {
+    "bytes": 2988,
+    "path": "/dev/shm/ruvector-e59-audit/CANDIDATE_PROTOCOL_EXECUTABLE_CLOSURE_INDEPENDENT_REVIEW.v1.json",
+    "sha256": "c293e3773eaa4bfda38ad990ecbb0c5e2d8804ba5c1254af78ddbaf92541853c"
+  },
+  "schema_version": 1,
+  "scientific_execution_allowed": false,
+  "scope": "SOURCE_METADATA_CORRECTION_BEFORE_MEASUREMENTS_AND_WHOLE_SOURCE_FREEZE",
+  "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a"
+}

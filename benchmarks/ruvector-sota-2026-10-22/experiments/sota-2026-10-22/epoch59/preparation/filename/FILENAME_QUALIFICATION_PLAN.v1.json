@@ -1,0 +1,69 @@
+{
+  "alias_policy": {
+    "bytes": 22941,
+    "path": "/dev/shm/ruvector-e59-data/filename-gate/FILENAME_ALIAS_POLICY.v1.json",
+    "sha256": "3fcd688f7420c933b1195263628634e1b3fb9b8abdfc46b19bf3b02c4e5e1153"
+  },
+  "archive_body_reads_to_date": 0,
+  "archive_text_hypothesis_choice_value_decodes_allowed": {
+    "choice": 0,
+    "filename_metadata": 423,
+    "hypothesis": 0,
+    "source_text": 0
+  },
+  "code": {
+    "bytes": 8685,
+    "path": "/dev/shm/ruvector-e59-data/filename-gate/qualify_filename.v1.py",
+    "sha256": "69d64582ddf28e7dc1c3a6391b9f13a4616a6886fe4f54546f3314a29a954dbf"
+  },
+  "confirmation_qualification": "UNQUALIFIED_HOLD",
+  "epoch": 59,
+  "fence_source": {
+    "bytes": 3376,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/guardian27/owner_fence.py",
+    "sha256": "cc0f6f56e14998820dfad60752e3579ce09f1b89deae0ef6c57e47cdbe1dbbc5"
+  },
+  "fresh_confirmation_ids": [],
+  "full_train_member_byte_framing_without_value_decoding_declared": true,
+  "kind": "FROZEN_TRAIN473_FILENAME_ALIAS_QUALIFICATION",
+  "no_replacement_on_collision_or_failure": true,
+  "owner": {
+    "bytes": 831,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/guardian27/owner.json",
+    "sha256": "28f34b4b0af71fbd39d94a05766ba7bf61798ae540419d1838ea3ca21d5cce9f"
+  },
+  "phase": "FILENAME_IDENTITY_ONLY",
+  "project_role": "PROJECT_DEV",
+  "schema_version": 1,
+  "selected_document_id": 473,
+  "selected_normalized_document_sha256_from_metadata": "d9c341c8757f6616004a579576c4ae29e64f7346a0bf4e98c182ad431730fd37",
+  "selection_seed": "ruvector-e59-minilm2-project-dev-v1",
+  "source_archive": {
+    "bytes": 65362913,
+    "git_blob_sha1": "757fd1dafd29a997fba00c60c6d40b2930a36159",
+    "sha256": "e03fc77bbf8b53e2976a250e81d8a294bc3d5e5fb014521e477dee9340d6287b"
+  },
+  "source_archive_path": "/dev/shm/ruvector-sota-2026-10-22/epoch48-37b29244dcf5/assets/data/contract-nli-eced6528.zip",
+  "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "source_freeze_path": "/dev/shm/ruvector-e59-data/filename-gate/FILENAME_QUALIFICATION_SOURCE_FREEZE.v1.json",
+  "source_license_metadata": {
+    "bytes": 2415,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/project/experiments/sota-2026-10-22/epoch53/data/DATA_SOURCE_ELIGIBILITY.v1.json",
+    "sha256": "761d0d944f49b262ccb18c7f44cb38d2d61c70cdcc3a3258c626e7baf46cfc37"
+  },
+  "source_member": {
+    "bytes_currently_unverified": true,
+    "expected_sha256": "dbceb356cd6203b35b27be94a5fa85e499a81c34c42c89ad53060b39f0257ba5",
+    "maximum_bytes": 16777216,
+    "path": "contract-nli/train.json"
+  },
+  "source_preparation_admission_grants_no_scientific_execution": true,
+  "source_split": "train",
+  "source_text_hypothesis_choice_decodes_to_date": 0,
+  "span_module": {
+    "bytes": 4377,
+    "path": "/dev/shm/ruvector-e59-data/data-v1/span_json.py",
+    "sha256": "5ebc4171bc35930bf837101230ff0de02543e19454c9d6dc7b4deba9a6e09387"
+  },
+  "zero_model_tokenizer_native_network_API_GPU_calls": true
+}

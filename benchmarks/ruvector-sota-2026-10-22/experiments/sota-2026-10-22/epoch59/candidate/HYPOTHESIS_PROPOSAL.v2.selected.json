@@ -1,0 +1,141 @@
+{
+  "actual_branch_head_read": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "actual_source_asset_hash_verification": {
+    "bytes": 2448,
+    "path": "/dev/shm/ruvector-e59-candidate/ACTUAL_SOURCE_ASSETS_HASH_AND_TOKENIZER_METADATA_VERIFICATION.v1.json",
+    "sha256": "e34c841da1a85f78ce6263085ced99d1e8737181e8aa78a1aade0423b05669b5"
+  },
+  "configuration_contract": {
+    "bytes": 11368,
+    "path": "/dev/shm/ruvector-e59-candidate/CONFIGURATION_CONTRACT.v1.json",
+    "sha256": "56adcb69636890a700f3be8a9b5fe1a6c6eba702f01e329b53ecac27bb133dfe"
+  },
+  "created_at": "2026-10-27T22:19:13.281030+00:00",
+  "epoch": 59,
+  "fresh_connected_sources_read": [
+    "CONTINUATION.json",
+    "experiments/sota-2026-10-22/epoch58/REJECTION_LEDGER.json",
+    "experiments/sota-2026-10-22/epoch58/SOURCE_MANIFEST.json"
+  ],
+  "implementation_changes_required_before_freeze": [
+    "Update all epoch/base/owner/source contracts for59, never replay58controllers.",
+    "Use officialmodelpad_token_id1 for NLIinput_ids; attentionmaskpad0 andtypenull/0 per staticgraph; oldE58hardcoded0 is not valid MiniLM input padding.",
+    "Validate RoBERTa514positionconfig with pairedtokenlimit512 and4specialtokens, actual BPE tokenizer; no truncation.",
+    "Pin official ONNXinputs/output/types statically before session wherepossible; require rawfloat32threeway logits and CPUprovider only.",
+    "KeepallNLIforwarddatareceipts, typedlogits, event-derived actual42counters, nativeF32/hitprovenance, wholeCLI timing andprocessclosure."
+  ],
+  "kind": "REAL_NATIVE_TYPED_READER_BOUNDED_RESEARCH",
+  "metadata_research_actuals": {
+    "NDA_feature_or_Gold_decodes_by_C": 0,
+    "initial_URL_GETs": 5,
+    "model_or_tokenizer_initializations_by_C": 0,
+    "native_initializations_or_queries_by_C": 0,
+    "new_model_repositories_examined": 1,
+    "paid_API_or_GPU_calls": 0,
+    "physical_redirect_follow_count": "notinstrumented",
+    "weights_GETs_by_C": 0
+  },
+  "model": {
+    "ContractNLI_supervised_or_selection_record_exclusion": "NOT_PROVEN",
+    "architecture": "RobertaForSequenceClassification",
+    "attention_heads": 12,
+    "base_model": "nreimers/MiniLMv2-L6-H768-distilled-from-RoBERTa-Large",
+    "declared_training": [
+      "SNLI",
+      "MultiNLI"
+    ],
+    "direct_official_export": {
+      "Git_LFS_pointer_blob": "17ab67bf5e52cc5337df8fd33c7754a94475b7ce",
+      "bytes": 82823065,
+      "path": "onnx/model_qint8_avx512.onnx",
+      "publisher_sha256": "449024a8711a3e655cad410cb2192158f9897fc2a32b65dbb817922351150db7"
+    },
+    "download_scope": "Root source-onlyactualtwoGETs; no C download, session or tokenizer object",
+    "exact_training_dataset_revisions": "UNVERIFIED",
+    "fresh_confirmation_qualification": "UNQUALIFIED_HOLD",
+    "hidden_size": 768,
+    "id2label": {
+      "0": "contradiction",
+      "1": "entailment",
+      "2": "neutral"
+    },
+    "layers": 6,
+    "license": "Apache-2.0 declared by official modelcard",
+    "max_pair_tokens_to_freeze": 512,
+    "max_position_embeddings": 514,
+    "pad_token_id": 1,
+    "promotion_allowed": false,
+    "raw_weights_downloaded": true,
+    "repository": "cross-encoder/nli-MiniLM2-L6-H768",
+    "revision": "b95119ce93d3e065de6214e38cd4a97b0f2f2c6d",
+    "session_initialized": false,
+    "strength_scope": "A different pretrained typed decision reader distilled from a larger teacher. No measured or publisher-verified superiority over DeBERTa-small, native104 or earlier large readers is established.",
+    "stronger_than_E58_claim": false,
+    "vocab_size": 50265
+  },
+  "observed_CPU_capabilities_metadata_only": {
+    "avx2": true,
+    "avx512_vnni": true,
+    "avx512f": true
+  },
+  "official_source_files": [
+    {
+      "bytes": 8478,
+      "path": "/dev/shm/ruvector-e59-candidate/research/minilm2-api.json",
+      "sha256": "4f67ea49dce3d4f98da324cf3357c8401f2ba171f816e05e4e3d5270740dc6e1"
+    },
+    {
+      "bytes": 2695,
+      "path": "/dev/shm/ruvector-e59-candidate/research/minilm2-README.md",
+      "sha256": "1a6e3f880df3584acc1b209c7c667eb22cb7ddd98ab56a5905dda5cfc446ddd1"
+    },
+    {
+      "bytes": 875,
+      "path": "/dev/shm/ruvector-e59-candidate/research/minilm2-config.json",
+      "sha256": "8b0e41caff7567c0f53e6983f35591c3dec59507c9173ab125c5823394fb57f3"
+    }
+  ],
+  "proposed_design_if_selected": {
+    "CPU_threads": 2,
+    "DEV_gate_if_admitted": "Samepairedaccuracy/proper/runtime/sourcecoveragegates PLUSatleast1nativecorrectperpresentGoldclass, explicitabsentclassesandnoallclasscompetenceclaim.",
+    "DEV_identity": "SelectedoriginalTRAIN473PROJECT_DEV/all17caseIDs subjectfixedfilenamealiasqualificationabort/noreplacement; no freshCF/generalization",
+    "GPU_calls": 0,
+    "arms": [
+      "native_order",
+      "source_order",
+      "full_reference"
+    ],
+    "calibration_ids": [],
+    "engineering": "One native corpusbatch <=128authoredCC0docs/16queries plus32authoredNLIfull8pairs at512, no quality/generalization labels. All first/cold forward costs measured and retained.",
+    "fresh_confirmation_ids": [],
+    "gate": "Retain conservative2*ceil(3*17*W/8)*max(allactualfull8NLIforwardseconds)+allmeasuredmodelinit+90 <=420 AND CPU2, actualinclusiveCLI<=600, noerrors/nativeF32receipt/accounting/physicalclosure. Wmustbeactuallyfrozenfromlabelblindcatalog before modelmeasurements.",
+    "inclusive_seconds_per_batch": 600,
+    "native_batch_cap": 2,
+    "native_scope": "One native index per supplied document only; native miss does not imply insufficient evidence.",
+    "new_paid_API_calls": 0,
+    "numerical_checks": "Fixedclaim/contextnumeraldiagnostics; disableearlyexitwhereflagged,neveroverrideoutcome.",
+    "same_model_and_aggregation": "Allarms use same exactMiniLMasset, sameC/E/Nhead, samefullsourcewindows/maxpositive-vsNEIaggregation, samefixedearlyexit; onlywindoworder/complete-reference differs. Neutral requires full suppliedsourcecoverage.",
+    "train_ids": []
+  },
+  "proposed_hypothesis": "A different compact six-layer absolute-position RoBERTa-distilled typedNLI implementation may admit complete supplied-document coverage under the unchanged conservative CPU gate, making a real matched native-order/source-order/full-reference diagnostic feasible. This is a compute/architecture hypothesis; legal decision accuracy is unknown.",
+  "reviewed_rejections": {
+    "epoch1": "learned residual106/183; easy48candidate39/control41; rejected",
+    "epoch13": "officialnli-roberta-base1be056...12/24 vslexical14,pos14; Brier.7496523357472612,NLL1.2207606718574753; rejected",
+    "epoch2": "57/96tie; Brier.4999147275769355 vs.4995167302004609; NLL.6930619081225885 vs.6926639080519976; rejected",
+    "epoch26": "ModernBERTlarge10/24 butcontradiction0/7 andlineageunknown; rejected",
+    "epoch27": "originalBART15/24 butcontradiction0/4 andrequiredgainfailed; rejected",
+    "epoch32": "tasksourceDeBERTalarge212de...engineeringrejected; noDEV",
+    "epoch53": "task-specializedAgreemindcontractBERTac92...realDEVrejected; no unchangedrepeat",
+    "epoch57": "full5183corpusprojection628.914452094>420; do notrerununchanged",
+    "epoch58": "newDeBERTav3smallfa280...actualCLI35.30632792/32authoredNLIfourwards; full8*512coldmax4.304610449,init1.101723316 =>projection590.4365354006877>420; DEV/Goldnotrun. Keepcoldmax,nohiddenwarmup,nogaterelaxation.",
+    "epochs33to38": "MoritzDeBERTalargeb354...andMicrosoftXXL8f8b...alreadyused; typed/numeric/readiness/lineagefailuresretained",
+    "epochs48and50": "ynieRoBERTalarge5b605...runtimefailurethenrealDEVrejection; no unchangedrepeat"
+  },
+  "schema_version": 1,
+  "selected_protocol": {
+    "bytes": 10135,
+    "path": "/dev/shm/ruvector-e59-candidate/CANDIDATE_PROTOCOL.v1.json",
+    "sha256": "60ada0d3a7e2371b4353381f3f46fddf33dca58ec3446e6f869e372bdf5f8eeb"
+  },
+  "status": "SELECTED_SOURCE_ONLY_NOT_FROZEN_OR_DISPATCHED"
+}

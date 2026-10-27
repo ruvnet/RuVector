@@ -1,0 +1,55 @@
+{
+  "actual_map": {
+    "bytes": 2140229,
+    "path": "/dev/shm/ruvector-e59-data/actual-git-map.json",
+    "sha256": "5181edd6a302ec17c3344ce86654c052a55009f043a8631de5cbb205194d2a3c"
+  },
+  "at_most_one_attempt_per_source_only_step": true,
+  "base_cache_donor": "/dev/shm/ruvector-sota-2026-10-22/epoch58-db7b9b21f4a1/base-cache",
+  "current_CONT": {
+    "bytes": 690727,
+    "path": "/dev/shm/ruvector-e59-data/fresh/CONT.json",
+    "sha256": "da8a8a210c7b6d0bcf2dbb463bc063b812864fddc69f15ee5211e06dbe5fd261"
+  },
+  "current_CP": {
+    "bytes": 2170914,
+    "path": "/dev/shm/ruvector-e59-data/fresh/CP.json",
+    "sha256": "cc706765c2f51d2f7813cb37ae5572f8e9a0e9ec9d56ad2bc78946607279a237"
+  },
+  "donor_map": {
+    "bytes": 4131261,
+    "path": "/dev/shm/ruvector-e59-data/VERIFIED_DONOR_MAP.v1.json",
+    "sha256": "21062f8d7cdc3ad0d773542b9cdc97c5aa8f608550710852d3fb434b8994015f"
+  },
+  "epoch": 59,
+  "fence_source": {
+    "bytes": 3376,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/guardian27/owner_fence.py",
+    "sha256": "cc0f6f56e14998820dfad60752e3579ce09f1b89deae0ef6c57e47cdbe1dbbc5"
+  },
+  "kind": "SOURCE_ONLY_HASH_VERIFIED_RECONSTRUCTION",
+  "new_Kit_twin_retirement_scope": "Only newly copied Kit files whose R twins pass exact SHA256/size and distinctinode checks; original donor files never changed.",
+  "no_data_choice_or_NDA_text_projection": true,
+  "no_model_or_native_initialization": true,
+  "no_network_or_install_or_Git_mutation": true,
+  "no_scientific_dispatch": true,
+  "owner": {
+    "bytes": 831,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/guardian27/owner.json",
+    "sha256": "28f34b4b0af71fbd39d94a05766ba7bf61798ae540419d1838ea3ca21d5cce9f"
+  },
+  "restoration_code": {
+    "bytes": 13223,
+    "path": "/dev/shm/ruvector-e59-data/reconstruct_sources.v1.py",
+    "sha256": "acb23c07ea57842265456fdb502bdd57d7a361ed6eee0bba278b8c8672c40e38"
+  },
+  "schema_version": 1,
+  "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "source_donor_verification": {
+    "bytes": 1309,
+    "path": "/dev/shm/ruvector-e59-data/FRESH_SOURCE_AND_DONOR_VERIFICATION.v1.json",
+    "sha256": "9bd773e1376f3293a0f83c332cbb9d86a02dc4ef3196caa1ae35a0286ada12c0"
+  },
+  "source_only_step_count": 11,
+  "source_only_timeout_seconds_per_step": 60
+}

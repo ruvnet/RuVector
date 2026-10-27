@@ -1,21 +1,18 @@
 {
   "active_run": {
     "OS_lock_observation_scope": "PREPUBLICATION_SNAPSHOT_NOT_CURRENT_REMOTE_LEASE",
-    "actual_DEV_CLI_invocations": 0,
-    "actual_Gold_scoring_calls": 0,
-    "actual_native_corpus_batches_at_snapshot": 1,
-    "all_epoch58_scientific_slots_closed": true,
-    "cleanup_status_at_snapshot": "Guardian release not attempted; only after successful exact FINAL remote readback. This snapshot is not a current remote lease.",
-    "epoch": 58,
+    "champion_preserved": "SubmittedNative104/RRF10",
+    "epoch": 59,
     "experiments_active": false,
-    "generation": 26,
-    "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
-    "owner_expires_at": "2026-10-27T21:08:46.329901+00:00",
-    "owner_sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac",
-    "phase": "final",
+    "kind": "REAL_NATIVE_TYPED_READER_BOUNDED_RESEARCH",
+    "new_GPU_calls": 0,
+    "new_paid_API_calls": 0,
+    "owner_sha256": "28f34b4b0af71fbd39d94a05766ba7bf61798ae540419d1838ea3ca21d5cce9f",
+    "phase": "source",
     "publication_is_not_scientific_authorization": true,
-    "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
-    "work_active": false
+    "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+    "status": "SOURCE_FROZEN_ONLY_NO_SCIENTIFIC_BATCH_COMPLETED",
+    "work_active": true
   },
   "artifact_transport": {
     "archive": {
@@ -347,7 +344,7 @@
     }
   },
   "champion": "SubmittedNative104/RRF10 unchanged",
-  "checkpoint_manifest_sha256": "cc706765c2f51d2f7813cb37ae5572f8e9a0e9ec9d56ad2bc78946607279a237",
+  "checkpoint_manifest_sha256": "a97dee94581cad03c5bf2260c08f3db61cf5262bc32220d77737c6e104f51582",
   "cumulative_budget_ledger": {
     "allowed_further_attempts_in_closed_study": 0,
     "closed_epoch10_study": {
@@ -12736,6 +12733,91 @@
     "status": "FROZEN_TYPED_NLI_COVERAGE_ORDER_DEV_SOURCE_NOT_DISPATCH_ADMISSION",
     "training_calls": 0,
     "used_confirmation_identities": []
+  },
+  "epoch59_data_roles": {
+    "calibration_ids": [],
+    "candidate_promotion_allowed": false,
+    "development_ids": [
+      "contractnli:eced6528:train:473:nda-1",
+      "contractnli:eced6528:train:473:nda-10",
+      "contractnli:eced6528:train:473:nda-11",
+      "contractnli:eced6528:train:473:nda-12",
+      "contractnli:eced6528:train:473:nda-13",
+      "contractnli:eced6528:train:473:nda-15",
+      "contractnli:eced6528:train:473:nda-16",
+      "contractnli:eced6528:train:473:nda-17",
+      "contractnli:eced6528:train:473:nda-18",
+      "contractnli:eced6528:train:473:nda-19",
+      "contractnli:eced6528:train:473:nda-2",
+      "contractnli:eced6528:train:473:nda-20",
+      "contractnli:eced6528:train:473:nda-3",
+      "contractnli:eced6528:train:473:nda-4",
+      "contractnli:eced6528:train:473:nda-5",
+      "contractnli:eced6528:train:473:nda-7",
+      "contractnli:eced6528:train:473:nda-8"
+    ],
+    "fresh_confirmation_ids": [],
+    "fresh_confirmation_qualification": "UNQUALIFIED_HOLD",
+    "original_dataset_split": "train",
+    "project_data_role": "PROJECT_DEV",
+    "train_ids": [],
+    "used_confirmation_identities": []
+  },
+  "epoch59_frozen_study": {
+    "DEV_diagnostic_gate": {
+      "missing_class": "Explicitpresent/absent lists, perclasscounts/correct; absentclass neverpassesoffasallclasscompetence. all_class_competence_claim remainsFalse foroneNDA.",
+      "native_Brier_and_NLL_vs_full": "<=full+1e-6",
+      "native_Brier_and_NLL_vs_source": "<=source+1e-6",
+      "native_correct_each_present_Gold_class": "atleast1correct foreachclass withactualGoldcount>0; classcounts onlyderived aftersealedforecasts/closure/lateGold.",
+      "native_correct_vs_full": "atleastfull",
+      "native_correct_vs_source": "atleastsource+1of17",
+      "other": "All51forecastscomplete/errors0/genuineactualnative/runtimeCPUbounds/NotMentionedfullsourcecoverage/independentreplay.",
+      "pass_scope": "ProjectDEV mechanism diagnostic only. OneNDAclusterwithdependentclaims: no independent-documentCI, source-train generalization, promotion, officialscore/rank orpublishereligibility."
+    },
+    "candidate_protocol_ref": {
+      "bytes": 11181,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/CANDIDATE_PROTOCOL.v2.receipts.json",
+      "sha256": "59c741145034878bba27d743d7d90432c7dbc08c43222a7a34730b74b094dc10"
+    },
+    "engineering_gate": {
+      "failure": "CloseconditionalDEVslot; no furthermodel/nativebatch/Gold/scorer; preserveexactfailure anduncertainty, no rewarm/dropfirst/relaxgate/retry.",
+      "formula": "2*ceil(3*17*W/8)*max(ALL four actual full8NLI forwardseconds including firstcold)+actualBGEandNLIinitializationseconds+90",
+      "maximum_projection_seconds": 420,
+      "other": "All32pairs/native128+16complete,finite3logits, archivedrawmodel/native/progressevidence, noerrors/forbiddenIO, exactactual42/nativeF32accounting/resources/CPU2/CLI600/physicalclosure; Qindependentqualification required. Engineering input/outputtensorhashes are not archived; do not claim them."
+    },
+    "frozen_window_count": 4,
+    "limits": {
+      "CPU_threads": 2,
+      "GPU_calls": 0,
+      "inclusive_CLI_seconds_per_batch": 600,
+      "native_corpus_batches": 2,
+      "paid_API_calls": 0
+    },
+    "schedule_is_not_actual_execution_evidence": true
+  },
+  "epoch59_source": {
+    "actual_NLI_forwards": 0,
+    "actual_native_corpus_batches": 0,
+    "champion_preserved": "SubmittedNative104/RRF10",
+    "local_source_generation": 2,
+    "master_plan": {
+      "bytes": 17643,
+      "path": "experiments/sota-2026-10-22/epoch59/plan.json",
+      "sha256": "42986c0c36d540eac39af71f9bef369a60f480790c604e46c997818ef1596758"
+    },
+    "pending": "Independent actual SOURCE readback and separate engineering dispatch admission; conditional PROJECT_DEV only on frozen engineering gate.",
+    "rejected_unexecuted_metadata_generation1_failure": {
+      "bytes": 4944,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/SOURCE_ALIAS_FAILURE_REPORT.v2.minimal.json",
+      "sha256": "c405d1d11f888e20a81a72af17f3adc13d1ffa6108d712802ad9726393936cc3"
+    },
+    "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+    "source_freeze": {
+      "bytes": 34776,
+      "path": "experiments/sota-2026-10-22/epoch59/SOURCE_FREEZE.json",
+      "sha256": "17ad5079228381882fbe26731936a668781471a9bf41a984b90a96826dfb2728"
+    },
+    "status": "SOURCE_FROZEN_ONLY_NOT_SCIENTIFIC_EXECUTION"
   },
   "epochs": [
     {

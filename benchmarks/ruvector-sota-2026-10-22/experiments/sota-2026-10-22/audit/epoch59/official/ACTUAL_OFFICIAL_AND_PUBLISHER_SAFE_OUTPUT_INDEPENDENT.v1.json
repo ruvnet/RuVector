@@ -1,0 +1,96 @@
+{
+  "accepted_interpretation": {
+    "ClaimBench": "Official linked aggregate: decision/d1-ultra100%, runner-up99.694%, four language models100%. No RuVector result. Full dataset/scorer/license/submission access unverified; no pilot.",
+    "JevBench": "Current public board parsed, but all238 row categories unverified; open-weights Capability leader remains null. Highest mixed/uncategorized score85.233 and publisher headline84.3 are separate observations, neither a verified open-weights leader or RuVector placement.",
+    "publisher": "One receipt-classified metadata row with date2026-10-22; missing pagination/schema means date verification false and has_more null. No new matching official result/score/rank/eligibility established; no global result-absence claim. Historical115 is evaluation queue only."
+  },
+  "actual_archive_checks": {
+    "aggregate_outputs_only_no_credentials_private_selectors_mail_content_or_raw_HTML": true,
+    "all_three_receipts_HTTP200_complete_within_byte_and_time_caps": true,
+    "embedded_receipts_equal_individual_receipts": true,
+    "exact_typed_refs_verified": true,
+    "initial_GET_count": 3,
+    "official_goal_verified": false,
+    "publisher_exact_reference_queries_reported": 2,
+    "publisher_pagination_schema_unknown": true,
+    "publisher_profile_verifications_reported": 2,
+    "publisher_receipt_classification_reported": 1,
+    "publisher_result_candidates_reported": 0,
+    "redirect_GET_count": 0,
+    "retry_authorized": false
+  },
+  "checks_passed": true,
+  "epoch": 59,
+  "kind": "INDEPENDENT_ACTUAL_OFFICIAL_AND_PUBLISHER_SAFE_OUTPUT_REVIEW",
+  "limitations": [
+    "Reviewer independently rehashed and checked archived source/plan/admission/intent/receipts/output consistency; no re-GET or private raw response read was performed. Network receipt contents and publisher invocation counts are archived executor evidence, not independent repeat network observations.",
+    "O reports fully awaited actual exit1 due solely to explicit Jev category-proof failure; this is retained as failed verification, not converted to a verified leader.",
+    "Current public examples/aggregate dataset_type public is not proof of full licensed data/scorer/access.",
+    "Official RuVector score/rank/eligibility and SOTA goal remain unverified."
+  ],
+  "official_once_intent_ref": {
+    "bytes": 254,
+    "path": "/dev/shm/ruvector-e59-official/PUBLIC_REFRESH_ATTEMPT.v3.json",
+    "sha256": "124e1e77c7077b1c1d1ccd358dac204293c088d2c35fbc0f450944cd14d62b97"
+  },
+  "official_public_result_ref": {
+    "bytes": 7386,
+    "path": "/dev/shm/ruvector-e59-official/PUBLIC_REFRESH_RESULT.actual.v3.json",
+    "sha256": "8a4880d835d8e908f300cd620d910a7bd3bce84d39b8fb89eba41faa036bdca0"
+  },
+  "official_root_admission_ref": {
+    "bytes": 756,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/OFFICIAL_PUBLIC_ROOT_ADMISSION.v1.json",
+    "sha256": "6a8c4319a06931a28a843f6fbe46cf13a5d3ef2d91bc9a9e3595820fee3b31af"
+  },
+  "public_source_receipt_refs": [
+    {
+      "bytes": 726,
+      "path": "/dev/shm/ruvector-e59-official/PUBLIC_SOURCE_RECEIPT_1.v3.json",
+      "sha256": "efccc687ee10c93f4b7d3fddea8ffaee48e76178c345445755a9620dfa776f99"
+    },
+    {
+      "bytes": 772,
+      "path": "/dev/shm/ruvector-e59-official/PUBLIC_SOURCE_RECEIPT_2.v3.json",
+      "sha256": "c1710a33bfa6184ec5b0bd5cbb931c86056e7971ce6523f78bc62bc5b46ebcd8"
+    },
+    {
+      "bytes": 827,
+      "path": "/dev/shm/ruvector-e59-official/PUBLIC_SOURCE_RECEIPT_3.v3.json",
+      "sha256": "dc937a1dc2b7d2dab31e33b13febbbac6dbc37fe85511f3fae84cda6ea58bfcc"
+    }
+  ],
+  "publisher_root_once_intent_ref": {
+    "bytes": 1155,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/PUBLISHER_METADATA_ROOT_INTENT.v1.json",
+    "sha256": "43a0922cb5f08f675d11ddf986f50b91d815081cc283f6a44d8710fc04f02983"
+  },
+  "publisher_safe_result_ref": {
+    "bytes": 1548,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/PUBLISHER_METADATA.actual.v1.json",
+    "sha256": "6626be393200ec24b4c5c617d68097dc14704590a4c50790616df77ab08d3c41"
+  },
+  "reviewed_at": "2026-10-27T22:54:33.150456+00:00",
+  "reviewer_execution": {
+    "HTTP_GETs": 0,
+    "mail_searches": 0,
+    "model_native_DATA_Gold_paid_API_GPU_calls": 0,
+    "outgoing_messages_or_submissions": 0,
+    "private_raw_payload_reads": 0,
+    "profile_reads": 0
+  },
+  "schema_version": 1,
+  "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "source_privacy_approval_refs": [
+    {
+      "bytes": 3469,
+      "path": "/dev/shm/ruvector-e59-audit/official-source-review/OFFICIAL_PUBLIC_SOURCE_PRIVACY_INDEPENDENT_APPROVAL.v1.json",
+      "sha256": "bf72a109b970dd3b8f3e60c75e9de1c86ef8ada8707bb37f0c4adcf9ed2936d2"
+    },
+    {
+      "bytes": 3212,
+      "path": "/dev/shm/ruvector-e59-audit/official-source-review/PUBLISHER_METADATA_SOURCE_PRIVACY_INDEPENDENT_APPROVAL.v1.json",
+      "sha256": "cb70251d2aabf000f644d72dc03d1f049be3d99c8d46c3ca9bd1b63da05628a2"
+    }
+  ]
+}

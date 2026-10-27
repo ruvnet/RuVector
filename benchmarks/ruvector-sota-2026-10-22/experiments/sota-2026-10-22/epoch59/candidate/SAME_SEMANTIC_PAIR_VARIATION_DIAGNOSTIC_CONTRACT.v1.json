@@ -1,0 +1,59 @@
+{
+  "acceptance_interpretation": {
+    "CF_qualification": "UNQUALIFIED_HOLD",
+    "existing_frozenengineering_and_DEVgates": "UNCHANGED",
+    "native104_champion_preserved": true,
+    "quality_pass_if_any": "OneoriginalTRAINdocument PROJECT_DEV totalpipeline diagnostic only; no causalsole-relevance attribution, independent-documentgeneralization, confirmation/promotion, officialrank or eligibility.",
+    "same_model_control_scope": "Exactsamecheckpoint/quantization/scheduler/aggregation, differing native/source/fullordering+coverage policy."
+  },
+  "acceptance_or_model_precision_or_execution_policy_changed": false,
+  "actual_archived_fields": {
+    "batch": "input_tensor_receipts={input_name:{shape,dtype,bytes,sha256}}, output_tensor_receipt, model_weight_sha256, label_order",
+    "per_row_tensor_hash": "NOT_ARCHIVED",
+    "raw_worker": "NLI_batch_records",
+    "row": "batch_id,row_index,case_id,arm,window_id,raw_logits3,source_window_sha256,claim_input_sha256",
+    "row_shape": "Can be derived from each actual batch input receipt shape[1:]; this is shape evidence, not row-byte identity."
+  },
+  "additional_forwards_tokenizer_or_model_initializations_or_labels_or_data_identities": 0,
+  "contract_type": "METADATA_ONLY_PREMEASUREMENT_UNCERTAINTY_AND_DIAGNOSTIC",
+  "derived_diagnostic_after_actual_DEV_closure": {
+    "argmax_flips": "Reportnumberofcomparablegroups with>1canonicalrawlogitargmax, plus pairwiseflipcount andexactcase/window/arm metadataidentities.",
+    "comparable_group": "Atleasttwo distinctobservedarms inone semanticjoin group.",
+    "coverage": [
+      "totalexpectedgroups",
+      "groupsobserved",
+      "groupswith1/2/3arms",
+      "eacharm-observedgroupcount",
+      "comparablegroupcount",
+      "observedarm-paircomparisoncount",
+      "missingarm/groupcount"
+    ],
+    "expected_semantic_groups": "Frozen17cases * actualfrozenW; full_reference suppliesallifcomplete.",
+    "implementation_owner": "Q independently derives from raw alreadyarchived records; no model/Tokenizer calls, training, new data selection or Goldneeded.",
+    "max_absolute_logit_delta": "Forall observedarm-pairs in each comparable semanticgroup, compare eachcanonicalrawlogit coordinate andreport globalmax; null/UNMEASURED ifnocomparisons.",
+    "max_absolute_stable_softmax_probability_delta": "Independentlystable-softmax eachactual3logitrow thencompare coordinatesacross observedarm-pairs; reportglobalmax, not modelaccuracy or proper-score delta.",
+    "missing_arm_or_pair": "UNMEASURED; neverzero-filled as numericalequivalence or inferredfrom unexecutedqueries.",
+    "no_DEV_execution": "NOT_EXECUTED_UNMEASURED; allnumerical variationmetricsnull, no claimzero variation.",
+    "pairwise_details": "For each compared semanticgroup/arm-pair preserve observedbatchids/rowindices, sourcehashes, batchtensorreceipts/derivedrowshapes, maxlogitdelta/maxprobdelta/argmaxlabels; no contexttext or decodedGoldrequired.",
+    "source_semantic_diagnostic_is_not_direct_row_bitwise_fidelity": true,
+    "unsupported_or_invalid_input": "Retain diagnosticerror/uncertainty, do not fabricate expectedvalues."
+  },
+  "epoch": 59,
+  "hypothesis_scope": "The fixed same-checkpoint native/source/full ablation measures total ordering-and-batching pipeline effects. It does not isolate evidence relevance or prove bit-identical outputs for repeated semantic pairs.",
+  "kind": "REAL_NATIVE_TYPED_READER_BOUNDED_RESEARCH",
+  "potential_variation_sources": [
+    "Dynamic-int8 activation quantization may depend on companion batch contents.",
+    "Other floating-point/batch/runtime effects are not separately identified by this diagnostic."
+  ],
+  "schema_version": 1,
+  "semantic_join": {
+    "interpretation": "Same semantic source-window andclaim inputs under frozen deterministicencoder/padder code. Whole-batch hashes do not directly prove equality of individualrowbytes.",
+    "keys": [
+      "source_window_sha256",
+      "claim_input_sha256"
+    ],
+    "physical_row_bit_equivalence": "UNVERIFIED_NO_ROW_HASH_ARCHIVED",
+    "require": "Uniqueactual(case_id,arm,window_id),same pinnedmodelweight/canonicalC,E,NotMentionedlabels and valid3logits; catalog/sourcecase hashes must bindexactfrozeninputs."
+  },
+  "source_status": "Fixedbefore anyE59 scientificmodel/native measurement; this metadata file performs no execution."
+}

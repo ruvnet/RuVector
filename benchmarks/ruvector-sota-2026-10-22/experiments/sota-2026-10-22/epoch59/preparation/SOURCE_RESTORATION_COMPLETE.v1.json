@@ -1,0 +1,93 @@
+{
+  "Kit_twin_retirement": {
+    "bytes": 1993511,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/KIT_TWIN_RETIREMENT.actual.v1.json",
+    "sha256": "c90420929ffdefddc0d482f9ea8baa60a24fecb0e2725aba190a4c7b76c53760"
+  },
+  "actual_commit": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "all70_CP_only_sources_restored": true,
+  "all_CP_R_body_hashes_verified": 9225,
+  "all_fresh_Git_Kit_hashes_verified_before_retirement": 9232,
+  "base_files": 48,
+  "checks_passed": true,
+  "counts_after_Kit_retirement": {
+    "base-cache": 48,
+    "kit": 46,
+    "project": 9435
+  },
+  "counts_before_Kit_retirement": {
+    "base-cache": 48,
+    "kit": 9357,
+    "project": 9435
+  },
+  "epoch": 59,
+  "kind": "SOURCE_ONLY_HASH_VERIFIED_RECONSTRUCTION",
+  "model_acquisition_installation_paid_or_Git_mutations": 0,
+  "only_legacy22_runtime_bound_override": [
+    2097152,
+    4194304
+  ],
+  "original_donors_preserved": true,
+  "original_helpers_unmodified": true,
+  "remaining_headroom_bytes": 2085244928,
+  "schema_version": 1,
+  "scientific_entrypoints_dispatched": [],
+  "source_only_steps": [
+    {
+      "bytes": 1871,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/E42-archive-materialized.json",
+      "sha256": "68221514eaa96c6f1f2941518c3964adb30f2ebcd32fff3a77cd6908cc753a70"
+    },
+    {
+      "bytes": 1861,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/legacy22-verified-cap4m.json",
+      "sha256": "3a70f6001a79f1ea5dba06f341ac94b7e381c4d802a7f62b755448a7d770f441"
+    },
+    {
+      "bytes": 1832,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/legacy26-verified.json",
+      "sha256": "e0018b67d867388a9958d48c0648184aa53275243b8a34abc5dcf2939f17567b"
+    },
+    {
+      "bytes": 8417,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/bootstrap-source-verified.json",
+      "sha256": "260bf37beb455475eb11cfb7a5747343f2eeb0d8c61dc79999582de3b16a03e0"
+    },
+    {
+      "bytes": 789,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/checkpoint-restored.json",
+      "sha256": "49bdb85abca431af1c410a130b170a62475be5345f3d205c8bd5ae7804134224"
+    },
+    {
+      "bytes": 810,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/checkpoint-verify-only.json",
+      "sha256": "5be350d29047ce57a7650b9375bfa14f6e5b441805f45427c0cdaa030d03f119"
+    },
+    {
+      "bytes": 1891,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/E42-archive-verify-only.json",
+      "sha256": "89c7fd554dbea0a81c75960f55ac1e04a4d94ee039d1f55dc6683e07c64dc954"
+    },
+    {
+      "bytes": 1428,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/E44-overlay-restored.json",
+      "sha256": "37aad7c42f14783a37eedfef90a617d7eae89c2f3f366a15bf995a87ed6f8a4b"
+    },
+    {
+      "bytes": 1448,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/E44-overlay-verified.json",
+      "sha256": "9b2775be6da6c3ebb72f09dbcd3a98285eaf219dac6779c5286d1002ce66638a"
+    },
+    {
+      "bytes": 1046,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/E49-overlay-restored.json",
+      "sha256": "33e9595b80ec3e053facf4dc69ef2676538a41be5fe01d00d20b43e35b48b4e6"
+    },
+    {
+      "bytes": 1065,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/E49-overlay-verified.json",
+      "sha256": "a7f090d226390b68f3c91f4320616ff7fc408769e67adefa6e108469feada4a2"
+    }
+  ],
+  "unchanged_bootstrap_and_restore_executed": true
+}

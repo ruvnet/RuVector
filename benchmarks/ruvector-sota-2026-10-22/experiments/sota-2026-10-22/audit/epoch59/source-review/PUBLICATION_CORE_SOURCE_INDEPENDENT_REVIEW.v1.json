@@ -1,0 +1,99 @@
+{
+  "actual_full_stage_check_only_execution_this_review": false,
+  "actual_inert_verification": {
+    "no_live_guard_stage_controller_phase_or_dataset_model_native_Git_calls": true,
+    "node_check_exit_code": 0,
+    "python_test_exit_code": 0,
+    "python_tests_passed": 17,
+    "source_hashes_rechecked_after_tests": true,
+    "temp_files_only_and_cleaned": true,
+    "test_source_read_before_execution": true
+  },
+  "blocking_findings": [],
+  "checks_passed": true,
+  "core_source_review_passed": true,
+  "epoch": 59,
+  "full_contract_review": {
+    "E44_overlay55_kept_separate": true,
+    "absolute_and_project_typed3_references_before_field_use": true,
+    "actual_Q_preparation_approval_hash_and_inputSHA_required_even_check_only": true,
+    "all70_CP_only_transports_preserved": true,
+    "append_only_exposure_history": true,
+    "artifact_exact4field_contract": true,
+    "base_CP_rows": 9225,
+    "base_Git_rows": 9232,
+    "baseline_requires_hashed_file_ref_not_inline_object": true,
+    "champion_goal_confirmation_and_previous_controls_preserved": true,
+    "check_only_mkdir_and_every_stage_write_disabled_by_code": true,
+    "check_only_returns_deterministic_bytehashes_for_every_planned_output": true,
+    "check_only_same_real_checks_not_mocks": true,
+    "exact_base_commit": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+    "final_manifest_closes_exact_epoch_inventory": true,
+    "fixed_scoped_branch_only": true,
+    "fresh_G27_ids_only": true,
+    "independent_source_readback_requires_equal_root_tree_sha": true,
+    "old_budget_facts_unchanged_only_new_actual_row": true,
+    "old_original_blob5_unknown_permanently": true,
+    "permanent_three_Git_denyset_preserved": true,
+    "publication_grants_no_scientific_authority": true,
+    "source_final_exact_input_key_contract": true,
+    "source_hashes_freeze_binding_and_Merkle_recomputed": true
+  },
+  "future_actual_stage_still_requires_full_tree_publication_approval": true,
+  "future_exact_phase_inputs_still_require_independent_preparation_review": true,
+  "kind": "INDEPENDENT_PUBLICATION_CORE_SOURCE_REVIEW",
+  "observed_at": "2026-10-27T22:32:44.535773+00:00",
+  "prior_reviewed_origin_pins": {
+    "controller.js": "1de9449bdddab66b0e6444edf7e24872cc2945af26a7ecaf887ef8ca73e79b95",
+    "guard.py": "cc27e9f31b9a59d89ebc205a0f0e83d52a0bdad95f916d08502ad6fc18adfc3f",
+    "stagebuilder.py": "bfaaa050bec6c4782aece47c57c8eac0411a28855626500cc1b7b1ebbedf2afb"
+  },
+  "publication_phase_allowed": false,
+  "review_method_note": "An initial auditor-only normalization assertion used an overbroad digit substitution that changed a digest substring in the comparison string. Corrected comparison uses identifier/context substitutions, preserves every digest, and exactly matches the controller. No reviewed source or execution result changed; no publication or scientific entrypoint was invoked.",
+  "review_scope": "Core source only. No approval of still-unfinished reporter/master/candidate/data plans; no SOURCE staging or controller invocation performed.",
+  "schema_version": 1,
+  "scientific_execution_allowed": false,
+  "source_review_packet_ref": {
+    "bytes": 3393,
+    "path": "/dev/shm/ruvector-e59-publication/PUBLICATION_CORE_SOURCE_REVIEW_PACKET.v1.json",
+    "sha256": "c4f6592c52d94c9ceab03c7bd79e31b66d740ddfaa05c2f46a4c14c41f984b23"
+  },
+  "sources": {
+    "controller.js": {
+      "bytes": 9874,
+      "path": "/dev/shm/ruvector-e59-publication/source-v2/controller.js",
+      "sha256": "a5fd6d0a51c7a92f8897e1738b27d8cd15f0e85725840785845c583c500a495f"
+    },
+    "guard.py": {
+      "bytes": 19446,
+      "path": "/dev/shm/ruvector-e59-publication/source-v2/guard.py",
+      "sha256": "e6ac2f505a492a66a95daa95a9f9f9d515dc2c04d399ff4ee9481c0a62506813"
+    },
+    "stagebuilder.py": {
+      "bytes": 21294,
+      "path": "/dev/shm/ruvector-e59-publication/source-v2/stagebuilder.py",
+      "sha256": "09b3bb9576885d809ce5dce101851b6891b0afd4b64b57880b2d3c309a662bbc"
+    },
+    "test_publication_inert.py": {
+      "bytes": 9957,
+      "path": "/dev/shm/ruvector-e59-publication/source-v2/test_publication_inert.py",
+      "sha256": "c0f0b211253957bc432aee51d2cf7b7f3d9db6c46bc1c9cbf94749d77dfd9da2"
+    }
+  },
+  "transaction_review": {
+    "O_EXCL_durable_request_rawproof_and_receipt_writes": true,
+    "Root_one_explicit_phase_only": true,
+    "bare_ref_ACK_only_with_exact_fresh_ref": true,
+    "complete_raw_capture_before_parse_or_postcall_owner_check": true,
+    "controller_exact_behavior_preserved_after_context_renames": true,
+    "dynamic_main_snapshots_read_only": true,
+    "fresh_exact_tree_sole_parent_commit_proof_required": true,
+    "fresh_postCAS_and_closing_branch_reads": true,
+    "full_actual_remote_scope_leafcheck_before_commit": true,
+    "identifying_blob_tree_commit_ACKs_required": true,
+    "no_automatic_retry_replay_or_uncertain_history_resumption": true,
+    "reserve_before_fsynced_intent_before_external_mutation": true,
+    "server_CAS_expected_parent_force_false_branch_fixed": true,
+    "unrelated_root_bench_siblings_preserved": true
+  }
+}

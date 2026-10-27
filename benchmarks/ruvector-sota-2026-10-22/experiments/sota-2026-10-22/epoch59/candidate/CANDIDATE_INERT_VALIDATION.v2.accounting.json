@@ -1,0 +1,60 @@
+{
+  "actual_model_tokenizer_native_initializations": 0,
+  "all_passed": true,
+  "all_source_preparation_inert_suite_runs": [
+    {
+      "candidate": 14,
+      "native_adapter": 14,
+      "reason": "Initialstructuralepoch/data/modelportbefore newregressions",
+      "supervisor_scorer": 28,
+      "total": 56
+    },
+    {
+      "candidate": 17,
+      "native_adapter": 14,
+      "reason": "AddedMiniLMpad/type/source-role andclass-gateregressions",
+      "supervisor_scorer": 30,
+      "total": 61
+    },
+    {
+      "candidate": 17,
+      "native_adapter": 14,
+      "reason": "FinalactualtokenizerSHApin/guardmetadatachange; reranrelevantinertsuites",
+      "supervisor_scorer": 30,
+      "total": 61
+    }
+  ],
+  "epoch": 59,
+  "kind": "REAL_NATIVE_TYPED_READER_BOUNDED_RESEARCH",
+  "latest_actual_inert_suite": {
+    "candidate": 17,
+    "native_adapter": 14,
+    "supervisor_scorer": 30,
+    "total": 61
+  },
+  "new_regressions": [
+    "NLIpadid1whileBGEstays0",
+    "RoBERTasingle-typevocab",
+    "originalTRAINcatalogcannotberelabelled",
+    "presentGoldclasszeroCorrectfailsgate",
+    "absentclassandcompetencecaveatexplicit"
+  ],
+  "paid_API_GPU_calls": 0,
+  "real_benchmark_or_Gold_payloads_read": 0,
+  "schema_version": 1,
+  "scope": "Authoredinertfixtures/cleanupmocktests only; no benchmark quality or model feasibility measurement.",
+  "source_only": true,
+  "supersedes_source_preparation_report": {
+    "bytes": 1045,
+    "path": "/dev/shm/ruvector-e59-candidate/CANDIDATE_INERT_VALIDATION.v1.json",
+    "sha256": "c9aed79a3deb4f06f79e6d9a5ce8774b8b1c5d91fceaa080fd6b34b412518618"
+  },
+  "test_commands": [
+    "taskset -c 0,1 python -I -B /dev/shm/ruvector-e59-candidate/test_candidate_inert.v1.py",
+    "taskset -c 0,1 python -I -B /dev/shm/ruvector-e59-candidate/native_impl/test_native_inert.v1.py",
+    "taskset -c 0,1 python -I -B /dev/shm/ruvector-e59-candidate/supervisor_impl/test_inert.v1.py"
+  ],
+  "test_counts_are_not_scientific_forward_counts": true,
+  "total_inert_suite_invocations": 9,
+  "total_inert_test_executions_across_runs": 178
+}

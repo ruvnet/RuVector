@@ -1,18 +1,15 @@
 {
   "OS_lock_observation_scope": "PREPUBLICATION_SNAPSHOT_NOT_CURRENT_REMOTE_LEASE",
-  "actual_DEV_CLI_invocations": 0,
-  "actual_Gold_scoring_calls": 0,
-  "actual_native_corpus_batches_at_snapshot": 1,
-  "all_epoch58_scientific_slots_closed": true,
-  "cleanup_status_at_snapshot": "Guardian release not attempted; only after successful exact FINAL remote readback. This snapshot is not a current remote lease.",
-  "epoch": 58,
+  "champion_preserved": "SubmittedNative104/RRF10",
+  "epoch": 59,
   "experiments_active": false,
-  "generation": 26,
-  "kind": "REAL_NATIVE_TYPED_NLI_COVERAGE_ORDER_DEV",
-  "owner_expires_at": "2026-10-27T21:08:46.329901+00:00",
-  "owner_sha256": "78d50fe9cf3cd9e4d70a84644a152e921fb2cc5cd3b0ee143888c2c85e684bac",
-  "phase": "final",
+  "kind": "REAL_NATIVE_TYPED_READER_BOUNDED_RESEARCH",
+  "new_GPU_calls": 0,
+  "new_paid_API_calls": 0,
+  "owner_sha256": "28f34b4b0af71fbd39d94a05766ba7bf61798ae540419d1838ea3ca21d5cce9f",
+  "phase": "source",
   "publication_is_not_scientific_authorization": true,
-  "source_checkpoint": "db7b9b21f4a13e5fc3444a8fe40de26583558e2e",
-  "work_active": false
+  "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "status": "SOURCE_FROZEN_ONLY_NO_SCIENTIFIC_BATCH_COMPLETED",
+  "work_active": true
 }

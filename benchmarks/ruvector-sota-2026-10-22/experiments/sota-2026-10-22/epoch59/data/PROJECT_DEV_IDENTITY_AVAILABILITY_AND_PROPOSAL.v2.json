@@ -1,0 +1,155 @@
+{
+  "actual_Gold_or_choice_or_label_reads": 0,
+  "actual_NDA_text_or_feature_reads": 0,
+  "actual_dataset_archive_or_member_opens": 0,
+  "actual_network_model_tokenizer_native_scientific_calls": 0,
+  "all_prior_exposed_reserved_and_dev_test_normalized_aliases_excluded": true,
+  "candidate_promotion_allowed": false,
+  "checks_passed": true,
+  "confirmation_qualification": "UNQUALIFIED_HOLD",
+  "epoch": 59,
+  "epoch53_retired_four": [
+    9,
+    39,
+    205,
+    582
+  ],
+  "epoch58_retired_last_one": [
+    17
+  ],
+  "fresh_CONT_ref": {
+    "bytes": 690727,
+    "path": "/dev/shm/ruvector-e59-data/fresh/CONT.json",
+    "sha256": "da8a8a210c7b6d0bcf2dbb463bc063b812864fddc69f15ee5211e06dbe5fd261"
+  },
+  "fresh_CP_ref": {
+    "bytes": 2170914,
+    "path": "/dev/shm/ruvector-e59-data/fresh/CP.json",
+    "sha256": "cc706765c2f51d2f7813cb37ae5572f8e9a0e9ec9d56ad2bc78946607279a237"
+  },
+  "fresh_confirmation_ids": [],
+  "hypothesis_templates_previously_public_and_exposed": true,
+  "kind": "METADATA_ONLY_UNASSIGNED_SOURCE_GROUP_AVAILABILITY_AND_PROJECT_DEV_PROPOSAL",
+  "limitations": [
+    "Original source TRAIN assigned PROJECT_DEV is a diagnostic only, with no training/fitting in this epoch.",
+    "The74 groups have ID/normalized-hash historical nonuse metadata; filename-key metadata is still missing and cannot be invented.",
+    "Generic MiniLM2 SNLI+MNLI declaration does not prove exact ContractNLI training or checkpoint-selection nonuse; no fresh-confirmation or checkpoint-unseen claim.",
+    "A single NDA supplies17 dependent claims and cannot establish independent-document or official benchmark placement."
+  ],
+  "metadata_only": true,
+  "new_document_instances_are_not_new_template_wording": true,
+  "official_DEV_TEST_no_unused_group_blocker": "The existing complete184-group metadata census leaves no eligible DEV/TEST document after E58. Exposed Legal96/whole-group aliases and all protected CF reservations stay excluded; none may be relabeled fresh.",
+  "official_DEV_last_five": [
+    9,
+    17,
+    39,
+    205,
+    582
+  ],
+  "official_DEV_remaining_eligible": [],
+  "official_TEST_remaining_eligible": [],
+  "official_score_rank_or_benchmark_generalization_claim": false,
+  "original_TRAIN_partition": {
+    "exposed_through34": 325,
+    "protected_confirmation": 24,
+    "source_groups": 423,
+    "unassigned_remaining": 74
+  },
+  "post34_intersection_with_unassigned_candidate_pool": [],
+  "post34_numeric_or_typed_originalTRAIN_role_intersections": [],
+  "prior_metadata_execution_failure": {
+    "actual_attempts": 1,
+    "correction": "Read the existing published metadata key source_text_exposed_case_ids; no underlying identity, hash, role or candidate change.",
+    "dataset_or_feature_Gold_model_native_Git_calls": 0,
+    "exception": "KeyError: actual_source_text_exposed_case_ids",
+    "exit_code": 1,
+    "output_created": false,
+    "source": {
+      "bytes": 10431,
+      "path": "/dev/shm/ruvector-e59-data/identity-review/verify_identity_metadata.py",
+      "sha256": "6cfcf6643712e0f262425139a812a90c2d4c857b6df5f5a1efee65c487bea75a"
+    }
+  },
+  "proposed_candidate": {
+    "document_filename_key_sha256": null,
+    "document_id": 473,
+    "expected_case_ids": [
+      "contractnli:eced6528:train:473:nda-1",
+      "contractnli:eced6528:train:473:nda-10",
+      "contractnli:eced6528:train:473:nda-11",
+      "contractnli:eced6528:train:473:nda-12",
+      "contractnli:eced6528:train:473:nda-13",
+      "contractnli:eced6528:train:473:nda-15",
+      "contractnli:eced6528:train:473:nda-16",
+      "contractnli:eced6528:train:473:nda-17",
+      "contractnli:eced6528:train:473:nda-18",
+      "contractnli:eced6528:train:473:nda-19",
+      "contractnli:eced6528:train:473:nda-2",
+      "contractnli:eced6528:train:473:nda-20",
+      "contractnli:eced6528:train:473:nda-3",
+      "contractnli:eced6528:train:473:nda-4",
+      "contractnli:eced6528:train:473:nda-5",
+      "contractnli:eced6528:train:473:nda-7",
+      "contractnli:eced6528:train:473:nda-8"
+    ],
+    "filename_qualification_status": "NOT_IN_EXISTING_METADATA; requires a new separately frozen, label-blind selected-filename metadata pass before source text or label access. Abort on any prior/protected filename alias; no replacement.",
+    "normalized_document_sha256": "d9c341c8757f6616004a579576c4ae29e64f7346a0bf4e98c182ad431730fd37",
+    "proposed_role": "PROJECT_DEV",
+    "ranking_sha256": "01dd45ca94d6fbf3348f411dd86485a885bf66770cacfd94af41adc4725a5d8d",
+    "source_split": "train"
+  },
+  "proposed_candidate_source_group_count": 1,
+  "required_next_step": "New metadata-only selected-filename identity qualification under its own reviewed source/identity freeze; if clean, Root may freeze all17 case IDs as PROJECT_DEV before source preparation/model measurements. No replacement on collision/capacity/class-support/outcome failure.",
+  "requires_Root_and_independent_acceptance_before_role_freeze": true,
+  "role_selection_or_data_admission_granted": false,
+  "schema_version": 1,
+  "selection_rule": "Ascending SHA256(UTF8(seed + newline + normalized_document_sha256 + newline + decimal_document_id)), decimalID tiebreak. No source text, lengths, classes, labels or outcomes used.",
+  "selection_seed": "ruvector-e59-minilm2-project-dev-v1",
+  "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "source_file_ref": {
+    "bytes": 10978,
+    "path": "/dev/shm/ruvector-e59-data/identity-review/verify_identity_metadata.v2.py",
+    "sha256": "2cc9f5c09f5c8f325d3a0707011a6cb35606e26cc1ab7ea55c737f2416a3ca6e"
+  },
+  "source_member": {
+    "dataset_license": "CC-BY-4.0",
+    "member_byte_count_newly_verified": false,
+    "official_code_license": "Apache-2.0",
+    "path": "contract-nli/train.json",
+    "repository": "stanfordnlp/contract-nli",
+    "revision": "eced6528dd3c1d14d73f9a87df8f7bdbc03126f9",
+    "sha256_from_prior_verified_metadata": "dbceb356cd6203b35b27be94a5fa85e499a81c34c42c89ad53060b39f0257ba5"
+  },
+  "source_metadata_CP_refs": [
+    {
+      "bytes": 538158,
+      "path": "experiments/sota-2026-10-22/audit/epoch34/exposure-metadata.json",
+      "sha256": "77302349f7259e6dba215fcd5645bfdb7f674bab45144a6149f693e8e5ec0f9a"
+    },
+    {
+      "bytes": 96577,
+      "path": "experiments/sota-2026-10-22/legal-transfer/epoch9/eligibility-manifest.json",
+      "sha256": "e22f95096a4a0ed5809ba316856c751a46de679d2b26e7ad81a7a464d3e490b7"
+    },
+    {
+      "bytes": 192734,
+      "path": "experiments/sota-2026-10-22/epoch53/data/FULL_HISTORICAL_SOURCE_GROUP_HASH_CENSUS.v1.json",
+      "sha256": "26b465d4e79a671c7088ea2f2d425224fa8f444be2addf0eab59c9d184edd63d"
+    },
+    {
+      "bytes": 16400,
+      "path": "experiments/sota-2026-10-22/epoch53/data/IDENTITY_POLICY.v1.json",
+      "sha256": "c6ef19b7311a1885785fe4b554e41227494a4c5f1a0a679aafe657f6050458bb"
+    },
+    {
+      "bytes": 8681,
+      "path": "experiments/sota-2026-10-22/epoch58/data/DATA_SOURCE_AND_IDENTITY.actual.v1.json",
+      "sha256": "b5cd39f6ee1cbaff1d7a4bf4c415084b55ebf57b2a58e99d9f9334d9b93bc620"
+    },
+    {
+      "bytes": 2415,
+      "path": "experiments/sota-2026-10-22/epoch53/data/DATA_SOURCE_ELIGIBILITY.v1.json",
+      "sha256": "761d0d944f49b262ccb18c7f44cb38d2d61c70cdcc3a3258c626e7baf46cfc37"
+    }
+  ]
+}

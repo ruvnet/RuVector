@@ -1,0 +1,74 @@
+{
+  "BGE_model_ref": {
+    "bytes": 34014426,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch57-5e426edd8ada/model-assets/model_quantized.onnx",
+    "sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4"
+  },
+  "BGE_tokenizer_ref": {
+    "bytes": 711396,
+    "path": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project/models/bge-small-en-v1.5/tokenizer.json",
+    "sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66"
+  },
+  "CPU_affinity": [
+    0,
+    1
+  ],
+  "Node_binary_ref": {
+    "bytes": 125989464,
+    "path": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+    "sha256": "bc17c508ffeed0ec622934f9b7fa72f8e78da65350e63c3eceb56fa688aa5e12"
+  },
+  "Node_version_from_actual_verified_probe": "v24.19.0",
+  "Q_benchmark_archive_or_Gold_reads": 0,
+  "Q_model_tokenizer_RuVector_native_initializations": 0,
+  "Q_network_or_Git_calls": 0,
+  "actual_runtime_report_ref": {
+    "bytes": 5945,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/CURRENT_RUNTIME_AND_CACHED_BGE_VERIFICATION.v1.json",
+    "sha256": "fb6d38749f8f48324f10024b1e1261f3fb790b8e266f705c2b72d8fa8c65eb39"
+  },
+  "actual_version_probe_results": {
+    "numpy": "2.2.6",
+    "onnxruntime": "1.22.1",
+    "python": "3.12.14",
+    "tokenizers": "0.21.4"
+  },
+  "all10_native_origin_assets_independently_rehashed": true,
+  "all17498_wheel_members_independently_rehashed": true,
+  "checks_passed": true,
+  "elapsed_seconds": 2.106727534031961,
+  "epoch": 59,
+  "independent_verifier_source_review_ref": {
+    "bytes": 1616,
+    "path": "/dev/shm/ruvector-e59-audit/RUNTIME_METADATA_VERIFIER_SOURCE_INDEPENDENT_APPROVAL.v1.json",
+    "sha256": "93b000e5ca1c9777500374ef3ac7da2b83b6757189fc346ca4f11cfebcca28d8"
+  },
+  "installed_member_bytes": 885284577,
+  "kind": "INDEPENDENT_ACTUAL_CURRENT_RUNTIME_NATIVE_AND_CACHED_BGE_HASH_REVIEW",
+  "liveG27_owner_fence_passed": true,
+  "native_asset_root": "/tmp/ruvector-sota-2026-10-22/epoch38-7c50ba99848f/project",
+  "native_origin_lock_ref": {
+    "bytes": 4800,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/project/experiments/sota-2026-10-22/runtime/epoch47/NATIVE_PYTHON_RUNTIME_ORIGIN_LOCK.json",
+    "sha256": "137310d3973e23aaaea3e474aee3b545cb3af54008c01a12a010322d20b4769f"
+  },
+  "observed_at": "2026-10-27T22:46:02.347519+00:00",
+  "python_resolved_binary_ref": {
+    "bytes": 30894944,
+    "path": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "sha256": "fa67443527ed9647f760d807e2a38f26340757123e643c4639cf273ed15d5ea7"
+  },
+  "python_venv_config_ref": {
+    "bytes": 389,
+    "path": "/tmp/ruvector-sota-2026-10-22/epoch33-0522a2c521c9/runtime/.venv/pyvenv.cfg",
+    "sha256": "73fc338a1b07b818c095edc00afa4c00695869bc26356cf33ae38bf1ef639332"
+  },
+  "schema_version": 1,
+  "scientific_admission_granted": false,
+  "version_probe_scope": "Root actually ran hash-pinned verifier once and reported fully awaited exit0; Q independently rehashed current files and audited its source, without repeating package import or Node version subprocess probes.",
+  "wheel_member_manifest_ref": {
+    "bytes": 4640799,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/project/experiments/sota-2026-10-22/epoch26/preparation/runtime-members/python-wheel-members.json",
+    "sha256": "87254bbf6ec2aba6d08a4b55ff189faf29f78e1b1dd278fe8ffef9a8cc5523b9"
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "Q_tokenizer_model_native_or_Gold_calls": 0,
+  "actual_DATA_report_ref": {
+    "bytes": 7178,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/private-data/DATA_REPORT.json",
+    "sha256": "7543ee3cdd26a6a224e3515734a7017eb670c2bf0bc127abd1b4e27c705694c5"
+  },
+  "actual_catalog_capacity_assertions": {
+    "BGE_windows_and_queries_checked512": true,
+    "all17_NLI_pairs_checked512": true,
+    "mechanism": "Auditedfixedactualprepare_catalog+runtime_common source enforces tokenizers.no_truncation/no_padding, finalwindowfitsall17+BGE; actualsuccessreceipt. Q deliberatelydoesnotrepeat tokenizerinitialization/capacitycalls."
+  },
+  "actual_catalog_report_ref": {
+    "bytes": 1677,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/private-catalog/CATALOG_REPORT.json",
+    "sha256": "438bbab2e204a14f6e56f81240a541b3a15bddc40ec29237227d8527d54030ae"
+  },
+  "actual_tokenizer_initializations_from_actual_preparation": 2,
+  "all17_DEV_forever": true,
+  "all17_original_cases_exactly_equal_frozen_blindbank": true,
+  "catalog_ref": {
+    "bytes": 16564,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/private-catalog/CATALOG.json",
+    "sha256": "5672d07e59a177684f1a0e1e9333e0d41f1849319b3e6f1d5199a9e8bac00591"
+  },
+  "checks_passed": true,
+  "epoch": 59,
+  "frozen_window_count": 4,
+  "independent_DATA_review_ref": {
+    "bytes": 3765,
+    "path": "/dev/shm/ruvector-e59-audit/ACTUAL_BLIND_DATA_CUSTODY_INDEPENDENT.v1.json",
+    "sha256": "5276681ef5c5ee7c8305d2cbb65929e330365bb2666c46a58c6fb62637ce5ff1"
+  },
+  "kind": "REAL_NATIVE_TYPED_READER_BOUNDED_RESEARCH",
+  "new_model_native_Gold_paid_GPU_calls": 0,
+  "process_observation_limitation": "Rootfullyawaitedsetsid--waittimeoutcommandexit0, but tokenizerpreparationPIDbirthwasnotobserved; Q doesnotclaimindependentperprocessCPUorphysicalclosurefromunobservedidentities. Thisisnonscientificpreparation; futuremodel/nativephasesrequireexactPIDbirth/sessionclosure.",
+  "project_role_semantics": "PROJECT_DEV_DIAGNOSTIC_NO_FITTING_NO_CONFIRMATION",
+  "root_catalog_admission_ref": {
+    "bytes": 3880,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/LOCAL_CATALOG_ADMISSION.v1.json",
+    "sha256": "c69f3887ef0b43b172fd899d956bc73da55e15fd140bef0425ffdb22700a9ed8"
+  },
+  "root_catalog_execution_receipt_ref": {
+    "bytes": 957,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/CATALOG_ROOT_EXECUTION.actual.v1.json",
+    "sha256": "9c5cc1f2925747f141d11a46a2b8f173e80db13d6fdbe3c9d9adf7e105013a8d"
+  },
+  "schema_version": 1,
+  "scientific_execution_allowed": false,
+  "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "source_coverage_and_source_unit_overlap_independently_verified": true,
+  "source_split": "train",
+  "used_confirmation_identities": [],
+  "window_lengths_codepoints": [
+    1697,
+    2295,
+    2471,
+    1103
+  ]
+}

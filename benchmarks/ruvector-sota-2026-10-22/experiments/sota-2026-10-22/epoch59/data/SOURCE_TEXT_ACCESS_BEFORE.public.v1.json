@@ -1,0 +1,29 @@
+{
+  "all17_retired_as": "DEV_FOREVER",
+  "confirmed_document_text_decodes": 0,
+  "epoch": 59,
+  "kind": "REAL_NATIVE_TYPED_READER_BOUNDED_RESEARCH",
+  "reserved_development_case_ids": [
+    "contractnli:eced6528:train:473:nda-1",
+    "contractnli:eced6528:train:473:nda-10",
+    "contractnli:eced6528:train:473:nda-11",
+    "contractnli:eced6528:train:473:nda-12",
+    "contractnli:eced6528:train:473:nda-13",
+    "contractnli:eced6528:train:473:nda-15",
+    "contractnli:eced6528:train:473:nda-16",
+    "contractnli:eced6528:train:473:nda-17",
+    "contractnli:eced6528:train:473:nda-18",
+    "contractnli:eced6528:train:473:nda-19",
+    "contractnli:eced6528:train:473:nda-2",
+    "contractnli:eced6528:train:473:nda-20",
+    "contractnli:eced6528:train:473:nda-3",
+    "contractnli:eced6528:train:473:nda-4",
+    "contractnli:eced6528:train:473:nda-5",
+    "contractnli:eced6528:train:473:nda-7",
+    "contractnli:eced6528:train:473:nda-8"
+  ],
+  "schema_version": 1,
+  "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "stage": "BEFORE",
+  "uncertain_if_process_dies_before_AFTER": true
+}

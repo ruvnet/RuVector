@@ -1,0 +1,33 @@
+{
+  "HTTP_GET_attempts": 1,
+  "HTTP_GET_completed": 1,
+  "after_memory": {
+    "available": 2030665728,
+    "current": 15149203456,
+    "maximum": 17179869184
+  },
+  "asset": "nli_tokenizer",
+  "asset_ref": {
+    "bytes": 1356048,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/assets/new-nli/tokenizer.json",
+    "sha256": "82139106e603ee4e1d5bc99d056ccbed5a92bc24848b1b5a7137c26e00d0dbf6"
+  },
+  "before_memory": {
+    "available": 2036822016,
+    "current": 15143047168,
+    "maximum": 17179869184
+  },
+  "body_GitSHA": "8df0092a08e1d459f60ec541e08cd35a16362bfe",
+  "bytes_read": 1356048,
+  "epoch": 59,
+  "errors": [],
+  "model_tokenizer_native_initializations": 0,
+  "paid_API_or_GPU_calls": 0,
+  "redirect_urls_headers_and_credentials_not_persisted": true,
+  "requested_pinned_public_url": "https://huggingface.co/cross-encoder/nli-MiniLM2-L6-H768/resolve/b95119ce93d3e065de6214e38cd4a97b0f2f2c6d/tokenizer.json",
+  "required_outer_timeout_seconds": 108,
+  "schema_version": 1,
+  "source_GET_inner_SIGALRM_seconds": 100,
+  "status": "COMPLETE_VERIFIED_SOURCE_ASSET_ONLY",
+  "whole_worker_elapsed_seconds": 0.7175404570298269
+}

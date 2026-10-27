@@ -1,0 +1,70 @@
+{
+  "Root_terminal_observation_scope": "Root reported both exact source GET outer CLIs fully awaited exit0; reviewer independently checked persisted attempts/results and current complete body bytes.",
+  "actual_logical_initial_GET_attempts": 2,
+  "actual_logical_initial_GET_completed": 2,
+  "assets": [
+    {
+      "actual_inner_seconds": 8.42608423094498,
+      "asset_ref": {
+        "bytes": 82823065,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/assets/new-nli/model.onnx",
+        "sha256": "449024a8711a3e655cad410cb2192158f9897fc2a32b65dbb817922351150db7"
+      },
+      "attempt_ref": {
+        "bytes": 545,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/assets/new-nli/nli_model.GET_ATTEMPT.json",
+        "sha256": "a1cc7ba7f2e4411f14730c3c85a819f3db86c095bae93504ebb60f96a9004a4b"
+      },
+      "body_GitSHA": "f6e03a92f83152381e7c9b75f44e6c4bbb30fe83",
+      "result_ref": {
+        "bytes": 1160,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/assets/new-nli/nli_model.GET_RESULT.actual.json",
+        "sha256": "8b221ac541af6a25d85a789f6bb8e23485102dfa8a3dfd4363efa4456a382e80"
+      }
+    },
+    {
+      "actual_inner_seconds": 0.7175404570298269,
+      "asset_ref": {
+        "bytes": 1356048,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/assets/new-nli/tokenizer.json",
+        "sha256": "82139106e603ee4e1d5bc99d056ccbed5a92bc24848b1b5a7137c26e00d0dbf6"
+      },
+      "attempt_ref": {
+        "bytes": 548,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/assets/new-nli/nli_tokenizer.GET_ATTEMPT.json",
+        "sha256": "ff5fc91dcfb6529c6b5745f8c6465febd56a20b71ab7d18cb63c5953c26c3856"
+      },
+      "body_GitSHA": "8df0092a08e1d459f60ec541e08cd35a16362bfe",
+      "result_ref": {
+        "bytes": 1154,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/assets/new-nli/nli_tokenizer.GET_RESULT.actual.json",
+        "sha256": "2ea003655f900c9f2344c7f78f8cc49ed0fa6e6977a662dd0cd506a4d6c56c33"
+      }
+    }
+  ],
+  "both_actual_persisted_receipts_complete_verified_errors_empty": true,
+  "both_asset_bodies_independently_rehashed": true,
+  "checks_passed": true,
+  "epoch": 59,
+  "independent_GET_admission_ref": {
+    "bytes": 3051,
+    "path": "/dev/shm/ruvector-e59-audit/SOURCE_ASSET_GET_PLAN_AND_DOWNLOADER_INDEPENDENT_APPROVAL.v1.json",
+    "sha256": "92205c211f8572e6684eb4531aa4ac3ddacb1bd17c6d0caac1ab63a1634205aa"
+  },
+  "kind": "INDEPENDENT_ACTUAL_SOURCE_ASSET_HASH_AND_RECEIPT_REVIEW",
+  "live_G27_fence_passed": true,
+  "model_repository": "cross-encoder/nli-MiniLM2-L6-H768",
+  "model_revision": "b95119ce93d3e065de6214e38cd4a97b0f2f2c6d",
+  "model_tokenizer_native_or_Gold_initializations": 0,
+  "observed_at": "2026-10-27T22:35:33.835339+00:00",
+  "paid_API_GPU_calls": 0,
+  "physical_redirect_count_measured": false,
+  "plan_ref": {
+    "bytes": 4499,
+    "path": "/dev/shm/ruvector-e59-candidate/SOURCE_ASSET_GET_PLAN.v1.g27.json",
+    "sha256": "c5108ecee2d01cd66da37aef1993661e8b514d6346ea4391b3f6a95125493896"
+  },
+  "quality_or_lineage_qualification_claimed": false,
+  "schema_version": 1,
+  "scientific_admission_granted": false
+}

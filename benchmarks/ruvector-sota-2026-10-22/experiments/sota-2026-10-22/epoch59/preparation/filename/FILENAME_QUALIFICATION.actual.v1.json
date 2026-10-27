@@ -1,0 +1,58 @@
+{
+  "Gold_choice_values_decoded": 0,
+  "all_filename_alias_document_ids_retired_as_PROJECT_DEV_forever": [
+    473
+  ],
+  "all_source_TRAIN_filename_alias_document_ids": [
+    473
+  ],
+  "blocked_or_reserved_TRAIN_filename_alias_document_ids": [],
+  "byte_framing_scope": "Full train member traversed as bytes; decoded only JSON object field names, numeric document IDs, and423 file_name metadata values.",
+  "calibration_ids": [],
+  "checks_passed": true,
+  "confirmation_qualification": "UNQUALIFIED_HOLD",
+  "document_IDs_seen": 423,
+  "epoch": 59,
+  "errors": [],
+  "filename_metadata_decodes": 423,
+  "fresh_confirmation_ids": [],
+  "hypothesis_value_decodes": 0,
+  "no_replacement": true,
+  "phase": "FILENAME_IDENTITY_ONLY",
+  "prior_DEV_TEST_Legal96_filename_collision": false,
+  "project_role": "PROJECT_DEV",
+  "schema_version": 1,
+  "selected_document_filename_key_sha256": "f2c24152484c19386c32caac5c3a1f593fdecff2d4a3534c95a4d65b05f60406",
+  "selected_document_id": 473,
+  "selected_normalized_document_sha256_from_frozen_metadata": "d9c341c8757f6616004a579576c4ae29e64f7346a0bf4e98c182ad431730fd37",
+  "semantic_Gold_decodes": 0,
+  "source_archive_bytes": 65362913,
+  "source_archive_sha256": "e03fc77bbf8b53e2976a250e81d8a294bc3d5e5fb014521e477dee9340d6287b",
+  "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "source_freeze_ref": {
+    "bytes": 1489,
+    "path": "/dev/shm/ruvector-e59-data/filename-gate/FILENAME_QUALIFICATION_SOURCE_FREEZE.v1.json",
+    "sha256": "b1f0170ef72e0598cd0a918ceba245d05d2b968f8ee0334a10ba7df72e70a57f"
+  },
+  "source_member": "contract-nli/train.json",
+  "source_member_bytes": 7608211,
+  "source_member_sha256": "dbceb356cd6203b35b27be94a5fa85e499a81c34c42c89ad53060b39f0257ba5",
+  "source_plan_ref": {
+    "bytes": 3027,
+    "path": "/dev/shm/ruvector-e59-data/filename-gate/FILENAME_QUALIFICATION_PLAN.v1.json",
+    "sha256": "133c3e7134e4b12215ce088ab9752f8cadb2d11dff4b2101f6ab0cfd3507f712"
+  },
+  "source_split": "train",
+  "source_text_and_hypothesis_values_decoded": 0,
+  "source_text_decodes": 0,
+  "status": "READY_TRAIN473_FILENAME_ALIAS_QUALIFIED_NO_FEATURES",
+  "train_ids": [],
+  "used_confirmation_identities": [],
+  "value_decoder_counts": {
+    "field_name": 2963,
+    "legacy_dev_text": 0,
+    "metadata": 423,
+    "selected_document": 0,
+    "selected_hypothesis": 0
+  }
+}

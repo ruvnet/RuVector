@@ -1,0 +1,30 @@
+{
+  "actual_guardian_birth_startticks": 46302984,
+  "actual_guardian_pid": 198313,
+  "checks_passed": true,
+  "epoch": 59,
+  "generation": 27,
+  "invalid_float_typed_owner_size_test": {
+    "error": "exact typed owner27 reference required",
+    "rejected": true,
+    "value": 831.0
+  },
+  "kind": "EXACT_SHARED_OWNER_FENCE_SOURCE_INDEPENDENT_REVIEW",
+  "observed_at": "2026-10-27T22:17:52.371351+00:00",
+  "owner_fence_source_ref": {
+    "bytes": 3376,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/guardian27/owner_fence.py",
+    "sha256": "cc0f6f56e14998820dfad60752e3579ce09f1b89deae0ef6c57e47cdbe1dbbc5"
+  },
+  "owner_ref": {
+    "bytes": 831,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/guardian27/owner.json",
+    "sha256": "28f34b4b0af71fbd39d94a05766ba7bf61798ae540419d1838ea3ca21d5cce9f"
+  },
+  "schema_version": 1,
+  "scientific_authorization_granted": false,
+  "scientific_restoration_or_Git_calls": 0,
+  "source_diff": "Only E59/gen27/current source path, actual PID198313/birth46302984 and831-byte owner hash/constants substituted from reviewed G26v2; all typed3, symlink/stability, duplicate-key, CPU, identity, live expiry, original FD3/inode, actual kernel FLOCK, nonblocking-busy checks unchanged.",
+  "use_scope": "Shared exact live exclusive-owner check; source/restoration/scientific or publication admission still separate. Hash source before import.",
+  "valid_readonly_calls": 1
+}

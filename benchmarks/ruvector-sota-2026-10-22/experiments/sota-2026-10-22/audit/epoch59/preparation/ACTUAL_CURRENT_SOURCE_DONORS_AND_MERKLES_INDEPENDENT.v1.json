@@ -1,0 +1,54 @@
+{
+  "CP_only_rows": 70,
+  "CP_rows": 9225,
+  "Git_leaves": 9232,
+  "Git_mutations_or_models_native_Gold_calls": 0,
+  "actual_commit": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "actual_map_ref": {
+    "bytes": 2140229,
+    "path": "/dev/shm/ruvector-e59-data/actual-git-map.json",
+    "sha256": "5181edd6a302ec17c3344ce86654c052a55009f043a8631de5cbb205194d2a3c"
+  },
+  "all_donor_byte_counts_SHA256_and_Git_blob_hashes_matched": true,
+  "all_scope_subtree_Merkles_and_root_bench_chain_recomputed": true,
+  "bench_sha": "579a6b7291dd08d77b6f767484c6ba85422b4c60",
+  "checks_passed": true,
+  "current_CONT_ref": {
+    "bytes": 690727,
+    "path": "/dev/shm/ruvector-e59-data/fresh/CONT.json",
+    "sha256": "da8a8a210c7b6d0bcf2dbb463bc063b812864fddc69f15ee5211e06dbe5fd261"
+  },
+  "current_CP_ref": {
+    "bytes": 2170914,
+    "path": "/dev/shm/ruvector-e59-data/fresh/CP.json",
+    "sha256": "cc706765c2f51d2f7813cb37ae5572f8e9a0e9ec9d56ad2bc78946607279a237"
+  },
+  "donor_map_ref": {
+    "bytes": 4131261,
+    "path": "/dev/shm/ruvector-e59-data/VERIFIED_DONOR_MAP.v1.json",
+    "sha256": "21062f8d7cdc3ad0d773542b9cdc97c5aa8f608550710852d3fb434b8994015f"
+  },
+  "elapsed_seconds": 1.7411789110046811,
+  "epoch": 59,
+  "forbidden_Git_objects_not_queried_recreated_or_live_referenced": true,
+  "fresh_source_proof": {
+    "bytes": 1309,
+    "path": "/dev/shm/ruvector-e59-data/FRESH_SOURCE_AND_DONOR_VERIFICATION.v1.json",
+    "sha256": "9bd773e1376f3293a0f83c332cbb9d86a02dc4ef3196caa1ae35a0286ada12c0"
+  },
+  "kind": "INDEPENDENT_ACTUAL_SOURCE_DONORS_AND_MERKLES_REVIEW",
+  "live_G27_fence_passed_before_and_after": true,
+  "observed_at": "2026-10-27T22:19:14.284439+00:00",
+  "original_donor_regular_files_no_symlinks": true,
+  "rejection_ledger_ref": {
+    "bytes": 262839,
+    "path": "/dev/shm/ruvector-e59-data/fresh/ledger.json",
+    "sha256": "08fc0833abdabdbe7d15607f76884dc40f329a549d450860517f9def8e9388b0"
+  },
+  "restore_execution_authorized": false,
+  "schema_version": 1,
+  "scope_sha": "44d3f11fbe8619b3fc6602cabb22549e69e0608a",
+  "source_bytes_rehashed": 580604721,
+  "tree_sha": "6da59a0283d3696e682f8d6b96b3175c6830a00b",
+  "union_donors": 9302
+}

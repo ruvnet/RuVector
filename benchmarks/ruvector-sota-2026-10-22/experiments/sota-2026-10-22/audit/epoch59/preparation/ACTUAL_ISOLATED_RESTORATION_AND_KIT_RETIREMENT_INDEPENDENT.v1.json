@@ -1,0 +1,107 @@
+{
+  "actual_commit": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "actual_eleven_source_step_receipts_verified": [
+    {
+      "bytes": 1871,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/E42-archive-materialized.json",
+      "sha256": "68221514eaa96c6f1f2941518c3964adb30f2ebcd32fff3a77cd6908cc753a70"
+    },
+    {
+      "bytes": 1861,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/legacy22-verified-cap4m.json",
+      "sha256": "3a70f6001a79f1ea5dba06f341ac94b7e381c4d802a7f62b755448a7d770f441"
+    },
+    {
+      "bytes": 1832,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/legacy26-verified.json",
+      "sha256": "e0018b67d867388a9958d48c0648184aa53275243b8a34abc5dcf2939f17567b"
+    },
+    {
+      "bytes": 8417,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/bootstrap-source-verified.json",
+      "sha256": "260bf37beb455475eb11cfb7a5747343f2eeb0d8c61dc79999582de3b16a03e0"
+    },
+    {
+      "bytes": 789,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/checkpoint-restored.json",
+      "sha256": "49bdb85abca431af1c410a130b170a62475be5345f3d205c8bd5ae7804134224"
+    },
+    {
+      "bytes": 810,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/checkpoint-verify-only.json",
+      "sha256": "5be350d29047ce57a7650b9375bfa14f6e5b441805f45427c0cdaa030d03f119"
+    },
+    {
+      "bytes": 1891,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/E42-archive-verify-only.json",
+      "sha256": "89c7fd554dbea0a81c75960f55ac1e04a4d94ee039d1f55dc6683e07c64dc954"
+    },
+    {
+      "bytes": 1428,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/E44-overlay-restored.json",
+      "sha256": "37aad7c42f14783a37eedfef90a617d7eae89c2f3f366a15bf995a87ed6f8a4b"
+    },
+    {
+      "bytes": 1448,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/E44-overlay-verified.json",
+      "sha256": "9b2775be6da6c3ebb72f09dbcd3a98285eaf219dac6779c5286d1002ce66638a"
+    },
+    {
+      "bytes": 1046,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/E49-overlay-restored.json",
+      "sha256": "33e9595b80ec3e053facf4dc69ef2676538a41be5fe01d00d20b43e35b48b4e6"
+    },
+    {
+      "bytes": 1065,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/E49-overlay-verified.json",
+      "sha256": "a7f090d226390b68f3c91f4320616ff7fc408769e67adefa6e108469feada4a2"
+    }
+  ],
+  "all70_CP_only_paths_restored": true,
+  "all9225_CP_R_bodies_verified": true,
+  "all9232_current_Git_bodies_verified_in_R_or_retained_new_Kit": true,
+  "all9302_original_donors_rehashed_unchanged": true,
+  "all_R_bytes_rehashed": 574548540,
+  "all_R_file_provenance": "Exact union of currentCP9225, originalKIT61, originalBASE48, E42projected287, E44canonical137 and E49canonical76 manifests; duplicates byte-identical. No unexpected R paths.",
+  "all_R_files_rehashed": 9435,
+  "base48_new_cache_bodies_rehashed_and_original_distinct_inodes": true,
+  "checks_passed": true,
+  "elapsed_seconds": 2.867470846977085,
+  "epoch": 59,
+  "independent_source_donor_review": {
+    "bytes": 2170,
+    "path": "/dev/shm/ruvector-e59-audit/ACTUAL_CURRENT_SOURCE_DONORS_AND_MERKLES_INDEPENDENT.v1.json",
+    "sha256": "ee93591b477584191c07c87e39c4f58012a607d19e1ba5e4c321f6213062d0ba"
+  },
+  "kind": "ACTUAL_ISOLATED_SOURCE_RESTORATION_AND_NEW_KIT_RETIREMENT_INDEPENDENT",
+  "legacy22_runtime_metadata_limit_only": [
+    2097152,
+    4194304
+  ],
+  "liveG27_fence_before_and_after": true,
+  "model_native_Gold_network_or_Git_mutations": 0,
+  "new_Kit_retirement_ref": {
+    "bytes": 1993511,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/KIT_TWIN_RETIREMENT.actual.v1.json",
+    "sha256": "c90420929ffdefddc0d482f9ea8baa60a24fecb0e2725aba190a4c7b76c53760"
+  },
+  "no_old_publication_controller_replay": true,
+  "observed_at": "2026-10-27T22:32:21.707430+00:00",
+  "pre_retirement_Kit_R_distinct_inode_checks": "Enforced by reviewed actually executed reconstruction source; not independently re-observed after unlink.",
+  "restoration_result_ref": {
+    "bytes": 3539,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/SOURCE_RESTORATION_COMPLETE.v1.json",
+    "sha256": "2036a86e29cca4b72b1669ad55c32cdff018d9d7d9e50e391812122a49e22896"
+  },
+  "retained_new_Kit_files": 46,
+  "retired_bytes": 572825482,
+  "retired_new_Kit_files_absent_and_R_twins_rehashed": 9311,
+  "schema_version": 1,
+  "scientific_entrypoints_dispatched": [],
+  "source_reconstruction_approval": {
+    "bytes": 2906,
+    "path": "/dev/shm/ruvector-e59-audit/SOURCE_RECONSTRUCTION_CODE_AND_CONFIGURATION_INDEPENDENT_APPROVAL.v1.json",
+    "sha256": "e53cedfe79e3346314c4f1b922a803efa8aafc3feebeba08b4a8b7905f536078"
+  },
+  "unchanged_original_bootstrap_and_restore_sources_executed": true
+}

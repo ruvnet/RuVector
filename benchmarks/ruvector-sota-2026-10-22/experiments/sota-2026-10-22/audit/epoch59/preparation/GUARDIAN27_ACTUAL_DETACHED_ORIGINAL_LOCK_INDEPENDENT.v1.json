@@ -1,0 +1,40 @@
+{
+  "CPU_affinity": [
+    0,
+    1
+  ],
+  "PID_namespace": "pid:[4026532200]",
+  "birth_startticks": 46302984,
+  "boot_id": "4632fb06-b0ef-4df5-b72b-0e875bbad810",
+  "checks_passed": true,
+  "current_parent_pid": 1,
+  "epoch": 59,
+  "expires_at": "2026-10-28T00:15:27.934077+00:00",
+  "generation": 27,
+  "kind": "ACTUAL_DETACHED_GUARDIAN_ORIGINAL_KERNEL_LOCK_INDEPENDENT",
+  "observed_at": "2026-10-27T22:16:10.925056+00:00",
+  "original_lock": {
+    "actual_kernel_FLOCK_WRITE_row": "1: FLOCK  ADVISORY  WRITE 198313 00:21:13626 0 EOF",
+    "device": 33,
+    "independent_nonblocking_EX_probe_blocked": true,
+    "inode": 13626,
+    "owner_FD": 3,
+    "path": "/tmp/ruvector-sota-2026-10-22/exclusive.work.lock",
+    "probe_descriptor_closed": true
+  },
+  "owner_bytes_stable": true,
+  "owner_ref": {
+    "bytes": 831,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/guardian27/owner.json",
+    "sha256": "28f34b4b0af71fbd39d94a05766ba7bf61798ae540419d1838ea3ca21d5cce9f"
+  },
+  "pid": 198313,
+  "process_group": 198313,
+  "release_paths_absent": true,
+  "remaining_lease_seconds_at_observation": 7157.009032726288,
+  "schema_version": 1,
+  "scientific_or_restoration_admission_granted": false,
+  "session_id": 198313,
+  "started_at": "2026-10-27T22:15:27.934077+00:00",
+  "state": "S"
+}

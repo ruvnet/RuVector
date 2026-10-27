@@ -1,0 +1,45 @@
+{
+  "actual_inert_review_ref": {
+    "bytes": 668,
+    "path": "/dev/shm/ruvector-e59-audit/PREPARATION_AND_CANDIDATE_INERT_INDEPENDENT.actual.v1.json",
+    "sha256": "16fdd91056b05826fe011457d2c6fc45940d29622ce7799531a27556251177a7"
+  },
+  "archival_uncertainty_contract": {
+    "bytes": 4344,
+    "path": "/dev/shm/ruvector-e59-candidate/SAME_SEMANTIC_PAIR_VARIATION_DIAGNOSTIC_CONTRACT.v1.json",
+    "sha256": "dfd6a89526f8a00d9a709136557877c05c00982d727d30a38dd8e6ec57765724"
+  },
+  "candidate_promotion_allowed": false,
+  "candidate_source_packet_ref": {
+    "bytes": 9423,
+    "path": "/dev/shm/ruvector-e59-candidate/CANDIDATE_SOURCE_PACKET.v3.diagnostic.json",
+    "sha256": "aba70d07373f668d8b7d9ece023f3f903f3de98cfd0e1d5b03383531250c85a2"
+  },
+  "checks_passed": true,
+  "configuration_contract_ref": {
+    "bytes": 11368,
+    "path": "/dev/shm/ruvector-e59-candidate/CONFIGURATION_CONTRACT.v1.json",
+    "sha256": "56adcb69636890a700f3be8a9b5fe1a6c6eba702f01e329b53ecac27bb133dfe"
+  },
+  "epoch": 59,
+  "fresh_confirmation_ids": [],
+  "kind": "REAL_NATIVE_TYPED_READER_BOUNDED_RESEARCH",
+  "protocol_ref": {
+    "bytes": 10135,
+    "path": "/dev/shm/ruvector-e59-candidate/CANDIDATE_PROTOCOL.v1.json",
+    "sha256": "60ada0d3a7e2371b4353381f3f46fddf33dca58ec3446e6f869e372bdf5f8eeb"
+  },
+  "reviewed": {
+    "containment": "Uniqueouteranddistinctsupervisorsessions,580worker/590TERM/598hardlimit/600inclusive;ownedPopenclosedonprocobservationfailure;nohiddenwarmup/retry;CPU01/ORT2threadsCPUonly;attempts/resultsOEXCL.",
+    "gates": "Engineering32pairs4full8coldincluded, same420projection; complete51PROJECT_DEVpairedarms,source+1,propernotworsecomparators,atleast1correcteachpresentclass. Absentclassesexplicit, allclasscompetencefalse.",
+    "lateGold": "Custody-and-scorer sourcebindings inspected. Scorer pure properaccuracy/latencies/perclasspairedreplay; semanticGold requiressealed51andindependentclosedtwo-phaseactualaudit.",
+    "native": "Realpinnedcore2.3.0oneindex128/16thenconditionalW/17, sourceF32bits/hashreceipt/cosineindependentlycheckable, exacttietreatmentonly, missforcesfullcontextnotNEI.",
+    "quantization_uncertainty": "Samepipelineeffect includes batchcompanions/order,dynamicint8variations; norowtensorhash andphysicalrowbitequivalenceunverified. Frozenpostclosuremetadata-onlydiagnosticrequiresnoextraforwards/tokenizers/labels.",
+    "scheduling": "Threefixedsamemodelarms/case-major51; sharedroundrobinbatches, nooutputcachecrossarms, rawwholebatchtensorreceipts+rowlogits. Positiveexitonly/numericflagsdisable, NEIrequiresallsource.",
+    "typed_head": "OfficialC0E1N2,6layer768RoBERTa,pad1positions514; NLI512 input masks/types/padsourceverified, finitef32threeheadlogits; no calibration."
+  },
+  "schema_version": 1,
+  "scientific_execution_allowed": false,
+  "scope": "SOURCE_REVIEW_ONLY_REQUIRES_CONCRETE_MASTER_FREEZE_PUBLICATION_READBACK_AND_Q_ROOT_PHASE_ADMISSIONS",
+  "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a"
+}
