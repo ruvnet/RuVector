@@ -21,10 +21,16 @@ use std::collections::HashSet;
 // ── shared types ──────────────────────────────────────────────────────────────
 
 /// A single nearest-neighbour hit.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Hit {
     pub id: usize,
     pub dist: f32,
+}
+
+impl PartialEq for Hit {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id && self.dist.total_cmp(&other.dist).is_eq()
+    }
 }
 
 impl Eq for Hit {}
@@ -38,8 +44,8 @@ impl PartialOrd for Hit {
 impl Ord for Hit {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.dist
-            .partial_cmp(&other.dist)
-            .unwrap_or(std::cmp::Ordering::Equal)
+            .total_cmp(&other.dist)
+            .then_with(|| self.id.cmp(&other.id))
     }
 }
 
@@ -49,6 +55,7 @@ impl Ord for Hit {
 pub trait AnnVariant: Send + Sync {
     fn build(&mut self, vectors: &[Vec<f32>]);
     fn insert(&mut self, vector: Vec<f32>);
+    /// Non-finite query coordinates return no results.
     fn search(&self, query: &[f32], k: usize) -> Vec<Hit>;
     fn name(&self) -> &str;
     fn len(&self) -> usize;
@@ -71,7 +78,7 @@ pub fn nearest_centroid(query: &[f32], centroids: &[Vec<f32>]) -> usize {
         .iter()
         .enumerate()
         .map(|(i, c)| (i, sq_l2(query, c)))
-        .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+        .min_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)))
         .map(|(i, _)| i)
         .unwrap_or(0)
 }
@@ -127,6 +134,58 @@ mod tests {
             shift: 3.0,
             seed: 7,
         }
+    }
+
+    #[test]
+    fn full_precision_nan_query_does_not_panic() {
+        let mut index = FullPrecision::new();
+        index.build(&[vec![0.0; 4], vec![1.0; 4]]);
+        assert!(index.search(&[f32::NAN, 0.0, 0.0, 0.0], 2).is_empty());
+    }
+
+    #[test]
+    fn static_pq_nan_query_does_not_panic() {
+        let mut index = StaticPq::new();
+        index.build(&[vec![0.0; 4], vec![1.0; 4]]);
+        assert!(index.search(&[f32::NAN, 0.0, 0.0, 0.0], 2).is_empty());
+    }
+
+    #[test]
+    fn stream_pq_nan_query_does_not_panic() {
+        let mut index = StreamPq::new(4, 10);
+        index.build(&[vec![0.0; 4], vec![1.0; 4]]);
+        assert!(index.search(&[f32::NAN, 0.0, 0.0, 0.0], 2).is_empty());
+    }
+
+    #[test]
+    fn full_precision_skips_non_finite_stored_vectors() {
+        let mut index = FullPrecision::new();
+        index.build(&[vec![f32::NAN, 0.0], vec![0.0, 0.0]]);
+        assert_eq!(index.search(&[0.0, 0.0], 2), vec![Hit { id: 1, dist: 0.0 }]);
+    }
+
+    #[test]
+    fn nearest_centroid_handles_nan_distance() {
+        assert_eq!(nearest_centroid(&[f32::NAN], &[vec![0.0], vec![1.0]]), 0);
+    }
+
+    #[test]
+    fn hit_order_is_total_for_nan() {
+        let nan = Hit {
+            id: 0,
+            dist: f32::NAN,
+        };
+        let finite = Hit { id: 1, dist: 1.0 };
+        assert_eq!(nan, nan);
+        assert!(nan > finite);
+    }
+
+    #[test]
+    #[should_panic(expected = "all vector coordinates must be finite")]
+    fn static_pq_rejects_non_finite_insert() {
+        let mut index = StaticPq::new();
+        index.build(&[vec![0.0; 4], vec![1.0; 4]]);
+        index.insert(vec![f32::NAN, 0.0, 0.0, 0.0]);
     }
 
     /// Generate data in contiguous cluster blocks (not interleaved).

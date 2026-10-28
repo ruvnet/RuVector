@@ -30,16 +30,19 @@ impl AnnVariant for FullPrecision {
     }
 
     fn search(&self, query: &[f32], k: usize) -> Vec<Hit> {
+        if query.iter().any(|value| !value.is_finite()) {
+            return vec![];
+        }
         let mut hits: Vec<Hit> = self
             .vectors
             .iter()
             .enumerate()
-            .map(|(id, v)| Hit {
-                id,
-                dist: sq_l2(query, v),
+            .filter_map(|(id, v)| {
+                let dist = sq_l2(query, v);
+                dist.is_finite().then_some(Hit { id, dist })
             })
             .collect();
-        hits.sort_unstable_by(|a, b| a.dist.partial_cmp(&b.dist).unwrap());
+        hits.sort_unstable();
         hits.truncate(k);
         hits
     }
