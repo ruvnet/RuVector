@@ -68,7 +68,8 @@
   "devDependencies": {
     "typescript": "^5.3.0",
     "esbuild": "^0.25.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "fake-indexeddb": "^6.2.5"
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": ">=0.20.0",
