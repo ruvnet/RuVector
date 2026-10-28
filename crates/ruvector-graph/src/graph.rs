@@ -8,7 +8,7 @@ use crate::node::Node;
 #[cfg(feature = "storage")]
 use crate::storage::GraphStorage;
 use crate::types::{EdgeId, NodeId, PropertyValue};
-use dashmap::DashMap;
+use dashmap::{mapref::entry::Entry, DashMap};
 #[cfg(feature = "storage")]
 use std::path::Path;
 use std::sync::Arc;
@@ -107,17 +107,28 @@ impl GraphDB {
     pub fn create_node(&self, node: Node) -> Result<NodeId> {
         let id = node.id.clone();
 
-        // Update indexes
-        self.label_index.add_node(&node);
-        self.property_index.add_node(&node);
+        // Serialize replacement of one ID, preserving its existing upsert behavior.
+        let entry = self.nodes.entry(id.clone());
 
-        // Insert into memory
-        self.nodes.insert(id.clone(), node.clone());
-
-        // Persist to storage if available
+        // A storage error must not change live objects or their index memberships.
         #[cfg(feature = "storage")]
         if let Some(storage) = &self.storage {
             storage.insert_node(&node)?;
+        }
+
+        if let Entry::Occupied(ref occupied) = entry {
+            self.label_index.remove_node(occupied.get());
+            self.property_index.remove_node(occupied.get());
+        }
+        self.label_index.add_node(&node);
+        self.property_index.add_node(&node);
+        match entry {
+            Entry::Occupied(mut occupied) => {
+                occupied.insert(node);
+            }
+            Entry::Vacant(vacant) => {
+                vacant.insert(node);
+            }
         }
 
         Ok(id)
@@ -312,17 +323,28 @@ impl GraphDB {
             ));
         }
 
-        // Update indexes
-        self.edge_type_index.add_edge(&edge);
-        self.adjacency_index.add_edge(&edge);
+        // Serialize replacement of one ID, preserving its existing upsert behavior.
+        let entry = self.edges.entry(id.clone());
 
-        // Insert into memory
-        self.edges.insert(id.clone(), edge.clone());
-
-        // Persist to storage if available
+        // A storage error must not change live objects or their index memberships.
         #[cfg(feature = "storage")]
         if let Some(storage) = &self.storage {
             storage.insert_edge(&edge)?;
+        }
+
+        if let Entry::Occupied(ref occupied) = entry {
+            self.edge_type_index.remove_edge(occupied.get());
+            self.adjacency_index.remove_edge(occupied.get());
+        }
+        self.edge_type_index.add_edge(&edge);
+        self.adjacency_index.add_edge(&edge);
+        match entry {
+            Entry::Occupied(mut occupied) => {
+                occupied.insert(edge);
+            }
+            Entry::Vacant(vacant) => {
+                vacant.insert(edge);
+            }
         }
 
         Ok(id)
@@ -451,16 +473,26 @@ impl GraphDB {
             }
         }
 
-        // Update index
-        self.hyperedge_node_index.add_hyperedge(&hyperedge);
+        // Serialize replacement of one ID, preserving its existing upsert behavior.
+        let entry = self.hyperedges.entry(id.clone());
 
-        // Insert into memory
-        self.hyperedges.insert(id.clone(), hyperedge.clone());
-
-        // Persist to storage if available
+        // A storage error must not change live objects or their index memberships.
         #[cfg(feature = "storage")]
         if let Some(storage) = &self.storage {
             storage.insert_hyperedge(&hyperedge)?;
+        }
+
+        if let Entry::Occupied(ref occupied) = entry {
+            self.hyperedge_node_index.remove_hyperedge(occupied.get());
+        }
+        self.hyperedge_node_index.add_hyperedge(&hyperedge);
+        match entry {
+            Entry::Occupied(mut occupied) => {
+                occupied.insert(hyperedge);
+            }
+            Entry::Vacant(vacant) => {
+                vacant.insert(hyperedge);
+            }
         }
 
         Ok(id)

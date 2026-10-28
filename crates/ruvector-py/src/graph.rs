@@ -63,11 +63,10 @@ impl GraphDB {
     /// `properties` (an arbitrary JSON-compatible dict, default none).
     ///
     /// `id`, if given, must not already exist. The real
-    /// `GraphDB::create_node` has no such guard: it silently `insert`s
-    /// over an existing id while adding (not replacing) the new node's
-    /// labels/properties into the label/property indexes, leaving the old
-    /// node's index entries stale. Pre-checking here and raising instead
-    /// turns that footgun into a clear error at the Python boundary. When
+    /// `GraphDB::create_node` supports replacing an existing id while
+    /// refreshing its label/property indexes. This Python create-only
+    /// interface deliberately rejects replacement rather than changing an
+    /// existing node through a method named create_node. When
     /// `id` is omitted, the real `NodeBuilder` behaviour applies: a fresh
     /// UUID is generated.
     ///
