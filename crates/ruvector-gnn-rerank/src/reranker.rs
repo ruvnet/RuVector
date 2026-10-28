@@ -261,6 +261,102 @@ impl CandidateReranker for GnnMincutReranker {
     }
 }
 
+// ── Variant 4: AdaptiveCoherenceReranker ─────────────────────────────────────
+
+/// Per-node adaptive coherence-gated diffusion reranker.
+///
+/// ## Why a global threshold breaks under metadata filtering
+///
+/// `GnnMincutReranker` gates every edge against one **global absolute**
+/// cosine-similarity cutoff (`coherence_threshold`). That cutoff is implicitly
+/// calibrated against the similarity distribution of a full, unfiltered
+/// candidate pool. When an upstream metadata filter (tenant scoping, ACLs,
+/// freshness windows, …) shrinks the pool — especially when the filter is
+/// independent of semantic cluster membership — the *local* similarity
+/// structure around each surviving node sparsifies unevenly: some nodes keep
+/// several same-cluster neighbours, others are left with only cross-cluster
+/// neighbours below the global bar, or none at all. Nodes in the latter group
+/// silently fall back to their unfiltered, un-reranked `noisy_score`, i.e. the
+/// reranker degenerates toward `NoisyScoreReranker` exactly where reranking
+/// would help most (small, noisy post-filter candidate sets).
+///
+/// `AdaptiveCoherenceReranker` gates **per node, relative to that node's own**
+/// local neighbour-similarity ranking rather than against one fixed absolute
+/// bar: each node keeps its own top `keep_fraction` of edges (floored at
+/// `min_keep` whenever it has any edges at all). A node's gate therefore
+/// adapts automatically to how sparse its own neighbourhood has become after
+/// filtering, instead of assuming the pre-filter similarity scale still
+/// applies. This trades some of `GnnMincutReranker`'s hard rejection of
+/// genuinely incoherent edges (an absolute bar can veto *all* of a node's
+/// edges when none are locally relevant) for a gate that degrades gracefully
+/// as the candidate pool shrinks.
+pub struct AdaptiveCoherenceReranker {
+    /// Self-weight in gated diffusion. Default: 0.60 (matches `GnnMincutReranker`
+    /// for a fair baseline comparison).
+    pub alpha: f32,
+    /// Fraction ρ ∈ (0, 1] of each node's own local edges to keep after
+    /// per-node gating. Default: 0.50.
+    pub keep_fraction: f32,
+    /// Floor on the number of edges kept per node, applied only when the node
+    /// has at least this many edges available. Default: 1.
+    pub min_keep: usize,
+    /// Neighbours per candidate in the candidate k-NN graph. Default: 8.
+    pub k_graph: usize,
+}
+
+impl Default for AdaptiveCoherenceReranker {
+    fn default() -> Self {
+        Self {
+            alpha: 0.60,
+            keep_fraction: 0.50,
+            min_keep: 1,
+            k_graph: 8,
+        }
+    }
+}
+
+impl CandidateReranker for AdaptiveCoherenceReranker {
+    fn rerank(
+        &self,
+        _query: &[f32],
+        candidates: &[Candidate],
+        k: usize,
+    ) -> Result<Vec<RankedResult>, RerankerError> {
+        validate(candidates, k)?;
+        let n = candidates.len();
+        let graph = CandidateGraph::build(candidates, self.k_graph);
+
+        let mut scores: Vec<f32> = candidates.iter().map(|c| c.noisy_score).collect();
+        let prev = scores.clone();
+
+        for i in 0..n {
+            let deg = graph.edges[i].len();
+            if deg == 0 {
+                continue;
+            }
+            // `graph.edges[i]` is already sorted descending by similarity
+            // (CandidateGraph::build), so truncating keeps each node's own
+            // strongest local edges.
+            let keep = ((self.keep_fraction * deg as f32).ceil() as usize)
+                .max(self.min_keep)
+                .min(deg);
+            let mut w_sum = 0.0_f32;
+            let mut w_total = 0.0_f32;
+            for &(j, sim) in &graph.edges[i][..keep] {
+                w_sum += sim * prev[j];
+                w_total += sim;
+            }
+            if w_total > 0.0 {
+                let weighted_mean = w_sum / w_total;
+                scores[i] = self.alpha * prev[i] + (1.0 - self.alpha) * weighted_mean;
+            }
+        }
+
+        let scored = scores.into_iter().enumerate().collect();
+        Ok(sort_take(scored, k, candidates))
+    }
+}
+
 // ── Oracle: ExactL2Reranker ───────────────────────────────────────────────────
 
 /// Oracle reranker: sort by exact Euclidean distance to the query.
@@ -346,5 +442,76 @@ mod tests {
             .rerank(&[0.0, 0.0], &cands, 3)
             .unwrap();
         assert_eq!(r.len(), 3);
+    }
+
+    #[test]
+    fn adaptive_coherence_returns_k_results() {
+        let cands: Vec<Candidate> = (0..10)
+            .map(|i| make_cand(i, vec![i as f32, 0.0], 0.5 + i as f32 * 0.04))
+            .collect();
+        let r = AdaptiveCoherenceReranker::default()
+            .rerank(&[0.0, 0.0], &cands, 3)
+            .unwrap();
+        assert_eq!(r.len(), 3);
+    }
+
+    #[test]
+    fn adaptive_coherence_single_candidate_is_unchanged() {
+        // A lone candidate has a zero-degree graph: the reranker must not
+        // panic and must leave its score untouched (nothing to diffuse from).
+        let cands = vec![make_cand(0, vec![1.0, 0.0], 0.42)];
+        let r = AdaptiveCoherenceReranker::default()
+            .rerank(&[0.0, 0.0], &cands, 1)
+            .unwrap();
+        assert_eq!(r.len(), 1);
+        assert!(
+            (r[0].score - 0.42).abs() < 1e-6,
+            "lone candidate with zero-degree graph must keep its original score, got {}",
+            r[0].score
+        );
+    }
+
+    #[test]
+    fn min_keep_floor_changes_diffusion_result() {
+        // Node 0 has three neighbours of decreasing similarity (1 ≈8°, 2 ≈45°,
+        // 3 ≈90°). keep_fraction=0.30 alone floors to keeping only the single
+        // closest neighbour (ceil(0.30*3)=1); `min_keep` forces a wider
+        // neighbourhood to be used instead. With alpha=0.0 the resulting score
+        // for node 0 is exactly the kept-neighbour weighted mean, so a larger
+        // min_keep must dilute the pure "closest neighbour" signal (score 1.0)
+        // toward the weaker, near-orthogonal neighbours (score 0.0).
+        let cands = vec![
+            make_cand(0, vec![1.0, 0.0], 0.0),
+            make_cand(1, vec![0.99, 0.14], 1.0),
+            make_cand(2, vec![0.70, 0.71], 0.0),
+            make_cand(3, vec![0.0, 1.0], 0.0),
+        ];
+        let query = vec![0.0, 0.0];
+
+        let narrow = AdaptiveCoherenceReranker {
+            alpha: 0.0,
+            keep_fraction: 0.30,
+            min_keep: 1,
+            k_graph: 3,
+        };
+        let wide = AdaptiveCoherenceReranker {
+            alpha: 0.0,
+            keep_fraction: 0.30,
+            min_keep: 3,
+            k_graph: 3,
+        };
+
+        let r_narrow = narrow.rerank(&query, &cands, 4).unwrap();
+        let r_wide = wide.rerank(&query, &cands, 4).unwrap();
+
+        let score0_narrow = r_narrow.iter().find(|r| r.id == 0).unwrap().score;
+        let score0_wide = r_wide.iter().find(|r| r.id == 0).unwrap().score;
+
+        assert!(
+            score0_narrow > score0_wide,
+            "min_keep=1 ({score0_narrow}) should weight only the single closest \
+             neighbour (score≈1.0), while min_keep=3 ({score0_wide}) dilutes with \
+             weaker neighbours"
+        );
     }
 }
