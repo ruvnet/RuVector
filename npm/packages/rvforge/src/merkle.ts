@@ -78,7 +78,10 @@ export function verifyInclusion(
   path: readonly Hash[],
   expectedRoot: Hash,
 ): boolean {
-  if (index < 0 || index >= treeSize) return false;
+  if (!Number.isSafeInteger(index) || !Number.isSafeInteger(treeSize) ||
+      treeSize <= 0 || index < 0 || index >= treeSize ||
+      leaf.length !== 32 || expectedRoot.length !== 32 ||
+      path.some((sibling) => sibling.length !== 32)) return false;
   let nodeIndex = index;
   let lastIndex = treeSize - 1;
   let acc = leaf;

@@ -58,6 +58,21 @@ describe('RFC 6962 hashing', () => {
 });
 
 describe('inclusion proofs', () => {
+  it.each([NaN, Infinity, -Infinity, 0.5, Number.MAX_SAFE_INTEGER + 1])(
+    'refuses non-integral or unsafe leaf index %s',
+    (index) => {
+      const leaf = leafHash(Buffer.from('only leaf'));
+      expect(verifyInclusion(leaf, index, 1, [], leaf)).toBe(false);
+    },
+  );
+
+  it('refuses non-SHA256 leaf and root buffers even when they match', () => {
+    for (const size of [0, 1, 31, 33]) {
+      const invalid = Buffer.alloc(size);
+      expect(verifyInclusion(invalid, 0, 1, [], invalid)).toBe(false);
+    }
+  });
+
   it('proves every leaf for every tree size from one to sixteen', () => {
     for (let n = 1; n <= 16; n++) {
       const l = leaves(n);
