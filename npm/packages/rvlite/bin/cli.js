@@ -72,8 +72,15 @@ function rebuildNormCache() {
 }
 
 // Generate unique ID
-function generateId() {
-  return `vec_${state.nextId++}`;
+function generateId(reservedIds) {
+  if (!Number.isSafeInteger(state.nextId) || state.nextId < 1) {
+    throw new Error('Cannot generate a unique vector ID: invalid or exhausted nextId');
+  }
+  while (Number.isSafeInteger(state.nextId)) {
+    const candidate = `vec_${state.nextId++}`;
+    if (!Object.hasOwn(state.vectors, candidate) && !reservedIds?.has(candidate)) return candidate;
+  }
+  throw new Error('Cannot generate a unique vector ID: counter exhausted');
 }
 
 // Compute vector norm (magnitude)
@@ -326,26 +333,33 @@ function searchVectors(query, k, metric = 'cosine') {
 }
 
 // Insert vector with precomputed norm
-function insertVector(vector, metadata, id) {
-  const vecId = id || generateId();
+function insertVector(vector, metadata, id, reservedIds) {
+  const vecId = id || generateId(reservedIds);
   const norm = computeNorm(vector);
-  state.vectors[vecId] = { vector, metadata, norm };
+  // Define a literal own key: assignment to "__proto__" otherwise invokes
+  // Object.prototype's setter and loses the record during JSON persistence.
+  Object.defineProperty(state.vectors, vecId, {
+    value: { vector, metadata, norm },
+    enumerable: true, configurable: true, writable: true
+  });
   normCache.set(vecId, norm);
   return vecId;
 }
 
 // Batch insert for bulk loading
 function insertBatch(vectors) {
+  // Reserve later explicit IDs before automatic allocation can claim them.
+  const reservedIds = new Set(vectors.filter(row => row.id).map(row => String(row.id)));
   const ids = [];
   for (const { vector, metadata, id } of vectors) {
-    ids.push(insertVector(vector, metadata, id));
+    ids.push(insertVector(vector, metadata, id, reservedIds));
   }
   return ids;
 }
 
 // Delete vector
 function deleteVector(id) {
-  if (state.vectors[id]) {
+  if (Object.hasOwn(state.vectors, id)) {
     delete state.vectors[id];
     normCache.delete(id);
     return true;
@@ -518,7 +532,7 @@ program
   .action(async (id, options) => {
     try {
       loadState(options.path);
-      const entry = state.vectors[id];
+      const entry = Object.hasOwn(state.vectors, id) ? state.vectors[id] : undefined;
       if (entry) {
         console.log(JSON.stringify({ vector: entry.vector, metadata: entry.metadata }, null, 2));
       } else {
@@ -881,7 +895,7 @@ program
             }
             break;
           case 'get':
-            if (args[0] && state.vectors[args[0]]) {
+            if (args[0] && Object.hasOwn(state.vectors, args[0])) {
               const entry = state.vectors[args[0]];
               console.log(JSON.stringify({ vector: entry.vector, metadata: entry.metadata }, null, 2));
             } else {
