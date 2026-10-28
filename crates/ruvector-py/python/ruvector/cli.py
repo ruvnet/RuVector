@@ -13,6 +13,7 @@ doesn't pay for them. Measured via `python -X importtime -m ruvector.cli
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 from pathlib import Path
@@ -415,7 +416,7 @@ def benchmark(
         latencies.append(time.perf_counter() - t0)
     latencies.sort()
     p50 = latencies[len(latencies) // 2]
-    p99 = latencies[int(len(latencies) * 0.99) - 1]
+    p99 = latencies[math.ceil(len(latencies) * 0.99) - 1]
 
     recall = _recall_at_k(coll, vecs, qs, recall_k)
 
