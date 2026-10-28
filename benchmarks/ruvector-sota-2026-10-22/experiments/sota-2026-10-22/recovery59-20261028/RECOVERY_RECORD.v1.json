@@ -1,0 +1,73 @@
+{
+  "DEV_inclusive_wall_seconds": 35.30706643097801,
+  "actual_scientific_native_batches": 2,
+  "all161_scientific_files_unchanged": true,
+  "all17_current_cases_DEV_forever": true,
+  "any_new_unknown_outcome_means_STOP_without_repack_or_encoding_fallback": true,
+  "archive_restore_protocol": {
+    "bytes": 3258,
+    "path": "experiments/sota-2026-10-22/recovery59-20261028/RESTORATION_PROTOCOL.v1.json",
+    "sha256": "27dc5119bb357a4fe848eb9870bc91596687f402515ac2a82c19d287735b14a9"
+  },
+  "candidate_promoted": false,
+  "candidate_status": "REJECTED_FROZEN_DEV_MECHANISM_QUALITY_GATE",
+  "engineering_inclusive_wall_seconds": 27.024333953973837,
+  "epoch": 59,
+  "fresh_confirmation_qualification": "UNQUALIFIED_HOLD",
+  "full_reference_accuracy": "2/17",
+  "kind": "PUBLICATION_RECOVERY_ONLY_E59_ZERO_SCIENCE",
+  "native104_champion_preserved": true,
+  "native_Contradiction_correct": "0/2",
+  "native_accuracy": "4/17",
+  "new_fixed_capsule_transport_attempt_limit": 1,
+  "new_native_model_tokenizer_Gold_scorer_paid_API_GPU_calls": 0,
+  "no_dataset_or_scorer_or_eligibility_access_inferred": true,
+  "official_goal_verified": false,
+  "official_rank": null,
+  "oldFINAL_confirmed_blob_ACKs": 27,
+  "oldFINAL_failed_unknown_blob_requests": 1,
+  "oldFINAL_tree_commit_CAS_attempts": 0,
+  "old_28_blob_recreation_forbidden": true,
+  "old_failed_blob_current_read": "GITHUB_NOT_FOUND_404_AT_SINGLE_OBSERVATION",
+  "old_failed_blob_historical_outcome": "UNKNOWN",
+  "ordinary_summary_aliases": {
+    "EPOCH_MANIFEST.json": {
+      "bytes": 35726,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/EPOCH_MANIFEST.json",
+      "sha256": "c3990bcb2351d98d3519e4f33f03998c24f7d048dd0cb8382d8ae0e4d65000e1"
+    },
+    "LEARNINGS.json": {
+      "bytes": 4831,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/LEARNINGS.json",
+      "sha256": "63af4de6f2c37c20040ab422f0f2f28988013e20c345ae8478f002e8cde5c4a6"
+    },
+    "REJECTION_LEDGER.json": {
+      "bytes": 270574,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/REJECTION_LEDGER.json",
+      "sha256": "bfae7bd9c41d42545f395ae4e2d9991ddee30e9896a8e6302a6d8c3c412e3bba"
+    },
+    "RESULTS.json": {
+      "bytes": 48626,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/RESULTS.json",
+      "sha256": "11f9c3c3c40c86e29d082aac99c5b4cb1514b2f6a8a7c813e553cb75dfec2e9d"
+    },
+    "USED_CONFIRMATION.json": {
+      "bytes": 8777,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/USED_CONFIRMATION.json",
+      "sha256": "f3adc83bd482144c62e52cd5ac9c6eacd56bd77045eae6489c37570f8eb9b565"
+    },
+    "USED_IDENTITIES.json": {
+      "bytes": 8777,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/USED_IDENTITIES.json",
+      "sha256": "f3adc83bd482144c62e52cd5ac9c6eacd56bd77045eae6489c37570f8eb9b565"
+    }
+  },
+  "original_scientific_source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "publication_record_type": "FROZEN_INPUT_AND_COMPLETED_SCIENCE_RECORD_NOT_A_GIT_MUTATION_RECEIPT",
+  "publisher_submission_or_author_email_sent": false,
+  "schema_version": 1,
+  "source_only_model_research_unexecuted_performance": true,
+  "source_order_accuracy": "3/17",
+  "source_parent": "993dce6842bf602dd87864d00c1621a56eebc613",
+  "used_confirmation_identities": []
+}

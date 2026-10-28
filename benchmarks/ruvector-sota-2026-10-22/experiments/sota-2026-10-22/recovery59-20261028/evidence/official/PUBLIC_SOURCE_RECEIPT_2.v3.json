@@ -1,0 +1,21 @@
+{
+  "Content_Length": "267188",
+  "HTTP_status": 200,
+  "body_sha256": "2fce729e59cf427c6bc0a621189cac043348d1d8dd1e51d199ea39925759afc6",
+  "bytes_streamed": 267188,
+  "complete_body": true,
+  "content_type": "text/html; charset=utf-8",
+  "error_code": null,
+  "etag": "\"8a10cc2ee76e03b6647928a7c6644c98\"",
+  "final_url": "https://www.vals.ai/benchmarks/claimbench",
+  "initial_GET_attempts": 1,
+  "last_modified": "Wed, 28 Oct 2026 00:44:03 GMT",
+  "maximum_bytes": 2097152,
+  "partial_stream_sha256": null,
+  "raw_body_persisted": false,
+  "redirect_GETs": 0,
+  "request_started_at": "2026-10-28T00:52:36.547294+00:00",
+  "retrieved_at": "2026-10-28T00:52:37.051310+00:00",
+  "url": "https://www.vals.ai/benchmarks/claimbench",
+  "wall_seconds": 0.504022655019071
+}

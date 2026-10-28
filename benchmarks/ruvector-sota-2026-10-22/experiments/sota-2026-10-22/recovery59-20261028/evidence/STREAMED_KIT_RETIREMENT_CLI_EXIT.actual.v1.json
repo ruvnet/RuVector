@@ -1,0 +1,21 @@
+{
+  "actual_cleanup_CLI_invocations": 1,
+  "actual_current_E59_source83_Kit_present": 0,
+  "actual_current_E59_source83_R_present": 83,
+  "actual_exec_exit_code": 0,
+  "actual_exec_session": 62835,
+  "actual_final_tool_chunk": "996e64",
+  "actual_models_native_Gold_scorer_or_Git_calls": 0,
+  "actual_result": {
+    "bytes": 9360,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/STREAMED_NEW_KIT_TWIN_RETIREMENT.actual.v1.json",
+    "sha256": "e54ff38cfd9bd3fd7b570020519a0ac1f0b17cea79a558697f58e9f3b5a0a716"
+  },
+  "epoch": 59,
+  "kind": "D_ACTUAL_DISTINCT_STREAMED64_RETIREMENT_CLI_EXIT",
+  "observed_unix": 1793148535.9746516,
+  "old_source_helper_bootstrap_or_source_step_reruns": 0,
+  "original_source_wrapper_exit_code_preserved": 1,
+  "recovery_generation": 28,
+  "schema_version": 1
+}

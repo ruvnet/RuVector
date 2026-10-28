@@ -1,0 +1,49 @@
+{
+  "E59_new78_overlay_not_executed": true,
+  "E59_source83_in_R_and_zero_Kit_after_retirement": true,
+  "actual_journal": {
+    "bytes": 4575371,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/STREAMED_NEW_KIT_TWIN_RETIREMENT.journal.actual.v1.jsonl",
+    "sha256": "7a095c340d284452b33590e7d106de9c1bcb75a7041623dbcdebdf1d9ee40f61"
+  },
+  "actual_journal_rows": 18834,
+  "actual_summary": {
+    "bytes": 9360,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/STREAMED_NEW_KIT_TWIN_RETIREMENT.actual.v1.json",
+    "sha256": "e54ff38cfd9bd3fd7b570020519a0ac1f0b17cea79a558697f58e9f3b5a0a716"
+  },
+  "all_9385_original_donor_hashes_unchanged": true,
+  "all_9440_original_Kit_paths_exactly_disposed": true,
+  "all_9518_R_body_hashes_preserved": true,
+  "all_original_11_receipts_unchanged": true,
+  "audit_R_Kit_or_original_donor_mutations": 0,
+  "audit_scientific_or_Git_calls": 0,
+  "checks_passed": true,
+  "cleanup_parent_AS_bytes": 67108864,
+  "cleanup_parent_AS_retuned": false,
+  "distinct_new_streamed_cleanup_succeeded": true,
+  "epoch": 59,
+  "exact_completed_unlink_pairs": 9394,
+  "exact_retained_bytes": 8349633,
+  "exact_retained_controls": 46,
+  "exact_retired_bytes": 573734626,
+  "generation": 28,
+  "kind": "ACTUAL_STREAMED64_NEW_KIT_RETIREMENT_AND_SOURCE_PRESERVATION_INDEPENDENT_AUDIT",
+  "observed_current_headroom": 1284968448,
+  "observed_unix": 1793148602.343273,
+  "original_failure": {
+    "bytes": 6891,
+    "path": "/dev/shm/ruvector-oct28-data/SOURCE_RECONSTRUCTION_WRAPPER_FAILURE.actual.v1.json",
+    "sha256": "1cf5765d11dc6ec4c5714f5079a9239278bad59e351b81a8fd643737c0e082ef"
+  },
+  "original_helper_completion_report_created": false,
+  "original_wrapper_exit_code": 1,
+  "original_wrapper_reruns": 0,
+  "schema_version": 1,
+  "source": {
+    "bytes": 6343,
+    "path": "/dev/shm/ruvector-oct28-audit/derive_streamed_cleanup_actual.v1.py",
+    "sha256": "55fe1151b0e2e6c0e1e5a9cd475949513474da79ae929fb858895445b6216a43"
+  },
+  "source_component_restoration_complete": true
+}

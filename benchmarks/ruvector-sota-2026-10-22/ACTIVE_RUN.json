@@ -1,15 +1,17 @@
 {
   "OS_lock_observation_scope": "PREPUBLICATION_SNAPSHOT_NOT_CURRENT_REMOTE_LEASE",
-  "champion_preserved": "SubmittedNative104/RRF10",
+  "actual_E59_scientific_batches_already_spent": 2,
+  "candidate_promoted": false,
   "epoch": 59,
   "experiments_active": false,
-  "kind": "REAL_NATIVE_TYPED_READER_BOUNDED_RESEARCH",
-  "new_GPU_calls": 0,
-  "new_paid_API_calls": 0,
-  "owner_sha256": "28f34b4b0af71fbd39d94a05766ba7bf61798ae540419d1838ea3ca21d5cce9f",
-  "phase": "source",
+  "kind": "PUBLICATION_RECOVERY_ONLY_E59_ZERO_SCIENCE",
+  "new_scientific_calls": 0,
+  "official_goal_verified": false,
+  "owner_sha256": "39acf0db29a8dff63e76a550927644fc4170d662152961fc0f244147ea9c069e",
+  "phase": "recovery",
   "publication_is_not_scientific_authorization": true,
+  "publication_parent": "993dce6842bf602dd87864d00c1621a56eebc613",
   "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
-  "status": "SOURCE_FROZEN_ONLY_NO_SCIENTIFIC_BATCH_COMPLETED",
-  "work_active": true
+  "status": "E59_SCIENTIFIC_SLOTS_SPENT_CANONICAL_CAPSULE_RECOVERY_ONLY",
+  "work_active": false
 }

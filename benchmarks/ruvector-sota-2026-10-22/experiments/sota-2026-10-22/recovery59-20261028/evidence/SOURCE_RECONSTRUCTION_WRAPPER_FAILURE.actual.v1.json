@@ -1,0 +1,175 @@
+{
+  "Kit_twin_retirement_report_exists": false,
+  "Kit_unlinks_from_this_failed_retirement_attempt": 0,
+  "Root_admission": {
+    "bytes": 1742,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/ROOT_SOURCE_RECONSTRUCTION_ADMISSION.v1.json",
+    "sha256": "763acd0d4c490e3b1f9054b4fb72af15b5e7376f36797932615952526cec06a7"
+  },
+  "SOURCE_RESTORATION_COMPLETE_report_exists": false,
+  "actual_error_location": "reconstruct_sources_recovery28.v2.py:133",
+  "actual_error_type": "MemoryError",
+  "actual_exec_session": 41662,
+  "actual_failed_expression": "sorted(x for x in K.rglob('*') if x.is_file())",
+  "actual_final_tool_chunk": "565d88",
+  "actual_full_CLI_exit_code": 1,
+  "actual_full_CLI_invocations": 1,
+  "actual_step_receipts": [
+    {
+      "actual_step_exit_code": 0,
+      "child_RLIMIT_AS_bytes": 536870912,
+      "receipt": {
+        "bytes": 1980,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/E42-archive-materialized.json",
+        "sha256": "3a3975f87c521f5ffd2cdd96ceab83a96d3d92b2f60e4eb1d619cae9e10c9c2b"
+      },
+      "wall_seconds": 0.6081720590009354
+    },
+    {
+      "actual_step_exit_code": 0,
+      "child_RLIMIT_AS_bytes": 536870912,
+      "receipt": {
+        "bytes": 1908,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/legacy22-verified-cap4m.json",
+        "sha256": "8bca440b9f57fc05fdb7501ad76d04595b39d76334ef7058464b9080029374ee"
+      },
+      "wall_seconds": 0.2814801140339114
+    },
+    {
+      "actual_step_exit_code": 0,
+      "child_RLIMIT_AS_bytes": 536870912,
+      "receipt": {
+        "bytes": 1893,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/legacy26-verified.json",
+        "sha256": "901c637388e578a6f3e00735762503ec7479c7a79a24df2113055c591febf94a"
+      },
+      "wall_seconds": 6.226313890016172
+    },
+    {
+      "actual_step_exit_code": 0,
+      "child_RLIMIT_AS_bytes": 100663296,
+      "receipt": {
+        "bytes": 8502,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/bootstrap-source-verified.json",
+        "sha256": "f81d14d2137f4fedd785ad71cf884e1e52501c07bde69d6cba1b2d44093110af"
+      },
+      "wall_seconds": 0.08653573202900589
+    },
+    {
+      "actual_step_exit_code": 0,
+      "child_RLIMIT_AS_bytes": 100663296,
+      "receipt": {
+        "bytes": 873,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/checkpoint-restored.json",
+        "sha256": "7826c7e8c49e91a4d5e8d532b9f8c1cc3e8f37ca9752a4e9819b5d344b4889e4"
+      },
+      "wall_seconds": 4.024929184000939
+    },
+    {
+      "actual_step_exit_code": 0,
+      "child_RLIMIT_AS_bytes": 100663296,
+      "receipt": {
+        "bytes": 894,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/checkpoint-verify-only.json",
+        "sha256": "6842f400a24258a74140d6ce3ad237bdf5ccade6df4dd7dd2acf8cfbe556db25"
+      },
+      "wall_seconds": 2.364311038982123
+    },
+    {
+      "actual_step_exit_code": 0,
+      "child_RLIMIT_AS_bytes": 100663296,
+      "receipt": {
+        "bytes": 2000,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/E42-archive-verify-only.json",
+        "sha256": "3c6772729d48125920f361028bc8bef3fa516200f10f8624d7bf27987033199a"
+      },
+      "wall_seconds": 0.5095408399938606
+    },
+    {
+      "actual_step_exit_code": 0,
+      "child_RLIMIT_AS_bytes": 100663296,
+      "receipt": {
+        "bytes": 1537,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/E44-overlay-restored.json",
+        "sha256": "db30d405af27d8218da5d8f3f67bdd59ee6c1acf2781e64d608e1a00ad346a93"
+      },
+      "wall_seconds": 0.09114927297923714
+    },
+    {
+      "actual_step_exit_code": 0,
+      "child_RLIMIT_AS_bytes": 100663296,
+      "receipt": {
+        "bytes": 1557,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/E44-overlay-verified.json",
+        "sha256": "02035bb65cecb197cb9942d8b5aa41fb3f39cd0764f17be51d922e9d02801302"
+      },
+      "wall_seconds": 0.08980777900433168
+    },
+    {
+      "actual_step_exit_code": 0,
+      "child_RLIMIT_AS_bytes": 100663296,
+      "receipt": {
+        "bytes": 1131,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/E49-overlay-restored.json",
+        "sha256": "c2e6f4ca1f9dd94befc359d00d5a91ebac04ae6ea24e8c1f40c8782d6fc06553"
+      },
+      "wall_seconds": 0.11174327100161463
+    },
+    {
+      "actual_step_exit_code": 0,
+      "child_RLIMIT_AS_bytes": 100663296,
+      "receipt": {
+        "bytes": 1149,
+        "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/E49-overlay-verified.json",
+        "sha256": "d1556244012bb74821bcbfffa52d737bfa0c382660f9f6720c0aa6417ee0fd84"
+      },
+      "wall_seconds": 0.1096093209926039
+    }
+  ],
+  "all11_source_only_steps_completed_exit0": true,
+  "all_original_donors_unchanged_by_code": true,
+  "caps_or_thresholds_retuned_after_failure": false,
+  "configuration": {
+    "bytes": 3607,
+    "path": "/dev/shm/ruvector-oct28-data/SOURCE_RESTORATION_CONFIGURATION.v2.json",
+    "sha256": "63d4edb1be7525e0403f6cfb5f4472dc061762e1144d8654deefb55a26fd085f"
+  },
+  "current_physical_bytes": {
+    "base-cache": 987354,
+    "kit": 582084259,
+    "project": 575457684
+  },
+  "current_physical_file_counts": {
+    "base-cache": 48,
+    "kit": 9440,
+    "project": 9518
+  },
+  "epoch": 59,
+  "failure_phase": "Start of optional new-Kit twin retirement, before entering unlink loop",
+  "full_CLI_or_cleanup_retries": 0,
+  "headroom_after_failed_process_exit": 702582784,
+  "independent_approval": {
+    "bytes": 4031,
+    "path": "/dev/shm/ruvector-oct28-audit/FRESH_SOURCE_RECONSTRUCTION_INDEPENDENT_EXECUTION_APPROVAL.v1.json",
+    "sha256": "2faa93cf0ac9a6b73c9dcd532e38fab6765fc419b780fb155ce9af184273db88"
+  },
+  "kind": "ACTUAL_SOURCE_RECONSTRUCTION_WRAPPER_POST_STEPS_MEMORY_FAILURE",
+  "models_native_tokenizer_Gold_scorer_training_calibration_Git_mutations": 0,
+  "new_readonly_audit_required_before_any_source_success_claim": true,
+  "observed_unix": 1793148132.5469427,
+  "preceding_executed_code_facts": [
+    "All9308CP source hashes checked in both newKit and newR",
+    "All9315 currentGit Kitbody hashes checked",
+    "Original9385donor files rehashed/preserved",
+    "before-counts collection completed",
+    "No retirement loop body entered"
+  ],
+  "recovery_generation": 28,
+  "retirement_unlink_count_basis": "Python sorted() eager evaluation raised before loop body; no other unlink path in helper",
+  "schema_version": 1,
+  "source_code": {
+    "bytes": 17086,
+    "path": "/dev/shm/ruvector-oct28-data/reconstruct_sources_recovery28.v2.py",
+    "sha256": "63352907a2f5c71e3b6bbc576e9de0431270a2d0705030fd1076eea1f9747bc7"
+  }
+}

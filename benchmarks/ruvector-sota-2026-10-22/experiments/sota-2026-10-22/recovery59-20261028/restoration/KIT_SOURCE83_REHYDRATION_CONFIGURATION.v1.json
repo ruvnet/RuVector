@@ -1,0 +1,37 @@
+{
+  "Kit": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/kit",
+  "R": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/project",
+  "actual_source_retirement_will_not_be_rerun": true,
+  "archive_overlay": {
+    "bytes": 41715,
+    "path": "/dev/shm/ruvector-oct28-publication/public-packet-v2/ARCHIVE_OVERLAY.v1.json",
+    "sha256": "d62375c852ae08aace29138d44de97a99ff9c3197f7bc635521c2897705d7ac4"
+  },
+  "epoch": 59,
+  "fresh_Git_map": {
+    "bytes": 2159908,
+    "path": "/dev/shm/ruvector-oct28-data/actual-git-map.json",
+    "sha256": "ed7f598831e723353ef1d7939813f46be5abd5ce8ac951b33d9aef7e40afebd8"
+  },
+  "kind": "SOURCE_ONLY_NEW_KIT83_REHYDRATION",
+  "new_Kit_files_allowed": 83,
+  "old_donor_writes_allowed": 0,
+  "owner": {
+    "bytes": 848,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/guardian28/owner.json",
+    "sha256": "39acf0db29a8dff63e76a550927644fc4170d662152961fc0f244147ea9c069e"
+  },
+  "owner_fence_source": {
+    "bytes": 3877,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/guardian28/owner_fence.py",
+    "sha256": "f4502591a06b4518d77eecd4f7f0eecee2d1cf5383cf24f8b17e6c5663df3791"
+  },
+  "schema_version": 1,
+  "scientific_Git_calls_allowed": 0,
+  "source_R_writes_allowed": 0,
+  "source_preservation_review": {
+    "bytes": 2071,
+    "path": "/dev/shm/ruvector-oct28-audit/ACTUAL_STREAMED64_RETIREMENT_AND_SOURCE_PRESERVATION_INDEPENDENT.v1.json",
+    "sha256": "f85bed54d55bb9a02591e64ba4d46b6255ce74858ecac02e1a83c41db7308f27"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "actual_exit_code": 1,
+  "actual_output": "{\"ClaimBench\": \"FRESH_CURRENT_PAGE_AND_LINKED_AGGREGATE_PARSED\", \"JevBench\": \"FRESH_CURRENT_PUBLIC_BOARD_PARSED\", \"actual_GET_attempts\": 3, \"errors\": [{\"error_code\": \"OPEN_WEIGHTS_OFFICIAL_CATEGORY_OR_SCOPE_NOT_PROVEN_NO_RETRY\", \"step\": \"JevBench\"}], \"result\": {\"bytes\": 7384, \"path\": \"/dev/shm/ruvector-oct28-official/PUBLIC_REFRESH_RESULT.actual.v3.json\", \"sha256\": \"b97993809321c074be0118edc8ac5b085a927c61227d6ef7cf52f603a4311542\"}}\n",
+  "actual_tool_chunk": "648fad",
+  "all_tool_sessions_fully_awaited": true,
+  "epoch": 59,
+  "model_native_Gold_paid_GPU_or_Gmail_Git_calls": 0,
+  "orchestration_elapsed_qualification": "Host orchestration wall time including tool waits, not isolated CLI latency.",
+  "orchestration_elapsed_seconds": 9.823,
+  "phase": "OFFICIAL_PUBLIC_METADATA_REFRESH_ONLY",
+  "root_admission_sha256": "208e85e6aa4894bc5d9fc365db0cd388f8cbfc1cb43354d82b68f7f802741fac",
+  "source_sha256": "23c2d411fecac666f51c7b1ec63aa6af1d2183a479d61f9d20fa4901c3e3c7c1",
+  "tool_session_ids": [
+    54983
+  ]
+}

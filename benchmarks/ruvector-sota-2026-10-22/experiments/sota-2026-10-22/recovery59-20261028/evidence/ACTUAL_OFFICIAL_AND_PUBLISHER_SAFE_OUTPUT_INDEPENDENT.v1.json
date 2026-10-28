@@ -1,0 +1,70 @@
+{
+  "ClaimBench_RuVector_score_or_rank": null,
+  "ClaimBench_decision_leader": "decision/d1-ultra100%",
+  "ClaimBench_four_language_models_percent": 100,
+  "ClaimBench_full_dataset_scorer_license_submission_access": "UNVERIFIED_NO_PILOT",
+  "ClaimBench_retrieval_scope": "Only supplied10-Kexcerpts; retrievalmisscannotproveinsufficientevidence.",
+  "ClaimBench_runner_up_percent": 99.694,
+  "JevBench_open_weights_Capability_leader": "UNVERIFIED_NULL_CATEGORY_EVIDENCE_MISSING",
+  "actual_public_HTTP_GETs": 3,
+  "actual_publisher_scope": "2configuredverifiedprofiles/2exactreferencequeriesmax10;1receipt-subjectclassification/date2026-10-22/0resultsubjectcandidates, recognizedschema/pagination/date/body-IDmatchingunverified. No globalresultabsenceclaim.",
+  "all_three_HTTP200_complete": true,
+  "checks_passed": true,
+  "epoch": 59,
+  "generation": 28,
+  "highest_mixed_observed85_233_not_claimed_open_leader": true,
+  "independent_new_network_or_mail_Git_calls": 0,
+  "kind": "ACTUAL_OFFICIAL_PUBLIC_REFRESH_AND_SAFE_PUBLISHER_OUTPUT_INDEPENDENT_REVIEW",
+  "new_paid_API_GPU_or_model_calls": 0,
+  "no_source_HTML_private_mail_fields_addresses_credentials_or_raw_private_returns_persisted": true,
+  "observed_unix": 1793148964.4480882,
+  "official_CLI_exit_record": {
+    "bytes": 1102,
+    "path": "/dev/shm/ruvector-oct28-official/PUBLIC_REFRESH_O_EXEC_COMMAND_EXIT.actual.v1.json",
+    "sha256": "678ce24cdc267a8496c635318a530fa25e898b3a22972459b6f0217e78f89344"
+  },
+  "official_RuVector_score_rank_or_eligibility_verified": false,
+  "official_goal_verified": false,
+  "official_public_result": {
+    "bytes": 7384,
+    "path": "/dev/shm/ruvector-oct28-official/PUBLIC_REFRESH_RESULT.actual.v3.json",
+    "sha256": "b97993809321c074be0118edc8ac5b085a927c61227d6ef7cf52f603a4311542"
+  },
+  "original_queue115_is_rank": false,
+  "outgoing_mail_submissions_or_author_contacts": 0,
+  "public_output_privacy_review_passed": true,
+  "public_receipts": [
+    {
+      "bytes": 726,
+      "path": "/dev/shm/ruvector-oct28-official/PUBLIC_SOURCE_RECEIPT_1.v3.json",
+      "sha256": "f37aefbf639f69f49bd2a61f5506c9618baec4f8377e62aa6fcec84b5d3b9f6f"
+    },
+    {
+      "bytes": 771,
+      "path": "/dev/shm/ruvector-oct28-official/PUBLIC_SOURCE_RECEIPT_2.v3.json",
+      "sha256": "fc3f93148044ef91788399c4dee4aa0179c28cda048f280ed46e14c4072571c1"
+    },
+    {
+      "bytes": 826,
+      "path": "/dev/shm/ruvector-oct28-official/PUBLIC_SOURCE_RECEIPT_3.v3.json",
+      "sha256": "e5258d957ee104964ddfb6c012952433fcba2f751947f7888a8c14bb9bad4dec"
+    }
+  ],
+  "public_source_privacy_approval": {
+    "bytes": 4614,
+    "path": "/dev/shm/ruvector-oct28-audit/official-review/OFFICIAL_PUBLIC_REFRESH_SOURCE_PRIVACY_INDEPENDENT_APPROVAL.v1.json",
+    "sha256": "66f61d4b4a49f4663ca889798b15ed5b9d2e6bcdb5bb30356b999f5de69db62f"
+  },
+  "publisher_safe_metadata_result": {
+    "bytes": 1547,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/official/PUBLISHER_METADATA.actual.v1.json",
+    "sha256": "7860e97eb30b2acecfad9fba281e3bdcd130066f104913181db56b3030074142"
+  },
+  "publisher_source_privacy_approval": {
+    "bytes": 4407,
+    "path": "/dev/shm/ruvector-oct28-audit/official-review/PUBLISHER_METADATA_CURRENT_COPY_SOURCE_PRIVACY_INDEPENDENT_APPROVAL.v1.json",
+    "sha256": "3fd2a167693beca3e243dfe2890abbd09c4528c0dac78c98dc4c1f534fb81559"
+  },
+  "reader_exit1_scope": "Expected failclosed JevBench category gate only; allthree boundedHTTPreadssucceeded. No retry/leader categoryinference.",
+  "schema_version": 1
+}

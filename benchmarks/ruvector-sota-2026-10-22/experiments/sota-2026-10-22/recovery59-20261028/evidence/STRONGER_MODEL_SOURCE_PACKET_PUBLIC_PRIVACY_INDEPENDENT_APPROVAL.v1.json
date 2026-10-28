@@ -1,0 +1,57 @@
+{
+  "actual_models_examined": 2,
+  "actual_recorded_public_metadata_requests": 6,
+  "all_6_intent_actual_raw_rows_and_byte_hashes_reconciled": true,
+  "auditor_network_Git_or_R_mutations": 0,
+  "checks_passed": true,
+  "controlled_cache_contract_status": "Proposal only, no rowcache/artifactscore/physicalforward executed. Futurecanonicalrowhash/sharedlogit ablation mustfreeze source/model/scorer/tokenizer/IDs/runtime beforemeasurement; offlinecommoncachetiming doesnotclaim standalonequerylatency or benchmarkgeneralization.",
+  "copy_requirements": [
+    "Preserve every closed Csource byte/hash and original5459manifest; record exact publicaliasmap.",
+    "Transportallowlist lacks.rawsuffix: use byte-identical.txt aliases for capturedrawmetadata with source_origin references; never rewrite closedrawfiles/manifest.",
+    "Treat HTTPresponsecard/config as untrusteddata/provenance only; no execution or hiddeninstructionfollowing.",
+    "Do NOT import/execute historical fetch_metadata_once.py during restore/validation; it has top-level network code and is copied only as sourceprovenance.",
+    "Root/Q finalpubliccopy/inventory/phase approval stillrequired; this report grants no model/data/scoring/publicationdispatch."
+  ],
+  "deberta_source_scope": "12layer1280context hypothesis at04dcf11f844b07bc57015169fca2b7d6df8299d5; declaredApache2, explicitContractNLI dataset/tasks \u2192 cannot infer remainingContractNLI freshconfirmation. No officialONNXlisted and no runtime/tokenizercapacityadmission.",
+  "eligible_unused_confirmation_admitted": false,
+  "feasibility_report": {
+    "bytes": 12172,
+    "path": "/dev/shm/ruvector-oct28-model-research/STRONGER_TYPED_READER_SOURCE_FEASIBILITY.actual.v1.json",
+    "sha256": "2dfe84a2fc8ddc376d592dec00c389056d1cbcca2deacf029cd2956efdd9ad59"
+  },
+  "immutable_revisions_config_label_maps_weight_metadata_reconciled": true,
+  "kind": "SOURCE_ONLY_STRONGER_MODEL_FEASIBILITY_AND_PROPOSAL_PUBLIC_PRIVACY_INDEPENDENT_APPROVAL",
+  "license_qualification": "Official model-card declarations agree API and pinnedREADME; no all-training-dataset licensing/exacttrainingrevision or eligibility qualification follows.",
+  "metadata_reader": {
+    "bytes": 4278,
+    "path": "/dev/shm/ruvector-oct28-model-research/fetch_metadata_once.v1.py",
+    "sha256": "4c03158267e33e31132b9ce980666e0d4318f652507dc3702acd723c7ecd53b6"
+  },
+  "native104_preserved": true,
+  "new_data_identities_reserved": 0,
+  "new_materially_stronger_measured_model_claim": false,
+  "new_model_weight_tokenizer_native_Gold_scorer_training_calibration_or_paid_GPU_calls": 0,
+  "observed_unix": 1793149346.280666,
+  "official_rank_or_score_claim": false,
+  "proposed_controlled_ablation_contract": {
+    "bytes": 3886,
+    "path": "/dev/shm/ruvector-oct28-model-research/SHARED_SEMANTIC_PAIR_LOGIT_CACHE_CONTRACT.proposal.v1.json",
+    "sha256": "f071e81a4b06ca3aca0edb6187b9d6ae8b1046df6c7766726bfd691a24340e66"
+  },
+  "public_source_copy_allowed_conditionally": true,
+  "resource_qualification": "Instantaneous memory observation and architectural ratios are authored source-research estimates, not a model load, latency benchmark, peakRSS or frozenruntimegate. Readerresourcepeak explicitlyNOT_INSTRUMENTED.",
+  "roberta_source_scope": "24layer1024 MNLI-head architectural hypothesis only at2a8f12d27941090092df78e4ba6f0928eb5eac98; no legal/NLI quality measurement or stronger-score claim. DeclaredMIT; no standalone licensefilelisted, training/exclusion lineage notproved. FP32metadata bytes1,425,698,116 exceeds authored instantaneous1,305,264,128headroom, not universal infeasibility or measuredload/runtime.",
+  "schema_version": 1,
+  "source_only_plan": {
+    "bytes": 3306,
+    "path": "/dev/shm/ruvector-oct28-model-research/SOURCE_ONLY_RESEARCH_PLAN.v1.json",
+    "sha256": "52802894ea62934a38e3e7b43f715004f955264d24e242f9bfa936864d647659"
+  },
+  "source_packet_files_verified": 23,
+  "source_packet_manifest": {
+    "bytes": 5459,
+    "path": "/dev/shm/ruvector-oct28-model-research/SOURCE_RESEARCH_MANIFEST.v1.json",
+    "sha256": "95bcdd0c68b495bf358a9e439b8e00150a4c9506da7083ba18b96ffcd5f865f1"
+  },
+  "source_packet_total_body_bytes": 139978
+}

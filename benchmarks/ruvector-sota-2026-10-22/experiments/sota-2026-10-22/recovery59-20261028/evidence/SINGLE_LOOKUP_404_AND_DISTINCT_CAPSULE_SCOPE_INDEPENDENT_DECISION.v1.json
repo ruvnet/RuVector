@@ -1,0 +1,66 @@
+{
+  "caller_read_retries_or_fallbacks_authorized": 0,
+  "checks_passed": true,
+  "epoch": 59,
+  "exact_actual_owner_admission": {
+    "bytes": 2806,
+    "path": "/dev/shm/ruvector-oct28-audit/ACTUAL_GUARDIAN28_OWNER_AND_SINGLE_READ_INDEPENDENT_ADMISSION.v1.json",
+    "sha256": "626b992cd32a8cc3c566b9d37dfd63d46fda37fdd69ea576140d057db329a69d"
+  },
+  "exact_read_intent": {
+    "bytes": 714,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/reconciliation/ONE_READ.intent.actual.v1.json",
+    "sha256": "19e97f67bcd4155c00a3a07ab5b967227ff2d3d793952bd816809bb8f6b3fb46"
+  },
+  "exact_read_raw_result": {
+    "bytes": 524,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/reconciliation/ONE_READ.raw.actual.v1.json",
+    "sha256": "cfecbe9fb464031063b4fb8a691c4c81f03338610abd463b220dbe5a950f4b78"
+  },
+  "expected_blob": "1089df824a50b6c95f0cd42b4d9c18b16439f809",
+  "failed_blob_create_authorized": false,
+  "failed_blob_reuse_authorized": false,
+  "generation": 28,
+  "independent_auditor_external_reads_or_mutations": 0,
+  "kind": "SINGLE_READ_404_OUTCOME_AND_DISTINCT_ARCHIVE_TRANSPORT_SCOPE_INDEPENDENT_DECISION",
+  "mandatory_new_plan_constraints": [
+    "Preserve all original failed request/raw/journal/UNKNOWNhistory and404observation as public-safe evidence; never declare the original mutation acknowledged, permanentlyunknown, or successfullyreconciledpresent.",
+    "Psource-v1 loose28reuse draft remains unexecuted and is explicitly abandoned/preserved; never rerun archived guardian27 controller or stage.",
+    "New capsule exact bytes/canonical encoding/sourcecode/inventory/source-and-restoremanifests and requestIDnamespace frozen and independently reviewed BEFORE any Git mutation. No randomnonce/padding/bodytweak solely to defeat an object denylist.",
+    "Hard-deny create_blob for ANY of the28original attempted content GitSHAs regardless path, encoding or requestID. The failed1089object is neither queried again nor created/reused. Original three forbidden objects are also never queried/recreated/live-referenced.",
+    "Use the exact existing948170-byte reviewed archive, verify all167safe regular members and manifest hashes, keep all161E59sealed project files byte-identical; do not add recovery evidence to immutable E59roots.",
+    "Keep ordinary source checkpoint restoration via reviewed bootstrap/restore. Add an explicit separately reviewed deterministic archive-overlay helper that validates complete member inventory/hash/limits/path safety,83duplicate source bodies identical and78new bodies OEXCL, with no science imports/execution. CPandCONT must accurately declare which files are ordinary Git versus archiveoverlay; never relabel compressed members as loose Git leaves.",
+    "Expose safe exact result/ledger/identity summaries as optional independent new aliases only if their complete body GitSHAs are not among28attempted objects and aliases/sourceorigin are explicitly reviewed. Preserve source-phasezeros as historical; add actual2spentSCIbatchbudget and17DEVforever/CF[]rejection facts.",
+    "Use live exact guardian28 owner, complete fresh parent/source Merkle/body verification, same isolated checkpoint branch only, expected-parent force:false CAS and full actual independent readback. Never main/merge/release/packages/messages/submissions.",
+    "At most ONE newly frozen distinct capsule transport attempt in this recovery run. Any unknown/newfailed Git mutation means STOP and no further reencoding/repacking/alternatewrapper fallback. This decision is not permission to evade a new unknown outcome by inventing more capsulevariants.",
+    "No model/native/tokenizer/Gold/scorer/new paidAPI/GPU calls, no scientific reruns, no candidatepromotion/officialrankclaim; native104 remains champion and allprior development/confirmationroles preserved."
+  ],
+  "matching_body_readback_obtained": false,
+  "mutation_authority_granted_by_this_document": false,
+  "new_alternative_transport_eligible_for_review_only": true,
+  "new_scientific_calls_authorized": 0,
+  "next_required_evidence": "Concrete new frozen capsule/overlay/stager/guard/controller/CONTCPproposal and independent approvals, plus actual fresh reconstructed isolated project. Only Root may publish after all pass.",
+  "observed_unix": 1793147440.5652514,
+  "old_28_existing_blobs_plan_can_be_admitted": false,
+  "original_blob5_execution": "UNKNOWN_PERMANENTLY_UNCHANGED",
+  "original_bounded_plan": {
+    "bytes": 4293,
+    "path": "/dev/shm/ruvector-oct28-audit/ONE_READ_ONLY_BLOB_RECONCILIATION_INDEPENDENT_PLAN.v1.json",
+    "sha256": "b58e7412ad43796a6216e13312815630e6dd196255130a21879cf10eeb195856"
+  },
+  "original_full_loose_blob_transport_must_stop": true,
+  "original_mutation_history": "UNKNOWN_PENDING_INDEPENDENT_RECONCILIATION; current404doesnotproveoriginalcreationhistory",
+  "read_outcome": "GITHUB_NOT_FOUND_404_AT_SINGLE_OBSERVATION",
+  "reviewable_alternative": {
+    "artifact": {
+      "bytes": 948170,
+      "path": "/workspace/ruvector-e59-public-recovery.tar.gz",
+      "sha256": "1c43224ad190f7514d750b2a265f12376447cbd21ac24603426579f98996c4e9"
+    },
+    "legitimate_purpose": "Publish exact completed public research outcomes, rejection, exposures, actual spentbudget and recovery evidence durably; retain the source-frozen manifest/code/bodybytes exactly inside a safe explicit archive overlay.",
+    "raw_archive_Git_blob_SHA": "f0c5036b98d0e6560a95e813427fc916a0aa8505",
+    "scope": "One separately frozen public recovery capsule containing this exact already-reviewed archive and transparent restore metadata; no newly measured or selected science. Capsule is a distinct content-addressed artifact and no failed original blob becomes a loose Git object or live reference.",
+    "why_not_repetition": "The uncertain operation was create_blob for a specific12900-byte source object. New capsule has a different complete payload, purpose and Git content address. No FINAL tree/commit/branch-CAS was attempted previously. A first independently reviewed CAS publishing an archive and safe controls does not repeat that unacknowledged blob creation. Current404alone grants no such mutation; a new concrete reviewed plan is required."
+  },
+  "schema_version": 1
+}

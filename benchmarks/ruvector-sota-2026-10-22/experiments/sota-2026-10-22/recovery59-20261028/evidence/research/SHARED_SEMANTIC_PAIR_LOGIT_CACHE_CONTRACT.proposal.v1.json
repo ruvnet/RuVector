@@ -1,0 +1,42 @@
+{
+  "DEV_ids": [],
+  "actual_physical_NLI_native_tokenizer_or_Gold_calls": 0,
+  "cache_key_fields": [
+    "model_repository_revision",
+    "weight_SHA256",
+    "tokenizer_SHA256",
+    "scorer_source_SHA256",
+    "premise_UTF8_SHA256",
+    "hypothesis_UTF8_SHA256",
+    "actual_row_input_tensor_and_mask_SHA256",
+    "canonical_batch_ID_and_slot"
+  ],
+  "calibration_ids": [],
+  "canonical_phase": [
+    "Freeze model, tokenizer, source units, exact hypotheses, batchsize, padding rules, scalar/matrixdtype, aggregation and armselection before any model measurement.",
+    "Materialize one canonical source-unit\u00d7hypothesis schedule sorted by immutable IDs, independent of arm order, retrievalscores, labels or predicted logits. No hidden warmup; first cold forward included.",
+    "For every physicalforward archive exact wholebatchinput/output dtype/shape/bytesSHA plus each actual per-row input tensor/mask/type bytesSHA and each raw3logit float32row bytesSHA. Bind source/hypothesis UnicodeSHA, native hit identity and model/scorer revisions.",
+    "Seal immutable typed logit cache once. Each matched arm consumes identical cached raw float32 logits for an identical exact premise/hypothesis pair. Missing or hash-mismatched entries fail closed; no inference fallback.",
+    "Run frozen native-order, source-order and complete-reference state machines using only their declared source inputs and frozen numerical/coverage checks. A retrievalmiss never proves insufficient evidence. Neutral requires complete suppliedsourcecoverage.",
+    "Late Gold joins only after all forecasts and physical processclosure. No training/calibration/selection on confirmation labels."
+  ],
+  "causal_scope": "Holding exact raw row values identical removes observed cross-arm batch-companion logit variation for shared pairs. Differences can be attributed only to the declared fixed selector/order/aggregation treatment within this frozen source dataset; no independent-document/benchmark-wide/SOTA claim. Different full-reference joint premises require separate cache keys and a separate context-policy comparison qualification.",
+  "confirmation_ids": [],
+  "identity_status": "UNRESERVED. Existing exposed identities remainDEV forever; new source/identity/runtime freeze and independent admission are required.",
+  "kind": "PREMEASUREMENT_CONTROLLED_SAME_MODEL_RETRIEVAL_ABLATION_PROPOSAL",
+  "model_strength_claim": false,
+  "motivation": "E59 independently observed same-semantic-pair max raw-logit delta1.0046716332435608/probabilitydelta.2736475302259274 across dynamic-int8 companion batches; this limits interpreting native/source/full differences as relevance alone.",
+  "promotion_or_submission_allowed": false,
+  "resource_accounting": {
+    "derived_arm_consumption": "Separate integer counter for each armdecision consuming an actual sealed row; never relabel as fresh physicalforward.",
+    "latency": "Report inclusiveCLI/initialization/common-cache-build p50/p95/fullforwardtimings plus armdecision completion from common-cache availability. These are shared execution/offlinecontrolledablation timings, not independent deployment query latencies.",
+    "physical_NLI_forwards": "Count actual canonical model invocations only, not three copies of armcaseparticipations.",
+    "physical_pair_inferences": "Count every actual attempted/completed canonical row, retain failed and incomplete rows.",
+    "throughput_projection": "Any new formula must be derived from actual unique canonicalphysicalrows, frozen before measurements, include worst observed full batch including firstcold/init and all nativework, and fit<=600s/batch withCPU2. Do not relax/replay E58/E59 frozen gates."
+  },
+  "schema_version": 1,
+  "scientific_authority": false,
+  "source_checkpoint": "993dce6842bf602dd87864d00c1621a56eebc613",
+  "status": "UNEXECUTED_UNADMITTED_SOURCE_DESIGN",
+  "train_ids": []
+}

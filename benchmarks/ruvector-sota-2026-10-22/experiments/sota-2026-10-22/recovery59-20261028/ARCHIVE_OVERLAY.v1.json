@@ -1,0 +1,986 @@
+{
+  "CP_project_files_includes_overlay78": false,
+  "E44_overlay55_still_separate_and_precedes_this": true,
+  "SOURCE_members_already_Git_visible": 83,
+  "archive_bytes": 948170,
+  "archive_members": 167,
+  "archive_sha256": "1c43224ad190f7514d750b2a265f12376447cbd21ac24603426579f98996c4e9",
+  "canonical_scientific_members": 161,
+  "epoch": 59,
+  "files": [
+    {
+      "bytes": 40327,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/FINAL_PUBLIC_SUMMARY_AND_INVENTORY_INDEPENDENT_REVIEW.v1.json",
+      "sha256": "0314d3034e979eb94cc154fac983eed98ca22f4e264db9d1464bc787b71bed4b",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 27891,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/ACTUAL_FROZEN_SCORER_COMPARISON_INDEPENDENT.v1.json",
+      "sha256": "75a2be321142edc0151470527f7602305281ba4b31b6c06245b239e40ff45288",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 3047,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/ACTUAL_LATE_GOLD_JOIN_AND_CLASS_COUNTS_INDEPENDENT.v1.json",
+      "sha256": "d99fd64441f596eb48d4a49ed71165095f946001cb0d9145b8a05feb3ac65248",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 29304,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/ACTUAL_QUALITY_INDEPENDENT_RECOMPUTATION.v1.json",
+      "sha256": "9df39fd8b2340383d9dd051e4f9fad598c8ee8b45dfb43b3c8db563224eeaf10",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 632481,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/ACTUAL_SEMANTIC_PAIR_BATCH_VARIATION_INDEPENDENT.v1.json",
+      "sha256": "56dd941a225e14998da1164da5065bf4bc58698bc41369d37448b135f08cde7a",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 1611,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/ACTUAL_SOURCE_91_MUTATION_ACKS_INDEPENDENT.v1.json",
+      "sha256": "290de60d1f3b50c72050a1c6de59bec92f0b8a7b9c56885436f9f38f1520f4f2",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 1397,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/ACTUAL_SOURCE_READBACK_AND_ACK_ACCEPTANCE_INDEPENDENT.v1.json",
+      "sha256": "5b750b2a6c9222b9df05c73d20ff786a2c7808f530b40be2407f37a4750daeff",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 10374,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/DEV_ACTUAL_PRIVATE_ORIGIN_INDEPENDENT_AUDIT.v1.json",
+      "sha256": "fa0972c3e1a395d5e439726549688649a6ee3d296ab4b3f898f60b2875f22108",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 42363,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/DEV_ACTUAL_SCORED_ACCEPTANCE_INDEPENDENT.v1.json",
+      "sha256": "859c72102d92b70821491b3b4bce76085d292c95af19bba72c61123cbcceb81d",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 11317,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/ENGINEERING_ACTUAL_PRIVATE_ORIGIN_INDEPENDENT_AUDIT.v1.json",
+      "sha256": "28164b57899f3981dc5e093bd9fd6382cebb0d2277e5a18dae11b56b68f3a615",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 11879,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/ENGINEERING_ACTUAL_PUBLIC_ALIAS_ACCEPTANCE_INDEPENDENT.v1.json",
+      "sha256": "e690c9223b7b7e410b0b87c68d9c1882e8ac9e944c15b500823eb87db5c712e3",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 1386,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/FRESH_CONNECTED_READBACK_IDENTITY_V5_INDEPENDENT_APPROVAL.v1.json",
+      "sha256": "23ca7a7dcf3dcfae03f087027159eac8885ab15c9affc87b03c7545331f9a38a",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 7589,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/JOINT_LATE_GOLD_ACTUAL_CLOSURE_INDEPENDENT.v1.json",
+      "sha256": "498e3d3f31ea6122c1f358b534c9406c453d3ceeaf0578f2a65c32ab0d37389e",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 1755,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/LATE_SCORER_CONFIGURATION_INDEPENDENT_APPROVAL.v1.json",
+      "sha256": "02508208cf669d239604b9c2fea4d230bc07d5f360bc00a894a802c6df0ea4b4",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 20041,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/PHYSICAL_PUBLIC_SOURCE_DATA_ORIGIN_INDEPENDENT.v2.aliasfix.json",
+      "sha256": "70a69d41b7f515b2e307eec4ca24c83dd42c5024469c33ac08f1540a3d1ed5a3",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 7430,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/source/audit_DEV_actual_forecasts_and_joint_closure.v1.py",
+      "sha256": "e362121e44a53312af0d7d51257f296d0e37529e5dff6c6d0b0fee1bf4fec65e",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 5247,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/source/derive_actual_phase_events.v1.py",
+      "sha256": "addc545941a70572bf02359c9a1395350cc890f3775169319cf84deeebda07ff",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 5385,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/source/derive_semantic_pair_variation_actual.v1.py",
+      "sha256": "969527a0ace0807d0895f0c3c4e8f374eed3593401696ee76b7114d8d38c3732",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 13629,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/source/finish_actual_quality_acceptance.v1.py",
+      "sha256": "879b182e0917dfefe0e6a0f0d81eb0870fbb7ed07a594e03eda97c6e52799c09",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 9896,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/source/phase_actual_audit_lib.v3.py",
+      "sha256": "cfbac1761202736c73676238941389c87b2cabfb54213f199bf63a1a18559f62",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 8906,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/source/recompute_quality_independent.v1.py",
+      "sha256": "2e29769b25594b74a3f54f1261779928dd3d5a58ec4bf188fd1e2af7f1e9b473",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 5010,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/official/ACTUAL_OFFICIAL_AND_PUBLISHER_SAFE_OUTPUT_INDEPENDENT.v1.json",
+      "sha256": "206a31a61146f40cbcd9467a44f48d3019fa299f60089e8a877f037a5ae8d9db",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 2170,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/preparation/ACTUAL_CURRENT_SOURCE_DONORS_AND_MERKLES_INDEPENDENT.v1.json",
+      "sha256": "ee93591b477584191c07c87e39c4f58012a607d19e1ba5e4c321f6213062d0ba",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 3908,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/preparation/ACTUAL_FILENAME_ALIAS_QUALIFICATION_INDEPENDENT.v1.json",
+      "sha256": "45c9f048a709664a10301f8e03c3ec63f47adcacede0e30a58d14717540e9253",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 4887,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/preparation/ACTUAL_ISOLATED_RESTORATION_AND_KIT_RETIREMENT_INDEPENDENT.v1.json",
+      "sha256": "e3193eadea9acd4e201c79f5034438ce1c11fcf04e9ca0f206e0de9e123df9c3",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 3228,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/preparation/ACTUAL_NEW_NLI_SOURCE_ASSETS_HASH_INDEPENDENT.v1.json",
+      "sha256": "011369191ecac1f98714f038420bddfc2988fdb4d058735b939cb402a677634a",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 3447,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/preparation/ACTUAL_RUNTIME_NATIVE_AND_CACHED_BGE_INDEPENDENT.v1.json",
+      "sha256": "5b3f4eebf464626de6fe8ef16933f53b11a77ebed0fba1699ffc6c8ac9f2df82",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 1310,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/preparation/GUARDIAN27_ACTUAL_DETACHED_ORIGINAL_LOCK_INDEPENDENT.v1.json",
+      "sha256": "ed701f8360310b0041ab0c1c3eeeefa3b507702ac94b25cb547d5c589d7d7928",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 1450,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/preparation/OWNER_FENCE27_SOURCE_AND_READONLY_ACTUAL_INDEPENDENT_APPROVAL.v1.json",
+      "sha256": "e6f7eed073fd32711a0f07a6d4f23bc0e73e759914e1e45c7eb628189ab612f6",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 4191,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/publication/SOURCE_PUBLICATION_REMOTE_READBACK_INDEPENDENT.v1.json",
+      "sha256": "dd26b8719d2ae849688cc4ae391bd1a50b4c268ce5c2cc2e55e01554fcc52615",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 2074,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/publication/SOURCE_READBACK_API_URL_ANNOTATION_FAULT.actual.v1.json",
+      "sha256": "581c3557494e567c74f1d110080cd5f7069c2e02f4cd2e3d087f176fcb6ed9e8",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 1421,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/publication/SOURCE_READBACK_CONTROL_SCHEMA_FAULT.actual.v1.json",
+      "sha256": "617bcd275a3afacdfdcfd3c1bebe7d080cf50e732363e96640c77432224f48d7",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 12900,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/publication/verify_actual_readback.v5.py",
+      "sha256": "097124073ff4348b5a57196991d9abf623dc0731d38375cde62626c1668ef80a",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 2911,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/source-review/ACTUAL_BLIND_CATALOG_SOURCE_COVERAGE_INDEPENDENT.v1.json",
+      "sha256": "7823c827cb4ba20331fd55aa7b8af0d31a5c5b522e7eb32e7fffa331c68100b3",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 3765,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/source-review/ACTUAL_BLIND_DATA_CUSTODY_INDEPENDENT.v1.json",
+      "sha256": "5276681ef5c5ee7c8305d2cbb65929e330365bb2666c46a58c6fb62637ce5ff1",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 2988,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/source-review/CANDIDATE_PROTOCOL_EXECUTABLE_CLOSURE_INDEPENDENT_REVIEW.v1.json",
+      "sha256": "c293e3773eaa4bfda38ad990ecbb0c5e2d8804ba5c1254af78ddbaf92541853c",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 1808,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/source-review/CANDIDATE_PROTOCOL_RECEIPT_METADATA_REVISION_INDEPENDENT.v1.json",
+      "sha256": "e9fb95193930a2a07de4fbf0a3a4e38263a37297b0f804e3316c4a5cd77d9a72",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 5075,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/source-review/PUBLICATION_CORE_SOURCE_INDEPENDENT_REVIEW.v1.json",
+      "sha256": "aaaecbd82d7652be64c3478827bd1c1d245546f113990071742fa206491b9b10",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 6412,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/source-review/REPORTER_AND_MASTER_SOURCE_INDEPENDENT_REVIEW.v2.json",
+      "sha256": "6e2a8c1ae968aba3392510aca870ef572327ce5fa03d3d2352b835cdd4a92099",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 35726,
+      "path": "experiments/sota-2026-10-22/epoch59/EPOCH_MANIFEST.json",
+      "sha256": "c3990bcb2351d98d3519e4f33f03998c24f7d048dd0cb8382d8ae0e4d65000e1",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 4831,
+      "path": "experiments/sota-2026-10-22/epoch59/LEARNINGS.json",
+      "sha256": "63af4de6f2c37c20040ab422f0f2f28988013e20c345ae8478f002e8cde5c4a6",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 270574,
+      "path": "experiments/sota-2026-10-22/epoch59/REJECTION_LEDGER.json",
+      "sha256": "bfae7bd9c41d42545f395ae4e2d9991ddee30e9896a8e6302a6d8c3c412e3bba",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 48626,
+      "path": "experiments/sota-2026-10-22/epoch59/RESULTS.json",
+      "sha256": "11f9c3c3c40c86e29d082aac99c5b4cb1514b2f6a8a7c813e553cb75dfec2e9d",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 34776,
+      "path": "experiments/sota-2026-10-22/epoch59/SOURCE_FREEZE.json",
+      "sha256": "17ad5079228381882fbe26731936a668781471a9bf41a984b90a96826dfb2728",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 36556,
+      "path": "experiments/sota-2026-10-22/epoch59/SOURCE_MANIFEST.json",
+      "sha256": "8e0ea28a991d30a687bfadb933bd58621a7a9ed07158f2741ece94737c180bf2",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 8777,
+      "path": "experiments/sota-2026-10-22/epoch59/USED_CONFIRMATION.json",
+      "sha256": "f3adc83bd482144c62e52cd5ac9c6eacd56bd77045eae6489c37570f8eb9b565",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 8777,
+      "path": "experiments/sota-2026-10-22/epoch59/USED_IDENTITIES.json",
+      "sha256": "f3adc83bd482144c62e52cd5ac9c6eacd56bd77045eae6489c37570f8eb9b565",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 729,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/DEV_ROOT_CLI_EXIT.actual.v1.json",
+      "sha256": "c2262e8604af148f2e4e95b07a7fe86cad2cdc14fc88fd6599e19cc2752b3666",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 2699,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/GOLD_REPORT.public.v1.json",
+      "sha256": "acd03870060cba94599b4617d69233af25abad027a1dc02cc8a0108169df62e8",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 3915,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/LOCAL_GOLD_ADMISSION.v1.json",
+      "sha256": "9691c61dd25fc65f05d319968c7bcbd9420882c636b9a71f7a5e88857d6bb5d6",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 2323,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/ROOT_LATE_SCORING_ADMISSION.v1.json",
+      "sha256": "05f4e4d09c3ee967468097a9b10d99eec8cc4f5247a6291c494c9e3a4bb3782c",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 28081,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/SCORED.actual.json",
+      "sha256": "823cc68c0122ed4b71745589ecddb0c9175d91c09409902d2f9ecaef2be1b8bd",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 1773,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/SCORER_CONFIG.v1.json",
+      "sha256": "e774771212a64df7f0a8e9b0110e6005d05f8e96fa8ad3968e45dc2c0b90313e",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 1109,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/SCORER_ROOT_CLI_EXIT.actual.v1.json",
+      "sha256": "5891ea9fff265ddeedfc21f6f777ca9eda61d3a58492200f227a751ca2d4e973",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 4822,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/SUPERVISOR_CONFIG.v1.json",
+      "sha256": "17f7ff465a7287f6bed16ac0a5ee890ce0fc73a1829b2d07ce58f1c9a7e130e7",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 8465,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/WORKER_CONFIG.v1.json",
+      "sha256": "4e9cfe78a0cf355c736b74e2fe291a6ceeb40da723183a1cd078660f983322d3",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 646,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/outer/OUTER_ATTEMPT.actual.json",
+      "sha256": "06796770e4c1e939515316af0c66cd0dc3069469eeb0cd4415f86530eb5115a1",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 1666,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/outer/OUTER_RESULT.actual.json",
+      "sha256": "ffacfe331e3cfda12dfbfc0dc9f375c933003558f40a0ca943473a179ae34521",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 488,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/outer/SUPERVISOR_ATTEMPT.actual.json",
+      "sha256": "4f27b4f78b652f7d55f0e7f82656df968498c861b7380a228c594cc6f37b1996",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 2051,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/outer/SUPERVISOR_RESULT.actual.json",
+      "sha256": "6aadafb8005a9c601e8b5edb08315bc25e0419ce5fd71cd85bbbb3214d2091ff",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 978,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/outer/SUPERVISOR_STARTED.actual.json",
+      "sha256": "b71d8c07eb17c22d4384fbabd6b1766e66e77166c4f49f0b17b7dda899e68864",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 947,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/outer/WORKER_STARTED.actual.json",
+      "sha256": "9449e257f6e2991bcc372c0641c47c0f25b38f9c2707bd4391533bbfa2d0e6b2",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 211315,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/worker/RESULT.actual.json",
+      "sha256": "36f7e3bb01de5d53854c8d1dd1db54d1c3a05b04bf897c79622bea5d00a5725e",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 36320,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/worker/SEALED_FORECASTS.json",
+      "sha256": "5c4c6b9788b6ea0da17f03002f1536e46222afb696246beba87d6186e1fe0799",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 1098,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/worker/native/NATIVE_ATTEMPT.json",
+      "sha256": "93a1fbaeddc5209e3fd86fbe535a4b9b64105ead0af897ada62a0517d3bac5c8",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 1491,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/worker/native/NATIVE_CHILD_CLOSED.json",
+      "sha256": "ed64b2abd8bd0e7599bee048373a45ca2de12dd8a57f301e68ef8fdb8c8b3880",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 352,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/worker/native/NATIVE_CHILD_STARTED.json",
+      "sha256": "24bc1b2974851fa936bbc37794718cab90eea6fe41d578ccbb6bbc70039bac5f",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 741,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/worker/native/native-bindings.json",
+      "sha256": "bba09ac25b14243997a52d40201ce144f2d73d111a02dfdcd63071168ef46c31",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 44320,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/worker/native/native-bundle.json",
+      "sha256": "8defcc49b2f2cb7a1bf6e8b3d016d8c4757b786472de13c9ccc614d1a4561ea6",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 2553,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/worker/native/native-config.json",
+      "sha256": "bfae926fc74880d8e227f15b3a211b4392b526cba132d6f5fde7b8629795cc06",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 25798,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/worker/native/native-progress.jsonl",
+      "sha256": "7a6fa8d2d5900fb8a975cea9272eb103d9dbccd1caa81339344e5af9f91b1d0c",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 37757,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/worker/native/native-result.json",
+      "sha256": "60083b4371c1ed13b87da68c2860b9b896ed73227a439e8bd49a4fa64df742d6",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 1149096,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/worker/progress.jsonl",
+      "sha256": "5ff2eeb0a2cbd90c5aa5ef7caa724e0bb3f2f6e28682db65b3a7b5ece73a0b78",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 809,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/ENGINEERING_ROOT_CLI_EXIT.actual.v1.json",
+      "sha256": "973926fe4f12b11a2cfe06eaa1421106467185490145e344d227f21658c606e0",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 4862,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/SUPERVISOR_CONFIG.v1.json",
+      "sha256": "b2f4c14ea9d1a98d467175c6dff7e5c5390478b1cb4307b826f73b32e8d6a433",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 8000,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/WORKER_CONFIG.v1.json",
+      "sha256": "db470f5750c3b61fe36406303deb37027b9a1d541066279941f544d5c12a64ec",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 654,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/outer/OUTER_ATTEMPT.actual.json",
+      "sha256": "8a21e15b2aab194eb2412875285394195c3f9db30cd1fd57b0e9fe0ef8d999ae",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 1699,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/outer/OUTER_RESULT.actual.json",
+      "sha256": "97067e7ba5b14034bc8487fa86145278a6250f3358ed29be394245168027e4e4",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 496,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/outer/SUPERVISOR_ATTEMPT.actual.json",
+      "sha256": "550b3bd67c22a5302e65fb2b413d59efbb5d03efe218e8187fa24f2d881b02c6",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 2079,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/outer/SUPERVISOR_RESULT.actual.json",
+      "sha256": "22dced4e9d15364f2212cf3cf79de2ff6f5d3323fac66f704b170e6f106cf518",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 986,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/outer/SUPERVISOR_STARTED.actual.json",
+      "sha256": "1212c707aa5d70286cfa10b2e285db6b2c8816811130b6a89ac6a36e956056b2",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 963,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/outer/WORKER_STARTED.actual.json",
+      "sha256": "5427a3e3bd36a7d73fd5435cee6715ebd698e23d5a487cdb1354bfc5eab92671",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 21545,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/worker/RESULT.actual.json",
+      "sha256": "61414eb3c461403aff1d35526371014c7e899e312cb388e5d9ba4a3e81c5a1da",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 1123,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/worker/native/NATIVE_ATTEMPT.json",
+      "sha256": "1688dbb308d27791b5229687818f14e4c9d193263ce7cd783aa39464ff80e375",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 1531,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/worker/native/NATIVE_CHILD_CLOSED.json",
+      "sha256": "f622ca7968ac965319f14bd8117790cf6905dfa9ba1317f09a9da7705bb1f23b",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 360,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/worker/native/NATIVE_CHILD_STARTED.json",
+      "sha256": "36d7e87f9af3d81a21009ff78db25d49df4100eb8bf01b6749a4ecc8265a1cc2",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 757,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/worker/native/native-bindings.json",
+      "sha256": "743ab589d81bb7b290b118ebaa849faae6ee63b38eb965fd9749cec48e763a5e",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 299891,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/worker/native/native-bundle.json",
+      "sha256": "c1a8a365a092bc26ad08a08eafb796f5acd98e3c5f43f2d8d5ffa3de48cb7939",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 2322,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/worker/native/native-config.json",
+      "sha256": "166654a38fb65cf6043df9b44f301e7dc2762e307d0d198b19042b043a43a836",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 94396,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/worker/native/native-progress.jsonl",
+      "sha256": "4569f6192ac269c045de75c7bcbe2b3d1925dab18281fa7304915e08d17eaa62",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 964007,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/worker/native/native-result.json",
+      "sha256": "df84297adf8eb5b90e924b77034acca15aa6daf4535ffeea074bddde1464b5af",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 655829,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/worker/progress.jsonl",
+      "sha256": "84499413d35c2538c898c62de8d80d4e3696e6df351ecef5a72fa21e8f69a0bd",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 2448,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/ACTUAL_SOURCE_ASSETS_HASH_AND_TOKENIZER_METADATA_VERIFICATION.v1.json",
+      "sha256": "e34c841da1a85f78ce6263085ced99d1e8737181e8aa78a1aade0423b05669b5",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 2070,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/CANDIDATE_INERT_VALIDATION.v2.accounting.json",
+      "sha256": "5b2d35d9bcdbd006e6704453d35ae64a65213331bf3ec50c3adda85cbc522734",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 11181,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/CANDIDATE_PROTOCOL.v2.receipts.json",
+      "sha256": "59c741145034878bba27d743d7d90432c7dbc08c43222a7a34730b74b094dc10",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 11484,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/CONFIGURATION_CONTRACT.v2.receipts.json",
+      "sha256": "12c22a431b74c19553bf292404314222e64cea3cad4f1416e5ddad80598b2213",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 5115,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/COUNTER_SCHEMA.v1.json",
+      "sha256": "a5480f7fbaf1fa06a6955702bc7655813ef426e9600a3113f8a3792b48f83960",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 81159,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/ENGINEERING_AUTHORED_INPUTS.v1.json",
+      "sha256": "e749d017df7c588090245a61cf8f34071158c65cf0bcfee1bb568aafd425c835",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 7830,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/HYPOTHESIS_PROPOSAL.v2.selected.json",
+      "sha256": "0143bb8040aeadce8fd1c88d456885f1d57024f6b5b3fa3b34f3e5bfb737af8d",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 4344,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/SAME_SEMANTIC_PAIR_VARIATION_DIAGNOSTIC_CONTRACT.v1.json",
+      "sha256": "dfd6a89526f8a00d9a709136557877c05c00982d727d30a38dd8e6ec57765724",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 2695,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/model-source/minilm2-README.md",
+      "sha256": "1a6e3f880df3584acc1b209c7c667eb22cb7ddd98ab56a5905dda5cfc446ddd1",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 875,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/model-source/minilm2-config.json",
+      "sha256": "8b0e41caff7567c0f53e6983f35591c3dec59507c9173ab125c5823394fb57f3",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 239,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/model-source/minilm2-special_tokens_map.json",
+      "sha256": "378eb3bf733eb16e65792d7e3fda5b8a4631387ca04d2015199c4d4f22ae554d",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 330,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/model-source/minilm2-tokenizer_config.json",
+      "sha256": "e06f5c3c435fc0255b08b5574cd574eec685390f60c85b27f83d785eb8ecaaa1",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 1160,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/model-source/nli_model.GET_RESULT.actual.json",
+      "sha256": "8b221ac541af6a25d85a789f6bb8e23485102dfa8a3dfd4363efa4456a382e80",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 1154,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/model-source/nli_tokenizer.GET_RESULT.actual.json",
+      "sha256": "2ea003655f900c9f2344c7f78f8cc49ed0fa6e6977a662dd0cd506a4d6c56c33",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 27749,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/native_impl/native_adapter.v1.py",
+      "sha256": "5b98dedad6733bb877d331f6b56c403761bf50a044b98ba647dd521496ef93b1",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 15604,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/native_impl/native_helper.cjs",
+      "sha256": "48674b1e59a8097bc64b6f732aecb0504be4c3950c49ccd914553f68e2f52657",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 5034,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/prepare_catalog.py",
+      "sha256": "6e0929e435b38e989ec844588c3af80626a865f7d19db741de00707160ce06d2",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 15510,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/runtime_common.py",
+      "sha256": "01e8516174c76734e1f0bb192282e2853bedb4eab965d62d5817e422501b0d46",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 13481,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/supervisor_impl/run_cli_once.v1.py",
+      "sha256": "7daf75eec0a66820f2d115846e66c1becba5377d6642324742610009fd7ccc75",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 19341,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/supervisor_impl/scorer.v1.py",
+      "sha256": "fdac05034489acaa5124ef41cbf3eb1ec42983b4aaf43e9ddd3dea9160835c2b",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 16259,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/supervisor_impl/supervisor.v1.py",
+      "sha256": "429ea73ebbcfb79ac10e3a708b27c2a3dd28a5122c0782e266930b911d52a7f7",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 21043,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/worker.v1.py",
+      "sha256": "4af37f556b359b4f03f7ea668d7d5afdb85dcefa2a235f6b92365018e1b03505",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 1677,
+      "path": "experiments/sota-2026-10-22/epoch59/data/CATALOG_REPORT.public.v1.json",
+      "sha256": "438bbab2e204a14f6e56f81240a541b3a15bddc40ec29237227d8527d54030ae",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 5115,
+      "path": "experiments/sota-2026-10-22/epoch59/data/COUNTER_SCHEMA.v1.json",
+      "sha256": "a5480f7fbaf1fa06a6955702bc7655813ef426e9600a3113f8a3792b48f83960",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 15724,
+      "path": "experiments/sota-2026-10-22/epoch59/data/DATA_PROTOCOL.v1.json",
+      "sha256": "c9c1816ab4d4e4630f71d3010af46c1219a0228f96059a49f1ab0efdc494ec79",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 7178,
+      "path": "experiments/sota-2026-10-22/epoch59/data/DATA_REPORT.public.v1.json",
+      "sha256": "7543ee3cdd26a6a224e3515734a7017eb670c2bf0bc127abd1b4e27c705694c5",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 7260,
+      "path": "experiments/sota-2026-10-22/epoch59/data/PROJECT_DEV_IDENTITY_AVAILABILITY_AND_PROPOSAL.v2.json",
+      "sha256": "8d8cc996718fa74ee6dc6d9ef9c98698732044c6d9c3235da29b833cdb9a7a51",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 1110,
+      "path": "experiments/sota-2026-10-22/epoch59/data/SOURCE_TEXT_ACCESS_AFTER.public.v1.json",
+      "sha256": "832a344e2a077f1b2d626106d0733786dd00a34cb9223d98b948cd83d7b6883b",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 1110,
+      "path": "experiments/sota-2026-10-22/epoch59/data/SOURCE_TEXT_ACCESS_BEFORE.public.v1.json",
+      "sha256": "2e2613ca47cda08003b47f33467b4756e3969dacf58a8e6452a4ba3d6246bfd7",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 30919,
+      "path": "experiments/sota-2026-10-22/epoch59/data/custody.py",
+      "sha256": "a91780dce6c730cacb5b21f26ebea4684c893229c0821d7724d21abe1e6ac363",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 5754,
+      "path": "experiments/sota-2026-10-22/epoch59/data/official_codec.source.py",
+      "sha256": "9c63102a01576c230da94695f593fd7bd4fe2d0b20672b74e8a7f62aba426fc4",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 3100,
+      "path": "experiments/sota-2026-10-22/epoch59/data/source_catalog.py",
+      "sha256": "46b8ab06ec6030df94797307b3ad1da7b5a5a60e4d4479bc11af1b718467bc6a",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 4377,
+      "path": "experiments/sota-2026-10-22/epoch59/data/span_json.py",
+      "sha256": "5ebc4171bc35930bf837101230ff0de02543e19454c9d6dc7b4deba9a6e09387",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 7386,
+      "path": "experiments/sota-2026-10-22/epoch59/official/PUBLIC_REFRESH_RESULT.actual.v3.json",
+      "sha256": "8a4880d835d8e908f300cd620d910a7bd3bce84d39b8fb89eba41faa036bdca0",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 1548,
+      "path": "experiments/sota-2026-10-22/epoch59/official/PUBLISHER_METADATA.actual.v1.json",
+      "sha256": "6626be393200ec24b4c5c617d68097dc14704590a4c50790616df77ab08d3c41",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 17643,
+      "path": "experiments/sota-2026-10-22/epoch59/plan.json",
+      "sha256": "42986c0c36d540eac39af71f9bef369a60f480790c604e46c997818ef1596758",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 5945,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/CURRENT_RUNTIME_AND_CACHED_BGE_VERIFICATION.v1.json",
+      "sha256": "fb6d38749f8f48324f10024b1e1261f3fb790b8e266f705c2b72d8fa8c65eb39",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 10666,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/LOCAL_PREPARATION_PLAN.v1.json",
+      "sha256": "7735d933fb03edc2241205deac9aa2023feeec9301857ca30842beb48ae4a7f3",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 3258,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/LOCAL_PREPARATION_SOURCE_FREEZE.v1.json",
+      "sha256": "619090ae44617da833fb6a3bb693d131aed486176bdc60d4dbb76bab74cfec8c",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 4944,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/SOURCE_ALIAS_FAILURE_REPORT.v2.minimal.json",
+      "sha256": "c405d1d11f888e20a81a72af17f3adc13d1ffa6108d712802ad9726393936cc3",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 19048,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/SOURCE_ALIAS_REPAIR.actual.v1.json",
+      "sha256": "d0aa9d52f41e3d81860954a31e5ea91282d3b6d9d55e68747ed5f097fdd6c03d",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 3539,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/SOURCE_RESTORATION_COMPLETE.v1.json",
+      "sha256": "2036a86e29cca4b72b1669ad55c32cdff018d9d7d9e50e391812122a49e22896",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 2326,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/SOURCE_RESTORATION_CONFIGURATION.v1.json",
+      "sha256": "296dd749ffa243a9dbfeff5e1a578e47e3ae4fe779bd894f72d90015562b488b",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 1196,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/SOURCE_RESTORATION_PLAN.v1.json",
+      "sha256": "407a53a7e7f390c2c4eee30669440cd56327f49893844f10e06eb043838c8601",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 18287,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/build_master_and_freeze.py",
+      "sha256": "f05bae0011fefc739c1f873c26b0a9656a87ed7ad2080f3588e9f69628dd2e36",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 22941,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/filename/FILENAME_ALIAS_POLICY.v1.json",
+      "sha256": "3fcd688f7420c933b1195263628634e1b3fb9b8abdfc46b19bf3b02c4e5e1153",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 2358,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/filename/FILENAME_QUALIFICATION.actual.v1.json",
+      "sha256": "1fbd84cd2d8a9b42d16e041602640853064458c78e03eb5d67e43d0eb6f078e9",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 3027,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/filename/FILENAME_QUALIFICATION_PLAN.v1.json",
+      "sha256": "133c3e7134e4b12215ce088ab9752f8cadb2d11dff4b2101f6ab0cfd3507f712",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 1489,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/filename/FILENAME_QUALIFICATION_SOURCE_FREEZE.v1.json",
+      "sha256": "b1f0170ef72e0598cd0a918ceba245d05d2b968f8ee0334a10ba7df72e70a57f",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 8685,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/filename/qualify_filename.v1.py",
+      "sha256": "69d64582ddf28e7dc1c3a6391b9f13a4616a6886fe4f54546f3314a29a954dbf",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 13223,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/reconstruct_sources.v1.py",
+      "sha256": "acb23c07ea57842265456fdb502bdd57d7a361ed6eee0bba278b8c8672c40e38",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 33429,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/rejected-source-generation1/SOURCE_FREEZE.json",
+      "sha256": "facedc639c28d36e6cbc74be2eb46289d7e76aaa3156ff277d8ff98f22243818",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 35200,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/rejected-source-generation1/SOURCE_MANIFEST.json",
+      "sha256": "63b732644a644f8eb0f24beb315e1affa619a4ac41312424f6ca270afeaeccb6",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 78159,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/rejected-source-generation1/STAGE_METADATA.json",
+      "sha256": "14ba434dc912c4739e5075c09354b549df96ce4707d4d68fce66d598d2518fd1",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 17338,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/rejected-source-generation1/plan.json",
+      "sha256": "9bfdac9b1e311dfa7598e704f009817efdb84313c8f4ef872c7b9ab22bbf527b",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 5678,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/run_authorized_DATA.v1.py",
+      "sha256": "a91f24b3875571a9567bbb70381fbfcba9ad77471216aa76668a6174a0434bc2",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 4636,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/verify_runtime_and_cached_bge.py",
+      "sha256": "5c48457fa43d0279269d0cc972de5f2269b92728e1936042f53f1bd8e546fa2e",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 1159,
+      "path": "experiments/sota-2026-10-22/epoch59/publication/ACTUAL_SOURCE_PUBLICATION_RECEIPT.v1.json",
+      "sha256": "749074d89138aca7aac7c5cdfdcb116b59b749cd319047d546e7244042d55863",
+      "source_Git_present": false
+    },
+    {
+      "bytes": 9874,
+      "path": "experiments/sota-2026-10-22/epoch59/publication/controller.js",
+      "sha256": "a5fd6d0a51c7a92f8897e1738b27d8cd15f0e85725840785845c583c500a495f",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 19446,
+      "path": "experiments/sota-2026-10-22/epoch59/publication/guard.py",
+      "sha256": "e6ac2f505a492a66a95daa95a9f9f9d515dc2c04d399ff4ee9481c0a62506813",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 21294,
+      "path": "experiments/sota-2026-10-22/epoch59/publication/stagebuilder.py",
+      "sha256": "09b3bb9576885d809ce5dce101851b6891b0afd4b64b57880b2d3c309a662bbc",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 32532,
+      "path": "experiments/sota-2026-10-22/epoch59/report_actual.py",
+      "sha256": "adead47ef5f36de95118ad21a245dbee09421c76aaea2eedefbe7f214eb85cd9",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 32532,
+      "path": "experiments/sota-2026-10-22/epoch59/reporting/report_actual.py",
+      "sha256": "adead47ef5f36de95118ad21a245dbee09421c76aaea2eedefbe7f214eb85cd9",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 9505,
+      "path": "experiments/sota-2026-10-22/epoch59/source-review/CANDIDATE_SOURCE_PACKET.v4.receipts.json",
+      "sha256": "11062b71810444e357c3fcbdda340795cf26afa28d1607bf94c0255c2534d9a2",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 450,
+      "path": "experiments/sota-2026-10-22/runtime/epoch59/ownership/launch.actual.json",
+      "sha256": "60abbd9e12abe61b4d0174951a80608e4a470db9cb51359686f2f3786d5e5429",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 2915,
+      "path": "experiments/sota-2026-10-22/runtime/epoch59/ownership/launch_once.py",
+      "sha256": "043fe3e9a5dd59bd69b53a42e96d71166a4aaec9dd30db4d91dcb2df8b0876ae",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 4358,
+      "path": "experiments/sota-2026-10-22/runtime/epoch59/ownership/lock_supervisor.py",
+      "sha256": "04846475a4df178f3a1b97398beecf464cd104aac033c19ac4f3fcc54318c9bc",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 831,
+      "path": "experiments/sota-2026-10-22/runtime/epoch59/ownership/owner.actual.json",
+      "sha256": "28f34b4b0af71fbd39d94a05766ba7bf61798ae540419d1838ea3ca21d5cce9f",
+      "source_Git_present": true
+    },
+    {
+      "bytes": 3376,
+      "path": "experiments/sota-2026-10-22/runtime/epoch59/ownership/owner_fence.py",
+      "sha256": "cc0f6f56e14998820dfad60752e3579ce09f1b89deae0ef6c57e47cdbe1dbbc5",
+      "source_Git_present": true
+    }
+  ],
+  "kind": "E59_ARCHIVE_OVERLAY_ONLY_NO_SCIENCE",
+  "no_scientific_execution_authorized": true,
+  "project_additions_AFTER_standard_restore": 78,
+  "recovery_manifest_sha256": "4ff12f979068f0874f7bdb80671ea04f680d560f2aa4021481f70e10f6faeffe",
+  "same70_CP_only_transports_preserved": true,
+  "schema_version": 1,
+  "source_commit": "993dce6842bf602dd87864d00c1621a56eebc613",
+  "source_parent": "9b677a91698352bd563f189fee861d6ff2a1ad3a"
+}

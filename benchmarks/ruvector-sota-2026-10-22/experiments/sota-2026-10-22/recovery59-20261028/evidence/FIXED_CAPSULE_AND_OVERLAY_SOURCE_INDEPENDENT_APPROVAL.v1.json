@@ -1,0 +1,49 @@
+{
+  "CP_Git_boundary": "Capsuleandrestoremetadata maybelooseGit;78scientificmembers remainexplicitseparatearchiveoverlay, neveraddasifnormalCP/Gitleaves or recreatefailed1089body.",
+  "actual_R_Kit_copy_or_overlay_by_this_auditor": 0,
+  "all161_E59_closed_files_hashed": true,
+  "all167_regular_relative_unique_archive_members_validated": true,
+  "checks_passed": true,
+  "envelope_Git_blob_SHA": "7be438edb75e9a09cd27b6e4e4eb81ca835bb142",
+  "epoch": 59,
+  "exact_envelope": {
+    "bytes": 1264415,
+    "path": "/dev/shm/ruvector-oct28-publication/public-packet-v2/PUBLIC_ARTIFACTS.envelope.v1.json",
+    "sha256": "4c34f2da154c903a05d6ede3b5c42842c7fa9b7ba7218a460c32747af20188d0"
+  },
+  "exact_overlay_manifest": {
+    "bytes": 41715,
+    "path": "/dev/shm/ruvector-oct28-publication/public-packet-v2/ARCHIVE_OVERLAY.v1.json",
+    "sha256": "d62375c852ae08aace29138d44de97a99ff9c3197f7bc635521c2897705d7ac4"
+  },
+  "exact_restore_source": {
+    "bytes": 7067,
+    "path": "/dev/shm/ruvector-oct28-publication/public-packet-v2/restore_epoch59_overlay.py",
+    "sha256": "16fdd7c5dcc49e5df28ca613806fdeaf069b2a0905557015f08c5dc9c074a7d5"
+  },
+  "fixed_envelope_exact_canonical_JSON_without_nonce_padding_or_repack": true,
+  "future_local_overlay_actual_call_is_conditional": true,
+  "generation": 28,
+  "kind": "FIXED_PUBLIC_CAPSULE_AND_RESTORE_OVERLAY_SOURCE_INDEPENDENT_APPROVAL",
+  "new78_not_loose_Git_in_fresh_SOURCE": true,
+  "new_original_Gold_decode_or_model_calls_authorized": 0,
+  "new_scientific_or_Git_calls_by_this_auditor": 0,
+  "new_transport_scope_decision": {
+    "bytes": 6271,
+    "path": "/dev/shm/ruvector-oct28-audit/SINGLE_LOOKUP_404_AND_DISTINCT_CAPSULE_SCOPE_INDEPENDENT_DECISION.v1.json",
+    "sha256": "641997052b91e16ce1d4ee086d1c66939c51701401bc9a0d734a1f34cb798348"
+  },
+  "observed_unix": 1793148368.7947161,
+  "original_loose_blob_retry_authorized": false,
+  "publishing_envelope_or_new_transport_not_authorized_by_this_source_review": true,
+  "read_only_validate_function_actually_executed": true,
+  "required_before_Root_separate_overlay_admission": [
+    "RootcompleteDsourcewrapperfailure/componentverification and newlyreviewedstreamingcleanup, preservingallsourcebodies.",
+    "IfKit83sourcecachetwinswere retired, separatelyreviewedRootOEXCLreconstitute83fromfreshR exactGit/bodyhash/differentinode and verifyagain.",
+    "LiveexactG28fence+Rootapprovedsource/config bytes immediately before onefixedhelperactualrestore; allnew78targetsabsent inKitandR; nooldworkspace mutation.",
+    "Helperactualonce then separatefixedverify-only once; captureexactactualresultandQphysicalall161closedbody/EPOCHmanifest verification; no replayafterpartialfailure."
+  ],
+  "same83_source_Git_present_flags_recomputed_from_fresh_actual_map": true,
+  "schema_version": 1,
+  "source_review": "Full7067bytehelper reviewed; safe boundedbase64exactarchiveSHA, strictuniqueJSON, all167members/types/paths/declaredbytes/hash inventory, fullmanifest4ff12f...,161scienceonlyin3roots, allsource83identitybeforewrite,78absenttargetsOEXCL, safe freshscopeblockoldworkspace, verify-onlyno writes. No arbitrary archiveexecution/import/science/Git."
+}

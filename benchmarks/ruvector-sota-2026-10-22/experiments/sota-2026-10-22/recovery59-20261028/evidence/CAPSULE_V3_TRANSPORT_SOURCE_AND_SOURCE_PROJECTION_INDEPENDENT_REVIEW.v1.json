@@ -1,0 +1,56 @@
+{
+  "actual_stage_or_Git_publication_allowed_by_this_source_review": false,
+  "canonical_current_SOURCE_projection": {
+    "bytes": 8273,
+    "path": "/dev/shm/ruvector-oct28-data/FRESH_SOURCE_READBACK_CANONICAL_PROJECTION.actual.v1.json",
+    "sha256": "ca12cff4f2b05a5affd22d9787aef0629b442eb2e6a497c47605fe0d657f99a0"
+  },
+  "checks_passed": true,
+  "concrete_public_copy_freeze_input_and_actual_stage_reviews_still_required": true,
+  "epoch": 59,
+  "exact_sources": {
+    "controller.js": {
+      "bytes": 11548,
+      "path": "/dev/shm/ruvector-oct28-publication/source-v3/controller.js",
+      "sha256": "8031e705b48ab7278849adc6f53e7bb9a105ef7671f588b6a61b16899e43e0d5"
+    },
+    "guard.py": {
+      "bytes": 23012,
+      "path": "/dev/shm/ruvector-oct28-publication/source-v3/guard.py",
+      "sha256": "a26be07eafc6c975cb4e9462bd0dcbd5cbb588203179aad52aa4edcadb96b9a5"
+    },
+    "stagebuilder.py": {
+      "bytes": 18617,
+      "path": "/dev/shm/ruvector-oct28-publication/source-v3/stagebuilder.py",
+      "sha256": "e6634579734648f09a100e551aae47a4cd4c725972472e222697a1dba4994b6c"
+    }
+  },
+  "generation": 28,
+  "independent_guard_controller_full_review_and_inert_tests": {
+    "bytes": 5193,
+    "path": "/dev/shm/ruvector-oct28-audit/transport-core-review/GUARD_CONTROLLER_V3_SOURCE_AND_INERT_CONTRACT_INDEPENDENT_APPROVAL.v1.json",
+    "sha256": "bab34a03644b5868b70d5e841fd5ca70da5f045325ffa089809e8f467e194013"
+  },
+  "kind": "CAPSULE_RECOVERY_V3_TRANSPORT_SOURCE_AND_CANONICAL_SOURCE_PROJECTION_INDEPENDENT_REVIEW",
+  "new_scientific_or_Git_calls": 0,
+  "observed_unix": 1793149216.7888691,
+  "original_v2_validator_faults_and_prefreeze_v3_hardening_retained": true,
+  "phase_preparation_allowed": false,
+  "schema_version": 1,
+  "source_or_stager_or_controller_actual_execution_by_this_auditor": false,
+  "source_projection_qualification": "13selectedsourceGETs=12Draw-before-parse plus1RootdecodedCONTverifiedGitbody; explicitlynot totalrunGETs. Parentwrapperexit1MemoryError/11components0/distinct64cleanup0 are retained accurately. These auditedsnapshotcounts precede separatelyapproved83rehydration/78overlay/currentXartifactcopies.",
+  "source_projection_review_passed": true,
+  "stager_contracts_reviewed": [
+    "Exacttypedphaseinputschema, fixedsourceparent993d/scienceBASE9b/recovery28kind/exactnewowner.",
+    "Separateunchangedsciencefreeze+all161closedsciencebodies, exactallrecoveryfreezeinventory, ownoperationalguard/stagerhashes match sourcefreeze.",
+    "Fixedcanonicalcapsule7be438... exactouter/binaryarchive/overlay contracts, source83freshGitmatch,78absentordinaryCP/Git andexplicitpoststandardrestoreoverlay.",
+    "Freshroot/bench/scopeMerkles and all9315sourcetype/bodyidentities, actualsourceCP/CONTGitbody hashes/all9308CPRhashes/same70CP-only/E44overlayseparate.",
+    "NormalartifactsonlynewseparateXroot with exactRlocalpath/publictext/inventory; noE59source/manifest mutation.",
+    "OldCONT/CPfields, budgethistory, DEVhistory, champion/officialgoal/confirmation facts preserved; E59actualexecution/rejection/78archiveboundary explicitpatch.",
+    "Fullnewtree/CPmetadata computedbeforeGit; globalGitbodySHAdedup+same-bytecollisioncheck, onefixedcapsule request. All28oldattempted andoldforbiddenSHAs rejectedfornewleaves.",
+    "Fixednewrequestnamespace/recovery59-g28,32-updatetreechunks/exactexpectedroots, SOURCEparentcommit+forcefalseCAS (v3guard independentlyenforces).",
+    "Realcheck-only executesallpreparationchecksbutwritesnoR/stage/request; actualstageoutsideR OEXCLfreshonly thenindependentactualstageapprovalbeforeRootcontroller."
+  ],
+  "stager_full_source_and_AST_reviewed": true,
+  "transport_source_review_passed": true
+}

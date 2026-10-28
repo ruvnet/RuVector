@@ -1,0 +1,69 @@
+{
+  "Git_mutations_authorized": 0,
+  "Root_may_execute_exact_one_planned_blob_read": true,
+  "Root_must_capture_raw_before_parse_and_stop_on_error": true,
+  "actual_CPU_affinity": [
+    0,
+    1
+  ],
+  "actual_FD3_original_inode_verified": true,
+  "actual_PGID": 203783,
+  "actual_PPID": 1,
+  "actual_SID": 203783,
+  "actual_external_lookup_still_not_executed": true,
+  "actual_launcher_result": {
+    "bytes": 462,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/guardian28/launch.actual.json",
+    "sha256": "e31aaa2b0e0b5bf1e9bf99bd0f2d5cb843961e114a6bd2696af7bbc1a85faf97"
+  },
+  "actual_pid": 203783,
+  "actual_startticks": 47090158,
+  "actual_state": "S",
+  "checks_passed": true,
+  "epoch": 59,
+  "exact_one_read_reconciliation_plan": {
+    "bytes": 4293,
+    "path": "/dev/shm/ruvector-oct28-audit/ONE_READ_ONLY_BLOB_RECONCILIATION_INDEPENDENT_PLAN.v1.json",
+    "sha256": "b58e7412ad43796a6216e13312815630e6dd196255130a21879cf10eeb195856"
+  },
+  "exact_owner": {
+    "bytes": 848,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/guardian28/owner.json",
+    "sha256": "39acf0db29a8dff63e76a550927644fc4170d662152961fc0f244147ea9c069e"
+  },
+  "expires_at": "2026-10-28T02:26:39.667735+00:00",
+  "fence_source": {
+    "bytes": 3877,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/guardian28/owner_fence.py",
+    "sha256": "f4502591a06b4518d77eecd4f7f0eecee2d1cf5383cf24f8b17e6c5663df3791"
+  },
+  "generation": 28,
+  "guarded_current_run_scientific_calls_authorized": 0,
+  "guardian_source": {
+    "bytes": 4390,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/guardian28/lock_supervisor.py",
+    "sha256": "c03643f1b483134f34fb8f1073679a15533260526b92294941014726963fb808"
+  },
+  "independent_NB_probe_blocked_as_expected": true,
+  "kernel_FLOCK_exact_owner_verified": true,
+  "kind": "ACTUAL_GUARDIAN28_LIVE_PHYSICAL_OWNER_AND_ONE_READ_ADMISSION",
+  "launcher_source": {
+    "bytes": 2927,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/guardian28/launch_once.py",
+    "sha256": "c5141aab7acd81f8f3e51789725249b38359eb8e8fcf0ef799cc49c121cb5090"
+  },
+  "live_guardian28_fence_passed": true,
+  "no_scientific_authority": true,
+  "nonblocking_probe_descriptor_closed": true,
+  "observed_unix": 1793147237.85145,
+  "original_lock_device": 33,
+  "original_lock_inode": 13626,
+  "prelaunch_source_approval": {
+    "bytes": 3266,
+    "path": "/dev/shm/ruvector-oct28-audit/GUARDIAN28_SOURCE_INDEPENDENT_PRELAUNCH_APPROVAL.v1.json",
+    "sha256": "af86d86cc8d0fb1dacef90f81a6d44d5ff365f762e25bc5e4632bb472c83a63c"
+  },
+  "reads_or_mutations_performed_by_this_auditor": 0,
+  "schema_version": 1,
+  "two_E59_native_batches_already_spent": true
+}

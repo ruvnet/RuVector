@@ -1,0 +1,82 @@
+{
+  "actual_network_Git_stage_guard_CLI_or_R_mutation_by_this_auditor": 0,
+  "actual_node_check_source_exit_code": 0,
+  "all_original3_and_prior28_reads_blocked_by_controller": true,
+  "all_prior_28_recreation_and_new_live_references_blocked": true,
+  "checks_passed": true,
+  "controller_reviewed_contracts": [
+    "Definitions only; RootexplicitONEpublishRecovery59 call, context blocks repeats, fresh journal blocks reentry/replay.",
+    "No automatic mutation retry, recreation, repeated reconciliation or scientific entrypoint.",
+    "Fresh sourceHEAD/commit/root/bench baseline, scope-only sparse updates, unchanged unrelated root/bench siblings, exact whole-scope desired leaves before commit.",
+    "Actual postcommit proof and lateHEADchecks before CAS, fresh postCAS ref, readonly main before/after, actual receipt only after every awaited operation and verification.",
+    "No main mutation, merge, release, package publication or external message tool."
+  ],
+  "controller_source": {
+    "bytes": 11548,
+    "path": "/dev/shm/ruvector-oct28-publication/source-v3/controller.js",
+    "sha256": "8031e705b48ab7278849adc6f53e7bb9a105ef7671f588b6a61b16899e43e0d5"
+  },
+  "epoch": 59,
+  "generation": 28,
+  "guard_reviewed_contracts": [
+    "Exact scoped repository/tool allowlist, canonical path/body checks, owner84839acf and fence3877f450 bindings with live process/inode/kernel lease.",
+    "Fixed immutable161E59closure, original82scientificsource hashes, separate recovery-source freeze, current404/historyUNKNOWN policy and exactfixedcapsule/83source78overlay CPboundary.",
+    "Newrecovery59-g28 ID prefix, globally deduplicated blob GitSHAs, old28create denial even alternatepath/ID, UTF8-only encoding.",
+    "Pinned request files and exact source-parent approval; per-slot reserve/intent/raw response files and fsynced journal.",
+    "Rawtoolresponse captured BEFORE unwrap, owner checks, fresh read or acknowledgment validation; errors leave failed/outstanding journal and block replay.",
+    "Fresh sole-parent exact-tree commit proof before CAS, exactforce:falseexpectedparent branch update, identifying orstricttruebareACK plus fresh matching ref proof."
+  ],
+  "guard_source": {
+    "bytes": 23012,
+    "path": "/dev/shm/ruvector-oct28-publication/source-v3/guard.py",
+    "sha256": "a26be07eafc6c975cb4e9462bd0dcbd5cbb588203179aad52aa4edcadb96b9a5"
+  },
+  "inert_controller_results": {
+    "bytes": 434,
+    "path": "/dev/shm/ruvector-oct28-audit/transport-core-review/INERT_CONTROLLER_CONTRACT_RESULTS.actual.v1.json",
+    "sha256": "fe8105317d3b02748a6ec3a6372bfe595c2c3cd5d2d9ee9c178405849690983b"
+  },
+  "inert_controller_source": {
+    "bytes": 2760,
+    "path": "/dev/shm/ruvector-oct28-audit/transport-core-review/inert_controller_validation.v1.js",
+    "sha256": "73c6f9fd67381f67dcc54fb7a021421fa4ec8f63819b6131baeb1cf8004e96c4"
+  },
+  "inert_guard_results": {
+    "bytes": 723,
+    "path": "/dev/shm/ruvector-oct28-audit/transport-core-review/INERT_GUARD_CONTRACT_RESULTS.actual.v1.json",
+    "sha256": "10a6e441cd7b816863d685de5fcedd41e653a46067664381bb843c650f49bb2d"
+  },
+  "inert_guard_source": {
+    "bytes": 5517,
+    "path": "/dev/shm/ruvector-oct28-audit/transport-core-review/inert_guard_validation.v1.py",
+    "sha256": "336b23e8950d569188f66b8ae80d382161cc5403f172588e30fd82b98b1a6631"
+  },
+  "kind": "RECOVERY28_GUARD_CONTROLLER_SOURCE_AND_INERT_CONTRACT_INDEPENDENT_APPROVAL",
+  "model_native_tokenizer_Gold_scorer_calls": 0,
+  "observed_unix": 1793148998.153996,
+  "one_fixed_distinct_capsule_transport_only_in_source": true,
+  "publication_phase_allowed_by_this_source_report": false,
+  "required_next": "ParentQ complete stager/input/inventory/plan/freeze review and real check-only/actualstage independent approval; Rootonly one concrete publication phase after allpass. This document alone grants no Git mutation or actualcontrollerdispatch.",
+  "schema_version": 1,
+  "source_and_denylist_review_passed": true,
+  "stager_or_actual_stage_not_reviewed_by_this_child": true,
+  "strict_SOURCE_parent_and_nonforce_CAS_guard_verified": true,
+  "synthetic_test_qualification": "Local inert transport contract tests only; no benchmark measurements or generalization claims.",
+  "v2_findings_retained": {
+    "actual_phase_executions": 0,
+    "controller_sha256": "54131d35fa5576b3c02d96c5e8b284b3a2e275830748748be86631c3015deb1a",
+    "guard_sha256": "bd97af5be7635d69602712fd4f44d56d4a4d2f2dc0bfdebe7e8697bf0400e97f",
+    "inert_validator_accepted_inputs": [
+      "wrongexpectedCASparent",
+      "wrongcommitparent",
+      "failed1089newtreeelement"
+    ],
+    "risk_qualification": "Intended frozenstage/controller checks constrained real requests; gaps were independently exposed in pure validator calls before any freeze or mutation."
+  },
+  "v3_minimal_correction_reviewed": [
+    "Require exact SOURCE_PARENT in commit.parent_sha and ref.expected_sha independently of staging.",
+    "Reject all28prior-attempted object IDs in every live Git object field and nonref ACKs.",
+    "Controller GET/rawGET block original3 plusall28prior-attempted object URLs.",
+    "No frozen scientific code, identity, metric gate or measurement changed."
+  ]
+}

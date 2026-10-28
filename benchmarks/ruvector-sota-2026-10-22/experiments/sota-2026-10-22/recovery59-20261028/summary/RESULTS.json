@@ -1,0 +1,1308 @@
+{
+  "DEV_latency_and_resources": {
+    "per_forecast_elapsed_semantics": "first submitted batch start through decision; includes interbatch queue and tokenization/forward; excludes prefirstsubmit queue; not singlequery deployment latency",
+    "per_forecast_p50_seconds": 21.479514852981083,
+    "per_forecast_p95_seconds": 22.99001770396717,
+    "resource_usage": {
+      "CPU_affinity": [
+        0,
+        1
+      ],
+      "cgroup_memory_current_bytes": 15343013888,
+      "cgroup_memory_max_bytes": 17179869184,
+      "children_max_RSS_kib": 546356,
+      "children_system_seconds": 0.026177,
+      "children_user_seconds": 0.056152999999999995,
+      "headroom_bytes": 1836855296,
+      "involuntary_context_switches": 1254,
+      "major_page_faults": 0,
+      "max_RSS_kib": 546356,
+      "minor_page_faults": 7607410,
+      "self_max_RSS_kib": 546356,
+      "self_system_seconds": 8.866375,
+      "self_user_seconds": 55.172252,
+      "voluntary_context_switches": 8530
+    },
+    "whole_worker_elapsed_seconds": 34.85632786096539
+  },
+  "DEV_native_accounting": {
+    "actual_hits_revalidated": 68,
+    "actual_native_version": "2.3.0",
+    "actual_queries": 17,
+    "actual_source_vectors": 4,
+    "cosine_diagnostics_recomputed_without_replacing_native_order": true,
+    "native_query_latency_seconds": {
+      "p50": 0.0004811350000000019,
+      "p95": 0.002620844999999998
+    },
+    "native_resources": {
+      "fsRead": 0,
+      "fsWrite": 0,
+      "involuntaryContextSwitches": 1100,
+      "ipcReceived": 0,
+      "ipcSent": 0,
+      "majorPageFault": 0,
+      "maxRSS": 546356,
+      "minorPageFault": 13006,
+      "sharedMemorySize": 0,
+      "signalsCount": 0,
+      "swappedOut": 0,
+      "systemCPUTime": 25062,
+      "unsharedDataSize": 0,
+      "unsharedStackSize": 0,
+      "userCPUTime": 49683,
+      "voluntaryContextSwitches": 357
+    }
+  },
+  "DEV_nonexecution_review": null,
+  "DEV_pilot": {
+    "Gold_report": {
+      "bytes": 2699,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/GOLD_REPORT.public.v1.json",
+      "sha256": "acd03870060cba94599b4617d69233af25abad027a1dc02cc8a0108169df62e8"
+    },
+    "frozen_plan": {
+      "bytes": 17643,
+      "path": "experiments/sota-2026-10-22/epoch59/plan.json",
+      "sha256": "42986c0c36d540eac39af71f9bef369a60f480790c604e46c997818ef1596758"
+    },
+    "independent_acceptance": {
+      "bytes": 42363,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/DEV_ACTUAL_SCORED_ACCEPTANCE_INDEPENDENT.v1.json",
+      "sha256": "859c72102d92b70821491b3b4bce76085d292c95af19bba72c61123cbcceb81d"
+    },
+    "results": {
+      "bytes": 211315,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/worker/RESULT.actual.json",
+      "sha256": "36f7e3bb01de5d53854c8d1dd1db54d1c3a05b04bf897c79622bea5d00a5725e"
+    },
+    "scoring": {
+      "bytes": 28081,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/SCORED.actual.json",
+      "sha256": "823cc68c0122ed4b71745589ecddb0c9175d91c09409902d2f9ecaef2be1b8bd"
+    },
+    "sealed_forecasts": {
+      "bytes": 36320,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/runs/dev/worker/SEALED_FORECASTS.json",
+      "sha256": "5c4c6b9788b6ea0da17f03002f1536e46222afb696246beba87d6186e1fe0799"
+    }
+  },
+  "absent_gold_classes": [],
+  "actual_DEV_execution": {
+    "BGE_forward_calls_attempted": 3,
+    "BGE_forward_calls_completed": 3,
+    "BGE_model_initializations_attempted": 1,
+    "BGE_model_initializations_completed": 1,
+    "BGE_texts_attempted": 21,
+    "BGE_texts_completed": 21,
+    "BGE_tokenizations_attempted": 21,
+    "BGE_tokenizations_completed": 21,
+    "BGE_tokenizer_initializations_attempted": 1,
+    "BGE_tokenizer_initializations_completed": 1,
+    "GPU_calls": 0,
+    "Gold_labels_decoded": 0,
+    "NLI_forward_calls_attempted": 25,
+    "NLI_forward_calls_completed": 25,
+    "NLI_model_initializations_attempted": 1,
+    "NLI_model_initializations_completed": 1,
+    "NLI_pair_inferences_attempted": 198,
+    "NLI_pair_inferences_completed": 198,
+    "NLI_tokenizer_initializations_attempted": 1,
+    "NLI_tokenizer_initializations_completed": 1,
+    "Node_network_operations_attempted": 0,
+    "Python_network_operations_attempted": 0,
+    "forecasts_completed": 51,
+    "native_binary_loads_attempted": 1,
+    "native_binary_loads_completed": 1,
+    "native_hit_source_validations": 68,
+    "native_index_initializations_attempted": 1,
+    "native_index_initializations_completed": 1,
+    "native_insertions_attempted": 4,
+    "native_insertions_completed": 4,
+    "native_len_calls_attempted": 2,
+    "native_len_calls_completed": 2,
+    "native_processes_attempted": 1,
+    "native_processes_completed": 1,
+    "native_queries_attempted": 17,
+    "native_queries_completed": 17,
+    "native_version_calls_attempted": 1,
+    "native_version_calls_completed": 1,
+    "numerical_flagged_cases": 0,
+    "paid_API_calls": 0,
+    "pair_tokenizations_attempted": 198,
+    "pair_tokenizations_completed": 198
+  },
+  "actual_SOURCE_commit": "993dce6842bf602dd87864d00c1621a56eebc613",
+  "actual_counter_policy_violations": {
+    "dev": [],
+    "engineering": []
+  },
+  "actual_engineering_execution": {
+    "BGE_forward_calls_attempted": 9,
+    "BGE_forward_calls_completed": 9,
+    "BGE_model_initializations_attempted": 1,
+    "BGE_model_initializations_completed": 1,
+    "BGE_texts_attempted": 144,
+    "BGE_texts_completed": 144,
+    "BGE_tokenizations_attempted": 144,
+    "BGE_tokenizations_completed": 144,
+    "BGE_tokenizer_initializations_attempted": 1,
+    "BGE_tokenizer_initializations_completed": 1,
+    "GPU_calls": 0,
+    "Gold_labels_decoded": 0,
+    "NLI_forward_calls_attempted": 4,
+    "NLI_forward_calls_completed": 4,
+    "NLI_model_initializations_attempted": 1,
+    "NLI_model_initializations_completed": 1,
+    "NLI_pair_inferences_attempted": 32,
+    "NLI_pair_inferences_completed": 32,
+    "NLI_tokenizer_initializations_attempted": 1,
+    "NLI_tokenizer_initializations_completed": 1,
+    "Node_network_operations_attempted": 0,
+    "Python_network_operations_attempted": 0,
+    "forecasts_completed": 0,
+    "native_binary_loads_attempted": 1,
+    "native_binary_loads_completed": 1,
+    "native_hit_source_validations": 2048,
+    "native_index_initializations_attempted": 1,
+    "native_index_initializations_completed": 1,
+    "native_insertions_attempted": 128,
+    "native_insertions_completed": 128,
+    "native_len_calls_attempted": 2,
+    "native_len_calls_completed": 2,
+    "native_processes_attempted": 1,
+    "native_processes_completed": 1,
+    "native_queries_attempted": 16,
+    "native_queries_completed": 16,
+    "native_version_calls_attempted": 1,
+    "native_version_calls_completed": 1,
+    "numerical_flagged_cases": 0,
+    "paid_API_calls": 0,
+    "pair_tokenizations_attempted": 32,
+    "pair_tokenizations_completed": 32
+  },
+  "actual_feature_case_ids": [
+    "contractnli:eced6528:train:473:nda-1",
+    "contractnli:eced6528:train:473:nda-10",
+    "contractnli:eced6528:train:473:nda-11",
+    "contractnli:eced6528:train:473:nda-12",
+    "contractnli:eced6528:train:473:nda-13",
+    "contractnli:eced6528:train:473:nda-15",
+    "contractnli:eced6528:train:473:nda-16",
+    "contractnli:eced6528:train:473:nda-17",
+    "contractnli:eced6528:train:473:nda-18",
+    "contractnli:eced6528:train:473:nda-19",
+    "contractnli:eced6528:train:473:nda-2",
+    "contractnli:eced6528:train:473:nda-20",
+    "contractnli:eced6528:train:473:nda-3",
+    "contractnli:eced6528:train:473:nda-4",
+    "contractnli:eced6528:train:473:nda-5",
+    "contractnli:eced6528:train:473:nda-7",
+    "contractnli:eced6528:train:473:nda-8"
+  ],
+  "actual_forwarded_case_ids": [
+    "contractnli:eced6528:train:473:nda-1",
+    "contractnli:eced6528:train:473:nda-10",
+    "contractnli:eced6528:train:473:nda-11",
+    "contractnli:eced6528:train:473:nda-12",
+    "contractnli:eced6528:train:473:nda-13",
+    "contractnli:eced6528:train:473:nda-15",
+    "contractnli:eced6528:train:473:nda-16",
+    "contractnli:eced6528:train:473:nda-17",
+    "contractnli:eced6528:train:473:nda-18",
+    "contractnli:eced6528:train:473:nda-19",
+    "contractnli:eced6528:train:473:nda-2",
+    "contractnli:eced6528:train:473:nda-20",
+    "contractnli:eced6528:train:473:nda-3",
+    "contractnli:eced6528:train:473:nda-4",
+    "contractnli:eced6528:train:473:nda-5",
+    "contractnli:eced6528:train:473:nda-7",
+    "contractnli:eced6528:train:473:nda-8"
+  ],
+  "actual_gold_class_counts": {
+    "Contradiction": 2,
+    "Entailment": 7,
+    "NotMentioned": 8
+  },
+  "actual_hypothesis_exposed_case_ids": [
+    "contractnli:eced6528:train:473:nda-1",
+    "contractnli:eced6528:train:473:nda-10",
+    "contractnli:eced6528:train:473:nda-11",
+    "contractnli:eced6528:train:473:nda-12",
+    "contractnli:eced6528:train:473:nda-13",
+    "contractnli:eced6528:train:473:nda-15",
+    "contractnli:eced6528:train:473:nda-16",
+    "contractnli:eced6528:train:473:nda-17",
+    "contractnli:eced6528:train:473:nda-18",
+    "contractnli:eced6528:train:473:nda-19",
+    "contractnli:eced6528:train:473:nda-2",
+    "contractnli:eced6528:train:473:nda-20",
+    "contractnli:eced6528:train:473:nda-3",
+    "contractnli:eced6528:train:473:nda-4",
+    "contractnli:eced6528:train:473:nda-5",
+    "contractnli:eced6528:train:473:nda-7",
+    "contractnli:eced6528:train:473:nda-8"
+  ],
+  "actual_label_decoded_case_ids": [
+    "contractnli:eced6528:train:473:nda-1",
+    "contractnli:eced6528:train:473:nda-10",
+    "contractnli:eced6528:train:473:nda-11",
+    "contractnli:eced6528:train:473:nda-12",
+    "contractnli:eced6528:train:473:nda-13",
+    "contractnli:eced6528:train:473:nda-15",
+    "contractnli:eced6528:train:473:nda-16",
+    "contractnli:eced6528:train:473:nda-17",
+    "contractnli:eced6528:train:473:nda-18",
+    "contractnli:eced6528:train:473:nda-19",
+    "contractnli:eced6528:train:473:nda-2",
+    "contractnli:eced6528:train:473:nda-20",
+    "contractnli:eced6528:train:473:nda-3",
+    "contractnli:eced6528:train:473:nda-4",
+    "contractnli:eced6528:train:473:nda-5",
+    "contractnli:eced6528:train:473:nda-7",
+    "contractnli:eced6528:train:473:nda-8"
+  ],
+  "actual_scored_case_ids": [
+    "contractnli:eced6528:train:473:nda-1",
+    "contractnli:eced6528:train:473:nda-10",
+    "contractnli:eced6528:train:473:nda-11",
+    "contractnli:eced6528:train:473:nda-12",
+    "contractnli:eced6528:train:473:nda-13",
+    "contractnli:eced6528:train:473:nda-15",
+    "contractnli:eced6528:train:473:nda-16",
+    "contractnli:eced6528:train:473:nda-17",
+    "contractnli:eced6528:train:473:nda-18",
+    "contractnli:eced6528:train:473:nda-19",
+    "contractnli:eced6528:train:473:nda-2",
+    "contractnli:eced6528:train:473:nda-20",
+    "contractnli:eced6528:train:473:nda-3",
+    "contractnli:eced6528:train:473:nda-4",
+    "contractnli:eced6528:train:473:nda-5",
+    "contractnli:eced6528:train:473:nda-7",
+    "contractnli:eced6528:train:473:nda-8"
+  ],
+  "all_class_competence_claim": false,
+  "all_epoch59_scientific_slots_closed": true,
+  "benchmark_generalization_claim": false,
+  "candidate_promoted": false,
+  "canonical_arms": [
+    "native_order",
+    "source_order",
+    "full_reference"
+  ],
+  "canonical_labels": [
+    "Contradiction",
+    "Entailment",
+    "NotMentioned"
+  ],
+  "completed_quality_evidence_checks": {
+    "NEI_rows_have_full_source_coverage": true,
+    "actual_class_counts_match_late_Gold_and_independent_audit": true,
+    "actual_class_presence_and_scope_are_explicit": true,
+    "exact51_actual_scored_forecasts": true,
+    "no_worker_errors": true,
+    "scorer_gate_matches_frozen_metric_checks": true,
+    "sealed_rows_equal_actual_raw_rows": true
+  },
+  "data_preparation_result": {
+    "bytes": 7178,
+    "path": "experiments/sota-2026-10-22/epoch59/data/DATA_REPORT.public.v1.json",
+    "sha256": "7543ee3cdd26a6a224e3515734a7017eb670c2bf0bc127abd1b4e27c705694c5"
+  },
+  "data_preparation_review": {
+    "bytes": 20041,
+    "path": "experiments/sota-2026-10-22/audit/epoch59/actual/PHYSICAL_PUBLIC_SOURCE_DATA_ORIGIN_INDEPENDENT.v2.aliasfix.json",
+    "sha256": "70a69d41b7f515b2e307eec4ca24c83dd42c5024469c33ac08f1540a3d1ed5a3"
+  },
+  "development_identity_namespace": "contractnli:eced6528:train:473",
+  "engineering_audit": {
+    "bytes": 11879,
+    "path": "experiments/sota-2026-10-22/audit/epoch59/actual/ENGINEERING_ACTUAL_PUBLIC_ALIAS_ACCEPTANCE_INDEPENDENT.v1.json",
+    "sha256": "e690c9223b7b7e410b0b87c68d9c1882e8ac9e944c15b500823eb87db5c712e3"
+  },
+  "engineering_latency_and_resources": {
+    "per_forecast_elapsed_semantics": "first submitted batch start through decision; includes interbatch queue and tokenization/forward; excludes prefirstsubmit queue; not singlequery deployment latency",
+    "per_forecast_p50_seconds": null,
+    "per_forecast_p95_seconds": null,
+    "resource_usage": {
+      "CPU_affinity": [
+        0,
+        1
+      ],
+      "cgroup_memory_current_bytes": 15278587904,
+      "cgroup_memory_max_bytes": 17179869184,
+      "children_max_RSS_kib": 623632,
+      "children_system_seconds": 0.033968,
+      "children_user_seconds": 0.14746299999999998,
+      "headroom_bytes": 1901281280,
+      "involuntary_context_switches": 1019,
+      "major_page_faults": 0,
+      "max_RSS_kib": 623632,
+      "minor_page_faults": 5868538,
+      "self_max_RSS_kib": 623632,
+      "self_system_seconds": 6.760611,
+      "self_user_seconds": 42.175989,
+      "voluntary_context_switches": 6049
+    },
+    "whole_worker_elapsed_seconds": 26.682596485014074
+  },
+  "engineering_native_accounting": {
+    "actual_hits_revalidated": 2048,
+    "actual_native_version": "2.3.0",
+    "actual_queries": 16,
+    "actual_source_vectors": 128,
+    "cosine_diagnostics_recomputed_without_replacing_native_order": true,
+    "native_query_latency_seconds": {
+      "p50": 0.004472462999999998,
+      "p95": 0.008662835999999995
+    },
+    "native_resources": {
+      "fsRead": 0,
+      "fsWrite": 0,
+      "involuntaryContextSwitches": 694,
+      "ipcReceived": 0,
+      "ipcSent": 0,
+      "majorPageFault": 0,
+      "maxRSS": 623632,
+      "minorPageFault": 15858,
+      "sharedMemorySize": 0,
+      "signalsCount": 0,
+      "swappedOut": 0,
+      "systemCPUTime": 29321,
+      "unsharedDataSize": 0,
+      "unsharedStackSize": 0,
+      "userCPUTime": 141723,
+      "voluntaryContextSwitches": 1184
+    }
+  },
+  "engineering_qualified": true,
+  "engineering_result": {
+    "bytes": 21545,
+    "path": "experiments/sota-2026-10-22/epoch59/actual/engineering/worker/RESULT.actual.json",
+    "sha256": "61414eb3c461403aff1d35526371014c7e899e312cb388e5d9ba4a3e81c5a1da"
+  },
+  "engineering_throughput_measurements": {
+    "frozen_DEV_window_count": 4,
+    "frozen_projection_limit_seconds": 420,
+    "full8_NLI_forward_seconds": [
+      1.4374109389609657,
+      1.0007771289674565,
+      1.0756760509684682,
+      0.9833797300234437
+    ],
+    "measured_modelinit_total": 0.6578814550302923,
+    "model_initialization_seconds": {
+      "bge": 0.37170749402139336,
+      "nli": 0.2861739610088989
+    },
+    "projection_seconds": 165.4032502810005
+  },
+  "epoch": 59,
+  "forward_count_semantics": "Raw NLI_forward_calls_completed is the global observed session.run count. Sealed row actual_model_forward_calls records case-forward participations; scorer arm case_forward_participations sums those participations and is not a physical-call count.",
+  "frozen_metric_gate_recomputed": {
+    "absent_gold_classes": [],
+    "all_class_competence_claim": false,
+    "checks": {
+      "native_Brier_not_worse_full": true,
+      "native_Brier_not_worse_source": true,
+      "native_NLL_not_worse_full": true,
+      "native_NLL_not_worse_source": true,
+      "native_correct_at_least_source_plus_one": true,
+      "native_correct_each_present_Gold_class": false,
+      "native_correct_not_worse_full": true
+    },
+    "present_gold_classes": [
+      "Contradiction",
+      "Entailment",
+      "NotMentioned"
+    ],
+    "quality_checks_passed": false,
+    "tolerance": 1e-06
+  },
+  "independent_engineering_qualified": true,
+  "independent_reason": "REJECTED: originalTRAIN473 PROJECT_DEV native_order4/17, source_order3/17 and full_reference2/17. Native proper scores improve within these fixed pipelines but misses both Contradiction cases(0/2), failing the frozen at-least-one-correct-in-each-present-Gold-class gate. All17 dependent claims are one NDA and DEV forever; CF[] UNQUALIFIED_HOLD, no model training or calibration, no independent-document or official benchmark/rank claim. Same-semantic-pair batch variation is observed in the fixed dynamic-int8 execution: max absolute raw-logit delta1.0046716332435608, probability delta0.2736475302259274,4groups/8pairwise raw-argmax flips;6missing arm entries unmeasured and row tensor-bit equivalence unverified(no archived per-row hash). This matched-model comparison is a total fixed pipeline effect including ordering/batch companions and does not isolate relevance causality; no variant selected or scientific gate changed after measurement. Both bounded actual native batches closed, zero paid API/GPU, native104 champion retained.",
+  "independent_verdict_status": "REJECTED_FROZEN_DEV_MECHANISM_QUALITY_GATE",
+  "kind": "REAL_NATIVE_TYPED_READER_BOUNDED_RESEARCH",
+  "label_decode_uncertainty": {
+    "actual_semantic_labels_decoded": 17,
+    "source": "ExactD17BEFORE/AFTERjournals_and_Q_actual_late_Gold_audit",
+    "unresolved": false
+  },
+  "label_only_exposed_case_ids": [],
+  "metric_scope": "One source-licensed ContractNLI originalTRAIN document473 with17 fixed claims, reserved as PROJECT_DEV. No train fitting or officialDEV/test/confirmation result is measured. Paired claim differences share one NDA and are not independent-document or benchmark-wide generalization evidence. Authored engineering performance is not benchmark quality. No official rank is inferred.",
+  "native104_champion_preserved": true,
+  "new_submission": false,
+  "official_goal_verified": false,
+  "official_rank": null,
+  "official_refresh": {
+    "ClaimBench_RuVector_score": null,
+    "ClaimBench_dataset_scorer_license_submission_access": "UNVERIFIED; no pilot admitted",
+    "ClaimBench_decision_model_leader": "decision/d1-ultra",
+    "ClaimBench_decision_model_leader_percent": 100,
+    "ClaimBench_four_language_models_percent": 100,
+    "ClaimBench_retrieval_policy": "Only supplied10-K excerpts; retrievalmiss cannot prove insufficient evidence",
+    "JevBench_live_category_evidence": "UNVERIFIED_FAIL_CLOSED; mixed/highlight rows are not established open-weights Capability leader",
+    "JevBench_openweights_Capability_leader": null,
+    "RuVector_official_rank": null,
+    "RuVector_official_score": null,
+    "author_email": false,
+    "historical115": "Evaluation queue position only, never leaderboard rank",
+    "independent_safe_output_review": {
+      "bytes": 5010,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/official/ACTUAL_OFFICIAL_AND_PUBLISHER_SAFE_OUTPUT_INDEPENDENT.v1.json",
+      "sha256": "206a31a61146f40cbcd9467a44f48d3019fa299f60089e8a877f037a5ae8d9db"
+    },
+    "new_submission": false,
+    "official_goal_verified": false,
+    "public_refresh": {
+      "bytes": 7386,
+      "path": "experiments/sota-2026-10-22/epoch59/official/PUBLIC_REFRESH_RESULT.actual.v3.json",
+      "sha256": "8a4880d835d8e908f300cd620d910a7bd3bce84d39b8fb89eba41faa036bdca0"
+    },
+    "publisher_metadata": {
+      "bytes": 1548,
+      "path": "experiments/sota-2026-10-22/epoch59/official/PUBLISHER_METADATA.actual.v1.json",
+      "sha256": "6626be393200ec24b4c5c617d68097dc14704590a4c50790616df77ab08d3c41"
+    },
+    "publisher_status": "Receipt metadata observed; original receiptbody/messageID match and actual matching publisher result/rank/eligibility unverified; schema/pagination unknown; no global resultabsence claim",
+    "submission_reference": "7FEA2738"
+  },
+  "original_dataset_split": "train",
+  "paired_comparisons": {
+    "full_reference": {
+      "both_correct": 2,
+      "both_wrong": 13,
+      "mean_native_minus_comparator_Brier": -0.04138721190003865,
+      "mean_native_minus_comparator_NLL": -0.05152392072565633,
+      "native_losses": 0,
+      "native_wins": 2,
+      "paired_rows": [
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-1",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": -0.0019111944149232674,
+          "native_minus_comparator_NLL": -0.004403884138943992
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-10",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": -0.2885080707983829,
+          "native_minus_comparator_NLL": -0.4991554189712897
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-11",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": 0.12054111109146226,
+          "native_minus_comparator_NLL": 0.1586070480227899
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-12",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": 0.07679648088824231,
+          "native_minus_comparator_NLL": 0.11874954514491476
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-13",
+          "comparator_correct": true,
+          "native_correct": true,
+          "native_minus_comparator_Brier": 0.103334603714131,
+          "native_minus_comparator_NLL": 0.1412357266440767
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-15",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": -0.04456730613008397,
+          "native_minus_comparator_NLL": -0.36152485360949793
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-16",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": -0.02438741841366121,
+          "native_minus_comparator_NLL": 0.04879171030114193
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-17",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": 0.04858552516786174,
+          "native_minus_comparator_NLL": 0.08153966939077106
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-18",
+          "comparator_correct": true,
+          "native_correct": true,
+          "native_minus_comparator_Brier": -0.21855984424812758,
+          "native_minus_comparator_NLL": -0.3006275832502957
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-19",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": -0.11711508251259262,
+          "native_minus_comparator_NLL": -0.15435838562990756
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-2",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": 0.15342746971228616,
+          "native_minus_comparator_NLL": 0.5965743069517777
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-20",
+          "comparator_correct": false,
+          "native_correct": true,
+          "native_minus_comparator_Brier": -0.21024880531204926,
+          "native_minus_comparator_NLL": -0.3303225125336655
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-3",
+          "comparator_correct": false,
+          "native_correct": true,
+          "native_minus_comparator_Brier": -0.41898015519847304,
+          "native_minus_comparator_NLL": -0.4846231497515191
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-4",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": 0.03662909993535268,
+          "native_minus_comparator_NLL": -0.007349797346637654
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-5",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": -0.03551553963881604,
+          "native_minus_comparator_NLL": -0.06691151841105425
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-7",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": -0.12320053597446412,
+          "native_minus_comparator_NLL": -0.2298927957325292
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-8",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": 0.2400970598315808,
+          "native_minus_comparator_NLL": 0.4177652405837109
+        }
+      ]
+    },
+    "source_order": {
+      "both_correct": 3,
+      "both_wrong": 13,
+      "mean_native_minus_comparator_Brier": -0.040869578458386735,
+      "mean_native_minus_comparator_NLL": -0.07076552849414994,
+      "native_losses": 0,
+      "native_wins": 1,
+      "paired_rows": [
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-1",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": -0.0019111944149232674,
+          "native_minus_comparator_NLL": -0.004403884138943992
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-10",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": -0.2885080707983829,
+          "native_minus_comparator_NLL": -0.4991554189712897
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-11",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": 0.12054111109146226,
+          "native_minus_comparator_NLL": 0.1586070480227899
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-12",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": 0.07679648088824231,
+          "native_minus_comparator_NLL": 0.11874954514491476
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-13",
+          "comparator_correct": true,
+          "native_correct": true,
+          "native_minus_comparator_Brier": 0.103334603714131,
+          "native_minus_comparator_NLL": 0.1412357266440767
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-15",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": -0.08996979984843478,
+          "native_minus_comparator_NLL": -0.12242058856938165
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-16",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": -0.02438741841366121,
+          "native_minus_comparator_NLL": 0.04879171030114193
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-17",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": 0.04858552516786174,
+          "native_minus_comparator_NLL": 0.08153966939077106
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-18",
+          "comparator_correct": true,
+          "native_correct": true,
+          "native_minus_comparator_Brier": -0.21855984424812758,
+          "native_minus_comparator_NLL": -0.3006275832502957
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-19",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": -0.11711508251259262,
+          "native_minus_comparator_NLL": -0.15435838562990756
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-2",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": -0.0064637390562325425,
+          "native_minus_comparator_NLL": -0.033943092863774726
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-20",
+          "comparator_correct": false,
+          "native_correct": true,
+          "native_minus_comparator_Brier": -0.21024880531204926,
+          "native_minus_comparator_NLL": -0.3303225125336655
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-3",
+          "comparator_correct": true,
+          "native_correct": true,
+          "native_minus_comparator_Brier": -0.056817969626425935,
+          "native_minus_comparator_NLL": -0.07328271449525614
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-4",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": 0.03662909993535268,
+          "native_minus_comparator_NLL": -0.007349797346637654
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-5",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": -0.03551553963881604,
+          "native_minus_comparator_NLL": -0.06691151841105425
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-7",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": -0.27126925055155926,
+          "native_minus_comparator_NLL": -0.5769274282777475
+        },
+        {
+          "case_id": "contractnli:eced6528:train:473:nda-8",
+          "comparator_correct": false,
+          "native_correct": false,
+          "native_minus_comparator_Brier": 0.2400970598315808,
+          "native_minus_comparator_NLL": 0.4177652405837109
+        }
+      ]
+    }
+  },
+  "pre_science_preparation": {
+    "actual_local_alias_repair": {
+      "bytes": 19048,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/SOURCE_ALIAS_REPAIR.actual.v1.json",
+      "sha256": "d0aa9d52f41e3d81860954a31e5ea91282d3b6d9d55e68747ed5f097fdd6c03d"
+    },
+    "no_scientific_source_identity_or_gate_change": true,
+    "readback_URL_annotation_fault": {
+      "bytes": 2074,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/publication/SOURCE_READBACK_API_URL_ANNOTATION_FAULT.actual.v1.json",
+      "sha256": "581c3557494e567c74f1d110080cd5f7069c2e02f4cd2e3d087f176fcb6ed9e8"
+    },
+    "readback_control_schema_fault": {
+      "bytes": 1421,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/publication/SOURCE_READBACK_CONTROL_SCHEMA_FAULT.actual.v1.json",
+      "sha256": "617bcd275a3afacdfdcfd3c1bebe7d080cf50e732363e96640c77432224f48d7"
+    },
+    "source_alias_failure": {
+      "bytes": 4944,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/SOURCE_ALIAS_FAILURE_REPORT.v2.minimal.json",
+      "sha256": "c405d1d11f888e20a81a72af17f3adc13d1ffa6108d712802ad9726393936cc3"
+    },
+    "source_readback_actual_GET_calls": 12,
+    "source_readback_durable_snapshots": 9
+  },
+  "present_gold_classes": [
+    "Contradiction",
+    "Entailment",
+    "NotMentioned"
+  ],
+  "project_data_role": "PROJECT_DEV",
+  "qualification": {
+    "benchmark_generalization_claim": false,
+    "candidate_promotion_allowed": false,
+    "confirmation": "UNQUALIFIED_HOLD",
+    "fresh_confirmation_ids": [],
+    "official_result_rank_and_eligibility_verified": false,
+    "one_NDA_cluster": true,
+    "original_dataset_split": "train",
+    "precision": "OfficialONNX qint8_avx512; no float/GPU variant measured",
+    "pretrained_model_lineage": "Exact official model/config/license/revision bound; detailed distillation/export/test-exclusion lineage remains UNQUALIFIED",
+    "project_data_role": "PROJECT_DEV",
+    "semantic_pair_variation": {
+      "bytes": 632481,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/ACTUAL_SEMANTIC_PAIR_BATCH_VARIATION_INDEPENDENT.v1.json",
+      "sha256": "56dd941a225e14998da1164da5065bf4bc58698bc41369d37448b135f08cde7a"
+    },
+    "train_fitting_performed": false,
+    "variation_interpretation": "Observed same-semantic-pair logits vary across archived batches. Total fixed-pipeline comparison includes ordering and batching; no sole relevance causal claim or per-row bit equality. Missing arm-pairs are UNMEASURED. No extra model/native/tokenizer calls."
+  },
+  "quality_evidence_violations": [],
+  "quality_metrics": {
+    "full_reference": {
+      "Brier": 0.9115446647361738,
+      "NLL": 1.4987131657654715,
+      "accuracy": 0.11764705882352941,
+      "actual_pair_inferences": 68,
+      "case_forward_participations": 68,
+      "confusion_matrix_gold_rows_prediction_columns": [
+        [
+          0,
+          1,
+          1
+        ],
+        [
+          5,
+          1,
+          1
+        ],
+        [
+          6,
+          1,
+          1
+        ]
+      ],
+      "correct": 2,
+      "count": 17,
+      "early_exit_count": 0,
+      "error_count": 15,
+      "errors": [
+        {
+          "Brier": 1.140230992331158,
+          "NLL": 1.834843176806171,
+          "case_id": "contractnli:eced6528:train:473:nda-1",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 1.49781887939069,
+          "NLL": 2.386060283683712,
+          "case_id": "contractnli:eced6528:train:473:nda-10",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.6900917185220368,
+          "NLL": 1.1249085702115524,
+          "case_id": "contractnli:eced6528:train:473:nda-11",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.638269687908432,
+          "NLL": 1.0538494990051301,
+          "case_id": "contractnli:eced6528:train:473:nda-12",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 1.7637176793338103,
+          "NLL": 3.3216620422734913,
+          "case_id": "contractnli:eced6528:train:473:nda-15",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.8793035045315188,
+          "NLL": 1.3433725167575639,
+          "case_id": "contractnli:eced6528:train:473:nda-16",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.8905371167793164,
+          "NLL": 1.4703958366135719,
+          "case_id": "contractnli:eced6528:train:473:nda-17",
+          "correct": false,
+          "gold": "Contradiction",
+          "prediction": "Entailment"
+        },
+        {
+          "Brier": 0.8493689379681326,
+          "NLL": 1.3130006850971185,
+          "case_id": "contractnli:eced6528:train:473:nda-19",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Entailment"
+        },
+        {
+          "Brier": 1.2581908157690431,
+          "NLL": 2.1502839637226474,
+          "case_id": "contractnli:eced6528:train:473:nda-2",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.7935473774406734,
+          "NLL": 1.2988869078962977,
+          "case_id": "contractnli:eced6528:train:473:nda-20",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.6494478220215901,
+          "NLL": 0.9819073130182677,
+          "case_id": "contractnli:eced6528:train:473:nda-3",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.7817975122891855,
+          "NLL": 1.2790789378627543,
+          "case_id": "contractnli:eced6528:train:473:nda-4",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.8405103660373305,
+          "NLL": 1.3679235398425544,
+          "case_id": "contractnli:eced6528:train:473:nda-5",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "NotMentioned"
+        },
+        {
+          "Brier": 1.172782472233536,
+          "NLL": 1.755640676437047,
+          "case_id": "contractnli:eced6528:train:473:nda-7",
+          "correct": false,
+          "gold": "Contradiction",
+          "prediction": "NotMentioned"
+        },
+        {
+          "Brier": 0.7129153731584876,
+          "NLL": 1.1556825650768818,
+          "case_id": "contractnli:eced6528:train:473:nda-8",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "Contradiction"
+        }
+      ],
+      "full_context_count": 17,
+      "latency_seconds": {
+        "count": 17,
+        "p50": 21.479514852981083,
+        "p95": 22.72607628237456,
+        "total": 371.8520308259758
+      },
+      "per_class": {
+        "Contradiction": {
+          "correct": 0,
+          "count": 2
+        },
+        "Entailment": {
+          "correct": 1,
+          "count": 7
+        },
+        "NotMentioned": {
+          "correct": 1,
+          "count": 8
+        }
+      }
+    },
+    "native_order": {
+      "Brier": 0.8701574528361352,
+      "NLL": 1.4471892450398152,
+      "accuracy": 0.23529411764705882,
+      "actual_pair_inferences": 65,
+      "case_forward_participations": 65,
+      "confusion_matrix_gold_rows_prediction_columns": [
+        [
+          0,
+          0,
+          2
+        ],
+        [
+          4,
+          1,
+          2
+        ],
+        [
+          4,
+          1,
+          3
+        ]
+      ],
+      "correct": 4,
+      "count": 17,
+      "early_exit_count": 1,
+      "error_count": 13,
+      "errors": [
+        {
+          "Brier": 1.1383197979162347,
+          "NLL": 1.830439292667227,
+          "case_id": "contractnli:eced6528:train:473:nda-1",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 1.209310808592307,
+          "NLL": 1.8869048647124225,
+          "case_id": "contractnli:eced6528:train:473:nda-10",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.810632829613499,
+          "NLL": 1.2835156182343423,
+          "case_id": "contractnli:eced6528:train:473:nda-11",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.7150661687966743,
+          "NLL": 1.172599044150045,
+          "case_id": "contractnli:eced6528:train:473:nda-12",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "NotMentioned"
+        },
+        {
+          "Brier": 1.7191503732037263,
+          "NLL": 2.9601371886639933,
+          "case_id": "contractnli:eced6528:train:473:nda-15",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.8549160861178576,
+          "NLL": 1.3921642270587058,
+          "case_id": "contractnli:eced6528:train:473:nda-16",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.9391226419471781,
+          "NLL": 1.551935506004343,
+          "case_id": "contractnli:eced6528:train:473:nda-17",
+          "correct": false,
+          "gold": "Contradiction",
+          "prediction": "NotMentioned"
+        },
+        {
+          "Brier": 0.73225385545554,
+          "NLL": 1.158642299467211,
+          "case_id": "contractnli:eced6528:train:473:nda-19",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Entailment"
+        },
+        {
+          "Brier": 1.4116182854813293,
+          "NLL": 2.746858270674425,
+          "case_id": "contractnli:eced6528:train:473:nda-2",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.8184266122245382,
+          "NLL": 1.2717291405161166,
+          "case_id": "contractnli:eced6528:train:473:nda-4",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.8049948263985145,
+          "NLL": 1.3010120214315002,
+          "case_id": "contractnli:eced6528:train:473:nda-5",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "NotMentioned"
+        },
+        {
+          "Brier": 1.049581936259072,
+          "NLL": 1.5257478807045177,
+          "case_id": "contractnli:eced6528:train:473:nda-7",
+          "correct": false,
+          "gold": "Contradiction",
+          "prediction": "NotMentioned"
+        },
+        {
+          "Brier": 0.9530124329900684,
+          "NLL": 1.5734478056605927,
+          "case_id": "contractnli:eced6528:train:473:nda-8",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "Contradiction"
+        }
+      ],
+      "full_context_count": 16,
+      "latency_seconds": {
+        "count": 17,
+        "p50": 21.479514852981083,
+        "p95": 22.99001770396717,
+        "total": 352.131558673922
+      },
+      "per_class": {
+        "Contradiction": {
+          "correct": 0,
+          "count": 2
+        },
+        "Entailment": {
+          "correct": 1,
+          "count": 7
+        },
+        "NotMentioned": {
+          "correct": 3,
+          "count": 8
+        }
+      }
+    },
+    "source_order": {
+      "Brier": 0.911027031294522,
+      "NLL": 1.5179547735339651,
+      "accuracy": 0.17647058823529413,
+      "actual_pair_inferences": 65,
+      "case_forward_participations": 65,
+      "confusion_matrix_gold_rows_prediction_columns": [
+        [
+          0,
+          1,
+          1
+        ],
+        [
+          5,
+          1,
+          1
+        ],
+        [
+          5,
+          1,
+          2
+        ]
+      ],
+      "correct": 3,
+      "count": 17,
+      "early_exit_count": 1,
+      "error_count": 14,
+      "errors": [
+        {
+          "Brier": 1.140230992331158,
+          "NLL": 1.834843176806171,
+          "case_id": "contractnli:eced6528:train:473:nda-1",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 1.49781887939069,
+          "NLL": 2.386060283683712,
+          "case_id": "contractnli:eced6528:train:473:nda-10",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.6900917185220368,
+          "NLL": 1.1249085702115524,
+          "case_id": "contractnli:eced6528:train:473:nda-11",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.638269687908432,
+          "NLL": 1.0538494990051301,
+          "case_id": "contractnli:eced6528:train:473:nda-12",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 1.809120173052161,
+          "NLL": 3.082557777233375,
+          "case_id": "contractnli:eced6528:train:473:nda-15",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.8793035045315188,
+          "NLL": 1.3433725167575639,
+          "case_id": "contractnli:eced6528:train:473:nda-16",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.8905371167793164,
+          "NLL": 1.4703958366135719,
+          "case_id": "contractnli:eced6528:train:473:nda-17",
+          "correct": false,
+          "gold": "Contradiction",
+          "prediction": "Entailment"
+        },
+        {
+          "Brier": 0.8493689379681326,
+          "NLL": 1.3130006850971185,
+          "case_id": "contractnli:eced6528:train:473:nda-19",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Entailment"
+        },
+        {
+          "Brier": 1.4180820245375618,
+          "NLL": 2.7808013635382,
+          "case_id": "contractnli:eced6528:train:473:nda-2",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.7935473774406734,
+          "NLL": 1.2988869078962977,
+          "case_id": "contractnli:eced6528:train:473:nda-20",
+          "correct": false,
+          "gold": "NotMentioned",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.7817975122891855,
+          "NLL": 1.2790789378627543,
+          "case_id": "contractnli:eced6528:train:473:nda-4",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "Contradiction"
+        },
+        {
+          "Brier": 0.8405103660373305,
+          "NLL": 1.3679235398425544,
+          "case_id": "contractnli:eced6528:train:473:nda-5",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "NotMentioned"
+        },
+        {
+          "Brier": 1.3208511868106312,
+          "NLL": 2.102675308982265,
+          "case_id": "contractnli:eced6528:train:473:nda-7",
+          "correct": false,
+          "gold": "Contradiction",
+          "prediction": "NotMentioned"
+        },
+        {
+          "Brier": 0.7129153731584876,
+          "NLL": 1.1556825650768818,
+          "case_id": "contractnli:eced6528:train:473:nda-8",
+          "correct": false,
+          "gold": "Entailment",
+          "prediction": "Contradiction"
+        }
+      ],
+      "full_context_count": 16,
+      "latency_seconds": {
+        "count": 17,
+        "p50": 21.479514852981083,
+        "p95": 22.99001770396717,
+        "total": 352.0013337000273
+      },
+      "per_class": {
+        "Contradiction": {
+          "correct": 0,
+          "count": 2
+        },
+        "Entailment": {
+          "correct": 1,
+          "count": 7
+        },
+        "NotMentioned": {
+          "correct": 2,
+          "count": 8
+        }
+      }
+    }
+  },
+  "schema_version": 1,
+  "scorer_model_forward_accounting": {
+    "arm_metric": "case_forward_participations",
+    "global_physical_forward_audit": "Independently reconcile raw NLI_batch_records unique batch_index and durable model-forward progress.",
+    "global_physical_forward_source": "raw_worker.counters.NLI_forward_calls_completed",
+    "participation_sums_are_not_physical_forward_counts": true,
+    "row_field": "actual_model_forward_calls",
+    "row_field_semantics": "Number of shared model batches in which this case-arm participated."
+  },
+  "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "source_frozen_metadata_reporter_executed": true,
+  "source_text_exposed_or_conservatively_retired_case_ids": [
+    "contractnli:eced6528:train:473:nda-1",
+    "contractnli:eced6528:train:473:nda-10",
+    "contractnli:eced6528:train:473:nda-11",
+    "contractnli:eced6528:train:473:nda-12",
+    "contractnli:eced6528:train:473:nda-13",
+    "contractnli:eced6528:train:473:nda-15",
+    "contractnli:eced6528:train:473:nda-16",
+    "contractnli:eced6528:train:473:nda-17",
+    "contractnli:eced6528:train:473:nda-18",
+    "contractnli:eced6528:train:473:nda-19",
+    "contractnli:eced6528:train:473:nda-2",
+    "contractnli:eced6528:train:473:nda-20",
+    "contractnli:eced6528:train:473:nda-3",
+    "contractnli:eced6528:train:473:nda-4",
+    "contractnli:eced6528:train:473:nda-5",
+    "contractnli:eced6528:train:473:nda-7",
+    "contractnli:eced6528:train:473:nda-8"
+  ],
+  "source_text_exposure_semantics": "DATA_REPORT IDs may include conservative retirement after an interrupted access journal. They do not assert an unobserved decode; the exact DATA report and independent review retain that distinction.",
+  "status": "REJECTED_FROZEN_DEV_MECHANISM_QUALITY_GATE",
+  "throughput_gate_passed": true,
+  "train_fitting_performed": false,
+  "used_confirmation_identities": []
+}

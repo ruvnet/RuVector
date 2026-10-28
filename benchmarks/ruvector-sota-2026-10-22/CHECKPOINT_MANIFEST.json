@@ -4218,6 +4218,161 @@
     "training_calls": 0,
     "used_confirmation_identities": []
   },
+  "epoch59_final": {
+    "actual_SOURCE_commit": "993dce6842bf602dd87864d00c1621a56eebc613",
+    "all_scientific_slots_closed": true,
+    "candidate_promoted": false,
+    "checkpoint_result_scope": "CompletedE59science; exactcanonicalfilesinexplicitarchiveoverlay with ordinary unchanged summary aliases",
+    "epoch_manifest": {
+      "bytes": 35726,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/EPOCH_MANIFEST.json",
+      "sha256": "c3990bcb2351d98d3519e4f33f03998c24f7d048dd0cb8382d8ae0e4d65000e1"
+    },
+    "master_plan": {
+      "bytes": 17643,
+      "path": "experiments/sota-2026-10-22/epoch59/plan.json",
+      "sha256": "42986c0c36d540eac39af71f9bef369a60f480790c604e46c997818ef1596758"
+    },
+    "official_goal_verified": false,
+    "original_blob5_execution": "UNKNOWN_PERMANENTLY",
+    "results": {
+      "bytes": 48626,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/RESULTS.json",
+      "sha256": "11f9c3c3c40c86e29d082aac99c5b4cb1514b2f6a8a7c813e553cb75dfec2e9d"
+    },
+    "scientific_files_transport": {
+      "CP_project_files_includes_overlay78": false,
+      "SOURCE_members_already_Git_visible": 83,
+      "adapter": {
+        "bytes": 7067,
+        "path": "experiments/sota-2026-10-22/recovery59-20261028/restore_epoch59_overlay.py",
+        "sha256": "16fdd7c5dcc49e5df28ca613806fdeaf069b2a0905557015f08c5dc9c074a7d5"
+      },
+      "canonical_archive_members": 167,
+      "canonical_scientific_members": 161,
+      "envelope": {
+        "bytes": 1264415,
+        "path": "experiments/sota-2026-10-22/recovery59-20261028/PUBLIC_ARTIFACTS.envelope.v1.json",
+        "sha256": "4c34f2da154c903a05d6ede3b5c42842c7fa9b7ba7218a460c32747af20188d0"
+      },
+      "overlay_manifest": {
+        "bytes": 41715,
+        "path": "experiments/sota-2026-10-22/recovery59-20261028/ARCHIVE_OVERLAY.v1.json",
+        "sha256": "d62375c852ae08aace29138d44de97a99ff9c3197f7bc635521c2897705d7ac4"
+      },
+      "project_additions_AFTER_standard_restore": 78,
+      "required_order": "Current ordinary bootstrap/restore and all inherited adapters including70CP-only/E44overlay55/E49sourceextras FIRST; source83 exact in isolatedKIT/project, then full167archive verified161science overlay78 OEXCL; no scientific code automatically executed."
+    },
+    "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+    "source_freeze": {
+      "bytes": 34776,
+      "path": "experiments/sota-2026-10-22/epoch59/SOURCE_FREEZE.json",
+      "sha256": "17ad5079228381882fbe26731936a668781471a9bf41a984b90a96826dfb2728"
+    },
+    "used_confirmation_identities": []
+  },
+  "epoch59_publication_recovery28": {
+    "actual_E59_scientific_batches_already_spent": 2,
+    "actual_official_refresh": {
+      "bytes": 7384,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/official/PUBLIC_REFRESH_RESULT.actual.v3.json",
+      "sha256": "b97993809321c074be0118edc8ac5b085a927c61227d6ef7cf52f603a4311542"
+    },
+    "actual_publisher_metadata_refresh": {
+      "bytes": 1547,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/official/PUBLISHER_METADATA.actual.v1.json",
+      "sha256": "7860e97eb30b2acecfad9fba281e3bdcd130066f104913181db56b3030074142"
+    },
+    "any_new_unknown_means_STOP_no_repack_reencode_fallback": true,
+    "archive_overlay": {
+      "CP_project_files_includes_overlay78": false,
+      "SOURCE_members_already_Git_visible": 83,
+      "adapter": {
+        "bytes": 7067,
+        "path": "experiments/sota-2026-10-22/recovery59-20261028/restore_epoch59_overlay.py",
+        "sha256": "16fdd7c5dcc49e5df28ca613806fdeaf069b2a0905557015f08c5dc9c074a7d5"
+      },
+      "canonical_archive_members": 167,
+      "canonical_scientific_members": 161,
+      "envelope": {
+        "bytes": 1264415,
+        "path": "experiments/sota-2026-10-22/recovery59-20261028/PUBLIC_ARTIFACTS.envelope.v1.json",
+        "sha256": "4c34f2da154c903a05d6ede3b5c42842c7fa9b7ba7218a460c32747af20188d0"
+      },
+      "overlay_manifest": {
+        "bytes": 41715,
+        "path": "experiments/sota-2026-10-22/recovery59-20261028/ARCHIVE_OVERLAY.v1.json",
+        "sha256": "d62375c852ae08aace29138d44de97a99ff9c3197f7bc635521c2897705d7ac4"
+      },
+      "project_additions_AFTER_standard_restore": 78,
+      "required_order": "Current ordinary bootstrap/restore and all inherited adapters including70CP-only/E44overlay55/E49sourceextras FIRST; source83 exact in isolatedKIT/project, then full167archive verified161science overlay78 OEXCL; no scientific code automatically executed."
+    },
+    "candidate_promoted": false,
+    "epoch": 59,
+    "fixed_capsule_transport_attempt_limit": 1,
+    "kind": "PUBLICATION_RECOVERY_ONLY_E59_ZERO_SCIENCE",
+    "new_scientific_calls": 0,
+    "official_goal_verified": false,
+    "official_rank": null,
+    "old_28_blob_recreation_forbidden": true,
+    "old_FINAL_tree_commit_CAS_attempted": false,
+    "old_failed_blob_current_read": "GITHUB_NOT_FOUND_404_AT_SINGLE_OBSERVATION",
+    "old_failed_blob_historical_outcome": "UNKNOWN",
+    "original_scientific_source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+    "owner_snapshot": {
+      "bytes": 848,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/guardian28/owner.json",
+      "sha256": "39acf0db29a8dff63e76a550927644fc4170d662152961fc0f244147ea9c069e"
+    },
+    "owner_snapshot_is_not_a_current_remote_lease": true,
+    "record": {
+      "bytes": 3357,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/RECOVERY_RECORD.v1.json",
+      "sha256": "b01f85618dcecd7c829e9559e50fc2bcfef07e99248a5e0e4b3f1908fc0ee2b7"
+    },
+    "recovery_generation": 28,
+    "recovery_plan": {
+      "bytes": 15762,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/PLAN.json",
+      "sha256": "268e6a4d27e109f511e5440426647882d13f6d48a45198b4d3b57024efd093cb"
+    },
+    "recovery_source_freeze": {
+      "bytes": 15050,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/SOURCE_FREEZE.json",
+      "sha256": "101d151818db0742383e4caa0b64b5913a8696765e7367b94002bd1fab7357e2"
+    },
+    "restoration_protocol": {
+      "bytes": 3258,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/RESTORATION_PROTOCOL.v1.json",
+      "sha256": "27dc5119bb357a4fe848eb9870bc91596687f402515ac2a82c19d287735b14a9"
+    },
+    "restoration_safety_instructions": {
+      "all11_source_recipe_components_actually_passed": true,
+      "current_Kit83_rehydration": "Already executed once under guardian28 after streamed cleanup; source83 R bytes/inodes unchanged. Historical guardian28/rehydration scripts are not fresh-owner authority for later continuation.",
+      "distinct_streamed_cleanup": "Separately reviewed same64MiB streamed cleanup actually passed once; its9394retirements are completed provenance, not a pending or retryable step. No cap change or bootstrap rerun occurred.",
+      "future_restore": "Follow immutable RESTORATION_PROTOCOL plus this safety instruction: fresh isolated reviewed bootstrap.py/restore_checkpoint.py and inherited adapters/source recipes, then verified source83 in Kit/R and the fixed all167-member validated E59overlay78. No historical failed wrapper, controller, guardian, scientific batch, labels or scoring runs automatically.",
+      "original_Oct28_wrapper_exit_code": 1,
+      "original_failed_wrapper_replay_authorized": false,
+      "original_failed_wrapper_role": "ARCHIVED_EVIDENCE_ONLY; MemoryError happened during global Kit Path sort before any retirement. NEVER rerun this failed wrapper or its already executed source recipe in place."
+    },
+    "source_only_model_research": {
+      "bytes": 12172,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/research/STRONGER_TYPED_READER_SOURCE_FEASIBILITY.actual.v1.json",
+      "sha256": "2dfe84a2fc8ddc376d592dec00c389056d1cbcca2deacf029cd2956efdd9ad59"
+    },
+    "source_only_research_manifest": {
+      "bytes": 5459,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/research/SOURCE_RESEARCH_MANIFEST.v1.json",
+      "sha256": "95bcdd0c68b495bf358a9e439b8e00150a4c9506da7083ba18b96ffcd5f865f1"
+    },
+    "source_parent": "993dce6842bf602dd87864d00c1621a56eebc613",
+    "unexecuted_future_semantic_pair_cache_contract": {
+      "bytes": 3886,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/research/SHARED_SEMANTIC_PAIR_LOGIT_CACHE_CONTRACT.proposal.v1.json",
+      "sha256": "f071e81a4b06ca3aca0edb6187b9d6ae8b1046df6c7766726bfd691a24340e66"
+    },
+    "used_confirmation_identities": []
+  },
   "epoch59_source": {
     "master_plan": {
       "bytes": 17643,
@@ -48587,6 +48742,326 @@
       "bytes": 628,
       "path": "experiments/sota-2026-10-22/legal-transfer/validation.json",
       "sha256": "e5f8de9c9f1552a97cd27b1703f45d1d6f1c6d7e458aa761fc5254b252eca22d"
+    },
+    {
+      "bytes": 41715,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/ARCHIVE_OVERLAY.v1.json",
+      "sha256": "d62375c852ae08aace29138d44de97a99ff9c3197f7bc635521c2897705d7ac4"
+    },
+    {
+      "bytes": 15762,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/PLAN.json",
+      "sha256": "268e6a4d27e109f511e5440426647882d13f6d48a45198b4d3b57024efd093cb"
+    },
+    {
+      "bytes": 1264415,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/PUBLIC_ARTIFACTS.envelope.v1.json",
+      "sha256": "4c34f2da154c903a05d6ede3b5c42842c7fa9b7ba7218a460c32747af20188d0"
+    },
+    {
+      "bytes": 3357,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/RECOVERY_RECORD.v1.json",
+      "sha256": "b01f85618dcecd7c829e9559e50fc2bcfef07e99248a5e0e4b3f1908fc0ee2b7"
+    },
+    {
+      "bytes": 3258,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/RESTORATION_PROTOCOL.v1.json",
+      "sha256": "27dc5119bb357a4fe848eb9870bc91596687f402515ac2a82c19d287735b14a9"
+    },
+    {
+      "bytes": 15050,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/SOURCE_FREEZE.json",
+      "sha256": "101d151818db0742383e4caa0b64b5913a8696765e7367b94002bd1fab7357e2"
+    },
+    {
+      "bytes": 2551,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/ACTUAL_FIXED_OVERLAY_AND_SEALED_E59_CLOSURE_INDEPENDENT.v1.json",
+      "sha256": "23d48383003488ff957eda7b7fd9d9e59130f084899901c221d6161daee5c4e5"
+    },
+    {
+      "bytes": 2806,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/ACTUAL_GUARDIAN28_OWNER_AND_SINGLE_READ_INDEPENDENT_ADMISSION.v1.json",
+      "sha256": "626b992cd32a8cc3c566b9d37dfd63d46fda37fdd69ea576140d057db329a69d"
+    },
+    {
+      "bytes": 3548,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/ACTUAL_OFFICIAL_AND_PUBLISHER_SAFE_OUTPUT_INDEPENDENT.v1.json",
+      "sha256": "3e5f2c89ca1c7c9e45ad8969f0f8b74f78e603961f67784e9c55a45c1f9a4dd8"
+    },
+    {
+      "bytes": 4615,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/ACTUAL_SOURCE_COMPONENTS_AND_WRAPPER_FAILURE_INDEPENDENT.v1.json",
+      "sha256": "4cb9bb12ea8415755ab74a152bf75458a7da8b90df5926e4ca8c994aab54cc6d"
+    },
+    {
+      "bytes": 2071,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/ACTUAL_STREAMED64_RETIREMENT_AND_SOURCE_PRESERVATION_INDEPENDENT.v1.json",
+      "sha256": "f85bed54d55bb9a02591e64ba4d46b6255ce74858ecac02e1a83c41db7308f27"
+    },
+    {
+      "bytes": 3695,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/CAPSULE_V3_TRANSPORT_SOURCE_AND_SOURCE_PROJECTION_INDEPENDENT_REVIEW.v1.json",
+      "sha256": "79e7a33f422cd7badd7e0a95d4f0663df8de3b6b27fefee862a154bad3a366ba"
+    },
+    {
+      "bytes": 1136,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/E59_ARCHIVE_OVERLAY_ROOT.actual.v1.json",
+      "sha256": "4d17490b9a374cdadb700f7e21dcfbbf12c66d7cda535499d39cdfec824bc246"
+    },
+    {
+      "bytes": 3161,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/FIXED_CAPSULE_AND_OVERLAY_SOURCE_INDEPENDENT_APPROVAL.v1.json",
+      "sha256": "128a2dec91f8e3600cecb9f7579d93589b76d1449528d0ce49c193b472308add"
+    },
+    {
+      "bytes": 8273,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/FRESH_SOURCE_READBACK_CANONICAL_PROJECTION.actual.v1.json",
+      "sha256": "ca12cff4f2b05a5affd22d9787aef0629b442eb2e6a497c47605fe0d657f99a0"
+    },
+    {
+      "bytes": 5193,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/GUARD_CONTROLLER_V3_SOURCE_AND_INERT_CONTRACT_INDEPENDENT_APPROVAL.v1.json",
+      "sha256": "bab34a03644b5868b70d5e841fd5ca70da5f045325ffa089809e8f467e194013"
+    },
+    {
+      "bytes": 27302,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/KIT_SOURCE83_REHYDRATION.actual.v1.json",
+      "sha256": "2d3109f36c25da92b67c64ec26224f22cb5c665491e3d411778fa1478a09785c"
+    },
+    {
+      "bytes": 714,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/ONE_READ.intent.actual.v1.json",
+      "sha256": "19e97f67bcd4155c00a3a07ab5b967227ff2d3d793952bd816809bb8f6b3fb46"
+    },
+    {
+      "bytes": 524,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/ONE_READ.raw.actual.v1.json",
+      "sha256": "cfecbe9fb464031063b4fb8a691c4c81f03338610abd463b220dbe5a950f4b78"
+    },
+    {
+      "bytes": 6271,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/SINGLE_LOOKUP_404_AND_DISTINCT_CAPSULE_SCOPE_INDEPENDENT_DECISION.v1.json",
+      "sha256": "641997052b91e16ce1d4ee086d1c66939c51701401bc9a0d734a1f34cb798348"
+    },
+    {
+      "bytes": 6891,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/SOURCE_RECONSTRUCTION_WRAPPER_FAILURE.actual.v1.json",
+      "sha256": "1cf5765d11dc6ec4c5714f5079a9239278bad59e351b81a8fd643737c0e082ef"
+    },
+    {
+      "bytes": 3607,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/SOURCE_RESTORATION_CONFIGURATION.v2.json",
+      "sha256": "63d4edb1be7525e0403f6cfb5f4472dc061762e1144d8654deefb55a26fd085f"
+    },
+    {
+      "bytes": 826,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/STREAMED_KIT_RETIREMENT_CLI_EXIT.actual.v1.json",
+      "sha256": "c21ff5bbd5e9eb131860ae2d2c145487e02f70d4e95bf36b1ac754b14f740b43"
+    },
+    {
+      "bytes": 1862,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/STREAMED_KIT_RETIREMENT_CONFIGURATION.v1.json",
+      "sha256": "dbe27072e57fcc0718ab39ade6915b6668f7a2446feb8d11fc4cf66206ae3aca"
+    },
+    {
+      "bytes": 4182,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/STRONGER_MODEL_SOURCE_PACKET_PUBLIC_PRIVACY_INDEPENDENT_APPROVAL.v1.json",
+      "sha256": "57c9fc0f30e0de4ef9ddb16b987c4b06c3f3ebc207b9a715fcd73752072173f0"
+    },
+    {
+      "bytes": 1102,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/official/PUBLIC_REFRESH_O_EXEC_COMMAND_EXIT.actual.v1.json",
+      "sha256": "678ce24cdc267a8496c635318a530fa25e898b3a22972459b6f0217e78f89344"
+    },
+    {
+      "bytes": 7384,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/official/PUBLIC_REFRESH_RESULT.actual.v3.json",
+      "sha256": "b97993809321c074be0118edc8ac5b085a927c61227d6ef7cf52f603a4311542"
+    },
+    {
+      "bytes": 726,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/official/PUBLIC_SOURCE_RECEIPT_1.v3.json",
+      "sha256": "f37aefbf639f69f49bd2a61f5506c9618baec4f8377e62aa6fcec84b5d3b9f6f"
+    },
+    {
+      "bytes": 771,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/official/PUBLIC_SOURCE_RECEIPT_2.v3.json",
+      "sha256": "fc3f93148044ef91788399c4dee4aa0179c28cda048f280ed46e14c4072571c1"
+    },
+    {
+      "bytes": 826,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/official/PUBLIC_SOURCE_RECEIPT_3.v3.json",
+      "sha256": "e5258d957ee104964ddfb6c012952433fcba2f751947f7888a8c14bb9bad4dec"
+    },
+    {
+      "bytes": 1547,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/official/PUBLISHER_METADATA.actual.v1.json",
+      "sha256": "7860e97eb30b2acecfad9fba281e3bdcd130066f104913181db56b3030074142"
+    },
+    {
+      "bytes": 17086,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/reconstruct_sources_recovery28.v2.py",
+      "sha256": "63352907a2f5c71e3b6bbc576e9de0431270a2d0705030fd1076eea1f9747bc7"
+    },
+    {
+      "bytes": 10712,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/research/FacebookAI--roberta-large-mnli--README.txt",
+      "sha256": "76a907e0f4d96f4141bd8660e545726031be1fcfbb9301beb381a30ecc2b75b3"
+    },
+    {
+      "bytes": 5878,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/research/FacebookAI--roberta-large-mnli--api.txt",
+      "sha256": "847348642a07114f52816cc37b2ce81a9980116dc2eb218fe3c1eac7b5bf31a1"
+    },
+    {
+      "bytes": 688,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/research/FacebookAI--roberta-large-mnli--config.txt",
+      "sha256": "8257a87d5b4677a17c727ffcd4d1bbc9f0dd4b6ec4e0e2a5af30f94a5e253464"
+    },
+    {
+      "bytes": 47178,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/research/METADATA_HTTP_ACTUAL.v1.json",
+      "sha256": "185ab1c57168749437ff29f97edaba61d25dd6bb0651a1033665886947633587"
+    },
+    {
+      "bytes": 3886,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/research/SHARED_SEMANTIC_PAIR_LOGIT_CACHE_CONTRACT.proposal.v1.json",
+      "sha256": "f071e81a4b06ca3aca0edb6187b9d6ae8b1046df6c7766726bfd691a24340e66"
+    },
+    {
+      "bytes": 3306,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/research/SOURCE_ONLY_RESEARCH_PLAN.v1.json",
+      "sha256": "52802894ea62934a38e3e7b43f715004f955264d24e242f9bfa936864d647659"
+    },
+    {
+      "bytes": 10710,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/research/SOURCE_ORIGIN.v1.json",
+      "sha256": "421dd49ce734b0108c787ca7e5dddb631bd14feeecacbb1c8faa85cf8f049858"
+    },
+    {
+      "bytes": 5459,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/research/SOURCE_RESEARCH_MANIFEST.v1.json",
+      "sha256": "95bcdd0c68b495bf358a9e439b8e00150a4c9506da7083ba18b96ffcd5f865f1"
+    },
+    {
+      "bytes": 12172,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/research/STRONGER_TYPED_READER_SOURCE_FEASIBILITY.actual.v1.json",
+      "sha256": "2dfe84a2fc8ddc376d592dec00c389056d1cbcca2deacf029cd2956efdd9ad59"
+    },
+    {
+      "bytes": 4278,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/research/fetch_metadata_once.v1.py",
+      "sha256": "4c03158267e33e31132b9ce980666e0d4318f652507dc3702acd723c7ecd53b6"
+    },
+    {
+      "bytes": 10520,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/research/tasksource--deberta-base-long-nli--README.txt",
+      "sha256": "4852a6944834d5c6a33dd23e49efce4d04a8e99636f09b8ecb9d7850adec27ed"
+    },
+    {
+      "bytes": 16614,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/research/tasksource--deberta-base-long-nli--api.txt",
+      "sha256": "bf570beb07d13c79f1fbce889cc23f5a4df2bb53bec4eda01d5f1bb986c6cd18"
+    },
+    {
+      "bytes": 19091,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/research/tasksource--deberta-base-long-nli--config.txt",
+      "sha256": "708314bd039034a16c42e998eddf9ec63c8bf9c16b8e849760c7ddf2375c8b6f"
+    },
+    {
+      "bytes": 8430,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/evidence/retire_new_Kit_twins_streamed64.v2.py",
+      "sha256": "05db46636e066c661760b6ea677090d63aaec9d875a90411eef160ea980035e5"
+    },
+    {
+      "bytes": 462,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/ownership/launch.actual.json",
+      "sha256": "e31aaa2b0e0b5bf1e9bf99bd0f2d5cb843961e114a6bd2696af7bbc1a85faf97"
+    },
+    {
+      "bytes": 2927,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/ownership/launch_once.py",
+      "sha256": "c5141aab7acd81f8f3e51789725249b38359eb8e8fcf0ef799cc49c121cb5090"
+    },
+    {
+      "bytes": 4390,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/ownership/lock_supervisor.py",
+      "sha256": "c03643f1b483134f34fb8f1073679a15533260526b92294941014726963fb808"
+    },
+    {
+      "bytes": 848,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/ownership/owner.json",
+      "sha256": "39acf0db29a8dff63e76a550927644fc4170d662152961fc0f244147ea9c069e"
+    },
+    {
+      "bytes": 3877,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/ownership/owner_fence.py",
+      "sha256": "f4502591a06b4518d77eecd4f7f0eecee2d1cf5383cf24f8b17e6c5663df3791"
+    },
+    {
+      "bytes": 11548,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/publication/controller.js",
+      "sha256": "8031e705b48ab7278849adc6f53e7bb9a105ef7671f588b6a61b16899e43e0d5"
+    },
+    {
+      "bytes": 23012,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/publication/guard.py",
+      "sha256": "a26be07eafc6c975cb4e9462bd0dcbd5cbb588203179aad52aa4edcadb96b9a5"
+    },
+    {
+      "bytes": 18617,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/publication/stagebuilder.py",
+      "sha256": "e6634579734648f09a100e551aae47a4cd4c725972472e222697a1dba4994b6c"
+    },
+    {
+      "bytes": 1574,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/restoration/KIT_SOURCE83_REHYDRATION_CONFIGURATION.v1.json",
+      "sha256": "8e7e10ae025c7876a2eda68f20aa978fdb265e88c589efdd93b82c74f5a9e8c8"
+    },
+    {
+      "bytes": 5987,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/restoration/rehydrate_source83.py",
+      "sha256": "3603656a6436024a16548cb353ba87153e4e88a8796dd2f0cb09bd23d867d79d"
+    },
+    {
+      "bytes": 7067,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/restore_epoch59_overlay.py",
+      "sha256": "16fdd7c5dcc49e5df28ca613806fdeaf069b2a0905557015f08c5dc9c074a7d5"
+    },
+    {
+      "bytes": 35726,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/EPOCH_MANIFEST.json",
+      "sha256": "c3990bcb2351d98d3519e4f33f03998c24f7d048dd0cb8382d8ae0e4d65000e1"
+    },
+    {
+      "bytes": 4831,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/LEARNINGS.json",
+      "sha256": "63af4de6f2c37c20040ab422f0f2f28988013e20c345ae8478f002e8cde5c4a6"
+    },
+    {
+      "bytes": 270574,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/REJECTION_LEDGER.json",
+      "sha256": "bfae7bd9c41d42545f395ae4e2d9991ddee30e9896a8e6302a6d8c3c412e3bba"
+    },
+    {
+      "bytes": 48626,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/RESULTS.json",
+      "sha256": "11f9c3c3c40c86e29d082aac99c5b4cb1514b2f6a8a7c813e553cb75dfec2e9d"
+    },
+    {
+      "bytes": 3109,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/SOURCE_ORIGIN.v1.json",
+      "sha256": "3c75ab09432e9c73a33f0d2cc05bcfd5e30016f02d6d13da9473d597bbc2f3cc"
+    },
+    {
+      "bytes": 8777,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/USED_CONFIRMATION.json",
+      "sha256": "f3adc83bd482144c62e52cd5ac9c6eacd56bd77045eae6489c37570f8eb9b565"
+    },
+    {
+      "bytes": 8777,
+      "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/USED_IDENTITIES.json",
+      "sha256": "f3adc83bd482144c62e52cd5ac9c6eacd56bd77045eae6489c37570f8eb9b565"
     },
     {
       "bytes": 1111,

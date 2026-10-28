@@ -1,0 +1,20 @@
+{
+  "arguments": {
+    "blob_sha": "1089df824a50b6c95f0cd42b4d9c18b16439f809",
+    "repository_full_name": "ruvnet/RuVector"
+  },
+  "automatic_retry": false,
+  "epoch": 59,
+  "generation": 28,
+  "independent_admission_sha256": "626b992cd32a8cc3c566b9d37dfd63d46fda37fdd69ea576140d057db329a69d",
+  "intent_unix": 1793147279.7593737,
+  "mutations_authorized": 0,
+  "owner": {
+    "bytes": 848,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/guardian28/owner.json",
+    "sha256": "39acf0db29a8dff63e76a550927644fc4170d662152961fc0f244147ea9c069e"
+  },
+  "phase": "ONE_READ_ONLY_UNCERTAIN_BLOB_RECONCILIATION",
+  "planned_attempts": 1,
+  "tool": "mcp__codex_apps__github_fetch_blob"
+}

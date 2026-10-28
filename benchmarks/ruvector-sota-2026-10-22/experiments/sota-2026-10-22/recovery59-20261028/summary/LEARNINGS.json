@@ -1,0 +1,59 @@
+{
+  "DEV_pilot": {
+    "Gold_report": {
+      "bytes": 2699,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/GOLD_REPORT.public.v1.json",
+      "sha256": "acd03870060cba94599b4617d69233af25abad027a1dc02cc8a0108169df62e8"
+    },
+    "frozen_plan": {
+      "bytes": 17643,
+      "path": "experiments/sota-2026-10-22/epoch59/plan.json",
+      "sha256": "42986c0c36d540eac39af71f9bef369a60f480790c604e46c997818ef1596758"
+    },
+    "independent_acceptance": {
+      "bytes": 42363,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/actual/DEV_ACTUAL_SCORED_ACCEPTANCE_INDEPENDENT.v1.json",
+      "sha256": "859c72102d92b70821491b3b4bce76085d292c95af19bba72c61123cbcceb81d"
+    },
+    "results": {
+      "bytes": 211315,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/worker/RESULT.actual.json",
+      "sha256": "36f7e3bb01de5d53854c8d1dd1db54d1c3a05b04bf897c79622bea5d00a5725e"
+    },
+    "scoring": {
+      "bytes": 28081,
+      "path": "experiments/sota-2026-10-22/epoch59/actual/dev/SCORED.actual.json",
+      "sha256": "823cc68c0122ed4b71745589ecddb0c9175d91c09409902d2f9ecaef2be1b8bd"
+    },
+    "sealed_forecasts": {
+      "bytes": 36320,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/epoch59-9b677a916983/runs/dev/worker/SEALED_FORECASTS.json",
+      "sha256": "5c4c6b9788b6ea0da17f03002f1536e46222afb696246beba87d6186e1fe0799"
+    }
+  },
+  "actual_SOURCE_commit": "993dce6842bf602dd87864d00c1621a56eebc613",
+  "benchmark_generalization_claim": false,
+  "candidate_promoted": false,
+  "development_identity_namespace": "contractnli:eced6528:train:473",
+  "engineering_audit": {
+    "bytes": 11879,
+    "path": "experiments/sota-2026-10-22/audit/epoch59/actual/ENGINEERING_ACTUAL_PUBLIC_ALIAS_ACCEPTANCE_INDEPENDENT.v1.json",
+    "sha256": "e690c9223b7b7e410b0b87c68d9c1882e8ac9e944c15b500823eb87db5c712e3"
+  },
+  "epoch": 59,
+  "independent_reason": "REJECTED: originalTRAIN473 PROJECT_DEV native_order4/17, source_order3/17 and full_reference2/17. Native proper scores improve within these fixed pipelines but misses both Contradiction cases(0/2), failing the frozen at-least-one-correct-in-each-present-Gold-class gate. All17 dependent claims are one NDA and DEV forever; CF[] UNQUALIFIED_HOLD, no model training or calibration, no independent-document or official benchmark/rank claim. Same-semantic-pair batch variation is observed in the fixed dynamic-int8 execution: max absolute raw-logit delta1.0046716332435608, probability delta0.2736475302259274,4groups/8pairwise raw-argmax flips;6missing arm entries unmeasured and row tensor-bit equivalence unverified(no archived per-row hash). This matched-model comparison is a total fixed pipeline effect including ordering/batch companions and does not isolate relevance causality; no variant selected or scientific gate changed after measurement. Both bounded actual native batches closed, zero paid API/GPU, native104 champion retained.",
+  "kind": "REAL_NATIVE_TYPED_READER_BOUNDED_RESEARCH",
+  "native104_champion_preserved": true,
+  "new_submission": false,
+  "next_research_priority": "Preserve SubmittedNative104. Retain exact E59 typed-reader coverage/order outcomes, proper scores, latency, resource limits and every failure. The17 paired claims share ONE originalTRAIN NDA reserved as PROJECT_DEV; this cannot establish officialDEV/test, independent-document or benchmark-wide generalization. No train fitting occurred. All actually exposed current PROJECT_DEV identities are DEV forever. Do not repeat an unchanged rejected runtime or exposed-question grid. Any further attempt needs a new source/identity/resource freeze. Stronger licensed typed decision models with verified training/test provenance remain the quality priority; do not repeat unchanged FinNLI author-access or ModernBERT lineage probes. Existing easy48/Legal96/SciFact16/DOC17 roles,1109query-pool caveat and unqualified confirmation holds stay unchanged. No paid API/GPU or publisher-submission authorization follows. Official success requires the matching publisher result/rank and eligibility.",
+  "official_goal_verified": false,
+  "official_rank": null,
+  "original_dataset_split": "train",
+  "project_data_role": "PROJECT_DEV",
+  "results_scope": "One source-licensed ContractNLI originalTRAIN document473 with17 fixed claims, reserved as PROJECT_DEV. No train fitting or officialDEV/test/confirmation result is measured. Paired claim differences share one NDA and are not independent-document or benchmark-wide generalization evidence. Authored engineering performance is not benchmark quality. No official rank is inferred.",
+  "schema_version": 1,
+  "source_checkpoint": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "status": "REJECTED_FROZEN_DEV_MECHANISM_QUALITY_GATE",
+  "train_fitting_performed": false,
+  "used_confirmation_identities": []
+}

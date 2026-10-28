@@ -1,0 +1,98 @@
+{
+  "E59_new78_not_restored_yet": true,
+  "actual_11_component_receipts": [
+    {
+      "bytes": 1980,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/E42-archive-materialized.json",
+      "sha256": "3a3975f87c521f5ffd2cdd96ceab83a96d3d92b2f60e4eb1d619cae9e10c9c2b"
+    },
+    {
+      "bytes": 1908,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/legacy22-verified-cap4m.json",
+      "sha256": "8bca440b9f57fc05fdb7501ad76d04595b39d76334ef7058464b9080029374ee"
+    },
+    {
+      "bytes": 1893,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/legacy26-verified.json",
+      "sha256": "901c637388e578a6f3e00735762503ec7479c7a79a24df2113055c591febf94a"
+    },
+    {
+      "bytes": 8502,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/bootstrap-source-verified.json",
+      "sha256": "f81d14d2137f4fedd785ad71cf884e1e52501c07bde69d6cba1b2d44093110af"
+    },
+    {
+      "bytes": 873,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/checkpoint-restored.json",
+      "sha256": "7826c7e8c49e91a4d5e8d532b9f8c1cc3e8f37ca9752a4e9819b5d344b4889e4"
+    },
+    {
+      "bytes": 894,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/checkpoint-verify-only.json",
+      "sha256": "6842f400a24258a74140d6ce3ad237bdf5ccade6df4dd7dd2acf8cfbe556db25"
+    },
+    {
+      "bytes": 2000,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/E42-archive-verify-only.json",
+      "sha256": "3c6772729d48125920f361028bc8bef3fa516200f10f8624d7bf27987033199a"
+    },
+    {
+      "bytes": 1537,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/E44-overlay-restored.json",
+      "sha256": "db30d405af27d8218da5d8f3f67bdd59ee6c1acf2781e64d608e1a00ad346a93"
+    },
+    {
+      "bytes": 1557,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/E44-overlay-verified.json",
+      "sha256": "02035bb65cecb197cb9942d8b5aa41fb3f39cd0764f17be51d922e9d02801302"
+    },
+    {
+      "bytes": 1131,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/E49-overlay-restored.json",
+      "sha256": "c2e6f4ca1f9dd94befc359d00d5a91ebac04ae6ea24e8c1f40c8782d6fc06553"
+    },
+    {
+      "bytes": 1149,
+      "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/E49-overlay-verified.json",
+      "sha256": "d1556244012bb74821bcbfffa52d737bfa0c382660f9f6720c0aa6417ee0fd84"
+    }
+  ],
+  "actual_11_components_exit0": true,
+  "all70_CP_only_rows_retained": true,
+  "all83_E59_source_files_in_both_fresh_Kit_R": true,
+  "all9385_original_donor_bodies_rehashed_unchanged": true,
+  "all_CP_files_present_in_Kit_and_R": 9308,
+  "audit_wrapper_preflight_fault": "Prior inline metadata audit had whitespace SyntaxError before execution; no reads/writes/R/Kit/science/Git effects. This explicit audited source corrects syntax only.",
+  "auditor_R_Kit_original_donor_mutations": 0,
+  "checks_passed": true,
+  "current_verified_distinct_inode_new_Kit_R_twins": 9394,
+  "current_verified_twin_bytes": 573734626,
+  "epoch": 59,
+  "fresh_Git_Kit_leaf_hashes_verified": 9315,
+  "fresh_Kit_bytes_all_hashed": 582084259,
+  "fresh_Kit_files_all_hashed": 9440,
+  "fresh_R_bytes_all_hashed": 575457684,
+  "fresh_R_files_all_hashed": 9518,
+  "generation": 28,
+  "kind": "ACTUAL_COMPLETE_SOURCE_COMPONENTS_WITH_FAILED_WRAPPER_CLOSURE_INDEPENDENT_AUDIT",
+  "new_scientific_calls_or_Git_mutations": 0,
+  "no_missing_newKit_file_and_no_retirements_began": true,
+  "observed_unix": 1793148278.2883544,
+  "original_full_wrapper_succeeded": false,
+  "original_helper_completion_or_retirement_report_exists": false,
+  "original_wrapper_exit_code": 1,
+  "original_wrapper_failure": {
+    "bytes": 6891,
+    "path": "/dev/shm/ruvector-oct28-data/SOURCE_RECONSTRUCTION_WRAPPER_FAILURE.actual.v1.json",
+    "sha256": "1cf5765d11dc6ec4c5714f5079a9239278bad59e351b81a8fd643737c0e082ef"
+  },
+  "qualification": "Every11sourcecomponent and complete freshR/Kit verified. Parentwrapper still failed; no helper/bootstrap rerun or capretune. Distinct streaming cleanup requires separate approval.",
+  "schema_version": 1,
+  "source": {
+    "bytes": 6792,
+    "path": "/dev/shm/ruvector-oct28-audit/derive_source_components.v1.py",
+    "sha256": "47883d0244fe84c662670e9d0fc9094027256478fd13bf18b0b320f72b234d58"
+  },
+  "source_component_reconstruction_complete_independently_verified": true,
+  "unchanged_bootstrap_and_restore_completed_exit0": true
+}

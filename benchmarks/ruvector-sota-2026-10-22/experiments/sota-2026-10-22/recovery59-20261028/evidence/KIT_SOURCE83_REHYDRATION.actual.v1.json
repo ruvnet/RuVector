@@ -1,0 +1,776 @@
+{
+  "actual_bytes_rehydrated": 909144,
+  "actual_files_rehydrated": 83,
+  "all_new_Kit_files_OEXCL_and_distinct_R_inodes": true,
+  "all_original_R_bytes_and_inodes_preserved": true,
+  "approval_ref": {
+    "bytes": 2336,
+    "path": "/dev/shm/ruvector-oct28-audit/SOURCE83_KIT_REHYDRATION_INDEPENDENT_APPROVAL.v1.json",
+    "sha256": "2803477b97ed6db1828a8a5e51f1c524f000a5a1a818c4fe5e22877c0aa14bad"
+  },
+  "checks_passed": true,
+  "configuration_ref": {
+    "bytes": 1574,
+    "path": "/dev/shm/ruvector-oct28-publication/KIT_SOURCE83_REHYDRATION_CONFIGURATION.v1.json",
+    "sha256": "8e7e10ae025c7876a2eda68f20aa978fdb265e88c589efdd93b82c74f5a9e8c8"
+  },
+  "epoch": 59,
+  "kind": "SOURCE_ONLY_NEW_KIT83_REHYDRATION",
+  "observed_unix": 1793148922.5873322,
+  "owner": {
+    "bytes": 848,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/guardian28/owner.json",
+    "sha256": "39acf0db29a8dff63e76a550927644fc4170d662152961fc0f244147ea9c069e"
+  },
+  "rows": [
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268817,
+      "R_device": 26,
+      "R_inode": 260910,
+      "bytes": 5010,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/official/ACTUAL_OFFICIAL_AND_PUBLISHER_SAFE_OUTPUT_INDEPENDENT.v1.json",
+      "sha256": "206a31a61146f40cbcd9467a44f48d3019fa299f60089e8a877f037a5ae8d9db"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268818,
+      "R_device": 26,
+      "R_inode": 260912,
+      "bytes": 2170,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/preparation/ACTUAL_CURRENT_SOURCE_DONORS_AND_MERKLES_INDEPENDENT.v1.json",
+      "sha256": "ee93591b477584191c07c87e39c4f58012a607d19e1ba5e4c321f6213062d0ba"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268819,
+      "R_device": 26,
+      "R_inode": 260913,
+      "bytes": 3908,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/preparation/ACTUAL_FILENAME_ALIAS_QUALIFICATION_INDEPENDENT.v1.json",
+      "sha256": "45c9f048a709664a10301f8e03c3ec63f47adcacede0e30a58d14717540e9253"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268820,
+      "R_device": 26,
+      "R_inode": 260914,
+      "bytes": 4887,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/preparation/ACTUAL_ISOLATED_RESTORATION_AND_KIT_RETIREMENT_INDEPENDENT.v1.json",
+      "sha256": "e3193eadea9acd4e201c79f5034438ce1c11fcf04e9ca0f206e0de9e123df9c3"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268821,
+      "R_device": 26,
+      "R_inode": 260915,
+      "bytes": 3228,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/preparation/ACTUAL_NEW_NLI_SOURCE_ASSETS_HASH_INDEPENDENT.v1.json",
+      "sha256": "011369191ecac1f98714f038420bddfc2988fdb4d058735b939cb402a677634a"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268822,
+      "R_device": 26,
+      "R_inode": 260916,
+      "bytes": 3447,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/preparation/ACTUAL_RUNTIME_NATIVE_AND_CACHED_BGE_INDEPENDENT.v1.json",
+      "sha256": "5b3f4eebf464626de6fe8ef16933f53b11a77ebed0fba1699ffc6c8ac9f2df82"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268823,
+      "R_device": 26,
+      "R_inode": 260917,
+      "bytes": 1310,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/preparation/GUARDIAN27_ACTUAL_DETACHED_ORIGINAL_LOCK_INDEPENDENT.v1.json",
+      "sha256": "ed701f8360310b0041ab0c1c3eeeefa3b507702ac94b25cb547d5c589d7d7928"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268824,
+      "R_device": 26,
+      "R_inode": 260918,
+      "bytes": 1450,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/preparation/OWNER_FENCE27_SOURCE_AND_READONLY_ACTUAL_INDEPENDENT_APPROVAL.v1.json",
+      "sha256": "e6f7eed073fd32711a0f07a6d4f23bc0e73e759914e1e45c7eb628189ab612f6"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268825,
+      "R_device": 26,
+      "R_inode": 260920,
+      "bytes": 2911,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/source-review/ACTUAL_BLIND_CATALOG_SOURCE_COVERAGE_INDEPENDENT.v1.json",
+      "sha256": "7823c827cb4ba20331fd55aa7b8af0d31a5c5b522e7eb32e7fffa331c68100b3"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268826,
+      "R_device": 26,
+      "R_inode": 260921,
+      "bytes": 3765,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/source-review/ACTUAL_BLIND_DATA_CUSTODY_INDEPENDENT.v1.json",
+      "sha256": "5276681ef5c5ee7c8305d2cbb65929e330365bb2666c46a58c6fb62637ce5ff1"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268827,
+      "R_device": 26,
+      "R_inode": 260922,
+      "bytes": 2988,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/source-review/CANDIDATE_PROTOCOL_EXECUTABLE_CLOSURE_INDEPENDENT_REVIEW.v1.json",
+      "sha256": "c293e3773eaa4bfda38ad990ecbb0c5e2d8804ba5c1254af78ddbaf92541853c"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268828,
+      "R_device": 26,
+      "R_inode": 260923,
+      "bytes": 1808,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/source-review/CANDIDATE_PROTOCOL_RECEIPT_METADATA_REVISION_INDEPENDENT.v1.json",
+      "sha256": "e9fb95193930a2a07de4fbf0a3a4e38263a37297b0f804e3316c4a5cd77d9a72"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268829,
+      "R_device": 26,
+      "R_inode": 260924,
+      "bytes": 5075,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/source-review/PUBLICATION_CORE_SOURCE_INDEPENDENT_REVIEW.v1.json",
+      "sha256": "aaaecbd82d7652be64c3478827bd1c1d245546f113990071742fa206491b9b10"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268830,
+      "R_device": 26,
+      "R_inode": 260925,
+      "bytes": 6412,
+      "path": "experiments/sota-2026-10-22/audit/epoch59/source-review/REPORTER_AND_MASTER_SOURCE_INDEPENDENT_REVIEW.v2.json",
+      "sha256": "6e2a8c1ae968aba3392510aca870ef572327ce5fa03d3d2352b835cdd4a92099"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268831,
+      "R_device": 26,
+      "R_inode": 266988,
+      "bytes": 34776,
+      "path": "experiments/sota-2026-10-22/epoch59/SOURCE_FREEZE.json",
+      "sha256": "17ad5079228381882fbe26731936a668781471a9bf41a984b90a96826dfb2728"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268832,
+      "R_device": 26,
+      "R_inode": 266989,
+      "bytes": 36556,
+      "path": "experiments/sota-2026-10-22/epoch59/SOURCE_MANIFEST.json",
+      "sha256": "8e0ea28a991d30a687bfadb933bd58621a7a9ed07158f2741ece94737c180bf2"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268833,
+      "R_device": 26,
+      "R_inode": 266991,
+      "bytes": 2448,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/ACTUAL_SOURCE_ASSETS_HASH_AND_TOKENIZER_METADATA_VERIFICATION.v1.json",
+      "sha256": "e34c841da1a85f78ce6263085ced99d1e8737181e8aa78a1aade0423b05669b5"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268834,
+      "R_device": 26,
+      "R_inode": 266992,
+      "bytes": 2070,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/CANDIDATE_INERT_VALIDATION.v2.accounting.json",
+      "sha256": "5b2d35d9bcdbd006e6704453d35ae64a65213331bf3ec50c3adda85cbc522734"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268835,
+      "R_device": 26,
+      "R_inode": 266993,
+      "bytes": 11181,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/CANDIDATE_PROTOCOL.v2.receipts.json",
+      "sha256": "59c741145034878bba27d743d7d90432c7dbc08c43222a7a34730b74b094dc10"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268836,
+      "R_device": 26,
+      "R_inode": 266994,
+      "bytes": 11484,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/CONFIGURATION_CONTRACT.v2.receipts.json",
+      "sha256": "12c22a431b74c19553bf292404314222e64cea3cad4f1416e5ddad80598b2213"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268837,
+      "R_device": 26,
+      "R_inode": 266995,
+      "bytes": 5115,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/COUNTER_SCHEMA.v1.json",
+      "sha256": "a5480f7fbaf1fa06a6955702bc7655813ef426e9600a3113f8a3792b48f83960"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268838,
+      "R_device": 26,
+      "R_inode": 266996,
+      "bytes": 81159,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/ENGINEERING_AUTHORED_INPUTS.v1.json",
+      "sha256": "e749d017df7c588090245a61cf8f34071158c65cf0bcfee1bb568aafd425c835"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268839,
+      "R_device": 26,
+      "R_inode": 266997,
+      "bytes": 7830,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/HYPOTHESIS_PROPOSAL.v2.selected.json",
+      "sha256": "0143bb8040aeadce8fd1c88d456885f1d57024f6b5b3fa3b34f3e5bfb737af8d"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268840,
+      "R_device": 26,
+      "R_inode": 266998,
+      "bytes": 4344,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/SAME_SEMANTIC_PAIR_VARIATION_DIAGNOSTIC_CONTRACT.v1.json",
+      "sha256": "dfd6a89526f8a00d9a709136557877c05c00982d727d30a38dd8e6ec57765724"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268841,
+      "R_device": 26,
+      "R_inode": 267000,
+      "bytes": 2695,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/model-source/minilm2-README.md",
+      "sha256": "1a6e3f880df3584acc1b209c7c667eb22cb7ddd98ab56a5905dda5cfc446ddd1"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268842,
+      "R_device": 26,
+      "R_inode": 267001,
+      "bytes": 875,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/model-source/minilm2-config.json",
+      "sha256": "8b0e41caff7567c0f53e6983f35591c3dec59507c9173ab125c5823394fb57f3"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268843,
+      "R_device": 26,
+      "R_inode": 267002,
+      "bytes": 239,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/model-source/minilm2-special_tokens_map.json",
+      "sha256": "378eb3bf733eb16e65792d7e3fda5b8a4631387ca04d2015199c4d4f22ae554d"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268844,
+      "R_device": 26,
+      "R_inode": 267003,
+      "bytes": 330,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/model-source/minilm2-tokenizer_config.json",
+      "sha256": "e06f5c3c435fc0255b08b5574cd574eec685390f60c85b27f83d785eb8ecaaa1"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268845,
+      "R_device": 26,
+      "R_inode": 267004,
+      "bytes": 1160,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/model-source/nli_model.GET_RESULT.actual.json",
+      "sha256": "8b221ac541af6a25d85a789f6bb8e23485102dfa8a3dfd4363efa4456a382e80"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268846,
+      "R_device": 26,
+      "R_inode": 267005,
+      "bytes": 1154,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/model-source/nli_tokenizer.GET_RESULT.actual.json",
+      "sha256": "2ea003655f900c9f2344c7f78f8cc49ed0fa6e6977a662dd0cd506a4d6c56c33"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268847,
+      "R_device": 26,
+      "R_inode": 267007,
+      "bytes": 27749,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/native_impl/native_adapter.v1.py",
+      "sha256": "5b98dedad6733bb877d331f6b56c403761bf50a044b98ba647dd521496ef93b1"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268848,
+      "R_device": 26,
+      "R_inode": 267008,
+      "bytes": 15604,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/native_impl/native_helper.cjs",
+      "sha256": "48674b1e59a8097bc64b6f732aecb0504be4c3950c49ccd914553f68e2f52657"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268849,
+      "R_device": 26,
+      "R_inode": 267009,
+      "bytes": 5034,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/prepare_catalog.py",
+      "sha256": "6e0929e435b38e989ec844588c3af80626a865f7d19db741de00707160ce06d2"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268850,
+      "R_device": 26,
+      "R_inode": 267010,
+      "bytes": 15510,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/runtime_common.py",
+      "sha256": "01e8516174c76734e1f0bb192282e2853bedb4eab965d62d5817e422501b0d46"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268851,
+      "R_device": 26,
+      "R_inode": 267012,
+      "bytes": 13481,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/supervisor_impl/run_cli_once.v1.py",
+      "sha256": "7daf75eec0a66820f2d115846e66c1becba5377d6642324742610009fd7ccc75"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268852,
+      "R_device": 26,
+      "R_inode": 267013,
+      "bytes": 19341,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/supervisor_impl/scorer.v1.py",
+      "sha256": "fdac05034489acaa5124ef41cbf3eb1ec42983b4aaf43e9ddd3dea9160835c2b"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268853,
+      "R_device": 26,
+      "R_inode": 267014,
+      "bytes": 16259,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/supervisor_impl/supervisor.v1.py",
+      "sha256": "429ea73ebbcfb79ac10e3a708b27c2a3dd28a5122c0782e266930b911d52a7f7"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268854,
+      "R_device": 26,
+      "R_inode": 267015,
+      "bytes": 21043,
+      "path": "experiments/sota-2026-10-22/epoch59/candidate/worker.v1.py",
+      "sha256": "4af37f556b359b4f03f7ea668d7d5afdb85dcefa2a235f6b92365018e1b03505"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268855,
+      "R_device": 26,
+      "R_inode": 267017,
+      "bytes": 1677,
+      "path": "experiments/sota-2026-10-22/epoch59/data/CATALOG_REPORT.public.v1.json",
+      "sha256": "438bbab2e204a14f6e56f81240a541b3a15bddc40ec29237227d8527d54030ae"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268856,
+      "R_device": 26,
+      "R_inode": 267018,
+      "bytes": 5115,
+      "path": "experiments/sota-2026-10-22/epoch59/data/COUNTER_SCHEMA.v1.json",
+      "sha256": "a5480f7fbaf1fa06a6955702bc7655813ef426e9600a3113f8a3792b48f83960"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268857,
+      "R_device": 26,
+      "R_inode": 267019,
+      "bytes": 15724,
+      "path": "experiments/sota-2026-10-22/epoch59/data/DATA_PROTOCOL.v1.json",
+      "sha256": "c9c1816ab4d4e4630f71d3010af46c1219a0228f96059a49f1ab0efdc494ec79"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268858,
+      "R_device": 26,
+      "R_inode": 267020,
+      "bytes": 7178,
+      "path": "experiments/sota-2026-10-22/epoch59/data/DATA_REPORT.public.v1.json",
+      "sha256": "7543ee3cdd26a6a224e3515734a7017eb670c2bf0bc127abd1b4e27c705694c5"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268859,
+      "R_device": 26,
+      "R_inode": 267021,
+      "bytes": 7260,
+      "path": "experiments/sota-2026-10-22/epoch59/data/PROJECT_DEV_IDENTITY_AVAILABILITY_AND_PROPOSAL.v2.json",
+      "sha256": "8d8cc996718fa74ee6dc6d9ef9c98698732044c6d9c3235da29b833cdb9a7a51"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268860,
+      "R_device": 26,
+      "R_inode": 267022,
+      "bytes": 1110,
+      "path": "experiments/sota-2026-10-22/epoch59/data/SOURCE_TEXT_ACCESS_AFTER.public.v1.json",
+      "sha256": "832a344e2a077f1b2d626106d0733786dd00a34cb9223d98b948cd83d7b6883b"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268861,
+      "R_device": 26,
+      "R_inode": 267023,
+      "bytes": 1110,
+      "path": "experiments/sota-2026-10-22/epoch59/data/SOURCE_TEXT_ACCESS_BEFORE.public.v1.json",
+      "sha256": "2e2613ca47cda08003b47f33467b4756e3969dacf58a8e6452a4ba3d6246bfd7"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268862,
+      "R_device": 26,
+      "R_inode": 267024,
+      "bytes": 30919,
+      "path": "experiments/sota-2026-10-22/epoch59/data/custody.py",
+      "sha256": "a91780dce6c730cacb5b21f26ebea4684c893229c0821d7724d21abe1e6ac363"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268863,
+      "R_device": 26,
+      "R_inode": 267025,
+      "bytes": 5754,
+      "path": "experiments/sota-2026-10-22/epoch59/data/official_codec.source.py",
+      "sha256": "9c63102a01576c230da94695f593fd7bd4fe2d0b20672b74e8a7f62aba426fc4"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268864,
+      "R_device": 26,
+      "R_inode": 267026,
+      "bytes": 3100,
+      "path": "experiments/sota-2026-10-22/epoch59/data/source_catalog.py",
+      "sha256": "46b8ab06ec6030df94797307b3ad1da7b5a5a60e4d4479bc11af1b718467bc6a"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268865,
+      "R_device": 26,
+      "R_inode": 267027,
+      "bytes": 4377,
+      "path": "experiments/sota-2026-10-22/epoch59/data/span_json.py",
+      "sha256": "5ebc4171bc35930bf837101230ff0de02543e19454c9d6dc7b4deba9a6e09387"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268866,
+      "R_device": 26,
+      "R_inode": 267029,
+      "bytes": 7386,
+      "path": "experiments/sota-2026-10-22/epoch59/official/PUBLIC_REFRESH_RESULT.actual.v3.json",
+      "sha256": "8a4880d835d8e908f300cd620d910a7bd3bce84d39b8fb89eba41faa036bdca0"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268867,
+      "R_device": 26,
+      "R_inode": 267030,
+      "bytes": 1548,
+      "path": "experiments/sota-2026-10-22/epoch59/official/PUBLISHER_METADATA.actual.v1.json",
+      "sha256": "6626be393200ec24b4c5c617d68097dc14704590a4c50790616df77ab08d3c41"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268868,
+      "R_device": 26,
+      "R_inode": 267031,
+      "bytes": 17643,
+      "path": "experiments/sota-2026-10-22/epoch59/plan.json",
+      "sha256": "42986c0c36d540eac39af71f9bef369a60f480790c604e46c997818ef1596758"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268869,
+      "R_device": 26,
+      "R_inode": 267033,
+      "bytes": 5945,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/CURRENT_RUNTIME_AND_CACHED_BGE_VERIFICATION.v1.json",
+      "sha256": "fb6d38749f8f48324f10024b1e1261f3fb790b8e266f705c2b72d8fa8c65eb39"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268870,
+      "R_device": 26,
+      "R_inode": 267034,
+      "bytes": 10666,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/LOCAL_PREPARATION_PLAN.v1.json",
+      "sha256": "7735d933fb03edc2241205deac9aa2023feeec9301857ca30842beb48ae4a7f3"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268871,
+      "R_device": 26,
+      "R_inode": 267035,
+      "bytes": 3258,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/LOCAL_PREPARATION_SOURCE_FREEZE.v1.json",
+      "sha256": "619090ae44617da833fb6a3bb693d131aed486176bdc60d4dbb76bab74cfec8c"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268872,
+      "R_device": 26,
+      "R_inode": 267036,
+      "bytes": 4944,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/SOURCE_ALIAS_FAILURE_REPORT.v2.minimal.json",
+      "sha256": "c405d1d11f888e20a81a72af17f3adc13d1ffa6108d712802ad9726393936cc3"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268873,
+      "R_device": 26,
+      "R_inode": 267037,
+      "bytes": 3539,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/SOURCE_RESTORATION_COMPLETE.v1.json",
+      "sha256": "2036a86e29cca4b72b1669ad55c32cdff018d9d7d9e50e391812122a49e22896"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268874,
+      "R_device": 26,
+      "R_inode": 267038,
+      "bytes": 2326,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/SOURCE_RESTORATION_CONFIGURATION.v1.json",
+      "sha256": "296dd749ffa243a9dbfeff5e1a578e47e3ae4fe779bd894f72d90015562b488b"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268875,
+      "R_device": 26,
+      "R_inode": 267039,
+      "bytes": 1196,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/SOURCE_RESTORATION_PLAN.v1.json",
+      "sha256": "407a53a7e7f390c2c4eee30669440cd56327f49893844f10e06eb043838c8601"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268876,
+      "R_device": 26,
+      "R_inode": 267040,
+      "bytes": 18287,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/build_master_and_freeze.py",
+      "sha256": "f05bae0011fefc739c1f873c26b0a9656a87ed7ad2080f3588e9f69628dd2e36"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268877,
+      "R_device": 26,
+      "R_inode": 267042,
+      "bytes": 22941,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/filename/FILENAME_ALIAS_POLICY.v1.json",
+      "sha256": "3fcd688f7420c933b1195263628634e1b3fb9b8abdfc46b19bf3b02c4e5e1153"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268878,
+      "R_device": 26,
+      "R_inode": 267043,
+      "bytes": 2358,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/filename/FILENAME_QUALIFICATION.actual.v1.json",
+      "sha256": "1fbd84cd2d8a9b42d16e041602640853064458c78e03eb5d67e43d0eb6f078e9"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268879,
+      "R_device": 26,
+      "R_inode": 267044,
+      "bytes": 3027,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/filename/FILENAME_QUALIFICATION_PLAN.v1.json",
+      "sha256": "133c3e7134e4b12215ce088ab9752f8cadb2d11dff4b2101f6ab0cfd3507f712"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268880,
+      "R_device": 26,
+      "R_inode": 267045,
+      "bytes": 1489,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/filename/FILENAME_QUALIFICATION_SOURCE_FREEZE.v1.json",
+      "sha256": "b1f0170ef72e0598cd0a918ceba245d05d2b968f8ee0334a10ba7df72e70a57f"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268881,
+      "R_device": 26,
+      "R_inode": 267046,
+      "bytes": 8685,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/filename/qualify_filename.v1.py",
+      "sha256": "69d64582ddf28e7dc1c3a6391b9f13a4616a6886fe4f54546f3314a29a954dbf"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268882,
+      "R_device": 26,
+      "R_inode": 267047,
+      "bytes": 13223,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/reconstruct_sources.v1.py",
+      "sha256": "acb23c07ea57842265456fdb502bdd57d7a361ed6eee0bba278b8c8672c40e38"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268883,
+      "R_device": 26,
+      "R_inode": 267049,
+      "bytes": 33429,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/rejected-source-generation1/SOURCE_FREEZE.json",
+      "sha256": "facedc639c28d36e6cbc74be2eb46289d7e76aaa3156ff277d8ff98f22243818"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268884,
+      "R_device": 26,
+      "R_inode": 267050,
+      "bytes": 35200,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/rejected-source-generation1/SOURCE_MANIFEST.json",
+      "sha256": "63b732644a644f8eb0f24beb315e1affa619a4ac41312424f6ca270afeaeccb6"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268885,
+      "R_device": 26,
+      "R_inode": 267051,
+      "bytes": 78159,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/rejected-source-generation1/STAGE_METADATA.json",
+      "sha256": "14ba434dc912c4739e5075c09354b549df96ce4707d4d68fce66d598d2518fd1"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268886,
+      "R_device": 26,
+      "R_inode": 267052,
+      "bytes": 17338,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/rejected-source-generation1/plan.json",
+      "sha256": "9bfdac9b1e311dfa7598e704f009817efdb84313c8f4ef872c7b9ab22bbf527b"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268887,
+      "R_device": 26,
+      "R_inode": 267053,
+      "bytes": 5678,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/run_authorized_DATA.v1.py",
+      "sha256": "a91f24b3875571a9567bbb70381fbfcba9ad77471216aa76668a6174a0434bc2"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268888,
+      "R_device": 26,
+      "R_inode": 267054,
+      "bytes": 4636,
+      "path": "experiments/sota-2026-10-22/epoch59/preparation/verify_runtime_and_cached_bge.py",
+      "sha256": "5c48457fa43d0279269d0cc972de5f2269b92728e1936042f53f1bd8e546fa2e"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268889,
+      "R_device": 26,
+      "R_inode": 267056,
+      "bytes": 9874,
+      "path": "experiments/sota-2026-10-22/epoch59/publication/controller.js",
+      "sha256": "a5fd6d0a51c7a92f8897e1738b27d8cd15f0e85725840785845c583c500a495f"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268890,
+      "R_device": 26,
+      "R_inode": 267057,
+      "bytes": 19446,
+      "path": "experiments/sota-2026-10-22/epoch59/publication/guard.py",
+      "sha256": "e6ac2f505a492a66a95daa95a9f9f9d515dc2c04d399ff4ee9481c0a62506813"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268891,
+      "R_device": 26,
+      "R_inode": 267058,
+      "bytes": 21294,
+      "path": "experiments/sota-2026-10-22/epoch59/publication/stagebuilder.py",
+      "sha256": "09b3bb9576885d809ce5dce101851b6891b0afd4b64b57880b2d3c309a662bbc"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268892,
+      "R_device": 26,
+      "R_inode": 267059,
+      "bytes": 32532,
+      "path": "experiments/sota-2026-10-22/epoch59/report_actual.py",
+      "sha256": "adead47ef5f36de95118ad21a245dbee09421c76aaea2eedefbe7f214eb85cd9"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268893,
+      "R_device": 26,
+      "R_inode": 267061,
+      "bytes": 32532,
+      "path": "experiments/sota-2026-10-22/epoch59/reporting/report_actual.py",
+      "sha256": "adead47ef5f36de95118ad21a245dbee09421c76aaea2eedefbe7f214eb85cd9"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268894,
+      "R_device": 26,
+      "R_inode": 267063,
+      "bytes": 9505,
+      "path": "experiments/sota-2026-10-22/epoch59/source-review/CANDIDATE_SOURCE_PACKET.v4.receipts.json",
+      "sha256": "11062b71810444e357c3fcbdda340795cf26afa28d1607bf94c0255c2534d9a2"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268895,
+      "R_device": 26,
+      "R_inode": 268402,
+      "bytes": 450,
+      "path": "experiments/sota-2026-10-22/runtime/epoch59/ownership/launch.actual.json",
+      "sha256": "60abbd9e12abe61b4d0174951a80608e4a470db9cb51359686f2f3786d5e5429"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268896,
+      "R_device": 26,
+      "R_inode": 268403,
+      "bytes": 2915,
+      "path": "experiments/sota-2026-10-22/runtime/epoch59/ownership/launch_once.py",
+      "sha256": "043fe3e9a5dd59bd69b53a42e96d71166a4aaec9dd30db4d91dcb2df8b0876ae"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268897,
+      "R_device": 26,
+      "R_inode": 268404,
+      "bytes": 4358,
+      "path": "experiments/sota-2026-10-22/runtime/epoch59/ownership/lock_supervisor.py",
+      "sha256": "04846475a4df178f3a1b97398beecf464cd104aac033c19ac4f3fcc54318c9bc"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268898,
+      "R_device": 26,
+      "R_inode": 268405,
+      "bytes": 831,
+      "path": "experiments/sota-2026-10-22/runtime/epoch59/ownership/owner.actual.json",
+      "sha256": "28f34b4b0af71fbd39d94a05766ba7bf61798ae540419d1838ea3ca21d5cce9f"
+    },
+    {
+      "Kit_device": 26,
+      "Kit_inode": 268899,
+      "R_device": 26,
+      "R_inode": 268406,
+      "bytes": 3376,
+      "path": "experiments/sota-2026-10-22/runtime/epoch59/ownership/owner_fence.py",
+      "sha256": "cc0f6f56e14998820dfad60752e3579ce09f1b89deae0ef6c57e47cdbe1dbbc5"
+    }
+  ],
+  "schema_version": 1,
+  "scientific_Git_calls": 0
+}

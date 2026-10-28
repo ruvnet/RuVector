@@ -1,0 +1,47 @@
+{
+  "Kit_R_distinct_inodes_for_all161": true,
+  "Root_actual83_cache_reconstitution": {
+    "bytes": 27302,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/KIT_SOURCE83_REHYDRATION.actual.v1.json",
+    "sha256": "2d3109f36c25da92b67c64ec26224f22cb5c665491e3d411778fa1478a09785c"
+  },
+  "Root_actual_overlay_proof": {
+    "bytes": 1136,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/E59_ARCHIVE_OVERLAY_ROOT.actual.v1.json",
+    "sha256": "4d17490b9a374cdadb700f7e21dcfbbf12c66d7cda535499d39cdfec824bc246"
+  },
+  "all83_sourceR_inodes_from_cache_reconstitution_unchanged": true,
+  "all_original9308CP_Rhashes_unchanged": true,
+  "archive_overlay78_CP_Git_rows": "Mustremainseparateexplicitarchiveoverlay; notlooseGitleaves/ordinaryCProws.",
+  "auditor_R_or_Kit_mutations": 0,
+  "both_E59_native_batches_spent": true,
+  "candidate_acceptance": "REJECTED_FROZEN_DEV_MECHANISM_QUALITY_GATE_native4of17_Contradiction0of2",
+  "checks_passed": true,
+  "current_E59_roots_exact161_no_extra_files": true,
+  "current_fresh_Kit_file_count": 207,
+  "current_fresh_R_file_count": 9596,
+  "epoch": 59,
+  "fixed_capsule_overlay_source_approval": {
+    "bytes": 3161,
+    "path": "/dev/shm/ruvector-oct28-audit/FIXED_CAPSULE_AND_OVERLAY_SOURCE_INDEPENDENT_APPROVAL.v1.json",
+    "sha256": "128a2dec91f8e3600cecb9f7579d93589b76d1449528d0ce49c193b472308add"
+  },
+  "generation": 28,
+  "immutable_science_EPOCH_manifest": {
+    "bytes": 35726,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/project/experiments/sota-2026-10-22/epoch59/EPOCH_MANIFEST.json",
+    "sha256": "c3990bcb2351d98d3519e4f33f03998c24f7d048dd0cb8382d8ae0e4d65000e1"
+  },
+  "kind": "ACTUAL_FIXED_ARCHIVE_OVERLAY_AND_SEALED_E59_CLOSURE_INDEPENDENT_AUDIT",
+  "native104_champion_preserved": true,
+  "new78_archive_only_files_in_both_roots": 78,
+  "new_scientific_model_tokenizer_Gold_scorer_or_Git_calls": 0,
+  "observed_unix": 1793149141.8577354,
+  "official_goal_verified": false,
+  "physical161_members_in_both_fresh_Kit_R_verified": true,
+  "same160_EPOCH_listed_bodies_and_manifest_self_hash_verified": true,
+  "schema_version": 1,
+  "source83_fresh_Git_identity_verified": 83,
+  "source_restoration_qualification": "11originalcomponents0/parentwrapper1MemoryError preserved; distinctsameAS64streamedcachecleanup0; source83OEXCLrehydration+fixed78archiveoverlayrestore/verify-only completed as separately reviewed metadata operations, no scientific rerun.",
+  "used_confirmation_identities": []
+}

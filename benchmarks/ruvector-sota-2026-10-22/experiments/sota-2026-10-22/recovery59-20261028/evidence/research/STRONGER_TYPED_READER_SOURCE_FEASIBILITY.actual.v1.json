@@ -1,0 +1,233 @@
+{
+  "DEV_ids": [],
+  "actual_HTTP_result": {
+    "bytes": 47178,
+    "path": "/dev/shm/ruvector-oct28-model-research/METADATA_HTTP_ACTUAL.v1.json",
+    "sha256": "185ab1c57168749437ff29f97edaba61d25dd6bb0651a1033665886947633587"
+  },
+  "actual_checkpoint": "993dce6842bf602dd87864d00c1621a56eebc613",
+  "actuals": {
+    "all_HTTP_statuses": [
+      200,
+      200,
+      200,
+      200,
+      200,
+      200
+    ],
+    "benchmark_feature_or_Gold_reads": 0,
+    "metadata_GETs": 6,
+    "metadata_reader_resource_peak": "NOT_INSTRUMENTED; no inferredRSS/CPUmeasurement",
+    "model_forwards": 0,
+    "model_objects": 0,
+    "native_calls": 0,
+    "new_model_repositories_fetched": 2,
+    "new_weights_GETs": 0,
+    "paid_API_GPU_calls": 0,
+    "redirects_followed": 0,
+    "remaining_metadata_GET_budget_not_spent": 2,
+    "retries": 0,
+    "standalone_license_files_not_listed_in_either_API": true,
+    "sum_actual_HTTP_seconds": 1.8737307810224593,
+    "tokenizer_objects": 0,
+    "training_calibration_scoring_calls": 0
+  },
+  "calibration_ids": [],
+  "candidate_promoted": false,
+  "champion": "SubmittedNative104/RRF10 unchanged",
+  "choice_before_any_new_model_or_data_measurement": {
+    "alternative_repository": "tasksource/deberta-base-long-nli",
+    "alternative_status": "HOLD_CONTRACTNLI_TRAINING_EXPLICIT",
+    "new_backbone_performance_or_SOTA_claim": false,
+    "preferred_repository": "FacebookAI/roberta-large-mnli",
+    "preferred_revision": "2a8f12d27941090092df78e4ba6f0928eb5eac98",
+    "rationale": "A directly published24layer typedMNLIhead is materiallydifferent in architecturalcapacity from E59sixlayer distilledreader. Its legal accuracy, throughput and superiority are unmeasured. Newcanonicalshared-pair scoring could remove cross-arm batchvariation and avoid duplicatedforwards.",
+    "status": "SOURCE_HYPOTHESIS_ONLY_NOT_SELECTED_FOR_DISPATCH"
+  },
+  "fresh_confirmation_ids": [],
+  "identity_status": "UNRESERVED",
+  "independent_useful_next_step": {
+    "bytes": 3886,
+    "path": "/dev/shm/ruvector-oct28-model-research/SHARED_SEMANTIC_PAIR_LOGIT_CACHE_CONTRACT.proposal.v1.json",
+    "sha256": "f071e81a4b06ca3aca0edb6187b9d6ae8b1046df6c7766726bfd691a24340e66"
+  },
+  "kind": "BOUNDED_STRONGER_PRETRAINED_TYPED_READER_SOURCE_RESEARCH_ACTUAL",
+  "models": [
+    {
+      "ContractNLI_training_dataset_declarations": [],
+      "ContractNLI_training_task_declarations": [],
+      "architecture": "RobertaForSequenceClassification",
+      "blockers": [
+        "No direct officialONNX asset atpinnedrevision; new reviewedsource-originalCPUexecution/exportimplementation required.",
+        "FP32artifact1,425,698,116B exceedsobserved1,305,264,128Bcgroupheadroom before any modelruntime/native/BGE buffers. No safeacquisition/load/600secondruntimequalified."
+      ],
+      "canonical_E_C_N_to_raw": [
+        2,
+        0,
+        1
+      ],
+      "declared_training_summary": "MNLI fine-tuning; fivecorpus RoBERTa pretraining perofficialcard",
+      "fresh_confirmation_qualification": "UNQUALIFIED_HOLD",
+      "hidden_size": 1024,
+      "id2label": {
+        "0": "CONTRADICTION",
+        "1": "NEUTRAL",
+        "2": "ENTAILMENT"
+      },
+      "immutable_card_URL": "https://huggingface.co/FacebookAI/roberta-large-mnli/raw/2a8f12d27941090092df78e4ba6f0928eb5eac98/README.md",
+      "immutable_config_URL": "https://huggingface.co/FacebookAI/roberta-large-mnli/raw/2a8f12d27941090092df78e4ba6f0928eb5eac98/config.json",
+      "layers": 24,
+      "license": {
+        "official_card_declaration": "mit",
+        "scope": "Authoritative model-card declaration verified in API and pinned README. Does not verify licenses of all foundation/training datasets or exact training/export lineage.",
+        "standalone_LICENSE_file": "NOT_LISTED"
+      },
+      "max_position_embeddings": 514,
+      "official_API_URL": "https://huggingface.co/api/models/FacebookAI/roberta-large-mnli?blobs=true",
+      "official_F32_parameter_count": 356412419,
+      "official_ONNX_files": [],
+      "official_eligibility": "UNVERIFIED",
+      "pad_token_id": 1,
+      "pair_token_limit_qualification": "512pair budget would require actual tokenizer/config whole-pair qualification beforefreeze; modelpositionlimit alone is not a tokenizer capacity test.",
+      "parameter_payload_bytes": 1425649676,
+      "promotion_allowed": false,
+      "repository": "FacebookAI/roberta-large-mnli",
+      "revision": "2a8f12d27941090092df78e4ba6f0928eb5eac98",
+      "source_outcome": "PREFERRED_ARCHITECTURAL_HYPOTHESIS_ONLY_MEMORY_AND_RUNTIME_BLOCKED",
+      "source_supervision_exclusion": "NOT_PROVEN; ContractNLI not declared in source fine-tuning list but exactrecords/pretraining/testexclusion not proven.",
+      "training_dataset_exact_revisions_verified": false,
+      "weight_LFS_pointer_Git_blob": "7da41e853def7c01b92e5960c7cdea660c975e1e",
+      "weight_bytes": 1425698116,
+      "weight_downloaded": false,
+      "weight_dtype": "F32 per officialAPIparameter metadata",
+      "weight_file": "model.safetensors",
+      "weight_format": "safetensors",
+      "weight_publisher_SHA256": "f4dbab1bceb16f9800f7b9a9c96b187d5400511b66982e4e845de920f69b89b5"
+    },
+    {
+      "ContractNLI_training_dataset_declarations": [
+        "kiddothe2b/contract-nli"
+      ],
+      "ContractNLI_training_task_declarations": [
+        "contract-nli/contractnli_a/seg",
+        "contract-nli/contractnli_b/full"
+      ],
+      "architecture": "DebertaV2ForSequenceClassification",
+      "blockers": [
+        "Explicit ContractNLI training/tasks; mustnot treat remainingoriginalContractNLI groups as freshconfirmation for this model.",
+        "No direct officialONNX asset atpinnedrevision.",
+        "737,722,356BF32weights alone would leave~567,541,772B ofobservedheadroom; modelinitialization/activations/BGE/nativeoverhead unknown, no CPU2/600admission."
+      ],
+      "canonical_E_C_N_to_raw": [
+        0,
+        2,
+        1
+      ],
+      "declared_training_summary": "Tasksource250ksteps; longNLI ConTRoL/doc-nli oversampled,288dataset declarations/529taskconfigentries. IncludesContractNLI.",
+      "fresh_confirmation_qualification": "UNQUALIFIED_HOLD",
+      "hidden_size": 768,
+      "id2label": {
+        "0": "entailment",
+        "1": "neutral",
+        "2": "contradiction"
+      },
+      "immutable_card_URL": "https://huggingface.co/tasksource/deberta-base-long-nli/raw/04dcf11f844b07bc57015169fca2b7d6df8299d5/README.md",
+      "immutable_config_URL": "https://huggingface.co/tasksource/deberta-base-long-nli/raw/04dcf11f844b07bc57015169fca2b7d6df8299d5/config.json",
+      "layers": 12,
+      "license": {
+        "official_card_declaration": "apache-2.0",
+        "scope": "Authoritative model-card declaration verified in API and pinned README. Does not verify licenses of all foundation/training datasets or exact training/export lineage.",
+        "standalone_LICENSE_file": "NOT_LISTED"
+      },
+      "max_position_embeddings": 1280,
+      "official_API_URL": "https://huggingface.co/api/models/tasksource/deberta-base-long-nli?blobs=true",
+      "official_F32_parameter_count": 184424451,
+      "official_ONNX_files": [],
+      "official_eligibility": "UNVERIFIED",
+      "pad_token_id": 0,
+      "pair_token_limit_qualification": "Card andconfig declare1280context. No actual tokenizer objects/whole-pair lengths were examined; exactcapacity not admitted.",
+      "parameter_payload_bytes": 737697804,
+      "promotion_allowed": false,
+      "repository": "tasksource/deberta-base-long-nli",
+      "revision": "04dcf11f844b07bc57015169fca2b7d6df8299d5",
+      "source_outcome": "LONG_CONTEXT_HYPOTHESIS_CONTRACTNLI_CONFIRMATION_INELIGIBLE_WITHOUT_PROVEN_EXCLUSION",
+      "source_supervision_exclusion": "NOT_QUALIFIED. Explicitkiddothe2b/contract-nli dataset pluscontractnli_a/seg andcontractnli_b/fulltasks; no cleanremainingContractNLI confirmation can be inferred.",
+      "training_dataset_exact_revisions_verified": false,
+      "weight_LFS_pointer_Git_blob": "a11ecf194402b40f4a8c388a645498eae16a1185",
+      "weight_bytes": 737722356,
+      "weight_downloaded": false,
+      "weight_dtype": "F32 per officialAPIparameter metadata",
+      "weight_file": "model.safetensors",
+      "weight_format": "safetensors",
+      "weight_publisher_SHA256": "71cace06873870322ffa93e4005999961cef6d6b08263b01aad832ded23d94ae"
+    }
+  ],
+  "new_submission_or_author_email": false,
+  "official_goal_verified": false,
+  "official_rank": null,
+  "plan": {
+    "bytes": 3306,
+    "path": "/dev/shm/ruvector-oct28-model-research/SOURCE_ONLY_RESEARCH_PLAN.v1.json",
+    "sha256": "52802894ea62934a38e3e7b43f715004f955264d24e242f9bfa936864d647659"
+  },
+  "prepared_at": "2026-10-28T00:53:55.580688+00:00",
+  "reader_source": {
+    "bytes": 4278,
+    "path": "/dev/shm/ruvector-oct28-model-research/fetch_metadata_once.v1.py",
+    "sha256": "4c03158267e33e31132b9ce980666e0d4318f652507dc3702acd723c7ecd53b6"
+  },
+  "resource_estimates_NOT_execution": {
+    "CPU2_600s_feasibility": "UNKNOWN forboth models. Nativeengineeringwithfirstcold/worstfullbatch/init/cleanup gate needed after source/identity/runtimefreeze; no automaticquantization, sequence-length lowering or retries.",
+    "deberta_long_attention_relative512_to1280": "6.25x quadratic length term if full1280 ratherthan512; not full-runtime ratio or measurement.",
+    "deberta_static_encoder_linear_ratio_to_E59": 2.0,
+    "observed_cgroup_max_bytes": 17179869184,
+    "observed_cgroup_memory_bytes": 15874605056,
+    "observed_headroom_bytes": 1305264128,
+    "ratio_qualification": "7.111x only layers*hidden^2 proxy; attention, precision, graphkernels, memory and initialization differ. NOT a latency projection.",
+    "roberta_proposed_headroom_before_anyfuture_load": "Atleast3GiB as an unadmitted conservative planning requirement; actual requirements must be verified under a newfrozen cleanup/runtime plan.",
+    "roberta_static_encoder_linear_ratio_to_E59": 7.111111111111111,
+    "scope": "Single source-only instantaneous filesystem observation after HTTP; not a model load test, steady-state resource bound or universal infeasibility proof."
+  },
+  "root_HTTP_admission": "Root unpaused atmost2repos/8smallmetadataGETs after source-restoration cleanup; no scientificauthority.",
+  "schema_version": 1,
+  "scorer_reference": {
+    "bytes": 19341,
+    "path": "/dev/shm/ruvector-e59-candidate/supervisor_impl/scorer.v1.py",
+    "scope": "Exact prior scoringmath reference only. Newscorer/source/hypothesis/identityfreeze is required; no newrevision or execution claimed.",
+    "sha256": "fdac05034489acaa5124ef41cbf3eb1ec42983b4aaf43e9ddd3dea9160835c2b"
+  },
+  "source_artifact_refs": [
+    {
+      "bytes": 5878,
+      "path": "/dev/shm/ruvector-oct28-model-research/FacebookAI--roberta-large-mnli--api.raw",
+      "sha256": "847348642a07114f52816cc37b2ce81a9980116dc2eb218fe3c1eac7b5bf31a1"
+    },
+    {
+      "bytes": 10712,
+      "path": "/dev/shm/ruvector-oct28-model-research/FacebookAI--roberta-large-mnli--README.raw",
+      "sha256": "76a907e0f4d96f4141bd8660e545726031be1fcfbb9301beb381a30ecc2b75b3"
+    },
+    {
+      "bytes": 688,
+      "path": "/dev/shm/ruvector-oct28-model-research/FacebookAI--roberta-large-mnli--config.raw",
+      "sha256": "8257a87d5b4677a17c727ffcd4d1bbc9f0dd4b6ec4e0e2a5af30f94a5e253464"
+    },
+    {
+      "bytes": 16614,
+      "path": "/dev/shm/ruvector-oct28-model-research/tasksource--deberta-base-long-nli--api.raw",
+      "sha256": "bf570beb07d13c79f1fbce889cc23f5a4df2bb53bec4eda01d5f1bb986c6cd18"
+    },
+    {
+      "bytes": 10520,
+      "path": "/dev/shm/ruvector-oct28-model-research/tasksource--deberta-base-long-nli--README.raw",
+      "sha256": "4852a6944834d5c6a33dd23e49efce4d04a8e99636f09b8ecb9d7850adec27ed"
+    },
+    {
+      "bytes": 19091,
+      "path": "/dev/shm/ruvector-oct28-model-research/tasksource--deberta-base-long-nli--config.raw",
+      "sha256": "708314bd039034a16c42e998eddf9ec63c8bf9c16b8e849760c7ddf2375c8b6f"
+    }
+  ],
+  "source_license_qualified_data_policy": "Only source-licensed data may be frozen later; no dataset/labels were acquired here. All existingexposedbanks stayDEV forever.",
+  "train_ids": []
+}

@@ -1,0 +1,182 @@
+{
+  "AS_caps_or_thresholds_retuned": false,
+  "CP_only_paths": 70,
+  "CP_rows": 9308,
+  "D_all12_raw_returns_persisted_before_parse": true,
+  "D_selected_source_READONLY_GETs": 12,
+  "E59_both_native_batches_spent_despite_historical_source_zeros": true,
+  "E59_new78_archive_overlay_not_executed_by_D": true,
+  "E59_source83_R_present_Kit_absent_at_postcleanup_snapshot": true,
+  "GET_count_qualification": "13 selected source-response bodies =12 D fresh connected GETs plus1 RootCONT GET. This is not the total run Git GET count; Roothead/commit/reconciliation and other reads are outside this selected-source set. Dbefore-parse raw-capture guarantee covers its12 snapshots; RootCONT exact decoded body is independently SHA256/GitSHA-verified.",
+  "Git_leaves": 9315,
+  "Git_mutations_by_D": 0,
+  "Root_CONT_body_verified_against_fresh_Git_leaf": true,
+  "Root_CONT_decoded_body_selected": {
+    "bytes": 694943,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/remote/CONTINUATION.json",
+    "sha256": "eed66d6ce93ed410661010752e6d4dcb78bbef3e6167dcb0b993e5c52b58e7c9"
+  },
+  "Root_CONT_raw_capture_sequence_independently_attested_by_D": false,
+  "Root_selected_CONT_READONLY_GETs": 1,
+  "actual_map_ref": {
+    "bytes": 2159908,
+    "path": "/dev/shm/ruvector-oct28-data/actual-git-map.json",
+    "sha256": "ed7f598831e723353ef1d7939813f46be5abd5ce8ac951b33d9aef7e40afebd8"
+  },
+  "actual_parent": "9b677a91698352bd563f189fee861d6ff2a1ad3a",
+  "actual_scientific_calls_by_D": 0,
+  "all11_source_components_completed_exit0": true,
+  "all981_subtree_Merkles_verified": true,
+  "all_CP_body_bytes_verified": 568911346,
+  "all_Git_body_bytes_verified": 524522173,
+  "all_remote_Git_and_CP_body_hashes_matched": true,
+  "bench": "37510b8329e07e574419d868a3d21c573f87c348",
+  "checks_passed": true,
+  "cleanup_parent_AS_bytes": 67108864,
+  "commit": "993dce6842bf602dd87864d00c1621a56eebc613",
+  "current_CONT": {
+    "bytes": 694943,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/remote/CONTINUATION.json",
+    "sha256": "eed66d6ce93ed410661010752e6d4dcb78bbef3e6167dcb0b993e5c52b58e7c9"
+  },
+  "current_CP": {
+    "bytes": 2189662,
+    "path": "/dev/shm/ruvector-oct28-data/fresh/CP.json",
+    "sha256": "a97dee94581cad03c5bf2260c08f3db61cf5262bc32220d77737c6e104f51582"
+  },
+  "distinct_streamed_cleanup_exit_code": 0,
+  "distinct_streamed_cleanup_succeeded": true,
+  "epoch": 59,
+  "fresh_connected_D_snapshots": [
+    {
+      "bytes": 434,
+      "path": "/dev/shm/ruvector-oct28-data/fresh/head.json",
+      "sha256": "edec8806afa522231f766cd645c94993d5f6c047425d4ce4be1a07cbd93fad76"
+    },
+    {
+      "bytes": 1101,
+      "path": "/dev/shm/ruvector-oct28-data/fresh/commit.json",
+      "sha256": "ba2aa2f70a9403fbfc86bbfca993b3d6d65643df028edd9faa678fcd384f9a8a"
+    },
+    {
+      "bytes": 9349,
+      "path": "/dev/shm/ruvector-oct28-data/fresh/root.json",
+      "sha256": "c68329210cf21bd20b4afa755b50a8017588b2442936ba435baf1b9ad6dc72e6"
+    },
+    {
+      "bytes": 2961,
+      "path": "/dev/shm/ruvector-oct28-data/fresh/bench.json",
+      "sha256": "58c2cfc6bdffcee01acc03a815b6e6a927cc3cbecd9a10f0d92ffb43e6e97b98"
+    },
+    {
+      "bytes": 2910251,
+      "path": "/dev/shm/ruvector-oct28-data/fresh/scope.json",
+      "sha256": "de507c39d5f40a233b39b8969811f62d1bfd5dcf7c0940a5d3669650de18c67d"
+    },
+    {
+      "bytes": 2189662,
+      "path": "/dev/shm/ruvector-oct28-data/fresh/CP.json",
+      "sha256": "a97dee94581cad03c5bf2260c08f3db61cf5262bc32220d77737c6e104f51582"
+    },
+    {
+      "bytes": 604,
+      "path": "/dev/shm/ruvector-oct28-data/fresh/ACTIVE.json",
+      "sha256": "11209eea7cdeeb4f4244aeb074c975a961fa6223ed651ed391075ea43ba75640"
+    },
+    {
+      "bytes": 262839,
+      "path": "/dev/shm/ruvector-oct28-data/fresh/ledger.json",
+      "sha256": "08fc0833abdabdbe7d15607f76884dc40f329a549d450860517f9def8e9388b0"
+    },
+    {
+      "bytes": 34776,
+      "path": "/dev/shm/ruvector-oct28-data/fresh/SF.json",
+      "sha256": "17ad5079228381882fbe26731936a668781471a9bf41a984b90a96826dfb2728"
+    },
+    {
+      "bytes": 36556,
+      "path": "/dev/shm/ruvector-oct28-data/fresh/SM.json",
+      "sha256": "8e0ea28a991d30a687bfadb933bd58621a7a9ed07158f2741ece94737c180bf2"
+    },
+    {
+      "bytes": 17643,
+      "path": "/dev/shm/ruvector-oct28-data/fresh/plan.json",
+      "sha256": "42986c0c36d540eac39af71f9bef369a60f480790c604e46c997818ef1596758"
+    },
+    {
+      "bytes": 434,
+      "path": "/dev/shm/ruvector-oct28-data/fresh/closing-head.json",
+      "sha256": "edec8806afa522231f766cd645c94993d5f6c047425d4ce4be1a07cbd93fad76"
+    }
+  ],
+  "future_approved_Kit83_rehydration_required_before_capsule_overlay": true,
+  "independent_post_cleanup_preservation": {
+    "bytes": 2071,
+    "path": "/dev/shm/ruvector-oct28-audit/ACTUAL_STREAMED64_RETIREMENT_AND_SOURCE_PRESERVATION_INDEPENDENT.v1.json",
+    "sha256": "f85bed54d55bb9a02591e64ba4d46b6255ce74858ecac02e1a83c41db7308f27"
+  },
+  "independent_source_components": {
+    "bytes": 4615,
+    "path": "/dev/shm/ruvector-oct28-audit/ACTUAL_SOURCE_COMPONENTS_AND_WRAPPER_FAILURE_INDEPENDENT.v1.json",
+    "sha256": "4cb9bb12ea8415755ab74a152bf75458a7da8b90df5926e4ca8c994aab54cc6d"
+  },
+  "kind": "FRESH_CONNECTED_SOURCE_READBACK_AND_RECONSTRUCTION_WITH_RETAINED_WRAPPER_FAILURE",
+  "native104_preserved": true,
+  "new_fresh_Kit": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/kit",
+  "new_fresh_source_R": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/project",
+  "observed_unix": 1793148755.676061,
+  "official_goal_verified": false,
+  "old_helper_or_source_component_reruns": 0,
+  "original_fresh_source_verification": {
+    "bytes": 9945,
+    "path": "/dev/shm/ruvector-oct28-data/FRESH_CHECKPOINT_AND_DONOR_VERIFICATION.actual.v1.json",
+    "sha256": "e16a47180b50baac5e772dab7ef5df5a36d850a62574bb6412e89c7a1f97c439"
+  },
+  "original_full_wrapper_completion_report_created": false,
+  "original_full_wrapper_exit_code": 1,
+  "original_full_wrapper_retirement_started": false,
+  "original_full_wrapper_succeeded": false,
+  "original_wrapper_failure": {
+    "bytes": 6891,
+    "path": "/dev/shm/ruvector-oct28-data/SOURCE_RECONSTRUCTION_WRAPPER_FAILURE.actual.v1.json",
+    "sha256": "1cf5765d11dc6ec4c5714f5079a9239278bad59e351b81a8fd643737c0e082ef"
+  },
+  "owner_ref": {
+    "bytes": 848,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/guardian28/owner.json",
+    "sha256": "39acf0db29a8dff63e76a550927644fc4170d662152961fc0f244147ea9c069e"
+  },
+  "phase": "source",
+  "post_cleanup_verified_Kit_control_bytes_snapshot": 8349633,
+  "post_cleanup_verified_Kit_controls_snapshot": 46,
+  "post_cleanup_verified_R_bytes_snapshot": 575457684,
+  "post_cleanup_verified_R_files_snapshot": 9518,
+  "recovery_generation": 28,
+  "root": "0840199b2d6392572cb6c11525e2d1d371cdf19d",
+  "schema_version": 1,
+  "scope": "6ce1d58dd5dee50e0ad2c42781d89b18d224dafd",
+  "selected_source_READONLY_GETs": 13,
+  "snapshot_qualification": "Q post-cleanup counts describe that exact audited snapshot before future separately approved archive-source rehydration, overlay and ordinary recovery publication artifacts. They are not a current remote lease claim.",
+  "source_component_reconstruction_complete": true,
+  "source_freeze": {
+    "bytes": 34776,
+    "path": "/dev/shm/ruvector-oct28-data/fresh/SF.json",
+    "sha256": "17ad5079228381882fbe26731936a668781471a9bf41a984b90a96826dfb2728"
+  },
+  "source_freeze_sha256": "17ad5079228381882fbe26731936a668781471a9bf41a984b90a96826dfb2728",
+  "source_manifest": {
+    "bytes": 36556,
+    "path": "/dev/shm/ruvector-oct28-data/fresh/SM.json",
+    "sha256": "8e0ea28a991d30a687bfadb933bd58621a7a9ed07158f2741ece94737c180bf2"
+  },
+  "source_plan": {
+    "bytes": 17643,
+    "path": "/dev/shm/ruvector-oct28-data/fresh/plan.json",
+    "sha256": "42986c0c36d540eac39af71f9bef369a60f480790c604e46c997818ef1596758"
+  },
+  "source_plan_sha256": "42986c0c36d540eac39af71f9bef369a60f480790c604e46c997818ef1596758",
+  "tree_sha": "0840199b2d6392572cb6c11525e2d1d371cdf19d",
+  "unchanged_bootstrap_and_restore_completed_exit0": true,
+  "used_confirmation_identities": [],
+  "verified_actual_remote_readback": true
+}

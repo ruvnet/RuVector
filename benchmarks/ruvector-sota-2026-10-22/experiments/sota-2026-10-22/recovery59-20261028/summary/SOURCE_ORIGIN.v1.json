@@ -1,0 +1,70 @@
+{
+  "aliases": [
+    {
+      "alias": {
+        "bytes": 35726,
+        "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/EPOCH_MANIFEST.json",
+        "sha256": "c3990bcb2351d98d3519e4f33f03998c24f7d048dd0cb8382d8ae0e4d65000e1"
+      },
+      "archive_member": "project/experiments/sota-2026-10-22/epoch59/EPOCH_MANIFEST.json",
+      "body_byte_identical": true,
+      "canonical_archive_project_path": "experiments/sota-2026-10-22/epoch59/EPOCH_MANIFEST.json"
+    },
+    {
+      "alias": {
+        "bytes": 4831,
+        "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/LEARNINGS.json",
+        "sha256": "63af4de6f2c37c20040ab422f0f2f28988013e20c345ae8478f002e8cde5c4a6"
+      },
+      "archive_member": "project/experiments/sota-2026-10-22/epoch59/LEARNINGS.json",
+      "body_byte_identical": true,
+      "canonical_archive_project_path": "experiments/sota-2026-10-22/epoch59/LEARNINGS.json"
+    },
+    {
+      "alias": {
+        "bytes": 270574,
+        "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/REJECTION_LEDGER.json",
+        "sha256": "bfae7bd9c41d42545f395ae4e2d9991ddee30e9896a8e6302a6d8c3c412e3bba"
+      },
+      "archive_member": "project/experiments/sota-2026-10-22/epoch59/REJECTION_LEDGER.json",
+      "body_byte_identical": true,
+      "canonical_archive_project_path": "experiments/sota-2026-10-22/epoch59/REJECTION_LEDGER.json"
+    },
+    {
+      "alias": {
+        "bytes": 48626,
+        "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/RESULTS.json",
+        "sha256": "11f9c3c3c40c86e29d082aac99c5b4cb1514b2f6a8a7c813e553cb75dfec2e9d"
+      },
+      "archive_member": "project/experiments/sota-2026-10-22/epoch59/RESULTS.json",
+      "body_byte_identical": true,
+      "canonical_archive_project_path": "experiments/sota-2026-10-22/epoch59/RESULTS.json"
+    },
+    {
+      "alias": {
+        "bytes": 8777,
+        "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/USED_CONFIRMATION.json",
+        "sha256": "f3adc83bd482144c62e52cd5ac9c6eacd56bd77045eae6489c37570f8eb9b565"
+      },
+      "archive_member": "project/experiments/sota-2026-10-22/epoch59/USED_CONFIRMATION.json",
+      "body_byte_identical": true,
+      "canonical_archive_project_path": "experiments/sota-2026-10-22/epoch59/USED_CONFIRMATION.json"
+    },
+    {
+      "alias": {
+        "bytes": 8777,
+        "path": "experiments/sota-2026-10-22/recovery59-20261028/summary/USED_IDENTITIES.json",
+        "sha256": "f3adc83bd482144c62e52cd5ac9c6eacd56bd77045eae6489c37570f8eb9b565"
+      },
+      "archive_member": "project/experiments/sota-2026-10-22/epoch59/USED_IDENTITIES.json",
+      "body_byte_identical": true,
+      "canonical_archive_project_path": "experiments/sota-2026-10-22/epoch59/USED_IDENTITIES.json"
+    }
+  ],
+  "canonical78members_are_archive_overlay_not_loose_Git_or_CP": true,
+  "does_not_change_scientific_source_or_gates": true,
+  "epoch": 59,
+  "kind": "EXACT_SCIENTIFIC_SUMMARY_ALIASES",
+  "schema_version": 1,
+  "science_manifest_sha256": "c3990bcb2351d98d3519e4f33f03998c24f7d048dd0cb8382d8ae0e4d65000e1"
+}

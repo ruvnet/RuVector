@@ -1,0 +1,15 @@
+{
+  "automatic_retry": false,
+  "epoch": 59,
+  "generation": 28,
+  "launcher_observed_child_exit_code": null,
+  "launcher_parent_exits_after_result": true,
+  "native_model_Gold_Git_calls": 0,
+  "owner_ref": {
+    "bytes": 848,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/guardian28/owner.json",
+    "sha256": "39acf0db29a8dff63e76a550927644fc4170d662152961fc0f244147ea9c069e"
+  },
+  "pid": 203783,
+  "status": "OWNER_READY"
+}

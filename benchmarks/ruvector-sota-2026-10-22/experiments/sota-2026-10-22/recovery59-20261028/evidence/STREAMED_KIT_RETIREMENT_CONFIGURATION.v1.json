@@ -1,0 +1,43 @@
+{
+  "AS_limit_bytes": 67108864,
+  "Kit": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/kit",
+  "R": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/project",
+  "code_ref": {
+    "bytes": 8430,
+    "path": "/dev/shm/ruvector-oct28-data/retire_new_Kit_twins_streamed64.v2.py",
+    "sha256": "05db46636e066c661760b6ea677090d63aaec9d875a90411eef160ea980035e5"
+  },
+  "epoch": 59,
+  "expected_retained_bytes": 8349633,
+  "expected_retained_files": 46,
+  "expected_retired_bytes": 573734626,
+  "expected_retired_files": 9394,
+  "fence_source": {
+    "bytes": 3877,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/guardian28/owner_fence.py",
+    "sha256": "f4502591a06b4518d77eecd4f7f0eecee2d1cf5383cf24f8b17e6c5663df3791"
+  },
+  "independent_complete_source_proof": {
+    "bytes": 4615,
+    "path": "/dev/shm/ruvector-oct28-audit/ACTUAL_SOURCE_COMPONENTS_AND_WRAPPER_FAILURE_INDEPENDENT.v1.json",
+    "sha256": "4cb9bb12ea8415755ab74a152bf75458a7da8b90df5926e4ca8c994aab54cc6d"
+  },
+  "kind": "DISTINCT_STREAMED_VERIFIED_NEW_KIT_TWIN_RETIREMENT",
+  "max_Kit_files": 9440,
+  "no_original_donor_R_or_scientific_mutations": true,
+  "old_helper_source_caps_and_failed_exit_preserved": true,
+  "operation_attempts_allowed": 1,
+  "owner": {
+    "bytes": 848,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/guardian28/owner.json",
+    "sha256": "39acf0db29a8dff63e76a550927644fc4170d662152961fc0f244147ea9c069e"
+  },
+  "prior_wrapper_failure": {
+    "bytes": 6891,
+    "path": "/dev/shm/ruvector-oct28-data/SOURCE_RECONSTRUCTION_WRAPPER_FAILURE.actual.v1.json",
+    "sha256": "1cf5765d11dc6ec4c5714f5079a9239278bad59e351b81a8fd643737c0e082ef"
+  },
+  "recovery_generation": 28,
+  "schema_version": 1,
+  "source_checkpoint": "993dce6842bf602dd87864d00c1621a56eebc613"
+}

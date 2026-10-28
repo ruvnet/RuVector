@@ -1,0 +1,127 @@
+{
+  "actual_public_metadata_GETs": 6,
+  "files": [
+    {
+      "bytes": 634,
+      "path": "/dev/shm/ruvector-oct28-model-research/FacebookAI--roberta-large-mnli--README.actual.json",
+      "sha256": "203110a9165853074c7430baad8432ed97a745d65a24440c657cfba424a1288c"
+    },
+    {
+      "bytes": 325,
+      "path": "/dev/shm/ruvector-oct28-model-research/FacebookAI--roberta-large-mnli--README.intent.json",
+      "sha256": "8ee67e98c361db89ee05819984dc6eaded0cb5a3fc0b491610d0f466ea21d4b0"
+    },
+    {
+      "bytes": 10712,
+      "path": "/dev/shm/ruvector-oct28-model-research/FacebookAI--roberta-large-mnli--README.raw",
+      "sha256": "76a907e0f4d96f4141bd8660e545726031be1fcfbb9301beb381a30ecc2b75b3"
+    },
+    {
+      "bytes": 593,
+      "path": "/dev/shm/ruvector-oct28-model-research/FacebookAI--roberta-large-mnli--api.actual.json",
+      "sha256": "280ea86d9d80cb6cfb8e469885fac14f13e280b1e65d20a7926f5d1ce60b0a64"
+    },
+    {
+      "bytes": 289,
+      "path": "/dev/shm/ruvector-oct28-model-research/FacebookAI--roberta-large-mnli--api.intent.json",
+      "sha256": "36e7c84a5c599b60f920f39a2b644a6a2dbfae62bdd0d685e7287fb3c3dd027f"
+    },
+    {
+      "bytes": 5878,
+      "path": "/dev/shm/ruvector-oct28-model-research/FacebookAI--roberta-large-mnli--api.raw",
+      "sha256": "847348642a07114f52816cc37b2ce81a9980116dc2eb218fe3c1eac7b5bf31a1"
+    },
+    {
+      "bytes": 635,
+      "path": "/dev/shm/ruvector-oct28-model-research/FacebookAI--roberta-large-mnli--config.actual.json",
+      "sha256": "3313461d0f32c6989959446bbd55ab4522103405ee25fcc8232b7e4edab8b0f6"
+    },
+    {
+      "bytes": 327,
+      "path": "/dev/shm/ruvector-oct28-model-research/FacebookAI--roberta-large-mnli--config.intent.json",
+      "sha256": "5e03e9f0da8463de403046397e37afc5838346d4c33295f08efbeeb009fefd51"
+    },
+    {
+      "bytes": 688,
+      "path": "/dev/shm/ruvector-oct28-model-research/FacebookAI--roberta-large-mnli--config.raw",
+      "sha256": "8257a87d5b4677a17c727ffcd4d1bbc9f0dd4b6ec4e0e2a5af30f94a5e253464"
+    },
+    {
+      "bytes": 47178,
+      "path": "/dev/shm/ruvector-oct28-model-research/METADATA_HTTP_ACTUAL.v1.json",
+      "sha256": "185ab1c57168749437ff29f97edaba61d25dd6bb0651a1033665886947633587"
+    },
+    {
+      "bytes": 3886,
+      "path": "/dev/shm/ruvector-oct28-model-research/SHARED_SEMANTIC_PAIR_LOGIT_CACHE_CONTRACT.proposal.v1.json",
+      "sha256": "f071e81a4b06ca3aca0edb6187b9d6ae8b1046df6c7766726bfd691a24340e66"
+    },
+    {
+      "bytes": 3306,
+      "path": "/dev/shm/ruvector-oct28-model-research/SOURCE_ONLY_RESEARCH_PLAN.v1.json",
+      "sha256": "52802894ea62934a38e3e7b43f715004f955264d24e242f9bfa936864d647659"
+    },
+    {
+      "bytes": 12172,
+      "path": "/dev/shm/ruvector-oct28-model-research/STRONGER_TYPED_READER_SOURCE_FEASIBILITY.actual.v1.json",
+      "sha256": "2dfe84a2fc8ddc376d592dec00c389056d1cbcca2deacf029cd2956efdd9ad59"
+    },
+    {
+      "bytes": 4278,
+      "path": "/dev/shm/ruvector-oct28-model-research/fetch_metadata_once.v1.py",
+      "sha256": "4c03158267e33e31132b9ce980666e0d4318f652507dc3702acd723c7ecd53b6"
+    },
+    {
+      "bytes": 643,
+      "path": "/dev/shm/ruvector-oct28-model-research/tasksource--deberta-base-long-nli--README.actual.json",
+      "sha256": "0358dab30e7e5636a14098a576f0a09e6cf92f14f62887af1a06510358fdf549"
+    },
+    {
+      "bytes": 331,
+      "path": "/dev/shm/ruvector-oct28-model-research/tasksource--deberta-base-long-nli--README.intent.json",
+      "sha256": "5f8284edb5a83ba69dfc96150b884f1c637be0eedc24559fd76bcfb69ea0c9e3"
+    },
+    {
+      "bytes": 10520,
+      "path": "/dev/shm/ruvector-oct28-model-research/tasksource--deberta-base-long-nli--README.raw",
+      "sha256": "4852a6944834d5c6a33dd23e49efce4d04a8e99636f09b8ecb9d7850adec27ed"
+    },
+    {
+      "bytes": 605,
+      "path": "/dev/shm/ruvector-oct28-model-research/tasksource--deberta-base-long-nli--api.actual.json",
+      "sha256": "d05993e52757e4fa4ee4d5615b3c9157e0b3b75ebeb05d87905b3743aefffd27"
+    },
+    {
+      "bytes": 295,
+      "path": "/dev/shm/ruvector-oct28-model-research/tasksource--deberta-base-long-nli--api.intent.json",
+      "sha256": "5ecb4124f93b0e48521e74243b5744c612636c111244b00b41b709d7268d5540"
+    },
+    {
+      "bytes": 16614,
+      "path": "/dev/shm/ruvector-oct28-model-research/tasksource--deberta-base-long-nli--api.raw",
+      "sha256": "bf570beb07d13c79f1fbce889cc23f5a4df2bb53bec4eda01d5f1bb986c6cd18"
+    },
+    {
+      "bytes": 645,
+      "path": "/dev/shm/ruvector-oct28-model-research/tasksource--deberta-base-long-nli--config.actual.json",
+      "sha256": "795c1dd7724800588fe090876011bad1f828659d544bde938aa6df129e620b66"
+    },
+    {
+      "bytes": 333,
+      "path": "/dev/shm/ruvector-oct28-model-research/tasksource--deberta-base-long-nli--config.intent.json",
+      "sha256": "746de028ad9275659eee86f99b725534503566332fbfa2eb09f9ee56bb699a5c"
+    },
+    {
+      "bytes": 19091,
+      "path": "/dev/shm/ruvector-oct28-model-research/tasksource--deberta-base-long-nli--config.raw",
+      "sha256": "708314bd039034a16c42e998eddf9ec63c8bf9c16b8e849760c7ddf2375c8b6f"
+    }
+  ],
+  "kind": "IMMUTABLE_SOURCE_ONLY_RESEARCH_PACKET_NOT_SCIENTIFIC_EPOCH",
+  "model_native_tokenizer_Gold_scoring_calls": 0,
+  "no_weights_or_private_benchmark_payloads": true,
+  "schema_version": 1,
+  "scientific_authority": false,
+  "source_selection_before_measurements": true,
+  "status": "SOURCE_RESEARCH_COMPLETE_BLOCKERS_RETAINED_NO_DISPATCH"
+}

@@ -1,0 +1,58 @@
+{
+  "CP_project_files_includes_overlay78": false,
+  "actualKit83_rehydration": {
+    "bytes": 27302,
+    "path": "/dev/shm/ruvector-sota-2026-10-22/recovery59-993dce6842bf-20261028/KIT_SOURCE83_REHYDRATION.actual.v1.json",
+    "sha256": "2d3109f36c25da92b67c64ec26224f22cb5c665491e3d411778fa1478a09785c"
+  },
+  "actual_overlay_review": {
+    "bytes": 2551,
+    "path": "/dev/shm/ruvector-oct28-audit/ACTUAL_FIXED_OVERLAY_AND_SEALED_E59_CLOSURE_INDEPENDENT.v1.json",
+    "sha256": "23d48383003488ff957eda7b7fd9d9e59130f084899901c221d6161daee5c4e5"
+  },
+  "canonical_members": 161,
+  "distinct_same_cap_stream_cleanup_review": {
+    "bytes": 2071,
+    "path": "/dev/shm/ruvector-oct28-audit/ACTUAL_STREAMED64_RETIREMENT_AND_SOURCE_PRESERVATION_INDEPENDENT.v1.json",
+    "sha256": "f85bed54d55bb9a02591e64ba4d46b6255ce74858ecac02e1a83c41db7308f27"
+  },
+  "epoch": 59,
+  "kind": "SOURCE_RESTORATION_PLUS_SEPARATE_E59_OVERLAY_PROTOCOL",
+  "old28_blob_create_or_query_replay_authorized": false,
+  "old_failed_blob_historical_outcome": "UNKNOWN",
+  "old_failed_blob_lookup": "GITHUB_NOT_FOUND_404_AT_SINGLE_OBSERVATION",
+  "ordinary_Git_and_CP_scope": "All current CP project_files and Git source leaves, including new recovery prefix; CP does not include E59archive78.",
+  "overlay78": 78,
+  "required_order": [
+    "Verify the actual current branch/CP/source-map hashes and reconstruct isolated KIT/project using the reviewed bootstrap.py and restore_checkpoint.py.",
+    "Run all inherited reviewed source-only transports/adapters, including same70CP-only, separate E44overlay55 and E49sourceextras; preserve their existing roles/counts. The reviewed E22 bounded archive bridge remains required.",
+    "Ensure both isolated KIT and project contain the83 byte-identical SOURCE E59 members; current-run Kit source-only rehydration is separately attested and never modifies R.",
+    "Validate the fixed envelope, all167archive member hashes/regular-path/bounds and all161canonical scientific bodies, then run the separately reviewed E59overlay adapter once: preserve83 SOURCEduplicates and add78 OEXCL per root.",
+    "No scientific, model, tokenizer, Gold, scorer, paidAPI or GPU work is automatically authorized. Both E59 native slots are already spent; do not execute historical controllers/guardians."
+  ],
+  "resolve_latest_actual_branch_first": true,
+  "reviewed_checkpoint_scope_root_files": [
+    {
+      "bytes": 5601,
+      "path": "bootstrap.py",
+      "sha256": "eceb2ca259feaf642bc81172aca57a2a209cc34cd17f9b281861c51f21b95806"
+    },
+    {
+      "bytes": 1556,
+      "path": "restore_checkpoint.py",
+      "sha256": "affd9ecf660f380c3632f78cd14fb7a36e00797ceb097cf48c0c60136fac0be8"
+    }
+  ],
+  "schema_version": 1,
+  "source83_duplicates": 83,
+  "source_components_and_wrapper_failure_review": {
+    "bytes": 4615,
+    "path": "/dev/shm/ruvector-oct28-audit/ACTUAL_SOURCE_COMPONENTS_AND_WRAPPER_FAILURE_INDEPENDENT.v1.json",
+    "sha256": "4cb9bb12ea8415755ab74a152bf75458a7da8b90df5926e4ca8c994aab54cc6d"
+  },
+  "source_readback_review": {
+    "bytes": 8273,
+    "path": "/dev/shm/ruvector-oct28-data/FRESH_SOURCE_READBACK_CANONICAL_PROJECTION.actual.v1.json",
+    "sha256": "ca12cff4f2b05a5affd22d9787aef0629b442eb2e6a497c47605fe0d657f99a0"
+  }
+}
