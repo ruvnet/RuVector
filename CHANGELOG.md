@@ -1,5 +1,7 @@
 # Changelog
 
+- Python Agentforce routes: enforce the configured per-collection vector cap before upserting, consistently with MCP writes.
+
 All notable changes to RuVector will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
