@@ -21,6 +21,7 @@ import { appendFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { canonicalJson, sha256String } from './hash';
+import { ForgeError, ForgeErrorCode } from './errors';
 
 export const RECEIPTS_FILENAME = 'receipts.jsonl';
 
@@ -120,8 +121,9 @@ export async function readReceipts(dir: string): Promise<WitnessReceipt[]> {
   let raw: string;
   try {
     raw = await readFile(join(dir, RECEIPTS_FILENAME), 'utf8');
-  } catch {
-    return [];
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw new ForgeError(ForgeErrorCode.REGISTRY, 'Cannot read the existing receipt chain.');
   }
   return raw
     .split('\n')
