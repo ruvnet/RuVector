@@ -304,3 +304,29 @@ def test_config_repr_does_not_leak_secret() -> None:
     assert "TOP-SECRET-VALUE" not in repr(cfg)
     assert "TOP-SECRET-VALUE" not in str(cfg)
     assert cfg.client_secret == "TOP-SECRET-VALUE"
+
+
+@pytest.mark.parametrize("cursor", [None, ""])
+def test_fetch_records_rejects_incomplete_page_without_cursor(cursor: Any) -> None:
+    httpx = pytest.importorskip("httpx")
+    calls = []
+    def handler(request: Any) -> Any:
+        calls.append(request.url.path)
+        if len(calls) > 2:
+            raise AssertionError("incomplete page was fetched repeatedly")
+        return httpx.Response(200, json={"done": False, "nextRecordsUrl": cursor, "records": [{"Id": "partial"}]})
+    with pytest.raises(RuntimeError, match="incomplete.*cursor"):
+        asyncio.run(sf.fetch_records(_config(), "SELECT Id FROM Account", token="local-fixture-token", transport=httpx.MockTransport(handler)))
+
+
+def test_fetch_records_rejects_repeated_pagination_cursor() -> None:
+    httpx = pytest.importorskip("httpx")
+    calls = []
+    def handler(request: Any) -> Any:
+        calls.append(request.url.path)
+        if len(calls) > 3:
+            raise AssertionError("repeated cursor was fetched again")
+        return httpx.Response(200, json={"done": False, "nextRecordsUrl": "/services/data/v61.0/query/repeated", "records": [{"Id": "partial"}]})
+    with pytest.raises(RuntimeError, match="repeated.*cursor"):
+        asyncio.run(sf.fetch_records(_config(), "SELECT Id FROM Account", token="local-fixture-token", transport=httpx.MockTransport(handler)))
+    assert len(calls) == 2
