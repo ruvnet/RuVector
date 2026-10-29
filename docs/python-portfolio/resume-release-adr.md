@@ -1,8 +1,8 @@
 # ADR: Recover the frozen Python portfolio release
 
-Status: Proposed
-Date: October 12, 2026
-Scope: RuVector companion distributions at version 0.2.0
+Status: Superseded as the delivery plan; original recovery remains incomplete and security-blocked
+Date: October 12, 2026; disposition amended October 26, 2026
+Scope: Immutable companion 0.2.0 recovery and successor native 0.1.5 / companion 0.2.1 delivery candidate
 
 ![Release recovery overview](recovery-2026-10-12.svg)
 
@@ -14,9 +14,57 @@ The original companion artifacts require `ruvector==0.1.3`. Current main changes
 
 The stopped historical supervisor had a deadline ending October 11 at 22:35 UTC. Its receipt is useful evidence, not proof that no other publisher is running. Recovery must establish one current publisher owner from live process state, workflow runs, private Slack claims and existing receipts.
 
-## Decision
+## Current disposition — October 26, 2026
 
-Recover only the original immutable artifacts. Do not add another Python library while this portfolio delivery is unfinished.
+Use corrected native `ruvector==0.1.5` and all eleven companion `0.2.1`
+distributions as the successor delivery candidate. This settles which release
+line receives delivery work; it does not authorize a main merge, tag, registry
+upload, or claim that the successor is published. Independent review and
+explicit release authorization still apply to the final candidate commit.
+
+The original `0.2.0` release remains **partially published, incomplete and
+security-blocked**. Stop pursuing its missing uploads under the old recovery
+plan. Preserve existing public files, the frozen ledger, original artifacts and
+stopped-supervisor receipts. Do not rebuild bytes under the old identities,
+resume the supervisor, start another publisher, or yank/delete existing files
+as part of this disposition.
+
+The [frozen-native-audit failure](https://github.com/ruvnet/RuVector/actions/runs/40187182674/job/121150740695)
+checks source `fccf36e9a76d35bce6750dfd3b25802cae3d683b`, whose native dependency
+closure contains `tokio 1.52.3`. It correctly rejects RUSTSEC-2026-0386
+(`AsyncFd` I/O safety). The successor uses `tokio 1.54.1` and passed its separate
+native audit. Preserve the frozen audit and its failure; a corrected successor
+cannot make the immutable historical bytes safe or turn that result into a pass.
+No advisory exception or workflow skip is introduced by this amendment.
+
+An October 26 public-registry read found eight original `0.2.0` wheels and no
+sdists; rvf, rvf-wasm and sona `0.2.0` were absent. Native `0.1.5` and all eleven
+companion `0.2.1` versions were absent. These are dated observations, not a
+publication receipt. The old new-project HTTP 429 is not proven cleared by
+elapsed time or a version change. Reconcile the single publisher owner, registry
+state and retained receipts before any separately authorized publication.
+
+### Successor release ordering remains an explicit prerequisite
+
+Native must be public and verified before companions are published. The current
+native and portfolio workflows independently select publication when their
+versions change on main; the portfolio job does **not** depend on completion of
+native publication. Thus a merge of both version changes does not guarantee
+native-first delivery. Before approving that merge, use a separately reviewed
+native-only then companion-only landing plan, or implement and qualify a real
+native-publication dependency. A manual portfolio dispatch is build-only; the
+existing matching portfolio-tag route is a separate release action requiring
+its own authorization. This disposition dispatches none of these paths.
+
+After an approved ordered release, reconcile exact public versions/files and
+hashes, then run clean supported-platform installs and dependency checks. Keep
+candidate qualification, publication, and public consumer verification separate.
+
+## Original recovery contract — retained, not the current delivery plan
+
+The following original-file identity and safety requirements remain intact for
+historical verification. They do not override the security block above or grant
+authority to retry recovery.
 
 The frozen release identity is:
 
