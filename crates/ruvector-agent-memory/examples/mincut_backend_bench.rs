@@ -181,7 +181,9 @@ fn main() {
     }
 
     println!();
-    println!("=== Part 2: determinism + bridge-boundary correctness (19-vertex bridge dataset) ===");
+    println!(
+        "=== Part 2: determinism + bridge-boundary correctness (19-vertex bridge dataset) ==="
+    );
     let (neighbors, _n, bridge_idx) = bridge_knn();
     let trials: usize = std::env::var("TRIALS")
         .ok()

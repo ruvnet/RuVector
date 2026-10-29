@@ -349,7 +349,8 @@ impl ApproxMinCut {
         // the median estimate, not recomputed on the full graph: the whole
         // point of sparsification is that the full graph may be too large
         // for a second exact pass.
-        let mut estimates: Vec<(f64, SpectralSparsifier)> = Vec::with_capacity(self.config.num_samples);
+        let mut estimates: Vec<(f64, SpectralSparsifier)> =
+            Vec::with_capacity(self.config.num_samples);
         for i in 0..self.config.num_samples {
             let sparsifier = self.build_sparsifier(self.config.seed + i as u64);
             let cut = self.compute_sparsifier_min_cut(&sparsifier);
@@ -630,7 +631,10 @@ impl ApproxMinCut {
             return (f64::INFINITY, (Vec::new(), Vec::new()));
         }
         if vertices.len() == 1 {
-            return (f64::INFINITY, (vertices.iter().copied().collect(), Vec::new()));
+            return (
+                f64::INFINITY,
+                (vertices.iter().copied().collect(), Vec::new()),
+            );
         }
 
         let verts: Vec<VertexId> = vertices.iter().copied().collect();
@@ -738,7 +742,10 @@ impl ApproxMinCut {
             // within this subgraph, which callers should have already ruled
             // out via `is_connected`) — fall back to the final contraction's
             // grouping so callers still get a valid 2-coloring.
-            best_group = (0..n).find(|&i| active[i]).map(|i| group_members[i].clone()).unwrap_or_default();
+            best_group = (0..n)
+                .find(|&i| active[i])
+                .map(|i| group_members[i].clone())
+                .unwrap_or_default();
         }
 
         let side_a_set: HashSet<usize> = best_group.into_iter().collect();
@@ -886,7 +893,10 @@ mod tests {
     /// algorithm computed, not an unrelated bisection: every edge strictly
     /// inside one side must sum (with the cross-edges) to the full edge
     /// weight, and the cross-edge weight must equal the reported value.
-    fn assert_partition_matches_value(approx: &mut ApproxMinCut, edges: &[(VertexId, VertexId, f64)]) {
+    fn assert_partition_matches_value(
+        approx: &mut ApproxMinCut,
+        edges: &[(VertexId, VertexId, f64)],
+    ) {
         let result = approx.min_cut();
         let (side_a, side_b) = result
             .partition
@@ -903,7 +913,10 @@ mod tests {
 
         let cross_weight: f64 = edges
             .iter()
-            .filter(|(u, v, _)| side_a_set.contains(u) != side_a_set.contains(v) || side_b_set.contains(u) != side_b_set.contains(v))
+            .filter(|(u, v, _)| {
+                side_a_set.contains(u) != side_a_set.contains(v)
+                    || side_b_set.contains(u) != side_b_set.contains(v)
+            })
             .map(|(_, _, w)| w)
             .sum();
 
@@ -975,10 +988,7 @@ mod tests {
             side_a_set.contains(&100),
             "the two cliques must land on opposite sides of the partition"
         );
-        assert_ne!(
-            side_b_set.contains(&0),
-            side_b_set.contains(&100),
-        );
+        assert_ne!(side_b_set.contains(&0), side_b_set.contains(&100),);
         assert_partition_matches_value(&mut approx, &edges);
     }
 
@@ -1007,7 +1017,9 @@ mod tests {
 
         let result = approx.min_cut();
         assert_eq!(result.value, 0.0);
-        let (side_a, side_b) = result.partition.expect("disconnected graph must still return a partition");
+        let (side_a, side_b) = result
+            .partition
+            .expect("disconnected graph must still return a partition");
         let side_a_set: HashSet<VertexId> = side_a.into_iter().collect();
         let side_b_set: HashSet<VertexId> = side_b.into_iter().collect();
         assert!(!side_a_set.is_empty() && !side_b_set.is_empty());
