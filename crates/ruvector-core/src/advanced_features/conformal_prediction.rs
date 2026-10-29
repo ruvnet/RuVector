@@ -145,7 +145,7 @@ impl ConformalPredictor {
         }
 
         let mut sorted_scores = self.calibration_scores.clone();
-        sorted_scores.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_scores.sort_by(|a, b| a.total_cmp(b));
 
         // Compute (1 - alpha) quantile
         let n = sorted_scores.len();
@@ -313,7 +313,7 @@ impl ConformalPredictor {
         let std = variance.sqrt();
 
         let mut sorted = self.calibration_scores.clone();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| a.total_cmp(b));
 
         Some(CalibrationStats {
             num_samples: self.calibration_scores.len(),
