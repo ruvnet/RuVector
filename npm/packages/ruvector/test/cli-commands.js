@@ -312,6 +312,91 @@ if (graphNodeAvailable) {
   skip('graph persistent operations', '@ruvector/graph-node is not installed');
 }
 
+// hooks graph-mincut / graph-cluster on a small code base with two import groups (m0–m5 and m6–m11, each
+// importing within its group, plus one import across). Each case runs in its own temp directory.
+function withImportGroups(fn) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ruvector-graph-hooks-'));
+  try {
+    for (let i = 0; i < 12; i++) {
+      const base = i < 6 ? 0 : 6;
+      const targets = [1, 2, 3].map((d) => base + ((i - base + d) % 6));
+      if (i === 0) targets.push(6);
+      fs.writeFileSync(path.join(tmp, `m${i}.ts`), targets.map((t) => `import x${t} from './m${t}';`).join('\n') + '\n');
+    }
+    const files = Array.from({ length: 12 }, (_, i) => `m${i}.ts`).join(' ');
+    return fn(tmp, files);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+const lastJson = (out) => JSON.parse(out.trim().split('\n').filter((l) => l.startsWith('{')).pop());
+const sameGroup = (names) => names.every((n) => +n.slice(1) < 6) || names.every((n) => +n.slice(1) >= 6);
+
+test('hooks graph-mincut returns a partition', () => withImportGroups((cwd, files) => {
+  const j = lastJson(run(`hooks graph-mincut ${files}`, { cwd }));
+  assert.strictEqual(j.success, true, j.error);
+  assert.strictEqual(j.nodes, 12);
+  assert(Array.isArray(j.groups) && j.groups.length === 2, 'Should return two groups');
+  assert(j.groups.every(sameGroup), 'The cut should separate the two import groups');
+  assert.strictEqual(j.cutWeight, 1, 'Only the one import across the groups should be cut');
+}));
+
+test('hooks graph-mincut / graph-cluster: one file, a missing file, a file with no imports', () => withImportGroups((cwd) => {
+  fs.writeFileSync(path.join(cwd, 'alone.ts'), 'export const x = 1;\n');
+  const one = lastJson(run('hooks graph-mincut alone.ts', { cwd }));
+  assert.strictEqual(one.success, true, one.error);
+  assert.strictEqual(one.nodes, 1);
+  const missing = lastJson(run('hooks graph-cluster m0.ts m1.ts does-not-exist.ts alone.ts', { cwd }));
+  assert.strictEqual(missing.success, true, missing.error);
+  assert(Array.isArray(missing.communities), 'Should still return communities');
+}));
+
+test('hooks graph-cluster (louvain) finds the two import groups', () => withImportGroups((cwd, files) => {
+  const j = lastJson(run(`hooks graph-cluster ${files}`, { cwd }));
+  assert.strictEqual(j.success, true, j.error);
+  assert(Array.isArray(j.communities) && j.communities.length === 2, `Expected 2 communities, got ${JSON.stringify(j.communities)}`);
+  assert(j.communities.every(sameGroup), 'Each community should be one import group');
+}));
+
+test('hooks graph-cluster --method spectral labels every file and finds the two groups', () => withImportGroups((cwd, files) => {
+  const j = lastJson(run(`hooks graph-cluster --method spectral --clusters 2 ${files}`, { cwd }));
+  assert.strictEqual(j.success, true, j.error);
+  assert.strictEqual(Object.keys(j.clusters).length, 12, 'clusters should map every file (a Map printed as {})');
+  const byLabel = {};
+  for (const [n, c] of Object.entries(j.clusters)) (byLabel[c] = byLabel[c] || []).push(n);
+  assert(Object.values(byLabel).length === 2 && Object.values(byLabel).every(sameGroup), 'Each cluster should be one import group');
+}));
+
+test('hooks build-agents --output <absolute dir> writes there and leaves the project settings alone', () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), 'ruvector-build-agents-'));
+  const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ruvector-agents-out-'));
+  try {
+    fs.mkdirSync(path.join(project, '.claude'));
+    const settingsPath = path.join(project, '.claude', 'settings.json');
+    fs.writeFileSync(settingsPath, '{"keep":1}\n');
+    run(`hooks build-agents --output "${outDir}" --format json`, { cwd: project, timeout: 60000 });
+    assert(fs.readdirSync(outDir).some((f) => f.endsWith('.json')), 'Agents should be written to the absolute --output');
+    assert(!fs.existsSync(path.join(project, outDir.replace(/^\//, ''))), 'The absolute path must not be joined onto the project folder');
+    assert.strictEqual(fs.readFileSync(settingsPath, 'utf8'), '{"keep":1}\n', 'An output outside the project must not touch its settings.json');
+    run('hooks build-agents --output .claude/agents-test --format json', { cwd: project, timeout: 60000 });
+    assert.strictEqual(JSON.parse(fs.readFileSync(settingsPath, 'utf8')).agentConfig.directory, path.join('.claude', 'agents-test'),
+      'An output inside the project is recorded as a relative directory');
+    // an absolute path that is inside the project is recorded relative to it
+    run(`hooks build-agents --output "${path.join(project, 'agents-abs')}" --format json`, { cwd: project, timeout: 60000 });
+    assert.strictEqual(JSON.parse(fs.readFileSync(settingsPath, 'utf8')).agentConfig.directory, 'agents-abs',
+      'An absolute output inside the project is recorded as a relative directory');
+    // a relative path that leaves the project is outside it: settings untouched
+    const escape = path.join('..', path.basename(outDir), 'escaped');
+    const before = fs.readFileSync(settingsPath, 'utf8');
+    run(`hooks build-agents --output "${escape}" --format json`, { cwd: project, timeout: 60000 });
+    assert(fs.existsSync(path.join(outDir, 'escaped')), 'The relative path is resolved against the project');
+    assert.strictEqual(fs.readFileSync(settingsPath, 'utf8'), before, 'An output that leaves the project must not touch its settings.json');
+  } finally {
+    fs.rmSync(project, { recursive: true, force: true });
+    fs.rmSync(outDir, { recursive: true, force: true });
+  }
+});
+
 test('router --help shows usage', () => {
   const { stdout } = runSafe('router --help');
   assert(stdout.includes('router') || stdout.includes('Router'),

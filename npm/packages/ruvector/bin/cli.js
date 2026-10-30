@@ -5505,11 +5505,13 @@ hooksCmd.command('graph-mincut')
         imports.forEach(imp => {
           const target = imp.match(/from ['"]\.\/([^'"]+)['"]/)?.[1];
           if (target && nodes.includes(target)) {
-            edges.push({ source: path.basename(file, path.extname(file)), target, weight: 1 });
+            edges.push({ from: path.basename(file, path.extname(file)), to: target, weight: 1 });
           }
         });
       }
-      const result = graphMod.minCut(nodes, edges);
+      // the algorithms take ONE graph from buildGraph(), with {from,to} edges; they were
+      // given (nodes, edges) with {source,target}, so every run failed ("graph.nodes is not iterable" / reading 'length')
+      const result = graphMod.minCut(graphMod.buildGraph(nodes, edges));
       console.log(JSON.stringify({ success: true, nodes: nodes.length, edges: edges.length, ...result }));
     } catch (e) {
       console.log(JSON.stringify({ success: false, error: e.message }));
@@ -5537,15 +5539,23 @@ hooksCmd.command('graph-cluster')
         imports.forEach(imp => {
           const target = imp.match(/from ['"]\.\/([^'"]+)['"]/)?.[1];
           if (target && nodes.includes(target)) {
-            edges.push({ source: path.basename(file, path.extname(file)), target, weight: 1 });
+            edges.push({ from: path.basename(file, path.extname(file)), to: target, weight: 1 });
           }
         });
       }
+      // one graph object (see graph-mincut); Louvain's Map is turned into
+      // {communities: [[nodes…]…]}, which JSON can print (a Map printed as {})
+      const graph = graphMod.buildGraph(nodes, edges);
       let result;
       if (opts.method === 'spectral') {
-        result = graphMod.spectralClustering(nodes, edges, parseInt(opts.clusters));
+        // clusters and coordinates are Maps, which JSON prints as {}: turn them into plain objects
+        const sp = graphMod.spectralClustering(graph, parseInt(opts.clusters));
+        result = { clusters: Object.fromEntries(sp.clusters), eigenvalues: sp.eigenvalues, coordinates: Object.fromEntries(sp.coordinates) };
       } else {
-        result = graphMod.louvainCommunities(nodes, edges);
+        const byCommunity = new Map();
+        for (const [node, c] of graphMod.louvainCommunities(graph)) byCommunity.set(c, [...(byCommunity.get(c) || []), node]);
+        const communities = [...byCommunity.values()];
+        result = { communities, modularity: graphMod.calculateModularity(graph, communities) };
       }
       console.log(JSON.stringify({ success: true, method: opts.method, ...result }));
     } catch (e) {
@@ -7261,7 +7271,8 @@ hooksCmd.command('build-agents')
     console.log(chalk.bold.cyan('\n🏗️  RuVector Agent Builder\n'));
 
     const intel = new Intelligence();
-    const outputDir = path.join(process.cwd(), opts.output);
+    // resolve, not join: an absolute --output was glued onto the current folder
+    const outputDir = path.resolve(process.cwd(), opts.output);
 
     // Check if pretrained
     if (!intel.data.pretrained && Object.keys(intel.data.patterns || {}).length === 0) {
@@ -7530,13 +7541,18 @@ ${focus.description}` : null
 
     fs.writeFileSync(path.join(outputDir, `index.${opts.format === 'md' ? 'json' : opts.format}`), indexContent);
 
-    // Update settings to reference agents
+    // Update settings to reference agents — only when the agents were written inside
+    // this project, and by a relative path: an --output elsewhere (a scratch run) wrote a dead absolute path into the
+    // project's own settings.json
     const settingsPath = path.join(process.cwd(), '.claude', 'settings.json');
-    if (fs.existsSync(settingsPath)) {
+    const relOut = path.relative(process.cwd(), outputDir);
+    const insideProject = relOut !== '' && !relOut.startsWith('..') && !path.isAbsolute(relOut);
+    if (!insideProject) console.log(chalk.dim('\n  (output is outside this project: .claude/settings.json left unchanged)'));
+    if (insideProject && fs.existsSync(settingsPath)) {
       try {
         const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
         settings.agentConfig = {
-          directory: opts.output,
+          directory: relOut,
           focus: opts.focus,
           agents: agents.map(a => a.name),
           generated: new Date().toISOString()
