@@ -366,6 +366,7 @@ impl DeltaHnsw {
         node.id = String::new();
         node.vector.clear();
         node.neighbors.clear();
+        drop(node);
 
         // Remove from other nodes' neighbor lists
         for i in 0..self.nodes.len() {
@@ -377,6 +378,25 @@ impl DeltaHnsw {
             for level_neighbors in &mut other.neighbors {
                 level_neighbors.retain(|n| *n != node_idx);
             }
+        }
+
+        let mut entry = self.entry_point.write();
+        if entry
+            .as_ref()
+            .is_some_and(|entry| entry.node_idx == node_idx)
+        {
+            *entry = self
+                .nodes
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, node)| {
+                    let node = node.read();
+                    (!node.vector.is_empty()).then_some(EntryPoint {
+                        node_idx: idx as u32,
+                        level: node.level,
+                    })
+                })
+                .max_by_key(|candidate| candidate.level);
         }
 
         Ok(true)
@@ -399,7 +419,13 @@ impl DeltaHnsw {
     fn random_level(&self) -> usize {
         let mut rng = self.rng.write();
         let r: f64 = rand::Rng::gen(&mut *rng);
-        (-r.ln() * self.config.level_mult).floor() as usize
+        self.level_from_sample(r)
+    }
+
+    fn level_from_sample(&self, sample: f64) -> usize {
+        // RNG samples include zero; ln(0) would saturate the cast to usize::MAX
+        // and overflow HnswNode's `level + 1` neighbor allocation.
+        (-sample.max(f64::MIN_POSITIVE).ln() * self.config.level_mult).floor() as usize
     }
 
     fn connect_node(&mut self, node_idx: u32, vector: &[f32], level: usize) -> Result<()> {
@@ -546,6 +572,11 @@ impl DeltaHnsw {
             }
         }
 
+        // A deleted node can still be referenced by a stale edge or caller.
+        // Never seed results with a tombstone: it has no vector or neighbors.
+        if self.nodes[start as usize].read().vector.is_empty() {
+            return Vec::new();
+        }
         let start_dist = self.distance(query, start);
         let mut candidates = BinaryHeap::new();
         let mut results = BinaryHeap::new();
@@ -581,6 +612,10 @@ impl DeltaHnsw {
                     continue;
                 }
                 visited.insert(neighbor);
+
+                if self.nodes[neighbor as usize].read().vector.is_empty() {
+                    continue;
+                }
 
                 let dist = self.distance(query, neighbor);
 
@@ -843,5 +878,63 @@ mod tests {
 
         let results = index.search(&[0.0, 1.0, 0.0, 0.0], 10).unwrap();
         assert!(results.iter().all(|r| r.id != "b"));
+    }
+
+    #[test]
+    fn deleting_entry_point_keeps_live_nodes_searchable() {
+        let mut index = DeltaHnsw::new(4, DeltaHnswConfig::default());
+        index.insert("a", vec![1.0, 0.0, 0.0, 0.0]).unwrap();
+        index.insert("b", vec![0.0, 1.0, 0.0, 0.0]).unwrap();
+        index.insert("c", vec![0.0, 0.0, 1.0, 0.0]).unwrap();
+
+        let entry_idx = index.entry_point.read().as_ref().unwrap().node_idx;
+        let entry_id = index.nodes[entry_idx as usize].read().id.clone();
+        assert!(index.delete(&entry_id).unwrap());
+
+        for id in ["a", "b", "c"].into_iter().filter(|id| *id != entry_id) {
+            let query = match id {
+                "a" => [1.0, 0.0, 0.0, 0.0],
+                "b" => [0.0, 1.0, 0.0, 0.0],
+                _ => [0.0, 0.0, 1.0, 0.0],
+            };
+            let results = index.search(&query, 3).unwrap();
+            assert!(
+                results.iter().any(|result| result.id == id),
+                "{id} not reachable"
+            );
+            assert!(results.iter().all(|result| !result.id.is_empty()));
+        }
+    }
+
+    #[test]
+    fn inserting_after_deleting_entry_point_is_searchable() {
+        let mut index = DeltaHnsw::new(4, DeltaHnswConfig::default());
+        index.insert("old", vec![1.0, 0.0, 0.0, 0.0]).unwrap();
+        assert!(index.delete("old").unwrap());
+        assert!(index.search(&[1.0, 0.0, 0.0, 0.0], 1).unwrap().is_empty());
+
+        index.insert("new", vec![0.0, 1.0, 0.0, 0.0]).unwrap();
+        let results = index.search(&[0.0, 1.0, 0.0, 0.0], 1).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].id, "new");
+    }
+
+    #[test]
+    fn search_layer_never_returns_a_tombstone() {
+        let mut index = DeltaHnsw::new(4, DeltaHnswConfig::default());
+        index.insert("deleted", vec![1.0, 0.0, 0.0, 0.0]).unwrap();
+        let deleted_idx = *index.id_to_idx.get("deleted").unwrap();
+        assert!(index.delete("deleted").unwrap());
+        assert!(index
+            .search_layer(&[1.0, 0.0, 0.0, 0.0], deleted_idx, 0, 10)
+            .is_empty());
+    }
+
+    #[test]
+    fn zero_level_sample_does_not_overflow_neighbor_allocation() {
+        let index = DeltaHnsw::new(4, DeltaHnswConfig::default());
+        let level = index.level_from_sample(0.0);
+        assert!(level < usize::MAX);
+        HnswNode::new("zero".into(), vec![0.0; 4], level);
     }
 }
