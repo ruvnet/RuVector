@@ -115,6 +115,17 @@ impl GraphStorage {
             }
         }
 
+        // The database may not exist yet, so canonicalize its existing parent
+        // before using the path as a pool key. This also resolves symlinked
+        // directories and redundant components to the same redb file.
+        let parent = path_buf
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Database path has no parent"))?;
+        let file_name = path_buf
+            .file_name()
+            .ok_or_else(|| anyhow::anyhow!("Database path has no file name"))?;
+        let path_buf = parent.canonicalize()?.join(file_name);
+
         // Claim this path's slot. Slot handles are only ever cloned while the
         // pool lock is held, which is what makes the reference-count check in
         // `release_slot_if_unused` sound.
@@ -583,6 +594,56 @@ mod tests {
         assert_eq!(storage.node_count()?, 2);
 
         Ok(())
+    }
+
+    #[test]
+    fn different_spellings_of_one_database_share_the_pool() -> Result<()> {
+        let dir = tempdir()?;
+        std::fs::create_dir(dir.path().join("sub"))?;
+        let db_path = dir.path().join("shared.db");
+        let alias = dir.path().join("sub/../shared.db");
+
+        let first = GraphStorage::new(&db_path)?;
+        let second = GraphStorage::new(&alias)?;
+        assert!(Arc::ptr_eq(
+            &first.pooled.as_ref().unwrap().db,
+            &second.pooled.as_ref().unwrap().db
+        ));
+        let node = NodeBuilder::new().label("Shared").build();
+        first.insert_node(&node)?;
+        assert!(second.get_node(&node.id)?.is_some());
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_directory_shares_the_pool() -> Result<()> {
+        use std::os::unix::fs::symlink;
+
+        let dir = tempdir()?;
+        let real = dir.path().join("real");
+        std::fs::create_dir(&real)?;
+        let alias = dir.path().join("alias");
+        symlink(&real, &alias)?;
+
+        let first = GraphStorage::new(real.join("shared.db"))?;
+        let second = GraphStorage::new(alias.join("shared.db"))?;
+        assert!(Arc::ptr_eq(
+            &first.pooled.as_ref().unwrap().db,
+            &second.pooled.as_ref().unwrap().db
+        ));
+        let node = NodeBuilder::new().label("Shared").build();
+        first.insert_node(&node)?;
+        assert!(second.get_node(&node.id)?.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn relative_parent_traversal_is_still_rejected() {
+        let error = GraphStorage::new("../escape.db")
+            .err()
+            .expect("traversal must be rejected");
+        assert_eq!(error.to_string(), "Path traversal attempt detected");
     }
 
     #[test]
