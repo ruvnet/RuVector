@@ -57,8 +57,27 @@ pub struct BoundedInstance {
 }
 
 impl BoundedInstance {
-    /// Create a new bounded instance
+    /// Default local-search radius used by `new()`. Historically hardcoded
+    /// inline; pulled out as a named constant so `with_max_radius` and the
+    /// radius-scaling research probe (`examples/mincut_radius_probe.rs`)
+    /// have one place to point at for "what does production actually use".
+    pub const DEFAULT_MAX_RADIUS: usize = 20;
+
+    /// Create a new bounded instance using the production-default search
+    /// radius (`DEFAULT_MAX_RADIUS`).
     pub fn new(lambda_min: u64, lambda_max: u64) -> Self {
+        Self::with_max_radius(lambda_min, lambda_max, Self::DEFAULT_MAX_RADIUS)
+    }
+
+    /// Create a bounded instance with an explicit `DeterministicLocalKCut`
+    /// search radius instead of `DEFAULT_MAX_RADIUS`.
+    ///
+    /// The radius bounds how far each local-cut seed search explores before
+    /// giving up; see `docs/research/nightly/2026_10_30_mincut-local-kcut-radius-scaling`
+    /// for the measured latency/correctness tradeoff of lowering it. Lower
+    /// radii are **not** proven equivalent to `DEFAULT_MAX_RADIUS` on every
+    /// graph shape — callers taking this path are opting into that tradeoff.
+    pub fn with_max_radius(lambda_min: u64, lambda_max: u64, max_radius: usize) -> Self {
         Self {
             lambda_min,
             lambda_max,
@@ -66,9 +85,9 @@ impl BoundedInstance {
             vertices: HashSet::new(),
             adjacency: HashMap::new(),
             best_witness: Mutex::new(None),
-            oracle: DeterministicLocalKCut::new(20), // Default max radius
+            oracle: DeterministicLocalKCut::new(max_radius),
             certificate: Mutex::new(CutCertificate::new()),
-            max_radius: 20,
+            max_radius,
             cluster_hierarchy: None,
             fragmenting: None,
             boundary_cache: Mutex::new(BoundaryCache::default()),
