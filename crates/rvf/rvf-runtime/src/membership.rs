@@ -183,11 +183,24 @@ impl MembershipFilter {
         })
     }
 
-    /// Build a MembershipHeader for this filter.
+    /// Build a MembershipHeader for this filter, hashing the bitmap with
+    /// SHAKE-256.
     pub fn to_header(&self) -> MembershipHeader {
         let bitmap_bytes = self.serialize();
-        let filter_hash = crate::store::simple_shake256_256(&bitmap_bytes);
+        let filter_hash = rvf_crypto::shake256_256(&bitmap_bytes);
+        self.header_with_hash(&bitmap_bytes, filter_hash)
+    }
 
+    /// Like [`to_header`](Self::to_header), but hashes with the legacy fold
+    /// that COW state version 1 files use, so a store loaded from one can be
+    /// written back unchanged.
+    pub(crate) fn to_header_legacy_hash(&self) -> MembershipHeader {
+        let bitmap_bytes = self.serialize();
+        let filter_hash = crate::hashing::legacy_fold_256(&bitmap_bytes);
+        self.header_with_hash(&bitmap_bytes, filter_hash)
+    }
+
+    fn header_with_hash(&self, bitmap_bytes: &[u8], filter_hash: [u8; 32]) -> MembershipHeader {
         MembershipHeader {
             magic: MEMBERSHIP_MAGIC,
             version: 1,
@@ -210,6 +223,23 @@ impl MembershipFilter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn filter_hash_is_shake256_unless_legacy_requested() {
+        let mut f = MembershipFilter::new_include(128);
+        f.add(5);
+        f.add(70);
+        let bytes = f.serialize();
+        assert_eq!(f.to_header().filter_hash, rvf_crypto::shake256_256(&bytes));
+        assert_eq!(
+            f.to_header_legacy_hash().filter_hash,
+            crate::hashing::legacy_fold_256(&bytes)
+        );
+        assert_ne!(
+            f.to_header().filter_hash,
+            f.to_header_legacy_hash().filter_hash
+        );
+    }
 
     #[test]
     fn include_mode_empty_is_empty_view() {
