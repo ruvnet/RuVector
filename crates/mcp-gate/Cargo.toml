@@ -23,9 +23,9 @@ default = []
 
 [dependencies]
 cognitum-gate-tilezero = { version = "0.1.1", path = "../cognitum-gate-tilezero" }
-# Reuses the WP28/ADR-331 value-of-information primitive rather than
-# restating its mathematics; see src/monitor/mod.rs.
-ruvector-tiny-dancer-core = { version = "2.3.0", path = "../ruvector-tiny-dancer-core" }
+# The security gate needs only the pure VoI primitive, not the model router's
+# storage, tensor, and bundled SQLite dependency graph.
+ruvector-voi = { version = "2.3.0", path = "../ruvector-voi" }
 async-trait = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

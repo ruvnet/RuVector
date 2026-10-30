@@ -97,6 +97,7 @@ members = [
     "crates/ruvector-server",
     "crates/ruvector-snapshot",
     "crates/ruvector-tiny-dancer-core",
+    "crates/ruvector-voi",
     "crates/ruvector-tiny-dancer-wasm",
     "crates/ruvector-tiny-dancer-node",
     "crates/ruvector-collections",

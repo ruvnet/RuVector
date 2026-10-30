@@ -11,7 +11,7 @@ use mcp_gate::monitor::{
     EscalationLadder, HaltReason, InspectionSubject, Investigator, KeywordDetector, LadderRung,
     MandatoryClass, MonitorConfig, MonitorError, MonitorOutcome, RiskSignal, TinyDetector,
 };
-use ruvector_tiny_dancer_core::voi::VoiConfig;
+use ruvector_voi::VoiConfig;
 use serde_json::json;
 
 /// Investigator that returns a fixed verdict and records every rung it ran.
@@ -787,7 +787,7 @@ fn the_purchasability_diagnostic_validates_its_own_inputs() {
     // itself would refuse. Without validation, an infinite value_of_success
     // returned Ok(true).
     use mcp_gate::monitor::rung_is_purchasable;
-    use ruvector_tiny_dancer_core::voi::Belief;
+    use ruvector_voi::Belief;
 
     let belief = Belief::new(0.5, 0.2).unwrap();
     let rung = LadderRung::new("verifier", 0.01, 0.0, 0.15);
