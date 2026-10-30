@@ -141,6 +141,12 @@ RVF (RuVector Format) is a universal binary substrate that merges database, mode
 | `db.extractEbpf()` | Extract eBPF program |
 | `db.segments()` | List all segments |
 
+For eligible Node stores (at least 1,024 vectors, not a COW branch, and without
+heavy deletion), await `db.close()` after ingestion. Close builds and persists
+the HNSW index even if no query has run, so a later read-only open can use the
+index on its first query. Building a large index can make close take longer.
+Smaller stores use the exact scan and do not need an index segment.
+
 ## WASM Exports
 
 29 exported functions for browser and edge runtimes:

@@ -106,6 +106,25 @@ fn hnsw_recall_at_10_meets_095_on_10k_128d() {
 // ── 2. Persistence round-trip ───────────────────────────────────────
 
 #[test]
+fn ingest_only_store_loads_index_on_readonly_reopen() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("ingest_only.rvf");
+    let query = random_vector(8, 42);
+
+    let store = make_store(&dir, "ingest_only.rvf", 8, 1200);
+    assert!(!store.index_ready(), "ingest must not require a query");
+    store.close().unwrap();
+
+    let reopened = RvfStore::open_readonly(&path).unwrap();
+    assert!(
+        reopened.index_ready(),
+        "close must persist an index for an ingest-only store"
+    );
+    let results = reopened.query(&query, 1, &QueryOptions::default()).unwrap();
+    assert_eq!(results[0].id, 42);
+}
+
+#[test]
 fn index_persists_on_close_and_loads_on_reopen() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("persist.rvf");
