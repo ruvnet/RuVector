@@ -51,6 +51,20 @@ pub(crate) fn legacy_content_hash(data: &[u8]) -> [u8; 16] {
     hash
 }
 
+/// The 32-byte add-and-rotate fold that earlier versions stored under the
+/// name `simple_shake256_256`. It is not a cryptographic hash and is kept only
+/// to verify COW state version 1 (`CowMapHeader.version == 1`); nothing new is
+/// written with it except back into such a file.
+pub(crate) fn legacy_fold_256(data: &[u8]) -> [u8; 32] {
+    let mut out = [0u8; 32];
+    for (i, &b) in data.iter().enumerate() {
+        out[i % 32] = out[i % 32].wrapping_add(b);
+        let j = (i + 13) % 32;
+        out[j] = out[j].wrapping_add(out[i % 32].rotate_left(3));
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
