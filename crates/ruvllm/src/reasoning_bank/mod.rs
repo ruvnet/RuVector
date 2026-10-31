@@ -409,6 +409,21 @@ impl ReasoningBank {
 mod tests {
     use super::*;
 
+    fn test_config() -> (tempfile::TempDir, ReasoningBankConfig) {
+        let tmp = tempfile::tempdir().unwrap();
+        let config = ReasoningBankConfig {
+            storage_path: tmp.path().join("bank").to_string_lossy().into_owned(),
+            pattern_config: PatternStoreConfig {
+                // The outer storage_path does not configure the nested VectorDB.
+                storage_path: Some(tmp.path().join("patterns").to_string_lossy().into_owned()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        // Keep the directory alive until after the bank releases its storage lock.
+        (tmp, config)
+    }
+
     #[test]
     fn test_reasoning_bank_config_default() {
         let config = ReasoningBankConfig::default();
@@ -420,17 +435,14 @@ mod tests {
 
     #[test]
     fn test_reasoning_bank_creation() {
-        let config = ReasoningBankConfig {
-            storage_path: "/tmp/test_reasoning_bank".to_string(),
-            ..Default::default()
-        };
+        let (_tmp, config) = test_config();
         let bank = ReasoningBank::new(config);
         assert!(bank.is_ok());
     }
 
     #[test]
     fn test_trajectory_recording() {
-        let config = ReasoningBankConfig::default();
+        let (_tmp, config) = test_config();
         let bank = ReasoningBank::new(config).unwrap();
 
         let mut recorder = bank.start_trajectory(vec![0.1; 768]);
@@ -447,14 +459,7 @@ mod tests {
 
     #[test]
     fn test_stats_tracking() {
-        // Use a unique temp dir for the underlying VectorDB; the default
-        // `.reasoning_bank_patterns` path is shared and triggers
-        // "Database already open. Cannot acquire lock." when nextest runs
-        // tests concurrently.
-        let tmp = tempfile::tempdir().unwrap();
-        let mut config = ReasoningBankConfig::default();
-        config.pattern_config.storage_path =
-            Some(tmp.path().join("pat").to_string_lossy().into_owned());
+        let (_tmp, config) = test_config();
         let bank = ReasoningBank::new(config).unwrap();
 
         let stats = bank.stats();

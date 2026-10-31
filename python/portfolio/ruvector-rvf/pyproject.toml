@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ruvector-rvf"
-version = "0.2.0"
+version = "0.2.1"
 description = "Persistent local vector files for Python using the native Rust RVF runtime"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [{name = "RuVector Team"}]
-dependencies = ["ruvector==0.1.4", "numpy>=1.21"]
+dependencies = ["ruvector==0.1.5", "numpy>=1.21"]
 keywords = ["ruvector", "rust", "rvf", "vector-database", "embeddings", "rag"]
 classifiers = [
   "Development Status :: 3 - Alpha",
