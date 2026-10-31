@@ -455,6 +455,8 @@ export class TensorCompress {
     this.compressTimer = setInterval(() => {
       this.recompressAll();
     }, this.config.compressIntervalMs);
+    // Background maintenance must not keep the host process alive.
+    (this.compressTimer as any)?.unref?.();
   }
 
   /**

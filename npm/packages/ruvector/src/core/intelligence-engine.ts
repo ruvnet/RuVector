@@ -11,6 +11,7 @@
  * Replaces the simple Q-learning approach with real ML-powered intelligence.
  */
 
+import * as path from 'path';
 import { FastAgentDB, Episode, Trajectory, EpisodeSearchResult } from './agentdb-fast';
 import { SonaEngine, SonaConfig, LearnedPattern, SonaStats, isSonaAvailable } from './sona-wrapper';
 import { OnnxEmbedder, OnnxEmbedderConfig, isOnnxAvailable, initOnnxEmbedder, getEmbedderProvenance, getEmbeddingSpaceIdentity, getEmbeddingSpaceId, embedBulk, shutdownParallelEmbedder } from './onnx-embedder';
@@ -312,11 +313,19 @@ export class IntelligenceEngine {
   }
 
   private async initVectorDb(): Promise<void> {
+    // Without an explicit storagePath the native VectorDb defaults to
+    // ./ruvector.db, which dropped a multi-MB file into the user's project on
+    // the first semantic hook. The index is rebuilt from the JSON store in every
+    // (short-lived) hook process anyway, so brute-force cosine over memories is
+    // both cheaper and file-free; an HNSW index is used only when a storage
+    // location is configured.
+    if (!this.config.storagePath) return;
     try {
       const VDB = getVectorDB();
       this.vectorDb = new VDB({
         dimensions: this.config.embeddingDim,
         distanceMetric: 'Cosine',
+        storagePath: path.join(this.config.storagePath, 'engine-vectors.db'),
       });
     } catch {
       // VectorDB not available, use fallback

@@ -48,4 +48,27 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
+// Local runtime artifacts (vector stores, RVF files, scan reports) must never
+// ride along in the tarball: `files` whitelists bin/ and dist/, so .npmignore
+// does not filter them.
+const STRAY = /\.(db|rvf|lock)$|(^|\/)\.claude(\/|$)/;
+const stray = [];
+for (const dir of ['bin', 'dist', 'wasm']) {
+  const walk = (rel) => {
+    const abs = path.join(pkgRoot, rel);
+    if (!fs.existsSync(abs)) return;
+    for (const ent of fs.readdirSync(abs, { withFileTypes: true })) {
+      const child = path.posix.join(rel, ent.name);
+      if (STRAY.test(child)) stray.push(child);
+      else if (ent.isDirectory()) walk(child);
+    }
+  };
+  walk(dir);
+}
+if (stray.length > 0) {
+  console.error(`verify-dist: ${stray.length} stray runtime artifact(s) would be published:`);
+  for (const rel of stray) console.error(`  - ${rel}`);
+  process.exit(1);
+}
+
 console.log(`verify-dist: ${unique.length} dist path(s) present.`);

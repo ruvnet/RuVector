@@ -472,7 +472,8 @@ program
 
     // Try to load ruvector for implementation info
     if (loadRuvector()) {
-      const version = typeof getVersion === 'function' ? getVersion() : 'unknown';
+      const v = typeof getVersion === 'function' ? getVersion() : 'unknown';
+      const version = v && typeof v === 'object' ? (v.version || JSON.stringify(v)) : v;
       const impl = typeof getImplementationType === 'function' ? getImplementationType() : 'native';
       console.log(chalk.white(`  Core Version: ${chalk.yellow(version)}`));
       console.log(chalk.white(`  Implementation: ${chalk.yellow(impl)}`));
