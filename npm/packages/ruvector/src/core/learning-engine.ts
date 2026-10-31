@@ -148,6 +148,16 @@ export class LearningEngine {
    * Configure algorithm for a specific task type
    */
   configure(task: TaskType, config: Partial<LearningConfig>): void {
+    if (config.algorithm !== undefined &&
+        !LearningEngine.getAlgorithms().some(a => a.algorithm === config.algorithm)) {
+      throw new Error(`Unknown learning algorithm: ${config.algorithm}`);
+    }
+    for (const key of ['learningRate', 'discountFactor', 'epsilon'] as const) {
+      const v = config[key];
+      if (v !== undefined && !(Number.isFinite(v) && v >= 0 && v <= 1)) {
+        throw new Error(`${key} must be a number in [0, 1], got ${v}`);
+      }
+    }
     const existing = this.configs.get(task) || TASK_ALGORITHM_MAP[task] || DEFAULT_TASK_CONFIG;
     this.configs.set(task, { ...existing, ...config });
   }
@@ -163,6 +173,9 @@ export class LearningEngine {
    * Update Q-value using the appropriate algorithm
    */
   update(task: TaskType, experience: Experience): number {
+    if (!Number.isFinite(experience.reward)) {
+      throw new Error(`reward must be a finite number, got ${experience.reward}`);
+    }
     const config = this.getConfig(task);
     let delta = 0;
 
@@ -201,6 +214,8 @@ export class LearningEngine {
       case 'dqn':
         delta = this.dqnUpdate(experience, config);
         break;
+      default:
+        throw new Error(`Unknown learning algorithm: ${config.algorithm}`);
     }
 
     // Update stats
@@ -212,13 +227,18 @@ export class LearningEngine {
   /**
    * Get best action for a state
    */
-  getBestAction(task: TaskType, state: string, actions: string[]): { action: string; confidence: number } {
+  getBestAction(
+    task: TaskType,
+    state: string,
+    actions: string[],
+    options: { explore?: boolean } = {}
+  ): { action: string; confidence: number; explored?: boolean } {
     const config = this.getConfig(task);
 
-    // Epsilon-greedy exploration
-    if (Math.random() < config.epsilon) {
+    // Epsilon-greedy exploration (opt-in: recommendations shown to users are greedy)
+    if (options.explore && Math.random() < config.epsilon) {
       const randomAction = actions[Math.floor(Math.random() * actions.length)];
-      return { action: randomAction, confidence: 0.5 };
+      return { action: randomAction, confidence: 0.5, explored: true };
     }
 
     let bestAction = actions[0];
@@ -226,9 +246,11 @@ export class LearningEngine {
     let values: number[] = [];
 
     const qTable = this.getQTable(state);
+    // Double Q-learning writes to either table at random; act on their sum.
+    const qTable2 = config.algorithm === 'double-q' ? this.getQTable2(state) : null;
 
     for (const action of actions) {
-      const value = qTable.get(action) || 0;
+      const value = (qTable.get(action) || 0) + (qTable2 ? qTable2.get(action) || 0 : 0);
       values.push(value);
       if (value > bestValue) {
         bestValue = value;
@@ -501,7 +523,7 @@ export class LearningEngine {
 
       // Weight by normalized return
       const normalizedReturn = returns[i] / (Math.abs(returns[0]) + 1);
-      const target = currentQ + α * normalizedReturn * exp.reward;
+      const target = currentQ + α * normalizedReturn;
       const delta = target - currentQ;
 
       qTable.set(exp.action, target);

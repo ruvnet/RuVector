@@ -8,7 +8,20 @@
  * - Review prioritization
  */
 
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
+
+const GIT_OPTS = { encoding: 'utf8' as const, maxBuffer: 10 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] as any };
+
+/**
+ * Validate a git revision supplied by a caller (CLI flag or MCP tool arg).
+ * Revisions are passed as argv (never through a shell) and must not look like options.
+ */
+export function assertSafeGitRef(ref: string): string {
+  if (typeof ref !== 'string' || !/^[0-9A-Za-z._\/~^@{}:-]{1,200}$/.test(ref) || ref.startsWith('-')) {
+    throw new Error(`Invalid git revision: ${JSON.stringify(ref)}`);
+  }
+  return ref;
+}
 import { embed, embedBatch, isReady, initOnnxEmbedder } from './onnx-embedder';
 
 export interface DiffHunk {
@@ -211,10 +224,7 @@ export async function analyzeFileDiff(file: string, diff: string, message: strin
  */
 export function getCommitDiff(commitHash: string = 'HEAD'): string {
   try {
-    return execSync(`git show ${commitHash} --format="" 2>/dev/null`, {
-      encoding: 'utf8',
-      maxBuffer: 10 * 1024 * 1024,
-    });
+    return execFileSync('git', ['show', '--format=', assertSafeGitRef(commitHash), '--'], GIT_OPTS) as string;
   } catch {
     return '';
   }
@@ -225,10 +235,7 @@ export function getCommitDiff(commitHash: string = 'HEAD'): string {
  */
 export function getStagedDiff(): string {
   try {
-    return execSync('git diff --cached 2>/dev/null', {
-      encoding: 'utf8',
-      maxBuffer: 10 * 1024 * 1024,
-    });
+    return execFileSync('git', ['diff', '--cached'], GIT_OPTS) as string;
   } catch {
     return '';
   }
@@ -239,10 +246,7 @@ export function getStagedDiff(): string {
  */
 export function getUnstagedDiff(): string {
   try {
-    return execSync('git diff 2>/dev/null', {
-      encoding: 'utf8',
-      maxBuffer: 10 * 1024 * 1024,
-    });
+    return execFileSync('git', ['diff'], GIT_OPTS) as string;
   } catch {
     return '';
   }
@@ -252,14 +256,13 @@ export function getUnstagedDiff(): string {
  * Analyze a commit
  */
 export async function analyzeCommit(commitHash: string = 'HEAD'): Promise<CommitAnalysis> {
+  assertSafeGitRef(commitHash);
   const diff = getCommitDiff(commitHash);
 
   // Get commit metadata
   let message = '', author = '', date = '';
   try {
-    const info = execSync(`git log -1 --format="%s|%an|%aI" ${commitHash} 2>/dev/null`, {
-      encoding: 'utf8',
-    }).trim();
+    const info = (execFileSync('git', ['log', '-1', '--format=%s|%an|%aI', commitHash, '--'], GIT_OPTS) as string).trim();
     [message, author, date] = info.split('|');
   } catch {}
 
@@ -327,9 +330,8 @@ export async function findSimilarCommits(
   // Get recent commits
   let commits: string[] = [];
   try {
-    commits = execSync(`git log -${recentCommits} --format="%H" 2>/dev/null`, {
-      encoding: 'utf8',
-    }).trim().split('\n');
+    const n = Math.max(1, Math.min(10000, Math.floor(Number(recentCommits)) || 50));
+    commits = (execFileSync('git', ['log', `-${n}`, '--format=%H'], GIT_OPTS) as string).trim().split('\n');
   } catch {
     return [];
   }

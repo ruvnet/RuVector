@@ -100,3 +100,86 @@ test('trajectory-end writes the routing pattern route() reads (cross-process loo
   assert.ok(saved.patterns['fix:.ts|tester'], 'pattern persisted under canonical state key');
   assert.ok(saved.patterns['fix:.ts|tester'].q_value > 0.5);
 });
+
+// ---------------------------------------------------------------------------
+// 0.3.4 self-learning review regressions
+// ---------------------------------------------------------------------------
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
+
+function cliRaw(cwd, args) {
+  try {
+    return { code: 0, out: execFileSync(process.execPath, [CLI, ...args], { cwd, encoding: 'utf8', timeout: 30000, env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' } }) };
+  } catch (e) {
+    return { code: e.status, out: String(e.stdout || '') };
+  }
+}
+
+test('hooks learn rewards reach hooks route', (t) => {
+  const dir = makeProject({});
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  for (let i = 0; i < 6; i++) cli(dir, ['hooks', 'learn', '-s', 'docs:.md', '-a', 'tech-writer', '-r', '1']);
+  const res = cli(dir, ['hooks', 'route', 'document the API', '--file', 'README.md']);
+  assert.equal(res.recommended, 'tech-writer');
+  assert.ok(res.confidence > 0.5);
+});
+
+test('an agent with a failure record does not beat the default', (t) => {
+  const dir = makeProject({});
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  for (let i = 0; i < 5; i++) {
+    cli(dir, ['hooks', 'trajectory-begin', '-c', 'refactor module', '-a', 'bad-agent', '-f', 'src/m.rs']);
+    cli(dir, ['hooks', 'trajectory-end', '--quality', '0']);
+  }
+  const res = cli(dir, ['hooks', 'route', 'refactor module', '--file', 'src/m.rs']);
+  assert.notEqual(res.recommended, 'bad-agent');
+});
+
+test('non-finite rewards and qualities are rejected, not stored as null', (t) => {
+  const dir = makeProject({});
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const r = cliRaw(dir, ['hooks', 'learn', '-s', 'x', '-a', 'x', '-r', 'abc']);
+  assert.notEqual(r.code, 0);
+  assert.match(r.out, /finite number/);
+  const cfg = cliRaw(dir, ['hooks', 'learning-config', '-t', 'agent-routing', '-a', 'qlearning']);
+  assert.match(cfg.out, /Unknown learning algorithm/);
+  const stats = cliRaw(dir, ['hooks', 'learning-stats']);
+  assert.equal(stats.code, 0);
+});
+
+test('concurrent hook processes do not lose learning updates', async (t) => {
+  const dir = makeProject({});
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const N = 12;
+  await Promise.all(Array.from({ length: N }, (_, i) => new Promise((resolve, reject) => {
+    const p = spawn(process.execPath, [CLI, 'hooks', 'learn', '-s', `s${i}:.x`, '-a', 'a', '-r', '1'], { cwd: dir, stdio: 'ignore' });
+    p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`exit ${code}`))));
+  })));
+  const data = JSON.parse(fs.readFileSync(path.join(dir, '.ruvector', 'intelligence.json'), 'utf8'));
+  const kept = Object.keys(data.patterns).filter((k) => /^s\d+:\.x\|a$/.test(k)).length;
+  assert.equal(kept, N);
+  assert.ok(!fs.existsSync(path.join(dir, '.ruvector', 'intelligence.json.lock')), 'lock file left behind');
+});
+
+test('LearningEngine: double-q uses both tables, DT does not reward failure, config validated', () => {
+  const require = createRequire(import.meta.url);
+  const LearningEngine = require('../dist/core/learning-engine.js').default;
+
+  const dq = new LearningEngine();
+  dq.configure('agent-routing', { algorithm: 'double-q' });
+  dq.update('agent-routing', { state: 's', action: 'good', reward: 1, nextState: 's', done: true, timestamp: 0 });
+  for (let i = 0; i < 50; i++) {
+    assert.equal(dq.getBestAction('agent-routing', 's', ['bad', 'good']).action, 'good');
+  }
+
+  const dt = new LearningEngine();
+  dt.configure('agent-routing', { algorithm: 'decision-transformer' });
+  for (let i = 0; i < 5; i++) {
+    dt.update('agent-routing', { state: 's', action: 'fail', reward: -1, nextState: 's', done: true, timestamp: 0 });
+  }
+  assert.equal(dt.getBestAction('agent-routing', 's', ['fail', 'unseen']).action, 'unseen');
+
+  assert.throws(() => dq.configure('agent-routing', { algorithm: 'qlearning' }), /Unknown learning algorithm/);
+  assert.throws(() => dq.configure('agent-routing', { learningRate: 5 }), /\[0, 1\]/);
+  assert.throws(() => dq.update('agent-routing', { state: 's', action: 'a', reward: NaN, nextState: 's', done: true, timestamp: 0 }), /finite/);
+});

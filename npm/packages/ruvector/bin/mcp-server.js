@@ -65,20 +65,92 @@ function validateRvfPath(filePath) {
       // Parent doesn't exist either — keep the resolved path for the block check
     }
   }
-  // Confine to the current working directory
-  const cwd = process.cwd();
-  if (!resolved.startsWith(cwd + path.sep) && resolved !== cwd) {
-    // Also block sensitive system paths regardless
-    const blocked = ['/etc', '/proc', '/sys', '/dev', '/boot', '/root', '/var/run', '/var/log', '/tmp'];
-    for (const prefix of blocked) {
-      if (resolved.startsWith(prefix)) {
-        throw new Error(`Access denied: path resolves to '${resolved}' which is outside the working directory and in restricted area '${prefix}'`);
-      }
-    }
-    // Allow paths outside cwd only if they're not in blocked directories
-    // (for tools that reference project files by absolute path)
+  // Confine to the working directory plus any roots the operator opted into via
+  // RUVECTOR_MCP_ROOTS (path-delimited). Anything else is refused: a denylist
+  // cannot cover $HOME secrets such as ~/.ssh or ~/.npmrc.
+  if (!getAllowedRoots().some(root => isWithin(root, resolved))) {
+    throw new Error(`Access denied: path resolves to '${resolved}', which is outside the working directory. ` +
+      'Set RUVECTOR_MCP_ROOTS to allow additional directories.');
   }
   return resolved;
+}
+
+function realOrResolved(p) {
+  try { return fs.realpathSync(path.resolve(p)); } catch { return path.resolve(p); }
+}
+
+function getAllowedRoots() {
+  const roots = [realOrResolved(process.cwd())];
+  for (const r of (process.env.RUVECTOR_MCP_ROOTS || '').split(path.delimiter)) {
+    if (r.trim()) roots.push(realOrResolved(r.trim()));
+  }
+  return roots;
+}
+
+function isWithin(root, target) {
+  const rel = path.relative(root, target);
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+// Keys that must never be used as dynamic object keys (prototype pollution).
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+function assertSafeKey(key, what) {
+  if (typeof key !== 'string' || key.length === 0 || UNSAFE_KEYS.has(key)) {
+    throw new Error(`Invalid ${what}: ${JSON.stringify(key)}`);
+  }
+  return key;
+}
+
+// Positional CLI args must not be parsed as flags (option injection).
+function assertPositional(value, what) {
+  if (typeof value !== 'string' || value.startsWith('-')) {
+    throw new Error(`Invalid ${what}: ${JSON.stringify(value)}`);
+  }
+  return value;
+}
+
+const BUILD_AGENT_FOCUS = ['quality', 'speed', 'security', 'testing', 'fullstack'];
+
+/** Reject non-finite numbers and clamp to [min, max] (learning inputs from MCP clients). */
+function boundedNumber(value, min, max, name) {
+  const n = typeof value === 'number' ? value : parseFloat(value);
+  if (!Number.isFinite(n)) throw new Error(`${name} must be a finite number, got ${JSON.stringify(value)}`);
+  return Math.min(max, Math.max(min, n));
+}
+
+// Mirrors Intelligence.routeState() in cli.js so MCP learning lands on the
+// keys `hooks route` reads ("<task>:<ext>|<agent>").
+function routeStateKey(task, file) {
+  const t = task || '';
+  const taskType = t.includes('fix') ? 'fix' :
+                   t.includes('test') ? 'test' :
+                   t.includes('refactor') ? 'refactor' :
+                   t.includes('document') ? 'docs' : 'edit';
+  let ext = '';
+  if (file) {
+    const idx = file.lastIndexOf('.');
+    ext = idx >= 0 ? file.slice(idx).toLowerCase() : '';
+  }
+  return `${taskType}:${ext || 'unknown'}`;
+}
+
+function recordRoutePattern(data, state, agent, quality) {
+  if (!agent || agent === 'unknown') return null;
+  if (!data.patterns) data.patterns = {};
+  const key = `${state}|${agent}`;
+  const p = data.patterns[key] || { state, action: agent, q_value: 0.5, visits: 0, last_update: 0 };
+  p.q_value = p.q_value + 0.1 * (quality - p.q_value);
+  p.visits = (p.visits || 0) + 1;
+  p.last_update = Math.floor(Date.now() / 1000);
+  data.patterns[key] = p;
+  return key;
+}
+
+function assertGitRef(ref) {
+  if (typeof ref !== 'string' || ref.startsWith('-') || !/^[0-9A-Za-z._\/~^@{}:-]{1,200}$/.test(ref)) {
+    throw new Error(`Invalid git revision: ${JSON.stringify(ref)}`);
+  }
+  return ref;
 }
 
 /**
@@ -221,6 +293,7 @@ class Intelligence {
   constructor() {
     this.intelPath = this.getIntelPath();
     this.data = this.load();
+    this.loadedMtimeMs = this.diskMtimeMs();
     this.engine = null;
 
     // Initialize full engine if available
@@ -257,8 +330,8 @@ class Intelligence {
     if (data.patterns) {
       for (const [key, value] of Object.entries(data.patterns)) {
         const [state, action] = key.split('|');
-        if (state && action) {
-          if (!converted.routingPatterns[state]) converted.routingPatterns[state] = {};
+        if (state && action && !UNSAFE_KEYS.has(state) && !UNSAFE_KEYS.has(action)) {
+          if (!Object.prototype.hasOwnProperty.call(converted.routingPatterns, state)) converted.routingPatterns[state] = {};
           converted.routingPatterns[state][action] = value.q_value || value || 0.5;
         }
       }
@@ -273,6 +346,21 @@ class Intelligence {
     if (fs.existsSync(path.join(process.cwd(), '.claude'))) return projectPath;
     if (fs.existsSync(homePath)) return homePath;
     return projectPath;
+  }
+
+  diskMtimeMs() {
+    try { return fs.statSync(this.intelPath).mtimeMs; } catch { return 0; }
+  }
+
+  // CLI hooks (separate processes) write the same store while this server is
+  // running. Reload before each tool call when the file changed on disk, so the
+  // server's next save() does not overwrite their learning with a stale copy.
+  refreshIfChanged() {
+    const mtime = this.diskMtimeMs();
+    if (mtime !== this.loadedMtimeMs) {
+      this.data = this.load();
+      this.loadedMtimeMs = mtime;
+    }
   }
 
   load() {
@@ -428,6 +516,7 @@ class Intelligence {
     }
 
     atomicWriteFileSync(this.intelPath, JSON.stringify(this.data, null, 2));
+    this.loadedMtimeMs = this.diskMtimeMs();
   }
 
   stats() {
@@ -762,7 +851,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         pretrain: { type: 'boolean', description: 'Run pretrain after init', default: false },
-        build_agents: { type: 'string', description: 'Focus for agent generation (quality, speed, security, testing, fullstack)' },
+        build_agents: { type: 'string', enum: ['quality', 'speed', 'security', 'testing', 'fullstack'], description: 'Focus for agent generation' },
         force: { type: 'boolean', description: 'Force overwrite existing settings', default: false }
       },
       required: []
@@ -1373,7 +1462,7 @@ const TOOLS = [
       required: []
     }
   },
-  // Custom Worker System (agentic-flow@alpha.39+)
+  // Custom Worker System (agentic-flow@3.0.0-alpha.2.39+)
   {
     name: 'workers_presets',
     description: 'List available worker presets (quick-scan, deep-analysis, security-scan, learning, api-docs, test-analysis)',
@@ -1910,6 +1999,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 // Call tool handler
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
+  try { intel.refreshIfChanged(); } catch { /* keep serving from memory */ }
 
   // ADR-256 default-deny gate: refuse tools excluded by RUVECTOR_MCP_ALLOW/DENY/PROFILE
   if (!isToolAllowed(name, MCP_TOOL_POLICY)) {
@@ -2069,10 +2159,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'hooks_init': {
+        // hooks init writes .claude/settings.json (permissions, hooks, MCP servers)
+        // and may overwrite CLAUDE.md. An MCP client (possibly prompt-injected) must
+        // not be able to widen its own future permissions without operator opt-in.
+        if (process.env.RUVECTOR_MCP_ALLOW_INIT !== '1') {
+          throw new Error('hooks_init is disabled over MCP because it rewrites .claude/settings.json. ' +
+            'Run `npx ruvector hooks init` from a terminal, or set RUVECTOR_MCP_ALLOW_INIT=1 for this server.');
+        }
         const commandArgs = ['hooks', 'init'];
         if (args.force) commandArgs.push('--force');
         if (args.pretrain) commandArgs.push('--pretrain');
-        if (args.build_agents) commandArgs.push('--build-agents', args.build_agents);
+        if (args.build_agents) {
+          if (!BUILD_AGENT_FOCUS.includes(args.build_agents)) {
+            throw new Error(`build_agents must be one of: ${BUILD_AGENT_FOCUS.join(', ')}`);
+          }
+          commandArgs.push('--build-agents', args.build_agents);
+        }
 
         try {
           const output = runRuvectorCli(commandArgs, { timeout: 60000 });
@@ -2166,7 +2268,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'hooks_doctor': {
         const commandArgs = ['hooks', 'doctor'];
-        if (args.fix) commandArgs.push('--fix');
+        if (args.fix) {
+          // --fix rewrites .claude/settings.json; same opt-in as hooks_init.
+          if (process.env.RUVECTOR_MCP_ALLOW_INIT !== '1') {
+            throw new Error('hooks_doctor fix is disabled over MCP. Run `npx ruvector hooks doctor --fix` ' +
+              'from a terminal, or set RUVECTOR_MCP_ALLOW_INIT=1 for this server.');
+          }
+          commandArgs.push('--fix');
+        }
 
         try {
           const output = runRuvectorCli(commandArgs, { timeout: 15000 });
@@ -2252,7 +2361,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           function checkForProtoPollution(obj, path) {
             if (typeof obj !== 'object' || obj === null) return;
             for (const key of Object.keys(obj)) {
-              if (dangerousKeys.includes(key)) {
+              // Pattern keys are "state|action" and get split on load, so check each part.
+              if (key.split('|').some(part => dangerousKeys.includes(part))) {
                 throw new Error(`Dangerous key '${key}' detected at ${path}.${key}`);
               }
             }
@@ -2429,7 +2539,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'hooks_trajectory_step': {
         const action = args.action;
         const result = args.result || '';
-        const reward = args.reward || 0.5;
+        const reward = args.reward === undefined ? 0.5 : boundedNumber(args.reward, -1, 1, 'reward');
 
         // Add to most recent trajectory
         const trajectories = intel.data.activeTrajectories || {};
@@ -2456,7 +2566,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'hooks_trajectory_end': {
         const success = args.success !== false;
-        const quality = args.quality || (success ? 0.8 : 0.2);
+        const quality = args.quality === undefined ? (success ? 0.8 : 0.2) : boundedNumber(args.quality, 0, 1, 'quality');
 
         const trajectories = intel.data.activeTrajectories || {};
         const trajIds = Object.keys(trajectories);
@@ -2480,6 +2590,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         intel.data.trajectories.push(traj);
         delete trajectories[latestTrajId];
 
+        // Close the routing loop: record the outcome where `hooks route` reads it.
+        const learnedRoute = recordRoutePattern(intel.data, routeStateKey(traj.context, traj.file), traj.agent, quality);
+
         // Learn from trajectory
         if (intel.engine && traj.steps.length > 0) {
           try {
@@ -2497,7 +2610,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               trajectory_id: latestTrajId,
               steps: traj.steps.length,
               duration_ms: traj.endTime - traj.startTime,
-              quality
+              quality,
+              learned_route: learnedRoute
             }, null, 2)
           }]
         };
@@ -2507,8 +2621,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const primaryFile = args.primary_file;
         const relatedFiles = args.related_files || [];
 
+        assertSafeKey(primaryFile, 'primary_file');
+        if (!Array.isArray(relatedFiles)) throw new Error('related_files must be an array');
+        relatedFiles.forEach(r => assertSafeKey(r, 'related file'));
         if (!intel.data.coEditPatterns) intel.data.coEditPatterns = {};
-        if (!intel.data.coEditPatterns[primaryFile]) intel.data.coEditPatterns[primaryFile] = {};
+        if (!Object.prototype.hasOwnProperty.call(intel.data.coEditPatterns, primaryFile)) intel.data.coEditPatterns[primaryFile] = {};
 
         for (const related of relatedFiles) {
           intel.data.coEditPatterns[primaryFile][related] = (intel.data.coEditPatterns[primaryFile][related] || 0) + 1;
@@ -2567,8 +2684,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const fix = args.fix;
         const file = args.file || '';
 
+        assertSafeKey(error, 'error');
         if (!intel.data.errors) intel.data.errors = {};
-        if (!intel.data.errors[error]) intel.data.errors[error] = [];
+        if (!Object.prototype.hasOwnProperty.call(intel.data.errors, error)) intel.data.errors[error] = [];
         intel.data.errors[error].push({ fix, file, recorded: Date.now() });
 
         // Use engine if available
@@ -2674,7 +2792,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'hooks_diff_analyze': {
         try {
           const commandArgs = ['hooks', 'diff-analyze'];
-          if (args.commit) commandArgs.push(args.commit);
+          if (args.commit) commandArgs.push(assertGitRef(args.commit));
           commandArgs.push('--json');
           const output = runRuvectorCli(commandArgs, { timeout: 60000 });
           return { content: [{ type: 'text', text: output }] };
@@ -2686,7 +2804,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'hooks_diff_classify': {
         try {
           const commandArgs = ['hooks', 'diff-classify'];
-          if (args.commit) commandArgs.push(args.commit);
+          if (args.commit) commandArgs.push(assertGitRef(args.commit));
           const output = runRuvectorCli(commandArgs, { timeout: 30000 });
           return { content: [{ type: 'text', text: output }] };
         } catch (e) {
@@ -2917,7 +3035,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         const engine = new LearningEngine();
-        if (intel.learning) engine.import(intel.learning);
+        if (intel.data.learning) engine.import(intel.data.learning);
 
         if (args.task && args.algorithm) {
           const config = {};
@@ -2926,7 +3044,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           if (args.discountFactor !== undefined) config.discountFactor = args.discountFactor;
           if (args.epsilon !== undefined) config.epsilon = args.epsilon;
           engine.configure(args.task, config);
-          intel.learning = engine.export();
+          intel.data.learning = engine.export();
           intel.save();
         }
 
@@ -2947,7 +3065,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         const engine = new LearningEngine();
-        if (intel.learning) engine.import(intel.learning);
+        if (intel.data.learning) engine.import(intel.data.learning);
 
         const summary = engine.getStatsSummary();
         return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...summary }, null, 2) }] };
@@ -2962,19 +3080,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         const engine = new LearningEngine();
-        if (intel.learning) engine.import(intel.learning);
+        if (intel.data.learning) engine.import(intel.data.learning);
 
         const experience = {
           state: args.state,
           action: args.action,
-          reward: args.reward,
+          reward: boundedNumber(args.reward, -1, 1, 'reward'),
           nextState: args.nextState || args.state,
           done: args.done || false,
           timestamp: Date.now()
         };
 
         const delta = engine.update(args.task, experience);
-        intel.learning = engine.export();
+        intel.data.learning = engine.export();
         intel.save();
 
         return { content: [{ type: 'text', text: JSON.stringify({
@@ -2995,7 +3113,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         const engine = new LearningEngine();
-        if (intel.learning) engine.import(intel.learning);
+        if (intel.data.learning) engine.import(intel.data.learning);
 
         const task = args.task || 'agent-routing';
         let result = { success: true };
@@ -3004,13 +3122,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const experience = {
             state: args.state,
             action: args.action,
-            reward: args.reward,
+            reward: boundedNumber(args.reward, -1, 1, 'reward'),
             nextState: args.state,
             done: true,
             timestamp: Date.now()
           };
           const delta = engine.update(task, experience);
           result.recorded = { experience, delta, algorithm: engine.getConfig(task).algorithm };
+          if (task === 'agent-routing') {
+            recordRoutePattern(intel.data, args.state, args.action, (experience.reward + 1) / 2);
+          }
         }
 
         if (args.actions && args.actions.length > 0) {
@@ -3018,7 +3139,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           result.recommendation = best;
         }
 
-        intel.learning = engine.export();
+        intel.data.learning = engine.export();
         intel.save();
 
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
@@ -3154,7 +3275,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const experience = {
             state: exp.state,
             action: exp.action,
-            reward: exp.reward ?? 0.5,
+            reward: boundedNumber(exp.reward ?? 0.5, -1, 1, 'reward'),
             nextState: exp.nextState ?? exp.state,
             done: exp.done ?? false,
             timestamp: Date.now()
@@ -3275,7 +3396,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'workers_dispatch': {
         const prompt = String(args.prompt);
         try {
-          const result = runNpxPackage('agentic-flow@alpha', ['workers', 'dispatch', prompt], {
+          const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', ['workers', 'dispatch', prompt], {
             timeout: 30000,
             stdio: ['pipe', 'pipe', 'pipe']
           });
@@ -3297,7 +3418,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         try {
           const commandArgs = ['workers', 'status'];
           if (args.workerId) commandArgs.push(String(args.workerId));
-          const result = runNpxPackage('agentic-flow@alpha', commandArgs, {
+          const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', commandArgs, {
             timeout: 15000,
             stdio: ['pipe', 'pipe', 'pipe']
           });
@@ -3318,7 +3439,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         try {
           const commandArgs = ['workers', 'results'];
           if (args.json) commandArgs.push('--json');
-          const result = runNpxPackage('agentic-flow@alpha', commandArgs, {
+          const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', commandArgs, {
             timeout: 15000,
             stdio: ['pipe', 'pipe', 'pipe']
           });
@@ -3347,7 +3468,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'workers_triggers': {
         try {
-          const result = runNpxPackage('agentic-flow@alpha', ['workers', 'triggers'], {
+          const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', ['workers', 'triggers'], {
             timeout: 15000,
             stdio: ['pipe', 'pipe', 'pipe']
           });
@@ -3366,7 +3487,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'workers_stats': {
         try {
-          const result = runNpxPackage('agentic-flow@alpha', ['workers', 'stats'], {
+          const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', ['workers', 'stats'], {
             timeout: 15000,
             stdio: ['pipe', 'pipe', 'pipe']
           });
@@ -3383,10 +3504,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
       }
 
-      // Custom Worker System handlers (agentic-flow@alpha.39+)
+      // Custom Worker System handlers (agentic-flow@3.0.0-alpha.2.39+)
       case 'workers_presets': {
         try {
-          const result = runNpxPackage('agentic-flow@alpha', ['workers', 'presets'], {
+          const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', ['workers', 'presets'], {
             timeout: 15000,
             stdio: ['pipe', 'pipe', 'pipe']
           });
@@ -3398,14 +3519,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           return { content: [{ type: 'text', text: JSON.stringify({
             success: true,
             presets: ['quick-scan', 'deep-analysis', 'security-scan', 'learning', 'api-docs', 'test-analysis'],
-            note: 'Hardcoded fallback - install agentic-flow@alpha for full support'
+            note: 'Hardcoded fallback - install agentic-flow@3.0.0-alpha.2 for full support'
           }, null, 2) }] };
         }
       }
 
       case 'workers_phases': {
         try {
-          const result = runNpxPackage('agentic-flow@alpha', ['workers', 'phases'], {
+          const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', ['workers', 'phases'], {
             timeout: 15000,
             stdio: ['pipe', 'pipe', 'pipe']
           });
@@ -3417,7 +3538,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           return { content: [{ type: 'text', text: JSON.stringify({
             success: true,
             phases: ['file-discovery', 'static-analysis', 'security-analysis', 'pattern-extraction', 'dependency-analysis', 'complexity-analysis', 'test-coverage', 'api-extraction', 'secret-detection', 'report-generation'],
-            note: 'Partial list - install agentic-flow@alpha for all 24 phases'
+            note: 'Partial list - install agentic-flow@3.0.0-alpha.2 for all 24 phases'
           }, null, 2) }] };
         }
       }
@@ -3432,7 +3553,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           // containing quotes or shell metacharacters cannot escape to a shell.
           const commandArgs = ['workers', 'create', name, '--preset', preset];
           if (triggers) commandArgs.push('--triggers', triggers);
-          const result = runNpxPackage('agentic-flow@alpha', commandArgs, {
+          const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', commandArgs, {
             timeout: 30000,
             stdio: ['pipe', 'pipe', 'pipe']
           });
@@ -3454,7 +3575,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const name = String(args.name);
         const targetPath = String(args.path || '.');
         try {
-          const result = runNpxPackage('agentic-flow@alpha', ['workers', 'run', name, '--path', targetPath], {
+          const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', ['workers', 'run', name, '--path', targetPath], {
             timeout: 120000,
             stdio: ['pipe', 'pipe', 'pipe']
           });
@@ -3475,7 +3596,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'workers_custom': {
         try {
-          const result = runNpxPackage('agentic-flow@alpha', ['workers', 'custom'], {
+          const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', ['workers', 'custom'], {
             timeout: 15000,
             stdio: ['pipe', 'pipe', 'pipe']
           });
@@ -3496,7 +3617,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         try {
           const commandArgs = ['workers', 'init-config'];
           if (args.force) commandArgs.push('--force');
-          const result = runNpxPackage('agentic-flow@alpha', commandArgs, {
+          const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', commandArgs, {
             timeout: 15000,
             stdio: ['pipe', 'pipe', 'pipe']
           });
@@ -3517,7 +3638,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'workers_load_config': {
         const configFile = String(args.file || 'workers.yaml');
         try {
-          const result = runNpxPackage('agentic-flow@alpha', ['workers', 'load-config', '--file', configFile], {
+          const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', ['workers', 'load-config', '--file', configFile], {
             timeout: 30000,
             stdio: ['pipe', 'pipe', 'pipe']
           });
@@ -4161,8 +4282,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         const query = args.query;
-        let regex;
-        try { regex = new RegExp(query, 'gi'); } catch { regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'); }
+        if (typeof query !== 'string' || query.length === 0 || query.length > 500) {
+          throw new Error('query must be a non-empty string of at most 500 characters');
+        }
+        // Literal match only: a caller-supplied RegExp can block the event loop (ReDoS).
+        const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
 
         const matches = [];
         for (const mod of result.modules) {

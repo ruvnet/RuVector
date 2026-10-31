@@ -109,18 +109,15 @@ function beautify(source) {
  */
 function tryRustDecompiler(filePath, outputDir) {
   try {
-    const { execSync } = require('child_process');
+    const { execFileSync } = require('child_process');
     // Try to find the Rust binary
     const candidates = [
-      'cargo run --release -p ruvector-decompiler --example run_on_cli --',
-      path.join(__dirname, '../../../../target/release/examples/run_on_cli'),
+      ['cargo', ['run', '--release', '-p', 'ruvector-decompiler', '--example', 'run_on_cli', '--']],
+      [path.join(__dirname, '../../../../target/release/examples/run_on_cli'), []],
     ];
-    for (const bin of candidates) {
+    for (const [bin, prefix] of candidates) {
       try {
-        const cmd = bin.includes('cargo')
-          ? `${bin} "${filePath}" --output-dir "${outputDir}"`
-          : `"${bin}" "${filePath}" --output-dir "${outputDir}"`;
-        const result = execSync(cmd, {
+        const result = execFileSync(bin, [...prefix, String(filePath), '--output-dir', String(outputDir)], {
           timeout: 120000,
           stdio: ['pipe', 'pipe', 'pipe'],
           cwd: path.join(__dirname, '../../../..'),
@@ -359,13 +356,70 @@ function decompileFile(filePath, options = {}) {
  * @param {object} [options]
  * @returns {Promise<{modules: object[], metrics: object, witness: object|null, url: string, source: string}>}
  */
+const MAX_FETCH_BYTES = 50 * 1024 * 1024;
+const MAX_REDIRECTS = 5;
+
+/** True for loopback, link-local (incl. cloud metadata), private, CGNAT, ULA and unspecified addresses. */
+function isPrivateAddress(ip) {
+  const net = require('net');
+  if (net.isIPv4(ip)) {
+    const [a, b] = ip.split('.').map(Number);
+    return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
+      (a === 100 && b >= 64 && b <= 127) || a >= 224;
+  }
+  const v = ip.toLowerCase();
+  if (v.startsWith('::ffff:')) return isPrivateAddress(v.slice(7));
+  return v === '::' || v === '::1' || v.startsWith('fc') || v.startsWith('fd') ||
+    v.startsWith('fe8') || v.startsWith('fe9') || v.startsWith('fea') || v.startsWith('feb');
+}
+
+/**
+ * Refuse URLs that resolve to internal networks (SSRF). Set
+ * RUVECTOR_ALLOW_PRIVATE_FETCH=1 to decompile from localhost/intranet hosts.
+ */
+async function assertPublicUrl(rawUrl) {
+  const u = new URL(rawUrl);
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    throw new Error(`Unsupported URL protocol: ${u.protocol}`);
+  }
+  if (process.env.RUVECTOR_ALLOW_PRIVATE_FETCH === '1') return u;
+  const host = u.hostname.replace(/^\[|\]$/g, '');
+  const addrs = await require('dns').promises.lookup(host, { all: true, verbatim: true });
+  for (const { address } of addrs) {
+    if (isPrivateAddress(address)) {
+      throw new Error(`Refusing to fetch ${u.host}: resolves to private address ${address} ` +
+        '(set RUVECTOR_ALLOW_PRIVATE_FETCH=1 to allow)');
+    }
+  }
+  return u;
+}
+
 async function decompileUrl(url, options = {}) {
-  const resp = await fetch(url, { redirect: 'follow' });
+  let current = url;
+  let resp;
+  for (let hop = 0; ; hop++) {
+    await assertPublicUrl(current);
+    resp = await fetch(current, { redirect: 'manual' });
+    if (resp.status >= 300 && resp.status < 400 && resp.headers.get('location')) {
+      if (hop >= MAX_REDIRECTS) throw new Error(`Too many redirects fetching ${url}`);
+      current = new URL(resp.headers.get('location'), current).toString();
+      continue;
+    }
+    break;
+  }
   if (!resp.ok) {
     throw new Error(`Failed to fetch ${url} (HTTP ${resp.status})`);
   }
+  const declared = Number(resp.headers.get('content-length'));
+  if (declared > MAX_FETCH_BYTES) {
+    throw new Error(`Response too large (${declared} bytes, limit ${MAX_FETCH_BYTES})`);
+  }
 
   const source = await resp.text();
+  if (source.length > MAX_FETCH_BYTES) {
+    throw new Error(`Response too large (limit ${MAX_FETCH_BYTES} bytes)`);
+  }
   const result = decompileSource(source, options);
 
   return {
@@ -448,6 +502,7 @@ function writeOutput(result, outputDir, format = 'modules') {
 }
 
 module.exports = {
+  isPrivateAddress,
   decompilePackage,
   decompileFile,
   decompileUrl,
