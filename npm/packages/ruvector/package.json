@@ -1,6 +1,6 @@
 {
   "name": "ruvector",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Self-learning vector database for Node.js — native HNSW, ONNX embeddings, GNN, attention, SONA routing, and an MCP server for agents",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -24,6 +24,7 @@ const {
 } = require('@modelcontextprotocol/sdk/types.js');
 const path = require('path');
 const fs = require('fs');
+const { serializeStore, resolveIntelStorePath } = require('./intel-store');
 const { execFileSync } = require('child_process');
 
 // ADR-256: default-deny MCP tool-access policy (RUVECTOR_MCP_ALLOW/DENY/PROFILE)
@@ -340,12 +341,7 @@ class Intelligence {
   }
 
   getIntelPath() {
-    const projectPath = path.join(process.cwd(), '.ruvector', 'intelligence.json');
-    const homePath = path.join(require('os').homedir(), '.ruvector', 'intelligence.json');
-    if (fs.existsSync(path.dirname(projectPath))) return projectPath;
-    if (fs.existsSync(path.join(process.cwd(), '.claude'))) return projectPath;
-    if (fs.existsSync(homePath)) return homePath;
-    return projectPath;
+    return resolveIntelStorePath();
   }
 
   diskMtimeMs() {
@@ -515,7 +511,7 @@ class Intelligence {
       } catch {}
     }
 
-    atomicWriteFileSync(this.intelPath, JSON.stringify(this.data, null, 2));
+    atomicWriteFileSync(this.intelPath, serializeStore(this.data));
     this.loadedMtimeMs = this.diskMtimeMs();
   }
 

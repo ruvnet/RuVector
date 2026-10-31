@@ -8,6 +8,7 @@ const _chalk = require('chalk');
 const chalk = _chalk.default || _chalk;
 const fs = require('fs');
 const path = require('path');
+const { serializeStore, resolveIntelStorePath } = require('./intel-store');
 
 // Lazy load ora (spinner) - only needed for commands with progress indicators
 let _oraModule = null;
@@ -3195,20 +3196,6 @@ function releaseAllIntelLocks() {
   heldIntelLocks.clear();
 }
 
-/**
- * The one place that decides where the intelligence store lives. Every hooks
- * command must use it — standalone learning commands used to hard-code
- * cwd/.ruvector and so wrote to a different file than `hooks route` read.
- */
-function resolveIntelStorePath() {
-  const projectPath = path.join(process.cwd(), '.ruvector', 'intelligence.json');
-  const homePath = path.join(require('os').homedir(), '.ruvector', 'intelligence.json');
-  if (fs.existsSync(path.dirname(projectPath))) return projectPath;
-  if (fs.existsSync(path.join(process.cwd(), '.claude'))) return projectPath;
-  if (fs.existsSync(homePath)) return homePath;
-  return projectPath;
-}
-
 /** Parse a numeric CLI/MCP input; reject non-finite values and clamp to [min, max]. */
 function parseBoundedNumber(value, min, max, name) {
   const n = typeof value === 'number' ? value : parseFloat(value);
@@ -3427,7 +3414,7 @@ class Intelligence {
       }
     }
 
-    atomicWriteFileSync(this.intelPath, JSON.stringify(this.data, null, 2));
+    atomicWriteFileSync(this.intelPath, serializeStore(this.data));
   }
 
   now() { return Math.floor(Date.now() / 1000); }
@@ -3988,6 +3975,12 @@ class Intelligence {
     // The stored total_errors counter is only refreshed by recordErrorFix(), so a store whose errors arrived another
     // way (an import, a merge, another process) reported "0 error patterns" beside stored fixes. Count them.
     if (baseStats && this.data.errors && typeof this.data.errors === 'object') baseStats.total_errors = Object.keys(this.data.errors).length;
+    // Same for the other counters: report what is stored, not a cached number.
+    if (baseStats) {
+      baseStats.total_patterns = Object.keys(this.data.patterns || {}).length;
+      baseStats.total_memories = (this.data.memories || []).length;
+      baseStats.total_trajectories = (this.data.trajectories || []).length;
+    }
 
     // Only use engine if already initialized (don't trigger lazy load for optional stats)
     const eng = this.getEngineIfReady();
