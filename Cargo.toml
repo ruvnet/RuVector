@@ -474,6 +474,14 @@ debug = true
 [profile.dev.package.ruvector-edge-index]
 opt-level = 3
 
+# ruvector-mincut's subpolynomial tests and two ruvector-exotic-wasm doctests are
+# compute-bound and set the Workspace CI critical path at opt-level 0. Same fix as above.
+[profile.dev.package.ruvector-mincut]
+opt-level = 3
+
+[profile.dev.package.ruvector-exotic-wasm]
+opt-level = 3
+
 # Patch hnsw_rs to use rand 0.8 instead of 0.9 for WASM compatibility
 # This resolves the getrandom version conflict (0.2 vs 0.3)
 [patch.crates-io]
