@@ -21,7 +21,12 @@ pub mod verify_witness;
 /// RvfError implements Display but not std::error::Error (it is no_std),
 /// so we wrap it in a std::io::Error for CLI error propagation.
 pub fn map_rvf_err(e: rvf_types::RvfError) -> Box<dyn std::error::Error> {
-    Box::new(std::io::Error::other(format!("{e}")))
+    // Name the code: "RVF error code 0x0200" alone sends people to the source.
+    let msg = match &e {
+        rvf_types::RvfError::Code(c) => format!("{c:?} ({e})"),
+        _ => format!("{e}"),
+    };
+    Box::new(std::io::Error::other(msg))
 }
 
 /// Warn on stderr when a store opened with a damaged metadata chain.

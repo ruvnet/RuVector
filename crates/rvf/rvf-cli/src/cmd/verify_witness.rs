@@ -254,5 +254,9 @@ pub fn run(args: VerifyWitnessArgs) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    // A failed verification must fail the command (text or --json), or scripts see success.
+    if !all_valid {
+        return Err(format!("{} witness chain(s) failed verification", chain_breaks.len()).into());
+    }
     Ok(())
 }

@@ -34,6 +34,15 @@ pub fn run(args: QueryArgs) -> Result<(), Box<dyn std::error::Error>> {
             s.trim()
                 .parse::<f32>()
                 .map_err(|e| format!("Invalid vector component '{s}': {e}"))
+                .and_then(|x| {
+                    // NaN/inf parse as f32 but make every distance NaN or inf, so the
+                    // "nearest" results are meaningless.
+                    if x.is_finite() {
+                        Ok(x)
+                    } else {
+                        Err(format!("Invalid vector component '{s}': must be finite"))
+                    }
+                })
         })
         .collect::<Result<Vec<_>, _>>()?;
 

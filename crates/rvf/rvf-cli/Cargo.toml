@@ -34,3 +34,6 @@ ctrlc = { version = "3", optional = true }
 default = []
 serve = ["dep:rvf-server", "dep:tokio"]
 launch = ["dep:rvf-launch", "dep:ctrlc"]
+
+[dev-dependencies]
+tempfile = "3"

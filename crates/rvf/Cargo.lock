@@ -1719,6 +1719,7 @@ dependencies = [
  "rvf-wire",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
 ]
 
