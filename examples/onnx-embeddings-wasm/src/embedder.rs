@@ -100,7 +100,7 @@ impl WasmEmbedder {
         tokenizer_json: &str,
         config: WasmEmbedderConfig,
     ) -> std::result::Result<WasmEmbedder, JsValue> {
-        let model = TractModel::from_bytes(model_bytes, config.max_length)
+        let model = TractModel::from_bytes(model_bytes)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let tokenizer = WasmTokenizer::from_json(tokenizer_json, config.max_length)
@@ -163,12 +163,17 @@ impl WasmEmbedder {
         // Tokenize
         let encoded = self.tokenizer.encode(text)?;
         let attention_mask = encoded.attention_mask.clone();
+        let seq_len = attention_mask.len();
+
+        // A zero-length sequence cannot be run; an all-masked input pools to zeros.
+        if seq_len == 0 {
+            return Ok(vec![0.0; self.hidden_size]);
+        }
 
         // Run inference
         let raw_output = self.model.run(&encoded)?;
 
-        // Determine hidden size from output
-        let seq_len = self.config.max_length;
+        // Determine hidden size from output ([1, seq_len, hidden] flattened)
         if raw_output.len() >= seq_len {
             let detected_hidden = raw_output.len() / seq_len;
             if detected_hidden != self.hidden_size && detected_hidden > 0 {
