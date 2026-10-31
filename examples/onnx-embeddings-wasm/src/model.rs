@@ -14,30 +14,27 @@ pub struct TractModel {
 
 impl TractModel {
     /// Load model from ONNX bytes
-    pub fn from_bytes(bytes: &[u8], max_seq_length: usize) -> Result<Self> {
+    ///
+    /// The sequence dimension is declared symbolic (`S`), so a single optimized
+    /// plan serves every input length and inference cost scales with the
+    /// actual token count. Truncation to the configured maximum length is the
+    /// tokenizer's job; inputs are never padded.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         // Parse ONNX model
         let model = tract_onnx::onnx()
             .model_for_read(&mut std::io::Cursor::new(bytes))
             .map_err(|e| WasmEmbeddingError::model(format!("Failed to parse ONNX: {}", e)))?;
 
-        // Set input shapes for optimization
-        // Standard transformer inputs: [batch, seq_len]
-        let batch = 1usize;
-        let seq_len = max_seq_length;
+        // Standard transformer inputs: [batch = 1, seq_len = S]
+        let seq = model.sym("S");
+        let input_fact = || {
+            InferenceFact::dt_shape(i64::datum_type(), tvec![1.to_dim(), seq.to_dim()])
+        };
 
         let model = model
-            .with_input_fact(
-                0,
-                InferenceFact::dt_shape(i64::datum_type(), tvec![batch, seq_len]),
-            )?
-            .with_input_fact(
-                1,
-                InferenceFact::dt_shape(i64::datum_type(), tvec![batch, seq_len]),
-            )?
-            .with_input_fact(
-                2,
-                InferenceFact::dt_shape(i64::datum_type(), tvec![batch, seq_len]),
-            )?;
+            .with_input_fact(0, input_fact())?
+            .with_input_fact(1, input_fact())?
+            .with_input_fact(2, input_fact())?;
 
         // Optimize the model
         let model = model

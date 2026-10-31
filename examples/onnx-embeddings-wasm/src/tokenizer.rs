@@ -20,19 +20,20 @@ pub struct EncodedInput {
 impl WasmTokenizer {
     /// Create a new tokenizer from JSON configuration
     pub fn from_json(json: &str, max_length: usize) -> Result<Self> {
-        let tokenizer = Tokenizer::from_bytes(json.as_bytes())
-            .map_err(|e| WasmEmbeddingError::tokenizer(e.to_string()))?;
-
-        Ok(Self {
-            tokenizer,
-            max_length,
-        })
+        Self::from_bytes(json.as_bytes(), max_length)
     }
 
     /// Create tokenizer from raw bytes
+    ///
+    /// Any padding configured in the tokenizer JSON (e.g. sentence-transformers'
+    /// `Fixed: 128`) is disabled: padded positions are attention-masked and
+    /// excluded from pooling, so they only cost inference time. Truncation
+    /// configured in the JSON is kept unchanged — it defines which tokens the
+    /// embedding sees.
     pub fn from_bytes(bytes: &[u8], max_length: usize) -> Result<Self> {
-        let tokenizer = Tokenizer::from_bytes(bytes)
+        let mut tokenizer = Tokenizer::from_bytes(bytes)
             .map_err(|e| WasmEmbeddingError::tokenizer(e.to_string()))?;
+        tokenizer.with_padding(None);
 
         Ok(Self {
             tokenizer,
@@ -40,7 +41,12 @@ impl WasmTokenizer {
         })
     }
 
-    /// Encode a single text
+    /// Encode a single text, truncated to `max_length` tokens.
+    ///
+    /// No padding is applied: the model runs with a symbolic sequence length,
+    /// so the encoding is exactly as long as the (truncated) token sequence.
+    /// Padding positions were fully masked out before, so the output is
+    /// numerically equivalent while costing far less for short texts.
     pub fn encode(&self, text: &str) -> Result<EncodedInput> {
         let encoding = self
             .tokenizer
@@ -61,13 +67,6 @@ impl WasmTokenizer {
             input_ids.truncate(self.max_length);
             attention_mask.truncate(self.max_length);
             token_type_ids.truncate(self.max_length);
-        }
-
-        // Pad if necessary
-        while input_ids.len() < self.max_length {
-            input_ids.push(0);
-            attention_mask.push(0);
-            token_type_ids.push(0);
         }
 
         Ok(EncodedInput {
