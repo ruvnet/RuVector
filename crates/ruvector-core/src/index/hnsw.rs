@@ -10,6 +10,11 @@ use dashmap::DashMap;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
+/// At or below this many live vectors, HNSW's approximation is not worth its
+/// blind spots (ruvnet/RuVector#1298): a graph this small is scanned exactly,
+/// which also skips tombstones left behind by deletes.
+const EXACT_SEARCH_MAX_ELEMENTS: usize = 1_024;
+
 /// HNSW index wrapper
 pub struct HnswIndex {
     inner: Arc<RwLock<HnswInner>>,
@@ -257,10 +262,38 @@ impl HnswIndex {
             return Ok(vec![]);
         }
 
-        // ef_search < k causes hnsw_rs to return fewer than k candidates; clamp.
-        let effective_ef = ef_search.max(k);
+        // On tiny indexes, scan the live vectors exactly. HNSW can return
+        // fewer than the stored rows (ruvnet/RuVector#1298), and a deleted
+        // node still occupies a graph slot, so a top-k cut made before
+        // filtering tombstones also drops live neighbours.
+        if inner.vectors.len() <= EXACT_SEARCH_MAX_ELEMENTS {
+            let mut results: Vec<SearchResult> = inner
+                .vectors
+                .iter()
+                .map(|entry| SearchResult {
+                    id: entry.key().clone(),
+                    score: distance(query, entry.value(), self.metric).unwrap_or(f32::MAX),
+                    vector: None,
+                    metadata: None,
+                })
+                .collect();
+            results.sort_unstable_by(|a, b| {
+                a.score
+                    .partial_cmp(&b.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            results.truncate(k);
+            return Ok(results);
+        }
 
-        let neighbors = inner.hnsw.search(query, k, effective_ef);
+        // ef_search < k causes the graph to return fewer than k candidates;
+        // clamp. Tombstoned nodes still have graph slots, so over-fetch enough
+        // candidates to fill k after they are filtered out.
+        let tombstones = inner.hnsw.len().saturating_sub(inner.vectors.len());
+        let wanted = k.saturating_add(tombstones);
+        let effective_ef = ef_search.max(wanted);
+
+        let neighbors = inner.hnsw.search(query, wanted, effective_ef);
 
         let mut results: Vec<SearchResult> = neighbors
             .into_iter()
@@ -274,12 +307,13 @@ impl HnswIndex {
             })
             .collect();
 
-        // hnsw_rs does not guarantee sort order — ensure ascending distance.
+        // The graph does not guarantee sort order — ensure ascending distance.
         results.sort_unstable_by(|a, b| {
             a.score
                 .partial_cmp(&b.score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
+        results.truncate(k);
 
         Ok(results)
     }
