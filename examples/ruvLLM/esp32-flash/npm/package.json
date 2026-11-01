@@ -47,7 +47,8 @@
     "README.md"
   ],
   "scripts": {
-    "postinstall": "node bin/postinstall.js"
+    "postinstall": "node bin/postinstall.js",
+    "test": "node --test test/install-tempfile.test.js"
   },
   "engines": {
     "node": ">=16.0.0"
