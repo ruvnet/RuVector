@@ -76,6 +76,14 @@ function validateRvfPath(filePath) {
   return resolved;
 }
 
+/** validateRvfPath for every entry of an MCP `files` array argument. */
+function validateFileList(files) {
+  if (!Array.isArray(files) || files.length === 0) {
+    throw new Error('files must be a non-empty array of paths');
+  }
+  return files.map(validateRvfPath);
+}
+
 function realOrResolved(p) {
   try { return fs.realpathSync(path.resolve(p)); } catch { return path.resolve(p); }
 }
@@ -2765,7 +2773,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'hooks_ast_analyze': {
         try {
-          const output = runRuvectorCli(['hooks', 'ast-analyze', args.file, '--json'], { timeout: 30000 });
+          const output = runRuvectorCli(['hooks', 'ast-analyze', validateRvfPath(args.file), '--json'], { timeout: 30000 });
           return { content: [{ type: 'text', text: output }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }] };
@@ -2776,7 +2784,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         try {
           const threshold = parseInt(args.threshold, 10) || 10;
           const output = runRuvectorCli(
-            ['hooks', 'ast-complexity', ...args.files, '--threshold', threshold],
+            ['hooks', 'ast-complexity', ...validateFileList(args.files), '--threshold', threshold],
             { timeout: 60000 },
           );
           return { content: [{ type: 'text', text: output }] };
@@ -2824,7 +2832,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'hooks_coverage_route': {
         try {
-          const output = runRuvectorCli(['hooks', 'coverage-route', args.file], { timeout: 15000 });
+          const output = runRuvectorCli(['hooks', 'coverage-route', validateRvfPath(args.file)], { timeout: 15000 });
           return { content: [{ type: 'text', text: output }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }] };
@@ -2833,7 +2841,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'hooks_coverage_suggest': {
         try {
-          const output = runRuvectorCli(['hooks', 'coverage-suggest', ...args.files], { timeout: 30000 });
+          const output = runRuvectorCli(['hooks', 'coverage-suggest', ...validateFileList(args.files)], { timeout: 30000 });
           return { content: [{ type: 'text', text: output }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }] };
@@ -2842,7 +2850,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'hooks_graph_mincut': {
         try {
-          const output = runRuvectorCli(['hooks', 'graph-mincut', ...args.files], { timeout: 60000 });
+          const output = runRuvectorCli(['hooks', 'graph-mincut', ...validateFileList(args.files)], { timeout: 60000 });
           return { content: [{ type: 'text', text: output }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }] };
@@ -2854,7 +2862,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const method = args.method || 'louvain';
           const clusters = parseInt(args.clusters, 10) || 3;
           const output = runRuvectorCli(
-            ['hooks', 'graph-cluster', ...args.files, '--method', method, '--clusters', clusters],
+            ['hooks', 'graph-cluster', ...validateFileList(args.files), '--method', method, '--clusters', clusters],
             { timeout: 60000 },
           );
           return { content: [{ type: 'text', text: output }] };
@@ -2865,7 +2873,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'hooks_security_scan': {
         try {
-          const output = runRuvectorCli(['hooks', 'security-scan', ...args.files], { timeout: 120000 });
+          const output = runRuvectorCli(['hooks', 'security-scan', ...validateFileList(args.files)], { timeout: 120000 });
           return { content: [{ type: 'text', text: output }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }] };
@@ -2924,7 +2932,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               const ASTParserCls = ASTParserMod.ASTParser || ASTParserMod.default;
               if (ASTParserCls) {
                 const parser = new ASTParserCls();
-                const code = require('fs').readFileSync(args.file, 'utf-8');
+                const code = require('fs').readFileSync(validateRvfPath(args.file), 'utf-8');
                 const ext = require('path').extname(args.file).slice(1);
                 const parsed = parser.parse(code, ext);
                 complexity = parser.calculateComplexity(parsed);
