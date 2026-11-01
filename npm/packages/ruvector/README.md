@@ -20,6 +20,22 @@ npx ruvector hooks remember --semantic --type decision "Keep customer inference 
 npx ruvector hooks recall --semantic --top-k 3 "Where should inference run?"
 ```
 
+Memories and vector stores support full create, read, update and delete:
+
+```bash
+npx ruvector hooks memory-list --type decision          # ids, newest first
+npx ruvector hooks memory-update <id> --content "Keep customer inference in Canada and the EU."
+npx ruvector hooks forget <id>
+
+npx ruvector create vectors.db -d 384                   # vector store
+npx ruvector insert vectors.db data.json                # [{id, vector, metadata?}], existing ids are replaced
+npx ruvector get vectors.db doc-1
+npx ruvector update vectors.db doc-1 --metadata '{"tag":"reviewed"}' --merge
+npx ruvector delete vectors.db doc-1 doc-2
+```
+
+The same operations are available as MCP tools (`hooks_memory_*`, `hooks_forget`, `vectordb_*`) and in the library (`VectorDB#insert/get/update/delete/deleteMany`).
+
 The first semantic command downloads a local embedding model. Memory belongs to the current project. Run recall again from the same directory in a new terminal to check persistence. Commit your lockfile to preserve dependency resolution.
 
 **Backend check:** native vector operations require a working native backend. If it cannot load, the limited fallback does not provide persistent vector storage. Browser applications should use the [WASM package and tutorial](https://github.com/ruvnet/RuVector/blob/main/examples/wasm-vanilla/README.md). See [supported deployment surfaces](https://github.com/ruvnet/RuVector#deployment-surfaces).

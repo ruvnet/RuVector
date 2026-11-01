@@ -571,8 +571,10 @@ export class IntelligenceEngine {
   /**
    * Store content in vector memory (uses ONNX if available)
    */
-  async remember(content: string, type: string = 'general'): Promise<MemoryEntry> {
-    const id = `mem-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  async remember(content: string, type: string = 'general', id?: string): Promise<MemoryEntry> {
+    // Callers that persist the memory elsewhere pass their own id so the engine
+    // and the store agree on it (forget/update address memories by id).
+    id = id || `mem-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     // Use async ONNX embeddings if available for better semantic quality
     const embedding = await this.embedAsync(content);
 
@@ -601,6 +603,37 @@ export class IntelligenceEngine {
     }
 
     return entry;
+  }
+
+  /**
+   * Remove a memory by id. Returns false when the id is unknown.
+   */
+  forget(id: string): boolean {
+    const existed = this.memories.delete(id);
+    if (existed && this.vectorDb) {
+      this.vectorDb.delete(id).catch(() => {});
+    }
+    return existed;
+  }
+
+  /**
+   * Replace the in-memory memory set (used when the backing store changed on
+   * disk or was edited), keeping routing and other learned state intact.
+   */
+  replaceMemories(entries: MemoryEntry[]): void {
+    const previous = Array.from(this.memories.keys());
+    this.memories.clear();
+    for (const mem of entries) this.memories.set(mem.id, mem);
+    if (this.vectorDb) {
+      const db = this.vectorDb;
+      Promise.all(previous.map(id => db.delete(id).catch(() => false)))
+        .then(() => Promise.all(entries.filter(m => m.embedding?.length).map(m => db.insert({
+          id: m.id,
+          vector: new Float32Array(m.embedding),
+          metadata: JSON.stringify({ content: m.content, type: m.type, created: m.created }),
+        }).catch(() => {}))))
+        .catch(() => {});
+    }
   }
 
   /**

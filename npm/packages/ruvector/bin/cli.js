@@ -9,6 +9,8 @@ const chalk = _chalk.default || _chalk;
 const fs = require('fs');
 const path = require('path');
 const { serializeStore, resolveIntelStorePath } = require('./intel-store');
+const memoryStore = require('./memory-store');
+const recordValidate = require('./record-validate');
 
 // Lazy load ora (spinner) - only needed for commands with progress indicators
 let _oraModule = null;
@@ -379,6 +381,106 @@ program
       console.log(chalk.white(`  File Size: ${chalk.yellow(fileMb + ' MB')}`));
     } catch (error) {
       spinner.fail(chalk.red('Failed to load database'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+// Open an existing store for get/update/delete. Dimension comes from the
+// sidecar written by create/insert; a missing store is an error (these
+// commands never create one).
+function openExistingVectorDb(dbPath) {
+  if (!fs.existsSync(dbPath)) throw new Error(`Database not found: ${dbPath}`);
+  let dimension = 384;
+  let provenance = null;
+  const metaPath = `${dbPath}.meta.json`;
+  if (fs.existsSync(metaPath)) {
+    try {
+      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+      dimension = sanitizeDimension(meta.dimension, 384);
+      provenance = sanitizeProvenanceSafe(meta.provenance);
+    } catch (_) {}
+  }
+  return { db: new VectorDB({ dimensions: dimension, storagePath: dbPath }), dimension, provenance };
+}
+
+function recordView(record) {
+  return { id: record.id, vector: Array.from(record.vector || []), metadata: record.metadata };
+}
+
+// Read one vector by id
+program
+  .command('get <database> <id>')
+  .description('Get a vector and its metadata by id')
+  .option('--no-vector', 'Omit the vector values from the output')
+  .action(async (dbPath, id, options) => {
+    requireRuvector();
+    try {
+      id = recordValidate.validateRecordId(id);
+      const { db } = openExistingVectorDb(dbPath);
+      const record = await db.get(id);
+      if (!record) {
+        console.error(chalk.red(`Not found: ${id}`));
+        process.exit(1);
+      }
+      const view = recordView({ ...record, id });
+      if (!options.vector) delete view.vector;
+      console.log(JSON.stringify(view, null, 2));
+    } catch (error) {
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+// Update an existing vector (never creates)
+program
+  .command('update <database> <id>')
+  .description('Update the vector and/or metadata of an existing id')
+  .option('-v, --vector <json>', 'New vector as JSON array')
+  .option('-m, --metadata <json>', 'New metadata as JSON object')
+  .option('--merge', 'Merge --metadata into the stored metadata instead of replacing it')
+  .action(async (dbPath, id, options) => {
+    requireRuvector();
+    try {
+      id = recordValidate.validateRecordId(id);
+      if (options.vector === undefined && options.metadata === undefined) {
+        throw new Error('Nothing to update: pass --vector and/or --metadata');
+      }
+      const { db, dimension, provenance } = openExistingVectorDb(dbPath);
+      const patch = { mergeMetadata: !!options.merge };
+      if (options.vector !== undefined) {
+        let parsed;
+        try { parsed = JSON.parse(options.vector); } catch { throw new Error('--vector is not valid JSON'); }
+        // ADR-210 D0: the stored provenance fixes the dimension.
+        patch.vector = recordValidate.validateVector(parsed, provenance ? provenance.dimension : dimension);
+      }
+      if (options.metadata !== undefined) patch.metadata = recordValidate.validateMetadata(options.metadata);
+      const updated = await db.update(id, patch);
+      if (!updated) {
+        console.error(chalk.red(`Not found: ${id}`));
+        process.exit(1);
+      }
+      console.log(chalk.green(`Updated ${id}`));
+    } catch (error) {
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+// Delete vectors by id
+program
+  .command('delete <database> <ids...>')
+  .description('Delete one or more vectors by id')
+  .action(async (dbPath, ids) => {
+    requireRuvector();
+    try {
+      ids = recordValidate.validateIdList(ids);
+      const { db } = openExistingVectorDb(dbPath);
+      const { deleted, missing } = await db.deleteMany(ids);
+      console.log(chalk.green(`Deleted ${deleted.length} vector(s)`));
+      if (missing.length) console.log(chalk.yellow(`  Not found: ${missing.join(', ')}`));
+      if (deleted.length === 0) process.exit(1);
+    } catch (error) {
       console.error(chalk.red(error.message));
       process.exit(1);
     }
@@ -3357,9 +3459,12 @@ class Intelligence {
     // that iterates arrays or spreads objects.
     const asArray = (v, dflt) => (Array.isArray(v) ? v : dflt);
     const asObject = (v, dflt) => (v && typeof v === 'object' && !Array.isArray(v) ? v : dflt);
+    const memories = asArray(data.memories, defaults.memories);
+    // Every memory gets a stable id so get/update/forget can address it.
+    memoryStore.ensureMemoryIds({ memories });
     return {
       patterns: asObject(data.patterns, defaults.patterns),
-      memories: asArray(data.memories, defaults.memories),
+      memories,
       trajectories: asArray(data.trajectories, defaults.trajectories),
       errors: asObject(data.errors, defaults.errors),
       file_sequences: asArray(data.file_sequences, defaults.file_sequences),
@@ -3576,7 +3681,7 @@ class Intelligence {
     if (this.engine) {
       let entry = null;
       try {
-        entry = await this.engine.remember(content, memoryType);
+        entry = await this.engine.remember(content, memoryType, memoryStore.newMemoryId());
       } catch (e) {
         // RUVECTOR_EMBEDDER=minilm is an explicit hard requirement. Do not
         // silently route a failed semantic write through the sync hash path:
@@ -3610,7 +3715,7 @@ class Intelligence {
   }
 
   remember(memoryType, content, metadata = {}) {
-    const id = `mem_${this.now()}`;
+    const id = memoryStore.newMemoryId();
     const embedding = this.embed(content);
     // ADR-210 D0: refuse mismatched/legacy vector writes (throws), or skip
     // under RUVECTOR_REEMBED=warn (returns null).
@@ -3627,6 +3732,45 @@ class Intelligence {
     }
 
     return id;
+  }
+
+  /**
+   * Update a memory in place. New content is embedded through the same path
+   * as remember()/rememberAsync() and passes the same provenance gate, so an
+   * edit can never create a mixed store (ADR-210). Returns the updated view,
+   * null when the id is unknown, or throws on invalid input / refusal.
+   */
+  async updateMemory(id, patch, { semantic = false } = {}) {
+    const hit = memoryStore.findMemory(this.data, id);
+    if (!hit) return null;
+    const clean = memoryStore.validateMemoryPatch(patch);
+    let embedding;
+    if (clean.content !== undefined) {
+      if (semantic && this.engine) {
+        embedding = await this.engine.embedAsync(clean.content);
+        const active = typeof this.engine.getActiveProvenance === 'function'
+          ? this.engine.getActiveProvenance()
+          : this.syncWriteProvenance(embedding);
+        const guard = this.guardVectorWrite(active);
+        if (!guard.ok) throw Object.assign(new Error(guard.error || 'store is read-only for vector writes (ADR-210)'), { code: 'ERR_EMBEDDING_PROVENANCE' });
+      } else {
+        embedding = this.embed(clean.content);
+        const guard = this.guardVectorWrite(this.syncWriteProvenance(embedding));
+        if (!guard.ok) throw Object.assign(new Error(guard.error || 'store is read-only for vector writes (ADR-210)'), { code: 'ERR_EMBEDDING_PROVENANCE' });
+      }
+    }
+    const view = memoryStore.applyMemoryPatch(hit.memory, clean, embedding);
+    const eng = this.getEngineIfReady();
+    if (eng && typeof eng.forget === 'function') eng.forget(id);
+    return view;
+  }
+
+  /** Remove memories by id; returns { deleted, missing }. */
+  forgetMemories(ids) {
+    const result = memoryStore.deleteMemories(this.data, ids);
+    const eng = this.getEngineIfReady();
+    if (eng && typeof eng.forget === 'function') result.deleted.forEach(id => eng.forget(id));
+    return result;
   }
 
   /**
@@ -5008,7 +5152,77 @@ hooksCmd.command('recall').description('Search memory').argument('<query...>', '
   } else {
     results = intel.recall(query.join(' '), parseInt(opts.topK));
   }
-  console.log(JSON.stringify({ query: query.join(' '), semantic, results: results.map(r => ({ type: r.memory_type || 'unknown', content: (r.content || '').slice(0, 200), timestamp: r.timestamp || '', score: r.score })) }, null, 2));
+  console.log(JSON.stringify({ query: query.join(' '), semantic, results: results.map(r => ({ id: r.id, type: r.memory_type || 'unknown', content: (r.content || '').slice(0, 200), timestamp: r.timestamp || '', score: r.score })) }, null, 2));
+});
+
+// Memory CRUD: remember (create) / recall + memory-get + memory-list (read) /
+// memory-update / forget (delete). Ids come from `remember`, `recall` or `memory-list`.
+function printJsonResult(obj, ok = true) {
+  console.log(JSON.stringify(obj, null, 2));
+  if (!ok) process.exitCode = 1;
+}
+
+hooksCmd.command('memory-get').description('Show one memory by id').argument('<id>', 'Memory id').action((id) => {
+  try {
+    const intel = new Intelligence({ skipEngine: true });
+    const memory = memoryStore.getMemory(intel.data, id);
+    releaseIntelLock(intel.intelPath);
+    if (!memory) return printJsonResult({ success: false, error: `memory not found: ${id}` }, false);
+    printJsonResult({ success: true, memory });
+  } catch (e) { printJsonResult({ success: false, error: e.message }, false); }
+});
+
+hooksCmd.command('memory-list').description('List memories, newest first')
+  .option('-t, --type <type>', 'Only memories of this type')
+  .option('-l, --limit <n>', 'Page size (max 1000)', '50')
+  .option('-o, --offset <n>', 'Skip this many', '0')
+  .action((opts) => {
+    try {
+      const intel = new Intelligence({ skipEngine: true });
+      const type = opts.type ? memoryStore.validateMemoryType(opts.type) : undefined;
+      const page = memoryStore.listMemories(intel.data, { type, limit: opts.limit, offset: opts.offset });
+      releaseIntelLock(intel.intelPath);
+      printJsonResult({ success: true, ...page });
+    } catch (e) { printJsonResult({ success: false, error: e.message }, false); }
+  });
+
+hooksCmd.command('memory-update').description('Update a memory (content is re-embedded)')
+  .argument('<id>', 'Memory id')
+  .option('-c, --content <text>', 'New content')
+  .option('-t, --type <type>', 'New type')
+  .option('-m, --metadata <json>', 'Replace metadata (JSON object)')
+  .option('--semantic', 'Embed new content with ONNX (match how the store was written)')
+  .action(async (id, opts) => {
+    const intel = new Intelligence();
+    try {
+      const patch = {};
+      if (opts.content !== undefined) patch.content = opts.content;
+      if (opts.type !== undefined) patch.type = opts.type;
+      if (opts.metadata !== undefined) patch.metadata = opts.metadata;
+      const semantic = opts.content !== undefined && hooksUseSemanticEmbedder(intel, opts.semantic);
+      const memory = await intel.updateMemory(id, patch, { semantic });
+      if (!memory) {
+        releaseIntelLock(intel.intelPath);
+        return printJsonResult({ success: false, error: `memory not found: ${id}` }, false);
+      }
+      intel.save();
+      printJsonResult({ success: true, memory });
+    } catch (e) {
+      releaseIntelLock(intel.intelPath);
+      printJsonResult({ success: false, error: e.message, code: e.code }, false);
+    }
+  });
+
+hooksCmd.command('forget').description('Delete memories by id').argument('<ids...>', 'Memory ids').action((ids) => {
+  const intel = new Intelligence({ skipEngine: true });
+  try {
+    const result = intel.forgetMemories(recordValidate.validateIdList(ids, 'memory ids'));
+    if (result.deleted.length > 0) intel.save(); else releaseIntelLock(intel.intelPath);
+    printJsonResult({ success: result.deleted.length > 0, ...result }, result.deleted.length > 0);
+  } catch (e) {
+    releaseIntelLock(intel.intelPath);
+    printJsonResult({ success: false, error: e.message }, false);
+  }
 });
 
 // ADR-210 D1: maintenance command — re-embed hash-era memories with the
@@ -8193,6 +8407,21 @@ rvfCmd.command('query <path>')
       await rvfClose(store);
       results.forEach((r, i) => console.log(chalk.dim(`  ${i+1}. id=${r.id}  dist=${r.distance.toFixed(6)}`)));
       console.log(chalk.green(`${results.length} results`));
+    } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
+  });
+
+rvfCmd.command('delete <path>')
+  .description('Delete vectors by id (ingest of an existing id already replaces it)')
+  .requiredOption('--ids <ids>', 'Comma-separated vector ids')
+  .action(async (storePath, opts) => {
+    try {
+      const ids = recordValidate.validateIdList(opts.ids.split(',').map(s => s.trim()).filter(Boolean));
+      const { openRvfStore, rvfDelete, rvfClose } = require('../dist/core/rvf-wrapper.js');
+      const store = await openRvfStore(storePath);
+      try {
+        const result = await rvfDelete(store, ids);
+        console.log(chalk.green(`Deleted ${result.deleted} vector(s)`));
+      } finally { await rvfClose(store); }
     } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
   });
 

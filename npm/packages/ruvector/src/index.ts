@@ -243,20 +243,79 @@ class VectorDBWrapper {
       nativeEntry.metadata = JSON.stringify(entry.metadata);
     }
 
+    // Inserting an existing id is an upsert. The native HNSW index keeps the
+    // old node when an id is re-inserted, so search would return the id twice
+    // (once with its stale vector); removing it first keeps the index exact.
+    if (entry.id !== undefined && entry.id !== null && (await this.db.get(entry.id))) {
+      await this.db.delete(entry.id);
+    }
+
     return this.db.insert(nativeEntry);
   }
 
   /**
-   * Insert multiple vectors in batch
+   * Insert multiple vectors in batch. Existing ids are replaced (upsert), and
+   * when the batch repeats an id the last entry wins.
    */
   async insertBatch(entries: Array<{ id?: string; vector: Float32Array | number[]; metadata?: Record<string, any> }>): Promise<string[]> {
-    const nativeEntries = entries.map(entry => ({
+    const toNative = (entry: { id?: string; vector: Float32Array | number[]; metadata?: Record<string, any> }) => ({
       id: entry.id,
       vector: entry.vector instanceof Float32Array ? entry.vector : new Float32Array(entry.vector),
       metadata: entry.metadata ? JSON.stringify(entry.metadata) : undefined,
-    }));
+    });
 
-    return this.db.insertBatch(nativeEntries);
+    // Last occurrence of each id wins; entries without an id are kept as-is.
+    const lastIndex = new Map<string, number>();
+    entries.forEach((e, i) => { if (e.id !== undefined && e.id !== null) lastIndex.set(e.id, i); });
+    const unique = lastIndex.size === entries.length
+      ? entries
+      : entries.filter((e, i) => e.id === undefined || e.id === null || lastIndex.get(e.id) === i);
+
+    // An empty store has nothing to replace, so bulk loads skip the lookups.
+    if (lastIndex.size > 0 && !(await this.db.isEmpty())) {
+      for (const id of lastIndex.keys()) {
+        if (await this.db.get(id)) await this.db.delete(id);
+      }
+    }
+
+    return this.db.insertBatch(unique.map(toNative));
+  }
+
+  /**
+   * Update an existing vector. Omitted fields keep their stored value;
+   * `metadata` replaces the stored metadata unless `mergeMetadata` is set.
+   * Returns the updated record, or null when the id does not exist (update
+   * never creates).
+   */
+  async update(
+    id: string,
+    patch: { vector?: Float32Array | number[]; metadata?: Record<string, any>; mergeMetadata?: boolean },
+  ): Promise<{ id: string; vector: Float32Array; metadata?: Record<string, any> } | null> {
+    const current = await this.get(id);
+    if (!current) return null;
+    const vector = patch.vector !== undefined
+      ? (patch.vector instanceof Float32Array ? patch.vector : new Float32Array(patch.vector))
+      : current.vector;
+    let metadata = current.metadata;
+    if (patch.metadata !== undefined) {
+      metadata = patch.mergeMetadata ? { ...(current.metadata || {}), ...patch.metadata } : patch.metadata;
+    }
+    await this.db.delete(id);
+    await this.db.insert({ id, vector, metadata: metadata ? JSON.stringify(metadata) : undefined });
+    return { id, vector, metadata };
+  }
+
+  /**
+   * Delete several vectors. Reports which ids were removed and which were absent.
+   */
+  async deleteMany(ids: string[]): Promise<{ deleted: string[]; missing: string[] }> {
+    const deleted: string[] = [];
+    const missing: string[] = [];
+    for (const id of new Set(ids)) {
+      if (await this.db.delete(id)) deleted.push(id);
+      else missing.push(id);
+    }
+    return { deleted, missing };
   }
 
   /**

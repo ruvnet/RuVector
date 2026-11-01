@@ -25,6 +25,8 @@ const {
 const path = require('path');
 const fs = require('fs');
 const { serializeStore, resolveIntelStorePath } = require('./intel-store');
+const memoryStore = require('./memory-store');
+const recordValidate = require('./record-validate');
 const { execFileSync } = require('child_process');
 
 // ADR-256: default-deny MCP tool-access policy (RUVECTOR_MCP_ALLOW/DENY/PROFILE)
@@ -117,6 +119,34 @@ function boundedNumber(value, min, max, name) {
   const n = typeof value === 'number' ? value : parseFloat(value);
   if (!Number.isFinite(n)) throw new Error(`${name} must be a finite number, got ${JSON.stringify(value)}`);
   return Math.min(max, Math.max(min, n));
+}
+
+function jsonResult(obj, isError = false) {
+  const out = { content: [{ type: 'text', text: JSON.stringify(obj, null, 2) }] };
+  if (isError) out.isError = true;
+  return out;
+}
+
+// Native VectorDB stores, as written by `ruvector create/insert`: the
+// dimension lives in a <path>.meta.json sidecar next to the database.
+function readVectorSidecar(dbPath) {
+  try {
+    const meta = JSON.parse(fs.readFileSync(`${dbPath}.meta.json`, 'utf8'));
+    const dimension = Number.isInteger(meta.dimension) && meta.dimension > 0 && meta.dimension <= recordValidate.LIMITS.maxDimension
+      ? meta.dimension : null;
+    return { dimension, metric: typeof meta.metric === 'string' ? meta.metric : 'cosine' };
+  } catch {
+    return { dimension: null, metric: 'cosine' };
+  }
+}
+
+function openVectorStore(rawPath) {
+  const dbPath = validateRvfPath(rawPath);
+  if (!fs.existsSync(dbPath)) throw new Error(`Database not found: ${dbPath}`);
+  const { dimension, metric } = readVectorSidecar(dbPath);
+  if (!dimension) throw new Error(`No dimension recorded for ${dbPath} (missing ${path.basename(dbPath)}.meta.json); create it with vectordb_create`);
+  const { VectorDB } = require('../dist/index.js');
+  return { db: new VectorDB({ dimensions: dimension, storagePath: dbPath }), dbPath, dimension, metric };
 }
 
 // Mirrors Intelligence.routeState() in cli.js so MCP learning lands on the
@@ -320,9 +350,9 @@ class Intelligence {
     const converted = { memories: [], routingPatterns: {}, errorPatterns: {}, coEditPatterns: {} };
     if (data.memories) {
       converted.memories = data.memories.map(m => ({
-        id: m.id || `mem-${Date.now()}`,
+        id: m.id,
         content: m.content,
-        type: m.type || 'general',
+        type: m.memory_type || m.type || 'general',
         embedding: m.embedding || [],
         created: m.created || new Date().toISOString(),
         accessed: 0,
@@ -351,11 +381,56 @@ class Intelligence {
   // CLI hooks (separate processes) write the same store while this server is
   // running. Reload before each tool call when the file changed on disk, so the
   // server's next save() does not overwrite their learning with a stale copy.
+  syncEngineMemories() {
+    if (this.engine && typeof this.engine.replaceMemories === 'function') {
+      this.engine.replaceMemories(this.convertLegacyData(this.data).memories);
+    }
+  }
+
+  /**
+   * Update a memory in place. New content goes through the same embedder and
+   * provenance gate as remember() (ADR-210), so an edit cannot create a mixed
+   * store. Returns the updated view or null when the id is unknown.
+   */
+  async updateMemory(id, patch) {
+    const hit = memoryStore.findMemory(this.data, id);
+    if (!hit) return null;
+    const clean = memoryStore.validateMemoryPatch(patch);
+    let embedding;
+    if (clean.content !== undefined) {
+      let guard;
+      if (this.engine) {
+        embedding = await this.engine.embedAsync(clean.content);
+        guard = this.guardVectorWrite(this.activeWriteProvenance(embedding));
+      } else {
+        embedding = this.embed(clean.content);
+        guard = this.guardVectorWrite({ embedderKind: 'hash', modelId: null, dimension: embedding.length, normalize: true, prefixPolicy: 'none' });
+      }
+      if (!guard.ok) throw Object.assign(new Error(guard.error || 'store is read-only for vector writes (ADR-210)'), { code: 'ERR_EMBEDDING_PROVENANCE' });
+    }
+    const view = memoryStore.applyMemoryPatch(hit.memory, clean, embedding);
+    this.syncEngineMemories();
+    this.save();
+    return view;
+  }
+
+  forgetMemories(ids) {
+    const result = memoryStore.deleteMemories(this.data, ids);
+    if (result.deleted.length > 0) {
+      if (this.engine && typeof this.engine.forget === 'function') result.deleted.forEach(id => this.engine.forget(id));
+      this.save();
+    }
+    return result;
+  }
+
   refreshIfChanged() {
     const mtime = this.diskMtimeMs();
     if (mtime !== this.loadedMtimeMs) {
       this.data = this.load();
       this.loadedMtimeMs = mtime;
+      // Another process changed the store: keep the engine's memory set (which
+      // serves recall) in step, so deleted/edited memories are not returned.
+      this.syncEngineMemories();
     }
   }
 
@@ -388,6 +463,8 @@ class Intelligence {
     // hand-edited store must not crash array/object consumers.
     if (!data || typeof data !== 'object' || Array.isArray(data)) return defaults();
     if (!Array.isArray(data.memories)) data.memories = [];
+    // Every memory gets a stable id so get/update/forget can address it.
+    memoryStore.ensureMemoryIds(data);
     return data;
   }
 
@@ -577,7 +654,7 @@ class Intelligence {
     if (this.engine) {
       let entry = null;
       try {
-        entry = await this.engine.remember(content, type);
+        entry = await this.engine.remember(content, type, memoryStore.newMemoryId());
       } catch {}
       if (entry) {
         // ADR-210 D0: validate provenance BEFORE persisting. Refusals
@@ -587,9 +664,9 @@ class Intelligence {
         if (!guard.ok) return { stored: false, skipped: true, reason: guard.error };
         // Also store in legacy format
         this.data.memories = Array.isArray(this.data.memories) ? this.data.memories : [];
-        this.data.memories.push({ content, type, created: new Date().toISOString(), embedding: entry.embedding });
+        this.data.memories.push({ id: entry.id, content, type, created: entry.created || new Date().toISOString(), embedding: entry.embedding });
         this.save();
-        return { stored: true, total: this.data.memories.length, engineStored: true };
+        return { stored: true, id: entry.id, total: this.data.memories.length, engineStored: true };
       }
     }
 
@@ -599,9 +676,10 @@ class Intelligence {
     const guard = this.guardVectorWrite({ embedderKind: 'hash', modelId: null, dimension: embedding.length, normalize: true, prefixPolicy: 'none' });
     if (!guard.ok) return { stored: false, skipped: true, reason: guard.error };
     this.data.memories = Array.isArray(this.data.memories) ? this.data.memories : [];
-    this.data.memories.push({ content, type, created: new Date().toISOString(), embedding });
+    const id = memoryStore.newMemoryId();
+    this.data.memories.push({ id, content, type, created: new Date().toISOString(), embedding });
     this.save();
-    return { stored: true, total: this.data.memories.length };
+    return { stored: true, id, total: this.data.memories.length };
   }
 
   async recall(query, topK = 5) {
@@ -615,6 +693,7 @@ class Intelligence {
           this.warnRecallProvenance(this.engine.getActiveProvenance());
         }
         return results.map(r => ({
+          id: r.id,
           content: r.content,
           type: r.type,
           score: r.score || 0,
@@ -838,6 +917,50 @@ const TOOLS = [
         top_k: { type: 'number', description: 'Number of results', default: 5 }
       },
       required: ['query']
+    }
+  },
+  {
+    name: 'hooks_memory_get',
+    description: 'Get one stored memory by id (ids come from hooks_remember, hooks_recall or hooks_memory_list)',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: 'Memory id' } },
+      required: ['id']
+    }
+  },
+  {
+    name: 'hooks_memory_list',
+    description: 'List stored memories, newest first, with optional type filter and paging',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', description: 'Only memories of this type' },
+        limit: { type: 'number', description: 'Page size (max 1000)', default: 50 },
+        offset: { type: 'number', description: 'Skip this many', default: 0 }
+      }
+    }
+  },
+  {
+    name: 'hooks_memory_update',
+    description: 'Update a memory by id: new content is re-embedded with the store\'s embedder; type and metadata can also change',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Memory id' },
+        content: { type: 'string', description: 'New content' },
+        type: { type: 'string', description: 'New memory type' },
+        metadata: { type: 'object', description: 'Replacement metadata object' }
+      },
+      required: ['id']
+    }
+  },
+  {
+    name: 'hooks_forget',
+    description: 'Delete stored memories by id',
+    inputSchema: {
+      type: 'object',
+      properties: { ids: { type: 'array', items: { type: 'string' }, description: 'Memory ids to delete' } },
+      required: ['ids']
     }
   },
   {
@@ -1533,6 +1656,97 @@ const TOOLS = [
       required: []
     }
   },
+  // ── VectorDB (native HNSW store) CRUD Tools ────────────────────────────────
+  // Paths are confined to the working directory (+ RUVECTOR_MCP_ROOTS) and are
+  // always required: the library's ./ruvector.db default is never used here.
+  {
+    name: 'vectordb_create',
+    description: 'Create a vector database file (native HNSW store) with a fixed dimension',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Database file path (inside the project)' },
+        dimension: { type: 'number', description: 'Vector dimension' },
+        metric: { type: 'string', enum: ['cosine', 'euclidean', 'dot'], default: 'cosine' }
+      },
+      required: ['path', 'dimension']
+    }
+  },
+  {
+    name: 'vectordb_insert',
+    description: 'Insert or replace vectors (upsert by id; max 10000 per call)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Database file path' },
+        entries: { type: 'array', items: { type: 'object' }, description: 'Array of {id, vector, metadata?}' }
+      },
+      required: ['path', 'entries']
+    }
+  },
+  {
+    name: 'vectordb_get',
+    description: 'Get a vector and its metadata by id',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Database file path' },
+        id: { type: 'string', description: 'Vector id' },
+        include_vector: { type: 'boolean', default: true }
+      },
+      required: ['path', 'id']
+    }
+  },
+  {
+    name: 'vectordb_update',
+    description: 'Update the vector and/or metadata of an existing id (never creates)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Database file path' },
+        id: { type: 'string', description: 'Vector id' },
+        vector: { type: 'array', items: { type: 'number' }, description: 'New vector' },
+        metadata: { type: 'object', description: 'New metadata' },
+        merge_metadata: { type: 'boolean', description: 'Merge into stored metadata instead of replacing', default: false }
+      },
+      required: ['path', 'id']
+    }
+  },
+  {
+    name: 'vectordb_delete',
+    description: 'Delete vectors by id',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Database file path' },
+        ids: { type: 'array', items: { type: 'string' }, description: 'Vector ids' }
+      },
+      required: ['path', 'ids']
+    }
+  },
+  {
+    name: 'vectordb_search',
+    description: 'k-nearest-neighbour search with optional metadata filter',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Database file path' },
+        vector: { type: 'array', items: { type: 'number' }, description: 'Query vector' },
+        k: { type: 'number', description: 'Number of results (max 1000)', default: 10 },
+        filter: { type: 'object', description: 'Metadata filter' }
+      },
+      required: ['path', 'vector']
+    }
+  },
+  {
+    name: 'vectordb_stats',
+    description: 'Vector count, dimension and metric of a database',
+    inputSchema: {
+      type: 'object',
+      properties: { path: { type: 'string', description: 'Database file path' } },
+      required: ['path']
+    }
+  },
   // ── RVF Vector Store Tools ────────────────────────────────────────────────
   {
     name: 'rvf_create',
@@ -1561,7 +1775,7 @@ const TOOLS = [
   },
   {
     name: 'rvf_ingest',
-    description: 'Insert vectors into an RVF store',
+    description: 'Insert vectors into an RVF store (an existing id is replaced; max 10000 per call)',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1591,7 +1805,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         path: { type: 'string', description: 'Path to .rvf store' },
-        ids: { type: 'array', description: 'Vector IDs to delete', items: { type: 'number' } }
+        ids: { type: 'array', description: 'Vector IDs to delete', items: { type: ['string', 'number'] } }
       },
       required: ['path', 'ids']
     }
@@ -2143,8 +2357,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               success: true,
               query: args.query,
               results: results.map(r => ({
+                id: r.id,
                 content: r.content,
-                type: r.type,
+                type: r.type || r.memory_type,
                 score: typeof r.score === 'number' ? r.score.toFixed(3) : r.score,
                 created: r.created,
                 engineResult: r.engineResult || false
@@ -2152,6 +2367,116 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }, null, 2)
           }]
         };
+      }
+
+      case 'hooks_memory_get': {
+        try {
+          const memory = memoryStore.getMemory(intel.data, args.id);
+          return memory ? jsonResult({ success: true, memory }) : jsonResult({ success: false, error: `memory not found: ${args.id}` }, true);
+        } catch (e) { return jsonResult({ success: false, error: e.message }, true); }
+      }
+
+      case 'hooks_memory_list': {
+        try {
+          const type = args.type !== undefined ? memoryStore.validateMemoryType(args.type) : undefined;
+          return jsonResult({ success: true, ...memoryStore.listMemories(intel.data, { type, limit: args.limit, offset: args.offset }) });
+        } catch (e) { return jsonResult({ success: false, error: e.message }, true); }
+      }
+
+      case 'hooks_memory_update': {
+        try {
+          const patch = {};
+          for (const k of ['content', 'type', 'metadata']) if (args[k] !== undefined) patch[k] = args[k];
+          const memory = await intel.updateMemory(args.id, patch);
+          return memory ? jsonResult({ success: true, memory }) : jsonResult({ success: false, error: `memory not found: ${args.id}` }, true);
+        } catch (e) { return jsonResult({ success: false, error: e.message, code: e.code }, true); }
+      }
+
+      case 'hooks_forget': {
+        try {
+          const result = intel.forgetMemories(recordValidate.validateIdList(args.ids, 'ids'));
+          return jsonResult({ success: result.deleted.length > 0, ...result }, result.deleted.length === 0);
+        } catch (e) { return jsonResult({ success: false, error: e.message }, true); }
+      }
+
+      // ── VectorDB CRUD ──────────────────────────────────────────────────────
+      case 'vectordb_create': {
+        try {
+          const dbPath = validateRvfPath(args.path);
+          if (fs.existsSync(dbPath)) throw new Error(`Already exists: ${dbPath}`);
+          const dimension = args.dimension;
+          if (!Number.isInteger(dimension) || dimension < 1 || dimension > recordValidate.LIMITS.maxDimension) {
+            throw new Error(`dimension must be an integer between 1 and ${recordValidate.LIMITS.maxDimension}`);
+          }
+          const metric = args.metric || 'cosine';
+          if (!['cosine', 'euclidean', 'dot'].includes(metric)) throw new Error('metric must be cosine, euclidean or dot');
+          const { VectorDB } = require('../dist/index.js');
+          // The native store is created on first open.
+          new VectorDB({ dimensions: dimension, metric, storagePath: dbPath });
+          fs.writeFileSync(`${dbPath}.meta.json`, JSON.stringify({ dimension, metric, version: 1 }));
+          return jsonResult({ success: true, path: dbPath, dimension, metric });
+        } catch (e) { return jsonResult({ success: false, error: e.message }, true); }
+      }
+
+      case 'vectordb_insert': {
+        try {
+          const { db, dimension } = openVectorStore(args.path);
+          const entries = recordValidate.validateEntries(args.entries, dimension);
+          await db.insertBatch(entries);
+          return jsonResult({ success: true, upserted: entries.length, total: await db.len() });
+        } catch (e) { return jsonResult({ success: false, error: e.message }, true); }
+      }
+
+      case 'vectordb_get': {
+        try {
+          const id = recordValidate.validateRecordId(args.id);
+          const { db } = openVectorStore(args.path);
+          const record = await db.get(id);
+          if (!record) return jsonResult({ success: false, error: `not found: ${id}` }, true);
+          const out = { id, metadata: record.metadata };
+          if (args.include_vector !== false) out.vector = Array.from(record.vector || []);
+          return jsonResult({ success: true, record: out });
+        } catch (e) { return jsonResult({ success: false, error: e.message }, true); }
+      }
+
+      case 'vectordb_update': {
+        try {
+          const id = recordValidate.validateRecordId(args.id);
+          if (args.vector === undefined && args.metadata === undefined) throw new Error('nothing to update: pass vector and/or metadata');
+          const { db, dimension } = openVectorStore(args.path);
+          const patch = { mergeMetadata: args.merge_metadata === true };
+          if (args.vector !== undefined) patch.vector = recordValidate.validateVector(args.vector, dimension);
+          if (args.metadata !== undefined) patch.metadata = recordValidate.validateMetadata(args.metadata);
+          const updated = await db.update(id, patch);
+          return updated ? jsonResult({ success: true, id }) : jsonResult({ success: false, error: `not found: ${id}` }, true);
+        } catch (e) { return jsonResult({ success: false, error: e.message }, true); }
+      }
+
+      case 'vectordb_delete': {
+        try {
+          const ids = recordValidate.validateIdList(args.ids);
+          const { db } = openVectorStore(args.path);
+          const result = await db.deleteMany(ids);
+          return jsonResult({ success: result.deleted.length > 0, ...result, total: await db.len() }, result.deleted.length === 0);
+        } catch (e) { return jsonResult({ success: false, error: e.message }, true); }
+      }
+
+      case 'vectordb_search': {
+        try {
+          const { db, dimension } = openVectorStore(args.path);
+          const vector = recordValidate.validateVector(args.vector, dimension);
+          const query = { vector, k: recordValidate.validateK(args.k) };
+          if (args.filter !== undefined) query.filter = recordValidate.validateMetadata(args.filter, 'filter');
+          const results = await db.search(query);
+          return jsonResult({ success: true, results: results.map(r => ({ id: r.id, score: r.score, metadata: r.metadata })) });
+        } catch (e) { return jsonResult({ success: false, error: e.message }, true); }
+      }
+
+      case 'vectordb_stats': {
+        try {
+          const { db, dbPath, dimension, metric } = openVectorStore(args.path);
+          return jsonResult({ success: true, path: dbPath, count: await db.len(), dimension, metric, bytes: fs.statSync(dbPath).size });
+        } catch (e) { return jsonResult({ success: false, error: e.message }, true); }
       }
 
       case 'hooks_init': {
@@ -3681,7 +4006,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const safePath = validateRvfPath(args.path);
           const { openRvfStore, rvfStatus } = require('../dist/core/rvf-wrapper.js');
           const store = await openRvfStore(safePath);
-          const status = await rvfStatus(store);
+          let status;
+          try { status = await rvfStatus(store); } finally { await require('../dist/core/rvf-wrapper.js').rvfClose(store); }
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, path: safePath, ...status }, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3692,9 +4018,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         try {
           const safePath = validateRvfPath(args.path);
           const { openRvfStore, rvfIngest, rvfClose } = require('../dist/core/rvf-wrapper.js');
+          const entries = recordValidate.validateEntries(args.entries);
           const store = await openRvfStore(safePath);
-          const result = await rvfIngest(store, args.entries);
-          await rvfClose(store);
+          let result;
+          try { result = await rvfIngest(store, entries.map(e => ({ ...e, vector: Array.from(e.vector) }))); } finally { await rvfClose(store); }
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3705,9 +4032,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         try {
           const safePath = validateRvfPath(args.path);
           const { openRvfStore, rvfQuery, rvfClose } = require('../dist/core/rvf-wrapper.js');
+          const vector = Array.from(recordValidate.validateVector(args.vector));
+          const k = recordValidate.validateK(args.k);
           const store = await openRvfStore(safePath);
-          const results = await rvfQuery(store, args.vector, args.k || 10);
-          await rvfClose(store);
+          let results;
+          try { results = await rvfQuery(store, vector, k); } finally { await rvfClose(store); }
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, results }, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3718,9 +4047,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         try {
           const safePath = validateRvfPath(args.path);
           const { openRvfStore, rvfDelete, rvfClose } = require('../dist/core/rvf-wrapper.js');
+          const ids = recordValidate.validateIdList(args.ids);
           const store = await openRvfStore(safePath);
-          const result = await rvfDelete(store, args.ids);
-          await rvfClose(store);
+          let result;
+          try { result = await rvfDelete(store, ids); } finally { await rvfClose(store); }
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
