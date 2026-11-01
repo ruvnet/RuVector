@@ -55,9 +55,6 @@ fn err(code: ErrorCode) -> RvfError {
 
 const COW_STATE_FIXED_SIZE: usize = 64 + 4 + 1 + 4 + 4 + 4;
 const MAX_COW_LINEAGE_DEPTH: u32 = 1024;
-/// Bound dense membership bitmaps so a sparse, attacker-controlled vector ID
-/// cannot turn branch creation into an unbounded allocation.
-const MAX_MEMBERSHIP_FILTER_BYTES: u64 = 64 * 1024 * 1024;
 /// Delta metadata generations written before the next full snapshot.
 ///
 /// ADR-280 §5 caps replay at [`rvf_types::metadata::MAX_META_DELTAS`] deltas;
@@ -3035,9 +3032,10 @@ impl RvfStore {
         let total_vecs = self.vectors.len() as u64;
         // MembershipFilter is keyed by vector ID, not by slab ordinal. Sizing
         // it from `len()` silently drops ID == len (the normal Node string-ID
-        // case, which starts at 1) and every sparse ID. Size from the highest
-        // live ID instead, while bounding the dense bitmap to fail closed
-        // rather than risk an allocation DoS.
+        // case, which starts at 1) and every sparse ID. Size the ID range from
+        // the highest ID instead; `include_from_ids` then picks a flat bitmap
+        // or a chunked set from how densely the live IDs fill that range, so
+        // memory follows the number of vectors, not the largest ID.
         let membership_capacity = self
             .vectors
             .ids()
@@ -3050,13 +3048,6 @@ impl RvfStore {
             })
             .transpose()?
             .unwrap_or(0);
-        let membership_bytes = membership_capacity
-            .div_ceil(64)
-            .checked_mul(8)
-            .ok_or_else(|| err(ErrorCode::MembershipInvalid))?;
-        if membership_bytes > MAX_MEMBERSHIP_FILTER_BYTES {
-            return Err(err(ErrorCode::MembershipInvalid));
-        }
         let cluster_count = if vectors_per_cluster > 0 {
             total_vecs.div_ceil(vectors_per_cluster as u64) as u32
         } else {
@@ -3079,13 +3070,16 @@ impl RvfStore {
         ));
 
         // Initialize membership filter with all parent vectors visible
-        let mut filter = MembershipFilter::new_include(membership_capacity);
-        for &vid in self.vectors.ids() {
-            if !self.deletion_bitmap.is_deleted(vid) {
-                filter.add(vid);
-            }
-        }
-        child.membership_filter = Some(filter);
+        let visible: Vec<u64> = self
+            .vectors
+            .ids()
+            .copied()
+            .filter(|&vid| !self.deletion_bitmap.is_deleted(vid))
+            .collect();
+        child.membership_filter = Some(MembershipFilter::include_from_ids(
+            membership_capacity,
+            &visible,
+        ));
         // `derive` writes an initial lineage-only manifest. Commit a second
         // manifest after the COW state is initialized so a returned branch is
         // durable even if the caller immediately closes it.
@@ -6267,5 +6261,75 @@ mod tests {
         drop(store);
         let reopened = RvfStore::open_readonly(&path).unwrap();
         assert_hits(&reopened);
+    }
+
+    #[test]
+    fn branch_with_ids_near_2_pow_40_keeps_memory_bounded() {
+        let dir = TempDir::new().unwrap();
+        let mut parent = RvfStore::create(
+            &dir.path().join("parent.rvf"),
+            RvfOptions {
+                dimension: 2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let high: u64 = 1 << 40;
+        let ids = [3u64, high - 1, high, high + 5];
+        let vectors: [&[f32]; 4] = [&[1.0, 0.0], &[0.0, 1.0], &[1.0, 1.0], &[2.0, 1.0]];
+        parent.ingest_batch(&vectors, &ids, None).unwrap();
+
+        // A dense bitmap for these IDs would need 128 GiB, so this used to be
+        // refused with MembershipInvalid.
+        let child_path = dir.path().join("child.rvf");
+        let mut child = parent.branch(&child_path).unwrap();
+        let filter = child.membership_filter().unwrap();
+        for id in ids {
+            assert!(filter.contains(id), "id {id}");
+        }
+        assert!(!filter.contains(4) && !filter.contains(high + 1));
+        assert!(filter.approx_heap_bytes() < 4096);
+
+        // Inherited vectors are visible through the child, and a delete of an
+        // inherited ID survives reopen.
+        let hits = child
+            .query(&[0.0, 1.0], 4, &QueryOptions::default())
+            .unwrap();
+        let hit_ids: HashSet<u64> = hits.iter().map(|h| h.id).collect();
+        assert_eq!(hit_ids, ids.into_iter().collect());
+        child.delete(&[high]).unwrap();
+        drop(child);
+
+        let reopened = RvfStore::open_readonly(&child_path).unwrap();
+        let filter = reopened.membership_filter().unwrap();
+        assert!(filter.contains(high - 1) && !filter.contains(high));
+        assert!(filter.approx_heap_bytes() < 4096);
+        let hits = reopened
+            .query(&[0.0, 1.0], 4, &QueryOptions::default())
+            .unwrap();
+        assert_eq!(hits.len(), 3);
+        assert!(hits.iter().all(|h| h.id != high));
+    }
+
+    #[test]
+    fn dense_cow_branch_still_reopens() {
+        let dir = TempDir::new().unwrap();
+        let mut parent = RvfStore::create(
+            &dir.path().join("parent.rvf"),
+            RvfOptions {
+                dimension: 2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        parent
+            .ingest_batch(&[&[1.0, 0.0], &[0.0, 1.0]], &[1, 2], None)
+            .unwrap();
+        let child_path = dir.path().join("child.rvf");
+        drop(parent.branch(&child_path).unwrap());
+        let reopened = RvfStore::open_readonly(&child_path).unwrap();
+        let filter = reopened.membership_filter().unwrap();
+        assert_eq!(filter.to_header().filter_type, 0);
+        assert!(filter.contains(1) && filter.contains(2) && !filter.contains(3));
     }
 }
