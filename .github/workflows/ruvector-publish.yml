@@ -93,8 +93,10 @@ jobs:
             | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(Buffer.from(JSON.parse(s).payload.data,'base64').toString().trim()))")
           if [ -z "$TOKEN" ]; then echo "::error::empty NPM_TOKEN from Secret Manager"; exit 1; fi
           echo "::add-mask::$TOKEN"
+          # GITHUB_ENV only reaches later steps, so pass the token explicitly here.
+          NPM_USER=$(NODE_AUTH_TOKEN="$TOKEN" npm whoami) || { echo "::error::npm rejected the NPM_TOKEN from Secret Manager"; exit 1; }
+          echo "npm user: $NPM_USER"
           echo "NODE_AUTH_TOKEN=$TOKEN" >> "$GITHUB_ENV"
-          echo "npm user: $(npm whoami)"
 
       - name: Publish (dry-run)
         if: ${{ github.event.inputs.dry_run == 'true' }}
