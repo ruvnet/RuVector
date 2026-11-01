@@ -58,8 +58,13 @@ jobs:
           LOCAL=$(node -p "require('./package.json').version")
           echo "Local version: $LOCAL"
           if npm view "ruvector@$LOCAL" version >/dev/null 2>&1; then
-            echo "::error::ruvector@$LOCAL is already published on npm. Bump the version first."
-            exit 1
+            # A dry run only exercises the pipeline (incl. the GCP token fetch).
+            if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+              echo "::warning::ruvector@$LOCAL is already published; continuing because this is a dry run."
+            else
+              echo "::error::ruvector@$LOCAL is already published on npm. Bump the version first."
+              exit 1
+            fi
           fi
           # If dispatched with an explicit version, it must match package.json.
           INPUT="${{ github.event.inputs.version }}"
@@ -68,6 +73,29 @@ jobs:
             exit 1
           fi
 
+      # The npm token is read from GCP Secret Manager (cognitum-20260110/NPM_TOKEN),
+      # the canonical copy, instead of a GitHub secret that kept drifting from it.
+      # The WIF provider only admits this workflow file on main or a ruvector-v* tag.
+      - name: Authenticate to GCP
+        id: gcp
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed
+        with:
+          workload_identity_provider: projects/186366152200/locations/global/workloadIdentityPools/github-ruvector-publish/providers/github
+          service_account: ruvector-npm-publisher@cognitum-20260110.iam.gserviceaccount.com
+          token_format: access_token
+
+      - name: Fetch npm token from GCP Secret Manager
+        env:
+          ACCESS_TOKEN: ${{ steps.gcp.outputs.access_token }}
+        run: |
+          TOKEN=$(curl -fsS -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            "https://secretmanager.googleapis.com/v1/projects/cognitum-20260110/secrets/NPM_TOKEN/versions/latest:access" \
+            | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(Buffer.from(JSON.parse(s).payload.data,'base64').toString().trim()))")
+          if [ -z "$TOKEN" ]; then echo "::error::empty NPM_TOKEN from Secret Manager"; exit 1; fi
+          echo "::add-mask::$TOKEN"
+          echo "NODE_AUTH_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+          echo "npm user: $(npm whoami)"
+
       - name: Publish (dry-run)
         if: ${{ github.event.inputs.dry_run == 'true' }}
         run: npm publish --access public --dry-run
@@ -75,8 +103,6 @@ jobs:
       - name: Publish
         if: ${{ github.event.inputs.dry_run != 'true' }}
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Verify on the registry
         if: ${{ github.event.inputs.dry_run != 'true' }}
