@@ -40,6 +40,13 @@
 //! (downgrade-only relative to a naive per-memory vote), so N memories
 //! repeating one origin count as one observation, not N.
 //!
+//! The `content_correlation` module (ADR-350, nightly 2026-11-01) pairs
+//! `arbitration` with the content-level near-duplicate detection its own
+//! docs call for: declared-ancestry lineages are re-clustered (or
+//! discounted) using caller-supplied embeddings and cosine similarity, so
+//! astroturfed memories that copy content *without* declaring a parent are
+//! no longer invisible to arbitration.
+//!
 //! - Park et al. 2023, "Generative Agents" (arXiv:2304.03442)
 //! - Zhong et al. 2023, "MemoryBank" (arXiv:2305.10250)
 //! - Xu 2026, "Self-Aware Vector Embeddings for RAG" (arXiv:2604.20598)
@@ -48,6 +55,7 @@
 
 pub mod arbitration;
 pub mod compaction;
+pub mod content_correlation;
 pub mod diagnostic;
 pub mod fusion;
 #[cfg(feature = "mincut-forget")]
@@ -66,6 +74,10 @@ pub use arbitration::{
 };
 pub use compaction::{
     weighted_importance, CoherencePolicy, CoherenceWeights, CompactionPolicy, LfuPolicy, LruPolicy,
+};
+pub use content_correlation::{
+    arbitrate_with_content_correlation, ContentCorrelationConfig, ContentCorrelationError,
+    CorrelationMode,
 };
 pub use diagnostic::{
     apply_gated_promotion, diagnostic_coverage, evaluate_promotion, gate_and_apply,
