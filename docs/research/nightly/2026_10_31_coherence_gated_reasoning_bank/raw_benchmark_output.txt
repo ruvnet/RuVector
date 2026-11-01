@@ -1,0 +1,68 @@
+$ cargo test -p ruvector-sona --lib
+(tail)
+test result: ok. 122 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.99s
+
+$ cargo build --release -p ruvector-sona --example coherence_gate_bench
+(stderr contains only pre-existing, unrelated workspace warnings: "profiles for
+the non root package will be ignored" for ~35 other crates, and one duplicate
+build-target warning for ruvector-attention/benches/attention_benchmarks.rs.
+Neither touches ruvector-sona or this change. Final build line:)
+    Finished `release` profile [optimized] target(s) in 0.53s
+
+$ cargo run --release -p ruvector-sona --example coherence_gate_bench
+(verbatim stdout below)
+
+coherence-gated ReasoningBank retrieval benchmark
+config: dims=64 clusters=8 members_per_cluster=6 queries_per_seed=10 seeds=[1, 2, 3] sigma_member=0.05 sigma_query=0.45 sigma_adv=0.03
+calibration: intra_cluster_sim=0.9492 adv_to_member_sim=0.3401 query_to_adv_sim=0.9895 edge_threshold=0.9
+calibration_check: cluster_above_threshold=true adv_below_threshold=true
+
+=== bank_size=200 edge_threshold=0.9 alpha=0.5 top_k=10 ===
+precision@10  baseline_mean=0.5767  coherence_gated_mean=0.5800  quality_weighted_mean=0.2333
+precision_lift_pp  gated_vs_baseline=+0.33  quality_vs_baseline=-34.33
+latency_us(query-only)  baseline  mean=21.84 p50=19.87 p95=35.54
+latency_us(query-only)  coherence_gated  mean=26.29 p50=26.30 p95=27.85  (ratio_vs_baseline_mean=1.204x)
+latency_us(query-only)  quality_weighted  mean=24.55 p50=24.48 p95=26.56  (ratio_vs_baseline_mean=1.124x)
+graph_build_us(amortized once per corpus, n=200)  mean=1517.88
+decoy_diagnostic  trials=30  adv_in_baseline_top10=30 adv_in_gated_top10=30  adv_demoted_by_gating=0  max_possible_precision_lift_pp=10.00
+
+=== bank_size=1000 edge_threshold=0.9 alpha=0.5 top_k=10 ===
+precision@10  baseline_mean=0.5467  coherence_gated_mean=0.5467  quality_weighted_mean=0.1533
+precision_lift_pp  gated_vs_baseline=+0.00  quality_vs_baseline=-39.33
+latency_us(query-only)  baseline  mean=105.91 p50=103.23 p95=115.83
+latency_us(query-only)  coherence_gated  mean=147.86 p50=145.74 p95=163.42  (ratio_vs_baseline_mean=1.396x)
+latency_us(query-only)  quality_weighted  mean=142.33 p50=139.34 p95=160.05  (ratio_vs_baseline_mean=1.344x)
+graph_build_us(amortized once per corpus, n=1000)  mean=37792.01
+decoy_diagnostic  trials=30  adv_in_baseline_top10=30 adv_in_gated_top10=30  adv_demoted_by_gating=0  max_possible_precision_lift_pp=10.00
+
+=== bank_size=2000 edge_threshold=0.9 alpha=0.5 top_k=10 ===
+precision@10  baseline_mean=0.5200  coherence_gated_mean=0.5267  quality_weighted_mean=0.1433
+precision_lift_pp  gated_vs_baseline=+0.67  quality_vs_baseline=-37.67
+latency_us(query-only)  baseline  mean=214.50 p50=208.84 p95=247.89
+latency_us(query-only)  coherence_gated  mean=309.62 p50=305.00 p95=337.39  (ratio_vs_baseline_mean=1.443x)
+latency_us(query-only)  quality_weighted  mean=292.01 p50=288.91 p95=304.49  (ratio_vs_baseline_mean=1.361x)
+graph_build_us(amortized once per corpus, n=2000)  mean=151761.95
+decoy_diagnostic  trials=30  adv_in_baseline_top10=30 adv_in_gated_top10=30  adv_demoted_by_gating=0  max_possible_precision_lift_pp=10.00
+
+=== bank_size=5000 edge_threshold=0.9 alpha=0.5 top_k=10 ===
+precision@10  baseline_mean=0.4767  coherence_gated_mean=0.4767  quality_weighted_mean=0.1267
+precision_lift_pp  gated_vs_baseline=+0.00  quality_vs_baseline=-35.00
+latency_us(query-only)  baseline  mean=555.63 p50=557.01 p95=593.83
+latency_us(query-only)  coherence_gated  mean=845.65 p50=838.69 p95=895.12  (ratio_vs_baseline_mean=1.522x)
+latency_us(query-only)  quality_weighted  mean=803.06 p50=793.50 p95=845.82  (ratio_vs_baseline_mean=1.445x)
+graph_build_us(amortized once per corpus, n=5000)  mean=959716.68
+decoy_diagnostic  trials=30  adv_in_baseline_top10=30 adv_in_gated_top10=30  adv_demoted_by_gating=0  max_possible_precision_lift_pp=10.00
+
+$ cargo test -p ruvector-sona coherence_gate --lib
+(tail)
+running 8 tests
+test coherence_gate::tests::corroborated_cluster_gates_higher_than_isolated_outlier ... ok
+test coherence_gate::tests::coherence_gated_demotes_isolated_near_duplicate_of_query ... ok
+test coherence_gate::tests::isolated_pattern_gates_to_zero ... ok
+test coherence_gate::tests::quality_weighted_ablation_does_not_use_graph_structure ... ok
+test coherence_gate::tests::malformed_input_does_not_panic ... ok
+test coherence_gate::tests::alpha_is_clamped ... ok
+test coherence_gate::tests::concurrent_reads_are_consistent ... ok
+test coherence_gate::tests::scale_does_not_panic_and_gate_stays_bounded ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 114 filtered out; finished in 0.90s
