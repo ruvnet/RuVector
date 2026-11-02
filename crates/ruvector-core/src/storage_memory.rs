@@ -6,14 +6,22 @@
 use crate::error::{Result, RuvectorError};
 use crate::types::{DistanceMetric, SearchQuery, SearchResult, VectorEntry, VectorId};
 use dashmap::DashMap;
+use parking_lot::RwLock;
 use serde_json::Value as JsonValue;
+use std::borrow::Cow;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
-/// In-memory storage backend using DashMap for thread-safe concurrent access
+type PostingMap = HashMap<(String, String), HashMap<String, Arc<Vec<f32>>>>;
+
+/// In-memory storage backend with an exact inverted metadata index
 pub struct MemoryStorage {
-    vectors: DashMap<String, Vec<f32>>,
+    vectors: DashMap<String, Arc<Vec<f32>>>,
     metadata: DashMap<String, JsonValue>,
     config: DashMap<String, String>,
+    /// Equality postings keyed by field and JSON value.
+    postings: RwLock<PostingMap>,
     dimensions: usize,
     counter: AtomicU64,
 }
@@ -25,6 +33,7 @@ impl MemoryStorage {
             vectors: DashMap::new(),
             metadata: DashMap::new(),
             config: DashMap::new(),
+            postings: RwLock::new(HashMap::new()),
             dimensions,
             counter: AtomicU64::new(0),
         })
@@ -36,6 +45,23 @@ impl MemoryStorage {
         format!("vec_{}", id)
     }
 
+    /// Remove stale postings when an ID is replaced or deleted.
+    fn unindex_id(&self, postings: &mut PostingMap, id: &str) {
+        if let Some(raw) = self.metadata.get(id) {
+            if let JsonValue::Object(map) = raw.value() {
+                for (field, value) in map {
+                    let key = (field.clone(), value.to_string());
+                    if let Some(ids) = postings.get_mut(&key) {
+                        ids.remove(id);
+                        if ids.is_empty() {
+                            postings.remove(&key);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// Insert a vector entry
     pub fn insert(&self, entry: &VectorEntry) -> Result<VectorId> {
         if entry.vector.len() != self.dimensions {
@@ -44,32 +70,45 @@ impl MemoryStorage {
                 actual: entry.vector.len(),
             });
         }
-
-        let id = entry.id.clone().unwrap_or_else(|| self.generate_id());
-
-        // Insert vector
-        self.vectors.insert(id.clone(), entry.vector.clone());
-
-        // Insert metadata if present
-        if let Some(metadata) = &entry.metadata {
-            self.metadata.insert(
-                id.clone(),
-                serde_json::Value::Object(
-                    metadata
-                        .iter()
-                        .map(|(k, v)| (k.clone(), v.clone()))
-                        .collect(),
-                ),
-            );
+        if !entry.vector.iter().all(|v| v.is_finite()) {
+            return Err(RuvectorError::InvalidInput(
+                "vector must contain finite values".into(),
+            ));
         }
-
+        // Search and mutation locks serialize allocation with explicit IDs.
+        let mut postings = self.postings.write();
+        let id = match &entry.id {
+            Some(id) => id.clone(),
+            None => loop {
+                let candidate = self.generate_id();
+                if !self.vectors.contains_key(&candidate) {
+                    break candidate;
+                }
+            },
+        };
+        self.unindex_id(&mut postings, &id);
+        let shared_vector = Arc::new(entry.vector.clone());
+        self.vectors.insert(id.clone(), shared_vector.clone());
+        if let Some(metadata) = &entry.metadata {
+            let mut json_map = serde_json::Map::new();
+            for (field, value) in metadata {
+                postings
+                    .entry((field.clone(), value.to_string()))
+                    .or_default()
+                    .insert(id.clone(), shared_vector.clone());
+                json_map.insert(field.clone(), value.clone());
+            }
+            self.metadata
+                .insert(id.clone(), JsonValue::Object(json_map));
+        } else {
+            self.metadata.remove(&id);
+        }
         Ok(id)
     }
 
     /// Insert multiple vectors in a batch
     pub fn insert_batch(&self, entries: &[VectorEntry]) -> Result<Vec<VectorId>> {
-        let mut ids = Vec::with_capacity(entries.len());
-
+        // Validate the full batch before any mutation.
         for entry in entries {
             if entry.vector.len() != self.dimensions {
                 return Err(RuvectorError::DimensionMismatch {
@@ -77,33 +116,19 @@ impl MemoryStorage {
                     actual: entry.vector.len(),
                 });
             }
-
-            let id = entry.id.clone().unwrap_or_else(|| self.generate_id());
-
-            self.vectors.insert(id.clone(), entry.vector.clone());
-
-            if let Some(metadata) = &entry.metadata {
-                self.metadata.insert(
-                    id.clone(),
-                    serde_json::Value::Object(
-                        metadata
-                            .iter()
-                            .map(|(k, v)| (k.clone(), v.clone()))
-                            .collect(),
-                    ),
-                );
+            if !entry.vector.iter().all(|v| v.is_finite()) {
+                return Err(RuvectorError::InvalidInput(
+                    "vector must contain finite values".into(),
+                ));
             }
-
-            ids.push(id);
         }
-
-        Ok(ids)
+        entries.iter().map(|entry| self.insert(entry)).collect()
     }
 
     /// Get a vector by ID
     pub fn get(&self, id: &str) -> Result<Option<VectorEntry>> {
         if let Some(vector_ref) = self.vectors.get(id) {
-            let vector = vector_ref.clone();
+            let vector = vector_ref.value().as_ref().clone();
             let metadata = self.metadata.get(id).and_then(|m| {
                 if let serde_json::Value::Object(map) = m.value() {
                     Some(map.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
@@ -143,46 +168,83 @@ impl MemoryStorage {
                 actual: query.vector.len(),
             });
         }
-        // Rank IDs first. Materialize payloads only for the winning k;
-        // cloning every eligible high-dimensional vector is unnecessary.
-        let mut candidates = Vec::new();
-        for entry in self.vectors.iter() {
-            let Some(raw) = self.metadata.get(entry.key()) else {
-                continue;
-            };
-            let JsonValue::Object(metadata) = raw.value() else {
-                continue;
-            };
-            if !filter.iter().all(|(k, v)| metadata.get(k) == Some(v)) {
-                continue;
-            }
-            let score = crate::distance::distance(&query.vector, entry.value(), metric)?;
-            candidates.push((entry.key().clone(), score));
+        if !query.vector.iter().all(|v| v.is_finite()) {
+            return Err(RuvectorError::InvalidInput(
+                "query vector must be finite".into(),
+            ));
         }
-        candidates.sort_unstable_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
-        candidates.truncate(query.k);
+        // Keep a read guard throughout scoring and materialization, so
+        // insertion, replacement and deletion cannot invalidate the snapshot.
+        let postings = self.postings.read();
+        let mut smallest: Option<&HashMap<String, Arc<Vec<f32>>>> = None;
+        let mut criteria = Vec::with_capacity(filter.len());
+        for (field, value) in filter {
+            let key = (field.clone(), value.to_string());
+            let Some(bucket) = postings.get(&key) else {
+                return Ok(Vec::new());
+            };
+            if smallest.is_none_or(|current| bucket.len() < current.len()) {
+                smallest = Some(bucket);
+            }
+            criteria.push(bucket);
+        }
+        // Borrow IDs and shared vector payloads directly from the posting.
+        // This removes per-hit DashMap lookups, metadata reads and ID copies.
+        let mut candidates: Vec<(Cow<'_, str>, f32)> = Vec::new();
+        if let Some(bucket) = smallest {
+            candidates.reserve(bucket.len().min(100_000));
+            for (id, vector) in bucket {
+                if !criteria.iter().all(|candidate| candidate.contains_key(id)) {
+                    continue;
+                }
+                let score = crate::distance::distance(&query.vector, vector.as_ref(), metric)?;
+                candidates.push((Cow::Borrowed(id.as_str()), score));
+            }
+        } else {
+            // Empty predicates include rows without metadata.
+            for entry in self.vectors.iter() {
+                let score =
+                    crate::distance::distance(&query.vector, entry.value().as_ref(), metric)?;
+                candidates.push((Cow::Owned(entry.key().clone()), score));
+            }
+        }
+        let rank = |a: &(Cow<'_, str>, f32), b: &(Cow<'_, str>, f32)| {
+            a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0))
+        };
+        if candidates.len() > query.k {
+            candidates.select_nth_unstable_by(query.k, rank);
+            candidates.truncate(query.k);
+        }
+        candidates.sort_unstable_by(rank);
         let mut results = Vec::with_capacity(candidates.len());
-        for (id, _) in candidates {
-            let Some(entry) = self.vectors.get(&id) else {
+        for (id, score) in candidates {
+            let Some(entry) = self.vectors.get(id.as_ref()) else {
                 continue;
             };
-            let Some(raw) = self.metadata.get(&id) else {
-                continue;
-            };
-            let JsonValue::Object(map) = raw.value() else {
-                continue;
-            };
-            // Recheck at materialization to avoid returning a record that
-            // changed namespaces during a concurrent mutation.
-            if !filter.iter().all(|(k, v)| map.get(k) == Some(v)) {
+            let metadata = self
+                .metadata
+                .get(id.as_ref())
+                .and_then(|raw| match raw.value() {
+                    JsonValue::Object(map) => Some(
+                        map.iter()
+                            .map(|(k, v)| (k.clone(), v.clone()))
+                            .collect::<HashMap<String, JsonValue>>(),
+                    ),
+                    _ => None,
+                });
+            if !filter.is_empty()
+                && !metadata.as_ref().is_some_and(|map| {
+                    filter
+                        .iter()
+                        .all(|(field, value)| map.get(field) == Some(value))
+                })
+            {
                 continue;
             }
-            let metadata = Some(map.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
-            let score = crate::distance::distance(&query.vector, entry.value(), metric)?;
             results.push(SearchResult {
-                id,
+                id: id.into_owned(),
                 score,
-                vector: Some(entry.value().clone()),
+                vector: Some(entry.value().as_ref().clone()),
                 metadata,
             });
         }
@@ -192,6 +254,8 @@ impl MemoryStorage {
 
     /// Delete a vector by ID
     pub fn delete(&self, id: &str) -> Result<bool> {
+        let mut postings = self.postings.write();
+        self.unindex_id(&mut postings, id);
         let vector_removed = self.vectors.remove(id).is_some();
         self.metadata.remove(id);
         Ok(vector_removed)
@@ -222,8 +286,10 @@ impl MemoryStorage {
 
     /// Clear all data
     pub fn clear(&self) -> Result<()> {
+        let mut postings = self.postings.write();
         self.vectors.clear();
         self.metadata.clear();
+        postings.clear();
         Ok(())
     }
 
@@ -243,6 +309,204 @@ impl MemoryStorage {
 mod tests {
     use super::*;
     use std::collections::HashMap;
+    #[test]
+    fn test_postings_upsert_delete_clear_and_empty_filter() {
+        let store = MemoryStorage::new(2).unwrap();
+        let entry = |id: &str, tenant: Option<&str>, rank: f32| VectorEntry {
+            id: Some(id.to_owned()),
+            vector: vec![rank, 0.0],
+            metadata: tenant.map(|name| {
+                HashMap::from([
+                    ("tenant".to_owned(), serde_json::json!(name)),
+                    ("shard".to_owned(), serde_json::json!(3)),
+                ])
+            }),
+        };
+        store.insert(&entry("a", Some("red"), 1.0)).unwrap();
+        store.insert(&entry("b", Some("red"), 2.0)).unwrap();
+        store.insert(&entry("c", Some("blue"), 3.0)).unwrap();
+        store.insert(&entry("missing", None, 4.0)).unwrap();
+        let query = |tenant: &str| SearchQuery {
+            vector: vec![0.0, 0.0],
+            k: 10,
+            filter: Some(HashMap::from([(
+                "tenant".to_owned(),
+                serde_json::json!(tenant),
+            )])),
+            ef_search: None,
+        };
+        let search = |q: SearchQuery| {
+            store
+                .search_filtered_exact(&q, DistanceMetric::Euclidean)
+                .unwrap()
+        };
+        assert_eq!(
+            search(query("red"))
+                .iter()
+                .map(|r| r.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a", "b"]
+        );
+        store.insert(&entry("a", Some("blue"), 0.5)).unwrap();
+        assert_eq!(search(query("red")).len(), 1);
+        assert_eq!(search(query("blue")).len(), 2);
+        store.insert(&entry("a", None, 0.2)).unwrap();
+        assert_eq!(search(query("blue")).len(), 1);
+        assert!(store.delete("c").unwrap());
+        assert!(search(query("blue")).is_empty());
+        let mut composite = query("red");
+        composite
+            .filter
+            .as_mut()
+            .unwrap()
+            .insert("shard".into(), serde_json::json!(4));
+        assert!(search(composite).is_empty());
+        let all = search(SearchQuery {
+            vector: vec![0.0, 0.0],
+            k: 10,
+            filter: Some(HashMap::new()),
+            ef_search: None,
+        });
+        assert_eq!(all.len(), 3);
+        assert!(all
+            .iter()
+            .any(|r| r.id == "missing" && r.metadata.is_none()));
+        store.clear().unwrap();
+        assert!(search(query("red")).is_empty());
+        assert_eq!(store.postings.read().len(), 0);
+    }
+
+    #[test]
+    fn test_postings_exact_oracle_across_multi_field_queries() {
+        let store = MemoryStorage::new(8).unwrap();
+        for i in 0..2000usize {
+            let vector: Vec<f32> = (0..8)
+                .map(|j| ((i * 37 + j * 19) % 997) as f32 / 997.0)
+                .collect();
+            let metadata = HashMap::from([
+                ("tenant".to_owned(), serde_json::json!(i % 19)),
+                ("shard".to_owned(), serde_json::json!(i % 7)),
+            ]);
+            store
+                .insert(&VectorEntry {
+                    id: Some(format!("v{i}")),
+                    vector,
+                    metadata: Some(metadata),
+                })
+                .unwrap();
+        }
+        for q in 0..75usize {
+            let qvec: Vec<f32> = (0..8)
+                .map(|j| ((q * 43 + j * 13) % 983) as f32 / 983.0)
+                .collect();
+            let mut filter = HashMap::new();
+            if q % 11 != 0 {
+                filter.insert("tenant".to_owned(), serde_json::json!(q % 19));
+            }
+            if q % 3 == 0 {
+                filter.insert("shard".to_owned(), serde_json::json!(q % 7));
+            }
+            let k = if q % 7 == 0 { 100 } else { 10 };
+            let query = SearchQuery {
+                vector: qvec.clone(),
+                k,
+                filter: Some(filter.clone()),
+                ef_search: None,
+            };
+            let actual = store
+                .search_filtered_exact(&query, DistanceMetric::Euclidean)
+                .unwrap();
+            let mut oracle = Vec::new();
+            for entry in store.vectors.iter() {
+                let Some(raw) = store.metadata.get(entry.key()) else {
+                    continue;
+                };
+                let JsonValue::Object(map) = raw.value() else {
+                    continue;
+                };
+                if filter
+                    .iter()
+                    .all(|(key, value)| map.get(key) == Some(value))
+                {
+                    oracle.push((
+                        entry.key().clone(),
+                        crate::distance::distance(&qvec, entry.value(), DistanceMetric::Euclidean)
+                            .unwrap(),
+                    ));
+                }
+            }
+            oracle.sort_unstable_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+            oracle.truncate(k);
+            assert_eq!(
+                actual.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(),
+                oracle.iter().map(|r| r.0.as_str()).collect::<Vec<_>>(),
+                "query {q}"
+            );
+            for (r, (_, score)) in actual.iter().zip(oracle.iter()) {
+                assert!((r.score - score).abs() <= 1e-6, "score mismatch query {q}");
+            }
+        }
+    }
+
+    #[test]
+    fn test_filtered_search_never_leaks_concurrent_namespace_update() {
+        let store = std::sync::Arc::new(MemoryStorage::new(2).unwrap());
+        let writer_store = store.clone();
+        let writer = std::thread::spawn(move || {
+            for i in 0..300 {
+                let tenant = if i % 2 == 0 { "red" } else { "blue" };
+                let metadata = HashMap::from([("tenant".to_owned(), serde_json::json!(tenant))]);
+                writer_store
+                    .insert(&VectorEntry {
+                        id: Some("mutable".to_owned()),
+                        vector: vec![i as f32, 0.0],
+                        metadata: Some(metadata),
+                    })
+                    .unwrap();
+            }
+        });
+        for _ in 0..300 {
+            let query = SearchQuery {
+                vector: vec![0.0, 0.0],
+                k: 10,
+                filter: Some(HashMap::from([(
+                    "tenant".to_owned(),
+                    serde_json::json!("red"),
+                )])),
+                ef_search: None,
+            };
+            let results = store
+                .search_filtered_exact(&query, DistanceMetric::Euclidean)
+                .unwrap();
+            assert!(results.len() <= 1);
+            assert!(results
+                .iter()
+                .all(|r| r.id == "mutable" && r.metadata.as_ref().unwrap()["tenant"] == "red"));
+        }
+        writer.join().unwrap();
+    }
+
+    #[test]
+    fn test_generated_id_does_not_overwrite_explicit_id() {
+        let store = MemoryStorage::new(2).unwrap();
+        store
+            .insert(&VectorEntry {
+                id: Some("vec_0".to_string()),
+                vector: vec![1.0, 0.0],
+                metadata: None,
+            })
+            .unwrap();
+        let generated = store
+            .insert(&VectorEntry {
+                id: None,
+                vector: vec![2.0, 0.0],
+                metadata: None,
+            })
+            .unwrap();
+        assert_ne!(generated, "vec_0");
+        assert_eq!(store.get("vec_0").unwrap().unwrap().vector, vec![1.0, 0.0]);
+        assert_eq!(store.len().unwrap(), 2);
+    }
 
     #[test]
     fn test_insert_and_get() {
