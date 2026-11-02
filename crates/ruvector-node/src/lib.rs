@@ -802,7 +802,9 @@ mod strict_json_boundary_tests {
 
     #[test]
     fn valid_optional_metadata_and_filter_objects_parse() {
-        assert!(parse_optional_json_object("filter", None).unwrap().is_none());
+        assert!(parse_optional_json_object("filter", None)
+            .unwrap()
+            .is_none());
         let parsed = parse_optional_json_object("filter", Some(r#"{"tenant":"A"}"#))
             .unwrap()
             .unwrap();
