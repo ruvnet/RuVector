@@ -363,6 +363,13 @@ impl VectorDB {
 
     /// Search for similar vectors
     pub fn search(&self, query: SearchQuery) -> Result<Vec<SearchResult>> {
+        // Validate filtered queries before passing them to native index distance
+        // arithmetic. Non-finite values can make ordering undefined.
+        if query.filter.is_some() && !query.vector.iter().all(|x| x.is_finite()) {
+            return Err(crate::error::RuvectorError::InvalidInput(
+                "filtered search query contains NaN or infinity".to_string(),
+            ));
+        }
         let index = self.index.read();
         // Verification tier (ADR-297 §2): with Turbo4 quantization, over-fetch
         // 2k candidates and re-rank them against the stored f32 vectors.
@@ -408,17 +415,71 @@ impl VectorDB {
             results.truncate(query.k);
         }
 
-        // Apply metadata filters if specified
+        // Apply metadata filters if specified. The native index searches the
+        // global top-k first, so post-filtering alone can silently underfill k
+        // even when enough eligible vectors exist (issue #1310).
         if let Some(filter) = &query.filter {
             results.retain(|r| {
-                if let Some(metadata) = &r.metadata {
+                r.metadata.as_ref().is_some_and(|metadata| {
                     filter
                         .iter()
                         .all(|(key, value)| metadata.get(key).is_some_and(|v| v == value))
-                } else {
-                    false
-                }
+                })
             });
+
+            // Preserve the inexpensive ANN/flat path when it already supplies
+            // k eligible candidates. A short result must be refilled from the
+            // full eligible set, not silently returned as a complete top-k.
+            //
+            // Correctness fallback: O(N) metadata reads plus O(M * dimensions)
+            // distance work for M eligible vectors. This deliberately does NOT
+            // claim a fast filtered ANN index; ACORN/prefilter acceleration needs
+            // a separate, measured integration.
+            if results.len() < query.k {
+                let mut eligible = Vec::new();
+                for id in self.storage.all_ids()? {
+                    let Some(entry) = self.storage.get(&id)? else {
+                        continue;
+                    };
+                    let Some(metadata) = entry.metadata else {
+                        continue;
+                    };
+                    if !filter
+                        .iter()
+                        .all(|(key, value)| metadata.get(key).is_some_and(|v| v == value))
+                    {
+                        continue;
+                    }
+                    if !entry.vector.iter().all(|x| x.is_finite()) {
+                        return Err(crate::error::RuvectorError::InvalidInput(
+                            "filtered search encountered a non-finite stored vector".to_string(),
+                        ));
+                    }
+                    let score = crate::distance::distance(
+                        &query.vector,
+                        &entry.vector,
+                        self.options.distance_metric,
+                    )?;
+                    if !score.is_finite() {
+                        return Err(crate::error::RuvectorError::InvalidInput(
+                            "filtered search produced a non-finite score".to_string(),
+                        ));
+                    }
+                    eligible.push(SearchResult {
+                        id,
+                        score,
+                        vector: Some(entry.vector),
+                        metadata: Some(metadata),
+                    });
+                }
+
+                // Deterministic boundary ties and a unique ID per stored entry.
+                eligible.sort_unstable_by(|a, b| {
+                    a.score.total_cmp(&b.score).then_with(|| a.id.cmp(&b.id))
+                });
+                eligible.truncate(query.k);
+                return Ok(eligible);
+            }
         }
 
         Ok(results)
@@ -780,4 +841,94 @@ mod tests {
 
         Ok(())
     }
+    #[test]
+    fn filtered_top_k_is_complete_and_score_consistent_at_one_and_ten_percent() -> Result<()> {
+        for step in [10usize, 100usize] {
+            let db = VectorDB::new(DbOptions {
+                dimensions: 2,
+                distance_metric: DistanceMetric::Euclidean,
+                storage_path: format!("memory://filtered-topk-{step}"),
+                hnsw_config: None,
+                quantization: None,
+            })?;
+
+            // The nearest global neighbors all belong to another tenant.
+            // Eligible tenant-A vectors occur at 10% or 1% selectivity.
+            for i in 0..1000usize {
+                let mut metadata = std::collections::HashMap::new();
+                metadata.insert(
+                    "tenant".to_string(),
+                    serde_json::json!(if i % step == 0 { "A" } else { "B" }),
+                );
+                db.insert(VectorEntry {
+                    id: Some(format!("id_{i:04}")),
+                    vector: vec![i as f32, 0.0],
+                    metadata: Some(metadata),
+                })?;
+            }
+
+            let mut filter = std::collections::HashMap::new();
+            filter.insert("tenant".to_string(), serde_json::json!("A"));
+            let found = db.search(SearchQuery {
+                vector: vec![0.0, 0.0],
+                k: 10,
+                filter: Some(filter),
+                ef_search: None,
+            })?;
+
+            assert_eq!(found.len(), 10, "selectivity 1/{step} underfilled");
+            for (rank, result) in found.iter().enumerate() {
+                let index = rank * step;
+                assert_eq!(result.id, format!("id_{index:04}"));
+                assert_eq!(result.score, index as f32);
+                assert_eq!(result.vector.as_deref(), Some([index as f32, 0.0].as_slice()));
+                assert_eq!(result.metadata.as_ref().unwrap()["tenant"], "A");
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn filtered_top_k_returns_only_existing_eligible_and_rejects_nonfinite_query() -> Result<()> {
+        let db = VectorDB::new(DbOptions {
+            dimensions: 2,
+            distance_metric: DistanceMetric::Euclidean,
+            storage_path: "memory://filtered-underfull-eligible".to_string(),
+            hnsw_config: None,
+            quantization: None,
+        })?;
+        for i in 0..50usize {
+            let mut metadata = std::collections::HashMap::new();
+            metadata.insert(
+                "tenant".to_string(),
+                serde_json::json!(if i == 7 { "A" } else { "B" }),
+            );
+            db.insert(VectorEntry {
+                id: Some(format!("id_{i:04}")),
+                vector: vec![i as f32, 0.0],
+                metadata: Some(metadata),
+            })?;
+        }
+        let mut filter = std::collections::HashMap::new();
+        filter.insert("tenant".to_string(), serde_json::json!("A"));
+
+        let found = db.search(SearchQuery {
+            vector: vec![0.0, 0.0],
+            k: 10,
+            filter: Some(filter.clone()),
+            ef_search: None,
+        })?;
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].id, "id_0007");
+
+        let invalid = db.search(SearchQuery {
+            vector: vec![f32::NAN, 0.0],
+            k: 10,
+            filter: Some(filter),
+            ef_search: None,
+        });
+        assert!(matches!(invalid, Err(crate::error::RuvectorError::InvalidInput(_))));
+        Ok(())
+    }
+
 }
