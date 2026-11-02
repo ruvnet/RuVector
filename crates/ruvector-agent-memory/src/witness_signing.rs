@@ -56,6 +56,13 @@
 //! - **Crash before seal.** Pending `BatchTail` state is in memory only; a
 //!   crash leaves the unsealed tail permanently unsigned, and only a key
 //!   holder can re-sign it. Verification fails closed in that case.
+//! - **`max_wait` is a bound on when a caller may seal, not a promise that
+//!   anything will.** [`SignedWitnessSink`] never spawns a timer; a
+//!   deployment that wants the worst-case signature-availability latency
+//!   actually bounded must drive [`SignedWitnessSink::seal_if_overdue_now`]
+//!   on its own schedule (e.g. every `max_wait`). A deployment that never
+//!   calls it gets the pre-`max_wait` unbounded-tail behavior regardless of
+//!   what `max_wait` is set to.
 //! - **Key compromise / key management** (generation, rotation, storage,
 //!   revocation) is out of scope. Anyone holding the signing key can sign
 //!   an arbitrary alternative history.
@@ -67,6 +74,7 @@ use crate::ops::{LedgerError, LedgerWitnessRecord, MemoryWitnessLog, WitnessSink
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use rvf_types::ed25519::Ed25519Keypair;
 use rvf_types::sha256::{sha256, Sha256};
+use std::time::{Duration, Instant};
 
 const MSG_TAG: &[u8] = b"ruvector-agent-memory:witness-signer:v2:span\0";
 const RECORDS_TAG: &[u8] = b"ruvector-agent-memory:witness-signer:v2:records\0";
@@ -165,8 +173,24 @@ pub enum SigningStrategy {
     PerRecord,
     /// Sign once every `batch_size` records (and on [`SignedWitnessSink::seal`]).
     /// `batch_size` must be at least 1.
+    ///
+    /// `max_wait` bounds the worst-case signature-availability latency of
+    /// the oldest pending (unsigned) record: `None` means fixed-size-only —
+    /// a batch never closes early, however long the deployment's arrival
+    /// rate leaves it short of `batch_size` (Next Research item 1 of the
+    /// 2026-09-16 nightly run named this unbounded tail as the open
+    /// question this field closes). `Some(d)` additionally makes
+    /// [`SignedWitnessSink::seal_if_overdue`]/`seal_if_overdue_now` seal the
+    /// pending span once it has been open at least `d` — mirroring
+    /// `ruvector_retrieval_receipt::batch_fill::BatchFillPolicy::hybrid`'s
+    /// close-at-size-or-timeout, whichever-first policy (ported here as a
+    /// concept, not a dependency: this crate does not depend on
+    /// `ruvector-retrieval-receipt`). The sink never arms a timer itself —
+    /// a caller (e.g. a periodic maintenance tick) must actually invoke
+    /// `seal_if_overdue_now()` for the bound to take effect in practice.
     BatchTail {
         batch_size: usize,
+        max_wait: Option<Duration>,
     },
 }
 
@@ -191,6 +215,7 @@ struct PendingSpan {
     to: u64,
     count: usize,
     hasher: RecordsHasher,
+    opened_at: Instant,
 }
 
 /// A [`WitnessSink`] decorator that signs spans of the records it forwards
@@ -213,7 +238,7 @@ impl<S: WitnessSink> SignedWitnessSink<S> {
         signing_key: SigningKey,
         strategy: SigningStrategy,
     ) -> Result<Self, WitnessSignerError> {
-        if let SigningStrategy::BatchTail { batch_size: 0 } = strategy {
+        if let SigningStrategy::BatchTail { batch_size: 0, .. } = strategy {
             return Err(WitnessSignerError::ZeroBatchSize);
         }
         Ok(Self {
@@ -289,6 +314,48 @@ impl<S: WitnessSink> SignedWitnessSink<S> {
             self.close(SignPurpose::BatchTail, p.from, p.to, p.hasher.finish());
         }
     }
+
+    /// The instant at which the pending span's wall-clock fill timeout
+    /// expires, if [`SigningStrategy::BatchTail`]'s `max_wait` is set and a
+    /// span is actually pending. A caller drives timeout scheduling from
+    /// this, mirroring
+    /// `ruvector_retrieval_receipt::batch_fill::BatchScheduler::oldest_pending_arrival_ns`'s
+    /// "next deadline = oldest arrival + max_wait" contract.
+    pub fn pending_deadline(&self) -> Option<Instant> {
+        let max_wait = match self.strategy {
+            SigningStrategy::BatchTail {
+                max_wait: Some(d), ..
+            } => d,
+            _ => return None,
+        };
+        self.pending.as_ref().map(|p| p.opened_at + max_wait)
+    }
+
+    /// Seal the pending span if its fill timeout has expired as of `now`.
+    /// Returns `true` iff a seal happened. Does not re-check the deadline
+    /// against the real clock — like
+    /// `BatchScheduler::close_on_timeout`, the caller (a timer, a ruFlo
+    /// maintenance tick, …) is responsible for only calling this once
+    /// `now >= pending_deadline()`; passing an earlier `now` is a no-op,
+    /// which keeps this method deterministically testable without a real
+    /// sleep.
+    pub fn seal_if_overdue(&mut self, now: Instant) -> bool {
+        match self.pending_deadline() {
+            Some(deadline) if now >= deadline => {
+                self.seal();
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// [`Self::seal_if_overdue`] against the real wall clock. The sink
+    /// never arms this itself; a deployment must call it periodically (see
+    /// the module's RuFlo integration note) for the `max_wait` bound to
+    /// hold in practice.
+    pub fn seal_if_overdue_now(&mut self) -> bool {
+        self.seal_if_overdue(Instant::now())
+    }
 }
 
 impl<S: WitnessSink> WitnessSink for SignedWitnessSink<S> {
@@ -313,13 +380,14 @@ impl<S: WitnessSink> WitnessSink for SignedWitnessSink<S> {
                     self.close(SignPurpose::PerRecord, r.sequence, r.sequence, h.finish());
                 }
             }
-            SigningStrategy::BatchTail { batch_size } => {
+            SigningStrategy::BatchTail { batch_size, .. } => {
                 for r in records {
                     let p = self.pending.get_or_insert_with(|| PendingSpan {
                         from: r.sequence,
                         to: r.sequence,
                         count: 0,
                         hasher: RecordsHasher::new(),
+                        opened_at: Instant::now(),
                     });
                     p.hasher.push(r);
                     p.to = r.sequence;
