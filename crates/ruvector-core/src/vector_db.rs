@@ -361,8 +361,75 @@ impl VectorDB {
         Ok(ids)
     }
 
+    /// Exact filtered retrieval for the flat backend and completeness fallback.
+    /// Filters before distance calculation, so selective queries avoid scoring
+    /// ineligible vectors and always return the eligible top-k.
+    fn search_filtered_exact(&self, query: &SearchQuery) -> Result<Vec<SearchResult>> {
+        let Some(filter) = query.filter.as_ref() else {
+            unreachable!("exact filtered retrieval requires a predicate");
+        };
+        if query.k == 0 {
+            return Ok(Vec::new());
+        }
+        if query.vector.len() != self.options.dimensions {
+            return Err(crate::error::RuvectorError::DimensionMismatch {
+                expected: self.options.dimensions,
+                actual: query.vector.len(),
+            });
+        }
+        #[cfg(feature = "storage")]
+        if let StorageBackend::Memory(storage) = self.storage.as_ref() {
+            return storage.search_filtered_exact(query, self.options.distance_metric);
+        }
+        #[cfg(not(feature = "storage"))]
+        {
+            return self
+                .storage
+                .search_filtered_exact(query, self.options.distance_metric);
+        }
+
+        let mut matches = Vec::new();
+        for id in self.storage.all_ids()? {
+            let Some(entry) = self.storage.get(&id)? else {
+                continue;
+            };
+            let Some(metadata) = &entry.metadata else {
+                continue;
+            };
+            if !filter
+                .iter()
+                .all(|(key, value)| metadata.get(key) == Some(value))
+            {
+                continue;
+            }
+            let score = crate::distance::distance(
+                &query.vector,
+                &entry.vector,
+                self.options.distance_metric,
+            )?;
+            matches.push(SearchResult {
+                id,
+                score,
+                vector: Some(entry.vector),
+                metadata: entry.metadata,
+            });
+        }
+        matches.sort_unstable_by(|a, b| a.score.total_cmp(&b.score).then_with(|| a.id.cmp(&b.id)));
+        matches.truncate(query.k);
+        Ok(matches)
+    }
+
     /// Search for similar vectors
     pub fn search(&self, query: SearchQuery) -> Result<Vec<SearchResult>> {
+        // Exact flat retrieval can prefilter before scoring; this avoids both
+        // top-k underfill and redundant distance work on ineligible vectors.
+        if query.filter.is_some() && (self.options.hnsw_config.is_none() || !cfg!(feature = "hnsw"))
+        {
+            return self.search_filtered_exact(&query);
+        }
+        if query.k == 0 {
+            return Ok(Vec::new());
+        }
         let index = self.index.read();
         // Verification tier (ADR-297 §2): with Turbo4 quantization, over-fetch
         // 2k candidates and re-rank them against the stored f32 vectors.
@@ -375,53 +442,70 @@ impl VectorDB {
             self.options.quantization,
             Some(crate::types::QuantizationConfig::Turbo4 { .. })
         );
-        let fetch_k = if verify {
+        let total = index.len();
+        let mut fetch_k = if query.filter.is_some() {
+            query.k.saturating_mul(8).max(16).min(total)
+        } else if verify {
             query.k.saturating_mul(2)
         } else {
             query.k
         };
-        let mut results = index.search_ef(&query.vector, fetch_k, query.ef_search)?;
+        loop {
+            let mut results = index.search_ef(&query.vector, fetch_k, query.ef_search)?;
 
-        // Enrich results with full data if needed
-        for result in &mut results {
-            if let Ok(Some(entry)) = self.storage.get(&result.id) {
-                result.vector = Some(entry.vector);
-                result.metadata = entry.metadata;
-            }
-        }
-
-        if verify {
-            for r in &mut results {
-                if let Some(v) = &r.vector {
-                    r.score = crate::encoding::metric_distance(
-                        self.options.distance_metric,
-                        &query.vector,
-                        v,
-                    );
+            // Enrich results with full data if needed
+            for result in &mut results {
+                if let Ok(Some(entry)) = self.storage.get(&result.id) {
+                    result.vector = Some(entry.vector);
+                    result.metadata = entry.metadata;
                 }
             }
-            results.sort_unstable_by(|a, b| {
-                a.score
-                    .partial_cmp(&b.score)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
+
+            if verify {
+                for r in &mut results {
+                    if let Some(v) = &r.vector {
+                        r.score = crate::encoding::metric_distance(
+                            self.options.distance_metric,
+                            &query.vector,
+                            v,
+                        );
+                    }
+                }
+                results.sort_unstable_by(|a, b| {
+                    a.score
+                        .partial_cmp(&b.score)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+            }
+
+            // Apply metadata filters if specified
+            if let Some(filter) = &query.filter {
+                results.retain(|r| {
+                    if let Some(metadata) = &r.metadata {
+                        filter
+                            .iter()
+                            .all(|(key, value)| metadata.get(key).is_some_and(|v| v == value))
+                    } else {
+                        false
+                    }
+                });
+            }
+
+            if query.filter.is_some() && results.len() < query.k {
+                if fetch_k < total {
+                    fetch_k = fetch_k
+                        .saturating_mul(2)
+                        .max(fetch_k.saturating_add(1))
+                        .min(total);
+                    continue;
+                }
+                // HNSW can visit fewer than all records even with k == index.len().
+                // Exhaustive predicate-first fallback ensures eligible completeness.
+                return self.search_filtered_exact(&query);
+            }
             results.truncate(query.k);
+            return Ok(results);
         }
-
-        // Apply metadata filters if specified
-        if let Some(filter) = &query.filter {
-            results.retain(|r| {
-                if let Some(metadata) = &r.metadata {
-                    filter
-                        .iter()
-                        .all(|(key, value)| metadata.get(key).is_some_and(|v| v == value))
-                } else {
-                    false
-                }
-            });
-        }
-
-        Ok(results)
     }
 
     /// Delete a vector by ID
@@ -560,6 +644,210 @@ mod tests {
             "Exact match should have ~0 distance"
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_filtered_top_k_refills_from_eligible_candidates() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let mut options = DbOptions::default();
+        options.storage_path = dir.path().join("filtered.db").to_string_lossy().to_string();
+        options.dimensions = 2;
+        options.distance_metric = DistanceMetric::Euclidean;
+        options.hnsw_config = None;
+        let db = VectorDB::new(options)?;
+        for i in 0..100 {
+            let mut metadata = std::collections::HashMap::new();
+            metadata.insert(
+                "tenant".to_owned(),
+                serde_json::json!(if i >= 90 { "a" } else { "b" }),
+            );
+            db.insert(VectorEntry {
+                id: Some(format!("v{i:03}")),
+                vector: vec![i as f32, 0.0],
+                metadata: Some(metadata),
+            })?;
+        }
+        let mut filter = std::collections::HashMap::new();
+        filter.insert("tenant".to_owned(), serde_json::json!("a"));
+        let results = db.search(SearchQuery {
+            vector: vec![0.0, 0.0],
+            k: 10,
+            filter: Some(filter),
+            ef_search: None,
+        })?;
+        assert_eq!(
+            results.len(),
+            10,
+            "filtered search must refill to eligible top-k"
+        );
+        for (i, r) in results.iter().enumerate() {
+            assert_eq!(r.id, format!("v{:03}", i + 90));
+            assert_eq!(r.score, (i + 90) as f32);
+            assert_eq!(r.metadata.as_ref().unwrap()["tenant"], "a");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_filtered_sparse_and_empty_eligible() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let mut options = DbOptions::default();
+        options.storage_path = dir
+            .path()
+            .join("sparse-filter.db")
+            .to_string_lossy()
+            .to_string();
+        options.dimensions = 2;
+        options.distance_metric = DistanceMetric::Euclidean;
+        options.hnsw_config = None;
+        let db = VectorDB::new(options)?;
+        for i in 0..30 {
+            let mut metadata = std::collections::HashMap::new();
+            metadata.insert(
+                "tenant".to_string(),
+                serde_json::json!(if i >= 27 { "a" } else { "b" }),
+            );
+            db.insert(VectorEntry {
+                id: Some(format!("v{i}")),
+                vector: vec![i as f32, 0.0],
+                metadata: Some(metadata),
+            })?;
+        }
+        let query_for = |tenant: &str, k| {
+            let mut filter = std::collections::HashMap::new();
+            filter.insert("tenant".to_string(), serde_json::json!(tenant));
+            SearchQuery {
+                vector: vec![0.0, 0.0],
+                k,
+                filter: Some(filter),
+                ef_search: None,
+            }
+        };
+        let results = db.search(query_for("a", 10))?;
+        assert_eq!(results.len(), 3);
+        assert_eq!(
+            results.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(),
+            vec!["v27", "v28", "v29"]
+        );
+        assert!(db.search(query_for("missing", 10))?.is_empty());
+        assert!(db.search(query_for("a", 0))?.is_empty());
+        Ok(())
+    }
+
+    #[cfg(feature = "hnsw")]
+    #[test]
+    fn test_hnsw_filtered_top_k_completeness() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let mut options = DbOptions::default();
+        options.storage_path = dir
+            .path()
+            .join("filtered-hnsw.db")
+            .to_string_lossy()
+            .to_string();
+        options.dimensions = 2;
+        options.distance_metric = DistanceMetric::Euclidean;
+        options.hnsw_config = Some(HnswConfig {
+            m: 16,
+            ef_construction: 100,
+            ef_search: 20,
+            max_elements: 1000,
+        });
+        let db = VectorDB::new(options)?;
+        for i in 0..100 {
+            let mut metadata = std::collections::HashMap::new();
+            metadata.insert(
+                "tenant".to_owned(),
+                serde_json::json!(if i >= 90 { "a" } else { "b" }),
+            );
+            db.insert(VectorEntry {
+                id: Some(format!("v{i:03}")),
+                vector: vec![i as f32, 0.0],
+                metadata: Some(metadata),
+            })?;
+        }
+        let mut filter = std::collections::HashMap::new();
+        filter.insert("tenant".to_string(), serde_json::json!("a"));
+        let results = db.search(SearchQuery {
+            vector: vec![0.0, 0.0],
+            k: 10,
+            filter: Some(filter),
+            ef_search: Some(20),
+        })?;
+        assert_eq!(results.len(), 10);
+        let ids: std::collections::HashSet<_> = results.iter().map(|r| r.id.as_str()).collect();
+        assert_eq!(ids.len(), 10);
+        assert!(results
+            .iter()
+            .all(|r| r.metadata.as_ref().unwrap()["tenant"] == "a"));
+        let mut missing = std::collections::HashMap::new();
+        missing.insert("tenant".to_owned(), serde_json::json!("missing"));
+        assert!(db
+            .search(SearchQuery {
+                vector: vec![0.0, 0.0],
+                k: 10,
+                filter: Some(missing),
+                ef_search: Some(20),
+            })?
+            .is_empty());
+        Ok(())
+    }
+
+    /// Opt-in deterministic smoke benchmark: run with
+    /// cargo test -p ruvector-core --lib bench_filtered_contract -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn bench_filtered_contract() -> Result<()> {
+        use std::time::Instant;
+        let mut options = DbOptions::default();
+        options.storage_path = "memory://filtered-contract-bench".to_string();
+        options.dimensions = 384;
+        options.distance_metric = DistanceMetric::Euclidean;
+        options.hnsw_config = None;
+        let db = VectorDB::new(options)?;
+        for i in 0..10_000usize {
+            let mut metadata = std::collections::HashMap::new();
+            metadata.insert(
+                "ten".to_owned(),
+                serde_json::json!(if i % 10 == 0 { "yes" } else { "no" }),
+            );
+            metadata.insert(
+                "hundred".to_owned(),
+                serde_json::json!(if i % 100 == 0 { "yes" } else { "no" }),
+            );
+            let mut v = vec![0.0; 384];
+            for (j, x) in v.iter_mut().enumerate() {
+                *x = ((i.wrapping_mul(17) + j * 31) % 10007) as f32 / 10007.0;
+            }
+            db.insert(VectorEntry {
+                id: Some(format!("v{i}")),
+                vector: v,
+                metadata: Some(metadata),
+            })?;
+        }
+        for field in ["ten", "hundred"] {
+            let mut elapsed = Vec::new();
+            let mut complete = 0;
+            for i in 0..40usize {
+                let mut filter = std::collections::HashMap::new();
+                filter.insert(field.to_owned(), serde_json::json!("yes"));
+                let query = vec![(i * 113 % 997) as f32 / 997.0; 384];
+                let start = Instant::now();
+                let results = db.search(SearchQuery {
+                    vector: query,
+                    k: 10,
+                    filter: Some(filter),
+                    ef_search: None,
+                })?;
+                elapsed.push(start.elapsed().as_micros() as u64);
+                complete += usize::from(results.len() == 10);
+            }
+            elapsed.sort_unstable();
+            println!(
+                "BENCH field={} complete={}/40 p50_us={} p95_us={}",
+                field, complete, elapsed[20], elapsed[38]
+            );
+        }
         Ok(())
     }
 
