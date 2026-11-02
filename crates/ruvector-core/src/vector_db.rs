@@ -836,13 +836,24 @@ mod tests {
     #[ignore]
     fn bench_filtered_contract() -> Result<()> {
         use std::time::Instant;
+        let setting = |key: &str, default: usize, max: usize| {
+            std::env::var(key)
+                .ok()
+                .and_then(|raw| raw.parse::<usize>().ok())
+                .filter(|value| *value > 0 && *value <= max)
+                .unwrap_or(default)
+        };
+        let corpus = setting("RUVECTOR_FILTER_BENCH_N", 10_000, 1_000_000);
+        let dims = setting("RUVECTOR_FILTER_BENCH_DIM", 384, 384);
+        let queries = setting("RUVECTOR_FILTER_BENCH_QUERIES", 40, 200);
         let mut options = DbOptions::default();
         options.storage_path = "memory://filtered-contract-bench".to_string();
-        options.dimensions = 384;
+        options.dimensions = dims;
         options.distance_metric = DistanceMetric::Euclidean;
         options.hnsw_config = None;
         let db = VectorDB::new(options)?;
-        for i in 0..10_000usize {
+        let build_start = Instant::now();
+        for i in 0..corpus {
             let mut metadata = std::collections::HashMap::new();
             metadata.insert(
                 "ten".to_owned(),
@@ -852,7 +863,7 @@ mod tests {
                 "hundred".to_owned(),
                 serde_json::json!(if i % 100 == 0 { "yes" } else { "no" }),
             );
-            let mut v = vec![0.0; 384];
+            let mut v = vec![0.0; dims];
             for (j, x) in v.iter_mut().enumerate() {
                 *x = ((i.wrapping_mul(17) + j * 31) % 10007) as f32 / 10007.0;
             }
@@ -862,13 +873,26 @@ mod tests {
                 metadata: Some(metadata),
             })?;
         }
+        let build_ms = build_start.elapsed().as_millis();
+        let rss_kb = std::fs::read_to_string("/proc/self/status")
+            .ok()
+            .and_then(|text| {
+                text.lines()
+                    .find(|line| line.starts_with("VmRSS:"))
+                    .and_then(|line| line.split_whitespace().nth(1))
+                    .and_then(|value| value.parse::<usize>().ok())
+            });
+        println!(
+            "BENCH_SETUP corpus={} dims={} insert_ms={} rss_kb={:?}",
+            corpus, dims, build_ms, rss_kb
+        );
         for field in ["ten", "hundred"] {
             let mut elapsed = Vec::new();
             let mut complete = 0;
-            for i in 0..40usize {
+            for i in 0..queries {
                 let mut filter = std::collections::HashMap::new();
                 filter.insert(field.to_owned(), serde_json::json!("yes"));
-                let query = vec![(i * 113 % 997) as f32 / 997.0; 384];
+                let query = vec![(i * 113 % 997) as f32 / 997.0; dims];
                 let start = Instant::now();
                 let results = db.search(SearchQuery {
                     vector: query,
@@ -881,8 +905,13 @@ mod tests {
             }
             elapsed.sort_unstable();
             println!(
-                "BENCH field={} complete={}/40 p50_us={} p95_us={}",
-                field, complete, elapsed[20], elapsed[38]
+                "BENCH field={} complete={}/{} p50_us={} p95_us={} p99_us={}",
+                field,
+                complete,
+                queries,
+                elapsed[queries / 2],
+                elapsed[(queries * 95).div_ceil(100) - 1],
+                elapsed[(queries * 99).div_ceil(100) - 1]
             );
         }
         Ok(())
