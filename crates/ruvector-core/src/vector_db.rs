@@ -332,32 +332,68 @@ impl VectorDB {
         Self::new(options)
     }
 
-    /// Insert a vector entry
+    /// Validate values before they can reach storage or floating-point index sorts.
+    fn validate_vector_data(&self, vector: &[f32]) -> Result<()> {
+        if vector.len() != self.options.dimensions {
+            return Err(crate::error::RuvectorError::DimensionMismatch {
+                expected: self.options.dimensions,
+                actual: vector.len(),
+            });
+        }
+        if !vector.iter().all(|x| x.is_finite()) {
+            return Err(crate::error::RuvectorError::InvalidInput(
+                "vector contains NaN or infinity".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Insert a vector entry; explicit duplicate IDs are rejected.
     pub fn insert(&self, entry: VectorEntry) -> Result<VectorId> {
-        let id = self.storage.insert(&entry)?;
-
-        // Add to index
+        self.validate_vector_data(&entry.vector)?;
+        // Serialize mutations so concurrent inserts cannot both pass the ID check.
         let mut index = self.index.write();
+        if let Some(id) = &entry.id {
+            if self.storage.get(id)?.is_some() {
+                return Err(crate::error::RuvectorError::InvalidInput(format!(
+                    "duplicate vector ID: {id}"
+                )));
+            }
+        }
+        let id = self.storage.insert(&entry)?;
         index.add(id.clone(), entry.vector)?;
-
         Ok(id)
     }
 
-    /// Insert multiple vectors in a batch
+    /// Insert multiple vectors; explicit duplicate IDs fail before any write.
     pub fn insert_batch(&self, entries: impl AsRef<[VectorEntry]>) -> Result<Vec<VectorId>> {
         let entries = entries.as_ref();
-        let ids = self.storage.insert_batch(entries)?;
-
-        // Add to index
+        let mut seen = std::collections::HashSet::new();
+        for entry in entries {
+            self.validate_vector_data(&entry.vector)?;
+            if let Some(id) = &entry.id {
+                if !seen.insert(id) {
+                    return Err(crate::error::RuvectorError::InvalidInput(format!(
+                        "duplicate vector ID in batch: {id}"
+                    )));
+                }
+            }
+        }
         let mut index = self.index.write();
-        let index_entries: Vec<_> = ids
+        for id in seen {
+            if self.storage.get(id)?.is_some() {
+                return Err(crate::error::RuvectorError::InvalidInput(format!(
+                    "duplicate vector ID: {id}"
+                )));
+            }
+        }
+        let ids = self.storage.insert_batch(entries)?;
+        let index_entries = ids
             .iter()
             .zip(entries.iter())
             .map(|(id, entry)| (id.clone(), entry.vector.clone()))
             .collect();
-
         index.add_batch(index_entries)?;
-
         Ok(ids)
     }
 
@@ -421,6 +457,7 @@ impl VectorDB {
 
     /// Search for similar vectors
     pub fn search(&self, query: SearchQuery) -> Result<Vec<SearchResult>> {
+        self.validate_vector_data(&query.vector)?;
         // Exact flat retrieval can prefilter before scoring; this avoids both
         // top-k underfill and redundant distance work on ineligible vectors.
         if query.filter.is_some() && (self.options.hnsw_config.is_none() || !cfg!(feature = "hnsw"))
@@ -848,6 +885,173 @@ mod tests {
                 field, complete, elapsed[20], elapsed[38]
             );
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_duplicate_id_is_rejected_without_mutating_existing_vector() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let mut options = DbOptions::default();
+        options.storage_path = dir
+            .path()
+            .join("duplicate.db")
+            .to_string_lossy()
+            .to_string();
+        options.dimensions = 2;
+        options.distance_metric = DistanceMetric::Euclidean;
+        options.hnsw_config = None;
+        let db = VectorDB::new(options)?;
+        db.insert(VectorEntry {
+            id: Some("same".into()),
+            vector: vec![1.0, 0.0],
+            metadata: None,
+        })?;
+        assert!(db
+            .insert(VectorEntry {
+                id: Some("same".into()),
+                vector: vec![10.0, 0.0],
+                metadata: None,
+            })
+            .is_err());
+        assert_eq!(db.len()?, 1);
+        assert_eq!(db.get("same")?.unwrap().vector, vec![1.0, 0.0]);
+        let results = db.search(SearchQuery {
+            vector: vec![1.0, 0.0],
+            k: 1,
+            filter: None,
+            ef_search: None,
+        })?;
+        assert_eq!(results[0].id, "same");
+        assert!(results[0].score.abs() < 1e-5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_nonfinite_insert_and_query_rejected() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let mut options = DbOptions::default();
+        options.storage_path = dir
+            .path()
+            .join("nonfinite.db")
+            .to_string_lossy()
+            .to_string();
+        options.dimensions = 2;
+        options.distance_metric = DistanceMetric::Euclidean;
+        options.hnsw_config = None;
+        let db = VectorDB::new(options)?;
+        db.insert(VectorEntry {
+            id: Some("valid".into()),
+            vector: vec![0.0, 0.0],
+            metadata: None,
+        })?;
+        for bad in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            assert!(db
+                .insert(VectorEntry {
+                    id: Some("invalid".into()),
+                    vector: vec![bad, 0.0],
+                    metadata: None
+                })
+                .is_err());
+            assert!(db
+                .search(SearchQuery {
+                    vector: vec![bad, 0.0],
+                    k: 1,
+                    filter: None,
+                    ef_search: None
+                })
+                .is_err());
+        }
+        assert_eq!(db.len()?, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_batch_insert_preflight_prevents_partial_writes() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let mut options = DbOptions::default();
+        options.storage_path = dir
+            .path()
+            .join("batch-preflight.db")
+            .to_string_lossy()
+            .to_string();
+        options.dimensions = 2;
+        options.hnsw_config = None;
+        let db = VectorDB::new(options)?;
+        db.insert(VectorEntry {
+            id: Some("existing".into()),
+            vector: vec![1.0, 0.0],
+            metadata: None,
+        })?;
+        let entry = |id: &str, vector: Vec<f32>| VectorEntry {
+            id: Some(id.into()),
+            vector,
+            metadata: None,
+        };
+        assert!(db
+            .insert_batch(vec![
+                entry("new", vec![0.0, 1.0]),
+                entry("new", vec![1.0, 0.0])
+            ])
+            .is_err());
+        assert!(db.get("new")?.is_none());
+        assert!(db
+            .insert_batch(vec![
+                entry("new", vec![0.0, 1.0]),
+                entry("existing", vec![1.0, 0.0])
+            ])
+            .is_err());
+        assert!(db.get("new")?.is_none());
+        assert!(db
+            .insert_batch(vec![
+                entry("new", vec![0.0, 1.0]),
+                entry("bad", vec![f32::NAN, 0.0])
+            ])
+            .is_err());
+        assert_eq!(db.len()?, 1);
+        Ok(())
+    }
+
+    #[cfg(feature = "hnsw")]
+    #[test]
+    fn test_hnsw_duplicate_is_rejected() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let mut options = DbOptions::default();
+        options.storage_path = dir
+            .path()
+            .join("duplicate-hnsw.db")
+            .to_string_lossy()
+            .to_string();
+        options.dimensions = 2;
+        options.distance_metric = DistanceMetric::Euclidean;
+        options.hnsw_config = Some(HnswConfig {
+            m: 16,
+            ef_construction: 100,
+            ef_search: 40,
+            max_elements: 100,
+        });
+        let db = VectorDB::new(options)?;
+        db.insert(VectorEntry {
+            id: Some("same".into()),
+            vector: vec![1.0, 0.0],
+            metadata: None,
+        })?;
+        assert!(db
+            .insert(VectorEntry {
+                id: Some("same".into()),
+                vector: vec![10.0, 0.0],
+                metadata: None
+            })
+            .is_err());
+        let results = db.search(SearchQuery {
+            vector: vec![1.0, 0.0],
+            k: 5,
+            filter: None,
+            ef_search: None,
+        })?;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].id, "same");
+        assert!(results[0].score.abs() < 1e-5);
+        assert_eq!(db.get("same")?.unwrap().vector, vec![1.0, 0.0]);
         Ok(())
     }
 
