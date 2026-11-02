@@ -4,7 +4,7 @@
 //! making it suitable for WebAssembly environments.
 
 use crate::error::{Result, RuvectorError};
-use crate::types::{VectorEntry, VectorId};
+use crate::types::{DistanceMetric, SearchQuery, SearchResult, VectorEntry, VectorId};
 use dashmap::DashMap;
 use serde_json::Value as JsonValue;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -120,6 +120,74 @@ impl MemoryStorage {
         } else {
             Ok(None)
         }
+    }
+
+    /// Predicate-first exact retrieval without cloning excluded vectors.
+    /// This is faster than materializing all entries for selective filters.
+    pub(crate) fn search_filtered_exact(
+        &self,
+        query: &SearchQuery,
+        metric: DistanceMetric,
+    ) -> Result<Vec<SearchResult>> {
+        let Some(filter) = query.filter.as_ref() else {
+            return Err(RuvectorError::InvalidInput(
+                "filtered search requires a filter".into(),
+            ));
+        };
+        if query.k == 0 {
+            return Ok(Vec::new());
+        }
+        if query.vector.len() != self.dimensions {
+            return Err(RuvectorError::DimensionMismatch {
+                expected: self.dimensions,
+                actual: query.vector.len(),
+            });
+        }
+        // Rank IDs first. Materialize payloads only for the winning k;
+        // cloning every eligible high-dimensional vector is unnecessary.
+        let mut candidates = Vec::new();
+        for entry in self.vectors.iter() {
+            let Some(raw) = self.metadata.get(entry.key()) else {
+                continue;
+            };
+            let JsonValue::Object(metadata) = raw.value() else {
+                continue;
+            };
+            if !filter.iter().all(|(k, v)| metadata.get(k) == Some(v)) {
+                continue;
+            }
+            let score = crate::distance::distance(&query.vector, entry.value(), metric)?;
+            candidates.push((entry.key().clone(), score));
+        }
+        candidates.sort_unstable_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+        candidates.truncate(query.k);
+        let mut results = Vec::with_capacity(candidates.len());
+        for (id, _) in candidates {
+            let Some(entry) = self.vectors.get(&id) else {
+                continue;
+            };
+            let Some(raw) = self.metadata.get(&id) else {
+                continue;
+            };
+            let JsonValue::Object(map) = raw.value() else {
+                continue;
+            };
+            // Recheck at materialization to avoid returning a record that
+            // changed namespaces during a concurrent mutation.
+            if !filter.iter().all(|(k, v)| map.get(k) == Some(v)) {
+                continue;
+            }
+            let metadata = Some(map.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
+            let score = crate::distance::distance(&query.vector, entry.value(), metric)?;
+            results.push(SearchResult {
+                id,
+                score,
+                vector: Some(entry.value().clone()),
+                metadata,
+            });
+        }
+        results.sort_unstable_by(|a, b| a.score.total_cmp(&b.score).then_with(|| a.id.cmp(&b.id)));
+        Ok(results)
     }
 
     /// Delete a vector by ID
