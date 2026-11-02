@@ -151,12 +151,25 @@ pub struct JsVectorEntry {
     pub metadata: Option<String>,
 }
 
+/// Parse an optional JSON object without silently dropping invalid user input.
+///
+/// Malformed metadata must not turn into a metadata-free write, and malformed
+/// search filters must not accidentally turn a constrained query into an
+/// unconstrained one.
+fn parse_optional_json_object(
+    field: &str,
+    raw: Option<&str>,
+) -> Result<Option<std::collections::HashMap<String, serde_json::Value>>> {
+    raw.map(|s| {
+        serde_json::from_str::<std::collections::HashMap<String, serde_json::Value>>(s)
+            .map_err(|err| Error::from_reason(format!("Invalid {field} JSON object: {err}")))
+    })
+    .transpose()
+}
+
 impl JsVectorEntry {
     fn to_core(&self) -> Result<VectorEntry> {
-        // Parse JSON string to HashMap<String, serde_json::Value>
-        let metadata = self.metadata.as_ref().and_then(|s| {
-            serde_json::from_str::<std::collections::HashMap<String, serde_json::Value>>(s).ok()
-        });
+        let metadata = parse_optional_json_object("metadata", self.metadata.as_deref())?;
 
         Ok(VectorEntry {
             id: self.id.clone(),
@@ -181,10 +194,7 @@ pub struct JsSearchQuery {
 
 impl JsSearchQuery {
     fn to_core(&self) -> Result<SearchQuery> {
-        // Parse JSON string to HashMap<String, serde_json::Value>
-        let filter = self.filter.as_ref().and_then(|s| {
-            serde_json::from_str::<std::collections::HashMap<String, serde_json::Value>>(s).ok()
-        });
+        let filter = parse_optional_json_object("filter", self.filter.as_deref())?;
 
         Ok(SearchQuery {
             vector: self.vector.to_vec(),
@@ -783,5 +793,36 @@ pub fn get_health() -> JsHealthResponse {
         },
         version: health.version,
         uptime_seconds: health.uptime_seconds as i64,
+    }
+}
+
+#[cfg(test)]
+mod strict_json_boundary_tests {
+    use super::*;
+
+    #[test]
+    fn valid_optional_metadata_and_filter_objects_parse() {
+        assert!(parse_optional_json_object("filter", None).unwrap().is_none());
+        let parsed = parse_optional_json_object("filter", Some(r#"{"tenant":"A"}"#))
+            .unwrap()
+            .unwrap();
+        assert_eq!(parsed.get("tenant"), Some(&serde_json::json!("A")));
+        let empty = parse_optional_json_object("metadata", Some("{}"))
+            .unwrap()
+            .unwrap();
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn malformed_or_nonobject_json_is_not_silently_ignored() {
+        for field in ["metadata", "filter"] {
+            for raw in ["{broken", "null", "[]", "42", r#""string""#] {
+                let err = parse_optional_json_object(field, Some(raw)).unwrap_err();
+                assert!(
+                    err.to_string().contains("Invalid"),
+                    "invalid {field} input must have a useful error: {err}"
+                );
+            }
+        }
     }
 }
