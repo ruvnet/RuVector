@@ -175,15 +175,24 @@ fn main() {
     let per_record = run_signed("candidate_a", SigningStrategy::PerRecord);
     let batch_16 = run_signed(
         "candidate_b16",
-        SigningStrategy::BatchTail { batch_size: 16 },
+        SigningStrategy::BatchTail {
+            batch_size: 16,
+            max_wait: None,
+        },
     );
     let batch_64 = run_signed(
         "candidate_b64",
-        SigningStrategy::BatchTail { batch_size: 64 },
+        SigningStrategy::BatchTail {
+            batch_size: 64,
+            max_wait: None,
+        },
     );
     let batch_256 = run_signed(
         "candidate_b256",
-        SigningStrategy::BatchTail { batch_size: 256 },
+        SigningStrategy::BatchTail {
+            batch_size: 256,
+            max_wait: None,
+        },
     );
 
     report(&baseline);
@@ -197,7 +206,10 @@ fn main() {
         ("candidate_a", SigningStrategy::PerRecord),
         (
             "candidate_b64",
-            SigningStrategy::BatchTail { batch_size: 64 },
+            SigningStrategy::BatchTail {
+                batch_size: 64,
+                max_wait: None,
+            },
         ),
     ] {
         let ok = diligent_forgery_is_rejected(strategy);
