@@ -936,4 +936,50 @@ mod tests {
         ));
         Ok(())
     }
+
+    #[cfg(feature = "hnsw")]
+    #[test]
+    fn selective_hnsw_filter_refills_and_reranks_the_eligible_set() -> Result<()> {
+        let db = VectorDB::new(DbOptions {
+            dimensions: 2,
+            distance_metric: DistanceMetric::Euclidean,
+            storage_path: "memory://filtered-hnsw-regression".to_string(),
+            hnsw_config: Some(HnswConfig {
+                m: 8,
+                ef_construction: 64,
+                ef_search: 32,
+                max_elements: 256,
+            }),
+            quantization: None,
+        })?;
+
+        for i in 0..200usize {
+            let mut metadata = std::collections::HashMap::new();
+            metadata.insert(
+                "tenant".to_string(),
+                serde_json::json!(if i % 20 == 0 { "A" } else { "B" }),
+            );
+            db.insert(VectorEntry {
+                id: Some(format!("hnsw_{i:03}")),
+                vector: vec![i as f32, 0.0],
+                metadata: Some(metadata),
+            })?;
+        }
+
+        let mut filter = std::collections::HashMap::new();
+        filter.insert("tenant".to_string(), serde_json::json!("A"));
+        let found = db.search(SearchQuery {
+            vector: vec![0.0, 0.0],
+            k: 10,
+            filter: Some(filter),
+            ef_search: Some(32),
+        })?;
+        assert_eq!(found.len(), 10);
+        for (rank, result) in found.iter().enumerate() {
+            let index = rank * 20;
+            assert_eq!(result.id, format!("hnsw_{index:03}"));
+            assert_eq!(result.score, index as f32);
+        }
+        Ok(())
+    }
 }
