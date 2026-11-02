@@ -881,7 +881,10 @@ mod tests {
                 let index = rank * step;
                 assert_eq!(result.id, format!("id_{index:04}"));
                 assert_eq!(result.score, index as f32);
-                assert_eq!(result.vector.as_deref(), Some([index as f32, 0.0].as_slice()));
+                assert_eq!(
+                    result.vector.as_deref(),
+                    Some([index as f32, 0.0].as_slice())
+                );
                 assert_eq!(result.metadata.as_ref().unwrap()["tenant"], "A");
             }
         }
@@ -927,8 +930,9 @@ mod tests {
             filter: Some(filter),
             ef_search: None,
         });
-        assert!(matches!(invalid, Err(crate::error::RuvectorError::InvalidInput(_))));
+        assert!(matches!(
+            invalid,
+            Err(crate::error::RuvectorError::InvalidInput(_))
+        ));
         Ok(())
     }
-
-}
