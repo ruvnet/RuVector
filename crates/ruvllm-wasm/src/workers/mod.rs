@@ -65,6 +65,7 @@ pub mod feature_detect;
 pub mod messages;
 pub mod pool;
 pub mod shared;
+mod validate;
 
 pub use feature_detect::*;
 pub use messages::*;
@@ -178,25 +179,7 @@ impl ParallelInference {
             return Err(JsValue::from_str("ParallelInference not initialized"));
         }
 
-        // Validate dimensions
-        if a.len() != m * k {
-            return Err(JsValue::from_str(&format!(
-                "Matrix A size mismatch: expected {} ({}x{}), got {}",
-                m * k,
-                m,
-                k,
-                a.len()
-            )));
-        }
-        if b.len() != k * n {
-            return Err(JsValue::from_str(&format!(
-                "Matrix B size mismatch: expected {} ({}x{}), got {}",
-                k * n,
-                k,
-                n,
-                b.len()
-            )));
-        }
+        validate::matmul_dims(a.len(), b.len(), m, n, k).map_err(|e| JsValue::from_str(&e))?;
 
         // For small matrices, compute directly on main thread
         if m * n * k < 10000 {
@@ -235,17 +218,9 @@ impl ParallelInference {
             return Err(JsValue::from_str("ParallelInference not initialized"));
         }
 
-        // Validate dimensions
-        let expected_size = num_heads * seq_len * head_dim;
-        if q.len() != expected_size || k.len() != expected_size || v.len() != expected_size {
-            return Err(JsValue::from_str(&format!(
-                "Tensor size mismatch: expected {}, got Q={}, K={}, V={}",
-                expected_size,
-                q.len(),
-                k.len(),
-                v.len()
-            )));
-        }
+        let expected_size =
+            validate::attention_dims(q.len(), k.len(), v.len(), num_heads, head_dim, seq_len)
+                .map_err(|e| JsValue::from_str(&e))?;
 
         // For small tensors, compute on main thread
         if expected_size < 10000 {
@@ -278,6 +253,9 @@ impl ParallelInference {
         if !self.initialized {
             return Err(JsValue::from_str("ParallelInference not initialized"));
         }
+
+        validate::layer_norm_params(input.len(), gamma.len(), beta.len())
+            .map_err(|e| JsValue::from_str(&e))?;
 
         if input.len() < 1000 {
             return Ok(self.layer_norm_single_thread(input, gamma, beta, epsilon));
