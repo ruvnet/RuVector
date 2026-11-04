@@ -82,6 +82,78 @@ impl VamanaGraph {
         }
     }
 
+    /// Parse the `graph.bin` adjacency written by `DiskAnnIndex::save` for an
+    /// index of `n` vectors.
+    ///
+    /// The file is untrusted input: every length, offset and node id is checked
+    /// before it is used, so a truncated or crafted file yields `Err` instead of
+    /// an out-of-bounds panic or an unbounded allocation.
+    pub fn from_bytes(
+        bytes: &[u8],
+        n: usize,
+        max_degree: usize,
+        build_beam: usize,
+        alpha: f32,
+    ) -> Result<Self> {
+        let corrupt = |what: &str| DiskAnnError::Serialization(format!("graph.bin: {what}"));
+        let read_u32 = |offset: usize| -> Result<u32> {
+            offset
+                .checked_add(4)
+                .and_then(|end| bytes.get(offset..end))
+                .map(|b| u32::from_le_bytes(b.try_into().unwrap()))
+                .ok_or_else(|| corrupt("truncated adjacency list"))
+        };
+        if bytes.len() < 16 {
+            return Err(corrupt("shorter than its 16-byte header"));
+        }
+        let medoid = u64::from_le_bytes(bytes[0..8].try_into().unwrap());
+        let graph_n = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
+        if graph_n != n as u64 {
+            return Err(corrupt(&format!(
+                "node count {graph_n} does not match vector count {n}"
+            )));
+        }
+        if medoid >= n as u64 {
+            return Err(corrupt(&format!(
+                "medoid {medoid} out of range for {n} nodes"
+            )));
+        }
+
+        let mut neighbors = Vec::with_capacity(n);
+        let mut offset = 16usize;
+        for _ in 0..n {
+            let deg = read_u32(offset)? as usize;
+            offset += 4;
+            // Bound the allocation by the bytes actually present.
+            if deg > (bytes.len() - offset) / 4 {
+                return Err(corrupt("degree exceeds remaining file length"));
+            }
+            let mut nbrs = Vec::with_capacity(deg);
+            for _ in 0..deg {
+                let nbr = read_u32(offset)?;
+                offset += 4;
+                if nbr as usize >= n {
+                    return Err(corrupt(&format!(
+                        "neighbor id {nbr} out of range for {n} nodes"
+                    )));
+                }
+                nbrs.push(nbr);
+            }
+            neighbors.push(nbrs);
+        }
+        if offset != bytes.len() {
+            return Err(corrupt("trailing bytes after adjacency lists"));
+        }
+
+        Ok(Self {
+            neighbors,
+            medoid: medoid as u32,
+            max_degree,
+            build_beam,
+            alpha,
+        })
+    }
+
     /// Build the Vamana graph over flat vector storage
     pub fn build(&mut self, vectors: &FlatVectors) -> Result<()> {
         self.build_with_rng(vectors, &mut rand::thread_rng())
@@ -248,7 +320,9 @@ impl VamanaGraph {
             .collect();
         sorted.sort_unstable_by(|a, b| a.1.total_cmp(&b.1));
 
-        let mut result = Vec::with_capacity(self.max_degree);
+        // `max_degree` can come from a loaded config.json; never pre-allocate
+        // more than the candidates that could actually be selected.
+        let mut result = Vec::with_capacity(self.max_degree.min(sorted.len()));
         for (cand_id, cand_dist) in &sorted {
             if result.len() >= self.max_degree {
                 break;

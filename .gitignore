@@ -62,6 +62,10 @@ index.d.ts
 !npm/packages/typesafe/index.d.ts
 !npm/packages/kge/index.js
 !npm/packages/kge/index.d.ts
+# @ruvector/diskann: hand-written loader + types; the CI publish job runs in a
+# fresh checkout without `napi build`, so uncommitted copies shipped nothing.
+!npm/packages/diskann/index.js
+!npm/packages/diskann/index.d.ts
 
 # Environment variables and secrets
 .env
