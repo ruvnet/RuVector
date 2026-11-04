@@ -123,8 +123,11 @@ export class ChatEnhancer {
     if (this.config.enableMemory) {
       try {
         // Simple text-based memory search (no embeddings yet)
-        const memories = await this.memoryManager.listByTenant(context.tenantId, 100);
+        // Only recall memories from this session or tenant-wide ones (no session).
+        // Memories captured in another session (possibly another user) must not leak.
+        const memories = await this.memoryManager.listByTenant(context.tenantId, Number.MAX_SAFE_INTEGER);
         relevantMemories = memories
+          .filter((m) => m.sessionId === null || m.sessionId === context.sessionId)
           .filter((m) => {
             const content = String(m.value).toLowerCase();
             const query = message.toLowerCase();

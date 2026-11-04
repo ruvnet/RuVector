@@ -1,6 +1,6 @@
 {
   "name": "ruvbot",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Enterprise-grade self-learning AI assistant with military-strength security, 150x faster vector search, and 12+ LLM models",
   "main": "dist/index.js",
   "module": "dist/esm/index.js",
@@ -49,7 +49,7 @@
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run clean && npm run build"
   },
   "keywords": [
     "ai",
