@@ -477,8 +477,15 @@ impl BaseLoRA {
     }
 
     /// Forward pass for single layer
+    ///
+    /// A no-op when `layer_idx` is out of range, `rank` is 0 (the scale would
+    /// be 0/0 = NaN), or `input`/`output` are not `hidden_dim` long.
     pub fn forward_layer(&self, layer_idx: usize, input: &[f32], output: &mut [f32]) {
-        if layer_idx >= self.layers.len() {
+        if layer_idx >= self.layers.len()
+            || self.rank == 0
+            || input.len() != self.hidden_dim
+            || output.len() != self.hidden_dim
+        {
             return;
         }
 
