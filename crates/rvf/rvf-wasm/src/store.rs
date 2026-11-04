@@ -177,14 +177,30 @@ impl WasmStore {
         let live_entries: Vec<&VecEntry> = self.entries.iter().filter(|e| !e.deleted).collect();
         let n = live_entries.len();
 
+        // The VEC_SEG count field is u16: more live vectors would be written
+        // with a truncated count and silently lost on reopen. Refuse instead.
+        if n > u16::MAX as usize {
+            return -1;
+        }
+
         // Vec segment payload: [count: u16, dim: u32, (id: u64, vec: f32*dim)*]
-        let vec_payload_len = 2 + 4 + n * (8 + dim * 4);
         // Manifest segment payload: [epoch: u32, dim: u16, total_vecs: u64, profile: u8,
         //   seg_count: u32, (seg_id: u64, offset: u64, payload_len: u64, type: u8)*]
         let manifest_payload_len = 4 + 2 + 8 + 1 + 4 + 1 * 25; // 1 segment entry
-
-        let total_size =
-            SEGMENT_HEADER_SIZE + vec_payload_len + SEGMENT_HEADER_SIZE + manifest_payload_len;
+        let sizes = dim
+            .checked_mul(4)
+            .and_then(|v| v.checked_add(8))
+            .and_then(|e| e.checked_mul(n))
+            .and_then(|v| v.checked_add(2 + 4))
+            .and_then(|vec_len| {
+                (2 * SEGMENT_HEADER_SIZE + manifest_payload_len)
+                    .checked_add(vec_len)
+                    .map(|total| (vec_len, total))
+            });
+        let (vec_payload_len, total_size) = match sizes {
+            Some((v, t)) if t <= i32::MAX as usize => (v, t),
+            _ => return -1,
+        };
 
         if (out_len as usize) < total_size {
             return -(total_size as i32);
