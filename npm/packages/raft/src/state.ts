@@ -154,9 +154,8 @@ export class RaftState<T = unknown> {
 
       const term = this.log.termAt(index);
       if (term === this._currentTerm) {
-        // Count how many have this index or higher
-        const count =
-          matchIndices.filter((m) => m >= index).length + 1; // +1 for self
+        // Count how many have this index or higher (self is already in matchIndices)
+        const count = matchIndices.filter((m) => m >= index).length;
         if (count >= majority) {
           this._commitIndex = index;
           return true;

@@ -194,18 +194,20 @@ export class RaftNode<T = unknown, R = void> extends EventEmitter {
       await this.state.log.append(request.entries);
     }
 
+    // Only the prefix up to the last entry in this request is known to match the
+    // leader; entries beyond it may be stale leftovers from an older term.
+    const lastNewIndex = request.prevLogIndex + request.entries.length;
+
     // Update commit index
     if (request.leaderCommit > this.state.commitIndex) {
-      this.state.setCommitIndex(
-        Math.min(request.leaderCommit, this.state.log.lastIndex),
-      );
+      this.state.setCommitIndex(Math.min(request.leaderCommit, lastNewIndex));
       await this.applyCommitted();
     }
 
     return {
       term: this.state.currentTerm,
       success: true,
-      matchIndex: this.state.log.lastIndex,
+      matchIndex: lastNewIndex,
     };
   }
 
@@ -285,9 +287,14 @@ export class RaftNode<T = unknown, R = void> extends EventEmitter {
     await this.state.setTerm(this.state.currentTerm + 1);
     await this.state.vote(this.state.currentTerm, this.config.nodeId);
     this.transitionTo(NodeState.Candidate);
+    const electionTerm = this.state.currentTerm;
+
+    // A candidate keeps its election timer running so a slow or hung peer
+    // cannot stall it; on timeout a new election (new term) starts.
+    this.resetElectionTimer();
 
     this.emit(RaftEvent.VoteRequested, {
-      term: this.state.currentTerm,
+      term: electionTerm,
       candidateId: this.config.nodeId,
     });
 
@@ -295,20 +302,24 @@ export class RaftNode<T = unknown, R = void> extends EventEmitter {
     let votesReceived = 1;
     const majority = Math.floor((this.config.peers.length + 1) / 2) + 1;
 
-    // Request votes from all peers
-    if (!this.transport) {
-      this.resetElectionTimer();
+    // Single-node cluster: self vote is already a majority
+    if (votesReceived >= majority) {
+      this.transitionTo(NodeState.Leader);
       return;
     }
 
+    if (!this.transport) return;
+
+    const request: RequestVoteRequest = {
+      term: electionTerm,
+      candidateId: this.config.nodeId,
+      lastLogIndex: this.state.log.lastIndex,
+      lastLogTerm: this.state.log.lastTerm,
+    };
+
     const votePromises = this.config.peers.map(async (peerId) => {
       try {
-        const response = await this.transport!.requestVote(peerId, {
-          term: this.state.currentTerm,
-          candidateId: this.config.nodeId,
-          lastLogIndex: this.state.log.lastIndex,
-          lastLogTerm: this.state.log.lastTerm,
-        });
+        const response = await this.transport!.requestVote(peerId, request);
 
         // If response term is higher, become follower
         if (response.term > this.state.currentTerm) {
@@ -317,7 +328,13 @@ export class RaftNode<T = unknown, R = void> extends EventEmitter {
           return;
         }
 
-        if (response.voteGranted && this.nodeState === NodeState.Candidate) {
+        // Ignore grants for any election other than the one still in progress
+        if (
+          response.voteGranted &&
+          response.term === electionTerm &&
+          this.state.currentTerm === electionTerm &&
+          this.nodeState === NodeState.Candidate
+        ) {
           votesReceived++;
           if (votesReceived >= majority) {
             this.transitionTo(NodeState.Leader);
@@ -329,11 +346,6 @@ export class RaftNode<T = unknown, R = void> extends EventEmitter {
     });
 
     await Promise.allSettled(votePromises);
-
-    // If still candidate, restart election timer
-    if (this.nodeState === NodeState.Candidate) {
-      this.resetElectionTimer();
-    }
   }
 
   private startHeartbeat(): void {

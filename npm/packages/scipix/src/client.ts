@@ -139,6 +139,10 @@ export class SciPixClient {
       }
       type = this.parseImageType(match[1]);
       return { base64: match[2], type };
+    } else if (this.isBase64Image(image)) {
+      // Raw base64 whose decoded header is a known image signature. Checked
+      // before the path branch: every base64 JPEG starts with "/9j/".
+      return { base64: image, type: this.detectImageType(Buffer.from(image.slice(0, 16), 'base64')) };
     } else if (image.startsWith('/') || image.includes(':\\')) {
       // File path
       buffer = await readFile(image);
@@ -152,6 +156,25 @@ export class SciPixClient {
       base64: buffer.toString('base64'),
       type,
     };
+  }
+
+  /**
+   * True if `value` is base64 text whose decoded bytes start with a supported
+   * image signature (so it cannot be mistaken for a file path).
+   */
+  private isBase64Image(value: string): boolean {
+    if (value.length < 8 || !/^[A-Za-z0-9+/]+={0,2}$/.test(value.slice(0, 64))) {
+      return false;
+    }
+    const head = Buffer.from(value.slice(0, 16), 'base64');
+    return (
+      (head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47) || // PNG
+      (head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) || // JPEG
+      (head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46) || // RIFF/WebP
+      (head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46) || // %PDF
+      (head[0] === 0x49 && head[1] === 0x49 && head[2] === 0x2a && head[3] === 0x00) || // TIFF LE
+      (head[0] === 0x4d && head[1] === 0x4d && head[2] === 0x00 && head[3] === 0x2a) // TIFF BE
+    );
   }
 
   /**
