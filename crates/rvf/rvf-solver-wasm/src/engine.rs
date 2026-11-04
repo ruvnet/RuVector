@@ -565,6 +565,20 @@ pub fn run_acceptance_mode(
     compiler_enabled: bool,
     router_enabled: bool,
 ) -> AcceptanceResult {
+    // No cycles or an empty holdout cannot produce metrics (and used to panic
+    // on `cycle_metrics[0]` / yield 0/0 accuracies): report a failed run.
+    if config.cycles == 0 || config.holdout_size == 0 {
+        return AcceptanceResult {
+            cycles: Vec::new(),
+            passed: false,
+            accuracy_maintained: false,
+            cost_improved: false,
+            robustness_improved: false,
+            zero_violations: true,
+            dimensions_improved: 0,
+        };
+    }
+
     let holdout = {
         let mut gen = PuzzleGenerator::new(config.holdout_seed, 1, 10);
         gen.generate_batch(config.holdout_size)
@@ -627,16 +641,21 @@ pub fn run_acceptance_mode(
         });
 
         // ── Training phase (data available for next cycle's compile) ──
-        let mut gen = PuzzleGenerator::new(config.training_seed + (cycle as u64 * 10_000), 1, 10);
-        let training = gen.generate_batch(config.training_per_cycle);
+        let mut gen = PuzzleGenerator::new(
+            config.training_seed.wrapping_add(cycle as u64 * 10_000),
+            1,
+            10,
+        );
         let mut train_rng = Rng64::new(config.training_seed.wrapping_add(cycle as u64 * 7919));
 
-        for puzzle in &training {
+        // Generated one at a time: memory does not scale with training_per_cycle.
+        for _ in 0..config.training_per_cycle {
+            let puzzle = gen.generate();
             let is_noisy = train_rng.next_f64() < config.noise_rate;
             let solve_p = if is_noisy {
-                inject_noise(puzzle, &mut train_rng)
+                inject_noise(&puzzle, &mut train_rng)
             } else {
-                puzzle.clone()
+                puzzle
             };
             solver.noisy_hint = is_noisy;
             solver.solve(&solve_p);
