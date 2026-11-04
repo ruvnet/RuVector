@@ -4,8 +4,8 @@
 every user-facing RuVector package listed below.
 
 > Most users should **not** install this. Install only the packages you need,
-> e.g. `npm install ruvector`, then add extras with `npx ruvector install <pkg>`
-> (run `npx ruvector install --list` to see them). `@ruvector/all` is for people
+> e.g. `npm install ruvector`, then add extras with `npx ruvector add <extra>` (ruvector ≥0.3.8)
+> (run `npx ruvector add --list` to see them). `@ruvector/all` is for people
 > who explicitly want everything in one dependency — exploration, demos,
 > notebooks, kitchen-sink prototypes.
 
