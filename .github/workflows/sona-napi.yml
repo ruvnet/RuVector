@@ -36,8 +36,8 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             node-file: sona.linux-x64-musl.node
-          # Linux ARM64
-          - os: ubuntu-latest
+          # Linux ARM64 — 22.04 so the gcc cross-link needs glibc 2.35, not 24.04's 2.39
+          - os: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
             node-file: sona.linux-arm64-gnu.node
           # macOS x64 — cross-compiled on Apple Silicon (macos-13 Intel runners are retired;
@@ -81,14 +81,25 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y musl-tools
 
-      - name: Install napi-rs CLI
-        run: npm install -g @napi-rs/cli@3.7.3  # pinned: 3.10.x breaks --use-napi-cross (aarch64 "Cannot find native binding"); 3.7.3 was the last green run, 2026-07-17
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
+      - name: Install napi-rs CLI
+        run: npm install -g @napi-rs/cli@3.7.3
+
+      # Plain gcc cross-linker, same as build-diskann.yml. `--use-napi-cross`
+      # now fails in CI ("Failed to set up the --use-napi-cross toolchain ...
+      # Cannot find native binding") with both @napi-rs/cli 3.10.x and 3.7.3.
       - name: Build native module (cross-compile)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         working-directory: npm/packages/sona
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         run: |
-          npx napi build --platform --release -p ruvector-sona --manifest-path ../../../crates/sona/Cargo.toml --output-dir . -F napi --target ${{ matrix.target }} --use-napi-cross
+          npx napi build --platform --release -p ruvector-sona --manifest-path ../../../crates/sona/Cargo.toml --output-dir . -F napi --target ${{ matrix.target }}
 
       - name: Build native module (macOS)
         if: startsWith(matrix.target, 'x86_64-apple-darwin') || startsWith(matrix.target, 'aarch64-apple-darwin')
