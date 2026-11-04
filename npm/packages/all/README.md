@@ -62,12 +62,15 @@ ESM-only members are exposed as async loaders rather than getters because
 supports. Some wasm-bindgen packages also need their own init call in Node —
 see each package's README.
 
-From ESM you can import the namespace as usual:
+From ESM, use the **default import only**:
 
 ```js
 import all from '@ruvector/all';
 const sona = all.sona;
 ```
+
+Named ESM imports (`import { sona } from '@ruvector/all'`) do not work: the lazy
+getters are defined at runtime, so Node cannot detect them as named exports.
 
 ## License
 

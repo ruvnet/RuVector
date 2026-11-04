@@ -14,6 +14,11 @@
  *   each package's README.
  *
  * `load(key)` is a uniform async loader that works for every member.
+ *
+ * From ESM, use the default import only (`import all from '@ruvector/all'`).
+ * The getters are defined at runtime, so Node cannot detect them as named
+ * exports: `import { sona } from '@ruvector/all'` fails in Node ESM even
+ * though TypeScript accepts it.
  */
 
 /** Lazy getter → `require('ruvector')`. */
