@@ -58,8 +58,8 @@ pub trait AnnIndex: Send + Sync {
 
 #[inline]
 fn cmp_score_asc(a: f32, b: f32) -> Ordering {
-    // total_cmp sorts NaN to the back of ascending order — safer than
-    // partial_cmp().unwrap() which panics.
+    // total_cmp never panics (unlike partial_cmp().unwrap()). Positive NaN
+    // sorts to the back; TopK::push_raw canonicalises NaN to positive.
     a.total_cmp(&b)
 }
 
@@ -113,6 +113,11 @@ impl TopK {
     /// Variant that carries the candidate's row-position through the heap.
     #[inline]
     fn push_raw(&mut self, id: usize, score: f32, pos: usize) {
+        // `total_cmp` orders a sign-bit-set NaN *below* -inf, so a NaN
+        // produced by `inf - inf` (negative on x86) or supplied by the
+        // caller would rank as the best hit. Clearing the sign makes every
+        // NaN sort after +inf; the reported score stays NaN.
+        let score = if score.is_nan() { score.abs() } else { score };
         if self.heap.len() < self.k {
             self.heap.push(HeapEntry {
                 id,

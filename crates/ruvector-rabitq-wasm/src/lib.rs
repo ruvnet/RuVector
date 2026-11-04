@@ -20,6 +20,7 @@
 
 #![allow(clippy::new_without_default)]
 
+use ruvector_rabitq::persist::MAX_DIM;
 use ruvector_rabitq::{AnnIndex, RabitqPlusIndex};
 use wasm_bindgen::prelude::*;
 
@@ -77,6 +78,14 @@ impl RabitqIndex {
         if dim == 0 {
             return Err(JsValue::from_str("dim must be > 0"));
         }
+        // The Haar rotation is a dense dim×dim f32 matrix (O(dim²) memory,
+        // O(dim³) build), so a single 64 KB vector at dim=16384 would exhaust
+        // wasm32's 4 GB heap and trap. Same ceiling as the persist format.
+        if dim > MAX_DIM as usize {
+            return Err(JsValue::from_str(&format!(
+                "dim {dim} exceeds maximum {MAX_DIM}"
+            )));
+        }
         if vectors.is_empty() {
             return Err(JsValue::from_str("vectors must not be empty"));
         }
@@ -87,6 +96,7 @@ impl RabitqIndex {
                 dim
             )));
         }
+        check_finite("vectors", vectors)?;
 
         let n = vectors.len() / dim;
         let items: Vec<(usize, Vec<f32>)> = (0..n)
@@ -111,6 +121,7 @@ impl RabitqIndex {
         if k == 0 {
             return Err(JsValue::from_str("k must be > 0"));
         }
+        check_finite("query", query)?;
         let hits = self
             .inner
             .search(query, k as usize)
@@ -137,6 +148,19 @@ impl RabitqIndex {
     #[wasm_bindgen(getter, js_name = isEmpty)]
     pub fn is_empty(&self) -> bool {
         self.inner.len() == 0
+    }
+}
+
+/// Reject NaN / ±Inf: they yield NaN distances (and, before the core fix,
+/// a NaN row could rank first), so a non-finite input is never meaningful.
+/// The value itself is not formatted: that pulls ~25 KB of float-printing
+/// code into the wasm binary.
+fn check_finite(what: &str, xs: &[f32]) -> Result<(), JsValue> {
+    match xs.iter().position(|x| !x.is_finite()) {
+        None => Ok(()),
+        Some(i) => Err(JsValue::from_str(&format!(
+            "{what}[{i}] is not finite (NaN or Infinity)"
+        ))),
     }
 }
 
@@ -179,6 +203,19 @@ mod wasm_tests {
         assert_eq!(hits.len(), 5);
         assert_eq!(hits[0].id, 0);
         assert!(hits[0].distance < 1e-3);
+    }
+
+    #[wasm_bindgen_test]
+    fn rejects_non_finite_and_oversized_dim() {
+        let dim = 8usize;
+        let mut vectors = vec![0.5f32; 4 * dim];
+        let idx = RabitqIndex::build(&vectors, dim as u32, 1, 4).expect("build");
+        assert!(idx.search(&[f32::NAN; 8], 1).is_err());
+        assert!(idx.search(&[f32::INFINITY; 8], 1).is_err());
+        vectors[3] = f32::NAN;
+        assert!(RabitqIndex::build(&vectors, dim as u32, 1, 4).is_err());
+        let big = vec![1.0f32; MAX_DIM as usize + 1];
+        assert!(RabitqIndex::build(&big, MAX_DIM + 1, 1, 1).is_err());
     }
 
     #[wasm_bindgen_test]

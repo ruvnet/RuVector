@@ -1,6 +1,6 @@
 [package]
 name = "ruvector-rabitq-wasm"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "WASM bindings for ruvector-rabitq — 1-bit quantized vector index for browsers and edge runtimes"
 license = "MIT OR Apache-2.0"
