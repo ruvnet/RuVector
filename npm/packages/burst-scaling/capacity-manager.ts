@@ -9,12 +9,10 @@
  * - Traffic shedding when necessary
  */
 
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { notifyClaudeFlow } from './claude-flow-runner';
 import { BurstPredictor, PredictedBurst } from './burst-predictor';
 import { ReactiveScaler, ScalingMetrics, ScalingAction } from './reactive-scaler';
 
-const execAsync = promisify(exec);
 
 export interface RegionCapacity {
   region: string;
@@ -75,7 +73,7 @@ export class CapacityManager {
   constructor(
     regions: string[] = ['us-central1', 'europe-west1', 'asia-east1'],
     private readonly notifyHook: (message: string) => Promise<void> = async (msg) => {
-      await execAsync(`npx claude-flow@alpha hooks notify --message "${msg.replace(/"/g, '\\"')}"`);
+      await notifyClaudeFlow(msg);
     }
   ) {
     // Initialize region capacities

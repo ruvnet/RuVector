@@ -64,16 +64,10 @@ function validateFilePath(filePath) {
   const resolved = path.resolve(filePath);
   const cwd = process.cwd();
 
-  // Ensure path is within current directory (prevents traversal)
+  // Ensure path is within current directory (prevents traversal, including
+  // sibling directories that share cwd as a string prefix, e.g. ../proj-evil)
   if (!resolved.startsWith(cwd + path.sep) && resolved !== cwd) {
-    // Allow absolute paths within cwd or relative paths
-    const normalized = path.normalize(filePath);
-    if (normalized.startsWith('..') || path.isAbsolute(normalized)) {
-      // Check if absolute path is within cwd
-      if (!resolved.startsWith(cwd)) {
-        throw new Error('Access denied: file path must be within current directory');
-      }
-    }
+    throw new Error('Access denied: file path must be within current directory');
   }
 
   // Additional check: no null bytes
