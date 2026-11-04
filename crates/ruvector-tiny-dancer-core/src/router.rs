@@ -2,7 +2,7 @@
 
 use crate::circuit_breaker::CircuitBreaker;
 use crate::error::{Result, TinyDancerError};
-use crate::feature_engineering::FeatureEngineer;
+use crate::feature_engineering::{check_model_input_dim, FeatureEngineer};
 use crate::model::FastGRNN;
 use crate::types::{RouterConfig, RoutingDecision, RoutingRequest, RoutingResponse};
 use crate::uncertainty::UncertaintyEstimator;
@@ -29,6 +29,7 @@ impl Router {
         } else {
             FastGRNN::new(Default::default())?
         };
+        check_model_input_dim(model.config().input_dim)?;
 
         let circuit_breaker = if config.enable_circuit_breaker {
             Some(CircuitBreaker::new(config.circuit_breaker_threshold))
@@ -227,6 +228,7 @@ impl Router {
     /// Reload the model from disk
     pub fn reload_model(&self) -> Result<()> {
         let new_model = FastGRNN::load(&self.config.model_path)?;
+        check_model_input_dim(new_model.config().input_dim)?;
         let mut model = self.model.write();
         *model = new_model;
         Ok(())

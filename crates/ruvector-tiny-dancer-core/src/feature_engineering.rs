@@ -7,6 +7,22 @@ use crate::types::Candidate;
 use chrono::Utc;
 use simsimd::SpatialSimilarity;
 
+/// Number of features in [`FeatureVector::features`]; a router model's
+/// `input_dim` must equal it.
+pub const FEATURE_COUNT: usize = 5;
+
+/// Reject a model this pipeline cannot feed (e.g. a `trainRouter` model, whose
+/// `input_dim` is the raw embedding length). Accepting it would fail every
+/// route and trip the router's circuit breaker.
+pub fn check_model_input_dim(input_dim: usize) -> Result<()> {
+    if input_dim != FEATURE_COUNT {
+        return Err(TinyDancerError::InvalidInput(format!(
+            "model input_dim {input_dim} is incompatible with the router's {FEATURE_COUNT} features"
+        )));
+    }
+    Ok(())
+}
+
 /// Feature vector for a candidate
 #[derive(Debug, Clone)]
 pub struct FeatureVector {
@@ -79,6 +95,28 @@ impl FeatureEngineer {
         candidate: &Candidate,
         query_metadata: Option<&std::collections::HashMap<String, serde_json::Value>>,
     ) -> Result<FeatureVector> {
+        // Non-finite caller input is an InvalidInput error here, before the
+        // model runs. Left alone it produces a NaN score that the router
+        // counts as a *model* failure, so a few bad requests from one caller
+        // would open the circuit breaker for every caller.
+        if !query_embedding.iter().all(|v| v.is_finite()) {
+            return Err(TinyDancerError::InvalidInput(
+                "query embedding contains non-finite values".to_string(),
+            ));
+        }
+        if !candidate.embedding.iter().all(|v| v.is_finite()) {
+            return Err(TinyDancerError::InvalidInput(format!(
+                "candidate {} embedding contains non-finite values",
+                candidate.id
+            )));
+        }
+        if !candidate.success_rate.is_finite() {
+            return Err(TinyDancerError::InvalidInput(format!(
+                "candidate {} success_rate is not finite",
+                candidate.id
+            )));
+        }
+
         // 1. Semantic similarity (cosine similarity)
         let semantic_similarity = self.cosine_similarity(query_embedding, &candidate.embedding)?;
 
@@ -151,7 +189,8 @@ impl FeatureEngineer {
     /// Calculate recency score using exponential decay
     fn recency_score(&self, created_at: i64) -> f32 {
         let now = Utc::now().timestamp();
-        let age_seconds = (now - created_at).max(0) as f32;
+        // saturating: created_at comes from callers (JS numbers can map to i64::MIN).
+        let age_seconds = now.saturating_sub(created_at).max(0) as f32;
 
         // Exponential decay: score = exp(-λ * age)
         (-self.config.recency_decay * age_seconds).exp()
