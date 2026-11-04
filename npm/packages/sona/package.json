@@ -29,29 +29,24 @@
     "@napi-rs/cli": "^2.18.0"
   },
   "keywords": [
+    "ruvector",
     "sona",
-    "neural-network",
     "adaptive-learning",
+    "continual-learning",
     "lora",
     "low-rank-adaptation",
     "ewc",
     "elastic-weight-consolidation",
     "reasoningbank",
-    "llm",
     "llm-router",
     "machine-learning",
-    "ai",
-    "deep-learning",
-    "continual-learning",
-    "napi",
-    "rust",
-    "ruvector"
+    "napi"
   ],
   "author": "rUv Team <team@ruv.io>",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
+    "url": "git+https://github.com/ruvnet/ruvector.git",
     "directory": "npm/packages/sona"
   },
   "homepage": "https://github.com/ruvnet/ruvector/tree/main/crates/sona",

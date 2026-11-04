@@ -25,6 +25,7 @@
     "openai",
     "cohere",
     "graph-visualization",
+    "graphml",
     "neo4j",
     "temporal-tracking",
     "persistence"
@@ -33,8 +34,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
+    "url": "git+https://github.com/ruvnet/ruvector.git",
     "directory": "npm/packages/ruvector-extensions"
+  },
+  "homepage": "https://github.com/ruvnet/ruvector/tree/main/npm/packages/ruvector-extensions#readme",
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
   },
   "dependencies": {
     "ruvector": "^0.2.0",

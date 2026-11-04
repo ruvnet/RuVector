@@ -44,22 +44,15 @@
     "access": "public"
   },
   "keywords": [
+    "ruvector",
     "neural-router",
-    "ai-routing",
+    "llm-routing",
+    "model-routing",
     "agent-orchestration",
     "fastgrnn",
     "circuit-breaker",
     "uncertainty-estimation",
-    "hot-reload",
-    "llm-routing",
-    "model-routing",
-    "native",
     "napi",
-    "rust",
-    "simd",
-    "fast",
-    "performance",
-    "ruv",
-    "ruvector"
+    "rust"
   ]
 }

@@ -42,20 +42,17 @@
     "LICENSE"
   ],
   "keywords": [
-    "vector",
-    "database",
+    "ruvector",
+    "vector-database",
     "embeddings",
     "similarity-search",
+    "semantic-search",
     "hnsw",
     "gnn",
     "graph-neural-network",
-    "rust",
-    "napi",
-    "semantic-search",
-    "machine-learning",
     "rag",
-    "simd",
-    "performance"
+    "napi",
+    "rust"
   ],
   "author": "rUv",
   "license": "MIT",

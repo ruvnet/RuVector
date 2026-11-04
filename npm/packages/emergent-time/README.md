@@ -68,7 +68,7 @@ console.log(tick.deltaTime);           // post-floor internal-time increment
 console.log(TickClassJs[tick.class]);  // e.g. "Progress"
 console.log(tick.reason);              // "Progress: dominated by plan movement (...)"
 console.log(clock.ati);                // progress per unit structural change
-console.log(AgentHealthJs[clock.health]); // e.g. "NeedsReplan"
+console.log(AgentHealthJs[clock.health]); // "Collapsing" here (contradictionLevel 0.6)
 ```
 
 ## Quickstart (Node ESM)
@@ -310,6 +310,11 @@ npm run build   # cargo build → wasm-bindgen --target web → wasm-opt -Oz
 
 The build script enables the bulk-memory and nontrapping-float-to-int opcodes the
 toolchain emits (a plain `wasm-opt -O` rejects them).
+
+## Related packages
+
+- [`emergent-time`](https://crates.io/crates/emergent-time) (Rust crate) — the full library this package wraps, including the physics formalisms and weight training.
+- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package and CLI (`npx ruvector`).
 
 ## License
 
