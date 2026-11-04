@@ -72,12 +72,14 @@ class CnnEmbedder {
     }
 
     const wasmConfig = new wasm.EmbedderConfig();
-    wasmConfig.input_size = config.inputSize || 224;
-    wasmConfig.embedding_dim = config.embeddingDim || 512;
+    wasmConfig.input_size = config.inputSize ?? 224;
+    wasmConfig.embedding_dim = config.embeddingDim ?? 512;
     wasmConfig.normalize = config.normalize !== false;
 
+    // The WASM constructor takes ownership of wasmConfig (its pointer is
+    // nulled), so read the dimension back from the embedder, not the config.
     this._inner = new wasm.WasmCnnEmbedder(wasmConfig);
-    this._embeddingDim = wasmConfig.embedding_dim;
+    this._embeddingDim = this._inner.embedding_dim;
   }
 
   /**
@@ -203,7 +205,7 @@ const SimdOps = {
    */
   relu(data) {
     if (!initialized) throw new Error('Module not initialized');
-    wasm.SimdOps.relu(data);
+    data.set(wasm.SimdOps.relu(data));
   },
 
   /**
@@ -212,7 +214,7 @@ const SimdOps = {
    */
   relu6(data) {
     if (!initialized) throw new Error('Module not initialized');
-    wasm.SimdOps.relu6(data);
+    data.set(wasm.SimdOps.relu6(data));
   },
 
   /**
@@ -221,7 +223,7 @@ const SimdOps = {
    */
   l2Normalize(data) {
     if (!initialized) throw new Error('Module not initialized');
-    wasm.SimdOps.l2_normalize(data);
+    data.set(wasm.SimdOps.l2_normalize(data));
   }
 };
 
@@ -230,7 +232,7 @@ const SimdOps = {
  */
 const LayerOps = {
   /**
-   * Apply batch normalization
+   * Apply batch normalization over channels-last (NHWC) data
    * @param {Float32Array} input - Input data (modified in-place)
    * @param {Float32Array} gamma - Scale parameter
    * @param {Float32Array} beta - Shift parameter
@@ -240,19 +242,20 @@ const LayerOps = {
    */
   batchNorm(input, gamma, beta, mean, variance, epsilon = 1e-5) {
     if (!initialized) throw new Error('Module not initialized');
-    wasm.LayerOps.batch_norm(input, gamma, beta, mean, variance, epsilon);
+    input.set(wasm.LayerOps.batch_norm(input, gamma, beta, mean, variance, epsilon));
   },
 
   /**
    * Apply global average pooling
-   * @param {Float32Array} input - Input tensor [C, H, W]
+   * @param {Float32Array} input - Input tensor, channels-last [H*W, C]
    * @param {number} channels - Number of channels
    * @param {number} spatialSize - H * W
    * @returns {Float32Array} - Output [C]
    */
   globalAvgPool(input, channels, spatialSize) {
     if (!initialized) throw new Error('Module not initialized');
-    return new Float32Array(wasm.LayerOps.global_avg_pool(input, channels, spatialSize));
+    // WASM signature is (input, height, width, channels); pass H*W as 1 x spatialSize.
+    return new Float32Array(wasm.LayerOps.global_avg_pool(input, 1, spatialSize, channels));
   }
 };
 

@@ -151,7 +151,7 @@ export namespace LayerOps {
 
   /**
    * Apply global average pooling
-   * @param input - Input tensor [C, H, W]
+   * @param input - Input tensor, channels-last [H*W, C]
    * @param channels - Number of channels
    * @param spatialSize - H * W
    * @returns Output [C]

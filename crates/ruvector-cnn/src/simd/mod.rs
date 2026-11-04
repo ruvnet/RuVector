@@ -33,6 +33,9 @@ pub use winograd::{
 /// SIMD-accelerated dot product with automatic architecture dispatch
 #[inline(always)]
 pub fn dot_product_simd(a: &[f32], b: &[f32]) -> f32 {
+    // The SIMD kernels load through raw pointers sized by `a`; a shorter `b`
+    // would be read out of bounds from this safe function.
+    assert_eq!(a.len(), b.len(), "dot_product_simd: length mismatch");
     #[cfg(target_arch = "x86_64")]
     {
         if is_x86_feature_detected!("avx512f") {
@@ -69,6 +72,7 @@ pub fn dot_product_simd(a: &[f32], b: &[f32]) -> f32 {
 /// SIMD-accelerated ReLU activation with automatic architecture dispatch
 #[inline(always)]
 pub fn relu_simd(input: &[f32], output: &mut [f32]) {
+    assert_eq!(input.len(), output.len(), "relu_simd: length mismatch");
     #[cfg(target_arch = "x86_64")]
     {
         if is_x86_feature_detected!("avx2") {
@@ -101,6 +105,7 @@ pub fn relu_simd(input: &[f32], output: &mut [f32]) {
 /// SIMD-accelerated ReLU6 activation with automatic architecture dispatch
 #[inline(always)]
 pub fn relu6_simd(input: &[f32], output: &mut [f32]) {
+    assert_eq!(input.len(), output.len(), "relu6_simd: length mismatch");
     #[cfg(target_arch = "x86_64")]
     {
         if is_x86_feature_detected!("avx2") {
@@ -142,6 +147,19 @@ pub fn batch_norm_simd(
     epsilon: f32,
     channels: usize,
 ) {
+    assert!(channels > 0, "batch_norm_simd: channels must be non-zero");
+    assert_eq!(
+        input.len(),
+        output.len(),
+        "batch_norm_simd: length mismatch"
+    );
+    assert!(
+        gamma.len() >= channels
+            && beta.len() >= channels
+            && mean.len() >= channels
+            && var.len() >= channels,
+        "batch_norm_simd: parameter slices shorter than channels"
+    );
     #[cfg(target_arch = "x86_64")]
     {
         if is_x86_feature_detected!("avx2") {
@@ -281,6 +299,14 @@ pub fn depthwise_conv_3x3_simd(
 /// SIMD-accelerated global average pooling
 #[inline(always)]
 pub fn global_avg_pool_simd(input: &[f32], output: &mut [f32], h: usize, w: usize, c: usize) {
+    let need = h
+        .checked_mul(w)
+        .and_then(|s| s.checked_mul(c))
+        .expect("global_avg_pool_simd: h*w*c overflows");
+    assert!(
+        input.len() >= need && output.len() >= c,
+        "global_avg_pool_simd: buffer shorter than h*w*c / c"
+    );
     #[cfg(target_arch = "x86_64")]
     {
         if is_x86_feature_detected!("avx2") {
@@ -382,5 +408,35 @@ mod tests {
         relu6_simd(&input, &mut output);
 
         assert_eq!(output, vec![0.0, 2.0, 6.0, 4.0, 0.0, 6.0, 3.0, 6.0]);
+    }
+
+    // Safe dispatchers must reject buffers the unsafe kernels would overrun.
+    #[test]
+    #[should_panic(expected = "length mismatch")]
+    fn dot_product_simd_rejects_short_rhs() {
+        dot_product_simd(&[1.0; 32], &[1.0; 3]);
+    }
+
+    #[test]
+    #[should_panic(expected = "length mismatch")]
+    fn relu_simd_rejects_short_output() {
+        let mut out = vec![0.0; 3];
+        relu_simd(&[1.0; 32], &mut out);
+    }
+
+    #[test]
+    #[should_panic(expected = "shorter than")]
+    fn global_avg_pool_simd_rejects_short_input() {
+        let mut out = vec![0.0; 16];
+        global_avg_pool_simd(&[1.0; 4], &mut out, 4, 4, 16);
+    }
+
+    #[test]
+    #[should_panic(expected = "shorter than channels")]
+    fn batch_norm_simd_rejects_short_params() {
+        let input = [1.0; 16];
+        let mut out = [0.0; 16];
+        let p = [1.0; 1];
+        batch_norm_simd(&input, &mut out, &[1.0; 8], &p, &p, &p, 1e-5, 8);
     }
 }

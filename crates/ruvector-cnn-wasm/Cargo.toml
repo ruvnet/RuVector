@@ -1,6 +1,6 @@
 [package]
 name = "ruvector-cnn-wasm"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "WASM bindings for ruvector-cnn - CNN feature extraction for image embeddings"
 license = "MIT OR Apache-2.0"
