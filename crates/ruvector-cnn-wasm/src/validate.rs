@@ -55,9 +55,7 @@ pub fn positive_finite(what: &str, v: f32) -> Result<f64, String> {
 /// Validate a non-negative, finite scalar (e.g. margin).
 pub fn non_negative_finite(what: &str, v: f32) -> Result<f64, String> {
     if !(v.is_finite() && v >= 0.0) {
-        return Err(format!(
-            "{what} must be a non-negative finite number"
-        ));
+        return Err(format!("{what} must be a non-negative finite number"));
     }
     Ok(v as f64)
 }

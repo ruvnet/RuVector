@@ -148,7 +148,11 @@ pub fn batch_norm_simd(
     channels: usize,
 ) {
     assert!(channels > 0, "batch_norm_simd: channels must be non-zero");
-    assert_eq!(input.len(), output.len(), "batch_norm_simd: length mismatch");
+    assert_eq!(
+        input.len(),
+        output.len(),
+        "batch_norm_simd: length mismatch"
+    );
     assert!(
         gamma.len() >= channels
             && beta.len() >= channels

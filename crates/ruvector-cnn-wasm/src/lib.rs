@@ -78,7 +78,11 @@ impl WasmCnnEmbedder {
     pub fn extract(&self, image_data: &[u8], width: u32, height: u32) -> Result<Vec<f32>, JsValue> {
         let (w, h) = (width as usize, height as usize);
         let expected = js_err(validate::checked_size("image", &[w, h, 3]))?;
-        js_err(validate::expect_len("image data", expected, image_data.len()))?;
+        js_err(validate::expect_len(
+            "image data",
+            expected,
+            image_data.len(),
+        ))?;
 
         // Convert u8 RGB to f32 normalized [0, 1]
         let float_data: Vec<f32> = image_data.iter().map(|&x| x as f32 / 255.0).collect();
@@ -207,7 +211,11 @@ impl WasmInfoNCELoss {
         dim: usize,
     ) -> Result<f32, JsValue> {
         let expected = js_err(validate::checked_size("embeddings", &[2, batch_size, dim]))?;
-        js_err(validate::expect_len("embeddings", expected, embeddings.len()))?;
+        js_err(validate::expect_len(
+            "embeddings",
+            expected,
+            embeddings.len(),
+        ))?;
 
         // The core loss groups views of one sample consecutively, so
         // interleave rows i and i+N into [x0, x0', x1, x1', ...].
@@ -409,7 +417,11 @@ impl LayerOps {
             "global_avg_pool",
             &[height, width, channels],
         ))?;
-        js_err(validate::expect_len("global_avg_pool input", expected, input.len()))?;
+        js_err(validate::expect_len(
+            "global_avg_pool input",
+            expected,
+            input.len(),
+        ))?;
         let mut output = vec![0.0f32; channels];
         simd::global_avg_pool_simd(input, &mut output, height, width, channels);
         Ok(output)
