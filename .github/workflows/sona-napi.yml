@@ -82,7 +82,7 @@ jobs:
           sudo apt-get install -y musl-tools
 
       - name: Install napi-rs CLI
-        run: npm install -g @napi-rs/cli
+        run: npm install -g @napi-rs/cli@3.7.3  # pinned: 3.10.x breaks --use-napi-cross (aarch64 "Cannot find native binding"); 3.7.3 was the last green run, 2026-07-17
 
       - name: Build native module (cross-compile)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -171,7 +171,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install napi-rs CLI
-        run: npm install -g @napi-rs/cli
+        run: npm install -g @napi-rs/cli@3.7.3  # pinned: 3.10.x breaks --use-napi-cross (aarch64 "Cannot find native binding"); 3.7.3 was the last green run, 2026-07-17
 
       - name: Download all artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
