@@ -14,8 +14,6 @@
 
 import { PiBrainClient } from './client.js';
 
-const client = new PiBrainClient();
-
 async function main() {
   const args = process.argv.slice(2);
   const command = args[0];
@@ -59,6 +57,8 @@ Environment:
   }
 
   try {
+    // Constructed here so an invalid BRAIN_URL is reported, not thrown at import.
+    const client = new PiBrainClient();
     switch (command) {
       case 'health':
         console.log(JSON.stringify(await client.health(), null, 2));

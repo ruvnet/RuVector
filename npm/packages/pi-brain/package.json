@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/pi-brain",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "CLI and SDK for π — the RuVector shared brain. Share, search, and transfer learning across AI sessions.",
   "type": "module",
   "main": "dist/cjs/index.js",
@@ -36,6 +36,7 @@
     "build:cjs": "tsc -p tsconfig.cjs.json && node -e \"require('fs').writeFileSync('dist/cjs/package.json', JSON.stringify({type:'commonjs'}))\"",
     "build": "npm run build:esm && npm run build:cjs",
     "prepack": "npm run build",
+    "test": "npm run build && node --test test/*.test.mjs",
     "start": "node dist/cli.js",
     "dev": "tsc --watch"
   },
@@ -48,9 +49,6 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
