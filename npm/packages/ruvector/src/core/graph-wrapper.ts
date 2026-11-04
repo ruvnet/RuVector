@@ -18,7 +18,7 @@ function getGraphModule() {
   } catch (e: any) {
     loadError = new Error(
       `@ruvector/graph-node not installed: ${e.message}\n` +
-      `Install with: npm install @ruvector/graph-node`
+      `Install with: npx ruvector add graph  (or: npm install @ruvector/graph-node)`
     );
     throw loadError;
   }
