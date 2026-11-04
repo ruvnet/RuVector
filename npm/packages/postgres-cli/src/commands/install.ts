@@ -7,12 +7,22 @@
  * - Extension management (enable, disable, upgrade)
  */
 
-import { execSync, spawn } from 'child_process';
+import { execSync, execFileSync, spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import chalk from 'chalk';
 import ora from 'ora';
+import {
+  assertContainerName,
+  assertImageTag,
+  assertPgIdentifier,
+  assertPgVersion,
+  assertPort,
+  configureSteps,
+  dockerPsqlArgs,
+  dockerRunArgs,
+} from './install-args.js';
 
 // Constants
 const DOCKER_IMAGE = 'ruvnet/ruvector-postgres';
@@ -20,7 +30,6 @@ const DOCKER_IMAGE_VERSION = '0.2.5';
 const _RUVECTOR_CRATE_VERSION = '0.2.5';
 const PGRX_VERSION = '0.12.6';
 const DEFAULT_PG_VERSION = '16';
-const _SUPPORTED_PG_VERSIONS = ['14', '15', '16', '17'];
 const DEFAULT_PORT = 5432;
 const DEFAULT_USER = 'ruvector';
 const DEFAULT_PASSWORD = 'ruvector';
@@ -361,7 +370,7 @@ export class InstallCommands {
         pgConfigPath = commonPaths.find(p => fs.existsSync(p)) || 'pg_config';
       }
 
-      execSync(`cargo pgrx init --pg${pgVersion}=${pgConfigPath}`, { stdio: 'inherit' });
+      execFileSync('cargo', ['pgrx', 'init', `--pg${pgVersion}=${pgConfigPath}`], { stdio: 'inherit' });
       spinner.succeed(`pgrx initialized for PostgreSQL ${pgVersion}`);
 
       return true;
@@ -377,15 +386,16 @@ export class InstallCommands {
    */
   static async buildAndInstallExtension(pgVersion: string): Promise<boolean> {
     const spinner = ora('Building ruvector-postgres extension...').start();
+    let tmpDir: string | undefined;
 
     try {
       // Create temporary directory
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ruvector-'));
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ruvector-'));
 
       spinner.text = 'Cloning ruvector repository...';
 
       // Clone the actual repository (pgrx needs .control file and proper structure)
-      execSync(`git clone --depth 1 https://github.com/ruvnet/ruvector.git ${tmpDir}/ruvector`, {
+      execFileSync('git', ['clone', '--depth', '1', 'https://github.com/ruvnet/ruvector.git', path.join(tmpDir, 'ruvector')], {
         stdio: 'pipe',
       });
 
@@ -408,16 +418,14 @@ export class InstallCommands {
         },
       });
 
-      // Cleanup
-      spinner.text = 'Cleaning up...';
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-
       spinner.succeed('ruvector-postgres extension installed');
       return true;
     } catch (error) {
       spinner.fail('Failed to build extension');
       console.error(chalk.red((error as Error).message));
       return false;
+    } finally {
+      if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   }
 
@@ -432,21 +440,16 @@ export class InstallCommands {
     const database = options.database || DEFAULT_DB;
 
     try {
-      // Create user and database
-      const commands = [
-        `CREATE USER ${user} WITH PASSWORD '${password}' SUPERUSER;`,
-        `CREATE DATABASE ${database} OWNER ${user};`,
-        `\\c ${database}`,
-        `CREATE EXTENSION IF NOT EXISTS ruvector;`,
-      ];
-
-      for (const cmd of commands) {
-        try {
-          execSync(`sudo -u postgres psql -c "${cmd}"`, { stdio: 'pipe' });
-        } catch {
-          // User/DB might already exist, that's OK
-        }
+      // Create user and database (errors for already-existing objects are expected),
+      // then create the extension inside the target database. No shell is involved and
+      // the password is sent on stdin, so it is neither interpreted nor visible in `ps`.
+      const [createUserDb, createExtension] = configureSteps(user, password, database);
+      try {
+        execFileSync('sudo', createUserDb.args, { input: createUserDb.input, stdio: ['pipe', 'pipe', 'pipe'] });
+      } catch {
+        // User/DB might already exist, that's OK
       }
+      execFileSync('sudo', createExtension.args, { stdio: 'pipe' });
 
       spinner.succeed('PostgreSQL configured');
       return true;
@@ -461,7 +464,9 @@ export class InstallCommands {
    * Full native installation
    */
   static async installNativeFull(options: InstallOptions = {}): Promise<void> {
-    const pgVersion = options.pgVersion || DEFAULT_PG_VERSION;
+    const pgVersion = assertPgVersion(options.pgVersion || DEFAULT_PG_VERSION);
+    assertPgIdentifier(options.user || DEFAULT_USER, 'user');
+    assertPgIdentifier(options.database || DEFAULT_DB, 'database');
 
     console.log(chalk.bold.blue('\n🚀 RuVector PostgreSQL Native Installation\n'));
     console.log(chalk.gray('This will install PostgreSQL, Rust, and the RuVector extension.\n'));
@@ -526,7 +531,9 @@ export class InstallCommands {
 
     // Configure PostgreSQL
     console.log(chalk.bold('\n⚙️  Step 6: Configuring PostgreSQL'));
-    await this.configurePostgreSQL(options);
+    if (!(await this.configurePostgreSQL(options))) {
+      throw new Error('Failed to configure PostgreSQL');
+    }
 
     // Success!
     const port = options.port || DEFAULT_PORT;
@@ -600,18 +607,18 @@ export class InstallCommands {
    * Install via Docker
    */
   static async installDocker(options: InstallOptions = {}): Promise<void> {
-    const port = options.port || DEFAULT_PORT;
-    const user = options.user || DEFAULT_USER;
+    const port = assertPort(options.port ?? DEFAULT_PORT);
+    const user = assertPgIdentifier(options.user || DEFAULT_USER, 'user');
     const password = options.password || DEFAULT_PASSWORD;
-    const database = options.database || DEFAULT_DB;
-    const version = options.version || DOCKER_IMAGE_VERSION;
-    const containerName = options.name || 'ruvector-postgres';
+    const database = assertPgIdentifier(options.database || DEFAULT_DB, 'database');
+    const version = assertImageTag(options.version || DOCKER_IMAGE_VERSION);
+    const containerName = assertContainerName(options.name || 'ruvector-postgres');
     const dataDir = options.dataDir;
 
     // Check if container already exists
     const existingSpinner = ora('Checking for existing installation...').start();
     try {
-      const existing = execSync(`docker ps -a --filter name=^${containerName}$ --format "{{.ID}}"`, { encoding: 'utf-8' }).trim();
+      const existing = execFileSync('docker', ['ps', '-a', '--filter', `name=^${containerName}$`, '--format', '{{.ID}}'], { encoding: 'utf-8' }).trim();
       if (existing) {
         existingSpinner.warn(`Container '${containerName}' already exists`);
         console.log(chalk.yellow(`  Run 'ruvector-pg uninstall' first or use a different --name`));
@@ -626,13 +633,13 @@ export class InstallCommands {
     const pullSpinner = ora(`Checking for ${DOCKER_IMAGE}:${version}...`).start();
     try {
       // Check if image exists locally
-      execSync(`docker image inspect ${DOCKER_IMAGE}:${version}`, { stdio: 'pipe' });
+      execFileSync('docker', ['image', 'inspect', `${DOCKER_IMAGE}:${version}`], { stdio: 'pipe' });
       pullSpinner.succeed(`Found local image ${DOCKER_IMAGE}:${version}`);
     } catch {
       // Try pulling from Docker Hub (ruvnet/ruvector-postgres)
       pullSpinner.text = `Pulling ${DOCKER_IMAGE}:${version} from Docker Hub...`;
       try {
-        execSync(`docker pull ${DOCKER_IMAGE}:${version}`, { stdio: 'pipe' });
+        execFileSync('docker', ['pull', `${DOCKER_IMAGE}:${version}`], { stdio: 'pipe' });
         pullSpinner.succeed(`Pulled ${DOCKER_IMAGE}:${version}`);
       } catch {
         pullSpinner.fail('Image not found locally or on Docker Hub');
@@ -647,27 +654,20 @@ export class InstallCommands {
       }
     }
 
-    // Build run command
-    let runCmd = `docker run -d --name ${containerName}`;
-    runCmd += ` -p ${port}:5432`;
-    runCmd += ` -e POSTGRES_USER=${user}`;
-    runCmd += ` -e POSTGRES_PASSWORD=${password}`;
-    runCmd += ` -e POSTGRES_DB=${database}`;
-
-    if (dataDir) {
-      const absDataDir = path.resolve(dataDir);
-      if (!fs.existsSync(absDataDir)) {
-        fs.mkdirSync(absDataDir, { recursive: true });
-      }
-      runCmd += ` -v ${absDataDir}:/var/lib/postgresql/data`;
+    // Build run command (argv, no shell; password passed via env, not visible in `ps`)
+    const absDataDir = dataDir ? path.resolve(dataDir) : undefined;
+    const run = dockerRunArgs({
+      name: containerName, port, user, password, database,
+      image: `${DOCKER_IMAGE}:${version}`, dataDir: absDataDir,
+    });
+    if (absDataDir && !fs.existsSync(absDataDir)) {
+      fs.mkdirSync(absDataDir, { recursive: true });
     }
-
-    runCmd += ` ${DOCKER_IMAGE}:${version}`;
 
     // Run container
     const runSpinner = ora('Starting RuVector PostgreSQL...').start();
     try {
-      execSync(runCmd, { encoding: 'utf-8' });
+      execFileSync('docker', run.args, { encoding: 'utf-8', env: run.env });
       runSpinner.succeed('Container started');
 
       // Wait for PostgreSQL to be ready
@@ -675,7 +675,7 @@ export class InstallCommands {
       let ready = false;
       for (let i = 0; i < 30; i++) {
         try {
-          execSync(`docker exec ${containerName} pg_isready -U ${user}`, { stdio: 'pipe' });
+          execFileSync('docker', ['exec', containerName, 'pg_isready', '-U', user], { stdio: 'pipe' });
           ready = true;
           break;
         } catch {
@@ -692,8 +692,10 @@ export class InstallCommands {
       // Verify extension
       const verifySpinner = ora('Verifying RuVector extension...').start();
       try {
-        const extCheck = execSync(
-          `docker exec ${containerName} psql -U ${user} -d ${database} -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'ruvector';"`,
+        const extCheck = execFileSync(
+          'docker',
+          ['exec', containerName, 'psql', '-U', user, '-d', database, '-c',
+            "SELECT extname, extversion FROM pg_extension WHERE extname = 'ruvector';"],
           { encoding: 'utf-8' }
         );
         if (extCheck.includes('ruvector')) {
@@ -747,7 +749,7 @@ export class InstallCommands {
    * Uninstall RuVector PostgreSQL
    */
   static async uninstall(options: { name?: string; removeData?: boolean } = {}): Promise<void> {
-    const containerName = options.name || 'ruvector-postgres';
+    const containerName = assertContainerName(options.name || 'ruvector-postgres');
 
     const spinner = ora(`Stopping container '${containerName}'...`).start();
 
@@ -785,7 +787,7 @@ export class InstallCommands {
    * Get installation status
    */
   static async status(options: { name?: string } = {}): Promise<StatusInfo> {
-    const containerName = options.name || 'ruvector-postgres';
+    const containerName = assertContainerName(options.name || 'ruvector-postgres');
 
     const info: StatusInfo = {
       installed: false,
@@ -876,7 +878,7 @@ export class InstallCommands {
    * Start the database
    */
   static async start(options: { name?: string } = {}): Promise<void> {
-    const containerName = options.name || 'ruvector-postgres';
+    const containerName = assertContainerName(options.name || 'ruvector-postgres');
     const spinner = ora('Starting RuVector PostgreSQL...').start();
 
     try {
@@ -904,7 +906,7 @@ export class InstallCommands {
    * Stop the database
    */
   static async stop(options: { name?: string } = {}): Promise<void> {
-    const containerName = options.name || 'ruvector-postgres';
+    const containerName = assertContainerName(options.name || 'ruvector-postgres');
     const spinner = ora('Stopping RuVector PostgreSQL...').start();
 
     try {
@@ -920,7 +922,7 @@ export class InstallCommands {
    * Show logs
    */
   static async logs(options: { name?: string; follow?: boolean; tail?: number } = {}): Promise<void> {
-    const containerName = options.name || 'ruvector-postgres';
+    const containerName = assertContainerName(options.name || 'ruvector-postgres');
     const tail = options.tail || 100;
 
     try {
@@ -945,14 +947,12 @@ export class InstallCommands {
    * Execute psql command
    */
   static async psql(options: { name?: string; command?: string } = {}): Promise<void> {
-    const containerName = options.name || 'ruvector-postgres';
+    const containerName = assertContainerName(options.name || 'ruvector-postgres');
 
     if (options.command) {
       try {
-        const output = execSync(
-          `docker exec ${containerName} psql -U ruvector -d ruvector -c "${options.command}"`,
-          { encoding: 'utf-8' }
-        );
+        // SQL goes through as one argv element: quotes, $vars and backticks reach psql intact.
+        const output = execFileSync('docker', dockerPsqlArgs(containerName, options.command), { encoding: 'utf-8' });
         console.log(output);
       } catch (error) {
         console.error(chalk.red('Failed to execute command'));

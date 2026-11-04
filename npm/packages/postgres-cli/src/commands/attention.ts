@@ -56,6 +56,7 @@ export class AttentionCommands {
     } catch (err) {
       spinner.fail(chalk.red('Failed to compute attention'));
       console.error(chalk.red((err as Error).message));
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -110,6 +111,7 @@ export class AttentionCommands {
     } catch (err) {
       spinner.fail(chalk.red('Failed to list attention types'));
       console.error(chalk.red((err as Error).message));
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
