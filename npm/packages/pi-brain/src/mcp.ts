@@ -248,8 +248,10 @@ export async function startMcpServer(
   if (transport === 'stdio') {
     const readline = await import('readline');
     const rl = readline.createInterface({ input: process.stdin });
+    const inFlight = new Set<Promise<void>>();
 
-    rl.on('line', async (line: string) => {
+    const handleLine = async (line: string) => {
+      if (!line.trim()) return;
       try {
         const req = JSON.parse(line);
         const res = await handleJsonRpc(req);
@@ -267,9 +269,20 @@ export async function startMcpServer(
         };
         process.stdout.write(JSON.stringify(err) + '\n');
       }
+    };
+
+    rl.on('line', (line: string) => {
+      const p = handleLine(line).finally(() => inFlight.delete(p));
+      inFlight.add(p);
     });
 
+    // When the host closes stdin, finish in-flight calls and exit.
+    const closed = new Promise<void>((resolve) => rl.on('close', resolve));
+
     console.error('π Brain MCP Server started (stdio)');
+    await closed;
+    await Promise.allSettled([...inFlight]);
+    return;
   } else {
     // SSE mode - point to hosted SSE on pi.ruv.io
     console.error(
@@ -279,9 +292,6 @@ export async function startMcpServer(
       `Or connect via: claude mcp add π --url https://mcp.pi.ruv.io`,
     );
   }
-
-  // Keep alive
-  await new Promise(() => {});
 }
 
 async function handleJsonRpc(req: {
@@ -290,7 +300,11 @@ async function handleJsonRpc(req: {
   method: string;
   params?: unknown;
 }) {
+  // JSON-RPC notifications carry no id and must never receive a response.
+  if (req.id === undefined) return null;
   switch (req.method) {
+    case 'ping':
+      return { jsonrpc: '2.0', id: req.id, result: {} };
     case 'initialize':
       return {
         jsonrpc: '2.0',

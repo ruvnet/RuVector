@@ -5,6 +5,28 @@
  */
 
 const DEFAULT_URL = 'https://pi.ruv.io';
+const DEFAULT_TIMEOUT_MS = 30_000;
+const MAX_ERROR_BODY = 500;
+const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/**
+ * Parse and validate the base URL. The bearer token is attached to every
+ * request, so plain http is only allowed for loopback development servers.
+ */
+function normalizeBaseUrl(raw: string): string {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    throw new Error(`Invalid π base URL: ${raw}`);
+  }
+  if (u.protocol !== 'https:' && !(u.protocol === 'http:' && LOOPBACK.has(u.hostname))) {
+    throw new Error(
+      `Refusing π base URL ${u.origin}: https is required (plain http only for localhost)`,
+    );
+  }
+  return u.toString().replace(/\/+$/, '');
+}
 
 export interface ShareOptions {
   category: string;
@@ -60,9 +82,11 @@ export interface ConsciousnessComputeResult {
 export class PiBrainClient {
   private baseUrl: string;
   private apiKey: string;
+  private timeoutMs: number;
 
-  constructor(options?: { url?: string; apiKey?: string }) {
-    this.baseUrl = options?.url ?? process.env.BRAIN_URL ?? DEFAULT_URL;
+  constructor(options?: { url?: string; apiKey?: string; timeoutMs?: number }) {
+    this.baseUrl = normalizeBaseUrl(options?.url ?? process.env.BRAIN_URL ?? DEFAULT_URL);
+    this.timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.apiKey =
       options?.apiKey ??
       process.env.PI ??
@@ -81,18 +105,36 @@ export class PiBrainClient {
       'Content-Type': 'application/json',
     };
 
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (e) {
+      const name = (e as Error).name;
+      if (name === 'TimeoutError' || name === 'AbortError') {
+        throw new Error(`π request timed out after ${this.timeoutMs}ms: ${method} ${path}`);
+      }
+      throw e;
+    }
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`π error (${res.status}): ${text}`);
+      const shown = text.length > MAX_ERROR_BODY ? `${text.slice(0, MAX_ERROR_BODY)}…` : text;
+      throw new Error(`π error (${res.status}): ${shown}`);
     }
 
-    return res.json();
+    // 204 No Content (e.g. DELETE /v1/memories/:id) has no body to parse.
+    const text = await res.text();
+    if (res.status === 204 || text.length === 0) return null;
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`π returned non-JSON response (${res.status}) for ${method} ${path}`);
+    }
   }
 
   async health(): Promise<unknown> {
@@ -114,7 +156,7 @@ export class PiBrainClient {
   }
 
   async get(id: string): Promise<unknown> {
-    return this.request('GET', `/v1/memories/${id}`);
+    return this.request('GET', `/v1/memories/${encodeURIComponent(id)}`);
   }
 
   async list(category?: string, limit?: number): Promise<unknown> {
@@ -125,11 +167,11 @@ export class PiBrainClient {
   }
 
   async vote(id: string, direction: 'up' | 'down'): Promise<unknown> {
-    return this.request('POST', `/v1/memories/${id}/vote`, { direction });
+    return this.request('POST', `/v1/memories/${encodeURIComponent(id)}/vote`, { direction });
   }
 
   async delete(id: string): Promise<unknown> {
-    return this.request('DELETE', `/v1/memories/${id}`);
+    return this.request('DELETE', `/v1/memories/${encodeURIComponent(id)}`);
   }
 
   async transfer(source: string, target: string): Promise<unknown> {
