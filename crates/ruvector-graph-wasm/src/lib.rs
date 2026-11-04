@@ -26,6 +26,8 @@ use web_sys::console;
 
 pub mod async_ops;
 mod cypher_exec;
+mod delete;
+mod export;
 pub mod types;
 
 use cypher_exec::Store;
@@ -180,7 +182,8 @@ impl GraphDB {
         let emb = if let Some(e) = embedding {
             e
         } else {
-            self.generate_hyperedge_embedding(&nodes)?
+            self.generate_hyperedge_embedding(&nodes)
+                .map_err(|e| JsValue::from_str(&e))?
         };
 
         let conf = confidence.unwrap_or(1.0).clamp(0.0, 1.0);
@@ -249,47 +252,14 @@ impl GraphDB {
     /// True if deleted, false if not found
     #[wasm_bindgen(js_name = deleteNode)]
     pub fn delete_node(&self, id: String) -> bool {
-        // Remove from nodes
-        let removed = self.nodes.lock().remove(&id).is_some();
-
-        if removed {
-            // Clean up indices
-            let mut labels_index = self.labels_index.lock();
-            for (_, node_ids) in labels_index.iter_mut() {
-                node_ids.retain(|nid| nid != &id);
-            }
-
-            // Remove associated edges
-            if let Some(out_edges) = self.node_edges_out.lock().remove(&id) {
-                for edge_id in out_edges {
-                    self.edges.lock().remove(&edge_id);
-                }
-            }
-            if let Some(in_edges) = self.node_edges_in.lock().remove(&id) {
-                for edge_id in in_edges {
-                    self.edges.lock().remove(&edge_id);
-                }
-            }
-        }
-
-        removed
+        // Also removes the node's edges and every hyperedge that contains it.
+        self.lock_store().remove_node(&id)
     }
 
     /// Delete an edge by ID
     #[wasm_bindgen(js_name = deleteEdge)]
     pub fn delete_edge(&self, id: String) -> bool {
-        if let Some(edge) = self.edges.lock().remove(&id) {
-            // Clean up indices
-            if let Some(edges) = self.node_edges_out.lock().get_mut(&edge.from) {
-                edges.retain(|eid| eid != &id);
-            }
-            if let Some(edges) = self.node_edges_in.lock().get_mut(&edge.to) {
-                edges.retain(|eid| eid != &id);
-            }
-            true
-        } else {
-            false
-        }
+        self.lock_store().remove_edge(&id)
     }
 
     /// Import Cypher statements
@@ -310,60 +280,15 @@ impl GraphDB {
         Ok(count)
     }
 
-    /// Export database as Cypher CREATE statements
+    /// Export nodes and edges as one Cypher CREATE statement on a single line
     ///
     /// # Returns
-    /// String containing Cypher statements
+    /// A statement that `query` or `importCypher` loads back with the same nodes,
+    /// edges, labels and properties (IDs are regenerated). Hyperedges are not
+    /// exported. Empty string for an empty graph.
     #[wasm_bindgen(js_name = exportCypher)]
     pub fn export_cypher(&self) -> String {
-        let mut cypher = String::new();
-
-        // Export nodes
-        for (id, node) in self.nodes.lock().iter() {
-            let labels = if node.labels.is_empty() {
-                String::new()
-            } else {
-                format!(":{}", node.labels.join(":"))
-            };
-
-            let props = if node.properties.is_empty() {
-                String::new()
-            } else {
-                format!(
-                    " {{{}}}",
-                    node.properties
-                        .iter()
-                        .map(|(k, v)| format!("{}: {}", k, v))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
-            };
-
-            cypher.push_str(&format!("CREATE (n{}{})\n", labels, props));
-        }
-
-        // Export edges
-        for (id, edge) in self.edges.lock().iter() {
-            let props = if edge.properties.is_empty() {
-                String::new()
-            } else {
-                format!(
-                    " {{{}}}",
-                    edge.properties
-                        .iter()
-                        .map(|(k, v)| format!("{}: {}", k, v))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
-            };
-
-            cypher.push_str(&format!(
-                "MATCH (a), (b) WHERE id(a) = '{}' AND id(b) = '{}' CREATE (a)-[:{}{}]->(b)\n",
-                edge.from, edge.to, edge.edge_type, props
-            ));
-        }
-
-        cypher
+        export::export_cypher(&self.lock_store())
     }
 
     /// Get database statistics
@@ -418,6 +343,7 @@ impl GraphDB {
             node_edges_out: self.node_edges_out.lock(),
             node_edges_in: self.node_edges_in.lock(),
             hypergraph: self.hypergraph.lock(),
+            hyperedges: self.hyperedges.lock(),
         }
     }
 
@@ -449,7 +375,7 @@ impl GraphDB {
         })
     }
 
-    fn generate_hyperedge_embedding(&self, node_ids: &[String]) -> Result<Vec<f32>, JsValue> {
+    fn generate_hyperedge_embedding(&self, node_ids: &[String]) -> Result<Vec<f32>, String> {
         let nodes = self.nodes.lock();
         let embeddings: Vec<Vec<f32>> = node_ids
             .iter()
@@ -457,10 +383,16 @@ impl GraphDB {
             .collect();
 
         if embeddings.is_empty() {
-            return Err(JsValue::from_str("No embeddings found for nodes"));
+            return Err("No embeddings found for nodes".to_string());
         }
 
         let dim = embeddings[0].len();
+        if embeddings.iter().any(|e| e.len() != dim) {
+            return Err(format!(
+                "Node embeddings differ in dimension; pass an explicit {}-dimension embedding",
+                dim
+            ));
+        }
         let mut avg_embedding = vec![0.0; dim];
 
         for emb in &embeddings {
@@ -499,5 +431,27 @@ mod tests {
     fn test_graph_creation() {
         let db = GraphDB::new(Some("cosine".to_string())).unwrap();
         assert!(true); // Basic smoke test
+    }
+
+    #[test]
+    fn hyperedge_embedding_rejects_mismatched_dimensions() {
+        // Indexing past the first embedding's length panicked, and a panic in wasm
+        // leaves every graph lock held, so the instance never answered again.
+        let db = GraphDB::new(None).unwrap();
+        let emb = |v: serde_json::Value| [("embedding".to_string(), v)].into();
+        let a = db
+            .lock_store()
+            .insert_node(vec![], emb(serde_json::json!([1.0, 2.0])));
+        let b = db
+            .lock_store()
+            .insert_node(vec![], emb(serde_json::json!([1.0, 2.0, 3.0])));
+        let err = db
+            .generate_hyperedge_embedding(&[a.clone(), b])
+            .unwrap_err();
+        assert!(err.contains("dimension"), "{}", err);
+        assert_eq!(
+            db.generate_hyperedge_embedding(&[a]).unwrap(),
+            vec![1.0, 2.0]
+        );
     }
 }
