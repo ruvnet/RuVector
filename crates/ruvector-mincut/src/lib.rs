@@ -385,6 +385,9 @@ pub use snn::{
 pub use integration::AgenticAnalyzer;
 
 #[cfg(feature = "canonical")]
+pub use integration::StaticCutAnalyzer;
+
+#[cfg(feature = "canonical")]
 pub use canonical::{
     CactusCycle, CactusEdge, CactusGraph, CactusVertex, CanonicalCutResult, CanonicalMinCut,
     CanonicalMinCutImpl, FixedWeight, WitnessReceipt,
