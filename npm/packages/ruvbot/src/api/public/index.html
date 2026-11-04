@@ -801,7 +801,7 @@
         let skillBadges = '';
         if (data.skillsUsed && data.skillsUsed.length > 0) {
           const badges = data.skillsUsed.map(s =>
-            `<span class="skill-badge ${s.success ? 'success' : 'failed'}">${s.skillName}</span>`
+            `<span class="skill-badge ${s.success ? 'success' : 'failed'}">${escapeHtml(s.skillName)}</span>`
           ).join(' ');
           skillBadges = `<div class="skill-badges">${badges}</div>`;
           console.log('[RuvBot] Skills used:', data.skillsUsed.map(s => s.skillId));
@@ -810,11 +810,11 @@
         // Add assistant message
         const content = data.content || data.message || data.response || 'No response';
         console.log('[RuvBot] Displaying content:', content.substring(0, 100) + '...');
-        addMessage('assistant', skillBadges + content);
+        addMessage('assistant', skillBadges + formatMarkdown(content), true);
 
       } catch (err) {
         typingEl.remove();
-        addMessage('assistant', `<div class="error-message">Error: ${err.message}</div>`, true);
+        addMessage('assistant', `<div class="error-message">Error: ${escapeHtml(err.message)}</div>`, true);
       } finally {
         isLoading = false;
         sendBtn.disabled = !inputEl.value.trim();
@@ -862,11 +862,21 @@
       return el;
     }
 
-    // Simple markdown formatter
+    // Escape HTML so model/skill output cannot inject markup or script
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // Simple markdown formatter (input is escaped first)
     function formatMarkdown(text) {
       if (!text) return '';
 
-      return text
+      return escapeHtml(text)
         // Code blocks
         .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
         // Inline code
@@ -876,7 +886,7 @@
         // Italic
         .replace(/\*([^*]+)\*/g, '<em>$1</em>')
         // Links
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
         // Headers
         .replace(/^### (.+)$/gm, '<h3>$1</h3>')
         .replace(/^## (.+)$/gm, '<h2>$1</h2>')
@@ -886,7 +896,7 @@
         .replace(/^- (.+)$/gm, '<li>$1</li>')
         .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
         // Blockquotes
-        .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+        .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
         // Horizontal rule
         .replace(/^---$/gm, '<hr>')
         // Paragraphs
