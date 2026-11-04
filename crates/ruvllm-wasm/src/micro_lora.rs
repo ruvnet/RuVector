@@ -418,6 +418,26 @@ impl LoraAdapterInternal {
         self.grad_count = 0;
     }
 
+    /// Check that deserialized weight buffers match the declared shape, so
+    /// forward/accumulate never index past them.
+    fn validate(&self) -> Result<(), String> {
+        if !(1..=4).contains(&self.rank) {
+            return Err(format!("rank {} outside 1..=4", self.rank));
+        }
+        let a_len = self.in_features.checked_mul(self.rank);
+        let b_len = self.rank.checked_mul(self.out_features);
+        let (Some(a_len), Some(b_len)) = (a_len, b_len) else {
+            return Err("in_features/out_features overflow".into());
+        };
+        if self.lora_a.len() != a_len || self.grad_a.len() != a_len {
+            return Err(format!("lora_a/grad_a must have {} values", a_len));
+        }
+        if self.lora_b.len() != b_len || self.grad_b.len() != b_len {
+            return Err(format!("lora_b/grad_b must have {} values", b_len));
+        }
+        Ok(())
+    }
+
     /// Get parameter count.
     fn param_count(&self) -> usize {
         self.lora_a.len() + self.lora_b.len()
@@ -569,6 +589,10 @@ impl MicroLoraWasm {
 
         let state: SerializedState = serde_json::from_str(json)
             .map_err(|e| JsValue::from_str(&format!("Deserialization error: {}", e)))?;
+        state
+            .adapter
+            .validate()
+            .map_err(|e| JsValue::from_str(&format!("Invalid adapter state: {}", e)))?;
 
         Ok(MicroLoraWasm {
             adapter: state.adapter,

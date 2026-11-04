@@ -116,7 +116,7 @@ impl SonaConfigWasm {
     /// Set hidden dimension
     #[wasm_bindgen(setter, js_name = hiddenDim)]
     pub fn set_hidden_dim(&mut self, value: usize) {
-        self.hidden_dim = value;
+        self.hidden_dim = value.max(1);
     }
 
     /// Get micro-LoRA rank
@@ -188,7 +188,34 @@ impl SonaConfigWasm {
     /// Create from JSON
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json: &str) -> Result<SonaConfigWasm, JsValue> {
-        serde_json::from_str(json).map_err(|e| JsValue::from_str(&e.to_string()))
+        serde_json::from_str::<SonaConfigWasm>(json)
+            .map(SonaConfigWasm::sanitized)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+}
+
+impl SonaConfigWasm {
+    /// Apply the setter clamps to a config that bypassed them (serde, or a
+    /// struct literal). Keeps `hidden_dim` non-zero (it is a modulus) and
+    /// `pattern_capacity` bounded (it sizes an allocation).
+    fn sanitized(mut self) -> Self {
+        let clamp01 = |v: f32, default: f32| {
+            if v.is_finite() {
+                v.clamp(0.0, 1.0)
+            } else {
+                default
+            }
+        };
+        self.hidden_dim = self.hidden_dim.max(1);
+        self.micro_lora_rank = self.micro_lora_rank.clamp(1, 4);
+        self.learning_rate = clamp01(self.learning_rate, 0.01);
+        self.ema_decay = clamp01(self.ema_decay, 0.95);
+        self.pattern_capacity = self.pattern_capacity.clamp(10, 1000);
+        self.ewc_lambda = clamp01(self.ewc_lambda, 0.1);
+        if !self.quality_threshold.is_finite() {
+            self.quality_threshold = 0.5;
+        }
+        self
     }
 }
 
@@ -405,6 +432,7 @@ impl SonaInstantWasm {
     /// Create new SONA instant loop
     #[wasm_bindgen(constructor)]
     pub fn new(config: SonaConfigWasm) -> Self {
+        let config = config.sanitized();
         let current_rank = config.micro_lora_rank;
         Self {
             patterns: VecDeque::with_capacity(config.pattern_capacity),
@@ -427,8 +455,9 @@ impl SonaInstantWasm {
     pub fn instant_adapt(&mut self, quality: f32) -> SonaAdaptResultWasm {
         let start = crate::utils::now_ms();
 
-        // Skip if quality below threshold
-        if quality < self.config.quality_threshold {
+        // Skip if quality below threshold; a NaN/Inf score would otherwise
+        // poison quality_ema permanently
+        if !quality.is_finite() || quality < self.config.quality_threshold {
             return SonaAdaptResultWasm {
                 applied: false,
                 latency_us: ((crate::utils::now_ms() - start) * 1000.0) as u64,
@@ -598,17 +627,22 @@ impl SonaInstantWasm {
         let import: Import =
             serde_json::from_str(json).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
+        let config = import.config.sanitized();
         Ok(Self {
-            config: import.config.clone(),
-            patterns: VecDeque::with_capacity(import.config.pattern_capacity),
-            quality_ema: import.quality_ema,
+            patterns: VecDeque::with_capacity(config.pattern_capacity),
+            config,
+            quality_ema: if import.quality_ema.is_finite() {
+                import.quality_ema
+            } else {
+                0.5
+            },
             adaptations: import.adaptations,
             latency_sum: 0,
             patterns_recorded: import.patterns_recorded,
             successful_patterns: import.successful_patterns,
             timestamp: 0,
             important_weights: Vec::new(),
-            current_rank: import.current_rank,
+            current_rank: import.current_rank.clamp(1, 4),
         })
     }
 
