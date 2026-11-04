@@ -8,10 +8,8 @@
  * - Regional load predictions
  */
 
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { notifyClaudeFlow } from './claude-flow-runner';
 
-const execAsync = promisify(exec);
 
 export interface PredictedBurst {
   eventId: string;
@@ -62,7 +60,7 @@ export class BurstPredictor {
   constructor(
     private readonly regions: string[] = ['us-central1', 'europe-west1', 'asia-east1'],
     private readonly notifyHook: (message: string) => Promise<void> = async (msg) => {
-      await execAsync(`npx claude-flow@alpha hooks notify --message "${msg.replace(/"/g, '\\"')}"`);
+      await notifyClaudeFlow(msg);
     }
   ) {
     this.loadHistoricalPatterns();

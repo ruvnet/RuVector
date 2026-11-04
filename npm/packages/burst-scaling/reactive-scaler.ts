@@ -8,10 +8,8 @@
  * - Gradual scale-in to avoid thrashing
  */
 
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { notifyClaudeFlow } from './claude-flow-runner';
 
-const execAsync = promisify(exec);
 
 export interface ScalingMetrics {
   region: string;
@@ -65,7 +63,7 @@ export class ReactiveScaler {
   constructor(
     _regions: string[] = ['us-central1', 'europe-west1', 'asia-east1'],
     private readonly notifyHook: (message: string) => Promise<void> = async (msg) => {
-      await execAsync(`npx claude-flow@alpha hooks notify --message "${msg.replace(/"/g, '\\"')}"`);
+      await notifyClaudeFlow(msg);
     }
   ) {
     // Default thresholds
