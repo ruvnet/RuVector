@@ -1,6 +1,6 @@
 'use strict';
 
-const version = '1.0.1';
+const { version } = require('../package.json');
 
 let nativeModule = null;
 try {
