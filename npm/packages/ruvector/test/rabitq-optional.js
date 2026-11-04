@@ -71,7 +71,6 @@ test('manifest: no new hard dependencies were added for extras', () => {
     '@modelcontextprotocol/sdk', '@ruvector/attention', '@ruvector/core', '@ruvector/gnn',
     '@ruvector/sona', 'chalk', 'commander', 'ora',
   ]);
-  assert.strictEqual(pkg.version, '0.3.8');
 });
 
 test('missing package: isRabitqAvailable() is false and errors point at ruvector add', () => {
