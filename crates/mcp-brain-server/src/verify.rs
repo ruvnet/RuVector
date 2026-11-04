@@ -39,6 +39,15 @@ pub struct Verifier {
     pii_stripper: rvf_federation::PiiStripper,
 }
 
+/// Output of [`Verifier::strip_memory_fields`].
+pub struct StrippedMemoryFields {
+    pub title: String,
+    pub content: String,
+    pub tags: Vec<String>,
+    pub code_snippet: Option<String>,
+    pub log: rvf_federation::RedactionLog,
+}
+
 impl Verifier {
     pub fn new() -> Self {
         Self {
@@ -142,6 +151,40 @@ impl Verifier {
         fields: &[(&str, &str)],
     ) -> (Vec<(String, String)>, rvf_federation::RedactionLog) {
         self.pii_stripper.strip_fields(fields)
+    }
+
+    /// Strip PII from every stored free-text field of a memory or page:
+    /// title, content, each tag and the optional code snippet, in one pass so
+    /// a single redaction log covers them all.
+    pub fn strip_memory_fields(
+        &mut self,
+        title: &str,
+        content: &str,
+        tags: &[String],
+        code_snippet: Option<&str>,
+    ) -> StrippedMemoryFields {
+        let mut pairs: Vec<(&str, &str)> = Vec::with_capacity(tags.len() + 3);
+        pairs.push(("title", title));
+        pairs.push(("content", content));
+        for tag in tags {
+            pairs.push(("tag", tag));
+        }
+        if let Some(code) = code_snippet {
+            pairs.push(("code_snippet", code));
+        }
+        let (stripped, log) = self.pii_stripper.strip_fields(&pairs);
+        let mut values = stripped.into_iter().map(|(_, v)| v);
+        let title = values.next().unwrap_or_default();
+        let content = values.next().unwrap_or_default();
+        let tags: Vec<String> = values.by_ref().take(tags.len()).collect();
+        let code_snippet = code_snippet.map(|_| values.next().unwrap_or_default());
+        StrippedMemoryFields {
+            title,
+            content,
+            tags,
+            code_snippet,
+            log,
+        }
     }
 
     /// Verify embedding is valid (no NaN, Inf, extreme magnitudes)

@@ -1474,6 +1474,7 @@ async fn share_memory(
 ) -> Result<(StatusCode, Json<ShareResponse>), (StatusCode, String)> {
     // Negative-cost fuse
     check_read_only(&state)?;
+    contributor.require_owned_identity()?;
 
     // Nonce validation (replay protection)
     validate_nonce(&state, &req.nonce)?;
@@ -1494,27 +1495,24 @@ async fn share_memory(
     }
 
     // ── Phase 2 (ADR-075): PII stripping ──
-    let (title, content, tags, redaction_log_json) = if state.rvf_flags.pii_strip {
-        let mut field_pairs: Vec<(&str, &str)> =
-            vec![("title", &req.title), ("content", &req.content)];
-        for tag in &req.tags {
-            field_pairs.push(("tag", tag));
-        }
-        let (stripped, log) = state.verifier.write().strip_pii_fields(&field_pairs);
-        let stripped_title = stripped[0].1.clone();
-        let stripped_content = stripped[1].1.clone();
-        let stripped_tags: Vec<String> = stripped[2..].iter().map(|(_, v)| v.clone()).collect();
-        let log_json = serde_json::to_string(&log).ok();
-        if log.total_redactions > 0 {
+    let (title, content, tags, code_snippet, redaction_log_json) = if state.rvf_flags.pii_strip {
+        let s = state.verifier.write().strip_memory_fields(
+            &req.title,
+            &req.content,
+            &req.tags,
+            req.code_snippet.as_deref(),
+        );
+        let log_json = serde_json::to_string(&s.log).ok();
+        if s.log.total_redactions > 0 {
             tracing::info!(
                 "PII stripped: {} redactions in '{}'",
-                log.total_redactions,
-                stripped_title
+                s.log.total_redactions,
+                s.title
             );
         }
-        (stripped_title, stripped_content, stripped_tags, log_json)
+        (s.title, s.content, s.tags, s.code_snippet, log_json)
     } else {
-        (req.title, req.content, req.tags, None)
+        (req.title, req.content, req.tags, req.code_snippet, None)
     };
 
     // Auto-generate embedding via ruvllm if client didn't provide one or dim mismatches
@@ -1674,7 +1672,7 @@ async fn share_memory(
         title,
         content,
         tags,
-        code_snippet: req.code_snippet,
+        code_snippet,
         embedding: embedding.clone(),
         contributor_id: contributor.pseudonym.clone(),
         quality_score: BetaParams::new(),
@@ -2312,6 +2310,7 @@ async fn vote_memory(
     Json(vote): Json<VoteRequest>,
 ) -> Result<Json<BetaParams>, (StatusCode, String)> {
     check_read_only(&state)?;
+    contributor.require_owned_identity()?;
 
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
         return Err((
@@ -2421,6 +2420,7 @@ async fn delete_memory(
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, (StatusCode, String)> {
     check_read_only(&state)?;
+    contributor.require_owned_identity()?;
 
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
         return Err((
@@ -3063,6 +3063,7 @@ async fn lora_submit(
     Json(submission): Json<LoraSubmission>,
 ) -> Result<Json<LoraSubmitResponse>, (StatusCode, String)> {
     check_read_only(&state)?;
+    contributor.require_owned_identity()?;
 
     // Rate limit: LoRA submissions count as writes
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
@@ -4683,6 +4684,7 @@ async fn create_page(
     Json(req): Json<CreatePageRequest>,
 ) -> Result<(StatusCode, Json<PageResponse>), (StatusCode, String)> {
     check_read_only(&state)?;
+    contributor.require_owned_identity()?;
 
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
         return Err((
@@ -4690,6 +4692,25 @@ async fn create_page(
             "Write rate limit exceeded".into(),
         ));
     }
+
+    // ADR-075 Phase 2: strip PII from every stored free-text field, as
+    // share_memory does (pages are stored as BrainMemory rows too).
+    let mut req = req;
+    let redaction_log_json = if state.rvf_flags.pii_strip {
+        let s = state.verifier.write().strip_memory_fields(
+            &req.title,
+            &req.content,
+            &req.tags,
+            req.code_snippet.as_deref(),
+        );
+        req.title = s.title;
+        req.content = s.content;
+        req.tags = s.tags;
+        req.code_snippet = s.code_snippet;
+        serde_json::to_string(&s.log).ok()
+    } else {
+        None
+    };
 
     // Auto-generate embedding via ruvllm if client didn't provide one or dim mismatches
     let embedding = if req.embedding.is_empty()
@@ -4767,7 +4788,7 @@ async fn create_page(
         partition_id: None,
         witness_hash,
         rvf_gcs_path: None,
-        redaction_log: None,
+        redaction_log: redaction_log_json,
         dp_proof: None,
         witness_chain: None,
         created_at: now,
@@ -4847,6 +4868,7 @@ async fn submit_delta(
     Json(req): Json<SubmitDeltaRequest>,
 ) -> Result<(StatusCode, Json<PageResponse>), (StatusCode, String)> {
     check_read_only(&state)?;
+    contributor.require_owned_identity()?;
 
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
         return Err((
@@ -4971,6 +4993,7 @@ async fn add_evidence(
     Json(req): Json<AddEvidenceRequest>,
 ) -> Result<Json<PageResponse>, (StatusCode, String)> {
     check_read_only(&state)?;
+    contributor.require_owned_identity()?;
 
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
         return Err((
@@ -5019,10 +5042,11 @@ async fn add_evidence(
 /// Requires consensus: quality >= 0.7, observations >= 5, evidence >= 3 from >= 2 contributors
 async fn promote_page(
     State(state): State<AppState>,
-    _contributor: AuthenticatedContributor,
+    contributor: AuthenticatedContributor,
     Path(page_id): Path<Uuid>,
 ) -> Result<Json<PageResponse>, (StatusCode, String)> {
     check_read_only(&state)?;
+    contributor.require_owned_identity()?;
 
     let new_status = state
         .store
@@ -5143,6 +5167,7 @@ async fn publish_node(
     Json(req): Json<PublishNodeRequest>,
 ) -> Result<(StatusCode, Json<WasmNodeSummary>), (StatusCode, String)> {
     check_read_only(&state)?;
+    contributor.require_owned_identity()?;
 
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
         return Err((
@@ -5268,6 +5293,7 @@ async fn revoke_node(
     Path(id): Path<String>,
 ) -> Result<StatusCode, (StatusCode, String)> {
     check_read_only(&state)?;
+    contributor.require_owned_identity()?;
 
     state
         .store
@@ -5579,7 +5605,7 @@ async fn messages_handler(
                 .get("arguments")
                 .cloned()
                 .unwrap_or(serde_json::json!({}));
-            let result = handle_mcp_tool_call(&state, tool_name, &args).await;
+            let result = handle_mcp_tool_call(&state, session_id, tool_name, &args).await;
             match result {
                 Ok(content) => serde_json::json!({
                     "jsonrpc": "2.0",
@@ -6075,19 +6101,30 @@ fn mcp_tool_definitions() -> Vec<serde_json::Value> {
     ]
 }
 
+/// Identity used for an MCP tool call that carries no `_api_key`.
+///
+/// Derived from the server-issued SSE session id, so each keyless MCP session
+/// is its own contributor rather than all of them sharing one pseudonym. A
+/// session can manage what it created; it cannot touch other sessions' content.
+pub fn mcp_default_api_key(session_id: &str) -> String {
+    format!("mcp-sse-session:{session_id}")
+}
+
 /// Handle MCP tool call by proxying to the REST API via HTTP loopback.
 /// This reuses the exact same tested REST handlers — no type mismatch risk.
 async fn handle_mcp_tool_call(
     state: &AppState,
+    session_id: &str,
     tool_name: &str,
     args: &serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
     let base = format!("http://127.0.0.1:{port}");
+    let session_key = mcp_default_api_key(session_id);
     let api_key = args
         .get("_api_key")
         .and_then(|k| k.as_str())
-        .unwrap_or("mcp-sse-session");
+        .unwrap_or(&session_key);
     let client = reqwest::Client::new();
 
     // Route tool calls to REST API via HTTP loopback
