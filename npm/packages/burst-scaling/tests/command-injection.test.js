@@ -19,6 +19,7 @@ function withFakeNpx(fn) {
   process.env.PATH = `${dir}${path.delimiter}${oldPath}`;
   return Promise.resolve(fn(dir, log)).finally(() => {
     process.env.PATH = oldPath;
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 }
 
