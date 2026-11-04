@@ -220,11 +220,7 @@ impl TensorCompress {
         let dim = embedding.len();
         let subvectors = subvectors as usize;
 
-        if dim
-            .checked_rem(subvectors)
-            .expect("attempt to calculate the remainder with a divisor of zero")
-            != 0
-        {
+        if subvectors == 0 || !dim.is_multiple_of(subvectors) {
             return Err(GnnError::InvalidInput(format!(
                 "Dimension {} not divisible by subvectors {}",
                 dim, subvectors
@@ -264,11 +260,7 @@ impl TensorCompress {
         let dim = embedding.len();
         let subvectors = subvectors as usize;
 
-        if dim
-            .checked_rem(subvectors)
-            .expect("attempt to calculate the remainder with a divisor of zero")
-            != 0
-        {
+        if subvectors == 0 || !dim.is_multiple_of(subvectors) {
             return Err(GnnError::InvalidInput(format!(
                 "Dimension {} not divisible by subvectors {}",
                 dim, subvectors
@@ -360,17 +352,23 @@ impl TensorCompress {
         dim: usize,
     ) -> Result<Vec<f32>> {
         let subvectors = codes.len();
-        let expected_dim = subvectors * subvector_dim;
-
-        if expected_dim != dim {
+        if subvector_dim == 0 || codebooks.len() != subvectors {
             return Err(GnnError::InvalidInput(format!(
-                "Dimension mismatch: expected {}, got {}",
-                dim, expected_dim
+                "Invalid PQ layout: {} codes, {} codebooks, subvector_dim {}",
+                subvectors,
+                codebooks.len(),
+                subvector_dim
+            )));
+        }
+        if subvectors.checked_mul(subvector_dim) != Some(dim) {
+            return Err(GnnError::InvalidInput(format!(
+                "Dimension mismatch: expected {}, got {} x {}",
+                dim, subvectors, subvector_dim
             )));
         }
 
-        let mut result = Vec::with_capacity(dim);
-
+        // Validate every code before allocating: `dim` is untrusted input, but
+        // once each codebook holds its centroid the output is bounded by them.
         for (code, codebook) in codes.iter().zip(codebooks.iter()) {
             let centroid_idx = *code as usize;
             if centroid_idx >= codebook.len() / subvector_dim {
@@ -379,10 +377,12 @@ impl TensorCompress {
                     centroid_idx
                 )));
             }
+        }
 
-            let start = centroid_idx * subvector_dim;
-            let end = start + subvector_dim;
-            result.extend_from_slice(&codebook[start..end]);
+        let mut result = Vec::with_capacity(dim);
+        for (code, codebook) in codes.iter().zip(codebooks.iter()) {
+            let start = *code as usize * subvector_dim;
+            result.extend_from_slice(&codebook[start..start + subvector_dim]);
         }
 
         Ok(result)
@@ -683,5 +683,54 @@ mod tests {
 
         let result = compressor.compress_pq8(&embedding, 8, 16);
         assert!(result.is_err());
+    }
+
+    // `subvectors` comes straight from JS (`compressWithLevel`); zero used to
+    // hit an `expect` and abort the Node process.
+    #[test]
+    fn test_zero_subvectors_is_error() {
+        let compressor = TensorCompress::new();
+        let embedding = vec![1.0; 8];
+        assert!(compressor.compress_pq8(&embedding, 0, 16).is_err());
+        assert!(compressor.compress_pq4(&embedding, 0, 3.0).is_err());
+    }
+
+    // `decompress` parses caller-supplied JSON; malformed shapes must be
+    // rejected, never panic (div-by-zero) or allocate `dim` up front.
+    #[test]
+    fn test_decompress_rejects_malformed_pq() {
+        let compressor = TensorCompress::new();
+        let zero_dim = CompressedTensor::PQ8 {
+            codes: vec![0],
+            codebooks: vec![vec![1.0]],
+            subvector_dim: 0,
+            dim: 0,
+        };
+        assert!(compressor.decompress(&zero_dim).is_err());
+
+        let huge = CompressedTensor::PQ4 {
+            codes: vec![0],
+            codebooks: vec![vec![]],
+            outliers: vec![],
+            subvector_dim: 1 << 40,
+            dim: 1 << 40,
+        };
+        assert!(compressor.decompress(&huge).is_err());
+
+        let wrapping = CompressedTensor::PQ8 {
+            codes: vec![0, 0],
+            codebooks: vec![vec![1.0], vec![1.0]],
+            subvector_dim: usize::MAX / 2 + 1,
+            dim: 0,
+        };
+        assert!(compressor.decompress(&wrapping).is_err());
+
+        let missing_codebook = CompressedTensor::PQ8 {
+            codes: vec![0, 0],
+            codebooks: vec![vec![1.0]],
+            subvector_dim: 1,
+            dim: 2,
+        };
+        assert!(compressor.decompress(&missing_codebook).is_err());
     }
 }
