@@ -18,7 +18,7 @@ function getDiskAnnModule() {
   } catch (e: any) {
     loadError = new Error(
       `@ruvector/diskann not installed: ${e.message}\n` +
-      `Install with: npm install @ruvector/diskann`
+      `Install with: npx ruvector add diskann  (or: npm install @ruvector/diskann)`
     );
     throw loadError;
   }

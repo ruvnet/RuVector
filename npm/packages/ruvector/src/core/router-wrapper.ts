@@ -18,7 +18,7 @@ function getRouterModule() {
   } catch (e: any) {
     loadError = new Error(
       `@ruvector/router not installed: ${e.message}\n` +
-      `Install with: npm install @ruvector/router`
+      `Install with: npx ruvector add router  (or: npm install @ruvector/router)`
     );
     throw loadError;
   }

@@ -592,6 +592,7 @@ program
     if (!gnnAvailable) {
       console.log(chalk.gray('\n  Install GNN with: npx ruvector install gnn'));
     }
+    console.log(chalk.gray('  Optional extras (RaBitQ, DiskANN, router, graph, rvlite): npx ruvector add --list'));
   });
 
 // =============================================================================
@@ -891,6 +892,77 @@ program
         process.exit(1);
       }
     }
+  });
+
+// =============================================================================
+// Add Command — opt-in extras (allowlisted, see bin/extras.js)
+// =============================================================================
+
+program
+  .command('add [extras...]')
+  .description('Install an optional ruvector extra (rabitq, diskann, router, graph, rvlite, rvf, tiny-dancer) into this project')
+  .option('-l, --list', 'List available extras and whether they are installed')
+  .option('--json', 'With --list, print JSON')
+  .option('--dry-run', 'Print what would be installed without installing')
+  .action((names, options) => {
+    const extras = require('./extras');
+
+    if (options.list) {
+      const rows = extras.listExtras().map((e) => ({
+        key: e.key, package: e.pkg, spec: e.spec, why: e.why, usage: e.usage,
+        bundled: !!e.bundled, installed: extras.isPackageInstalled(e.pkg),
+      }));
+      if (options.json) {
+        console.log(JSON.stringify({ extras: rows }, null, 2));
+        return;
+      }
+      console.log(chalk.cyan('\nruvector extras (opt-in, installed only on request)\n'));
+      for (const r of rows) {
+        const status = r.bundled ? chalk.green('bundled') : r.installed ? chalk.green('installed') : chalk.gray('available');
+        console.log(`  ${chalk.yellow(r.key.padEnd(12))} ${status.padEnd(10)} ${chalk.white(r.package)}`);
+        console.log(chalk.gray(`      ${r.why}`));
+        console.log(chalk.gray(`      use: ${r.usage}`));
+      }
+      console.log(chalk.gray('\n  npx ruvector add <extra> [--dry-run]\n'));
+      return;
+    }
+
+    if (!names || names.length === 0) {
+      console.error(chalk.red('No extra given.'));
+      console.error(chalk.yellow('  See what is available: npx ruvector add --list'));
+      process.exit(1);
+    }
+
+    const plan = extras.runAdd(names, { dryRun: true });
+    if (!plan.ok) {
+      console.error(chalk.red(`Unknown extra: ${plan.unknown.join(', ')}`));
+      console.error(chalk.yellow(`  Available: ${extras.listExtras().map((e) => e.key).join(', ')}`));
+      console.error(chalk.yellow('  Details:   npx ruvector add --list'));
+      process.exit(1);
+    }
+    for (const s of plan.skipped) {
+      console.log(chalk.green(`  ✓ ${s.key}: ${s.reason}`));
+    }
+    if (!plan.command) return;
+
+    console.log(chalk.cyan('\nWill install into ' + plan.cwd + ':'));
+    for (const e of plan.toInstall) {
+      console.log(`  ${chalk.yellow(e.spec)}`);
+      console.log(chalk.gray(`      why: ${e.why}`));
+      console.log(chalk.gray(`      use: ${e.usage}`));
+    }
+    console.log(chalk.white(`\n  $ ${plan.command.cmd} ${plan.command.args.join(' ')}\n`));
+    if (options.dryRun) {
+      console.log(chalk.gray('  Dry run — nothing installed.'));
+      return;
+    }
+
+    const result = extras.runAdd(names);
+    if (!result.ok) {
+      console.error(chalk.red(`Install failed${result.error ? `: ${result.error}` : ` (exit ${result.status})`}`));
+      process.exit(result.status || 1);
+    }
+    console.log(chalk.green(`Installed: ${result.toInstall.map((e) => e.pkg).join(', ')}`));
   });
 
 // =============================================================================
@@ -2042,7 +2114,7 @@ function loadTinyDancer() {
     return require('@ruvector/tiny-dancer');
   } catch (e) {
     console.error(chalk.red('\n  This command requires @ruvector/tiny-dancer'));
-    console.error(chalk.yellow('  Install it:  npm install @ruvector/tiny-dancer'));
+    console.error(chalk.yellow('  Install it:  npx ruvector add tiny-dancer   (or: npm install @ruvector/tiny-dancer)'));
     console.error(chalk.dim('  (native router; ships for linux/macos/windows incl. musl + arm64)\n'));
     process.exit(1);
   }
@@ -10340,7 +10412,7 @@ routeCmd.command('classify')
     let router;
     try { router = require('@ruvector/router'); } catch (e) {
       console.error(chalk.red('Route commands require @ruvector/router'));
-      console.error(chalk.yellow('  npm install @ruvector/router'));
+      console.error(chalk.yellow('  npx ruvector add router   (or: npm install @ruvector/router)'));
       console.error(chalk.dim('  or: npx ruvector install router'));
       process.exit(1);
     }
@@ -10387,7 +10459,7 @@ routeCmd.command('benchmark')
     let router;
     try { router = require('@ruvector/router'); } catch (e) {
       console.error(chalk.red('Route commands require @ruvector/router'));
-      console.error(chalk.yellow('  npm install @ruvector/router'));
+      console.error(chalk.yellow('  npx ruvector add router   (or: npm install @ruvector/router)'));
       console.error(chalk.dim('  or: npx ruvector install router'));
       process.exit(1);
     }

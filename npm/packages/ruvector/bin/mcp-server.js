@@ -243,6 +243,19 @@ function runNpxPackage(packageSpec, args, options = {}) {
   });
 }
 
+/** Opt-in extras and their install state, for hooks_capabilities (lazy: loaded on call). */
+function listExtrasForMcp() {
+  const extras = require('./extras');
+  return extras.listExtras().map((e) => ({
+    key: e.key,
+    package: e.pkg,
+    why: e.why,
+    bundled: !!e.bundled,
+    installed: extras.isPackageInstalled(e.pkg),
+    install: e.bundled ? null : `npx ruvector add ${e.key}`,
+  }));
+}
+
 // MCP tool result returned when @ruvector/pi-brain is absent or unusable, so
 // every brain_* handler surfaces the same actionable install hint (issue #661).
 const BRAIN_MISSING_DEP_RESULT = {
@@ -2664,7 +2677,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 patternsLearned: stats.patternsLearned || stats.total_patterns,
                 microLoraUpdates: stats.microLoraUpdates || 0,
                 ewcConsolidations: stats.ewcConsolidations || 0,
-              }
+              },
+              // Read-only: installing an extra is a CLI action (`ruvector add`), never an MCP side effect.
+              extras: listExtrasForMcp(),
             }, null, 2)
           }]
         };
@@ -4207,7 +4222,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             return { content: [{ type: 'text', text: JSON.stringify({
               success: false,
               error: 'rvlite package not installed',
-              hint: 'Install with: npm install rvlite'
+              hint: 'Install with: npx ruvector add rvlite  (or: npm install rvlite)'
             }, null, 2) }] };
           }
           const rvlite = rvliteModule.default || rvliteModule;
@@ -4238,7 +4253,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             return { content: [{ type: 'text', text: JSON.stringify({
               success: false,
               error: 'rvlite package not installed',
-              hint: 'Install with: npm install rvlite'
+              hint: 'Install with: npx ruvector add rvlite  (or: npm install rvlite)'
             }, null, 2) }] };
           }
           const rvlite = rvliteModule.default || rvliteModule;
@@ -4269,7 +4284,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             return { content: [{ type: 'text', text: JSON.stringify({
               success: false,
               error: 'rvlite package not installed',
-              hint: 'Install with: npm install rvlite'
+              hint: 'Install with: npx ruvector add rvlite  (or: npm install rvlite)'
             }, null, 2) }] };
           }
           const rvlite = rvliteModule.default || rvliteModule;

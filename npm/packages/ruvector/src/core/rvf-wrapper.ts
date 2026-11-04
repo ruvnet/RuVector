@@ -17,7 +17,7 @@ function getRvfModule() {
     return rvfModule;
   } catch (e: any) {
     loadError = new Error(
-      '@ruvector/rvf is not installed. Run: npm install @ruvector/rvf'
+      '@ruvector/rvf is not installed. Run: npx ruvector add rvf  (or: npm install @ruvector/rvf)'
     );
     throw loadError;
   }
