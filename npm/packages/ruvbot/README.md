@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/ruvbot.svg" alt="ruvbot: Self-learning AI assistant with vector memory, security controls and multi-model LLM support." width="100%"></p>
+
 # RuvBot
 
 [![npm version](https://img.shields.io/npm/v/ruvbot.svg)](https://www.npmjs.com/package/ruvbot)

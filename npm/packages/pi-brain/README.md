@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/pi-brain.svg" alt="@ruvector/pi-brain: CLI and SDK for π, the RuVector shared brain — share, search and transfer learning across AI sessions." width="100%"></p>
+
 # @ruvector/pi-brain
 
 CLI and SDK for **π.ruv.io** — the RuVector shared AI brain. Search, share, and transfer knowledge across AI sessions with cryptographic verification and federated learning.

@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/sona.svg" alt="@ruvector/sona: Self-Optimizing Neural Architecture — runtime-adaptive learning with LoRA, EWC++ and ReasoningBank." width="100%"></p>
+
 # @ruvector/sona
 
 **Self-Optimizing Neural Architecture (SONA)** - Node.js bindings for adaptive learning with ReasoningBank.

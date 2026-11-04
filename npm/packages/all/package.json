@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/all",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Opt-in umbrella bundle that installs the whole RuVector toolkit in one go (ruvector, RVF, SONA, DiskANN, RaBitQ, graph, Tiny Dancer, rvlite, ruvllm-wasm, emergent-time). Most users should install only the packages they need.",
   "main": "index.js",
   "types": "index.d.ts",

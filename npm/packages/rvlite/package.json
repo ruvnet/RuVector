@@ -1,6 +1,6 @@
 {
   "name": "rvlite",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "type": "module",
   "description": "Lightweight vector database with SQL, SPARQL, and Cypher - runs everywhere (Node.js, Browser, Edge)",
   "main": "dist/index.cjs",

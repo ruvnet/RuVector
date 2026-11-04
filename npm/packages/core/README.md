@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/core.svg" alt="@ruvector/core: High-performance vector database core with HNSW indexing, built in Rust for similarity search." width="100%"></p>
+
 # @ruvector/core
 
 [![npm version](https://img.shields.io/npm/v/@ruvector/core)](https://www.npmjs.com/package/@ruvector/core)

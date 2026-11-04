@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/rvf.svg" alt="@ruvector/rvf: Unified TypeScript SDK for the RuVector Format (RVF) cognitive container." width="100%"></p>
+
 # @ruvector/rvf
 
 Unified TypeScript/JavaScript SDK for the **RuVector Format (RVF)** — a cognitive container that stores vectors, carries models, boots compute kernels, and proves everything in a single `.rvf` file.

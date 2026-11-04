@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/rvf-wasm.svg" alt="@ruvector/rvf-wasm: RuVector Format WASM microkernel for browser and edge vector operations." width="100%"></p>
+
 # @ruvector/rvf-wasm
 
 RuVector Format (RVF) WASM build for browsers and edge functions. Query vectors directly in the browser with zero backend.

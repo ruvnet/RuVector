@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/emergent-time",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Agentic Time: measure an AI agent's internal time and 7-state health from per-channel state deltas, in the browser, on the edge, or in Node — via a tiny WASM build of the emergent-time Rust crate.",
   "type": "module",
   "main": "pkg/emergent_time_wasm.js",

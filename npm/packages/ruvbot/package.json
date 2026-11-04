@@ -1,6 +1,6 @@
 {
   "name": "ruvbot",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Enterprise-grade self-learning AI assistant with military-strength security, 150x faster vector search, and 12+ LLM models",
   "main": "dist/index.js",
   "module": "dist/esm/index.js",

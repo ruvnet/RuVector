@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/rvf-mcp-server.svg" alt="@ruvector/rvf-mcp-server: MCP server for RuVector Format vector stores — stdio and SSE transports for AI agents." width="100%"></p>
+
 # @ruvector/rvf-mcp-server
 
 MCP (Model Context Protocol) server for RuVector Format (RVF) vector stores. Exposes RVF capabilities to AI agents like Claude Code, Cursor, and other MCP-compatible tools.

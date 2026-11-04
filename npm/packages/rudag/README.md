@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/rudag.svg" alt="@ruvector/rudag: Fast DAG library in Rust/WASM — topological sort, critical path and task scheduling." width="100%"></p>
+
 # @ruvector/rudag
 
 [![npm version](https://img.shields.io/npm/v/@ruvector/rudag.svg)](https://www.npmjs.com/package/@ruvector/rudag)

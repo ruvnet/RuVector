@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/all.svg" alt="@ruvector/all: Opt-in umbrella bundle that installs the whole RuVector toolkit in one go." width="100%"></p>
+
 # @ruvector/all
 
 **Opt-in umbrella bundle for the whole RuVector toolkit.** One install pulls in
