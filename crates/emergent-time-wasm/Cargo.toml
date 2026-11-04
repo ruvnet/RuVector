@@ -4,7 +4,7 @@
 # crates/rvf/rvf-wasm convention.
 [package]
 name = "emergent-time-wasm"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "WASM bindings for the agentic-time layer of the emergent-time crate: measure an AI agent's internal time and health from state deltas in the browser, on the edge, or in Node."
 license = "MIT"

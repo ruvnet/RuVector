@@ -207,6 +207,9 @@ export class StateDelta {
      * * `contradictionLevel` — current absolute contradiction in `[0, 1]`.
      * * `progress` — absolute change in task progress over this transition
      *   (used for the ATI and health classification; pass `0` if unknown).
+     *
+     * Non-finite inputs (`NaN`, `±Infinity`) are treated as `0` so one bad
+     * sample cannot poison the clock's cumulative and windowed state.
      */
     constructor(belief: number, memory: number, retrieval: number, goal: number, contradiction: number, plan: number, contradiction_level: number, progress: number);
 }
@@ -347,52 +350,52 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly __wbg_statedelta_free: (a: number, b: number) => void;
-    readonly statedelta_new: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
-    readonly __wbg_tick_free: (a: number, b: number) => void;
-    readonly tick_deltaTime: (a: number) => number;
-    readonly tick_class: (a: number) => number;
-    readonly tick_reason: (a: number, b: number) => void;
-    readonly tick_belief: (a: number) => number;
-    readonly tick_memory: (a: number) => number;
-    readonly tick_retrieval: (a: number) => number;
-    readonly tick_goalGraph: (a: number) => number;
-    readonly tick_contradiction: (a: number) => number;
-    readonly tick_plan: (a: number) => number;
     readonly __wbg_agenticclock_free: (a: number, b: number) => void;
-    readonly agenticclock_new: () => number;
-    readonly agenticclock_withWeights: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
-    readonly agenticclock_setNoiseFloor: (a: number, b: number) => void;
-    readonly agenticclock_setWindow: (a: number, b: number) => void;
-    readonly agenticclock_setThresholds: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
-    readonly agenticclock_tick: (a: number, b: number) => number;
-    readonly agenticclock_cumulativeTime: (a: number) => number;
-    readonly agenticclock_cumulativeProgress: (a: number) => number;
-    readonly agenticclock_ati: (a: number) => number;
-    readonly agenticclock_health: (a: number) => number;
-    readonly agenticclock_reset: (a: number) => void;
-    readonly __wbg_windoweddeltaclock_free: (a: number, b: number) => void;
-    readonly windoweddeltaclock_new: (a: number, b: number, c: number) => number;
-    readonly windoweddeltaclock_push: (a: number, b: number) => number;
-    readonly windoweddeltaclock_alarmed: (a: number) => number;
-    readonly windoweddeltaclock_alarmIndex: (a: number) => bigint;
-    readonly windoweddeltaclock_reset: (a: number) => void;
-    readonly __wbg_pagehinkleydetector_free: (a: number, b: number) => void;
-    readonly pagehinkleydetector_new: (a: number, b: number) => number;
-    readonly pagehinkleydetector_downward: (a: number, b: number) => number;
-    readonly pagehinkleydetector_push: (a: number, b: number) => number;
-    readonly pagehinkleydetector_alarmed: (a: number) => number;
-    readonly pagehinkleydetector_alarmIndex: (a: number) => bigint;
-    readonly pagehinkleydetector_reset: (a: number) => void;
     readonly __wbg_learnedweights_free: (a: number, b: number) => void;
+    readonly __wbg_pagehinkleydetector_free: (a: number, b: number) => void;
+    readonly __wbg_statedelta_free: (a: number, b: number) => void;
+    readonly __wbg_tick_free: (a: number, b: number) => void;
+    readonly __wbg_windoweddeltaclock_free: (a: number, b: number) => void;
+    readonly agenticclock_ati: (a: number) => number;
+    readonly agenticclock_cumulativeProgress: (a: number) => number;
+    readonly agenticclock_cumulativeTime: (a: number) => number;
+    readonly agenticclock_health: (a: number) => number;
+    readonly agenticclock_new: () => number;
+    readonly agenticclock_reset: (a: number) => void;
+    readonly agenticclock_setNoiseFloor: (a: number, b: number) => void;
+    readonly agenticclock_setThresholds: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+    readonly agenticclock_setWindow: (a: number, b: number) => void;
+    readonly agenticclock_tick: (a: number, b: number) => number;
+    readonly agenticclock_withWeights: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+    readonly learnedweights_clockWeights: (a: number, b: number) => void;
+    readonly learnedweights_dim: (a: number) => number;
     readonly learnedweights_fromParams: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => void;
     readonly learnedweights_predict: (a: number, b: number, c: number, d: number) => void;
-    readonly learnedweights_dim: (a: number) => number;
-    readonly learnedweights_clockWeights: (a: number, b: number) => void;
+    readonly pagehinkleydetector_alarmIndex: (a: number) => bigint;
+    readonly pagehinkleydetector_alarmed: (a: number) => number;
+    readonly pagehinkleydetector_downward: (a: number, b: number) => number;
+    readonly pagehinkleydetector_new: (a: number, b: number) => number;
+    readonly pagehinkleydetector_push: (a: number, b: number) => number;
+    readonly pagehinkleydetector_reset: (a: number) => void;
+    readonly statedelta_new: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
+    readonly tick_belief: (a: number) => number;
+    readonly tick_class: (a: number) => number;
+    readonly tick_contradiction: (a: number) => number;
+    readonly tick_deltaTime: (a: number) => number;
+    readonly tick_goalGraph: (a: number) => number;
+    readonly tick_memory: (a: number) => number;
+    readonly tick_plan: (a: number) => number;
+    readonly tick_reason: (a: number, b: number) => void;
+    readonly tick_retrieval: (a: number) => number;
     readonly version: (a: number) => void;
+    readonly windoweddeltaclock_alarmIndex: (a: number) => bigint;
+    readonly windoweddeltaclock_alarmed: (a: number) => number;
+    readonly windoweddeltaclock_new: (a: number, b: number, c: number) => number;
+    readonly windoweddeltaclock_push: (a: number, b: number) => number;
+    readonly windoweddeltaclock_reset: (a: number) => void;
+    readonly setPanicHook: () => void;
     readonly fullFeatureDim: () => number;
     readonly honestFeatureDim: () => number;
-    readonly setPanicHook: () => void;
     readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
     readonly __wbindgen_export: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export2: (a: number, b: number) => number;

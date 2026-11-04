@@ -403,6 +403,9 @@ export class StateDelta {
      * * `contradictionLevel` — current absolute contradiction in `[0, 1]`.
      * * `progress` — absolute change in task progress over this transition
      *   (used for the ATI and health classification; pass `0` if unknown).
+     *
+     * Non-finite inputs (`NaN`, `±Infinity`) are treated as `0` so one bad
+     * sample cannot poison the clock's cumulative and windowed state.
      * @param {number} belief
      * @param {number} memory
      * @param {number} retrieval
