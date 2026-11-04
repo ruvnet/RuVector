@@ -7,7 +7,7 @@
 
 import { Command } from 'commander';
 import { AgenticSynth } from '../dist/index.js';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -18,6 +18,15 @@ const packageVersion = JSON.parse(
 ).version;
 
 const program = new Command();
+
+// Never echo API keys: CLI output often lands in CI logs.
+function redactConfig(config) {
+  if (!config || typeof config !== 'object') return config;
+  const out = { ...config };
+  if (out.apiKey) out.apiKey = '[REDACTED]';
+  if (out.apiKeys) out.apiKeys = '[REDACTED]';
+  return out;
+}
 
 // Helper to load JSON config file
 function loadConfig(configPath) {
@@ -183,7 +192,7 @@ program
       const currentConfig = synth.getConfig();
 
       console.log('Current Configuration:');
-      console.log(JSON.stringify(currentConfig, null, 2));
+      console.log(JSON.stringify(redactConfig(currentConfig), null, 2));
 
       if (options.test) {
         console.log('\n✓ Configuration is valid and AgenticSynth initialized successfully');
@@ -269,7 +278,7 @@ program
       // Create default configuration
       const defaultConfig = {
         provider: options.provider,
-        model: options.provider === 'gemini' ? 'gemini-2.0-flash-exp' : 'anthropic/claude-3-opus',
+        model: options.provider === 'gemini' ? 'gemini-2.0-flash-exp' : 'anthropic/claude-3.5-sonnet',
         cacheStrategy: 'memory',
         maxRetries: 3,
         timeout: 30000,
@@ -331,7 +340,7 @@ program
       if (hasGeminiKey) {
         console.log('   ✓ GEMINI_API_KEY is set');
         if (options.verbose) {
-          console.log(`     Value: ${process.env.GEMINI_API_KEY.substring(0, 10)}...`);
+          console.log(`     Length: ${process.env.GEMINI_API_KEY.length} chars`);
         }
       } else {
         console.log('   ✗ GEMINI_API_KEY not set');
@@ -341,7 +350,7 @@ program
       if (hasOpenRouterKey) {
         console.log('   ✓ OPENROUTER_API_KEY is set');
         if (options.verbose) {
-          console.log(`     Value: ${process.env.OPENROUTER_API_KEY.substring(0, 10)}...`);
+          console.log(`     Length: ${process.env.OPENROUTER_API_KEY.length} chars`);
         }
       } else {
         console.log('   ✗ OPENROUTER_API_KEY not set');
@@ -361,7 +370,7 @@ program
           config = loadConfig(resolve(options.file));
           console.log(`   ✓ Config file loaded: ${options.file}`);
           if (options.verbose) {
-            console.log(`     Content: ${JSON.stringify(config, null, 6)}`);
+            console.log(`     Content: ${JSON.stringify(redactConfig(config), null, 6)}`);
           }
         } catch (error) {
           console.log(`   ✗ Failed to load config: ${error.message}`);
@@ -431,8 +440,8 @@ program
         const testPath = resolve('.agentic-synth-test.tmp');
         writeFileSync(testPath, 'test');
         readFileSync(testPath);
-        // Clean up
-        import('fs').then(fs => fs.unlinkSync(testPath));
+        // Clean up synchronously: process.exit below would beat an async unlink
+        unlinkSync(testPath);
         console.log('   ✓ Read/write permissions OK');
       } catch (error) {
         console.log('   ✗ File system permissions issue');

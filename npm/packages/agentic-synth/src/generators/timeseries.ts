@@ -67,12 +67,7 @@ Return ONLY the JSON array, no additional text.`;
   protected parseResult(response: string, options: TimeSeriesOptions): unknown[] {
     try {
       // Extract JSON from response
-      const jsonMatch = response.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
-        throw new Error('No JSON array found in response');
-      }
-
-      const data = JSON.parse(jsonMatch[0]);
+      const data = this.extractJsonArray(response);
 
       if (!Array.isArray(data)) {
         throw new Error('Response is not an array');
@@ -101,8 +96,8 @@ Return ONLY the JSON array, no additional text.`;
         }
 
         return {
-          timestamp: new Date(record.timestamp as string | number | Date).toISOString(),
-          ...record
+          ...record,
+          timestamp: new Date(record.timestamp as string | number | Date).toISOString()
         };
       });
     } catch (error) {
