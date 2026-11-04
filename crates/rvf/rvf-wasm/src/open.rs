@@ -186,6 +186,7 @@ mod tests {
             let (_, entries) = parse_vec_entries(&buf[..written as usize]);
             assert_eq!(entries.len(), n, "export round-trip lost vectors");
         }
+        assert_eq!(written, -1, "a store the format cannot hold is refused");
     }
 
     #[test]
