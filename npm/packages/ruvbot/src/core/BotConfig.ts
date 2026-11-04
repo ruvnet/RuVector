@@ -214,6 +214,9 @@ export class ConfigManager {
     if (process.env.RUVBOT_PORT) {
       apiConfig.port = parseInt(process.env.RUVBOT_PORT, 10);
     }
+    if (process.env.RUVBOT_API_KEY) {
+      apiConfig.auth = { enabled: true, type: 'bearer', secret: process.env.RUVBOT_API_KEY };
+    }
 
     // Storage configuration
     if (process.env.DATABASE_URL) {

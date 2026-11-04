@@ -232,3 +232,49 @@ describe('ChatEnhancer memory scoping', () => {
     expect(JSON.stringify(same.memoriesRecalled)).toContain('4242');
   });
 });
+
+describe('ConfigManager.fromEnv API auth', () => {
+  it('enables bearer auth when RUVBOT_API_KEY is set', async () => {
+    const { ConfigManager } = await import('../../../src/core/BotConfig.js');
+    const prev = process.env.RUVBOT_API_KEY;
+    process.env.RUVBOT_API_KEY = 'env-key';
+    try {
+      const auth = ConfigManager.fromEnv().getConfig().api.auth;
+      expect(auth).toMatchObject({ enabled: true, type: 'bearer', secret: 'env-key' });
+    } finally {
+      if (prev === undefined) delete process.env.RUVBOT_API_KEY;
+      else process.env.RUVBOT_API_KEY = prev;
+    }
+  });
+});
+
+describe('chat UI markdown renderer', () => {
+  async function loadRenderer(): Promise<(text: string) => string> {
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const html = readFileSync(join(__dirname, '../../../src/api/public/index.html'), 'utf-8');
+    const start = html.indexOf('function escapeHtml(');
+    const fmt = html.indexOf('function formatMarkdown(');
+    const end = html.indexOf('// Check API health and status');
+    const src = start >= 0 && start < fmt ? html.slice(start, end) : html.slice(fmt, end);
+    return new Function(`${src}; return formatMarkdown;`)() as (text: string) => string;
+  }
+
+  it('escapes raw HTML in model output', async () => {
+    const render = await loadRenderer();
+    expect(render('hello <img src=x onerror=alert(1)>')).not.toContain('<img');
+  });
+
+  it('does not render javascript: links', async () => {
+    const render = await loadRenderer();
+    expect(render('[click](javascript:alert(1))')).not.toMatch(/href="javascript:/i);
+  });
+
+  it('still renders basic markdown', async () => {
+    const render = await loadRenderer();
+    const out = render('**bold** and [site](https://example.com)\n> quote');
+    expect(out).toContain('<strong>bold</strong>');
+    expect(out).toContain('href="https://example.com"');
+    expect(out).toContain('<blockquote>quote</blockquote>');
+  });
+});
