@@ -17,8 +17,7 @@
  *
  * Resources:
  *   - rvf://stores                    List of open stores
- *   - rvf://stores/{storeId}/status   Status of a specific store
  */
 
 export { RvfMcpServer, type RvfMcpServerOptions } from './server.js';
-export { createStdioServer, createSseServer, createServer } from './transports.js';
+export { createStdioServer, createSseServer, createServer, type SseServerOptions } from './transports.js';
