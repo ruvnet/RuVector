@@ -176,14 +176,16 @@ export interface TrainRouterResult {
 
 /**
  * Train a FastGRNN router from a DRACO dataset and write it to a `.safetensors`
- * file consumable by `new Router({ modelPath })`.
+ * file scored with {@link score}. The model is trained on raw embeddings, so
+ * `new Router({ modelPath })` (which feeds 5 engineered features) only accepts
+ * it when `inputDim` is 5.
  *
  * @example
  * ```javascript
  * const res = await trainRouter(rows, { haiku: 1, opus: 15 }, {
  *   outputPath: './router.safetensors', inputDim: 8, epochs: 40,
  * });
- * const router = new Router({ modelPath: res.modelPath });
+ * const p = await score(res.modelPath, embedding); // embedding.length === 8
  * ```
  */
 export function trainRouter(
