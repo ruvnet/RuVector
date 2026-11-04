@@ -118,4 +118,11 @@ test('SSE binds to loopback by default and rejects foreign Host headers', { time
   });
   assert.equal(status, 403);
   a.req.destroy();
+
+  const getStatus = await new Promise((resolve) => {
+    const req = http.get({
+      host: '127.0.0.1', port: s.port, path: '/sse', headers: { host: 'evil.example:80' },
+    }, (res) => { res.resume(); resolve(res.statusCode); req.destroy(); });
+  });
+  assert.equal(getStatus, 403);
 });

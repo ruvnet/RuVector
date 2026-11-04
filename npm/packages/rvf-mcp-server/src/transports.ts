@@ -82,7 +82,13 @@ export async function createSseServer(
   let sseTransport: InstanceType<typeof SSEServerTransport> | null = null;
 
   // SSE endpoint — client connects here
-  app.get('/sse', async (_req, res) => {
+  app.get('/sse', async (req, res) => {
+    // The SDK checks Host only on POST; check it here too so a rebound page
+    // cannot occupy the single session slot.
+    if (transportOptions && !transportOptions.allowedHosts.includes(req.headers.host ?? '')) {
+      res.status(403).json({ error: 'Invalid Host header' });
+      return;
+    }
     if (sseTransport) {
       // A second connect would otherwise replace the live session and
       // leave the first client (and the server) wired to a dead transport.
