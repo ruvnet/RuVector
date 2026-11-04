@@ -9668,7 +9668,7 @@ version = "2.3.0"
 
 [[package]]
 name = "ruvector-cnn"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "criterion 0.5.1",
  "fastrand",
@@ -10377,7 +10377,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-gnn"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "anyhow",
  "criterion 0.5.1",
@@ -10403,7 +10403,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-gnn-node"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "napi",
  "napi-build",
@@ -10451,7 +10451,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-graph"
-version = "2.3.2"
+version = "2.3.3"
 dependencies = [
  "anyhow",
  "bincode 2.0.1",
@@ -10596,7 +10596,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-graph-wasm"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",
@@ -11099,7 +11099,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-rabitq"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "criterion 0.5.1",
  "rand 0.8.6",
@@ -11629,7 +11629,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-tiny-dancer-core"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "anyhow",
  "bytemuck",
