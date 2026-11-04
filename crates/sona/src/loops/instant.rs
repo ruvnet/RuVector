@@ -115,6 +115,13 @@ impl InstantLoop {
 
     /// Process completed trajectory
     pub fn on_trajectory(&self, trajectory: QueryTrajectory) {
+        // A single NaN/Inf would propagate into the EWC++ Fisher estimate and
+        // the pattern centroids for good (stopping micro-LoRA learning and
+        // making base-LoRA output NaN), so non-finite trajectories are dropped.
+        if !is_finite_trajectory(&trajectory) {
+            return;
+        }
+
         // Record to buffer
         self.trajectory_buffer.record(trajectory.clone());
         self.metrics
@@ -239,6 +246,17 @@ impl InstantLoop {
             self.trajectory_buffer.success_rate(),
         )
     }
+}
+
+/// True when every value that feeds learning (quality, query embedding,
+/// step activations and rewards) is finite.
+fn is_finite_trajectory(trajectory: &QueryTrajectory) -> bool {
+    trajectory.final_quality.is_finite()
+        && trajectory.query_embedding.iter().all(|v| v.is_finite())
+        && trajectory
+            .steps
+            .iter()
+            .all(|s| s.reward.is_finite() && s.activations.iter().all(|v| v.is_finite()))
 }
 
 #[cfg(test)]

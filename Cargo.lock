@@ -5539,7 +5539,7 @@ dependencies = [
  "hex",
  "regex-lite",
  "reqwest",
- "ruvector-sona 0.2.1",
+ "ruvector-sona 0.2.2",
  "serde",
  "serde_json",
  "sha3",
@@ -5574,7 +5574,7 @@ dependencies = [
  "ruvector-mincut 2.3.1",
  "ruvector-nervous-system",
  "ruvector-solver",
- "ruvector-sona 0.2.1",
+ "ruvector-sona 0.2.2",
  "ruvector-sparsifier",
  "ruvllm 2.5.0",
  "rvf-crypto",
@@ -7751,7 +7751,7 @@ dependencies = [
  "ruvector-mincut 2.3.1",
  "ruvector-nervous-system",
  "ruvector-raft",
- "ruvector-sona 0.2.1",
+ "ruvector-sona 0.2.2",
  "ruvllm 2.3.0",
  "serde",
  "serde_json",
@@ -11083,7 +11083,7 @@ dependencies = [
  "ruvector-gnn",
  "ruvector-graph",
  "ruvector-rabitq",
- "ruvector-sona 0.2.1",
+ "ruvector-sona 0.2.2",
  "ruvllm 2.5.0",
  "rvf-runtime",
  "serde_json",
@@ -11468,7 +11468,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-sona"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "console_error_panic_hook",
  "criterion 0.5.1",
@@ -12089,7 +12089,7 @@ dependencies = [
  "ruvector-core 2.4.0",
  "ruvector-gnn",
  "ruvector-graph",
- "ruvector-sona 0.2.1",
+ "ruvector-sona 0.2.2",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -12376,7 +12376,7 @@ dependencies = [
  "dashmap 6.2.1",
  "mockall",
  "parking_lot 0.12.5",
- "ruvector-sona 0.2.1",
+ "ruvector-sona 0.2.2",
  "rvagent-backends",
  "rvagent-core",
  "serde",

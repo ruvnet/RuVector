@@ -1,34 +1,55 @@
 //! Simplified NAPI-RS bindings for Node.js
 //! Enable with feature flag: `napi`
 //!
-//! This version uses a simpler API that doesn't expose TrajectoryBuilder to JS
+//! This version uses a simpler API that doesn't expose TrajectoryBuilder to JS.
+//!
+//! A Rust panic cannot unwind into Node: it aborts the whole process. Inputs
+//! that the core asserts on are validated here and thrown as JS errors.
 
 #![cfg(feature = "napi")]
 
+use napi::{Error, Result};
 use napi_derive::napi;
 use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, MutexGuard};
 
 use crate::{
     LearnedPattern, SonaConfig, SonaEngine as RustSonaEngine,
     TrajectoryBuilder as RustTrajectoryBuilder,
 };
 
-// Global storage for trajectory builders
-fn get_trajectory_builders() -> &'static Mutex<HashMap<u32, RustTrajectoryBuilder>> {
-    static BUILDERS: OnceLock<Mutex<HashMap<u32, RustTrajectoryBuilder>>> = OnceLock::new();
-    BUILDERS.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-fn get_next_builder_id() -> &'static Mutex<u32> {
-    static NEXT_ID: OnceLock<Mutex<u32>> = OnceLock::new();
-    NEXT_ID.get_or_init(|| Mutex::new(0))
+fn check_len(what: &str, got: usize, expected: usize) -> Result<()> {
+    if got == expected {
+        Ok(())
+    } else {
+        Err(Error::from_reason(format!(
+            "{what} length {got} does not match hiddenDim {expected}"
+        )))
+    }
 }
 
 /// Node.js SONA Engine wrapper
 #[napi]
 pub struct SonaEngine {
     inner: RustSonaEngine,
+    /// Open trajectories of this engine (ids are per engine, so one engine
+    /// cannot end another's trajectory, and they are freed with the engine)
+    builders: Mutex<HashMap<u32, RustTrajectoryBuilder>>,
+    next_builder_id: Mutex<u32>,
+}
+
+impl SonaEngine {
+    fn from_inner(inner: RustSonaEngine) -> Self {
+        Self {
+            inner,
+            builders: Mutex::new(HashMap::new()),
+            next_builder_id: Mutex::new(0),
+        }
+    }
+
+    fn builders(&self) -> MutexGuard<'_, HashMap<u32, RustTrajectoryBuilder>> {
+        self.builders.lock().unwrap_or_else(|e| e.into_inner())
+    }
 }
 
 #[napi]
@@ -37,19 +58,23 @@ impl SonaEngine {
     /// @param hidden_dim - Hidden dimension size (e.g., 256, 512)
     #[napi(constructor)]
     pub fn new(hidden_dim: u32) -> Self {
-        Self {
-            inner: RustSonaEngine::new(hidden_dim as usize),
-        }
+        Self::from_inner(RustSonaEngine::new(hidden_dim as usize))
     }
 
     /// Create with custom configuration
     /// @param config - Custom SONA configuration object
     #[napi(factory)]
-    pub fn with_config(config: JsSonaConfig) -> Self {
+    pub fn with_config(config: JsSonaConfig) -> Result<Self> {
+        let micro_lora_rank = config.micro_lora_rank.unwrap_or(1);
+        if !(1..=2).contains(&micro_lora_rank) {
+            return Err(Error::from_reason(format!(
+                "microLoraRank must be 1 or 2, got {micro_lora_rank}"
+            )));
+        }
         let rust_config = SonaConfig {
             hidden_dim: config.hidden_dim as usize,
             embedding_dim: config.embedding_dim.unwrap_or(config.hidden_dim) as usize,
-            micro_lora_rank: config.micro_lora_rank.unwrap_or(1) as usize,
+            micro_lora_rank: micro_lora_rank as usize,
             base_lora_rank: config.base_lora_rank.unwrap_or(8) as usize,
             micro_lora_lr: config.micro_lora_lr.unwrap_or(0.001) as f32,
             base_lora_lr: config.base_lora_lr.unwrap_or(0.0001) as f32,
@@ -60,9 +85,7 @@ impl SonaEngine {
             quality_threshold: config.quality_threshold.unwrap_or(0.5) as f32,
             enable_simd: config.enable_simd.unwrap_or(true),
         };
-        Self {
-            inner: RustSonaEngine::with_config(rust_config),
-        }
+        Ok(Self::from_inner(RustSonaEngine::with_config(rust_config)))
     }
 
     /// Start a new trajectory recording
@@ -73,11 +96,13 @@ impl SonaEngine {
         let embedding: Vec<f32> = query_embedding.iter().map(|&x| x as f32).collect();
         let builder = self.inner.begin_trajectory(embedding);
 
-        let mut builders = get_trajectory_builders().lock().unwrap();
-        let mut next_id = get_next_builder_id().lock().unwrap();
+        let mut next_id = self
+            .next_builder_id
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let id = *next_id;
-        *next_id += 1;
-        builders.insert(id, builder);
+        *next_id = next_id.wrapping_add(1);
+        self.builders().insert(id, builder);
         id
     }
 
@@ -94,7 +119,7 @@ impl SonaEngine {
         attention_weights: Vec<f64>,
         reward: f64,
     ) {
-        let mut builders = get_trajectory_builders().lock().unwrap();
+        let mut builders = self.builders();
         if let Some(builder) = builders.get_mut(&trajectory_id) {
             let act: Vec<f32> = activations.iter().map(|&x| x as f32).collect();
             let att: Vec<f32> = attention_weights.iter().map(|&x| x as f32).collect();
@@ -107,7 +132,7 @@ impl SonaEngine {
     /// @param route - Model route identifier
     #[napi]
     pub fn set_trajectory_route(&self, trajectory_id: u32, route: String) {
-        let mut builders = get_trajectory_builders().lock().unwrap();
+        let mut builders = self.builders();
         if let Some(builder) = builders.get_mut(&trajectory_id) {
             builder.set_model_route(&route);
         }
@@ -118,7 +143,7 @@ impl SonaEngine {
     /// @param context_id - Context identifier
     #[napi]
     pub fn add_trajectory_context(&self, trajectory_id: u32, context_id: String) {
-        let mut builders = get_trajectory_builders().lock().unwrap();
+        let mut builders = self.builders();
         if let Some(builder) = builders.get_mut(&trajectory_id) {
             builder.add_context(&context_id);
         }
@@ -129,7 +154,7 @@ impl SonaEngine {
     /// @param quality - Final quality score [0.0, 1.0]
     #[napi]
     pub fn end_trajectory(&self, trajectory_id: u32, quality: f64) {
-        let mut builders = get_trajectory_builders().lock().unwrap();
+        let mut builders = self.builders();
         if let Some(builder) = builders.remove(&trajectory_id) {
             let trajectory = builder.build(quality as f32);
             self.inner.submit_trajectory(trajectory);
@@ -140,14 +165,15 @@ impl SonaEngine {
     /// @param input - Input vector (Float64Array)
     /// @returns Transformed output vector
     #[napi]
-    pub fn apply_micro_lora(&self, input: Vec<f64>) -> Vec<f64> {
+    pub fn apply_micro_lora(&self, input: Vec<f64>) -> Result<Vec<f64>> {
+        check_len("input", input.len(), self.inner.config().hidden_dim)?;
         let input_f32: Vec<f32> = input.iter().map(|&x| x as f32).collect();
         // The Rust LoRA forward pass has residual semantics (it adds the
         // learned delta into `output`), so `output` must start as a clone
         // of `input` — not zeros — or callers only ever see the delta.
         let mut output = input_f32.clone();
         self.inner.apply_micro_lora(&input_f32, &mut output);
-        output.iter().map(|&x| x as f64).collect()
+        Ok(output.iter().map(|&x| x as f64).collect())
     }
 
     /// Apply base-LoRA transformation to layer output
@@ -155,13 +181,14 @@ impl SonaEngine {
     /// @param input - Input vector (Float64Array)
     /// @returns Transformed output vector
     #[napi]
-    pub fn apply_base_lora(&self, layer_idx: u32, input: Vec<f64>) -> Vec<f64> {
+    pub fn apply_base_lora(&self, layer_idx: u32, input: Vec<f64>) -> Result<Vec<f64>> {
+        check_len("input", input.len(), self.inner.config().hidden_dim)?;
         let input_f32: Vec<f32> = input.iter().map(|&x| x as f32).collect();
         // Same residual semantics as apply_micro_lora — seed with input.
         let mut output = input_f32.clone();
         self.inner
             .apply_base_lora(layer_idx as usize, &input_f32, &mut output);
-        output.iter().map(|&x| x as f64).collect()
+        Ok(output.iter().map(|&x| x as f64).collect())
     }
 
     /// Run background learning cycle if due
