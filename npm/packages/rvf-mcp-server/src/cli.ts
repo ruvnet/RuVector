@@ -9,12 +9,16 @@
  *   rvf-mcp-server --transport sse --port 8080
  */
 
+import { createRequire } from 'node:module';
 import { createServer } from './transports.js';
 
-function parseArgs(): { transport: 'stdio' | 'sse'; port: number } {
+const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
+
+function parseArgs(): { transport: 'stdio' | 'sse'; port: number; host?: string } {
   const args = process.argv.slice(2);
   let transport: 'stdio' | 'sse' = 'stdio';
   let port = 3100;
+  let host: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--transport' || args[i] === '-t') {
@@ -31,6 +35,12 @@ function parseArgs(): { transport: 'stdio' | 'sse'; port: number } {
         console.error('Port must be between 1 and 65535');
         process.exit(1);
       }
+    } else if (args[i] === '--host' || args[i] === '-H') {
+      host = args[++i];
+      if (!host) {
+        console.error('--host requires an address');
+        process.exit(1);
+      }
     } else if (args[i] === '--help' || args[i] === '-h') {
       console.log(`
 RVF MCP Server — Model Context Protocol server for RuVector Format
@@ -41,6 +51,9 @@ Usage:
 Options:
   -t, --transport <stdio|sse>  Transport mode (default: stdio)
   -p, --port <number>          SSE port (default: 3100)
+  -H, --host <address>         SSE bind address (default: 127.0.0.1; the SSE
+                               endpoint is unauthenticated, so only bind a
+                               public address behind your own auth proxy)
   -h, --help                   Show this help message
 
 MCP Tools:
@@ -69,18 +82,18 @@ stdio config (.mcp.json):
     }
   }
 
-  return { transport, port };
+  return { transport, port, host };
 }
 
 async function main(): Promise<void> {
-  const { transport, port } = parseArgs();
+  const { transport, port, host } = parseArgs();
 
   if (transport === 'stdio') {
     // Suppress stdout logging in stdio mode (MCP uses stdout)
     console.error('RVF MCP Server starting (stdio transport)...');
   }
 
-  await createServer(transport, port);
+  await createServer(transport, port, { version }, { host });
 
   // Keep process alive
   process.on('SIGINT', () => {

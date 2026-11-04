@@ -20,6 +20,16 @@ export interface RvfMcpServerOptions {
   maxStores?: number;
 }
 
+/** Upper bounds on model-supplied sizes (tool arguments are untrusted). */
+export const LIMITS = {
+  maxDimensions: 65_536,
+  maxK: 10_000,
+  maxBatch: 10_000,
+} as const;
+
+const vectorSchema = z.array(z.number()).max(LIMITS.maxDimensions);
+const metadataSchema = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]));
+
 interface StoreHandle {
   id: string;
   path: string;
@@ -71,7 +81,7 @@ export class RvfMcpServer {
       'Create a new RVF vector store at the given path',
       {
         path: z.string().describe('File path for the new .rvf store'),
-        dimensions: z.number().int().positive().describe('Vector dimensionality'),
+        dimensions: z.number().int().positive().max(LIMITS.maxDimensions).describe('Vector dimensionality'),
         metric: z.enum(['l2', 'cosine', 'dotproduct']).default('l2').describe('Distance metric'),
       },
       async ({ path, dimensions, metric }) => {
@@ -175,10 +185,10 @@ export class RvfMcpServer {
         storeId: z.string().describe('Target store ID'),
         entries: z.array(z.object({
           id: z.string().describe('Unique vector ID'),
-          vector: z.array(z.number()).describe('Embedding vector (must match store dimensions)'),
-          metadata: z.record(z.union([z.string(), z.number(), z.boolean()])).optional()
+          vector: vectorSchema.describe('Embedding vector (must match store dimensions)'),
+          metadata: metadataSchema.optional()
             .describe('Optional metadata key-value pairs'),
-        })).describe('Vectors to insert'),
+        })).max(LIMITS.maxBatch).describe('Vectors to insert'),
       },
       async ({ storeId, entries }) => {
         const handle = this.stores.get(storeId);
@@ -223,9 +233,9 @@ export class RvfMcpServer {
       'k-NN vector similarity search',
       {
         storeId: z.string().describe('Store ID to query'),
-        vector: z.array(z.number()).describe('Query embedding vector'),
-        k: z.number().int().positive().default(10).describe('Number of nearest neighbors'),
-        filter: z.record(z.union([z.string(), z.number(), z.boolean()])).optional()
+        vector: vectorSchema.describe('Query embedding vector'),
+        k: z.number().int().positive().max(LIMITS.maxK).default(10).describe('Number of nearest neighbors'),
+        filter: metadataSchema.optional()
           .describe('Metadata filter (exact match on fields)'),
       },
       async ({ storeId, vector, k, filter }) => {
@@ -287,7 +297,7 @@ export class RvfMcpServer {
       'Delete vectors by their IDs',
       {
         storeId: z.string().describe('Store ID'),
-        ids: z.array(z.string()).describe('Vector IDs to delete'),
+        ids: z.array(z.string()).max(LIMITS.maxBatch).describe('Vector IDs to delete'),
       },
       async ({ storeId, ids }) => {
         const handle = this.stores.get(storeId);
@@ -318,7 +328,7 @@ export class RvfMcpServer {
       'Delete vectors matching a metadata filter',
       {
         storeId: z.string().describe('Store ID'),
-        filter: z.record(z.union([z.string(), z.number(), z.boolean()]))
+        filter: metadataSchema
           .describe('Metadata filter — all matching vectors will be deleted'),
       },
       async ({ storeId, filter }) => {
@@ -469,10 +479,10 @@ export class RvfMcpServer {
     this.mcp.prompt(
       'rvf-search',
       'Search for similar vectors in an RVF store',
-      [
-        { name: 'storeId', description: 'Store ID to search', required: true },
-        { name: 'description', description: 'Natural language description of what to search for', required: true },
-      ],
+      {
+        storeId: z.string().describe('Store ID to search'),
+        description: z.string().describe('Natural language description of what to search for'),
+      },
       async ({ storeId, description }) => ({
         messages: [{
           role: 'user' as const,
@@ -489,10 +499,10 @@ export class RvfMcpServer {
     this.mcp.prompt(
       'rvf-ingest',
       'Ingest data into an RVF store',
-      [
-        { name: 'storeId', description: 'Store ID to ingest into', required: true },
-        { name: 'data', description: 'Data to embed and ingest', required: true },
-      ],
+      {
+        storeId: z.string().describe('Store ID to ingest into'),
+        data: z.string().describe('Data to embed and ingest'),
+      },
       async ({ storeId, data }) => ({
         messages: [{
           role: 'user' as const,

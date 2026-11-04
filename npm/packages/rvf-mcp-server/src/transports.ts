@@ -32,23 +32,49 @@ export async function createStdioServer(
   return server;
 }
 
+/** Options for the SSE transport. */
+export interface SseServerOptions {
+  /**
+   * Interface to bind. Default: '127.0.0.1' (loopback only). The SSE
+   * endpoint has no authentication, so binding a non-loopback address
+   * exposes every tool to anyone who can reach the port.
+   */
+  host?: string;
+}
+
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
+
 /**
  * Create and start an RVF MCP server over SSE transport.
  *
  * Starts an Express HTTP server with SSE endpoint at `/sse`
- * and message endpoint at `/messages`.
+ * and message endpoint at `/messages`. One SSE session is served at a
+ * time; POSTs are routed by the `sessionId` the server hands out.
  *
  * @param port    HTTP port. Default: 3100.
  * @param options Server options.
+ * @param sseOptions Transport options (bind host).
  */
 export async function createSseServer(
   port = 3100,
   options?: RvfMcpServerOptions,
+  sseOptions?: SseServerOptions,
 ): Promise<RvfMcpServer> {
   const { SSEServerTransport } = await import(
     '@modelcontextprotocol/sdk/server/sse.js'
   );
   const express = (await import('express')).default;
+
+  const host = sseOptions?.host ?? '127.0.0.1';
+  const loopback = LOOPBACK_HOSTS.has(host);
+  // DNS-rebinding protection: on loopback, only accept our own Host header.
+  const hostLabel = host.includes(':') ? `[${host}]` : host;
+  const transportOptions = loopback
+    ? {
+        enableDnsRebindingProtection: true,
+        allowedHosts: ['127.0.0.1', 'localhost', '[::1]'].map((h) => `${h}:${port}`),
+      }
+    : undefined;
 
   const app = express();
   const server = new RvfMcpServer(options);
@@ -56,20 +82,47 @@ export async function createSseServer(
   let sseTransport: InstanceType<typeof SSEServerTransport> | null = null;
 
   // SSE endpoint — client connects here
-  app.get('/sse', (req, res) => {
-    sseTransport = new SSEServerTransport('/messages', res);
-    server.connect(sseTransport).catch((err) => {
-      console.error('SSE connection error:', err);
+  app.get('/sse', async (req, res) => {
+    // The SDK checks Host only on POST; check it here too so a rebound page
+    // cannot occupy the single session slot.
+    if (transportOptions && !transportOptions.allowedHosts.includes(req.headers.host ?? '')) {
+      res.status(403).json({ error: 'Invalid Host header' });
+      return;
+    }
+    if (sseTransport) {
+      // A second connect would otherwise replace the live session and
+      // leave the first client (and the server) wired to a dead transport.
+      res.status(409).json({ error: 'An SSE session is already active' });
+      return;
+    }
+    const transport = new SSEServerTransport('/messages', res, transportOptions);
+    sseTransport = transport;
+    res.on('close', () => {
+      if (sseTransport === transport) sseTransport = null;
     });
+    try {
+      await server.connect(transport);
+    } catch (err) {
+      if (sseTransport === transport) sseTransport = null;
+      console.error('SSE connection error:', err instanceof Error ? err.message : err);
+      if (!res.headersSent) res.status(500).end();
+    }
   });
 
   // Message endpoint — client sends JSON-RPC here
-  app.post('/messages', (req, res) => {
-    if (!sseTransport) {
-      res.status(503).json({ error: 'No SSE connection' });
+  app.post('/messages', async (req, res) => {
+    const transport = sseTransport;
+    if (!transport || req.query.sessionId !== transport.sessionId) {
+      res.status(404).json({ error: 'Unknown or expired session' });
       return;
     }
-    sseTransport.handlePostMessage(req, res);
+    try {
+      // Throws (after writing a 500) if the stream closed meanwhile; an
+      // unhandled rejection here would terminate the process.
+      await transport.handlePostMessage(req, res);
+    } catch (err) {
+      if (!res.headersSent) res.status(500).end();
+    }
   });
 
   // Health check
@@ -81,12 +134,18 @@ export async function createSseServer(
     });
   });
 
-  app.listen(port, () => {
-    console.error(`RVF MCP Server (SSE) listening on http://localhost:${port}`);
-    console.error(`  SSE endpoint:     http://localhost:${port}/sse`);
-    console.error(`  Message endpoint: http://localhost:${port}/messages`);
-    console.error(`  Health check:     http://localhost:${port}/health`);
+  await new Promise<void>((resolve, reject) => {
+    const http = app.listen(port, host, () => resolve());
+    http.once('error', reject);
   });
+  const base = `http://${hostLabel}:${port}`;
+  console.error(`RVF MCP Server (SSE) listening on ${base}`);
+  console.error(`  SSE endpoint:     ${base}/sse`);
+  console.error(`  Message endpoint: ${base}/messages`);
+  console.error(`  Health check:     ${base}/health`);
+  if (!loopback) {
+    console.error('  WARNING: bound to a non-loopback address with no authentication.');
+  }
 
   return server;
 }
@@ -98,9 +157,10 @@ export async function createServer(
   transport: 'stdio' | 'sse' = 'stdio',
   port = 3100,
   options?: RvfMcpServerOptions,
+  sseOptions?: SseServerOptions,
 ): Promise<RvfMcpServer> {
   if (transport === 'sse') {
-    return createSseServer(port, options);
+    return createSseServer(port, options, sseOptions);
   }
   return createStdioServer(options);
 }
