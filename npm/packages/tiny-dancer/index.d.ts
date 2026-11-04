@@ -24,8 +24,8 @@ export interface RouterConfig {
 export interface Candidate {
   /** Unique identifier for the candidate */
   id: string;
-  /** Embedding vector (Float32Array or number[]) */
-  embedding: Float32Array | number[];
+  /** Embedding vector. Must be a Float32Array (a plain number[] is rejected by the native binding). */
+  embedding: Float32Array;
   /** Optional metadata as JSON string */
   metadata?: string;
   /** Creation timestamp (Unix epoch milliseconds) */
@@ -40,8 +40,8 @@ export interface Candidate {
  * Routing request containing query and candidates
  */
 export interface RoutingRequest {
-  /** Query embedding to route */
-  queryEmbedding: Float32Array | number[];
+  /** Query embedding to route. Must be a Float32Array (a plain number[] is rejected). */
+  queryEmbedding: Float32Array;
   /** Candidates to evaluate for routing */
   candidates: Candidate[];
   /** Optional request metadata as JSON string */

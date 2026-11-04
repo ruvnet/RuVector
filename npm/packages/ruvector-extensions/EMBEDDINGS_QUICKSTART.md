@@ -26,13 +26,15 @@ console.log('Embedding:', embedding.length, 'dimensions');
 
 ## 5-Minute Integration with VectorDB
 
+> **Compatibility note (0.1.3):** `embedAndInsert` inserts `{ id, values, metadata }` and `embedAndSearch` calls `db.search({ vector, topK })`, while the `VectorDB` in `ruvector` 0.2.x (the range this package depends on) expects `{ id, vector }` and `{ vector, k }`. Against that `VectorDB` the helpers currently fail (`Dimension mismatch ... got 0` / ``Missing field `k` ``). The provider classes (`embedText` / `embedTexts`) are unaffected.
+
 ```typescript
 import { VectorDB } from 'ruvector';
-import { OpenAIEmbeddings, embedAndInsert } from 'ruvector-extensions';
+import { OpenAIEmbeddings, embedAndInsert, embedAndSearch } from 'ruvector-extensions';
 
 // 1. Initialize
-const embedder = new OpenAIEmbeddings({ apiKey: 'sk-...' });
-const db = new VectorDB({ dimension: embedder.getDimension() });
+const embedder = new OpenAIEmbeddings({ apiKey: process.env.OPENAI_API_KEY });
+const db = new VectorDB({ dimensions: embedder.getDimension() });
 
 // 2. Prepare documents
 const documents = [
@@ -72,9 +74,9 @@ console.log('Results:', results);
 
 ## Next Steps
 
-- 📚 Read the [full documentation](./docs/EMBEDDINGS.md)
-- 💡 Explore [11 examples](./src/examples/embeddings-example.ts)
-- 🧪 Run the [test suite](./tests/embeddings.test.ts)
+- 📚 Read the [full documentation](https://github.com/ruvnet/ruvector/blob/main/npm/packages/ruvector-extensions/docs/EMBEDDINGS.md)
+- 💡 Explore [11 examples](https://github.com/ruvnet/ruvector/blob/main/npm/packages/ruvector-extensions/src/examples/embeddings-example.ts)
+- 🧪 Run the [test suite](https://github.com/ruvnet/ruvector/blob/main/npm/packages/ruvector-extensions/tests/embeddings.test.ts)
 
 ## File Locations
 

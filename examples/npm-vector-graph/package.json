@@ -1,0 +1,17 @@
+{
+  "name": "ruvector-example-npm-vector-graph",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vector search with @ruvector/core plus relationship expansion with @ruvector/graph-wasm",
+  "type": "module",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@ruvector/core": "^0.1.33",
+    "@ruvector/graph-wasm": "^2.0.4"
+  }
+}

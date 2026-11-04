@@ -119,6 +119,7 @@ db.close();
 | `dimension` | `number` | required | Vector dimensionality |
 | `metric` | `string` | `"l2"` | `"l2"`, `"cosine"`, or `"inner_product"` |
 | `profile` | `number` | `0` | Hardware profile: 0=Generic, 1=Core, 2=Hot, 3=Full |
+| `compression` | `string` | `"None"` | `"None"`, `"Scalar"`, or `"Product"` |
 | `signing` | `boolean` | `false` | Enable segment signing |
 | `m` | `number` | `16` | HNSW M parameter (neighbor count) |
 | `efConstruction` | `number` | `200` | HNSW index build quality |
@@ -253,6 +254,9 @@ db.lineageDepth();  // 0 for root files
 const child = db.derive('/tmp/child.rvf');
 child.lineageDepth(); // 1
 child.parentId();     // matches parent's fileId()
+
+// Copy-on-write branch: reads inherited vectors, persists only child edits
+const branch = db.branch('/tmp/branch.rvf');
 ```
 
 ### Kernel & eBPF Embedding
@@ -339,15 +343,15 @@ npm install
 npm run build
 ```
 
-## Related Packages
+## Related packages
 
-| Package | Description |
-|---------|-------------|
-| [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf) | Unified TypeScript SDK |
-| [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) | Browser WASM package |
-| [`@ruvector/rvf-mcp-server`](https://www.npmjs.com/package/@ruvector/rvf-mcp-server) | MCP server for AI agents |
-| [`rvf-runtime`](https://crates.io/crates/rvf-runtime) | Rust runtime (powers this package) |
+- [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf) — async TypeScript SDK that uses this addon as its `'node'` backend (string IDs, typed filters).
+- [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) — WASM build of RVF for browsers and edge runtimes.
+- [`@ruvector/rvf-mcp-server`](https://www.npmjs.com/package/@ruvector/rvf-mcp-server) — MCP server exposing RVF stores to AI agents.
+- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package and CLI (`npx ruvector`).
+
+The Rust crate powering this package is [`rvf-runtime`](https://crates.io/crates/rvf-runtime).
 
 ## License
 
-MIT OR Apache-2.0
+MIT

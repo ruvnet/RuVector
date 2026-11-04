@@ -42,27 +42,17 @@
     "access": "public"
   },
   "keywords": [
+    "ruvector",
     "vector-database",
     "vector-search",
-    "similarity-search",
+    "embeddings",
     "semantic-search",
+    "similarity-search",
     "hnsw",
-    "ann",
     "approximate-nearest-neighbor",
-    "embedding-database",
-    "ai",
-    "machine-learning",
-    "ml",
-    "llm",
     "rag",
-    "retrieval-augmented-generation",
-    "native",
     "napi",
     "rust",
-    "simd",
-    "fast",
-    "performance",
-    "ruv",
-    "ruvector"
+    "simd"
   ]
 }

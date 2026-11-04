@@ -33,24 +33,22 @@
     "prepublishOnly": "npm run build"
   },
   "keywords": [
+    "ruvector",
     "vector-database",
-    "embeddings",
     "semantic-search",
     "sql",
     "sparql",
     "cypher",
     "graph-database",
-    "wasm",
-    "ai",
-    "llm",
+    "knowledge-graph",
     "rag",
-    "knowledge-graph"
+    "wasm"
   ],
   "author": "RuVector Contributors",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
+    "url": "git+https://github.com/ruvnet/ruvector.git",
     "directory": "npm/packages/rvlite"
   },
   "homepage": "https://github.com/ruvnet/ruvector/tree/main/npm/packages/rvlite",

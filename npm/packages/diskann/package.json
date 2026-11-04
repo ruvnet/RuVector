@@ -8,8 +8,11 @@
   "homepage": "https://ruv.io",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
+    "url": "git+https://github.com/ruvnet/ruvector.git",
     "directory": "npm/packages/diskann"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
   },
   "license": "MIT",
   "engines": {
