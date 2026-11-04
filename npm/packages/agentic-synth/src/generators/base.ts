@@ -20,6 +20,7 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
   protected cache: CacheManager;
   protected router: ModelRouter;
   protected gemini?: GoogleGenerativeAI;
+  private openRouterKey?: string;
 
   constructor(config: SynthConfig) {
     this.config = config;
@@ -48,17 +49,25 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
       }
     }
 
+    // config.apiKey belongs to the primary provider only; never hand one
+    // provider's key to the other.
+    const geminiKey = config.provider === 'gemini'
+      ? config.apiKey || process.env.GEMINI_API_KEY
+      : process.env.GEMINI_API_KEY;
+    this.openRouterKey = config.provider === 'openrouter'
+      ? config.apiKey || process.env.OPENROUTER_API_KEY
+      : process.env.OPENROUTER_API_KEY;
+
     this.router = new ModelRouter({
       defaultProvider: config.provider,
       providerKeys: {
-        gemini: config.apiKey || process.env.GEMINI_API_KEY,
-        openrouter: process.env.OPENROUTER_API_KEY
+        gemini: geminiKey,
+        openrouter: this.openRouterKey
       },
       fallbackChain
     });
 
     // Initialize Gemini if needed
-    const geminiKey = config.apiKey || process.env.GEMINI_API_KEY;
     if (config.provider === 'gemini' && geminiKey) {
       this.gemini = new GoogleGenerativeAI(geminiKey);
     }
@@ -149,10 +158,14 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
     });
 
     if (route.provider === 'gemini' && this.gemini) {
-      const model = this.gemini.getGenerativeModel({ model: route.model });
+      const model = this.gemini.getGenerativeModel(
+        { model: route.model },
+        { timeout: this.config.timeout }
+      );
       const result = await model.generateContentStream(prompt);
 
       let buffer = '';
+      let emitted = 0;
       for await (const chunk of result.stream) {
         const text = chunk.text();
         buffer += text;
@@ -160,6 +173,17 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
         // Try to parse complete items
         const items = this.tryParseStreamBuffer(buffer, options);
         for (const item of items) {
+          emitted++;
+          if (callback) {
+            await callback({ type: 'data', data: item as T });
+          }
+          yield item as T;
+        }
+      }
+
+      // Subclasses without incremental parsing: parse the whole response once.
+      if (emitted === 0) {
+        for (const item of this.parseResult(buffer, options)) {
           if (callback) {
             await callback({ type: 'data', data: item as T });
           }
@@ -185,9 +209,11 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
     concurrency: number = 3
   ): Promise<GenerationResult<T>[]> {
     const results: GenerationResult<T>[] = [];
+    // A step of 0, NaN or a negative number would never advance the loop.
+    const step = Number.isFinite(concurrency) ? Math.max(1, Math.floor(concurrency)) : 1;
 
-    for (let i = 0; i < batchOptions.length; i += concurrency) {
-      const batch = batchOptions.slice(i, i + concurrency);
+    for (let i = 0; i < batchOptions.length; i += step) {
+      const batch = batchOptions.slice(i, i + step);
       const batchResults = await Promise.all(
         batch.map(options => this.generate<T>(options))
       );
@@ -242,7 +268,10 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
     }
 
     try {
-      const genModel = this.gemini.getGenerativeModel({ model });
+      const genModel = this.gemini.getGenerativeModel(
+        { model },
+        { timeout: this.config.timeout }
+      );
       const result = await genModel.generateContent(prompt);
       const response = result.response;
       return response.text();
@@ -259,7 +288,7 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
    * Call OpenRouter API
    */
   private async callOpenRouter(model: string, prompt: string): Promise<string> {
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = this.openRouterKey;
     if (!apiKey) {
       throw new APIError('OpenRouter API key not configured', {
         provider: 'openrouter'
@@ -276,7 +305,8 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
         body: JSON.stringify({
           model,
           messages: [{ role: 'user', content: prompt }]
-        })
+        }),
+        signal: AbortSignal.timeout(this.config.timeout ?? 30000)
       });
 
       if (!response.ok) {
@@ -300,13 +330,74 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
    * Validate generation options
    */
   protected validateOptions(options: TOptions): void {
-    if (options.count !== undefined && options.count < 1) {
-      throw new ValidationError('Count must be at least 1', { options });
+    if (
+      options.count !== undefined &&
+      !(Number.isInteger(options.count) && options.count >= 1)
+    ) {
+      throw new ValidationError('Count must be an integer of at least 1', { options });
     }
 
     if (options.format && !['json', 'csv', 'array'].includes(options.format)) {
       throw new ValidationError('Invalid format', { options });
     }
+  }
+
+  /**
+   * Extract the first JSON array from model output. Handles markdown fences,
+   * prose around the array, and brackets inside JSON strings.
+   */
+  protected extractJsonArray(response: string): unknown[] {
+    const trimmed = response.trim();
+    try {
+      const whole = JSON.parse(trimmed);
+      if (Array.isArray(whole)) return whole;
+    } catch {
+      // fall through to scanning
+    }
+
+    // Prefer an array of records over a prose citation such as "[1]".
+    let firstArray: unknown[] | null = null;
+    let lastError: unknown = null;
+    for (let start = trimmed.indexOf('['); start !== -1; start = trimmed.indexOf('[', start + 1)) {
+      const end = this.findArrayEnd(trimmed, start);
+      if (end === -1) break;
+      try {
+        const parsed = JSON.parse(trimmed.slice(start, end + 1));
+        if (!Array.isArray(parsed)) continue;
+        if (parsed.length > 0 && parsed.every(v => typeof v === 'object' && v !== null)) {
+          return parsed;
+        }
+        if (!firstArray) firstArray = parsed;
+        start = end;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (firstArray) return firstArray;
+    if (lastError instanceof Error) throw lastError;
+    throw new Error('No JSON array found in response');
+  }
+
+  /** Index of the bracket closing the array that opens at `start`, or -1. */
+  private findArrayEnd(text: string, start: number): number {
+    let depth = 0;
+    let inString = false;
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (inString) {
+        if (ch === '\\') i++;
+        else if (ch === '"') inString = false;
+      } else if (ch === '"') {
+        inString = true;
+      } else if (ch === '[' || ch === '{') {
+        depth++;
+      } else if (ch === ']' || ch === '}') {
+        depth--;
+        if (depth === 0) return i;
+      }
+    }
+    return -1;
   }
 
   /**

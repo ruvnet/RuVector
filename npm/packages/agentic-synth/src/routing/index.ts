@@ -98,6 +98,14 @@ export class ModelRouter {
       if (route) {
         return route;
       }
+      // Not in the built-in table: use the requested model as-is rather than
+      // silently substituting (and billing) a different one.
+      return {
+        provider,
+        model: preferredModel,
+        priority: 0,
+        capabilities: ['text', 'json']
+      };
     }
 
     // Filter by provider if specified
