@@ -87,7 +87,11 @@ impl StateDelta {
     /// * `contradictionLevel` — current absolute contradiction in `[0, 1]`.
     /// * `progress` — absolute change in task progress over this transition
     ///   (used for the ATI and health classification; pass `0` if unknown).
+    ///
+    /// Non-finite inputs (`NaN`, `±Infinity`) are treated as `0` so one bad
+    /// sample cannot poison the clock's cumulative and windowed state.
     #[wasm_bindgen(constructor)]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         belief: f64,
         memory: f64,
@@ -98,6 +102,10 @@ impl StateDelta {
         contradiction_level: f64,
         progress: f64,
     ) -> StateDelta {
+        let f = |x: f64| if x.is_finite() { x } else { 0.0 };
+        let (belief, memory, retrieval, goal) = (f(belief), f(memory), f(retrieval), f(goal));
+        let (contradiction, plan) = (f(contradiction), f(plan));
+        let (contradiction_level, progress) = (f(contradiction_level), f(progress));
         StateDelta {
             belief: belief.max(0.0),
             memory: memory.max(0.0),
@@ -387,10 +395,11 @@ impl AgenticClock {
 
         self.recent_delta.push(core.delta);
         self.recent_progress.push(delta.progress);
-        if self.recent_delta.len() > self.window {
-            self.recent_delta.remove(0);
-            self.recent_progress.remove(0);
-        }
+        // Drop *all* excess, not just one: after `setWindow` shrinks the window,
+        // removing one per push would keep it at the old length forever.
+        let excess = self.recent_delta.len().saturating_sub(self.window);
+        self.recent_delta.drain(..excess);
+        self.recent_progress.drain(..excess);
 
         Tick { inner: core }
     }
@@ -491,6 +500,12 @@ impl WindowedDeltaClock {
         if z > self.k_sigma && !self.alarmed {
             self.alarmed = true;
             self.last_alarm_index = self.index as i64;
+        }
+        // Only the trailing `window` samples are ever read; keep no more, so a
+        // long-lived detector does not grow without bound.
+        if self.history.len() >= self.window {
+            let excess = self.history.len() + 1 - self.window;
+            self.history.drain(..excess);
         }
         self.history.push(value);
         self.index += 1;
@@ -655,6 +670,11 @@ impl LearnedWeights {
                 "coef, mean, and std must each have length == dim",
             ));
         }
+        // `predict` divides by each std; zero / non-finite values would turn the
+        // documented [0, 1] probability into NaN. The trainer floors std at 1e-9.
+        if std.iter().any(|s| !s.is_finite() || *s <= 0.0) {
+            return Err(JsError::new("std entries must be finite and > 0"));
+        }
         Ok(LearnedWeights {
             inner: CoreLearnedWeights::from_params(dim, coef, bias, mean, std),
         })
@@ -702,3 +722,6 @@ pub fn honest_feature_dim() -> usize {
 pub fn version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
+
+#[cfg(test)]
+mod tests;

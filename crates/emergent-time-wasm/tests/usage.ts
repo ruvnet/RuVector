@@ -11,7 +11,7 @@ import {
   AgentHealthJs,
   fullFeatureDim,
   version,
-} from '../pkg/emergent_time_wasm.js';
+} from '../../../npm/packages/emergent-time/pkg/emergent_time_wasm.js';
 
 export function demo(): void {
   const v: string = version();
