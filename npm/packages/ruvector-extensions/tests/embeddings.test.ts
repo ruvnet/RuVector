@@ -181,13 +181,10 @@ describe('CohereEmbeddings', () => {
 // ============================================================================
 
 describe('AnthropicEmbeddings', () => {
-  it('should throw error if Anthropic SDK not installed', () => {
-    assert.throws(
-      () => {
-        new AnthropicEmbeddings({ apiKey: 'test-key' });
-      },
-      /Anthropic SDK not found/
-    );
+  it('should construct (the SDK is a direct dependency)', () => {
+    // Previously asserted "SDK not found", which only passed because the ESM
+    // build had no `require` global and every SDK load failed.
+    assert.doesNotThrow(() => new AnthropicEmbeddings({ apiKey: 'test-key' }));
   });
 
   it('should return correct dimensions', () => {

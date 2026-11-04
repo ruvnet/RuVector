@@ -19,6 +19,12 @@
  * ```
  */
 
+import { createRequire } from 'node:module';
+
+// The package is ESM ("type": "module"), so the CommonJS `require` global does
+// not exist; build one to load the optional, synchronously-constructed SDKs.
+const require = createRequire(import.meta.url);
+
 // VectorDB type will be used as any for maximum compatibility
 type VectorDB = any;
 
