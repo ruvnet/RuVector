@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/spiking-neural.svg" alt="@ruvector/spiking-neural: High-performance spiking neural network (SNN) library with SIMD optimization — CLI and SDK." width="100%"></p>
+
 # spiking-neural
 
 A high-performance Spiking Neural Network (SNN) library for Node.js with biologically-inspired neuron models and unsupervised learning. SNNs process information through discrete spike events rather than continuous values, making them more energy-efficient and better suited for temporal pattern recognition.

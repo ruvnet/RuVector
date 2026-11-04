@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/router.svg" alt="@ruvector/router: Semantic router for AI agents — vector-based intent matching with HNSW indexing and SIMD." width="100%"></p>
+
 # @ruvector/router
 
 Semantic router for AI agents - vector-based intent matching with HNSW indexing and SIMD acceleration.

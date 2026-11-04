@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/rvf-solver.svg" alt="@ruvector/rvf-solver: Self-learning temporal solver — Thompson Sampling, PolicyKernel and ReasoningBank." width="100%"></p>
+
 # @ruvector/rvf-solver
 
 [![npm](https://img.shields.io/npm/v/@ruvector/rvf-solver)](https://www.npmjs.com/package/@ruvector/rvf-solver)

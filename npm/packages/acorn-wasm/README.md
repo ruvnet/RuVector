@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/acorn-wasm.svg" alt="@ruvector/acorn-wasm: ACORN predicate-agnostic filtered HNSW in WebAssembly — high-recall search with metadata filters." width="100%"></p>
+
 # @ruvector/acorn-wasm
 
 **ACORN predicate-agnostic filtered HNSW in WebAssembly.** High-recall vector search with arbitrary metadata filters, in the browser or at the edge.

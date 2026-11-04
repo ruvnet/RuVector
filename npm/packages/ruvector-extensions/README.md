@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/ruvector-extensions.svg" alt="ruvector-extensions: Embeddings, persistence, exports, temporal tracking and UI for the ruvector vector database." width="100%"></p>
+
 # ruvector-extensions
 
 Advanced persistence and extension features for the [ruvector](https://github.com/ruvnet/ruvector) vector database.

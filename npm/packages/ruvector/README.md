@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/ruvector.svg" alt="ruvector: Vector search and persistent agent memory for Node.js — HNSW, ONNX embeddings, GNN and attention." width="100%"></p>
+
 # ruvector: vector search and persistent agent memory
 
 ![RuVector memory and feedback loop](https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/build-loop.svg)

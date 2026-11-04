@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/burst-scaling.svg" alt="@ruvector/burst-scaling: Adaptive burst scaling for ruvector — handles 10–50× traffic spikes." width="100%"></p>
+
 # Ruvector Adaptive Burst Scaling System
 
 > Production-ready auto-scaling infrastructure for handling 10-50x traffic bursts while maintaining <50ms p99 latency

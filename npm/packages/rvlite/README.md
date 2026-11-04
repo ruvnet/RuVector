@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/rvlite.svg" alt="rvlite: Lightweight vector database with SQL, SPARQL and Cypher — runs in Node.js, the browser and at the edge." width="100%"></p>
+
 # RvLite
 
 Lightweight vector database with SQL, SPARQL, and Cypher - runs everywhere (Node.js, Browser, Edge).

@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/ruvector-cnn.svg" alt="@ruvector/cnn: CNN feature extraction for image embeddings — SIMD-optimized, pure Rust compiled to WASM." width="100%"></p>
+
 # @ruvector/cnn
 
 [![npm version](https://img.shields.io/npm/v/@ruvector/cnn.svg)](https://www.npmjs.com/package/@ruvector/cnn)

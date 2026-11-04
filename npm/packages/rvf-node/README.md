@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/rvf-node.svg" alt="@ruvector/rvf-node: Native Node.js bindings for the RuVector Format (RVF) vector database, built with Rust via N-API." width="100%"></p>
+
 # @ruvector/rvf-node
 
 Native Node.js bindings for the [RuVector Format](https://github.com/ruvnet/ruvector/tree/main/crates/rvf) (RVF) vector database. Built with Rust via N-API for native speed with zero serialization overhead.

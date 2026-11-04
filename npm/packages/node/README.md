@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/node.svg" alt="@ruvector/node: Unified RuVector package for Node.js — high-performance vector database with GNN capabilities." width="100%"></p>
+
 # @ruvector/node
 
 [![npm](https://img.shields.io/npm/v/@ruvector/node)](https://www.npmjs.com/package/@ruvector/node)

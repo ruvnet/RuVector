@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/rabitq-wasm",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "RaBitQ 1-bit quantized vector index in WebAssembly — 32× embedding compression with high-recall rerank, for browsers, Cloudflare Workers, Deno, and Bun",
   "main": "ruvector_rabitq_wasm.js",

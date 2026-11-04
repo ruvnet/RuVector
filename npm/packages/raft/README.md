@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/raft.svg" alt="@ruvector/raft: Raft consensus for distributed systems — leader election, log replication and fault tolerance." width="100%"></p>
+
 # @ruvector/raft
 
 [![npm version](https://img.shields.io/npm/v/@ruvector/raft.svg)](https://www.npmjs.com/package/@ruvector/raft)

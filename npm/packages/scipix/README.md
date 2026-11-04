@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/scipix.svg" alt="@ruvector/scipix: OCR client for scientific documents — extract LaTeX and MathML from equations and papers." width="100%"></p>
+
 # @ruvector/scipix
 
 [![npm version](https://img.shields.io/npm/v/@ruvector/scipix.svg)](https://www.npmjs.com/package/@ruvector/scipix)

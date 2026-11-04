@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/tiny-dancer.svg" alt="@ruvector/tiny-dancer: FastGRNN neural router for AI agent orchestration, with circuit breakers and uncertainty estimates." width="100%"></p>
+
 # @ruvector/tiny-dancer
 
 Neural router for AI agent orchestration - FastGRNN-based intelligent routing with circuit breaker, uncertainty estimation, and hot-reload.

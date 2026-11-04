@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/emergent-time.svg" alt="@ruvector/emergent-time: Measure an AI agent's internal time and 7-state health from per-channel state deltas." width="100%"></p>
+
 # @ruvector/emergent-time
 
 **Agentic Time** for the browser, the edge, and Node — a tiny WASM build of the

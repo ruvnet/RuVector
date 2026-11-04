@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/diskann.svg" alt="@ruvector/diskann: DiskANN / Vamana — SSD-friendly approximate nearest-neighbour search with product quantization." width="100%"></p>
+
 # @ruvector/diskann
 
 [![npm](https://img.shields.io/npm/v/@ruvector/diskann.svg)](https://www.npmjs.com/package/@ruvector/diskann)

@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/graph-wasm.svg" alt="@ruvector/graph-wasm: Neo4j-compatible hypergraph database in WebAssembly — Cypher queries, SIMD, knowledge graphs." width="100%"></p>
+
 # @ruvector/graph-wasm
 
 [![npm](https://img.shields.io/npm/v/@ruvector/graph-wasm)](https://www.npmjs.com/package/@ruvector/graph-wasm)

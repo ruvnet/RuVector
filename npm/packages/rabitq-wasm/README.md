@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/rabitq-wasm.svg" alt="@ruvector/rabitq-wasm: RaBitQ 1-bit quantized vector index in WebAssembly — 32× compression with high-recall rerank." width="100%"></p>
+
 # @ruvector/rabitq-wasm
 
 **RaBitQ 1-bit quantized vector index in WebAssembly.** Compress embeddings 32× and run approximate nearest-neighbor search in the browser, Cloudflare Workers, Deno, or Bun.
