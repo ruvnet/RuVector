@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/diskann",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "DiskANN/Vamana — SSD-friendly billion-scale approximate nearest neighbor search with product quantization",
   "main": "index.js",
   "types": "index.d.ts",
@@ -30,11 +30,11 @@
     "@napi-rs/cli": "^2.18.0"
   },
   "optionalDependencies": {
-    "@ruvector/diskann-linux-x64-gnu": "0.1.2",
-    "@ruvector/diskann-linux-arm64-gnu": "0.1.2",
-    "@ruvector/diskann-darwin-x64": "0.1.2",
-    "@ruvector/diskann-darwin-arm64": "0.1.2",
-    "@ruvector/diskann-win32-x64-msvc": "0.1.2"
+    "@ruvector/diskann-linux-x64-gnu": "0.1.3",
+    "@ruvector/diskann-linux-arm64-gnu": "0.1.3",
+    "@ruvector/diskann-darwin-x64": "0.1.3",
+    "@ruvector/diskann-darwin-arm64": "0.1.3",
+    "@ruvector/diskann-win32-x64-msvc": "0.1.3"
   },
   "publishConfig": {
     "access": "public"
