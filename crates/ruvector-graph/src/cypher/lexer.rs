@@ -5,7 +5,7 @@
 use nom::{
     branch::alt,
     bytes::complete::{tag, tag_no_case, take_while, take_while1},
-    character::complete::{char, multispace0, multispace1, one_of},
+    character::complete::{anychar, char, multispace0, multispace1, one_of},
     combinator::{map, opt, recognize},
     multi::many0,
     sequence::{delimited, pair, preceded, tuple},
@@ -302,8 +302,7 @@ fn parse_string(input: &str) -> IResult<&str, (TokenKind, &str)> {
         delimited(
             char('\''),
             recognize(many0(alt((
-                tag("\\'"),
-                tag("\\\\"),
+                recognize(preceded(char('\\'), anychar)),
                 take_while1(|c| c != '\'' && c != '\\'),
             )))),
             char('\''),
@@ -311,21 +310,51 @@ fn parse_string(input: &str) -> IResult<&str, (TokenKind, &str)> {
         delimited(
             char('"'),
             recognize(many0(alt((
-                tag("\\\""),
-                tag("\\\\"),
+                recognize(preceded(char('\\'), anychar)),
                 take_while1(|c| c != '"' && c != '\\'),
             )))),
             char('"'),
         ),
     ))(input)?;
 
-    // Unescape string
-    let unescaped = s
-        .replace("\\'", "'")
-        .replace("\\\"", "\"")
-        .replace("\\\\", "\\");
+    let unescaped = unescape(s).ok_or_else(|| {
+        nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Escaped,
+        ))
+    })?;
 
     Ok((rest, (TokenKind::String(unescaped), s)))
+}
+
+/// Resolves Cypher string escapes in one pass: `\\ \' \" \n \r \t \b \f \uXXXX`.
+/// None for any other escape or an invalid code point.
+fn unescape(s: &str) -> Option<String> {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        out.push(match chars.next()? {
+            c @ ('\\' | '\'' | '"') => c,
+            'n' => '\n',
+            'r' => '\r',
+            't' => '\t',
+            'b' => '\u{8}',
+            'f' => '\u{c}',
+            'u' => {
+                let hex: String = chars.by_ref().take(4).collect();
+                if hex.len() != 4 || !hex.chars().all(|h| h.is_ascii_hexdigit()) {
+                    return None;
+                }
+                char::from_u32(u32::from_str_radix(&hex, 16).ok()?)?
+            }
+            _ => return None,
+        });
+    }
+    Some(out)
 }
 
 fn parse_identifier(input: &str) -> IResult<&str, (TokenKind, &str)> {
@@ -457,6 +486,26 @@ mod tests {
             tokens[1].kind,
             TokenKind::String("Bob's friend".to_string())
         );
+    }
+
+    #[test]
+    fn test_string_escapes() {
+        let string = |src: &str| match tokenize(src).map(|t| t[0].kind.clone()) {
+            Ok(TokenKind::String(s)) => Ok(s),
+            other => Err(format!("{:?}", other)),
+        };
+        assert_eq!(string(r"'a\nb\tc\rd'").unwrap(), "a\nb\tc\rd");
+        assert_eq!(string(r"'é☃'").unwrap(), "é☃");
+        assert_eq!(string(r#"'it\'s \"q\" \\'"#).unwrap(), r#"it's "q" \"#);
+        assert_eq!(string(r#""it\'s \"q\" \\""#).unwrap(), r#"it's "q" \"#);
+        // One pass: an escaped backslash followed by a quote is two characters.
+        assert_eq!(string(r"'\\\''").unwrap(), r"\'");
+        assert_eq!(string(r#"'\\"'"#).unwrap(), r#"\""#);
+        assert!(string(r"'\x'").is_err());
+        assert!(string(r"'\u12'").is_err());
+        assert!(string(r"'\u+0e9'").is_err());
+        assert!(string(r"'\ud800'").is_err());
+        assert!(string(r"'abc\'").is_err());
     }
 
     #[test]
