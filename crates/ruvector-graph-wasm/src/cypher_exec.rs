@@ -330,13 +330,21 @@ fn type_rank(v: &Val) -> u8 {
     }
 }
 
-/// Total order for ORDER BY. Nulls sort last ascending, as in Cypher.
+/// Total order for ORDER BY. Nulls sort last ascending, as in Cypher, and NaN
+/// sorts after every other number. Without that NaN compared Equal to all
+/// numbers, which is not a total order, and the rows around it came back unsorted.
 fn sort_cmp(a: &Val, b: &Val) -> Ordering {
+    let is_nan = |v: &Val| matches!(v, Val::Float(f) if f.is_nan());
     match (matches!(a, Val::Null), matches!(b, Val::Null)) {
         (true, true) => Ordering::Equal,
         (true, false) => Ordering::Greater,
         (false, true) => Ordering::Less,
-        _ => compare(a, b).unwrap_or_else(|| type_rank(a).cmp(&type_rank(b))),
+        _ => match (is_nan(a), is_nan(b)) {
+            (true, true) => Ordering::Equal,
+            (true, false) if type_rank(b) == type_rank(a) => Ordering::Greater,
+            (false, true) if type_rank(a) == type_rank(b) => Ordering::Less,
+            _ => compare(a, b).unwrap_or_else(|| type_rank(a).cmp(&type_rank(b))),
+        },
     }
 }
 
@@ -1779,6 +1787,36 @@ mod tests {
         let st = db.lock_store();
         let stored = &st.nodes.values().next().unwrap().properties["x"];
         assert!(stored.is_f64(), "{:?}", stored);
+    }
+
+    #[test]
+    fn order_by_puts_nan_after_numbers() {
+        // NaN compared Equal to every number, which is not a total order, so the
+        // numbers around it came back unsorted.
+        let db = GraphDB::new(None).unwrap();
+        {
+            let mut st = db.lock_store();
+            for i in 0..200i64 {
+                let v = (i * 37) % 200;
+                st.insert_node(vec!["N".into()], [("v".to_string(), json!(v))].into());
+            }
+        }
+        let rows = run(
+            &db,
+            "MATCH (n:N) RETURN n.v AS v ORDER BY CASE WHEN n.v % 3 = 0 THEN 0.0 / 0.0 ELSE n.v END",
+        );
+        let keys: Vec<i64> = col(&rows, "v")
+            .iter()
+            .map(|v| v.as_i64().unwrap())
+            .collect();
+        let (numbers, nans): (Vec<i64>, Vec<i64>) = keys.iter().partition(|v| *v % 3 != 0);
+        assert!(numbers.windows(2).all(|w| w[0] < w[1]), "{:?}", numbers);
+        assert_eq!(
+            keys[..numbers.len()],
+            numbers[..],
+            "NaN keys must sort last"
+        );
+        assert_eq!(nans.len(), 67);
     }
 
     #[test]
