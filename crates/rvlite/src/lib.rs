@@ -56,7 +56,14 @@ pub use storage::{GraphState, RvLiteState, TripleStoreState, VectorState};
 #[wasm_bindgen(start)]
 pub fn init() {
     console_error_panic_hook::set_once();
-    web_sys::console::log_1(&"RvLite v0.2.0 - SQL, SPARQL, Cypher + Persistence".into());
+    web_sys::console::log_1(
+        &concat!(
+            "RvLite v",
+            env!("CARGO_PKG_VERSION"),
+            " - SQL, SPARQL, Cypher + Persistence"
+        )
+        .into(),
+    );
 }
 
 /// Error type for RvLite
@@ -215,7 +222,7 @@ impl RvLite {
 
     /// Get version string
     pub fn get_version(&self) -> String {
-        "0.2.0".to_string()
+        env!("CARGO_PKG_VERSION").to_string()
     }
 
     /// Get enabled features
@@ -277,7 +284,9 @@ impl RvLite {
                 // Create new database with restored state
                 let mut rvlite = RvLite::new(config)?;
                 rvlite.import_state(&state)?;
-                Ok(serde_wasm_bindgen::to_value(&"loaded").unwrap())
+                // Hand the restored database back; it used to be dropped
+                // here and the string "loaded" returned in its place.
+                Ok(JsValue::from(rvlite))
             } else {
                 Ok(JsValue::NULL)
             }
@@ -579,9 +588,9 @@ impl RvLite {
         predicate: String,
         object: String,
     ) -> Result<(), JsValue> {
-        let subj = parse_rdf_term(&subject)?;
+        let subj = parse_rdf_term(&subject).map_err(|e| JsValue::from_str(&e))?;
         let pred = parse_iri(&predicate)?;
-        let obj = parse_rdf_term(&object)?;
+        let obj = parse_rdf_term(&object).map_err(|e| JsValue::from_str(&e))?;
 
         let triple = sparql::Triple::new(subj, pred, obj);
         self.triple_store.insert(triple);
@@ -820,16 +829,20 @@ fn convert_sparql_result(result: &sparql::executor::QueryResult) -> serde_json::
 }
 
 // Helper functions for parsing RDF terms
-fn parse_rdf_term(s: &str) -> Result<sparql::RdfTerm, JsValue> {
+fn parse_rdf_term(s: &str) -> Result<sparql::RdfTerm, String> {
     let s = s.trim();
     if s.starts_with('<') && s.ends_with('>') {
         Ok(sparql::RdfTerm::iri(&s[1..s.len() - 1]))
     } else if s.starts_with("_:") {
         Ok(sparql::RdfTerm::blank(&s[2..]))
-    } else if s.starts_with('"') {
-        let end = s.rfind('"').unwrap_or(s.len() - 1);
-        let value = &s[1..end];
-        Ok(sparql::RdfTerm::literal(value))
+    } else if let Some(rest) = s.strip_prefix('"') {
+        // The closing quote must come after the opening one; `rfind` on the
+        // whole string used to return the opening quote for `"abc` and then
+        // slice `s[1..0]`, which panics (a trap in the abort-on-panic wasm).
+        let end = rest
+            .rfind('"')
+            .ok_or_else(|| format!("Unterminated literal: {}", s))?;
+        Ok(sparql::RdfTerm::literal(&rest[..end]))
     } else {
         Ok(sparql::RdfTerm::literal(s))
     }
@@ -866,11 +879,16 @@ fn state_to_rdf_term(state: &storage::state::RdfTermState) -> Result<sparql::Rdf
 
     match state {
         RdfTermState::Iri { value } => Ok(sparql::RdfTerm::iri(value)),
+        // Restore the datatype and language tag that `rdf_term_to_state`
+        // saved; dropping them turned typed literals into plain strings.
         RdfTermState::Literal {
             value,
-            datatype: _,
-            language: _,
-        } => Ok(sparql::RdfTerm::literal(value)),
+            datatype,
+            language,
+        } => Ok(match language {
+            Some(lang) => sparql::RdfTerm::lang_literal(value, lang),
+            None => sparql::RdfTerm::typed_literal(value, sparql::Iri::new(datatype)),
+        }),
         RdfTermState::BlankNode { id } => Ok(sparql::RdfTerm::blank(id)),
     }
 }
@@ -878,6 +896,34 @@ fn state_to_rdf_term(state: &storage::state::RdfTermState) -> Result<sparql::Rdf
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_parse_rdf_term_unterminated_literal_is_error() {
+        assert!(parse_rdf_term("\"").is_err());
+        assert!(parse_rdf_term("\"abc").is_err());
+        assert!(parse_rdf_term("\"é").is_err());
+        assert_eq!(
+            parse_rdf_term("\"abc\"").unwrap(),
+            sparql::RdfTerm::literal("abc")
+        );
+        assert_eq!(
+            parse_rdf_term("\"\"").unwrap(),
+            sparql::RdfTerm::literal("")
+        );
+    }
+
+    #[test]
+    fn test_literal_state_roundtrip_keeps_datatype_and_language() {
+        let xsd_int = sparql::Iri::new("http://www.w3.org/2001/XMLSchema#integer");
+        for term in [
+            sparql::RdfTerm::typed_literal("42", xsd_int),
+            sparql::RdfTerm::lang_literal("chat", "fr"),
+            sparql::RdfTerm::literal("plain"),
+        ] {
+            let restored = state_to_rdf_term(&rdf_term_to_state(&term)).unwrap();
+            assert_eq!(restored, term);
+        }
+    }
 
     #[test]
     fn test_config_creation() {

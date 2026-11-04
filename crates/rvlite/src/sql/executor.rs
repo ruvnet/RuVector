@@ -6,6 +6,10 @@ use ruvector_core::{SearchQuery, VectorDB, VectorEntry};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Upper bound for `VECTOR(n)`. A table scan allocates an n-float query
+/// vector, so an unchecked `VECTOR(4000000000)` would abort the wasm module.
+pub const MAX_VECTOR_DIMENSIONS: usize = 65_536;
+
 /// Table schema definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TableSchema {
@@ -120,6 +124,16 @@ impl SqlEngine {
                 message: "Table must have at least one VECTOR column".to_string(),
                 kind: ErrorKind::SqlError,
             })?;
+
+        if vector_dimensions == 0 || vector_dimensions > MAX_VECTOR_DIMENSIONS {
+            return Err(RvLiteError {
+                message: format!(
+                    "VECTOR dimensions must be between 1 and {}, got {}",
+                    MAX_VECTOR_DIMENSIONS, vector_dimensions
+                ),
+                kind: ErrorKind::SqlError,
+            });
+        }
 
         let schema = TableSchema {
             name: name.clone(),
@@ -290,7 +304,7 @@ impl SqlEngine {
                 // truncation still yields enough results (HNSW returns k nearest
                 // before filtering, so with k==limit we may get 0 matches).
                 let k = if filter.is_some() {
-                    (base_k * 20).max(100)
+                    base_k.saturating_mul(20).max(100)
                 } else {
                     base_k
                 };
@@ -425,12 +439,22 @@ impl SqlEngine {
 
         match expr {
             Expression::BinaryOp { left, op, right } => {
-                if let (Expression::Column(col), Expression::Literal(val)) = (*left, *right) {
-                    if op == BinaryOperator::Eq {
+                if op != BinaryOperator::Eq {
+                    return Err(RvLiteError {
+                        message: "Only equality filters supported in WHERE clause".to_string(),
+                        kind: ErrorKind::NotImplemented,
+                    });
+                }
+                // Any other operand shape used to fall through to an empty
+                // filter, silently turning the query into a full scan.
+                match (*left, *right) {
+                    (Expression::Column(col), Expression::Literal(val)) => {
                         filter.insert(col, val.to_json());
-                    } else {
+                    }
+                    _ => {
                         return Err(RvLiteError {
-                            message: "Only equality filters supported in WHERE clause".to_string(),
+                            message: "WHERE equality must compare a column to a literal"
+                                .to_string(),
                             kind: ErrorKind::NotImplemented,
                         });
                     }

@@ -418,7 +418,10 @@ impl<'a> Lexer<'a> {
                     '0'..='9' => Ok(self.scan_number()),
 
                     // Identifiers
-                    'a'..='z' | 'A'..='Z' | '_' | '$' => Ok(self.scan_identifier()),
+                    // `$param` is not supported. `scan_identifier` does not
+                    // consume '$', so routing it there made no progress and
+                    // `tokenize` grew its token Vec until allocation failed.
+                    'a'..='z' | 'A'..='Z' | '_' => Ok(self.scan_identifier()),
 
                     // Backtick-quoted identifiers
                     '`' => {

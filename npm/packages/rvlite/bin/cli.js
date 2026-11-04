@@ -36,13 +36,14 @@ const DEFAULT_DB_PATH = '.rvlite/db.json';
 // Load state from file
 function loadState(dbPath) {
   if (fs.existsSync(dbPath)) {
+    // Do not fall back to an empty state on a parse error: the next
+    // saveState() would overwrite the user's file and lose every vector.
     try {
       state = JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
-      // Rebuild norm cache
-      rebuildNormCache();
     } catch (e) {
-      // Start fresh if file is corrupt
+      throw new Error(`Cannot read database ${dbPath}: ${e.message}`);
     }
+    rebuildNormCache();
   }
 }
 

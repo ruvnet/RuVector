@@ -150,8 +150,15 @@ impl Tokenizer {
         let mut result = String::new();
         let mut has_dot = false;
 
+        if self.current() == Some('-') {
+            result.push('-');
+            self.advance();
+        }
+
         while let Some(ch) = self.current() {
-            if ch.is_numeric() {
+            // ASCII only: `is_numeric` accepts digits like '²' or '٣' that
+            // `str::parse` then rejects.
+            if ch.is_ascii_digit() {
                 result.push(ch);
                 self.advance();
             } else if ch == '.' && !has_dot {
@@ -268,7 +275,14 @@ impl Tokenizer {
                 }
             }
             '\'' => Ok(Token::StringLiteral(self.read_string()?)),
-            _ if ch.is_numeric() => Ok(Token::NumberLiteral(self.read_number())),
+            '-' if self
+                .input
+                .get(self.position + 1)
+                .is_some_and(|c| c.is_ascii_digit()) =>
+            {
+                Ok(Token::NumberLiteral(self.read_number()))
+            }
+            _ if ch.is_ascii_digit() => Ok(Token::NumberLiteral(self.read_number())),
             _ if ch.is_alphabetic() || ch == '_' => {
                 let ident = self.read_identifier();
                 Ok(match ident.to_uppercase().as_str() {
@@ -310,10 +324,15 @@ impl Tokenizer {
     }
 }
 
+/// Maximum expression nesting (e.g. chained `NOT`). The wasm stack is ~1 MiB,
+/// so unbounded recursion would overflow it and corrupt linear memory.
+const MAX_NESTING_DEPTH: usize = 64;
+
 /// SQL Parser
 pub struct SqlParser {
     tokens: Vec<Token>,
     position: usize,
+    depth: usize,
 }
 
 impl SqlParser {
@@ -334,6 +353,20 @@ impl SqlParser {
         Ok(SqlParser {
             tokens,
             position: 0,
+            depth: 0,
+        })
+    }
+
+    /// Convert a number token into an INTEGER or REAL value.
+    fn number_value(&self, n: &str) -> Result<Value, ParseError> {
+        let parsed = if n.contains('.') {
+            n.parse().map(Value::Real).ok()
+        } else {
+            n.parse().map(Value::Integer).ok()
+        };
+        parsed.ok_or_else(|| ParseError {
+            message: format!("Invalid number: {}", n),
+            position: self.position,
         })
     }
 
@@ -587,12 +620,8 @@ impl SqlParser {
                 Ok(Expression::Literal(Value::Text(s)))
             }
             Token::NumberLiteral(n) => {
+                let value = self.number_value(&n)?;
                 self.advance();
-                let value = if n.contains('.') {
-                    Value::Real(n.parse().unwrap())
-                } else {
-                    Value::Integer(n.parse().unwrap())
-                };
                 Ok(Expression::Literal(value))
             }
             Token::LeftBracket => {
@@ -602,9 +631,17 @@ impl SqlParser {
                 Ok(Expression::VectorLiteral(vec))
             }
             Token::Not => {
+                if self.depth >= MAX_NESTING_DEPTH {
+                    return Err(ParseError {
+                        message: format!("Expression nested deeper than {}", MAX_NESTING_DEPTH),
+                        position: self.position,
+                    });
+                }
                 self.advance();
-                let expr = self.parse_primary_expression()?;
-                Ok(Expression::Not(Box::new(expr)))
+                self.depth += 1;
+                let expr = self.parse_primary_expression();
+                self.depth -= 1;
+                Ok(Expression::Not(Box::new(expr?)))
             }
             _ => Err(ParseError {
                 message: format!("Unexpected token in expression: {:?}", self.current()),
@@ -710,12 +747,9 @@ impl SqlParser {
                 Ok(Value::Text(s))
             }
             Token::NumberLiteral(n) => {
+                let value = self.number_value(&n)?;
                 self.advance();
-                if n.contains('.') {
-                    Ok(Value::Real(n.parse().unwrap()))
-                } else {
-                    Ok(Value::Integer(n.parse().unwrap()))
-                }
+                Ok(value)
             }
             Token::LeftBracket => {
                 self.advance();
