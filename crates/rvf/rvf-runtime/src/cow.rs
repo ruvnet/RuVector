@@ -15,7 +15,7 @@ use rvf_types::cow_map::CowMapEntry;
 use rvf_types::{ErrorCode, RvfError};
 
 use crate::cow_map::CowMap;
-use crate::store::simple_shake256_256;
+use rvf_crypto::shake256_256;
 
 /// Witness event emitted when a COW slab copy or delta occurs.
 pub struct WitnessEvent {
@@ -246,7 +246,7 @@ impl CowEngine {
                     let parent_offset = cluster_id as u64 * self.cluster_size as u64;
                     let parent_data =
                         read_bytes_at(parent_file, parent_offset, self.cluster_size as usize)?;
-                    let parent_hash = simple_shake256_256(&parent_data);
+                    let parent_hash = shake256_256(&parent_data);
 
                     // Allocate space at end of file
                     let new_offset = file
@@ -305,7 +305,7 @@ impl CowEngine {
                     .map_err(|_| RvfError::Code(ErrorCode::FsyncFailed))?;
 
                 // Update witness event hash if we emitted one for this cluster
-                let new_hash = simple_shake256_256(&cluster_data);
+                let new_hash = shake256_256(&cluster_data);
                 for event in witness_events.iter_mut().rev() {
                     if event.cluster_id == cluster_id {
                         event.new_cluster_hash = new_hash;

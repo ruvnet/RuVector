@@ -27,6 +27,8 @@ use rvf_types::{
     SEGMENT_MAGIC,
 };
 
+use rvf_crypto::shake256_256;
+
 use crate::cow::{CowEngine, CowStats};
 use crate::cow_map::CowMap;
 use crate::deletion::DeletionBitmap;
@@ -53,6 +55,12 @@ fn err(code: ErrorCode) -> RvfError {
     RvfError::Code(code)
 }
 
+/// `CowMapHeader.version` of states whose `base_file_hash` and membership
+/// `filter_hash` use the pre-SHAKE-256 add-and-rotate fold. Still readable;
+/// a store loaded from one keeps writing it.
+const COW_STATE_VERSION_LEGACY: u16 = 1;
+/// `CowMapHeader.version` of states whose hashes are SHAKE-256.
+const COW_STATE_VERSION_SHAKE256: u16 = 2;
 const COW_STATE_FIXED_SIZE: usize = 64 + 4 + 1 + 4 + 4 + 4;
 const MAX_COW_LINEAGE_DEPTH: u32 = 1024;
 /// Bound dense membership bitmaps so a sparse, attacker-controlled vector ID
@@ -187,6 +195,11 @@ pub struct RvfStore {
     membership_filter: Option<MembershipFilter>,
     /// Path to the parent file (for COW reads that need parent data).
     parent_path: Option<PathBuf>,
+    /// True when this store was loaded from a COW state written before
+    /// SHAKE-256 lineage hashes (`CowMapHeader.version == 1`). Such a store
+    /// keeps writing version 1 and the legacy fold so it stays readable by
+    /// the software that produced it; see `COW_STATE_VERSION_LEGACY`.
+    legacy_cow_hashes: bool,
     /// Hash of the last witness entry, used to chain-link successive witnesses.
     /// All zeros when no witness has been written yet (genesis).
     last_witness_hash: [u8; 32],
@@ -294,6 +307,7 @@ impl RvfStore {
             cow_engine: None,
             membership_filter: None,
             parent_path: None,
+            legacy_cow_hashes: false,
             last_witness_hash: [0u8; 32],
             index: Mutex::new(None),
             index_building: AtomicBool::new(false),
@@ -383,6 +397,7 @@ impl RvfStore {
             cow_engine: None,
             membership_filter: None,
             parent_path: None,
+            legacy_cow_hashes: false,
             last_witness_hash: [0u8; 32],
             index: Mutex::new(None),
             index_building: AtomicBool::new(false),
@@ -470,6 +485,7 @@ impl RvfStore {
             cow_engine: None,
             membership_filter: None,
             parent_path: None,
+            legacy_cow_hashes: false,
             last_witness_hash: [0u8; 32],
             index: Mutex::new(None),
             index_building: AtomicBool::new(false),
@@ -2097,7 +2113,7 @@ impl RvfStore {
             return Err(err(ErrorCode::ReadOnly));
         }
 
-        let image_hash = simple_shake256_256(kernel_image);
+        let image_hash = shake256_256(kernel_image);
         let header = KernelHeader {
             kernel_magic: KERNEL_MAGIC,
             header_version: 1,
@@ -2177,7 +2193,7 @@ impl RvfStore {
             return Err(err(ErrorCode::ReadOnly));
         }
 
-        let image_hash = simple_shake256_256(kernel_image);
+        let image_hash = shake256_256(kernel_image);
         let cmdline_len = cmdline.map_or(0u32, |s| s.len() as u32);
         let header = KernelHeader {
             kernel_magic: KERNEL_MAGIC,
@@ -2338,7 +2354,7 @@ impl RvfStore {
             return Err(err(ErrorCode::ReadOnly));
         }
 
-        let program_hash = simple_shake256_256(program_bytecode);
+        let program_hash = shake256_256(program_bytecode);
         let header = EbpfHeader {
             ebpf_magic: EBPF_MAGIC,
             header_version: 1,
@@ -2439,7 +2455,7 @@ impl RvfStore {
             return Err(err(ErrorCode::InvalidManifest));
         }
 
-        let content_hash = simple_shake256_256(bundle_data);
+        let content_hash = shake256_256(bundle_data);
         let header = DashboardHeader {
             dashboard_magic: DASHBOARD_MAGIC,
             header_version: 1,
@@ -2548,7 +2564,7 @@ impl RvfStore {
             return Err(err(ErrorCode::ReadOnly));
         }
 
-        let bytecode_hash = simple_shake256_256(wasm_bytecode);
+        let bytecode_hash = shake256_256(wasm_bytecode);
         let header = WasmHeader {
             wasm_magic: WASM_MAGIC,
             header_version: 1,
@@ -3018,6 +3034,12 @@ impl RvfStore {
     /// COW references. Writes to the child only allocate local clusters as
     /// needed. The parent should be frozen first to ensure immutability.
     pub fn branch(&self, child_path: &Path) -> Result<Self, RvfError> {
+        self.branch_with_hashes(child_path, false)
+    }
+
+    /// `branch`, optionally writing the legacy (pre-SHAKE-256) COW state so
+    /// tests can build a file in the old format.
+    fn branch_with_hashes(&self, child_path: &Path, legacy_hashes: bool) -> Result<Self, RvfError> {
         // Compute cluster geometry from the vector data
         let dim = self.options.dimension as u32;
         let bytes_per_vec = dim * 4; // f32
@@ -3064,11 +3086,13 @@ impl RvfStore {
         };
 
         // Derive the child via the standard lineage path
-        let mut child = self.derive(
+        let mut child = self.derive_with_hashes(
             child_path,
             rvf_types::DerivationType::Clone,
             Some(self.options.clone()),
+            legacy_hashes,
         )?;
+        child.legacy_cow_hashes = legacy_hashes;
 
         // Initialize COW engine on the child with all clusters pointing to parent
         child.cow_engine = Some(CowEngine::from_parent(
@@ -3143,15 +3167,25 @@ impl RvfStore {
     pub fn derive(
         &self,
         child_path: &Path,
+        derivation_type: rvf_types::DerivationType,
+        child_options: Option<RvfOptions>,
+    ) -> Result<Self, RvfError> {
+        self.derive_with_hashes(child_path, derivation_type, child_options, false)
+    }
+
+    fn derive_with_hashes(
+        &self,
+        child_path: &Path,
         _derivation_type: rvf_types::DerivationType,
         child_options: Option<RvfOptions>,
+        legacy_hashes: bool,
     ) -> Result<Self, RvfError> {
         let opts = child_options.unwrap_or_else(|| self.options.clone());
 
         let child_file_id = generate_file_id(child_path);
 
         // Compute parent manifest hash from the file on disk
-        let parent_hash = self.compute_own_manifest_hash()?;
+        let parent_hash = self.compute_own_manifest_hash(legacy_hashes)?;
 
         let new_depth = self
             .file_identity
@@ -3217,6 +3251,7 @@ impl RvfStore {
             cow_engine: None,
             membership_filter: None,
             parent_path: Some(self.path.clone()),
+            legacy_cow_hashes: false,
             last_witness_hash: [0u8; 32],
             index: Mutex::new(None),
             index_building: AtomicBool::new(false),
@@ -3231,7 +3266,10 @@ impl RvfStore {
     }
 
     /// Compute a hash of this file's content for use as parent_hash in derivation.
-    fn compute_own_manifest_hash(&self) -> Result<[u8; 32], RvfError> {
+    ///
+    /// `legacy` selects the pre-SHAKE-256 fold, which is only needed to
+    /// verify a child written by an older version.
+    fn compute_own_manifest_hash(&self, legacy: bool) -> Result<[u8; 32], RvfError> {
         use std::io::Read;
         let file_len = self
             .file
@@ -3251,7 +3289,11 @@ impl RvfStore {
         reader
             .read_exact(&mut buf)
             .map_err(|_| err(ErrorCode::InvalidManifest))?;
-        Ok(simple_shake256_256(&buf))
+        Ok(if legacy {
+            crate::hashing::legacy_fold_256(&buf)
+        } else {
+            shake256_256(&buf)
+        })
     }
 
     /// Return the hash of the last witness entry (for external verification).
@@ -3597,9 +3639,11 @@ impl RvfStore {
         header_bytes.copy_from_slice(&cow_payload[..64]);
         let header =
             CowMapHeader::from_bytes(&header_bytes).map_err(|_| err(ErrorCode::CowMapCorrupt))?;
-        if header.version != 1 {
-            return Err(err(ErrorCode::CowMapCorrupt));
-        }
+        let legacy_hashes = match header.version {
+            COW_STATE_VERSION_LEGACY => true,
+            COW_STATE_VERSION_SHAKE256 => false,
+            _ => return Err(err(ErrorCode::CowMapCorrupt)),
+        };
 
         let bytes_per_vector =
             u32::from_le_bytes(cow_payload[64..68].try_into().expect("fixed slice"));
@@ -3673,7 +3717,7 @@ impl RvfStore {
         {
             return Err(err(ErrorCode::LineageBroken));
         }
-        let actual_parent_hash = parent.compute_own_manifest_hash()?;
+        let actual_parent_hash = parent.compute_own_manifest_hash(legacy_hashes)?;
         if header.base_file_hash != actual_parent_hash
             || header.base_file_hash != self.file_identity.parent_hash
         {
@@ -3713,7 +3757,12 @@ impl RvfStore {
             return Err(err(ErrorCode::MembershipInvalid));
         }
         let bitmap = &membership_payload[bitmap_start..bitmap_end];
-        if simple_shake256_256(bitmap) != membership_header.filter_hash {
+        let expected_filter_hash = if legacy_hashes {
+            crate::hashing::legacy_fold_256(bitmap)
+        } else {
+            shake256_256(bitmap)
+        };
+        if expected_filter_hash != membership_header.filter_hash {
             return Err(err(ErrorCode::MembershipInvalid));
         }
         let membership_filter = MembershipFilter::deserialize(bitmap, &membership_header)
@@ -3731,6 +3780,7 @@ impl RvfStore {
             snapshot_epoch,
         )?);
         self.membership_filter = Some(membership_filter);
+        self.legacy_cow_hashes = legacy_hashes;
         self.parent_path = Some(parent_path);
         let has_local_metadata_snapshot = self
             .segment_dir
@@ -3793,7 +3843,11 @@ impl RvfStore {
         let stats = engine.stats();
         let header = CowMapHeader {
             magic: COWMAP_MAGIC,
-            version: 1,
+            version: if self.legacy_cow_hashes {
+                COW_STATE_VERSION_LEGACY
+            } else {
+                COW_STATE_VERSION_SHAKE256
+            },
             map_format: engine.cow_map().format() as u8,
             compression_policy: 0,
             cluster_size_bytes: stats.cluster_size,
@@ -3812,7 +3866,11 @@ impl RvfStore {
         cow_payload.extend_from_slice(parent_bytes);
         cow_payload.extend_from_slice(&map_bytes);
 
-        let membership_header = membership.to_header();
+        let membership_header = if self.legacy_cow_hashes {
+            membership.to_header_legacy_hash()
+        } else {
+            membership.to_header()
+        };
         let membership_bitmap = membership.serialize();
         let mut membership_payload = Vec::with_capacity(96 + membership_bitmap.len());
         membership_payload.extend_from_slice(&membership_header.to_bytes());
@@ -4513,13 +4571,12 @@ impl Ord for OrderedFloat {
     }
 }
 
-/// Generate a file_id from path + timestamp using `simple_shake256_256`.
+/// Generate a file_id from path + timestamp using SHAKE-256.
 ///
 /// Previous implementation used XOR mixing which has very poor distribution
 /// (e.g. paths differing in a single byte could collide). Now we hash the
-/// concatenation of path bytes and nanosecond timestamp through
-/// `simple_shake256_256` and take the first 16 bytes for much better
-/// collision resistance.
+/// concatenation of path bytes and nanosecond timestamp through SHAKE-256
+/// and take the first 16 bytes.
 fn generate_file_id(path: &Path) -> [u8; 16] {
     let path_str = path.to_string_lossy();
     let path_bytes = path_str.as_bytes();
@@ -4535,26 +4592,10 @@ fn generate_file_id(path: &Path) -> [u8; 16] {
     input.extend_from_slice(path_bytes);
     input.extend_from_slice(&ts_bytes);
 
-    let digest = simple_shake256_256(&input);
+    let digest = shake256_256(&input);
     let mut id = [0u8; 16];
     id.copy_from_slice(&digest[..16]);
     id
-}
-
-/// Minimal SHAKE-256 hash without depending on rvf-crypto.
-/// Uses a simple XOR-fold for a 32-byte digest.
-pub(crate) fn simple_shake256_256(data: &[u8]) -> [u8; 32] {
-    // We use a simple non-cryptographic hash here since rvf-runtime
-    // doesn't depend on rvf-crypto. For production lineage verification,
-    // use rvf_crypto::compute_manifest_hash.
-    let mut out = [0u8; 32];
-    for (i, &b) in data.iter().enumerate() {
-        out[i % 32] = out[i % 32].wrapping_add(b);
-        // Avalanche
-        let j = (i + 13) % 32;
-        out[j] = out[j].wrapping_add(out[i % 32].rotate_left(3));
-    }
-    out
 }
 
 /// Scan raw file bytes for segment headers whose type should be preserved
@@ -6267,5 +6308,95 @@ mod tests {
         drop(store);
         let reopened = RvfStore::open_readonly(&path).unwrap();
         assert_hits(&reopened);
+    }
+
+    fn two_vector_parent(dir: &TempDir) -> RvfStore {
+        let mut parent = RvfStore::create(
+            &dir.path().join("parent.rvf"),
+            RvfOptions {
+                dimension: 2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        parent
+            .ingest_batch(&[&[1.0, 0.0], &[0.0, 1.0]], &[1, 2], None)
+            .unwrap();
+        parent
+    }
+
+    #[test]
+    fn embedded_kernel_image_hash_is_shake256() {
+        let dir = TempDir::new().unwrap();
+        let mut store = two_vector_parent(&dir);
+        let image = vec![0x5Au8; 300];
+        store.embed_kernel(0, 0, 0, &image, 8080, None).unwrap();
+        let (header, stored_image) = store.extract_kernel().unwrap().unwrap();
+        // The same check `rvf verify-attestation` performs.
+        assert_eq!(&header[0x30..0x50], &shake256_256(&stored_image)[..]);
+    }
+
+    #[test]
+    fn lineage_parent_hash_is_shake256_and_tracks_the_parent() {
+        let dir = TempDir::new().unwrap();
+        let mut parent = two_vector_parent(&dir);
+        let before = parent.compute_own_manifest_hash(false).unwrap();
+        assert_ne!(
+            before,
+            crate::hashing::legacy_fold_256(&std::fs::read(&parent.path).unwrap()),
+        );
+
+        let child = parent.derive(
+            &dir.path().join("child.rvf"),
+            rvf_types::DerivationType::Filter,
+            None,
+        );
+        let child = child.unwrap();
+        assert_eq!(child.file_identity.parent_hash, before);
+        drop(child);
+
+        parent.ingest_batch(&[&[1.0, 1.0]], &[3], None).unwrap();
+        let after = parent.compute_own_manifest_hash(false).unwrap();
+        assert_ne!(before, after, "the hash must change when the parent does");
+    }
+
+    #[test]
+    fn branch_writes_shake256_cow_state_and_reopens() {
+        let dir = TempDir::new().unwrap();
+        let parent = two_vector_parent(&dir);
+        let child_path = dir.path().join("child.rvf");
+        drop(parent.branch(&child_path).unwrap());
+
+        let reopened = RvfStore::open_readonly(&child_path).unwrap();
+        assert!(reopened.is_cow_child());
+        assert!(!reopened.legacy_cow_hashes);
+        assert!(reopened.membership_filter().unwrap().contains(2));
+    }
+
+    #[test]
+    fn legacy_cow_state_still_opens_and_stays_legacy_on_rewrite() {
+        let dir = TempDir::new().unwrap();
+        let parent = two_vector_parent(&dir);
+        let child_path = dir.path().join("child.rvf");
+        let legacy_child = parent.branch_with_hashes(&child_path, true).unwrap();
+        assert!(legacy_child.legacy_cow_hashes);
+        // The stored lineage hash really is the legacy fold, not SHAKE-256.
+        assert_ne!(
+            legacy_child.file_identity.parent_hash,
+            parent.compute_own_manifest_hash(false).unwrap(),
+        );
+        drop(legacy_child);
+
+        // A file in the old format opens and verifies...
+        let mut reopened = RvfStore::open(&child_path).unwrap();
+        assert!(reopened.legacy_cow_hashes);
+        assert!(reopened.membership_filter().unwrap().contains(1));
+        // ...and rewriting it keeps it in the old format rather than
+        // mixing dialects in one file.
+        reopened.ingest_batch(&[&[1.0, 1.0]], &[3], None).unwrap();
+        drop(reopened);
+        let again = RvfStore::open_readonly(&child_path).unwrap();
+        assert!(again.legacy_cow_hashes);
+        assert!(again.membership_filter().unwrap().contains(1));
     }
 }

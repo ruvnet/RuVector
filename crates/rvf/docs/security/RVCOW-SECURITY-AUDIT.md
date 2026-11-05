@@ -33,7 +33,7 @@ The RVCOW implementation is structurally sound with good defensive practices (co
 
 **Severity**: Critical
 **Location**: `/workspaces/ruvector/crates/rvf/rvf-runtime/src/store.rs:1239-1251`
-**Status**: Documented (architectural issue requiring design decision)
+**Status**: Fixed. `simple_shake256_256` is removed; the runtime now uses `rvf_crypto::shake256_256`, and space-reclaim compaction compares cluster bytes. Files written with the old fold (COW state version 1) still open and verify.
 
 **Description**: `simple_shake256_256` is a trivially reversible XOR-fold hash, not a cryptographic hash function. Despite its name suggesting SHAKE-256, it provides near-zero collision resistance and is trivially invertible. This function is used for:
 - `parent_hash` in `FileIdentity` (lineage verification)

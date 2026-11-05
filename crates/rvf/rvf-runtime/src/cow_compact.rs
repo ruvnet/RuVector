@@ -2,8 +2,8 @@
 //!
 //! Two compaction modes:
 //! - **Read optimize**: rewrite hot clusters contiguously for sequential I/O.
-//! - **Space reclaim**: if `hash(local) == hash(parent)`, replace LocalOffset
-//!   with ParentRef to reclaim local storage.
+//! - **Space reclaim**: if a local cluster is byte-identical to the parent's,
+//!   replace LocalOffset with ParentRef to reclaim local storage.
 //!
 //! Segment preservation: unknown segments are copied forward unless
 //! `strip_unknown` is set.
@@ -14,7 +14,6 @@ use rvf_types::cow_map::CowMapEntry;
 use rvf_types::RvfError;
 
 use crate::cow_map::CowMap;
-use crate::store::simple_shake256_256;
 
 /// Result of a COW compaction operation.
 pub struct CompactionResult {
@@ -111,10 +110,11 @@ impl CowCompactor {
                     None => continue,
                 };
 
-                let local_hash = simple_shake256_256(local);
-                let parent_hash = simple_shake256_256(parent);
-
-                if local_hash == parent_hash {
+                // Compare the bytes, not a digest of them. Dropping the local
+                // cluster is only safe when it is identical to the parent's,
+                // and a memcmp is both cheaper than hashing both sides and
+                // immune to any collision.
+                if local == parent {
                     cow_map.update(cluster_id, CowMapEntry::ParentRef);
                     clusters_deduplicated += 1;
                     bytes_reclaimed += cluster_size as u64;
@@ -205,6 +205,42 @@ mod tests {
         assert_eq!(map.lookup(0), CowMapEntry::ParentRef);
         // Cluster 1 should remain local (different data)
         assert_eq!(map.lookup(1), CowMapEntry::LocalOffset(0x200));
+    }
+
+    /// Two different 64-byte clusters with the same digest under the
+    /// pre-SHAKE-256 add-and-rotate fold (found with an SMT solver).
+    const FOLD_COLLISION_A: &str = "1107f7bea48fa08fa9b582d41863bd450b2c8c1e8ad51d394f518c693c12eac0ea2805667004221e08c0060c1c212183fc26d6e4d5226341a8a579e881ba0680";
+    const FOLD_COLLISION_B: &str = "8fbfbb38056d8f098071fd642c101f91332faf2fc408b53fc3151b5d7ac4e0322840f240089e08080877c04bf880fa190820c45ccf38ed60b740e5c3f061e07e";
+
+    fn unhex(s: &str) -> Vec<u8> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn space_reclaim_keeps_a_local_cluster_that_collides_with_the_parent() {
+        let local = unhex(FOLD_COLLISION_A);
+        let parent = unhex(FOLD_COLLISION_B);
+        assert_ne!(local, parent);
+        // The premise: the old digest could not tell these apart.
+        assert_eq!(
+            crate::hashing::legacy_fold_256(&local),
+            crate::hashing::legacy_fold_256(&parent)
+        );
+
+        let mut map = CowMap::new_flat(1);
+        map.update(0, CowMapEntry::LocalOffset(0x100));
+        let local_data = HashMap::from([(0, local)]);
+        let parent_data = HashMap::from([(0, parent)]);
+
+        let result =
+            CowCompactor::compact_space_reclaim(&mut map, &local_data, &parent_data, 64).unwrap();
+
+        assert_eq!(result.clusters_deduplicated, 0);
+        assert_eq!(result.bytes_reclaimed, 0);
+        assert_eq!(map.lookup(0), CowMapEntry::LocalOffset(0x100));
     }
 
     #[test]

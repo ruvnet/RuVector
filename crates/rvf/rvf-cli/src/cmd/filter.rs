@@ -89,7 +89,7 @@ pub fn run(args: FilterArgs) -> Result<(), Box<dyn std::error::Error>> {
     // generation_id
     header[36..40].copy_from_slice(&1u32.to_le_bytes());
     // filter_hash: simple hash of bitmap data
-    let filter_hash = simple_hash(&bitmap);
+    let filter_hash = rvf_crypto::shake256_256(&bitmap);
     header[40..72].copy_from_slice(&filter_hash);
     // bloom_offset, bloom_size, reserved: all zero (already zeroed)
 
@@ -135,16 +135,6 @@ pub fn run(args: FilterArgs) -> Result<(), Box<dyn std::error::Error>> {
         crate::output::print_kv("Target:", target_path);
     }
     Ok(())
-}
-
-fn simple_hash(data: &[u8]) -> [u8; 32] {
-    let mut out = [0u8; 32];
-    for (i, &b) in data.iter().enumerate() {
-        out[i % 32] = out[i % 32].wrapping_add(b);
-        let j = (i + 13) % 32;
-        out[j] = out[j].wrapping_add(out[i % 32].rotate_left(3));
-    }
-    out
 }
 
 fn build_segment_header(seg_id: u64, seg_type: u8, payload_len: u64) -> Vec<u8> {
