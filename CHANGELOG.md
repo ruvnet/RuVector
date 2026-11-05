@@ -12,6 +12,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
 
+## [ruvector 0.3.12] - 2026-11-05
+### Fixed
+- `hooks graph-mincut` and `hooks graph-cluster` (and the MCP tools
+  `hooks_graph_mincut` / `hooks_graph_cluster` that shell out to them) failed
+  on every input: the CLI passed `(nodes, edges)` with `{source,target}` edges
+  to functions that take one `Graph` built from `{from,to}` edges. They now
+  build the graph correctly, recognise `require('./x')` and extension-ful
+  imports, and print clusters as JSON (`assignments`, `groups`, `modularity`)
+  instead of empty objects from serialized `Map`s.
+- `graph-mincut` now uses `minCutFast`, which runs on the optional
+  `@ruvector/mincut-wasm` when installed and falls back to the exact TS
+  Stoer-Wagner otherwise; the output reports which `engine` ran.
+- `louvainCommunities` could loop forever on any graph with a bridge edge: it
+  scored only the gain of joining a community, not the loss of leaving one, so
+  a bridge node oscillated. It now scores moves with the node removed from its
+  community, moves only on strict improvement, and normalizes by the
+  undirected edge weight like `calculateModularity`.
+- `spectralClustering` used the largest eigenvectors of the normalized
+  Laplacian (power iteration) instead of the smallest, and seeded both power
+  iteration and k-means randomly. It now iterates on `2I - L` and seeds
+  deterministically, so it finds the real clusters and is reproducible.
+
 ## [@ruvector/router 0.1.32] - 2026-09-30
 ### Fixed
 - `maxElements` was typed and documented as "Maximum number of elements" but
