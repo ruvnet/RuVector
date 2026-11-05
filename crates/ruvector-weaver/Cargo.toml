@@ -1,0 +1,34 @@
+[package]
+name        = "ruvector-weaver"
+version     = "0.1.0"
+edition     = "2021"
+description = "Ecosystem fabric harness: crawls the ruvnet package graph, scans consumer repos for integration/security/stub signals, gates candidates, ranks a one-lane-per-repo work queue and keeps an append-only outcome ledger (ADR-355)"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+publish     = false
+
+[[bin]]
+name = "weaver"
+path = "src/main.rs"
+
+[lib]
+name = "ruvector_weaver"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow     = { workspace = true }
+chrono     = { workspace = true }
+clap       = { workspace = true, features = ["env"] }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+# Versions below are pinned to what Cargo.lock already resolves so the
+# supply-chain policy (deny.toml) sees no new crates.
+ureq     = { version = "2.12", features = ["json"] }
+regex    = "1"
+walkdir  = "2"
+toml     = "0.8"
+tempfile = "3"
+sha2     = "0.10"
+flate2   = "1"
+tar      = "0.4"

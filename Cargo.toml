@@ -116,6 +116,9 @@ members = [
     # StagedWorkspace (arXiv:2608.18050) content-hash state binding
     # (ADR-318, PIR WP16 ruvnet/RuVector#863).
     "crates/ruvector-staged-workspace",
+    # ruvector-weaver (ADR-355): ecosystem cross-integration harness that
+    # turns graph/scan/gate/ledger into a ranked work queue for /loop lanes.
+    "crates/ruvector-weaver",
     # vast.ai GPU job runner with hard budget caps + auto-destroy (openjev).
     "crates/ruvector-gpu-runner",
     # OpenJev v0 trainer (ADR-008): candle fine-tune + ONNX transplant (openjev).
