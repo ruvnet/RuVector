@@ -238,12 +238,24 @@ impl<'p> StreamIngest<'p> {
             },
         });
         let dim = self.vectors.dimension_hint();
-        let expected = if dim > 0 && self.vec_stored_bytes > 0 {
-            self.vec_stored_bytes as f64 / (8 + 4 * dim) as f64
+        // Each VEC segment is a 64-byte header, a 6-byte `dim | count` prefix,
+        // the records and padding; only the records are vectors.
+        let expected = if dim > 0 {
+            let rec = (8 + 4 * dim) as u64;
+            self.vec_stored_lens
+                .iter()
+                .map(|&len| len.saturating_sub(64 + 6) / rec)
+                .sum::<u64>() as f64
         } else {
             0.0
         };
-        let coverage_vectors = if expected > 0.0 {
+        let all_arrived = matches!(
+            self.verifier.state(),
+            StreamState::Complete | StreamState::CompleteUnverified
+        );
+        let coverage_vectors = if all_arrived {
+            1.0
+        } else if expected > 0.0 {
             (scanned as f64 / expected).min(1.0)
         } else {
             f64::from(u8::from(sealed))

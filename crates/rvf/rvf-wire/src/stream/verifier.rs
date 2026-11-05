@@ -234,6 +234,22 @@ impl<'p> StreamVerifier<'p> {
         }
     }
 
+    /// Terminal failure raised by a consumer while handling the chunk that
+    /// completed the stream (for example an ingest buffer budget or a layer that
+    /// does not decode). Unlike [`Self::poison`], this also overrides `Complete`
+    /// and `CompleteUnverified`: the consumer refused the final segment, so the
+    /// stream must not be reported complete.
+    pub fn poison_consumer(&mut self, code: ErrorCode) -> ErrorCode {
+        if matches!(
+            self.state,
+            StreamState::Complete | StreamState::CompleteUnverified
+        ) {
+            self.state = StreamState::Poisoned(code);
+            return code;
+        }
+        self.poison(code)
+    }
+
     /// Terminal failure; used by the frame reader for size lies.
     pub fn poison(&mut self, code: ErrorCode) -> ErrorCode {
         if matches!(

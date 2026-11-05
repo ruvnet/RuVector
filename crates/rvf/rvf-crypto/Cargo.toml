@@ -25,5 +25,11 @@ sha3 = { version = "0.10", default-features = false }
 ed25519-dalek = { version = "2", features = ["rand_core"], optional = true }
 sha2 = { version = "0.10", default-features = false, optional = true }
 
+# sha2 0.10 uses x86 SHA-NI through runtime detection, but on aarch64 it only uses
+# the ARMv8 SHA-2 instructions with its `asm` feature; without it Apple silicon,
+# Graviton and Pi 5 hash at the portable speed (~0.6 GB/s vs ~2.9 GB/s on an M4).
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+sha2 = { version = "0.10", default-features = false, optional = true, features = ["asm"] }
+
 [dev-dependencies]
 rand = "0.8"
