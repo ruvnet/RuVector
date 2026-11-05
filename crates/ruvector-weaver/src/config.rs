@@ -68,7 +68,9 @@ impl NpmPolicy {
                 return self.ecosystem_scopes.iter().any(|s| s == scope);
             }
         }
-        self.ecosystem_prefixes.iter().any(|p| name.starts_with(p.as_str()))
+        self.ecosystem_prefixes
+            .iter()
+            .any(|p| name.starts_with(p.as_str()))
     }
 }
 
@@ -187,12 +189,10 @@ pub struct Config {
 
 impl Config {
     pub fn load(config_dir: Option<&Path>, work_dir: PathBuf) -> Result<Self> {
-        let dir = config_dir
-            .map(Path::to_path_buf)
-            .or_else(|| {
-                let p = PathBuf::from("config/weaver");
-                p.join("weaver.toml").exists().then_some(p)
-            });
+        let dir = config_dir.map(Path::to_path_buf).or_else(|| {
+            let p = PathBuf::from("config/weaver");
+            p.join("weaver.toml").exists().then_some(p)
+        });
         let read = |name: &str, embedded: &str| -> Result<String> {
             match &dir {
                 Some(d) if d.join(name).exists() => std::fs::read_to_string(d.join(name))
@@ -200,8 +200,8 @@ impl Config {
                 _ => Ok(embedded.to_string()),
             }
         };
-        let policy: Policy =
-            toml::from_str(&read("weaver.toml", EMBEDDED_POLICY)?).context("parsing weaver.toml")?;
+        let policy: Policy = toml::from_str(&read("weaver.toml", EMBEDDED_POLICY)?)
+            .context("parsing weaver.toml")?;
         let capabilities = Capabilities::parse(&read("capabilities.toml", EMBEDDED_CAPABILITIES)?)?;
         let ledger_path = dir.map(|d| d.join("ledger.jsonl"));
         Ok(Self {

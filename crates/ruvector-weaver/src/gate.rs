@@ -134,27 +134,54 @@ pub fn tarball_files(bytes: &[u8]) -> Result<Vec<String>> {
 
 /// Smoke import in a temp npm project: `require`, falling back to `import()`.
 /// On success returns the module's export names.
-pub fn smoke(cfg: &Config, pkg: &str, version: &str) -> Result<std::result::Result<Vec<String>, String>> {
+pub fn smoke(
+    cfg: &Config,
+    pkg: &str,
+    version: &str,
+) -> Result<std::result::Result<Vec<String>, String>> {
     let root = cfg.work_dir.join("smoke");
     std::fs::create_dir_all(&root)?;
-    let dir = tempfile::Builder::new().prefix("smoke-").tempdir_in(&root)?;
-    std::fs::write(dir.path().join("package.json"), r#"{"name":"weaver-smoke","private":true}"#)?;
+    let dir = tempfile::Builder::new()
+        .prefix("smoke-")
+        .tempdir_in(&root)?;
+    std::fs::write(
+        dir.path().join("package.json"),
+        r#"{"name":"weaver-smoke","private":true}"#,
+    )?;
     let t = Duration::from_secs(cfg.policy.gate.smoke_timeout_secs);
     let spec = format!("{pkg}@{version}");
     let i = run_timeout(
         "npm",
-        &["install", &spec, "--ignore-scripts", "--no-audit", "--no-fund", "--loglevel=error"],
+        &[
+            "install",
+            &spec,
+            "--ignore-scripts",
+            "--no-audit",
+            "--no-fund",
+            "--loglevel=error",
+        ],
         dir.path(),
         t,
     )?;
     if i.timed_out || i.status != Some(0) {
-        return Ok(Err(format!("npm install failed: {}", clip(i.stderr.trim(), 300))));
+        return Ok(Err(format!(
+            "npm install failed: {}",
+            clip(i.stderr.trim(), 300)
+        )));
     }
     let js = r#"const p=process.argv[1];const show=m=>{console.log(JSON.stringify(Object.keys(m||{}).slice(0,60)))};
 try{show(require(p))}catch(e){import(p).then(show).catch(err=>{console.error(String(e&&e.message)+' | '+String(err&&err.message));process.exit(1)})}"#;
-    let n = run_timeout("node", &["-e", js, pkg], dir.path(), Duration::from_secs(60))?;
+    let n = run_timeout(
+        "node",
+        &["-e", js, pkg],
+        dir.path(),
+        Duration::from_secs(60),
+    )?;
     if n.status != Some(0) {
-        return Ok(Err(format!("import failed: {}", clip(n.stderr.trim(), 300))));
+        return Ok(Err(format!(
+            "import failed: {}",
+            clip(n.stderr.trim(), 300)
+        )));
     }
     let keys: Vec<String> = n
         .stdout
@@ -168,10 +195,20 @@ try{show(require(p))}catch(e){import(p).then(show).catch(err=>{console.error(Str
 pub struct GateOptions<'a> {
     pub consumer: Option<&'a str>,
     pub smoke: bool,
+    /// Release-regression checks (repo change, surface drop) with ledger
+    /// overrides; `None` skips them.
+    pub ledger: Option<&'a crate::ledger::Ledger>,
 }
 
 /// Registry-side gate for an existing (or just-published) package.
-pub fn gate(cfg: &Config, http: &Http, reg: &dyn Registry, graph: &Graph, pkg: &str, opts: &GateOptions) -> Result<GateReport> {
+pub fn gate(
+    cfg: &Config,
+    http: &Http,
+    reg: &dyn Registry,
+    graph: &Graph,
+    pkg: &str,
+    opts: &GateOptions,
+) -> Result<GateReport> {
     let mut results = Vec::new();
     let mut exports = Vec::new();
     let Some(m) = reg.latest(pkg)? else {
@@ -182,31 +219,73 @@ pub fn gate(cfg: &Config, http: &Http, reg: &dyn Registry, graph: &Graph, pkg: &
     results.push(res("exists", true, format!("{pkg}@{version}")));
 
     let published = graph.get(pkg).and_then(|p| p.last_publish.clone());
-    match published.as_deref().and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok()) {
+    match published
+        .as_deref()
+        .and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok())
+    {
         Some(t) => {
             let age = (chrono::Utc::now() - t.with_timezone(&chrono::Utc)).num_days();
             let ok = age <= cfg.policy.gate.max_age_days;
-            results.push(res("recent_publish", ok, format!("last publish {age} days ago")));
+            results.push(res(
+                "recent_publish",
+                ok,
+                format!("last publish {age} days ago"),
+            ));
         }
-        None => results.push(res("recent_publish", true, "publish date unknown (not in graph); not blocking")),
+        None => results.push(res(
+            "recent_publish",
+            true,
+            "publish date unknown (not in graph); not blocking",
+        )),
     }
 
     let file_count = m["dist"]["fileCount"].as_u64().unwrap_or(0);
     match m["dist"]["tarball"].as_str() {
-        Some(url) => match http.get_bytes(url, 200 * 1024 * 1024).and_then(|b| tarball_files(&b)) {
+        Some(url) => match http
+            .get_bytes(url, 200 * 1024 * 1024)
+            .and_then(|b| tarball_files(&b))
+        {
             Ok(files) => {
-                let code = files.iter().filter(|f| !f.ends_with(".md") && *f != "package.json" && !f.starts_with("LICENSE")).count();
-                results.push(res("tarball_nonempty", code > 0, format!("{} files ({code} non-doc; registry fileCount {file_count})", files.len())));
+                let code = files
+                    .iter()
+                    .filter(|f| {
+                        !f.ends_with(".md") && *f != "package.json" && !f.starts_with("LICENSE")
+                    })
+                    .count();
+                results.push(res(
+                    "tarball_nonempty",
+                    code > 0,
+                    format!(
+                        "{} files ({code} non-doc; registry fileCount {file_count})",
+                        files.len()
+                    ),
+                ));
                 let (eps, missing) = missing_entrypoints(&m, &files);
                 results.push(res(
                     "entrypoints",
                     missing.is_empty(),
-                    if missing.is_empty() { format!("present: {}", eps.join(", ")) } else { format!("missing: {}", missing.join(", ")) },
+                    if missing.is_empty() {
+                        format!("present: {}", eps.join(", "))
+                    } else {
+                        format!("missing: {}", missing.join(", "))
+                    },
                 ));
                 let leaks = leak_scan(&files, &cfg.policy.gate.leak_patterns)?;
-                results.push(res("leak_scan", leaks.is_empty(), if leaks.is_empty() { "clean".to_string() } else { format!("leaked: {}", leaks.join(", ")) }));
+                results.push(res(
+                    "leak_scan",
+                    leaks.is_empty(),
+                    if leaks.is_empty() {
+                        "clean".to_string()
+                    } else {
+                        format!("leaked: {}", leaks.join(", "))
+                    },
+                ));
             }
-            Err(e) => results.push(res("tarball_nonempty", false, format!("tarball unreadable: {e}"))),
+            Err(e) => results.push(res(
+                "tarball_nonempty",
+                false,
+                format!("tarball unreadable: {e}"),
+            )),
         },
         None => results.push(res("tarball_nonempty", false, "no dist.tarball")),
     }
@@ -217,8 +296,29 @@ pub fn gate(cfg: &Config, http: &Http, reg: &dyn Registry, graph: &Graph, pkg: &
             .map(|r| r.packages.iter().cloned().collect())
             .unwrap_or_default();
         match reaches(graph, pkg, &targets) {
-            Some(path) => results.push(res("no_cycle", false, format!("cycle: {}", path.join(" -> ")))),
-            None => results.push(res("no_cycle", true, format!("{pkg} does not depend on {consumer}'s packages"))),
+            Some(path) => results.push(res(
+                "no_cycle",
+                false,
+                format!("cycle: {}", path.join(" -> ")),
+            )),
+            None => results.push(res(
+                "no_cycle",
+                true,
+                format!("{pkg} does not depend on {consumer}'s packages"),
+            )),
+        }
+    }
+
+    if let Some(ledger) = opts.ledger {
+        match crate::release::registry_checks(http, pkg)? {
+            Some((_, _, checks)) => {
+                results.extend(crate::release::with_overrides(ledger, pkg, checks))
+            }
+            None => results.push(res(
+                "release_history",
+                true,
+                "single version; nothing to compare",
+            )),
         }
     }
 
@@ -234,7 +334,12 @@ pub fn gate(cfg: &Config, http: &Http, reg: &dyn Registry, graph: &Graph, pkg: &
     Ok(finish(pkg, Some(version), results, exports))
 }
 
-pub fn finish(pkg: &str, version: Option<String>, results: Vec<GateResult>, exports: Vec<String>) -> GateReport {
+pub fn finish(
+    pkg: &str,
+    version: Option<String>,
+    results: Vec<GateResult>,
+    exports: Vec<String>,
+) -> GateReport {
     GateReport {
         package: pkg.to_string(),
         version,
@@ -254,17 +359,28 @@ pub fn new_package_source_gates(dir: &Path, cfg: &Config) -> Result<Vec<GateResu
     let mut tests = 0usize;
     for e in walkdir::WalkDir::new(dir)
         .into_iter()
-        .filter_entry(|e| !cfg.policy.scan.skip_dirs.iter().any(|s| e.depth() > 0 && e.file_name() == s.as_str()))
+        .filter_entry(|e| {
+            !cfg.policy
+                .scan
+                .skip_dirs
+                .iter()
+                .any(|s| e.depth() > 0 && e.file_name() == s.as_str())
+        })
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
     {
-        let rel = e.path().strip_prefix(dir).unwrap_or(e.path()).to_string_lossy().to_string();
+        let rel = e
+            .path()
+            .strip_prefix(dir)
+            .unwrap_or(e.path())
+            .to_string_lossy()
+            .to_string();
         let ext = e.path().extension().and_then(|x| x.to_str()).unwrap_or("");
         if !["js", "mjs", "cjs", "ts", "rs"].contains(&ext) || rel.ends_with(".d.ts") {
             continue;
         }
         let text = std::fs::read_to_string(e.path()).unwrap_or_default();
-        if crate::scan::markers::is_test_or_doc(&format!("/{rel}")) || text.contains("#[test]") {
+        if crate::scan::markers::is_test(&rel) || text.contains("#[test]") {
             tests += 1;
             if !text.contains("#[test]") {
                 continue;
@@ -276,7 +392,10 @@ pub fn new_package_source_gates(dir: &Path, cfg: &Config) -> Result<Vec<GateResu
                 continue;
             }
             code_lines += 1;
-            let reexport = t.starts_with("export * from") || t.starts_with("module.exports = require(") || t.starts_with("export {") && t.contains(" from ") || t.starts_with("pub use ");
+            let reexport = t.starts_with("export * from")
+                || t.starts_with("module.exports = require(")
+                || t.starts_with("export {") && t.contains(" from ")
+                || t.starts_with("pub use ");
             if !reexport && !t.starts_with("import ") && !t.starts_with("use ") {
                 reexport_only = false;
             }
@@ -285,9 +404,25 @@ pub fn new_package_source_gates(dir: &Path, cfg: &Config) -> Result<Vec<GateResu
             }
         }
     }
-    out.push(res("real_implementation", !reexport_only && code_lines >= 30, format!("{code_lines} code lines; re-export only: {reexport_only}")));
-    out.push(res("no_stub_markers", stub_hits.is_empty(), if stub_hits.is_empty() { "none".into() } else { clip(&stub_hits.join(", "), 300) }));
-    out.push(res("tests_present", tests > 0, format!("{tests} test files")));
+    out.push(res(
+        "real_implementation",
+        !reexport_only && code_lines >= 30,
+        format!("{code_lines} code lines; re-export only: {reexport_only}"),
+    ));
+    out.push(res(
+        "no_stub_markers",
+        stub_hits.is_empty(),
+        if stub_hits.is_empty() {
+            "none".into()
+        } else {
+            clip(&stub_hits.join(", "), 300)
+        },
+    ));
+    out.push(res(
+        "tests_present",
+        tests > 0,
+        format!("{tests} test files"),
+    ));
     Ok(out)
 }
 
@@ -295,23 +430,63 @@ pub fn new_package_source_gates(dir: &Path, cfg: &Config) -> Result<Vec<GateResu
 pub fn run_tests(dir: &Path, timeout: Duration) -> Result<GateResult> {
     let o = run_timeout("npm", &["test", "--silent"], dir, timeout)?;
     let ok = o.status == Some(0) && !o.timed_out;
-    Ok(res("tests_pass", ok, if ok { "npm test passed".to_string() } else { clip(&format!("{}{}", o.stdout, o.stderr), 300) }))
+    Ok(res(
+        "tests_pass",
+        ok,
+        if ok {
+            "npm test passed".to_string()
+        } else {
+            clip(&format!("{}{}", o.stdout, o.stderr), 300)
+        },
+    ))
 }
 
 /// Tarball list for a local dir via `npm pack --dry-run --json`.
 pub fn pack_gates(dir: &Path, cfg: &Config) -> Result<Vec<GateResult>> {
-    let o = run_timeout("npm", &["pack", "--dry-run", "--json", "--ignore-scripts"], dir, Duration::from_secs(180))?;
+    let o = run_timeout(
+        "npm",
+        &["pack", "--dry-run", "--json", "--ignore-scripts"],
+        dir,
+        Duration::from_secs(180),
+    )?;
     let v: Value = serde_json::from_str(&o.stdout).unwrap_or(Value::Null);
     let files: Vec<String> = v[0]["files"]
         .as_array()
-        .map(|a| a.iter().filter_map(|f| f["path"].as_str().map(String::from)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|f| f["path"].as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
-    let manifest: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("package.json")).unwrap_or_default()).unwrap_or(Value::Null);
+    let manifest: Value = serde_json::from_str(
+        &std::fs::read_to_string(dir.join("package.json")).unwrap_or_default(),
+    )
+    .unwrap_or(Value::Null);
     let (eps, missing) = missing_entrypoints(&manifest, &files);
     let leaks = leak_scan(&files, &cfg.policy.gate.leak_patterns)?;
     Ok(vec![
-        res("tarball_nonempty", files.len() > 1, format!("{} files", files.len())),
-        res("entrypoints", missing.is_empty(), if missing.is_empty() { format!("present: {}", eps.join(", ")) } else { format!("missing: {}", missing.join(", ")) }),
-        res("leak_scan", leaks.is_empty(), if leaks.is_empty() { "clean".into() } else { leaks.join(", ") }),
+        res(
+            "tarball_nonempty",
+            files.len() > 1,
+            format!("{} files", files.len()),
+        ),
+        res(
+            "entrypoints",
+            missing.is_empty(),
+            if missing.is_empty() {
+                format!("present: {}", eps.join(", "))
+            } else {
+                format!("missing: {}", missing.join(", "))
+            },
+        ),
+        res(
+            "leak_scan",
+            leaks.is_empty(),
+            if leaks.is_empty() {
+                "clean".into()
+            } else {
+                leaks.join(", ")
+            },
+        ),
     ])
 }

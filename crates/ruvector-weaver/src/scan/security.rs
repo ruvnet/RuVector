@@ -52,11 +52,14 @@ pub fn parse_npm_audit(repo: &str, lock_rel: &str, lock_text: &str, audit: &Valu
             file: lock_rel.to_string(),
             line,
             evidence: clip(
-                &format!("npm audit: {name} [{severity}] {} ({fix})", titles.join("; ")),
+                &format!(
+                    "npm audit: {name} [{severity}] {} ({fix})",
+                    titles.join("; ")
+                ),
                 240,
             ),
             subject: Some(name.clone()),
-            keyword: None,
+            keyword: Some("npm-audit".into()),
             candidate: None,
             confidence,
             severity: Some(severity),
@@ -70,7 +73,9 @@ pub fn parse_npm_audit(repo: &str, lock_rel: &str, lock_text: &str, audit: &Valu
 pub fn parse_cargo_deny(repo: &str, stderr: &str) -> Vec<Signal> {
     let mut out = Vec::new();
     for line in stderr.lines() {
-        let Ok(v) = serde_json::from_str::<Value>(line) else { continue };
+        let Ok(v) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
         let f = &v["fields"];
         let Some(adv) = f.get("advisory").filter(|a| a.is_object()) else {
             continue;
@@ -84,9 +89,15 @@ pub fn parse_cargo_deny(repo: &str, stderr: &str) -> Vec<Signal> {
             repo: repo.to_string(),
             file: "Cargo.lock".into(),
             line: 1,
-            evidence: clip(&format!("cargo deny: {id} in {pkg}: {}", adv["title"].as_str().unwrap_or("")), 240),
+            evidence: clip(
+                &format!(
+                    "cargo deny: {id} in {pkg}: {}",
+                    adv["title"].as_str().unwrap_or("")
+                ),
+                240,
+            ),
             subject: Some(pkg.to_string()),
-            keyword: Some(id.to_string()),
+            keyword: Some(format!("cargo-deny:{id}")),
             candidate: None,
             confidence: if sev == "error" { 0.8 } else { 0.4 },
             severity: Some(cvss_sev.unwrap_or("moderate").to_string()),
@@ -114,7 +125,12 @@ pub fn run(repo: &str, root: &Path, timeout: Duration, notes: &mut Vec<String>) 
             .strip_prefix(root)
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_default();
-        match run_timeout("npm", &["audit", "--json", "--package-lock-only"], dir, timeout) {
+        match run_timeout(
+            "npm",
+            &["audit", "--json", "--package-lock-only"],
+            dir,
+            timeout,
+        ) {
             Ok(o) if o.timed_out => notes.push(format!("npm audit timed out in {rel}")),
             Ok(o) => match serde_json::from_str::<Value>(&o.stdout) {
                 Ok(v) => {
@@ -127,11 +143,26 @@ pub fn run(repo: &str, root: &Path, timeout: Duration, notes: &mut Vec<String>) 
         }
     }
     if root.join("Cargo.lock").exists() {
-        match run_timeout("cargo", &["deny", "--format", "json", "check", "advisories"], root, timeout) {
+        match run_timeout(
+            "cargo",
+            &["deny", "--format", "json", "check", "advisories"],
+            root,
+            timeout,
+        ) {
             Ok(o) if o.timed_out => notes.push("cargo deny timed out".into()),
             Ok(o) => out.extend(parse_cargo_deny(repo, &o.stderr)),
             Err(e) => notes.push(format!("cargo deny: {e}")),
         }
     }
     out
+}
+
+/// Finding from a published upstream advisory (npm audit / RustSec):
+/// already public, so a dependency-bump PR is the right channel.
+pub fn is_upstream_advisory(s: &Signal) -> bool {
+    s.kind == SignalKind::Security
+        && s.keyword
+            .as_deref()
+            .map(|k| k == "npm-audit" || k.starts_with("cargo-deny:"))
+            .unwrap_or(false)
 }

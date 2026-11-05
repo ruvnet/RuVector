@@ -36,6 +36,10 @@ pub struct Package {
     /// Platform-suffixed NAPI binary (`-linux-x64-gnu` ...): kept in the
     /// graph for edges, excluded from every ranking.
     pub platform_binary: bool,
+    /// Open-ended ranges on ecosystem deps in the published manifest
+    /// (`dep@>=2.0.0`): any future major, from any repo, is accepted.
+    #[serde(default)]
+    pub open_ranges: Vec<String>,
 }
 
 impl Package {
@@ -65,8 +69,18 @@ pub struct Graph {
 }
 
 impl Graph {
+    /// npm package by name. Crate names (e.g. `ruvector-mincut-wasm` exists
+    /// on crates.io) must never mask an npm 404, so crates are separate.
     pub fn get(&self, name: &str) -> Option<&Package> {
-        self.packages.iter().find(|p| p.name == name)
+        self.packages
+            .iter()
+            .find(|p| p.ecosystem == Ecosystem::Npm && p.name == name)
+    }
+
+    pub fn get_crate(&self, name: &str) -> Option<&Package> {
+        self.packages
+            .iter()
+            .find(|p| p.ecosystem == Ecosystem::Crates && p.name == name)
     }
 
     pub fn repo(&self, slug: &str) -> Option<&ConsumerRepo> {
@@ -96,15 +110,22 @@ pub enum SignalKind {
     StubMarker,
     /// npm audit / cargo deny finding.
     Security,
+    /// An open pull request (land it, or record its negative result and close).
+    OpenPr,
+    /// Release regression: repo changed between versions, surface drop,
+    /// npm-name collision across repos, or an open-ended ecosystem range.
+    ReleaseRegression,
 }
 
 impl SignalKind {
-    pub const ALL: [SignalKind; 5] = [
+    pub const ALL: [SignalKind; 7] = [
         SignalKind::MissingPackage,
         SignalKind::UndeclaredImport,
         SignalKind::UnusedDeclared,
         SignalKind::StubMarker,
         SignalKind::Security,
+        SignalKind::OpenPr,
+        SignalKind::ReleaseRegression,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -114,6 +135,8 @@ impl SignalKind {
             SignalKind::UnusedDeclared => "unused_declared",
             SignalKind::StubMarker => "stub_marker",
             SignalKind::Security => "security",
+            SignalKind::OpenPr => "open_pr",
+            SignalKind::ReleaseRegression => "release_regression",
         }
     }
 }
@@ -179,7 +202,7 @@ impl GateReport {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkKind {
     /// Wire an existing package into a consumer.
@@ -192,6 +215,13 @@ pub enum WorkKind {
     Security,
     /// Create + publish a new package that fills a gap (autopilot, gated).
     Create,
+    /// Land an open fix/security/deps PR: rebase, get CI green, merge.
+    Land,
+    /// Research PR with a REJECT / negative verdict: record the result in
+    /// the ledger, then close the PR.
+    CloseWithLedger,
+    /// Repair a release regression (restore the line, rename, pin ranges).
+    ReleaseFix,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -262,6 +292,9 @@ pub enum Outcome {
     Queued,
     /// Informational gate record; never changes lane state.
     Gated,
+    /// Explicit acceptance of a tripped release check (subject
+    /// `release:<check>:<pkg>`); the only way past that gate.
+    Override,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

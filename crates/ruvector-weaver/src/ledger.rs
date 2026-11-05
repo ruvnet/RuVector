@@ -59,14 +59,17 @@ impl Ledger {
     }
 
     /// Pair identity: same repo, and either the same observed subject, or
-    /// the same target candidate where the subjects do not disagree (one side
-    /// has none, or both describe the same kind of work).
+    /// the same target candidate doing the same work: same work kind when
+    /// both sides name a subject, otherwise the same signal type (so an
+    /// unrelated finding that maps to a popular candidate is not swallowed
+    /// by a ledger entry about something else).
     pub fn same_pair(
         e: &LedgerEntry,
         repo: &str,
         candidate: Option<&str>,
         subject: Option<&str>,
         kind: WorkKind,
+        signal: Option<SignalKind>,
     ) -> bool {
         if !e.repo.eq_ignore_ascii_case(repo) {
             return false;
@@ -74,8 +77,16 @@ impl Ledger {
         if subject.is_some() && e.subject.as_deref() == subject {
             return true;
         }
-        let same_candidate = candidate.is_some() && e.candidate.as_deref() == candidate;
-        same_candidate && (subject.is_none() || e.subject.is_none() || e.kind == kind)
+        if candidate.is_none() || e.candidate.as_deref() != candidate {
+            return false;
+        }
+        if subject.is_some() && e.subject.is_some() {
+            return e.kind == kind;
+        }
+        match (e.signal_kind, signal) {
+            (Some(a), Some(b)) => a == b,
+            _ => e.kind == kind,
+        }
     }
 
     /// Should a (repo, candidate, subject, kind) item be suppressed?
@@ -85,13 +96,14 @@ impl Ledger {
         candidate: Option<&str>,
         subject: Option<&str>,
         kind: WorkKind,
+        signal: Option<SignalKind>,
         max_failures: usize,
     ) -> PairState {
         let related: Vec<&LedgerEntry> = self
             .entries
             .iter()
-            .filter(|e| e.outcome != Outcome::Gated)
-            .filter(|e| Self::same_pair(e, repo, candidate, subject, kind))
+            .filter(|e| !matches!(e.outcome, Outcome::Gated | Outcome::Override))
+            .filter(|e| Self::same_pair(e, repo, candidate, subject, kind, signal))
             .collect();
         let Some(last) = related.last() else {
             return PairState::Open;
@@ -105,7 +117,10 @@ impl Ledger {
                 }
             }
             Outcome::Failed => {
-                let failures = related.iter().filter(|e| e.outcome == Outcome::Failed).count();
+                let failures = related
+                    .iter()
+                    .filter(|e| e.outcome == Outcome::Failed)
+                    .count();
                 if failures >= max_failures {
                     PairState::Blocked {
                         outcome: Outcome::Failed,
@@ -115,17 +130,24 @@ impl Ledger {
                     PairState::Open
                 }
             }
-            Outcome::Gated => PairState::Open,
+            Outcome::Gated | Outcome::Override => PairState::Open,
         }
     }
 
     /// Latest non-gated entry per (repo, subject|candidate) key.
     pub fn latest_by_key(&self) -> BTreeMap<(String, String), &LedgerEntry> {
         let mut latest = BTreeMap::new();
-        for e in self.entries.iter().filter(|e| e.outcome != Outcome::Gated) {
+        for e in self
+            .entries
+            .iter()
+            .filter(|e| !matches!(e.outcome, Outcome::Gated | Outcome::Override))
+        {
             let key = (
                 e.repo.to_ascii_lowercase(),
-                e.subject.clone().or(e.candidate.clone()).unwrap_or_default(),
+                e.subject
+                    .clone()
+                    .or(e.candidate.clone())
+                    .unwrap_or_default(),
             );
             latest.insert(key, e);
         }
@@ -202,7 +224,10 @@ pub fn parse_measurement(s: &str) -> Result<Measurement> {
         .context("measurement must be metric=value:unit[@baseline]")?;
     let (value, unit_base) = rest.split_once(':').context("measurement needs :unit")?;
     let (unit, baseline) = match unit_base.split_once('@') {
-        Some((u, b)) => (u, Some(b.parse::<f64>().context("baseline must be a number")?)),
+        Some((u, b)) => (
+            u,
+            Some(b.parse::<f64>().context("baseline must be a number")?),
+        ),
         None => (unit_base, None),
     };
     Ok(Measurement {

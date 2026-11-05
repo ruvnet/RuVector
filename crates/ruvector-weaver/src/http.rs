@@ -121,7 +121,11 @@ impl Http {
 
     /// Download raw bytes (tarballs), capped, never cached.
     pub fn get_bytes(&self, url: &str, cap: u64) -> Result<Vec<u8>> {
-        let resp = self.agent.get(url).call().with_context(|| format!("GET {url}"))?;
+        let resp = self
+            .agent
+            .get(url)
+            .call()
+            .with_context(|| format!("GET {url}"))?;
         let mut buf = Vec::new();
         resp.into_reader()
             .take(cap + 1)

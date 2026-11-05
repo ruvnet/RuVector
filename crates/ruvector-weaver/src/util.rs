@@ -12,7 +12,11 @@ pub fn now() -> String {
 }
 
 /// Map `f` over `items` on `workers` threads, preserving order.
-pub fn par_map<T: Sync, R: Send, F: Fn(&T) -> R + Sync>(items: &[T], workers: usize, f: F) -> Vec<R> {
+pub fn par_map<T: Sync, R: Send, F: Fn(&T) -> R + Sync>(
+    items: &[T],
+    workers: usize,
+    f: F,
+) -> Vec<R> {
     let next = Mutex::new(0usize);
     let out: Mutex<Vec<Option<R>>> = Mutex::new((0..items.len()).map(|_| None).collect());
     std::thread::scope(|s| {

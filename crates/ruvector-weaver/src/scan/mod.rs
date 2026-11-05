@@ -69,7 +69,11 @@ pub fn fetch_repo(work_dir: &Path, repo: &str) -> Result<(PathBuf, String, Optio
     let slug = crate::graph::repo_slug(repo)
         .or_else(|| (repo.matches('/').count() == 1).then(|| repo.to_ascii_lowercase()))
         .with_context(|| format!("not a repo slug, URL or directory: {repo}"))?;
-    if !slug.chars().all(|c| c.is_ascii_alphanumeric() || "-_./".contains(c)) || slug.contains("..") {
+    if !slug
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || "-_./".contains(c))
+        || slug.contains("..")
+    {
         bail!("refusing suspicious repo slug {slug:?}");
     }
     let dir = work_dir.join("repos").join(slug_key(&slug));
@@ -85,7 +89,15 @@ pub fn fetch_repo(work_dir: &Path, repo: &str) -> Result<(PathBuf, String, Optio
         let target = dir.to_string_lossy().to_string();
         let o = run_timeout(
             "git",
-            &["clone", "-q", "--depth", "1", "--single-branch", &url, &target],
+            &[
+                "clone",
+                "-q",
+                "--depth",
+                "1",
+                "--single-branch",
+                &url,
+                &target,
+            ],
             work_dir,
             t,
         )?;
@@ -110,22 +122,41 @@ struct Tree {
 }
 
 fn walk(root: &Path, cfg: &Config) -> Tree {
-    let skip: BTreeSet<&str> = cfg.policy.scan.skip_dirs.iter().map(String::as_str).collect();
+    let skip: BTreeSet<&str> = cfg
+        .policy
+        .scan
+        .skip_dirs
+        .iter()
+        .map(String::as_str)
+        .collect();
     let mut sources = Vec::new();
     let mut manifests = Vec::new();
     let it = walkdir::WalkDir::new(root).into_iter().filter_entry(|e| {
-        !(e.file_type().is_dir() && e.depth() > 0 && skip.contains(e.file_name().to_string_lossy().as_ref()))
+        !(e.file_type().is_dir()
+            && e.depth() > 0
+            && skip.contains(e.file_name().to_string_lossy().as_ref()))
     });
-    for e in it.filter_map(|e| e.ok()).filter(|e| e.file_type().is_file()) {
-        let Ok(rel) = e.path().strip_prefix(root) else { continue };
+    for e in it
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+    {
+        let Ok(rel) = e.path().strip_prefix(root) else {
+            continue;
+        };
         let rel = rel.to_string_lossy().replace('\\', "/");
-        if e.metadata().map(|m| m.len() > cfg.policy.scan.max_file_bytes).unwrap_or(true) {
+        if e.metadata()
+            .map(|m| m.len() > cfg.policy.scan.max_file_bytes)
+            .unwrap_or(true)
+        {
             continue;
         }
         let name = e.file_name().to_string_lossy();
         if name == "package.json" {
             if let Ok(text) = std::fs::read_to_string(e.path()) {
-                let dir = rel.trim_end_matches("package.json").trim_end_matches('/').to_string();
+                let dir = rel
+                    .trim_end_matches("package.json")
+                    .trim_end_matches('/')
+                    .to_string();
                 if let Some(m) = parse_manifest(&dir, &rel, &text) {
                     manifests.push(m);
                 }
@@ -141,7 +172,7 @@ fn walk(root: &Path, cfg: &Config) -> Tree {
         }
     }
     sources.sort();
-    manifests.sort_by(|a, b| b.dir.len().cmp(&a.dir.len()));
+    manifests.sort_by_key(|a| std::cmp::Reverse(a.dir.len()));
     Tree { sources, manifests }
 }
 
@@ -172,20 +203,37 @@ pub fn scan_dir(
 ) -> Result<ScanReport> {
     let tree = walk(root, cfg);
     let npm = &cfg.policy.npm;
-    let local_names: BTreeSet<String> = tree.manifests.iter().filter_map(|m| m.name.clone()).collect();
+    let local_names: BTreeSet<String> = tree
+        .manifests
+        .iter()
+        .filter_map(|m| m.name.clone())
+        .collect();
     let mut folded: BTreeMap<(SignalKind, String, String), Signal> = BTreeMap::new();
     let mut imported_in: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     let mut notes = Vec::new();
     let mut add = |s: Signal, scope: String| {
-        let key = (s.kind, s.subject.clone().or(s.candidate.clone()).unwrap_or_default(), scope);
-        folded.entry(key).and_modify(|e| e.occurrences += 1).or_insert(s);
+        let key = (
+            s.kind,
+            s.subject
+                .clone()
+                .or(s.candidate.clone())
+                .unwrap_or_default(),
+            scope,
+        );
+        folded
+            .entry(key)
+            .and_modify(|e| e.occurrences += 1)
+            .or_insert(s);
     };
 
     for (rel, text) in &tree.sources {
         let near = nearest(&tree.manifests, rel);
         let scope = near.map(|m| m.dir.clone()).unwrap_or_default();
         for imp in imports::extract(text) {
-            imported_in.entry(scope.clone()).or_default().insert(imp.package.clone());
+            imported_in
+                .entry(scope.clone())
+                .or_default()
+                .insert(imp.package.clone());
             let name = &imp.package;
             let ecosystem = npm.is_ecosystem(name) || graph.get(name).is_some();
             if !ecosystem || local_names.contains(name) {
@@ -216,8 +264,17 @@ pub fn scan_dir(
                 add(s, scope.clone());
             } else if near.map(|m| !m.declared.contains(name)).unwrap_or(true) {
                 let test = markers::is_test_or_doc(rel) || rel.contains("example");
-                let c = if test { 0.45 } else if imp.dynamic { 0.7 } else { 0.85 };
-                add(base(SignalKind::UndeclaredImport, c, Some(name.clone())), scope.clone());
+                let c = if test {
+                    0.45
+                } else if imp.dynamic {
+                    0.7
+                } else {
+                    0.85
+                };
+                add(
+                    base(SignalKind::UndeclaredImport, c, Some(name.clone())),
+                    scope.clone(),
+                );
             }
         }
         for s in markers::scan_file(repo, rel, text, &cfg.capabilities) {
@@ -229,7 +286,11 @@ pub fn scan_dir(
     // Declared ecosystem runtime deps that nothing in scope imports or names.
     for m in &tree.manifests {
         let used = imported_in.get(&m.dir).cloned().unwrap_or_default();
-        for dep in m.runtime.iter().filter(|d| npm.is_ecosystem(d) || graph.get(d).is_some()) {
+        for dep in m
+            .runtime
+            .iter()
+            .filter(|d| npm.is_ecosystem(d) || graph.get(d).is_some())
+        {
             if used.contains(dep) || local_names.contains(dep) {
                 continue;
             }
@@ -262,6 +323,7 @@ pub fn scan_dir(
     }
 
     let mut signals: Vec<Signal> = folded.into_values().collect();
+    signals.extend(release_signals(repo, &tree.manifests, graph, npm));
     if with_security {
         let t = Duration::from_secs(cfg.policy.scan.security_timeout_secs);
         signals.extend(security::run(repo, root, t, &mut notes));
@@ -281,6 +343,68 @@ pub fn scan_dir(
         signals,
         notes,
     })
+}
+
+/// Release-regression signals from a repo's manifests: an npm name this
+/// repo declares that the registry attributes to a different repo, and
+/// open-ended ranges on ecosystem deps.
+fn release_signals(
+    repo: &str,
+    manifests: &[Manifest],
+    graph: &Graph,
+    npm: &crate::config::NpmPolicy,
+) -> Vec<Signal> {
+    let mut out = Vec::new();
+    let sig = |m: &Manifest, line: usize, check: &str, name: &str, ev: String| Signal {
+        kind: SignalKind::ReleaseRegression,
+        repo: repo.to_string(),
+        file: m.rel.clone(),
+        line,
+        evidence: clip(&ev, 220),
+        subject: Some(crate::release::subject(check, name)),
+        keyword: Some(check.to_string()),
+        candidate: Some(name.to_string()),
+        confidence: if check == "name_collision" { 1.0 } else { 0.8 },
+        severity: Some("high".into()),
+        occurrences: 1,
+    };
+    for m in manifests {
+        let Ok(v) = serde_json::from_str::<Value>(&m.text) else {
+            continue;
+        };
+        if let (Some(name), false) = (&m.name, v["private"].as_bool() == Some(true)) {
+            let owner = graph.get(name).and_then(|p| p.repo_slug.clone());
+            if let Some(owner) =
+                owner.filter(|o| !o.eq_ignore_ascii_case(repo) && !repo.starts_with("local/"))
+            {
+                let line = m
+                    .text
+                    .lines()
+                    .position(|l| l.contains("\"name\""))
+                    .map_or(1, |i| i + 1);
+                out.push(sig(
+                    m,
+                    line,
+                    "name_collision",
+                    name,
+                    format!(
+                        "{name} is declared here but its latest npm release comes from {owner}"
+                    ),
+                ));
+            }
+        }
+        for (dep, range) in crate::release::open_ranges(&v, npm) {
+            let line = manifest_line(m, &dep);
+            out.push(sig(
+                m,
+                line,
+                "open_range",
+                &dep,
+                format!("\"{dep}\": \"{range}\" accepts any future major from any repo"),
+            ));
+        }
+    }
+    out
 }
 
 /// Load every `scan/*.json` report under the work dir.

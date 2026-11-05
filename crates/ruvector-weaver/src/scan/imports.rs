@@ -16,22 +16,62 @@ pub struct Import {
 }
 
 const BUILTINS: &[&str] = &[
-    "assert", "async_hooks", "buffer", "child_process", "cluster", "console", "constants", "crypto",
-    "dgram", "dns", "domain", "events", "fs", "http", "http2", "https", "inspector", "module", "net",
-    "os", "path", "perf_hooks", "process", "punycode", "querystring", "readline", "repl", "stream",
-    "string_decoder", "sys", "timers", "tls", "trace_events", "tty", "url", "util", "v8", "vm",
-    "wasi", "worker_threads", "zlib", "test",
+    "assert",
+    "async_hooks",
+    "buffer",
+    "child_process",
+    "cluster",
+    "console",
+    "constants",
+    "crypto",
+    "dgram",
+    "dns",
+    "domain",
+    "events",
+    "fs",
+    "http",
+    "http2",
+    "https",
+    "inspector",
+    "module",
+    "net",
+    "os",
+    "path",
+    "perf_hooks",
+    "process",
+    "punycode",
+    "querystring",
+    "readline",
+    "repl",
+    "stream",
+    "string_decoder",
+    "sys",
+    "timers",
+    "tls",
+    "trace_events",
+    "tty",
+    "url",
+    "util",
+    "v8",
+    "vm",
+    "wasi",
+    "worker_threads",
+    "zlib",
+    "test",
 ];
 
 fn static_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r#"(?:\bfrom\s*|^\s*import\s*)['"]([^'"\n]+)['"]"#).expect("static import re"))
+    RE.get_or_init(|| {
+        Regex::new(r#"(?:\bfrom\s*|^\s*import\s*)['"]([^'"\n]+)['"]"#).expect("static import re")
+    })
 }
 
 fn dynamic_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| {
-        Regex::new(r#"\b(?:require(?:\.resolve)?|import)\s*\(\s*['"]([^'"\n]+)['"]"#).expect("dynamic import re")
+        Regex::new(r#"\b(?:require(?:\.resolve)?|import)\s*\(\s*['"]([^'"\n]+)['"]"#)
+            .expect("dynamic import re")
     })
 }
 
@@ -64,9 +104,9 @@ pub fn package_name(spec: &str) -> Option<String> {
     if BUILTINS.contains(&name.as_str()) {
         return None;
     }
-    let ok = name
-        .chars()
-        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '-' | '_' | '.' | '@' | '/'));
+    let ok = name.chars().all(|c| {
+        c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '-' | '_' | '.' | '@' | '/')
+    });
     ok.then_some(name)
 }
 
@@ -122,7 +162,8 @@ pub fn strip_comments(src: &str) -> String {
 /// `//` not preceded by `:` (keeps `https://` in strings intact).
 fn find_line_comment(s: &str) -> Option<usize> {
     let b = s.as_bytes();
-    (0..b.len().saturating_sub(1)).find(|&i| b[i] == b'/' && b[i + 1] == b'/' && (i == 0 || b[i - 1] != b':'))
+    (0..b.len().saturating_sub(1))
+        .find(|&i| b[i] == b'/' && b[i + 1] == b'/' && (i == 0 || b[i - 1] != b':'))
 }
 
 pub fn extract(src: &str) -> Vec<Import> {
@@ -136,7 +177,10 @@ pub fn extract(src: &str) -> Vec<Import> {
                     package,
                     line: i + 1,
                     dynamic,
-                    text: originals.get(i).map(|s| s.trim().to_string()).unwrap_or_default(),
+                    text: originals
+                        .get(i)
+                        .map(|s| s.trim().to_string())
+                        .unwrap_or_default(),
                 });
             }
         };
@@ -156,7 +200,10 @@ mod tests {
 
     #[test]
     fn normalises_names() {
-        assert_eq!(package_name("@ruvector/rvf/dist/x.js").as_deref(), Some("@ruvector/rvf"));
+        assert_eq!(
+            package_name("@ruvector/rvf/dist/x.js").as_deref(),
+            Some("@ruvector/rvf")
+        );
         assert_eq!(package_name("ruvector/hooks").as_deref(), Some("ruvector"));
         assert_eq!(package_name("./local"), None);
         assert_eq!(package_name("node:fs"), None);

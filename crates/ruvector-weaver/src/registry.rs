@@ -88,7 +88,11 @@ pub fn parse_search_hits(v: &Value) -> Vec<SearchHit> {
 
 pub fn str_array(v: &Value) -> Vec<String> {
     v.as_array()
-        .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -96,7 +100,9 @@ pub fn url_escape(s: &str) -> String {
     let mut out = String::new();
     for b in s.bytes() {
         match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
             b' ' => out.push('+'),
             _ => out.push_str(&format!("%{b:02X}")),
         }
@@ -135,7 +141,8 @@ impl Registry for MemRegistry {
             .hits
             .iter()
             .filter(|h| {
-                let hay = format!("{} {} {}", h.name, h.description, h.keywords.join(" ")).to_ascii_lowercase();
+                let hay = format!("{} {} {}", h.name, h.description, h.keywords.join(" "))
+                    .to_ascii_lowercase();
                 words.iter().any(|w| hay.contains(w))
             })
             .cloned()

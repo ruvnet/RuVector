@@ -6,6 +6,7 @@
 //! by the `ecosystem-weaver` /loop skill) consume `queue.json` and report
 //! outcomes back through `weaver ledger record`.
 
+pub mod brief;
 pub mod config;
 pub mod gate;
 pub mod graph;
@@ -13,9 +14,11 @@ pub mod http;
 pub mod ledger;
 pub mod model;
 pub mod propose;
+pub mod prs;
 pub mod queue;
 pub mod readme;
 pub mod registry;
+pub mod release;
 pub mod scan;
 pub mod svg;
 pub mod util;

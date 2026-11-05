@@ -33,7 +33,8 @@ pub fn is_platform_binary(name: &str) -> bool {
 pub fn repo_slug(url: &str) -> Option<String> {
     static RE: OnceLock<Regex> = OnceLock::new();
     let re = RE.get_or_init(|| {
-        Regex::new(r"(?i)(?:github\.com[/:]|^github:)([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)").expect("slug regex")
+        Regex::new(r"(?i)(?:github\.com[/:]|^github:)([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)")
+            .expect("slug regex")
     });
     let c = re.captures(url.trim())?;
     let name = c[2].trim_end_matches(".git");
@@ -77,17 +78,25 @@ fn npm_search(http: &Http, maintainer: &str) -> Result<Vec<Value>> {
     Ok(out)
 }
 
-fn npm_package(http: &Http, obj: &Value) -> Package {
+fn npm_package(http: &Http, npm: &crate::config::NpmPolicy, obj: &Value) -> Package {
     let p = &obj["package"];
     let name = p["name"].as_str().unwrap_or_default().to_string();
     let latest = http
-        .get_json(&format!("https://registry.npmjs.org/{}/latest", encode_pkg(&name)))
+        .get_json(&format!(
+            "https://registry.npmjs.org/{}/latest",
+            encode_pkg(&name)
+        ))
         .ok()
         .flatten()
         .unwrap_or(Value::Null);
-    let repository = repo_url(&latest).or_else(|| p["links"]["repository"].as_str().map(String::from));
+    let repository =
+        repo_url(&latest).or_else(|| p["links"]["repository"].as_str().map(String::from));
     Package {
         platform_binary: is_platform_binary(&name),
+        open_ranges: crate::release::open_ranges(&latest, npm)
+            .into_iter()
+            .map(|(d, r)| format!("{d}@{r}"))
+            .collect(),
         version: latest["version"]
             .as_str()
             .or(p["version"].as_str())
@@ -111,9 +120,14 @@ fn npm_package(http: &Http, obj: &Value) -> Package {
 /// names, one call per scoped name (bulk does not support scopes).
 fn fresh_downloads(http: &Http, names: &[String], workers: usize) -> BTreeMap<String, u64> {
     let mut out = BTreeMap::new();
-    let (scoped, unscoped): (Vec<&String>, Vec<&String>) = names.iter().partition(|n| n.starts_with('@'));
+    let (scoped, unscoped): (Vec<&String>, Vec<&String>) =
+        names.iter().partition(|n| n.starts_with('@'));
     for chunk in unscoped.chunks(128) {
-        let list = chunk.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(",");
+        let list = chunk
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>()
+            .join(",");
         let url = format!("https://api.npmjs.org/downloads/point/last-month/{list}");
         if let Ok(Some(v)) = http.get_json(&url) {
             if chunk.len() == 1 {
@@ -140,7 +154,8 @@ fn fresh_downloads(http: &Http, names: &[String], workers: usize) -> BTreeMap<St
 fn crates_for_user(http: &Http, user_id: u64) -> Result<Vec<Package>> {
     let mut out = Vec::new();
     for page in 1..=50 {
-        let url = format!("https://crates.io/api/v1/crates?user_id={user_id}&per_page=100&page={page}");
+        let url =
+            format!("https://crates.io/api/v1/crates?user_id={user_id}&per_page=100&page={page}");
         let Some(v) = http.get_json(&url)? else { break };
         let crates = v["crates"].as_array().cloned().unwrap_or_default();
         if crates.is_empty() {
@@ -159,7 +174,11 @@ fn crates_for_user(http: &Http, user_id: u64) -> Result<Vec<Package>> {
                 last_publish: c["updated_at"].as_str().map(String::from),
                 // crates.io reports a 90-day window; approximate a month.
                 monthly_downloads: c["recent_downloads"].as_u64().unwrap_or(0) / 3,
-                description: c["description"].as_str().unwrap_or_default().trim().to_string(),
+                description: c["description"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .trim()
+                    .to_string(),
                 keywords: str_array(&c["keywords"]),
                 dependencies: vec![],
                 optional_dependencies: vec![],
@@ -167,6 +186,7 @@ fn crates_for_user(http: &Http, user_id: u64) -> Result<Vec<Package>> {
                 repo_slug: repository.as_deref().and_then(repo_slug),
                 repository,
                 platform_binary: false,
+                open_ranges: vec![],
             });
         }
         if crates.len() < 100 {
@@ -191,13 +211,15 @@ pub fn consumer_repos(packages: &[Package]) -> Vec<ConsumerRepo> {
         r.monthly_downloads += p.monthly_downloads;
     }
     let mut v: Vec<_> = by_repo.into_values().collect();
-    v.sort_by(|a, b| b.monthly_downloads.cmp(&a.monthly_downloads));
+    v.sort_by_key(|a| std::cmp::Reverse(a.monthly_downloads));
     v
 }
 
 pub fn build(http: &Http, cfg: &Config, opts: &GraphOptions) -> Result<Graph> {
     let objs = npm_search(http, &cfg.policy.npm.maintainer)?;
-    let mut packages = par_map(&objs, opts.workers, |o| npm_package(http, o));
+    let mut packages = par_map(&objs, opts.workers, |o| {
+        npm_package(http, &cfg.policy.npm, o)
+    });
     if opts.fresh_downloads {
         let names: Vec<String> = packages
             .iter()
@@ -214,7 +236,11 @@ pub fn build(http: &Http, cfg: &Config, opts: &GraphOptions) -> Result<Graph> {
     if opts.include_crates {
         packages.extend(crates_for_user(http, cfg.policy.crates.user_id)?);
     }
-    packages.sort_by(|a, b| b.monthly_downloads.cmp(&a.monthly_downloads).then(a.name.cmp(&b.name)));
+    packages.sort_by(|a, b| {
+        b.monthly_downloads
+            .cmp(&a.monthly_downloads)
+            .then(a.name.cmp(&b.name))
+    });
     Ok(Graph {
         generated_at: now(),
         consumer_repos: consumer_repos(&packages),
