@@ -48,8 +48,8 @@ const SELECTIVITY_SAMPLE: usize = 512;
 /// Below this estimated selectivity the exact scan (predicate first, then
 /// distances for the matches only) beats the filtered traversal. Measured
 /// with `examples/filtered_query_bench.rs` (100k x 128 low-rank, L2,
-/// ef = 256) as p50 speedup over the scan: 3.6x at 50%, 2.1x at 25%, 1.9x
-/// at 20%, 1.1x at 10%, 1.0x at 5% -- the threshold sits between 10% and
+/// ef = 256, 200 queries) as p50 speedup over the scan: 3.2x at 50%, 2.1x at
+/// 25%, 1.8x at 20%, 1.0x at 10%, 1.0x at 5% -- the threshold sits between 10% and
 /// 20%, where the traversal's random-access predicate evaluations stop
 /// paying for themselves against the sequential scan.
 pub(crate) const FILTERED_HNSW_MIN_SELECTIVITY: f64 = 0.15;
