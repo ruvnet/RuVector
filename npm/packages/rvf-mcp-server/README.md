@@ -37,7 +37,9 @@ npx @ruvector/rvf-mcp-server --transport sse --port 3100
 
 The SSE transport binds `127.0.0.1` by default and serves one session at a time. It has no authentication; use `--host <address>` to bind elsewhere only behind your own auth proxy. Point clients at `http://127.0.0.1:3100/sse` (on dual-stack hosts `localhost` may resolve to `::1`; use `--host ::1` if your client needs it).
 
-> **Note:** stores are held in memory for the lifetime of the server process. The `path` argument is recorded as a label only; nothing is read from or written to disk.
+## Storage
+
+Stores are real `.rvf` files written through [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf), so they survive server restarts and queries go through the native HNSW index instead of a linear scan. Every tool `path` is resolved inside the data directory: `--data-dir <dir>`, else `$RVF_MCP_DATA_DIR`, else `~/.rvf-mcp-server`. Absolute paths, `..` segments and symlinks that lead outside it are rejected. Per-vector metadata, which the native store does not hold, lives next to each store in `<store>.mcp-meta.jsonl`. Metadata filters are applied to an over-fetched index result.
 
 ## MCP Tools
 
