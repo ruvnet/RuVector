@@ -276,6 +276,12 @@ impl Attention for DualSpaceAttention {
         mask: Option<&[bool]>,
     ) -> AttentionResult<Vec<f32>> {
         if let Some(m) = mask {
+            if m.len() != keys.len() || keys.len() != values.len() {
+                return Err(AttentionError::InvalidMask {
+                    expected: format!("{} entries", keys.len()),
+                    actual: format!("{} entries", m.len()),
+                });
+            }
             let filtered: Vec<(usize, bool)> = m
                 .iter()
                 .copied()
