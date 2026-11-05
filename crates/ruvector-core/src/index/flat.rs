@@ -80,6 +80,19 @@ impl VectorIndex for FlatIndex {
             .collect())
     }
 
+    fn exact_distances(&self, query: &[f32], ids: &[&str]) -> Option<Result<Vec<(usize, f32)>>> {
+        Some(
+            ids.iter()
+                .enumerate()
+                .filter_map(|(pos, id)| {
+                    self.vectors
+                        .get(*id)
+                        .map(|v| distance(query, &v, self.metric).map(|d| (pos, d)))
+                })
+                .collect(),
+        )
+    }
+
     fn remove(&mut self, id: &VectorId) -> Result<bool> {
         Ok(self.vectors.remove(id).is_some())
     }
