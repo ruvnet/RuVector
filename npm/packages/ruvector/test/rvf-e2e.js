@@ -157,9 +157,64 @@ async function mcpRoundTrip() {
   }
 }
 
+// A failing `ruvector rvf` command must not leave the store locked: the writer
+// lock file outlives the process, so a missed close() wedged the store until
+// someone deleted <store>.lock by hand.
+function cliFailureThenSuccess() {
+  const { spawnSync } = require('child_process');
+  const dir = fs.mkdtempSync(path.join(work, 'cli-'));
+  const run = (...args) => {
+    const r = spawnSync(process.execPath, [CLI, 'rvf', ...args], {
+      cwd: dir, env: { ...process.env, HOME: dir, NO_COLOR: '1' }, encoding: 'utf8', timeout: 60_000,
+    });
+    return { code: r.status, out: `${r.stdout}${r.stderr}` };
+  };
+  const lock = path.join(dir, 's.rvf.lock');
+  const noLock = (after) => assert.ok(!fs.existsSync(lock), `stale ${lock} left after ${after}`);
+
+  fs.writeFileSync(path.join(dir, 'in.json'), JSON.stringify(ENTRIES));
+  fs.writeFileSync(path.join(dir, 'bad.json'), '{not json');
+  assert.strictEqual(run('create', 's.rvf', '-d', '4').code, 0);
+  assert.strictEqual(run('ingest', 's.rvf', '-i', 'in.json').code, 0);
+  noLock('create/ingest');
+
+  // Fails after the store is opened (unparseable input file).
+  const badIngest = run('ingest', 's.rvf', '-i', 'bad.json');
+  assert.notStrictEqual(badIngest.code, 0, badIngest.out);
+  noLock('a failed ingest');
+
+  // Bad vectors are rejected up front with a clear message.
+  for (const bad of ['abc,1,0,0', '1,,0,0', '[0,1,0']) {
+    const r = run('query', 's.rvf', '-v', bad, '-k', '1');
+    assert.notStrictEqual(r.code, 0, `query -v ${bad} should fail`);
+    assert.match(r.out, /invalid vector/i, `query -v ${bad}: ${r.out}`);
+    noLock(`query -v ${bad}`);
+  }
+
+  // Fails inside the backend (dimension mismatch).
+  const wrongDim = run('query', 's.rvf', '-v', '0,1', '-k', '1');
+  assert.notStrictEqual(wrongDim.code, 0, wrongDim.out);
+  noLock('a wrong-dimension query');
+
+  for (const good of ['0,1,0,0', '[0, 1, 0, 0]']) {
+    const r = run('query', 's.rvf', '-v', good, '-k', '1');
+    assert.strictEqual(r.code, 0, `query -v ${good}: ${r.out}`);
+    assert.match(r.out, /id=b\b/, r.out);
+    noLock(`query -v ${good}`);
+  }
+  for (const cmd of [['status', 's.rvf'], ['segments', 's.rvf'], ['compact', 's.rvf'], ['export', 's.rvf'], ['derive', 's.rvf', 'child.rvf']]) {
+    const r = run(...cmd);
+    assert.strictEqual(r.code, 0, `${cmd.join(' ')}: ${r.out}`);
+    noLock(cmd[0]);
+  }
+  assert.ok(!fs.existsSync(path.join(dir, 'child.rvf.lock')), 'derived child left locked');
+  console.log('  PASS  CLI: failed rvf commands release the lock; bad vectors rejected clearly');
+}
+
 (async () => {
   await libraryRoundTrip();
   await mcpRoundTrip();
+  cliFailureThenSuccess();
   fs.rmSync(work, { recursive: true, force: true });
 })().catch((e) => {
   console.error('  FAIL ', e && e.stack || e);

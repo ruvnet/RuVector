@@ -8438,6 +8438,37 @@ nativeCmd.command('compare')
 // RVF (RuVector Format) commands
 const rvfCmd = program.command('rvf').description('RuVector Format (.rvf) cognitive container operations');
 
+// Every store a command opens is closed in `finally`: the writer lock file
+// outlives the process, so a command that failed before close() left the store
+// locked (LockHeld) until someone deleted <store>.lock by hand.
+async function withRvfStore(storePath, fn) {
+  const { openRvfStore, rvfClose } = require('../dist/core/rvf-wrapper.js');
+  const store = await openRvfStore(storePath);
+  try { return await fn(store); } finally { await rvfClose(store); }
+}
+
+// `-v 0.1,0.2` or `-v "[0.1, 0.2]"` -> number[]; anything else is rejected
+// before the backend is touched (it used to surface as NonFiniteQuery).
+function parseVectorArg(raw) {
+  const text = String(raw).trim();
+  const bracketed = text.startsWith('[') || text.endsWith(']');
+  if (bracketed && !(text.startsWith('[') && text.endsWith(']'))) {
+    throw new Error(`Invalid vector "${raw}": unbalanced brackets (use 0.1,0.2,0.3 or [0.1,0.2,0.3])`);
+  }
+  const body = bracketed ? text.slice(1, -1) : text;
+  const parts = body.split(',').map(p => p.trim());
+  const vector = parts.map(p => (p === '' ? NaN : Number(p)));
+  const bad = vector.findIndex(v => !Number.isFinite(v));
+  if (parts.length === 0 || bad !== -1) {
+    throw new Error(`Invalid vector "${raw}": element ${bad + 1} (${JSON.stringify(parts[bad] ?? '')}) is not a finite number (use 0.1,0.2,0.3 or [0.1,0.2,0.3])`);
+  }
+  try {
+    return Array.from(recordValidate.validateVector(vector));
+  } catch (e) {
+    throw new Error(`Invalid vector "${raw}": ${e.message}`);
+  }
+}
+
 rvfCmd.command('create <path>')
   .description('Create a new .rvf store')
   .requiredOption('-d, --dimension <n>', 'Vector dimension', parseInt)
@@ -8457,26 +8488,23 @@ rvfCmd.command('ingest <path>')
   .option('-f, --format <fmt>', 'Input format (json)', 'json')
   .action(async (storePath, opts) => {
     try {
-      const { openRvfStore, rvfIngest, rvfClose } = require('../dist/core/rvf-wrapper.js');
-      const store = await openRvfStore(storePath);
+      const { rvfIngest } = require('../dist/core/rvf-wrapper.js');
       const data = JSON.parse(fs.readFileSync(opts.input, 'utf8'));
-      const result = await rvfIngest(store, data);
-      await rvfClose(store);
+      const result = await withRvfStore(storePath, store => rvfIngest(store, data));
       console.log(chalk.green(`Ingested ${result.accepted} vectors (${result.rejected} rejected)`));
     } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
   });
 
 rvfCmd.command('query <path>')
   .description('Query nearest neighbors')
-  .requiredOption('-v, --vector <values>', 'Comma-separated vector values')
+  .requiredOption('-v, --vector <values>', 'Comma-separated vector values (or [a,b,c])')
   .option('-k, --k <n>', 'Number of results', parseInt, 10)
   .action(async (storePath, opts) => {
     try {
-      const { openRvfStore, rvfQuery, rvfClose } = require('../dist/core/rvf-wrapper.js');
-      const store = await openRvfStore(storePath);
-      const vector = opts.vector.split(',').map(Number);
-      const results = await rvfQuery(store, vector, opts.k);
-      await rvfClose(store);
+      const { rvfQuery } = require('../dist/core/rvf-wrapper.js');
+      const vector = parseVectorArg(opts.vector);
+      const k = recordValidate.validateK(opts.k);
+      const results = await withRvfStore(storePath, store => rvfQuery(store, vector, k));
       results.forEach((r, i) => console.log(chalk.dim(`  ${i+1}. id=${r.id}  dist=${r.distance.toFixed(6)}`)));
       console.log(chalk.green(`${results.length} results`));
     } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
@@ -8488,12 +8516,9 @@ rvfCmd.command('delete <path>')
   .action(async (storePath, opts) => {
     try {
       const ids = recordValidate.validateIdList(opts.ids.split(',').map(s => s.trim()).filter(Boolean));
-      const { openRvfStore, rvfDelete, rvfClose } = require('../dist/core/rvf-wrapper.js');
-      const store = await openRvfStore(storePath);
-      try {
-        const result = await rvfDelete(store, ids);
-        console.log(chalk.green(`Deleted ${result.deleted} vector(s)`));
-      } finally { await rvfClose(store); }
+      const { rvfDelete } = require('../dist/core/rvf-wrapper.js');
+      const result = await withRvfStore(storePath, store => rvfDelete(store, ids));
+      console.log(chalk.green(`Deleted ${result.deleted} vector(s)`));
     } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
   });
 
@@ -8501,10 +8526,8 @@ rvfCmd.command('status <path>')
   .description('Show store statistics')
   .action(async (storePath) => {
     try {
-      const { openRvfStore, rvfStatus, rvfClose } = require('../dist/core/rvf-wrapper.js');
-      const store = await openRvfStore(storePath);
-      const s = await rvfStatus(store);
-      await rvfClose(store);
+      const { rvfStatus } = require('../dist/core/rvf-wrapper.js');
+      const s = await withRvfStore(storePath, store => rvfStatus(store));
       console.log(chalk.cyan('RVF Store Status'));
       Object.entries(s).forEach(([k, v]) => console.log(chalk.dim(`  ${k}: ${v}`)));
     } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
@@ -8514,11 +8537,9 @@ rvfCmd.command('segments <path>')
   .description('List all segments in an .rvf file')
   .action(async (storePath) => {
     try {
-      const { openRvfStore, rvfClose } = require('../dist/core/rvf-wrapper.js');
-      const store = await openRvfStore(storePath);
-      const segs = await store.segments();
-      await rvfClose(store);
-      segs.forEach((seg, i) => console.log(chalk.dim(`  [${i}] type=0x${seg.type.toString(16)} size=${seg.size}`)));
+      const segs = await withRvfStore(storePath, store => store.segments());
+      // The SDK returns { id, offset, payloadLength, segType }.
+      segs.forEach((seg, i) => console.log(chalk.dim(`  [${i}] id=${seg.id} type=${seg.segType} offset=${seg.offset} size=${seg.payloadLength}`)));
       console.log(chalk.green(`${segs.length} segments`));
     } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
   });
@@ -8527,10 +8548,11 @@ rvfCmd.command('derive <parent> <child>')
   .description('Create a derived store with lineage tracking')
   .action(async (parentPath, childPath) => {
     try {
-      const { openRvfStore, rvfDerive, rvfClose } = require('../dist/core/rvf-wrapper.js');
-      const store = await openRvfStore(parentPath);
-      await rvfDerive(store, childPath);
-      await rvfClose(store);
+      const { rvfDerive, rvfClose } = require('../dist/core/rvf-wrapper.js');
+      await withRvfStore(parentPath, async (store) => {
+        const child = await rvfDerive(store, childPath);
+        await rvfClose(child);
+      });
       console.log(chalk.green(`Derived ${childPath} from ${parentPath}`));
     } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
   });
@@ -8539,10 +8561,8 @@ rvfCmd.command('compact <path>')
   .description('Compact store, reclaim deleted space')
   .action(async (storePath) => {
     try {
-      const { openRvfStore, rvfCompact, rvfClose } = require('../dist/core/rvf-wrapper.js');
-      const store = await openRvfStore(storePath);
-      const result = await rvfCompact(store);
-      await rvfClose(store);
+      const { rvfCompact } = require('../dist/core/rvf-wrapper.js');
+      const result = await withRvfStore(storePath, store => rvfCompact(store));
       console.log(chalk.green(`Compacted: ${result.segmentsCompacted} segments, ${result.bytesReclaimed} bytes reclaimed`));
     } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
   });
@@ -8552,11 +8572,8 @@ rvfCmd.command('export <path>')
   .option('-o, --output <file>', 'Output file')
   .action(async (storePath, opts) => {
     try {
-      const { openRvfStore, rvfStatus, rvfClose } = require('../dist/core/rvf-wrapper.js');
-      const store = await openRvfStore(storePath);
-      const status = await rvfStatus(store);
-      const segs = await store.segments();
-      await rvfClose(store);
+      const { rvfStatus } = require('../dist/core/rvf-wrapper.js');
+      const { status, segs } = await withRvfStore(storePath, async store => ({ status: await rvfStatus(store), segs: await store.segments() }));
       const data = JSON.stringify({ status, segments: segs }, null, 2);
       if (opts.output) { fs.writeFileSync(opts.output, data); console.log(chalk.green(`Exported to ${opts.output}`)); }
       else { console.log(data); }
