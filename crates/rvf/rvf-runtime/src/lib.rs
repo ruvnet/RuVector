@@ -39,6 +39,7 @@ pub mod read_path;
 pub mod root_page;
 pub mod safety_net;
 pub mod seed_crypto;
+mod sparse_ids;
 pub mod status;
 pub mod store;
 mod vector_slab;
