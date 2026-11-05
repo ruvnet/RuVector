@@ -11,6 +11,8 @@ categories = ["wasm", "database-implementations"]
 keywords = ["vector", "wasm", "webassembly", "embedding", "rvf"]
 rust-version = "1.87"
 
+include = ["src/**/*.rs", "Cargo.toml", "README.md"]
+
 [lib]
 crate-type = ["cdylib"]
 
