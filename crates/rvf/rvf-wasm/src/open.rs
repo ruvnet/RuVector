@@ -34,19 +34,18 @@ pub fn parse_vec_entries(buf: &[u8]) -> (u32, Vec<Entry>) {
         };
         let payload = &buf[payload_start..payload_end];
 
-        let count = u16::from_le_bytes([payload[0], payload[1]]) as usize;
-        let seg_dim = u32::from_le_bytes([payload[2], payload[3], payload[4], payload[5]]);
+        // Same layout as the native writer (rvf-runtime write_vec_seg):
+        // dimension u16 | vector_count u32 | (id u64, f32 * dimension)*.
+        let seg_dim = u32::from(u16::from_le_bytes([payload[0], payload[1]]));
+        let count = u32::from_le_bytes([payload[2], payload[3], payload[4], payload[5]]) as usize;
         // The store has one dimension; a segment that disagrees (or declares
         // none) would leave entries shorter than it, and query/export index
         // every entry by the store dimension.
         if seg_dim == 0 || (dim != 0 && seg_dim != dim) {
             continue;
         }
-        // seg_dim * 4 overflows a 32-bit usize for seg_dim >= 2^30.
-        let vec_bytes = match (seg_dim as usize).checked_mul(4) {
-            Some(b) => b,
-            None => continue,
-        };
+        // seg_dim fits in u16, so this cannot overflow even on wasm32.
+        let vec_bytes = seg_dim as usize * 4;
         dim = seg_dim;
 
         let mut offset = 6;
@@ -98,10 +97,10 @@ mod tests {
         h
     }
 
-    fn vec_seg(dim: u32, vecs: &[(u64, &[f32])]) -> Vec<u8> {
+    fn vec_seg(dim: u16, vecs: &[(u64, &[f32])]) -> Vec<u8> {
         let mut p = Vec::new();
-        p.extend_from_slice(&(vecs.len() as u16).to_le_bytes());
         p.extend_from_slice(&dim.to_le_bytes());
+        p.extend_from_slice(&(vecs.len() as u32).to_le_bytes());
         for (id, v) in vecs {
             p.extend_from_slice(&id.to_le_bytes());
             for x in *v {
@@ -169,8 +168,8 @@ mod tests {
 
     #[test]
     fn export_never_writes_a_lossy_file() {
-        // The VEC_SEG count field is u16: 65_536 live vectors were written as
-        // count = 0, so reopening the exported file silently lost everything.
+        // A u16 count wrote 65_536 live vectors as count = 0, so reopening the
+        // exported file silently lost everything. The count is u32 now.
         let n = u16::MAX as usize + 1;
         let mut s = WasmStore::new(1, 0);
         for i in 0..n {
@@ -182,11 +181,53 @@ mod tests {
         }
         let mut buf = alloc::vec![0u8; 64 + 6 + n * 12 + 64 + 44];
         let written = s.export(buf.as_mut_ptr(), buf.len() as u32);
-        if written >= 0 {
-            let (_, entries) = parse_vec_entries(&buf[..written as usize]);
-            assert_eq!(entries.len(), n, "export round-trip lost vectors");
-        }
-        assert_eq!(written, -1, "a store the format cannot hold is refused");
+        assert!(written > 0, "export failed: {written}");
+        let (_, entries) = parse_vec_entries(&buf[..written as usize]);
+        assert_eq!(entries.len(), n, "export round-trip lost vectors");
+    }
+
+    #[test]
+    fn export_refuses_a_dimension_the_format_cannot_hold() {
+        let mut s = WasmStore::new(u32::from(u16::MAX) + 1, 0);
+        s.entries.push(VecEntry {
+            id: 1,
+            data: alloc::vec![0.0; u16::MAX as usize + 1],
+            deleted: false,
+        });
+        let mut buf = alloc::vec![0u8; 1 << 20];
+        assert_eq!(s.export(buf.as_mut_ptr(), buf.len() as u32), -1);
+    }
+
+    #[test]
+    fn opens_a_file_written_by_the_native_runtime() {
+        extern crate std;
+        use rvf_runtime::{RvfOptions, RvfStore};
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("native.rvf");
+        let vectors: [[f32; 3]; 2] = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]];
+        let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
+        let mut store = RvfStore::create(
+            &path,
+            RvfOptions {
+                dimension: 3,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        store.ingest_batch(&refs, &[10, 20], None).unwrap();
+        store.close().unwrap();
+
+        let bytes = std::fs::read(&path).unwrap();
+        let (dim, entries) = parse_vec_entries(&bytes);
+        assert_eq!(dim, 3);
+        assert_eq!(
+            entries,
+            alloc::vec![
+                (10, alloc::vec![1.0, 2.0, 3.0]),
+                (20, alloc::vec![4.0, 5.0, 6.0])
+            ]
+        );
     }
 
     #[test]

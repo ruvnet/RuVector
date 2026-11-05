@@ -177,13 +177,14 @@ impl WasmStore {
         let live_entries: Vec<&VecEntry> = self.entries.iter().filter(|e| !e.deleted).collect();
         let n = live_entries.len();
 
-        // The VEC_SEG count field is u16: more live vectors would be written
-        // with a truncated count and silently lost on reopen. Refuse instead.
-        if n > u16::MAX as usize {
+        // The VEC_SEG and manifest dimension fields are u16: a wider store
+        // would be written truncated and silently change on reopen. Refuse
+        // instead. (The u32 count cannot overflow: total_size <= i32::MAX.)
+        if self.dimension > u32::from(u16::MAX) {
             return -1;
         }
 
-        // Vec segment payload: [count: u16, dim: u32, (id: u64, vec: f32*dim)*]
+        // Vec segment payload (native layout): [dim: u16, count: u32, (id: u64, vec: f32*dim)*]
         // Manifest segment payload: [epoch: u32, dim: u16, total_vecs: u64, profile: u8,
         //   seg_count: u32, (seg_id: u64, offset: u64, payload_len: u64, type: u8)*]
         let manifest_payload_len = 4 + 2 + 8 + 1 + 4 + 1 * 25; // 1 segment entry
@@ -225,9 +226,9 @@ impl WasmStore {
 
         // -- Vec segment payload --
         unsafe {
-            write_u16_at(out_ptr, offset, n as u16);
+            write_u16_at(out_ptr, offset, self.dimension as u16);
             offset += 2;
-            write_u32(out_ptr, offset, self.dimension);
+            write_u32(out_ptr, offset, n as u32);
             offset += 4;
             for entry in &live_entries {
                 write_u64(out_ptr, offset, entry.id);
