@@ -229,3 +229,40 @@ def test_rabitq_save_load_preserves_external_ids(tmp_path: Path) -> None:
     assert [item[0] for item in restored.export_items()] == list(ids)
     with pytest.raises(ValueError, match="already"):
         restored.add(99, vectors[0])
+
+
+@pytest.mark.parametrize("batched", [False, True])
+def test_hnsw_replacement_exposes_only_latest_identity_and_metadata(batched: bool) -> None:
+    idx = ruvector.HnswIndex.create(2, metric="euclidean", ef_search=100)
+    idx.insert("changed", np.array([1.0, 0.0], dtype=np.float32), {"revision": "old"})
+    idx.insert("keeper", np.array([2.0, 0.0], dtype=np.float32), {"revision": "keeper"})
+    if batched:
+        idx.insert_batch(
+            ["changed", "changed"],
+            np.array([[100.0, 0.0], [200.0, 0.0]], dtype=np.float32),
+            [{"revision": "intermediate"}, {"revision": "latest"}],
+        )
+    else:
+        idx.insert("changed", np.array([200.0, 0.0], dtype=np.float32), {"revision": "latest"})
+
+    query = np.array([1.0, 0.0], dtype=np.float32)
+    hits = idx.search(query, 3)
+    assert [hit[0] for hit in hits] == ["keeper", "changed"]
+    assert [hit[1] for hit in hits] == pytest.approx([1.0, 199.0])
+    assert hits[1][2] == {"revision": "latest"}
+    assert len(idx) == 2
+    assert idx.delete("changed")
+    assert [hit[0] for hit in idx.search(query, 3)] == ["keeper"]
+
+
+def test_hnsw_deleted_nearest_rows_do_not_hide_live_results() -> None:
+    idx = ruvector.HnswIndex.create(2, metric="euclidean", ef_search=100)
+    idx.insert_batch(
+        [str(i) for i in range(8)],
+        np.array([[float(i), 0.0] for i in range(8)], dtype=np.float32),
+    )
+    for i in range(6):
+        assert idx.delete(str(i))
+    hits = idx.search(np.array([0.0, 0.0], dtype=np.float32), 2, ef_search=1)
+    assert [hit[0] for hit in hits] == ["6", "7"]
+    assert [hit[1] for hit in hits] == pytest.approx([6.0, 7.0])

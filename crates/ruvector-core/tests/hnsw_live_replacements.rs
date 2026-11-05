@@ -141,3 +141,69 @@ fn legacy_replacement_snapshot_restores_only_canonical_live_rows() {
     );
     assert_eq!(restored.len(), 2);
 }
+
+#[test]
+fn sparse_deleted_labels_survive_restore_and_new_insertion() {
+    let mut index = index();
+    for i in 0..8 {
+        index.add(i.to_string(), vec![i as f32, 0.0]).unwrap();
+    }
+    for i in 0..6 {
+        assert!(index.remove(&i.to_string()).unwrap());
+    }
+    // Restore inserts only labels 6 and 7 at dense positions 0 and 1.
+    let mut restored = HnswIndex::deserialize(&index.serialize().unwrap()).unwrap();
+    let hits = restored.search(&[0.0, 0.0], 2).unwrap();
+    assert_eq!(
+        hits.iter().map(|hit| hit.id.as_str()).collect::<Vec<_>>(),
+        vec!["6", "7"]
+    );
+    assert_eq!(
+        hits.iter().map(|hit| hit.score).collect::<Vec<_>>(),
+        vec![6.0, 7.0]
+    );
+    restored.add("new".into(), vec![0.0, 0.0]).unwrap();
+    let again = HnswIndex::deserialize(&restored.serialize().unwrap()).unwrap();
+    let hits = again.search(&[0.0, 0.0], 3).unwrap();
+    assert_eq!(
+        hits.iter().map(|hit| hit.id.as_str()).collect::<Vec<_>>(),
+        vec!["new", "6", "7"]
+    );
+}
+
+#[test]
+fn mixed_single_batch_delete_and_restore_keep_latest_live_identity() {
+    let mut index = index();
+    index.add("changed".into(), vec![1.0, 0.0]).unwrap();
+    index.add("keeper".into(), vec![2.0, 0.0]).unwrap();
+    index
+        .add_batch(vec![
+            ("changed".into(), vec![100.0, 0.0]),
+            ("changed".into(), vec![200.0, 0.0]),
+        ])
+        .unwrap();
+    let hits = index.search(&[1.0, 0.0], 3).unwrap();
+    assert_eq!(
+        hits.iter().map(|hit| hit.id.as_str()).collect::<Vec<_>>(),
+        vec!["keeper", "changed"]
+    );
+    assert_eq!(hits[0].score, 1.0);
+    assert_eq!(hits[1].score, 199.0);
+    assert_eq!(index.len(), 2);
+
+    assert!(index.remove(&"changed".into()).unwrap());
+    index.add("changed".into(), vec![3.0, 0.0]).unwrap();
+    let mut restored = HnswIndex::deserialize(&index.serialize().unwrap()).unwrap();
+    let hits = restored.search(&[1.0, 0.0], 5).unwrap();
+    assert_eq!(
+        hits.iter().map(|hit| hit.id.as_str()).collect::<Vec<_>>(),
+        vec!["keeper", "changed"]
+    );
+    assert_eq!(hits[0].score, 1.0);
+    assert_eq!(hits[1].score, 2.0);
+    assert_eq!(restored.len(), 2);
+    assert!(restored.remove(&"changed".into()).unwrap());
+    let hits = restored.search(&[1.0, 0.0], 5).unwrap();
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].id, "keeper");
+}
