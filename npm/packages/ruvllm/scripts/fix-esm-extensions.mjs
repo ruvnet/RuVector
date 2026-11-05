@@ -114,11 +114,45 @@ function scanAndRewrite(source, onSpec) {
   return { text, violations };
 }
 
+// CommonJS globals in ESM output. src/native.ts loads the .node addon with
+// `require()` and `__dirname`, which tsc emits verbatim into dist/esm, where
+// they do not exist: `import('@ruvector/ruvllm')` then never loaded the
+// native binding and silently used the JS fallback. ESM files that use them
+// get a module-scoped createRequire(import.meta.url) / __filename /
+// __dirname preamble (tsc's CJS output cannot contain import.meta, so this
+// has to happen here).
+const CJS_SHIM_MARKER = '/* ruvllm: CommonJS globals for ESM (fix-esm-extensions) */';
+const CJS_SHIM = [
+  CJS_SHIM_MARKER,
+  "import { createRequire as __ruvllmCreateRequire } from 'node:module';",
+  "import { fileURLToPath as __ruvllmFileURLToPath } from 'node:url';",
+  "import { dirname as __ruvllmDirname } from 'node:path';",
+  'const require = __ruvllmCreateRequire(import.meta.url);',
+  'const __filename = __ruvllmFileURLToPath(import.meta.url);',
+  'const __dirname = __ruvllmDirname(__filename);',
+  '',
+].join('\n');
+const CJS_GLOBAL_RE = /\brequire\s*\(|\b__dirname\b|\b__filename\b/;
+
+function usesCjsGlobals(file, text) {
+  if (!file.endsWith('.js')) return false;
+  // Ignore comments so documentation mentioning require() does not count.
+  const code = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  return CJS_GLOBAL_RE.test(code);
+}
+
+function addCjsShim(file, text) {
+  if (!usesCjsGlobals(file, text) || text.includes(CJS_SHIM_MARKER)) return text;
+  return CJS_SHIM + text;
+}
+
 function fixFile(file) {
   const dir = dirname(file);
   const original = readFileSync(file, 'utf8');
 
-  const { text, violations } = scanAndRewrite(original, (spec) => resolveSpecifier(dir, spec));
+  const rewritten = scanAndRewrite(original, (spec) => resolveSpecifier(dir, spec));
+  const violations = rewritten.violations;
+  const text = addCjsShim(file, rewritten.text);
 
   if (violations.length > 0) {
     for (const spec of violations) {
@@ -139,14 +173,19 @@ function fixFile(file) {
 
 function verifyFile(file) {
   const remaining = [];
+  const text = readFileSync(file, 'utf8');
   // In verify mode we don't need resolution at all: any extensionless
   // relative specifier still present after the fix step is itself the
   // failure condition.
-  scanAndRewrite(readFileSync(file, 'utf8'), (spec) => {
+  scanAndRewrite(text, (spec) => {
     remaining.push(spec);
     return null; // never rewrite in verify mode; force it into `violations`
   });
-  return remaining.map((spec) => ({ file, spec }));
+  const issues = remaining.map((spec) => ({ file, spec }));
+  if (usesCjsGlobals(file, text) && !text.includes(CJS_SHIM_MARKER)) {
+    issues.push({ file, spec: 'require/__dirname without the ESM CommonJS-globals preamble' });
+  }
+  return issues;
 }
 
 function main() {
