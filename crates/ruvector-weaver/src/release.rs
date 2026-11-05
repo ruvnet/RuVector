@@ -233,10 +233,92 @@ pub fn registry_checks(
     let Some(doc) = http.get_json(&url)? else {
         return Ok(None);
     };
-    Ok(latest_pair(&doc).map(|(p, n)| {
-        let r = compare(&p, &n);
-        (p, n, r)
-    }))
+    let Some((prev, latest)) = latest_pair(&doc) else {
+        return Ok(None);
+    };
+    // Compare with the immediate predecessor AND the last release of the
+    // previous major: two bad versions in a row (4.0.0, 4.0.1) must not
+    // hide the 3.x -> 4.x break.
+    let mut bases = vec![prev.clone()];
+    if let Some(pm) = previous_major(&doc).filter(|pm| pm.version != prev.version) {
+        bases.push(pm);
+    }
+    let latest = canonical(latest);
+    let mut merged: Vec<GateResult> = Vec::new();
+    let mut worst = prev;
+    for b in bases {
+        let b = canonical(b);
+        for r in compare(&b, &latest) {
+            match merged.iter_mut().find(|m| m.name == r.name) {
+                Some(m) if m.passed && !r.passed => {
+                    *m = r;
+                    worst = b.clone();
+                }
+                Some(_) => {}
+                None => {
+                    if !r.passed {
+                        worst = b.clone();
+                    }
+                    merged.push(r);
+                }
+            }
+        }
+    }
+    Ok(Some((worst, latest, merged)))
+}
+
+/// Last stable release of the major line before `latest`'s major.
+pub fn previous_major(packument: &Value) -> Option<Snapshot> {
+    let latest = packument["dist-tags"]["latest"].as_str()?;
+    let major = |v: &str| v.split('.').next().and_then(|m| m.parse::<u64>().ok());
+    let lm = major(latest)?;
+    let times = packument["time"].as_object()?;
+    let mut best: Option<(&str, &str)> = None;
+    for (k, t) in times {
+        let Some(t) = t.as_str() else { continue };
+        if k.contains('-') || packument["versions"].get(k.as_str()).is_none() {
+            continue;
+        }
+        if major(k).map(|m| m < lm).unwrap_or(false) && best.map(|(_, bt)| t > bt).unwrap_or(true) {
+            best = Some((k.as_str(), t));
+        }
+    }
+    best.map(|(k, _)| snapshot(&packument["versions"][k]))
+}
+
+/// Resolve GitHub renames (`ruvnet/claude-flow` -> `ruvnet/ruflo`) so a
+/// renamed repo is not reported as a repository change. Cached; falls back
+/// to the given slug when `gh` cannot answer.
+pub fn canonical_slug(slug: &str) -> String {
+    use std::collections::BTreeMap;
+    use std::sync::{Mutex, OnceLock};
+    static CACHE: OnceLock<Mutex<BTreeMap<String, String>>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| Mutex::new(BTreeMap::new()));
+    if let Some(v) = cache.lock().expect("slug cache").get(slug) {
+        return v.clone();
+    }
+    let path = format!("repos/{slug}");
+    let got = crate::util::run_timeout(
+        "gh",
+        &["api", &path, "--jq", ".full_name"],
+        std::path::Path::new("."),
+        std::time::Duration::from_secs(30),
+    )
+    .ok()
+    .filter(|o| o.status == Some(0))
+    .map(|o| o.stdout.trim().to_ascii_lowercase())
+    .filter(|s| s.contains('/'))
+    .unwrap_or_else(|| slug.to_string());
+    cache
+        .lock()
+        .expect("slug cache")
+        .insert(slug.to_string(), got.clone());
+    got
+}
+
+fn canonical(mut s: Snapshot) -> Snapshot {
+    s.repo = s.repo.map(|r| canonical_slug(&r));
+    s
 }
 
 /// Pre-publish release checks for a local package dir against the
@@ -270,7 +352,7 @@ pub fn dir_checks(
         crate::http::encode_pkg(&name)
     );
     let mut out = match http.get_json(&latest_url)? {
-        Some(latest) => compare(&snapshot(&latest), &next),
+        Some(latest) => compare(&canonical(snapshot(&latest)), &canonical(next)),
         None => vec![res(
             "repo_changed",
             true,

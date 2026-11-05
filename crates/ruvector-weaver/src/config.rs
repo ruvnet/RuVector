@@ -51,6 +51,12 @@ pub struct GatePolicy {
     pub max_age_days: i64,
     pub leak_patterns: Vec<String>,
     pub smoke_timeout_secs: u64,
+    /// "Lean release" bar that re-opens a candidate rejected for a heavy
+    /// dependency tree once a newer version clears it.
+    #[serde(default = "default_lean_deps")]
+    pub lean_max_runtime_deps: usize,
+    #[serde(default = "default_lean_bytes")]
+    pub lean_max_unpacked_bytes: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -221,4 +227,12 @@ impl Config {
             work_dir,
         })
     }
+}
+
+fn default_lean_deps() -> usize {
+    5
+}
+
+fn default_lean_bytes() -> u64 {
+    5_000_000
 }

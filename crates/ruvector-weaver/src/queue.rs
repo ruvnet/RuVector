@@ -115,9 +115,73 @@ pub struct QueueInputs<'a> {
     pub prs: &'a [RepoPrs],
 }
 
+/// Does a rejection's reason say the candidate was too heavy to depend on?
+pub fn is_heavy_rejection(e: &LedgerEntry) -> bool {
+    e.outcome == crate::model::Outcome::Rejected
+        && e.reason
+            .as_deref()
+            .map(|r| {
+                let r = r.to_ascii_lowercase();
+                r.contains("heavy dep") || r.contains("dependency tree") || r.contains("heavy tree")
+            })
+            .unwrap_or(false)
+}
+
+/// The candidate's current release clears the size/dep gate and is newer
+/// than the version that was rejected.
+pub fn lean_release(graph: &Graph, cfg: &Config, e: &LedgerEntry) -> Option<String> {
+    let p = graph.get(e.candidate.as_deref()?)?;
+    let rejected_at = e
+        .version
+        .as_deref()
+        .and_then(|v| v.rsplit('@').next())
+        .unwrap_or("");
+    let g = &cfg.policy.gate;
+    let lean = p.runtime_deps <= g.lean_max_runtime_deps
+        && p.unpacked_size > 0
+        && p.unpacked_size <= g.lean_max_unpacked_bytes;
+    (p.version != rejected_at && lean).then(|| {
+        format!(
+            "{}@{} clears the size/dep gate ({} runtime deps, {} bytes unpacked; rejected at {})",
+            p.name,
+            p.version,
+            p.runtime_deps,
+            p.unpacked_size,
+            if rejected_at.is_empty() {
+                "?"
+            } else {
+                rejected_at
+            }
+        )
+    })
+}
+
+/// Ledger view where heavy-dependency rejections whose candidate shipped a
+/// lean release are re-queued (the rejection itself stays in history).
+pub fn requeue_lean(ledger: &Ledger, graph: &Graph, cfg: &Config) -> Ledger {
+    let mut out = ledger.clone();
+    let latest: Vec<&LedgerEntry> = ledger.latest_by_key().into_values().collect();
+    for (i, e) in ledger.entries.iter().enumerate() {
+        if !is_heavy_rejection(e) || !latest.iter().any(|l| std::ptr::eq(*l, e)) {
+            continue;
+        }
+        if let Some(why) = lean_release(graph, cfg, e) {
+            let o = &mut out.entries[i];
+            o.outcome = crate::model::Outcome::Queued;
+            o.reason = Some(format!(
+                "re-queued: {why}. Was: {}",
+                e.reason.as_deref().unwrap_or("")
+            ));
+        }
+    }
+    out
+}
+
 pub fn build(cfg: &Config, inp: QueueInputs) -> Queue {
     let lp = &cfg.policy.lp;
-    let weights = signal_weights(inp.ledger);
+    let requeued = requeue_lean(inp.ledger, inp.graph, cfg);
+    let ledger = &requeued;
+    let weights = signal_weights(ledger);
     let mut groups: BTreeMap<String, (WorkKind, Vec<Signal>)> = BTreeMap::new();
     for s in inp.reports.iter().flat_map(|r| &r.signals) {
         let kind = work_kind(s);
@@ -162,7 +226,7 @@ pub fn build(cfg: &Config, inp: QueueInputs) -> Queue {
             None
         };
         let candidate = top.candidate.clone();
-        if let PairState::Blocked { outcome, reason } = inp.ledger.pair_state(
+        if let PairState::Blocked { outcome, reason } = ledger.pair_state(
             &top.repo,
             candidate.as_deref(),
             subject.as_deref(),
@@ -233,7 +297,7 @@ pub fn build(cfg: &Config, inp: QueueInputs) -> Queue {
     }
     let live: BTreeMap<String, &RepoPrs> = inp.prs.iter().map(|r| (r.repo.clone(), r)).collect();
     let is_pr = |s: &Option<String>| s.as_deref().map(|x| x.starts_with("pr:#")).unwrap_or(false);
-    for e in inp.ledger.queued() {
+    for e in ledger.queued() {
         if is_pr(&e.subject) {
             if let Some(r) = live.get(&e.repo.to_ascii_lowercase()) {
                 let open = r
@@ -266,7 +330,7 @@ pub fn build(cfg: &Config, inp: QueueInputs) -> Queue {
             let Some(it) = prs::item(&r.repo, p, downloads, weights[&SignalKind::OpenPr]) else {
                 continue;
             };
-            match inp.ledger.pair_state(
+            match ledger.pair_state(
                 &it.repo,
                 None,
                 it.subject.as_deref(),
@@ -315,7 +379,7 @@ pub fn build(cfg: &Config, inp: QueueInputs) -> Queue {
             .then(a.id.cmp(&b.id))
     });
 
-    let busy = inp.ledger.busy_repos();
+    let busy = ledger.busy_repos();
     let lanes = assign_lanes(&mut items, &busy, lp.max_lanes, lp.max_batch_per_lane);
     for it in &mut items {
         let gate = it.candidate.as_deref().and_then(|c| inp.gates.get(c));

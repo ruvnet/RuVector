@@ -347,6 +347,8 @@ fn graph_with(repos: &[(&str, u64)]) -> Graph {
             repo_slug: Some(slug.to_string()),
             platform_binary: false,
             open_ranges: vec![],
+            unpacked_size: 0,
+            runtime_deps: 0,
         })
         .collect();
     Graph {
@@ -924,6 +926,7 @@ fn release_latest_pair_orders_by_publish_time() {
     assert_eq!((p.version.as_str(), n.version.as_str()), ("3.9.0", "4.0.1"));
     assert_eq!(p.repo.as_deref(), Some("ruvnet/ruvector"));
     assert_eq!(n.repo.as_deref(), Some("ruvnet/ruvllm"));
+    assert_eq!(release::previous_major(&doc).unwrap().version, "3.9.0");
 }
 
 #[test]
@@ -997,4 +1000,91 @@ fn seeded_ledger_holds_the_ruvllm_incident() {
             ..
         }
     ));
+}
+
+#[test]
+fn heavy_rejection_requeues_on_lean_release() {
+    let c = cfg();
+    let mut l = Ledger::default();
+    let mut e = entry(
+        "ruvnet/agentdb",
+        Some("sublinear-time-solver"),
+        Some("agentdb:ppr-fallback"),
+        WorkKind::Replace,
+        SignalKind::StubMarker,
+        Outcome::Rejected,
+    );
+    e.reason = Some("heavy dependency tree (18 runtime deps)".into());
+    e.version = Some("sublinear-time-solver@1.7.2".into());
+    l.entries.push(e);
+    let mut g = graph_with(&[
+        ("ruvnet/sublinear-time-solver", 1000),
+        ("ruvnet/agentdb", 10),
+    ]);
+    let p = g
+        .packages
+        .iter_mut()
+        .find(|p| p.name == "sublinear-time-solver")
+        .unwrap();
+    p.version = "1.7.2".into();
+    p.runtime_deps = 18;
+    p.unpacked_size = 9_845_144;
+    // Same heavy version: still rejected, no item.
+    let q = queue::build(
+        &c,
+        queue::QueueInputs {
+            graph: &g,
+            reports: &[],
+            ledger: &l,
+            gates: &BTreeMap::new(),
+            creates: vec![],
+            create_suppressed: vec![],
+            prs: &[],
+        },
+    );
+    assert!(q.items.is_empty());
+    // Lean release ships: the rejection is re-queued as a work item.
+    let p = g
+        .packages
+        .iter_mut()
+        .find(|p| p.name == "sublinear-time-solver")
+        .unwrap();
+    p.version = "1.8.0".into();
+    p.runtime_deps = 1;
+    p.unpacked_size = 400_000;
+    let q = queue::build(
+        &c,
+        queue::QueueInputs {
+            graph: &g,
+            reports: &[],
+            ledger: &l,
+            gates: &BTreeMap::new(),
+            creates: vec![],
+            create_suppressed: vec![],
+            prs: &[],
+        },
+    );
+    let it = q
+        .items
+        .iter()
+        .find(|i| i.subject.as_deref() == Some("agentdb:ppr-fallback"))
+        .expect("re-queued");
+    assert!(it.evidence[0]
+        .evidence
+        .starts_with("re-queued: sublinear-time-solver@1.8.0"));
+    // Non-heavy rejections are never re-opened.
+    l.entries[0].reason = Some("dependency cycle".into());
+    let q = queue::build(
+        &c,
+        queue::QueueInputs {
+            graph: &g,
+            reports: &[],
+            ledger: &l,
+            gates: &BTreeMap::new(),
+            creates: vec![],
+            create_suppressed: vec![],
+            prs: &[],
+        },
+    );
+    assert!(q.items.is_empty());
 }

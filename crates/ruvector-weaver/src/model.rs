@@ -40,6 +40,12 @@ pub struct Package {
     /// (`dep@>=2.0.0`): any future major, from any repo, is accepted.
     #[serde(default)]
     pub open_ranges: Vec<String>,
+    /// Latest version's unpacked tarball size (bytes) and runtime dependency
+    /// count: the size/dep gate for "heavy dependency tree" rejections.
+    #[serde(default)]
+    pub unpacked_size: u64,
+    #[serde(default)]
+    pub runtime_deps: usize,
 }
 
 impl Package {

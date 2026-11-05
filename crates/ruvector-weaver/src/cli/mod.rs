@@ -2,6 +2,7 @@
 
 mod cmds;
 mod io;
+mod sources;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -211,8 +212,8 @@ pub fn run() -> Result<()> {
             all,
             checks,
             seed_ledger,
-        } => cmds::prs(&ctx, repos, all, checks, seed_ledger),
-        Cmd::Release { packages, workers } => cmds::release(&ctx, packages, workers),
+        } => sources::prs(&ctx, repos, all, checks, seed_ledger),
+        Cmd::Release { packages, workers } => sources::release(&ctx, packages, workers),
         Cmd::Gate {
             package,
             consumer,
