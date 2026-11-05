@@ -77,11 +77,11 @@ jobs:
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
             node_file: attention.linux-arm64-gnu.node
-          - host: macos-14
+          - host: macos-15
             target: x86_64-apple-darwin
             platform: darwin-x64
             node_file: attention.darwin-x64.node
-          - host: macos-14
+          - host: macos-15
             target: aarch64-apple-darwin
             platform: darwin-arm64
             node_file: attention.darwin-arm64.node

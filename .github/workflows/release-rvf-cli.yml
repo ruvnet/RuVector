@@ -29,11 +29,11 @@ jobs:
             ext: ''
             cross: true
           - target: x86_64-apple-darwin
-            os: macos-14
+            os: macos-15
             name: rvf-darwin-x64
             ext: ''
           - target: aarch64-apple-darwin
-            os: macos-14
+            os: macos-15
             name: rvf-darwin-arm64
             ext: ''
           - target: x86_64-pc-windows-msvc
