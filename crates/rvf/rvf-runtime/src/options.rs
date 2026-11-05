@@ -181,8 +181,8 @@ pub struct QueryOptions {
     /// Opt in to the RaBitQ two-stage path: a 1-bit-code candidate scan
     /// (~32x smaller than f32) followed by an exact f32 rescore of the
     /// oversampled candidates. Default `false` (full-precision HNSW /
-    /// exact scan). v1 serves the L2 metric only; other metrics and
-    /// filtered/COW queries fall back to the default routing.
+    /// exact scan). Serves L2, cosine and inner product; filtered/COW
+    /// queries fall back to the default routing.
     pub rabitq: bool,
     /// Candidate oversampling factor for the RaBitQ first stage: the
     /// binary scan collects `rabitq_oversample * k` candidates (floored

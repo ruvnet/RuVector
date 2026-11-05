@@ -836,7 +836,7 @@ impl RvfStore {
     }
 
     /// Whether this query can be served by the opt-in RaBitQ two-stage
-    /// path. v1 supports the L2 metric; filtered queries and COW /
+    /// path (every metric; see `rabitq_path.rs`). Filtered queries and COW /
     /// membership stores use the default routing.
     fn rabitq_eligible(&self, options: &QueryOptions) -> bool {
         options.rabitq
@@ -844,7 +844,6 @@ impl RvfStore {
             && options.filter.is_none()
             && self.membership_filter.is_none()
             && self.cow_engine.is_none()
-            && self.options.metric == DistanceMetric::L2
     }
 
     /// Serve a query through the RaBitQ two-stage path, building the code
@@ -870,7 +869,7 @@ impl RvfStore {
                 return None;
             }
             let _clear = ClearOnDrop(&self.rabitq_building);
-            let built = RabitqState::build(&self.vectors);
+            let built = RabitqState::build(&self.vectors, self.options.metric);
             guard = self.rabitq.lock().unwrap_or_else(|e| e.into_inner());
             if guard.is_none() {
                 *guard = built;
@@ -894,13 +893,20 @@ impl RvfStore {
         let candidates =
             state.candidates(vector, k_fetch, |id| !self.deletion_bitmap.is_deleted(id));
 
-        // Stage 2: exact f32 rescore of the candidate set.
+        // Stage 2: exact f32 rescore of the candidate set in the true
+        // metric. Cosine needs the query norm (`compute_distance` treats a
+        // zero norm as "undefined" and returns 1.0 for every candidate).
+        let query_norm_sq = if self.options.metric == DistanceMetric::Cosine {
+            vector.iter().map(|x| x * x).sum()
+        } else {
+            0.0f32
+        };
         let mut results: Vec<SearchResult> = candidates
             .into_iter()
             .filter_map(|(id, _est)| {
                 self.vectors.get(id).map(|v| SearchResult {
                     id,
-                    distance: compute_distance(vector, v, &self.options.metric, 0.0),
+                    distance: compute_distance(vector, v, &self.options.metric, query_norm_sq),
                     retrieval_quality: rvf_types::quality::RetrievalQuality::Full,
                     metadata: None,
                 })
