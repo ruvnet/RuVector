@@ -46,7 +46,7 @@ const EXTRAS = Object.freeze(Object.assign(Object.create(null), {
   },
   rvf: {
     pkg: '@ruvector/rvf',
-    spec: '@ruvector/rvf@^0.3.4',
+    spec: '@ruvector/rvf@^0.4.2',
     why: 'Persistent RVF vector stores behind `ruvector rvf` and the rvf_* MCP tools (optional dependency)',
     usage: 'npx ruvector rvf --help',
   },
