@@ -23,7 +23,7 @@ pub struct GraphOptions {
 pub fn is_platform_binary(name: &str) -> bool {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| {
-        Regex::new(r"-(linux|darwin|win32|android|freebsd|openbsd|sunos|wasm32)-(x64|arm64|ia32|arm|riscv64|s390x|ppc64|universal|wasi)(-(gnu|musl|msvc|gnueabihf|eabi|androideabi))?$")
+        Regex::new(r"-(linux|darwin|win32|android|freebsd|openbsd|sunos|wasm32)-(x64|arm64|ia32|arm|riscv64|s390x|ppc64|universal|wasi)(-(gnu|musl|msvc|gnueabihf|musleabihf|eabi|androideabi))?$")
             .expect("platform regex")
     })
     .is_match(name)
@@ -240,6 +240,26 @@ pub fn build(http: &Http, cfg: &Config, opts: &GraphOptions) -> Result<Graph> {
     if opts.include_crates {
         packages.extend(crates_for_user(http, cfg.policy.crates.user_id)?);
     }
+    // Resolve GitHub renames once per distinct slug.
+    let mut slugs: Vec<String> = packages
+        .iter()
+        .filter_map(|p| p.repo_slug.clone())
+        .collect();
+    slugs.sort();
+    slugs.dedup();
+    let canon = par_map(&slugs, opts.workers.min(4), |s| {
+        crate::release::canonical_slug(s)
+    });
+    let repo_aliases: BTreeMap<String, String> = slugs
+        .into_iter()
+        .zip(canon)
+        .filter(|(a, b)| a != b)
+        .collect();
+    for p in &mut packages {
+        if let Some(c) = p.repo_slug.as_ref().and_then(|s| repo_aliases.get(s)) {
+            p.repo_slug = Some(c.clone());
+        }
+    }
     packages.sort_by(|a, b| {
         b.monthly_downloads
             .cmp(&a.monthly_downloads)
@@ -248,6 +268,7 @@ pub fn build(http: &Http, cfg: &Config, opts: &GraphOptions) -> Result<Graph> {
     Ok(Graph {
         generated_at: now(),
         consumer_repos: consumer_repos(&packages),
+        repo_aliases,
         packages,
     })
 }

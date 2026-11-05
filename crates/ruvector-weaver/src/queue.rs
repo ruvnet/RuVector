@@ -177,13 +177,53 @@ pub fn requeue_lean(ledger: &Ledger, graph: &Graph, cfg: &Config) -> Ledger {
     out
 }
 
+/// Map every repo name through the graph's rename aliases, keep only the
+/// newest scan / PR snapshot per canonical repo, and re-queue lean releases.
+fn canonicalize(inp: &QueueInputs, cfg: &Config) -> (Ledger, Vec<ScanReport>, Vec<RepoPrs>) {
+    let g = inp.graph;
+    let mut ledger = requeue_lean(inp.ledger, g, cfg);
+    for e in &mut ledger.entries {
+        e.repo = g.canon(&e.repo);
+    }
+    let mut reports: BTreeMap<String, ScanReport> = BTreeMap::new();
+    for r in inp.reports {
+        let mut r = r.clone();
+        for s in &mut r.signals {
+            s.repo = g.canon(&s.repo);
+        }
+        let key = g.canon(&r.repo);
+        match reports.get(&key) {
+            Some(old) if old.scanned_at >= r.scanned_at => {}
+            _ => {
+                reports.insert(key, r);
+            }
+        }
+    }
+    let mut prs: BTreeMap<String, RepoPrs> = BTreeMap::new();
+    for p in inp.prs {
+        let mut p = p.clone();
+        p.repo = g.canon(&p.repo);
+        match prs.get(&p.repo) {
+            Some(old) if old.fetched_at >= p.fetched_at => {}
+            _ => {
+                prs.insert(p.repo.clone(), p);
+            }
+        }
+    }
+    (
+        ledger,
+        reports.into_values().collect(),
+        prs.into_values().collect(),
+    )
+}
+
 pub fn build(cfg: &Config, inp: QueueInputs) -> Queue {
     let lp = &cfg.policy.lp;
-    let requeued = requeue_lean(inp.ledger, inp.graph, cfg);
+    let (requeued, reports, live_prs) = canonicalize(&inp, cfg);
     let ledger = &requeued;
     let weights = signal_weights(ledger);
     let mut groups: BTreeMap<String, (WorkKind, Vec<Signal>)> = BTreeMap::new();
-    for s in inp.reports.iter().flat_map(|r| &r.signals) {
+    for s in reports.iter().flat_map(|r| &r.signals) {
         let kind = work_kind(s);
         if kind == WorkKind::Create {
             continue; // handled by propose-new
@@ -295,7 +335,7 @@ pub fn build(cfg: &Config, inp: QueueInputs) -> Queue {
             brief: String::new(),
         });
     }
-    let live: BTreeMap<String, &RepoPrs> = inp.prs.iter().map(|r| (r.repo.clone(), r)).collect();
+    let live: BTreeMap<String, &RepoPrs> = live_prs.iter().map(|r| (r.repo.clone(), r)).collect();
     let is_pr = |s: &Option<String>| s.as_deref().map(|x| x.starts_with("pr:#")).unwrap_or(false);
     for e in ledger.queued() {
         if is_pr(&e.subject) {
@@ -320,7 +360,7 @@ pub fn build(cfg: &Config, inp: QueueInputs) -> Queue {
         items.push(it);
     }
     items.extend(inp.creates);
-    for r in inp.prs {
+    for r in &live_prs {
         let downloads = inp
             .graph
             .repo(&r.repo)

@@ -76,12 +76,17 @@ pub fn propose(
     for s in reports.iter().flat_map(|r| &r.signals) {
         if s.kind == crate::model::SignalKind::MissingPackage && s.candidate.is_none() {
             if let Some(name) = &s.subject {
-                gaps.entry((s.repo.clone(), name.clone()))
+                gaps.entry((graph.canon(&s.repo), name.clone()))
                     .or_default()
                     .push(s.clone());
             }
         }
     }
+    let mut canon = ledger.clone();
+    for e in &mut canon.entries {
+        e.repo = graph.canon(&e.repo);
+    }
+    let ledger = &canon;
     let day_used = ledger.new_packages_since(chrono::Utc::now() - chrono::Duration::hours(24));
     let weight = signal_weights(ledger)[&crate::model::SignalKind::MissingPackage];
     let mut out = Proposals {

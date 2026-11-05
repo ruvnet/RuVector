@@ -236,7 +236,8 @@ pub fn scan_dir(
                 .insert(imp.package.clone());
             let name = &imp.package;
             let ecosystem = npm.is_ecosystem(name) || graph.get(name).is_some();
-            if !ecosystem || local_names.contains(name) {
+            // NAPI loaders probe every platform binary by design; not a signal.
+            if !ecosystem || local_names.contains(name) || crate::graph::is_platform_binary(name) {
                 continue;
             }
             let base = |kind, confidence, candidate: Option<String>| Signal {
@@ -374,9 +375,9 @@ fn release_signals(
         };
         if let (Some(name), false) = (&m.name, v["private"].as_bool() == Some(true)) {
             let owner = graph.get(name).and_then(|p| p.repo_slug.clone());
-            if let Some(owner) =
-                owner.filter(|o| !o.eq_ignore_ascii_case(repo) && !repo.starts_with("local/"))
-            {
+            if let Some(owner) = owner.filter(|o| {
+                !o.eq_ignore_ascii_case(&graph.canon(repo)) && !repo.starts_with("local/")
+            }) {
                 let line = m
                     .text
                     .lines()

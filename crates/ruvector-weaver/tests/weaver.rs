@@ -62,6 +62,12 @@ fn detects_404_probes_with_file_line_and_capability() {
     assert_eq!(wasm.line, 10);
     assert_eq!(wasm.candidate.as_deref(), Some("@ruvector/mincut-wasm"));
     // A 404 with no capability entry is a gap (candidate None).
+    assert!(find(
+        &r,
+        SignalKind::MissingPackage,
+        "@ruvector/mincut-linux-arm-musleabihf"
+    )
+    .is_none());
     let ast = find(&r, SignalKind::MissingPackage, "@ruvector/ast").expect("404 @ruvector/ast");
     assert_eq!(ast.candidate, None);
     assert_eq!((ast.file.as_str(), ast.line), ("src/ast-analyzer.ts", 3));
@@ -355,6 +361,7 @@ fn graph_with(repos: &[(&str, u64)]) -> Graph {
         generated_at: String::new(),
         consumer_repos: consumer_repos(&packages),
         packages,
+        repo_aliases: BTreeMap::new(),
     }
 }
 
@@ -693,6 +700,8 @@ fn graph_helpers() {
     assert!(is_platform_binary("@ruvector/core-linux-x64-gnu"));
     assert!(is_platform_binary("ruvector-darwin-arm64"));
     assert!(is_platform_binary("@ruvector/rvf-node-win32-x64-msvc"));
+    assert!(is_platform_binary("@ruvector/sona-linux-arm-musleabihf"));
+    assert!(is_platform_binary("@ruvector/sona-android-arm-eabi"));
     assert!(!is_platform_binary("@ruvector/mincut-wasm"));
     assert_eq!(
         repo_slug("git+https://github.com/ruvnet/RuVector.git").as_deref(),
@@ -1087,4 +1096,50 @@ fn heavy_rejection_requeues_on_lean_release() {
         },
     );
     assert!(q.items.is_empty());
+}
+
+#[test]
+fn renamed_repos_share_one_lane_and_one_ledger_history() {
+    let c = cfg();
+    let mut g = graph_with(&[("ruvnet/ruflo", 1000)]);
+    g.repo_aliases
+        .insert("ruvnet/claude-flow".into(), "ruvnet/ruflo".into());
+    let mut ledger = Ledger::default();
+    ledger.entries.push(entry(
+        "ruvnet/claude-flow",
+        Some("@ruvector/mincut-wasm"),
+        Some("@ruvector/mincut"),
+        WorkKind::Replace,
+        SignalKind::MissingPackage,
+        Outcome::InProgress,
+    ));
+    // The same repo scanned under both names.
+    let reports = vec![report_for("ruvnet/claude-flow"), report_for("ruvnet/ruflo")];
+    let q = queue::build(
+        &c,
+        queue::QueueInputs {
+            graph: &g,
+            reports: &reports,
+            ledger: &ledger,
+            gates: &BTreeMap::new(),
+            creates: vec![],
+            create_suppressed: vec![],
+            prs: &[],
+        },
+    );
+    assert!(q.busy_repos.contains_key("ruvnet/ruflo"));
+    assert!(q.lanes.is_empty());
+    assert!(q.items.iter().all(|i| i.repo == "ruvnet/ruflo"));
+    let ids: BTreeSet<_> = q.items.iter().map(|i| i.id.clone()).collect();
+    assert_eq!(
+        ids.len(),
+        q.items.len(),
+        "no duplicate items from the two names"
+    );
+    assert!(q.items.iter().all(|i| i.evidence.len()
+        == i.evidence
+            .iter()
+            .map(|s| (&s.file, s.line))
+            .collect::<BTreeSet<_>>()
+            .len()));
 }

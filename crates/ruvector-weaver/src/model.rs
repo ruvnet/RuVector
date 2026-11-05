@@ -72,6 +72,11 @@ pub struct Graph {
     pub generated_at: String,
     pub packages: Vec<Package>,
     pub consumer_repos: Vec<ConsumerRepo>,
+    /// Renamed GitHub repos: old slug -> canonical slug (e.g.
+    /// `ruvnet/claude-flow` -> `ruvnet/ruflo`), so ledger history, scans and
+    /// PR snapshots recorded under either name land on one lane.
+    #[serde(default)]
+    pub repo_aliases: BTreeMap<String, String>,
 }
 
 impl Graph {
@@ -89,8 +94,14 @@ impl Graph {
             .find(|p| p.ecosystem == Ecosystem::Crates && p.name == name)
     }
 
+    /// Canonical (post-rename) lower-case slug.
+    pub fn canon(&self, slug: &str) -> String {
+        let s = slug.to_ascii_lowercase();
+        self.repo_aliases.get(&s).cloned().unwrap_or(s)
+    }
+
     pub fn repo(&self, slug: &str) -> Option<&ConsumerRepo> {
-        let slug = slug.to_ascii_lowercase();
+        let slug = self.canon(slug);
         self.consumer_repos.iter().find(|r| r.slug == slug)
     }
 

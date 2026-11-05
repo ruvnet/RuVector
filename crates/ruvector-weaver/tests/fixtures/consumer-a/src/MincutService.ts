@@ -15,3 +15,5 @@ export class MincutService {
     }
   }
 }
+// napi-rs loader shape: platform probes are expected to 404
+try { nativeBinding = require('@ruvector/mincut-linux-arm-musleabihf') } catch (e) {}
