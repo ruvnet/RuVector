@@ -94,7 +94,7 @@ committed `config/weaver/{weaver.toml,capabilities.toml,ledger.jsonl}`.
 - **Disclosure.** First-party critical/high security findings go to a
   private GitHub security advisory, never a public PR or issue. Upstream
   advisories (npm audit / RustSec) are already public and ship as a bump PR.
-- **Tokens.** `gcloud secrets versions access latest --secret=NPM_TOKEN|CARGO_REGISTRY_TOKEN --project=cognitum-20260110`
+- **Tokens.** `gcloud secrets versions access latest --secret=NPM_TOKEN|CARGO_REGISTRY_TOKEN --project=cognitum-20260110 --account=ruv@ruv.net`
   only at publish time, piped into the publish command; never printed,
   logged, or written to disk. `npm unpublish` is not available: gate first.
 - Explicit `git add <paths>` only. Commits end with

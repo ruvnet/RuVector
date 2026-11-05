@@ -39,7 +39,7 @@ W="target/release/weaver --config-dir config/weaver"   # run from a ruvector che
   (refuses on repository change, file/size/export drop, open ranges unless
   the ledger has an `override` for `release:<check>:<pkg>`).
 - First-party critical/high security findings: private advisory only.
-- Publish tokens only via `gcloud secrets versions access latest --secret=NPM_TOKEN --project=cognitum-20260110`
+- Publish tokens only via `gcloud secrets versions access latest --secret=NPM_TOKEN --project=cognitum-20260110 --account=ruv@ruv.net`
   at publish time; never print or store them.
 - Explicit `git add <paths>`; commit trailer `Co-Authored-By: claude-flow <ruv@ruv.net>`.
 - Report back with the exact `weaver ledger record` command from the brief.

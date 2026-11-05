@@ -293,17 +293,14 @@ fn seeded_ledger_parses_and_blocks_known_lanes() {
     let l = Ledger::parse(EMBEDDED_LEDGER).unwrap();
     assert!(l.entries.len() >= 30);
     let busy = l.busy_repos();
-    for repo in [
-        "ruvnet/agentdb",
-        "ruvnet/claude-flow",
-        "ruvnet/agentic-flow",
-        "ruvnet/ruvector",
-    ] {
+    for repo in ["ruvnet/agentdb", "ruvnet/claude-flow", "ruvnet/ruvector"] {
         assert!(
             busy.contains_key(repo),
             "{repo} should hold an in-flight lane"
         );
     }
+    // agentic-flow 3.2.0 shipped its in-flight lanes: the repo is free again.
+    assert!(!busy.contains_key("ruvnet/agentic-flow"));
     assert!(matches!(
         l.pair_state(
             "ruvnet/claude-flow",
@@ -1142,4 +1139,50 @@ fn renamed_repos_share_one_lane_and_one_ledger_history() {
             .map(|s| (&s.file, s.line))
             .collect::<BTreeSet<_>>()
             .len()));
+}
+
+#[test]
+fn covering_pr_needs_the_full_name_not_a_common_word() {
+    let open = vec![
+        pr(
+            4477,
+            "feat: independently verify learning, model transfer and provider effects",
+            "feat/verify",
+        ),
+        pr(
+            4839,
+            "fix(memory): exit non-zero when a refused sql.js save loses writes",
+            "fix/memory",
+        ),
+    ];
+    let mk = |cand: &str, subj: Option<&str>| WorkItem {
+        id: "x".into(),
+        kind: WorkKind::Replace,
+        status: LaneStatus::Deferred,
+        repo: "ruvnet/big".into(),
+        subject: subj.map(String::from),
+        candidate: Some(cand.into()),
+        signal_kind: SignalKind::StubMarker,
+        score: 0.0,
+        evidence: vec![],
+        gates: vec![],
+        disclosure: "public_pr".into(),
+        required_test: String::new(),
+        brief: String::new(),
+    };
+    assert!(prs::covering(&mk("@ruvector/learning-wasm", None), &open).is_none());
+    assert!(prs::covering(
+        &mk(
+            "@claude-flow/plugin-gastown-bridge",
+            Some("release:open_range:@claude-flow/memory")
+        ),
+        &open
+    )
+    .is_none());
+    let wired = vec![pr(
+        1364,
+        "ruvector 0.3.12: wire @ruvector/mincut-wasm",
+        "fix/x",
+    )];
+    assert!(prs::covering(&mk("@ruvector/mincut-wasm", None), &wired).is_some());
 }

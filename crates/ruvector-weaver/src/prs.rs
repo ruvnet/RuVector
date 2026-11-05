@@ -307,19 +307,39 @@ pub fn covering<'a>(it: &WorkItem, prs: &'a [OpenPr]) -> Option<&'a OpenPr> {
     let names: Vec<String> = [it.candidate.as_deref(), it.subject.as_deref()]
         .into_iter()
         .flatten()
-        .filter(|n| !n.starts_with("deps:"))
+        // Package names and audit slugs only: `release:`, `pr:#`, `deps:`
+        // and `<repo>:` subjects describe the work, not what a PR touches.
+        .filter(|n| n.starts_with("audit:") || !n.contains(':'))
         .map(|n| n.trim_start_matches("audit:").to_string())
         .collect();
+    let word = |hay: &str, t: &str| {
+        hay.match_indices(t).any(|(i, _)| {
+            let before = hay[..i]
+                .chars()
+                .last()
+                .is_none_or(|c| !c.is_ascii_alphanumeric());
+            let after = hay[i + t.len()..]
+                .chars()
+                .next()
+                .is_none_or(|c| !c.is_ascii_alphanumeric());
+            before && after
+        })
+    };
     prs.iter().find(|p| {
         let hay = format!("{} {}", p.title, p.head).to_ascii_lowercase();
         names.iter().any(|n| {
+            let bare = n.rsplit('/').next().unwrap_or(n).to_ascii_lowercase();
             let toks: Vec<String> = name_tokens(n)
                 .into_iter()
                 .filter(|t| t.len() >= 3)
                 .collect();
-            !toks.is_empty()
-                && toks.iter().any(|t| t.len() >= 4)
-                && toks.iter().all(|t| hay.contains(t.as_str()))
+            if toks.len() >= 2 {
+                // Multi-token names: every token as a whole word.
+                toks.iter().any(|t| t.len() >= 4) && toks.iter().all(|t| word(&hay, t))
+            } else {
+                // One significant token ("learning-wasm"): the full name.
+                bare.len() >= 4 && word(&hay, &bare)
+            }
         })
     })
 }
