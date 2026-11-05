@@ -36,6 +36,21 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WasmBackend = exports.NodeBackend = void 0;
 exports.resolveBackend = resolveBackend;
 const errors_1 = require("./errors");
+const idmap_journal_1 = require("./idmap-journal");
+/**
+ * The id-map journal is folded into the snapshot once it grows past
+ * max(this floor, current snapshot size): snapshot rewrites stay geometric,
+ * so persisting n single-vector ingests is O(n) total instead of O(n^2).
+ */
+const JOURNAL_COMPACT_MIN_BYTES = 1 << 20;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function pickMethod(target, names) {
+    for (const name of names) {
+        if (target && typeof target[name] === 'function')
+            return target[name].bind(target);
+    }
+    return null;
+}
 // ---------------------------------------------------------------------------
 // NodeBackend — wraps @ruvector/rvf-node (N-API)
 // ---------------------------------------------------------------------------
@@ -57,6 +72,11 @@ class NodeBackend {
         this.labelToId = new Map();
         this.nextLabel = 1; // RVF uses 1-based labels
         this.storePath = '';
+        this.readOnly = false;
+        this.journal = null;
+        /** Byte size of the last snapshot written or loaded. */
+        this.snapshotBytes = 0;
+        this.journalCompactMinBytes = JOURNAL_COMPACT_MIN_BYTES;
     }
     async loadNative() {
         if (this.native)
@@ -91,13 +111,16 @@ class NodeBackend {
             this.idToLabel.clear();
             this.labelToId.clear();
             this.nextLabel = 1;
+            this.closeJournal();
         }
     }
     async create(path, options) {
         await this.loadNative();
         const fs = await Promise.resolve().then(() => __importStar(require('fs')));
         const sidecarPath = `${path}.idmap.json`;
-        const existingPaths = [path, sidecarPath].filter((candidate) => fs.existsSync(candidate));
+        const journalPath = `${sidecarPath}${idmap_journal_1.JOURNAL_SUFFIX}`;
+        // A leftover journal would replay a previous store's ids into this one.
+        const existingPaths = [path, sidecarPath, journalPath].filter((candidate) => fs.existsSync(candidate));
         const backups = [];
         try {
             // Precondition: refuse to clobber an existing file unless asked to.
@@ -120,9 +143,12 @@ class NodeBackend {
             }
             this.handle = await this.native.create(path, mapOptionsToNative(options));
             this.storePath = path;
+            this.readOnly = false;
             this.idToLabel.clear();
             this.labelToId.clear();
             this.nextLabel = 1;
+            this.snapshotBytes = 0;
+            this.journal = new idmap_journal_1.IdMapJournalWriter(journalPath);
             for (const { backup } of backups) {
                 try {
                     fs.rmSync(backup, { force: true });
@@ -139,6 +165,7 @@ class NodeBackend {
                 try {
                     fs.rmSync(path, { force: true });
                     fs.rmSync(sidecarPath, { force: true });
+                    fs.rmSync(journalPath, { force: true });
                 }
                 catch {
                     // Continue restoring every backup that can be recovered.
@@ -161,6 +188,7 @@ class NodeBackend {
         try {
             this.handle = await this.native.open(path);
             this.storePath = path;
+            this.readOnly = false;
             await this.loadMappings();
         }
         catch (err) {
@@ -173,6 +201,7 @@ class NodeBackend {
         try {
             this.handle = await this.native.openReadonly(path);
             this.storePath = path;
+            this.readOnly = true;
             await this.loadMappings();
         }
         catch (err) {
@@ -201,10 +230,17 @@ class NodeBackend {
             // The native Rust HNSW expects i64 labels — non-numeric strings cause
             // silent data loss (NaN → dropped).  We maintain a bidirectional
             // string↔label mapping and persist it as a sidecar JSON file.
+            const prevNext = this.nextLabel;
             const ids = entries.map((e) => this.resolveLabel(e.id));
-            const result = this.handle.ingestBatch(flat, ids);
-            // Persist mappings after every ingest so they survive crashes.
-            await this.saveMappings();
+            // Journal newly allocated labels BEFORE the native commit, so a crash
+            // can never leave a committed vector whose label is unrecorded (the
+            // label would be reissued to another id on reopen).
+            this.persistOps(this.newLabelOps(prevNext), prevNext);
+            const ingestAsync = pickMethod(this.handle, ['ingestBatchAsync', 'ingestAsync']);
+            const result = ingestAsync
+                ? await ingestAsync(flat, ids)
+                : this.handle.ingestBatch(flat, ids);
+            await this.maybeCompactJournal();
             return {
                 accepted: Number(result.accepted),
                 rejected: Number(result.rejected),
@@ -219,7 +255,10 @@ class NodeBackend {
         this.ensureHandle();
         try {
             const nativeOpts = options ? mapQueryOptionsToNative(options) : undefined;
-            const results = this.handle.query(vector, k, nativeOpts);
+            const queryAsync = pickMethod(this.handle, ['queryAsync']);
+            const results = queryAsync
+                ? await queryAsync(vector, k, nativeOpts)
+                : this.handle.query(vector, k, nativeOpts);
             // Map numeric labels back to original string IDs.
             return results.map((r) => ({
                 id: this.labelToId.get(Number(r.id)) ?? String(r.id),
@@ -242,14 +281,17 @@ class NodeBackend {
             }
             const result = this.handle.delete(numIds);
             // Remove deleted entries from the mapping.
+            const ops = [];
             for (const id of ids) {
                 const label = this.idToLabel.get(id);
                 if (label !== undefined) {
                     this.idToLabel.delete(id);
                     this.labelToId.delete(label);
+                    ops.push({ op: 'del', id });
                 }
             }
-            await this.saveMappings();
+            this.persistOps(ops);
+            await this.maybeCompactJournal();
             return { deleted: Number(result.deleted), epoch: result.epoch };
         }
         catch (err) {
@@ -270,7 +312,10 @@ class NodeBackend {
     async compact() {
         this.ensureHandle();
         try {
-            const result = this.handle.compact();
+            const compactAsync = pickMethod(this.handle, ['compactAsync']);
+            const result = compactAsync ? await compactAsync() : this.handle.compact();
+            // Store compaction is also when the id-map journal is folded in.
+            await this.saveMappings();
             return {
                 segmentsCompacted: result.segmentsCompacted ?? result.segments_compacted,
                 bytesReclaimed: Number(result.bytesReclaimed ?? result.bytes_reclaimed),
@@ -313,6 +358,7 @@ class NodeBackend {
             this.labelToId.clear();
             this.nextLabel = 1;
             this.storePath = '';
+            this.closeJournal();
         }
         if (failure)
             throw errors_1.RvfError.fromNative(failure);
@@ -358,6 +404,7 @@ class NodeBackend {
             child.idToLabel = new Map(this.idToLabel);
             child.labelToId = new Map(this.labelToId);
             child.nextLabel = this.nextLabel;
+            child.journal = new idmap_journal_1.IdMapJournalWriter(child.mappingsPath() + idmap_journal_1.JOURNAL_SUFFIX);
             await child.saveMappings();
             return child;
         }
@@ -378,6 +425,7 @@ class NodeBackend {
             child.idToLabel = new Map(this.idToLabel);
             child.labelToId = new Map(this.labelToId);
             child.nextLabel = this.nextLabel;
+            child.journal = new idmap_journal_1.IdMapJournalWriter(child.mappingsPath() + idmap_journal_1.JOURNAL_SUFFIX);
             await child.saveMappings();
             return child;
         }
@@ -491,6 +539,59 @@ class NodeBackend {
     mappingsPath() {
         return this.storePath ? this.storePath + '.idmap.json' : '';
     }
+    /** Journal ops for labels allocated since `fromLabel` (labels are sequential). */
+    newLabelOps(fromLabel) {
+        const ops = [];
+        for (let label = fromLabel; label < this.nextLabel; label++) {
+            const id = this.labelToId.get(label);
+            if (id !== undefined)
+                ops.push({ op: 'add', id, label });
+        }
+        return ops;
+    }
+    /**
+     * Append ops to the id-map journal. If the append fails, labels allocated
+     * since `rollbackTo` are released so memory never runs ahead of disk.
+     */
+    persistOps(ops, rollbackTo) {
+        if (ops.length === 0 || this.readOnly || !this.storePath)
+            return;
+        this.journal ?? (this.journal = new idmap_journal_1.IdMapJournalWriter(this.mappingsPath() + idmap_journal_1.JOURNAL_SUFFIX));
+        try {
+            this.journal.append(ops);
+        }
+        catch (err) {
+            if (rollbackTo !== undefined) {
+                for (let label = rollbackTo; label < this.nextLabel; label++) {
+                    const id = this.labelToId.get(label);
+                    if (id !== undefined)
+                        this.idToLabel.delete(id);
+                    this.labelToId.delete(label);
+                }
+                this.nextLabel = rollbackTo;
+            }
+            throw new errors_1.RvfError(errors_1.RvfErrorCode.SidecarWriteFailed, `at ${this.journal.path}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+    /** Fold the journal into a fresh snapshot once it outgrows the snapshot. */
+    async maybeCompactJournal() {
+        const j = this.journal;
+        if (!j || j.bytes <= Math.max(this.journalCompactMinBytes, this.snapshotBytes))
+            return;
+        await this.saveMappings();
+    }
+    closeJournal() {
+        try {
+            this.journal?.close();
+        }
+        catch {
+            // A close failure loses nothing: every append was already written.
+        }
+        finally {
+            this.journal = null;
+            this.snapshotBytes = 0;
+        }
+    }
     /**
      * Persist the string↔label mapping to a sidecar JSON file.
      *
@@ -503,7 +604,8 @@ class NodeBackend {
      */
     async saveMappings() {
         const mp = this.mappingsPath();
-        if (!mp)
+        // Read-only handles never write: a concurrent writer may own the files.
+        if (!mp || this.readOnly)
             return;
         const fs = await Promise.resolve().then(() => __importStar(require('fs')));
         const data = JSON.stringify({
@@ -518,6 +620,11 @@ class NodeBackend {
         try {
             fs.writeFileSync(tmp, data, 'utf-8');
             fs.renameSync(tmp, mp);
+            this.snapshotBytes = Buffer.byteLength(data, 'utf-8');
+            // The snapshot now holds everything the journal recorded. A crash
+            // before this removal just replays already-applied ops (idempotent).
+            this.journal ?? (this.journal = new idmap_journal_1.IdMapJournalWriter(mp + idmap_journal_1.JOURNAL_SUFFIX));
+            this.journal.reset();
         }
         catch (err) {
             try {
@@ -544,6 +651,7 @@ class NodeBackend {
             const fs = await Promise.resolve().then(() => __importStar(require('fs')));
             fs.rmSync(childPath, { force: true });
             fs.rmSync(`${childPath}.idmap.json`, { force: true });
+            fs.rmSync(`${childPath}.idmap.json${idmap_journal_1.JOURNAL_SUFFIX}`, { force: true });
         }
         catch {
             // Best-effort rollback; the original operation error remains primary.
@@ -560,6 +668,63 @@ class NodeBackend {
      * raised so the caller learns string-id operations are unsafe.
      */
     async loadMappings() {
+        await this.loadSnapshot();
+        await this.replayJournalFile();
+    }
+    /**
+     * Replay `<sidecar>.journal` over the loaded snapshot. A torn last append
+     * (crash mid-write) is dropped, and cut off on read-write opens so the next
+     * append cannot fuse with it; any other damage fails loud like a corrupt
+     * snapshot does.
+     */
+    async replayJournalFile() {
+        const mp = this.mappingsPath();
+        if (!mp)
+            return;
+        const fs = await Promise.resolve().then(() => __importStar(require('fs')));
+        const jp = mp + idmap_journal_1.JOURNAL_SUFFIX;
+        let buf;
+        try {
+            buf = fs.readFileSync(jp);
+        }
+        catch (err) {
+            if (err.code === 'ENOENT') {
+                if (!this.readOnly)
+                    this.journal = new idmap_journal_1.IdMapJournalWriter(jp);
+                return;
+            }
+            throw err;
+        }
+        const state = { idToLabel: this.idToLabel, labelToId: this.labelToId, nextLabel: this.nextLabel };
+        let validBytes;
+        try {
+            ({ validBytes } = (0, idmap_journal_1.replayJournal)(buf, state));
+        }
+        catch (err) {
+            if (!(err instanceof idmap_journal_1.JournalCorruptError))
+                throw err;
+            const { randomUUID } = await Promise.resolve().then(() => __importStar(require('crypto')));
+            const quarantine = `${jp}.corrupt-${Date.now()}-${randomUUID()}`;
+            if (!this.readOnly) {
+                try {
+                    fs.renameSync(jp, quarantine);
+                }
+                catch {
+                    // still fail loud below
+                }
+            }
+            throw new errors_1.RvfError(errors_1.RvfErrorCode.SidecarCorrupt, `at ${jp}${this.readOnly ? '' : ` (quarantined to ${quarantine})`}: ${err.message}`);
+        }
+        this.nextLabel = state.nextLabel;
+        if (this.readOnly)
+            return;
+        if (validBytes === 0)
+            fs.rmSync(jp, { force: true });
+        else if (validBytes < buf.length)
+            fs.truncateSync(jp, validBytes);
+        this.journal = new idmap_journal_1.IdMapJournalWriter(jp, validBytes);
+    }
+    async loadSnapshot() {
         const mp = this.mappingsPath();
         if (!mp)
             return;
@@ -568,7 +733,9 @@ class NodeBackend {
             return; // fresh store: no sidecar yet is legitimate
         let parsed;
         try {
-            const candidate = JSON.parse(fs.readFileSync(mp, 'utf-8'));
+            const text = fs.readFileSync(mp, 'utf-8');
+            this.snapshotBytes = Buffer.byteLength(text, 'utf-8');
+            const candidate = JSON.parse(text);
             if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
                 throw new TypeError('sidecar root must be an object');
             }

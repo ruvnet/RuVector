@@ -171,7 +171,12 @@ async function test(name, fn) {
       { id: 'persist_b', vector: new Float32Array([0, 1, 0, 0]) },
     ]);
     const mapFile = storePath + '.idmap.json';
+    // Each ingest appends to the journal; the snapshot is written on close.
+    const journal = fs.readFileSync(mapFile + '.journal', 'utf-8');
+    assert.ok(journal.includes('"persist_a",1') && journal.includes('"persist_b",2'));
+    await backend.close();
     assert.ok(fs.existsSync(mapFile), `Mapping file not created at ${mapFile}`);
+    assert.ok(!fs.existsSync(mapFile + '.journal'), 'journal folded into snapshot on close');
     const data = JSON.parse(fs.readFileSync(mapFile, 'utf-8'));
     assert.strictEqual(data.idToLabel['persist_a'], 1);
     assert.strictEqual(data.idToLabel['persist_b'], 2);
