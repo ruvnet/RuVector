@@ -90,6 +90,7 @@ fn f3_05_per_client_cap() {
 /// F4-06 (fixed): addresses in one /24 share a prefix cap, so two source
 /// addresses cannot pin the pool; a client from another prefix still gets in.
 #[test]
+#[cfg_attr(not(target_os = "linux"), ignore = "binds 127.0.0.2/127.0.0.3, which only Linux routes to loopback by default")]
 fn f4_06_two_addresses_cannot_pin_the_pool() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpSocket;

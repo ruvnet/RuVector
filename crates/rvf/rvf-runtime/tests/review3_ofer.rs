@@ -208,6 +208,7 @@ fn f3_03_identical_concurrent_session_gets_spurious_conflict() {
 /// segments are small on the wire (12 B per entry) and each is released after
 /// parsing, so the set grows with every journal segment in the stream.
 #[test]
+#[cfg_attr(not(target_os = "linux"), ignore = "reads /proc/self/statm (Linux only)")]
 fn f3_04_tombstone_set_growth_is_unbudgeted() {
     let _g = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let mut body = Vec::new();
