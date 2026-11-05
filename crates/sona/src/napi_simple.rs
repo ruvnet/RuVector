@@ -8,15 +8,28 @@
 
 #![cfg(feature = "napi")]
 
-use napi::{Error, Result};
+use napi::bindgen_prelude::AsyncTask;
+use napi::{Env, Error, Result, Task};
 use napi_derive::napi;
-use std::collections::HashMap;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 
+use crate::inflight::InflightStore;
 use crate::{
     LearnedPattern, SonaConfig, SonaEngine as RustSonaEngine,
     TrajectoryBuilder as RustTrajectoryBuilder,
 };
+
+/// Most trajectories one engine keeps open. Beyond this, beginning a
+/// trajectory discards the oldest unfinished one (it is never submitted), so
+/// JS that begins trajectories without ending them cannot grow memory
+/// without bound.
+pub const MAX_INFLIGHT_TRAJECTORIES: usize = 10_000;
+
+/// Most steps recorded per trajectory; further steps are ignored.
+pub const MAX_STEPS_PER_TRAJECTORY: usize = 4_096;
+
+/// Most context ids recorded per trajectory; further ids are ignored.
+pub const MAX_CONTEXTS_PER_TRAJECTORY: usize = 1_024;
 
 fn check_len(what: &str, got: usize, expected: usize) -> Result<()> {
     if got == expected {
@@ -31,23 +44,23 @@ fn check_len(what: &str, got: usize, expected: usize) -> Result<()> {
 /// Node.js SONA Engine wrapper
 #[napi]
 pub struct SonaEngine {
-    inner: RustSonaEngine,
+    /// Shared so `forceLearnAsync` can run the learning cycle off the JS thread
+    inner: Arc<RustSonaEngine>,
     /// Open trajectories of this engine (ids are per engine, so one engine
-    /// cannot end another's trajectory, and they are freed with the engine)
-    builders: Mutex<HashMap<u32, RustTrajectoryBuilder>>,
-    next_builder_id: Mutex<u32>,
+    /// cannot end another's trajectory, and they are freed with the engine).
+    /// Bounded by `MAX_INFLIGHT_TRAJECTORIES`.
+    builders: Mutex<InflightStore<RustTrajectoryBuilder>>,
 }
 
 impl SonaEngine {
     fn from_inner(inner: RustSonaEngine) -> Self {
         Self {
-            inner,
-            builders: Mutex::new(HashMap::new()),
-            next_builder_id: Mutex::new(0),
+            inner: Arc::new(inner),
+            builders: Mutex::new(InflightStore::new(MAX_INFLIGHT_TRAJECTORIES)),
         }
     }
 
-    fn builders(&self) -> MutexGuard<'_, HashMap<u32, RustTrajectoryBuilder>> {
+    fn builders(&self) -> MutexGuard<'_, InflightStore<RustTrajectoryBuilder>> {
         self.builders.lock().unwrap_or_else(|e| e.into_inner())
     }
 }
@@ -91,18 +104,16 @@ impl SonaEngine {
     /// Start a new trajectory recording
     /// @param query_embedding - Query embedding vector (Float64Array)
     /// @returns Trajectory ID for adding steps
+    ///
+    /// At most 10000 trajectories stay open per engine: beginning another
+    /// discards the oldest unfinished one, whose ID then acts like an unknown
+    /// ID. IDs are unique among the open trajectories, including after the
+    /// u32 counter wraps.
     #[napi]
     pub fn begin_trajectory(&self, query_embedding: Vec<f64>) -> u32 {
         let embedding: Vec<f32> = query_embedding.iter().map(|&x| x as f32).collect();
         let builder = self.inner.begin_trajectory(embedding);
-
-        let mut next_id = self
-            .next_builder_id
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let id = *next_id;
-        *next_id = next_id.wrapping_add(1);
-        self.builders().insert(id, builder);
+        let (id, _evicted) = self.builders().insert(builder);
         id
     }
 
@@ -111,6 +122,8 @@ impl SonaEngine {
     /// @param activations - Layer activations (Float64Array)
     /// @param attention_weights - Attention weights (Float64Array)
     /// @param reward - Reward signal for this step
+    ///
+    /// Steps beyond 4096 per trajectory are ignored.
     #[napi]
     pub fn add_trajectory_step(
         &self,
@@ -120,7 +133,10 @@ impl SonaEngine {
         reward: f64,
     ) {
         let mut builders = self.builders();
-        if let Some(builder) = builders.get_mut(&trajectory_id) {
+        if let Some(builder) = builders
+            .get_mut(trajectory_id)
+            .filter(|b| b.step_count() < MAX_STEPS_PER_TRAJECTORY)
+        {
             let act: Vec<f32> = activations.iter().map(|&x| x as f32).collect();
             let att: Vec<f32> = attention_weights.iter().map(|&x| x as f32).collect();
             builder.add_step(act, att, reward as f32);
@@ -133,7 +149,7 @@ impl SonaEngine {
     #[napi]
     pub fn set_trajectory_route(&self, trajectory_id: u32, route: String) {
         let mut builders = self.builders();
-        if let Some(builder) = builders.get_mut(&trajectory_id) {
+        if let Some(builder) = builders.get_mut(trajectory_id) {
             builder.set_model_route(&route);
         }
     }
@@ -141,10 +157,15 @@ impl SonaEngine {
     /// Add context to trajectory
     /// @param trajectory_id - Trajectory ID
     /// @param context_id - Context identifier
+    ///
+    /// Context ids beyond 1024 per trajectory are ignored.
     #[napi]
     pub fn add_trajectory_context(&self, trajectory_id: u32, context_id: String) {
         let mut builders = self.builders();
-        if let Some(builder) = builders.get_mut(&trajectory_id) {
+        if let Some(builder) = builders
+            .get_mut(trajectory_id)
+            .filter(|b| b.context_count() < MAX_CONTEXTS_PER_TRAJECTORY)
+        {
             builder.add_context(&context_id);
         }
     }
@@ -155,7 +176,7 @@ impl SonaEngine {
     #[napi]
     pub fn end_trajectory(&self, trajectory_id: u32, quality: f64) {
         let mut builders = self.builders();
-        if let Some(builder) = builders.remove(&trajectory_id) {
+        if let Some(builder) = builders.remove(trajectory_id) {
             let trajectory = builder.build(quality as f32);
             self.inner.submit_trajectory(trajectory);
         }
@@ -205,6 +226,16 @@ impl SonaEngine {
         self.inner.force_learn()
     }
 
+    /// Force background learning cycle on a worker thread, so a large
+    /// trajectory buffer does not block the event loop
+    /// @returns Promise of the status message with learning results
+    #[napi]
+    pub fn force_learn_async(&self) -> AsyncTask<ForceLearnTask> {
+        AsyncTask::new(ForceLearnTask {
+            engine: Arc::clone(&self.inner),
+        })
+    }
+
     /// Flush instant loop updates
     #[napi]
     pub fn flush(&self) {
@@ -235,9 +266,14 @@ impl SonaEngine {
 
     /// Enable or disable the engine
     /// @param enabled - Whether to enable the engine
+    /// @throws If a forceLearnAsync call is still running
     #[napi]
-    pub fn set_enabled(&mut self, enabled: bool) {
-        self.inner.set_enabled(enabled);
+    pub fn set_enabled(&mut self, enabled: bool) -> Result<()> {
+        let inner = Arc::get_mut(&mut self.inner).ok_or_else(|| {
+            Error::from_reason("cannot change enabled while forceLearnAsync is running")
+        })?;
+        inner.set_enabled(enabled);
+        Ok(())
     }
 
     /// Check if engine is enabled
@@ -245,6 +281,24 @@ impl SonaEngine {
     #[napi]
     pub fn is_enabled(&self) -> bool {
         self.inner.is_enabled()
+    }
+}
+
+/// Background learning cycle run by `forceLearnAsync`
+pub struct ForceLearnTask {
+    engine: Arc<RustSonaEngine>,
+}
+
+impl Task for ForceLearnTask {
+    type Output = String;
+    type JsValue = String;
+
+    fn compute(&mut self) -> Result<Self::Output> {
+        Ok(self.engine.force_learn())
+    }
+
+    fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
+        Ok(output)
     }
 }
 
