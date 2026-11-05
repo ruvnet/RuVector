@@ -438,3 +438,122 @@ def test_load_hnsw_rejects_inconsistent_or_non_finite_vectors(vectors: Vectors, 
     path.write_bytes(b"not an npy file")
     with pytest.raises(CollectionError):
         Collection.load(path)
+
+
+def test_rabitq_sparse_ids_metadata_round_trip(vectors: Vectors, tmp_path: Path) -> None:
+    ids = [17, 3, 99, 42]
+    coll = Collection.from_vectors(
+        vectors[:4], ids=ids, metadatas=[{"record": str(i)} for i in ids], backend="rabitq",
+    )
+    assert {i for i, _, _ in coll.export_live_items()} == set(ids)
+    path = tmp_path / "sparse.rbpx"
+    coll.save(path)
+    restored = Collection.load(path)
+    for row, identity in enumerate(ids):
+        hit = restored.search(vectors[row], 1)[0]
+        assert hit.id == identity
+        assert hit.metadata == {"record": str(identity)}
+    assert restored.insert(vectors[4]) == 100
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_missing_delete_preserves_sparse_rows_and_persistence(
+    vectors: Vectors, tmp_path: Path, backend: str
+) -> None:
+    coll = Collection.from_vectors(vectors[:4], ids=[10, 20, 30, 40], backend=backend)
+    coll.delete(15)  # Inside the allocated range, but never inserted.
+    coll.delete(999)
+    assert len(coll) == len(coll.export_live_items()) == 4
+    assert coll.stats().tombstoned == 0
+    # Native persistence is tested with its dense ID representation.
+    coll = Collection.from_vectors(vectors[:4], backend=backend)
+    path = tmp_path / "dense.rbpx"
+    coll.save(path)
+    restored = Collection.load(path)
+    restored.delete(15)
+    assert len(restored) == 4
+    restored.delete(2)
+    restored.delete(2)
+    assert len(restored) == len(restored.export_live_items()) == 3
+    new_id = restored.insert(vectors[4])
+    assert new_id == 4
+    assert len(restored) == 4
+    assert restored.vacuum() == (1 if backend == "rabitq" else 0)
+    assert len(restored) == len(restored.export_live_items()) == 4
+    assert restored.stats().tombstoned == 0
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_missing_delete_on_empty_collection_preserves_first_insert(
+    vectors: Vectors, backend: str
+) -> None:
+    coll = Collection.create(8, backend=backend)
+    coll.delete(0)
+    assert coll.stats().tombstoned == 0
+    assert coll.insert(vectors[0]) == 0
+    assert len(coll) == 1
+    assert len(coll.export_live_items()) == 1
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_deleting_future_id_does_not_hide_later_insert(vectors: Vectors, backend: str) -> None:
+    coll = Collection.from_vectors(vectors[:4], backend=backend)
+    coll.delete(4)
+    assert coll.insert(vectors[4], metadata={"record": "later"}) == 4
+    assert len(coll) == 5
+    assert [i for i, _, _ in coll.export_live_items()] == [0, 1, 2, 3, 4]
+    assert coll.search(vectors[4], 1)[0].id == 4
+    assert coll.get_metadata(4) == {"record": "later"}
+
+
+def test_rabitq_missing_delete_cache_tracks_batch_insert_and_vacuum(vectors: Vectors) -> None:
+    coll = Collection.from_vectors(vectors[:4], backend="rabitq")
+    coll.delete(99)
+    inserted = coll.insert_batch(vectors[4:6])
+    assert inserted == [4, 5]
+    coll.delete(4)
+    coll.delete(5)
+    assert len(coll) == len(coll.export_live_items()) == 4
+    assert coll.vacuum() == 2
+    coll.delete(0)
+    assert len(coll) == len(coll.export_live_items()) == 3
+
+
+def test_rabitq_vacuum_keeps_sparse_ids_metadata_and_next_id(vectors: Vectors) -> None:
+    coll = Collection.from_vectors(
+        vectors[:3], ids=[10, 20, 30],
+        metadatas=[{"key": "a"}, {"key": "b"}, {"key": "c"}], backend="rabitq",
+    )
+    coll.delete(10)
+    assert coll.vacuum() == 1
+    assert [i for i, _, _ in coll.export_live_items()] == [20, 30]
+    assert coll.get_metadata(20) == {"key": "b"}
+    assert coll.get_metadata(30) == {"key": "c"}
+    assert coll.insert(vectors[3]) == 31
+    assert coll.vacuum() == 0
+    assert [i for i, _, _ in coll.export_live_items()] == [20, 30, 31]
+
+
+def test_rabitq_vacuum_all_rows_does_not_reuse_deleted_ids(vectors: Vectors) -> None:
+    coll = Collection.from_vectors(vectors[:2], backend="rabitq")
+    coll.delete(0)
+    coll.delete(1)
+    assert coll.vacuum() == 2
+    assert len(coll) == 0
+    assert coll.insert(vectors[2]) == 2
+    assert [i for i, _, _ in coll.export_live_items()] == [2]
+
+
+def test_rabitq_cached_ids_follow_sparse_vacuum_and_empty_reinsertion(vectors: Vectors) -> None:
+    coll = Collection.from_vectors(vectors[:3], ids=[10, 20, 30], backend="rabitq")
+    coll.delete(10)
+    assert coll.vacuum() == 1
+    coll.delete(20)
+    assert len(coll) == 1
+    assert [i for i, _, _ in coll.export_live_items()] == [30]
+    coll.delete(30)
+    assert coll.vacuum() == 2
+    assert coll.insert_batch(vectors[3:5]) == [31, 32]
+    coll.delete(32)
+    assert [i for i, _, _ in coll.export_live_items()] == [31]
+    assert len(coll) == 1

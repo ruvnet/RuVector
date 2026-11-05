@@ -52,7 +52,8 @@ def write_sdist(path, package, extra=None, runtime="0.1.3"):
 @pytest.fixture
 def release(tmp_path, monkeypatch):
     directory = tmp_path / "dist"
-    directory.mkdir()
+    # Valid fixtures must meet the recovery contract independently of umask.
+    directory.mkdir(mode=0o700)
     inventory = tmp_path / "inventory.json"
     for filename, package in resume.expected_files().items():
         path = directory / filename

@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ruvector-rvf-wasm"
-version = "0.2.0"
+version = "0.2.1"
 description = "Sandboxed RVF vector queries using the real RuVector WebAssembly microkernel"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [{name = "RuVector Team"}]
-dependencies = ["ruvector==0.1.4", "wasmtime==49.0.0"]
+dependencies = ["ruvector==0.1.5", "wasmtime==49.0.0"]
 keywords = ["ruvector", "rust", "graph", "embeddings", "rag"]
 classifiers = [
   "Development Status :: 3 - Alpha",
