@@ -4010,9 +4010,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           if (!Number.isInteger(dimensions) || dimensions <= 0) {
             throw new Error(`Missing or invalid dimension: expected a positive integer, got ${JSON.stringify(dimensions)}`);
           }
-          const { createRvfStore } = require('../dist/core/rvf-wrapper.js');
+          const { createRvfStore, rvfClose } = require('../dist/core/rvf-wrapper.js');
           const store = await createRvfStore(safePath, { dimensions, metric: args.metric || 'cosine' });
-          const status = store.status ? await store.status() : { dimensions };
+          // Close the new store: an open handle keeps the writer lock, and every
+          // later rvf_* call in this server process then fails with LockHeld.
+          let status;
+          try { status = store.status ? await store.status() : { dimensions }; } finally { await rvfClose(store); }
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, path: safePath, ...status }, null, 2) }] };
         } catch (e) {
           // Only suggest installing the package when it is actually missing (#641).
@@ -4085,8 +4088,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const safePath = validateRvfPath(args.path);
           const { openRvfStore, rvfStatus, rvfClose } = require('../dist/core/rvf-wrapper.js');
           const store = await openRvfStore(safePath);
-          const status = await rvfStatus(store);
-          await rvfClose(store);
+          let status;
+          try { status = await rvfStatus(store); } finally { await rvfClose(store); }
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...status }, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -4098,8 +4101,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const safePath = validateRvfPath(args.path);
           const { openRvfStore, rvfCompact, rvfClose } = require('../dist/core/rvf-wrapper.js');
           const store = await openRvfStore(safePath);
-          const result = await rvfCompact(store);
-          await rvfClose(store);
+          let result;
+          try { result = await rvfCompact(store); } finally { await rvfClose(store); }
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -4174,8 +4177,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const safePath = validateRvfPath(args.path);
           const { openRvfStore, rvfClose } = require('../dist/core/rvf-wrapper.js');
           const store = await openRvfStore(safePath);
-          const segs = await store.segments();
-          await rvfClose(store);
+          let segs;
+          try { segs = await store.segments(); } finally { await rvfClose(store); }
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, segments: segs }, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
