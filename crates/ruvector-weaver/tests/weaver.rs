@@ -293,7 +293,7 @@ fn seeded_ledger_parses_and_blocks_known_lanes() {
     let l = Ledger::parse(EMBEDDED_LEDGER).unwrap();
     assert!(l.entries.len() >= 30);
     let busy = l.busy_repos();
-    for repo in ["ruvnet/agentdb", "ruvnet/claude-flow", "ruvnet/ruvector"] {
+    for repo in ["ruvnet/claude-flow", "ruvnet/ruvector"] {
         assert!(
             busy.contains_key(repo),
             "{repo} should hold an in-flight lane"
@@ -301,6 +301,9 @@ fn seeded_ledger_parses_and_blocks_known_lanes() {
     }
     // agentic-flow 3.2.0 shipped its in-flight lanes: the repo is free again.
     assert!(!busy.contains_key("ruvnet/agentic-flow"));
+    // agentdb 3.4.0 shipped too, and its measured PPR rejection stops the
+    // lean-release re-queue for that pair.
+    assert!(!busy.contains_key("ruvnet/agentdb"));
     assert!(matches!(
         l.pair_state(
             "ruvnet/claude-flow",
