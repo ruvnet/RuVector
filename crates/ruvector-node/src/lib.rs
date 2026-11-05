@@ -828,3 +828,56 @@ mod strict_json_boundary_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod filter_end_to_end_tests {
+    use super::*;
+
+    fn entry(id: &str, v: [f32; 2], metadata: Option<&str>) -> JsVectorEntry {
+        JsVectorEntry {
+            id: Some(id.to_string()),
+            vector: Float32Array::new(v.to_vec()),
+            metadata: metadata.map(str::to_string),
+        }
+    }
+
+    fn search(filter: Option<&str>) -> JsSearchQuery {
+        JsSearchQuery {
+            vector: Float32Array::new(vec![0.0, 0.0]),
+            k: 10,
+            ef_search: None,
+            filter: filter.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn a_rejected_filter_never_returns_the_unfiltered_set() {
+        let db = CoreVectorDB::new(DbOptions {
+            dimensions: 2,
+            distance_metric: DistanceMetric::Euclidean,
+            storage_path: "memory://".to_string(),
+            hnsw_config: Some(HnswConfig::default()),
+            quantization: None,
+        })
+        .unwrap();
+        for (i, cat) in ["A", "B", "B", "B"].iter().enumerate() {
+            let md = format!(r#"{{"category": "{cat}"}}"#);
+            db.insert(
+                entry(&format!("v{i}"), [i as f32, 0.0], Some(&md))
+                    .to_core()
+                    .unwrap(),
+            )
+            .unwrap();
+        }
+        let hits = db
+            .search(search(Some(r#"{"category": "A"}"#)).to_core().unwrap())
+            .unwrap();
+        assert_eq!(
+            hits.iter().map(|h| h.id.as_str()).collect::<Vec<_>>(),
+            vec!["v0"]
+        );
+        // Before #1310 this parsed to `None` and searched unfiltered, returning all four vectors.
+        assert!(search(Some(r#"{"category": "A""#)).to_core().is_err());
+        assert!(entry("x", [0.0, 0.0], Some("[1]")).to_core().is_err());
+    }
+}
