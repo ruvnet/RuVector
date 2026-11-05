@@ -5887,6 +5887,48 @@ hooksCmd.command('coverage-suggest')
   });
 
 // Graph Algorithm Commands
+
+// Build an undirected import graph over the given files. Nodes are file
+// basenames without extension; an edge a->b exists when a imports './b'
+// (via `from` or `require`, with or without an extension). The result is the
+// Graph shape every function in dist/core/graph-algorithms.js expects.
+function buildImportGraph(files) {
+  const graphMod = require('../dist/core/graph-algorithms.js');
+  const stem = (f) => path.basename(f, path.extname(f));
+  const nodes = [...new Set(files.map(stem))];
+  const nodeSet = new Set(nodes);
+  const seen = new Set();
+  const edges = [];
+  const importRe = /(?:from\s+|require\s*\(\s*)['"]\.\/([^'"]+)['"]/g;
+  for (const file of files) {
+    if (!fs.existsSync(file)) continue;
+    const from = stem(file);
+    const content = fs.readFileSync(file, 'utf-8');
+    for (const m of content.matchAll(importRe)) {
+      const to = stem(m[1]);
+      if (to === from || !nodeSet.has(to)) continue;
+      const key = from < to ? from + '\0' + to : to + '\0' + from;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      edges.push({ from, to, weight: 1 });
+    }
+  }
+  return { graphMod, nodes, edges, graph: graphMod.buildGraph(nodes, edges) };
+}
+
+// Map<node, clusterId> -> { assignments: {node: id}, groups: [[node...]] }
+function clustersToJson(map) {
+  const assignments = {};
+  const byId = new Map();
+  for (const [node, id] of map) {
+    assignments[node] = id;
+    if (!byId.has(id)) byId.set(id, []);
+    byId.get(id).push(node);
+  }
+  const groups = [...byId.keys()].sort((a, b) => a - b).map((id) => byId.get(id));
+  return { assignments, groups };
+}
+
 hooksCmd.command('graph-mincut')
   .description('Find optimal code boundaries using MinCut algorithm')
   .argument('<files...>', 'Files to analyze')
@@ -5897,24 +5939,21 @@ hooksCmd.command('graph-mincut')
       return;
     }
     try {
-      const graphMod = require('../dist/core/graph-algorithms.js');
-      // Build dependency graph from files
-      const nodes = files.map(f => path.basename(f, path.extname(f)));
-      const edges = [];
-      // Simple edge detection based on imports
-      for (const file of files) {
-        if (!fs.existsSync(file)) continue;
-        const content = fs.readFileSync(file, 'utf-8');
-        const imports = content.match(/from ['"]\.\/([^'"]+)['"]/g) || [];
-        imports.forEach(imp => {
-          const target = imp.match(/from ['"]\.\/([^'"]+)['"]/)?.[1];
-          if (target && nodes.includes(target)) {
-            edges.push({ source: path.basename(file, path.extname(file)), target, weight: 1 });
-          }
-        });
-      }
-      const result = graphMod.minCut(nodes, edges);
-      console.log(JSON.stringify({ success: true, nodes: nodes.length, edges: edges.length, ...result }));
+      const { nodes, edges, graph } = buildImportGraph(files);
+      // minCutFast uses @ruvector/mincut-wasm when it is installed and falls
+      // back to the exact pure-TS Stoer-Wagner otherwise; both are exact.
+      const wasm = require('../dist/core/mincut-wasm-wrapper.js');
+      const engine = wasm.isMinCutWasmAvailable() ? 'mincut-wasm' : 'typescript';
+      const result = wasm.minCutFast(graph);
+      console.log(JSON.stringify({
+        success: true,
+        engine,
+        nodes: nodes.length,
+        edges: edges.length,
+        groups: result.groups,
+        cutWeight: result.cutWeight,
+        modularity: result.modularity,
+      }));
     } catch (e) {
       console.log(JSON.stringify({ success: false, error: e.message }));
     }
@@ -5931,27 +5970,26 @@ hooksCmd.command('graph-cluster')
       return;
     }
     try {
-      const graphMod = require('../dist/core/graph-algorithms.js');
-      const nodes = files.map(f => path.basename(f, path.extname(f)));
-      const edges = [];
-      for (const file of files) {
-        if (!fs.existsSync(file)) continue;
-        const content = fs.readFileSync(file, 'utf-8');
-        const imports = content.match(/from ['"]\.\/([^'"]+)['"]/g) || [];
-        imports.forEach(imp => {
-          const target = imp.match(/from ['"]\.\/([^'"]+)['"]/)?.[1];
-          if (target && nodes.includes(target)) {
-            edges.push({ source: path.basename(file, path.extname(file)), target, weight: 1 });
-          }
-        });
+      const method = opts.method === 'spectral' ? 'spectral' : opts.method === 'louvain' ? 'louvain' : null;
+      if (!method) {
+        console.log(JSON.stringify({ success: false, error: `Unknown method '${opts.method}' (use spectral or louvain)` }));
+        return;
       }
-      let result;
-      if (opts.method === 'spectral') {
-        result = graphMod.spectralClustering(nodes, edges, parseInt(opts.clusters));
+      const { graphMod, nodes, edges, graph } = buildImportGraph(files);
+      let out;
+      if (method === 'spectral') {
+        const k = parseInt(opts.clusters, 10);
+        if (!Number.isInteger(k) || k < 1) {
+          console.log(JSON.stringify({ success: false, error: '--clusters must be a positive integer' }));
+          return;
+        }
+        const r = graphMod.spectralClustering(graph, k);
+        out = { ...clustersToJson(r.clusters), eigenvalues: r.eigenvalues };
       } else {
-        result = graphMod.louvainCommunities(nodes, edges);
+        out = clustersToJson(graphMod.louvainCommunities(graph));
       }
-      console.log(JSON.stringify({ success: true, method: opts.method, ...result }));
+      out.modularity = graphMod.calculateModularity(graph, out.groups);
+      console.log(JSON.stringify({ success: true, method, nodes: nodes.length, edges: edges.length, ...out }));
     } catch (e) {
       console.log(JSON.stringify({ success: false, error: e.message }));
     }
