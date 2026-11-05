@@ -51,6 +51,10 @@ index.d.ts
 # (v3 emits no v2-style loader), which published an empty 0.1.6 (#516)
 !npm/packages/sona/index.js
 !npm/packages/sona/index.d.ts
+# @ruvector/gnn likewise: build-gnn.yml's publish job never runs napi build,
+# so the loader must be committed or the tarball ships without it
+!crates/ruvector-gnn-node/index.js
+!crates/ruvector-gnn-node/index.d.ts
 # ruvector optimizer is a hand-written module (not a napi artifact); the bare
 # `index.js` rule above wrongly ignored it, so it was never committed and CI's
 # optimizer test could not resolve it.
