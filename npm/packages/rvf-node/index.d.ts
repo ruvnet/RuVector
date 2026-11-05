@@ -13,6 +13,8 @@ export interface RvfQueryOptions {
   efSearch?: number;
   filter?: string;
   timeoutMs?: number;
+  /** Opt in to the RaBitQ two-stage path (L2, cosine, inner product). */
+  rabitq?: boolean;
 }
 
 export interface RvfSearchResult {
@@ -76,10 +78,18 @@ export class RvfDatabase {
   static open(path: string): RvfDatabase;
   static openReadonly(path: string): RvfDatabase;
   ingestBatch(vectors: Float32Array, ids: number[], metadata?: RvfMetadataEntry[]): RvfIngestResult;
+  /** `ingestBatch` on the libuv threadpool (write lock). Rejects on error. */
+  ingestBatchAsync(vectors: Float32Array, ids: number[], metadata?: RvfMetadataEntry[]): Promise<RvfIngestResult>;
   query(vector: Float32Array, k: number, options?: RvfQueryOptions): RvfSearchResult[];
+  /** `query` on the libuv threadpool (read lock; concurrent calls run in parallel). Rejects on error. */
+  queryAsync(vector: Float32Array, k: number, options?: RvfQueryOptions): Promise<RvfSearchResult[]>;
   delete(ids: number[]): RvfDeleteResult;
+  /** `delete` on the libuv threadpool (write lock). Rejects on error. */
+  deleteAsync(ids: number[]): Promise<RvfDeleteResult>;
   deleteByFilter(filterJson: string): RvfDeleteResult;
   compact(): RvfCompactionResult;
+  /** `compact` on the libuv threadpool (write lock); the event loop keeps running. */
+  compactAsync(): Promise<RvfCompactionResult>;
   status(): RvfStatus;
   close(): void;
   fileId(): string;
