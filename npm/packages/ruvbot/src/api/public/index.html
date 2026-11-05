@@ -664,6 +664,98 @@
     <a href="/health" target="_blank">Health</a>
   </footer>
 
+  <script id="ruvbot-api-client">
+    // API client: attaches "Authorization: Bearer <key>" to /api/* requests.
+    // When the server sets RUVBOT_API_KEY it answers 401 without the header;
+    // the user is then asked for the key once, and it is kept in sessionStorage
+    // (this tab only). With no key configured server-side nothing changes:
+    // requests succeed and no prompt is shown. The key never goes in a URL.
+    function createRuvBotApiClient(deps) {
+      const doFetch = deps.fetch;
+      const storage = deps.storage;
+      const ask = deps.prompt;
+      const STORAGE_KEY = 'ruvbot.apiKey';
+      let memoryKey = null; // fallback when sessionStorage is unavailable
+      let pendingPrompt = null; // share one prompt between concurrent 401s
+
+      function getKey() {
+        try {
+          const v = storage && storage.getItem(STORAGE_KEY);
+          if (v) return v;
+        } catch (e) { /* storage blocked */ }
+        return memoryKey;
+      }
+
+      function setKey(key) {
+        memoryKey = key;
+        try { if (storage) storage.setItem(STORAGE_KEY, key); } catch (e) { /* storage blocked */ }
+      }
+
+      function clearKey() {
+        memoryKey = null;
+        try { if (storage) storage.removeItem(STORAGE_KEY); } catch (e) { /* storage blocked */ }
+      }
+
+      function isApiUrl(url) {
+        const s = typeof url === 'string' ? url : (url && url.url) || '';
+        return s.startsWith('/api/') || s === '/api';
+      }
+
+      function withAuth(init, key) {
+        const next = Object.assign({}, init || {});
+        const headers = new Headers(next.headers || {});
+        headers.set('Authorization', 'Bearer ' + key);
+        next.headers = headers;
+        return next;
+      }
+
+      function promptForKey(rejected) {
+        if (!pendingPrompt) {
+          pendingPrompt = Promise.resolve().then(() => {
+            const msg = rejected
+              ? 'The RuvBot API key was rejected. Enter the API key (RUVBOT_API_KEY):'
+              : 'This RuvBot server requires an API key. Enter the API key (RUVBOT_API_KEY):';
+            const answer = ask(msg);
+            const key = typeof answer === 'string' ? answer.trim() : '';
+            if (key) setKey(key);
+            return key || null;
+          }).finally(() => { pendingPrompt = null; });
+        }
+        return pendingPrompt;
+      }
+
+      async function apiFetch(url, init) {
+        if (!isApiUrl(url)) return doFetch(url, init);
+
+        const sentKey = getKey();
+        const res = await doFetch(url, sentKey ? withAuth(init, sentKey) : init);
+        if (res.status !== 401) return res;
+
+        // Another request may already have obtained a fresh key.
+        const current = getKey();
+        if (current && current !== sentKey) {
+          return doFetch(url, withAuth(init, current));
+        }
+        if (sentKey) clearKey();
+
+        const key = await promptForKey(!!sentKey);
+        if (!key) return res; // user cancelled: surface the 401
+        const retry = await doFetch(url, withAuth(init, key));
+        if (retry.status === 401) clearKey();
+        return retry;
+      }
+
+      return { apiFetch, getKey, setKey, clearKey };
+    }
+
+    const ruvbotApi = createRuvBotApiClient({
+      fetch: (url, init) => window.fetch(url, init),
+      storage: (() => { try { return window.sessionStorage; } catch (e) { return null; } })(),
+      prompt: (msg) => window.prompt(msg),
+    });
+    const apiFetch = ruvbotApi.apiFetch;
+  </script>
+
   <script>
     // State
     let sessionId = null;
@@ -729,12 +821,17 @@
     async function createSession() {
       console.log('[RuvBot] Creating new session...');
       try {
-        const res = await fetch('/api/sessions', {
+        const res = await apiFetch('/api/sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ agentId: 'default-agent' })
         });
         const data = await res.json();
+        if (!res.ok) {
+          throw new Error(res.status === 401
+            ? 'Unauthorized: a valid API key is required'
+            : (data.message || data.error || 'Failed to create session'));
+        }
         console.log('[RuvBot] Session created:', data);
         sessionId = data.id || data.sessionId;
         return sessionId;
@@ -773,7 +870,7 @@
         console.log('[RuvBot] Sending message:', { sessionId, message, model: modelSelect.value });
         const startTime = performance.now();
 
-        const res = await fetch(`/api/sessions/${sessionId}/chat`, {
+        const res = await apiFetch(`/api/sessions/${sessionId}/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -917,7 +1014,7 @@
       try {
         const [healthRes, statusRes] = await Promise.all([
           fetch('/health'),
-          fetch('/api/status')
+          apiFetch('/api/status')
         ]);
         const health = await healthRes.json();
         const status = await statusRes.json();
