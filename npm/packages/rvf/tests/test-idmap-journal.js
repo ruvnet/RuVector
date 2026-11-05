@@ -178,6 +178,31 @@ async function test(name, fn) {
     );
   });
 
+  await test('a damaged header followed by ops is corruption, not a torn tail', async (tmp) => {
+    const store = path.join(tmp, 's.rvf');
+    fs.writeFileSync(journalOf(store), '{"rvfIdmapJournal":9}\n["a","a",1]\n');
+    await assert.rejects(
+      () => openBackend(store),
+      (e) => e instanceof RvfError && e.code === RvfErrorCode.SidecarCorrupt,
+    );
+  });
+
+  await test('query and create options reach the binding as camelCase keys', async (tmp) => {
+    const store = path.join(tmp, 's.rvf');
+    let createOpts;
+    const b = new NodeBackend();
+    b['native'] = { create: (_p, o) => { createOpts = o; return new MockNativeHandle(); } };
+    await b.create(store, { dimensions: 4, efConstruction: 321 });
+    assert.strictEqual(createOpts.efConstruction, 321);
+    let queryOpts;
+    b['handle'].query = (_v, _k, o) => { queryOpts = o; return []; };
+    await b.query(vec(1), 1, { efSearch: 555, timeoutMs: 7 });
+    assert.strictEqual(queryOpts.efSearch, 555);
+    assert.strictEqual(queryOpts.timeoutMs, 7);
+    assert.ok(!('ef_search' in queryOpts) && !('ef_construction' in createOpts));
+    await b.close();
+  });
+
   await test('a label owned by two ids is corruption', async (tmp) => {
     const store = path.join(tmp, 's.rvf');
     fs.writeFileSync(sidecarOf(store), OLD_FORMAT_SIDECAR);

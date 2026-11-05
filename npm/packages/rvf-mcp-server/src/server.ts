@@ -165,7 +165,7 @@ export class RvfMcpServer {
           return fail(`max stores (${this.opts.maxStores}) reached`);
         }
         try {
-          const file = resolveStorePath(this.opts.dataDir, path);
+          const file = resolveStorePath(this.opts.dataDir, path, true);
           const meta = new MetadataLog(file + META_SUFFIX, false);
           if (fs.existsSync(meta.file)) throw new Error(`${path} already has metadata; use rvf_open_store`);
           const db = await RvfDatabase.create(file, { dimensions, metric: metric as Metric }, 'node');
@@ -192,7 +192,7 @@ export class RvfMcpServer {
           return fail(`max stores (${this.opts.maxStores}) reached`);
         }
         try {
-          const file = resolveStorePath(this.opts.dataDir, path);
+          const file = resolveStorePath(this.opts.dataDir, path, false);
           if (!fs.existsSync(file)) throw new Error(`store ${path} does not exist`);
           const db = readOnly
             ? await RvfDatabase.openReadonly(file, 'node')

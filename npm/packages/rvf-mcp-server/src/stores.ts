@@ -28,10 +28,11 @@ export function defaultDataDir(): string {
  * Resolve a model-supplied store path inside `dataDir`.
  *
  * Tool arguments are untrusted: absolute paths, `..` segments, NUL bytes and
- * symlinked parents that lead outside the data dir are all rejected. Creates
- * the data dir and any intermediate directories on success.
+ * symlinks that lead outside the data dir are all rejected, and containment
+ * is checked before anything is created. With `create`, missing
+ * intermediate directories are then made inside the data dir.
  */
-export function resolveStorePath(dataDir: string, storePath: string): string {
+export function resolveStorePath(dataDir: string, storePath: string, create: boolean): string {
   if (typeof storePath !== 'string' || storePath.length === 0 || storePath.length > 1024) {
     throw new Error('store path must be a non-empty relative path');
   }
@@ -47,16 +48,34 @@ export function resolveStorePath(dataDir: string, storePath: string): string {
   if (!target.startsWith(root + path.sep)) {
     throw new Error(`store path escapes the data dir: ${storePath}`);
   }
-  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.mkdirSync(root, { recursive: true });
   const realRoot = fs.realpathSync(root);
-  const realParent = fs.realpathSync(path.dirname(target));
-  if (realParent !== realRoot && !realParent.startsWith(realRoot + path.sep)) {
+  // Deepest ancestor that exists (lstat: a dangling symlink counts as existing).
+  let probe = path.dirname(target);
+  while (probe !== root && lstatOrNull(probe) === null) probe = path.dirname(probe);
+  let realProbe: string;
+  try {
+    realProbe = fs.realpathSync(probe);
+  } catch {
+    throw new Error(`store path goes through a broken symlink: ${storePath}`);
+  }
+  if (realProbe !== realRoot && !realProbe.startsWith(realRoot + path.sep)) {
     throw new Error(`store path escapes the data dir via a symlink: ${storePath}`);
   }
-  if (fs.existsSync(target) && fs.lstatSync(target).isSymbolicLink()) {
+  if (lstatOrNull(target)?.isSymbolicLink()) {
     throw new Error(`store path is a symlink: ${storePath}`);
   }
+  if (create) fs.mkdirSync(path.dirname(target), { recursive: true });
   return target;
+}
+
+function lstatOrNull(p: string): fs.Stats | null {
+  try {
+    return fs.lstatSync(p);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw err;
+  }
 }
 
 export interface MetaHeader {

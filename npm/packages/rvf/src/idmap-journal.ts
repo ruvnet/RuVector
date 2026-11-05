@@ -121,11 +121,13 @@ export function replayJournal(buf: Buffer, state: IdMapState): ReplayResult {
   let ops = 0;
   let sawHeader = false;
   let badAt = -1;
+  let lines = 0;
   while (pos < buf.length) {
     const nl = buf.indexOf(0x0a, pos);
     if (nl === -1) break; // unterminated tail: torn append
     const line = buf.toString('utf-8', pos, nl);
     const next = nl + 1;
+    lines++;
     const op = sawHeader ? parseOp(line) : null;
     const ok = sawHeader ? op !== null : isHeader(line);
     if (!ok) {
@@ -142,6 +144,11 @@ export function replayJournal(buf: Buffer, state: IdMapState): ReplayResult {
       validBytes = next;
     }
     pos = next;
+  }
+  // The header and the first ops go out in one write, so a damaged header
+  // followed by further complete lines is not a torn append.
+  if (!sawHeader && lines > 1) {
+    throw new JournalCorruptError('invalid journal header');
   }
   return { validBytes, tornBytes: buf.length - validBytes, ops };
 }

@@ -1151,16 +1151,19 @@ function mapOptionsToNative(options) {
         compression: mapCompressionToNative(options.compression),
         signing: options.signing ?? false,
         m: options.m ?? 16,
-        ef_construction: options.efConstruction ?? 200,
+        // #[napi(object)] exposes Rust snake_case fields as camelCase keys; a
+        // snake_case key here is silently ignored by the binding.
+        efConstruction: options.efConstruction ?? 200,
     };
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapQueryOptionsToNative(options) {
     return {
-        ef_search: options.efSearch ?? 100,
+        // camelCase, matching the binding's RvfQueryOptions (see mapOptionsToNative).
+        efSearch: options.efSearch ?? 100,
         // NAPI accepts the filter as a JSON string, not an object.
         filter: options.filter ? JSON.stringify(filterToNativeJson(options.filter)) : undefined,
-        timeout_ms: options.timeoutMs ?? 0,
+        timeoutMs: options.timeoutMs ?? 0,
     };
 }
 /**

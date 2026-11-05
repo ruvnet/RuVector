@@ -151,14 +151,20 @@ test('store paths cannot escape the data dir', { timeout: 10_000 }, async () => 
   const dataDir = tempDataDir();
   const outside = tempDataDir();
   fs.symlinkSync(outside, path.join(dataDir, 'link'));
+  fs.symlinkSync(path.join(outside, 'dangling.rvf'), path.join(dataDir, 'dangle.rvf'));
   const { server, client } = await connect({ dataDir });
-  for (const p of ['../evil.rvf', 'a/../../evil.rvf', '/tmp/evil.rvf', 'link/evil.rvf', 'a\0b.rvf', '']) {
+  const evil = ['../evil.rvf', 'a/../../evil.rvf', '/tmp/evil.rvf', 'link/evil.rvf',
+    'link/sub/deeper/evil.rvf', 'dangle.rvf', 'a\0b.rvf', ''];
+  for (const p of evil) {
     const created = await call(client, 'rvf_create_store', { path: p, dimensions: 2 });
     assert.ok(created.error, `create accepted ${JSON.stringify(p)}`);
     const opened = await call(client, 'rvf_open_store', { path: p });
     assert.ok(opened.error, `open accepted ${JSON.stringify(p)}`);
   }
-  assert.deepEqual(fs.readdirSync(outside), []);
+  assert.deepEqual(fs.readdirSync(outside), [], 'nothing created outside the data dir');
+  const missing = await call(client, 'rvf_open_store', { path: 'no/such/dir/x.rvf' });
+  assert.match(missing.error, /does not exist/);
+  assert.ok(!fs.existsSync(path.join(dataDir, 'no')), 'open does not create directories');
   assert.ok(!fs.existsSync(path.join(dataDir, '..', 'evil.rvf')));
   await server.close();
 });
