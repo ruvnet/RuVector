@@ -1,0 +1,125 @@
+{
+  "3.0.0": {
+    ".": [
+      "AGENT_TRAINING_DATA",
+      "AGENT_TYPES",
+      "CLUSTER_TEST_CASES",
+      "COMPARISON_MODELS",
+      "ContrastiveTrainer",
+      "DEFAULT_SONA_CONFIG",
+      "DatasetExporter",
+      "EphemeralAgent",
+      "EwcManager",
+      "FederatedCoordinator",
+      "FileSignalProvider",
+      "IntelligenceLoader",
+      "LRScheduler",
+      "LoraAdapter",
+      "LoraManager",
+      "MODEL_ALIASES",
+      "MetricsTracker",
+      "ModelDownloader",
+      "ModelExporter",
+      "ModelImporter",
+      "PLACEHOLDER_TEXT",
+      "ROUTING_TEST_CASES",
+      "RUVLTRA_MODELS",
+      "ReasoningBank",
+      "RuvLLM",
+      "SEARCH_TEST_CASES",
+      "SIMILARITY_TEST_PAIRS",
+      "SafeTensorsReader",
+      "SafeTensorsWriter",
+      "SessionManager",
+      "SimdOps",
+      "SonaCoordinator",
+      "StreamingGenerator",
+      "TrainingFactory",
+      "TrainingPipeline",
+      "TrajectoryBuilder",
+      "baselineKeywordRouter",
+      "calculateMRR",
+      "calculateNDCG",
+      "calculateSilhouette",
+      "compareModels",
+      "computeGradient",
+      "cosineSimilarity",
+      "createReadableStream",
+      "default",
+      "downloadModel",
+      "formatComparisonResults",
+      "formatEmbeddingResults",
+      "formatFullResults",
+      "formatRoutingResults",
+      "generateContrastivePairs",
+      "generateTrainingDataset",
+      "getDatasetStats",
+      "getDefaultModelsDir",
+      "getModelInfo",
+      "getModelsDir",
+      "hasSimdSupport",
+      "infoNCELoss",
+      "isCorrectSimilarity",
+      "isModelDownloaded",
+      "listModels",
+      "resolveModelId",
+      "runEmbeddingBenchmark",
+      "runFullBenchmark",
+      "runFullComparison",
+      "runModelComparison",
+      "runRoutingBenchmark",
+      "tripletLoss",
+      "version"
+    ],
+    "./simd": [
+      "SimdOps"
+    ]
+  },
+  "4.0.1": {
+    "subpaths": {
+      "./engine": [
+        "checkedPath",
+        "fileDigest",
+        "parseJson",
+        "runExperiment",
+        "sha256"
+      ],
+      "./adapters": [
+        "exportArchive",
+        "selectDevelopmentCandidate",
+        "trainingPlan"
+      ],
+      "./fixture": [
+        "createFixture"
+      ],
+      "./gpu-loop": [
+        "readLoopConfig",
+        "readLoopStatus",
+        "tickLoop"
+      ],
+      "./gpu-host": [
+        "loadHostAdapter"
+      ],
+      "./gpu-spool-adapter": [
+        "cleanup",
+        "inspect",
+        "submit"
+      ],
+      "./vast-host-adapter": [
+        "HOST_CONFIG_ENV",
+        "cleanup",
+        "createVastAdapter",
+        "inspect",
+        "onstartScript",
+        "readHostConfig",
+        "submit"
+      ]
+    },
+    "bins": [
+      "ruvllm",
+      "ruvllm-gpu-loop",
+      "ruvllm-adapters"
+    ],
+    "note": "4.0.1 root (.) is reachable as ./engine; its ruvllm bin is ruvllm gpu"
+  }
+}

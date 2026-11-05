@@ -13,6 +13,13 @@
  *   ruvllm benchmark
  */
 
+// `ruvllm gpu ...` delegates to @ruvector/ruvllm-gpu-loop before dist/ (and the
+// native binding) is loaded, so it works even where the runtime cannot load.
+if (process.argv[2] === 'gpu') {
+  require('./gpu-delegate.js').runGpuCommand(process.argv.slice(3));
+  return;
+}
+
 const { RuvLLM, SimdOps, version, hasSimdSupport, ModelDownloader, listModels, getModelInfo, RUVLTRA_MODELS, getDefaultModelsDir, runRoutingBenchmark, formatRoutingResults, baselineKeywordRouter, runEmbeddingBenchmark, formatEmbeddingResults, runFullBenchmark, formatFullResults, ROUTING_TEST_CASES, runFullComparison, formatComparisonResults, ContrastiveTrainer, AGENT_TRAINING_DATA, generateTrainingDataset, generateContrastivePairs, getDatasetStats, tripletLoss, cosineSimilarity } = require('../dist/cjs/index.js');
 
 const args = process.argv.slice(2);
@@ -804,7 +811,19 @@ Commands:
   stats                     Show engine statistics
   benchmark                 Run SIMD performance benchmark
   info                      Show system information
+  serve <gguf>              HTTP server: /health, /query, /v1/chat/completions
+                            (--host 127.0.0.1 --port 3000; needs a loadable model)
   help                      Show this help message
+
+GPU job loop (via @ruvector/ruvllm-gpu-loop, Node 22+):
+  gpu run --config <abs> --plan <abs>
+                            Bounded weight-edit experiment (4.0.x "ruvllm run")
+  gpu fixture --dir <abs> --binary <abs>
+                            CPU fixture experiment (4.0.x "ruvllm fixture")
+  gpu loop status|tick|run --config <abs>
+                            Scheduled GPU job loop (same as ruvllm-gpu-loop)
+  gpu adapters export|training-plan|select
+                            Adapter archives (same as ruvllm-adapters)
 
 Model Management:
   models list               List available RuvLTRA models
@@ -858,6 +877,8 @@ Examples:
   ruvllm memory search "context" --k 5
   ruvllm similarity "hello world" "hi there"
   ruvllm benchmark --dims 1024 --iterations 5000
+  ruvllm serve ./qwen2.5-0.5b-instruct-q4_k_m.gguf --port 3000
+  ruvllm gpu loop status --config /abs/private/gpu-loop.json
 
   # Model management
   ruvllm models list
@@ -985,6 +1006,11 @@ async function main() {
       case 'info':
         await runInfo(flags);
         break;
+
+      case 'serve':
+        // Keeps running until SIGINT/SIGTERM; exits 1 if no model can be loaded.
+        require('./serve.js').runServe({ RuvLLM, version: require('../package.json').version }, positional, flags);
+        return;
 
       case 'models':
         const modelsSubcmd = positional[0];
