@@ -34,7 +34,7 @@ jobs:
             node_file: ruvllm.darwin-x64.node
             npm_package: ruvllm-darwin-x64
           - target: aarch64-apple-darwin
-            os: macos-14
+            os: macos-15
             node_file: ruvllm.darwin-arm64.node
             npm_package: ruvllm-darwin-arm64
           - target: x86_64-pc-windows-msvc
