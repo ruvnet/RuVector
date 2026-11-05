@@ -301,27 +301,28 @@ jobs:
       # --- Publish WASM packages ---
       - name: Publish @ruvector/math-wasm to npm
         run: |
+          set -euo pipefail
           cd artifacts/wasm-ruvector-math-wasm
           # Update package name to scoped
           jq '.name = "@ruvector/math-wasm"' package.json > tmp.json && mv tmp.json package.json
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
 
       - name: Publish @ruvector/attention-wasm to npm
         run: |
+          set -euo pipefail
           cd artifacts/wasm-ruvector-attention-wasm
           # Update package name to scoped
           jq '.name = "@ruvector/attention-wasm"' package.json > tmp.json && mv tmp.json package.json
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
 
       # --- Publish platform-specific native packages ---
       - name: Prepare and publish @ruvector/attention-linux-x64-gnu
         run: |
+          set -euo pipefail
           mkdir -p publish/linux-x64-gnu
           cp artifacts/native-linux-x64-gnu/*.node publish/linux-x64-gnu/
           cd publish/linux-x64-gnu
@@ -338,13 +339,13 @@ jobs:
             "repository": "https://github.com/ruvnet/ruvector"
           }
           EOF
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
 
       - name: Prepare and publish @ruvector/attention-linux-arm64-gnu
         run: |
+          set -euo pipefail
           mkdir -p publish/linux-arm64-gnu
           cp artifacts/native-linux-arm64-gnu/*.node publish/linux-arm64-gnu/
           cd publish/linux-arm64-gnu
@@ -361,13 +362,13 @@ jobs:
             "repository": "https://github.com/ruvnet/ruvector"
           }
           EOF
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
 
       - name: Prepare and publish @ruvector/attention-darwin-x64
         run: |
+          set -euo pipefail
           mkdir -p publish/darwin-x64
           cp artifacts/native-darwin-x64/*.node publish/darwin-x64/
           cd publish/darwin-x64
@@ -384,13 +385,13 @@ jobs:
             "repository": "https://github.com/ruvnet/ruvector"
           }
           EOF
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
 
       - name: Prepare and publish @ruvector/attention-darwin-arm64
         run: |
+          set -euo pipefail
           mkdir -p publish/darwin-arm64
           cp artifacts/native-darwin-arm64/*.node publish/darwin-arm64/
           cd publish/darwin-arm64
@@ -407,13 +408,13 @@ jobs:
             "repository": "https://github.com/ruvnet/ruvector"
           }
           EOF
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
 
       - name: Prepare and publish @ruvector/attention-win32-x64-msvc
         run: |
+          set -euo pipefail
           mkdir -p publish/win32-x64-msvc
           cp artifacts/native-win32-x64-msvc/*.node publish/win32-x64-msvc/
           cd publish/win32-x64-msvc
@@ -430,14 +431,14 @@ jobs:
             "repository": "https://github.com/ruvnet/ruvector"
           }
           EOF
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
 
       # --- Publish main @ruvector/attention package ---
       - name: Publish @ruvector/attention (main package)
         run: |
+          set -euo pipefail
           mkdir -p publish/attention-main
           cd publish/attention-main
           cat > package.json << 'EOF'
@@ -496,10 +497,9 @@ jobs:
           export function hyperbolicAttention(query: Float32Array, keys: Float32Array[], values: Float32Array[], curvature?: number): Float32Array;
           INDEXDTS
 
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
 
       - name: Summary
         run: |

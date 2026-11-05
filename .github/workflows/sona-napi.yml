@@ -221,6 +221,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           VERSION=$(node -p "require('./package.json').version")
           echo "Publishing version: $VERSION"
           mkdir -p npm
@@ -242,7 +243,7 @@ jobs:
               fi
               echo "Publishing $name..."
               cd "npm/$dir_name"
-              npm publish --access public || echo "Warning: $name may already exist"
+              bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
               cd ../..
             else
               echo "ERROR: expected platform binary $node_file is missing"; exit 1
@@ -286,6 +287,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           # Rename bundled binaries to the index.<target>.node names the
           # committed loader (index.js) checks for. Must happen AFTER the
           # platform packages are created from the sona.<target>.node names.
@@ -297,7 +299,7 @@ jobs:
           ls -la
 
           # Publish main package
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
 
   # Test installation on all platforms
   test-install:

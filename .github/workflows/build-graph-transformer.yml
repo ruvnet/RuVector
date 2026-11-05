@@ -262,6 +262,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           VERSION=$(node -p "require('./crates/ruvector-graph-transformer-node/package.json').version")
           echo "Publishing version: $VERSION"
 
@@ -340,7 +341,7 @@ jobs:
             echo "Binary size: $(wc -c < "$PKG_DIR/$NODE_NAME") bytes"
 
             cd "$PKG_DIR"
-            npm publish --access public || echo "Failed to publish @ruvector/graph-transformer-${platform}"
+            bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
             cd ../..
           done
 
@@ -349,5 +350,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         working-directory: crates/ruvector-graph-transformer-node
         run: |
+          set -euo pipefail
           npm install --ignore-scripts --omit=optional --force
-          npm publish --access public --ignore-scripts || echo "Failed to publish @ruvector/graph-transformer"
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public --ignore-scripts
