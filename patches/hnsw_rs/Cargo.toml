@@ -76,7 +76,7 @@ rand = { version = "0.8" }
 lazy_static = { version = "1.4" }
 
 #
-mmap-rs = { version = "0.6" }
+mmap-rs = { version = "0.7" }
 #
 # decreasing order of log for debug build : (max_level_)trace debug info warn error off
 # decreasing order of log for release build (release_max_level_)  .. idem
