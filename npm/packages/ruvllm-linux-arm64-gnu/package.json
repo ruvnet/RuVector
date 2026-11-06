@@ -1,11 +1,11 @@
 {
   "name": "@ruvector/ruvllm-linux-arm64-gnu",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "os": ["linux"],
   "cpu": ["arm64"],
   "main": "ruvllm.linux-arm64-gnu.node",
   "files": ["ruvllm.linux-arm64-gnu.node"],
-  "description": "RuvLLM native SIMD acceleration - linux-arm64-gnu platform",
+  "description": "RuvLLM native binding (SIMD + candle GGUF inference) - linux-arm64-gnu platform",
   "keywords": [
     "ruvllm",
     "llm",
