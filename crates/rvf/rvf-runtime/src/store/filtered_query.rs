@@ -170,8 +170,10 @@ impl RvfStore {
     /// as an unfiltered one (measured on uniform-random 100k x 128, where the
     /// graph itself is weak: 0.68 vs 0.71 recall@10 at 50% selectivity; a
     /// floor of 128 dropped that to 0.51). Larger `ef_search` is honored.
-    fn filtered_ef(k: usize, options: &QueryOptions) -> usize {
-        (options.ef_search as usize).max(k).max(INDEX_MIN_EF_SEARCH)
+    fn filtered_ef(&self, k: usize, options: &QueryOptions) -> usize {
+        (options.ef_search as usize)
+            .max(k)
+            .max(min_ef_search(self.options.dimension as usize))
     }
 
     /// Recall@10 of the unfiltered graph walk at `ef`, measured against the
@@ -269,7 +271,7 @@ impl RvfStore {
         if !selectivity.is_some_and(|s| s >= FILTERED_HNSW_MIN_SELECTIVITY) {
             return Ok(None);
         }
-        let ef = Self::filtered_ef(k, options);
+        let ef = self.filtered_ef(k, options);
         if !matches!(
             options.quality_preference,
             QualityPreference::PreferLatency | QualityPreference::AcceptDegraded
@@ -359,7 +361,7 @@ impl RvfStore {
         if !selectivity.is_some_and(|s| s >= FILTERED_HNSW_MIN_SELECTIVITY) {
             return Ok(None);
         }
-        let ef = Self::filtered_ef(k, options);
+        let ef = self.filtered_ef(k, options);
         let mut merged: Vec<(u64, f32)> = Vec::with_capacity(2 * k);
         let mut abort: Option<RvfError> = None;
 

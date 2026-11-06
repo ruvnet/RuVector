@@ -32,7 +32,7 @@ use crate::cow_map::CowMap;
 use crate::deletion::DeletionBitmap;
 use crate::filter::{self, FilterExpr, MetadataStore};
 use crate::index_path::{
-    VectorIndex, INDEX_MAX_DELETED_FRACTION, INDEX_MIN_EF_SEARCH, INDEX_MIN_VECTORS,
+    min_ef_search, VectorIndex, INDEX_MAX_DELETED_FRACTION, INDEX_MIN_VECTORS,
 };
 use crate::locking::WriterLock;
 use crate::membership::MembershipFilter;
@@ -1013,7 +1013,7 @@ impl RvfStore {
             // falls back to the exact scan (audit finding 5).
             let ef = (options.ef_search as usize)
                 .max(k_prime)
-                .max(INDEX_MIN_EF_SEARCH);
+                .max(min_ef_search(self.options.dimension as usize));
             let hits = self.with_index(|idx| {
                 idx.search(vector, k_prime, ef, &self.vectors, self.options.metric)
             })?;
@@ -1176,10 +1176,10 @@ impl RvfStore {
         let live = self.vectors.len().saturating_sub(deleted);
         let k_fetch = k.saturating_add(deleted.min(2 * k + 16));
         // Floor ef_search so the index path meets the >=0.95 recall@10
-        // contract (see INDEX_MIN_EF_SEARCH); larger values are honored.
+        // contract (see `min_ef_search`); larger values are honored.
         let ef = (options.ef_search as usize)
             .max(k_fetch)
-            .max(INDEX_MIN_EF_SEARCH);
+            .max(min_ef_search(self.options.dimension as usize));
 
         let hits = self.with_index(|idx| {
             idx.search(vector, k_fetch, ef, &self.vectors, self.options.metric)
