@@ -12534,6 +12534,9 @@ dependencies = [
 [[package]]
 name = "rvf-index"
 version = "0.2.3"
+dependencies = [
+ "libm",
+]
 
 [[package]]
 name = "rvf-kernel"
@@ -12621,7 +12624,7 @@ dependencies = [
 
 [[package]]
 name = "rvlite"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",
