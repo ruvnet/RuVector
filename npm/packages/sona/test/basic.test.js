@@ -210,3 +210,28 @@ test('NaN feedback does not poison LoRA output', () => {
   assert.ok(engine.applyMicroLora(input).every(Number.isFinite));
   assert.ok(engine.applyBaseLora(0, input).every(Number.isFinite));
 });
+
+test('unfinished trajectories are capped and ids stay unique', () => {
+  const engine = new SonaEngine(8);
+  const emb = new Array(8).fill(0.5);
+  const ids = new Set();
+  for (let i = 0; i < 10001; i++) ids.add(engine.beginTrajectory(emb));
+  assert.strictEqual(ids.size, 10001);
+  // The first trajectory was evicted, so ending it submits nothing.
+  engine.endTrajectory(0, 0.9);
+  assert.strictEqual(JSON.parse(engine.getStats()).trajectories_buffered, 0);
+  engine.endTrajectory(10000, 0.9);
+  assert.strictEqual(JSON.parse(engine.getStats()).trajectories_buffered, 1);
+});
+
+test('forceLearnAsync resolves off the event loop', async () => {
+  const engine = new SonaEngine(8);
+  const id = engine.beginTrajectory(new Array(8).fill(0.5));
+  engine.endTrajectory(id, 0.9);
+  const pending = engine.forceLearnAsync();
+  assert.throws(() => engine.setEnabled(false), /forceLearnAsync/);
+  const status = await pending;
+  assert.match(status, /Forced learning/);
+  engine.setEnabled(false);
+  assert.strictEqual(engine.isEnabled(), false);
+});
