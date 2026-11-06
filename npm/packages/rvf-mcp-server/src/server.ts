@@ -278,7 +278,7 @@ export class RvfMcpServer {
         const liveBytes = status.totalVectors * h.dimensions * 4;
         let autoCompacted = false;
         // Stat the file directly: status().fileSizeBytes reads 0 in @ruvector/rvf <= 0.4.2.
-        const fileBytes = fs.statSync(h.file).size;
+        const fileBytes = (await fs.promises.stat(h.file)).size;
         const { minBytes, ratio } = this.opts.autoCompact;
         if (fileBytes > minBytes && fileBytes > ratio * Math.max(liveBytes, 1)) {
           await h.db.compact();
