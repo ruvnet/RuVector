@@ -56,6 +56,19 @@
 //! - **Crash before seal.** Pending `BatchTail` state is in memory only; a
 //!   crash leaves the unsealed tail permanently unsigned, and only a key
 //!   holder can re-sign it. Verification fails closed in that case.
+//! - **`BatchTail`'s unsigned-availability window is unbounded.** A record
+//!   is not covered by any signature until `batch_size` records have
+//!   arrived or [`SignedWitnessSink::seal`] is called explicitly — if
+//!   arrivals pause indefinitely before the batch fills, so does signature
+//!   availability (2026-09-16 nightly, Failure Modes item 2).
+//!   [`SigningStrategy::BoundedBatchTail`] (2026-10-14 nightly) bounds this:
+//!   the pending span also closes once `max_wait_ns` has elapsed since it
+//!   opened, checked both inline (against each new record's `timestamp_ns`)
+//!   and via [`SignedWitnessSink::seal_if_due`], which a caller can drive
+//!   from a wall-clock timer to bound the worst case even when no further
+//!   records ever arrive. This does not eliminate the crash-before-seal
+//!   limitation above — it only bounds how long an *honest, running* sink
+//!   can leave a span open.
 //! - **Key compromise / key management** (generation, rotation, storage,
 //!   revocation) is out of scope. Anyone holding the signing key can sign
 //!   an arbitrary alternative history.
@@ -164,9 +177,22 @@ impl SignedAnchor {
 pub enum SigningStrategy {
     PerRecord,
     /// Sign once every `batch_size` records (and on [`SignedWitnessSink::seal`]).
-    /// `batch_size` must be at least 1.
+    /// `batch_size` must be at least 1. Fixed-size-only: a pending span can
+    /// remain open indefinitely if arrivals pause before it fills (see the
+    /// module docs' "Limits" section).
     BatchTail {
         batch_size: usize,
+    },
+    /// Like [`SigningStrategy::BatchTail`], but the pending span also closes
+    /// once `max_wait_ns` nanoseconds have elapsed since it opened — checked
+    /// inline whenever a new record's `timestamp_ns` reaches the deadline,
+    /// and externally via [`SignedWitnessSink::seal_if_due`] for a caller
+    /// (e.g. a timer) to close a span that arrivals alone never would.
+    /// `batch_size` must be at least 1; `max_wait_ns = 0` closes the span on
+    /// the very next check.
+    BoundedBatchTail {
+        batch_size: usize,
+        max_wait_ns: u64,
     },
 }
 
@@ -179,7 +205,12 @@ pub enum WitnessSignerError {
 impl std::fmt::Display for WitnessSignerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ZeroBatchSize => write!(f, "BatchTail batch_size must be at least 1"),
+            Self::ZeroBatchSize => {
+                write!(
+                    f,
+                    "BatchTail/BoundedBatchTail batch_size must be at least 1"
+                )
+            }
         }
     }
 }
@@ -191,6 +222,10 @@ struct PendingSpan {
     to: u64,
     count: usize,
     hasher: RecordsHasher,
+    /// `timestamp_ns` of the first record in this span — only meaningful
+    /// under [`SigningStrategy::BoundedBatchTail`]; unused (but still set)
+    /// under plain `BatchTail`.
+    opened_at_ns: u64,
 }
 
 /// A [`WitnessSink`] decorator that signs spans of the records it forwards
@@ -213,7 +248,12 @@ impl<S: WitnessSink> SignedWitnessSink<S> {
         signing_key: SigningKey,
         strategy: SigningStrategy,
     ) -> Result<Self, WitnessSignerError> {
-        if let SigningStrategy::BatchTail { batch_size: 0 } = strategy {
+        let zero_batch_size = matches!(
+            strategy,
+            SigningStrategy::BatchTail { batch_size: 0 }
+                | SigningStrategy::BoundedBatchTail { batch_size: 0, .. }
+        );
+        if zero_batch_size {
             return Err(WitnessSignerError::ZeroBatchSize);
         }
         Ok(Self {
@@ -264,6 +304,40 @@ impl<S: WitnessSink> SignedWitnessSink<S> {
     /// span (always 0 under `PerRecord`).
     pub fn unsigned_pending(&self) -> usize {
         self.pending.as_ref().map_or(0, |p| p.count)
+    }
+
+    /// `timestamp_ns` of the oldest record in the currently-open span, if
+    /// any. Under [`SigningStrategy::BoundedBatchTail`] a caller driving a
+    /// wall-clock timer derives the next deadline as
+    /// `pending_opened_at_ns() + max_wait_ns` and calls [`Self::seal_if_due`]
+    /// no later than that deadline.
+    pub fn pending_opened_at_ns(&self) -> Option<u64> {
+        self.pending.as_ref().map(|p| p.opened_at_ns)
+    }
+
+    /// Force-close the pending span if `now_ns` is at or past its deadline
+    /// (`pending_opened_at_ns() + max_wait_ns`). Returns `true` iff a span
+    /// was closed. A no-op (`false`, nothing mutated) when the strategy is
+    /// not [`SigningStrategy::BoundedBatchTail`], when nothing is pending,
+    /// or when the deadline has not yet arrived — safe to call speculatively
+    /// from a periodic timer without first checking those conditions. This
+    /// is the mechanism that bounds signature-availability latency when
+    /// record arrivals pause: without an external caller invoking this (or
+    /// [`Self::seal`]), a pending span still only closes on its next
+    /// arrival or size trigger, identical to plain `BatchTail`.
+    pub fn seal_if_due(&mut self, now_ns: u64) -> bool {
+        let max_wait_ns = match self.strategy {
+            SigningStrategy::BoundedBatchTail { max_wait_ns, .. } => max_wait_ns,
+            _ => return false,
+        };
+        let due = matches!(
+            &self.pending,
+            Some(p) if now_ns.saturating_sub(p.opened_at_ns) >= max_wait_ns
+        );
+        if due {
+            self.seal();
+        }
+        due
     }
 
     fn close(&mut self, purpose: SignPurpose, from: u64, to: u64, records_digest: [u8; 32]) {
@@ -320,11 +394,34 @@ impl<S: WitnessSink> WitnessSink for SignedWitnessSink<S> {
                         to: r.sequence,
                         count: 0,
                         hasher: RecordsHasher::new(),
+                        opened_at_ns: r.timestamp_ns,
                     });
                     p.hasher.push(r);
                     p.to = r.sequence;
                     p.count += 1;
                     if p.count >= batch_size {
+                        self.seal();
+                    }
+                }
+            }
+            SigningStrategy::BoundedBatchTail {
+                batch_size,
+                max_wait_ns,
+            } => {
+                for r in records {
+                    let p = self.pending.get_or_insert_with(|| PendingSpan {
+                        from: r.sequence,
+                        to: r.sequence,
+                        count: 0,
+                        hasher: RecordsHasher::new(),
+                        opened_at_ns: r.timestamp_ns,
+                    });
+                    p.hasher.push(r);
+                    p.to = r.sequence;
+                    p.count += 1;
+                    let size_due = p.count >= batch_size;
+                    let time_due = r.timestamp_ns.saturating_sub(p.opened_at_ns) >= max_wait_ns;
+                    if size_due || time_due {
                         self.seal();
                     }
                 }
