@@ -255,6 +255,12 @@ def export(path: str, out_prefix: str) -> None:
     from ruvector.collection import Collection
 
     p = _resolve_existing(path)
+    sources = (p, Collection.meta_path(p))
+    outputs = (Path(f"{out_prefix}.npy"), Path(f"{out_prefix}.meta.json"))
+    for output in outputs:
+        for source in sources:
+            if output.resolve() == source.resolve() or (output.exists() and output.samefile(source)):
+                raise click.ClickException(f"export output overlaps the source collection: {output}")
     coll = Collection.load(p)
     live = coll.export_live_items()
     if not live:
