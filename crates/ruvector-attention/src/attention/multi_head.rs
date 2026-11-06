@@ -61,22 +61,6 @@ impl MultiHeadAttention {
         }
         Ok(Self::new(dim, num_heads))
     }
-
-    /// Splits input into multiple heads.
-    fn split_heads(&self, input: &[f32]) -> Vec<Vec<f32>> {
-        (0..self.num_heads)
-            .map(|h| {
-                let start = h * self.head_dim;
-                let end = start + self.head_dim;
-                input[start..end].to_vec()
-            })
-            .collect()
-    }
-
-    /// Concatenates outputs from multiple heads.
-    fn concat_heads(&self, heads: Vec<Vec<f32>>) -> Vec<f32> {
-        heads.into_iter().flatten().collect()
-    }
 }
 
 impl Attention for MultiHeadAttention {
@@ -107,29 +91,22 @@ impl Attention for MultiHeadAttention {
             }
         }
 
-        // Split query into heads
-        let query_heads = self.split_heads(query);
-
-        // Split keys and values
-        let key_heads: Vec<Vec<Vec<f32>>> = keys.iter().map(|k| self.split_heads(k)).collect();
-
-        let value_heads: Vec<Vec<Vec<f32>>> = values.iter().map(|v| self.split_heads(v)).collect();
-
-        // Compute attention for each head
-        let mut head_outputs = Vec::new();
+        // Run each head on borrowed sub-slices: no per-key copies.
+        let hd = self.head_dim;
+        let head_attn = ScaledDotProductAttention::new(hd);
+        let mut output = Vec::with_capacity(self.dim);
+        let mut head_keys: Vec<&[f32]> = Vec::with_capacity(keys.len());
+        let mut head_values: Vec<&[f32]> = Vec::with_capacity(values.len());
         for h in 0..self.num_heads {
-            let head_attn = ScaledDotProductAttention::new(self.head_dim);
-
-            let head_keys: Vec<&[f32]> = key_heads.iter().map(|kh| kh[h].as_slice()).collect();
-
-            let head_values: Vec<&[f32]> = value_heads.iter().map(|vh| vh[h].as_slice()).collect();
-
-            let head_out = head_attn.compute(&query_heads[h], &head_keys, &head_values)?;
-            head_outputs.push(head_out);
+            let range = h * hd..(h + 1) * hd;
+            head_keys.clear();
+            head_keys.extend(keys.iter().map(|k| &k[range.clone()]));
+            head_values.clear();
+            head_values.extend(values.iter().map(|v| &v[range.clone()]));
+            let head_out = head_attn.compute(&query[range], &head_keys, &head_values)?;
+            output.extend_from_slice(&head_out);
         }
-
-        // Concatenate head outputs
-        Ok(self.concat_heads(head_outputs))
+        Ok(output)
     }
 
     fn compute_with_mask(

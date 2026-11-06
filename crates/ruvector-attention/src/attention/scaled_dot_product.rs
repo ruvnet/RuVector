@@ -31,14 +31,7 @@ impl ScaledDotProductAttention {
     fn compute_scores(&self, query: &[f32], keys: &[&[f32]]) -> Vec<f32> {
         let scale = (self.dim as f32).sqrt();
         keys.iter()
-            .map(|key| {
-                query
-                    .iter()
-                    .zip(key.iter())
-                    .map(|(q, k)| q * k)
-                    .sum::<f32>()
-                    / scale
-            })
+            .map(|key| crate::utils::dot_f32(query, key) / scale)
             .collect()
     }
 
@@ -85,9 +78,7 @@ impl Attention for ScaledDotProductAttention {
         // Weight values
         let mut output = vec![0.0; self.dim];
         for (weight, value) in weights.iter().zip(values.iter()) {
-            for (out, val) in output.iter_mut().zip(value.iter()) {
-                *out += weight * val;
-            }
+            crate::utils::axpy(&mut output, *weight, value);
         }
 
         Ok(output)
@@ -128,9 +119,7 @@ impl Attention for ScaledDotProductAttention {
         // Weight values
         let mut output = vec![0.0; self.dim];
         for (weight, value) in weights.iter().zip(values.iter()) {
-            for (out, val) in output.iter_mut().zip(value.iter()) {
-                *out += weight * val;
-            }
+            crate::utils::axpy(&mut output, *weight, value);
         }
 
         Ok(output)

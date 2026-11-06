@@ -9,7 +9,7 @@
 //! code, and sync bindings are marked `catch_unwind`.
 
 use crate::attention::run;
-use crate::validate;
+use crate::validate::{self, F32Rows};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ruvector_attention::graph::{
@@ -110,8 +110,8 @@ impl EdgeFeaturedAttention {
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
         let d = self.config.node_dim as usize;
         run(&self.inner, d, Some(d), query, keys, values)
@@ -128,15 +128,15 @@ impl EdgeFeaturedAttention {
     pub fn compute_with_edges(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
-        edge_features: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] edge_features: F32Rows,
     ) -> Result<Float32Array> {
         let d = self.config.node_dim as usize;
         let edge_dim = self.config.edge_dim as usize;
-        let keys_vec = validate::to_vecs(keys);
-        let values_vec = validate::to_vecs(values);
-        let edges_vec = validate::to_vecs(edge_features);
+        let keys_vec = keys.slices();
+        let values_vec = values.slices();
+        let edges_vec = edge_features.slices();
         validate::qkv(d, query.as_ref(), &keys_vec, &values_vec, Some(d))?;
         if edges_vec.len() != keys_vec.len() {
             return Err(invalid(format!(
@@ -151,12 +151,7 @@ impl EdgeFeaturedAttention {
 
         let result = self
             .inner
-            .compute_with_edges(
-                query.as_ref(),
-                &validate::as_slices(&keys_vec),
-                &validate::as_slices(&values_vec),
-                &validate::as_slices(&edges_vec),
-            )
+            .compute_with_edges(query.as_ref(), &keys_vec, &values_vec, &edges_vec)
             .map_err(rust_err)?;
 
         Ok(Float32Array::new(result))
@@ -248,8 +243,8 @@ impl GraphRoPEAttention {
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
         run(
             &self.inner,
@@ -273,13 +268,13 @@ impl GraphRoPEAttention {
     pub fn compute_with_positions(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
         query_position: u32,
         key_positions: Vec<u32>,
     ) -> Result<Float32Array> {
-        let keys_vec = validate::to_vecs(keys);
-        let values_vec = validate::to_vecs(values);
+        let keys_vec = keys.slices();
+        let values_vec = values.slices();
         validate::qkv(
             self.config.dim as usize,
             query.as_ref(),
@@ -300,8 +295,8 @@ impl GraphRoPEAttention {
             .inner
             .compute_with_positions(
                 query.as_ref(),
-                &validate::as_slices(&keys_vec),
-                &validate::as_slices(&values_vec),
+                &keys_vec,
+                &values_vec,
                 query_position as usize,
                 &positions_usize,
             )
@@ -423,8 +418,8 @@ impl DualSpaceAttention {
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
         run(
             &self.inner,
@@ -441,14 +436,14 @@ impl DualSpaceAttention {
     pub fn get_space_contributions(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
     ) -> Result<SpaceContributions> {
-        let keys_vec = validate::to_vecs(keys);
+        let keys_vec = keys.slices();
         validate::qk(self.config.dim as usize, query.as_ref(), &keys_vec)?;
 
         let (euc_scores, hyp_scores) = self
             .inner
-            .get_space_contributions(query.as_ref(), &validate::as_slices(&keys_vec));
+            .get_space_contributions(query.as_ref(), &keys_vec);
 
         Ok(SpaceContributions {
             euclidean_scores: Float32Array::new(euc_scores),

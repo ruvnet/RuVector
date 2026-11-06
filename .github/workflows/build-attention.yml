@@ -149,6 +149,18 @@ jobs:
             console.log('✅ Native module loaded successfully');
           "
 
+      - name: Node tests against the committed loader and typings
+        if: matrix.settings.platform == 'linux-x64-gnu'
+        shell: bash
+        working-directory: crates/ruvector-attention-node
+        run: |
+          set -euo pipefail
+          # napi build regenerates index.js/index.d.ts with whatever CLI
+          # version CI installed; test the committed files that publish-all
+          # actually ships (every native export must be typed).
+          git checkout -- index.js index.d.ts
+          node --test test/*.test.js
+
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

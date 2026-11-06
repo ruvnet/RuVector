@@ -55,6 +55,10 @@ index.d.ts
 # so the loader must be committed or the tarball ships without it
 !crates/ruvector-gnn-node/index.js
 !crates/ruvector-gnn-node/index.d.ts
+# @ruvector/attention likewise: publish-all.yml copies the committed napi loader
+# and full typings instead of writing a hand-made 4-function index.d.ts
+!crates/ruvector-attention-node/index.js
+!crates/ruvector-attention-node/index.d.ts
 # ruvector optimizer is a hand-written module (not a napi artifact); the bare
 # `index.js` rule above wrongly ignored it, so it was never committed and CI's
 # optimizer test could not resolve it.
