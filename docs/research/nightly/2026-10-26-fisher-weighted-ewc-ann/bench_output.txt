@@ -1,0 +1,22 @@
+ruvector-fisher-ann nightly benchmark (2026-10-26)
+dim=128 n_families=40 n_queries=300 hnsw_m=16 ef_construction=100 ef_search=100
+variant                             n   build_ms    mean_us    p50_us    p95_us    p99_us   recall@1  recall@10     loss_gap     mem_KB
+baseline_fisher_bruteforce       2000       0.00     319.21    311.03    391.07    457.88      1.000      1.000       0.0000     2000.0
+candidate_A_fisher_hnsw          2000     509.01      22.17     16.27     49.30     82.78      0.343      0.352   37217.6445     2257.7
+candidate_B_plain_l2_hnsw        2000     614.40     164.36    149.18    245.88    376.02      1.000      0.438       0.0000     2257.7
+baseline_fisher_bruteforce      10000       0.00    1424.54   1457.29   1829.60   2124.89      1.000      1.000       0.0000    10000.0
+candidate_A_fisher_hnsw         10000    2471.55      79.85     79.88    122.31    142.72      0.363      0.354   50120.3477    11288.9
+candidate_B_plain_l2_hnsw       10000    4550.78     337.31    312.62    509.55   1220.09      1.000      0.388       0.0000    11288.9
+
+--- Acceptance check (N=10000) ---
+speedup candidate_A vs baseline: 17.8x (threshold >= 5x) -> PASS
+candidate_A recall@10: 0.354 (threshold >= 0.9) -> FAIL
+candidate_A mean loss gap: 50120.3477 vs threshold 188.7126 (5% of mean ground-truth loss 3774.2517) -> FAIL
+ablation (Fisher weighting matters, not just having an index): candidate_A recall@10=0.354 loss_gap=50120.3477 vs candidate_B recall@10=0.388 loss_gap=0.0000 -> FAIL
+
+ACCEPTANCE RESULT: REJECT
+
+--- Diagnostic: candidate_A recall@10 vs ef_search (N=2000, same built graph) ---
+ef_search=  100 (index size 2000): recall@10=0.352
+ef_search=  500 (index size 2000): recall@10=0.352
+ef_search= 2000 (index size 2000): recall@10=0.352

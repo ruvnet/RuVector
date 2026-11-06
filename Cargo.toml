@@ -51,6 +51,11 @@ exclude = ["patches/candle-core-0.8.4", "patches/candle-core-0.9.2", "external/r
     # unify with this workspace. The pure cores it wraps are members below.
     "edge", "edge/*"]
 members = [
+    # Fisher-weighted ANN for EWC++ policy-entry lookup (ADR-353, nightly
+    # 2026-10-26): tests whether ADR-002's "EWC++ Fisher" policy-memory slot
+    # needs a Fisher-weighted HNSW metric, or whether plain cosine/L2 on the
+    # policy embedding is enough.
+    "crates/ruvector-fisher-ann",
     # ruvector Python SDK (ADR-352): PyO3 + maturin bindings. Salvaged from
     # the stale feature/python-sdk-m1 branch (M1 RaBitQ scope) and extended.
     "crates/ruvector-py",

@@ -1,0 +1,24 @@
+[package]
+name        = "ruvector-fisher-ann"
+version     = "0.1.0"
+edition     = "2021"
+description = "Fisher-weighted approximate nearest neighbor search for EWC++ policy entries (ADR-353, nightly 2026-10-26)"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["ann", "hnsw", "ewc", "sona", "vector-search"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "fisher_ann_bench"
+path = "src/main.rs"
+
+[dependencies]
+rand = "0.8"
+# Real EWC++ implementation (crates/sona), not a reimplementation: the
+# benchmark's downstream "anchor quality" metric calls
+# `EwcPlusPlus::regularization_loss` on the actual production code so the
+# quality number is not fabricated.
+ruvector-sona = { version = "0.2", path = "../sona", default-features = false, features = ["serde-support"] }
+
+[dev-dependencies]
