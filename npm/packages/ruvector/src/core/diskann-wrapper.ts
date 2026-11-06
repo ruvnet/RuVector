@@ -141,6 +141,40 @@ export interface DiskAnnBuildOptions {
   alpha?: number;
 }
 
+/** Files the native index reads from and writes to inside its directory. */
+const INDEX_FILES = [
+  'config.json', 'vectors.bin', 'graph.bin', 'ids.json',
+  'tombstones.bin', 'pq.bin', 'pq_codes.bin',
+];
+
+/**
+ * Refuse an index directory whose index files are symlinks or other
+ * non-regular files. The native save/load opens these names directly and
+ * would follow a planted link out of a confined directory (overwriting or
+ * reading files elsewhere on disk).
+ */
+function assertRegularIndexFiles(dir: string): void {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const fs = require('fs');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const path = require('path');
+  for (const name of INDEX_FILES) {
+    let st;
+    try {
+      st = fs.lstatSync(path.join(dir, name));
+    } catch (e: any) {
+      if (e && e.code === 'ENOENT') continue;
+      throw e;
+    }
+    if (st.isSymbolicLink()) {
+      throw new Error(`diskann: ${name} in ${dir} is a symbolic link; refusing to follow it`);
+    }
+    if (!st.isFile()) {
+      throw new Error(`diskann: ${name} in ${dir} is not a regular file`);
+    }
+  }
+}
+
 /**
  * Build a Vamana index from records and persist it to `dir` (created if
  * missing). All vectors must share one dimension. Used by
@@ -171,6 +205,7 @@ export function buildDiskAnnIndex(
   index.build();
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('fs').mkdirSync(dir, { recursive: true });
+  assertRegularIndexFiles(dir);
   index.save(dir);
   return { dir, count: index.count(), dim };
 }
@@ -181,6 +216,7 @@ export function searchDiskAnnIndex(
   query: Float32Array | number[],
   k: number = 10
 ): DiskAnnSearchResult[] {
+  assertRegularIndexFiles(dir);
   const index = DiskAnnIndex.load(dir);
   const n = index.count();
   if (n === 0) return [];
