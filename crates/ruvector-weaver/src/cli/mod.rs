@@ -88,6 +88,9 @@ pub enum Cmd {
         package: String,
         #[arg(long)]
         consumer: Option<String>,
+        /// The exact consumer package taking the dependency (cycle check).
+        #[arg(long)]
+        consumer_package: Option<String>,
         #[arg(long)]
         no_smoke: bool,
         /// New-package mode: source gates on --dir before the first publish.
@@ -246,13 +249,21 @@ pub fn run() -> Result<()> {
         Cmd::Gate {
             package,
             consumer,
+            consumer_package,
             no_smoke,
             new,
             dir,
             run_tests,
             record,
         } => cmds::gate(
-            &ctx, &package, consumer, no_smoke, new, dir, run_tests, record,
+            &ctx,
+            &package,
+            (consumer, consumer_package),
+            no_smoke,
+            new,
+            dir,
+            run_tests,
+            record,
         ),
         Cmd::Queue {
             gate_top,

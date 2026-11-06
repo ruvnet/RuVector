@@ -1514,3 +1514,83 @@ fn saturated_repos_are_deferred_and_only_owned_superseded_runs_are_cancelled() {
     assert!(cancel.brief.contains("gh run cancel") && cancel.brief.contains("for id in 1;"));
     assert!(!cancel.brief.contains(" 3 ") && !cancel.brief.contains(" 5 "));
 }
+
+#[test]
+fn leak_scan_allows_intentional_dirs_and_only_fails_new_paths() {
+    use ruvector_weaver::checks::{classify_leaks, leak_result};
+    let c = cfg();
+    let files: Vec<String> = [
+        ".claude/skills/a.md",
+        ".claude/agents/b.md",
+        "dist/index.js",
+        ".env",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    // agentic-flow ships .claude/ on purpose (config allowlist).
+    let r = leak_result(&c, "agentic-flow", &files[..3], None).unwrap();
+    assert!(r.passed, "{}", r.detail);
+    assert!(r.detail.contains("2 allowlisted"));
+    // Another package: .claude/ carried over from the previous version passes...
+    let prev: Vec<String> = files[..3].to_vec();
+    let r = leak_result(&c, "other-pkg", &files[..3], Some(("1.2.3", &prev))).unwrap();
+    assert!(
+        r.passed && r.detail.contains("2 carried over from 1.2.3"),
+        "{}",
+        r.detail
+    );
+    // ...but a NEW leak path (.env) fails, even alongside allowlisted ones.
+    let r = leak_result(&c, "agentic-flow", &files, Some(("3.3.1", &prev))).unwrap();
+    assert!(
+        !r.passed && r.detail.contains("NEW leak paths: .env"),
+        "{}",
+        r.detail
+    );
+    let (new, carried, allowed) = classify_leaks(&files, &[], None).unwrap();
+    assert_eq!((new.len(), carried.len(), allowed.len()), (4, 0, 0));
+}
+
+#[test]
+fn no_cycle_uses_the_published_graph_and_ignores_repo_siblings() {
+    use ruvector_weaver::checks::cycle_result;
+    // agent-booster is published from ruvnet/agentic-flow and depends only on express.
+    let mut g = graph_with(&[("ruvnet/agentic-flow", 10), ("ruvnet/agentic-flow", 10)]);
+    g.packages[0].name = "agentic-flow".into();
+    g.packages[0].dependencies = vec!["agent-booster".into()];
+    g.packages[0]
+        .dep_ranges
+        .insert("agent-booster".into(), "^0.2.2".into());
+    g.packages[1].name = "agent-booster".into();
+    g.packages[1].dependencies = vec!["express".into()];
+    g.consumer_repos = consumer_repos(&g.packages);
+    let r = cycle_result(&g, "agentic-flow", "ruvnet/agentic-flow", None);
+    assert!(r.passed, "intra-repo is not a cycle: {}", r.detail);
+    let r = cycle_result(
+        &g,
+        "agent-booster",
+        "ruvnet/agentic-flow",
+        Some("agentic-flow"),
+    );
+    assert!(
+        r.passed,
+        "agent-booster does not depend on agentic-flow: {}",
+        r.detail
+    );
+    // A real published cycle is still caught, with the declared ranges as evidence.
+    g.packages[1].dependencies.push("agentic-flow".into());
+    g.packages[1]
+        .dep_ranges
+        .insert("agentic-flow".into(), "^3.0.0".into());
+    let r = cycle_result(
+        &g,
+        "agent-booster",
+        "ruvnet/agentic-flow",
+        Some("agentic-flow"),
+    );
+    assert!(
+        !r.passed && r.detail.contains("agent-booster -> agentic-flow@^3.0.0"),
+        "{}",
+        r.detail
+    );
+}

@@ -46,3 +46,9 @@ smoke_timeout_secs = 300
 max_file_bytes = 1_000_000
 skip_dirs = ["node_modules", ".git", "dist", "build", "target", "vendor", "coverage", ".next", "out", ".turbo", ".cache", "fixtures", "__fixtures__"]
 security_timeout_secs = 180
+
+# Paths a package ships ON PURPOSE (regex per package). Leak paths that the
+# previous published version already carried are reported as "carried over"
+# and do not fail the gate; only NEW leak paths do.
+[gate.leak_allow]
+"agentic-flow" = ['(^|/)\.claude/']
