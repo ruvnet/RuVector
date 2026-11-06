@@ -396,8 +396,8 @@ impl RabitqIndex {
         Ok(())
     }
 
-    /// Add many vectors at once. Releases the GIL around the whole loop —
-    /// this is the bulk-insert path `Collection.insert_batch` should prefer.
+    /// Add many vectors at once. Releases the GIL during parallel encoding;
+    /// validation completes before any row is appended.
     #[pyo3(signature = (ids, vectors))]
     fn add_batch(
         &mut self,
@@ -465,13 +465,7 @@ impl RabitqIndex {
             })
             .collect();
 
-        py.detach(|| -> ruvector_rabitq::error::Result<()> {
-            for (id, v) in rows {
-                self.inner.add(id, v)?;
-            }
-            Ok(())
-        })
-        .map_err(to_pyerr)?;
+        py.detach(|| self.inner.add_batch(rows)).map_err(to_pyerr)?;
         self.ids.extend(batch_ids.into_iter().map(|i| i as u32));
         Ok(())
     }
