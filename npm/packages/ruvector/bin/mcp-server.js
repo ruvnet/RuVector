@@ -1768,6 +1768,42 @@ const TOOLS = [
       required: ['path']
     }
   },
+  // ── DiskANN Tools (optional @ruvector/diskann) ────────────────────────────
+  {
+    name: 'diskann_build',
+    description: 'Build a DiskANN (Vamana graph) ANN index from {id, vector} records and save it to a directory. Requires @ruvector/diskann (npx ruvector add diskann).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Index directory (created if missing; confined to the working directory)' },
+        vectors: {
+          type: 'array',
+          description: 'Records to index, all of one dimension',
+          items: {
+            type: 'object',
+            properties: { id: { type: 'string' }, vector: { type: 'array', items: { type: 'number' } } },
+            required: ['id', 'vector']
+          }
+        },
+        maxDegree: { type: 'number', description: 'Max graph out-degree', default: 64 },
+        alpha: { type: 'number', description: 'Vamana pruning alpha (>= 1)', default: 1.2 }
+      },
+      required: ['path', 'vectors']
+    }
+  },
+  {
+    name: 'diskann_search',
+    description: 'k nearest neighbours (L2 squared distance) from a saved DiskANN index',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Index directory written by diskann_build' },
+        vector: { type: 'array', description: 'Query vector', items: { type: 'number' } },
+        k: { type: 'number', description: 'Number of results', default: 10 }
+      },
+      required: ['path', 'vector']
+    }
+  },
   // ── RVF Vector Store Tools ────────────────────────────────────────────────
   {
     name: 'rvf_create',
@@ -3997,6 +4033,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             error: `Config load failed from '${configFile}'`,
             message: e.message
           }, null, 2) }] };
+        }
+      }
+
+      // ── DiskANN Tool Handlers ─────────────────────────────────────────────
+      case 'diskann_build':
+      case 'diskann_search': {
+        try {
+          const wrapper = require('../dist/core/diskann-wrapper.js');
+          if (!wrapper.isDiskAnnAvailable()) {
+            throw new Error('@ruvector/diskann is not installed. Install with: npx ruvector add diskann');
+          }
+          const safePath = validateRvfPath(args.path);
+          let payload;
+          if (name === 'diskann_build') {
+            const records = recordValidate.validateEntries(args.vectors, undefined, 'vectors');
+            const options = {};
+            if (args.maxDegree !== undefined) {
+              if (!Number.isInteger(args.maxDegree) || args.maxDegree < 1) throw new Error('maxDegree must be a positive integer');
+              options.maxDegree = args.maxDegree;
+            }
+            if (args.alpha !== undefined) {
+              if (typeof args.alpha !== 'number' || !Number.isFinite(args.alpha) || args.alpha < 1) throw new Error('alpha must be a number >= 1');
+              options.alpha = args.alpha;
+            }
+            payload = { success: true, ...wrapper.buildDiskAnnIndex(safePath, records, options) };
+          } else {
+            const vector = Array.from(recordValidate.validateVector(args.vector));
+            const k = recordValidate.validateK(args.k);
+            payload = { success: true, results: wrapper.searchDiskAnnIndex(safePath, vector, k) };
+          }
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
         }
       }
 

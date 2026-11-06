@@ -12,6 +12,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
 
+## [ruvector 0.3.13] - 2026-11-05
+### Added
+- Hook memory recall (`IntelligenceEngine.recall`, MCP `hooks_recall` /
+  `hooks_suggest_context`) uses a RaBitQ candidate index from
+  `@ruvector/rabitq-wasm` once a store holds `RUVECTOR_RABITQ_THRESHOLD`
+  memories (default 5000; `0` disables). The index proposes 10 x k candidates
+  and they are re-scored with exact cosine, so scores are exact and top-10
+  recall matched brute force (1.000) on 20k x 384 at ~2.7 ms vs ~38 ms per
+  query. The index is built on the second eligible recall in a process, so
+  one-shot hook commands never pay the ~0.4 s build. Post-build
+  inserts/deletes apply as a delta without a rebuild. Without the package,
+  recall is the unchanged exact scan. `@ruvector/rabitq-wasm` moves from
+  devDependencies to optionalDependencies (282 KB).
+- `ruvector diskann build <dir> -i vectors.json` / `ruvector diskann search
+  <dir> -v ...` and MCP tools `diskann_build` / `diskann_search` (paths
+  confined to the working directory) expose `@ruvector/diskann`, previously
+  library-only. It stays an opt-in extra: `npx ruvector add diskann`.
+- `ruvector skills list|install` ships the `ruvector-integrations` agent
+  skill and installs it into `.claude/skills` (Claude Code) and/or
+  `.agents/skills` (Codex). `skills/` is now in the published files.
+### Fixed
+- Every open-ended `>=` peer range is now bounded. `@ruvector/ruvllm >=2.0.0`
+  resolved to 4.0.1, a different product published under the same name
+  without the runtime that `ruvector llm` / `ruvector sona` load; it is now
+  `>=2.0.0 <4.0.0 || ^4.1.0`. Other peers take their optionalDependencies spec
+  or a caret on their previous minimum.
+
 ## [ruvector 0.3.12] - 2026-11-05
 ### Fixed
 - `hooks graph-mincut` and `hooks graph-cluster` (and the MCP tools

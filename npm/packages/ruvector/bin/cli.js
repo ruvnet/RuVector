@@ -8780,6 +8780,140 @@ rvfCmd.command('download [names...]')
   });
 
 // MCP Server command
+// Agent skills shipped in the package (skills/<name>/SKILL.md). Same format
+// for Claude Code (.claude/skills) and Codex (.agents/skills).
+const SKILLS_SRC = path.join(__dirname, '..', 'skills');
+const SKILL_TARGETS = { claude: path.join('.claude', 'skills'), codex: path.join('.agents', 'skills') };
+const skillsCmd = program.command('skills').description('Agent skills for Claude Code and Codex that document ruvector features');
+
+function listShippedSkills() {
+  if (!fs.existsSync(SKILLS_SRC)) return [];
+  return fs.readdirSync(SKILLS_SRC, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && fs.existsSync(path.join(SKILLS_SRC, d.name, 'SKILL.md')))
+    .map((d) => {
+      const head = fs.readFileSync(path.join(SKILLS_SRC, d.name, 'SKILL.md'), 'utf8').slice(0, 2000);
+      const desc = (head.match(/^description:\s*(.+)$/m) || [])[1] || '';
+      return { name: d.name, description: desc.trim() };
+    });
+}
+
+skillsCmd.command('list')
+  .description('List the skills shipped with ruvector')
+  .option('--json', 'Output as JSON')
+  .action((opts) => {
+    const skills = listShippedSkills();
+    if (opts.json) { console.log(JSON.stringify({ skills })); return; }
+    for (const sk of skills) console.log(`${chalk.bold(sk.name)}\n  ${chalk.dim(sk.description)}`);
+  });
+
+skillsCmd.command('install [names...]')
+  .description('Copy shipped skills into a project (.claude/skills for Claude Code, .agents/skills for Codex)')
+  .option('-t, --target <target>', 'claude, codex, or both', 'both')
+  .option('-d, --dir <dir>', 'Project directory', '.')
+  .option('-f, --force', 'Overwrite an existing skill of the same name')
+  .option('--json', 'Output as JSON')
+  .action((names, opts) => {
+    try {
+      const shipped = listShippedSkills().map((sk) => sk.name);
+      const wanted = names && names.length ? names : shipped;
+      const unknown = wanted.filter((n) => !shipped.includes(n));
+      if (unknown.length) throw new Error(`Unknown skill(s): ${unknown.join(', ')} (available: ${shipped.join(', ')})`);
+      const targets = opts.target === 'both' ? ['claude', 'codex'] : [opts.target];
+      for (const t of targets) if (!SKILL_TARGETS[t]) throw new Error(`--target must be claude, codex, or both (got ${t})`);
+      const root = path.resolve(opts.dir);
+      const results = [];
+      for (const t of targets) {
+        for (const n of wanted) {
+          const dest = path.join(root, SKILL_TARGETS[t], n);
+          if (fs.existsSync(dest) && !opts.force) { results.push({ skill: n, target: t, path: dest, status: 'exists' }); continue; }
+          fs.mkdirSync(path.dirname(dest), { recursive: true });
+          fs.cpSync(path.join(SKILLS_SRC, n), dest, { recursive: true, force: true });
+          results.push({ skill: n, target: t, path: dest, status: 'installed' });
+        }
+      }
+      if (opts.json) { console.log(JSON.stringify({ success: true, results })); return; }
+      for (const r of results) {
+        const mark = r.status === 'installed' ? chalk.green('installed') : chalk.yellow('exists (use --force)');
+        console.log(`  ${mark}  ${r.skill} -> ${path.relative(process.cwd(), r.path) || r.path}`);
+      }
+    } catch (e) {
+      if (opts.json) console.log(JSON.stringify({ success: false, error: e.message }));
+      else console.error(chalk.red(e.message));
+      process.exit(1);
+    }
+  });
+
+// DiskANN (Vamana graph ANN, optional @ruvector/diskann)
+const diskannCmd = program.command('diskann').description('DiskANN / Vamana on-disk ANN index (optional @ruvector/diskann)');
+
+function requireDiskAnn() {
+  const wrapper = require('../dist/core/diskann-wrapper.js');
+  if (!wrapper.isDiskAnnAvailable()) {
+    throw new Error('@ruvector/diskann is not installed. Install with: npx ruvector add diskann');
+  }
+  return wrapper;
+}
+
+function positiveIntOpt(raw, name) {
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1) throw new Error(`--${name} must be a positive integer`);
+  return n;
+}
+
+diskannCmd.command('build <dir>')
+  .description('Build a DiskANN index from a JSON array of {id, vector} and save it to <dir>')
+  .requiredOption('-i, --input <file>', 'Input file (JSON array of {id, vector})')
+  .option('--max-degree <n>', 'Max graph out-degree (default 64)')
+  .option('--build-beam <n>', 'Build beam width (default 128)')
+  .option('--alpha <a>', 'Vamana pruning alpha (default 1.2)')
+  .option('--json', 'Output as JSON')
+  .action((dir, opts) => {
+    try {
+      const { buildDiskAnnIndex } = requireDiskAnn();
+      const records = recordValidate.validateEntries(JSON.parse(fs.readFileSync(opts.input, 'utf8')), undefined, 'input');
+      const options = {};
+      if (opts.maxDegree !== undefined) options.maxDegree = positiveIntOpt(opts.maxDegree, 'max-degree');
+      if (opts.buildBeam !== undefined) options.buildBeam = positiveIntOpt(opts.buildBeam, 'build-beam');
+      if (opts.alpha !== undefined) {
+        const a = Number(opts.alpha);
+        if (!Number.isFinite(a) || a < 1) throw new Error('--alpha must be a number >= 1');
+        options.alpha = a;
+      }
+      const t0 = Date.now();
+      const result = buildDiskAnnIndex(dir, records, options);
+      if (opts.json) console.log(JSON.stringify({ success: true, ...result, ms: Date.now() - t0 }));
+      else console.log(chalk.green(`Built DiskANN index at ${dir}: ${result.count} vectors, dim=${result.dim} (${Date.now() - t0}ms)`));
+    } catch (e) {
+      if (opts.json) console.log(JSON.stringify({ success: false, error: e.message }));
+      else console.error(chalk.red(e.message));
+      process.exit(1);
+    }
+  });
+
+diskannCmd.command('search <dir>')
+  .description('k nearest neighbours (L2 squared) from a saved DiskANN index')
+  .requiredOption('-v, --vector <values>', 'Comma-separated vector values (or [a,b,c])')
+  .option('-k, --k <n>', 'Number of results', '10')
+  .option('--json', 'Output as JSON')
+  .action((dir, opts) => {
+    try {
+      const { searchDiskAnnIndex } = requireDiskAnn();
+      const vector = parseVectorArg(opts.vector);
+      const k = recordValidate.validateK(opts.k);
+      const results = searchDiskAnnIndex(dir, vector, k);
+      if (opts.json) {
+        console.log(JSON.stringify({ success: true, results }));
+      } else {
+        results.forEach((r, i) => console.log(chalk.dim(`  ${i + 1}. id=${r.id}  dist=${r.distance.toFixed(6)}`)));
+        console.log(chalk.green(`${results.length} results`));
+      }
+    } catch (e) {
+      if (opts.json) console.log(JSON.stringify({ success: false, error: e.message }));
+      else console.error(chalk.red(e.message));
+      process.exit(1);
+    }
+  });
+
 const mcpCmd = program.command('mcp').description('MCP (Model Context Protocol) server for Claude Code integration');
 
 mcpCmd.command('start')
