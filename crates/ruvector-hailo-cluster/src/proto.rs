@@ -11,6 +11,9 @@
 // come from tonic — we cannot box it without hand-editing generated output on
 // every build, and tonic-build offers no hook to reshape the error type.
 #![allow(clippy::result_large_err)]
+// async_trait on the generated service traits adds a bare `#[must_use]` to
+// methods that already return a `#[must_use]` future (clippy 1.99+).
+#![allow(clippy::double_must_use)]
 
 tonic::include_proto!("ruvector.hailo.v1");
 

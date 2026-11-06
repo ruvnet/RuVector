@@ -147,6 +147,12 @@ Every instance method is async. `backend` is `'node' | 'wasm' | 'auto'` (default
 The package also re-exports `RvfError`, `RvfErrorCode`, `NodeBackend`, `WasmBackend`,
 `resolveBackend`, and `RvfSolver` (from `@ruvector/rvf-solver`).
 
+For eligible Node stores (at least 1,024 vectors, not a COW branch, and without
+heavy deletion), await `db.close()` after ingestion. Close builds and persists
+the HNSW index even if no query has run, so a later read-only open can use the
+index on its first query. Building a large index can make close take longer.
+Smaller stores use the exact scan and do not need an index segment.
+
 ## WASM Exports
 
 `@ruvector/rvf-wasm` exposes raw C-ABI functions (integer handles and linear-memory

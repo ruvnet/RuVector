@@ -12,6 +12,7 @@ description = "Production-grade AI agent routing system with FastGRNN neural inf
 crate-type = ["lib", "staticlib"]
 
 [dependencies]
+ruvector-voi = { version = "2.3.0", path = "../ruvector-voi", features = ["serde"] }
 # Workspace dependencies
 redb = { workspace = true }
 memmap2 = { workspace = true }

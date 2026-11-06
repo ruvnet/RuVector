@@ -19,6 +19,7 @@ simd = []
 [dependencies]
 # rvf-types dependency will be re-enabled once rvf-types stabilizes.
 # For now, rvf-index defines its own local types.
+libm = { version = "0.2", default-features = false }
 
 [dev-dependencies]
 rand = "0.8"
