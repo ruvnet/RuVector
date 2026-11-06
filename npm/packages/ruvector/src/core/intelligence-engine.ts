@@ -255,7 +255,7 @@ export class IntelligenceEngine {
     this.agentDb = new FastAgentDB(
       this.config.embeddingDim,
       this.config.maxEpisodes,
-      this.config.storagePath ? `${this.config.storagePath}.episodes` : undefined,
+      this.config.storagePath ? path.join(this.config.storagePath, 'episodes.db') : undefined,
     );
 
     // Initialize ONNX embedder if enabled
