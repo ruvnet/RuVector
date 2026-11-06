@@ -117,6 +117,9 @@ impl SubagentRequest {
 /// The signature is the architecture. A subagent returns text and nothing else
 /// — no state update, no file handle, no mergeable value — so a caller cannot
 /// wire one up as a concurrent writer even if it wanted to.
+// `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+// already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait Subagent: Send + Sync {
     async fn run(&self, request: SubagentRequest) -> Result<String>;

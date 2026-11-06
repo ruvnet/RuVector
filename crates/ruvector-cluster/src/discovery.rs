@@ -16,6 +16,9 @@ use tokio::time;
 use tracing::{debug, info, warn};
 
 /// Service for discovering nodes in the cluster
+// `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+// already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait DiscoveryService: Send + Sync {
     /// Discover nodes in the cluster

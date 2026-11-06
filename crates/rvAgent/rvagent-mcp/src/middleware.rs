@@ -6,6 +6,9 @@ use crate::protocol::{JsonRpcRequest, JsonRpcResponse};
 use crate::Result;
 
 /// Middleware that can intercept and transform MCP requests/responses.
+// `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+// already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait McpMiddleware: Send + Sync {
     /// Process a request before it reaches the server handler.
