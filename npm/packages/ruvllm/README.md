@@ -119,7 +119,7 @@ Model loading needs a native binary built with the `candle` feature;
 | Native binary | `loadModel()` |
 |---------------|---------------|
 | Built from this source (`npm run build:native`) | Works |
-| `@ruvector/ruvllm-<platform>` 2.1.x (installed with `@ruvector/ruvllm` 4.2.0+, built by the release workflow with `candle`) | Works |
+| `@ruvector/ruvllm-<platform>` 3.x (built by the release workflow with `candle`) | Works |
 | `@ruvector/ruvllm-<platform>` 2.0.x | Throws `RUVLLM_NATIVE_TOO_OLD`: they predate model loading |
 | Built with `--features napi` only (no `candle`) | Throws `RUVLLM_NO_INFERENCE_BACKEND` |
 | None for your platform | Throws `RUVLLM_NATIVE_UNAVAILABLE` |
@@ -132,11 +132,12 @@ npm run build:native   # writes ruvllm.<platform>.node (needs a Rust toolchain)
 RUVLLM_NATIVE_PATH=$PWD/ruvllm.linux-x64-gnu.node node app.js
 ```
 
-From 4.2.0 the platform packages (`@ruvector/ruvllm-<platform>@2.1.0`) are
-built with `candle`, so `loadModel()`, `query`/`generate` with `--model` and
-`ruvllm serve` work on a plain `npm install` for linux-x64, linux-arm64,
-darwin-x64, darwin-arm64 and win32-x64. 4.1.0 and earlier shipped the 2.0.1
-binaries, which predate model loading.
+The platform packages on npm are still 2.0.1, so on a plain `npm install`
+`loadModel()` (and therefore `query`/`generate` with `--model` and
+`ruvllm serve`) fails with `RUVLLM_NATIVE_TOO_OLD`. Routing, memory,
+embeddings, SONA, LoRA and training work with them. Until rebuilt platform
+packages ship, build the binary from source as above, or use the Rust
+`ruvllm-cli` (`ruvllm serve <model>`, an OpenAI-compatible server).
 
 | Error code | Meaning |
 |------------|---------|
