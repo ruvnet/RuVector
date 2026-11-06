@@ -32,8 +32,53 @@
 use crate::compaction::{weighted_importance, CoherenceWeights, CompactionPolicy};
 use crate::memory::MemoryEntry;
 use crate::scoring::cosine_sim;
-use ruvector_mincut::RuVectorGraphAnalyzer;
-use std::collections::HashSet;
+use ruvector_mincut::{ApproxMinCut, ApproxMinCutConfig, RuVectorGraphAnalyzer};
+use std::collections::{HashMap, HashSet};
+
+/// Which `ruvector-mincut` algorithm backs [`MincutGatedForgetting`]'s
+/// boundary-vertex detection (nightly 2026-10-29, following up on the
+/// 2026-09-05/2026-09-11 nightlies' open "lower-level API" question — see
+/// `docs/research/nightly/2026-10-29-approx-mincut-boundary-backend`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MincutBackend {
+    /// `RuVectorGraphAnalyzer::from_knn(...).partition()`: the crate's
+    /// exact global min-cut solver. Slow at the corpus sizes a real
+    /// compaction pass needs (measured 76ms-11.4s per call for 50-400
+    /// vertices in the 2026-09-05 nightly) but exact.
+    Exact,
+    /// `ApproxMinCut` (SODA 2025 spectral sparsification, now with a real
+    /// partition-recovery fix — see `ruvector-mincut`'s
+    /// `algorithm::approximate` module docs). `epsilon` is the
+    /// approximation parameter forwarded to `ApproxMinCutConfig`.
+    Approx { epsilon: f64 },
+}
+
+impl Default for MincutBackend {
+    /// `Exact`, matching this module's behavior before this backend switch
+    /// existed, so `soft()`/`hard()` stay behavior-identical by default.
+    fn default() -> Self {
+        MincutBackend::Exact
+    }
+}
+
+/// One min-cut-boundary detection attempt over an already-built k-NN graph,
+/// dispatching to the configured backend. Exposed (not just used
+/// internally by [`MincutGatedForgetting::boundary_indices`]) so benchmarks
+/// can measure each backend's raw latency/correctness directly on the same
+/// `(usize, Vec<(usize, f64)>)` neighbor-list shape the rest of this
+/// module's doc comments and the prior nightlies' scaling/determinism
+/// probes already use, without needing a `MemoryEntry` corpus.
+pub fn boundary_from_knn(
+    backend: MincutBackend,
+    neighbors: &[(usize, Vec<(usize, f64)>)],
+) -> HashSet<usize> {
+    match backend {
+        MincutBackend::Exact => MincutGatedForgetting::boundary_from_one_partition(neighbors),
+        MincutBackend::Approx { epsilon } => {
+            MincutGatedForgetting::boundary_from_one_partition_approx(neighbors, epsilon)
+        }
+    }
+}
 
 /// How the mincut-boundary structural signal is combined with the scalar
 /// [`crate::compaction::CoherencePolicy`] importance score.
@@ -67,6 +112,11 @@ pub struct MincutGatedForgetting {
     /// "Measured limitation" note on [`Self::boundary_indices`]). `1`
     /// disables retrying.
     pub mincut_trials: usize,
+    /// Which `ruvector-mincut` algorithm computes the boundary partition.
+    /// Defaults to [`MincutBackend::Exact`] (this module's original
+    /// behavior); set to [`MincutBackend::Approx`] to use the fixed
+    /// SODA-2025 approximate backend instead.
+    pub backend: MincutBackend,
 }
 
 impl MincutGatedForgetting {
@@ -80,6 +130,7 @@ impl MincutGatedForgetting {
             structural_bonus,
             protect_fraction: 0.0,
             mincut_trials: 3,
+            backend: MincutBackend::default(),
         }
     }
 
@@ -93,6 +144,7 @@ impl MincutGatedForgetting {
             structural_bonus: 0.0,
             protect_fraction,
             mincut_trials: 3,
+            backend: MincutBackend::default(),
         }
     }
 
@@ -168,7 +220,68 @@ impl MincutGatedForgetting {
 
         let mut boundary = HashSet::new();
         for _ in 0..self.mincut_trials.max(1) {
-            boundary.extend(Self::boundary_from_one_partition(&neighbors));
+            boundary.extend(boundary_from_knn(self.backend, &neighbors));
+        }
+        boundary
+    }
+
+    /// One min-cut partition attempt over an already-built k-NN graph using
+    /// [`MincutBackend::Approx`]: `ruvector_mincut::ApproxMinCut` (SODA 2025
+    /// spectral sparsification), with the partition-recovery fix from
+    /// `docs/research/nightly/2026-10-29-approx-mincut-boundary-backend`.
+    ///
+    /// The k-NN edge list is not symmetric (vertex `i` may list `j` as a
+    /// neighbor without `j` listing `i`), so edges are deduplicated by
+    /// canonical `(min, max)` endpoint pair before insertion — otherwise a
+    /// pair with both directions present would be inserted twice and have
+    /// its weight double-counted relative to [`Self::boundary_from_one_partition`]'s
+    /// `RuVectorGraphAnalyzer::from_knn`, which performs the same implicit
+    /// dedup via its underlying `DynamicGraph`.
+    fn boundary_from_one_partition_approx(
+        neighbors: &[(usize, Vec<(usize, f64)>)],
+        epsilon: f64,
+    ) -> HashSet<usize> {
+        let mut edges: HashMap<(u64, u64), f64> = HashMap::new();
+        for &(i, ref nbrs) in neighbors {
+            for &(j, distance) in nbrs {
+                let weight = if distance > 0.0 { 1.0 / distance } else { 1.0 };
+                let (a, b) = if (i as u64) < (j as u64) {
+                    (i as u64, j as u64)
+                } else {
+                    (j as u64, i as u64)
+                };
+                edges.entry((a, b)).or_insert(weight);
+            }
+        }
+
+        let mut analyzer = ApproxMinCut::new(ApproxMinCutConfig {
+            epsilon,
+            ..Default::default()
+        });
+        for (&(u, v), &weight) in &edges {
+            analyzer.insert_edge(u, v, weight);
+        }
+
+        let result = analyzer.min_cut();
+        let (side_a, side_b) = match result.partition {
+            Some(p) => p,
+            None => return HashSet::new(),
+        };
+        if side_a.is_empty() || side_b.is_empty() {
+            return HashSet::new();
+        }
+        let side_a_set: HashSet<u64> = side_a.into_iter().collect();
+
+        let mut boundary = HashSet::new();
+        for (i, nbrs) in neighbors {
+            let i_in_a = side_a_set.contains(&(*i as u64));
+            for &(j, _) in nbrs {
+                let j_in_a = side_a_set.contains(&(j as u64));
+                if i_in_a != j_in_a {
+                    boundary.insert(*i);
+                    boundary.insert(j);
+                }
+            }
         }
         boundary
     }
