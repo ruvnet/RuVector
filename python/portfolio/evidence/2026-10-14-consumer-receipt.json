@@ -1,0 +1,37 @@
+{
+  "checked_at": "2026-10-14T06:37:46.148028+00:00",
+  "source_sha": "fccf36e9a76d35bce6750dfd3b25802cae3d683b",
+  "inventory_sha256": "ca4c4b47df73a26619c048ed1eb02013bfd96484aeb88e20fe16464ef1e0a32d",
+  "matching_pypi_files": 8,
+  "expected_files": 22,
+  "installed_packages": [
+    "ruvector-attention",
+    "ruvector-cluster",
+    "ruvector-core",
+    "ruvector-gnn",
+    "ruvector-graph",
+    "ruvector-rerank",
+    "ruvector-router",
+    "ruvector-ruvllm"
+  ],
+  "readme_quickstarts": 8,
+  "gist_revision": "7c09fe56274683c0b838ed0a2b176abdd86ff079",
+  "gist_script_sha256": "0d9961c2c93a1cec8debcd744aeacc141c662042042e7646e1f8a1a14a61ad0f",
+  "python": "3.12.3",
+  "platform": "Linux-6.12.105-fly-x86_64-with-glibc2.39",
+  "libc": [
+    "glibc",
+    "2.39"
+  ],
+  "limitations": [
+    "Linux x86_64 only for this fresh-consumer run",
+    "Six unchanged test modules; unpublished sona/rvf/rvf-wasm tests excluded, and mixed top-native module not collected",
+    "No performance claim; no upload or workflow retry"
+  ],
+  "contract_tests_passed": 38,
+  "audit_tool": "pip-audit 2.10.1",
+  "audit_dependencies": 43,
+  "audit_vulnerabilities": 0,
+  "install_report_sha256": "2c7bae55b164a33cf82b6ef8f1b9bf5707ef340c6090e4fd4583891cb3f63cbe",
+  "audit_report_sha256": "a316c31ad7cf8a116bfb25471b8bfc0ba9a5049da1017e2b12dd0ee6f979c3c8"
+}
