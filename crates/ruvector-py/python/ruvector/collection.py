@@ -230,6 +230,10 @@ class Collection:
         id_list: List[int] = list(range(n)) if ids is None else list(ids)
         if len(id_list) != n:
             raise CollectionError(f"ids length ({len(id_list)}) must match vectors row count ({n})")
+        for row_id in id_list:
+            if isinstance(row_id, bool) or not isinstance(row_id, (int, np.integer)):
+                raise CollectionError(f"ids must be integers (not bool), got {row_id!r}")
+        id_list = [int(row_id) for row_id in id_list]
         if len(set(id_list)) != len(id_list):
             raise CollectionError("ids must be unique")
         if metadatas is not None and len(metadatas) != n:
