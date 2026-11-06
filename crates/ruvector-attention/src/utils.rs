@@ -209,15 +209,18 @@ pub fn dot_f32(a: &[f32], b: &[f32]) -> f32 {
     let n = a.len().min(b.len());
     let (a, b) = (&a[..n], &b[..n]);
     let mut acc = [0.0f32; 8];
-    let mut ca = a.chunks_exact(8);
-    let mut cb = b.chunks_exact(8);
-    for (x, y) in (&mut ca).zip(&mut cb) {
-        for i in 0..8 {
-            acc[i] += x[i] * y[i];
+    let full = n - n % 8;
+    let mut i = 0;
+    while i < full {
+        let x = &a[i..i + 8];
+        let y = &b[i..i + 8];
+        for l in 0..8 {
+            acc[l] += x[l] * y[l];
         }
+        i += 8;
     }
     let mut tail = 0.0f32;
-    for (x, y) in ca.remainder().iter().zip(cb.remainder()) {
+    for (x, y) in a[full..].iter().zip(&b[full..]) {
         tail += x * y;
     }
     ((acc[0] + acc[4]) + (acc[1] + acc[5])) + ((acc[2] + acc[6]) + (acc[3] + acc[7])) + tail
