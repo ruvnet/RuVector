@@ -3,7 +3,10 @@
 use crate::config::{EmbedderConfig, ExecutionProvider, ModelSource};
 use crate::{EmbeddingError, PretrainedModel, Result};
 use indicatif::{ProgressBar, ProgressStyle};
-use ort::session::{builder::GraphOptimizationLevel, Session};
+use ort::session::{
+    builder::{GraphOptimizationLevel, SessionBuilder},
+    Session,
+};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Write;
@@ -130,17 +133,27 @@ impl OnnxModel {
         Self::from_file(&model_path, config).await
     }
 
+    // Builder errors carry the recoverable SessionBuilder in ort rc.12.
+    // This caller returns an application error, preserving its native code/message.
+    fn session_builder_error(error: ort::Error<SessionBuilder>) -> EmbeddingError {
+        EmbeddingError::OnnxRuntime(ort::Error::new_with_code(error.code(), error.message()))
+    }
+
     /// Create an ONNX session with the specified configuration
     fn create_session(path: &Path, config: &EmbedderConfig) -> Result<Session> {
         let mut builder = Session::builder()?;
 
         // Set optimization level
         if config.optimize_graph {
-            builder = builder.with_optimization_level(GraphOptimizationLevel::Level3)?;
+            builder = builder
+                .with_optimization_level(GraphOptimizationLevel::Level3)
+                .map_err(Self::session_builder_error)?;
         }
 
         // Set number of threads
-        builder = builder.with_intra_threads(config.num_threads)?;
+        builder = builder
+            .with_intra_threads(config.num_threads)
+            .map_err(Self::session_builder_error)?;
 
         // Configure execution provider
         match config.execution_provider {
@@ -149,25 +162,31 @@ impl OnnxModel {
             }
             #[cfg(feature = "cuda")]
             ExecutionProvider::Cuda { device_id } => {
-                builder = builder.with_execution_providers([
-                    ort::execution_providers::CUDAExecutionProvider::default()
-                        .with_device_id(device_id)
-                        .build(),
-                ])?;
+                builder = builder
+                    .with_execution_providers([
+                        ort::execution_providers::CUDAExecutionProvider::default()
+                            .with_device_id(device_id)
+                            .build(),
+                    ])
+                    .map_err(Self::session_builder_error)?;
             }
             #[cfg(feature = "tensorrt")]
             ExecutionProvider::TensorRt { device_id } => {
-                builder = builder.with_execution_providers([
-                    ort::execution_providers::TensorRTExecutionProvider::default()
-                        .with_device_id(device_id)
-                        .build(),
-                ])?;
+                builder = builder
+                    .with_execution_providers([
+                        ort::execution_providers::TensorRTExecutionProvider::default()
+                            .with_device_id(device_id)
+                            .build(),
+                    ])
+                    .map_err(Self::session_builder_error)?;
             }
             #[cfg(feature = "coreml")]
             ExecutionProvider::CoreMl => {
-                builder = builder.with_execution_providers([
-                    ort::execution_providers::CoreMLExecutionProvider::default().build(),
-                ])?;
+                builder = builder
+                    .with_execution_providers([
+                        ort::execution_providers::CoreMLExecutionProvider::default().build(),
+                    ])
+                    .map_err(Self::session_builder_error)?;
             }
             _ => {
                 warn!("Requested execution provider not available, falling back to CPU");
@@ -180,8 +199,16 @@ impl OnnxModel {
 
     /// Extract model information from the session
     fn extract_model_info(session: &Session, path: &Path, file_size: u64) -> Result<ModelInfo> {
-        let inputs: Vec<String> = session.inputs.iter().map(|i| i.name.clone()).collect();
-        let outputs: Vec<String> = session.outputs.iter().map(|o| o.name.clone()).collect();
+        let inputs: Vec<String> = session
+            .inputs()
+            .iter()
+            .map(|i| i.name().to_owned())
+            .collect();
+        let outputs: Vec<String> = session
+            .outputs()
+            .iter()
+            .map(|o| o.name().to_owned())
+            .collect();
 
         // Try to detect embedding dimension from the ONNX output tensor metadata.
         // The last dimension of the first output is typically the hidden/embedding size.
@@ -207,11 +234,11 @@ impl OnnxModel {
     /// Try to read the embedding dimension from the ONNX output tensor shape metadata.
     /// Returns `None` if the dimension is dynamic or unavailable.
     fn detect_dimension_from_outputs(session: &Session) -> Option<usize> {
-        if let Some(output) = session.outputs.first() {
+        if let Some(output) = session.outputs().first() {
             // In ort 2.0, tensor_shape() returns Option<&Shape> where Shape contains i64 dims.
             // Dynamic dimensions are -1; we want the last fixed (positive) dimension,
             // which is typically the embedding/hidden size.
-            if let Some(shape) = output.output_type.tensor_shape() {
+            if let Some(shape) = output.dtype().tensor_shape() {
                 for &d in shape.iter().rev() {
                     if d > 0 {
                         debug!(
@@ -514,6 +541,26 @@ mod tests {
             sanitize_model_id("sentence-transformers/all-MiniLM-L6-v2"),
             "sentence-transformers_all-MiniLM-L6-v2"
         );
+    }
+
+    #[test]
+    fn test_session_builder_error_preserves_details_without_a_model() {
+        let error = Session::builder()
+            .unwrap()
+            .with_config_entry("session\0invalid", "unused")
+            .err()
+            .expect("an embedded NUL must be rejected before calling the C API");
+        let code = error.code();
+        let message = error.message().to_owned();
+        assert_eq!(code, ort::ErrorCode::GenericFailure);
+        assert!(message.contains("invalid string"));
+        match OnnxModel::session_builder_error(error) {
+            EmbeddingError::OnnxRuntime(mapped) => {
+                assert_eq!(mapped.code(), code);
+                assert_eq!(mapped.message(), message);
+            }
+            other => panic!("expected native session configuration error, got {other}"),
+        }
     }
 
     #[test]
