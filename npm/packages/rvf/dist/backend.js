@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WasmBackend = exports.NodeBackend = void 0;
 exports.resolveBackend = resolveBackend;
 const errors_1 = require("./errors");
+const metadata_fields_1 = require("./metadata-fields");
 const idmap_journal_1 = require("./idmap-journal");
 /**
  * The id-map journal is folded into the snapshot once it grows past
@@ -74,6 +75,8 @@ class NodeBackend {
         this.storePath = '';
         this.readOnly = false;
         this.journal = null;
+        /** Metadata field-name registry, persisted in the store's file metadata. */
+        this.fields = new metadata_fields_1.FieldRegistry();
         /** Byte size of the last snapshot written or loaded. */
         this.snapshotBytes = 0;
         this.journalCompactMinBytes = JOURNAL_COMPACT_MIN_BYTES;
@@ -112,6 +115,7 @@ class NodeBackend {
             this.labelToId.clear();
             this.nextLabel = 1;
             this.closeJournal();
+            this.fields = new metadata_fields_1.FieldRegistry();
         }
     }
     async create(path, options) {
@@ -212,8 +216,8 @@ class NodeBackend {
     async ingestBatch(entries) {
         this.ensureHandle();
         try {
-            rejectUnsupportedMetadata(entries);
-            // NAPI signature: ingestBatch(vectors: Float32Array, ids: i64[], metadata?)
+            // NAPI signature: ingestBatch(vectors: Float32Array, ids: i64[]), or
+            // ingestBatchWithMetadata(vectors, ids, records) when entries carry metadata.
             // Flatten individual vectors into a single contiguous Float32Array.
             const n = entries.length;
             if (n === 0)
@@ -236,10 +240,18 @@ class NodeBackend {
             // can never leave a committed vector whose label is unrecorded (the
             // label would be reissued to another id on reopen).
             this.persistOps(this.newLabelOps(prevNext), prevNext);
-            const ingestAsync = pickMethod(this.handle, ['ingestBatchAsync', 'ingestAsync']);
-            const result = ingestAsync
-                ? await ingestAsync(flat, ids)
-                : this.handle.ingestBatch(flat, ids);
+            const records = this.encodeMetadataRecords(entries, ids);
+            let result;
+            if (records) {
+                const withMetaAsync = pickMethod(this.handle, ['ingestBatchWithMetadataAsync']);
+                result = withMetaAsync
+                    ? await withMetaAsync(flat, ids, records)
+                    : this.handle.ingestBatchWithMetadata(flat, ids, records);
+            }
+            else {
+                const ingestAsync = pickMethod(this.handle, ['ingestBatchAsync', 'ingestAsync']);
+                result = ingestAsync ? await ingestAsync(flat, ids) : this.handle.ingestBatch(flat, ids);
+            }
             await this.maybeCompactJournal();
             return {
                 accepted: Number(result.accepted),
@@ -254,16 +266,23 @@ class NodeBackend {
     async query(vector, k, options) {
         this.ensureHandle();
         try {
-            const nativeOpts = options ? mapQueryOptionsToNative(options) : undefined;
+            const nativeOpts = options ? mapQueryOptionsToNative(options, this.fields) : undefined;
             const queryAsync = pickMethod(this.handle, ['queryAsync']);
             const results = queryAsync
                 ? await queryAsync(vector, k, nativeOpts)
                 : this.handle.query(vector, k, nativeOpts);
-            // Map numeric labels back to original string IDs.
-            return results.map((r) => ({
-                id: this.labelToId.get(Number(r.id)) ?? String(r.id),
-                distance: r.distance,
-            }));
+            // Map numeric labels back to original string IDs, and native metadata
+            // entries back to the names used at ingest.
+            return results.map((r) => {
+                const hit = {
+                    id: this.labelToId.get(Number(r.id)) ?? String(r.id),
+                    distance: r.distance,
+                };
+                const metadata = this.decodeHitMetadata(r.metadata);
+                if (metadata)
+                    hit.metadata = metadata;
+                return hit;
+            });
         }
         catch (err) {
             throw errors_1.RvfError.fromNative(err);
@@ -302,8 +321,8 @@ class NodeBackend {
     async deleteByFilter(filter) {
         this.ensureHandle();
         try {
-            // NAPI takes a JSON string for the filter expression.
-            const result = this.handle.deleteByFilter(JSON.stringify(filter));
+            // NAPI takes a JSON string for the filter expression, with typed values.
+            const result = this.handle.deleteByFilter(JSON.stringify(this.fields.filterToNative(filter)));
             return { deleted: Number(result.deleted), epoch: result.epoch };
         }
         catch (err) {
@@ -407,6 +426,7 @@ class NodeBackend {
             child.nextLabel = this.nextLabel;
             child.journal = new idmap_journal_1.IdMapJournalWriter(child.mappingsPath() + idmap_journal_1.JOURNAL_SUFFIX);
             await child.saveMappings();
+            child.loadFieldRegistry();
             return child;
         }
         catch (err) {
@@ -428,6 +448,7 @@ class NodeBackend {
             child.nextLabel = this.nextLabel;
             child.journal = new idmap_journal_1.IdMapJournalWriter(child.mappingsPath() + idmap_journal_1.JOURNAL_SUFFIX);
             await child.saveMappings();
+            child.loadFieldRegistry();
             return child;
         }
         catch (err) {
@@ -671,6 +692,50 @@ class NodeBackend {
     async loadMappings() {
         await this.loadSnapshot();
         await this.replayJournalFile();
+        this.loadFieldRegistry();
+    }
+    /**
+     * Load the metadata field-name registry from the store's file metadata
+     * (issue #704). Stores written before the registry existed, or by an
+     * rvf-node without file-metadata support, start with an empty registry.
+     */
+    loadFieldRegistry() {
+        const get = pickMethod(this.handle, ['getFileMetadata']);
+        this.fields = metadata_fields_1.FieldRegistry.parse(get ? get(metadata_fields_1.FIELD_REGISTRY_KEY) : null);
+    }
+    /**
+     * Encode entry metadata into native per-vector records, persisting any
+     * newly registered field names before the vectors are committed.
+     * Returns null when no entry carries metadata.
+     */
+    encodeMetadataRecords(entries, labels) {
+        if (!entries.some((e) => e.metadata && Object.keys(e.metadata).length > 0))
+            return null;
+        const ingest = pickMethod(this.handle, ['ingestBatchWithMetadataAsync', 'ingestBatchWithMetadata']);
+        const setFileMetadata = pickMethod(this.handle, ['setFileMetadata']);
+        if (!ingest || !setFileMetadata) {
+            throw new errors_1.RvfError(errors_1.RvfErrorCode.MetadataNotSupported, 'this @ruvector/rvf-node build has no per-vector metadata support; upgrade to >= 0.4.2');
+        }
+        // Encode against a copy so a type conflict part-way through the batch
+        // leaves the live registry untouched.
+        const next = metadata_fields_1.FieldRegistry.parse(this.fields.toJSON());
+        let changed = false;
+        const records = [];
+        entries.forEach((e, i) => {
+            if (!e.metadata)
+                return;
+            const enc = next.encodeRecord(e.metadata);
+            changed || (changed = enc.changed);
+            records.push({ id: labels[i], fields: enc.fields });
+        });
+        if (changed)
+            setFileMetadata(metadata_fields_1.FIELD_REGISTRY_KEY, next.toJSON());
+        this.fields = next;
+        return records;
+    }
+    /** Decode a native hit's metadata entries through the field registry. */
+    decodeHitMetadata(entries) {
+        return entries ? this.fields.decodeRecord(entries) : undefined;
     }
     /**
      * Replay `<sidecar>.journal` over the loaded snapshot. A torn last append
@@ -1158,87 +1223,20 @@ function mapOptionsToNative(options) {
     };
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapQueryOptionsToNative(options) {
+function mapQueryOptionsToNative(options, fields) {
     return {
         // camelCase, matching the binding's RvfQueryOptions (see mapOptionsToNative).
         efSearch: options.efSearch ?? 100,
         // NAPI accepts the filter as a JSON string, not an object.
-        filter: options.filter ? JSON.stringify(filterToNativeJson(options.filter)) : undefined,
+        filter: options.filter ? JSON.stringify(fields.filterToNative(options.filter)) : undefined,
         timeoutMs: options.timeoutMs ?? 0,
         forceExact: options.forceExact ?? false,
     };
 }
 /**
- * Infer the native `valueType` ("u64" | "i64" | "f64" | "string" | "bool")
- * from a JS filter value and stringify it, matching what the N-API filter
- * parser requires (`crates/rvf/rvf-node/src/lib.rs::parse_filter_value`).
- * The public `RvfFilterExpr` type deliberately omits `valueType` — the SDK
- * infers it here so callers don't have to know the native wire format
- * (issue #704: the SDK previously omitted `valueType` entirely, which the
- * native parser requires and rejects).
- */
-function filterValueToNative(value) {
-    if (typeof value === 'boolean') {
-        return { valueType: 'bool', value: value ? 'true' : 'false' };
-    }
-    if (typeof value === 'string') {
-        return { valueType: 'string', value };
-    }
-    // number: integers map to u64/i64 (native has no single "number" type),
-    // non-integers map to f64.
-    if (!Number.isInteger(value)) {
-        return { valueType: 'f64', value: String(value) };
-    }
-    return { valueType: value >= 0 ? 'u64' : 'i64', value: String(value) };
-}
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function filterToNativeJson(expr) {
-    switch (expr.op) {
-        case 'eq':
-        case 'ne':
-        case 'lt':
-        case 'le':
-        case 'gt':
-        case 'ge': {
-            const { valueType, value } = filterValueToNative(expr.value);
-            return { op: expr.op, fieldId: expr.fieldId, valueType, value };
-        }
-        case 'in': {
-            // valueType must be uniform across all values for a single 'in' filter.
-            const converted = expr.values.map(filterValueToNative);
-            const valueType = converted[0]?.valueType ?? 'string';
-            return {
-                op: 'in',
-                fieldId: expr.fieldId,
-                valueType,
-                values: converted.map((c) => c.value),
-            };
-        }
-        case 'range': {
-            const lo = filterValueToNative(expr.low);
-            const hi = filterValueToNative(expr.high);
-            return {
-                op: 'range',
-                fieldId: expr.fieldId,
-                valueType: lo.valueType,
-                low: lo.value,
-                high: hi.value,
-            };
-        }
-        case 'and':
-            return { op: 'and', children: expr.exprs.map(filterToNativeJson) };
-        case 'or':
-            return { op: 'or', children: expr.exprs.map(filterToNativeJson) };
-        case 'not':
-            return { op: 'not', child: filterToNativeJson(expr.expr) };
-    }
-}
-/**
- * Immediate safety measure for issue #704: the SDK does not yet have a
- * design for mapping arbitrary string metadata field names to the native
- * layer's numeric `fieldId` + typed `value`, so silently accepting
- * `RvfIngestEntry.metadata` would silently drop it (the original bug).
- * Reject loudly instead until metadata ingestion is implemented.
+ * The WASM backend has no durable per-vector metadata, so it rejects
+ * `RvfIngestEntry.metadata` loudly rather than silently dropping it (the
+ * original issue #704 bug). The native backend stores it.
  */
 function rejectUnsupportedMetadata(entries) {
     const hasMetadata = entries.some((e) => e.metadata && Object.keys(e.metadata).length > 0);

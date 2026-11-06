@@ -25,6 +25,8 @@ export type {
   RvfOptions,
   RvfFilterValue,
   RvfFilterExpr,
+  RvfFilterField,
+  RvfMetadataValue,
   RvfQueryOptions,
   RvfSearchResult,
   RvfIngestResult,
