@@ -22,7 +22,9 @@ W="target/release/weaver --config-dir config/weaver"   # run from a ruvector che
 3. Rank: `$W queue --gate-top 20` -> `/data/scratch/weaver/queue.json`.
 4. For each entry in `.lanes` (at most 8, one per repo): record its items as
    `in_progress`, then hand ONE worker the `brief` of every item in that lane.
-5. Commit `config/weaver/ledger.jsonl`; schedule the next tick.
+5. The live ledger (`/data/scratch/weaver/ledger.jsonl`, or `$WEAVER_LEDGER`)
+   is outside the repo and needs no commit. Use `weaver ledger snapshot` only
+   occasionally, for a small seed PR. Schedule the next tick.
 
 ## Rules for a lane worker
 

@@ -26,8 +26,8 @@ pub fn write_json<T: serde::Serialize>(p: &Path, v: &T) -> Result<()> {
 }
 
 pub fn load_ledger(ctx: &Ctx) -> Result<Ledger> {
-    match &ctx.cfg.ledger_path {
-        Some(p) => Ledger::load(p),
+    match ctx.cfg.live_ledger()? {
+        Some(p) => Ledger::load(&p),
         None => Ledger::parse(EMBEDDED_LEDGER),
     }
 }

@@ -156,6 +156,12 @@ pub enum LedgerOp {
         #[arg(long)]
         json: bool,
     },
+    /// Append entries from another ledger file (e.g. a pending file),
+    /// skipping ones already present.
+    Import { file: PathBuf },
+    /// Write the live ledger over the in-repo seed snapshot (for an
+    /// occasional snapshot PR; the live ledger itself never needs one).
+    Snapshot,
 }
 
 fn de<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, String> {

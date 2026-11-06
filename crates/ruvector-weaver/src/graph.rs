@@ -106,6 +106,14 @@ fn npm_package(http: &Http, npm: &crate::config::NpmPolicy, obj: &Value) -> Pack
         monthly_downloads: obj["downloads"]["monthly"].as_u64().unwrap_or(0),
         unpacked_size: latest["dist"]["unpackedSize"].as_u64().unwrap_or(0),
         runtime_deps: latest["dependencies"].as_object().map_or(0, |o| o.len()),
+        dep_ranges: ["dependencies", "optionalDependencies", "peerDependencies"]
+            .iter()
+            .filter_map(|k| latest[*k].as_object())
+            .flat_map(|o| {
+                o.iter()
+                    .map(|(d, r)| (d.clone(), r.as_str().unwrap_or_default().to_string()))
+            })
+            .collect(),
         description: p["description"].as_str().unwrap_or_default().to_string(),
         keywords: str_array(&p["keywords"]),
         dependencies: dep_names(&latest["dependencies"]),
@@ -191,6 +199,7 @@ fn crates_for_user(http: &Http, user_id: u64) -> Result<Vec<Package>> {
                 open_ranges: vec![],
                 unpacked_size: 0,
                 runtime_deps: 0,
+                dep_ranges: BTreeMap::new(),
             });
         }
         if crates.len() < 100 {

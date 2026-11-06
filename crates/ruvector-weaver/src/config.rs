@@ -187,8 +187,13 @@ impl Capabilities {
 pub struct Config {
     pub policy: Policy,
     pub capabilities: Capabilities,
-    /// Where `ledger.jsonl` lives (None = embedded, read-only).
+    /// The LIVE ledger, outside the repo (`$WEAVER_LEDGER`, default
+    /// `<work_dir>/ledger.jsonl`), so recording outcomes never needs a PR.
+    /// `None` = embedded snapshot, read-only (tests).
     pub ledger_path: Option<PathBuf>,
+    /// In-repo snapshot (`config/weaver/ledger.jsonl`) that seeds the live
+    /// ledger the first time it is used on a machine.
+    pub ledger_seed: Option<PathBuf>,
     /// Cache / work root (`graph.json`, `scan/`, `gates/`, `repos/`, `queue.json`).
     pub work_dir: PathBuf,
 }
@@ -209,11 +214,17 @@ impl Config {
         let policy: Policy = toml::from_str(&read("weaver.toml", EMBEDDED_POLICY)?)
             .context("parsing weaver.toml")?;
         let capabilities = Capabilities::parse(&read("capabilities.toml", EMBEDDED_CAPABILITIES)?)?;
-        let ledger_path = dir.map(|d| d.join("ledger.jsonl"));
+        let ledger_seed = dir.map(|d| d.join("ledger.jsonl")).filter(|p| p.exists());
+        let ledger_path = Some(
+            std::env::var_os("WEAVER_LEDGER")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| work_dir.join("ledger.jsonl")),
+        );
         Ok(Self {
             policy,
             capabilities,
             ledger_path,
+            ledger_seed,
             work_dir,
         })
     }
@@ -224,8 +235,29 @@ impl Config {
             policy: toml::from_str(EMBEDDED_POLICY)?,
             capabilities: Capabilities::parse(EMBEDDED_CAPABILITIES)?,
             ledger_path: None,
+            ledger_seed: None,
             work_dir,
         })
+    }
+
+    /// Live ledger path, seeding it from the in-repo snapshot (or the
+    /// embedded copy) when it does not exist yet.
+    pub fn live_ledger(&self) -> Result<Option<PathBuf>> {
+        let Some(path) = &self.ledger_path else {
+            return Ok(None);
+        };
+        if !path.exists() {
+            if let Some(dir) = path.parent() {
+                std::fs::create_dir_all(dir)?;
+            }
+            let seed = match &self.ledger_seed {
+                Some(s) => std::fs::read_to_string(s)
+                    .with_context(|| format!("reading {}", s.display()))?,
+                None => EMBEDDED_LEDGER.to_string(),
+            };
+            std::fs::write(path, seed).with_context(|| format!("seeding {}", path.display()))?;
+        }
+        Ok(Some(path.clone()))
     }
 }
 

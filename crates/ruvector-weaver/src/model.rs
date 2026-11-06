@@ -46,6 +46,9 @@ pub struct Package {
     pub unpacked_size: u64,
     #[serde(default)]
     pub runtime_deps: usize,
+    /// Declared range per runtime dependency (deps + optional + peer).
+    #[serde(default)]
+    pub dep_ranges: BTreeMap<String, String>,
 }
 
 impl Package {

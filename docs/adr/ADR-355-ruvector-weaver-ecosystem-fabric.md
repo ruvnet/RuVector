@@ -40,7 +40,7 @@ that can be computed without judgement. All artifacts go under a work dir
 | `release` | `scan/_release.json` | Per package: repository changed, file count / unpacked size / export surface drop vs the previous version and the last release of the previous major (rename-aware via GitHub redirects). |
 | `gate <pkg>` | `gates/<pkg>.json` | Candidate health: recent publish, non-empty tarball with real entrypoints, tarball leak scan (`.claude*`, `.claude-flow/`, `.swarm/`, `.db`, `.env*`, `.npmrc`, keys), dependency cycle against the consumer, smoke import in a temp npm project (exports become the "verified API"), release checks. `--dir` runs the pre-publish checks; `--new --dir` adds the source gates for new names. Exits 2 when it rejects. |
 | `queue` | `queue.json` | Ranks by `ln(10 + consumer downloads) × signal confidence × occurrence boost × candidate health × signal-type weight`. Dedupes against the ledger and open PRs, takes one lane per repo (at most 8) with batching of independent items, and attaches a self-contained brief per item. |
-| `ledger record\|show` | `ledger.jsonl` | Append-only outcomes. |
+| `ledger record\|show\|import\|snapshot` | live `<work>/ledger.jsonl` | Append-only outcomes outside the repo. `config/weaver/ledger.jsonl` is the seed snapshot. |
 | `readme <pkg>` | README + banner | SEO README skeleton plus an animated SVG banner in the `assets/ruvector/packages/*.svg` convention, and `--lint`. |
 | `propose-new` | `create` items in `queue.json` | Capability gaps (a 404 import that no capability covers) become create work. |
 
@@ -111,8 +111,15 @@ ledger as `queued`. Where live PR data exists it replaces the snapshot.
 - Recurring discovery becomes a deterministic, tested binary (26 offline
   tests on fixture repos and fakes, no network in unit tests). The LLM budget
   goes to the work itself.
-- The ledger is committed with the repo, so its history is reviewable and it
-  survives across sessions and machines.
+- The live ledger lives outside the repo (`/data/scratch/weaver/ledger.jsonl`).
+  Recording outcomes therefore never needs a PR. A per-tick ledger push had
+  restarted CI on the harness PR on every push. The in-repo copy is a seed
+  snapshot, refreshed occasionally with `weaver ledger snapshot`.
+- Security fixes must be reachable. `fix_unreachable` queues a bump
+  wherever a dependent's declared range excludes the patched version. This
+  came out of GHSA-mjwg-5fm3-fx2p: `/darwin` 0.13.0 was
+  excluded by `^0.9.1`, `^0.12.0` and `~0.12.0`. `zero_caret` flags 0.x
+  carets that already pin a dependent away from the dep's current release.
 - Autopilot creation can still publish a weak package that passes every
   gate. That risk is accepted by the owner. It is mitigated by the
   no-duplicate and consumer-wiring gates and the post-publish smoke import,

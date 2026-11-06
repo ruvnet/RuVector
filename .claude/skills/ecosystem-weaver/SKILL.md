@@ -23,15 +23,21 @@ per signal type reweight the next ranking.
 
 ```bash
 cd /home/ruvultra/projects/ruvector            # or a dedicated worktree
-git worktree add ../wt-weaver-loop -b weaver/ledger origin/main
+git worktree add --detach ../wt-weaver-loop origin/main
 cd ../wt-weaver-loop
 cargo build --release -p ruvector-weaver
 export W="$PWD/target/release/weaver --config-dir $PWD/config/weaver"
 # work dir defaults to /data/scratch/weaver (graph.json, scan/, prs/, gates/, repos/, queue.json)
+# LIVE ledger: /data/scratch/weaver/ledger.jsonl (override with WEAVER_LEDGER)
 ```
 
-Run every command from the loop worktree so `--config-dir` points at the
-committed `config/weaver/{weaver.toml,capabilities.toml,ledger.jsonl}`.
+`--config-dir` supplies `weaver.toml` and `capabilities.toml`. The live
+ledger sits outside the repo, so recording an outcome never needs a PR. On
+first use it is seeded from the in-repo snapshot
+`config/weaver/ledger.jsonl`. To refresh that snapshot occasionally, run
+` ledger snapshot` and open one small PR. To apply entries collected
+elsewhere, run ` ledger import <file>`; entries that are already present
+are skipped.
 
 ## The tick (run in this order)
 
@@ -62,8 +68,9 @@ committed `config/weaver/{weaver.toml,capabilities.toml,ledger.jsonl}`.
      message, with the concatenated `brief` of the lane's `active` + `batched`
      items. Batched items are independent (distinct candidate, no shared
      evidence file) and ship in the same PR / release.
-5. **Persist and re-arm.** Commit `config/weaver/ledger.jsonl` on
-   `weaver/ledger` and keep its PR open/merged; store the tick summary
+5. **Persist and re-arm.** The live ledger is already durable (appended +
+   fsynced outside the repo); snapshot it into the repo only occasionally,
+   never once per tick (each push would restart CI). Store the tick summary
    (lanes dispatched, items suppressed, top-15) in memory
    (`memory_store` namespace `weaver`); re-arm with Monitor on the lane
    agents plus a ScheduleWakeup safety net (1200-1800 s). Do not poll.
@@ -115,3 +122,7 @@ create when no capability covers it; `undeclared_import` / `unused_declared`
 land / close_with_ledger; `release_regression` -> release_fix. A rejection
 whose reason is a heavy dependency tree is re-queued automatically once the
 candidate ships a release under the size/dep bar in `weaver.toml [gate]`.
+`weaver release` also emits `fix_unreachable` (a dependent's declared range
+excludes the version carrying a shipped security fix in the ledger; queue a
+bump) and `zero_caret` (a `^0.y` / `~0.y` range that already misses the
+dep's current release, because 0.x carets act as pins).

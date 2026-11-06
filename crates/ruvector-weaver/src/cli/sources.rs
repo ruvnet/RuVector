@@ -95,6 +95,8 @@ pub fn release(ctx: &Ctx, packages: Vec<String>, workers: usize) -> Result<()> {
         }
     });
     let mut signals: Vec<_> = found.into_iter().flatten().collect();
+    let patched = release::patched_versions(&load_ledger(ctx)?);
+    signals.extend(release::range_signals(&g, &patched, &ctx.cfg.policy.npm));
     for p in g
         .packages
         .iter()
