@@ -46,6 +46,7 @@
 #![allow(missing_docs)]
 
 pub mod auto_tuner;
+pub mod coherence_gate;
 pub mod darwin_guard;
 pub mod engine;
 pub mod ewc;
@@ -72,6 +73,10 @@ mod inflight;
 pub mod napi_simple;
 
 // Re-export main types
+pub use coherence_gate::{
+    find_similar_coherence_gated, find_similar_quality_weighted, CoherenceConfig,
+    PatternCoherenceGraph,
+};
 pub use engine::SonaEngine;
 pub use ewc::{EwcConfig, EwcPlusPlus, TaskFisher};
 pub use loops::{BackgroundLoop, InstantLoop, LoopCoordinator};
