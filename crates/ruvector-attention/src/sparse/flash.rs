@@ -4,6 +4,7 @@
 
 use crate::error::{AttentionError, AttentionResult};
 use crate::traits::Attention;
+use crate::utils::{axpy, dot_f32};
 
 /// Flash attention with block-wise computation
 ///
@@ -36,24 +37,23 @@ impl FlashAttention {
         }
     }
 
-    /// Compute attention scores for a block
-    fn compute_block_scores(&self, query: &[f32], keys: &[&[f32]], start_idx: usize) -> Vec<f32> {
-        keys.iter()
-            .enumerate()
-            .map(|(j, key)| {
-                if self.causal && start_idx + j > 0 {
-                    // Simplified causal: assuming query is at position 0
-                    f32::NEG_INFINITY
-                } else {
-                    query
-                        .iter()
-                        .zip(key.iter())
-                        .map(|(q, k)| q * k)
-                        .sum::<f32>()
-                        * self.scale
-                }
-            })
-            .collect()
+    /// Compute attention scores for a block into `scores` (cleared first).
+    fn compute_block_scores(
+        &self,
+        query: &[f32],
+        keys: &[&[f32]],
+        start_idx: usize,
+        scores: &mut Vec<f32>,
+    ) {
+        scores.clear();
+        scores.extend(keys.iter().enumerate().map(|(j, key)| {
+            if self.causal && start_idx + j > 0 {
+                // Simplified causal: assuming query is at position 0
+                f32::NEG_INFINITY
+            } else {
+                dot_f32(query, key) * self.scale
+            }
+        }));
     }
 }
 
@@ -99,13 +99,18 @@ impl Attention for FlashAttention {
         let mut max_so_far = f32::NEG_INFINITY;
         let mut sum_exp = 0.0f32;
 
-        // Process in blocks
+        // Process in blocks; one score buffer is reused across blocks.
+        let mut block_scores = Vec::with_capacity(self.block_size.min(n));
         for block_start in (0..n).step_by(self.block_size) {
             let block_end = (block_start + self.block_size).min(n);
-            let block_keys: Vec<&[f32]> = keys[block_start..block_end].to_vec();
 
             // Compute attention scores for this block
-            let block_scores = self.compute_block_scores(query, &block_keys, block_start);
+            self.compute_block_scores(
+                query,
+                &keys[block_start..block_end],
+                block_start,
+                &mut block_scores,
+            );
 
             // Find block maximum
             let block_max = block_scores
@@ -134,10 +139,7 @@ impl Attention for FlashAttention {
                     let exp_score = (score - new_max).exp();
                     sum_exp += exp_score;
 
-                    let global_idx = block_start + local_idx;
-                    for (j, &vj) in values[global_idx].iter().enumerate() {
-                        output[j] += exp_score * vj;
-                    }
+                    axpy(&mut output, exp_score, values[block_start + local_idx]);
                 }
             }
 

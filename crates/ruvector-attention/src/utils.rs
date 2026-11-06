@@ -196,6 +196,41 @@ pub fn dot_product(a: &[f32], b: &[f32]) -> AttentionResult<f32> {
     Ok(a.iter().zip(b.iter()).map(|(x, y)| x * y).sum())
 }
 
+/// Dot product of two equal-length slices with eight independent
+/// accumulators.
+///
+/// A plain `iter().zip().map().sum()` is a single dependency chain the
+/// compiler may not reassociate (strict IEEE order), so it runs one
+/// multiply-add per FP latency. Splitting into eight lanes lets LLVM keep the
+/// lanes in a vector register and pipeline the adds. Extra elements of the
+/// longer slice are ignored, like `zip`.
+#[inline]
+pub fn dot_f32(a: &[f32], b: &[f32]) -> f32 {
+    let n = a.len().min(b.len());
+    let (a, b) = (&a[..n], &b[..n]);
+    let mut acc = [0.0f32; 8];
+    let mut ca = a.chunks_exact(8);
+    let mut cb = b.chunks_exact(8);
+    for (x, y) in (&mut ca).zip(&mut cb) {
+        for i in 0..8 {
+            acc[i] += x[i] * y[i];
+        }
+    }
+    let mut tail = 0.0f32;
+    for (x, y) in ca.remainder().iter().zip(cb.remainder()) {
+        tail += x * y;
+    }
+    ((acc[0] + acc[4]) + (acc[1] + acc[5])) + ((acc[2] + acc[6]) + (acc[3] + acc[7])) + tail
+}
+
+/// `out += w * v` over the common prefix of `out` and `v`.
+#[inline]
+pub fn axpy(out: &mut [f32], w: f32, v: &[f32]) {
+    for (o, x) in out.iter_mut().zip(v) {
+        *o += w * x;
+    }
+}
+
 /// Scales a vector by a scalar value.
 ///
 /// # Arguments

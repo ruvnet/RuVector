@@ -14,7 +14,7 @@
 //! marked `catch_unwind`, so a Rust panic surfaces as a JavaScript `Error`
 //! instead of aborting the process.
 
-use crate::validate;
+use crate::validate::{self, F32Rows};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ruvector_attention::{
@@ -34,18 +34,72 @@ pub(crate) fn run<A: Attention>(
     dim: usize,
     value_dim: Option<usize>,
     query: Float32Array,
-    keys: Vec<Float32Array>,
-    values: Vec<Float32Array>,
+    keys: F32Rows,
+    values: F32Rows,
 ) -> Result<Float32Array> {
-    let keys_vec = validate::to_vecs(keys);
-    let values_vec = validate::to_vecs(values);
-    validate::qkv(dim, query.as_ref(), &keys_vec, &values_vec, value_dim)?;
+    run_slices(
+        attention,
+        dim,
+        value_dim,
+        query.as_ref(),
+        &keys.slices(),
+        &values.slices(),
+    )
+}
+
+/// Flat-input variant of [`run`]: `keys` is `n * dim` floats row-major and
+/// `values` is `n * value_dim` floats (`value_dim` defaults to
+/// `values.length / n`). Three typed arrays cross the boundary instead of
+/// `2n + 1`, and nothing is copied.
+pub(crate) fn run_flat<A: Attention>(
+    attention: &A,
+    dim: usize,
+    value_dim: Option<usize>,
+    query: Float32Array,
+    keys: Float32Array,
+    values: Float32Array,
+) -> Result<Float32Array> {
+    let (k, v) = flat_kv(dim, value_dim, keys.as_ref(), values.as_ref())?;
+    run_slices(attention, dim, value_dim, query.as_ref(), &k, &v)
+}
+
+/// Splits flat keys/values into row slices (see [`run_flat`]).
+pub(crate) fn flat_kv<'a>(
+    dim: usize,
+    value_dim: Option<usize>,
+    keys: &'a [f32],
+    values: &'a [f32],
+) -> Result<(Vec<&'a [f32]>, Vec<&'a [f32]>)> {
+    let k = validate::flat_rows("keys", keys, dim)?;
+    let n = k.len();
+    let vd = match value_dim {
+        Some(d) => d,
+        None if values.len() % n == 0 => values.len() / n,
+        None => {
+            return Err(Error::new(
+                Status::InvalidArg,
+                format!(
+                    "values length {} is not a multiple of the key count {n}",
+                    values.len()
+                ),
+            ))
+        }
+    };
+    let v = validate::flat_rows("values", values, vd)?;
+    Ok((k, v))
+}
+
+fn run_slices<A: Attention>(
+    attention: &A,
+    dim: usize,
+    value_dim: Option<usize>,
+    query: &[f32],
+    keys: &[&[f32]],
+    values: &[&[f32]],
+) -> Result<Float32Array> {
+    validate::qkv(dim, query, keys, values, value_dim)?;
     let result = attention
-        .compute(
-            query.as_ref(),
-            &validate::as_slices(&keys_vec),
-            &validate::as_slices(&values_vec),
-        )
+        .compute(query, keys, values)
         .map_err(|e| Error::from_reason(e.to_string()))?;
     Ok(Float32Array::new(result))
 }
@@ -92,10 +146,23 @@ impl DotProductAttention {
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
         run(&self.inner, self.dim_value, None, query, keys, values)
+    }
+
+    /// Same as `compute`, with keys and values passed as flat row-major
+    /// `Float32Array`s (`n * dim` floats each). Faster for many keys: no
+    /// per-key typed arrays cross the native boundary.
+    #[napi(catch_unwind)]
+    pub fn compute_flat(
+        &self,
+        query: Float32Array,
+        keys: Float32Array,
+        values: Float32Array,
+    ) -> Result<Float32Array> {
+        run_flat(&self.inner, self.dim_value, None, query, keys, values)
     }
 
     /// Compute attention with mask
@@ -109,12 +176,12 @@ impl DotProductAttention {
     pub fn compute_with_mask(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
         mask: Vec<bool>,
     ) -> Result<Float32Array> {
-        let keys_vec = validate::to_vecs(keys);
-        let values_vec = validate::to_vecs(values);
+        let keys_vec = keys.slices();
+        let values_vec = values.slices();
         validate::qkv(self.dim_value, query.as_ref(), &keys_vec, &values_vec, None)?;
         if mask.len() != keys_vec.len() {
             return Err(Error::new(
@@ -131,8 +198,8 @@ impl DotProductAttention {
             .inner
             .compute_with_mask(
                 query.as_ref(),
-                &validate::as_slices(&keys_vec),
-                &validate::as_slices(&values_vec),
+                &keys_vec,
+                &values_vec,
                 Some(mask.as_slice()),
             )
             .map_err(|e| Error::from_reason(e.to_string()))?;
@@ -180,11 +247,25 @@ impl MultiHeadAttention {
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
         let d = self.dim_value;
         run(&self.inner, d, Some(d), query, keys, values)
+    }
+
+    /// Same as `compute`, with keys and values passed as flat row-major
+    /// `Float32Array`s (`n * dim` floats each). Faster for many keys: no
+    /// per-key typed arrays cross the native boundary.
+    #[napi(catch_unwind)]
+    pub fn compute_flat(
+        &self,
+        query: Float32Array,
+        keys: Float32Array,
+        values: Float32Array,
+    ) -> Result<Float32Array> {
+        let d = self.dim_value;
+        run_flat(&self.inner, d, Some(d), query, keys, values)
     }
 
     /// Get the number of heads
@@ -274,10 +355,23 @@ impl HyperbolicAttention {
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
         run(&self.inner, self.dim_value, None, query, keys, values)
+    }
+
+    /// Same as `compute`, with keys and values passed as flat row-major
+    /// `Float32Array`s (`n * dim` floats each). Faster for many keys: no
+    /// per-key typed arrays cross the native boundary.
+    #[napi(catch_unwind)]
+    pub fn compute_flat(
+        &self,
+        query: Float32Array,
+        keys: Float32Array,
+        values: Float32Array,
+    ) -> Result<Float32Array> {
+        run_flat(&self.inner, self.dim_value, None, query, keys, values)
     }
 
     /// Get the curvature
@@ -324,10 +418,23 @@ impl FlashAttention {
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
         run(&self.inner, self.dim_value, None, query, keys, values)
+    }
+
+    /// Same as `compute`, with keys and values passed as flat row-major
+    /// `Float32Array`s (`n * dim` floats each). Faster for many keys: no
+    /// per-key typed arrays cross the native boundary.
+    #[napi(catch_unwind)]
+    pub fn compute_flat(
+        &self,
+        query: Float32Array,
+        keys: Float32Array,
+        values: Float32Array,
+    ) -> Result<Float32Array> {
+        run_flat(&self.inner, self.dim_value, None, query, keys, values)
     }
 
     /// Get the dimension
@@ -375,16 +482,36 @@ impl LinearAttention {
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
-        if let Some(v) = values.first() {
+        if let Some(v) = values.first_len() {
             validate::elements(
                 "LinearAttention key-value summary",
-                &[self.num_features_value, v.len()],
+                &[self.num_features_value, v],
             )?;
         }
         run(&self.inner, self.dim_value, None, query, keys, values)
+    }
+
+    /// Same as `compute`, with keys and values passed as flat row-major
+    /// `Float32Array`s (`n * dim` floats each). Faster for many keys: no
+    /// per-key typed arrays cross the native boundary.
+    #[napi(catch_unwind)]
+    pub fn compute_flat(
+        &self,
+        query: Float32Array,
+        keys: Float32Array,
+        values: Float32Array,
+    ) -> Result<Float32Array> {
+        let n = keys.len() / self.dim_value;
+        if n > 0 {
+            validate::elements(
+                "LinearAttention key-value summary",
+                &[self.num_features_value, values.len() / n],
+            )?;
+        }
+        run_flat(&self.inner, self.dim_value, None, query, keys, values)
     }
 
     /// Get the dimension
@@ -444,10 +571,23 @@ impl LocalGlobalAttention {
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
         run(&self.inner, self.dim_value, None, query, keys, values)
+    }
+
+    /// Same as `compute`, with keys and values passed as flat row-major
+    /// `Float32Array`s (`n * dim` floats each). Faster for many keys: no
+    /// per-key typed arrays cross the native boundary.
+    #[napi(catch_unwind)]
+    pub fn compute_flat(
+        &self,
+        query: Float32Array,
+        keys: Float32Array,
+        values: Float32Array,
+    ) -> Result<Float32Array> {
+        run_flat(&self.inner, self.dim_value, None, query, keys, values)
     }
 
     /// Get the dimension
@@ -561,11 +701,25 @@ impl MoEAttention {
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
         let d = self.config.dim as usize;
         run(&self.inner, d, None, query, keys, values)
+    }
+
+    /// Same as `compute`, with keys and values passed as flat row-major
+    /// `Float32Array`s (`n * dim` floats each). Faster for many keys: no
+    /// per-key typed arrays cross the native boundary.
+    #[napi(catch_unwind)]
+    pub fn compute_flat(
+        &self,
+        query: Float32Array,
+        keys: Float32Array,
+        values: Float32Array,
+    ) -> Result<Float32Array> {
+        let d = self.config.dim as usize;
+        run_flat(&self.inner, d, None, query, keys, values)
     }
 
     /// Get the dimension

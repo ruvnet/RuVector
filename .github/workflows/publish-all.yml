@@ -468,41 +468,15 @@ jobs:
           }
           EOF
 
-          # Create index.js that loads the correct platform binary
-          cat > index.js << 'INDEXJS'
-          const { platform, arch } = process;
-
-          const platformPackages = {
-            'linux-x64': '@ruvector/attention-linux-x64-gnu',
-            'linux-arm64': '@ruvector/attention-linux-arm64-gnu',
-            'darwin-x64': '@ruvector/attention-darwin-x64',
-            'darwin-arm64': '@ruvector/attention-darwin-arm64',
-            'win32-x64': '@ruvector/attention-win32-x64-msvc',
-          };
-
-          const key = `${platform}-${arch}`;
-          const pkg = platformPackages[key];
-
-          if (!pkg) {
-            throw new Error(`Unsupported platform: ${key}. Supported: ${Object.keys(platformPackages).join(', ')}`);
-          }
-
-          module.exports = require(pkg);
-          INDEXJS
-
-          # Create TypeScript definitions
-          cat > index.d.ts << 'INDEXDTS'
-          export interface AttentionConfig {
-            dim: number;
-            numHeads?: number;
-            dropout?: number;
-          }
-
-          export function scaledDotProductAttention(query: Float32Array, keys: Float32Array[], values: Float32Array[]): Float32Array;
-          export function multiHeadAttention(query: Float32Array, keys: Float32Array[], values: Float32Array[], config: AttentionConfig): Float32Array;
-          export function flashAttention(query: Float32Array, keys: Float32Array[], values: Float32Array[], blockSize?: number): Float32Array;
-          export function hyperbolicAttention(query: Float32Array, keys: Float32Array[], values: Float32Array[], curvature?: number): Float32Array;
-          INDEXDTS
+          # Ship the committed napi-rs loader and the full generated typings
+          # (every class, computeFlat, async/batch helpers, training utils).
+          # This step used to write a hand-made index.d.ts that declared only
+          # four functions the binary never exported.
+          SRC="$GITHUB_WORKSPACE/crates/ruvector-attention-node"
+          cp "$SRC/index.js" "$SRC/index.d.ts" "$SRC/README.md" .
+          grep -q "class FlashAttention" index.d.ts
+          grep -q "computeFlat(" index.d.ts
+          node -e 'const p=require("./package.json"); p.files=["index.js","index.d.ts","README.md"]; require("fs").writeFileSync("package.json", JSON.stringify(p,null,2)+"\n")'
 
           bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
         env:
