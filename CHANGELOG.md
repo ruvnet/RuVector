@@ -45,6 +45,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (GHSA-mjwg-5fm3-fx2p). The 0.x caret could never reach 0.13. `ruvector harness
   darwin --execute` and `runMetaHarnessDarwin` call `evolve(config)`, whose
   signature is unchanged; verified with a real evolution run against 0.13.0.
+- Security: `@ruvector/attention` moves from `^0.1.3` (resolved 0.1.32) to
+  `^2.2.3`, which contains the H1 fix: on 0.1.x a malformed input panicked in
+  the NAPI binding and aborted the whole Node process (SIGABRT); 2.2.3 throws a
+  catchable error. The JS surface is identical (same 39 exports, byte-identical
+  wrapper); a differential run of every ruvector attention wrapper gave identical
+  outputs (max |diff| 1.8e-3 on hyperbolic, float drift). `@ruvector/core`,
+  `gnn` and `sona` already resolve to their latest. Guarded by
+  `test/attention-panic.js`.
 
 ## [ruvector 0.3.12] - 2026-11-05
 ### Fixed
