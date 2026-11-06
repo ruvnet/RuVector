@@ -177,3 +177,28 @@ test('creating over an existing store is refused', { timeout: 10_000 }, async ()
   assert.ok(second.error);
   await server.close();
 });
+
+test("many single-vector ingests are auto-compacted so the file stays bounded", { timeout: 120_000 }, async () => {
+  const dataDir = tempDataDir();
+  const { client } = await connect({ dataDir, autoCompact: { minBytes: 256 * 1024, ratio: 8 } });
+  const { storeId } = JSON.parse(text(await client.callTool({
+    name: "rvf_create_store", arguments: { path: "grow.rvf", dimensions: 16, metric: "l2" },
+  })));
+  let compactions = 0;
+  for (let i = 0; i < 300; i++) {
+    const vector = Array.from({ length: 16 }, (_, d) => (d === 0 ? i : ((i * 31 + d * 7) % 97) / 97));
+    const r = JSON.parse(text(await client.callTool({
+      name: "rvf_ingest", arguments: { storeId, entries: [{ id: `v${i}`, vector }] },
+    })));
+    if (r.autoCompacted) compactions++;
+  }
+  const st = JSON.parse(text(await client.callTool({ name: "rvf_status", arguments: { storeId } })));
+  assert.equal(st.totalVectors, 300);
+  assert.ok(compactions > 0, "expected at least one auto-compaction");
+  const size = fs.statSync(path.join(dataDir, "grow.rvf")).size;
+  assert.ok(size < 2 * 1024 * 1024, `file grew to ${size} bytes`);
+  const q = JSON.parse(text(await client.callTool({
+    name: "rvf_query", arguments: { storeId, vector: Array.from({ length: 16 }, (_, d) => (d === 0 ? 299 : ((299 * 31 + d * 7) % 97) / 97)), k: 1 },
+  })));
+  assert.equal(q.results[0].id, "v299");
+});

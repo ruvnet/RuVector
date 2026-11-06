@@ -24,9 +24,17 @@ const client = new Client({ name: 'bench', version: '1.0.0' });
 await client.connect(ct);
 const call = async (name, args) => JSON.parse((await client.callTool({ name, arguments: args })).content[0].text);
 
-// Deterministic pseudo-random vectors.
+// Deterministic pseudo-random vectors (mulberry32: 32-bit integer state, full
+// 2^32 period). A float LCG like (seed * 1103515245 + 12345) % 2 ** 31 loses
+// precision past 2^53 and cycles after ~10k draws, which turns the dataset into
+// ~80 repeated vectors and makes recall against an exact scan meaningless.
 let seed = 42;
-const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31) - 0.5;
+const rnd = () => {
+  seed = (seed + 0x6d2b79f5) | 0;
+  let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 2 ** 32 - 0.5;
+};
 const vector = () => Array.from({ length: dim }, rnd);
 
 const all = [];

@@ -1249,8 +1249,8 @@ function mapNativeStatus(s) {
     return {
         totalVectors: s.total_vectors ?? s.totalVectors ?? 0,
         totalSegments: s.total_segments ?? s.totalSegments ?? 0,
-        fileSizeBytes: s.file_size ?? s.fileSizeBytes ?? 0,
-        epoch: s.current_epoch ?? s.epoch ?? 0,
+        fileSizeBytes: s.file_size ?? s.fileSizeBytes ?? s.fileSize ?? 0,
+        epoch: s.current_epoch ?? s.epoch ?? s.currentEpoch ?? 0,
         profileId: s.profile_id ?? s.profileId ?? 0,
         compactionState: mapCompactionState(s.compaction_state ?? s.compactionState),
         deadSpaceRatio: s.dead_space_ratio ?? s.deadSpaceRatio ?? 0,

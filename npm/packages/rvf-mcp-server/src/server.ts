@@ -36,6 +36,8 @@ export interface RvfMcpServerOptions {
    * ~/.rvf-mcp-server.
    */
   dataDir?: string;
+  /** Auto-compaction thresholds after ingest. Default: {@link AUTO_COMPACT}. */
+  autoCompact?: { minBytes: number; ratio: number };
 }
 
 /** Upper bounds on model-supplied sizes (tool arguments are untrusted). */
@@ -43,6 +45,12 @@ export const LIMITS = {
   maxDimensions: 65_536,
   maxK: 10_000,
   maxBatch: 10_000,
+} as const;
+
+/** Auto-compaction after ingest: file larger than `minBytes` AND `ratio` x live vector bytes. */
+export const AUTO_COMPACT = {
+  minBytes: 64 * 1024 * 1024,
+  ratio: 8,
 } as const;
 
 const vectorSchema = z.array(z.number()).max(LIMITS.maxDimensions);
@@ -87,6 +95,7 @@ export class RvfMcpServer {
       defaultDimensions: options?.defaultDimensions ?? 128,
       maxStores: options?.maxStores ?? 64,
       dataDir: options?.dataDir ?? defaultDataDir(),
+      autoCompact: options?.autoCompact ?? AUTO_COMPACT,
     };
 
     this.mcp = new McpServer(
@@ -260,8 +269,23 @@ export class RvfMcpServer {
           }
           h.meta.apply(sets, cleared);
         }
-        const status = await h.db.status();
-        return reply({ accepted: batch.size, rejected, totalVectors: status.totalVectors });
+        let status = await h.db.status();
+        // rvf-runtime appends a manifest listing every segment on each ingest,
+        // so many small ingest calls grow the file quadratically (2,500 single
+        // ingests -> 231 MB for 1.3 MB of vectors). Bound it by compacting
+        // once the file is both large and mostly overhead. Compaction drops
+        // the in-memory HNSW, which is rebuilt lazily on the next query.
+        const liveBytes = status.totalVectors * h.dimensions * 4;
+        let autoCompacted = false;
+        // Stat the file directly: status().fileSizeBytes reads 0 in @ruvector/rvf <= 0.4.2.
+        const fileBytes = fs.statSync(h.file).size;
+        const { minBytes, ratio } = this.opts.autoCompact;
+        if (fileBytes > minBytes && fileBytes > ratio * Math.max(liveBytes, 1)) {
+          await h.db.compact();
+          status = await h.db.status();
+          autoCompacted = true;
+        }
+        return reply({ accepted: batch.size, rejected, totalVectors: status.totalVectors, autoCompacted });
       }),
     );
 
