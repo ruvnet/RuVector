@@ -368,10 +368,39 @@ function isPrivateAddress(ip) {
       (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
       (a === 100 && b >= 64 && b <= 127) || a >= 224;
   }
-  const v = ip.toLowerCase();
-  if (v.startsWith('::ffff:')) return isPrivateAddress(v.slice(7));
-  return v === '::' || v === '::1' || v.startsWith('fc') || v.startsWith('fd') ||
-    v.startsWith('fe8') || v.startsWith('fe9') || v.startsWith('fea') || v.startsWith('feb');
+  const h = expandIPv6(ip);
+  if (!h) return true; // unparseable: fail closed
+  // IPv4 embedded in IPv6: mapped (::ffff:0:0/96), compatible (::/96) and
+  // NAT64 (64:ff9b::/96). URL parsing rewrites ::ffff:127.0.0.1 to
+  // ::ffff:7f00:1, so the embedded address is checked from the hextets.
+  const embedded = `${h[6] >> 8}.${h[6] & 255}.${h[7] >> 8}.${h[7] & 255}`;
+  const zero5 = h.slice(0, 5).every(x => x === 0);
+  if ((zero5 && (h[5] === 0xffff || h[5] === 0)) ||
+      (h[0] === 0x64 && h[1] === 0xff9b && h.slice(2, 6).every(x => x === 0))) {
+    return isPrivateAddress(embedded);
+  }
+  return (h[0] & 0xfe00) === 0xfc00 || (h[0] & 0xffc0) === 0xfe80 || h[0] >= 0xff00;
+}
+
+/** Expand an IPv6 literal (optionally with a dotted IPv4 tail) to 8 hextets, or null. */
+function expandIPv6(ip) {
+  let v = ip.toLowerCase().replace(/%.*$/, '');
+  const tail = v.match(/^(.*:)(\d+\.\d+\.\d+\.\d+)$/);
+  if (tail) {
+    const o = tail[2].split('.').map(Number);
+    if (o.some(n => n > 255)) return null;
+    v = `${tail[1]}${((o[0] << 8) | o[1]).toString(16)}:${((o[2] << 8) | o[3]).toString(16)}`;
+  }
+  const halves = v.split('::');
+  if (halves.length > 2) return null;
+  const parse = s => (s ? s.split(':') : []);
+  const head = parse(halves[0]);
+  const rest = halves.length === 2 ? parse(halves[1]) : [];
+  const fill = 8 - head.length - rest.length;
+  if (halves.length === 1 ? fill !== 0 : fill < 1) return null;
+  const parts = [...head, ...Array(halves.length === 2 ? fill : 0).fill('0'), ...rest];
+  if (!parts.every(p => /^[0-9a-f]{1,4}$/.test(p))) return null;
+  return parts.map(p => parseInt(p, 16));
 }
 
 /**
