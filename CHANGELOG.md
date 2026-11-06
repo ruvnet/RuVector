@@ -38,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   without the runtime that `ruvector llm` / `ruvector sona` load; it is now
   `>=2.0.0 <4.0.0 || ^4.1.0`. Other peers take their optionalDependencies spec
   or a caret on their previous minimum.
+- Security: `@metaharness/darwin` moves from `^0.9.1` to `^0.13.0` (and the
+  `metaharness` meta-package from `^0.4.7` to `^0.4.20`, which itself requires
+  darwin `^0.13.0`) for the high-severity sandbox bypass fixed in darwin 0.13.0
+  (GHSA-mjwg-5fm3-fx2p). The 0.x caret could never reach 0.13. `ruvector harness
+  darwin --execute` and `runMetaHarnessDarwin` call `evolve(config)`, whose
+  signature is unchanged; verified with a real evolution run against 0.13.0.
 
 ## [ruvector 0.3.12] - 2026-11-05
 ### Fixed

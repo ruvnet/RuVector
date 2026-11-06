@@ -76,7 +76,7 @@
     "ora": "^5.4.1"
   },
   "optionalDependencies": {
-    "@metaharness/darwin": "^0.9.1",
+    "@metaharness/darwin": "^0.13.0",
     "@metaharness/flywheel": "^0.1.10",
     "@metaharness/harness": "^0.2.0",
     "@metaharness/redblue": "^0.1.6",
@@ -88,7 +88,7 @@
     "@ruvector/rabitq-wasm": "^0.1.1",
     "@ruvector/rvf": "^0.4.2",
     "@ruvector/tiny-dancer": "^0.1.22",
-    "metaharness": "^0.4.7"
+    "metaharness": "^0.4.20"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
@@ -106,7 +106,7 @@
     "LICENSE"
   ],
   "peerDependencies": {
-    "@metaharness/darwin": "^0.9.1",
+    "@metaharness/darwin": "^0.13.0",
     "@metaharness/flywheel": "^0.1.10",
     "@metaharness/harness": "^0.2.0",
     "@metaharness/redblue": "^0.1.6",
@@ -118,7 +118,7 @@
     "@ruvector/pi-brain": "^0.1.0",
     "@ruvector/router": "^0.1.0",
     "@ruvector/ruvllm": ">=2.0.0 <4.0.0 || ^4.1.0",
-    "metaharness": "^0.4.7",
+    "metaharness": "^0.4.20",
     "@ruvector/rabitq-wasm": "^0.1.1",
     "rvlite": "^0.2.0"
   },
