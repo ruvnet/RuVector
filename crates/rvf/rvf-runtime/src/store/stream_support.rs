@@ -45,7 +45,7 @@ impl RvfStore {
     /// stable API.
     #[doc(hidden)]
     pub fn index_payload(&self) -> Option<Vec<u8>> {
-        let guard = self.index.lock().unwrap_or_else(|e| e.into_inner());
+        let guard = self.index.read().unwrap_or_else(|e| e.into_inner());
         guard.as_ref().map(|i| i.encode_payload())
     }
 }

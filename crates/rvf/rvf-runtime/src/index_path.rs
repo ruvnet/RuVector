@@ -17,16 +17,19 @@
 //!   rebuilt from vectors on the next eligible query.
 //!
 //! Queries fall back to the exact brute-force scan when the store is small
-//! (below [`INDEX_MIN_VECTORS`], where a scan is faster), when a metadata
-//! filter or COW membership filter applies, when too many vectors are
-//! soft-deleted, or when the index cannot supply `k` live results.
+//! (below [`INDEX_MIN_VECTORS`], where a scan is faster), when a non-COW
+//! membership filter applies, when too many vectors are soft-deleted, or when
+//! the index cannot supply `k` live results. Metadata-filtered queries use
+//! the predicate-aware traversal behind a selectivity planner
+//! (`store/filtered_query.rs`).
 
 use std::collections::{HashMap, HashSet};
 
 use rvf_index::codec::{decode_varint, encode_varint, NodeAdjacency, DEFAULT_RESTART_INTERVAL};
 use rvf_index::{
-    cosine_distance, decode_index_seg, dot_product, encode_index_seg, l2_distance, HnswConfig,
-    HnswGraph, HnswLayer, IndexSegData, IndexSegHeader, VectorStore,
+    cosine_distance, decode_index_seg, dot_product, encode_index_seg, l2_distance,
+    FilteredSearchOutcome, HnswConfig, HnswGraph, HnswLayer, IndexSegData, IndexSegHeader,
+    VectorStore,
 };
 
 use crate::options::DistanceMetric;
@@ -180,6 +183,29 @@ impl VectorIndex {
         let store = VecDataStore { data: vectors };
         let dist = metric_distance_fn(metric);
         self.graph.search(query, k, ef_search, &store, &dist)
+    }
+
+    /// Predicate-aware search (see [`HnswGraph::search_filtered`]).
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn search_filtered(
+        &self,
+        query: &[f32],
+        k: usize,
+        ef_search: usize,
+        visit_budget: usize,
+        vectors: &VectorData,
+        metric: DistanceMetric,
+        predicate: &mut dyn FnMut(u64) -> bool,
+    ) -> FilteredSearchOutcome {
+        let store = VecDataStore { data: vectors };
+        let dist = metric_distance_fn(metric);
+        self.graph
+            .search_filtered(query, k, ef_search, visit_budget, &store, &dist, predicate)
+    }
+
+    /// True when the store holds vectors the graph has not indexed yet.
+    pub(crate) fn needs_sync(&self, vectors: &VectorData) -> bool {
+        self.members.len() < vectors.len()
     }
 
     /// Returns true if `id` is present in the graph.
