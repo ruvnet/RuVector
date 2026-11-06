@@ -1,7 +1,7 @@
 # RuVector-Postgres Development & Testing Dockerfile
 # Multi-stage build with PostgreSQL version support (14-17)
 # Default: PostgreSQL 17 (latest with pgrx 0.12 support)
-# v0.3.1: Fixes — Cypher self-reference, graph/RDF persistence, SONA dimension panic
+# v2.0.6: index and SONA integrity fixes
 
 ARG PG_VERSION=17
 ARG RUST_VERSION=1.86
@@ -30,8 +30,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install pgrx (compatible with pgrx = "0.12" in Cargo.toml)
-RUN cargo install cargo-pgrx --version 0.12.6 --locked
+# Install pgrx (must match the pgrx version pinned in Cargo.lock)
+RUN cargo install cargo-pgrx --version 0.12.9 --locked
 
 # Initialize pgrx for the specified PostgreSQL version
 RUN cargo pgrx init --pg${PG_VERSION} /usr/lib/postgresql/${PG_VERSION}/bin/pg_config
@@ -87,7 +87,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "2.0.4"
+version = "2.0.6"
 edition = "2021"
 rust-version = "1.77"
 license = "MIT"
@@ -144,6 +144,10 @@ COPY crates/ruvector-postgres/src ./src/
 COPY crates/ruvector-postgres/sql ./sql/
 COPY crates/ruvector-postgres/benches ./benches/
 
+# Pin dependency versions; without a lockfile cargo resolves the newest crates,
+# which can require a newer rustc than RUST_VERSION.
+COPY crates/ruvector-postgres/Cargo.lock /build/Cargo.lock
+
 # Build the extension with all features including v0.3 modules
 # graph-complete includes: graph, hyperbolic, sparse
 RUN cargo pgrx package \
@@ -187,9 +191,9 @@ ENV PG_VERSION=${PG_VERSION}
 ENV POSTGRES_INITDB_ARGS="--data-checksums"
 
 # Labels for version tracking
-LABEL org.opencontainers.image.title="RuVector PostgreSQL Extension v0.3.1"
+LABEL org.opencontainers.image.title="RuVector PostgreSQL Extension v2.0.6"
 LABEL org.opencontainers.image.description="High-performance vector database extension for PostgreSQL with 270+ SQL functions, Graph/Cypher/SPARQL, GNN, hybrid search, multi-tenancy, self-healing, SONA self-learning, Solver, Math, TDA, and Domain Expansion"
-LABEL org.opencontainers.image.version="0.3.1"
+LABEL org.opencontainers.image.version="2.0.6"
 LABEL org.opencontainers.image.vendor="ruv.io"
 LABEL org.opencontainers.image.source="https://github.com/ruvnet/ruvector"
 LABEL ruvector.pg.version="${PG_VERSION}"
