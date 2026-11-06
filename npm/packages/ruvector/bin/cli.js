@@ -11030,7 +11030,7 @@ function readHarnessJson(file, label) {
   }
 }
 
-async function buildHarnessSurface() {
+async function buildHarnessSurface(opts) {
   const primitives = {};
 
   // Cost-optimal model router — Tiny Dancer FastGRNN (ADR-252)
@@ -11107,7 +11107,7 @@ async function buildHarnessSurface() {
     namespace: (process.env.RUVECTOR_MEMORY_NAMESPACE || 'ruvector').trim() || 'ruvector',
   };
 
-  const capabilities = await loadMetaHarnessSdk().getMetaHarnessCapabilities();
+  const capabilities = await loadMetaHarnessSdk().getMetaHarnessCapabilities({ deep: !!(opts && opts.deep) });
   for (const capability of capabilities) {
     primitives[`metaharness.${capability.name}`] = {
       name: capability.package,
@@ -11136,7 +11136,7 @@ const harnessCmd = program
   .description('MetaHarness, Darwin, Flywheel, routing, safety, and workspace capabilities');
 
 async function printHarnessStatus(opts) {
-  const surface = await buildHarnessSurface();
+  const surface = await buildHarnessSurface(opts);
   if (opts && opts.json) {
     console.log(JSON.stringify(surface, null, 2));
     return;
@@ -11165,9 +11165,9 @@ harnessCmd
 
 harnessCmd
   .command('doctor')
-  .description('Alias for harness status with dependency load checks')
+  .description('Harness status that also imports every dependency (including deferred ones like Darwin)')
   .option('--json', 'Output as JSON')
-  .action(async (opts) => printHarnessStatus(opts));
+  .action(async (opts) => printHarnessStatus({ ...opts, deep: true }));
 
 harnessCmd
   .command('route')
