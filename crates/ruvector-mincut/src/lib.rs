@@ -258,13 +258,14 @@ pub use fragmentation::{
 };
 pub use graph::{DynamicGraph, Edge, EdgeId, GraphStats, VertexId, Weight};
 pub use instance::{
-    BoundedInstance, InstanceResult, ProperCutInstance, StubInstance, WitnessHandle,
+    BoundedInstance, CutSearchStrategy, InstanceResult, ProperCutInstance, StubInstance,
+    WitnessHandle,
 };
 pub use integration::{CommunityDetector, GraphPartitioner, RuVectorGraphAnalyzer};
 pub use linkcut::LinkCutTree;
 pub use localkcut::{
     ColorMask, DeterministicFamilyGenerator, DeterministicLocalKCut, EdgeColor, ForestPacking,
-    LocalCutResult, LocalKCut, LocalKCutOracle, LocalKCutQuery,
+    GraphView, IncrementalLocalKCut, LocalCutResult, LocalKCut, LocalKCutOracle, LocalKCutQuery,
     LocalKCutResult as PaperLocalKCutResult,
 };
 pub use parallel::{

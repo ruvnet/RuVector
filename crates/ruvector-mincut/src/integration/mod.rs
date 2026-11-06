@@ -7,6 +7,7 @@
 #![allow(missing_docs)]
 
 use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
+use crate::instance::ProperCutInstance;
 use crate::wrapper::{MinCutResult, MinCutWrapper};
 use std::sync::Arc;
 
@@ -38,6 +39,30 @@ impl RuVectorGraphAnalyzer {
             wrapper.insert_edge(edge.id, edge.source, edge.target);
         }
 
+        Self {
+            graph,
+            wrapper,
+            cached_min_cut: None,
+            cached_partition: None,
+        }
+    }
+
+    /// Create an analyzer with a custom `BoundedInstance` factory.
+    ///
+    /// Additive, backward-compatible constructor used by this nightly's
+    /// benchmark to exercise `CutSearchStrategy` variants through the same
+    /// `partition()`/`min_cut()` production entry points `new` uses, instead
+    /// of duplicating their edge-sync/witness-materialization logic in a
+    /// benchmark binary. `new` is unchanged and keeps using
+    /// `MinCutWrapper::new` (always `CutSearchStrategy::Legacy`).
+    pub fn with_factory<F>(graph: Arc<DynamicGraph>, factory: F) -> Self
+    where
+        F: Fn(&DynamicGraph, u64, u64) -> Box<dyn ProperCutInstance> + Send + Sync + 'static,
+    {
+        let mut wrapper = MinCutWrapper::with_factory(Arc::clone(&graph), factory);
+        for edge in graph.edges() {
+            wrapper.insert_edge(edge.id, edge.source, edge.target);
+        }
         Self {
             graph,
             wrapper,

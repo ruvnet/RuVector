@@ -11,12 +11,47 @@ use crate::certificate::{
 use crate::cluster::ClusterHierarchy;
 use crate::fragment::FragmentingAlgorithm;
 use crate::graph::{DynamicGraph, EdgeId, VertexId};
+use crate::localkcut::incremental::{GraphView, IncrementalLocalKCut};
 use crate::localkcut::paper_impl::{
     DeterministicLocalKCut, LocalKCutOracle, LocalKCutQuery, LocalKCutResult,
 };
 use roaring::RoaringBitmap;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
+
+/// Which oracle/loop strategy `BoundedInstance::search_for_cuts` uses.
+///
+/// `Legacy` is the default (via `new`/`init`, which every existing caller —
+/// `MinCutWrapper`, `RuVectorGraphAnalyzer`, and the 14+ downstream crates
+/// ADR-346 named — goes through) and is byte-for-byte the pre-existing
+/// behavior. The other two variants are additive and opt-in only via
+/// `BoundedInstance::with_strategy`; see
+/// `docs/research/nightly/` for this nightly's slug for the measured
+/// latency difference and the differential-equivalence test suite that
+/// backs the correctness claim.
+///
+/// - `IncrementalOracle`: same budget×seed double loop as `Legacy`, but
+///   each oracle call uses `IncrementalLocalKCut` (O(1)-amortized boundary
+///   tracking) instead of `DeterministicLocalKCut` (O(visited) boundary
+///   recompute at every BFS layer).
+/// - `IncrementalOracleCollapsedBudget`: `IncrementalOracle`'s faster
+///   oracle, **and** collapses the legacy per-integer-budget outer loop
+///   into one global-budget (`u64::MAX`) call per seed. This is sound
+///   because `budget_k` only ever gates which BFS layer's boundary is
+///   *accepted* as a candidate, never which layers get visited — so a
+///   single global-budget call already finds the seed's best boundary
+///   across every layer the legacy loop would have (re)visited once per
+///   integer budget value. See `localkcut::incremental` module doc.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CutSearchStrategy {
+    /// Unmodified pre-existing behavior (default).
+    #[default]
+    Legacy,
+    /// `IncrementalLocalKCut` oracle, legacy budget×seed loop structure.
+    IncrementalOracle,
+    /// `IncrementalLocalKCut` oracle, collapsed single-pass-per-seed loop.
+    IncrementalOracleCollapsedBudget,
+}
 
 /// Cached boundary value for incremental updates
 #[derive(Clone, Default)]
@@ -54,6 +89,10 @@ pub struct BoundedInstance {
     fragmenting: Option<FragmentingAlgorithm>,
     /// Cached boundary for incremental updates (O(1) vs O(m))
     boundary_cache: Mutex<BoundaryCache>,
+    /// Oracle/loop strategy for `search_for_cuts` (default: `Legacy`)
+    strategy: CutSearchStrategy,
+    /// Incremental-boundary oracle, shared across `IncrementalOracle*` calls
+    incremental_oracle: IncrementalLocalKCut,
 }
 
 impl BoundedInstance {
@@ -72,7 +111,21 @@ impl BoundedInstance {
             cluster_hierarchy: None,
             fragmenting: None,
             boundary_cache: Mutex::new(BoundaryCache::default()),
+            strategy: CutSearchStrategy::Legacy,
+            incremental_oracle: IncrementalLocalKCut::new(20),
         }
+    }
+
+    /// Create a new bounded instance using a non-default `CutSearchStrategy`.
+    ///
+    /// Every existing constructor (`new`, `init`) keeps using
+    /// `CutSearchStrategy::Legacy`; this is strictly additive and is used
+    /// by this nightly's benchmark/differential-equivalence suite to
+    /// compare strategies against the same production code path.
+    pub fn with_strategy(lambda_min: u64, lambda_max: u64, strategy: CutSearchStrategy) -> Self {
+        let mut instance = Self::new(lambda_min, lambda_max);
+        instance.strategy = strategy;
+        instance
     }
 
     /// Ensure cluster hierarchy is built when needed
@@ -198,8 +251,120 @@ impl BoundedInstance {
         visited.len() == self.vertices.len()
     }
 
-    /// Search for cuts using LocalKCut oracle
+    /// Search for cuts using the configured `CutSearchStrategy`.
+    ///
+    /// `Legacy` (the default) is untouched: it dispatches straight to
+    /// `search_for_cuts_legacy`, byte-for-byte the pre-existing
+    /// implementation. The two `Incremental*` strategies dispatch to
+    /// `search_for_cuts_fast`, which never runs unless a caller explicitly
+    /// opted in via `BoundedInstance::with_strategy`.
     fn search_for_cuts(&mut self) -> Option<(u64, WitnessHandle)> {
+        match self.strategy {
+            CutSearchStrategy::Legacy => self.search_for_cuts_legacy(),
+            CutSearchStrategy::IncrementalOracle => self.search_for_cuts_fast(false),
+            CutSearchStrategy::IncrementalOracleCollapsedBudget => self.search_for_cuts_fast(true),
+        }
+    }
+
+    /// Compute the strategic seed-vertex order `search_for_cuts_legacy` and
+    /// `search_for_cuts_fast` both use: cluster-boundary vertices when a
+    /// hierarchy is available, else all vertices — always sorted, for the
+    /// same determinism reason the original comment at this call site
+    /// gives (seed order must not depend on unstable `HashSet`/`HashMap`
+    /// iteration order).
+    fn strategic_seed_vertices(&mut self, graph: &DynamicGraph) -> Vec<VertexId> {
+        self.ensure_hierarchy(graph);
+
+        if let Some(ref hierarchy) = self.cluster_hierarchy {
+            let mut boundary_vertices = HashSet::new();
+            for cluster in hierarchy.clusters.values() {
+                for &v in &cluster.vertices {
+                    if let Some(neighbors) = self.adjacency.get(&v) {
+                        for &(neighbor, _) in neighbors {
+                            if !cluster.vertices.contains(&neighbor) {
+                                boundary_vertices.insert(v);
+                            }
+                        }
+                    }
+                }
+            }
+
+            let mut seeds: Vec<VertexId> = if boundary_vertices.is_empty() {
+                self.vertices.iter().copied().collect()
+            } else {
+                boundary_vertices.into_iter().collect()
+            };
+            seeds.sort_unstable();
+            seeds
+        } else {
+            let mut seeds: Vec<VertexId> = self.vertices.iter().copied().collect();
+            seeds.sort_unstable();
+            seeds
+        }
+    }
+
+    /// Search for cuts using `IncrementalLocalKCut` directly over
+    /// `self.vertices`/`self.adjacency` (no `DynamicGraph` rebuild).
+    ///
+    /// `collapse_budget = false` (`IncrementalOracle`) keeps the legacy
+    /// budget×seed double loop, only swapping the oracle for the
+    /// incremental-boundary one. `collapse_budget = true`
+    /// (`IncrementalOracleCollapsedBudget`) additionally collapses the
+    /// per-integer-budget outer loop: for each seed it makes a single
+    /// global-budget (`u64::MAX`) call and keeps the smallest boundary
+    /// seen across all seeds whose value falls in
+    /// `[lambda_min, lambda_max]`, breaking ties by seed id — which is
+    /// exactly what the legacy budget-ascending, seed-ascending loop
+    /// converges to (see `localkcut::incremental` module doc for the proof
+    /// sketch), just without re-running the same BFS once per integer
+    /// budget value.
+    fn search_for_cuts_fast(&mut self, collapse_budget: bool) -> Option<(u64, WitnessHandle)> {
+        let graph = Arc::new(DynamicGraph::new());
+        for &(_, u, v) in &self.edges {
+            let _ = graph.insert_edge(u, v, 1.0);
+        }
+        let seed_vertices = self.strategic_seed_vertices(&graph);
+        let view = GraphView::new(&self.vertices, &self.adjacency);
+
+        if !collapse_budget {
+            for budget in self.lambda_min..=self.lambda_max {
+                for &seed in &seed_vertices {
+                    if let Some((cut_value, witness)) =
+                        self.incremental_oracle
+                            .search_single(&view, seed, budget, self.max_radius)
+                    {
+                        if cut_value >= self.lambda_min && cut_value <= self.lambda_max {
+                            return Some((cut_value, witness));
+                        }
+                    }
+                }
+            }
+            return None;
+        }
+
+        let mut best: Option<(u64, WitnessHandle)> = None;
+        for &seed in &seed_vertices {
+            if let Some((cut_value, witness)) =
+                self.incremental_oracle
+                    .search_global(&view, seed, self.max_radius)
+            {
+                if cut_value < self.lambda_min || cut_value > self.lambda_max {
+                    continue;
+                }
+                let better = match &best {
+                    None => true,
+                    Some((prev, _)) => cut_value < *prev,
+                };
+                if better {
+                    best = Some((cut_value, witness));
+                }
+            }
+        }
+        best
+    }
+
+    /// Search for cuts using LocalKCut oracle (legacy, unmodified behavior)
+    fn search_for_cuts_legacy(&mut self) -> Option<(u64, WitnessHandle)> {
         // Build a temporary graph for the oracle
         let graph = Arc::new(DynamicGraph::new());
         for &(_, u, v) in &self.edges {
