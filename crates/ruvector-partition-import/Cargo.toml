@@ -1,0 +1,23 @@
+[package]
+name = "ruvector-partition-import"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Signature-verified cut-partition import for cross-agent memory transfer: Ed25519 certificates over a canonically-encoded (graph, partition, cut value) triple, with a cheap local-optimality spot-check against a signed-but-wrong adversary."
+keywords = ["graph", "minimum-cut", "ed25519", "provenance", "agent-memory"]
+categories = ["cryptography", "algorithms", "science"]
+
+[dependencies]
+sha2 = "0.10"
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+rand = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dev-dependencies]
