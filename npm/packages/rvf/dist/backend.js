@@ -1165,6 +1165,7 @@ function mapQueryOptionsToNative(options) {
         // NAPI accepts the filter as a JSON string, not an object.
         filter: options.filter ? JSON.stringify(filterToNativeJson(options.filter)) : undefined,
         timeoutMs: options.timeoutMs ?? 0,
+        forceExact: options.forceExact ?? false,
     };
 }
 /**

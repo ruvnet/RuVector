@@ -42,6 +42,7 @@ use crate::read_path::{self, VectorData};
 use crate::status::{CompactionState, StoreStatus};
 use crate::write_path::{self, SegmentWriter};
 
+mod dir_growth;
 mod filtered_query;
 #[cfg(test)]
 mod filtered_query_tests;
@@ -614,6 +615,14 @@ impl RvfStore {
 
         for (vec_data, &vec_id) in valid_vectors.iter().zip(valid_ids.iter()) {
             self.vectors.insert_slice(vec_id, vec_data);
+        }
+
+        // Size-tiered merge of small VEC_SEGs keeps the directory, and every
+        // manifest, bounded under many small ingests (#1382).
+        if let Err(error) = self.merge_trailing_vec_segs((vec_seg_id, valid_ids.clone())) {
+            self.vectors = old_vectors;
+            self.segment_dir = old_directory;
+            return Err(error);
         }
 
         // Re-inserting an id resurrects it. A deletion tombstones the payload that
@@ -3859,6 +3868,7 @@ impl RvfStore {
         if self.cow_engine.is_some() {
             self.write_cow_state_segments()?;
         }
+        self.prune_superseded_dir_entries();
         let writer = self
             .seg_writer
             .as_mut()

@@ -2,6 +2,8 @@
 
 use super::*;
 use crate::filter::FilterValue;
+use filtered_query::FILTERED_HNSW_MIN_GRAPH_RECALL;
+use rvf_types::quality::QualityPreference;
 use tempfile::TempDir;
 
 const DIM: usize = 16;
@@ -172,4 +174,45 @@ fn cow_child_filtered_query_uses_both_graphs_and_matches_exact() {
     let (recall, served) = compare(&child, &filter, 20);
     assert!(served, "COW filtered query should be served by the graphs");
     assert!(recall >= 0.9, "COW filtered recall@10 {recall:.3}");
+}
+
+#[test]
+fn graph_recall_is_measured_once_and_cached() {
+    let dir = TempDir::new().unwrap();
+    let store = build_store(&dir.path().join("f.rvf"), 0..N);
+    let ef = INDEX_MIN_EF_SEARCH;
+    let recall = store.with_index(|idx| store.graph_recall(idx, ef)).unwrap();
+    assert!(
+        recall >= FILTERED_HNSW_MIN_GRAPH_RECALL,
+        "graph recall {recall:.3}"
+    );
+    let cached = store.with_index(|idx| idx.cached_graph_recall(ef)).unwrap();
+    assert_eq!(cached, Some(recall));
+    // A different ef is a different measurement.
+    assert_eq!(
+        store
+            .with_index(|idx| idx.cached_graph_recall(ef + 1))
+            .unwrap(),
+        None
+    );
+}
+
+#[test]
+fn low_graph_recall_routes_filtered_queries_to_the_exact_scan() {
+    let dir = TempDir::new().unwrap();
+    let store = build_store(&dir.path().join("f.rvf"), 0..N);
+    let filter = FilterExpr::Lt(0, FilterValue::U64(50));
+    // Pretend the graph measured badly: the planner must not trust it.
+    store
+        .with_index(|idx| idx.store_graph_recall(INDEX_MIN_EF_SEARCH, 0.5))
+        .unwrap();
+    let (recall, served) = compare(&store, &filter, 10);
+    assert!(!served, "a weak graph must not serve filtered queries");
+    assert_eq!(recall, 1.0);
+
+    // PreferLatency opts back in to the walk regardless of the measurement.
+    let mut o = opts(filter, false);
+    o.quality_preference = QualityPreference::PreferLatency;
+    let (_, served) = store.query_routed(&lcg_vector(7), K, &o).unwrap();
+    assert!(served, "PreferLatency keeps the filtered HNSW walk");
 }

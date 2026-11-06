@@ -93,6 +93,11 @@ pub struct RvfQueryOptions {
     /// Opt in to the RaBitQ two-stage path (1-bit candidate scan + exact
     /// rescore; L2, cosine and inner product). Defaults to false.
     pub rabitq: Option<bool>,
+    /// Force the exact brute-force scan (no HNSW), so filtered and
+    /// unfiltered results are exact. Defaults to false: a filtered query
+    /// whose filter keeps a large share of the store is served by the
+    /// predicate-aware HNSW walk and is approximate, like an unfiltered one.
+    pub force_exact: Option<bool>,
 }
 
 /// A single search result returned from a query.

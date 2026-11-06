@@ -105,6 +105,17 @@ pub(crate) struct VectorIndex {
     members: HashSet<u64>,
     /// True when the in-memory graph differs from the last persisted state.
     dirty: bool,
+    /// Measured recall of this graph (see `RvfStore::graph_recall`), reused
+    /// until the graph doubles in size or a different `ef` is asked for.
+    graph_recall: std::sync::Mutex<Option<GraphRecall>>,
+}
+
+/// A cached graph-recall measurement.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct GraphRecall {
+    pub(crate) ef: usize,
+    pub(crate) nodes: usize,
+    pub(crate) recall: f64,
 }
 
 impl VectorIndex {
@@ -126,6 +137,7 @@ impl VectorIndex {
             graph: HnswGraph::new(&config),
             members: HashSet::with_capacity(vectors.len()),
             dirty: true,
+            graph_recall: std::sync::Mutex::new(None),
         };
         let mut ids: Vec<u64> = vectors.ids().copied().collect();
         ids.sort_unstable();
@@ -201,6 +213,24 @@ impl VectorIndex {
         let dist = metric_distance_fn(metric);
         self.graph
             .search_filtered(query, k, ef_search, visit_budget, &store, &dist, predicate)
+    }
+
+    /// The cached recall measurement for `ef`, if it is still current (same
+    /// `ef`, and the graph has not doubled since it was taken).
+    pub(crate) fn cached_graph_recall(&self, ef: usize) -> Option<f64> {
+        let cached = *self.graph_recall.lock().unwrap_or_else(|e| e.into_inner());
+        cached
+            .filter(|c| c.ef == ef && self.members.len() < c.nodes.saturating_mul(2).max(1))
+            .map(|c| c.recall)
+    }
+
+    /// Record a recall measurement for `ef` at the current graph size.
+    pub(crate) fn store_graph_recall(&self, ef: usize, recall: f64) {
+        *self.graph_recall.lock().unwrap_or_else(|e| e.into_inner()) = Some(GraphRecall {
+            ef,
+            nodes: self.members.len(),
+            recall,
+        });
     }
 
     /// True when the store holds vectors the graph has not indexed yet.
@@ -328,6 +358,7 @@ impl VectorIndex {
             graph,
             members: ids.into_iter().collect(),
             dirty: false,
+            graph_recall: std::sync::Mutex::new(None),
         })
     }
 }

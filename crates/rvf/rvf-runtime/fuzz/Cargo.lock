@@ -818,7 +818,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-index"
-version = "0.2.2"
+version = "0.2.3"
 
 [[package]]
 name = "rvf-quant"
@@ -829,7 +829,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-runtime"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "crc32fast",
  "ed25519-dalek",

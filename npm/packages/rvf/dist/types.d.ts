@@ -106,10 +106,20 @@ export type RvfFilterExpr = {
 export interface RvfQueryOptions {
     /** HNSW ef_search parameter (beam width during search). Default: `100`. */
     efSearch?: number;
-    /** Optional metadata filter expression. */
+    /**
+     * Optional metadata filter expression. On the native backend a filter that
+     * keeps a large share of the store is served by the predicate-aware HNSW
+     * walk, so the result is approximate like an unfiltered query; set
+     * `forceExact` for exact filtered results.
+     */
     filter?: RvfFilterExpr;
     /** Query timeout in milliseconds (0 = no timeout). Default: `0`. */
     timeoutMs?: number;
+    /**
+     * Force the exact brute-force scan instead of the HNSW index (native
+     * backend). Default: `false`.
+     */
+    forceExact?: boolean;
 }
 /**
  * Query options that also carry the result count, for the object-argument

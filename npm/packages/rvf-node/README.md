@@ -163,6 +163,8 @@ const results = db.query(
 | `efSearch` | `number` | `100` | HNSW search quality (higher = better recall, slower) |
 | `filter` | `string` | — | Filter expression as JSON string |
 | `timeoutMs` | `number` | `0` | Query timeout in ms (0 = no timeout) |
+| `rabitq` | `boolean` | `false` | Opt in to the RaBitQ two-stage path (1-bit scan + exact rescore) |
+| `forceExact` | `boolean` | `false` | Exact brute-force scan, no HNSW. Filtered queries are already exact when the filter is selective (<15%) or the graph measures below 0.95 recall@10 |
 
 ### Filter Expressions
 

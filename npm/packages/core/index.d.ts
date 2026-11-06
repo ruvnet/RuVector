@@ -48,3 +48,9 @@ export class VectorDb {
 
 // Alias for backwards compatibility
 export { VectorDb as VectorDB };
+
+/** The installed @ruvector/core package version (e.g. "0.1.36"). */
+export function version(): string;
+
+/** The version of the bundled native engine (the Rust crate version). */
+export function nativeVersion(): string;

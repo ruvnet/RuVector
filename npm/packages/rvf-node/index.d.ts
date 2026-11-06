@@ -15,6 +15,11 @@ export interface RvfQueryOptions {
   timeoutMs?: number;
   /** Opt in to the RaBitQ two-stage path (L2, cosine, inner product). */
   rabitq?: boolean;
+  /**
+   * Force the exact brute-force scan. Filtered queries whose filter keeps a
+   * large share of the store otherwise use the approximate filtered HNSW walk.
+   */
+  forceExact?: boolean;
 }
 
 export interface RvfSearchResult {

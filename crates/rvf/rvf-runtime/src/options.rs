@@ -168,11 +168,14 @@ pub struct QueryOptions {
     pub ef_search: u16,
     /// Optional metadata filter expression.
     ///
-    /// Filtered queries follow the same approximate contract as unfiltered
-    /// ones: when the filter matches a large share of the store, they run a
-    /// predicate-aware HNSW walk, so recall@k is about that of an unfiltered
-    /// query on the same graph. Small match sets are scanned exactly. Set
-    /// [`QueryOptions::force_exact`] to get exact filtered results.
+    /// When the filter matches a large share of the store, a filtered query
+    /// runs a predicate-aware HNSW walk, but only if the graph itself
+    /// measures at least 0.95 recall@10 at the query's `ef` (a one-off
+    /// calibration against the exact scan, cached on the index). Graphs
+    /// that measure lower (e.g. high intrinsic-dimension data) and small
+    /// match sets are scanned exactly. `QualityPreference::PreferLatency` /
+    /// `AcceptDegraded` skip the calibration gate and always take the walk.
+    /// Set [`QueryOptions::force_exact`] to always get exact results.
     pub filter: Option<FilterExpr>,
     /// Query timeout in milliseconds (0 = no timeout).
     pub timeout_ms: u32,
