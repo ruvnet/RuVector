@@ -292,7 +292,27 @@ pub fn dequantize_f32(
         return;
     }
 
-    let total = tensor_len * frame_count;
+    // Header fields come from untrusted segment bytes: a zero group length
+    // never advances the group loop, and the output size must be backed by
+    // enough packed data rather than allocated blindly.
+    if group_len == 0 {
+        out.clear();
+        return;
+    }
+    let total = match tensor_len.checked_mul(frame_count) {
+        Some(t) => t,
+        None => {
+            out.clear();
+            return;
+        }
+    };
+    match total.checked_mul(bits as usize) {
+        Some(total_bits) if total_bits.div_ceil(8) <= data.len() => {}
+        _ => {
+            out.clear();
+            return;
+        }
+    }
     out.resize(total, 0.0);
 
     // Fast path: 8-bit dequantization reads bytes directly, no bit accumulator.
@@ -316,6 +336,10 @@ pub fn dequantize_f32(
                     out_idx += 1;
                     byte_idx += 1;
                     pos += 1;
+                }
+                if pos < group_end {
+                    // Data ran out mid-group: stop rather than spin on this group.
+                    return;
                 }
                 group_idx += 1;
             }
@@ -384,6 +408,10 @@ pub fn dequantize_f32(
                         out_idx += 1;
                         pos += 1;
                     }
+                }
+                if pos < group_end {
+                    // Data ran out mid-group: stop rather than spin on this group.
+                    return;
                 }
                 group_idx += 1;
             }
@@ -477,6 +505,10 @@ pub fn dequantize_f32(
                         pos += 1;
                     }
                 }
+                if pos < group_end {
+                    // Data ran out mid-group: stop rather than spin on this group.
+                    return;
+                }
                 group_idx += 1;
             }
         }
@@ -564,6 +596,10 @@ pub fn dequantize_f32(
                         out_idx += 1;
                         pos += 1;
                     }
+                }
+                if pos < group_end {
+                    // Data ran out mid-group: stop rather than spin on this group.
+                    return;
                 }
                 group_idx += 1;
             }
