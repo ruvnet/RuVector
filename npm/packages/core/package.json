@@ -32,11 +32,11 @@
     "@napi-rs/cli": "^2.18.0"
   },
   "optionalDependencies": {
-    "ruvector-core-linux-x64-gnu": "0.1.33",
-    "ruvector-core-linux-arm64-gnu": "0.1.33",
-    "ruvector-core-darwin-x64": "0.1.33",
-    "ruvector-core-darwin-arm64": "0.1.33",
-    "ruvector-core-win32-x64-msvc": "0.1.33"
+    "ruvector-core-linux-x64-gnu": "0.1.34",
+    "ruvector-core-linux-arm64-gnu": "0.1.34",
+    "ruvector-core-darwin-x64": "0.1.34",
+    "ruvector-core-darwin-arm64": "0.1.34",
+    "ruvector-core-win32-x64-msvc": "0.1.34"
   },
   "publishConfig": {
     "access": "public"
