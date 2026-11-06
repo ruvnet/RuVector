@@ -87,6 +87,7 @@ pub(crate) fn run_query(
         .map(|r| RvfSearchResult {
             id: r.id as i64,
             distance: r.distance as f64,
+            metadata: crate::metadata::record_to_js(store, r.id),
         })
         .collect())
 }

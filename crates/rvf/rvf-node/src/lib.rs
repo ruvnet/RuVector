@@ -20,7 +20,10 @@ use rvf_runtime::options::{
 use rvf_runtime::RvfStore;
 use rvf_types::RvfError;
 
+mod metadata;
 mod tasks;
+
+pub use metadata::RvfVectorMetadata;
 
 use tasks::{
     run_compact, run_delete, run_ingest, run_query, with_store, with_store_mut, CompactTask,
@@ -107,6 +110,8 @@ pub struct RvfSearchResult {
     pub id: i64,
     /// Distance from the query vector (lower = more similar).
     pub distance: f64,
+    /// The vector's committed metadata record, or `undefined` when it has none.
+    pub metadata: Option<Vec<RvfMetadataEntry>>,
 }
 
 /// Result of a batch ingest operation.
@@ -166,7 +171,8 @@ pub struct RvfCompactionResult {
 pub struct RvfMetadataEntry {
     /// Metadata field identifier.
     pub field_id: u32,
-    /// Value type: "u64" | "i64" | "f64" | "string".
+    /// Value type: "u64" | "i64" | "f64" | "string" | "bool" | "null" |
+    /// "bytes" (hex-encoded).| "i64" | "f64" | "string".
     pub value_type: String,
     /// The value as a string representation (parsed based on value_type).
     pub value: String,
@@ -360,6 +366,18 @@ fn parse_metadata_entry(e: &RvfMetadataEntry) -> Result<RustMetadataEntry> {
             .map(RustMetadataValue::F64)
             .map_err(|_| napi::Error::from_reason(format!("Cannot parse '{}' as f64", e.value)))?,
         "string" => RustMetadataValue::String(e.value.clone()),
+        "bool" => match e.value.as_str() {
+            "true" => RustMetadataValue::Bool(true),
+            "false" => RustMetadataValue::Bool(false),
+            _ => {
+                return Err(napi::Error::from_reason(format!(
+                    "Cannot parse '{}' as bool",
+                    e.value
+                )))
+            }
+        },
+        "null" => RustMetadataValue::Null,
+        "bytes" => RustMetadataValue::Bytes(metadata::hex_decode(&e.value)?),
         other => {
             return Err(napi::Error::from_reason(format!(
                 "Unknown metadata value_type '{other}'"
@@ -368,7 +386,9 @@ fn parse_metadata_entry(e: &RvfMetadataEntry) -> Result<RustMetadataEntry> {
     };
 
     Ok(RustMetadataEntry {
-        field_id: e.field_id as u16,
+        field_id: u16::try_from(e.field_id).map_err(|_| {
+            napi::Error::from_reason(format!("metadata fieldId {} exceeds 65535", e.field_id))
+        })?,
         value,
     })
 }
@@ -557,6 +577,63 @@ impl RvfDatabase {
             vector: vector.to_vec(),
             k,
             options,
+        })
+    }
+
+    /// Ingest a batch of vectors together with per-vector metadata records.
+    ///
+    /// Each record names its vector by `id`; vectors without a record get
+    /// none. Records are committed with the batch and survive close/reopen.
+    #[napi]
+    pub fn ingest_batch_with_metadata(
+        &self,
+        vectors: Float32Array,
+        ids: Vec<i64>,
+        records: Vec<RvfVectorMetadata>,
+    ) -> Result<RvfIngestResult> {
+        with_store_mut(&self.inner, |s| {
+            metadata::run_ingest_with_metadata(s, &vectors, &ids, &records)
+        })
+    }
+
+    /// `ingestBatchWithMetadata` on the libuv threadpool.
+    #[napi(ts_return_type = "Promise<RvfIngestResult>")]
+    pub fn ingest_batch_with_metadata_async(
+        &self,
+        vectors: Float32Array,
+        ids: Vec<i64>,
+        records: Vec<RvfVectorMetadata>,
+    ) -> AsyncTask<metadata::IngestWithMetadataTask> {
+        AsyncTask::new(metadata::IngestWithMetadataTask {
+            inner: Arc::clone(&self.inner),
+            vectors: vectors.to_vec(),
+            ids,
+            records,
+        })
+    }
+
+    /// Return one vector's committed metadata record, or `null` when the
+    /// vector has no record.
+    #[napi]
+    pub fn get_metadata(&self, id: i64) -> Result<Option<Vec<RvfMetadataEntry>>> {
+        with_store(&self.inner, |s| Ok(metadata::record_to_js(s, id as u64)))
+    }
+
+    /// Return a file-level metadata value as a string, or `null` if unset.
+    #[napi]
+    pub fn get_file_metadata(&self, key: String) -> Result<Option<String>> {
+        with_store(&self.inner, |s| {
+            Ok(s.get_file_metadata(&key).map(metadata::file_value_to_js))
+        })
+    }
+
+    /// Durably set a file-level string metadata value. Keys starting with
+    /// `rvf.` are reserved for the runtime.
+    #[napi]
+    pub fn set_file_metadata(&self, key: String, value: String) -> Result<()> {
+        with_store_mut(&self.inner, |s| {
+            s.set_file_metadata(key, RustMetadataValue::String(value))
+                .map_err(map_rvf_err)
         })
     }
 

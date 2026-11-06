@@ -58,6 +58,8 @@ export declare class NodeBackend implements RvfBackend {
     private storePath;
     private readOnly;
     private journal;
+    /** Metadata field-name registry, persisted in the store's file metadata. */
+    private fields;
     /** Byte size of the last snapshot written or loaded. */
     private snapshotBytes;
     private journalCompactMinBytes;
@@ -129,6 +131,20 @@ export declare class NodeBackend implements RvfBackend {
      * raised so the caller learns string-id operations are unsafe.
      */
     private loadMappings;
+    /**
+     * Load the metadata field-name registry from the store's file metadata
+     * (issue #704). Stores written before the registry existed, or by an
+     * rvf-node without file-metadata support, start with an empty registry.
+     */
+    private loadFieldRegistry;
+    /**
+     * Encode entry metadata into native per-vector records, persisting any
+     * newly registered field names before the vectors are committed.
+     * Returns null when no entry carries metadata.
+     */
+    private encodeMetadataRecords;
+    /** Decode a native hit's metadata entries through the field registry. */
+    private decodeHitMetadata;
     /**
      * Replay `<sidecar>.journal` over the loaded snapshot. A torn last append
      * (crash mid-write) is dropped, and cut off on read-write opens so the next
