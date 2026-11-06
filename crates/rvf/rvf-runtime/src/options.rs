@@ -167,6 +167,12 @@ pub struct QueryOptions {
     /// HNSW ef_search parameter (beam width during search).
     pub ef_search: u16,
     /// Optional metadata filter expression.
+    ///
+    /// Filtered queries follow the same approximate contract as unfiltered
+    /// ones: when the filter matches a large share of the store, they run a
+    /// predicate-aware HNSW walk, so recall@k is about that of an unfiltered
+    /// query on the same graph. Small match sets are scanned exactly. Set
+    /// [`QueryOptions::force_exact`] to get exact filtered results.
     pub filter: Option<FilterExpr>,
     /// Query timeout in milliseconds (0 = no timeout).
     pub timeout_ms: u32,
