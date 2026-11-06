@@ -13,6 +13,11 @@ use std::sync::Arc;
 
 use crate::storage_memory::MemoryStorage;
 
+mod filtered;
+mod metadata_index;
+pub use filtered::FilterPlan;
+use metadata_index::MetadataIndex;
+
 #[cfg(feature = "storage")]
 enum StorageBackend {
     Persistent(crate::storage::VectorStorage),
@@ -92,6 +97,8 @@ impl StorageBackend {
 pub struct VectorDB {
     storage: Arc<StorageBackend>,
     index: Arc<RwLock<Box<dyn VectorIndex>>>,
+    /// Inverted metadata view for filtered search. Lock order: `index` before `metadata`.
+    metadata: RwLock<MetadataIndex>,
     options: DbOptions,
 }
 
@@ -290,6 +297,9 @@ impl VectorDB {
             }
         }
 
+        #[allow(unused_mut)] // filled only when feature = "storage"
+        let mut metadata = MetadataIndex::default();
+
         // Rebuild index from persisted vectors if storage is not empty
         // This fixes the bug where search() returns empty results after restart
         #[cfg(feature = "storage")]
@@ -305,6 +315,7 @@ impl VectorDB {
                 let mut entries = Vec::with_capacity(stored_ids.len());
                 for id in stored_ids {
                     if let Some(entry) = storage.get(&id)? {
+                        metadata.upsert(&id, entry.metadata.as_ref());
                         entries.push((id, entry.vector));
                     }
                 }
@@ -319,6 +330,7 @@ impl VectorDB {
         Ok(Self {
             storage,
             index: Arc::new(RwLock::new(index)),
+            metadata: RwLock::new(metadata),
             options,
         })
     }
@@ -339,6 +351,7 @@ impl VectorDB {
         // Add to index
         let mut index = self.index.write();
         index.add(id.clone(), entry.vector)?;
+        self.metadata.write().upsert(&id, entry.metadata.as_ref());
 
         Ok(id)
     }
@@ -357,12 +370,31 @@ impl VectorDB {
             .collect();
 
         index.add_batch(index_entries)?;
+        let mut metadata = self.metadata.write();
+        for (id, entry) in ids.iter().zip(entries) {
+            metadata.upsert(id, entry.metadata.as_ref());
+        }
 
         Ok(ids)
     }
 
-    /// Search for similar vectors
+    /// Search for similar vectors.
+    ///
+    /// A metadata `filter` (exact match on every key) is applied while searching, not after: the result holds
+    /// `min(k, #matching)` vectors (see [`FilterPlan`] for how the plan is chosen).
     pub fn search(&self, query: SearchQuery) -> Result<Vec<SearchResult>> {
+        self.search_with_plan(query, FilterPlan::Auto)
+    }
+
+    /// [`search`](Self::search) with an explicit plan for filtered queries (unfiltered queries ignore it).
+    pub fn search_with_plan(
+        &self,
+        query: SearchQuery,
+        plan: FilterPlan,
+    ) -> Result<Vec<SearchResult>> {
+        if let Some(filter) = query.filter.as_ref().filter(|f| !f.is_empty()) {
+            return self.search_filtered(&query, filter, plan);
+        }
         let index = self.index.read();
         // Verification tier (ADR-297 §2): with Turbo4 quantization, over-fetch
         // 2k candidates and re-rank them against the stored f32 vectors.
@@ -371,57 +403,50 @@ impl VectorDB {
         // from −7 pp vs the f32 index to +1.4 pp, at ~f32 latency — and it is
         // nearly free here because result enrichment fetches the stored
         // vectors anyway.
-        let verify = matches!(
-            self.options.quantization,
-            Some(crate::types::QuantizationConfig::Turbo4 { .. })
-        );
+        let verify = self.turbo4_verify();
         let fetch_k = if verify {
             query.k.saturating_mul(2)
         } else {
             query.k
         };
         let mut results = index.search_ef(&query.vector, fetch_k, query.ef_search)?;
+        self.enrich(&mut results);
+        if verify {
+            self.rerank(&query.vector, &mut results);
+            results.truncate(query.k);
+        }
+        Ok(results)
+    }
 
-        // Enrich results with full data if needed
-        for result in &mut results {
+    fn turbo4_verify(&self) -> bool {
+        matches!(
+            self.options.quantization,
+            Some(crate::types::QuantizationConfig::Turbo4 { .. })
+        )
+    }
+
+    /// Attach the stored vector and metadata to each result.
+    fn enrich(&self, results: &mut [SearchResult]) {
+        for result in results {
             if let Ok(Some(entry)) = self.storage.get(&result.id) {
                 result.vector = Some(entry.vector);
                 result.metadata = entry.metadata;
             }
         }
+    }
 
-        if verify {
-            for r in &mut results {
-                if let Some(v) = &r.vector {
-                    r.score = crate::encoding::metric_distance(
-                        self.options.distance_metric,
-                        &query.vector,
-                        v,
-                    );
-                }
+    /// Re-score enriched results against their stored f32 vectors and sort ascending.
+    fn rerank(&self, query: &[f32], results: &mut [SearchResult]) {
+        for r in results.iter_mut() {
+            if let Some(v) = &r.vector {
+                r.score = crate::encoding::metric_distance(self.options.distance_metric, query, v);
             }
-            results.sort_unstable_by(|a, b| {
-                a.score
-                    .partial_cmp(&b.score)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
-            results.truncate(query.k);
         }
-
-        // Apply metadata filters if specified
-        if let Some(filter) = &query.filter {
-            results.retain(|r| {
-                if let Some(metadata) = &r.metadata {
-                    filter
-                        .iter()
-                        .all(|(key, value)| metadata.get(key).is_some_and(|v| v == value))
-                } else {
-                    false
-                }
-            });
-        }
-
-        Ok(results)
+        results.sort_unstable_by(|a, b| {
+            a.score
+                .partial_cmp(&b.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
     }
 
     /// Delete a vector by ID
@@ -431,6 +456,7 @@ impl VectorDB {
         if deleted_storage {
             let mut index = self.index.write();
             let _ = index.remove(&id.to_string())?;
+            self.metadata.write().remove(id);
         }
 
         Ok(deleted_storage)

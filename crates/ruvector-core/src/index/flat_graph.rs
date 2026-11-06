@@ -19,6 +19,10 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::cmp::{Ordering, Reverse};
 use std::collections::BinaryHeap;
 
+mod filtered;
+#[allow(unused_imports)] // the HNSW wrapper reads the fields directly
+pub(crate) use filtered::FilteredHits;
+
 /// A node with its distance to the query being served. `Ord` is by distance (ties by id), so a `BinaryHeap` pops the
 /// FARTHEST first and `Reverse<Cand>` pops the nearest first.
 #[derive(Clone, Copy, Debug)]
@@ -210,6 +214,13 @@ impl FlatGraph {
         self.visited.lock().push(v);
     }
 
+    /// Initial capacities of the result and frontier heaps for a beam of width `ef`, capped at the node count so that a
+    /// huge `ef`/`k` cannot request a huge allocation (or overflow `ef + 1`).
+    fn heap_caps(&self, ef: usize) -> (usize, usize) {
+        let n = self.len().saturating_add(1);
+        (ef.saturating_add(1).min(n), ef.saturating_mul(2).min(n))
+    }
+
     /// Greedy descent on one upper layer (ef = 1).
     fn greedy(&self, q: &[f32], mut cur: u32, mut cur_d: f32, layer: usize) -> (u32, f32) {
         loop {
@@ -239,8 +250,10 @@ impl FlatGraph {
         ef: usize,
     ) -> BinaryHeap<Cand> {
         let mut vis = self.take_visited();
-        let mut top: BinaryHeap<Cand> = BinaryHeap::with_capacity(ef + 1);
-        let mut cand: BinaryHeap<Reverse<Cand>> = BinaryHeap::with_capacity(ef * 2);
+        // `ef` can come straight from a caller's `k`; neither heap can ever hold more than the graph has nodes.
+        let (top_cap, cand_cap) = self.heap_caps(ef);
+        let mut top: BinaryHeap<Cand> = BinaryHeap::with_capacity(top_cap);
+        let mut cand: BinaryHeap<Reverse<Cand>> = BinaryHeap::with_capacity(cand_cap);
         vis.visit(ep);
         top.push(Cand { dist: ep_d, id: ep });
         cand.push(Reverse(Cand { dist: ep_d, id: ep }));
@@ -460,7 +473,8 @@ impl FlatGraph {
         for l in (1..=self.max_level).rev() {
             (cur, cur_d) = self.greedy(&q, cur, cur_d, l);
         }
-        let mut top = self.search_layer(&q, cur, cur_d, 0, ef.max(k));
+        // A beam wider than the graph explores nothing more, so clamp (k may be usize::MAX from a binding).
+        let mut top = self.search_layer(&q, cur, cur_d, 0, ef.max(k).min(self.len()));
         while top.len() > k {
             top.pop();
         }
