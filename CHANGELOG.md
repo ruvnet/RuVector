@@ -12,6 +12,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
 
+## [ruvector 0.3.13] - 2026-11-05
+### Added
+- Hook memory recall (`IntelligenceEngine.recall`, MCP `hooks_recall` /
+  `hooks_suggest_context`) uses a RaBitQ candidate index from
+  `@ruvector/rabitq-wasm` once a store holds `RUVECTOR_RABITQ_THRESHOLD`
+  memories (default 5000; `0` disables). The index proposes 10 x k candidates
+  and they are re-scored with exact cosine, so scores are exact and top-10
+  recall matched brute force (1.000) on 20k x 384 at ~2.7 ms vs ~38 ms per
+  query. The index is built on the second eligible recall in a process, so
+  one-shot hook commands never pay the ~0.4 s build. Post-build
+  inserts/deletes apply as a delta without a rebuild. Without the package,
+  recall is the unchanged exact scan. `@ruvector/rabitq-wasm` moves from
+  devDependencies to optionalDependencies (282 KB).
+- `ruvector diskann build <dir> -i vectors.json` / `ruvector diskann search
+  <dir> -v ...` and MCP tools `diskann_build` / `diskann_search` (paths
+  confined to the working directory) expose `@ruvector/diskann`, previously
+  library-only. It stays an opt-in extra: `npx ruvector add diskann`.
+- `ruvector skills list|install` ships the `ruvector-integrations` agent
+  skill and installs it into `.claude/skills` (Claude Code) and/or
+  `.agents/skills` (Codex). `skills/` is now in the published files.
+### Fixed
+- Every open-ended `>=` peer range is now bounded. `@ruvector/ruvllm >=2.0.0`
+  resolved to 4.0.1, a different product published under the same name
+  without the runtime that `ruvector llm` / `ruvector sona` load (`ruvllm.RuvLLM is
+  not a constructor`); it is now `^4.1.0`, the restored runtime, verified
+  with `llm info|models|embed` and `sona status`. Other peers take their optionalDependencies spec
+  or a caret on their previous minimum.
+- Security: `@metaharness/darwin` moves from `^0.9.1` to `^0.13.0` (and the
+  `metaharness` meta-package from `^0.4.7` to `^0.4.20`, which itself requires
+  darwin `^0.13.0`) for the high-severity sandbox bypass fixed in darwin 0.13.0
+  (GHSA-mjwg-5fm3-fx2p). The 0.x caret could never reach 0.13. `ruvector harness
+  darwin --execute` and `runMetaHarnessDarwin` call `evolve(config)`, whose
+  signature is unchanged; verified with a real evolution run against 0.13.0.
+- Security: `@ruvector/attention` moves from `^0.1.3` (resolved 0.1.32) to
+  `^2.2.3`, which contains the H1 fix: on 0.1.x a malformed input panicked in
+  the NAPI binding and aborted the whole Node process (SIGABRT); 2.2.3 throws a
+  catchable error. The JS surface is identical (same 39 exports, byte-identical
+  wrapper); a differential run of every ruvector attention wrapper gave identical
+  outputs (max |diff| 1.8e-3 on hyperbolic, float drift). `@ruvector/core`,
+  `gnn` and `sona` already resolve to their latest. Guarded by
+  `test/attention-panic.js`.
+
 ## [ruvector 0.3.12] - 2026-11-05
 ### Fixed
 - `hooks graph-mincut` and `hooks graph-cluster` (and the MCP tools

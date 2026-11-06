@@ -200,11 +200,12 @@ test('add --list --json is machine readable', () => {
 
 test('add <extra> --dry-run prints the exact command and installs nothing', () => {
   const dir = tmpDir({ 'pnpm-lock.yaml': '', 'package.json': '{"name":"x","version":"1.0.0"}' });
-  // diskann: not a dev dependency, so it is never pre-installed here
-  const r = cli(['add', 'diskann', '--dry-run'], dir);
+  // rvlite: neither a dev nor an optional dependency, so it is never
+  // pre-installed here (diskann is a devDependency for the diskann CLI tests)
+  const r = cli(['add', 'rvlite', '--dry-run'], dir);
   assert.strictEqual(r.status, 0, r.stderr);
-  assert.ok(r.stdout.includes('pnpm add @ruvector/diskann@^0.1.2'), r.stdout);
-  assert.ok(r.stdout.includes('larger than RAM'), 'should explain why');
+  assert.ok(r.stdout.includes('pnpm add rvlite@^0.2.7'), r.stdout);
+  assert.ok(r.stdout.includes('SPARQL'), 'should explain why');
   assert.ok(!fs.existsSync(path.join(dir, 'node_modules')), 'dry run must not install');
 });
 

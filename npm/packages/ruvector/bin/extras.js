@@ -24,7 +24,7 @@ const EXTRAS = Object.freeze(Object.assign(Object.create(null), {
     pkg: '@ruvector/diskann',
     spec: '@ruvector/diskann@^0.1.2',
     why: 'DiskANN/Vamana graph index with PQ, saved to disk, for indexes larger than RAM',
-    usage: "const { DiskAnnIndex } = require('ruvector'); new DiskAnnIndex({ dim })",
+    usage: 'CLI: ruvector diskann build|search; MCP: diskann_build, diskann_search; library: DiskAnnIndex',
   },
   router: {
     pkg: '@ruvector/router',

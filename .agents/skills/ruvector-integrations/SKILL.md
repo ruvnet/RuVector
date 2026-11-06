@@ -1,0 +1,1 @@
+../../../npm/packages/ruvector/skills/ruvector-integrations/SKILL.md

@@ -129,4 +129,62 @@ export class DiskAnnIndex {
   }
 }
 
+export interface DiskAnnRecord {
+  id: string;
+  vector: Float32Array | number[];
+}
+
+export interface DiskAnnBuildOptions {
+  maxDegree?: number;
+  buildBeam?: number;
+  searchBeam?: number;
+  alpha?: number;
+}
+
+/**
+ * Build a Vamana index from records and persist it to `dir` (created if
+ * missing). All vectors must share one dimension. Used by
+ * `ruvector diskann build` and the `diskann_build` MCP tool.
+ */
+export function buildDiskAnnIndex(
+  dir: string,
+  records: DiskAnnRecord[],
+  options: DiskAnnBuildOptions = {}
+): { dir: string; count: number; dim: number } {
+  if (!Array.isArray(records) || records.length === 0) {
+    throw new Error('diskann: at least one {id, vector} record is required');
+  }
+  const dim = records[0].vector.length;
+  if (!Number.isInteger(dim) || dim <= 0) throw new Error('diskann: vectors must be non-empty');
+  const seen = new Set<string>();
+  const flat = new Float32Array(records.length * dim);
+  records.forEach((r, i) => {
+    if (r.vector.length !== dim) {
+      throw new Error(`diskann: record ${i} (${r.id}) has dimension ${r.vector.length}, expected ${dim}`);
+    }
+    if (seen.has(r.id)) throw new Error(`diskann: duplicate id "${r.id}"`);
+    seen.add(r.id);
+    flat.set(r.vector as ArrayLike<number>, i * dim);
+  });
+  const index = new DiskAnnIndex({ dim, ...options });
+  index.insertBatch(records.map((r) => r.id), flat, dim);
+  index.build();
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('fs').mkdirSync(dir, { recursive: true });
+  index.save(dir);
+  return { dir, count: index.count(), dim };
+}
+
+/** Load a saved index from `dir` and return the k nearest neighbours (L2²). */
+export function searchDiskAnnIndex(
+  dir: string,
+  query: Float32Array | number[],
+  k: number = 10
+): DiskAnnSearchResult[] {
+  const index = DiskAnnIndex.load(dir);
+  const n = index.count();
+  if (n === 0) return [];
+  return index.search(query, Math.min(k, n));
+}
+
 export default DiskAnnIndex;

@@ -11,8 +11,8 @@ const nativeImport = new Function(
 ) as (specifier: string) => Promise<Record<string, any>>;
 
 export const METAHARNESS_VERSIONS = Object.freeze({
-  metaharness: '0.4.7',
-  darwin: '0.9.2',
+  metaharness: '0.4.20',
+  darwin: '0.13.0',
   flywheel: '0.1.10',
   harness: '0.2.0',
   router: '0.4.0',
