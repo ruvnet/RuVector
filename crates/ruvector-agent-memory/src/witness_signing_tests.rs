@@ -35,8 +35,8 @@ fn populated(strategy: SigningStrategy, n: usize) -> SignedWitnessSink<MemoryWit
 
 const STRATEGIES: [SigningStrategy; 3] = [
     SigningStrategy::PerRecord,
-    SigningStrategy::BatchTail { batch_size: 4 },
-    SigningStrategy::BatchTail { batch_size: 5 },
+    SigningStrategy::batch_tail(4),
+    SigningStrategy::batch_tail(5),
 ];
 
 /// Diligent adversary: recompute the whole FNV chain from `at` onward and
@@ -91,7 +91,7 @@ fn honest_chain_verifies_under_every_strategy() {
 #[test]
 fn batch_tail_amortizes_signature_count() {
     let per_record = populated(SigningStrategy::PerRecord, 23);
-    let batch = populated(SigningStrategy::BatchTail { batch_size: 5 }, 23);
+    let batch = populated(SigningStrategy::batch_tail(5), 23);
     assert_eq!(per_record.spans().len(), 46);
     assert_eq!(batch.spans().len(), 10); // 9 full batches + 1 sealed partial
 }
@@ -139,7 +139,7 @@ fn zero_batch_size_is_an_error_not_a_panic() {
     let r = SignedWitnessSink::from_keypair(
         MemoryWitnessLog::default(),
         &keypair(),
-        SigningStrategy::BatchTail { batch_size: 0 },
+        SigningStrategy::batch_tail(0),
     );
     assert_eq!(r.err(), Some(WitnessSignerError::ZeroBatchSize));
 }
@@ -210,7 +210,7 @@ fn poc1_empty_span_list_on_forged_log_fails() {
 /// only inside the dropped span) fails on coverage.
 #[test]
 fn poc1_partial_span_list_fails_on_coverage_gap() {
-    let sink = populated(SigningStrategy::BatchTail { batch_size: 4 }, 16);
+    let sink = populated(SigningStrategy::batch_tail(4), 16);
     let mut spans = sink.spans().to_vec();
     spans.remove(2); // records 8..=11
     let mut forged = sink.inner().clone();
@@ -231,11 +231,7 @@ fn poc1_partial_span_list_fails_on_coverage_gap() {
 #[test]
 fn poc2_unsigned_batch_tail_is_never_reported_as_verified() {
     // 11 pairs = 22 records; batch 8 => 16 signed, 6 pending.
-    let sink = run(
-        sink_for(SigningStrategy::BatchTail { batch_size: 8 }),
-        "m",
-        11,
-    );
+    let sink = run(sink_for(SigningStrategy::batch_tail(8)), "m", 11);
     assert_eq!(sink.unsigned_pending(), 6);
     let tail = SignedChainError::UnsignedTail {
         signed: 16,
@@ -270,11 +266,7 @@ fn poc2_unsigned_batch_tail_is_never_reported_as_verified() {
 /// truncating the former tail fails outright.
 #[test]
 fn poc2_sealed_tail_resists_forgery_and_truncation() {
-    let mut sink = run(
-        sink_for(SigningStrategy::BatchTail { batch_size: 8 }),
-        "m",
-        11,
-    );
+    let mut sink = run(sink_for(SigningStrategy::batch_tail(8)), "m", 11);
     sink.seal();
     assert_eq!(sink.unsigned_pending(), 0);
     let anchor = sink.anchor();
@@ -351,7 +343,7 @@ fn splicing_two_logs_signed_by_the_same_key_fails() {
 
 #[test]
 fn reordered_spans_fail() {
-    let sink = populated(SigningStrategy::BatchTail { batch_size: 4 }, 8);
+    let sink = populated(SigningStrategy::batch_tail(4), 8);
     let mut spans = sink.spans().to_vec();
     spans.swap(0, 1);
     assert!(matches!(
@@ -378,4 +370,138 @@ fn second_ledger_restarting_at_sequence_zero_is_refused() {
     let sink = ledger.into_witness_sink();
     assert_eq!(sink.inner().records.len(), 6);
     assert!(verify(&sink, sink.inner(), sink.spans(), &sink.anchor()).is_ok());
+}
+
+// --------------------------------------------------- ADR-347 fill-timeout
+
+#[test]
+fn fixed_size_only_has_no_deadline() {
+    // `batch_tail` (max_wait_ns: None) is the original behavior: a
+    // deadline must never appear, however much is pending.
+    let sink = run(sink_for(SigningStrategy::batch_tail(1_000)), "m", 3);
+    assert_eq!(sink.unsigned_pending(), 6);
+    assert!(sink.pending_deadline_ns().is_none());
+}
+
+#[test]
+fn per_record_has_no_deadline() {
+    let sink = run(sink_for(SigningStrategy::PerRecord), "m", 3);
+    assert!(sink.pending_deadline_ns().is_none());
+}
+
+#[test]
+fn seal_on_timeout_is_false_when_nothing_pending() {
+    let mut sink = sink_for(SigningStrategy::batch_tail_timed(1_000, 50_000_000));
+    assert!(sink.pending_deadline_ns().is_none());
+    assert!(!sink.seal_on_timeout(u64::MAX));
+}
+
+#[test]
+fn seal_on_timeout_is_false_when_strategy_has_no_timeout() {
+    let mut sink = run(sink_for(SigningStrategy::batch_tail(1_000)), "m", 2);
+    assert_eq!(sink.unsigned_pending(), 4);
+    assert!(!sink.seal_on_timeout(u64::MAX));
+    assert_eq!(sink.unsigned_pending(), 4);
+}
+
+#[test]
+fn deadline_tracks_oldest_pending_record_not_the_newest() {
+    // Mirrors `batch_fill::hybrid_derives_timeout_deadline_from_oldest_pending_arrival`:
+    // the deadline must not move once a first record is pending, however
+    // many more arrive behind it, because it is anchored to the oldest
+    // pending record's own `timestamp_ns`. Uses one ledger across both
+    // arrivals (not the `run` helper twice) so the witness sequence stays
+    // contiguous.
+    let sink = sink_for(SigningStrategy::batch_tail_timed(1_000, 50_000_000));
+    let mut ledger = TransactionalLedger::new(sink, AlwaysAdmitGate::default());
+    let id0 = ledger.add("m 0".to_string(), &[], "actor", "r").unwrap();
+    ledger.accept(id0, "actor", "verified").unwrap();
+    let deadline_after_one = ledger
+        .witness_sink()
+        .pending_deadline_ns()
+        .expect("one pair pending");
+    let id1 = ledger.add("m 1".to_string(), &[], "actor", "r").unwrap();
+    ledger.accept(id1, "actor", "verified").unwrap();
+    let deadline_after_two = ledger
+        .witness_sink()
+        .pending_deadline_ns()
+        .expect("two pairs pending");
+    assert_eq!(deadline_after_one, deadline_after_two);
+}
+
+#[test]
+fn seal_on_timeout_is_a_noop_strictly_before_the_deadline() {
+    let mut sink = run(
+        sink_for(SigningStrategy::batch_tail_timed(1_000, 50_000_000)),
+        "m",
+        2,
+    );
+    let deadline = sink.pending_deadline_ns().expect("records pending");
+    assert!(!sink.seal_on_timeout(deadline - 1));
+    assert_eq!(sink.unsigned_pending(), 4);
+    assert!(sink.spans().is_empty());
+}
+
+#[test]
+fn seal_on_timeout_closes_exactly_at_the_deadline() {
+    let mut sink = run(
+        sink_for(SigningStrategy::batch_tail_timed(1_000, 50_000_000)),
+        "m",
+        2,
+    );
+    let deadline = sink.pending_deadline_ns().expect("records pending");
+    assert!(sink.seal_on_timeout(deadline));
+    assert_eq!(sink.unsigned_pending(), 0);
+    assert_eq!(sink.spans().len(), 1);
+    assert!(verify(&sink, sink.inner(), sink.spans(), &sink.anchor()).is_ok());
+}
+
+#[test]
+fn timeout_close_never_fires_once_batch_size_already_closed_it() {
+    // batch_size=4 fills (and self-closes) on the 2nd add+accept pair
+    // (4 records) before any timeout could matter; a later, much-too-late
+    // `seal_on_timeout` call must find nothing pending.
+    let mut sink = run(sink_for(SigningStrategy::batch_tail_timed(4, 1)), "m", 2);
+    assert_eq!(sink.unsigned_pending(), 0);
+    assert_eq!(sink.spans().len(), 1);
+    assert!(!sink.seal_on_timeout(u64::MAX));
+    assert_eq!(sink.spans().len(), 1);
+}
+
+#[test]
+fn timeout_closed_span_verifies_exactly_like_a_size_closed_one() {
+    // The forgery/coverage/rollback guarantees `verify_signed_chain` gives
+    // do not distinguish how a span closed: `seal_on_timeout` calls the
+    // same `close()` as the size trigger and the explicit `seal()`.
+    let mut sink = run(
+        sink_for(SigningStrategy::batch_tail_timed(1_000, 1)),
+        "m",
+        3,
+    );
+    let deadline = sink.pending_deadline_ns().expect("records pending");
+    assert!(sink.seal_on_timeout(deadline));
+    let anchor = sink.anchor();
+    let report = verify(&sink, sink.inner(), sink.spans(), &anchor).unwrap();
+    assert_eq!(report.records_verified, 6);
+    assert_eq!(anchor.record_count, 6);
+
+    // Diligent forgery of the timeout-closed span is rejected exactly like
+    // the existing size-closed/per-record forgery tests.
+    let mut forged = sink.inner().clone();
+    forged.records[1].payload ^= 0xDEAD_BEEF;
+    rehash_from(&mut forged, 1);
+    assert!(verify(&sink, &forged, sink.spans(), &GENESIS).is_err());
+}
+
+#[test]
+fn batch_tail_timed_rejects_zero_batch_size() {
+    let err = match SignedWitnessSink::from_keypair(
+        MemoryWitnessLog::default(),
+        &keypair(),
+        SigningStrategy::batch_tail_timed(0, 50_000_000),
+    ) {
+        Ok(_) => panic!("zero batch_size must be rejected"),
+        Err(e) => e,
+    };
+    assert_eq!(err, WitnessSignerError::ZeroBatchSize);
 }
