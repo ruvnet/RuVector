@@ -60,6 +60,10 @@ are skipped.
    per repo), `items` (each with a self-contained `brief`), `suppressed`
    (with the reason: ledger state, gate rejection, open PR already covering
    it, PR no longer open), `busy_repos`.
+0. **Run `direct` items first.** `queue.direct` lists items the tick runs
+   itself, with no agent and no lane. Today the only kind is
+   `infra:cancel-superseded`: its brief holds the exact `gh run cancel` loop,
+   which only touches runs on loop-owned branches.
 4. **Claim, then dispatch.** For each lane in `queue.lanes`:
    - record every item in the lane as `in_progress` first
      (`$W ledger record --repo R --candidate C --subject S --kind K --signal SK --outcome in_progress`)
@@ -79,6 +83,15 @@ are skipped.
 ## Hard rules every lane follows
 
 - One active lane per repo; never two agents in one repo.
+- **Branch names.** Lanes push to `weaver/<lane>-<topic>` (or `feat/weaver-*`).
+  Those are the only branches whose superseded CI runs weaver ever cancels
+  (`[loop] owned_branch_prefixes`).
+- **Actions saturation.** `weaver prs` also records each repo's queued and
+  in-progress run counts. A repo over `max_active_runs_per_repo` (default 20)
+  is listed in `busy_repos` as `gha-saturated` and gets no lane that tick.
+- **Blocked rejections.** Record a rejection that waits on other work with
+  `--outcome rejected --blocked-on <subject>` (repeatable). The queue
+  re-opens it automatically once every blocker's latest entry is `shipped`.
 - **A red main is a baseline, not a blocker.** `weaver prs` records the
   workflows already failing on each repo's default branch. Each brief lists
   them, and the repo gets its own `main_red` hygiene item. Compare your PR

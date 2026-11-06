@@ -115,6 +115,12 @@ ledger as `queued`. Where live PR data exists it replaces the snapshot.
   Recording outcomes therefore never needs a PR. A per-tick ledger push had
   restarted CI on the harness PR on every push. The in-repo copy is a seed
   snapshot, refreshed occasionally with `weaver ledger snapshot`.
+- Rejections can name blockers (`blocked_on: [subjects]`). The queue
+  re-opens them once every blocker is shipped, which replaces hand re-queueing.
+- Before handing out lanes, weaver reads each repo's queued and in-progress
+  Actions runs. Saturated repos (account-wide runner caps) are deferred.
+  Superseded runs on loop-owned branches become direct `cancel-superseded`
+  items, which never touch other branches.
 - Security fixes must be reachable. `fix_unreachable` queues a bump
   wherever a dependent's declared range excludes the patched version. This
   came out of GHSA-mjwg-5fm3-fx2p: `/darwin` 0.13.0 was

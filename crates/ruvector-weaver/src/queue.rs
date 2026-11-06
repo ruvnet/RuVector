@@ -4,15 +4,16 @@
 
 use crate::brief::{brief, kind_str, required_test};
 use crate::config::Config;
+pub use crate::lanes::assign_lanes;
 use crate::ledger::{Ledger, PairState};
 use crate::model::{
-    GateReport, GateResult, Graph, Lane, LaneStatus, LedgerEntry, Queue, ScanReport, Signal,
-    SignalKind, Suppressed, WorkItem, WorkKind,
+    GateReport, GateResult, Graph, LaneStatus, LedgerEntry, Queue, ScanReport, Signal, SignalKind,
+    Suppressed, WorkItem, WorkKind,
 };
 use crate::prs::{self, RepoPrs};
 use crate::scan::security::is_upstream_advisory;
 use crate::util::now;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 pub fn base_weight(k: SignalKind) -> f64 {
     match k {
@@ -115,75 +116,15 @@ pub struct QueueInputs<'a> {
     pub create_suppressed: Vec<Suppressed>,
     /// Live open-PR snapshots (`weaver prs`).
     pub prs: &'a [RepoPrs],
-}
-
-/// Does a rejection's reason say the candidate was too heavy to depend on?
-pub fn is_heavy_rejection(e: &LedgerEntry) -> bool {
-    e.outcome == crate::model::Outcome::Rejected
-        && e.reason
-            .as_deref()
-            .map(|r| {
-                let r = r.to_ascii_lowercase();
-                r.contains("heavy dep") || r.contains("dependency tree") || r.contains("heavy tree")
-            })
-            .unwrap_or(false)
-}
-
-/// The candidate's current release clears the size/dep gate and is newer
-/// than the version that was rejected.
-pub fn lean_release(graph: &Graph, cfg: &Config, e: &LedgerEntry) -> Option<String> {
-    let p = graph.get(e.candidate.as_deref()?)?;
-    let rejected_at = e
-        .version
-        .as_deref()
-        .and_then(|v| v.rsplit('@').next())
-        .unwrap_or("");
-    let g = &cfg.policy.gate;
-    let lean = p.runtime_deps <= g.lean_max_runtime_deps
-        && p.unpacked_size > 0
-        && p.unpacked_size <= g.lean_max_unpacked_bytes;
-    (p.version != rejected_at && lean).then(|| {
-        format!(
-            "{}@{} clears the size/dep gate ({} runtime deps, {} bytes unpacked; rejected at {})",
-            p.name,
-            p.version,
-            p.runtime_deps,
-            p.unpacked_size,
-            if rejected_at.is_empty() {
-                "?"
-            } else {
-                rejected_at
-            }
-        )
-    })
-}
-
-/// Ledger view where heavy-dependency rejections whose candidate shipped a
-/// lean release are re-queued (the rejection itself stays in history).
-pub fn requeue_lean(ledger: &Ledger, graph: &Graph, cfg: &Config) -> Ledger {
-    let mut out = ledger.clone();
-    let latest: Vec<&LedgerEntry> = ledger.latest_by_key().into_values().collect();
-    for (i, e) in ledger.entries.iter().enumerate() {
-        if !is_heavy_rejection(e) || !latest.iter().any(|l| std::ptr::eq(*l, e)) {
-            continue;
-        }
-        if let Some(why) = lean_release(graph, cfg, e) {
-            let o = &mut out.entries[i];
-            o.outcome = crate::model::Outcome::Queued;
-            o.reason = Some(format!(
-                "re-queued: {why}. Was: {}",
-                e.reason.as_deref().unwrap_or("")
-            ));
-        }
-    }
-    out
+    /// Actions run snapshots per repo (queue saturation, superseded runs).
+    pub runs: &'a [crate::saturation::RepoRuns],
 }
 
 /// Map every repo name through the graph's rename aliases, keep only the
 /// newest scan / PR snapshot per canonical repo, and re-queue lean releases.
 fn canonicalize(inp: &QueueInputs, cfg: &Config) -> (Ledger, Vec<ScanReport>, Vec<RepoPrs>) {
     let g = inp.graph;
-    let mut ledger = requeue_lean(inp.ledger, g, cfg);
+    let mut ledger = crate::requeue::requeue(inp.ledger, g, cfg);
     for e in &mut ledger.entries {
         e.repo = g.canon(&e.repo);
     }
@@ -446,7 +387,20 @@ pub fn build(cfg: &Config, inp: QueueInputs) -> Queue {
             .then(a.id.cmp(&b.id))
     });
 
-    let busy = ledger.busy_repos();
+    // Canonical repo names for the run snapshots (renames).
+    let runs: Vec<crate::saturation::RepoRuns> = inp
+        .runs
+        .iter()
+        .cloned()
+        .map(|mut r| {
+            r.repo = inp.graph.canon(&r.repo);
+            r
+        })
+        .collect();
+    let mut busy = ledger.busy_repos();
+    for (repo, why) in crate::saturation::saturated(&runs, lp.max_active_runs_per_repo) {
+        busy.entry(repo).or_default().extend(why);
+    }
     let lanes = assign_lanes(&mut items, &busy, lp.max_lanes, lp.max_batch_per_lane);
     for it in &mut items {
         let gate = it.candidate.as_deref().and_then(|c| inp.gates.get(c));
@@ -458,6 +412,10 @@ pub fn build(cfg: &Config, inp: QueueInputs) -> Queue {
             ));
         }
     }
+    let cancels: Vec<WorkItem> = runs
+        .iter()
+        .filter_map(crate::saturation::cancel_item)
+        .collect();
     Queue {
         generated_at: now(),
         max_lanes: lp.max_lanes,
@@ -467,71 +425,14 @@ pub fn build(cfg: &Config, inp: QueueInputs) -> Queue {
             .into_iter()
             .map(|(k, v)| (k.as_str().to_string(), v))
             .collect(),
-        items,
+        direct: cancels.iter().map(|c| c.id.clone()).collect(),
+        items: {
+            let mut all = items;
+            all.extend(cancels);
+            all
+        },
         suppressed,
     }
-}
-
-/// One lane per repo; the top item is `active`, independent items (distinct
-/// candidate, no shared evidence file, public disclosure) ride along as
-/// `batched`. Repos with an in-flight ledger lane stay deferred.
-pub fn assign_lanes(
-    items: &mut [WorkItem],
-    busy: &BTreeMap<String, Vec<String>>,
-    max_lanes: usize,
-    max_batch: usize,
-) -> Vec<Lane> {
-    let mut lanes: Vec<Lane> = Vec::new();
-    let mut lane_of: BTreeMap<String, usize> = BTreeMap::new();
-    let mut files: Vec<BTreeSet<String>> = Vec::new();
-    let mut cands: Vec<BTreeSet<String>> = Vec::new();
-    for it in items.iter_mut() {
-        let repo = it.repo.to_ascii_lowercase();
-        it.status = LaneStatus::Deferred;
-        if busy.contains_key(&repo) {
-            continue;
-        }
-        let my_files: BTreeSet<String> = it.evidence.iter().map(|s| s.file.clone()).collect();
-        let my_cand = it
-            .candidate
-            .clone()
-            .or(it.subject.clone())
-            .unwrap_or_default();
-        match lane_of.get(&repo).copied() {
-            None if lanes.len() < max_lanes => {
-                lane_of.insert(repo.clone(), lanes.len());
-                lanes.push(Lane {
-                    repo,
-                    items: vec![it.id.clone()],
-                });
-                files.push(my_files);
-                cands.push(BTreeSet::from([my_cand]));
-                it.status = LaneStatus::Active;
-            }
-            Some(l) => {
-                let lead_private = items_private(&lanes[l]);
-                let independent = it.disclosure == "public_pr"
-                    && !lead_private
-                    && !cands[l].contains(&my_cand)
-                    && files[l].is_disjoint(&my_files);
-                if independent && lanes[l].items.len() < max_batch {
-                    lanes[l].items.push(it.id.clone());
-                    files[l].extend(my_files);
-                    cands[l].insert(my_cand);
-                    it.status = LaneStatus::Batched;
-                }
-            }
-            None => {}
-        }
-    }
-    lanes
-}
-
-fn items_private(l: &Lane) -> bool {
-    l.items
-        .first()
-        .map(|id| id.starts_with("security::"))
-        .unwrap_or(false)
 }
 
 /// Gate results attached to a queue item (for ledger records).

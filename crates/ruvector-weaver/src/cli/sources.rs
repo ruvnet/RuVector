@@ -28,6 +28,28 @@ pub fn prs(ctx: &Ctx, mut repos: Vec<String>, all: bool, checks: bool, seed: boo
                 continue;
             }
         };
+        match ruvector_weaver::saturation::fetch(
+            &r,
+            &ctx.cfg.policy.lp.owned_branch_prefixes,
+            &ctx.work,
+        ) {
+            Ok(runs) => {
+                println!(
+                    "  runs {}: {} queued, {} in progress, {} superseded on owned branches",
+                    runs.repo,
+                    runs.queued,
+                    runs.in_progress,
+                    runs.superseded.len()
+                );
+                write_json(
+                    &ctx.work
+                        .join("runs")
+                        .join(format!("{}.json", slug_key(&runs.repo))),
+                    &runs,
+                )?;
+            }
+            Err(e) => eprintln!("runs {r}: {e:#}"),
+        }
         write_json(
             &ctx.work
                 .join("prs")

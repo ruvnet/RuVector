@@ -20,6 +20,8 @@ W="target/release/weaver --config-dir config/weaver"   # run from a ruvector che
 2. Refresh: `$W graph`, `$W release`, `$W prs --all`, `$W resolve --top 15`, `$W scan <repos>`
    (`--all` daily).
 3. Rank: `$W queue --gate-top 20` -> `/data/scratch/weaver/queue.json`.
+3b. Run every id in `.direct` yourself first (agent-free; e.g. cancel superseded
+   runs on loop-owned branches with the `gh run cancel` loop in its brief).
 4. For each entry in `.lanes` (at most 8, one per repo): record its items as
    `in_progress`, then hand ONE worker the `brief` of every item in that lane.
 5. The live ledger (`/data/scratch/weaver/ledger.jsonl`, or `$WEAVER_LEDGER`)
@@ -29,6 +31,8 @@ W="target/release/weaver --config-dir config/weaver"   # run from a ruvector che
 ## Rules for a lane worker
 
 - Work only in the lane's repo; one PR (or release) per lane.
+- Push to a `weaver/<lane>-<topic>` branch; record waiting rejections with
+  `--blocked-on <subject>` so they re-open automatically.
 - Stop if `weaver gate <candidate> --consumer <repo>` fails; report `rejected`
   with the failing gate.
 - No numeric performance claims unless measured and recorded with

@@ -168,6 +168,9 @@ pub enum LedgerOp {
         /// Attach gate results from gates/<pkg>.json.
         #[arg(long)]
         gates_from: Option<String>,
+        /// Subject that must be shipped before this rejection re-opens (repeatable).
+        #[arg(long = "blocked-on")]
+        blocked_on: Vec<String>,
     },
     Show {
         #[arg(long)]

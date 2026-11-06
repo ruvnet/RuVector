@@ -38,6 +38,7 @@ pub(super) fn entry(
         gates: vec![],
         location: None,
         severity: None,
+        blocked_on: vec![],
     }
 }
 
@@ -222,6 +223,7 @@ fn build_queue(
     let reports = scan::load_reports(&ctx.work)?;
     let ledger = load_ledger(ctx)?;
     let live = prs::load_all(&ctx.work)?;
+    let runs = ruvector_weaver::saturation::load_all(&ctx.work)?;
     Ok(queue::build(
         &ctx.cfg,
         queue::QueueInputs {
@@ -232,6 +234,7 @@ fn build_queue(
             creates: props.items.clone(),
             create_suppressed: props.suppressed.clone(),
             prs: &live,
+            runs: &runs,
         },
     ))
 }
@@ -328,8 +331,10 @@ pub fn ledger(ctx: &Ctx, op: LedgerOp) -> Result<()> {
             reason,
             measures,
             gates_from,
+            blocked_on,
         } => {
             let mut e = entry(&repo, candidate, subject, kind, outcome);
+            e.blocked_on = blocked_on;
             e.signal_kind = signal;
             e.pr = pr;
             e.version = version;
