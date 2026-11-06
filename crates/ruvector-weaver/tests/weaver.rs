@@ -1326,3 +1326,38 @@ fn vuln_evidence_distinguishes_nested_stale_copies() {
     );
     assert!(!bad && why.contains("outside the affected range"));
 }
+
+#[test]
+fn invalid_resolution_names_the_winning_consumer() {
+    use ruvector_weaver::resolve;
+    let tree = serde_json::json!({"dependencies": {
+        "ruvector": {"version": "0.3.13", "dependencies": {
+            "@ruvector/ruvllm": {"version": "2.7.0", "invalid": "\"^4.1.0\" from node_modules/ruvector"}
+        }},
+        "metaharness": {"version": "0.4.20", "dependencies": {
+            "@ruvector/ruvllm": {"version": "2.7.0"}
+        }}
+    }});
+    let mut g = graph_with(&[("ruvnet/ruvector", 10), ("ruvnet/metaharness", 10)]);
+    for p in &mut g.packages {
+        let r = if p.name == "ruvector" {
+            "^4.1.0"
+        } else {
+            "^2.5.6"
+        };
+        p.dep_ranges.insert("@ruvector/ruvllm".into(), r.into());
+    }
+    let s = resolve::signals(&g, "ruvector", &tree);
+    assert_eq!(s.len(), 1);
+    assert_eq!(
+        s[0].repo, "ruvnet/metaharness",
+        "the lane belongs to the range that must move"
+    );
+    assert_eq!(
+        s[0].subject.as_deref(),
+        Some("release:invalid_resolution:ruvector->@ruvector/ruvllm")
+    );
+    assert!(s[0].evidence.ends_with("won by metaharness"));
+    let clean = serde_json::json!({"dependencies": {"ruvector": {"version": "0.3.13"}}});
+    assert!(resolve::signals(&g, "ruvector", &clean).is_empty());
+}

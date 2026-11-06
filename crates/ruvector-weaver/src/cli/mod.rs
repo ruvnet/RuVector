@@ -69,6 +69,14 @@ pub enum Cmd {
         #[arg(long)]
         seed_ledger: bool,
     },
+    /// Fresh-install top packages, `npm ls --all`, emit invalid_resolution
+    /// items naming the consumer whose range won hoisting.
+    Resolve {
+        packages: Vec<String>,
+        /// Without explicit packages: the top N npm packages by downloads.
+        #[arg(long, default_value_t = 15)]
+        top: usize,
+    },
     /// Release-regression sweep over every npm package in graph.json.
     Release {
         packages: Vec<String>,
@@ -231,6 +239,7 @@ pub fn run() -> Result<()> {
             seed_ledger,
         } => sources::prs(&ctx, repos, all, checks, seed_ledger),
         Cmd::Release { packages, workers } => sources::release(&ctx, packages, workers),
+        Cmd::Resolve { packages, top } => sources::resolve(&ctx, packages, top),
         Cmd::Gate {
             package,
             consumer,
