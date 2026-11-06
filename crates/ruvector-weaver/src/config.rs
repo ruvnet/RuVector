@@ -32,6 +32,13 @@ pub struct LoopPolicy {
     #[serde(default)]
     pub max_new_packages_per_day: Option<usize>,
     pub max_failures: usize,
+    /// Defer a repo's lane while it has more queued + in-progress Actions
+    /// runs than this (account-wide runner caps, macOS especially).
+    #[serde(default = "default_max_active_runs")]
+    pub max_active_runs_per_repo: usize,
+    /// Branch prefixes this loop owns; only their runs are ever cancelled.
+    #[serde(default = "default_owned_prefixes")]
+    pub owned_branch_prefixes: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -267,4 +274,12 @@ fn default_lean_deps() -> usize {
 
 fn default_lean_bytes() -> u64 {
     5_000_000
+}
+
+fn default_max_active_runs() -> usize {
+    20
+}
+
+fn default_owned_prefixes() -> Vec<String> {
+    vec!["weaver/".into(), "feat/weaver-".into()]
 }

@@ -304,6 +304,10 @@ pub struct Queue {
     pub signal_weights: BTreeMap<String, f64>,
     pub items: Vec<WorkItem>,
     pub suppressed: Vec<Suppressed>,
+    /// Items the tick runs itself, without an agent or a lane
+    /// (e.g. cancelling superseded CI runs on loop-owned branches).
+    #[serde(default)]
+    pub direct: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -357,4 +361,7 @@ pub struct LedgerEntry {
     pub location: Option<String>,
     #[serde(default)]
     pub severity: Option<String>,
+    /// Subjects that must all be `shipped` before a rejection re-opens.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub blocked_on: Vec<String>,
 }
