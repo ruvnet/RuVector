@@ -67,6 +67,7 @@ fn query_options(options: Option<&RvfQueryOptions>) -> Result<RustQueryOptions> 
         filter,
         timeout_ms: opts.timeout_ms.unwrap_or(0),
         rabitq: opts.rabitq.unwrap_or(false),
+        force_exact: opts.force_exact.unwrap_or(false),
         ..RustQueryOptions::default()
     })
 }

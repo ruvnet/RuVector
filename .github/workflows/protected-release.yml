@@ -278,12 +278,29 @@ jobs:
           )
           for index in "${!packages[@]}"; do
             package="${packages[$index]}"
+            # A failed `npm view --json` prints an error object, which used to
+            # be stringified into "[object Object]" and passed to curl. Accept
+            # only a string https URL, and fail by name once retries run out.
+            url=""
             for _attempt in {1..20}; do
-              npm view "$package" dist.tarball --json > /tmp/tarball.json 2>/dev/null && break
+              if out="$(npm view "$package" dist.tarball --json 2>/dev/null)"; then
+                url="$(printf '%s' "$out" | node -e '
+                  let s = "";
+                  process.stdin.on("data", (d) => (s += d)).on("end", () => {
+                    try {
+                      const v = JSON.parse(s);
+                      if (typeof v === "string" && v.startsWith("https://")) process.stdout.write(v);
+                    } catch {}
+                  });
+                ')"
+              fi
+              [[ -n "$url" ]] && break
               sleep 6
             done
-            url="$(node -p "JSON.parse(require('fs').readFileSync('/tmp/tarball.json')).toString()")"
-            test -n "$url"
+            if [[ "$url" != https://* ]]; then
+              echo "::error::$package: no tarball URL from npm view after 20 attempts"
+              exit 1
+            fi
             curl --fail --location "$url" --output "public/${files[$index]}"
           done
           (cd release-evidence/sealed && sha256sum -c SHA256SUMS)
@@ -294,7 +311,15 @@ jobs:
           cd "$install_dir"
           npm init -y >/dev/null
           npm install "@ruvector/core@$CORE_VERSION" --ignore-scripts --no-audit --no-fund
-          node -e 'const m=require("@ruvector/core"); if(m.VectorDB !== m.VectorDb) process.exit(1); console.log(m.version())'
+          node -e '
+            const m = require("@ruvector/core");
+            if (m.VectorDB !== m.VectorDb) process.exit(1);
+            if (m.version() !== process.env.CORE_VERSION) {
+              console.error(`version() returned ${m.version()}, expected ${process.env.CORE_VERSION}`);
+              process.exit(1);
+            }
+            console.log(m.version(), m.nativeVersion());
+          '
           cd "$GITHUB_WORKSPACE"
           node -e '
             const fs = require("fs");

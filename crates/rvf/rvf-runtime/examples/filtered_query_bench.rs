@@ -137,6 +137,23 @@ fn run(store: RvfStore, n: usize, dim: usize, queries: usize, k: usize) {
     let qs: Vec<Vec<f32>> = (0..queries as u64)
         .map(|i| vector(u64::MAX - i, dim))
         .collect();
+    // The first filtered query on a fresh index also pays the one-off graph
+    // recall calibration (cached on the index afterwards).
+    {
+        let opts = QueryOptions {
+            filter: Some(FilterExpr::Lt(0, FilterValue::U64(50))),
+            ..Default::default()
+        };
+        let t = Instant::now();
+        store.query(&qs[0], k, &opts).unwrap();
+        let first = t.elapsed().as_secs_f64() * 1e3;
+        let t = Instant::now();
+        store.query(&qs[0], k, &opts).unwrap();
+        println!(
+            "first filtered query (incl. one-off graph calibration) {first:.1} ms, repeat {:.1} ms",
+            t.elapsed().as_secs_f64() * 1e3
+        );
+    }
     // Unfiltered reference: the HNSW path vs the exact scan.
     {
         let exact_opts = QueryOptions {
@@ -169,7 +186,7 @@ fn run(store: RvfStore, n: usize, dim: usize, queries: usize, k: usize) {
 
     println!("| selectivity | exact p50 ms | exact p99 ms | new p50 ms | new p99 ms | speedup p50 | recall@10 |");
     println!("|---|---|---|---|---|---|---|");
-    for pct in [50u64, 25, 20, 10, 5, 1] {
+    for pct in [50u64, 25, 20, 15, 10, 5, 1] {
         let filter = FilterExpr::Lt(0, FilterValue::U64(pct));
         let exact_opts = QueryOptions {
             filter: Some(filter.clone()),
@@ -205,6 +222,60 @@ fn run(store: RvfStore, n: usize, dim: usize, queries: usize, k: usize) {
             e50 / n50,
             recall / queries as f64
         );
+    }
+
+    // Optional ef sweep of the filtered HNSW walk itself, bypassing the
+    // graph-recall gate (PreferLatency), e.g. RVF_BENCH_EF_SWEEP=256,512,1024.
+    if let Ok(sweep) = std::env::var("RVF_BENCH_EF_SWEEP") {
+        let efs: Vec<u16> = sweep
+            .split(',')
+            .filter_map(|s| s.trim().parse().ok())
+            .collect();
+        println!("\nfiltered HNSW walk forced (PreferLatency), by ef:");
+        println!("| selectivity | ef | p50 ms | p99 ms | recall@10 |");
+        println!("|---|---|---|---|---|");
+        for pct in [50u64, 25, 20] {
+            let filter = FilterExpr::Lt(0, FilterValue::U64(pct));
+            let exact_opts = QueryOptions {
+                filter: Some(filter.clone()),
+                force_exact: true,
+                ..Default::default()
+            };
+            let truth: Vec<Vec<u64>> = qs
+                .iter()
+                .map(|q| {
+                    store
+                        .query(q, k, &exact_opts)
+                        .unwrap()
+                        .iter()
+                        .map(|r| r.id)
+                        .collect()
+                })
+                .collect();
+            for &ef in &efs {
+                let opts = QueryOptions {
+                    filter: Some(filter.clone()),
+                    ef_search: ef,
+                    quality_preference: rvf_types::quality::QualityPreference::PreferLatency,
+                    ..Default::default()
+                };
+                let (mut t_ms, mut recall) = (Vec::new(), 0.0);
+                for (q, exact) in qs.iter().zip(&truth) {
+                    let t = Instant::now();
+                    let got = store.query(q, k, &opts).unwrap();
+                    t_ms.push(t.elapsed().as_secs_f64() * 1e3);
+                    recall += got.iter().filter(|r| exact.contains(&r.id)).count() as f64
+                        / exact.len().max(1) as f64;
+                }
+                t_ms.sort_by(f64::total_cmp);
+                println!(
+                    "| {pct}% | {ef} | {:.3} | {:.3} | {:.3} |",
+                    percentile(&t_ms, 0.5),
+                    percentile(&t_ms, 0.99),
+                    recall / qs.len() as f64
+                );
+            }
+        }
     }
     store.close().unwrap();
 }

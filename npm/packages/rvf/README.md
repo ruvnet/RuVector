@@ -125,7 +125,7 @@ Every instance method is async. `backend` is `'node' | 'wasm' | 'auto'` (default
 | `RvfDatabase.openReadonly(path, backend?)` | Open existing (read-only) |
 | `RvfDatabase.openBytes(bytes, backend?)` | Open from an in-memory `.rvf` buffer (WASM backend) |
 | `db.ingestBatch(entries)` | Insert `{ id: string, vector: Float32Array \| number[] }` entries |
-| `db.query(vector, k \| { k, efSearch, filter, timeoutMs }, options?)` | k-NN search, returns `[{ id, distance }]` |
+| `db.query(vector, k \| { k, efSearch, filter, timeoutMs, forceExact }, options?)` | k-NN search, returns `[{ id, distance }]` |
 | `db.delete(ids)` | Delete vectors by ID |
 | `db.deleteByFilter(filter)` | Delete vectors matching a filter expression |
 | `db.compact()` | Compact and reclaim space |
