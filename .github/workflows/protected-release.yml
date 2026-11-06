@@ -216,7 +216,14 @@ jobs:
     needs: [seal, runtime-grader, contract-grader]
     runs-on: ubuntu-22.04
     environment: npm-production
+    # Each registry visibility wait may take up to 40 min (NPM_VISIBLE_TIMEOUT).
+    timeout-minutes: 120
     steps:
+      # Only the CI helper scripts, from the workflow's own commit.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          sparse-checkout: scripts/ci
+          path: workflow-src
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: sealed-core-npm-${{ inputs.expected_sha }}
@@ -232,29 +239,39 @@ jobs:
           set -euo pipefail
           test -n "$NODE_AUTH_TOKEN"
           (cd release-evidence/sealed && sha256sum -c SHA256SUMS)
-          packages=(
+          wait_visible="$GITHUB_WORKSPACE/workflow-src/scripts/ci/npm-wait-visible.sh"
+          platforms=(
             "ruvector-core-linux-x64-gnu@$PLATFORM_VERSION"
             "ruvector-core-linux-arm64-gnu@$PLATFORM_VERSION"
             "ruvector-core-darwin-x64@$PLATFORM_VERSION"
             "ruvector-core-darwin-arm64@$PLATFORM_VERSION"
             "ruvector-core-win32-x64-msvc@$PLATFORM_VERSION"
-            "@ruvector/core@$CORE_VERSION"
           )
-          files=(
+          platform_files=(
             "ruvector-core-linux-x64-gnu-$PLATFORM_VERSION.tgz"
             "ruvector-core-linux-arm64-gnu-$PLATFORM_VERSION.tgz"
             "ruvector-core-darwin-x64-$PLATFORM_VERSION.tgz"
             "ruvector-core-darwin-arm64-$PLATFORM_VERSION.tgz"
             "ruvector-core-win32-x64-msvc-$PLATFORM_VERSION.tgz"
-            "ruvector-core-$CORE_VERSION.tgz"
           )
-          for index in "${!packages[@]}"; do
-            if npm view "${packages[$index]}" version >/dev/null 2>&1; then
-              echo "${packages[$index]} already has the exact sealed bytes; skipping"
+          publish_sealed() {
+            if npm view "$1" version >/dev/null 2>&1; then
+              echo "$1 already has the exact sealed bytes; skipping"
             else
-              npm publish "release-evidence/sealed/${files[$index]}" --access public --provenance
+              npm publish "release-evidence/sealed/$2" --access public --provenance
             fi
+          }
+          # 1. Platform packages first.
+          for index in "${!platforms[@]}"; do
+            publish_sealed "${platforms[$index]}" "${platform_files[$index]}"
           done
+          # 2. @ruvector/core lists them as optionalDependencies: publishing it
+          #    before they are installable leaves `npm install @ruvector/core`
+          #    with no native binary. Wait for every one to be visible.
+          bash "$wait_visible" "${platforms[@]}"
+          # 3. Then the wrapper, and wait for it too.
+          publish_sealed "@ruvector/core@$CORE_VERSION" "ruvector-core-$CORE_VERSION.tgz"
+          bash "$wait_visible" "@ruvector/core@$CORE_VERSION"
 
       - name: Verify public bytes and runtime
         run: |
@@ -278,30 +295,10 @@ jobs:
           )
           for index in "${!packages[@]}"; do
             package="${packages[$index]}"
-            # A failed `npm view --json` prints an error object, which used to
-            # be stringified into "[object Object]" and passed to curl. Accept
-            # only a string https URL, and fail by name once retries run out.
-            url=""
-            for _attempt in {1..20}; do
-              if out="$(npm view "$package" dist.tarball --json 2>/dev/null)"; then
-                url="$(printf '%s' "$out" | node -e '
-                  let s = "";
-                  process.stdin.on("data", (d) => (s += d)).on("end", () => {
-                    try {
-                      const v = JSON.parse(s);
-                      if (typeof v === "string" && v.startsWith("https://")) process.stdout.write(v);
-                    } catch {}
-                  });
-                ')"
-              fi
-              [[ -n "$url" ]] && break
-              sleep 6
-            done
-            if [[ "$url" != https://* ]]; then
-              echo "::error::$package: no tarball URL from npm view after 20 attempts"
-              exit 1
-            fi
-            curl --fail --location "$url" --output "public/${files[$index]}"
+            # Waits (with backoff, up to 40 min) until the tarball URL resolves
+            # and downloads; fails by name if it never does.
+            url="$(bash "$GITHUB_WORKSPACE/workflow-src/scripts/ci/npm-wait-visible.sh" --print-url "$package" | cut -d' ' -f2)"
+            curl --fail --location --retry 5 --retry-all-errors "$url" --output "public/${files[$index]}"
           done
           (cd release-evidence/sealed && sha256sum -c SHA256SUMS)
           while read -r digest file; do
