@@ -19,8 +19,10 @@ RUST_MIN_STACK = "16777216"
 # Default linker (mold) is host-bound and rejects arm64 objects.
 [target.aarch64-unknown-linux-gnu]
 linker = "aarch64-linux-gnu-gcc"
-# Cortex-A76 (Pi 5) tuning, same flags as iter-84 hailo-cluster ultra profile.
-rustflags = [
-    "-C", "target-cpu=cortex-a76",
-    "-C", "target-feature=+lse,+rcpc,+fp16,+crc",
-]
+
+# Keep this target on generic aarch64. PR #423 forced cortex-a76 +rcpc here,
+# which made every published linux-arm64-gnu npm native require FEAT_LRCPC
+# and die with SIGILL on ARMv8.2 CPUs that lack it (Jetson AGX Xavier,
+# Cortex-A72 / Pi 4 — issue #1292). Cortex-A76 tuning is intentionally scoped
+# to crates/ruvector-hailo-cluster/.cargo/config.toml; published natives rely
+# on runtime SIMD dispatch instead of compile-time target features.
