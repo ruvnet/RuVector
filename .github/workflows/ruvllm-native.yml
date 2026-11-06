@@ -163,6 +163,11 @@ jobs:
         run: |
           set -euo pipefail
           cd npm/packages/ruvllm
-          npm install
+          # Only the TypeScript build is needed here. --no-workspaces avoids the
+          # root workspace's darwin-only optional deps (EBADPLATFORM);
+          # --omit=optional skips the platform packages published a moment ago,
+          # which can still be staged on the registry.
+          npm install --no-workspaces --omit=optional --no-audit --no-fund
           npm run build
+          npm test
           bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
