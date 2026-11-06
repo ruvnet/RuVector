@@ -117,7 +117,7 @@
     "@ruvector/diskann": "^0.1.0",
     "@ruvector/pi-brain": "^0.1.0",
     "@ruvector/router": "^0.1.0",
-    "@ruvector/ruvllm": ">=2.0.0 <4.0.0 || ^4.1.0",
+    "@ruvector/ruvllm": "^4.1.0",
     "metaharness": "^0.4.20",
     "@ruvector/rabitq-wasm": "^0.1.1",
     "rvlite": "^0.2.0"

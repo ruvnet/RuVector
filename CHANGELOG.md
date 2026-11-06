@@ -35,8 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Every open-ended `>=` peer range is now bounded. `@ruvector/ruvllm >=2.0.0`
   resolved to 4.0.1, a different product published under the same name
-  without the runtime that `ruvector llm` / `ruvector sona` load; it is now
-  `>=2.0.0 <4.0.0 || ^4.1.0`. Other peers take their optionalDependencies spec
+  without the runtime that `ruvector llm` / `ruvector sona` load (`ruvllm.RuvLLM is
+  not a constructor`); it is now `^4.1.0`, the restored runtime, verified
+  with `llm info|models|embed` and `sona status`. Other peers take their optionalDependencies spec
   or a caret on their previous minimum.
 - Security: `@metaharness/darwin` moves from `^0.9.1` to `^0.13.0` (and the
   `metaharness` meta-package from `^0.4.7` to `^0.4.20`, which itself requires
