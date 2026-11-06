@@ -304,111 +304,34 @@ Dynamic algorithms have two complexity measures:
 - Guarantees for real-time systems
 - Example: O(log⁴ n) per edge insertion
 
-**RuVector provides both**:
-- **Standard algorithm**: Best amortized complexity O(n^{o(1)})
-- **PolylogConnectivity**: Deterministic worst-case O(log⁴ n)
+These definitions describe algorithm analysis generally. This crate has not
+proved a subpolynomial update bound for `DynamicMinCut`; it may rerun the
+polynomial exact solver after a graph change.
 
 ---
 
 ## 4. Algorithm Choices
 
-RuVector provides three cutting-edge algorithms from recent research papers (2024-2025). Here's when to use each:
+### DynamicMinCut (Main API)
 
-### 4.1 Exact Algorithm (Default)
+`MinCutBuilder` constructs an exact `DynamicMinCut`. It caches the selected
+partition and runs sparse Stoer-Wagner when a change requires recomputation.
+The full solve is polynomial. `MinCutBuilder::approximate(ε)` is a legacy
+compatibility option and does not select another algorithm; results remain
+exact and report an approximation ratio of 1.0.
 
-**Based on**: "A Õ(n^{o(1)})-Approximation Algorithm for Minimum Cut" (Chen et al., 2024)
+### ApproxMinCut (Separate Research API)
 
-**Complexity**: O(n^{o(1)}) amortized per operation
+`ApproxMinCut` samples a graph using heuristic resistance estimates. Its
+reported interval is calculated from ε, but it is not a certified `(1+ε)`
+error guarantee for all graphs. Validate correctness and latency on your own
+graph family before using it for decisions.
 
-**When to use**:
-- ✅ You need the exact minimum cut value
-- ✅ Your graph changes frequently (dynamic updates)
-- ✅ You want the best average-case performance
-- ✅ General-purpose applications
+### Other Research Components
 
-**Trade-offs**:
-- Slower worst-case than approximate algorithm
-- Best for most applications
-
-```rust
-use ruvector_mincut::{MinCutWrapper, MinCutAlgorithm};
-
-let mut wrapper = MinCutWrapper::new(
-    num_vertices,
-    MinCutAlgorithm::Exact
-);
-```
-
-### 4.2 Approximate Algorithm ((1+ε)-approximation)
-
-**Based on**: "Dynamic (1+ε)-Approximate Minimum Cut in Subpolynomial Time per Operation" (Cen et al., 2025)
-
-**Complexity**: Õ(1/ε²) amortized per operation (subpolynomial in n!)
-
-**When to use**:
-- ✅ You can tolerate small approximation error
-- ✅ You need extremely fast updates
-- ✅ Your graph is very large (millions of vertices)
-- ✅ You want cutting-edge performance
-
-**Trade-offs**:
-- Result is within (1+ε) of optimal (e.g., ε=0.1 → 10% error bound)
-- **Fastest algorithm** for large graphs
-
-```rust
-let mut wrapper = MinCutWrapper::new_approx(
-    num_vertices,
-    0.1  // ε = 10% approximation
-);
-```
-
-**Example**: If true minimum cut is 100, approximate algorithm returns 100-110.
-
-### 4.3 PolylogConnectivity (Deterministic Worst-Case)
-
-**Based on**: "Incremental (1+ε)-Approximate Dynamic Connectivity with polylog Worst-Case Time per Update" (Cen et al., 2025)
-
-**Complexity**: O(log⁴ n / ε²) worst-case per operation
-
-**When to use**:
-- ✅ You need **guaranteed** worst-case performance
-- ✅ Real-time systems with strict latency requirements
-- ✅ Safety-critical applications
-- ✅ You need predictable performance (no spikes)
-
-**Trade-offs**:
-- Slightly slower than amortized algorithms on average
-- Provides deterministic guarantees
-
-```rust
-let mut wrapper = MinCutWrapper::new_polylog_connectivity(
-    num_vertices,
-    0.1  // ε = 10% approximation
-);
-```
-
-### Performance Comparison
-
-```mermaid
-graph TD
-    subgraph "Performance Characteristics"
-        A[Exact Algorithm] --> A1["Amortized: O(n^o1)"]
-        A --> A2[Exact results]
-        A --> A3[Best general-purpose]
-
-        B[Approximate] --> B1["Amortized: Õ(1/ε²)"]
-        B --> B2[±ε error]
-        B --> B3[Fastest updates]
-
-        C[PolylogConnectivity] --> C1["Worst-case: O(log⁴ n / ε²)"]
-        C --> C2[±ε error]
-        C --> C3[Predictable latency]
-    end
-
-    style A fill:#e1f5ff
-    style B fill:#ffe1e1
-    style C fill:#e1ffe1
-```
+`SubpolynomialMinCut`, `MinCutWrapper`, `PolylogConnectivity`, and hierarchy
+components expose separate experiments. Their presence does not establish the
+paper bounds for the main API or a release-qualified performance claim.
 
 ---
 
@@ -567,89 +490,27 @@ graph TB
 
 ## 6. Which Algorithm Should I Use?
 
-Use this decision flowchart to choose the right algorithm:
+For exact global cuts, start with `MinCutBuilder` and `DynamicMinCut`:
 
-```mermaid
-graph TD
-    Start[Which algorithm?] --> Q1{Need exact result?}
-
-    Q1 -->|Yes| Exact[Use Exact Algorithm]
-    Q1 -->|No, approximation OK| Q2{Need worst-case guarantees?}
-
-    Q2 -->|Yes, real-time/safety-critical| Polylog[Use PolylogConnectivity]
-    Q2 -->|No, average case is fine| Q3{Graph size?}
-
-    Q3 -->|Small < 10K vertices| Exact2[Use Exact Algorithm]
-    Q3 -->|Large > 10K vertices| Approx[Use Approximate Algorithm]
-
-    Exact --> E1["MinCutAlgorithm::Exact<br/>Best general-purpose"]
-    Exact2 --> E1
-    Approx --> A1["new_approx(n, 0.1)<br/>10% error, fastest"]
-    Polylog --> P1["new_polylog_connectivity(n, 0.1)<br/>Predictable latency"]
-
-    style Exact fill:#90EE90
-    style Exact2 fill:#90EE90
-    style Approx fill:#FFD700
-    style Polylog fill:#87CEEB
-    style E1 fill:#90EE90
-    style A1 fill:#FFD700
-    style P1 fill:#87CEEB
-```
-
-### Quick Reference Table
-
-| Your Needs | Recommended Algorithm | Configuration |
-|------------|----------------------|---------------|
-| General-purpose, need exact results | **Exact** | `MinCutAlgorithm::Exact` |
-| Large graph (>10K vertices), can tolerate 5-10% error | **Approximate** | `new_approx(n, 0.1)` |
-| Real-time system, need guaranteed latency | **PolylogConnectivity** | `new_polylog_connectivity(n, 0.1)` |
-| Interactive application with frequent updates | **Approximate** | `new_approx(n, 0.05)` |
-| Scientific computing, need precision | **Exact** | `MinCutAlgorithm::Exact` |
-| Image segmentation (can accept small errors) | **Approximate** | `new_approx(n, 0.1)` |
-| Network monitoring (need alerts) | **PolylogConnectivity** | `new_polylog_connectivity(n, 0.05)` |
-
-### Performance Guidelines
-
-**Exact Algorithm**:
 ```rust
-// Best for: Most applications
-let mut mincut = MinCutWrapper::new(1000, MinCutAlgorithm::Exact);
+use ruvector_mincut::MinCutBuilder;
+
+let mincut = MinCutBuilder::new()
+    .with_edges(vec![(1, 2, 1.0), (2, 3, 1.0), (3, 1, 1.0)])
+    .build()?;
+assert!(mincut.min_cut().is_exact);
 ```
 
-**Approximate Algorithm**:
-```rust
-// Best for: Large graphs, speed-critical
-let mut mincut = MinCutWrapper::new_approx(
-    100_000,  // Large graph
-    0.1       // 10% approximation is usually fine
-);
-```
-
-**PolylogConnectivity**:
-```rust
-// Best for: Real-time systems
-let mut mincut = MinCutWrapper::new_polylog_connectivity(
-    50_000,   // Medium-large graph
-    0.05      // Tight approximation for accuracy
-);
-```
+Measure updates and memory on the graph family you intend to use. A changed
+cut can trigger a polynomial-time solve. `.approximate(ε)` does not reduce
+this cost. Research modules should be independently evaluated before their
+outputs are used in reliability, medical, or security decisions.
 
 ---
 
 ## Summary
 
-You now understand:
-
-1. **Graph fundamentals**: Vertices, edges, weights, and directions
-2. **Minimum cut**: Finding the weakest separation in a graph
-3. **Dynamic algorithms**: Why incremental updates are revolutionary (200× faster!)
-4. **Algorithm choices**: Exact, approximate, and worst-case deterministic options
-5. **Data structures**: The sophisticated machinery powering fast dynamic updates
-6. **Decision making**: How to choose the right algorithm for your application
-
-**Next Steps**:
-- Read [API Reference](./03-api-reference.md) for detailed function documentation
-- Explore [Examples](./04-examples.md) for practical use cases
-- Check out [Performance Guide](./05-performance.md) for optimization tips
-
-**Key Takeaway**: RuVector gives you state-of-the-art dynamic minimum cut algorithms that are 100-200× faster than static approaches for graphs that change over time. Choose your algorithm based on whether you need exact results, maximum speed, or worst-case guarantees.
+- `DynamicMinCut` maintains an exact cut and may recompute it after updates.
+- `ApproxMinCut` is a separate, experimental sampled-graph API.
+- Paper complexity bounds and historical benchmark observations are not
+  guarantees of the current main API.
