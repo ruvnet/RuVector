@@ -279,7 +279,8 @@ class NodeBackend {
             if (numIds.length === 0) {
                 return { deleted: 0, epoch: 0 };
             }
-            const result = this.handle.delete(numIds);
+            const deleteAsync = pickMethod(this.handle, ['deleteAsync']);
+            const result = deleteAsync ? await deleteAsync(numIds) : this.handle.delete(numIds);
             // Remove deleted entries from the mapping.
             const ops = [];
             for (const id of ids) {

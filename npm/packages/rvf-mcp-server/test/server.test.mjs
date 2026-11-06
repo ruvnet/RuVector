@@ -202,3 +202,18 @@ test("many single-vector ingests are auto-compacted so the file stays bounded", 
   })));
   assert.equal(q.results[0].id, "v299");
 });
+
+test('concurrent rvf_query requests all resolve with correct results', { timeout: 60_000 }, async () => {
+  const { client } = await connect();
+  const { storeId } = JSON.parse(text(await client.callTool({
+    name: 'rvf_create_store', arguments: { path: 'conc.rvf', dimensions: 8, metric: 'l2' },
+  })));
+  const vec = (i) => Array.from({ length: 8 }, (_, d) => (d === 0 ? i : Math.sin(i * 0.37 + d)));
+  const entries = Array.from({ length: 2000 }, (_, i) => ({ id: `c${i}`, vector: vec(i) }));
+  await client.callTool({ name: 'rvf_ingest', arguments: { storeId, entries } });
+  const ids = Array.from({ length: 64 }, (_, i) => i * 31);
+  const replies = await Promise.all(ids.map((i) => client.callTool({
+    name: 'rvf_query', arguments: { storeId, vector: vec(i), k: 1 },
+  })));
+  replies.forEach((r, j) => assert.equal(JSON.parse(text(r)).results[0].id, `c${ids[j]}`));
+});

@@ -41,6 +41,7 @@ class MockNativeHandle {
     return out.sort((a, b) => a.distance - b.distance).slice(0, k);
   }
   delete(ids) {
+    this.calls.push('delete');
     let deleted = 0;
     for (const id of ids) if (this.vectors.delete(id)) deleted++;
     return { deleted, epoch: 1 };
@@ -54,6 +55,7 @@ class AsyncMockNativeHandle extends MockNativeHandle {
   async ingestBatchAsync(flat, ids) { return this.viaSync('ingestBatchAsync', () => super.ingestBatch(flat, ids)); }
   async queryAsync(v, k) { return this.viaSync('queryAsync', () => super.query(v, k)); }
   async compactAsync() { return this.viaSync('compactAsync', () => super.compact()); }
+  async deleteAsync(ids) { return this.viaSync('deleteAsync', () => super.delete(ids)); }
   viaSync(name, fn) { const r = fn(); this.calls.pop(); this.calls.push(name); return r; }
 }
 
@@ -341,8 +343,10 @@ async function test(name, fn) {
     await b.ingestBatch([{ id: 'a', vector: vec(1) }]);
     const res = await b.query(vec(1), 1);
     await b.compact();
+    await b.delete(['a']);
     assert.strictEqual(res[0].id, 'a');
-    assert.deepStrictEqual(b['handle'].calls, ['ingestBatchAsync', 'queryAsync', 'compactAsync']);
+    assert.deepStrictEqual(b['handle'].calls, ['ingestBatchAsync', 'queryAsync', 'compactAsync', 'deleteAsync']);
+    assert.strictEqual(b['idToLabel'].has('a'), false);
     await b.close();
   });
 
@@ -352,8 +356,9 @@ async function test(name, fn) {
     await b.ingestBatch([{ id: 'a', vector: vec(1) }]);
     const res = await b.query(vec(1), 1);
     await b.compact();
+    await b.delete(['a']);
     assert.strictEqual(res[0].id, 'a');
-    assert.deepStrictEqual(b['handle'].calls, ['ingestBatch', 'query', 'compact']);
+    assert.deepStrictEqual(b['handle'].calls, ['ingestBatch', 'query', 'compact', 'delete']);
     await b.close();
   });
 
