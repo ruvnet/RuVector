@@ -11831,6 +11831,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-weaver"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "flate2",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tar",
+ "tempfile",
+ "toml",
+ "ureq 2.12.1",
+ "walkdir",
+]
+
+[[package]]
 name = "ruvix-aarch64"
 version = "0.1.0"
 dependencies = [
