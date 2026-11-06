@@ -16,6 +16,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 function resolveProjectRoot(startDir) {
   if (process.env.CLAUDE_PROJECT_DIR) {
@@ -39,6 +40,10 @@ const STORE_PATH = path.join(DATA_DIR, 'auto-memory-store.json');
 const GRAPH_PATH = path.join(DATA_DIR, 'graph-state.json');
 const RANKED_PATH = path.join(DATA_DIR, 'ranked-context.json');
 const PENDING_PATH = path.join(DATA_DIR, 'pending-insights.jsonl');
+// ADR-472: bounded local log of WHICH ranked entries each recall surfaced (ids + scores; never the prompt text).
+const RECALL_LOG_PATH = path.join(DATA_DIR, 'recall-log.jsonl');
+const RECALL_LOG_MAX_BYTES = 1024 * 1024;  // under the console's 2 MB read cap, so the log is readable when fullest
+const RECALL_LOG_MAX_RECORDS = 1000;
 const LEGACY_PENDING_PATH = path.join(process.cwd(), '.claude-flow', 'data', 'pending-insights.jsonl');
 const SESSION_DIR = path.join(PROJECT_ROOT, '.claude-flow', 'sessions');
 const SESSION_FILE = path.join(SESSION_DIR, 'current.json');
@@ -167,6 +172,20 @@ function fingerprintContent(text) {
     h2 ^= c; h2 = Math.imul(h2, 0x100000001b3 & 0xffffffff) >>> 0;
   }
   return `${h1.toString(16)}_${h2.toString(16)}_${norm.length}`;
+}
+
+// #2920 — aggregate content fingerprint for a whole store, used to detect
+// same-ID content edits (e.g. hand-editing a MEMORY.md section's body while
+// its heading/key, and therefore its generated ID, stays the same). Neither
+// entry count nor ID set changes on a same-ID edit, so any staleness check
+// based only on those two signals misses it; this folds each entry's own
+// content fingerprint into one combined value that does change.
+function storeFingerprint(entries) {
+  if (!entries || !entries.length) return '0';
+  const parts = entries
+    .map((e) => `${e.id || e.key || ''}:${fingerprintContent(e.content || e.summary || e.value || '')}`)
+    .sort();
+  return fingerprintContent(parts.join('|'));
 }
 
 function deduplicateByContent(entries) {
@@ -487,8 +506,14 @@ function init() {
     writeJSON(STORE_PATH, deduped);
   }
 
-  // Skip rebuild if graph is fresh and store hasn't changed
-  if (graphState && graphState.nodeCount === deduped.length) {
+  // Skip rebuild if graph is fresh and store hasn't changed. #2920: nodeCount
+  // alone doesn't detect a same-ID content edit (e.g. hand-editing a
+  // MEMORY.md section's body while its heading/key stays the same) — the
+  // count and ID set are unchanged, so a count-only check returns a stale
+  // cache hit and never refreshes ranked-context.json. Require the content
+  // fingerprint to match too.
+  const currentFingerprint = storeFingerprint(deduped);
+  if (graphState && graphState.nodeCount === deduped.length && graphState.contentFingerprint === currentFingerprint) {
     const age = Date.now() - (graphState.updatedAt || 0);
     if (age < 60000) {
       return {
@@ -532,6 +557,7 @@ function init() {
     version: 1,
     updatedAt: Date.now(),
     nodeCount: Object.keys(nodes).length,
+    contentFingerprint: currentFingerprint,
     nodes,
     edges,
     pageRanks,
@@ -574,11 +600,94 @@ function init() {
   };
 }
 
+// ── Recall log (ADR-472) ─────────────────────────────────────────────────────
+// One compact record per surfaced recall: when, which session, a one-way digest of the prompt, and the ids / scores /
+// ranks the hook surfaced (plus the router's pick). Never the prompt text, never values. Local, bounded, fail-open.
+
+/** First 16 hex characters of sha256(trimmed prompt): a join key, not a copy of the prompt. */
+function promptDigest(prompt) {
+  return crypto.createHash('sha256').update(String(prompt).trim()).digest('hex').slice(0, 16);
+}
+
+/** Ids and categories come from the user's own memory files; mask anything shaped like a credential before it is written. */
+function maskToken(value, max) {
+  return String(value == null ? '' : value)
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/(?:sk-|ghp_|gho_|xox[abp]-|AKIA|eyJ)[A-Za-z0-9_\-]{8,}|[A-Za-z0-9+\/=_-]{40,}/g, '[masked]')
+    .slice(0, max);
+}
+
+const OFF_RE = /^(0|false|off|no)$/i;
+
+/** Default ON (local file, ids and scores only; routing-outcomes.json already keeps task text). Off by RUFLO_RECALL_LOG=0 or claude-flow.config.json {"recallLog":{"enabled":false}}. */
+function recallLogEnabled() {
+  const env = process.env.RUFLO_RECALL_LOG;
+  if (env !== undefined && String(env).trim() !== '') return !OFF_RE.test(String(env).trim());
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'claude-flow.config.json'), 'utf-8'));
+    if (cfg && cfg.recallLog && cfg.recallLog.enabled === false) return false;
+  } catch { /* absent or malformed config = enabled */ }
+  return true;
+}
+
+/** A record is at least ~140 bytes, so a file under this size cannot hold more than RECALL_LOG_MAX_RECORDS: no need to count lines. */
+const RECALL_LOG_COUNT_FLOOR = 100 * 1024;
+
+/** Keep the newest half when the log passes its byte or record cap. Rewrite through a temp file so a reader never sees half a file. */
+function rotateRecallLog() {
+  try {
+    const stat = fs.statSync(RECALL_LOG_PATH);
+    if (stat.size < RECALL_LOG_COUNT_FLOOR) return;
+    const lines = fs.readFileSync(RECALL_LOG_PATH, 'utf-8').split('\n').filter(Boolean);
+    if (stat.size <= RECALL_LOG_MAX_BYTES && lines.length <= RECALL_LOG_MAX_RECORDS) return;
+    // Newest first until half of either cap is reached.
+    const keep = [];
+    let bytes = 0;
+    for (let i = lines.length - 1; i >= 0 && keep.length < RECALL_LOG_MAX_RECORDS / 2; i--) {
+      bytes += lines[i].length + 1;
+      if (bytes > RECALL_LOG_MAX_BYTES / 2) break;
+      keep.unshift(lines[i]);
+    }
+    const tmp = RECALL_LOG_PATH + '.' + process.pid + '.tmp';
+    fs.writeFileSync(tmp, keep.join('\n') + '\n', { encoding: 'utf-8', mode: 0o600 });
+    fs.renameSync(tmp, RECALL_LOG_PATH);
+  } catch { /* best effort */ }
+}
+
+/**
+ * appendRecall(detailed, meta) — one JSONL record for a recall getContextDetailed returned. meta: { sessionId, agent, confidence }.
+ * Returns true when a record was written. Never throws and never blocks the hook.
+ */
+function appendRecall(detailed, meta) {
+  try {
+    if (!detailed || !Array.isArray(detailed.surfaced) || detailed.surfaced.length === 0) return false;
+    if (!recallLogEnabled()) return false;
+    const m = meta || {};
+    const record = {
+      v: 1,
+      at: Date.now(),
+      sid: m.sessionId ? maskToken(m.sessionId, 64) : null,
+      digest: detailed.digest,
+      surfaced: detailed.surfaced.slice(0, 10).map((e) => ({
+        id: maskToken(e.id, 80),
+        score: Math.round((e.score || 0) * 10000) / 10000,
+        rank: e.rank,
+        cat: maskToken(e.category, 40),
+      })),
+    };
+    if (m.agent) record.router = { agent: maskToken(m.agent, 30), confidence: typeof m.confidence === 'number' ? Math.round(m.confidence * 1000) / 1000 : null };
+    ensureDataDir();
+    rotateRecallLog();
+    fs.appendFileSync(RECALL_LOG_PATH, JSON.stringify(record) + '\n', { encoding: 'utf-8', mode: 0o600 });
+    return true;
+  } catch { return false; }
+}
+
 /**
  * getContext(prompt) — Called from route. Budget: <15ms.
  * Matches prompt to ranked entries, returns top-5 formatted context.
  */
-function getContext(prompt) {
+function getContextDetailed(prompt) {
   if (!prompt) return null;
 
   const ranked = readJSON(RANKED_PATH);
@@ -632,7 +741,17 @@ function getContext(prompt) {
     lines.push(`  * (${e.score.toFixed(2)}) ${display} [rank #${i + 1}, ${accessed}x accessed]`);
   }
 
-  return lines.join('\n');
+  return {
+    text: lines.join('\n'),
+    digest: promptDigest(prompt),
+    surfaced: topEntries.map((e, i) => ({ id: e.id, score: e.score, rank: i + 1, category: e.category || '' })),
+  };
+}
+
+/** The context text the hook prints, or null. Thin wrapper over getContextDetailed (callers that only print keep working). */
+function getContext(prompt) {
+  const detailed = getContextDetailed(prompt);
+  return detailed ? detailed.text : null;
 }
 
 /**
@@ -809,11 +928,16 @@ function consolidate() {
     pageRanks = computePageRank(nodes, edges, 0.85, 30);
   }
 
-  // 6. Write updated graph
+  // 6. Write updated graph. #2920 follow-up: include contentFingerprint so
+  // init()'s cache-hit gate (line ~511) doesn't unconditionally miss on the
+  // very next init after a consolidate — without this, nodeCount alone
+  // matched but contentFingerprint was undefined here vs a real hash in
+  // init()'s own write, forcing a full rebuild every time.
   writeJSON(GRAPH_PATH, {
     version: 1,
     updatedAt: Date.now(),
     nodeCount: Object.keys(nodes).length,
+    contentFingerprint: storeFingerprint(store),
     nodes,
     edges,
     pageRanks,
@@ -847,8 +971,15 @@ function consolidate() {
     entries: rankedEntries,
   });
 
-  // 8. Persist updated store (deduped or with new insight entries)
-  if (newEntries > 0 || store.length < preDedupCount) writeJSON(STORE_PATH, store);
+  // 8. Persist updated store. #2920: this used to skip the write whenever
+  // dedup didn't shrink the array and no insight entries were added — but
+  // that's blind to a same-ID content edit (entry count and ID set both
+  // stay the same, only a field value changes), so an in-memory content
+  // update could be silently dropped instead of persisted. GRAPH_PATH and
+  // RANKED_PATH are rewritten unconditionally just above; writing the
+  // (already deduped, size-bounded per ADR-095 G6) store alongside them
+  // costs nothing near the <500ms budget and removes the whole bug class.
+  writeJSON(STORE_PATH, store);
 
   // 9. Save snapshot for delta tracking
   const updatedGraph = readJSON(GRAPH_PATH);
@@ -1104,6 +1235,10 @@ function stats(outputJson) {
 module.exports = {
   init,
   getContext,
+  getContextDetailed,
+  appendRecall,
+  recallLogEnabled,
+  promptDigest,
   recordEdit,
   feedback,
   consolidate,
