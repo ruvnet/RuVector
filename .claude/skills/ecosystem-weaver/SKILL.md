@@ -109,6 +109,12 @@ are skipped.
 - **Tokens.** `gcloud secrets versions access latest --secret=NPM_TOKEN|CARGO_REGISTRY_TOKEN --project=cognitum-20260110 --account=ruv@ruv.net`
   only at publish time, piped into the publish command; never printed,
   logged, or written to disk. `npm unpublish` is not available: gate first.
+- **Scratch directories.** Each lane creates its own temp dir with
+  `mktemp -d` (under its scratchpad or `/data/scratch`) and deletes ONLY that
+  dir, by its exact path, at the end. Never `rm -rf` a shared parent such as
+  `/data/scratch`, `/tmp/*` or another lane's worktree, and never use glob or
+  age-based sweeps. Two over-broad cleanups on 2026-11-05 removed other
+  lanes' work.
 - Explicit `git add <paths>` only. Commits end with
   `Co-Authored-By: claude-flow <ruv@ruv.net>`.
 
