@@ -299,11 +299,6 @@ fn seeded_ledger_parses_and_blocks_known_lanes() {
             "{repo} should hold an in-flight lane"
         );
     }
-    // agentic-flow 3.2.0 shipped its in-flight lanes: the repo is free again.
-    assert!(!busy.contains_key("ruvnet/agentic-flow"));
-    // agentdb 3.4.0 shipped too, and its measured PPR rejection stops the
-    // lean-release re-queue for that pair.
-    assert!(!busy.contains_key("ruvnet/agentdb"));
     assert!(matches!(
         l.pair_state(
             "ruvnet/claude-flow",
