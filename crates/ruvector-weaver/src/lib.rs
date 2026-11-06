@@ -20,5 +20,7 @@ pub mod readme;
 pub mod registry;
 pub mod release;
 pub mod scan;
+pub mod semver;
 pub mod svg;
 pub mod util;
+pub mod vuln;

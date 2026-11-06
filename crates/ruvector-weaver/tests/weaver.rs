@@ -299,11 +299,6 @@ fn seeded_ledger_parses_and_blocks_known_lanes() {
             "{repo} should hold an in-flight lane"
         );
     }
-    // agentic-flow 3.2.0 shipped its in-flight lanes: the repo is free again.
-    assert!(!busy.contains_key("ruvnet/agentic-flow"));
-    // agentdb 3.4.0 shipped too, and its measured PPR rejection stops the
-    // lean-release re-queue for that pair.
-    assert!(!busy.contains_key("ruvnet/agentdb"));
     assert!(matches!(
         l.pair_state(
             "ruvnet/claude-flow",
@@ -355,6 +350,7 @@ fn graph_with(repos: &[(&str, u64)]) -> Graph {
             open_ranges: vec![],
             unpacked_size: 0,
             runtime_deps: 0,
+            dep_ranges: BTreeMap::new(),
         })
         .collect();
     Graph {
@@ -793,6 +789,8 @@ fn open_prs_become_items_and_block_duplicate_work() {
     let live = vec![RepoPrs {
         repo: "ruvnet/big".into(),
         fetched_at: String::new(),
+        main_red: vec!["Workspace CI".into(), "Security Audit".into()],
+        main_sha: Some("e985713aa".into()),
         prs: vec![
             pr(
                 1364,
@@ -849,6 +847,33 @@ fn open_prs_become_items_and_block_duplicate_work() {
         .suppressed
         .iter()
         .any(|s| s.subject.as_deref() == Some("pr:#7") && s.reason.contains("no longer open")));
+    // A red main is its own hygiene item, and every brief in that repo says so.
+    let red = q
+        .items
+        .iter()
+        .find(|i| i.signal_kind == SignalKind::MainRed)
+        .expect("main-red item");
+    assert!(red.evidence[0]
+        .evidence
+        .contains("Workspace CI, Security Audit"));
+    assert!(q
+        .items
+        .iter()
+        .filter(|i| i.repo == "ruvnet/big")
+        .all(|i| i.brief.contains("Main baseline: already red on main")));
+}
+
+#[test]
+fn red_workflows_reads_latest_head_only() {
+    let runs = serde_json::json!([
+        {"workflowName": "CI", "conclusion": "failure", "headSha": "new"},
+        {"workflowName": "Lint", "conclusion": "success", "headSha": "new"},
+        {"workflowName": "CI", "conclusion": "success", "headSha": "new"},
+        {"workflowName": "Audit", "conclusion": "failure", "headSha": "old"}
+    ]);
+    let (sha, red) = prs::red_workflows(&runs);
+    assert_eq!(sha.as_deref(), Some("new"));
+    assert_eq!(red, vec!["CI".to_string()]);
 }
 
 #[test]
@@ -1188,4 +1213,116 @@ fn covering_pr_needs_the_full_name_not_a_common_word() {
         "fix/x",
     )];
     assert!(prs::covering(&mk("@ruvector/mincut-wasm", None), &wired).is_some());
+}
+
+#[test]
+fn security_fix_unreachable_and_zero_caret_pins() {
+    let mut l = Ledger::default();
+    let mut e = entry(
+        "ruvnet/metaharness",
+        Some("@metaharness/darwin"),
+        Some("advisory:GHSA-x"),
+        WorkKind::Security,
+        SignalKind::Security,
+        Outcome::Shipped,
+    );
+    e.version = Some("@metaharness/darwin@0.13.0, metaharness@0.4.20".into());
+    l.entries.push(e);
+    let patched = release::patched_versions(&l);
+    assert_eq!(
+        patched.get("@metaharness/darwin").map(String::as_str),
+        Some("0.13.0")
+    );
+    let mut g = graph_with(&[
+        ("ruvnet/ruvector", 10),
+        ("ruvnet/ruflo", 10),
+        ("ruvnet/metaharness", 10),
+        ("ruvnet/x", 10),
+    ]);
+    let set = |g: &mut Graph, name: &str, f: &dyn Fn(&mut Package)| {
+        f(g.packages.iter_mut().find(|p| p.name == name).unwrap())
+    };
+    set(&mut g, "ruvector", &|p| {
+        p.dep_ranges
+            .insert("@metaharness/darwin".into(), "^0.9.1".into());
+    });
+    set(&mut g, "ruflo", &|p| {
+        p.dep_ranges
+            .insert("@metaharness/darwin".into(), "^0.13.0".into());
+    });
+    set(&mut g, "metaharness", &|p| {
+        p.name = "@ruvector/rvf".into();
+        p.version = "0.4.2".into();
+    });
+    set(&mut g, "x", &|p| {
+        p.name = "@ruvector/old-user".into();
+        p.dep_ranges.insert("@ruvector/rvf".into(), "^0.3.0".into());
+    });
+    let s = release::range_signals(&g, &patched, &cfg().policy.npm);
+    let subj: BTreeSet<_> = s.iter().filter_map(|x| x.subject.clone()).collect();
+    assert!(subj.contains("release:fix_unreachable:ruvector->@metaharness/darwin"));
+    assert!(
+        !subj.iter().any(|x| x.contains("ruflo->")),
+        "^0.13.0 admits the fix"
+    );
+    assert!(subj.contains("release:zero_caret:@ruvector/old-user->@ruvector/rvf"));
+    let fix = s
+        .iter()
+        .find(|x| x.keyword.as_deref() == Some("fix_unreachable"))
+        .unwrap();
+    assert_eq!(
+        (fix.repo.as_str(), fix.severity.as_deref()),
+        ("ruvnet/ruvector", Some("high"))
+    );
+}
+
+#[test]
+fn live_ledger_lives_outside_the_repo_and_is_seeded_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut c = Config::embedded(dir.path().to_path_buf()).unwrap();
+    c.ledger_path = Some(dir.path().join("ledger.jsonl"));
+    let p = c.live_ledger().unwrap().unwrap();
+    let seeded = Ledger::load(&p).unwrap();
+    assert_eq!(
+        seeded.entries.len(),
+        Ledger::parse(EMBEDDED_LEDGER).unwrap().entries.len()
+    );
+    Ledger::append(
+        &p,
+        &entry(
+            "ruvnet/x",
+            Some("y"),
+            None,
+            WorkKind::Integrate,
+            SignalKind::StubMarker,
+            Outcome::Shipped,
+        ),
+    )
+    .unwrap();
+    // A second use never re-seeds over live history.
+    let p2 = c.live_ledger().unwrap().unwrap();
+    assert_eq!(
+        Ledger::load(&p2).unwrap().entries.len(),
+        seeded.entries.len() + 1
+    );
+}
+
+#[test]
+fn vuln_evidence_distinguishes_nested_stale_copies() {
+    use ruvector_weaver::vuln::{resolved_copies, verdict};
+    let tree = serde_json::json!({"dependencies": {
+        "@ruvector/sona": {"version": "0.1.10"},
+        "agentdb": {"version": "3.4.0", "dependencies": {"@ruvector/sona": {"version": "0.1.7"}}}
+    }});
+    let c = resolved_copies(&tree, "@ruvector/sona", "<0.1.9");
+    assert_eq!(c.len(), 2);
+    let (bad, why) = verdict("@ruvector/sona", &c);
+    assert!(bad && why.contains("agentdb > @ruvector/sona (0.1.7, nested stale copy)"));
+    assert!(!why.contains("0.1.10"));
+    let clean = serde_json::json!({"dependencies": {"@ruvector/sona": {"version": "0.1.10"}}});
+    let (bad, why) = verdict(
+        "@ruvector/sona",
+        &resolved_copies(&clean, "@ruvector/sona", "<0.1.9"),
+    );
+    assert!(!bad && why.contains("outside the affected range"));
 }

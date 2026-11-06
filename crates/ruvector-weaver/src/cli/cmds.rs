@@ -43,9 +43,8 @@ pub(super) fn entry(
 
 pub(super) fn ledger_path(ctx: &Ctx) -> Result<PathBuf> {
     ctx.cfg
-        .ledger_path
-        .clone()
-        .context("writing the ledger needs --config-dir (or run from the repo root)")
+        .live_ledger()?
+        .context("no live ledger path (set WEAVER_LEDGER)")
 }
 
 pub fn graph(ctx: &Ctx, fresh_downloads: bool, no_crates: bool, workers: usize) -> Result<()> {
@@ -349,6 +348,36 @@ pub fn ledger(ctx: &Ctx, op: LedgerOp) -> Result<()> {
                 e.repo,
                 path.display()
             );
+        }
+        LedgerOp::Import { file } => {
+            let path = ledger_path(ctx)?;
+            let live = Ledger::load(&path)?;
+            let incoming = Ledger::load(&file)?;
+            let mut added = 0;
+            for e in incoming
+                .entries
+                .iter()
+                .filter(|e| !live.entries.contains(e))
+            {
+                Ledger::append(&path, e)?;
+                added += 1;
+            }
+            println!(
+                "ledger: imported {added} of {} entries from {} -> {}",
+                incoming.entries.len(),
+                file.display(),
+                path.display()
+            );
+        }
+        LedgerOp::Snapshot => {
+            let live = ledger_path(ctx)?;
+            let seed = ctx
+                .cfg
+                .ledger_seed
+                .clone()
+                .context("no in-repo seed (run with --config-dir config/weaver)")?;
+            std::fs::copy(&live, &seed)?;
+            println!("ledger: snapshot {} -> {}", live.display(), seed.display());
         }
         LedgerOp::Show { repo, json } => {
             let l = load_ledger(ctx)?;

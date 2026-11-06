@@ -118,6 +118,17 @@ pub enum Cmd {
         #[arg(long)]
         lint: Option<PathBuf>,
     },
+    /// Resolve what a consumer actually installs (`npm ls --all`) before
+    /// filing a vulnerability report; exit 2 when no affected copy resolves.
+    VulnEvidence {
+        package: String,
+        /// Consumer project dir (with node_modules / lockfile).
+        #[arg(long)]
+        dir: PathBuf,
+        /// Affected semver range, e.g. "<0.1.9".
+        #[arg(long)]
+        affected: String,
+    },
     /// Capability gaps -> `create` items merged into queue.json.
     ProposeNew,
 }
@@ -156,6 +167,12 @@ pub enum LedgerOp {
         #[arg(long)]
         json: bool,
     },
+    /// Append entries from another ledger file (e.g. a pending file),
+    /// skipping ones already present.
+    Import { file: PathBuf },
+    /// Write the live ledger over the in-repo seed snapshot (for an
+    /// occasional snapshot PR; the live ledger itself never needs one).
+    Snapshot,
 }
 
 fn de<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, String> {
@@ -231,6 +248,11 @@ pub fn run() -> Result<()> {
             show,
         } => cmds::queue(&ctx, gate_top, no_create, show),
         Cmd::ProposeNew => cmds::propose_new(&ctx),
+        Cmd::VulnEvidence {
+            package,
+            dir,
+            affected,
+        } => sources::vuln_evidence(&package, &dir, &affected),
         Cmd::Ledger { op } => cmds::ledger(&ctx, op),
         Cmd::Readme {
             package,

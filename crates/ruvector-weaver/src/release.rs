@@ -374,3 +374,87 @@ pub fn dir_checks(
     ));
     Ok((name, out))
 }
+
+/// Patched versions from the ledger: shipped `security` entries whose
+/// `version` names `<candidate>@<ver>` (comma-separated lists allowed).
+pub fn patched_versions(ledger: &Ledger) -> std::collections::BTreeMap<String, String> {
+    let mut out: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
+    for e in ledger
+        .entries
+        .iter()
+        .filter(|e| e.outcome == Outcome::Shipped && e.kind == crate::model::WorkKind::Security)
+    {
+        let (Some(c), Some(vs)) = (&e.candidate, &e.version) else {
+            continue;
+        };
+        for item in vs.split(',').map(str::trim) {
+            if let Some(v) = item.strip_prefix(&format!("{c}@")) {
+                let newer = out
+                    .get(c)
+                    .and_then(|old| crate::semver::parse(old))
+                    .zip(crate::semver::parse(v))
+                    .map(|(o, n)| n > o)
+                    .unwrap_or(true);
+                if newer {
+                    out.insert(c.clone(), v.to_string());
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Range signals over the published fabric:
+/// - `fix_unreachable`: a dependent's declared range excludes the version
+///   that carries a shipped security fix (high priority);
+/// - `zero_caret`: a `^0.y`/`~0.y` range that already excludes the dep's
+///   current release (0.x carets behave like pins).
+pub fn range_signals(
+    graph: &crate::model::Graph,
+    patched: &std::collections::BTreeMap<String, String>,
+    npm: &NpmPolicy,
+) -> Vec<Signal> {
+    let mut out = Vec::new();
+    for p in graph.packages.iter().filter(|p| !p.platform_binary) {
+        let repo = p
+            .repo_slug
+            .clone()
+            .unwrap_or_else(|| "ruvnet/ruvector".into());
+        for (dep, range) in &p.dep_ranges {
+            let mk = |check: &str, conf: f64, sev: &str, ev: String| Signal {
+                kind: SignalKind::ReleaseRegression,
+                repo: repo.clone(),
+                file: format!("https://www.npmjs.com/package/{}", p.name),
+                line: 0,
+                evidence: clip(&ev, 220),
+                subject: Some(subject(check, &format!("{}->{dep}", p.name))),
+                keyword: Some(check.to_string()),
+                candidate: Some(dep.clone()),
+                confidence: conf,
+                severity: Some(sev.into()),
+                occurrences: 1,
+            };
+            if let Some(fixed) = patched.get(dep) {
+                if crate::semver::satisfies(range, fixed) == Some(false) {
+                    out.push(mk("fix_unreachable", 1.0, "high", format!(
+                        "{}@{} declares {dep} \"{range}\", which excludes the security fix in {dep}@{fixed}",
+                        p.name, p.version
+                    )));
+                    continue;
+                }
+            }
+            let current = graph.get(dep).map(|d| d.version.clone());
+            if let Some(cur) =
+                current.filter(|_| npm.is_ecosystem(dep) && crate::semver::is_zero_caret(range))
+            {
+                if crate::semver::satisfies(range, &cur) == Some(false) {
+                    out.push(mk("zero_caret", 0.4, "low", format!(
+                        "{}@{} pins {dep} \"{range}\" (0.x caret) and misses the current {dep}@{cur}",
+                        p.name, p.version
+                    )));
+                }
+            }
+        }
+    }
+    out
+}

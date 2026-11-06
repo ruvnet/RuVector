@@ -22,7 +22,9 @@ W="target/release/weaver --config-dir config/weaver"   # run from a ruvector che
 3. Rank: `$W queue --gate-top 20` -> `/data/scratch/weaver/queue.json`.
 4. For each entry in `.lanes` (at most 8, one per repo): record its items as
    `in_progress`, then hand ONE worker the `brief` of every item in that lane.
-5. Commit `config/weaver/ledger.jsonl`; schedule the next tick.
+5. The live ledger (`/data/scratch/weaver/ledger.jsonl`, or `$WEAVER_LEDGER`)
+   is outside the repo and needs no commit. Use `weaver ledger snapshot` only
+   occasionally, for a small seed PR. Schedule the next tick.
 
 ## Rules for a lane worker
 
@@ -39,7 +41,13 @@ W="target/release/weaver --config-dir config/weaver"   # run from a ruvector che
   (refuses on repository change, file/size/export drop, open ranges unless
   the ledger has an `override` for `release:<check>:<pkg>`).
 - First-party critical/high security findings: private advisory only.
+- Before filing a vulnerability against "latest": `weaver vuln-evidence <pkg> --dir <consumer> --affected "<range>"`
+  must show an affected resolved copy (nested stale copies are a parent bump).
 - Publish tokens only via `gcloud secrets versions access latest --secret=NPM_TOKEN --project=cognitum-20260110 --account=ruv@ruv.net`
   at publish time; never print or store them.
+- Workflows already red on main (listed under "Main baseline" in the brief) are
+  pre-existing: do not block on them; only the `main_red` item fixes them.
+- Scratch: create your own dir with `mktemp -d` and delete only that exact path;
+  never sweep shared dirs (`/data/scratch`, `/tmp/*`) or other worktrees.
 - Explicit `git add <paths>`; commit trailer `Co-Authored-By: claude-flow <ruv@ruv.net>`.
 - Report back with the exact `weaver ledger record` command from the brief.

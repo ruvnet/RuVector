@@ -44,5 +44,5 @@ smoke_timeout_secs = 300
 
 [scan]
 max_file_bytes = 1_000_000
-skip_dirs = ["node_modules", ".git", "dist", "build", "target", "vendor", "coverage", ".next", "out", ".turbo", ".cache"]
+skip_dirs = ["node_modules", ".git", "dist", "build", "target", "vendor", "coverage", ".next", "out", ".turbo", ".cache", "fixtures", "__fixtures__"]
 security_timeout_secs = 180

@@ -23,15 +23,21 @@ per signal type reweight the next ranking.
 
 ```bash
 cd /home/ruvultra/projects/ruvector            # or a dedicated worktree
-git worktree add ../wt-weaver-loop -b weaver/ledger origin/main
+git worktree add --detach ../wt-weaver-loop origin/main
 cd ../wt-weaver-loop
 cargo build --release -p ruvector-weaver
 export W="$PWD/target/release/weaver --config-dir $PWD/config/weaver"
 # work dir defaults to /data/scratch/weaver (graph.json, scan/, prs/, gates/, repos/, queue.json)
+# LIVE ledger: /data/scratch/weaver/ledger.jsonl (override with WEAVER_LEDGER)
 ```
 
-Run every command from the loop worktree so `--config-dir` points at the
-committed `config/weaver/{weaver.toml,capabilities.toml,ledger.jsonl}`.
+`--config-dir` supplies `weaver.toml` and `capabilities.toml`. The live
+ledger sits outside the repo, so recording an outcome never needs a PR. On
+first use it is seeded from the in-repo snapshot
+`config/weaver/ledger.jsonl`. To refresh that snapshot occasionally, run
+` ledger snapshot` and open one small PR. To apply entries collected
+elsewhere, run ` ledger import <file>`; entries that are already present
+are skipped.
 
 ## The tick (run in this order)
 
@@ -62,8 +68,9 @@ committed `config/weaver/{weaver.toml,capabilities.toml,ledger.jsonl}`.
      message, with the concatenated `brief` of the lane's `active` + `batched`
      items. Batched items are independent (distinct candidate, no shared
      evidence file) and ship in the same PR / release.
-5. **Persist and re-arm.** Commit `config/weaver/ledger.jsonl` on
-   `weaver/ledger` and keep its PR open/merged; store the tick summary
+5. **Persist and re-arm.** The live ledger is already durable (appended +
+   fsynced outside the repo); snapshot it into the repo only occasionally,
+   never once per tick (each push would restart CI). Store the tick summary
    (lanes dispatched, items suppressed, top-15) in memory
    (`memory_store` namespace `weaver`); re-arm with Monitor on the lane
    agents plus a ScheduleWakeup safety net (1200-1800 s). Do not poll.
@@ -71,6 +78,11 @@ committed `config/weaver/{weaver.toml,capabilities.toml,ledger.jsonl}`.
 ## Hard rules every lane follows
 
 - One active lane per repo; never two agents in one repo.
+- **A red main is a baseline, not a blocker.** `weaver prs` records the
+  workflows already failing on each repo's default branch. Each brief lists
+  them, and the repo gets its own `main_red` hygiene item. Compare your PR
+  against that baseline; do not stall on failures that were already there.
+  Hanging (never-finishing) jobs are not detected; record those as ledger items.
 - Never re-implement an open PR (the queue already suppresses those; if a
   lane finds one, stop and report `rejected: covered by #N`).
 - **Numbers only from the ledger.** No numeric performance claim in a
@@ -91,12 +103,23 @@ committed `config/weaver/{weaver.toml,capabilities.toml,ledger.jsonl}`.
   `$W gate <pkg> --dir <pkg dir>`. It refuses (exit 2) on repository change,
   sharp file/size/export drop, or open-ended ecosystem ranges, unless the
   ledger holds `--outcome override --subject release:<check>:<pkg>` with a reason.
+- **Evidence before filing.** Before reporting "X@latest is vulnerable",
+  run `$W vuln-evidence X --dir <consumer> --affected "<range>"`. It resolves
+  every installed copy (`npm ls --all`) and exits 2 when none falls inside
+  the affected range. A nested stale copy is a dependency bump in the parent
+  package, not an advisory against latest.
 - **Disclosure.** First-party critical/high security findings go to a
   private GitHub security advisory, never a public PR or issue. Upstream
   advisories (npm audit / RustSec) are already public and ship as a bump PR.
 - **Tokens.** `gcloud secrets versions access latest --secret=NPM_TOKEN|CARGO_REGISTRY_TOKEN --project=cognitum-20260110 --account=ruv@ruv.net`
   only at publish time, piped into the publish command; never printed,
   logged, or written to disk. `npm unpublish` is not available: gate first.
+- **Scratch directories.** Each lane creates its own temp dir with
+  `mktemp -d` (under its scratchpad or `/data/scratch`) and deletes ONLY that
+  dir, by its exact path, at the end. Never `rm -rf` a shared parent such as
+  `/data/scratch`, `/tmp/*` or another lane's worktree, and never use glob or
+  age-based sweeps. Two over-broad cleanups on 2026-11-05 removed other
+  lanes' work.
 - Explicit `git add <paths>` only. Commits end with
   `Co-Authored-By: claude-flow <ruv@ruv.net>`.
 
@@ -115,3 +138,7 @@ create when no capability covers it; `undeclared_import` / `unused_declared`
 land / close_with_ledger; `release_regression` -> release_fix. A rejection
 whose reason is a heavy dependency tree is re-queued automatically once the
 candidate ships a release under the size/dep bar in `weaver.toml [gate]`.
+`weaver release` also emits `fix_unreachable` (a dependent's declared range
+excludes the version carrying a shipped security fix in the ledger; queue a
+bump) and `zero_caret` (a `^0.y` / `~0.y` range that already misses the
+dep's current release, because 0.x carets act as pins).
