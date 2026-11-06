@@ -92,6 +92,10 @@ name = "canonical_bench"
 harness = false
 required-features = ["canonical"]
 
+[[bench]]
+name = "connectivity_backend_bench"
+harness = false
+
 [[example]]
 name = "temporal_attractors"
 path = "../../examples/mincut/temporal_attractors/src/main.rs"

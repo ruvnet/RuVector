@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "commit": "77d587ee86c09cdc61f4da5035c1d270eb6930bf",
+  "revision": 1,
+  "phase": "exploration",
+  "claim": "Replacing ruvector-mincut::wrapper::MinCutWrapper's DynamicConnectivity backend with PolylogConnectivity (an explicit, selectable ConnectivityBackend, baseline default unchanged) improves RuVectorGraphAnalyzer::partition() wall-clock latency and/or its scaling exponent with graph size, while preserving correctness and existing test suites.",
+  "independent_variable": "ConnectivityBackend (EulerTour baseline vs. Polylog), held as the only intentional difference between paired runs against the same DynamicGraph instance.",
+  "decision_rule": {
+    "primary_metric": "partition_latency_ms_mean",
+    "minimum_meaningful_effect": 0.10,
+    "expected_direction": "less",
+    "alpha": 0.05,
+    "comparison": "paired",
+    "outcomes": ["pass", "fail", "inconclusive"]
+  },
+  "datasets": [
+    {
+      "name": "synthetic_random_connected_graphs",
+      "source": "crates/ruvector-mincut/examples/connectivity_backend_partition_probe.rs (StdRng-seeded spanning-path + random extra edges, generated in-process, not downloaded)",
+      "sha256": "not_applicable: procedurally generated from a fixed seed list, not a static file; the generator function itself is the reproducibility artifact",
+      "sampling": "deterministic given seed; seeds [11,22,33,44,55] per graph size except n=19 (seed 11 only, documented exception)"
+    },
+    {
+      "name": "mincut_gated_forgetting_corpus",
+      "source": "crates/ruvector-agent-memory/examples/mincut_gated_forgetting_bench.rs (synthetic 6-cluster + bridge corpus, StdRng seed=341, unchanged from the 2026-09-05/2026-09-11 nightlies)",
+      "sha256": "not_applicable: procedurally generated, not a static file",
+      "sampling": "deterministic given seed=341, reused unmodified from prior nightlies"
+    }
+  ],
+  "embedding_space": {
+    "identity": "not_applicable",
+    "embedding_space_id": "not_applicable",
+    "query_api": "not_applicable",
+    "passage_api": "not_applicable",
+    "reason": "This experiment is a graph-algorithm latency/correctness study over ruvector-mincut's connectivity backend; it has no embedding space, no vector retrieval, and no ADR-281 EmbeddingSpaceIdentity applies."
+  },
+  "exploration_seeds": [11, 22, 33, 44, 55],
+  "confirmation_seeds": [],
+  "topology": {
+    "claimed": "ruvector-mincut production path: RuVectorGraphAnalyzer -> MinCutWrapper -> BoundedInstance (real, in-tree, unmodified cut-search algorithms)",
+    "implemented": "identical production path; only MinCutWrapper's internal conn_ds field type changed (DynamicConnectivity -> ConnectivityStructure enum wrapping either backend), with the default (EulerTour) behaviorally identical to pre-existing code",
+    "configuration": {
+      "graph_generator": "spanning-path (guarantees connectivity) + k*n/2 random extra edges, k=8",
+      "sizes": [19, 50, 84, 100, 200]
+    }
+  },
+  "budget": {
+    "primary_resource": "wall_clock_latency_ms",
+    "tolerance": 0.0,
+    "secondary_resources": ["downstream_compaction_latency_us (mincut_gated_forgetting_bench.rs)"]
+  },
+  "metrics": {
+    "partition_latency_ms": {
+      "n19": { "euler_mean": 45189.659, "euler_sd": 0.0, "euler_seeds": 1, "polylog_mean": 45008.937, "polylog_sd": 0.0, "polylog_seeds": 1 },
+      "n50": { "euler_mean": 29.016, "euler_sd": 9.383, "euler_worst": 42.347, "polylog_mean": 29.909, "polylog_sd": 7.200, "polylog_worst": 43.305, "seeds": 5 },
+      "n84": { "euler_mean": 109.495, "euler_sd": 17.369, "euler_worst": 129.208, "polylog_mean": 115.601, "polylog_sd": 21.930, "polylog_worst": 146.724, "seeds": 5 },
+      "n100": { "euler_mean": 151.800, "euler_sd": 20.247, "euler_worst": 185.735, "polylog_mean": 145.432, "polylog_sd": 11.060, "polylog_worst": 157.824, "seeds": 5 },
+      "n200": { "euler_mean": 410.688, "euler_sd": 16.708, "euler_worst": 428.486, "polylog_mean": 426.841, "polylog_sd": 14.830, "polylog_worst": 453.845, "seeds": 5 }
+    },
+    "mincut_gated_forgetting_bench_us": {
+      "euler_soft": 134776,
+      "euler_hard": 107973,
+      "polylog_soft": 109840,
+      "polylog_hard": 110935,
+      "baseline_coherence_weighted_euler": 79,
+      "baseline_coherence_weighted_polylog": 55
+    },
+    "root_cause": {
+      "instances_walked_per_partition_call": 16,
+      "evidence": "ad hoc instrumentation of MinCutWrapper::process_instances, not committed; log excerpts retained in README.md"
+    },
+    "decision": "fail",
+    "decision_rationale": "No graph size shows a mean difference exceeding the other backend's own standard deviation; n=100 shows Polylog nominally faster, confirming no systematic direction. Root-cause code-path analysis independently confirms the connectivity backend is outside BoundedInstance's cut-search call graph."
+  },
+  "memory_accounting": {
+    "applicable": false,
+    "reason": "No memory-budget claim is made; this is a latency/correctness claim. ConnectivityStructure adds only an enum discriminant around the pre-existing backend structs."
+  },
+  "environment": {
+    "os": "linux",
+    "arch": "x86_64",
+    "rustc": "1.97.0 (2d8144b78 2026-07-07)",
+    "cargo": "1.97.0 (c980f4866 2026-06-30)",
+    "profile": "release",
+    "parallelism": "single-threaded (no rayon/agentic feature exercised)"
+  },
+  "commands": [
+    "cargo build --release -p ruvector-mincut --example connectivity_backend_partition_probe",
+    "./target/release/examples/connectivity_backend_partition_probe",
+    "cargo build --release -p ruvector-agent-memory --example mincut_gated_forgetting_bench --features mincut-forget",
+    "./target/release/examples/mincut_gated_forgetting_bench",
+    "MINCUT_CONNECTIVITY_BACKEND=polylog ./target/release/examples/mincut_gated_forgetting_bench",
+    "cargo test --release -p ruvector-mincut --lib --tests",
+    "cargo test --release -p ruvector-agent-memory --features mincut-forget",
+    "cargo clippy -p ruvector-mincut -p ruvector-agent-memory --all-targets --all-features -- -D warnings",
+    "cargo fmt --all"
+  ],
+  "evaluator_version": "manual-nightly-session-2026-10-07",
+  "artifact_retention_class": "candidate"
+}

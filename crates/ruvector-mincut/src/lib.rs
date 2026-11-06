@@ -248,7 +248,7 @@ pub use compact::{
     CompactWitness, CoreResult, MAX_EDGES_PER_CORE, MAX_VERTICES_PER_CORE,
 };
 pub use connectivity::polylog::{PolylogConnectivity, PolylogStats};
-pub use connectivity::DynamicConnectivity;
+pub use connectivity::{ConnectivityBackend, ConnectivityStructure, DynamicConnectivity};
 pub use error::{MinCutError, Result};
 pub use euler::EulerTourTree;
 pub use expander::{Conductance, ExpanderComponent, ExpanderDecomposition};
@@ -457,6 +457,8 @@ pub mod prelude {
         CompactVertexId,
         CompactWitness,
         Conductance,
+        ConnectivityBackend,
+        ConnectivityStructure,
         CoreDistributor,
         CoreExecutor,
         CoreResult,

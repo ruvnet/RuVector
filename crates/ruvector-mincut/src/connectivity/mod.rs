@@ -411,6 +411,317 @@ impl Default for DynamicConnectivity {
     }
 }
 
+/// Which dynamic connectivity backend [`crate::wrapper::MinCutWrapper`] uses
+/// for its O(1)-amortized "is the whole graph connected" fast-path check
+/// (the first line of `MinCutWrapper::query`).
+///
+/// # Nightly research context (2026-10-07)
+///
+/// This enum exists because of a specific, falsified hypothesis: that
+/// swapping [`PolylogConnectivity`](polylog::PolylogConnectivity) in for
+/// [`DynamicConnectivity`] here would improve `RuVectorGraphAnalyzer::
+/// partition()`'s measured latency/scaling problem (ADR-345, ADR-346's
+/// "Next Research" item 2). It does not: instrumented profiling
+/// (`docs/research/nightly/2026-10-07-mincut-polylog-connectivity-backend/`)
+/// showed `partition()`'s cost is entirely inside
+/// `instance::bounded::BoundedInstance` (its brute-force / `LocalKCut`
+/// search paths, repeated redundantly across the ~16 geometric-range
+/// instances `MinCutWrapper::process_instances` walks through before a
+/// value lands in range) and never touches this connectivity structure at
+/// all beyond the one-time `is_connected()` check this enum's two backends
+/// both already answer in O(1)/O(log n) amortized time. The backend is
+/// still wired in as a real, selectable, independently testable and
+/// benchmarked choice (baseline [`ConnectivityBackend::EulerTour`] remains
+/// the default everywhere) because it is a legitimate, correct alternative
+/// for the one thing it actually governs — it is just not a fix for
+/// `partition()` latency, and this module says so rather than implying
+/// otherwise.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ConnectivityBackend {
+    /// Euler Tour Tree + union-find fallback (existing default, unchanged).
+    #[default]
+    EulerTour,
+    /// [`PolylogConnectivity`](polylog::PolylogConnectivity) (arXiv:2510.08297).
+    ///
+    /// # Known limitation (found 2026-10-07, not fixed)
+    ///
+    /// `PolylogConnectivity::delete_edge`'s replacement-edge search has a
+    /// reproducible correctness bug: `is_connected()` can disagree with
+    /// `DynamicConnectivity`'s (ground-truth, full-rebuild-on-delete)
+    /// answer after a mixed insert/delete sequence — see
+    /// `connectivity::backend_equivalence_tests::delete_heavy_sequences_can_diverge_polylog_is_connected_known_bug`.
+    /// Insert-only usage (every current caller in this codebase) is
+    /// verified equivalent to `EulerTour`; do not select this backend for
+    /// a workload with edge deletions until that bug is fixed.
+    Polylog,
+}
+
+/// Enum-dispatched connectivity structure selectable via [`ConnectivityBackend`].
+///
+/// Exposes the subset of `DynamicConnectivity`'s/`PolylogConnectivity`'s API
+/// that `MinCutWrapper` actually needs (`insert_edge`, `delete_edge`,
+/// `is_connected`, `connected`, `component_count`), so call sites are
+/// identical regardless of which backend is selected.
+#[derive(Debug)]
+pub enum ConnectivityStructure {
+    /// [`DynamicConnectivity`] backend.
+    EulerTour(DynamicConnectivity),
+    /// [`PolylogConnectivity`](polylog::PolylogConnectivity) backend.
+    Polylog(polylog::PolylogConnectivity),
+}
+
+impl ConnectivityStructure {
+    /// Construct a fresh, empty structure using the selected backend.
+    pub fn new(backend: ConnectivityBackend) -> Self {
+        match backend {
+            ConnectivityBackend::EulerTour => Self::EulerTour(DynamicConnectivity::new()),
+            ConnectivityBackend::Polylog => Self::Polylog(polylog::PolylogConnectivity::new()),
+        }
+    }
+
+    /// Which backend this instance is using.
+    pub fn backend(&self) -> ConnectivityBackend {
+        match self {
+            Self::EulerTour(_) => ConnectivityBackend::EulerTour,
+            Self::Polylog(_) => ConnectivityBackend::Polylog,
+        }
+    }
+
+    /// Insert an edge (see `DynamicConnectivity::insert_edge` /
+    /// `PolylogConnectivity::insert_edge`).
+    pub fn insert_edge(&mut self, u: VertexId, v: VertexId) {
+        match self {
+            Self::EulerTour(c) => c.insert_edge(u, v),
+            Self::Polylog(c) => c.insert_edge(u, v),
+        }
+    }
+
+    /// Delete an edge (see `DynamicConnectivity::delete_edge` /
+    /// `PolylogConnectivity::delete_edge`).
+    pub fn delete_edge(&mut self, u: VertexId, v: VertexId) {
+        match self {
+            Self::EulerTour(c) => c.delete_edge(u, v),
+            Self::Polylog(c) => c.delete_edge(u, v),
+        }
+    }
+
+    /// Whether the entire graph is a single connected component.
+    pub fn is_connected(&self) -> bool {
+        match self {
+            Self::EulerTour(c) => c.is_connected(),
+            Self::Polylog(c) => c.is_connected(),
+        }
+    }
+
+    /// Whether `u` and `v` are in the same connected component.
+    pub fn connected(&mut self, u: VertexId, v: VertexId) -> bool {
+        match self {
+            Self::EulerTour(c) => c.connected(u, v),
+            Self::Polylog(c) => c.connected(u, v),
+        }
+    }
+
+    /// Number of connected components.
+    pub fn component_count(&self) -> usize {
+        match self {
+            Self::EulerTour(c) => c.component_count(),
+            Self::Polylog(c) => c.component_count(),
+        }
+    }
+}
+
+impl Default for ConnectivityStructure {
+    fn default() -> Self {
+        Self::new(ConnectivityBackend::default())
+    }
+}
+
+#[cfg(test)]
+mod backend_equivalence_tests {
+    use super::*;
+    use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
+
+    /// `ConnectivityStructure::EulerTour` and `::Polylog` must agree on
+    /// `is_connected()`/`connected()` for identical **insert-only**
+    /// sequences: they are two implementations of the same specification
+    /// for that case, not two different connectivity policies.
+    ///
+    /// Deliberately insert-only: see
+    /// `delete_heavy_sequences_can_diverge_polylog_is_connected_known_bug`
+    /// below for a *found, not fixed* divergence once deletions enter the
+    /// sequence, and the 2026-10-07 nightly README's "Correctness
+    /// Evidence" section for why this is reported rather than silently
+    /// avoided. Every current caller of `ConnectivityStructure`/
+    /// `ConnectivityBackend` in this codebase (`RuVectorGraphAnalyzer::new`,
+    /// `MincutGatedForgetting::boundary_from_one_partition`) builds a fresh
+    /// graph and only ever inserts — this test's scope matches that real
+    /// usage honestly rather than claiming broader equivalence than was
+    /// verified.
+    #[test]
+    fn backends_agree_on_random_insert_only_sequences() {
+        for seed in [1u64, 2, 3, 4, 5] {
+            let mut rng = StdRng::seed_from_u64(seed);
+            let mut euler = ConnectivityStructure::new(ConnectivityBackend::EulerTour);
+            let mut polylog = ConnectivityStructure::new(ConnectivityBackend::Polylog);
+
+            let n: u64 = 30;
+
+            for step in 0..200 {
+                let u = rng.gen_range(0..n);
+                let v = rng.gen_range(0..n);
+                if u != v {
+                    euler.insert_edge(u, v);
+                    polylog.insert_edge(u, v);
+                }
+
+                assert_eq!(
+                    euler.is_connected(),
+                    polylog.is_connected(),
+                    "seed={seed} step={step}: is_connected() disagreement after insert-only sequence"
+                );
+
+                for probe in 0..5 {
+                    let a = rng.gen_range(0..n);
+                    let b = rng.gen_range(0..n);
+                    // `a == b` against a vertex neither backend has ever
+                    // seen is excluded here: see
+                    // `self_query_on_never_inserted_vertex_is_a_known_divergence`
+                    // below for why that one specific case is a documented,
+                    // bounded divergence rather than a bug this test should
+                    // catch.
+                    if a == b {
+                        continue;
+                    }
+                    assert_eq!(
+                        euler.connected(a, b),
+                        polylog.connected(a, b),
+                        "seed={seed} step={step} probe={probe}: connected({a},{b}) disagreement"
+                    );
+                }
+            }
+        }
+    }
+
+    /// **Found, not fixed, pre-existing bug** in
+    /// `PolylogConnectivity::delete_edge`'s replacement-edge search
+    /// (`find_replacement`), discovered while developing this run's
+    /// equivalence test: on a sequence mixing insertions and deletions,
+    /// `PolylogConnectivity::is_connected()` can disagree with
+    /// `DynamicConnectivity::is_connected()` (which recomputes from a full
+    /// rebuild of the current edge set on every delete, i.e. is ground
+    /// truth). Observed concretely at `seed=1, step=160` of a 200-step
+    /// insert/delete sequence (`insert` probability 0.7, `delete` 0.3,
+    /// `n=30` vertices) during this run's development: `DynamicConnectivity`
+    /// reported `true`, `PolylogConnectivity` reported `false` — i.e.
+    /// `PolylogConnectivity` under-reported connectivity after a deletion
+    /// where a valid replacement edge existed. Not root-caused or fixed in
+    /// this run (out of scope: this run's claim is about the connectivity
+    /// backend choice's effect on `partition()` latency, not an audit of
+    /// `PolylogConnectivity`'s own correctness) — filed as a concrete
+    /// limitation and follow-up instead. This test pins that the
+    /// divergence is reproducible (not a one-off flake) rather than
+    /// silently asserting equivalence the insert-only test above does not
+    /// cover; if a future fix to `PolylogConnectivity::delete_edge` makes
+    /// this test fail (no divergence found), that is good news and this
+    /// test should be deleted, not "fixed" to pass again.
+    #[test]
+    fn delete_heavy_sequences_can_diverge_polylog_is_connected_known_bug() {
+        let mut found_divergence = false;
+
+        'seeds: for seed in [1u64, 2, 3, 4, 5] {
+            let mut rng = StdRng::seed_from_u64(seed);
+            let mut euler = ConnectivityStructure::new(ConnectivityBackend::EulerTour);
+            let mut polylog = ConnectivityStructure::new(ConnectivityBackend::Polylog);
+
+            let n: u64 = 30;
+            let mut live_edges: Vec<(u64, u64)> = Vec::new();
+
+            for _step in 0..200 {
+                let do_insert = live_edges.is_empty() || rng.gen_bool(0.7);
+                if do_insert {
+                    let u = rng.gen_range(0..n);
+                    let v = rng.gen_range(0..n);
+                    if u != v {
+                        euler.insert_edge(u, v);
+                        polylog.insert_edge(u, v);
+                        live_edges.push((u, v));
+                    }
+                } else {
+                    let idx = rng.gen_range(0..live_edges.len());
+                    let (u, v) = live_edges.remove(idx);
+                    euler.delete_edge(u, v);
+                    polylog.delete_edge(u, v);
+                }
+
+                if euler.is_connected() != polylog.is_connected() {
+                    found_divergence = true;
+                    break 'seeds;
+                }
+            }
+        }
+
+        assert!(
+            found_divergence,
+            "expected to reproduce the known PolylogConnectivity::delete_edge \
+             is_connected() divergence on at least one of the fixed seeds; \
+             if this now fails, the underlying bug may have been fixed — \
+             see this test's doc comment before re-enabling the stronger \
+             insert+delete equivalence claim"
+        );
+    }
+
+    /// Documented, bounded divergence (found by this run's equivalence
+    /// test, not fixed — pre-existing in both backends, out of this run's
+    /// scope): `connected(v, v)` for a vertex `v` that was never inserted
+    /// into either structure disagrees between backends.
+    /// `DynamicConnectivity::find`/`connected` requires `v` to be a key in
+    /// `self.parent` and returns `false` otherwise; `PolylogConnectivity`'s
+    /// `LevelForest::find` returns `v` itself (identity) for an unknown
+    /// vertex without inserting it, so `find(v) == find(v)` trivially holds
+    /// and `connected(v, v)` returns `true`. Neither is "wrong" per either
+    /// struct's own doc comments (neither documents behavior for a vertex
+    /// outside its tracked universe); this test pins the divergence so a
+    /// future caller relying on cross-backend equivalence for this exact
+    /// edge case is not surprised by it.
+    #[test]
+    fn self_query_on_never_inserted_vertex_is_a_known_divergence() {
+        let mut euler = ConnectivityStructure::new(ConnectivityBackend::EulerTour);
+        let mut polylog = ConnectivityStructure::new(ConnectivityBackend::Polylog);
+        // Touch some other vertices so the structures are non-empty, but
+        // never insert vertex 999.
+        euler.insert_edge(0, 1);
+        polylog.insert_edge(0, 1);
+
+        assert!(
+            !euler.connected(999, 999),
+            "DynamicConnectivity::connected(v,v) on an unseen vertex is false"
+        );
+        assert!(
+            polylog.connected(999, 999),
+            "PolylogConnectivity::connected(v,v) on an unseen vertex is true \
+             (identity via LevelForest::find's unknown-vertex fallback) — \
+             the documented divergence this test pins"
+        );
+    }
+
+    #[test]
+    fn backend_accessor_reports_selected_backend() {
+        assert_eq!(
+            ConnectivityStructure::new(ConnectivityBackend::EulerTour).backend(),
+            ConnectivityBackend::EulerTour
+        );
+        assert_eq!(
+            ConnectivityStructure::new(ConnectivityBackend::Polylog).backend(),
+            ConnectivityBackend::Polylog
+        );
+        assert_eq!(
+            ConnectivityStructure::default().backend(),
+            ConnectivityBackend::EulerTour
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

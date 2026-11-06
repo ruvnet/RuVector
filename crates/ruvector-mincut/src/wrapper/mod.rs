@@ -23,7 +23,7 @@
 //! - O(log n) query time (amortized)
 //! - Subpolynomial update time per instance
 
-use crate::connectivity::DynamicConnectivity;
+use crate::connectivity::{ConnectivityBackend, ConnectivityStructure};
 use crate::graph::{DynamicGraph, EdgeId, VertexId};
 use crate::instance::{
     BoundedInstance, InstanceResult, ProperCutInstance, StubInstance, WitnessHandle,
@@ -91,8 +91,12 @@ struct Update {
 
 /// The main wrapper managing O(log n) bounded instances
 pub struct MinCutWrapper {
-    /// Dynamic connectivity checker
-    conn_ds: DynamicConnectivity,
+    /// Dynamic connectivity checker (selectable backend; see
+    /// [`ConnectivityBackend`]). Used only for the O(1)/O(log n)-amortized
+    /// whole-graph `is_connected()` fast path in [`Self::query`] — not on
+    /// `BoundedInstance`'s cut-search hot path. See
+    /// `docs/research/nightly/2026-10-07-mincut-polylog-connectivity-backend/`.
+    conn_ds: ConnectivityStructure,
 
     /// Bounded-range instances (Some if instantiated)
     instances: Vec<Option<Box<dyn ProperCutInstance>>>,
@@ -149,6 +153,27 @@ impl MinCutWrapper {
         })
     }
 
+    /// Create a new wrapper with the default instance factory and an
+    /// explicitly selected connectivity backend (see [`ConnectivityBackend`]).
+    ///
+    /// `ConnectivityBackend::EulerTour` is identical to [`Self::new`].
+    /// `ConnectivityBackend::Polylog` uses
+    /// [`PolylogConnectivity`](crate::connectivity::polylog::PolylogConnectivity)
+    /// instead, for the whole-graph `is_connected()` fast path only — it does
+    /// not change `BoundedInstance`'s cut search, which is where
+    /// `query()`/`partition()`'s cost actually lives (see the module-level
+    /// doc on [`ConnectivityBackend`]).
+    pub fn new_with_backend(graph: Arc<DynamicGraph>, backend: ConnectivityBackend) -> Self {
+        Self::with_factory_and_backend(graph, backend, |g, min, max| {
+            Box::new(BoundedInstance::init(g, min, max))
+        })
+    }
+
+    /// Which connectivity backend this wrapper is using.
+    pub fn connectivity_backend(&self) -> ConnectivityBackend {
+        self.conn_ds.backend()
+    }
+
     /// Create a wrapper with a custom instance factory
     ///
     /// # Arguments
@@ -165,6 +190,20 @@ impl MinCutWrapper {
     /// });
     /// ```
     pub fn with_factory<F>(graph: Arc<DynamicGraph>, factory: F) -> Self
+    where
+        F: Fn(&DynamicGraph, u64, u64) -> Box<dyn ProperCutInstance> + Send + Sync + 'static,
+    {
+        Self::with_factory_and_backend(graph, ConnectivityBackend::EulerTour, factory)
+    }
+
+    /// Create a wrapper with a custom instance factory and an explicitly
+    /// selected connectivity backend (see [`ConnectivityBackend`] and
+    /// [`Self::new_with_backend`]).
+    pub fn with_factory_and_backend<F>(
+        graph: Arc<DynamicGraph>,
+        backend: ConnectivityBackend,
+        factory: F,
+    ) -> Self
     where
         F: Fn(&DynamicGraph, u64, u64) -> Box<dyn ProperCutInstance> + Send + Sync + 'static,
     {
@@ -185,7 +224,7 @@ impl MinCutWrapper {
         }
 
         Self {
-            conn_ds: DynamicConnectivity::new(),
+            conn_ds: ConnectivityStructure::new(backend),
             instances,
             lambda_min,
             lambda_max,
