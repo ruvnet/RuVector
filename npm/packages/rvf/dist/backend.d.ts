@@ -56,6 +56,11 @@ export declare class NodeBackend implements RvfBackend {
     private labelToId;
     private nextLabel;
     private storePath;
+    private readOnly;
+    private journal;
+    /** Byte size of the last snapshot written or loaded. */
+    private snapshotBytes;
+    private journalCompactMinBytes;
     private loadNative;
     private ensureHandle;
     /** Release a native handle without persisting mappings after open failed. */
@@ -91,6 +96,16 @@ export declare class NodeBackend implements RvfBackend {
     private resolveLabel;
     /** Path to the sidecar mappings file. */
     private mappingsPath;
+    /** Journal ops for labels allocated since `fromLabel` (labels are sequential). */
+    private newLabelOps;
+    /**
+     * Append ops to the id-map journal. If the append fails, labels allocated
+     * since `rollbackTo` are released so memory never runs ahead of disk.
+     */
+    private persistOps;
+    /** Fold the journal into a fresh snapshot once it outgrows the snapshot. */
+    private maybeCompactJournal;
+    private closeJournal;
     /**
      * Persist the string↔label mapping to a sidecar JSON file.
      *
@@ -114,6 +129,14 @@ export declare class NodeBackend implements RvfBackend {
      * raised so the caller learns string-id operations are unsafe.
      */
     private loadMappings;
+    /**
+     * Replay `<sidecar>.journal` over the loaded snapshot. A torn last append
+     * (crash mid-write) is dropped, and cut off on read-write opens so the next
+     * append cannot fuse with it; any other damage fails loud like a corrupt
+     * snapshot does.
+     */
+    private replayJournalFile;
+    private loadSnapshot;
 }
 /**
  * Backend that delegates to the `@ruvector/rvf-wasm` WASM build.

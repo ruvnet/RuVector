@@ -3,10 +3,23 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { RvfMcpServer } from '../dist/index.js';
 
+const tmpDirs = [];
+function tempDataDir() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rvf-mcp-test-'));
+  tmpDirs.push(dir);
+  return dir;
+}
+process.on('exit', () => {
+  for (const d of tmpDirs) fs.rmSync(d, { recursive: true, force: true });
+});
+
 async function connect(options) {
-  const server = new RvfMcpServer(options);
+  const server = new RvfMcpServer({ dataDir: tempDataDir(), ...options });
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
   await server.connect(serverT);
   const client = new Client({ name: 'test', version: '1.0.0' });
@@ -71,4 +84,121 @@ test('oversized dimensions, k and batches are rejected', { timeout: 10_000 }, as
   const entries = Array.from({ length: 10_001 }, (_, i) => ({ id: String(i), vector: [i] }));
   const hugeBatch = await client.callTool({ name: 'rvf_ingest', arguments: { storeId, entries } });
   assert.equal(hugeBatch.isError, true);
+});
+
+async function call(client, name, args) {
+  const res = await client.callTool({ name, arguments: args });
+  const t = text(res);
+  return t.startsWith('Error:') ? { error: t } : JSON.parse(t);
+}
+
+test('stores persist on disk across a server restart', { timeout: 30_000 }, async () => {
+  const dataDir = tempDataDir();
+  let { server, client } = await connect({ dataDir });
+  const { storeId } = await call(client, 'rvf_create_store', { path: 'nested/p.rvf', dimensions: 3, metric: 'l2' });
+  await call(client, 'rvf_ingest', {
+    storeId,
+    entries: [
+      { id: 'red', vector: [1, 0, 0], metadata: { color: 'red', n: 1 } },
+      { id: 'green', vector: [0, 1, 0], metadata: { color: 'green', n: 2 } },
+      { id: 'blue', vector: [0, 0, 1] },
+    ],
+  });
+  await call(client, 'rvf_delete', { storeId, ids: ['blue'] });
+  assert.ok(fs.existsSync(path.join(dataDir, 'nested', 'p.rvf')), 'real .rvf file on disk');
+  await server.close();
+
+  ({ server, client } = await connect({ dataDir }));
+  const opened = await call(client, 'rvf_open_store', { path: 'nested/p.rvf' });
+  assert.equal(opened.dimensions, 3);
+  assert.equal(opened.metric, 'l2');
+  const sid = opened.storeId;
+  const status = await call(client, 'rvf_status', { storeId: sid });
+  assert.equal(status.totalVectors, 2);
+  const q = await call(client, 'rvf_query', { storeId: sid, vector: [0.9, 0.1, 0], k: 3 });
+  assert.deepEqual(q.results.map((r) => r.id), ['red', 'green']);
+  const filtered = await call(client, 'rvf_query', { storeId: sid, vector: [1, 0, 0], k: 3, filter: { color: 'green' } });
+  assert.deepEqual(filtered.results.map((r) => r.id), ['green']);
+  const df = await call(client, 'rvf_delete_filter', { storeId: sid, filter: { n: 1 } });
+  assert.equal(df.deleted, 1);
+  assert.equal(df.remaining, 1);
+  await call(client, 'rvf_close_store', { storeId: sid });
+
+  // Read-only reopen sees the delete and refuses writes.
+  const ro = await call(client, 'rvf_open_store', { path: 'nested/p.rvf', readOnly: true });
+  const left = await call(client, 'rvf_query', { storeId: ro.storeId, vector: [1, 0, 0], k: 3 });
+  assert.deepEqual(left.results.map((r) => r.id), ['green']);
+  const denied = await call(client, 'rvf_ingest', { storeId: ro.storeId, entries: [{ id: 'x', vector: [1, 1, 1] }] });
+  assert.match(denied.error, /read-only/);
+  await server.close();
+});
+
+test('re-ingesting an id replaces its vector and metadata', { timeout: 10_000 }, async () => {
+  const { server, client } = await connect();
+  const { storeId } = await call(client, 'rvf_create_store', { path: 'u.rvf', dimensions: 2 });
+  await call(client, 'rvf_ingest', { storeId, entries: [{ id: 'a', vector: [0, 0], metadata: { tag: 'old' } }] });
+  const res = await call(client, 'rvf_ingest', { storeId, entries: [{ id: 'a', vector: [9, 9] }, { id: 'b', vector: [1] }] });
+  assert.deepEqual([res.accepted, res.rejected, res.totalVectors], [1, 1, 1]);
+  const q = await call(client, 'rvf_query', { storeId, vector: [9, 9], k: 1 });
+  assert.equal(q.results[0].id, 'a');
+  assert.equal(q.results[0].distance, 0);
+  const tagged = await call(client, 'rvf_query', { storeId, vector: [9, 9], k: 1, filter: { tag: 'old' } });
+  assert.deepEqual(tagged.results, []);
+  await server.close();
+});
+
+test('store paths cannot escape the data dir', { timeout: 10_000 }, async () => {
+  const dataDir = tempDataDir();
+  const outside = tempDataDir();
+  fs.symlinkSync(outside, path.join(dataDir, 'link'));
+  fs.symlinkSync(path.join(outside, 'dangling.rvf'), path.join(dataDir, 'dangle.rvf'));
+  const { server, client } = await connect({ dataDir });
+  const evil = ['../evil.rvf', 'a/../../evil.rvf', '/tmp/evil.rvf', 'link/evil.rvf',
+    'link/sub/deeper/evil.rvf', 'dangle.rvf', 'a\0b.rvf', ''];
+  for (const p of evil) {
+    const created = await call(client, 'rvf_create_store', { path: p, dimensions: 2 });
+    assert.ok(created.error, `create accepted ${JSON.stringify(p)}`);
+    const opened = await call(client, 'rvf_open_store', { path: p });
+    assert.ok(opened.error, `open accepted ${JSON.stringify(p)}`);
+  }
+  assert.deepEqual(fs.readdirSync(outside), [], 'nothing created outside the data dir');
+  const missing = await call(client, 'rvf_open_store', { path: 'no/such/dir/x.rvf' });
+  assert.match(missing.error, /does not exist/);
+  assert.ok(!fs.existsSync(path.join(dataDir, 'no')), 'open does not create directories');
+  assert.ok(!fs.existsSync(path.join(dataDir, '..', 'evil.rvf')));
+  await server.close();
+});
+
+test('creating over an existing store is refused', { timeout: 10_000 }, async () => {
+  const { server, client } = await connect();
+  const first = await call(client, 'rvf_create_store', { path: 'dup.rvf', dimensions: 2 });
+  await call(client, 'rvf_close_store', { storeId: first.storeId });
+  const second = await call(client, 'rvf_create_store', { path: 'dup.rvf', dimensions: 2 });
+  assert.ok(second.error);
+  await server.close();
+});
+
+test("many single-vector ingests are auto-compacted so the file stays bounded", { timeout: 120_000 }, async () => {
+  const dataDir = tempDataDir();
+  const { client } = await connect({ dataDir, autoCompact: { minBytes: 256 * 1024, ratio: 8 } });
+  const { storeId } = JSON.parse(text(await client.callTool({
+    name: "rvf_create_store", arguments: { path: "grow.rvf", dimensions: 16, metric: "l2" },
+  })));
+  let compactions = 0;
+  for (let i = 0; i < 300; i++) {
+    const vector = Array.from({ length: 16 }, (_, d) => (d === 0 ? i : ((i * 31 + d * 7) % 97) / 97));
+    const r = JSON.parse(text(await client.callTool({
+      name: "rvf_ingest", arguments: { storeId, entries: [{ id: `v${i}`, vector }] },
+    })));
+    if (r.autoCompacted) compactions++;
+  }
+  const st = JSON.parse(text(await client.callTool({ name: "rvf_status", arguments: { storeId } })));
+  assert.equal(st.totalVectors, 300);
+  assert.ok(compactions > 0, "expected at least one auto-compaction");
+  const size = fs.statSync(path.join(dataDir, "grow.rvf")).size;
+  assert.ok(size < 2 * 1024 * 1024, `file grew to ${size} bytes`);
+  const q = JSON.parse(text(await client.callTool({
+    name: "rvf_query", arguments: { storeId, vector: Array.from({ length: 16 }, (_, d) => (d === 0 ? 299 : ((299 * 31 + d * 7) % 97) / 97)), k: 1 },
+  })));
+  assert.equal(q.results[0].id, "v299");
 });

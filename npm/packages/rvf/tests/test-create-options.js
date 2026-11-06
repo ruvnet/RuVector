@@ -95,6 +95,22 @@ async function test(name, fn) {
     }
   });
 
+  await test('status maps the camelCase fields napi-rs emits (fileSize, currentEpoch)', async () => {
+    const backend = new NodeBackend();
+    backend['native'] = {
+      create: () => ({
+        status: () => ({ totalVectors: 3, totalSegments: 2, fileSize: 4096, currentEpoch: 7, profileId: 0, compactionState: 'idle', deadSpaceRatio: 0, readOnly: false }),
+        close() {},
+      }),
+    };
+    backend['loadNative'] = async () => {};
+    await backend.create('/tmp/f.rvf', { dimensions: 4 });
+    const s = await backend.status();
+    assert.strictEqual(s.fileSizeBytes, 4096);
+    assert.strictEqual(s.epoch, 7);
+    assert.strictEqual(s.totalVectors, 3);
+  });
+
   console.log(`\n${'='.repeat(60)}`);
   console.log(`Results: ${passed} passed, ${failed} failed, ${passed + failed} total`);
   console.log('='.repeat(60));
