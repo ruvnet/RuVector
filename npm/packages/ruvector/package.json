@@ -70,7 +70,7 @@
     "@ruvector/attention": "^2.2.3",
     "@ruvector/core": "^0.1.25",
     "@ruvector/gnn": "^0.1.22",
-    "@ruvector/sona": "^0.1.4",
+    "@ruvector/sona": "^0.1.11",
     "chalk": "^4.1.2",
     "commander": "^11.1.0",
     "ora": "^5.4.1"

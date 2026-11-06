@@ -53,6 +53,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   outputs (max |diff| 1.8e-3 on hyperbolic, float drift). `@ruvector/core`,
   `gnn` and `sona` already resolve to their latest. Guarded by
   `test/attention-panic.js`.
+- `harness status` no longer imports `@metaharness/darwin` to report it (darwin
+  0.13 eagerly loads `@babel/parser`, ~35 ms, which pushed status past the
+  ADR-256 startup budget: +135 ms vs 120 ms on CI). Status reports darwin as
+  installed, with its real installed version, without loading it; `harness
+  doctor` still imports every package. Delta back to ~+40 ms.
+- Security: `@ruvector/sona` floor raised from `^0.1.4` to `^0.1.11`
+  (GHSA-c27m-v4wg-f9qj, affects < 0.1.9; 0.1.11 adds catch_unwind on every sync
+  NAPI entry point and a bounded trajectory store) so existing lockfiles move.
 
 ## [ruvector 0.3.12] - 2026-11-05
 ### Fixed
