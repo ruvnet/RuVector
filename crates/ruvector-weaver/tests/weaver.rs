@@ -1594,3 +1594,56 @@ fn no_cycle_uses_the_published_graph_and_ignores_repo_siblings() {
         r.detail
     );
 }
+
+// ---- package-less items -----------------------------------------------------
+
+#[test]
+fn packageless_items_are_never_gated() {
+    use ruvector_weaver::brief::brief;
+    use ruvector_weaver::gate::is_packageless;
+    assert!(is_packageless("-"));
+    assert!(is_packageless(" - "));
+    assert!(is_packageless(""));
+    assert!(!is_packageless("ruvector"));
+    assert!(!is_packageless("@ruvector/core"));
+
+    let mut item = WorkItem {
+        id: "ci".into(),
+        kind: WorkKind::Hygiene,
+        status: LaneStatus::Deferred,
+        repo: "ruvnet/big".into(),
+        subject: Some("ci:main-red".into()),
+        candidate: None,
+        signal_kind: SignalKind::MainRed,
+        score: 0.0,
+        evidence: vec![],
+        gates: vec![],
+        disclosure: "public_pr".into(),
+        required_test: String::new(),
+        brief: String::new(),
+    };
+    let g = Graph::default();
+    assert!(!brief(&item, &g, None).contains("weaver gate"));
+    item.candidate = Some("-".into());
+    assert!(!brief(&item, &g, None).contains("weaver gate"));
+    item.candidate = Some("ruvector".into());
+    assert!(brief(&item, &g, None).contains("weaver gate ruvector --consumer ruvnet/big"));
+}
+
+#[test]
+fn gate_cli_skips_packageless_item() {
+    let work = std::env::temp_dir().join(format!("weaver-gate-skip-{}", std::process::id()));
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_weaver"))
+        .args(["--work-dir"])
+        .arg(&work)
+        .args(["--cache-ttl-hours", "0", "gate", "-"])
+        .output()
+        .expect("run weaver");
+    let _ = std::fs::remove_dir_all(&work);
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(String::from_utf8_lossy(&out.stdout).contains("gate skipped"));
+}

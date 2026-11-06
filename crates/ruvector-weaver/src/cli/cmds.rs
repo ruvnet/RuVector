@@ -132,6 +132,10 @@ pub fn gate(
     run_tests: bool,
     record: bool,
 ) -> Result<()> {
+    if gate::is_packageless(package) {
+        println!("gate skipped: `{package}` is not a package (item has no candidate to gate)");
+        return Ok(());
+    }
     let g: Graph = read_json(&ctx.graph_path())?;
     let reg = NpmRegistry::new(ctx.http.clone());
     let ledger = load_ledger(ctx)?;
