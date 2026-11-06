@@ -107,6 +107,27 @@ async function testMcp() {
     assert.strictEqual(s.results[0].id, 'v7', 'a stored vector is its own nearest neighbour');
     const escape = await call('diskann_build', { path: '../../outside-idx', vectors: records.slice(0, 2) });
     assert.strictEqual(escape.success, false, 'paths outside the working directory are rejected');
+
+    // Index files planted as symlinks inside a confined directory must not be
+    // followed: the save would write (and the load read) outside the workspace.
+    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ruvector-diskann-outside-'));
+    try {
+      const linked = path.join(work, 'linked-idx');
+      fs.mkdirSync(linked);
+      const victim = path.join(outsideDir, 'victim.txt');
+      fs.writeFileSync(victim, 'ORIGINAL\n');
+      fs.symlinkSync(victim, path.join(linked, 'ids.json'));
+      fs.symlinkSync(path.join(outsideDir, 'created.bin'), path.join(linked, 'graph.bin'));
+      const linkedBuild = await call('diskann_build', { path: 'linked-idx', vectors: records.slice(0, 2) });
+      assert.strictEqual(linkedBuild.success, false, 'symlinked index files are refused');
+      assert.match(linkedBuild.error, /symbolic link|not a regular file/);
+      assert.strictEqual(fs.readFileSync(victim, 'utf8'), 'ORIGINAL\n', 'file outside the workspace was not overwritten');
+      assert.ok(!fs.existsSync(path.join(outsideDir, 'created.bin')), 'no file was created outside the workspace');
+      const linkedSearch = await call('diskann_search', { path: 'linked-idx', vector: records[0].vector, k: 1 });
+      assert.strictEqual(linkedSearch.success, false, 'loading through symlinked index files is refused');
+    } finally {
+      fs.rmSync(outsideDir, { recursive: true, force: true });
+    }
     console.log('  PASS  MCP diskann_build/diskann_search (and path confinement)');
   } finally {
     child.stdin.end();
