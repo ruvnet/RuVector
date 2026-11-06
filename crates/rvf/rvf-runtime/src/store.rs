@@ -2021,7 +2021,7 @@ impl RvfStore {
     /// graph on the query path. Building a large graph can make close slow.
     pub fn close(mut self) -> Result<(), RvfError> {
         if !self.read_only && self.index_eligible(&QueryOptions::default()) {
-            let mut guard = self.index.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.index.write().unwrap_or_else(|e| e.into_inner());
             if guard.is_none() {
                 *guard = Some(VectorIndex::build(
                     &self.vectors,
