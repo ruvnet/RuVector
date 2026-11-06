@@ -1,0 +1,29 @@
+ruvector-mincut: connectivity-backend bench (baseline vs PolylogConnectivity vs DynamicConnectivity)
+WARM_REPEATS=5 DETERMINISM_REBUILDS=5 DETERMINISM_SIZES=[50]
+
+=== n=50 (k=8) ===
+baseline(Bfs)          cold_build=   0.615ms cold_query= 138.288ms warm_mean= 30099.713us warm_min= 25890.934us warm_max= 34413.408us cut=16 determinism=stable
+candidate_A(Polylog)   cold_build=   0.451ms cold_query= 127.639ms warm_mean= 26700.431us warm_min= 26153.704us warm_max= 27356.108us cut=16 determinism=stable
+candidate_B(Ett)       cold_build=   0.525ms cold_query= 117.471ms warm_mean= 26033.343us warm_min= 25611.052us warm_max= 26834.104us cut=16 determinism=stable
+  warm speedup: candidate_A=1.13x candidate_B=1.16x | cold(end-to-end) speedup: candidate_A=1.08x
+
+=== n=100 (k=8) ===
+baseline(Bfs)          cold_build=   1.460ms cold_query= 757.362ms warm_mean=165938.785us warm_min=150120.469us warm_max=187019.639us cut=16 determinism=not-checked
+candidate_A(Polylog)   cold_build=   1.348ms cold_query= 754.164ms warm_mean=150393.092us warm_min=140729.942us warm_max=167326.534us cut=16 determinism=not-checked
+candidate_B(Ett)       cold_build=   1.154ms cold_query= 832.090ms warm_mean=156772.701us warm_min=132606.538us warm_max=185023.355us cut=16 determinism=not-checked
+  warm speedup: candidate_A=1.10x candidate_B=1.06x | cold(end-to-end) speedup: candidate_A=1.00x
+
+=== n=200 (k=8) ===
+baseline(Bfs)          cold_build=   1.884ms cold_query=4108.936ms warm_mean=860482.677us warm_min=813629.495us warm_max=947493.521us cut=16 determinism=not-checked
+candidate_A(Polylog)   cold_build=   1.923ms cold_query=3984.500ms warm_mean=810565.922us warm_min=771418.022us warm_max=860052.686us cut=16 determinism=not-checked
+candidate_B(Ett)       cold_build=   1.919ms cold_query=3996.419ms warm_mean=857213.060us warm_min=795735.815us warm_max=933351.592us cut=16 determinism=not-checked
+  warm speedup: candidate_A=1.06x candidate_B=1.00x | cold(end-to-end) speedup: candidate_A=1.03x
+
+=== n=400 (k=8) ===
+baseline(Bfs)          cold_build=   3.668ms cold_query=16902.949ms warm_mean=3630117.976us warm_min=3493213.663us warm_max=3767495.593us cut=16 determinism=not-checked
+candidate_A(Polylog)   cold_build=   3.513ms cold_query=16308.208ms warm_mean=3384571.556us warm_min=3315495.415us warm_max=3459643.648us cut=16 determinism=not-checked
+candidate_B(Ett)       cold_build=   3.440ms cold_query=16708.073ms warm_mean=3467394.157us warm_min=3329619.029us warm_max=3675162.999us cut=16 determinism=not-checked
+  warm speedup: candidate_A=1.07x candidate_B=1.05x | cold(end-to-end) speedup: candidate_A=1.04x
+
+all_variants_agree_with_baseline=true (correctness invariant across all sizes)
+EXIT=0

@@ -3,6 +3,7 @@
 //! Production implementation of ProperCutInstance that uses the
 //! deterministic local k-cut oracle from the paper.
 
+use super::bounded_conn::{BfsConn, ConnBackend, EttConn, PolylogConn};
 use super::witness::WitnessHandle;
 use super::{InstanceResult, ProperCutInstance};
 use crate::certificate::{
@@ -16,6 +17,7 @@ use crate::localkcut::paper_impl::{
 };
 use roaring::RoaringBitmap;
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 
 /// Cached boundary value for incremental updates
@@ -31,7 +33,15 @@ struct BoundaryCache {
 ///
 /// Maintains a family of candidate cuts and uses LocalKCut
 /// to find new cuts or certify none exist in the range.
-pub struct BoundedInstance {
+///
+/// Generic over the connectivity backend `C` used for the cheap
+/// "is the graph currently disconnected" fast path (see
+/// [`super::bounded_conn`] for why this is the one thing parameterized
+/// here). [`BoundedInstance`], [`PolylogBoundedInstance`] and
+/// [`EttBoundedInstance`] below are the three concrete variants compared
+/// by `examples/polylog_backend_bench.rs`; they share every other line of
+/// this file.
+pub struct BoundedInstanceImpl<C: ConnBackend> {
     /// Lambda bounds
     lambda_min: u64,
     lambda_max: u64,
@@ -54,9 +64,12 @@ pub struct BoundedInstance {
     fragmenting: Option<FragmentingAlgorithm>,
     /// Cached boundary for incremental updates (O(1) vs O(m))
     boundary_cache: Mutex<BoundaryCache>,
+    /// Incrementally-maintained connectivity backend (the experiment variable)
+    conn: C,
+    _marker: PhantomData<C>,
 }
 
-impl BoundedInstance {
+impl<C: ConnBackend> BoundedInstanceImpl<C> {
     /// Create a new bounded instance
     pub fn new(lambda_min: u64, lambda_max: u64) -> Self {
         Self {
@@ -72,6 +85,8 @@ impl BoundedInstance {
             cluster_hierarchy: None,
             fragmenting: None,
             boundary_cache: Mutex::new(BoundaryCache::default()),
+            conn: C::new(),
+            _marker: PhantomData,
         }
     }
 
@@ -99,6 +114,7 @@ impl BoundedInstance {
 
         self.adjacency.entry(u).or_default().push((v, edge_id));
         self.adjacency.entry(v).or_default().push((u, edge_id));
+        self.conn.insert_edge(u, v);
 
         // Incrementally update boundary cache if valid
         self.update_boundary_on_insert(u, v);
@@ -114,6 +130,7 @@ impl BoundedInstance {
 
         self.edges.retain(|(eid, _, _)| *eid != edge_id);
         self.rebuild_adjacency();
+        self.conn.delete_edge(u, v);
 
         // Invalidate current witness since structure changed
         *self.best_witness.lock().unwrap() = None;
@@ -172,30 +189,11 @@ impl BoundedInstance {
         }
     }
 
-    /// Check if graph is connected
+    /// Check if graph is connected, via the pluggable `C: ConnBackend`
+    /// (the one quantity this experiment varies between baseline and
+    /// candidates — see `bounded_conn.rs`).
     fn is_connected(&self) -> bool {
-        if self.vertices.is_empty() {
-            return true;
-        }
-
-        let start = *self.vertices.iter().next().unwrap();
-        let mut visited = HashSet::new();
-        let mut queue = VecDeque::new();
-
-        queue.push_back(start);
-        visited.insert(start);
-
-        while let Some(current) = queue.pop_front() {
-            if let Some(neighbors) = self.adjacency.get(&current) {
-                for &(neighbor, _) in neighbors {
-                    if visited.insert(neighbor) {
-                        queue.push_back(neighbor);
-                    }
-                }
-            }
-        }
-
-        visited.len() == self.vertices.len()
+        self.conn.is_connected()
     }
 
     /// Search for cuts using LocalKCut oracle
@@ -431,7 +429,16 @@ impl BoundedInstance {
     }
 }
 
-impl ProperCutInstance for BoundedInstance {
+/// Baseline: BFS-from-scratch connectivity check (pre-experiment behavior).
+pub type BoundedInstance = BoundedInstanceImpl<BfsConn>;
+
+/// Candidate A: `PolylogConnectivity`-backed connectivity check.
+pub type PolylogBoundedInstance = BoundedInstanceImpl<PolylogConn>;
+
+/// Candidate B: `DynamicConnectivity` (Euler Tour Tree)-backed connectivity check.
+pub type EttBoundedInstance = BoundedInstanceImpl<EttConn>;
+
+impl<C: ConnBackend> ProperCutInstance for BoundedInstanceImpl<C> {
     fn init(_graph: &DynamicGraph, lambda_min: u64, lambda_max: u64) -> Self {
         Self::new(lambda_min, lambda_max)
     }

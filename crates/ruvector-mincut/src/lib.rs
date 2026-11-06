@@ -258,7 +258,8 @@ pub use fragmentation::{
 };
 pub use graph::{DynamicGraph, Edge, EdgeId, GraphStats, VertexId, Weight};
 pub use instance::{
-    BoundedInstance, InstanceResult, ProperCutInstance, StubInstance, WitnessHandle,
+    BoundedInstance, EttBoundedInstance, InstanceResult, PolylogBoundedInstance, ProperCutInstance,
+    StubInstance, WitnessHandle,
 };
 pub use integration::{CommunityDetector, GraphPartitioner, RuVectorGraphAnalyzer};
 pub use linkcut::LinkCutTree;

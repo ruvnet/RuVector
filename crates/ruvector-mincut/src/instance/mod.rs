@@ -4,11 +4,13 @@
 //! over dynamic graphs with bounded cut values.
 
 pub mod bounded;
+pub mod bounded_conn;
 pub mod stub;
 pub mod traits;
 pub mod witness;
 
-pub use bounded::BoundedInstance;
+pub use bounded::{BoundedInstance, EttBoundedInstance, PolylogBoundedInstance};
+pub use bounded_conn::{BfsConn, ConnBackend, EttConn, PolylogConn};
 pub use stub::StubInstance;
 pub use traits::{InstanceResult, ProperCutInstance};
 pub use witness::{ImplicitWitness, Witness, WitnessHandle};
