@@ -23,6 +23,7 @@ pub fn base_weight(k: SignalKind) -> f64 {
         SignalKind::UnusedDeclared => 0.5,
         SignalKind::OpenPr => 0.8,
         SignalKind::ReleaseRegression => 1.6,
+        SignalKind::MainRed => 1.1,
     }
 }
 
@@ -43,6 +44,7 @@ pub fn work_kind(s: &Signal) -> WorkKind {
         SignalKind::Security => WorkKind::Security,
         SignalKind::OpenPr => WorkKind::Land,
         SignalKind::ReleaseRegression => WorkKind::ReleaseFix,
+        SignalKind::MainRed => WorkKind::Hygiene,
     }
 }
 
@@ -360,6 +362,31 @@ pub fn build(cfg: &Config, inp: QueueInputs) -> Queue {
         items.push(it);
     }
     items.extend(inp.creates);
+    for r in live_prs.iter().filter(|r| !r.main_red.is_empty()) {
+        let downloads = inp
+            .graph
+            .repo(&r.repo)
+            .map(|x| x.monthly_downloads)
+            .unwrap_or(0) as f64;
+        let it = prs::main_red_item(r, downloads, weights[&SignalKind::MainRed]);
+        match ledger.pair_state(
+            &it.repo,
+            None,
+            it.subject.as_deref(),
+            it.kind,
+            Some(SignalKind::MainRed),
+            lp.max_failures,
+        ) {
+            PairState::Blocked { outcome, reason } => suppressed.push(Suppressed {
+                id: it.id.clone(),
+                repo: it.repo.clone(),
+                candidate: None,
+                subject: it.subject.clone(),
+                reason: format!("ledger {outcome:?}: {reason}"),
+            }),
+            PairState::Open => items.push(it),
+        }
+    }
     for r in &live_prs {
         let downloads = inp
             .graph
@@ -424,6 +451,12 @@ pub fn build(cfg: &Config, inp: QueueInputs) -> Queue {
     for it in &mut items {
         let gate = it.candidate.as_deref().and_then(|c| inp.gates.get(c));
         it.brief = brief(it, inp.graph, gate);
+        if let Some(red) = live.get(&it.repo).filter(|r| !r.main_red.is_empty()) {
+            it.brief.push_str(&format!(
+                "Main baseline: already red on main before this lane: {}. Pre-existing; do not let it block this item, and fix it only if this item is the main_red one.\n",
+                red.main_red.join(", ")
+            ));
+        }
     }
     Queue {
         generated_at: now(),

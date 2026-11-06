@@ -45,6 +45,8 @@ W="target/release/weaver --config-dir config/weaver"   # run from a ruvector che
   must show an affected resolved copy (nested stale copies are a parent bump).
 - Publish tokens only via `gcloud secrets versions access latest --secret=NPM_TOKEN --project=cognitum-20260110 --account=ruv@ruv.net`
   at publish time; never print or store them.
+- Workflows already red on main (listed under "Main baseline" in the brief) are
+  pre-existing: do not block on them; only the `main_red` item fixes them.
 - Scratch: create your own dir with `mktemp -d` and delete only that exact path;
   never sweep shared dirs (`/data/scratch`, `/tmp/*`) or other worktrees.
 - Explicit `git add <paths>`; commit trailer `Co-Authored-By: claude-flow <ruv@ruv.net>`.

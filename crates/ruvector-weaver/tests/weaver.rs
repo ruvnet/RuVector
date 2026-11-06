@@ -789,6 +789,8 @@ fn open_prs_become_items_and_block_duplicate_work() {
     let live = vec![RepoPrs {
         repo: "ruvnet/big".into(),
         fetched_at: String::new(),
+        main_red: vec!["Workspace CI".into(), "Security Audit".into()],
+        main_sha: Some("e985713aa".into()),
         prs: vec![
             pr(
                 1364,
@@ -845,6 +847,33 @@ fn open_prs_become_items_and_block_duplicate_work() {
         .suppressed
         .iter()
         .any(|s| s.subject.as_deref() == Some("pr:#7") && s.reason.contains("no longer open")));
+    // A red main is its own hygiene item, and every brief in that repo says so.
+    let red = q
+        .items
+        .iter()
+        .find(|i| i.signal_kind == SignalKind::MainRed)
+        .expect("main-red item");
+    assert!(red.evidence[0]
+        .evidence
+        .contains("Workspace CI, Security Audit"));
+    assert!(q
+        .items
+        .iter()
+        .filter(|i| i.repo == "ruvnet/big")
+        .all(|i| i.brief.contains("Main baseline: already red on main")));
+}
+
+#[test]
+fn red_workflows_reads_latest_head_only() {
+    let runs = serde_json::json!([
+        {"workflowName": "CI", "conclusion": "failure", "headSha": "new"},
+        {"workflowName": "Lint", "conclusion": "success", "headSha": "new"},
+        {"workflowName": "CI", "conclusion": "success", "headSha": "new"},
+        {"workflowName": "Audit", "conclusion": "failure", "headSha": "old"}
+    ]);
+    let (sha, red) = prs::red_workflows(&runs);
+    assert_eq!(sha.as_deref(), Some("new"));
+    assert_eq!(red, vec!["CI".to_string()]);
 }
 
 #[test]

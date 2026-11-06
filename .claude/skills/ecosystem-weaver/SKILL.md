@@ -78,6 +78,11 @@ are skipped.
 ## Hard rules every lane follows
 
 - One active lane per repo; never two agents in one repo.
+- **A red main is a baseline, not a blocker.** `weaver prs` records the
+  workflows already failing on each repo's default branch. Each brief lists
+  them, and the repo gets its own `main_red` hygiene item. Compare your PR
+  against that baseline; do not stall on failures that were already there.
+  Hanging (never-finishing) jobs are not detected; record those as ledger items.
 - Never re-implement an open PR (the queue already suppresses those; if a
   lane finds one, stop and report `rejected: covered by #N`).
 - **Numbers only from the ledger.** No numeric performance claim in a

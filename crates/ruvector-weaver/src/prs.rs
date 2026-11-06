@@ -44,6 +44,11 @@ pub struct RepoPrs {
     pub repo: String,
     pub fetched_at: String,
     pub prs: Vec<OpenPr>,
+    /// Workflows failing on the default branch's head commit.
+    #[serde(default)]
+    pub main_red: Vec<String>,
+    #[serde(default)]
+    pub main_sha: Option<String>,
 }
 
 fn release_title_re() -> &'static regex::Regex {
@@ -229,10 +234,13 @@ pub fn fetch(repo: &str, checks: bool, cwd: &Path) -> Result<RepoPrs> {
             p.checks = c;
         }
     }
+    let (main_sha, main_red) = main_status(repo, cwd).unwrap_or((None, vec![]));
     Ok(RepoPrs {
         repo: repo.to_ascii_lowercase(),
         fetched_at: now(),
         prs,
+        main_red,
+        main_sha,
     })
 }
 
@@ -359,4 +367,120 @@ pub fn load_all(work_dir: &Path) -> Result<Vec<RepoPrs>> {
         }
     }
     Ok(out)
+}
+
+/// Failing workflows on the default branch's latest head commit
+/// (latest run per workflow name; cancelled/skipped runs are ignored).
+pub fn red_workflows(runs: &Value) -> (Option<String>, Vec<String>) {
+    let Some(a) = runs.as_array() else {
+        return (None, vec![]);
+    };
+    let Some(head) = a.first().and_then(|r| r["headSha"].as_str()) else {
+        return (None, vec![]);
+    };
+    let mut seen = std::collections::BTreeSet::new();
+    let mut red = Vec::new();
+    for r in a.iter().filter(|r| r["headSha"].as_str() == Some(head)) {
+        let name = r["workflowName"]
+            .as_str()
+            .or(r["name"].as_str())
+            .unwrap_or("?")
+            .to_string();
+        if !seen.insert(name.clone()) {
+            continue;
+        }
+        if matches!(
+            r["conclusion"].as_str(),
+            Some("failure" | "timed_out" | "startup_failure")
+        ) {
+            red.push(name);
+        }
+    }
+    red.sort();
+    (Some(head.to_string()), red)
+}
+
+fn main_status(repo: &str, cwd: &Path) -> Option<(Option<String>, Vec<String>)> {
+    let t = Duration::from_secs(60);
+    let b = run_timeout(
+        "gh",
+        &[
+            "repo",
+            "view",
+            repo,
+            "--json",
+            "defaultBranchRef",
+            "--jq",
+            ".defaultBranchRef.name",
+        ],
+        cwd,
+        t,
+    )
+    .ok()?;
+    let branch = b.stdout.trim().to_string();
+    if b.status != Some(0) || branch.is_empty() {
+        return None;
+    }
+    let o = run_timeout(
+        "gh",
+        &[
+            "run",
+            "list",
+            "--repo",
+            repo,
+            "--branch",
+            &branch,
+            "--limit",
+            "40",
+            "--json",
+            "workflowName,name,conclusion,headSha,status",
+        ],
+        cwd,
+        t,
+    )
+    .ok()?;
+    let v: Value = serde_json::from_str(&o.stdout).ok()?;
+    Some(red_workflows(&v))
+}
+
+/// Hygiene item: the default branch is already red.
+pub fn main_red_item(r: &RepoPrs, downloads: f64, weight: f64) -> WorkItem {
+    let sha = r.main_sha.clone().unwrap_or_default();
+    let sig = Signal {
+        kind: SignalKind::MainRed,
+        repo: r.repo.clone(),
+        file: format!("https://github.com/{}/commit/{}", r.repo, sha),
+        line: 0,
+        evidence: clip(
+            &format!(
+                "main is red at {}: {}",
+                &sha[..sha.len().min(9)],
+                r.main_red.join(", ")
+            ),
+            220,
+        ),
+        subject: Some("ci:main-red".into()),
+        keyword: None,
+        candidate: None,
+        confidence: 0.9,
+        severity: None,
+        occurrences: r.main_red.len(),
+    };
+    WorkItem {
+        id: crate::queue::item_id(WorkKind::Hygiene, &r.repo, "ci:main-red"),
+        kind: WorkKind::Hygiene,
+        status: LaneStatus::Deferred,
+        repo: r.repo.clone(),
+        subject: Some("ci:main-red".into()),
+        candidate: None,
+        signal_kind: SignalKind::MainRed,
+        score: (10.0 + downloads).ln() * 0.9 * weight,
+        disclosure: "public_pr".into(),
+        required_test:
+            "Every workflow listed in the evidence is green on the default branch after the fix."
+                .into(),
+        evidence: vec![sig],
+        gates: vec![],
+        brief: String::new(),
+    }
 }

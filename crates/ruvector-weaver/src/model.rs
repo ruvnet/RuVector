@@ -135,10 +135,13 @@ pub enum SignalKind {
     /// Release regression: repo changed between versions, surface drop,
     /// npm-name collision across repos, or an open-ended ecosystem range.
     ReleaseRegression,
+    /// The repo's default branch is already red: a hygiene item of its
+    /// own, and a baseline note so lanes are not blocked by it.
+    MainRed,
 }
 
 impl SignalKind {
-    pub const ALL: [SignalKind; 7] = [
+    pub const ALL: [SignalKind; 8] = [
         SignalKind::MissingPackage,
         SignalKind::UndeclaredImport,
         SignalKind::UnusedDeclared,
@@ -146,6 +149,7 @@ impl SignalKind {
         SignalKind::Security,
         SignalKind::OpenPr,
         SignalKind::ReleaseRegression,
+        SignalKind::MainRed,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -157,6 +161,7 @@ impl SignalKind {
             SignalKind::Security => "security",
             SignalKind::OpenPr => "open_pr",
             SignalKind::ReleaseRegression => "release_regression",
+            SignalKind::MainRed => "main_red",
         }
     }
 }
