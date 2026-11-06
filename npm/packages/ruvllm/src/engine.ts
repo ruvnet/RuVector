@@ -267,7 +267,7 @@ export class RuvLLM {
         'RUVLLM_NATIVE_TOO_OLD',
         `the installed native binary (version ${this.nativeVersion ?? 'unknown'}) cannot load ` +
           'models: it predates loadModel(). The @ruvector/ruvllm-<platform> 2.0.x packages are ' +
-          'such builds. Install the 3.x platform package, or build the binary from source ' +
+          'such builds. Install the 2.1+ platform package (@ruvector/ruvllm >= 4.2.0), or build the binary from source ' +
           '(`npm run build:native`, which enables the `candle` feature) and set ' +
           'RUVLLM_NATIVE_PATH to it, or use the ruvllm CLI (`ruvllm serve <model>`).',
       );
