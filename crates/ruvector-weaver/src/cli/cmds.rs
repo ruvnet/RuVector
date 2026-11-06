@@ -125,7 +125,7 @@ pub fn scan(ctx: &Ctx, mut repos: Vec<String>, all: bool, no_security: bool) -> 
 pub fn gate(
     ctx: &Ctx,
     package: &str,
-    consumer: Option<String>,
+    (consumer, consumer_package): (Option<String>, Option<String>),
     no_smoke: bool,
     new: bool,
     dir: Option<PathBuf>,
@@ -152,7 +152,7 @@ pub fn gate(
                 });
             }
         }
-        results.extend(gate::pack_gates(&dir, &ctx.cfg)?);
+        results.extend(gate::pack_gates(&dir, &ctx.cfg, &ctx.http)?);
         let (name, checks) = release::dir_checks(&ctx.http, &dir, &ctx.cfg.policy.npm)?;
         if name != package {
             bail!("--dir holds {name}, not {package}");
@@ -165,6 +165,7 @@ pub fn gate(
         }
         let opts = GateOptions {
             consumer: consumer.as_deref(),
+            consumer_package: consumer_package.as_deref(),
             smoke: !no_smoke,
             ledger: Some(&ledger),
         };
@@ -276,6 +277,7 @@ pub fn queue(ctx: &Ctx, gate_top: usize, no_create: bool, show: usize) -> Result
         for c in todo.into_iter().take(gate_top) {
             let opts = GateOptions {
                 consumer: None,
+                consumer_package: None,
                 smoke: true,
                 ledger: Some(&ledger),
             };

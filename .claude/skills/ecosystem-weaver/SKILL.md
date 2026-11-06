@@ -113,6 +113,11 @@ are skipped.
   `weaver readme`, and the same lane wires the package into the consumer
   (no orphans). Caps per tick/day are optional knobs in `weaver.toml`
   (unset = unlimited).
+- **Gate scope.** Pass `--consumer-package <pkg>` to check a cycle from the
+  exact package that takes the dependency; without it, siblings published
+  from the candidate's own repo are ignored. Paths a package ships on purpose
+  go in `[gate.leak_allow]`. Leak paths the previous version already carried
+  are reported, and only NEW ones fail.
 - **Release gate.** Before any publish of an existing name:
   `$W gate <pkg> --dir <pkg dir>`. It refuses (exit 2) on repository change,
   sharp file/size/export drop, or open-ended ecosystem ranges, unless the

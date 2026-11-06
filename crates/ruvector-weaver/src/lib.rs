@@ -7,6 +7,7 @@
 //! outcomes back through `weaver ledger record`.
 
 pub mod brief;
+pub mod checks;
 pub mod config;
 pub mod gate;
 pub mod graph;

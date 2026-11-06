@@ -195,6 +195,8 @@ try{show(require(p))}catch(e){import(p).then(show).catch(err=>{console.error(Str
 pub struct GateOptions<'a> {
     pub consumer: Option<&'a str>,
     pub smoke: bool,
+    /// The exact package in the consumer repo that will take the dependency.
+    pub consumer_package: Option<&'a str>,
     /// Release-regression checks (repo change, surface drop) with ledger
     /// overrides; `None` skips them.
     pub ledger: Option<&'a crate::ledger::Ledger>,
@@ -270,16 +272,17 @@ pub fn gate(
                         format!("missing: {}", missing.join(", "))
                     },
                 ));
-                let leaks = leak_scan(&files, &cfg.policy.gate.leak_patterns)?;
-                results.push(res(
-                    "leak_scan",
-                    leaks.is_empty(),
-                    if leaks.is_empty() {
-                        "clean".to_string()
-                    } else {
-                        format!("leaked: {}", leaks.join(", "))
-                    },
-                ));
+                let prev = if leak_scan(&files, &cfg.policy.gate.leak_patterns)?.is_empty() {
+                    None
+                } else {
+                    crate::checks::previous_files(http, pkg)
+                };
+                results.push(crate::checks::leak_result(
+                    cfg,
+                    pkg,
+                    &files,
+                    prev.as_ref().map(|(v, f)| (v.as_str(), f.as_slice())),
+                )?);
             }
             Err(e) => results.push(res(
                 "tarball_nonempty",
@@ -291,22 +294,12 @@ pub fn gate(
     }
 
     if let Some(consumer) = opts.consumer {
-        let targets: BTreeSet<String> = graph
-            .repo(consumer)
-            .map(|r| r.packages.iter().cloned().collect())
-            .unwrap_or_default();
-        match reaches(graph, pkg, &targets) {
-            Some(path) => results.push(res(
-                "no_cycle",
-                false,
-                format!("cycle: {}", path.join(" -> ")),
-            )),
-            None => results.push(res(
-                "no_cycle",
-                true,
-                format!("{pkg} does not depend on {consumer}'s packages"),
-            )),
-        }
+        results.push(crate::checks::cycle_result(
+            graph,
+            pkg,
+            consumer,
+            opts.consumer_package,
+        ));
     }
 
     if let Some(ledger) = opts.ledger {
@@ -442,7 +435,7 @@ pub fn run_tests(dir: &Path, timeout: Duration) -> Result<GateResult> {
 }
 
 /// Tarball list for a local dir via `npm pack --dry-run --json`.
-pub fn pack_gates(dir: &Path, cfg: &Config) -> Result<Vec<GateResult>> {
+pub fn pack_gates(dir: &Path, cfg: &Config, http: &Http) -> Result<Vec<GateResult>> {
     let o = run_timeout(
         "npm",
         &["pack", "--dry-run", "--json", "--ignore-scripts"],
@@ -463,7 +456,26 @@ pub fn pack_gates(dir: &Path, cfg: &Config) -> Result<Vec<GateResult>> {
     )
     .unwrap_or(Value::Null);
     let (eps, missing) = missing_entrypoints(&manifest, &files);
-    let leaks = leak_scan(&files, &cfg.policy.gate.leak_patterns)?;
+    // Pre-publish: the version being replaced is the registry's current latest.
+    let name = manifest["name"].as_str().unwrap_or_default().to_string();
+    let prev = if name.is_empty() || leak_scan(&files, &cfg.policy.gate.leak_patterns)?.is_empty() {
+        None
+    } else {
+        http.get_json(&format!(
+            "https://registry.npmjs.org/{}/latest",
+            crate::http::encode_pkg(&name)
+        ))
+        .ok()
+        .flatten()
+        .and_then(|m| m["version"].as_str().map(String::from))
+        .and_then(|v| crate::checks::version_files(http, &name, &v).map(|f| (v, f)))
+    };
+    let leak = crate::checks::leak_result(
+        cfg,
+        &name,
+        &files,
+        prev.as_ref().map(|(v, f)| (v.as_str(), f.as_slice())),
+    )?;
     Ok(vec![
         res(
             "tarball_nonempty",
@@ -479,14 +491,6 @@ pub fn pack_gates(dir: &Path, cfg: &Config) -> Result<Vec<GateResult>> {
                 format!("missing: {}", missing.join(", "))
             },
         ),
-        res(
-            "leak_scan",
-            leaks.is_empty(),
-            if leaks.is_empty() {
-                "clean".into()
-            } else {
-                leaks.join(", ")
-            },
-        ),
+        leak,
     ])
 }

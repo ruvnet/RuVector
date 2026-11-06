@@ -58,6 +58,10 @@ pub struct GatePolicy {
     pub max_age_days: i64,
     pub leak_patterns: Vec<String>,
     pub smoke_timeout_secs: u64,
+    /// Per-package regexes for paths a package ships ON PURPOSE (e.g.
+    /// agentic-flow's `.claude/`); never reported as leaks.
+    #[serde(default)]
+    pub leak_allow: std::collections::BTreeMap<String, Vec<String>>,
     /// "Lean release" bar that re-opens a candidate rejected for a heavy
     /// dependency tree once a newer version clears it.
     #[serde(default = "default_lean_deps")]
