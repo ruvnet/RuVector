@@ -82,7 +82,7 @@ fn detects_undeclared_and_unused_against_nearest_manifest() {
     // rvf is declared at the root but NOT in packages/inner's manifest.
     let inner =
         find(&r, SignalKind::UndeclaredImport, "@ruvector/rvf").expect("undeclared in inner");
-    assert_eq!(inner.file, "packages/inner/src/index.js");
+    assert_eq!(inner.file, "packages/inner/src/main.js");
     let gnn = find(&r, SignalKind::UnusedDeclared, "@ruvector/gnn").expect("unused gnn");
     assert_eq!((gnn.file.as_str(), gnn.line), ("package.json", 6));
     // Declared + imported, comment-only mentions, and non-ecosystem deps are silent.
