@@ -327,6 +327,9 @@ export class RvfDatabase {
 
   /**
    * Close the store, releasing the writer lock and flushing pending data.
+   * On the Node backend, this may build and persist an HNSW index for a large
+   * ingest-only store. Await close before opening the file read-only if the
+   * first query must use the persisted index.
    *
    * After calling `close()`, all other methods will throw `RvfError` with
    * code `StoreClosed`.
