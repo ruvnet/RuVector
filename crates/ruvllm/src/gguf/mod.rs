@@ -65,6 +65,8 @@ pub mod model_init;
 pub mod parser;
 pub mod quantization;
 pub mod tensors;
+#[cfg(feature = "quantize")]
+pub mod writer;
 
 use std::collections::HashMap;
 use std::fs::File;
