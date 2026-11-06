@@ -98,6 +98,11 @@ are skipped.
   `$W gate <pkg> --dir <pkg dir>`. It refuses (exit 2) on repository change,
   sharp file/size/export drop, or open-ended ecosystem ranges, unless the
   ledger holds `--outcome override --subject release:<check>:<pkg>` with a reason.
+- **Evidence before filing.** Before reporting "X@latest is vulnerable",
+  run `$W vuln-evidence X --dir <consumer> --affected "<range>"`. It resolves
+  every installed copy (`npm ls --all`) and exits 2 when none falls inside
+  the affected range. A nested stale copy is a dependency bump in the parent
+  package, not an advisory against latest.
 - **Disclosure.** First-party critical/high security findings go to a
   private GitHub security advisory, never a public PR or issue. Upstream
   advisories (npm audit / RustSec) are already public and ship as a bump PR.

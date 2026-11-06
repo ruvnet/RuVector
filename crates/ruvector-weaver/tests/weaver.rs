@@ -1282,3 +1282,23 @@ fn live_ledger_lives_outside_the_repo_and_is_seeded_once() {
         seeded.entries.len() + 1
     );
 }
+
+#[test]
+fn vuln_evidence_distinguishes_nested_stale_copies() {
+    use ruvector_weaver::vuln::{resolved_copies, verdict};
+    let tree = serde_json::json!({"dependencies": {
+        "@ruvector/sona": {"version": "0.1.10"},
+        "agentdb": {"version": "3.4.0", "dependencies": {"@ruvector/sona": {"version": "0.1.7"}}}
+    }});
+    let c = resolved_copies(&tree, "@ruvector/sona", "<0.1.9");
+    assert_eq!(c.len(), 2);
+    let (bad, why) = verdict("@ruvector/sona", &c);
+    assert!(bad && why.contains("agentdb > @ruvector/sona (0.1.7, nested stale copy)"));
+    assert!(!why.contains("0.1.10"));
+    let clean = serde_json::json!({"dependencies": {"@ruvector/sona": {"version": "0.1.10"}}});
+    let (bad, why) = verdict(
+        "@ruvector/sona",
+        &resolved_copies(&clean, "@ruvector/sona", "<0.1.9"),
+    );
+    assert!(!bad && why.contains("outside the affected range"));
+}

@@ -154,3 +154,34 @@ pub fn release(ctx: &Ctx, packages: Vec<String>, workers: usize) -> Result<()> {
     );
     Ok(())
 }
+
+pub fn vuln_evidence(package: &str, dir: &std::path::Path, affected: &str) -> Result<()> {
+    let o = ruvector_weaver::util::run_timeout(
+        "npm",
+        &["ls", package, "--all", "--json"],
+        dir,
+        std::time::Duration::from_secs(180),
+    )?;
+    // `npm ls` exits non-zero on extraneous/invalid trees but still prints JSON.
+    let tree: serde_json::Value = serde_json::from_str(&o.stdout).map_err(|e| {
+        anyhow::anyhow!(
+            "npm ls produced no JSON ({e}); is {} an installed project?",
+            dir.display()
+        )
+    })?;
+    let copies = ruvector_weaver::vuln::resolved_copies(&tree, package, affected);
+    for c in &copies {
+        println!(
+            "  [{}] {} {}",
+            if c.affected { "AFFECTED" } else { "ok" },
+            c.path,
+            c.version
+        );
+    }
+    let (bad, why) = ruvector_weaver::vuln::verdict(package, &copies);
+    println!("vuln-evidence {package} ({affected}): {why}");
+    if !bad {
+        std::process::exit(2);
+    }
+    Ok(())
+}
