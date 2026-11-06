@@ -211,7 +211,14 @@ pub unsafe extern "C" fn rvqs_decompress_microkernel(
         }
     };
 
-    let decompressed = match compress::decompress(compressed) {
+    // Never decode more than the caller can receive.
+    let limit = out_cap.min(compress::SEED_MAX_DECOMPRESSED);
+    let decompressed = match compress::decompress_with_limit(compressed, limit) {
+        Err(compress::CompressError::TooLarge { size, .. })
+            if size <= compress::SEED_MAX_DECOMPRESSED =>
+        {
+            return RVQS_ERR_BUFFER_TOO_SMALL
+        }
         Ok(d) => d,
         Err(_) => return RVQS_ERR_DECOMPRESS_FAIL,
     };
@@ -262,7 +269,11 @@ pub unsafe extern "C" fn rvqs_get_primary_host_url(
         }
     };
 
-    let url_bytes = &host.url[..host.url_length as usize];
+    // parse_manifest rejects url_length > 128; never trust it for slicing.
+    let url_bytes = match host.url.get(..host.url_length as usize) {
+        Some(b) => b,
+        None => return RVQS_ERR_PARSE_FAIL,
+    };
     if url_bytes.len() > url_cap {
         return RVQS_ERR_BUFFER_TOO_SMALL;
     }
@@ -378,5 +389,54 @@ mod tests {
         let mut header = core::mem::MaybeUninit::<RvqsHeaderC>::uninit();
         let rc = unsafe { rvqs_parse_header(core::ptr::null(), 0, header.as_mut_ptr()) };
         assert_eq!(rc, RVQS_ERR_NULL_PTR);
+    }
+
+    /// Rewrite the first host's `url_length` in a built seed.
+    fn with_url_length(mut payload: Vec<u8>, url: &[u8], url_length: u16) -> Vec<u8> {
+        let at = payload
+            .windows(url.len())
+            .position(|w| w == url)
+            .expect("url in payload");
+        payload[at - 2..at].copy_from_slice(&url_length.to_le_bytes());
+        payload
+    }
+
+    #[test]
+    fn ffi_url_length_past_url_field_is_refused() {
+        let payload = with_url_length(build_signed_seed(), b"https://cdn.test.com/brain.rvf", 200);
+        let mut url = [0u8; 512];
+        let mut url_len: usize = 0;
+        let rc = unsafe {
+            rvqs_get_primary_host_url(
+                payload.as_ptr(),
+                payload.len(),
+                url.as_mut_ptr(),
+                url.len(),
+                &mut url_len,
+            )
+        };
+        assert_eq!(rc, RVQS_ERR_PARSE_FAIL);
+    }
+
+    #[test]
+    fn ffi_oversized_microkernel_header_is_refused() {
+        // Header claims 4 GiB of output from a handful of bytes.
+        let mk = [0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x41];
+        let (payload, _) = SeedBuilder::new([0x01; 8], 128, 1000)
+            .with_microkernel(mk.to_vec())
+            .build_and_sign(b"test-key-for-ffi-unit-testing-ok")
+            .unwrap();
+        let mut out = vec![0u8; 8192];
+        let mut out_len: usize = 0;
+        let rc = unsafe {
+            rvqs_decompress_microkernel(
+                payload.as_ptr(),
+                payload.len(),
+                out.as_mut_ptr(),
+                out.len(),
+                &mut out_len,
+            )
+        };
+        assert_eq!(rc, RVQS_ERR_DECOMPRESS_FAIL);
     }
 }

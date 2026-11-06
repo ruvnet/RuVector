@@ -386,31 +386,41 @@ pub extern "C" fn rvf_greedy_step(current_id: i64, layer: i32) -> i64 {
 // Segment Verification
 // =====================================================================
 
-/// Verify segment header magic and version.
-/// Returns 0 if valid, non-zero error code otherwise.
+/// Verify segment header magic and version of the `header_len` bytes at
+/// `header_ptr`.
+/// Returns 0 if valid, 1 for bad magic, 2 for bad version, 3 if the pointer
+/// is null or the region is shorter than the 5 bytes inspected.
 #[no_mangle]
-pub extern "C" fn rvf_verify_header(header_ptr: i32) -> i32 {
-    let ptr = header_ptr as *const u8;
-    let magic = unsafe {
-        let b = core::slice::from_raw_parts(ptr, 4);
-        u32::from_le_bytes([b[0], b[1], b[2], b[3]])
-    };
-    if magic != 0x5256_4653 {
+pub extern "C" fn rvf_verify_header(header_ptr: i32, header_len: i32) -> i32 {
+    if header_ptr == 0 || header_len < 5 {
+        return 3;
+    }
+    let b = unsafe { core::slice::from_raw_parts(header_ptr as *const u8, header_len as usize) };
+    verify_header_bytes(b)
+}
+
+fn verify_header_bytes(b: &[u8]) -> i32 {
+    if b.len() < 5 {
+        return 3;
+    }
+    if u32::from_le_bytes([b[0], b[1], b[2], b[3]]) != 0x5256_4653 {
         return 1;
     }
-    let version = unsafe { *ptr.add(4) };
-    if version != 1 {
+    if b[4] != 1 {
         return 2;
     }
     0
 }
 
 /// Compute CRC32C of a data region.
-/// Returns the 32-bit CRC value.
+/// Returns the 32-bit CRC value, or 0 (the CRC of no bytes) if `len` is
+/// negative or the pointer is null.
 #[no_mangle]
 pub extern "C" fn rvf_crc32c(data_ptr: i32, len: i32) -> i32 {
-    let ptr = data_ptr as *const u8;
-    let data = unsafe { core::slice::from_raw_parts(ptr, len as usize) };
+    if len <= 0 || data_ptr == 0 {
+        return 0;
+    }
+    let data = unsafe { core::slice::from_raw_parts(data_ptr as *const u8, len as usize) };
     crc32c_compute(data) as i32
 }
 
@@ -757,6 +767,31 @@ mod tests {
         assert_eq!(pq_codebook_bytes(97, 8, 4), None); // query scratch is 96 fp16
         assert_eq!(pq_codebook_bytes(32, usize::MAX, 2), None);
         assert_eq!(pq_codebook_bytes(32, 2, usize::MAX), None);
+    }
+
+    #[test]
+    fn verify_header_checks_the_region_length() {
+        let mut h = [0u8; 64];
+        h[..4].copy_from_slice(&0x5256_4653u32.to_le_bytes());
+        h[4] = 1;
+        assert_eq!(verify_header_bytes(&h), 0);
+        assert_eq!(verify_header_bytes(&h[..4]), 3);
+        assert_eq!(verify_header_bytes(&[]), 3);
+        h[4] = 2;
+        assert_eq!(verify_header_bytes(&h), 2);
+        // Rejected before any read.
+        assert_eq!(rvf_verify_header(0, 64), 3);
+        assert_eq!(rvf_verify_header(16, 4), 3);
+        assert_eq!(rvf_verify_header(16, -1), 3);
+    }
+
+    #[test]
+    fn crc32c_rejects_a_negative_length() {
+        // Rejected before any read: a negative i32 used to become a huge usize.
+        assert_eq!(rvf_crc32c(16, -1), 0);
+        assert_eq!(rvf_crc32c(16, i32::MIN), 0);
+        assert_eq!(rvf_crc32c(0, 8), 0);
+        assert_eq!(crc32c_compute(b"123456789"), 0xE306_9283);
     }
 }
 

@@ -542,6 +542,11 @@ impl<'a> ParsedSeed<'a> {
                 DL_TAG_HOST_PRIMARY | DL_TAG_HOST_FALLBACK => {
                     if length >= 150 {
                         let url_length = u16::from_le_bytes([value[0], value[1]]);
+                        if url_length as usize > 128 {
+                            return Err(SeedError::InvalidManifest(
+                                "host url_length exceeds the 128-byte url field".into(),
+                            ));
+                        }
                         let mut url = [0u8; 128];
                         url.copy_from_slice(&value[2..130]);
                         let priority = u16::from_le_bytes([value[130], value[131]]);
@@ -681,7 +686,7 @@ impl<'a> ParsedSeed<'a> {
     /// Decompress the microkernel using the built-in LZ decompressor.
     pub fn decompress_microkernel(&self) -> Result<Vec<u8>, SeedError> {
         match self.microkernel {
-            Some(data) => compress::decompress(data)
+            Some(data) => compress::decompress_with_limit(data, compress::SEED_MAX_DECOMPRESSED)
                 .map_err(|e| SeedError::InvalidManifest(format!("decompress: {e}"))),
             None => Err(SeedError::MissingComponent("microkernel")),
         }
@@ -1090,5 +1095,38 @@ mod tests {
         };
         assert!(format!("{e}").contains("3000"));
         assert!(format!("{e}").contains("2953"));
+    }
+
+    #[test]
+    fn url_length_past_url_field_is_rejected() {
+        let url = b"https://cdn.example.com/x.rvf";
+        let host = make_host_entry("https://cdn.example.com/x.rvf", 0, 0, [0; 16]).unwrap();
+        let (mut payload, _) = SeedBuilder::new([0x01; 8], 8, 1)
+            .add_host(host)
+            .build()
+            .unwrap();
+        let at = payload.windows(url.len()).position(|w| w == url).unwrap();
+        payload[at - 2..at].copy_from_slice(&200u16.to_le_bytes());
+        let parsed = ParsedSeed::parse(&payload).unwrap();
+        assert!(matches!(
+            parsed.parse_manifest(),
+            Err(SeedError::InvalidManifest(_))
+        ));
+    }
+
+    #[test]
+    fn oversized_microkernel_is_rejected() {
+        // Header claims one byte past the seed limit; the body is irrelevant.
+        let mut mk = ((crate::compress::SEED_MAX_DECOMPRESSED + 1) as u32)
+            .to_le_bytes()
+            .to_vec();
+        mk.extend_from_slice(&[0x00, 0x41]);
+        let (payload, _) = SeedBuilder::new([0x01; 8], 8, 1)
+            .with_microkernel(mk)
+            .build()
+            .unwrap();
+        let parsed = ParsedSeed::parse(&payload).unwrap();
+        let err = parsed.decompress_microkernel().unwrap_err();
+        assert!(format!("{err}").contains("exceeds limit"), "{err}");
     }
 }
