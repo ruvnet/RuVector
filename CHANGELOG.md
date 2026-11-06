@@ -12,6 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
 
+## [ruvector 0.3.14] - 2026-11-06
+### Security
+- `decompile_url` private-address guard also checks IPv4 addresses embedded
+  in IPv6 forms (#1359).
+- DiskANN build/search refuse symlinked index files (#1381).
+
+### Changed
+- Fresh installs resolve `@ruvector/rvf` 0.4.6 (filtered queries exact on
+  weak graphs, `forceExact`), `@ruvector/attention` 2.3.0 (native faster than
+  a JS loop, `computeFlat`, complete typings) and `@ruvector/core` 0.1.36
+  (`version()` reports the package version) through the existing ranges.
+
 ## [ruvector 0.3.13] - 2026-11-05
 ### Added
 - Hook memory recall (`IntelligenceEngine.recall`, MCP `hooks_recall` /
