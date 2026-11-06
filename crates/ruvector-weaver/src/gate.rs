@@ -192,6 +192,14 @@ try{show(require(p))}catch(e){import(p).then(show).catch(err=>{console.error(Str
     Ok(Ok(keys))
 }
 
+/// True when a queue item carries no package to gate: no candidate, or the
+/// `-` placeholder briefs and listings print for one (e.g. `ci:main-red`).
+/// Querying the registry for `-` returns HTTP 405.
+pub fn is_packageless(pkg: &str) -> bool {
+    let p = pkg.trim();
+    p.is_empty() || p == "-"
+}
+
 pub struct GateOptions<'a> {
     pub consumer: Option<&'a str>,
     pub smoke: bool,

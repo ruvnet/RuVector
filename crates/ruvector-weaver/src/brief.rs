@@ -94,7 +94,9 @@ pub fn brief(it: &WorkItem, graph: &Graph, gate: Option<&GateReport>) -> String 
                 b.push_str(&format!("Verified API (smoke-import exports): {}\n", g.exports.join(", ")));
             }
         }
-        None if matches!(it.kind, WorkKind::Replace | WorkKind::Integrate | WorkKind::Hygiene) => b.push_str(&format!("Gates: not run yet. FIRST run `weaver gate {cand} --consumer {}` and stop if it fails.\n", it.repo)),
+        // Package-less items (no candidate) have nothing to gate.
+        None if it.candidate.as_deref().is_some_and(|c| !crate::gate::is_packageless(c))
+            && matches!(it.kind, WorkKind::Replace | WorkKind::Integrate | WorkKind::Hygiene) => b.push_str(&format!("Gates: not run yet. FIRST run `weaver gate {cand} --consumer {}` and stop if it fails.\n", it.repo)),
         None => {}
     }
     b.push_str(&format!(
