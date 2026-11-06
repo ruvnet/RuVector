@@ -256,8 +256,9 @@ export async function readReleaseIndex(
   let raw: string;
   try {
     raw = await readFile(join(packagePath(registryDir, publisherId, name), RELEASES_FILENAME), 'utf8');
-  } catch {
-    return [];
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw new ForgeError(ForgeErrorCode.REGISTRY, 'Cannot read existing registry history.');
   }
   return raw
     .split('\n')
@@ -314,8 +315,9 @@ export async function readLog(registryDir: string): Promise<TransparencyLogEntry
   let raw: string;
   try {
     raw = await readFile(join(registryDir, LOG_ENTRIES_FILE), 'utf8');
-  } catch {
-    return [];
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw new ForgeError(ForgeErrorCode.REGISTRY, 'Cannot read existing registry history.');
   }
   return raw
     .split('\n')
@@ -327,8 +329,9 @@ export async function readLog(registryDir: string): Promise<TransparencyLogEntry
 export async function readTreeHead(registryDir: string): Promise<TreeHead | null> {
   try {
     return JSON.parse(await readFile(join(registryDir, TREE_HEAD_FILE), 'utf8')) as TreeHead;
-  } catch {
-    return null;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw new ForgeError(ForgeErrorCode.REGISTRY, 'Cannot read the existing registry tree head.');
   }
 }
 
@@ -489,8 +492,9 @@ export async function readWitnessChain(registryDir: string, subject: string): Pr
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => line !== '');
-  } catch {
-    return [];
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw new ForgeError(ForgeErrorCode.REGISTRY, 'Cannot read existing registry history.');
   }
 }
 
