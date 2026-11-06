@@ -80,8 +80,19 @@ impl Attention for FlashAttention {
             });
         }
 
+        if self.block_size == 0 {
+            return Err(AttentionError::InvalidConfig(
+                "Block size must be greater than zero".to_string(),
+            ));
+        }
         let n = keys.len();
         let value_dim = values[0].len();
+        if let Some(bad) = values.iter().find(|v| v.len() != value_dim) {
+            return Err(AttentionError::DimensionMismatch {
+                expected: value_dim,
+                actual: bad.len(),
+            });
+        }
 
         // Online softmax with tiled computation
         let mut output = vec![0.0f32; value_dim];
@@ -149,6 +160,12 @@ impl Attention for FlashAttention {
         mask: Option<&[bool]>,
     ) -> AttentionResult<Vec<f32>> {
         if let Some(m) = mask {
+            if m.len() != keys.len() || keys.len() != values.len() {
+                return Err(AttentionError::InvalidMask {
+                    expected: format!("{} entries", keys.len()),
+                    actual: format!("{} entries", m.len()),
+                });
+            }
             let filtered: Vec<(usize, bool)> = m
                 .iter()
                 .copied()
@@ -172,6 +189,32 @@ impl Attention for FlashAttention {
 mod tests {
     use super::*;
     use crate::attention::ScaledDotProductAttention;
+
+    #[test]
+    fn test_zero_block_size_is_an_error() {
+        let attention = FlashAttention::new(4, 0);
+        let query = vec![1.0_f32; 4];
+        let key = vec![1.0_f32; 4];
+        assert!(attention
+            .compute(&query, &[key.as_slice()], &[key.as_slice()])
+            .is_err());
+    }
+
+    #[test]
+    fn test_ragged_values_are_an_error() {
+        let attention = FlashAttention::new(4, 2);
+        let query = vec![1.0_f32; 4];
+        let key = vec![1.0_f32; 4];
+        let short = vec![1.0_f32; 2];
+        let long = vec![1.0_f32; 8];
+        assert!(attention
+            .compute(
+                &query,
+                &[key.as_slice(), key.as_slice()],
+                &[short.as_slice(), long.as_slice()]
+            )
+            .is_err());
+    }
 
     #[test]
     fn test_flash_attention() {

@@ -17,6 +17,7 @@ pub mod async_ops;
 pub mod attention;
 pub mod graph;
 pub mod training;
+pub mod validate;
 
 // Re-export main attention types
 pub use attention::{
@@ -43,13 +44,13 @@ pub use graph::{
 };
 
 /// Get library version
-#[napi]
+#[napi(catch_unwind)]
 pub fn version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
 /// Get library info
-#[napi]
+#[napi(catch_unwind)]
 pub fn info() -> LibraryInfo {
     LibraryInfo {
         name: "ruvector-attention-node".to_string(),

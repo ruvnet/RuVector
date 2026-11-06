@@ -35,7 +35,7 @@ impl InfoNCELoss {
     ///
     /// # Arguments
     /// * `temperature` - Temperature parameter for softmax (typically 0.07-0.1)
-    #[napi(constructor)]
+    #[napi(constructor, catch_unwind)]
     pub fn new(temperature: f64) -> Self {
         Self {
             inner: RustInfoNCE::new(temperature as f32),
@@ -49,7 +49,7 @@ impl InfoNCELoss {
     /// * `anchor` - Anchor embedding
     /// * `positive` - Positive example embedding
     /// * `negatives` - Array of negative example embeddings
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn compute(
         &self,
         anchor: Float32Array,
@@ -68,7 +68,7 @@ impl InfoNCELoss {
     /// Compute InfoNCE loss with gradients
     ///
     /// Returns an object with `loss` and `gradients` fields
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn compute_with_gradients(
         &self,
         anchor: Float32Array,
@@ -117,7 +117,7 @@ impl LocalContrastiveLoss {
     ///
     /// # Arguments
     /// * `margin` - Margin for triplet loss
-    #[napi(constructor)]
+    #[napi(constructor, catch_unwind)]
     pub fn new(margin: f64) -> Self {
         Self {
             inner: RustLocalContrastive::new(margin as f32),
@@ -126,7 +126,7 @@ impl LocalContrastiveLoss {
     }
 
     /// Compute local contrastive loss
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn compute(
         &self,
         anchor: Float32Array,
@@ -143,7 +143,7 @@ impl LocalContrastiveLoss {
     }
 
     /// Compute with gradients
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn compute_with_gradients(
         &self,
         anchor: Float32Array,
@@ -185,7 +185,7 @@ impl SpectralRegularization {
     ///
     /// # Arguments
     /// * `weight` - Regularization weight
-    #[napi(constructor)]
+    #[napi(constructor, catch_unwind)]
     pub fn new(weight: f64) -> Self {
         Self {
             inner: RustSpectralReg::new(weight as f32),
@@ -194,7 +194,7 @@ impl SpectralRegularization {
     }
 
     /// Compute spectral regularization for a batch of embeddings
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn compute_batch(&self, embeddings: Vec<Float32Array>) -> f64 {
         let embeddings_vec: Vec<Vec<f32>> = embeddings.into_iter().map(|e| e.to_vec()).collect();
         let embeddings_refs: Vec<&[f32]> = embeddings_vec.iter().map(|e| e.as_slice()).collect();
@@ -226,7 +226,7 @@ impl SGDOptimizer {
     /// # Arguments
     /// * `param_count` - Number of parameters
     /// * `learning_rate` - Learning rate
-    #[napi(constructor)]
+    #[napi(constructor, catch_unwind)]
     pub fn new(param_count: u32, learning_rate: f64) -> Self {
         Self {
             inner: RustSGD::new(param_count as usize, learning_rate as f32),
@@ -234,7 +234,7 @@ impl SGDOptimizer {
     }
 
     /// Create with momentum
-    #[napi(factory)]
+    #[napi(factory, catch_unwind)]
     pub fn with_momentum(param_count: u32, learning_rate: f64, momentum: f64) -> Self {
         Self {
             inner: RustSGD::new(param_count as usize, learning_rate as f32)
@@ -243,7 +243,7 @@ impl SGDOptimizer {
     }
 
     /// Create with momentum and weight decay
-    #[napi(factory)]
+    #[napi(factory, catch_unwind)]
     pub fn with_weight_decay(
         param_count: u32,
         learning_rate: f64,
@@ -267,7 +267,7 @@ impl SGDOptimizer {
     /// ```
     ///
     /// If you want to mutate the JS buffer in-place instead, use `stepInPlace`.
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn step(&mut self, params: Float32Array, gradients: Float32Array) -> Float32Array {
         let mut params_vec = params.to_vec();
         let gradients_slice = gradients.as_ref();
@@ -284,7 +284,7 @@ impl SGDOptimizer {
     /// ```js
     /// optimizer.stepInPlace(params, gradients); // params is mutated
     /// ```
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn step_in_place(&mut self, mut params: Float32Array, gradients: Float32Array) {
         let gradients_slice = gradients.as_ref();
         let params_slice = params.as_mut();
@@ -292,7 +292,7 @@ impl SGDOptimizer {
     }
 
     /// Reset optimizer state
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn reset(&mut self) {
         self.inner.reset();
     }
@@ -323,7 +323,7 @@ impl AdamOptimizer {
     /// # Arguments
     /// * `param_count` - Number of parameters
     /// * `learning_rate` - Learning rate
-    #[napi(constructor)]
+    #[napi(constructor, catch_unwind)]
     pub fn new(param_count: u32, learning_rate: f64) -> Self {
         Self {
             inner: RustAdam::new(param_count as usize, learning_rate as f32),
@@ -331,7 +331,7 @@ impl AdamOptimizer {
     }
 
     /// Create with custom betas
-    #[napi(factory)]
+    #[napi(factory, catch_unwind)]
     pub fn with_betas(param_count: u32, learning_rate: f64, beta1: f64, beta2: f64) -> Self {
         Self {
             inner: RustAdam::new(param_count as usize, learning_rate as f32)
@@ -340,7 +340,7 @@ impl AdamOptimizer {
     }
 
     /// Create with full configuration
-    #[napi(factory)]
+    #[napi(factory, catch_unwind)]
     pub fn with_config(
         param_count: u32,
         learning_rate: f64,
@@ -367,7 +367,7 @@ impl AdamOptimizer {
     /// ```
     ///
     /// If you want to mutate the JS buffer in-place instead, use `stepInPlace`.
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn step(&mut self, params: Float32Array, gradients: Float32Array) -> Float32Array {
         let mut params_vec = params.to_vec();
         let gradients_slice = gradients.as_ref();
@@ -384,7 +384,7 @@ impl AdamOptimizer {
     /// ```js
     /// optimizer.stepInPlace(params, gradients); // params is mutated
     /// ```
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn step_in_place(&mut self, mut params: Float32Array, gradients: Float32Array) {
         let gradients_slice = gradients.as_ref();
         let params_slice = params.as_mut();
@@ -392,7 +392,7 @@ impl AdamOptimizer {
     }
 
     /// Reset optimizer state (momentum terms)
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn reset(&mut self) {
         self.inner.reset();
     }
@@ -425,7 +425,7 @@ impl AdamWOptimizer {
     /// * `param_count` - Number of parameters
     /// * `learning_rate` - Learning rate
     /// * `weight_decay` - Weight decay coefficient
-    #[napi(constructor)]
+    #[napi(constructor, catch_unwind)]
     pub fn new(param_count: u32, learning_rate: f64, weight_decay: f64) -> Self {
         Self {
             inner: RustAdamW::new(param_count as usize, learning_rate as f32)
@@ -435,7 +435,7 @@ impl AdamWOptimizer {
     }
 
     /// Create with custom betas
-    #[napi(factory)]
+    #[napi(factory, catch_unwind)]
     pub fn with_betas(
         param_count: u32,
         learning_rate: f64,
@@ -461,7 +461,7 @@ impl AdamWOptimizer {
     /// ```
     ///
     /// If you want to mutate the JS buffer in-place instead, use `stepInPlace`.
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn step(&mut self, params: Float32Array, gradients: Float32Array) -> Float32Array {
         let mut params_vec = params.to_vec();
         let gradients_slice = gradients.as_ref();
@@ -478,7 +478,7 @@ impl AdamWOptimizer {
     /// ```js
     /// optimizer.stepInPlace(params, gradients); // params is mutated
     /// ```
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn step_in_place(&mut self, mut params: Float32Array, gradients: Float32Array) {
         let gradients_slice = gradients.as_ref();
         let params_slice = params.as_mut();
@@ -486,7 +486,7 @@ impl AdamWOptimizer {
     }
 
     /// Reset optimizer state
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn reset(&mut self) {
         self.inner.reset();
     }
@@ -532,7 +532,7 @@ impl LearningRateScheduler {
     /// * `initial_lr` - Initial/peak learning rate
     /// * `warmup_steps` - Number of warmup steps
     /// * `total_steps` - Total training steps
-    #[napi(constructor)]
+    #[napi(constructor, catch_unwind)]
     pub fn new(initial_lr: f64, warmup_steps: u32, total_steps: u32) -> Self {
         Self {
             initial_lr: initial_lr as f32,
@@ -544,7 +544,7 @@ impl LearningRateScheduler {
     }
 
     /// Create with minimum learning rate
-    #[napi(factory)]
+    #[napi(factory, catch_unwind)]
     pub fn with_min_lr(initial_lr: f64, warmup_steps: u32, total_steps: u32, min_lr: f64) -> Self {
         Self {
             initial_lr: initial_lr as f32,
@@ -556,7 +556,7 @@ impl LearningRateScheduler {
     }
 
     /// Get learning rate for current step
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn get_lr(&self) -> f64 {
         if self.current_step < self.warmup_steps {
             // Linear warmup
@@ -571,7 +571,7 @@ impl LearningRateScheduler {
     }
 
     /// Step the scheduler and return current learning rate
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn step(&mut self) -> f64 {
         let lr = self.get_lr();
         self.current_step += 1;
@@ -579,7 +579,7 @@ impl LearningRateScheduler {
     }
 
     /// Reset scheduler to initial state
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn reset(&mut self) {
         self.current_step = 0;
     }
@@ -635,7 +635,7 @@ impl TemperatureAnnealing {
     /// * `initial_temp` - Starting temperature
     /// * `final_temp` - Final temperature
     /// * `steps` - Number of annealing steps
-    #[napi(constructor)]
+    #[napi(constructor, catch_unwind)]
     pub fn new(initial_temp: f64, final_temp: f64, steps: u32) -> Self {
         Self {
             inner: RustTempAnnealing::new(initial_temp as f32, final_temp as f32, steps as usize),
@@ -643,7 +643,7 @@ impl TemperatureAnnealing {
     }
 
     /// Create with specific decay type
-    #[napi(factory)]
+    #[napi(factory, catch_unwind)]
     pub fn with_decay(
         initial_temp: f64,
         final_temp: f64,
@@ -657,19 +657,19 @@ impl TemperatureAnnealing {
     }
 
     /// Get current temperature
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn get_temp(&self) -> f64 {
         self.inner.get_temp() as f64
     }
 
     /// Step the scheduler and return current temperature
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn step(&mut self) -> f64 {
         self.inner.step() as f64
     }
 
     /// Reset scheduler
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn reset(&mut self) {
         self.inner.reset();
     }
@@ -698,7 +698,7 @@ pub struct CurriculumScheduler {
 #[napi]
 impl CurriculumScheduler {
     /// Create an empty curriculum scheduler
-    #[napi(constructor)]
+    #[napi(constructor, catch_unwind)]
     pub fn new() -> Self {
         Self {
             inner: RustCurriculum::new(),
@@ -706,7 +706,7 @@ impl CurriculumScheduler {
     }
 
     /// Create a default easy-to-hard curriculum
-    #[napi(factory)]
+    #[napi(factory, catch_unwind)]
     pub fn default_curriculum(total_steps: u32) -> Self {
         Self {
             inner: RustCurriculum::default_curriculum(total_steps as usize),
@@ -714,7 +714,7 @@ impl CurriculumScheduler {
     }
 
     /// Add a stage to the curriculum
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn add_stage(&mut self, config: CurriculumStageConfig) {
         let stage = RustStage::new(&config.name)
             .difficulty(config.difficulty as f32)
@@ -728,7 +728,7 @@ impl CurriculumScheduler {
     }
 
     /// Step the curriculum and return current stage info
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn step(&mut self) -> Option<CurriculumStageConfig> {
         self.inner.step().map(|s| CurriculumStageConfig {
             name: s.name.clone(),
@@ -770,7 +770,7 @@ impl CurriculumScheduler {
     }
 
     /// Reset curriculum
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn reset(&mut self) {
         self.inner.reset();
     }
@@ -812,7 +812,7 @@ impl HardNegativeMiner {
     ///
     /// # Arguments
     /// * `strategy` - Mining strategy to use
-    #[napi(constructor)]
+    #[napi(constructor, catch_unwind)]
     pub fn new(strategy: MiningStrategy) -> Self {
         Self {
             inner: RustHardMiner::new(strategy.into()),
@@ -820,7 +820,7 @@ impl HardNegativeMiner {
     }
 
     /// Create with margin (for semi-hard mining)
-    #[napi(factory)]
+    #[napi(factory, catch_unwind)]
     pub fn with_margin(strategy: MiningStrategy, margin: f64) -> Self {
         Self {
             inner: RustHardMiner::new(strategy.into()).with_margin(margin as f32),
@@ -828,7 +828,7 @@ impl HardNegativeMiner {
     }
 
     /// Create with temperature (for distance-weighted mining)
-    #[napi(factory)]
+    #[napi(factory, catch_unwind)]
     pub fn with_temperature(strategy: MiningStrategy, temperature: f64) -> Self {
         Self {
             inner: RustHardMiner::new(strategy.into()).with_temperature(temperature as f32),
@@ -845,7 +845,7 @@ impl HardNegativeMiner {
     ///
     /// # Returns
     /// Array of indices into the candidates array
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn mine(
         &self,
         anchor: Float32Array,
@@ -880,7 +880,7 @@ pub struct InBatchMiner {
 #[napi]
 impl InBatchMiner {
     /// Create a new in-batch miner
-    #[napi(constructor)]
+    #[napi(constructor, catch_unwind)]
     pub fn new() -> Self {
         Self {
             exclude_positive: true,
@@ -888,7 +888,7 @@ impl InBatchMiner {
     }
 
     /// Create without excluding positive
-    #[napi(factory)]
+    #[napi(factory, catch_unwind)]
     pub fn include_positive() -> Self {
         Self {
             exclude_positive: false,
@@ -904,7 +904,7 @@ impl InBatchMiner {
     ///
     /// # Returns
     /// Array of indices that can be used as negatives
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn get_negatives(&self, anchor_idx: u32, positive_idx: u32, batch_size: u32) -> Vec<u32> {
         (0..batch_size)
             .filter(|&i| i != anchor_idx && (!self.exclude_positive || i != positive_idx))

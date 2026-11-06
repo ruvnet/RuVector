@@ -368,31 +368,33 @@ impl StreamProcessor {
     /// # Arguments
     /// * `dim` - Embedding dimension
     /// * `max_buffer_size` - Maximum number of items to buffer
-    #[napi(constructor)]
-    pub fn new(dim: u32, max_buffer_size: u32) -> Self {
-        Self {
-            dim: dim as usize,
+    #[napi(constructor, catch_unwind)]
+    pub fn new(dim: u32, max_buffer_size: u32) -> Result<Self> {
+        Ok(Self {
+            dim: crate::validate::dim("dim", dim)?,
             buffer: Vec::new(),
             max_buffer_size: max_buffer_size as usize,
-        }
+        })
     }
 
     /// Add a vector to the buffer
-    #[napi]
-    pub fn push(&mut self, vector: Float32Array) -> bool {
+    #[napi(catch_unwind)]
+    pub fn push(&mut self, vector: Float32Array) -> Result<bool> {
+        crate::validate::len("vector", vector.as_ref(), self.dim)?;
         if self.buffer.len() >= self.max_buffer_size {
-            return false;
+            return Ok(false);
         }
         self.buffer.push(vector.to_vec());
-        true
+        Ok(true)
     }
 
     /// Process buffered vectors with attention against a query
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn process(&self, query: Float32Array) -> Result<Float32Array> {
         if self.buffer.is_empty() {
             return Err(Error::from_reason("Buffer is empty"));
         }
+        crate::validate::len("query", query.as_ref(), self.dim)?;
 
         let attention = ScaledDotProductAttention::new(self.dim);
         let query_slice = query.as_ref();
@@ -407,7 +409,7 @@ impl StreamProcessor {
     }
 
     /// Clear the buffer
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn clear(&mut self) {
         self.buffer.clear();
     }

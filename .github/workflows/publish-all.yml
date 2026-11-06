@@ -25,6 +25,11 @@ on:
         required: false
         type: boolean
         default: false
+      publish_wasm:
+        description: 'Also publish @ruvector/math-wasm and @ruvector/attention-wasm (skip for a native-only patch release)'
+        required: false
+        type: boolean
+        default: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -72,11 +77,11 @@ jobs:
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
             node_file: attention.linux-arm64-gnu.node
-          - host: macos-14
+          - host: macos-15
             target: x86_64-apple-darwin
             platform: darwin-x64
             node_file: attention.darwin-x64.node
-          - host: macos-14
+          - host: macos-15
             target: aarch64-apple-darwin
             platform: darwin-arm64
             node_file: attention.darwin-arm64.node
@@ -300,6 +305,7 @@ jobs:
 
       # --- Publish WASM packages ---
       - name: Publish @ruvector/math-wasm to npm
+        if: ${{ inputs.publish_wasm != false }}
         run: |
           set -euo pipefail
           cd artifacts/wasm-ruvector-math-wasm
@@ -310,6 +316,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @ruvector/attention-wasm to npm
+        if: ${{ inputs.publish_wasm != false }}
         run: |
           set -euo pipefail
           cd artifacts/wasm-ruvector-attention-wasm

@@ -9404,7 +9404,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-attention"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "approx",
  "criterion 0.5.1",
@@ -9419,7 +9419,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-attention-node"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "napi",
  "napi-build",
@@ -10446,7 +10446,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-graph"
-version = "2.3.3"
+version = "2.3.4"
 dependencies = [
  "anyhow",
  "bincode 2.0.1",

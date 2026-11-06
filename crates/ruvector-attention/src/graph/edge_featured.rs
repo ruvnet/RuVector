@@ -38,7 +38,23 @@ impl EdgeFeaturedConfig {
     }
 
     pub fn head_dim(&self) -> usize {
-        self.node_dim / self.num_heads
+        self.node_dim.checked_div(self.num_heads).unwrap_or(0)
+    }
+
+    /// Checks that the configuration can be used to build an attention layer.
+    pub fn validate(&self) -> AttentionResult<()> {
+        if self.node_dim == 0 {
+            return Err(AttentionError::InvalidConfig(
+                "Node dimension must be greater than zero".to_string(),
+            ));
+        }
+        if self.num_heads == 0 || self.num_heads > self.node_dim {
+            return Err(AttentionError::InvalidHeadCount {
+                dim: self.node_dim,
+                num_heads: self.num_heads,
+            });
+        }
+        Ok(())
     }
 }
 
@@ -95,6 +111,12 @@ pub struct EdgeFeaturedAttention {
 }
 
 impl EdgeFeaturedAttention {
+    /// Creates the layer, returning an error for an invalid configuration.
+    pub fn try_new(config: EdgeFeaturedConfig) -> AttentionResult<Self> {
+        config.validate()?;
+        Ok(Self::new(config))
+    }
+
     pub fn new(config: EdgeFeaturedConfig) -> Self {
         let head_dim = config.head_dim();
         let num_heads = config.num_heads;
@@ -205,6 +227,31 @@ impl EdgeFeaturedAttention {
                 "Keys and edges must have same length".to_string(),
             ));
         }
+        self.config.validate()?;
+        if keys.len() != values.len() {
+            return Err(AttentionError::DimensionMismatch {
+                expected: keys.len(),
+                actual: values.len(),
+            });
+        }
+        let node_dim = self.config.node_dim;
+        for node in std::iter::once(&query)
+            .chain(keys.iter())
+            .chain(values.iter())
+        {
+            if node.len() != node_dim {
+                return Err(AttentionError::DimensionMismatch {
+                    expected: node_dim,
+                    actual: node.len(),
+                });
+            }
+        }
+        if let Some(edge) = edges.iter().find(|e| e.len() != self.config.edge_dim) {
+            return Err(AttentionError::DimensionMismatch {
+                expected: self.config.edge_dim,
+                actual: edge.len(),
+            });
+        }
 
         let num_heads = self.config.num_heads;
         let head_dim = self.config.head_dim();
@@ -296,6 +343,12 @@ impl Attention for EdgeFeaturedAttention {
     ) -> AttentionResult<Vec<f32>> {
         // Apply mask by filtering keys/values
         if let Some(m) = mask {
+            if m.len() != keys.len() || keys.len() != values.len() {
+                return Err(AttentionError::InvalidMask {
+                    expected: format!("{} entries", keys.len()),
+                    actual: format!("{} entries", m.len()),
+                });
+            }
             let filtered: Vec<(usize, bool)> = m
                 .iter()
                 .copied()
@@ -322,6 +375,70 @@ impl Attention for EdgeFeaturedAttention {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_zero_heads_is_an_error() {
+        let config = EdgeFeaturedConfig {
+            node_dim: 8,
+            edge_dim: 4,
+            num_heads: 0,
+            ..EdgeFeaturedConfig::default()
+        };
+        assert!(EdgeFeaturedAttention::try_new(config.clone()).is_err());
+        let attn = EdgeFeaturedAttention::new(config);
+        let v = vec![1.0_f32; 8];
+        assert!(attn.compute(&v, &[v.as_slice()], &[v.as_slice()]).is_err());
+    }
+
+    #[test]
+    fn test_mismatched_inputs_are_an_error() {
+        let attn = EdgeFeaturedAttention::try_new(EdgeFeaturedConfig {
+            node_dim: 8,
+            edge_dim: 4,
+            num_heads: 2,
+            ..EdgeFeaturedConfig::default()
+        })
+        .unwrap();
+        let node = vec![1.0_f32; 8];
+        let long = vec![1.0_f32; 64];
+        let edge = vec![1.0_f32; 4];
+        let short_edge = vec![1.0_f32; 1];
+        // value list shorter than key list
+        assert!(attn
+            .compute_with_edges(
+                &node,
+                &[node.as_slice(), node.as_slice()],
+                &[node.as_slice()],
+                &[edge.as_slice(), edge.as_slice()]
+            )
+            .is_err());
+        // key longer than node_dim
+        assert!(attn
+            .compute_with_edges(
+                &node,
+                &[long.as_slice()],
+                &[node.as_slice()],
+                &[edge.as_slice()]
+            )
+            .is_err());
+        // edge with the wrong width
+        assert!(attn
+            .compute_with_edges(
+                &node,
+                &[node.as_slice()],
+                &[node.as_slice()],
+                &[short_edge.as_slice()]
+            )
+            .is_err());
+        assert!(attn
+            .compute_with_edges(
+                &node,
+                &[node.as_slice()],
+                &[node.as_slice()],
+                &[edge.as_slice()]
+            )
+            .is_ok());
+    }
 
     #[test]
     fn test_edge_featured_attention() {

@@ -1550,6 +1550,23 @@ mod tests {
     }
 
     #[test]
+    fn test_pathological_nesting_returns_an_error() {
+        // 5k nested parentheses and a 200k-long NOT chain: both must come back
+        // as a parse error, not a stack overflow.
+        let n = 5_000;
+        assert_too_deep(&format!("RETURN {}1{}", "(".repeat(n), ")".repeat(n)));
+        assert_too_deep(&format!(
+            "MATCH (n) WHERE {}n.x = 1 RETURN n",
+            "(".repeat(n)
+        ));
+        assert_too_deep(&format!("RETURN {}true", "NOT ".repeat(200_000)));
+        assert_too_deep(&format!(
+            "MATCH (n) WHERE {}n.x RETURN n",
+            "NOT ".repeat(200_000)
+        ));
+    }
+
+    #[test]
     fn test_realistic_nesting_still_parses() {
         let parens = format!("RETURN {}1{} AS x", "(".repeat(200), ")".repeat(200));
         assert!(parse_cypher(&parens).is_ok());

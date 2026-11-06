@@ -30,8 +30,10 @@ impl MultiHeadAttention {
     ///
     /// # Panics
     ///
-    /// Panics if `dim` is not divisible by `num_heads`.
+    /// Panics if `num_heads` is zero or `dim` is not divisible by `num_heads`.
+    /// Use [`MultiHeadAttention::try_new`] for untrusted configuration.
     pub fn new(dim: usize, num_heads: usize) -> Self {
+        assert!(num_heads > 0, "Number of heads must be greater than zero");
         assert!(
             dim % num_heads == 0,
             "Dimension {} must be divisible by number of heads {}",
@@ -44,6 +46,20 @@ impl MultiHeadAttention {
             num_heads,
             head_dim: dim / num_heads,
         }
+    }
+
+    /// Creates a new multi-head attention mechanism, returning an error instead
+    /// of panicking when the configuration is invalid.
+    pub fn try_new(dim: usize, num_heads: usize) -> AttentionResult<Self> {
+        if dim == 0 {
+            return Err(AttentionError::InvalidConfig(
+                "Dimension must be greater than zero".to_string(),
+            ));
+        }
+        if num_heads == 0 || dim % num_heads != 0 {
+            return Err(AttentionError::InvalidHeadCount { dim, num_heads });
+        }
+        Ok(Self::new(dim, num_heads))
     }
 
     /// Splits input into multiple heads.
@@ -75,6 +91,20 @@ impl Attention for MultiHeadAttention {
                 expected: self.dim,
                 actual: query.len(),
             });
+        }
+        if keys.len() != values.len() {
+            return Err(AttentionError::DimensionMismatch {
+                expected: keys.len(),
+                actual: values.len(),
+            });
+        }
+        for vector in keys.iter().chain(values.iter()) {
+            if vector.len() != self.dim {
+                return Err(AttentionError::DimensionMismatch {
+                    expected: self.dim,
+                    actual: vector.len(),
+                });
+            }
         }
 
         // Split query into heads
@@ -139,6 +169,35 @@ mod tests {
 
         let result = attn.compute(&query, &keys, &values).unwrap();
         assert_eq!(result.len(), 8);
+    }
+
+    #[test]
+    fn test_short_keys_or_values_are_rejected() {
+        let attn = MultiHeadAttention::new(8, 2);
+        let query = vec![1.0_f32; 8];
+        let full = vec![0.5_f32; 8];
+        let short = vec![0.5_f32; 3];
+        assert!(attn
+            .compute(&query, &[short.as_slice()], &[full.as_slice()])
+            .is_err());
+        assert!(attn
+            .compute(&query, &[full.as_slice()], &[short.as_slice()])
+            .is_err());
+        assert!(attn
+            .compute(
+                &query,
+                &[full.as_slice(), full.as_slice()],
+                &[full.as_slice()]
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn test_try_new_rejects_bad_heads() {
+        assert!(MultiHeadAttention::try_new(8, 0).is_err());
+        assert!(MultiHeadAttention::try_new(10, 3).is_err());
+        assert!(MultiHeadAttention::try_new(0, 1).is_err());
+        assert!(MultiHeadAttention::try_new(8, 2).is_ok());
     }
 
     #[test]

@@ -27,6 +27,21 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "storage")]
 use std::sync::{Arc, Weak};
 
+/// Upper bound on the bytes one stored record may claim while it is decoded.
+///
+/// Records come from a database file on disk, which may be corrupt or crafted.
+/// Without a limit, a length prefix of a few bytes makes the decoder reserve an
+/// arbitrarily large buffer and abort the process on allocation failure.
+#[cfg(feature = "storage")]
+pub const MAX_RECORD_DECODE_BYTES: usize = 64 * 1024 * 1024;
+
+#[cfg(feature = "storage")]
+fn decode_record<T: bincode::Decode<()>>(bytes: &[u8]) -> Result<T> {
+    let config = config::standard().with_limit::<MAX_RECORD_DECODE_BYTES>();
+    let (value, _): (T, usize) = bincode::decode_from_slice(bytes, config)?;
+    Ok(value)
+}
+
 #[cfg(feature = "storage")]
 // Table definitions
 const NODES_TABLE: TableDefinition<&str, &[u8]> = TableDefinition::new("nodes");
@@ -242,8 +257,7 @@ impl GraphStorage {
             return Ok(None);
         };
 
-        let (node, _): (Node, usize) =
-            bincode::decode_from_slice(node_data.value(), config::standard())?;
+        let node: Node = decode_record(node_data.value())?;
         Ok(Some(node))
     }
 
@@ -320,8 +334,7 @@ impl GraphStorage {
             return Ok(None);
         };
 
-        let (edge, _): (Edge, usize) =
-            bincode::decode_from_slice(edge_data.value(), config::standard())?;
+        let edge: Edge = decode_record(edge_data.value())?;
         Ok(Some(edge))
     }
 
@@ -414,8 +427,7 @@ impl GraphStorage {
             return Ok(None);
         };
 
-        let (hyperedge, _): (Hyperedge, usize) =
-            bincode::decode_from_slice(hyperedge_data.value(), config::standard())?;
+        let hyperedge: Hyperedge = decode_record(hyperedge_data.value())?;
         Ok(Some(hyperedge))
     }
 
@@ -527,6 +539,18 @@ mod tests {
     use crate::hyperedge::HyperedgeBuilder;
     use crate::node::NodeBuilder;
     use tempfile::tempdir;
+
+    #[test]
+    fn test_oversized_length_prefix_is_rejected() {
+        // bincode varint tag 253 = u64 length follows; claim ~1 TiB.
+        let mut bytes = vec![253u8];
+        bytes.extend_from_slice(&(1u64 << 40).to_le_bytes());
+        assert!(decode_record::<Vec<u64>>(&bytes).is_err());
+        assert!(decode_record::<String>(&bytes).is_err());
+        // A record within the limit still decodes.
+        let ok = bincode::encode_to_vec(vec![1u32, 2, 3], config::standard()).unwrap();
+        assert_eq!(decode_record::<Vec<u32>>(&ok).unwrap(), vec![1, 2, 3]);
+    }
 
     #[test]
     fn test_node_storage() -> Result<()> {
