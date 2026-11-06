@@ -442,6 +442,21 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      # The main package lists the platform packages as optionalDependencies.
+      # npm can take minutes to expose a fresh version; publishing the main
+      # package first leaves `npm install @ruvector/attention` without a
+      # native binary until then.
+      - name: Wait for platform packages on the registry
+        run: |
+          set -euo pipefail
+          v="${{ inputs.version || '0.1.31' }}"
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-wait-visible.sh" \
+            "@ruvector/attention-linux-x64-gnu@$v" \
+            "@ruvector/attention-linux-arm64-gnu@$v" \
+            "@ruvector/attention-darwin-x64@$v" \
+            "@ruvector/attention-darwin-arm64@$v" \
+            "@ruvector/attention-win32-x64-msvc@$v"
+
       # --- Publish main @ruvector/attention package ---
       - name: Publish @ruvector/attention (main package)
         run: |
@@ -479,6 +494,7 @@ jobs:
           node -e 'const p=require("./package.json"); p.files=["index.js","index.d.ts","README.md"]; require("fs").writeFileSync("package.json", JSON.stringify(p,null,2)+"\n")'
 
           bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-wait-visible.sh" "@ruvector/attention@${{ inputs.version || '0.1.31' }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
