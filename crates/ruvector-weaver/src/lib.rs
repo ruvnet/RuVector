@@ -19,6 +19,7 @@ pub mod queue;
 pub mod readme;
 pub mod registry;
 pub mod release;
+pub mod resolve;
 pub mod scan;
 pub mod semver;
 pub mod svg;

@@ -185,3 +185,79 @@ pub fn vuln_evidence(package: &str, dir: &std::path::Path, affected: &str) -> Re
     }
     Ok(())
 }
+
+/// Fresh-install the given (or top-N by downloads) packages and record
+/// `invalid_resolution` signals into `scan/_resolve.json`.
+pub fn resolve(ctx: &Ctx, packages: Vec<String>, top: usize) -> Result<()> {
+    let g: Graph = read_json(&ctx.graph_path())?;
+    let names: Vec<String> = if packages.is_empty() {
+        g.packages
+            .iter()
+            .filter(|p| p.ecosystem == Ecosystem::Npm && !p.platform_binary)
+            .take(top)
+            .map(|p| p.name.clone())
+            .collect()
+    } else {
+        packages
+    };
+    let root = ctx.work.join("resolve");
+    std::fs::create_dir_all(&root)?;
+    let mut signals = Vec::new();
+    let mut notes = Vec::new();
+    for n in &names {
+        // Each install gets its own temp dir, removed when `dir` drops.
+        let dir = tempfile::Builder::new()
+            .prefix("resolve-")
+            .tempdir_in(&root)?;
+        std::fs::write(
+            dir.path().join("package.json"),
+            r#"{"name":"weaver-resolve","private":true}"#,
+        )?;
+        let t = std::time::Duration::from_secs(ctx.cfg.policy.gate.smoke_timeout_secs);
+        let spec = format!("{n}@latest");
+        let i = ruvector_weaver::util::run_timeout(
+            "npm",
+            &[
+                "install",
+                &spec,
+                "--ignore-scripts",
+                "--no-audit",
+                "--no-fund",
+                "--loglevel=error",
+            ],
+            dir.path(),
+            t,
+        )?;
+        if i.status != Some(0) {
+            notes.push(format!("{n}: npm install failed"));
+            continue;
+        }
+        let o =
+            ruvector_weaver::util::run_timeout("npm", &["ls", "--all", "--json"], dir.path(), t)?;
+        let Ok(tree) = serde_json::from_str::<serde_json::Value>(&o.stdout) else {
+            notes.push(format!("{n}: npm ls produced no JSON"));
+            continue;
+        };
+        let found = ruvector_weaver::resolve::signals(&g, n, &tree);
+        println!("  {n}: {} invalid resolution(s)", found.len());
+        for s in &found {
+            println!("    [{}] {}", s.repo, s.evidence);
+        }
+        signals.extend(found);
+    }
+    let rep = ScanReport {
+        repo: "_resolve".into(),
+        scanned_at: now(),
+        commit: None,
+        files_scanned: names.len(),
+        signals,
+        notes,
+    };
+    write_json(&ctx.work.join("scan").join("_resolve.json"), &rep)?;
+    println!(
+        "resolve: {} packages installed fresh, {} findings -> scan/_resolve.json",
+        names.len(),
+        rep.signals.len()
+    );
+    Ok(())
+}

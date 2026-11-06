@@ -17,7 +17,7 @@ W="target/release/weaver --config-dir config/weaver"   # run from a ruvector che
    lane returned (`--outcome shipped|rejected|failed`, `--pr`, `--version`,
    `--reason`, `--measure metric=value:unit@baseline`). Lanes without a
    report are recorded `failed`.
-2. Refresh: `$W graph`, `$W release`, `$W prs --all`, `$W scan <repos>`
+2. Refresh: `$W graph`, `$W release`, `$W prs --all`, `$W resolve --top 15`, `$W scan <repos>`
    (`--all` daily).
 3. Rank: `$W queue --gate-top 20` -> `/data/scratch/weaver/queue.json`.
 4. For each entry in `.lanes` (at most 8, one per repo): record its items as

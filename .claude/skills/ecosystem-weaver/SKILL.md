@@ -53,6 +53,7 @@ are skipped.
    $W graph                      # npm maintainer:ruvnet + crates.io owner; 12 h HTTP cache
    $W release                    # repo change / surface drop / open ranges per package
    $W prs --all                  # open PRs per repo (add --checks for CI rollups)
+   $W resolve --top 15           # fresh installs + npm ls --all: invalid_resolution
    $W scan <repos touched since last tick>   # daily: $W scan --all
    ```
 3. **Rank.** `$W queue --gate-top 20` writes `queue.json`: `lanes` (≤ 8, one
@@ -138,6 +139,11 @@ create when no capability covers it; `undeclared_import` / `unused_declared`
 land / close_with_ledger; `release_regression` -> release_fix. A rejection
 whose reason is a heavy dependency tree is re-queued automatically once the
 candidate ships a release under the size/dep bar in `weaver.toml [gate]`.
+`weaver resolve` installs the top packages fresh and runs `npm ls --all`.
+It emits `invalid_resolution` for every dependency whose resolved version
+breaks a declared range, and the lane goes to the consumer whose range won
+hoisting (for example, metaharness `^2.5.6` beat ruvector `^4.1.0` for
+`@ruvector/ruvllm`).
 `weaver release` also emits `fix_unreachable` (a dependent's declared range
 excludes the version carrying a shipped security fix in the ledger; queue a
 bump) and `zero_caret` (a `^0.y` / `~0.y` range that already misses the
