@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::filter::FilterValue;
+use crate::index_path::min_ef_search;
 use filtered_query::FILTERED_HNSW_MIN_GRAPH_RECALL;
 use rvf_types::quality::QualityPreference;
 use tempfile::TempDir;
@@ -180,7 +181,7 @@ fn cow_child_filtered_query_uses_both_graphs_and_matches_exact() {
 fn graph_recall_is_measured_once_and_cached() {
     let dir = TempDir::new().unwrap();
     let store = build_store(&dir.path().join("f.rvf"), 0..N);
-    let ef = INDEX_MIN_EF_SEARCH;
+    let ef = min_ef_search(store.options.dimension as usize);
     let recall = store.with_index(|idx| store.graph_recall(idx, ef)).unwrap();
     assert!(
         recall >= FILTERED_HNSW_MIN_GRAPH_RECALL,
@@ -204,7 +205,9 @@ fn low_graph_recall_routes_filtered_queries_to_the_exact_scan() {
     let filter = FilterExpr::Lt(0, FilterValue::U64(50));
     // Pretend the graph measured badly: the planner must not trust it.
     store
-        .with_index(|idx| idx.store_graph_recall(INDEX_MIN_EF_SEARCH, 0.5))
+        .with_index(|idx| {
+            idx.store_graph_recall(min_ef_search(store.options.dimension as usize), 0.5)
+        })
         .unwrap();
     let (recall, served) = compare(&store, &filter, 10);
     assert!(!served, "a weak graph must not serve filtered queries");
