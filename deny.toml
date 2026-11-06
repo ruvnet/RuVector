@@ -60,6 +60,14 @@ ignore = [
     # during resolution and never encounters the advisory, so an ignore
     # entry here would just be permanent dead-warning noise.
 
+    # ZIP extraction advisories: temporary source-reachability exception.
+    # Locked parents use archive read/write only; CI checksum-verifies and scans
+    # their source with scripts/check-zip-extraction-scope.mjs. Not a fix.
+    # Re-review by 2026-11-01; remove when parents support ZIP >=9.
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0368",
+    "RUSTSEC-2026-0369",
+
     # ── Unmaintained transitive deps (informational, no CVE) ─────────
 
     # proc-macro-error 1.x — unmaintained, transitively required by
