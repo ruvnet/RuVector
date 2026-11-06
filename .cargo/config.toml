@@ -13,14 +13,15 @@ protocol = "git"
 [env]
 RUST_MIN_STACK = "16777216"
 
-# aarch64 cross-build linker for Pi 5 deployments (ADR-179, iter 2).
-# Mirrors the per-crate config in crates/ruvector-hailo-cluster/.cargo/config.toml
-# but at workspace scope so any crate (ruvllm-cli, etc.) picks it up.
+# aarch64 cross-build linker for arm64 deployments.
 # Default linker (mold) is host-bound and rejects arm64 objects.
+#
+# Do NOT put Cortex-A76 / +rcpc tuning here (issue #1292). This workspace
+# config also applies to the published linux-arm64-gnu npm natives, and
+# Cortex-A72 (Pi 4) / NVIDIA Carmel (Jetson AGX Xavier) lack FEAT_LRCPC,
+# so they die with SIGILL on the resulting LDAPR/LDAPRB instructions.
+# Keep Pi 5 tuning in the Pi-specific crates that opt into it, e.g.
+# crates/ruvector-hailo-cluster/.cargo/config.toml. The npm natives must
+# stay baseline aarch64 and rely on runtime SIMD dispatch.
 [target.aarch64-unknown-linux-gnu]
 linker = "aarch64-linux-gnu-gcc"
-# Cortex-A76 (Pi 5) tuning, same flags as iter-84 hailo-cluster ultra profile.
-rustflags = [
-    "-C", "target-cpu=cortex-a76",
-    "-C", "target-feature=+lse,+rcpc,+fp16,+crc",
-]
