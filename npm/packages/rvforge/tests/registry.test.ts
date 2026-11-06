@@ -5,7 +5,7 @@
  * the release index and transparency log refuse.
  */
 
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 
@@ -87,6 +87,37 @@ describe('object identity', () => {
 });
 
 describe('object storage', () => {
+  it('rejects mismatched content before creating or overwriting an object', async () => {
+    const original = release();
+    const different = release({ version: '2.0.0' });
+    await expect(putObject(root, original.releaseId, different)).rejects.toMatchObject({
+      code: ForgeErrorCode.REGISTRY,
+    });
+    expect(await getObject(root, original.releaseId)).toBeNull();
+    await putObject(root, original.releaseId, original);
+    await expect(putObject(root, original.releaseId, different)).rejects.toMatchObject({
+      code: ForgeErrorCode.REGISTRY,
+    });
+    expect(await getObject(root, original.releaseId)).toEqual(original);
+  });
+
+  it('refuses stored content that no longer matches its address', async () => {
+    const original = release();
+    const { path } = await putObject(root, original.releaseId, original);
+    await writeFile(path, JSON.stringify({ ...original, version: '2.0.0' }));
+    await expect(getObject(root, original.releaseId)).rejects.toMatchObject({
+      code: ForgeErrorCode.REGISTRY,
+    });
+  });
+
+  it('allows signatures to be refreshed without changing the content identity', async () => {
+    const original = release();
+    await putObject(root, original.releaseId, original);
+    const signed = { ...original, signatures: [{ keyId: 'key', role: 'publisher', sig: 'signature' }] };
+    await putObject(root, original.releaseId, signed);
+    expect(await getObject(root, original.releaseId)).toEqual(signed);
+  });
+
   it('shards by the first two hex characters of the digest', async () => {
     const object = release();
     const { path } = await putObject(root, object.releaseId, object);
