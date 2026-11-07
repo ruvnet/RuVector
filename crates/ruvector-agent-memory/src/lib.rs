@@ -49,6 +49,8 @@
 pub mod arbitration;
 pub mod compaction;
 pub mod diagnostic;
+#[cfg(feature = "fast-boundary-forget")]
+pub mod fast_boundary;
 pub mod fusion;
 #[cfg(feature = "mincut-forget")]
 pub mod graph_forget;
@@ -73,6 +75,8 @@ pub use diagnostic::{
     MemoryStage, PairedEvaluation, PairedOutcome, PolicySet, PromotionDecision,
     ProtectedSliceResult, RetrievalStrategy, StageSignal, LOCALIZATION_THRESHOLD,
 };
+#[cfg(feature = "fast-boundary-forget")]
+pub use fast_boundary::{BoundaryHeuristic, FastBoundaryForgetting};
 pub use fusion::{CausalEpisodicGraph, ClusterId, FusedCluster, FusionError, NodeRef};
 #[cfg(feature = "mincut-forget")]
 pub use graph_forget::{ForgetMode, MincutGatedForgetting};
