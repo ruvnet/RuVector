@@ -32,8 +32,8 @@ pub mod reranker;
 pub use error::RerankerError;
 pub use graph::CandidateGraph;
 pub use reranker::{
-    Candidate, CandidateReranker, ExactL2Reranker, GnnDiffusionReranker, GnnMincutReranker,
-    NoisyScoreReranker, RankedResult,
+    AdaptiveCoherenceReranker, Candidate, CandidateReranker, ExactL2Reranker, GnnDiffusionReranker,
+    GnnMincutReranker, NoisyScoreReranker, RankedResult,
 };
 
 #[cfg(test)]
@@ -79,6 +79,16 @@ mod tests {
         let cands = make_candidates(20, 8, 3);
         let query = make_query(8);
         let r = GnnMincutReranker::default()
+            .rerank(&query, &cands, 5)
+            .unwrap();
+        assert_eq!(r.len(), 5);
+    }
+
+    #[test]
+    fn adaptive_coherence_returns_k_results() {
+        let cands = make_candidates(20, 8, 6);
+        let query = make_query(8);
+        let r = AdaptiveCoherenceReranker::default()
             .rerank(&query, &cands, 5)
             .unwrap();
         assert_eq!(r.len(), 5);
