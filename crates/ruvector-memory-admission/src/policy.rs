@@ -2,6 +2,7 @@
 
 use crate::cosine_sim;
 use crate::mincut::{global_min_cut, WeightMatrix};
+use std::collections::VecDeque;
 
 /// Outcome of an admission decision.
 #[derive(Debug, Clone, Copy)]
@@ -446,6 +447,204 @@ impl AdmissionPolicy for AdaptiveMincutAdmission {
     }
 }
 
+// ─── 4. ConformalMincutAdmission — candidate C ───────────────────────────────
+
+/// Same mechanism as [`MincutGatedAdmission`], but `tau` is calibrated from a
+/// **sliding window** of the most recently observed average-cut weights,
+/// using an empirical quantile instead of candidate B's lifetime running
+/// mean/std.
+///
+/// This directly attacks the documented failure mode of
+/// [`AdaptiveMincutAdmission`] (candidate B): its `mean - k_std * std`
+/// estimator is a *global* statistic over the cut-weight distribution since
+/// the stream began, and the 2026-09-02 nightly measured that this global
+/// statistic stops tracking the locally-relevant admission threshold once
+/// the cluster graph grows past a handful of nodes (more nodes -> more
+/// near-orthogonal pairs -> the global min cut increasingly tends to find a
+/// very low weakest link almost by construction, dragging the running mean
+/// down in a way unrelated to whether *this* candidate point is a genuine
+/// outlier). A fixed-size sliding window instead of a lifetime accumulator
+/// keeps the calibration statistic representative of the *current* cluster
+/// regime rather than averaging across every regime the stream has ever
+/// passed through. Taking the `alpha`-quantile of that window (rather than
+/// `mean - k_std * std`) also drops the assumption that cut weights are
+/// roughly Gaussian, which there is no reason to expect once the graph
+/// geometry is this far from the two-node case.
+///
+/// **Important caveat, stated up front rather than implied**: this is
+/// *conformal-style* quantile calibration, not a rigorous split-conformal
+/// predictor. Split conformal prediction's distribution-free coverage
+/// guarantee requires the calibration and test points to be exchangeable.
+/// Here the calibration window is built from the policy's own past
+/// decisions, which then influence which future points merge vs. spawn (and
+/// therefore which future cut weights get observed) — a feedback loop that
+/// breaks the i.i.d./exchangeability assumption the formal guarantee rests
+/// on. No coverage guarantee is claimed; `alpha` is an empirically measured
+/// target, not a proven bound. See the nightly research doc for the
+/// benchmarked behaviour this produces.
+pub struct ConformalMincutAdmission {
+    /// Target quantile level in `(0, 1)`: `tau` is set to the `alpha`-th
+    /// empirical quantile of the calibration window, so (informally, not
+    /// guaranteed) roughly an `alpha` fraction of recently observed
+    /// attachment strengths fall below it.
+    pub alpha: f32,
+    /// Sliding-window size for the calibration buffer.
+    pub window: usize,
+    pub max_clusters: usize,
+    pub bootstrap_tau: f32,
+    pub min_observations: usize,
+    centroids: Vec<Vec<f32>>,
+    counts: Vec<usize>,
+    calib: VecDeque<f32>,
+}
+
+impl ConformalMincutAdmission {
+    pub fn new(alpha: f32, window: usize, max_clusters: usize, bootstrap_tau: f32) -> Self {
+        ConformalMincutAdmission {
+            alpha,
+            window,
+            max_clusters,
+            bootstrap_tau,
+            // Capped at `window`: the calibration buffer never holds more
+            // than `window` entries, so a `min_observations` above that
+            // would make `current_tau` return `bootstrap_tau` forever.
+            min_observations: window.min(10),
+            centroids: Vec::new(),
+            counts: Vec::new(),
+            calib: VecDeque::with_capacity(window),
+        }
+    }
+
+    /// Empirical `alpha`-quantile of the calibration window via linear
+    /// interpolation on a sorted copy. `O(window log window)` per call —
+    /// fine for the small windows (hundreds of entries) this policy is
+    /// designed for; a production port would replace this with an
+    /// order-statistics structure that supports incremental updates instead
+    /// of re-sorting on every decision.
+    fn current_tau(&self) -> f32 {
+        if self.calib.len() < self.min_observations {
+            return self.bootstrap_tau;
+        }
+        let mut sorted: Vec<f32> = self.calib.iter().copied().collect();
+        sorted.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let n = sorted.len();
+        let pos = (self.alpha as f64 * (n as f64 - 1.0)).clamp(0.0, (n - 1) as f64);
+        let lo = pos.floor() as usize;
+        let hi = pos.ceil() as usize;
+        if lo == hi {
+            sorted[lo]
+        } else {
+            let frac = (pos - lo as f64) as f32;
+            sorted[lo] + frac * (sorted[hi] - sorted[lo])
+        }
+    }
+
+    fn observe(&mut self, avg_cut: f32) {
+        if self.calib.len() == self.window {
+            self.calib.pop_front();
+        }
+        self.calib.push_back(avg_cut);
+    }
+
+    fn cut_decision(&self, point: &[f32]) -> (f32, Vec<usize>, usize) {
+        // Duplicated from MincutGatedAdmission/AdaptiveMincutAdmission for
+        // the same per-policy cost-accounting reason documented on
+        // AdaptiveMincutAdmission::cut_decision.
+        let c = self.centroids.len();
+        let mut m = WeightMatrix::new(c + 1);
+        let mut sim_ops = 0usize;
+        for i in 0..c {
+            for j in (i + 1)..c {
+                let w = cosine_sim(&self.centroids[i], &self.centroids[j]).max(0.0);
+                m.set_sym(i, j, w as f64);
+                sim_ops += 1;
+            }
+        }
+        for i in 0..c {
+            let w = cosine_sim(&self.centroids[i], point).max(0.0);
+            m.set_sym(i, c, w as f64);
+            sim_ops += 1;
+        }
+        let result = global_min_cut(&m).expect("c+1 >= 2 whenever c >= 1");
+        let point_side = result.side[c];
+        let group: Vec<usize> = (0..c).filter(|&i| result.side[i] == point_side).collect();
+        let avg_cut = (result.weight / result.crossing_edges as f64) as f32;
+        (avg_cut, group, sim_ops)
+    }
+}
+
+impl AdmissionPolicy for ConformalMincutAdmission {
+    fn name(&self) -> &str {
+        "ConformalMincutAdmission"
+    }
+
+    fn decide(&self, point: &[f32]) -> Decision {
+        let c = self.centroids.len();
+        if c == 0 {
+            return Decision {
+                cluster_id: 0,
+                spawned_new: true,
+                sim_ops: 0,
+            };
+        }
+        if c >= self.max_clusters {
+            let mut best_id = 0usize;
+            let mut best_sim = f32::NEG_INFINITY;
+            for (i, cen) in self.centroids.iter().enumerate() {
+                let s = cosine_sim(point, cen);
+                if s > best_sim {
+                    best_sim = s;
+                    best_id = i;
+                }
+            }
+            return Decision {
+                cluster_id: best_id,
+                spawned_new: false,
+                sim_ops: c,
+            };
+        }
+
+        let tau = self.current_tau();
+        let (avg_cut, group, sim_ops) = self.cut_decision(point);
+        if should_spawn(c, avg_cut, &group, tau) {
+            Decision {
+                cluster_id: c,
+                spawned_new: true,
+                sim_ops,
+            }
+        } else {
+            Decision {
+                cluster_id: merge_target(point, &group, &self.centroids),
+                spawned_new: false,
+                sim_ops,
+            }
+        }
+    }
+
+    fn commit(&mut self, point: &[f32], decision: &Decision) {
+        if !self.centroids.is_empty() && self.centroids.len() < self.max_clusters {
+            let (avg_cut, _, _) = self.cut_decision(point);
+            self.observe(avg_cut);
+        }
+        if decision.spawned_new {
+            self.centroids.push(point.to_vec());
+            self.counts.push(1);
+        } else {
+            let c = decision.cluster_id;
+            running_mean_update(&mut self.centroids[c], self.counts[c], point);
+            self.counts[c] += 1;
+        }
+    }
+
+    fn n_clusters(&self) -> usize {
+        self.centroids.len()
+    }
+
+    fn centroid(&self, cluster_id: usize) -> &[f32] {
+        &self.centroids[cluster_id]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -530,5 +729,50 @@ mod tests {
         // A smoothly-varying stream of near-identical points should mostly
         // merge, not spawn a cluster per point.
         assert!(p.n_clusters() < 30);
+    }
+
+    #[test]
+    fn conformal_quantile_matches_hand_computed_value() {
+        let mut p = ConformalMincutAdmission::new(0.5, 8, 16, 0.3);
+        // Feed a known calibration window directly via `observe` (private,
+        // so exercised through the module-internal test) and check the
+        // median lands where linear interpolation on a sorted copy predicts.
+        for x in [0.1f32, 0.9, 0.3, 0.7, 0.2, 0.8, 0.4, 0.6, 0.5, 0.0] {
+            p.observe(x);
+        }
+        // Window=8, so only the last 8 pushed values survive:
+        // [0.3, 0.7, 0.2, 0.8, 0.4, 0.6, 0.5, 0.0] -> sorted
+        // [0.0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8], median (pos 3.5) = 0.45.
+        let tau = p.current_tau();
+        assert!((tau - 0.45).abs() < 1e-5, "tau={tau}");
+    }
+
+    #[test]
+    fn conformal_admission_respects_max_clusters_safety_valve() {
+        let mut p = ConformalMincutAdmission::new(0.15, 200, 3, 0.3);
+        for i in 0..20 {
+            let angle = i as f32 * 0.31;
+            p.admit(&v(angle.cos(), angle.sin(), 6));
+        }
+        assert!(p.n_clusters() <= 3);
+    }
+
+    #[test]
+    fn conformal_admission_merges_a_smooth_stream_without_runaway_growth() {
+        // Same smoothly-varying stream that candidate B handles fine in
+        // isolation (the regression this policy must not reintroduce): most
+        // points should merge rather than each spawning its own cluster.
+        let mut p = ConformalMincutAdmission::new(0.15, 200, 16, 0.3);
+        for i in 0..30 {
+            let angle = (i as f32) * 0.05;
+            p.admit(&v(angle.cos(), angle.sin(), 6));
+        }
+        assert!(p.n_clusters() < 30);
+    }
+
+    #[test]
+    fn conformal_bootstrap_tau_used_before_min_observations() {
+        let p = ConformalMincutAdmission::new(0.15, 200, 16, 0.42);
+        assert_eq!(p.current_tau(), 0.42);
     }
 }

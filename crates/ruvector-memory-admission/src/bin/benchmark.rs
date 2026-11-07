@@ -1,10 +1,26 @@
 //! Streaming memory-admission benchmark.
 //!
-//! Compares three online cluster-admission policies for streaming agent
+//! Compares four online cluster-admission policies for streaming agent
 //! memory:
-//!   1. NearestCentroidThreshold – baseline: fixed cosine threshold
-//!   2. MincutGatedAdmission     – candidate A: global min-cut, fixed tau
-//!   3. AdaptiveMincutAdmission  – candidate B: global min-cut, self-calibrating tau
+//!
+//! 1. NearestCentroidThreshold — baseline: fixed cosine threshold
+//! 2. MincutGatedAdmission — candidate A: global min-cut, fixed tau
+//! 3. AdaptiveMincutAdmission — candidate B: global min-cut, lifetime
+//!    running-mean/std self-calibrating tau
+//! 4. ConformalMincutAdmission — candidate C: global min-cut,
+//!    sliding-window empirical-quantile self-calibrating tau
+//!    (conformal-style; see policy.rs doc comment for the
+//!    exchangeability caveat)
+//!
+//! Candidate C exists to attack the documented negative result for
+//! candidate B (2026-09-02 nightly): B's lifetime running mean/std drifted
+//! to the 48-cluster safety valve because it is a *global* statistic over
+//! the whole stream's cut-weight history, which stops representing the
+//! *locally* relevant admission threshold once the cluster graph grows past
+//! a handful of nodes. C swaps that lifetime mean/std for an empirical
+//! quantile over a small *sliding* window, so the calibration statistic
+//! tracks the current cluster-count regime instead of averaging over every
+//! regime the stream has passed through.
 //!
 //! ## Matched-budget calibration
 //!
@@ -28,10 +44,12 @@
 //!
 //! Environment overrides:
 //!   N_POINTS=4000 K_TRUE=8 DIMS=64 N_QUERIES=300 TAU=0.005
+//!   CONFORMAL_ALPHA=0.15 CONFORMAL_WINDOW=200
 
 use ruvector_memory_admission::dataset::{StreamConfig, StreamDataset};
 use ruvector_memory_admission::policy::{
-    AdaptiveMincutAdmission, AdmissionPolicy, MincutGatedAdmission, NearestCentroidThreshold,
+    AdaptiveMincutAdmission, AdmissionPolicy, ConformalMincutAdmission, MincutGatedAdmission,
+    NearestCentroidThreshold,
 };
 use ruvector_memory_admission::sq_l2;
 use std::time::Instant;
@@ -58,6 +76,7 @@ const CALIBRATION_ITERATIONS: usize = 25;
 const MIN_PURITY_GAIN_A_PP: f64 = 0.0; // candidate A must not lose purity at matched cluster budget
 const MIN_RECALL_GAIN_A_PP: f64 = 2.0; // candidate A must gain >= 2pp recall@10 at matched budget
 const MAX_RECALL_REGRESSION_B_PP: f64 = 2.0; // candidate B (unmatched, self-calibrated) tolerance vs baseline
+const MAX_RECALL_REGRESSION_C_PP: f64 = 2.0; // candidate C (unmatched, self-calibrated) tolerance vs baseline, same bar as B
 const MAX_MEAN_LATENCY_US: f64 = 500.0; // absolute ceiling: this is a write-path admission decision, not a hot query
 const MAX_CLUSTER_COUNT_FACTOR: usize = 3; // final cluster count <= 3x K_true
 
@@ -236,6 +255,8 @@ fn main() {
     let dims = env_usize("DIMS", 64);
     let n_queries = env_usize("N_QUERIES", 300);
     let tau = env_f32("TAU", 0.005);
+    let conformal_alpha = env_f32("CONFORMAL_ALPHA", 0.15);
+    let conformal_window = env_usize("CONFORMAL_WINDOW", 200);
 
     let cfg = StreamConfig {
         n_points,
@@ -266,6 +287,14 @@ fn main() {
         &queries,
     );
 
+    // ── candidate C: sliding-window quantile calibration, also NOT
+    //    calibrated to the baseline's budget — reports wherever it lands ──
+    let candidate_c = run_policy(
+        ConformalMincutAdmission::new(conformal_alpha, conformal_window, MAX_CLUSTERS, tau),
+        &ds,
+        &queries,
+    );
+
     println!("Dataset:");
     println!("  Stream points:  {n_points}");
     println!("  True clusters:  {k_true}");
@@ -287,6 +316,10 @@ fn main() {
         "  Candidate B cluster count (NOT calibrated, self-tuned): {}",
         candidate_b.n_clusters
     );
+    println!(
+        "  Candidate C cluster count (NOT calibrated, self-tuned): {} (alpha={conformal_alpha:.2}, window={conformal_window})",
+        candidate_c.n_clusters
+    );
     println!();
 
     println!("Results:");
@@ -294,12 +327,14 @@ fn main() {
     print_row(&baseline);
     print_row(&candidate_a);
     print_row(&candidate_b);
+    print_row(&candidate_c);
     println!();
 
     // ── acceptance checks ────────────────────────────────────────────────
     let purity_gain_a_pp = (candidate_a.purity - baseline.purity) * 100.0;
     let recall_gain_a_pp = (candidate_a.recall_at_10 - baseline.recall_at_10) * 100.0;
     let recall_regress_b_pp = (baseline.recall_at_10 - candidate_b.recall_at_10) * 100.0;
+    let recall_regress_c_pp = (baseline.recall_at_10 - candidate_c.recall_at_10) * 100.0;
     let cluster_bound = MAX_CLUSTER_COUNT_FACTOR * k_true;
 
     let a_purity_pass = purity_gain_a_pp >= MIN_PURITY_GAIN_A_PP;
@@ -316,6 +351,15 @@ fn main() {
     let b_latency_pass = candidate_b.mean_us <= MAX_MEAN_LATENCY_US;
     let b_cluster_pass = candidate_b.n_clusters <= cluster_bound;
     let b_pass = b_recall_pass && b_latency_pass && b_cluster_pass;
+
+    // Candidate C's claim, same shape as B's: without matching to the
+    // baseline's budget, does sliding-window quantile self-calibration land
+    // close enough to be useful, while specifically NOT repeating B's
+    // runaway drift to the safety-valve cap?
+    let c_recall_pass = recall_regress_c_pp <= MAX_RECALL_REGRESSION_C_PP;
+    let c_latency_pass = candidate_c.mean_us <= MAX_MEAN_LATENCY_US;
+    let c_cluster_pass = candidate_c.n_clusters <= cluster_bound;
+    let c_pass = c_recall_pass && c_latency_pass && c_cluster_pass;
 
     println!("Acceptance criteria — Candidate A (MincutGatedAdmission, fixed tau, matched cluster budget):");
     println!(
@@ -355,12 +399,29 @@ fn main() {
     );
     println!();
 
-    let overall = a_pass && b_pass;
+    println!("Acceptance criteria — Candidate C (ConformalMincutAdmission, sliding-window quantile tau, NOT matched):");
+    println!(
+        "  recall@10 regression <= {MAX_RECALL_REGRESSION_C_PP:.1}pp vs matched baseline: {recall_regress_c_pp:>7.2}pp -> {}",
+        if c_recall_pass { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "  mean latency <= {MAX_MEAN_LATENCY_US:.0}µs:                 {:>7.2}µs -> {}",
+        candidate_c.mean_us,
+        if c_latency_pass { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "  final clusters <= {cluster_bound} ({MAX_CLUSTER_COUNT_FACTOR}x K_true):          {:>7}   -> {}",
+        candidate_c.n_clusters,
+        if c_cluster_pass { "PASS" } else { "FAIL" }
+    );
+    println!();
+
+    let overall = a_pass && b_pass && c_pass;
     println!(
         "Overall: {}",
         if overall {
             "ACCEPT — all mandatory thresholds passed"
-        } else if a_pass || b_pass {
+        } else if a_pass || b_pass || c_pass {
             "PARTIAL — at least one candidate passed, see per-candidate results above"
         } else {
             "REJECT — no candidate passed all mandatory thresholds"
