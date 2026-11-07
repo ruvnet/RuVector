@@ -1,0 +1,187 @@
+Raw command output for ADR-352 / 2026-10-03 nightly.
+Machine: single run, same container, same session, back-to-back (git stash /
+git stash pop between baseline and candidate runs; no other changes).
+cargo 1.x (stable toolchain, release profile unless noted). Linux x86_64.
+
+====================================================================
+1. cargo test -p ruvector-mincut --lib -- localkcut:: (candidate code)
+====================================================================
+running 41 tests
+test localkcut::deterministic::tests::test_coloring_family ... ok
+test localkcut::deterministic::tests::test_forest_packing_basic ... ok
+test localkcut::deterministic::tests::test_forest_packing_cycle ... ok
+test localkcut::deterministic::tests::test_edge_deletion ... ok
+test localkcut::paper_impl::tests::test_boundary_calculation ... ok
+test localkcut::paper_impl::tests::test_budget_enforcement ... ok
+test localkcut::paper_impl::tests::test_determinism ... ok
+test localkcut::paper_impl::tests::test_deterministic_family_generator ... ok
+test localkcut::paper_impl::tests::test_empty_seeds ... ok
+test localkcut::paper_impl::tests::test_dumbbell_bridge_cut ... ok
+test localkcut::paper_impl::tests::test_deterministic_local_kcut_creation ... ok
+test localkcut::paper_impl::tests::test_invalid_seed ... ok
+test localkcut::paper_impl::tests::test_local_kcut_query_creation ... ok
+test localkcut::paper_impl::tests::test_large_radius ... ok
+test localkcut::paper_impl::tests::test_simple_path_cut ... ok
+test localkcut::paper_impl::tests::test_multiple_seeds ... ok
+test localkcut::paper_impl::tests::test_witness_creation ... ok
+test localkcut::paper_impl::tests::test_triangle_no_cut ... ok
+test localkcut::paper_impl::tests::test_zero_radius ... ok
+test localkcut::paper_impl::tests::test_witness_properties ... ok
+test localkcut::tests::test_assign_colors ... ok
+test localkcut::tests::test_check_cut ... ok
+test localkcut::tests::test_check_cut_invalid ... ok
+test localkcut::tests::test_color_constrained_bfs ... ok
+test localkcut::tests::test_color_constrained_bfs_limited ... ok
+test localkcut::tests::test_color_mask ... ok
+test localkcut::tests::test_color_mask_from_colors ... ok
+test localkcut::tests::test_complete_workflow ... ok
+test localkcut::tests::test_compute_radius ... ok
+test localkcut::tests::test_edge_color_conversion ... ok
+test localkcut::tests::test_enumerate_paths ... ok
+test localkcut::tests::test_find_cut_simple ... ok
+test localkcut::tests::test_forest_packing_empty_graph ... ok
+test localkcut::tests::test_deterministic_coloring ... ok
+test localkcut::tests::test_forest_witnesses_cut ... ok
+test localkcut::tests::test_local_cut_result ... ok
+test localkcut::tests::test_local_kcut_new ... ok
+test localkcut::tests::test_union_find ... ok
+test localkcut::tests::test_forest_packing_simple ... ok
+test localkcut::paper_impl::tests::test_incremental_boundary_matches_from_scratch_across_random_graphs ... ok
+test localkcut::deterministic::tests::test_localkcut_query ... ok
+
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 477 filtered out; finished in 1.10s
+
+====================================================================
+2. cargo test -p ruvector-mincut --lib -- instance:: integration:: wrapper::
+   (candidate code)
+====================================================================
+test result: ok. 57 passed; 0 failed; 0 ignored; 0 measured; 461 filtered out; finished in 1.56s
+
+====================================================================
+3. cargo test -p ruvector-mincut --test integration_tests (candidate code)
+====================================================================
+running 7 tests
+test test_disconnected_graph ... ok
+test test_dynamic_updates_bounded ... ok
+test test_analyzer_with_wrapper ... ok
+test test_graph_partitioner_full_pipeline ... ok
+test test_wrapper_with_bounded_instance ... ok
+test test_community_detection_full_pipeline ... ok
+test test_large_graph_performance ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+====================================================================
+4. cargo test -p ruvector-mincut --test determinism_tests --release
+   (candidate code)
+====================================================================
+running 3 tests
+test graph_vertices_are_sorted ... ok
+test partition_is_never_degenerate_on_connected_graph ... ok
+test partition_is_stable_across_repeated_calls ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 26.62s
+
+====================================================================
+5. cargo run --release -p ruvector-mincut --example boundary_incremental_bench
+   (candidate code; isolated OLD-vs-NEW deterministic_bfs comparison)
+====================================================================
+# boundary_incremental_bench: OLD (full rescan) vs NEW (incremental)
+# n, seed_count_tried, old_ms, new_ms, speedup, old_cut, new_cut, agree
+n=50    seeds=50    old_ms=       2.796 new_ms=     2.165 speedup=     1.3x old_cut=None new_cut=None agree=true
+n=100   seeds=100   old_ms=      14.246 new_ms=     8.979 speedup=     1.6x old_cut=None new_cut=None agree=true
+n=200   seeds=200   old_ms=      81.548 new_ms=    36.149 speedup=     2.3x old_cut=None new_cut=None agree=true
+n=400   seeds=400   old_ms=     353.237 new_ms=   114.993 speedup=     3.1x old_cut=None new_cut=None agree=true
+
+====================================================================
+6. cargo run --release -p ruvector-agent-memory --example mincut_scaling_probe
+   --features mincut-forget
+====================================================================
+
+--- BASELINE (pre-fix; `git stash` applied to paper_impl.rs only) ---
+n=19    build=     0.238ms  partition= 73010.094ms
+n=50    build=     0.260ms  partition=    77.312ms
+n=100   build=     0.544ms  partition=   565.257ms
+n=200   build=     1.256ms  partition=  2375.316ms
+n=400   build=     2.064ms  partition= 11420.390ms
+
+--- CANDIDATE (this fix; `git stash pop`) ---
+n=19    build=     0.224ms  partition= 69200.872ms
+n=50    build=     0.449ms  partition=    68.779ms
+n=100   build=     0.601ms  partition=   361.878ms
+n=200   build=     1.781ms  partition=  1397.897ms
+n=400   build=     2.453ms  partition=  4307.789ms
+
+(n=19 uses BoundedInstance::brute_force_min_cut, which this fix does not
+touch (vertices.len() < 20 path, independent of deterministic_bfs) — the
+~69-73s figures on both sides are the same documented ADR-345 brute-force
+outlier, within run-to-run noise for an O(2^19) enumeration.)
+
+====================================================================
+7. TRIALS=30 cargo run --release -p ruvector-agent-memory --example
+   mincut_determinism_probe --features mincut-forget
+====================================================================
+
+--- BASELINE (pre-fix) ---
+trials=30 elapsed=24.69s avg_per_call=822.9ms empty_or_degenerate=0 (0%) bridge_detected_as_boundary=30 (100%)
+
+--- CANDIDATE (this fix) ---
+trials=30 elapsed=26.68s avg_per_call=889.3ms empty_or_degenerate=0 (0%) bridge_detected_as_boundary=30 (100%)
+
+(19-vertex graph, brute-force path, unaffected by this fix as expected;
+confirms ADR-346's determinism fix is unaffected by this change.)
+
+====================================================================
+8. cargo run --release -p ruvector-agent-memory --example
+   mincut_gated_forgetting_bench --features mincut-forget
+   (ADR-345's own rejected-hypothesis benchmark, re-run unmodified)
+====================================================================
+
+--- BASELINE (pre-fix) ---
+Policy                           Bridge Surv.    Recall@10  Compaction (us)
+----------------------------------------------------------------------------
+CoherenceWeighted                       66.7%       100.0%               30
+MincutGatedForgetting-Soft              66.7%       100.0%            81782
+MincutGatedForgetting-Hard              66.7%       100.0%            87400
+
+Tamper-detection trials (eviction witness chain)
+  Detected 20/20 single-byte-flip tampers
+
+Acceptance test
+  Soft bridge-survival gap  (+0.0pp) >= 15pp : FAIL
+  Hard bridge-survival gap  (+0.0pp) >= 15pp : FAIL
+  Soft |recall delta| (0.00pp) <= 2pp                 : PASS
+  Hard |recall delta| (0.00pp) <= 2pp                 : PASS
+  Soft compaction slowdown  (2726.1x) <= 100x                : FAIL
+  Hard compaction slowdown  (2913.3x) <= 100x                : FAIL
+  Tamper detection (20/20)                          : PASS
+
+=> REJECT: one or more mandatory acceptance thresholds failed (see above).
+
+--- CANDIDATE (this fix) ---
+Policy                           Bridge Surv.    Recall@10  Compaction (us)
+----------------------------------------------------------------------------
+CoherenceWeighted                       66.7%       100.0%               36
+MincutGatedForgetting-Soft              66.7%       100.0%            54531
+MincutGatedForgetting-Hard              66.7%       100.0%            56317
+
+Tamper-detection trials (eviction witness chain)
+  Detected 20/20 single-byte-flip tampers
+
+Acceptance test
+  Soft bridge-survival gap  (+0.0pp) >= 15pp : FAIL
+  Hard bridge-survival gap  (+0.0pp) >= 15pp : FAIL
+  Soft |recall delta| (0.00pp) <= 2pp                 : PASS
+  Hard |recall delta| (0.00pp) <= 2pp                 : PASS
+  Soft compaction slowdown  (1514.8x) <= 100x                : FAIL
+  Hard compaction slowdown  (1564.4x) <= 100x                : FAIL
+  Tamper detection (20/20)                          : PASS
+
+=> REJECT: one or more mandatory acceptance thresholds failed (see above).
+
+Speedup: Soft 81782us -> 54531us = 1.50x; Hard 87400us -> 56317us = 1.55x
+(direct compaction-call wall clock). Slowdown-vs-baseline-policy ratio:
+Soft 2726.1x -> 1514.8x = 1.80x reduction; Hard 2913.3x -> 1564.4x = 1.86x
+reduction (this ratio also moves with the cheap CoherenceWeighted baseline's
+own run-to-run noise, hence the small difference from the raw 1.50x/1.55x
+direct-call ratio above).

@@ -232,9 +232,9 @@ function safeRequire(modulePath) {
   return null;
 }
 
-const router = safeRequire(path.join(helpersDir, 'router.js'));
-const session = safeRequire(path.join(helpersDir, 'session.js'));
-const memory = safeRequire(path.join(helpersDir, 'memory.js'));
+const router = safeRequire(path.join(helpersDir, 'router.cjs'));
+const session = safeRequire(path.join(helpersDir, 'session.cjs'));
+const memory = safeRequire(path.join(helpersDir, 'memory.cjs'));
 const intelligence = safeRequire(path.join(helpersDir, 'intelligence.cjs'));
 
 // ── Intelligence timeout protection (fixes #1530, #1531) ───────────────────
@@ -286,6 +286,17 @@ async function readStdin() {
   });
 }
 
+// ADR-404: the ruflo mod (plugins/ruflo-mods) runs these events in-process
+// inside Claude Code and sets RUFLO_MODS_OWNS on the process, which every hook
+// started after inherits. An event named there is the mod's; returning here
+// keeps it from firing twice. Only side-effect events can be handed over:
+// guards such as pre-bash always run, whatever the variable says.
+const MOD_OWNABLE_EVENTS = new Set(['route', 'post-edit']);
+function ownedByMod(cmd, env = process.env) {
+  if (!MOD_OWNABLE_EVENTS.has(cmd)) return false;
+  return String(env.RUFLO_MODS_OWNS || '').split(',').some((owned) => owned.trim() === cmd);
+}
+
 function claimSideEffectEvent(family, stdinData, event) {
   if (/^(1|true|yes|on)$/i.test(process.env.RUFLO_DISABLE_HOOK_DEDUP || '')) return true;
   try {
@@ -312,6 +323,8 @@ function claimSideEffectEvent(family, stdinData, event) {
 }
 
 async function main() {
+  if (ownedByMod(command)) return;
+
   // Global safety timeout: hooks must NEVER hang (#1530, #1531)
   const safetyTimer = setTimeout(() => {
     process.stderr.write("[WARN] Hook handler global timeout (5s), forcing exit\n");
@@ -452,7 +465,8 @@ const handlers = {
     for (const d of dangerous) {
       if (cmd.includes(d)) {
         console.error(`[BLOCKED] Dangerous command detected: ${d}`);
-        process.exit(1);
+        // Claude Code PreToolUse: exit 2 blocks execution; exit 1 is non-blocking.
+        process.exit(2);
       }
     }
     console.log('[OK] Command validated');
@@ -585,11 +599,25 @@ const handlers = {
   }
 }
 
-// Hooks must ALWAYS exit 0 — Claude Code treats non-zero as "hook error"
-// and skips all subsequent hooks for the event.
-process.exitCode = 0;
-main().catch((e) => {
-  try { console.log(`[WARN] Hook handler error: ${e.message}`); } catch (_) {}
-}).finally(() => {
-  process.exit(0);
-});
+// Non-blocking hooks exit 0; pre-bash denials exit 2 to block PreToolUse.
+// A denial exits immediately, before the normal completion path below.
+//
+// Only dispatch when run directly (node hook-handler.cjs <cmd>). When
+// require()'d by a test, expose the internals instead of reading stdin and
+// calling process.exit — the 2026-06-15 fix (cb1e93e8d) added this guard and
+// the exports for tests/hook-handler-runwithtimeout.test.cjs; the 2026-07-04
+// helper sync (a5f86ad0a) dropped both, so the test died with
+// "runWithTimeout is not a function" once the Test Suite job ran again.
+if (require.main === module) {
+  process.exitCode = 0;
+  main().catch((e) => {
+    try { console.log(`[WARN] Hook handler error: ${e.message}`); } catch (_) {}
+  }).finally(() => {
+    process.exit(0);
+  });
+}
+
+// Which sibling helpers loaded (all CommonJS, shipped as .cjs — #3555).
+const loadedHelpers = { router: !!router, session: !!session, memory: !!memory, intelligence: !!intelligence };
+
+module.exports = { runWithTimeout, INTELLIGENCE_TIMEOUT_MS, loadedHelpers, ownedByMod, MOD_OWNABLE_EVENTS };
