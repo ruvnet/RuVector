@@ -1,0 +1,236 @@
+=== Darwin-evolved GnnMincutReranker hyperparameters ===
+N=5000 DIM=128 clusters=20 queries=100 (fitness=70, held-out=30) K=10 retrieval_k=80 noise_sigma=0.4 seed=42
+
+Baseline (alpha=0.60, coherence_threshold=0.50, k_graph=8):
+  fitness-set : recall@10=38.29%  mean_lat=337.9us
+  held-out    : recall@10=38.67%  mean_lat=328.2us
+
+Evolutionary search: 3 generations x 4 candidates/gen (seed=42)
+  gen 0: running_best_fitness(fitness-set recall)=0.4700  (candidate 3 improved running best)
+  gen 1: running_best_fitness(fitness-set recall)=0.4714  (candidate 1 improved running best)
+  gen 2: running_best_fitness(fitness-set recall)=0.4714  (no improvement)
+Replay verified (two independent runs, same seed, identical lineage): true
+
+--- Result ---
+Promoted genome: alpha=0.3171 coherence_threshold=0.2923 k_graph=8
+Fitness-set recall@10: baseline=38.29%  promoted=47.14%  (delta +8.86pp)
+Held-out recall@10:    baseline=38.67%  promoted=51.00%  (delta +12.33pp)
+Held-out mean latency:  baseline=328.2us  promoted=293.0us  (ratio 0.89x)
+
+Acceptance: ACCEPT
+
+--- Full lineage (JSON) ---
+{
+  "config": {
+    "generations": 3,
+    "candidates_per_generation": 4,
+    "max_promotions": 1,
+    "mutation_sigma_frac": 0.2,
+    "seed": 42
+  },
+  "bounds": [
+    {
+      "min": 0.05,
+      "max": 0.95
+    },
+    {
+      "min": 0.0,
+      "max": 0.95
+    },
+    {
+      "min": 4.0,
+      "max": 20.0
+    }
+  ],
+  "parent": {
+    "genome": {
+      "genes": [
+        0.6,
+        0.5,
+        8.0
+      ]
+    },
+    "evaluation": {
+      "Fitness": 0.3828571428571428
+    }
+  },
+  "generations": [
+    {
+      "index": 0,
+      "candidates": [
+        {
+          "genome": {
+            "genes": [
+              0.4034333856891143,
+              0.3500439505144666,
+              4.0
+            ]
+          },
+          "evaluation": {
+            "Fitness": 0.4442857142857141
+          }
+        },
+        {
+          "genome": {
+            "genes": [
+              0.485476173779183,
+              0.732844080329483,
+              4.0
+            ]
+          },
+          "evaluation": {
+            "Fitness": 0.43428571428571405
+          }
+        },
+        {
+          "genome": {
+            "genes": [
+              0.5596934815867446,
+              0.39230436859607354,
+              4.0
+            ]
+          },
+          "evaluation": {
+            "Fitness": 0.417142857142857
+          }
+        },
+        {
+          "genome": {
+            "genes": [
+              0.13681722815368258,
+              0.2400901026717516,
+              7.485817981467992
+            ]
+          },
+          "evaluation": {
+            "Fitness": 0.4700000000000001
+          }
+        }
+      ],
+      "improved_at": 3,
+      "running_best_fitness": 0.4700000000000001
+    },
+    {
+      "index": 1,
+      "candidates": [
+        {
+          "genome": {
+            "genes": [
+              0.05,
+              0.2771947405632606,
+              5.047634691088254
+            ]
+          },
+          "evaluation": {
+            "Fitness": 0.41285714285714264
+          }
+        },
+        {
+          "genome": {
+            "genes": [
+              0.31706540538205485,
+              0.2922739406141204,
+              8.029299752196126
+            ]
+          },
+          "evaluation": {
+            "Fitness": 0.4714285714285713
+          }
+        },
+        {
+          "genome": {
+            "genes": [
+              0.17154208917093233,
+              0.0,
+              7.619708883007379
+            ]
+          },
+          "evaluation": {
+            "Fitness": 0.46714285714285697
+          }
+        },
+        {
+          "genome": {
+            "genes": [
+              0.5401509229079222,
+              0.017342936044368706,
+              11.770226042688524
+            ]
+          },
+          "evaluation": {
+            "Fitness": 0.3685714285714286
+          }
+        }
+      ],
+      "improved_at": 1,
+      "running_best_fitness": 0.4714285714285713
+    },
+    {
+      "index": 2,
+      "candidates": [
+        {
+          "genome": {
+            "genes": [
+              0.21912296799282802,
+              0.34367743887187363,
+              8.348928051128121
+            ]
+          },
+          "evaluation": {
+            "Fitness": 0.46571428571428564
+          }
+        },
+        {
+          "genome": {
+            "genes": [
+              0.1212565327865186,
+              0.30104225091734377,
+              5.005890400266159
+            ]
+          },
+          "evaluation": {
+            "Fitness": 0.447142857142857
+          }
+        },
+        {
+          "genome": {
+            "genes": [
+              0.3398779489213676,
+              0.0626358060058444,
+              4.844286021467459
+            ]
+          },
+          "evaluation": {
+            "Fitness": 0.4642857142857142
+          }
+        },
+        {
+          "genome": {
+            "genes": [
+              0.05,
+              0.4466741870792412,
+              5.0844330037172565
+            ]
+          },
+          "evaluation": {
+            "Fitness": 0.41285714285714264
+          }
+        }
+      ],
+      "improved_at": null,
+      "running_best_fitness": 0.4714285714285713
+    }
+  ],
+  "promoted": {
+    "genome": {
+      "genes": [
+        0.31706540538205485,
+        0.2922739406141204,
+        8.029299752196126
+      ]
+    },
+    "evaluation": {
+      "Fitness": 0.4714285714285713
+    }
+  }
+}
