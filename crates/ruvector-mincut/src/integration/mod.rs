@@ -7,6 +7,7 @@
 #![allow(missing_docs)]
 
 use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
+use crate::instance::BoundedInstance;
 use crate::wrapper::{MinCutResult, MinCutWrapper};
 use std::sync::Arc;
 
@@ -81,6 +82,61 @@ impl RuVectorGraphAnalyzer {
         }
 
         Self::new(graph)
+    }
+
+    /// Build a k-NN graph using a `DeterministicLocalKCut` search radius
+    /// other than `BoundedInstance::DEFAULT_MAX_RADIUS`.
+    ///
+    /// See `with_radius` for what this trades off; `from_knn` is unaffected
+    /// and keeps the production-default radius.
+    pub fn from_knn_with_radius(
+        neighbors: &[(usize, Vec<(usize, f64)>)],
+        max_radius: usize,
+    ) -> Self {
+        let graph = Arc::new(DynamicGraph::new());
+
+        for &(vertex, ref nn_list) in neighbors {
+            for &(neighbor, distance) in nn_list {
+                let weight = if distance > 0.0 { 1.0 / distance } else { 1.0 };
+                let _ = graph.insert_edge(vertex as u64, neighbor as u64, weight);
+            }
+        }
+
+        Self::with_radius(graph, max_radius)
+    }
+
+    /// Create an analyzer whose `BoundedInstance`s use `max_radius` instead
+    /// of the production default (`BoundedInstance::DEFAULT_MAX_RADIUS`).
+    ///
+    /// This is the knob the 2026-10-30 nightly research run
+    /// (`docs/research/nightly/2026_10_30_mincut-local-kcut-radius-scaling`)
+    /// measures: lowering it trades `partition()` latency against the risk
+    /// of a `BoundedInstance` reporting `AboveRange` for a range that does
+    /// contain a cut it was simply too radius-limited to find. `new()` and
+    /// `from_knn()` are unaffected and keep today's behavior exactly.
+    pub fn with_radius(graph: Arc<DynamicGraph>, max_radius: usize) -> Self {
+        let mut wrapper = MinCutWrapper::with_factory(Arc::clone(&graph), move |_g, min, max| {
+            Box::new(BoundedInstance::with_max_radius(min, max, max_radius)) as Box<_>
+        });
+
+        for edge in graph.edges() {
+            wrapper.insert_edge(edge.id, edge.source, edge.target);
+        }
+
+        Self {
+            graph,
+            wrapper,
+            cached_min_cut: None,
+            cached_partition: None,
+        }
+    }
+
+    /// Number of `BoundedInstance` lambda-ranges actually instantiated so
+    /// far (passthrough of `MinCutWrapper::num_instances`). Used by the
+    /// radius-scaling probe to tell "many ranges explored" apart from "few
+    /// ranges, each expensive" as the source of `partition()` latency.
+    pub fn num_instances_touched(&self) -> usize {
+        self.wrapper.num_instances()
     }
 
     /// Compute minimum cut
