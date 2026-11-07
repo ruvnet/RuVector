@@ -3474,8 +3474,12 @@ class Intelligence {
 
     // Convert file sequences to co-edit patterns
     if (data.file_sequences) {
+      const unsafe = (k) => k === '__proto__' || k === 'constructor' || k === 'prototype';
       for (const seq of data.file_sequences) {
-        if (!converted.coEditPatterns[seq.from_file]) {
+        // File names come from the (possibly repository-supplied) store and become object keys.
+        if (!seq || typeof seq.from_file !== 'string' || typeof seq.to_file !== 'string') continue;
+        if (unsafe(seq.from_file) || unsafe(seq.to_file)) continue;
+        if (!Object.prototype.hasOwnProperty.call(converted.coEditPatterns, seq.from_file)) {
           converted.coEditPatterns[seq.from_file] = {};
         }
         converted.coEditPatterns[seq.from_file][seq.to_file] = seq.count;
