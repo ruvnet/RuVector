@@ -131,6 +131,22 @@ required-features = ["exact"]
 name = "subpoly_bench"
 required-features = ["exact"]
 
+[[example]]
+name = "static_vs_dynamic_cut_bench"
+required-features = ["canonical", "integration"]
+
+[[example]]
+name = "weight_sanity_probe"
+required-features = ["canonical", "integration"]
+
+[[example]]
+name = "brute_force_cross_check"
+required-features = ["canonical", "integration"]
+
+[[example]]
+name = "ring_graph_brute_force_check"
+required-features = ["canonical", "integration"]
+
 # Research-tier crate, doc/style churn deferred per workspace cleanup pass.
 # Style-only clippy lints downgraded for all targets; correctness lints remain.
 [lints.rust]

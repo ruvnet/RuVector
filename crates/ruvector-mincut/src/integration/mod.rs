@@ -83,7 +83,27 @@ impl RuVectorGraphAnalyzer {
         Self::new(graph)
     }
 
-    /// Compute minimum cut
+    /// Compute minimum cut.
+    ///
+    /// **Ignores edge weight.** This computes unweighted edge connectivity
+    /// (the minimum number of edges whose removal disconnects the graph),
+    /// not a weighted minimum cut, regardless of the `Weight` values passed
+    /// to [`Self::from_knn`], [`Self::from_similarity_matrix`], or
+    /// [`Self::add_edge`]. `MinCutWrapper::insert_edge` -- the entry point
+    /// this type syncs through -- takes only `(edge_id, u, v)`; weight is
+    /// dropped before reaching the dynamic paper algorithm. This is scoped
+    /// to this specific delegation: `ruvector-mincut` also has a separate,
+    /// already-weighted engine (`algorithm::DynamicMinCut`/`MinCutBuilder`,
+    /// see `wrapper_tests.rs::test_weighted_graph_correctness`) that this
+    /// type simply does not use. Confirmed by nightly research `2026-11-04`
+    /// (`docs/research/nightly/2026-11-04-canonical-mincut-static-fast-path/`,
+    /// ADR-355): a fixed-degree weighted ring graph returns the same cut
+    /// value at every tested size, and a two-weight-10-triangles +
+    /// weight-100-bridge graph returns the 1-edge bridge cut instead of the
+    /// 2-edge, weight-2 cut a weight-aware algorithm must prefer. If you
+    /// need the true weighted minimum cut for a one-shot (non-streaming)
+    /// query, use [`StaticCutAnalyzer`] instead (requires the `canonical`
+    /// feature).
     pub fn min_cut(&mut self) -> u64 {
         if let Some(cached) = self.cached_min_cut {
             return cached;
@@ -181,6 +201,177 @@ impl RuVectorGraphAnalyzer {
         self.wrapper.delete_edge(edge.id, u, v);
         self.invalidate_cache();
         Ok(())
+    }
+}
+
+/// Batch minimum-cut analysis for static (single-snapshot) graphs.
+///
+/// `RuVectorGraphAnalyzer::partition()` runs the fully-dynamic paper
+/// algorithm (`MinCutWrapper`), which amortizes cost over a long-lived
+/// stream of incremental updates. Nightly research `2026-09-05`
+/// (ADR-345) measured that machinery costing ~77ms at n=50 vertices and
+/// ~11.4s at n=400 on a static k-NN graph queried exactly once — because a
+/// one-shot query pays the dynamic algorithm's full amortized setup with
+/// none of the amortization benefit.
+///
+/// `StaticCutAnalyzer` is a drop-in alternative, API-compatible with the
+/// subset of `RuVectorGraphAnalyzer` used for one-shot batch queries
+/// (`min_cut()` / `partition()`), built on the existing `canonical::CactusGraph`
+/// Stoer-Wagner engine instead. It has no incremental-update API: callers
+/// who mutate the graph and re-query repeatedly should keep using
+/// `RuVectorGraphAnalyzer`. It also recomputes the full cactus on every
+/// call (no caching), reflecting its target use case: build once, query
+/// once, discard.
+///
+/// See `docs/research/nightly/2026-11-04-canonical-mincut-static-fast-path/`
+/// for the benchmark establishing when this is (and is not) a net win, and
+/// ADR-355 for the production decision.
+#[cfg(feature = "canonical")]
+pub struct StaticCutAnalyzer {
+    graph: Arc<DynamicGraph>,
+}
+
+#[cfg(feature = "canonical")]
+impl StaticCutAnalyzer {
+    /// Wrap an existing graph snapshot for static (one-shot) min-cut queries.
+    pub fn new(graph: Arc<DynamicGraph>) -> Self {
+        Self { graph }
+    }
+
+    /// Plain union-find connectivity check over the current vertex/edge
+    /// snapshot.
+    ///
+    /// `canonical::CactusGraph::build_from_graph` is not documented or
+    /// tested against disconnected inputs and was found, by this nightly's
+    /// `brute_force_cross_check` example, to silently return a non-zero,
+    /// incorrect cut value for at least one disconnected random graph
+    /// (truth 0, returned 7) instead of 0. Rather than modify
+    /// `CactusGraph`'s general-purpose cactus construction (used by three
+    /// other callers; out of this fix's scope), `StaticCutAnalyzer` checks
+    /// connectivity itself first and short-circuits, exactly mirroring
+    /// `MinCutWrapper::query()`'s own "fast path: check connectivity first".
+    fn is_connected(&self) -> bool {
+        let vertices = self.graph.vertices();
+        if vertices.len() <= 1 {
+            return true;
+        }
+        let mut parent: std::collections::HashMap<VertexId, VertexId> =
+            vertices.iter().map(|&v| (v, v)).collect();
+
+        fn find(
+            parent: &mut std::collections::HashMap<VertexId, VertexId>,
+            x: VertexId,
+        ) -> VertexId {
+            let mut root = x;
+            while parent[&root] != root {
+                root = parent[&root];
+            }
+            let mut cur = x;
+            while parent[&cur] != root {
+                let next = parent[&cur];
+                parent.insert(cur, root);
+                cur = next;
+            }
+            root
+        }
+
+        for edge in self.graph.edges() {
+            let ra = find(&mut parent, edge.source);
+            let rb = find(&mut parent, edge.target);
+            if ra != rb {
+                parent.insert(ra, rb);
+            }
+        }
+
+        let root = find(&mut parent, vertices[0]);
+        vertices.iter().all(|&v| find(&mut parent, v) == root)
+    }
+
+    /// Build a static analyzer from a similarity matrix, matching
+    /// [`RuVectorGraphAnalyzer::from_similarity_matrix`]'s edge construction.
+    pub fn from_similarity_matrix(
+        similarities: &[f64],
+        num_vectors: usize,
+        threshold: f64,
+    ) -> Self {
+        let graph = Arc::new(DynamicGraph::new());
+        for i in 0..num_vectors {
+            for j in (i + 1)..num_vectors {
+                let sim = similarities[i * num_vectors + j];
+                if sim >= threshold {
+                    let _ = graph.insert_edge(i as u64, j as u64, sim);
+                }
+            }
+        }
+        Self::new(graph)
+    }
+
+    /// Build a static analyzer from k-NN neighbor lists, matching
+    /// [`RuVectorGraphAnalyzer::from_knn`]'s edge construction.
+    pub fn from_knn(neighbors: &[(usize, Vec<(usize, f64)>)]) -> Self {
+        let graph = Arc::new(DynamicGraph::new());
+        for &(vertex, ref nn_list) in neighbors {
+            for &(neighbor, distance) in nn_list {
+                let weight = if distance > 0.0 { 1.0 / distance } else { 1.0 };
+                let _ = graph.insert_edge(vertex as u64, neighbor as u64, weight);
+            }
+        }
+        Self::new(graph)
+    }
+
+    /// Compute the minimum cut value via the cactus (Stoer-Wagner) engine.
+    ///
+    /// Returns `0` for a disconnected or trivial (0- or 1-vertex) graph,
+    /// matching `RuVectorGraphAnalyzer::min_cut()`'s convention for the
+    /// disconnected case.
+    ///
+    /// This rounds the real-valued weighted cut to the nearest `u64` so the
+    /// signature matches `RuVectorGraphAnalyzer::min_cut()` for drop-in
+    /// substitution. Callers that need the exact weighted value (e.g. to
+    /// compare two close candidate cuts) should use [`Self::min_cut_f64`]
+    /// instead.
+    pub fn min_cut(&self) -> u64 {
+        let value = self.min_cut_f64();
+        if value.is_finite() {
+            value.round() as u64
+        } else {
+            0
+        }
+    }
+
+    /// Compute the exact real-valued weighted minimum cut, without the
+    /// `u64`-rounding [`Self::min_cut`] applies for API compatibility.
+    pub fn min_cut_f64(&self) -> f64 {
+        if self.graph.num_vertices() < 2 || !self.is_connected() {
+            return 0.0;
+        }
+        let cactus = crate::canonical::CactusGraph::build_from_graph(&self.graph);
+        let result = cactus.canonical_cut();
+        if result.value.is_finite() {
+            result.value
+        } else {
+            0.0
+        }
+    }
+
+    /// Get the canonical partition (two sides of the minimum cut).
+    ///
+    /// Returns `Some((Vec::new(), Vec::new()))` for a disconnected or
+    /// trivial graph, matching `RuVectorGraphAnalyzer::partition()`'s
+    /// convention.
+    pub fn partition(&self) -> Option<(Vec<VertexId>, Vec<VertexId>)> {
+        if self.graph.num_vertices() < 2 || !self.is_connected() {
+            return Some((Vec::new(), Vec::new()));
+        }
+        let cactus = crate::canonical::CactusGraph::build_from_graph(&self.graph);
+        let result = cactus.canonical_cut();
+        let (s, t) = result.partition;
+        if s.is_empty() || t.is_empty() {
+            return Some((Vec::new(), Vec::new()));
+        }
+        let side_a: Vec<VertexId> = s.into_iter().map(|v| v as u64).collect();
+        let side_b: Vec<VertexId> = t.into_iter().map(|v| v as u64).collect();
+        Some((side_a, side_b))
     }
 }
 
