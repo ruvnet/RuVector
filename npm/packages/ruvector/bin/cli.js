@@ -7775,7 +7775,8 @@ hooksCmd.command('build-agents')
     console.log(chalk.bold.cyan('\n🏗️  RuVector Agent Builder\n'));
 
     const intel = new Intelligence();
-    const outputDir = path.join(process.cwd(), opts.output);
+    // resolve, not join: an absolute --output was glued onto the current folder
+    const outputDir = path.resolve(process.cwd(), opts.output);
 
     // Check if pretrained
     if (!intel.data.pretrained && Object.keys(intel.data.patterns || {}).length === 0) {
@@ -8044,13 +8045,18 @@ ${focus.description}` : null
 
     fs.writeFileSync(path.join(outputDir, `index.${opts.format === 'md' ? 'json' : opts.format}`), indexContent);
 
-    // Update settings to reference agents
+    // Update settings to reference agents — only when the agents were written inside
+    // this project, and by a relative path: an --output elsewhere (a scratch run) wrote a dead absolute path into the
+    // project's own settings.json
     const settingsPath = path.join(process.cwd(), '.claude', 'settings.json');
-    if (fs.existsSync(settingsPath)) {
+    const relOut = path.relative(process.cwd(), outputDir);
+    const insideProject = relOut !== '' && !relOut.startsWith('..') && !path.isAbsolute(relOut);
+    if (!insideProject) console.log(chalk.dim('\n  (output is outside this project: .claude/settings.json left unchanged)'));
+    if (insideProject && fs.existsSync(settingsPath)) {
       try {
         const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
         settings.agentConfig = {
-          directory: opts.output,
+          directory: relOut,
           focus: opts.focus,
           agents: agents.map(a => a.name),
           generated: new Date().toISOString()
