@@ -1,8 +1,9 @@
 {
   "name": "@ruvector/spiking-neural",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "High-performance Spiking Neural Network (SNN) with SIMD optimization - CLI & SDK",
   "main": "src/index.js",
+  "gypfile": false,
   "bin": {
     "spiking-neural": "./bin/cli.js",
     "snn": "./bin/cli.js"
@@ -12,7 +13,8 @@
     "benchmark": "node bin/cli.js benchmark",
     "demo": "node bin/cli.js demo pattern",
     "build:native": "node-gyp rebuild",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "npm test",
+    "test:pack": "node --test test/pack-install.test.js"
   },
   "keywords": [
     "spiking-neural-network",

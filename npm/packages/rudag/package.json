@@ -1,9 +1,8 @@
 {
   "name": "@ruvector/rudag",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Fast DAG (Directed Acyclic Graph) library with Rust/WASM. Topological sort, critical path, task scheduling, dependency resolution, workflow optimization. Self-learning ML attention. Browser & Node.js with auto-persistence.",
   "main": "./dist/index.js",
-  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
     "rudag": "./bin/cli.js"
@@ -33,6 +32,7 @@
   },
   "files": [
     "dist",
+    "!dist/**/*.test.*",
     "pkg",
     "pkg-node",
     "bin",
@@ -40,10 +40,10 @@
     "LICENSE"
   ],
   "scripts": {
-    "build:wasm": "npm run build:wasm:bundler && npm run build:wasm:node",
+    "build:wasm": "npm run build:wasm:bundler && npm run build:wasm:node && node -e \"for (const d of ['pkg', 'pkg-node']) require('fs').rmSync(d + '/.gitignore', { force: true })\"",
     "build:wasm:bundler": "cd ../../../crates/ruvector-dag-wasm && wasm-pack build --target bundler --out-dir ../../npm/packages/rudag/pkg",
     "build:wasm:node": "cd ../../../crates/ruvector-dag-wasm && wasm-pack build --target nodejs --out-dir ../../npm/packages/rudag/pkg-node",
-    "build:ts": "tsc && tsc -p tsconfig.esm.json",
+    "build:ts": "tsc",
     "build": "npm run build:wasm && npm run build:ts",
     "test": "node --test dist/**/*.test.js",
     "prepublishOnly": "npm run build"

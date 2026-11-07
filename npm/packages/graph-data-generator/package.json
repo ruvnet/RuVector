@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/graph-data-generator",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "AI-powered synthetic graph data generation with OpenRouter/Kimi K2 integration for Neo4j knowledge graphs, social networks, and temporal events",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

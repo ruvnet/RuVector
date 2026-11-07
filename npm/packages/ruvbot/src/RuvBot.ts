@@ -20,6 +20,14 @@ import type {
 } from './core/types.js';
 import { RuvBotError, ConfigurationError, InitializationError } from './core/errors.js';
 import {
+  readJsonBody,
+  isRequestAuthorized,
+  isPublicPath,
+  summarizeSession,
+  PayloadTooLargeError,
+  InvalidJsonError,
+} from './api/httpGuard.js';
+import {
   type LLMProvider,
   type Message as LLMMessage,
   createAnthropicProvider,
@@ -291,6 +299,7 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
 
     const sessionId = uuidv4();
     const config = this.configManager.getConfig();
+    this.pruneExpiredSessions();
 
     const session: Session = {
       id: sessionId,
@@ -365,6 +374,11 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
     if (!session) {
       throw new RuvBotError(`Session with ID ${sessionId} not found`, 'SESSION_NOT_FOUND');
     }
+    if (session.expiresAt && session.expiresAt.getTime() <= Date.now()) {
+      this.sessions.delete(sessionId);
+      this.emit('session:end', sessionId);
+      throw new RuvBotError(`Session with ID ${sessionId} has expired`, 'SESSION_EXPIRED');
+    }
 
     const agent = this.agents.get(session.agentId);
     if (!agent) {
@@ -384,6 +398,7 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
 
     // Add to session
     session.messages.push(userMessage);
+    this.trimSessionHistory(session);
     session.updatedAt = new Date();
 
     // Update agent status
@@ -407,6 +422,7 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
       };
 
       session.messages.push(assistantMessage);
+      this.trimSessionHistory(session);
       session.updatedAt = new Date();
       agent.status = 'idle';
 
@@ -464,6 +480,25 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
   // ==========================================================================
   // Private Methods
   // ==========================================================================
+
+  /** Drop sessions whose TTL has elapsed so idle sessions cannot accumulate. */
+  private pruneExpiredSessions(): void {
+    const now = Date.now();
+    for (const [id, session] of this.sessions) {
+      if (session.expiresAt && session.expiresAt.getTime() <= now) {
+        this.sessions.delete(id);
+        this.emit('session:end', id);
+      }
+    }
+  }
+
+  /** Keep at most `session.maxMessages` messages per session (oldest dropped first). */
+  private trimSessionHistory(session: Session): void {
+    const max = this.configManager.getConfig().session.maxMessages;
+    if (session.messages.length > max) {
+      session.messages.splice(0, session.messages.length - max);
+    }
+  }
 
   private initializeServices(): Promise<void> {
     this.logger.debug('Initializing core services...');
@@ -600,6 +635,11 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
       res.end(JSON.stringify(data));
     };
 
+    if (!isPublicPath(path) && !isRequestAuthorized(req.headers, this.configManager.getConfig().api.auth)) {
+      json(401, { error: 'Unauthorized' });
+      return;
+    }
+
     // Health check
     if (path === '/health' || path === '/healthz') {
       json(200, {
@@ -628,7 +668,16 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
 
     // Chat endpoint
     if (path === '/api/chat' && method === 'POST') {
-      const body = await this.parseRequestBody(req);
+      let body: Record<string, unknown> | null;
+      try {
+        body = await readJsonBody(req);
+      } catch (error) {
+        if (error instanceof PayloadTooLargeError || error instanceof InvalidJsonError) {
+          json(error.statusCode, { error: error.message });
+          return;
+        }
+        throw error;
+      }
       const message = body?.message as string;
       const agentId = (body?.agentId as string) || 'default-agent';
 
@@ -657,7 +706,7 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
 
     // List sessions
     if (path === '/api/sessions' && method === 'GET') {
-      json(200, { sessions: this.listSessions() });
+      json(200, { sessions: this.listSessions().map(summarizeSession) });
       return;
     }
 
@@ -673,19 +722,6 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
 
     // 404
     json(404, { error: 'Not found' });
-  }
-
-  private parseRequestBody(req: IncomingMessage): Promise<Record<string, unknown> | null> {
-    return new Promise((resolve, reject) => {
-      const chunks: Buffer[] = [];
-      req.on('data', (chunk: Buffer) => chunks.push(chunk));
-      req.on('end', () => {
-        if (chunks.length === 0) { resolve(null); return; }
-        try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf-8')) as Record<string, unknown>); }
-        catch { reject(new Error('Invalid JSON')); }
-      });
-      req.on('error', reject);
-    });
   }
 
   private async generateResponse(
@@ -720,7 +756,9 @@ Then redeploy the service with the API key set.
       });
     }
 
-    // Add recent message history (last 20 messages for context)
+    // Add recent message history (last 20 messages for context).
+    // chat() has already appended the current user turn to the session,
+    // so it is the last entry here; only add it if it is somehow missing.
     const recentMessages = session.messages.slice(-20);
     for (const msg of recentMessages) {
       messages.push({
@@ -729,11 +767,13 @@ Then redeploy the service with the API key set.
       });
     }
 
-    // Add current user message
-    messages.push({
-      role: 'user',
-      content: userMessage,
-    });
+    const last = recentMessages[recentMessages.length - 1];
+    if (!last || last.role !== 'user' || last.content !== userMessage) {
+      messages.push({
+        role: 'user',
+        content: userMessage,
+      });
+    }
 
     try {
       // Call LLM provider

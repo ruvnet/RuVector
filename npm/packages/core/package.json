@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/core",
-  "version": "0.1.33",
+  "version": "0.1.36",
   "description": "High-performance vector database with HNSW indexing - 50k+ inserts/sec, built in Rust for AI/ML similarity search and semantic search applications",
   "main": "index.js",
   "types": "index.d.ts",
@@ -32,37 +32,27 @@
     "@napi-rs/cli": "^2.18.0"
   },
   "optionalDependencies": {
-    "ruvector-core-linux-x64-gnu": "0.1.31",
-    "ruvector-core-linux-arm64-gnu": "0.1.31",
-    "ruvector-core-darwin-x64": "0.1.31",
-    "ruvector-core-darwin-arm64": "0.1.31",
-    "ruvector-core-win32-x64-msvc": "0.1.31"
+    "ruvector-core-linux-x64-gnu": "0.1.34",
+    "ruvector-core-linux-arm64-gnu": "0.1.34",
+    "ruvector-core-darwin-x64": "0.1.34",
+    "ruvector-core-darwin-arm64": "0.1.34",
+    "ruvector-core-win32-x64-msvc": "0.1.34"
   },
   "publishConfig": {
     "access": "public"
   },
   "keywords": [
+    "ruvector",
     "vector-database",
     "vector-search",
-    "similarity-search",
+    "embeddings",
     "semantic-search",
+    "similarity-search",
     "hnsw",
-    "ann",
     "approximate-nearest-neighbor",
-    "embedding-database",
-    "ai",
-    "machine-learning",
-    "ml",
-    "llm",
     "rag",
-    "retrieval-augmented-generation",
-    "native",
     "napi",
     "rust",
-    "simd",
-    "fast",
-    "performance",
-    "ruv",
-    "ruvector"
+    "simd"
   ]
 }

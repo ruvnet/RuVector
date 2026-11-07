@@ -243,6 +243,19 @@ function runNpxPackage(packageSpec, args, options = {}) {
   });
 }
 
+/** Opt-in extras and their install state, for hooks_capabilities (lazy: loaded on call). */
+function listExtrasForMcp() {
+  const extras = require('./extras');
+  return extras.listExtras().map((e) => ({
+    key: e.key,
+    package: e.pkg,
+    why: e.why,
+    bundled: !!e.bundled,
+    installed: extras.isPackageInstalled(e.pkg),
+    install: e.bundled ? null : `npx ruvector add ${e.key}`,
+  }));
+}
+
 // MCP tool result returned when @ruvector/pi-brain is absent or unusable, so
 // every brain_* handler surfaces the same actionable install hint (issue #661).
 const BRAIN_MISSING_DEP_RESULT = {
@@ -1755,6 +1768,42 @@ const TOOLS = [
       required: ['path']
     }
   },
+  // ── DiskANN Tools (optional @ruvector/diskann) ────────────────────────────
+  {
+    name: 'diskann_build',
+    description: 'Build a DiskANN (Vamana graph) ANN index from {id, vector} records and save it to a directory. Requires @ruvector/diskann (npx ruvector add diskann).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Index directory (created if missing; confined to the working directory)' },
+        vectors: {
+          type: 'array',
+          description: 'Records to index, all of one dimension',
+          items: {
+            type: 'object',
+            properties: { id: { type: 'string' }, vector: { type: 'array', items: { type: 'number' } } },
+            required: ['id', 'vector']
+          }
+        },
+        maxDegree: { type: 'number', description: 'Max graph out-degree', default: 64 },
+        alpha: { type: 'number', description: 'Vamana pruning alpha (>= 1)', default: 1.2 }
+      },
+      required: ['path', 'vectors']
+    }
+  },
+  {
+    name: 'diskann_search',
+    description: 'k nearest neighbours (L2 squared distance) from a saved DiskANN index',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Index directory written by diskann_build' },
+        vector: { type: 'array', description: 'Query vector', items: { type: 'number' } },
+        k: { type: 'number', description: 'Number of results', default: 10 }
+      },
+      required: ['path', 'vector']
+    }
+  },
   // ── RVF Vector Store Tools ────────────────────────────────────────────────
   {
     name: 'rvf_create',
@@ -2664,7 +2713,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 patternsLearned: stats.patternsLearned || stats.total_patterns,
                 microLoraUpdates: stats.microLoraUpdates || 0,
                 ewcConsolidations: stats.ewcConsolidations || 0,
-              }
+              },
+              // Read-only: installing an extra is a CLI action (`ruvector add`), never an MCP side effect.
+              extras: listExtrasForMcp(),
             }, null, 2)
           }]
         };
@@ -3985,6 +4036,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
       }
 
+      // ── DiskANN Tool Handlers ─────────────────────────────────────────────
+      case 'diskann_build':
+      case 'diskann_search': {
+        try {
+          const wrapper = require('../dist/core/diskann-wrapper.js');
+          if (!wrapper.isDiskAnnAvailable()) {
+            throw new Error('@ruvector/diskann is not installed. Install with: npx ruvector add diskann');
+          }
+          const safePath = validateRvfPath(args.path);
+          let payload;
+          if (name === 'diskann_build') {
+            const records = recordValidate.validateEntries(args.vectors, undefined, 'vectors');
+            const options = {};
+            if (args.maxDegree !== undefined) {
+              if (!Number.isInteger(args.maxDegree) || args.maxDegree < 1) throw new Error('maxDegree must be a positive integer');
+              options.maxDegree = args.maxDegree;
+            }
+            if (args.alpha !== undefined) {
+              if (typeof args.alpha !== 'number' || !Number.isFinite(args.alpha) || args.alpha < 1) throw new Error('alpha must be a number >= 1');
+              options.alpha = args.alpha;
+            }
+            payload = { success: true, ...wrapper.buildDiskAnnIndex(safePath, records, options) };
+          } else {
+            const vector = Array.from(recordValidate.validateVector(args.vector));
+            const k = recordValidate.validateK(args.k);
+            payload = { success: true, results: wrapper.searchDiskAnnIndex(safePath, vector, k) };
+          }
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
+        }
+      }
+
       // ── RVF Tool Handlers ─────────────────────────────────────────────────
       case 'rvf_create': {
         try {
@@ -3995,9 +4079,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           if (!Number.isInteger(dimensions) || dimensions <= 0) {
             throw new Error(`Missing or invalid dimension: expected a positive integer, got ${JSON.stringify(dimensions)}`);
           }
-          const { createRvfStore } = require('../dist/core/rvf-wrapper.js');
+          const { createRvfStore, rvfClose } = require('../dist/core/rvf-wrapper.js');
           const store = await createRvfStore(safePath, { dimensions, metric: args.metric || 'cosine' });
-          const status = store.status ? await store.status() : { dimensions };
+          // Close the new store: an open handle keeps the writer lock, and every
+          // later rvf_* call in this server process then fails with LockHeld.
+          let status;
+          try { status = store.status ? await store.status() : { dimensions }; } finally { await rvfClose(store); }
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, path: safePath, ...status }, null, 2) }] };
         } catch (e) {
           // Only suggest installing the package when it is actually missing (#641).
@@ -4070,8 +4157,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const safePath = validateRvfPath(args.path);
           const { openRvfStore, rvfStatus, rvfClose } = require('../dist/core/rvf-wrapper.js');
           const store = await openRvfStore(safePath);
-          const status = await rvfStatus(store);
-          await rvfClose(store);
+          let status;
+          try { status = await rvfStatus(store); } finally { await rvfClose(store); }
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...status }, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -4083,8 +4170,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const safePath = validateRvfPath(args.path);
           const { openRvfStore, rvfCompact, rvfClose } = require('../dist/core/rvf-wrapper.js');
           const store = await openRvfStore(safePath);
-          const result = await rvfCompact(store);
-          await rvfClose(store);
+          let result;
+          try { result = await rvfCompact(store); } finally { await rvfClose(store); }
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -4159,8 +4246,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const safePath = validateRvfPath(args.path);
           const { openRvfStore, rvfClose } = require('../dist/core/rvf-wrapper.js');
           const store = await openRvfStore(safePath);
-          const segs = await store.segments();
-          await rvfClose(store);
+          let segs;
+          try { segs = await store.segments(); } finally { await rvfClose(store); }
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, segments: segs }, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -4207,7 +4294,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             return { content: [{ type: 'text', text: JSON.stringify({
               success: false,
               error: 'rvlite package not installed',
-              hint: 'Install with: npm install rvlite'
+              hint: 'Install with: npx ruvector add rvlite  (or: npm install rvlite)'
             }, null, 2) }] };
           }
           const rvlite = rvliteModule.default || rvliteModule;
@@ -4238,7 +4325,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             return { content: [{ type: 'text', text: JSON.stringify({
               success: false,
               error: 'rvlite package not installed',
-              hint: 'Install with: npm install rvlite'
+              hint: 'Install with: npx ruvector add rvlite  (or: npm install rvlite)'
             }, null, 2) }] };
           }
           const rvlite = rvliteModule.default || rvliteModule;
@@ -4269,7 +4356,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             return { content: [{ type: 'text', text: JSON.stringify({
               success: false,
               error: 'rvlite package not installed',
-              hint: 'Install with: npm install rvlite'
+              hint: 'Install with: npx ruvector add rvlite  (or: npm install rvlite)'
             }, null, 2) }] };
           }
           const rvlite = rvliteModule.default || rvliteModule;

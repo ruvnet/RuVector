@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/ospipe.svg" alt="@ruvector/ospipe: RuVector-enhanced personal AI memory SDK for Screenpipe pipes." width="100%"></p>
+
 # @ruvector/ospipe
 
 **RuVector-enhanced personal AI memory SDK for Screenpipe**

@@ -22,6 +22,7 @@ import {
   warnHashFallbackOnce,
 } from './embedding-provenance';
 import { ParallelIntelligence, ParallelConfig, BatchEpisode, getParallelIntelligence } from './parallel-intelligence';
+import { QuantizedRecallIndex } from './recall-index';
 
 // ============================================================================
 // Types
@@ -48,6 +49,8 @@ export interface AgentRoute {
 export interface LearningStats {
   // Memory stats
   totalMemories: number;
+  /** Engine that served the most recent brute-force-path recall. */
+  recallEngine?: 'rabitq' | 'brute-force';
   memoryDimensions: number;
 
   // Episode/trajectory stats
@@ -188,6 +191,8 @@ export class IntelligenceEngine {
 
   // In-memory data structures
   private memories: Map<string, MemoryEntry> = new Map();
+  /** RaBitQ candidate index for brute-force recall above a size threshold. */
+  private recallIndex = new QuantizedRecallIndex();
   private routingPatterns: Map<string, Map<string, number>> = new Map(); // state -> action -> value
   private errorPatterns: Map<string, string[]> = new Map(); // error -> fixes
   private coEditPatterns: Map<string, Map<string, number>> = new Map(); // file -> related files -> count
@@ -588,6 +593,7 @@ export class IntelligenceEngine {
     };
 
     this.memories.set(id, entry);
+    this.recallIndex.noteAdded(id);
 
     // Index in VectorDB if available
     if (this.vectorDb) {
@@ -610,6 +616,7 @@ export class IntelligenceEngine {
    */
   forget(id: string): boolean {
     const existed = this.memories.delete(id);
+    if (existed) this.recallIndex.noteRemoved(id);
     if (existed && this.vectorDb) {
       this.vectorDb.delete(id).catch(() => {});
     }
@@ -624,6 +631,7 @@ export class IntelligenceEngine {
     const previous = Array.from(this.memories.keys());
     this.memories.clear();
     for (const mem of entries) this.memories.set(mem.id, mem);
+    this.recallIndex.invalidate();
     if (this.vectorDb) {
       const db = this.vectorDb;
       Promise.all(previous.map(id => db.delete(id).catch(() => false)))
@@ -662,6 +670,13 @@ export class IntelligenceEngine {
       } catch {
         // Fall through to brute force
       }
+    }
+
+    // Large sets: RaBitQ candidate pool + exact cosine rerank (null = not
+    // applicable, e.g. below threshold or @ruvector/rabitq-wasm missing).
+    const indexed = this.recallIndex.search(queryEmbed, topK, this.memories);
+    if (indexed) {
+      return indexed.map(({ id, score }) => ({ ...this.memories.get(id)!, score }));
     }
 
     // Fallback: brute-force cosine similarity
@@ -1197,6 +1212,7 @@ export class IntelligenceEngine {
 
     return {
       totalMemories: this.memories.size,
+      recallEngine: this.recallIndex.lastEngine,
       memoryDimensions: this.config.embeddingDim,
 
       totalEpisodes: agentDbStats.episodeCount,
@@ -1308,6 +1324,7 @@ export class IntelligenceEngine {
    * Import data from persistence
    */
   import(data: Record<string, any>, merge: boolean = false): void {
+    this.recallIndex.invalidate();
     if (!merge) {
       this.memories.clear();
       this.routingPatterns.clear();
@@ -1395,6 +1412,7 @@ export class IntelligenceEngine {
    */
   clear(): void {
     this.memories.clear();
+    this.recallIndex.dispose();
     this.routingPatterns.clear();
     this.errorPatterns.clear();
     this.coEditPatterns.clear();

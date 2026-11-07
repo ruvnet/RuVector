@@ -1,9 +1,9 @@
 {
   "name": "rvlite",
-  "version": "0.2.6",
+  "version": "0.2.8",
   "type": "module",
   "description": "Lightweight vector database with SQL, SPARQL, and Cypher - runs everywhere (Node.js, Browser, Edge)",
-  "main": "dist/index.js",
+  "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "bin": {
@@ -12,7 +12,7 @@
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
+      "require": "./dist/index.cjs",
       "types": "./dist/index.d.ts"
     },
     "./wasm": {
@@ -27,30 +27,28 @@
   ],
   "scripts": {
     "build": "npm run build:wasm && npm run build:sdk",
-    "build:wasm": "cd ../../../crates/rvlite && wasm-pack build --target web --release && cp -r pkg/* ../../npm/packages/rvlite/dist/wasm/",
-    "build:sdk": "tsc && esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --format=cjs && esbuild src/index.ts --bundle --platform=node --outfile=dist/index.mjs --format=esm",
+    "build:wasm": "cd ../../../crates/rvlite && wasm-pack build --target web --release && mkdir -p ../../npm/packages/rvlite/dist/wasm && cp -r pkg/* ../../npm/packages/rvlite/dist/wasm/",
+    "build:sdk": "tsc && esbuild src/index.ts --bundle --platform=node --outfile=dist/index.cjs --format=cjs && esbuild src/index.ts --bundle --platform=node --outfile=dist/index.mjs --format=esm",
     "test": "node --test test/*.test.js",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
+    "ruvector",
     "vector-database",
-    "embeddings",
     "semantic-search",
     "sql",
     "sparql",
     "cypher",
     "graph-database",
-    "wasm",
-    "ai",
-    "llm",
+    "knowledge-graph",
     "rag",
-    "knowledge-graph"
+    "wasm"
   ],
   "author": "RuVector Contributors",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
+    "url": "git+https://github.com/ruvnet/ruvector.git",
     "directory": "npm/packages/rvlite"
   },
   "homepage": "https://github.com/ruvnet/ruvector/tree/main/npm/packages/rvlite",

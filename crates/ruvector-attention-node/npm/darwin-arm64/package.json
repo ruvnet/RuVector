@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/attention-darwin-arm64",
-  "version": "0.1.1",
+  "version": "2.3.0",
   "os": [
     "darwin"
   ],

@@ -8,7 +8,7 @@
   "homepage": "https://ruv.io",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
+    "url": "git+https://github.com/ruvnet/ruvector.git",
     "directory": "npm/packages/router"
   },
   "bugs": {
@@ -48,16 +48,10 @@
     "agent-routing",
     "vector-search",
     "hnsw",
-    "similarity-search",
-    "embeddings",
     "llm",
-    "native",
     "napi",
     "rust",
     "simd",
-    "fast",
-    "performance",
-    "ruv",
     "ruvector"
   ]
 }

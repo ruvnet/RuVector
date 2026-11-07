@@ -1,7 +1,7 @@
 {
   "name": "@ruvector/ruvllm",
-  "version": "3.0.0",
-  "description": "Self-learning LLM runtime \u2014 TurboQuant KV-cache (6-8x compression), SONA adaptive learning, FlashAttention, speculative decoding, GGUF inference",
+  "version": "4.2.0",
+  "description": "Self-learning LLM runtime for Node.js: GGUF inference, TurboQuant KV-cache (6-8x compression), SONA adaptive learning, FlashAttention, speculative decoding, an HTTP serve command, plus the RuVLLM GPU job loop (Vast.ai) via @ruvector/ruvllm-gpu-loop",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
   "types": "dist/cjs/index.d.ts",
@@ -25,10 +25,41 @@
         "types": "./dist/cjs/simd.d.ts",
         "default": "./dist/cjs/simd.js"
       }
-    }
+    },
+    "./engine": {
+      "import": "./gpu/engine.mjs",
+      "require": "./gpu/engine.cjs"
+    },
+    "./gpu-loop": {
+      "import": "./gpu/gpu-loop.mjs",
+      "require": "./gpu/gpu-loop.cjs"
+    },
+    "./adapters": {
+      "import": "./gpu/adapters.mjs",
+      "require": "./gpu/adapters.cjs"
+    },
+    "./gpu-host": {
+      "import": "./gpu/gpu-host.mjs",
+      "require": "./gpu/gpu-host.cjs"
+    },
+    "./gpu-spool-adapter": {
+      "import": "./gpu/gpu-spool-adapter.mjs",
+      "require": "./gpu/gpu-spool-adapter.cjs"
+    },
+    "./vast-host-adapter": {
+      "import": "./gpu/vast-host-adapter.mjs",
+      "require": "./gpu/vast-host-adapter.cjs"
+    },
+    "./fixture": {
+      "import": "./gpu/fixture.mjs",
+      "require": "./gpu/fixture.cjs"
+    },
+    "./package.json": "./package.json"
   },
   "bin": {
-    "ruvllm": "./bin/cli.js"
+    "ruvllm": "./bin/cli.js",
+    "ruvllm-gpu-loop": "./bin/ruvllm-gpu-loop.js",
+    "ruvllm-adapters": "./bin/ruvllm-adapters.js"
   },
   "napi": {
     "name": "ruvllm",
@@ -68,11 +99,12 @@
     "ora": "^5.4.1"
   },
   "optionalDependencies": {
-    "@ruvector/ruvllm-linux-x64-gnu": "2.0.1",
-    "@ruvector/ruvllm-linux-arm64-gnu": "2.0.1",
-    "@ruvector/ruvllm-darwin-x64": "2.0.1",
-    "@ruvector/ruvllm-darwin-arm64": "2.0.1",
-    "@ruvector/ruvllm-win32-x64-msvc": "2.0.1"
+    "@ruvector/ruvllm-linux-x64-gnu": "2.1.0",
+    "@ruvector/ruvllm-linux-arm64-gnu": "2.1.0",
+    "@ruvector/ruvllm-darwin-x64": "2.1.0",
+    "@ruvector/ruvllm-darwin-arm64": "2.1.0",
+    "@ruvector/ruvllm-win32-x64-msvc": "2.1.0",
+    "@ruvector/ruvllm-gpu-loop": "^1.1.1"
   },
   "keywords": [
     "ruvllm",
@@ -106,7 +138,13 @@
     "transformer",
     "edge-ai",
     "local-llm",
-    "model-compression"
+    "model-compression",
+    "gguf-inference",
+    "llm-server",
+    "openai-compatible",
+    "gpu-loop",
+    "vast.ai",
+    "lora-adapters"
   ],
   "author": "rUv Team <team@ruv.io>",
   "license": "MIT OR Apache-2.0",
@@ -129,6 +167,7 @@
   "files": [
     "dist",
     "bin",
+    "gpu",
     "scripts",
     "*.node",
     "README.md"

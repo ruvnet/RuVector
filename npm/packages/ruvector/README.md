@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/ruvector.svg" alt="ruvector: Vector search and persistent agent memory for Node.js — HNSW, ONNX embeddings, GNN and attention." width="100%"></p>
+
 # ruvector: vector search and persistent agent memory
 
 ![RuVector memory and feedback loop](https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/build-loop.svg)
@@ -77,6 +79,26 @@ Follow the [Node.js write and reopen tutorial](https://github.com/ruvnet/RuVecto
 | System 2: Reason and orchestrate | MCP, MetaHarness integrations, RVF artifacts | [Examples hub](https://github.com/ruvnet/RuVector/blob/main/examples/README.md), [RVF](https://github.com/ruvnet/RuVector/blob/main/examples/rvf/README.md) |
 
 Reading memory does not train weights. Learning requires explicit outcomes and an evaluation policy. Contrastive learning and graph coherence provide different signals; neither establishes factual truth.
+
+### Optional extras
+
+Some features use packages that are not installed by default. `ruvector add` installs one into your project with the package manager it finds (npm, pnpm, yarn or bun), after printing what it will install and why.
+
+```bash
+npx ruvector add --list            # extras, what each enables, installed or not
+npx ruvector add rabitq --dry-run  # show the exact install command only
+npx ruvector add rabitq diskann
+```
+
+| Extra | Package | Enables |
+| :--- | :--- | :--- |
+| `rabitq` | `@ruvector/rabitq-wasm` | `RabitqIndex`: 1-bit quantized search, ~32x smaller codes |
+| `diskann` | `@ruvector/diskann` | `DiskAnnIndex`: on-disk Vamana index for data larger than RAM |
+| `router` | `@ruvector/router` | `ruvector route`, `SemanticRouter` |
+| `graph` | `@ruvector/graph-node` | `CodeGraph` with Cypher queries |
+| `rvlite` | `rvlite` | `rvlite_sql`, `rvlite_cypher`, `rvlite_sparql` MCP tools |
+
+`rvf` and `tiny-dancer` are optional dependencies and are usually present already; `add` installs them if your install skipped optional packages.
 
 ## Coding hooks and harnesses
 

@@ -12,6 +12,11 @@ pub struct ServeArgs {
     /// TCP streaming port (defaults to HTTP port + 1000)
     #[arg(long)]
     pub tcp_port: Option<u16>,
+    /// HTTP listen address. Anything but loopback requires a bearer token in
+    /// the RVF_SERVER_TOKEN environment variable (the binary TCP protocol
+    /// stays on loopback).
+    #[arg(long, default_value = "127.0.0.1")]
+    pub host: std::net::IpAddr,
 }
 
 pub fn run(args: ServeArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -24,6 +29,8 @@ pub fn run(args: ServeArgs) -> Result<(), Box<dyn std::error::Error>> {
                 tcp_port: args.tcp_port.unwrap_or(args.port + 1000),
                 data_path: std::path::PathBuf::from(&args.path),
                 dimension: 0, // auto-detect from file
+                host: args.host,
+                token: rvf_server::auth::AuthToken::from_env(),
             };
             rvf_server::run(config).await
         })

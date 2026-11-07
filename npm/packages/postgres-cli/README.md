@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/postgres-cli.svg" alt="@ruvector/postgres-cli: Vector database CLI for PostgreSQL — a pgvector drop-in with SQL functions, GNN layers and attention." width="100%"></p>
+
 # @ruvector/postgres-cli
 
 [![npm version](https://img.shields.io/npm/v/@ruvector/postgres-cli.svg)](https://www.npmjs.com/package/@ruvector/postgres-cli)

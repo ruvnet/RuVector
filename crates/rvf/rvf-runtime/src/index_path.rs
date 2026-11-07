@@ -17,16 +17,19 @@
 //!   rebuilt from vectors on the next eligible query.
 //!
 //! Queries fall back to the exact brute-force scan when the store is small
-//! (below [`INDEX_MIN_VECTORS`], where a scan is faster), when a metadata
-//! filter or COW membership filter applies, when too many vectors are
-//! soft-deleted, or when the index cannot supply `k` live results.
+//! (below [`INDEX_MIN_VECTORS`], where a scan is faster), when a non-COW
+//! membership filter applies, when too many vectors are soft-deleted, or when
+//! the index cannot supply `k` live results. Metadata-filtered queries use
+//! the predicate-aware traversal behind a selectivity planner
+//! (`store/filtered_query.rs`).
 
 use std::collections::{HashMap, HashSet};
 
 use rvf_index::codec::{decode_varint, encode_varint, NodeAdjacency, DEFAULT_RESTART_INTERVAL};
 use rvf_index::{
-    cosine_distance, decode_index_seg, dot_product, encode_index_seg, l2_distance, HnswConfig,
-    HnswGraph, HnswLayer, IndexSegData, IndexSegHeader, VectorStore,
+    cosine_distance, decode_index_seg, dot_product, encode_index_seg, l2_distance,
+    FilteredSearchOutcome, HnswConfig, HnswGraph, HnswLayer, IndexSegData, IndexSegHeader,
+    VectorStore,
 };
 
 use crate::options::DistanceMetric;
@@ -46,6 +49,23 @@ pub(crate) const INDEX_MAX_DELETED_FRACTION: f64 = 0.25;
 /// production path above the >=0.95 recall@10 contract; callers passing a
 /// larger `ef_search` are still honored.
 pub(crate) const INDEX_MIN_EF_SEARCH: usize = 256;
+
+/// Dimension-aware `ef_search` floor for the index path.
+///
+/// A fixed floor of 256 meets the recall contract at 128 dims but not above:
+/// on 10k uniform-random cosine vectors (M=16, ef_construction=200) ef=256
+/// gives recall@10 of 0.93 at 256 dims, 0.89 at 384 and 0.81 at 768. The
+/// floor therefore grows with sqrt(dim / 128) from [`INDEX_MIN_EF_SEARCH`]:
+/// 256 -> 363, 384 -> 444, 768 -> 628, which measured 0.95-0.97 at those
+/// sizes. Dimensions up to 128 keep 256. Capped at `u16::MAX` (the public
+/// `ef_search` type).
+pub(crate) fn min_ef_search(dimension: usize) -> usize {
+    if dimension <= 128 {
+        return INDEX_MIN_EF_SEARCH;
+    }
+    let scaled = (INDEX_MIN_EF_SEARCH as f64) * ((dimension as f64) / 128.0).sqrt();
+    (scaled.ceil() as usize).min(u16::MAX as usize)
+}
 
 /// Trailer magic ("RVIX") marking the ID-mapping extension appended after
 /// the standard INDEX_SEG codec payload.
@@ -102,6 +122,17 @@ pub(crate) struct VectorIndex {
     members: HashSet<u64>,
     /// True when the in-memory graph differs from the last persisted state.
     dirty: bool,
+    /// Measured recall of this graph (see `RvfStore::graph_recall`), reused
+    /// until the graph doubles in size or a different `ef` is asked for.
+    graph_recall: std::sync::Mutex<Option<GraphRecall>>,
+}
+
+/// A cached graph-recall measurement.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct GraphRecall {
+    pub(crate) ef: usize,
+    pub(crate) nodes: usize,
+    pub(crate) recall: f64,
 }
 
 impl VectorIndex {
@@ -123,6 +154,7 @@ impl VectorIndex {
             graph: HnswGraph::new(&config),
             members: HashSet::with_capacity(vectors.len()),
             dirty: true,
+            graph_recall: std::sync::Mutex::new(None),
         };
         let mut ids: Vec<u64> = vectors.ids().copied().collect();
         ids.sort_unstable();
@@ -180,6 +212,47 @@ impl VectorIndex {
         let store = VecDataStore { data: vectors };
         let dist = metric_distance_fn(metric);
         self.graph.search(query, k, ef_search, &store, &dist)
+    }
+
+    /// Predicate-aware search (see [`HnswGraph::search_filtered`]).
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn search_filtered(
+        &self,
+        query: &[f32],
+        k: usize,
+        ef_search: usize,
+        visit_budget: usize,
+        vectors: &VectorData,
+        metric: DistanceMetric,
+        predicate: &mut dyn FnMut(u64) -> bool,
+    ) -> FilteredSearchOutcome {
+        let store = VecDataStore { data: vectors };
+        let dist = metric_distance_fn(metric);
+        self.graph
+            .search_filtered(query, k, ef_search, visit_budget, &store, &dist, predicate)
+    }
+
+    /// The cached recall measurement for `ef`, if it is still current (same
+    /// `ef`, and the graph has not doubled since it was taken).
+    pub(crate) fn cached_graph_recall(&self, ef: usize) -> Option<f64> {
+        let cached = *self.graph_recall.lock().unwrap_or_else(|e| e.into_inner());
+        cached
+            .filter(|c| c.ef == ef && self.members.len() < c.nodes.saturating_mul(2).max(1))
+            .map(|c| c.recall)
+    }
+
+    /// Record a recall measurement for `ef` at the current graph size.
+    pub(crate) fn store_graph_recall(&self, ef: usize, recall: f64) {
+        *self.graph_recall.lock().unwrap_or_else(|e| e.into_inner()) = Some(GraphRecall {
+            ef,
+            nodes: self.members.len(),
+            recall,
+        });
+    }
+
+    /// True when the store holds vectors the graph has not indexed yet.
+    pub(crate) fn needs_sync(&self, vectors: &VectorData) -> bool {
+        self.members.len() < vectors.len()
     }
 
     /// Returns true if `id` is present in the graph.
@@ -302,6 +375,7 @@ impl VectorIndex {
             graph,
             members: ids.into_iter().collect(),
             dirty: false,
+            graph_recall: std::sync::Mutex::new(None),
         })
     }
 }
@@ -415,6 +489,24 @@ pub(crate) fn decode_graph(payload: &[u8]) -> Option<(HnswGraph, Vec<u64>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn min_ef_search_scales_with_dimension() {
+        assert_eq!(min_ef_search(0), INDEX_MIN_EF_SEARCH);
+        assert_eq!(min_ef_search(64), INDEX_MIN_EF_SEARCH);
+        assert_eq!(min_ef_search(128), INDEX_MIN_EF_SEARCH);
+        assert_eq!(min_ef_search(256), 363);
+        assert_eq!(min_ef_search(384), 444);
+        assert_eq!(min_ef_search(768), 628);
+        assert_eq!(min_ef_search(1536), 887);
+        assert_eq!(min_ef_search(usize::MAX), u16::MAX as usize);
+        let mut prev = 0;
+        for d in 1..=4096 {
+            let ef = min_ef_search(d);
+            assert!(ef >= prev, "monotonic at {d}");
+            prev = ef;
+        }
+    }
 
     fn make_vectors(ids: &[u64], dim: usize, seed: u64) -> VectorData {
         let mut data = VectorData::new(dim as u16);

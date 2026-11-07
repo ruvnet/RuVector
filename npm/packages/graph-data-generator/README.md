@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/graph-data-generator.svg" alt="@ruvector/graph-data-generator: AI-powered synthetic graph data for Neo4j knowledge graphs, social networks and temporal events." width="100%"></p>
+
 # @ruvector/graph-data-generator
 
 AI-powered synthetic graph data generation with OpenRouter/Kimi K2 integration for Neo4j knowledge graphs, social networks, and temporal events.

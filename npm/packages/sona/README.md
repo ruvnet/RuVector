@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/sona.svg" alt="@ruvector/sona: Self-Optimizing Neural Architecture — runtime-adaptive learning with LoRA, EWC++ and ReasoningBank." width="100%"></p>
+
 # @ruvector/sona
 
 **Self-Optimizing Neural Architecture (SONA)** - Node.js bindings for adaptive learning with ReasoningBank.
@@ -30,7 +32,7 @@ npm install @ruvector/sona
 import { SonaEngine } from '@ruvector/sona';
 
 // Create engine with hidden dimension
-const engine = new SonaEngine(512);
+// const engine = new SonaEngine(512);
 
 // Or with custom configuration
 const engine = SonaEngine.withConfig({
@@ -41,17 +43,22 @@ const engine = SonaEngine.withConfig({
   qualityThreshold: 0.7,
 });
 
-// Start a trajectory
-const builder = engine.beginTrajectory(queryEmbedding);
+// All vectors are plain number[] arrays (embeddings: embeddingDim, which
+// defaults to hiddenDim; activations: hiddenDim). Typed arrays such as
+// Float64Array are rejected by the binding.
+// Start a trajectory: returns a numeric trajectory ID
+const trajectoryId = engine.beginTrajectory(queryEmbedding);
 
 // Record inference steps
-builder.addStep(activations, attentionWeights, 0.8);
-builder.addStep(activations2, attentionWeights2, 0.9);
+engine.addTrajectoryStep(trajectoryId, activations, attentionWeights, 0.8);
+engine.addTrajectoryStep(trajectoryId, activations2, attentionWeights2, 0.9);
+engine.setTrajectoryRoute(trajectoryId, 'model-a');   // optional
+engine.addTrajectoryContext(trajectoryId, 'ctx-1');   // optional
 
 // Complete trajectory
-engine.endTrajectory(builder, 0.85); // quality score
+engine.endTrajectory(trajectoryId, 0.85); // quality score
 
-// Apply learned transformations
+// Apply learned transformations (returns number[])
 const output = engine.applyMicroLora(input);
 
 // Force learning cycle
@@ -84,13 +91,13 @@ Create a new SONA engine with default configuration.
 
 #### Static Methods
 
-##### `SonaEngine.withConfig(config: SonaConfig): SonaEngine`
+##### `SonaEngine.withConfig(config: JsSonaConfig): SonaEngine`
 
 Create engine with custom configuration.
 
 **Configuration Options:**
 ```typescript
-interface SonaConfig {
+interface JsSonaConfig {
   hiddenDim: number;              // Required: Hidden dimension
   embeddingDim?: number;          // Default: hiddenDim
   microLoraRank?: number;         // Default: 1 (range: 1-2)
@@ -108,23 +115,42 @@ interface SonaConfig {
 
 #### Instance Methods
 
-##### `beginTrajectory(queryEmbedding: Float64Array | number[]): TrajectoryBuilder`
+##### `beginTrajectory(queryEmbedding: number[]): number`
 
-Start recording a new inference trajectory.
+Start recording a new inference trajectory. Returns a trajectory ID used by the
+`*Trajectory*` methods below.
 
-##### `endTrajectory(builder: TrajectoryBuilder, quality: number): void`
+##### `addTrajectoryStep(trajectoryId: number, activations: number[], attentionWeights: number[], reward: number): void`
+
+Add a step to the trajectory.
+
+**Parameters:**
+- `trajectoryId`: ID returned by `beginTrajectory`
+- `activations`: Layer activations
+- `attentionWeights`: Attention weights
+- `reward`: Reward signal for this step
+
+##### `setTrajectoryRoute(trajectoryId: number, route: string): void`
+
+Set model route identifier.
+
+##### `addTrajectoryContext(trajectoryId: number, contextId: string): void`
+
+Add context ID to trajectory.
+
+##### `endTrajectory(trajectoryId: number, quality: number): void`
 
 Complete and submit trajectory for learning.
 
 **Parameters:**
-- `builder`: TrajectoryBuilder instance
+- `trajectoryId`: ID returned by `beginTrajectory`
 - `quality`: Final quality score [0.0, 1.0]
 
-##### `applyMicroLora(input: Float64Array | number[]): Float64Array`
+##### `applyMicroLora(input: number[]): number[]`
 
 Apply micro-LoRA transformation (instant learning).
 
-##### `applyBaseLora(layerIdx: number, input: Float64Array | number[]): Float64Array`
+##### `applyBaseLora(layerIdx: number, input: number[]): number[]`
 
 Apply base-LoRA transformation to specific layer.
 
@@ -140,7 +166,7 @@ Force immediate background learning cycle.
 
 Flush instant loop updates.
 
-##### `findPatterns(queryEmbedding: Float64Array | number[], k: number): LearnedPattern[]`
+##### `findPatterns(queryEmbedding: number[], k: number): LearnedPattern[]`
 
 Find k most similar learned patterns.
 
@@ -156,60 +182,37 @@ Enable or disable learning.
 
 Check if engine is enabled.
 
-### TrajectoryBuilder
-
-Builder for recording inference trajectories.
-
-#### Methods
-
-##### `addStep(activations: Float64Array | number[], attentionWeights: Float64Array | number[], reward: number): void`
-
-Add a step to the trajectory.
-
-**Parameters:**
-- `activations`: Layer activations
-- `attentionWeights`: Attention weights
-- `reward`: Reward signal for this step
-
-##### `setRoute(route: string): void`
-
-Set model route identifier.
-
-##### `addContext(contextId: string): void`
-
-Add context ID to trajectory.
-
 ### LearnedPattern
 
-Represents a learned pattern from trajectory clustering.
+Represents a learned pattern from trajectory clustering (exported type name:
+`JsLearnedPattern`).
 
 ```typescript
-interface LearnedPattern {
+interface JsLearnedPattern {
   id: string;
-  centroid: Float64Array;
+  centroid: number[];
   clusterSize: number;
   totalWeight: number;
   avgQuality: number;
-  createdAt: string;
-  lastAccessed: string;
+  createdAt: string;    // Unix seconds, as a string
+  lastAccessed: string; // Unix seconds, as a string
   accessCount: number;
-  patternType: PatternType;
+  patternType: string;  // see below
 }
 ```
 
-### PatternType
+### Pattern types
 
-Pattern classification enumeration.
+`patternType` is a plain string (no enum is exported) with one of these values:
 
 ```typescript
-enum PatternType {
-  General = 'General',
-  Reasoning = 'Reasoning',
-  Factual = 'Factual',
-  Creative = 'Creative',
-  CodeGen = 'CodeGen',
-  Conversational = 'Conversational',
-}
+type PatternType =
+  | 'General'
+  | 'Reasoning'
+  | 'Factual'
+  | 'Creative'
+  | 'CodeGen'
+  | 'Conversational';
 ```
 
 ## Advanced Usage
@@ -234,17 +237,17 @@ class AdaptiveLLM {
   }
 
   async generate(prompt: string): Promise<string> {
-    const embedding = await this.embed(prompt);
-    const builder = this.sona.beginTrajectory(embedding);
+    const embedding = await this.embed(prompt); // number[]
+    const trajectoryId = this.sona.beginTrajectory(embedding);
 
     // Generate with SONA-enhanced layers
-    const output = await this.runInference(builder);
+    const output = await this.runInference(trajectoryId);
 
     // Calculate quality score
     const quality = this.assessQuality(output);
 
     // Submit trajectory for learning
-    this.sona.endTrajectory(builder, quality);
+    this.sona.endTrajectory(trajectoryId, quality);
 
     // Periodic background learning
     const status = this.sona.tick();
@@ -255,7 +258,7 @@ class AdaptiveLLM {
     return output;
   }
 
-  private async runInference(builder: TrajectoryBuilder): Promise<string> {
+  private async runInference(trajectoryId: number): Promise<string> {
     let output = '';
 
     for (const layer of this.layers) {
@@ -268,7 +271,7 @@ class AdaptiveLLM {
 
       // Record step
       const reward = this.calculateReward(enhanced);
-      builder.addStep(activations, attention, reward);
+      this.sona.addTrajectoryStep(trajectoryId, activations, attention, reward);
 
       // Continue generation with enhanced activations
       output += this.decode(enhanced);
@@ -303,11 +306,14 @@ if (patterns.length > 0) {
 ```typescript
 // Get statistics
 const stats = JSON.parse(engine.getStats());
+// Keys: trajectories_recorded, trajectories_buffered, trajectories_dropped,
+// buffer_success_rate, patterns_stored, patterns_learned, ewc_tasks,
+// instant_ewc_tasks, instant_enabled, background_enabled
 console.log(`
   Trajectories buffered: ${stats.trajectories_buffered}
+  Trajectories dropped: ${stats.trajectories_dropped}
+  Patterns stored: ${stats.patterns_stored}
   Patterns learned: ${stats.patterns_learned}
-  Micro-LoRA updates: ${stats.micro_updates}
-  Background cycles: ${stats.background_cycles}
 `);
 
 // Force learning when needed
@@ -347,10 +353,15 @@ SONA implements a dual-loop learning architecture:
 
 ## Supported Platforms
 
-- Linux (x64, ARM64, ARM)
-- macOS (x64, ARM64, Universal)
-- Windows (x64, ARM64)
-- FreeBSD (x64)
+- Linux x64 (glibc and musl), Linux ARM64 (glibc)
+- macOS x64 and ARM64 (Apple Silicon)
+- Windows x64 and ARM64
+
+## Related packages
+
+- [`ruvector-sona`](https://www.npmjs.com/package/ruvector-sona) — WebAssembly (wasm-pack) build of the same `sona` crate, for browsers.
+- [`@ruvector/ruvllm`](https://www.npmjs.com/package/@ruvector/ruvllm) — self-learning LLM runtime; its Rust core uses the `sona` crate for adaptive learning.
+- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package and CLI (`npx ruvector`); depends on `@ruvector/sona`.
 
 ## License
 

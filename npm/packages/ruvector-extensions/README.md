@@ -1,10 +1,21 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/ruvector-extensions.svg" alt="ruvector-extensions: Embeddings, persistence, exports, temporal tracking and UI for the ruvector vector database." width="100%"></p>
+
 # ruvector-extensions
 
 Advanced persistence and extension features for the [ruvector](https://github.com/ruvnet/ruvector) vector database.
 
+The package root (`import ... from 'ruvector-extensions'`) exports four modules:
+
+- **Embeddings** — `OpenAIEmbeddings`, `CohereEmbeddings`, `AnthropicEmbeddings`, `HuggingFaceEmbeddings`, `LatticeWasmEmbeddings`, `embedAndInsert`, `embedAndSearch` (see [EMBEDDINGS_QUICKSTART.md](https://github.com/ruvnet/ruvector/blob/main/npm/packages/ruvector-extensions/EMBEDDINGS_QUICKSTART.md))
+- **Graph exporters** — `buildGraphFromEntries`, `exportGraph`, `exportToGraphML`, `exportToGEXF`, `exportToNeo4j`, `exportToD3`, `exportToNetworkX`, streaming exporters
+- **Temporal tracking** — `TemporalTracker`, `ChangeType`
+- **Graph explorer UI** — `UIServer`, `startUIServer` (see [README_UI.md](https://github.com/ruvnet/ruvector/blob/main/npm/packages/ruvector-extensions/README_UI.md))
+
+The persistence module documented below (`DatabasePersistence`) ships in `dist/persistence.js` but is **not exported from the package root** in 0.1.3.
+
 ## Features
 
-- 💾 **Multiple Persistence Formats**: JSON, Binary (MessagePack), SQLite
+- 💾 **Persistence Formats**: JSON and `binary` (currently JSON-encoded). A `sqlite` format is declared but throws "SQLite format not yet implemented"
 - 📸 **Snapshot Management**: Create, list, restore, and delete database snapshots
 - 🔄 **Incremental Saves**: Save only changed data for efficiency
 - 📤 **Export/Import**: Flexible data portability
@@ -21,15 +32,17 @@ npm install ruvector-extensions ruvector
 
 ## Quick Start
 
+> **Compatibility note (0.1.3):** `DatabasePersistence` is not re-exported from the package root, and it calls `db.stats()`, `db.clear()`, `db.insertBatch()` and `db.buildIndex()`. The `VectorDB` class in `ruvector` 0.2.x (the range this package depends on) exposes `insert`, `insertBatch`, `search`, `get`, `delete`, `len` and `isEmpty`, so `save()` fails with `this.db.stats is not a function`. The example below shows the intended API.
+
 ```typescript
 import { VectorDB } from 'ruvector';
 import { DatabasePersistence } from 'ruvector-extensions';
 
 // Create a vector database
-const db = new VectorDB({ dimension: 384 });
+const db = new VectorDB({ dimensions: 384 });
 
 // Add vectors
-db.insert({
+await db.insert({
   id: 'doc1',
   vector: [0.1, 0.2, ...], // 384-dimensional vector
   metadata: { title: 'My Document' }
@@ -69,7 +82,7 @@ new DatabasePersistence(db: VectorDB, options: PersistenceOptions)
 
 **Options:**
 - `baseDir` (string): Base directory for persistence files
-- `format` (string): Default format - 'json', 'binary', or 'sqlite'
+- `format` (string): Default format - 'json' (default), 'binary', or 'sqlite' (not yet implemented)
 - `compression` (string): Compression type - 'none', 'gzip', or 'brotli'
 - `incremental` (boolean): Enable incremental saves
 - `autoSaveInterval` (number): Auto-save interval in ms (0 = disabled)
@@ -250,11 +263,11 @@ console.log(`Estimated: ${formatFileSize(usage)}`);
 import { VectorDB } from 'ruvector';
 import { DatabasePersistence } from 'ruvector-extensions';
 
-const db = new VectorDB({ dimension: 128 });
+const db = new VectorDB({ dimensions: 128 });
 
 // Add data
 for (let i = 0; i < 1000; i++) {
-  db.insert({
+  await db.insert({
     id: `doc-${i}`,
     vector: Array(128).fill(0).map(() => Math.random())
   });
@@ -276,7 +289,7 @@ console.log('Database saved!');
 const v1 = await persistence.createSnapshot('version-1.0');
 
 // Make changes
-db.insert({ id: 'new-doc', vector: [...] });
+await db.insert({ id: 'new-doc', vector: [...] });
 
 // Create new snapshot
 const v2 = await persistence.createSnapshot('version-1.1');
@@ -296,7 +309,7 @@ await persistence.export({
 });
 
 // Import into new database
-const db2 = new VectorDB({ dimension: 128 });
+const db2 = new VectorDB({ dimensions: 128 });
 const p2 = new DatabasePersistence(db2, { baseDir: './data2' });
 
 await p2.import({
@@ -332,7 +345,7 @@ await persistence.shutdown();
 
 ## TypeScript Support
 
-Full TypeScript definitions are included:
+Full TypeScript definitions are included. The persistence types live in `dist/persistence.d.ts` and, like `DatabasePersistence`, are not re-exported from the package root in 0.1.3 (the root `ExportOptions` type is the graph exporters' one):
 
 ```typescript
 import type {
@@ -371,9 +384,15 @@ try {
 }
 ```
 
+## Related packages
+
+- [`@ruvector/graph-wasm`](https://www.npmjs.com/package/@ruvector/graph-wasm) — property graph with Cypher import/export in WebAssembly.
+- [`@ruvector/core`](https://www.npmjs.com/package/@ruvector/core) — the native vector database underneath `ruvector`.
+- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package and CLI (`npx ruvector`); provides the `VectorDB` this package extends.
+
 ## License
 
-MIT - See [LICENSE](LICENSE) for details
+MIT - See [LICENSE](https://github.com/ruvnet/ruvector/blob/main/LICENSE) for details
 
 ## Contributing
 

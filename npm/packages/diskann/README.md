@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/diskann.svg" alt="@ruvector/diskann: DiskANN / Vamana — SSD-friendly approximate nearest-neighbour search with product quantization." width="100%"></p>
+
 # @ruvector/diskann
 
 [![npm](https://img.shields.io/npm/v/@ruvector/diskann.svg)](https://www.npmjs.com/package/@ruvector/diskann)
@@ -25,7 +27,7 @@ DiskANN is the SSD-friendly graph index from Microsoft Research that powers bill
 - **Memory-mapped persistence** — `save()` writes a flat slab + graph + (optional) PQ codes; `load()` mmaps so the OS pages in only touched vectors.
 - **Async builds and searches** that off-load to a blocking thread pool so the Node event loop stays responsive.
 - **Batch insert** API for high-throughput ingestion of millions of vectors.
-- **Delete** support (tombstoned then re-pruned at build).
+- **Delete** support (tombstoned, with graph edges repaired in place — no rebuild needed).
 - **Cache-friendly internals** — contiguous `FlatVectors`, generation-counter `VisitedSet` (O(1) per-query reset), flat PQ distance tables, 4-accumulator ILP for L2.
 - **Optional SimSIMD acceleration** (NEON / AVX2 / AVX-512) in the Rust crate; Node bindings ship with the portable build.
 - **TypeScript types** included.
@@ -111,7 +113,7 @@ const hits: DiskAnnSearchResult[] = index.search(query, 10);
 | `alpha` | `number` | `1.2` | α-robust pruning factor (≥ 1.0) |
 | `pqSubspaces` | `number` | `0` | PQ subspaces M (0 disables PQ) |
 | `pqIterations` | `number` | `10` | k-means iterations for PQ training |
-| `storagePath` | `string` | — | Optional path used by the mmap layer |
+| `storagePath` | `string` | — | Optional directory; if set, `build()` also saves the index there |
 
 ### Methods
 
@@ -123,12 +125,14 @@ const hits: DiskAnnSearchResult[] = index.search(query, 10);
 | `buildAsync(): Promise<void>` | Same, off-loaded to a blocking thread pool |
 | `search(query: Float32Array, k: number): DiskAnnSearchResult[]` | k-NN search |
 | `searchAsync(query, k): Promise<DiskAnnSearchResult[]>` | Async k-NN search |
-| `delete(id: string): boolean` | Tombstone a vector (effective after next build) |
+| `delete(id: string): boolean` | Tombstone a vector; it disappears from results immediately (returns `false` if unknown) |
 | `count(): number` | Number of vectors currently in the index |
 | `save(dir: string): void` | Persist index files into `dir` |
 | `static load(dir: string): DiskAnn` | Load and mmap an index from `dir` |
 
 Search results are `{ id: string, distance: number }`, where `distance` is squared-L2.
+
+`search()` before `build()` throws `Index not built — call build() first`. Any `insert` / `insertBatch` after a build invalidates the graph, so call `build()` again before the next search. Vectors must be `Float32Array` (a plain `number[]` throws).
 
 ## Benchmarks
 
@@ -156,12 +160,14 @@ For the full design — including persistence layout, optimization rationale, an
 
 ## Related packages
 
-- [`@ruvector/router`](https://www.npmjs.com/package/@ruvector/router) — in-memory HNSW router (sub-millisecond, small/medium corpora)
-- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package; lazily wraps DiskANN when this addon is installed
-- Rust crate: [`ruvector-diskann`](https://crates.io/crates/ruvector-diskann)
+- [`@ruvector/core`](https://www.npmjs.com/package/@ruvector/core) — native in-memory HNSW vector database, for corpora that fit in RAM and need incremental inserts.
+- [`@ruvector/router`](https://www.npmjs.com/package/@ruvector/router) — HNSW-backed semantic intent router (sub-millisecond, small/medium corpora).
+- [`@ruvector/rabitq-wasm`](https://www.npmjs.com/package/@ruvector/rabitq-wasm) — 1-bit RaBitQ quantized index in WebAssembly, for the browser / edge case this addon can't serve.
+- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package and CLI (`npx ruvector`).
 
 ## Links
 
+- Rust crate: [`ruvector-diskann`](https://crates.io/crates/ruvector-diskann)
 - Repository: <https://github.com/ruvnet/ruvector>
 - Issues: <https://github.com/ruvnet/ruvector/issues>
 - DiskANN paper (NeurIPS 2019): <https://proceedings.neurips.cc/paper/2019/hash/09853c7fb1d3f8ee67a61b6bf4a7f8e6-Abstract.html>

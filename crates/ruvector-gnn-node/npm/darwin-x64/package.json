@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/gnn-darwin-x64",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "os": [
     "darwin"
   ],

@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/postgres-cli",
-  "version": "0.2.9",
+  "version": "0.2.11",
   "description": "Advanced AI vector database CLI for PostgreSQL - pgvector drop-in replacement with 53+ SQL functions, 39 attention mechanisms, GNN layers, hyperbolic embeddings, and self-learning capabilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -13,6 +13,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist *.tsbuildinfo",
+    "pretest": "npm run build",
     "test": "node --test tests/*.test.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",

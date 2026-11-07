@@ -51,7 +51,7 @@ jobs:
           - host: macos-15-intel
             target: x86_64-apple-darwin
             platform: darwin-x64
-          - host: macos-14
+          - host: macos-15
             target: aarch64-apple-darwin
             platform: darwin-arm64
           - host: windows-2022
@@ -246,6 +246,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           VERSION=$(node -p "require('./crates/ruvector-gnn-node/package.json').version")
           echo "Publishing version: $VERSION"
 
@@ -326,7 +327,7 @@ jobs:
 
             # Publish
             cd "$PKG_DIR"
-            npm publish --access public || echo "Failed to publish @ruvector/gnn-${platform}"
+            bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
             cd ../..
           done
 
@@ -335,5 +336,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         working-directory: crates/ruvector-gnn-node
         run: |
+          set -euo pipefail
           npm install --ignore-scripts --omit=optional --force
-          npm publish --access public || echo "Failed to publish @ruvector/gnn"
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public

@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/sona-linux-arm64-gnu",
-  "version": "0.1.5",
+  "version": "0.1.11",
   "os": ["linux"],
   "cpu": ["arm64"],
   "main": "sona.linux-arm64-gnu.node",

@@ -61,9 +61,13 @@ pub fn parse_segments(buf: &[u8]) -> Vec<SegmentInfo> {
                 offset: i,
             });
 
-            // Skip past this segment
-            let total = SEGMENT_HEADER_SIZE + payload_length as usize;
-            if let Some(next) = i.checked_add(total) {
+            // Skip past this segment. The length is untrusted: checked
+            // conversion (u64 -> 32-bit usize on wasm32) and checked adds.
+            let next = usize::try_from(payload_length)
+                .ok()
+                .and_then(|len| len.checked_add(SEGMENT_HEADER_SIZE))
+                .and_then(|total| i.checked_add(total));
+            if let Some(next) = next {
                 if next > i {
                     i = next;
                     continue;
@@ -105,6 +109,37 @@ pub fn verify_crc32c(buf: &[u8], expected: u32) -> i32 {
         1
     } else {
         0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn header(payload_length: u64) -> Vec<u8> {
+        let mut h = Vec::new();
+        h.extend_from_slice(&SEGMENT_MAGIC.to_le_bytes());
+        h.push(1);
+        h.push(0x01);
+        h.extend_from_slice(&[0, 0]);
+        h.extend_from_slice(&7u64.to_le_bytes());
+        h.extend_from_slice(&payload_length.to_le_bytes());
+        h.resize(SEGMENT_HEADER_SIZE, 0);
+        h
+    }
+
+    #[test]
+    fn huge_payload_length_does_not_panic() {
+        // `SEGMENT_HEADER_SIZE + payload_length as usize` overflowed.
+        for len in [u64::MAX, u64::MAX - 10, u64::MAX - 63] {
+            let mut buf = header(len);
+            buf.extend_from_slice(&header(0));
+            let segs = parse_segments(&buf);
+            assert_eq!(segs[0].payload_length, len);
+            // An unrepresentable length cannot be skipped, so the scan keeps
+            // going and finds the well-formed segment after it.
+            assert_eq!(segs.last().map(|s| s.offset), Some(SEGMENT_HEADER_SIZE));
+        }
     }
 }
 

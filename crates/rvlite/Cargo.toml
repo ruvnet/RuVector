@@ -1,6 +1,6 @@
 [package]
 name = "rvlite"
-version = "0.3.0"
+version = "0.3.2"
 edition = "2021"
 description = "Standalone vector database with SQL, SPARQL, and Cypher - powered by RuVector WASM"
 license = "MIT OR Apache-2.0"
@@ -48,8 +48,8 @@ serde-wasm-bindgen = "0.6"
 console_error_panic_hook = "0.1"
 
 # ===== RVF Backend (optional) =====
-rvf-runtime = { path = "../rvf/rvf-runtime", features = ["std"], optional = true }
-rvf-types = { path = "../rvf/rvf-types", features = ["std"], optional = true }
+rvf-runtime = { version = "0.5.0", path = "../rvf/rvf-runtime", features = ["std"], optional = true }
+rvf-types = { version = "0.3.0", path = "../rvf/rvf-types", features = ["std"], optional = true }
 fs2 = { version = "0.4", optional = true }
 
 # ===== Standard Dependencies =====

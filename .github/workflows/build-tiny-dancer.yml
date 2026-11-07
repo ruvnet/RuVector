@@ -188,6 +188,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           VERSION=$(node -p "require('./npm/packages/tiny-dancer/package.json').version")
           echo "Publishing version: $VERSION"
 
@@ -267,7 +268,7 @@ jobs:
 
             # Publish
             cd "$PKG_DIR"
-            npm publish --access public || echo "Failed to publish @ruvector/tiny-dancer-${platform}"
+            bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
             cd ../..
           done
 
@@ -300,4 +301,6 @@ jobs:
         working-directory: npm/packages/tiny-dancer
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public || echo "Package may already exist"
+        run: |
+          set -euo pipefail
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public

@@ -5,7 +5,16 @@
  * Falls back to clear error messages when the package is not installed.
  */
 
+import { resolve as resolvePath } from 'path';
+
 let rvfModule: any = null;
+
+// @ruvector/rvf-node 0.3.x fsyncs a store's parent directory on compact; for a
+// bare relative path ("s.rvf") that parent is "" and the call fails with
+// FsyncFailed. Absolute paths behave the same on every rvf-node version.
+function storePath(p: string): string {
+  return resolvePath(p);
+}
 let loadError: Error | null = null;
 
 function getRvfModule() {
@@ -17,7 +26,7 @@ function getRvfModule() {
     return rvfModule;
   } catch (e: any) {
     loadError = new Error(
-      '@ruvector/rvf is not installed. Run: npm install @ruvector/rvf'
+      '@ruvector/rvf is not installed. Run: npx ruvector add rvf  (or: npm install @ruvector/rvf)'
     );
     throw loadError;
   }
@@ -89,7 +98,7 @@ export async function createRvfStore(
   options: RvfStoreOptions,
 ): Promise<RvfStore> {
   const mod = getRvfModule();
-  return mod.RvfDatabase.create(path, options);
+  return mod.RvfDatabase.create(storePath(path), options);
 }
 
 /**
@@ -97,7 +106,7 @@ export async function createRvfStore(
  */
 export async function openRvfStore(path: string): Promise<RvfStore> {
   const mod = getRvfModule();
-  return mod.RvfDatabase.open(path);
+  return mod.RvfDatabase.open(storePath(path));
 }
 
 /**
@@ -155,7 +164,7 @@ export async function rvfDerive(
   store: RvfStore,
   childPath: string,
 ): Promise<RvfStore> {
-  return store.derive(childPath);
+  return store.derive(storePath(childPath));
 }
 
 /** Create a durable, queryable copy-on-write branch. */
@@ -163,7 +172,7 @@ export async function rvfBranch(
   store: RvfStore,
   childPath: string,
 ): Promise<RvfStore> {
-  return store.branch(childPath);
+  return store.branch(storePath(childPath));
 }
 
 /** Freeze the current generation before branching. */

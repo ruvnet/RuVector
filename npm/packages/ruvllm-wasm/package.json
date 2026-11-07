@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ruvllm-wasm",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Browser capability checks and a (not yet implemented) LLM runtime facade for RuvLLM WASM; the published package is the wasm-pack build of crates/ruvllm-wasm",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -29,25 +29,24 @@
     "typescript": "^5.9.3"
   },
   "keywords": [
+    "ruvector",
+    "ruvllm",
     "llm",
     "wasm",
     "webassembly",
     "browser",
-    "inference",
     "webgpu",
-    "ai",
-    "machine-learning",
-    "edge",
-    "offline",
-    "ruvector",
-    "ruvllm",
-    "transformers"
+    "chat-template",
+    "kv-cache",
+    "hnsw",
+    "lora",
+    "edge"
   ],
   "author": "rUv Team <team@ruv.io>",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
+    "url": "git+https://github.com/ruvnet/ruvector.git",
     "directory": "npm/packages/ruvllm-wasm"
   },
   "homepage": "https://github.com/ruvnet/ruvector/tree/main/crates/ruvllm-wasm",

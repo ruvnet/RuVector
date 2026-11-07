@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/agentic-synth",
-  "version": "0.1.7",
+  "version": "0.1.9",
   "description": "High-performance synthetic data generator for AI/ML training, RAG systems, and agentic workflows with DSPy.ts, Gemini, OpenRouter, and vector databases",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -87,7 +87,7 @@
     "@types/node": "^20.19.25",
     "@typescript-eslint/eslint-plugin": "^8.47.0",
     "@typescript-eslint/parser": "^8.47.0",
-    "@vitest/coverage-v8": "^3.2.6",
+    "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^8.57.1",
     "prettier": "^3.7.3",
     "tsup": "^8.5.1",

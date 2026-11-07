@@ -53,7 +53,7 @@ if (missing.length > 0) {
 // does not filter them.
 const STRAY = /\.(db|rvf|lock)$|(^|\/)\.claude(\/|$)/;
 const stray = [];
-for (const dir of ['bin', 'dist', 'wasm']) {
+for (const dir of ['bin', 'dist', 'wasm', 'skills']) {
   const walk = (rel) => {
     const abs = path.join(pkgRoot, rel);
     if (!fs.existsSync(abs)) return;

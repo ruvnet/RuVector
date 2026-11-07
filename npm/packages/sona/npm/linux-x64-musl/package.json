@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/sona-linux-x64-musl",
-  "version": "0.1.5",
+  "version": "0.1.11",
   "os": ["linux"],
   "cpu": ["x64"],
   "main": "sona.linux-x64-musl.node",

@@ -33,10 +33,10 @@ jobs:
           - host: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
-          - host: macos-14
+          - host: macos-15
             target: x86_64-apple-darwin
             platform: darwin-x64
-          - host: macos-14
+          - host: macos-15
             target: aarch64-apple-darwin
             platform: darwin-arm64
           - host: windows-2022
@@ -148,6 +148,18 @@ jobs:
             console.log('Exports:', Object.keys(native));
             console.log('✅ Native module loaded successfully');
           "
+
+      - name: Node tests against the committed loader and typings
+        if: matrix.settings.platform == 'linux-x64-gnu'
+        shell: bash
+        working-directory: crates/ruvector-attention-node
+        run: |
+          set -euo pipefail
+          # napi build regenerates index.js/index.d.ts with whatever CLI
+          # version CI installed; test the committed files that publish-all
+          # actually ships (every native export must be typed).
+          git checkout -- index.js index.d.ts
+          node --test test/*.test.js
 
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -287,6 +299,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           VERSION=$(node -p "require('./crates/ruvector-attention-node/package.json').version")
           echo "Publishing version: $VERSION"
 
@@ -365,7 +378,7 @@ jobs:
 
             # Publish
             cd "$PKG_DIR"
-            npm publish --access public || echo "Failed to publish @ruvector/attention-${platform} (may already exist)"
+            bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
             cd ../..
           done
 
@@ -376,6 +389,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         working-directory: crates/ruvector-attention-node
         run: |
+          set -euo pipefail
           # Update optionalDependencies to include all ARM64 packages
           VERSION=$(node -p "require('./package.json').version")
 
@@ -383,7 +397,7 @@ jobs:
           npm run prepublishOnly || true
 
           # Publish main package
-          npm publish --access public || echo "Failed to publish @ruvector/attention (may already exist)"
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
 
       - name: Generate publish summary
         run: |

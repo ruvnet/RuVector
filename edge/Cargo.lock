@@ -1799,7 +1799,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-rabitq"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "rand",
  "rand_distr",
@@ -1831,7 +1831,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-index"
-version = "0.2.1"
+version = "0.2.3"
 
 [[package]]
 name = "rvf-quant"
@@ -1842,7 +1842,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-runtime"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "crc32fast",
  "ed25519-dalek",
@@ -1856,7 +1856,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-types"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "ed25519-dalek",
  "rand_core 0.6.4",

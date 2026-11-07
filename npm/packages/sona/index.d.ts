@@ -67,6 +67,11 @@ export declare class SonaEngine {
    * Start a new trajectory recording
    * @param query_embedding - Query embedding vector (Float64Array)
    * @returns Trajectory ID for adding steps
+   *
+   * At most 10000 trajectories stay open per engine: beginning another
+   * discards the oldest unfinished one, whose ID then acts like an unknown
+   * ID. IDs are unique among the open trajectories, including after the
+   * u32 counter wraps.
    */
   beginTrajectory(queryEmbedding: Array<number>): number
   /**
@@ -75,6 +80,8 @@ export declare class SonaEngine {
    * @param activations - Layer activations (Float64Array)
    * @param attention_weights - Attention weights (Float64Array)
    * @param reward - Reward signal for this step
+   *
+   * Steps beyond 4096 per trajectory are ignored.
    */
   addTrajectoryStep(trajectoryId: number, activations: Array<number>, attentionWeights: Array<number>, reward: number): void
   /**
@@ -87,6 +94,8 @@ export declare class SonaEngine {
    * Add context to trajectory
    * @param trajectory_id - Trajectory ID
    * @param context_id - Context identifier
+   *
+   * Context ids beyond 1024 per trajectory are ignored.
    */
   addTrajectoryContext(trajectoryId: number, contextId: string): void
   /**
@@ -118,6 +127,12 @@ export declare class SonaEngine {
    * @returns Status message with learning results
    */
   forceLearn(): string
+  /**
+   * Force background learning cycle on a worker thread, so a large
+   * trajectory buffer does not block the event loop
+   * @returns Promise of the status message with learning results
+   */
+  forceLearnAsync(): Promise<string>
   /** Flush instant loop updates */
   flush(): void
   /**
@@ -135,6 +150,7 @@ export declare class SonaEngine {
   /**
    * Enable or disable the engine
    * @param enabled - Whether to enable the engine
+   * @throws If a forceLearnAsync call is still running
    */
   setEnabled(enabled: boolean): void
   /**

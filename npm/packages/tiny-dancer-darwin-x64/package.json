@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/tiny-dancer-darwin-x64",
-  "version": "0.1.22",
+  "version": "0.1.24",
   "description": "macOS x64 native bindings for @ruvector/tiny-dancer",
   "main": "ruvector-tiny-dancer.darwin-x64.node",
   "files": [

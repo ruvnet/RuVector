@@ -362,8 +362,14 @@ fn kernels() -> &'static Kernels {
 /// - x86_64: AVX2+FMA (processes 8 floats per cycle)
 /// - aarch64: NEON (processes 4 floats per cycle)
 /// - Fallback: scalar loop
+///
+/// # Panics
+///
+/// Panics if `a` and `b` differ in length (the SIMD kernels read both by
+/// `a.len()`, so this is checked in release builds too).
 #[inline]
 pub fn l2_distance(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len(), "l2_distance: vector length mismatch");
     (kernels().l2)(a, b)
 }
 
@@ -373,8 +379,13 @@ pub fn l2_distance(a: &[f32], b: &[f32]) -> f32 {
 /// If either vector has zero norm, returns `1.0`.
 ///
 /// Automatically selects the best SIMD implementation at runtime.
+///
+/// # Panics
+///
+/// Panics if `a` and `b` differ in length.
 #[inline]
 pub fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len(), "cosine_distance: vector length mismatch");
     (kernels().cosine)(a, b)
 }
 
@@ -384,8 +395,13 @@ pub fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
 /// which is consistent with the min-heap search ordering.
 ///
 /// Automatically selects the best SIMD implementation at runtime.
+///
+/// # Panics
+///
+/// Panics if `a` and `b` differ in length.
 #[inline]
 pub fn dot_product(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len(), "dot_product: vector length mismatch");
     (kernels().dot)(a, b)
 }
 
@@ -526,5 +542,31 @@ mod tests {
             let dps = dot_product_scalar(&a, &b);
             assert!((dp - dps).abs() < 1e-3, "Dot mismatch for n={n}");
         }
+    }
+
+    // The SIMD kernels index `b` by `a.len()`; a shorter `b` must be refused
+    // in release builds too, not read past its end.
+    #[test]
+    #[should_panic(expected = "vector length mismatch")]
+    fn l2_rejects_mismatched_lengths() {
+        let a = [1.0f32; 16];
+        let b = [1.0f32; 8];
+        let _ = l2_distance(&a, &b);
+    }
+
+    #[test]
+    #[should_panic(expected = "vector length mismatch")]
+    fn cosine_rejects_mismatched_lengths() {
+        let a = [1.0f32; 16];
+        let b = [1.0f32; 8];
+        let _ = cosine_distance(&a, &b);
+    }
+
+    #[test]
+    #[should_panic(expected = "vector length mismatch")]
+    fn dot_rejects_mismatched_lengths() {
+        let a = [1.0f32; 16];
+        let b = [1.0f32; 8];
+        let _ = dot_product(&a, &b);
     }
 }

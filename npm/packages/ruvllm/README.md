@@ -1,5 +1,7 @@
 # @ruvector/ruvllm
 
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/ruvllm.svg" alt="@ruvector/ruvllm: self-learning LLM runtime for Node.js with GGUF inference, SONA, TurboQuant KV cache and an optional GPU job loop." width="100%"></p>
+
 [![npm version](https://img.shields.io/npm/v/@ruvector/ruvllm.svg)](https://www.npmjs.com/package/@ruvector/ruvllm)
 [![Downloads](https://img.shields.io/npm/dm/@ruvector/ruvllm)](https://www.npmjs.com/package/@ruvector/ruvllm)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
@@ -8,6 +10,38 @@
 **Self-learning LLM runtime for Node.js** — GGUF inference, TurboQuant KV-cache compression (6-8x memory savings), SONA adaptive learning, FlashAttention, speculative decoding, and SIMD-optimized kernels. Built in Rust, runs everywhere.
 
 > Inference at **88-135 tok/s** on M4 Pro | **<1ms** SONA adaptation | **6-8x** KV-cache compression via TurboQuant
+
+## One package: the LLM runtime and the GPU job loop (4.1.0)
+
+`@ruvector/ruvllm` is the RuVLLM **self-learning LLM runtime for Node.js**:
+GGUF inference, SONA adaptive learning, MicroLoRA, TurboQuant KV-cache
+compression, FlashAttention, speculative decoding, HNSW memory, the `ruvllm`
+CLI and a local `ruvllm serve` HTTP server. Since 4.1.0 it also pulls in
+**[`@ruvector/ruvllm-gpu-loop`](https://www.npmjs.com/package/@ruvector/ruvllm-gpu-loop)**
+(the RuVLLM GPU job loop, Vast.ai host adapter, adapter archives and bounded
+weight experiments) as an optional dependency, so a single
+`npm install @ruvector/ruvllm` gives you both.
+
+**Why 4.1.0 exists.** Versions 4.0.0 and 4.0.1 were published from a different
+repository (`ruvnet/ruvllm`) and replaced this runtime with only the GPU job
+loop harness: no runtime API, no native bindings, no `ruvllm` CLI. 4.1.0
+restores the runtime (the same API as 3.0.0) and keeps every 4.0.x entry point
+working through `@ruvector/ruvllm-gpu-loop`. Do not use 4.0.0 or 4.0.1.
+
+| You used | In 4.1.0 |
+| :--- | :--- |
+| 3.x / 2.x runtime: `require('@ruvector/ruvllm')`, `import … from '@ruvector/ruvllm'` | Unchanged (CommonJS and ESM) |
+| 4.0.x root: `import { runExperiment } from '@ruvector/ruvllm'` | `import { runExperiment } from '@ruvector/ruvllm/engine'` |
+| 4.0.x subpaths: `@ruvector/ruvllm/gpu-loop`, `/adapters`, `/gpu-host`, `/gpu-spool-adapter`, `/vast-host-adapter`, `/fixture` | Unchanged (re-exported from `@ruvector/ruvllm-gpu-loop`) |
+| 4.0.x CLI: `ruvllm run …`, `ruvllm fixture …` | `ruvllm gpu run …`, `ruvllm gpu fixture …` (or `ruvllm-gpu` from `@ruvector/ruvllm-gpu-loop`) |
+| `ruvllm-gpu-loop`, `ruvllm-adapters` | Unchanged; also `ruvllm gpu loop …`, `ruvllm gpu adapters …` |
+
+The GPU-loop subpaths are loaded lazily: importing the root never loads them.
+They need Node 22+ (the GPU-loop package's requirement). If the optional
+package was skipped (`--omit=optional`), they throw `RUVLLM_GPU_LOOP_MISSING`
+naming the install command. They are ESM; `require()` of them works where
+Node supports `require(esm)` (20.19+ / 22.12+). If you only need the GPU job
+loop, install `@ruvector/ruvllm-gpu-loop` on its own.
 
 ## Installation
 
@@ -85,7 +119,7 @@ Model loading needs a native binary built with the `candle` feature;
 | Native binary | `loadModel()` |
 |---------------|---------------|
 | Built from this source (`npm run build:native`) | Works |
-| `@ruvector/ruvllm-<platform>` 3.x (built by the release workflow with `candle`) | Works |
+| `@ruvector/ruvllm-<platform>` 2.1.x (installed with `@ruvector/ruvllm` 4.2.0+, built by the release workflow with `candle`) | Works |
 | `@ruvector/ruvllm-<platform>` 2.0.x | Throws `RUVLLM_NATIVE_TOO_OLD`: they predate model loading |
 | Built with `--features napi` only (no `candle`) | Throws `RUVLLM_NO_INFERENCE_BACKEND` |
 | None for your platform | Throws `RUVLLM_NATIVE_UNAVAILABLE` |
@@ -98,9 +132,11 @@ npm run build:native   # writes ruvllm.<platform>.node (needs a Rust toolchain)
 RUVLLM_NATIVE_PATH=$PWD/ruvllm.linux-x64-gnu.node node app.js
 ```
 
-Until the 3.x platform packages are on npm, build the binary from source as
-above, or use the ruvllm CLI (`ruvllm serve <model>`, an OpenAI-compatible
-server that exits if the model fails to load).
+From 4.2.0 the platform packages (`@ruvector/ruvllm-<platform>@2.1.0`) are
+built with `candle`, so `loadModel()`, `query`/`generate` with `--model` and
+`ruvllm serve` work on a plain `npm install` for linux-x64, linux-arm64,
+darwin-x64, darwin-arm64 and win32-x64. 4.1.0 and earlier shipped the 2.0.1
+binaries, which predate model loading.
 
 | Error code | Meaning |
 |------------|---------|
@@ -168,6 +204,54 @@ ruvllm bench ./models/model.gguf
 
 # Run evaluation (SWE-Bench)
 ruvllm eval --model ./models/model.gguf --subset lite --max-tasks 50
+```
+
+## HTTP server: `ruvllm serve`
+
+`ruvllm serve` runs a local LLM server over a GGUF model, on
+`127.0.0.1:3000` by default (`--host`, `--port`, `--max-context`,
+`--max-tokens`, `--temperature`). It is the endpoint the
+[ruflo / claude-flow](https://github.com/ruvnet/claude-flow) RuVector provider
+calls:
+
+```bash
+npx @ruvector/ruvllm serve ./qwen2.5-0.5b-instruct-q4_k_m.gguf
+curl -s localhost:3000/health
+curl -s localhost:3000/query -H 'content-type: application/json' -d '{"query":"What is HNSW?"}'
+curl -s localhost:3000/v1/chat/completions -H 'content-type: application/json' \
+  -d '{"messages":[{"role":"user","content":"Hello"}],"max_tokens":32}'
+```
+
+| Endpoint | Body / response |
+| :--- | :--- |
+| `GET /health` | `{ status, model, modelLoaded, native, sona, hnsw, version }` |
+| `GET /v1/models` | OpenAI-style model list |
+| `POST /query` | `{ query, session_id? }` → `{ id, model, content, done, usage, router_metrics }` |
+| `POST /v1/chat/completions` | OpenAI chat format; `stream: true` returns the finished completion as one SSE chunk, then `[DONE]` |
+
+The server is strict: it starts only after the model loads, and exits 1
+otherwise (no placeholder answers, so clients such as ruflo fall back to
+another provider instead of receiving non-model text). Generation is
+synchronous, so requests are answered one at a time.
+
+## GPU job loop: `ruvllm gpu`
+
+The RuVLLM GPU job loop schedules bounded GPU jobs (spending ceiling, destroy
+timer, confirmed cleanup) on a Vast.ai host, packages LoRA adapter archives
+and runs bounded weight-edit experiments. It lives in
+[`@ruvector/ruvllm-gpu-loop`](https://www.npmjs.com/package/@ruvector/ruvllm-gpu-loop)
+([source](https://github.com/ruvnet/ruvllm/tree/main/integrations/metaharness));
+this package exposes it as:
+
+```bash
+npx ruvllm gpu loop status --config /abs/private/gpu-loop.json   # = ruvllm-gpu-loop
+npx ruvllm gpu adapters training-plan < plan.json                # = ruvllm-adapters
+npx ruvllm gpu fixture --dir /abs/new-dir --binary /abs/weight_evolution
+```
+
+```js
+import { tickLoop, readLoopStatus } from '@ruvector/ruvllm/gpu-loop';
+import { createVastAdapter } from '@ruvector/ruvllm/vast-host-adapter';
 ```
 
 ## API Reference
@@ -375,6 +459,7 @@ requirements").
 
 - [@ruvector/core](https://www.npmjs.com/package/@ruvector/core) - Vector operations
 - [@ruvector/sona](https://www.npmjs.com/package/@ruvector/sona) - SONA learning engine
+- [@ruvector/ruvllm-gpu-loop](https://www.npmjs.com/package/@ruvector/ruvllm-gpu-loop) - RuVLLM GPU job loop, Vast.ai adapter and adapter archives
 - [@ruvector/ruvector](https://www.npmjs.com/package/@ruvector/ruvector) - Full Ruvector SDK
 
 ## Links

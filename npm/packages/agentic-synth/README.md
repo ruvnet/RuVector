@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/agentic-synth.svg" alt="@ruvector/agentic-synth: Synthetic data generator for AI/ML training, RAG systems and agentic workflows." width="100%"></p>
+
 # 🎲 Agentic-Synth
 
 <div align="center">
