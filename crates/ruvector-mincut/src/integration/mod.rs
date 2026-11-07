@@ -6,6 +6,7 @@
 // Integration module - allow missing docs for internal helpers
 #![allow(missing_docs)]
 
+use crate::algorithm::{DynamicMinCut, MinCutConfig};
 use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
 use crate::wrapper::{MinCutResult, MinCutWrapper};
 use std::sync::Arc;
@@ -136,6 +137,46 @@ impl RuVectorGraphAnalyzer {
     /// Check if graph is well-connected (min cut above threshold)
     pub fn is_well_connected(&mut self, threshold: u64) -> bool {
         self.min_cut() >= threshold
+    }
+
+    /// Compute the exact global minimum cut value using the polynomial-time
+    /// sparse Stoer-Wagner solver (`DynamicMinCut`, see
+    /// `crate::algorithm::exact::minimum_cut`) instead of `min_cut()`'s
+    /// `MinCutWrapper`/`BoundedInstance` path.
+    ///
+    /// `BoundedInstance`'s LocalKCut-oracle search is built to *amortize*
+    /// maintaining a cut across many incremental updates on large dynamic
+    /// graphs (the subpolynomial algorithm this crate implements); run
+    /// once on a static graph it instead pays a multi-seed, multi-budget
+    /// search with measured worse-than-quadratic scaling (ADR-345: ~77ms at
+    /// 50 vertices, ~11.4s at 400) and an occasional pathological outlier
+    /// below its own small-graph brute-force cutoff. `DynamicMinCut` already
+    /// runs the same exact solver for every `insert_edge`/`delete_edge` call
+    /// that cannot cheaply preserve the existing cut (see
+    /// `DynamicMinCut::recompute_min_cut`); this method reuses that path for
+    /// a one-shot query against the analyzer's current graph, without
+    /// requiring callers to migrate off `RuVectorGraphAnalyzer`. See
+    /// ADR-360 for the comparison against `min_cut()`/`partition()`.
+    pub fn min_cut_exact(&self) -> f64 {
+        self.build_dynamic_min_cut().min_cut_value()
+    }
+
+    /// Exact counterpart to `partition()` — see `min_cut_exact` for why this
+    /// exists alongside it. Returns `None` for graphs with fewer than two
+    /// vertices (matching `DynamicMinCut`'s own convention), `Some((a, b))`
+    /// otherwise. Deterministic: repeated calls on an unchanged graph return
+    /// byte-identical sides, inheriting `DynamicMinCut::partition()`'s sorted
+    /// vertex ordering.
+    pub fn partition_exact(&self) -> Option<(Vec<VertexId>, Vec<VertexId>)> {
+        if self.graph.num_vertices() < 2 {
+            return None;
+        }
+        Some(self.build_dynamic_min_cut().partition())
+    }
+
+    fn build_dynamic_min_cut(&self) -> DynamicMinCut {
+        DynamicMinCut::from_graph((*self.graph).clone(), MinCutConfig::default())
+            .expect("cloning an existing DynamicGraph cannot violate edge invariants")
     }
 
     /// Find bridge edges (edges whose removal disconnects graph)

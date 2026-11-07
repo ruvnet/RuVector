@@ -46,6 +46,29 @@ pub enum ForgetMode {
     Hard,
 }
 
+/// Which `ruvector-mincut` entry point computes the boundary partition.
+///
+/// `BoundedInstance` is the original (nightly 2026-09-05) backend and the
+/// default, so existing callers and the `mincut_trials`-union mitigation
+/// documented on [`MincutGatedForgetting::boundary_indices`] are unchanged.
+/// `Exact` uses `RuVectorGraphAnalyzer::partition_exact` (added alongside
+/// this enum; see `docs/adr` for the comparison), which reuses
+/// `ruvector-mincut`'s existing sparse Stoer-Wagner solver
+/// (`DynamicMinCut`) instead of the `BoundedInstance`/LocalKCut-oracle
+/// search `partition()` uses. It is deterministic and finds the true global
+/// minimum cut by construction, so `mincut_trials` has no effect under this
+/// backend (one call is as good as a hundred) — see
+/// `docs/research/nightly/<date>-mincut-exact-partition-backend` for the
+/// measured latency comparison this is based on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MincutBackend {
+    /// `RuVectorGraphAnalyzer::partition()` (original, ADR-345 backend).
+    #[default]
+    BoundedInstance,
+    /// `RuVectorGraphAnalyzer::partition_exact()` (sparse Stoer-Wagner).
+    Exact,
+}
+
 /// Mincut-gated forgetting compaction policy (candidates A/B of the nightly
 /// 2026-09-05 experiment).
 #[derive(Debug, Clone)]
@@ -65,8 +88,12 @@ pub struct MincutGatedForgetting {
     /// Number of times to recompute the min-cut partition on an unchanged
     /// graph, unioning the boundary vertices found each time (see the
     /// "Measured limitation" note on [`Self::boundary_indices`]). `1`
-    /// disables retrying.
+    /// disables retrying. Ignored (treated as `1`) when `backend` is
+    /// [`MincutBackend::Exact`].
     pub mincut_trials: usize,
+    /// Which `ruvector-mincut` entry point computes the boundary partition.
+    /// See [`MincutBackend`].
+    pub backend: MincutBackend,
 }
 
 impl MincutGatedForgetting {
@@ -80,6 +107,7 @@ impl MincutGatedForgetting {
             structural_bonus,
             protect_fraction: 0.0,
             mincut_trials: 3,
+            backend: MincutBackend::BoundedInstance,
         }
     }
 
@@ -93,7 +121,15 @@ impl MincutGatedForgetting {
             structural_bonus: 0.0,
             protect_fraction,
             mincut_trials: 3,
+            backend: MincutBackend::BoundedInstance,
         }
+    }
+
+    /// Switch this policy to the [`MincutBackend::Exact`] backend, returning
+    /// `self` for chaining (e.g. `MincutGatedForgetting::soft(w, 1.0).exact()`).
+    pub fn exact(mut self) -> Self {
+        self.backend = MincutBackend::Exact;
+        self
     }
 
     /// Build a k-NN cosine-similarity graph and return the indices (into
@@ -166,19 +202,37 @@ impl MincutGatedForgetting {
             return HashSet::new();
         }
 
+        // The exact backend finds the true global minimum cut deterministically
+        // (see `MincutBackend::Exact`'s doc comment): one call already gives
+        // the best possible boundary set, so retrying cannot add true
+        // positives the way it does for `BoundedInstance`'s heuristic search.
+        let trials = match self.backend {
+            MincutBackend::BoundedInstance => self.mincut_trials.max(1),
+            MincutBackend::Exact => 1,
+        };
         let mut boundary = HashSet::new();
-        for _ in 0..self.mincut_trials.max(1) {
-            boundary.extend(Self::boundary_from_one_partition(&neighbors));
+        for _ in 0..trials {
+            boundary.extend(Self::boundary_from_one_partition(&neighbors, self.backend));
         }
         boundary
     }
 
     /// One min-cut partition attempt over an already-built k-NN graph; see
-    /// [`Self::boundary_indices`]'s "Measured limitation" note for why this
-    /// is called more than once.
-    fn boundary_from_one_partition(neighbors: &[(usize, Vec<(usize, f64)>)]) -> HashSet<usize> {
-        let mut analyzer = RuVectorGraphAnalyzer::from_knn(neighbors);
-        let (side_a, side_b) = match analyzer.partition() {
+    /// [`Self::boundary_indices`]'s "Measured limitation" note for why
+    /// `BoundedInstance` is called more than once.
+    fn boundary_from_one_partition(
+        neighbors: &[(usize, Vec<(usize, f64)>)],
+        backend: MincutBackend,
+    ) -> HashSet<usize> {
+        let analyzer = RuVectorGraphAnalyzer::from_knn(neighbors);
+        let partition = match backend {
+            MincutBackend::BoundedInstance => {
+                let mut analyzer = analyzer;
+                analyzer.partition()
+            }
+            MincutBackend::Exact => analyzer.partition_exact(),
+        };
+        let (side_a, side_b) = match partition {
             Some(p) => p,
             None => return HashSet::new(),
         };
@@ -204,9 +258,11 @@ impl MincutGatedForgetting {
 
 impl CompactionPolicy for MincutGatedForgetting {
     fn name(&self) -> &str {
-        match self.mode {
-            ForgetMode::Soft => "MincutGatedForgetting-Soft",
-            ForgetMode::Hard => "MincutGatedForgetting-Hard",
+        match (self.mode, self.backend) {
+            (ForgetMode::Soft, MincutBackend::BoundedInstance) => "MincutGatedForgetting-Soft",
+            (ForgetMode::Hard, MincutBackend::BoundedInstance) => "MincutGatedForgetting-Hard",
+            (ForgetMode::Soft, MincutBackend::Exact) => "MincutGatedForgetting-Soft-Exact",
+            (ForgetMode::Hard, MincutBackend::Exact) => "MincutGatedForgetting-Hard-Exact",
         }
     }
 
@@ -367,6 +423,29 @@ mod tests {
         assert!(
             survivors.contains(&bridge_idx),
             "hard mincut-gated forgetting must protect the bridge within its reserved budget"
+        );
+    }
+
+    #[test]
+    fn exact_backend_protects_the_bridge_in_a_single_trial() {
+        let (entries, bridge_idx) = bridge_dataset();
+        // No `mincut_trials` bump needed here, unlike the BoundedInstance
+        // tests above: the exact backend is deterministic by construction
+        // (one call already finds the true global minimum cut), so the
+        // default `mincut_trials` (ignored under `MincutBackend::Exact`,
+        // effectively 1) is sufficient.
+        let soft = MincutGatedForgetting::soft(CoherenceWeights::default(), 1.0).exact();
+        let survivors = soft.select_survivors(&entries, 16, &[]);
+        assert!(
+            survivors.contains(&bridge_idx),
+            "exact-backend soft mincut-gated forgetting must retain the sole cross-cluster bridge"
+        );
+
+        let hard = MincutGatedForgetting::hard(CoherenceWeights::default(), 0.3).exact();
+        let survivors = hard.select_survivors(&entries, 16, &[]);
+        assert!(
+            survivors.contains(&bridge_idx),
+            "exact-backend hard mincut-gated forgetting must protect the bridge within its reserved budget"
         );
     }
 
