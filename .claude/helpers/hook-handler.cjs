@@ -232,9 +232,9 @@ function safeRequire(modulePath) {
   return null;
 }
 
-const router = safeRequire(path.join(helpersDir, 'router.js'));
-const session = safeRequire(path.join(helpersDir, 'session.js'));
-const memory = safeRequire(path.join(helpersDir, 'memory.js'));
+const router = safeRequire(path.join(helpersDir, 'router.cjs'));
+const session = safeRequire(path.join(helpersDir, 'session.cjs'));
+const memory = safeRequire(path.join(helpersDir, 'memory.cjs'));
 const intelligence = safeRequire(path.join(helpersDir, 'intelligence.cjs'));
 
 // ── Intelligence timeout protection (fixes #1530, #1531) ───────────────────
@@ -286,6 +286,17 @@ async function readStdin() {
   });
 }
 
+// ADR-404: the ruflo mod (plugins/ruflo-mods) runs these events in-process
+// inside Claude Code and sets RUFLO_MODS_OWNS on the process, which every hook
+// started after inherits. An event named there is the mod's; returning here
+// keeps it from firing twice. Only side-effect events can be handed over:
+// guards such as pre-bash always run, whatever the variable says.
+const MOD_OWNABLE_EVENTS = new Set(['route', 'post-edit']);
+function ownedByMod(cmd, env = process.env) {
+  if (!MOD_OWNABLE_EVENTS.has(cmd)) return false;
+  return String(env.RUFLO_MODS_OWNS || '').split(',').some((owned) => owned.trim() === cmd);
+}
+
 function claimSideEffectEvent(family, stdinData, event) {
   if (/^(1|true|yes|on)$/i.test(process.env.RUFLO_DISABLE_HOOK_DEDUP || '')) return true;
   try {
@@ -312,6 +323,8 @@ function claimSideEffectEvent(family, stdinData, event) {
 }
 
 async function main() {
+  if (ownedByMod(command)) return;
+
   // Global safety timeout: hooks must NEVER hang (#1530, #1531)
   const safetyTimer = setTimeout(() => {
     process.stderr.write("[WARN] Hook handler global timeout (5s), forcing exit\n");
@@ -366,26 +379,47 @@ async function main() {
 const handlers = {
   'route': () => {
     // Inject ranked intelligence context before routing
-    if (intelligence && intelligence.getContext) {
+    // ADR-472: keep the detailed recall so ONE bounded log record (ids, scores, router pick; never the prompt) is appended after routing.
+    let recall = null;
+    if (intelligence && (intelligence.getContextDetailed || intelligence.getContext)) {
       try {
-        const ctx = intelligence.getContext(prompt);
-        if (ctx) console.log(ctx);
+        if (intelligence.getContextDetailed) {
+          recall = intelligence.getContextDetailed(prompt);
+          if (recall && recall.text) console.log(recall.text);
+        } else {
+          const ctx = intelligence.getContext(prompt);
+          if (ctx) console.log(ctx);
+        }
       } catch (e) { /* non-fatal */ }
     }
+    const logRecall = (result) => {
+      try {
+        if (recall && intelligence.appendRecall) {
+          intelligence.appendRecall(recall, {
+            sessionId: hookInput.session_id || hookInput.sessionId || null,
+            agent: result && result.agent,
+            confidence: result && result.confidence,
+          });
+        }
+      } catch (e) { /* non-fatal: the log never blocks a prompt */ }
+    };
     if (router && router.routeTask) {
       const result = router.routeTask(prompt);
+      logRecall(result);
       // Format output for Claude Code hook consumption — real data only
+      const row = (text) => `| ${text.substring(0, 60).padEnd(60)} |`;
       const output = [
         `[INFO] Routing task: ${prompt.substring(0, 80) || '(no prompt)'}`,
         '',
         '+------------------- Primary Recommendation -------------------+',
-        `| Agent: ${result.agent.padEnd(53)}|`,
-        `| Confidence: ${(result.confidence * 100).toFixed(1)}%${' '.repeat(44)}|`,
-        `| Reason: ${(result.reason || '').substring(0, 53).padEnd(53)}|`,
+        row(`Agent: ${result.agent}`),
+        row(`Confidence: ${(result.confidence * 100).toFixed(1)}%`),
+        row(`Reason: ${result.reason || ''}`),
         '+--------------------------------------------------------------+',
       ];
       console.log(output.join('\n'));
     } else {
+      logRecall(null);
       console.log('[INFO] Router not available, using default routing');
     }
 
@@ -449,10 +483,142 @@ const handlers = {
     // (silently exiting 0 and letting the dangerous command through).
     const cmd = String(hookInput.command || toolInput.command || prompt || '').toLowerCase();
     const dangerous = ['rm -rf /', 'format c:', 'del /s /q c:\\', ':(){:|:&};:'];
+    // Join literal quote fragments and normalize root paths without shell evaluation.
+    function hasRootDelete(command, depth = 0) {
+      let word = '', quote = '', started = false, redirect = false
+      let ansiNul = false // a NUL inside $'...' ends that string, as in bash
+      let inRm = false, optionsEnded = false, recursive = false, force = false, root = false
+      const isRoot = (operand) => {
+        if (!operand.startsWith('/')) return false
+        const parts = []
+        for (const part of operand.split('/')) {
+          if (!part || part === '.') continue
+          if (part === '..') parts.pop()
+          else parts.push(part)
+        }
+        return parts.length === 0 || /[*?\[]/.test(parts[0])
+      }
+      // One backslash escape inside $'...', from the character after the backslash.
+      // Returns the text it stands for and the index of its last character. An unknown escape keeps its backslash.
+      // The command arrives lowercased, so an uppercase-U escape reads as a lowercase one: eight digits starting 0000 are one code point.
+      const ansiEscape = (s, at) => {
+        const c = s[at]
+        const simple = { a: '\x07', b: '\b', e: '\x1b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\', "'": "'", '"': '"', '?': '?' }
+        if (simple[c] !== undefined) return [simple[c], at]
+        const digits = (from, max, pattern) => pattern.exec(s.slice(from, from + max))?.[0]
+        const octal = digits(at, 3, /^[0-7]+/)
+        if (octal) return [String.fromCharCode(parseInt(octal, 8) & 255), at + octal.length - 1]
+        const hex = c === 'x' ? digits(at + 1, 2, /^[0-9a-f]+/) : undefined
+        if (hex) return [String.fromCharCode(parseInt(hex, 16)), at + hex.length]
+        const wide = c === 'u' ? (digits(at + 1, 8, /^0000[0-9a-f]{4}$/) ?? digits(at + 1, 4, /^[0-9a-f]+/)) : undefined
+        if (wide) return [String.fromCodePoint(parseInt(wide, 16)), at + wide.length]
+        if (c === 'c' && at + 1 < s.length) return [String.fromCharCode(s.charCodeAt(at + 1) & 31), at + 1]
+        return ['\\' + c, at]
+      }
+      const finishWord = () => {
+        if (!started) return false
+        // Literal shell strings (e.g. sh -c 'rm -rf /') also carried the old guard.
+        // Bound rescanning to four levels; beyond that retain its conservative check.
+        if (/[\s;&|()\x60]/.test(word)) {
+          if (depth < 4 ? hasRootDelete(word, depth + 1) : word.includes('rm -rf /')) return true
+        }
+        if (!inRm) inRm = word === 'rm' || word.endsWith('/rm')
+        else if (!optionsEnded && word === '--') optionsEnded = true
+        else if (!optionsEnded && word.startsWith('-')) {
+          // GNU getopt accepts any unambiguous long-option prefix: --r, --recur, --forc.
+          recursive = recursive || (word.length > 2 && '--recursive'.startsWith(word)) || /^-[a-z]*r[a-z]*$/.test(word)
+          force = force || (word.length > 2 && '--force'.startsWith(word)) || /^-[a-z]*f[a-z]*$/.test(word)
+        } else root = root || isRoot(word)
+        word = ''; started = false
+        return inRm && recursive && force && root
+      }
+      // A command substitution's body, from just after its opening backtick. Bash removes a
+      // backslash only before $, a backtick or a backslash (and " inside double quotes) and
+      // drops backslash-newline; any other backslash stays for the nested scan.
+      const substitution = (from, inDouble) => {
+        let body = '', j = from
+        for (; j < command.length && command[j] !== '\x60'; j++) {
+          const next = command[j + 1]
+          if (command[j] === '\\' && j + 1 < command.length) {
+            if (next === '\n') { j++; continue }
+            if (next === '$' || next === '\x60' || next === '\\' || (inDouble && next === '"')) { body += next; j++; continue }
+          }
+          body += command[j]
+        }
+        return [j, depth < 4 ? hasRootDelete(body, depth + 1) : body.includes('rm -rf /')]
+      }
+      const finishCommand = () => {
+        const denied = inRm && recursive && force && root
+        inRm = optionsEnded = recursive = force = root = false
+        return denied
+      }
+      for (let i = 0; i < command.length; i++) {
+        const char = command[i]
+        const redirectionAmpersand = char === '&' && (redirect || command[i + 1] === '>')
+        redirect = false
+        if (quote) {
+          if (quote === "$'") {
+            if (char === "'") { quote = ''; ansiNul = false }
+            else if (char === '\\' && i + 1 < command.length) {
+              const [text, last] = ansiEscape(command, i + 1)
+              i = last
+              if (!ansiNul) { const nul = text.indexOf('\0'); if (nul < 0) word += text; else { word += text.slice(0, nul); ansiNul = true } }
+            } else if (!ansiNul) word += char
+            continue
+          }
+          if (char === quote) quote = ''
+          else if (quote === '"' && char === '\x60' && command.indexOf('\x60', i + 1) > i) {
+            const [end, denied] = substitution(i + 1, true)
+            if (denied) return true
+            // The substitution is gone from the word, as bash's empty output is (a quoted empty substitution glued to -rf leaves -rf).
+            // A # right after it is still inside the word: a placeholder keeps a rescan (sh -c "...")
+            // from reading it as the start of a comment.
+            if (command[end + 1] === '#') word += '\u0001'
+            i = end
+          }
+          else if (quote === '"' && char === '\\' && i + 1 < command.length &&
+            (command[i + 1] === '"' || command[i + 1] === '\\' || command[i + 1] === '$' ||
+              command.charCodeAt(i + 1) === 96 || command[i + 1] === '\n')) {
+            const next = command[++i]
+            if (next !== '\n') word += next
+          } else word += char
+          continue
+        }
+        if (char === '\\' && i + 1 < command.length) {
+          const next = command[++i]
+          if (next !== '\n') { word += next; started = true }
+        } else if (char === '\x60' && command.indexOf('\x60', i + 1) > i) {
+          // Command substitution: scan the body as its own command; the substitution
+          // stays inside the enclosing word, so the rm being parsed keeps its state,
+          // and the word has started (a # right after it is not a comment).
+          const [end, denied] = substitution(i + 1, false)
+          if (denied) return true
+          i = end; started = true
+        } else if (char === '$' && (command[i + 1] === "'" || command[i + 1] === '"')) {
+          // ANSI-C ($'...': escapes decoded) and locale ($"...") quoting: the $ is not part of the word.
+          quote = command[i + 1] === "'" ? "$'" : '"'; started = true; i++
+        } else if (char === '"' || char === "'") {
+          quote = char; started = true
+        } else if (char === '#' && !started) {
+          while (i < command.length && command[i] !== '\n') i++
+          if (finishCommand()) return true
+        } else if (char === ' ' || char === '\t' || char === '\r' || char === '\n' ||
+          ';|&()<>'.includes(char)) {
+          if (finishWord()) return true
+          // Redirections separate words, but later operands still belong to rm.
+          redirect = char === '<' || char === '>'
+          if (!redirectionAmpersand && (char === '\n' || ';|&()'.includes(char)) && finishCommand()) return true
+        } else {
+          word += char; started = true
+        }
+      }
+      return finishWord() || finishCommand()
+    }
     for (const d of dangerous) {
-      if (cmd.includes(d)) {
+      if (d === 'rm -rf /' ? hasRootDelete(cmd) : cmd.includes(d)) {
         console.error(`[BLOCKED] Dangerous command detected: ${d}`);
-        process.exit(1);
+        // Claude Code PreToolUse: exit 2 blocks execution; exit 1 is non-blocking.
+        process.exit(2);
       }
     }
     console.log('[OK] Command validated');
@@ -585,11 +751,25 @@ const handlers = {
   }
 }
 
-// Hooks must ALWAYS exit 0 — Claude Code treats non-zero as "hook error"
-// and skips all subsequent hooks for the event.
-process.exitCode = 0;
-main().catch((e) => {
-  try { console.log(`[WARN] Hook handler error: ${e.message}`); } catch (_) {}
-}).finally(() => {
-  process.exit(0);
-});
+// Non-blocking hooks exit 0; pre-bash denials exit 2 to block PreToolUse.
+// A denial exits immediately, before the normal completion path below.
+//
+// Only dispatch when run directly (node hook-handler.cjs <cmd>). When
+// require()'d by a test, expose the internals instead of reading stdin and
+// calling process.exit — the 2026-06-15 fix (cb1e93e8d) added this guard and
+// the exports for tests/hook-handler-runwithtimeout.test.cjs; the 2026-07-04
+// helper sync (a5f86ad0a) dropped both, so the test died with
+// "runWithTimeout is not a function" once the Test Suite job ran again.
+if (require.main === module) {
+  process.exitCode = 0;
+  main().catch((e) => {
+    try { console.log(`[WARN] Hook handler error: ${e.message}`); } catch (_) {}
+  }).finally(() => {
+    process.exit(0);
+  });
+}
+
+// Which sibling helpers loaded (all CommonJS, shipped as .cjs — #3555).
+const loadedHelpers = { router: !!router, session: !!session, memory: !!memory, intelligence: !!intelligence };
+
+module.exports = { runWithTimeout, INTELLIGENCE_TIMEOUT_MS, loadedHelpers, ownedByMod, MOD_OWNABLE_EVENTS };

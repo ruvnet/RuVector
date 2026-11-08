@@ -50,6 +50,9 @@ pub struct Edge {
 // ---------------------------------------------------------------------------
 
 /// Trait for executing tool calls. Implemented by the middleware/tool layer.
+// `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+// already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait ToolExecutor: Send + Sync {
     /// Execute a single tool call and return the result content.

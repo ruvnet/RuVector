@@ -1,10 +1,14 @@
 //! Streaming memory-admission benchmark.
 //!
-//! Compares three online cluster-admission policies for streaming agent
-//! memory:
-//!   1. NearestCentroidThreshold – baseline: fixed cosine threshold
-//!   2. MincutGatedAdmission     – candidate A: global min-cut, fixed tau
-//!   3. AdaptiveMincutAdmission  – candidate B: global min-cut, self-calibrating tau
+//! Compares four online cluster-admission policies for streaming agent
+//! memory, on both a static stream and a regime-shift ("drift") stream:
+//!   1. NearestCentroidThreshold    – baseline: fixed cosine threshold
+//!   2. MincutGatedAdmission        – candidate A: global min-cut, fixed tau
+//!   3. AdaptiveMincutAdmission     – candidate B: global min-cut, self-calibrating tau
+//!      (negative result: drifts and blows through the cluster-count safety valve)
+//!   4. GuardedConditionedAdmission – candidate C: global min-cut, tau conditioned on
+//!      local features and recalibrated by a `darwin_guard`-screened `(1+1)`-ES
+//!      targeting a warm-up-measured spawn rate (addresses candidate B's failure)
 //!
 //! ## Matched-budget calibration
 //!
@@ -29,7 +33,8 @@
 //! Environment overrides:
 //!   N_POINTS=4000 K_TRUE=8 DIMS=64 N_QUERIES=300 TAU=0.005
 
-use ruvector_memory_admission::dataset::{StreamConfig, StreamDataset};
+use ruvector_memory_admission::conditioned::GuardedConditionedAdmission;
+use ruvector_memory_admission::dataset::{DriftStreamConfig, StreamConfig, StreamDataset};
 use ruvector_memory_admission::policy::{
     AdaptiveMincutAdmission, AdmissionPolicy, MincutGatedAdmission, NearestCentroidThreshold,
 };
@@ -60,6 +65,20 @@ const MIN_RECALL_GAIN_A_PP: f64 = 2.0; // candidate A must gain >= 2pp recall@10
 const MAX_RECALL_REGRESSION_B_PP: f64 = 2.0; // candidate B (unmatched, self-calibrated) tolerance vs baseline
 const MAX_MEAN_LATENCY_US: f64 = 500.0; // absolute ceiling: this is a write-path admission decision, not a hot query
 const MAX_CLUSTER_COUNT_FACTOR: usize = 3; // final cluster count <= 3x K_true
+
+// Candidate C (GuardedConditionedAdmission) — fixed BEFORE the benchmark run
+// that produced this file's committed numbers (see docs/adr and the nightly
+// research doc). Candidate C's claim is narrower than "beats the baseline":
+// it must be a safe, zero-hand-tuned DROP-IN for candidate A (no worse,
+// within noise) on the regime it was tuned for, AND it must beat a
+// transplanted-unchanged candidate A once the regime drifts — the one thing
+// a fixed tau structurally cannot do.
+const MAX_CLUSTER_FACTOR_VS_A: f64 = 1.5; // candidate C must not blow up the way candidate B did (which hit 48 vs A's ~17)
+const MAX_RECALL_REGRESSION_C_VS_A_PP: f64 = 1.0; // tighter than B's 2pp tolerance: C aims to replace A, not just beat the naive baseline
+const MAX_PURITY_REGRESSION_C_VS_A_PP: f64 = 1.0;
+const MIN_DRIFT_RECALL_GAIN_C_VS_A_PP: f64 = 2.0; // the adaptivity claim: self-calibration must earn its keep under drift
+const DRIFT_SEED: u64 = 0x0FEE_D000;
+const ES_SEED: u64 = 0xC0DE_1234;
 
 fn percentile(sorted: &[u128], p: f64) -> u128 {
     if sorted.is_empty() {
@@ -266,6 +285,23 @@ fn main() {
         &queries,
     );
 
+    // ── candidate C: same bootstrap tau as A/B, self-calibrates via a
+    //    guarded, feature-conditioned (1+1)-ES instead of an unguarded
+    //    global cut-weight statistic ────────────────────────────────────
+    let candidate_c = run_policy(
+        GuardedConditionedAdmission::new(tau, MAX_CLUSTERS, ES_SEED),
+        &ds,
+        &queries,
+    );
+    // Re-run a fresh instance to read guard stats (run_policy consumes the
+    // policy by value for its own cost accounting, same as A/B's pattern).
+    let mut c_for_stats = GuardedConditionedAdmission::new(tau, MAX_CLUSTERS, ES_SEED);
+    for pt in &ds.points {
+        c_for_stats.admit(&pt.vector);
+    }
+    let c_guard_stats = c_for_stats.guard_stats();
+    let c_target_rate = c_for_stats.target_spawn_rate();
+
     println!("Dataset:");
     println!("  Stream points:  {n_points}");
     println!("  True clusters:  {k_true}");
@@ -287,13 +323,34 @@ fn main() {
         "  Candidate B cluster count (NOT calibrated, self-tuned): {}",
         candidate_b.n_clusters
     );
+    println!(
+        "  Candidate C cluster count (NOT calibrated, guarded self-tuned): {}",
+        candidate_c.n_clusters
+    );
+    println!(
+        "  Candidate C warm-up target spawn rate: {}",
+        c_target_rate
+            .map(|r| format!("{r:.4}"))
+            .unwrap_or_else(|| "n/a (stream shorter than warmup_len)".to_string())
+    );
+    println!(
+        "  Candidate C guard: {} attempts, {} accepted, {} rejected (non_finite={}, out_of_bounds={}, degenerate={}, not_improving={})",
+        c_guard_stats.attempts,
+        c_guard_stats.accepted,
+        c_guard_stats.attempts - c_guard_stats.accepted,
+        c_guard_stats.rejected_non_finite,
+        c_guard_stats.rejected_out_of_bounds,
+        c_guard_stats.rejected_degenerate,
+        c_guard_stats.rejected_not_improving,
+    );
     println!();
 
-    println!("Results:");
+    println!("Results (static stream):");
     print_header();
     print_row(&baseline);
     print_row(&candidate_a);
     print_row(&candidate_b);
+    print_row(&candidate_c);
     println!();
 
     // ── acceptance checks ────────────────────────────────────────────────
@@ -355,16 +412,119 @@ fn main() {
     );
     println!();
 
-    let overall = a_pass && b_pass;
+    // Candidate C's primary claim: a safe, zero-hand-tuned drop-in for A —
+    // no worse within a tight tolerance, and specifically not a repeat of
+    // candidate B's uncontrolled blow-up toward the safety valve.
+    let cluster_bound_c_vs_a =
+        (candidate_a.n_clusters as f64 * MAX_CLUSTER_FACTOR_VS_A).ceil() as usize;
+    let recall_regress_c_vs_a_pp = (candidate_a.recall_at_10 - candidate_c.recall_at_10) * 100.0;
+    let purity_regress_c_vs_a_pp = (candidate_a.purity - candidate_c.purity) * 100.0;
+
+    let c_cluster_pass = candidate_c.n_clusters <= cluster_bound_c_vs_a;
+    let c_recall_pass = recall_regress_c_vs_a_pp <= MAX_RECALL_REGRESSION_C_VS_A_PP;
+    let c_purity_pass = purity_regress_c_vs_a_pp <= MAX_PURITY_REGRESSION_C_VS_A_PP;
+    let c_latency_pass = candidate_c.mean_us <= MAX_MEAN_LATENCY_US;
+    let c_static_pass = c_cluster_pass && c_recall_pass && c_purity_pass && c_latency_pass;
+
+    println!("Acceptance criteria — Candidate C (GuardedConditionedAdmission, guarded self-calibrating tau, static stream):");
+    println!(
+        "  final clusters <= {cluster_bound_c_vs_a} ({MAX_CLUSTER_FACTOR_VS_A}x candidate A's {}): {:>7}   -> {}",
+        candidate_a.n_clusters,
+        candidate_c.n_clusters,
+        if c_cluster_pass { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "  recall@10 regression vs candidate A <= {MAX_RECALL_REGRESSION_C_VS_A_PP:.1}pp: {recall_regress_c_vs_a_pp:>7.2}pp -> {}",
+        if c_recall_pass { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "  purity regression vs candidate A <= {MAX_PURITY_REGRESSION_C_VS_A_PP:.1}pp:    {purity_regress_c_vs_a_pp:>7.2}pp -> {}",
+        if c_purity_pass { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "  mean latency <= {MAX_MEAN_LATENCY_US:.0}µs:                           {:>7.2}µs -> {}",
+        candidate_c.mean_us,
+        if c_latency_pass { "PASS" } else { "FAIL" }
+    );
+    println!();
+
+    // ── drift scenario: does self-calibration earn its keep once the
+    //    geometry it was tuned for stops holding? ───────────────────────
+    let drift_cfg = DriftStreamConfig {
+        n_points,
+        k_true,
+        dims,
+        ..DriftStreamConfig::default()
+    };
+    let (drift_ds, switch_at) = StreamDataset::generate_drift(&drift_cfg);
+    let drift_queries_b =
+        StreamDataset::held_out_queries_drift(&drift_cfg, n_queries, 0xD41F_7000, true);
+
+    // Candidate A, TRANSPLANTED UNCHANGED: the same fixed tau calibrated for
+    // the static (regime A) run above, never retuned for the drift.
+    let candidate_a_drift = run_policy(
+        MincutGatedAdmission::new(tau, MAX_CLUSTERS),
+        &drift_ds,
+        &drift_queries_b,
+    );
+    // Candidate C, run fresh on the drift stream from t=0 — its warm-up and
+    // guarded recalibration see the regime switch happen live.
+    let candidate_c_drift = run_policy(
+        GuardedConditionedAdmission::new(tau, MAX_CLUSTERS, ES_SEED),
+        &drift_ds,
+        &drift_queries_b,
+    );
+
+    println!("Drift scenario (regime switch at point {switch_at}/{n_points}, regime B centres crowded by {:.2}):", drift_cfg.regime_b_crowding);
+    println!("  Held-out queries drawn from regime B geometry only (post-drift).");
+    print_header();
+    print_row(&candidate_a_drift);
+    print_row(&candidate_c_drift);
+    println!();
+
+    let drift_recall_gain_c_pp =
+        (candidate_c_drift.recall_at_10 - candidate_a_drift.recall_at_10) * 100.0;
+    let drift_recall_pass = drift_recall_gain_c_pp >= MIN_DRIFT_RECALL_GAIN_C_VS_A_PP;
+    let drift_latency_pass = candidate_c_drift.mean_us <= MAX_MEAN_LATENCY_US;
+    let drift_cluster_pass = candidate_c_drift.n_clusters <= cluster_bound;
+    let drift_pass = drift_recall_pass && drift_latency_pass && drift_cluster_pass;
+
+    println!(
+        "Acceptance criteria — Candidate C vs transplanted-unchanged Candidate A, under drift:"
+    );
+    println!(
+        "  recall@10 gain (regime-B queries) >= {MIN_DRIFT_RECALL_GAIN_C_VS_A_PP:.1}pp: {drift_recall_gain_c_pp:>7.2}pp -> {}",
+        if drift_recall_pass { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "  mean latency <= {MAX_MEAN_LATENCY_US:.0}µs:                      {:>7.2}µs -> {}",
+        candidate_c_drift.mean_us,
+        if drift_latency_pass { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "  final clusters <= {cluster_bound} ({MAX_CLUSTER_COUNT_FACTOR}x K_true):               {:>7}   -> {}",
+        candidate_c_drift.n_clusters,
+        if drift_cluster_pass { "PASS" } else { "FAIL" }
+    );
+    println!();
+
+    let c_pass = c_static_pass && drift_pass;
+    let overall = a_pass && b_pass && c_pass;
     println!(
         "Overall: {}",
         if overall {
             "ACCEPT — all mandatory thresholds passed"
-        } else if a_pass || b_pass {
+        } else if a_pass || b_pass || c_pass {
             "PARTIAL — at least one candidate passed, see per-candidate results above"
         } else {
             "REJECT — no candidate passed all mandatory thresholds"
         }
+    );
+    println!(
+        "Candidate C overall: {} (static: {}, drift: {})",
+        if c_pass { "PASS" } else { "FAIL" },
+        if c_static_pass { "PASS" } else { "FAIL" },
+        if drift_pass { "PASS" } else { "FAIL" }
     );
 
     if !overall {

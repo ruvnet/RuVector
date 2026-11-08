@@ -53,6 +53,9 @@ impl ResourceUri {
 // ---------------------------------------------------------------------------
 
 /// Async provider for MCP resources.
+// `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+// already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait ResourceProvider: Send + Sync {
     /// Unique scheme this provider handles (e.g. "file", "memory").
@@ -299,6 +302,9 @@ struct TemplateEntry {
 }
 
 /// Resolves template parameters into resource content.
+// `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+// already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait TemplateResolver: Send + Sync {
     /// Resolve a template URI with the given parameters.

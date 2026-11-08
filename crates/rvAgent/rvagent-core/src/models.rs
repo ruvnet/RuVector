@@ -150,6 +150,9 @@ pub struct ToolDefinition {
 /// Async trait for chat model implementations.
 ///
 /// Provider-specific crates implement this trait (e.g. `rvagent-anthropic`).
+// `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+// already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait ChatModel: Send + Sync {
     /// Send messages and the active tool set, receive a complete response.
@@ -168,6 +171,9 @@ pub trait ChatModel: Send + Sync {
 /// Provides incremental `StreamChunk` delivery. Models that do not natively
 /// support streaming can fall back to `ChatModel::complete` and return a
 /// single final chunk.
+// `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+// already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait StreamingChatModel: ChatModel {
     /// Stream response chunks incrementally.
