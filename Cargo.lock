@@ -2896,6 +2896,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "exacl"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22be12de19decddab85d09f251ec8363f060ccb22ec9c81bc157c0c8433946d8"
+dependencies = [
+ "bitflags 2.13.0",
+ "log",
+ "scopeguard",
+ "uuid",
+]
+
+[[package]]
 name = "exr"
 version = "1.74.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5610,7 +5622,7 @@ dependencies = [
  "cognitum-gate-tilezero",
  "futures",
  "hex",
- "ruvector-tiny-dancer-core",
+ "ruvector-voi",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -9774,6 +9786,7 @@ dependencies = [
 name = "ruvector-context"
 version = "2.3.0"
 dependencies = [
+ "exacl",
  "fs4",
  "libc",
  "rustix",
@@ -10093,6 +10106,7 @@ name = "ruvector-dither"
 version = "0.1.0"
 dependencies = [
  "criterion 0.5.1",
+ "libm",
 ]
 
 [[package]]
@@ -11642,6 +11656,7 @@ dependencies = [
  "rayon",
  "redb",
  "rusqlite",
+ "ruvector-voi",
  "safetensors 0.4.5",
  "serde",
  "serde_json",
@@ -11799,6 +11814,14 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-test",
  "web-sys",
+]
+
+[[package]]
+name = "ruvector-voi"
+version = "2.3.0"
+dependencies = [
+ "proptest",
+ "serde",
 ]
 
 [[package]]
@@ -12511,6 +12534,9 @@ dependencies = [
 [[package]]
 name = "rvf-index"
 version = "0.2.3"
+dependencies = [
+ "libm",
+]
 
 [[package]]
 name = "rvf-kernel"
@@ -12543,6 +12569,7 @@ dependencies = [
 name = "rvf-quant"
 version = "0.2.1"
 dependencies = [
+ "libm",
  "rvf-types",
 ]
 
@@ -12597,7 +12624,7 @@ dependencies = [
 
 [[package]]
 name = "rvlite"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",

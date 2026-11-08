@@ -1786,6 +1786,7 @@ dependencies = [
 name = "rvf-index"
 version = "0.2.3"
 dependencies = [
+ "libm",
  "rand",
 ]
 
@@ -1853,6 +1854,7 @@ name = "rvf-quant"
 version = "0.2.1"
 dependencies = [
  "approx",
+ "libm",
  "rand",
  "rvf-types",
 ]

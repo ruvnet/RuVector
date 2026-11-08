@@ -1,0 +1,18 @@
+[package]
+name = "ruvector-voi"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Small value-of-information routing primitive for security gates and routers"
+
+[features]
+default = []
+serde = ["dep:serde"]
+
+[dependencies]
+serde = { workspace = true, optional = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
