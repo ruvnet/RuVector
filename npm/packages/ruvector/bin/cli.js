@@ -592,7 +592,7 @@ program
     if (!gnnAvailable) {
       console.log(chalk.gray('\n  Install GNN with: npx ruvector install gnn'));
     }
-    console.log(chalk.gray('  Optional extras (RaBitQ, DiskANN, router, graph, rvlite): npx ruvector add --list'));
+    console.log(chalk.gray('  Optional extras (RaBitQ, DiskANN, router, graph, rvlite, quantum): npx ruvector add --list'));
   });
 
 // =============================================================================
@@ -900,7 +900,7 @@ program
 
 program
   .command('add [extras...]')
-  .description('Install an optional ruvector extra (rabitq, diskann, router, graph, rvlite, rvf, tiny-dancer) into this project')
+  .description('Install an optional ruvector extra (rabitq, diskann, router, graph, rvlite, rvf, tiny-dancer, quantum) into this project')
   .option('-l, --list', 'List available extras and whether they are installed')
   .option('--json', 'With --list, print JSON')
   .option('--dry-run', 'Print what would be installed without installing')
@@ -2188,6 +2188,141 @@ tinyDancer
     } catch {
       console.log(chalk.yellow('\n  @ruvector/tiny-dancer not installed.  npm install @ruvector/tiny-dancer\n'));
     }
+  });
+
+// =============================================================================
+// Quantum (ruqu) - state-vector circuit simulation via optional @ruvector/ruqu-wasm
+// =============================================================================
+
+const quantumCmd = program
+  .command('quantum')
+  .alias('ruqu')
+  .description('Quantum circuit simulation — simulate, grover, bench, info (requires @ruvector/ruqu-wasm)');
+
+/** Lazy: the wrapper and the WASM engine load only inside a quantum action. */
+function loadQuantumApi() {
+  const q = require('../dist/core/quantum-wrapper.js');
+  if (!q.isQuantumAvailable()) {
+    console.error(chalk.red('\n  This command requires @ruvector/ruqu-wasm (quantum circuit engine, ~0.5 MB WASM)'));
+    console.error(chalk.yellow(`  Install it:  ${q.QUANTUM_INSTALL_HINT}   (or: npx ruvector add quantum)\n`));
+    process.exit(1);
+  }
+  return q;
+}
+
+function quantumFail(e) {
+  console.error(chalk.red(`  ${e && e.message ? e.message : e}`));
+  process.exit(1);
+}
+
+/** <circuit> = preset (bell, ghz, ghz:N) | JSON file | inline JSON | text ops ("h 0; cx 0 1"). */
+function readCircuitArg(q, arg, qubits) {
+  const s = String(arg).trim();
+  if (s.startsWith('{')) return JSON.parse(s);
+  if (/\.json$/i.test(s) && fs.existsSync(s)) return JSON.parse(fs.readFileSync(s, 'utf8'));
+  return q.parseCircuitText(s, qubits);
+}
+
+function intOpt(v, name) {
+  if (v === undefined) return undefined;
+  if (!/^\d+$/.test(String(v))) quantumFail(`--${name} must be a non-negative integer`);
+  return parseInt(v, 10);
+}
+
+quantumCmd
+  .command('simulate <circuit>')
+  .description('Simulate a circuit: bell | ghz[:N] | circuit.json | \'{"qubits":2,"gates":[...]}\' | "h 0; cx 0 1"')
+  .option('-q, --qubits <n>', 'Qubit count (for text circuits / ghz; default: inferred)')
+  .option('-s, --shots <n>', 'Sample N measurements from the final state', '1024')
+  .option('--seed <n>', 'Sampling seed (reproducible counts)')
+  .option('-t, --top <n>', 'Show the N most probable basis states', '8')
+  .option('--full', 'Include the full 2^n probability vector (with --json)')
+  .option('--json', 'Machine-readable output')
+  .action(async (circuitArg, options) => {
+    const q = loadQuantumApi();
+    try {
+      const spec = readCircuitArg(q, circuitArg, intOpt(options.qubits, 'qubits'));
+      const r = await q.simulate(spec, {
+        shots: intOpt(options.shots, 'shots'),
+        seed: intOpt(options.seed, 'seed'),
+        top: intOpt(options.top, 'top'),
+        full: !!options.full,
+        limits: q.CLI_LIMITS,
+      });
+      if (options.json) { console.log(JSON.stringify(r, null, 2)); return; }
+      console.log(chalk.cyan(`\n  ${r.numQubits} qubits, ${r.gateCount} gates, depth ${r.depth} — simulated in ${r.wallTimeMs.toFixed(2)} ms (state ${r.memoryBytes < 1048576 ? (r.memoryBytes / 1024).toFixed(1) + " KiB" : (r.memoryBytes / 1048576).toFixed(1) + " MiB"})`));
+      console.log(chalk.gray(`  bit order: ${r.bitOrder}\n`));
+      for (const s of r.top) {
+        const bar = '█'.repeat(Math.max(1, Math.round(s.probability * 40)));
+        console.log(`  |${s.state}>  ${s.probability.toFixed(4)}  ${chalk.green(bar)}`);
+      }
+      if (r.counts) {
+        const entries = Object.entries(r.counts).sort((a, b) => b[1] - a[1]).slice(0, r.top.length);
+        console.log(chalk.white(`\n  ${r.shots} shots (seed ${r.seed}):`));
+        for (const [k, v] of entries) console.log(`  |${k}>  ${v}`);
+      }
+      console.log('');
+    } catch (e) { quantumFail(e); }
+  });
+
+quantumCmd
+  .command('grover')
+  .description('Grover search over 2^qubits items')
+  .requiredOption('-q, --qubits <n>', 'Search-space qubits')
+  .requiredOption('--target <list>', 'Target index or comma-separated indices')
+  .option('--seed <n>', 'RNG seed')
+  .option('--json', 'Machine-readable output')
+  .action(async (options) => {
+    const q = loadQuantumApi();
+    try {
+      const targets = String(options.target).split(',').map((t) => intOpt(t.trim(), 'target'));
+      const r = await q.grover(intOpt(options.qubits, 'qubits'), targets, intOpt(options.seed, 'seed'), q.CLI_LIMITS);
+      if (options.json) { console.log(JSON.stringify(r, null, 2)); return; }
+      console.log(chalk.cyan(`\n  measured |${r.measured}> (${r.measuredState}) — ${r.targetFound ? chalk.green('target found') : chalk.yellow('target missed')}`));
+      console.log(chalk.gray(`  success probability ${r.successProbability.toFixed(4)} after ${r.iterations} iterations\n`));
+    } catch (e) { quantumFail(e); }
+  });
+
+quantumCmd
+  .command('bench')
+  .description('Time GHZ-state simulation (H + CNOT chain) at several sizes')
+  .option('--qubits <list>', 'Comma-separated qubit counts', '10,16,20')
+  .option('-r, --repeats <n>', 'Repeats per size (median reported)', '5')
+  .option('--json', 'Machine-readable output')
+  .action(async (options) => {
+    const q = loadQuantumApi();
+    try {
+      const sizes = String(options.qubits).split(',').map((s) => intOpt(s.trim(), 'qubits'));
+      const repeats = intOpt(options.repeats, 'repeats');
+      if (!repeats || repeats < 1 || repeats > 1000) quantumFail('--repeats must be in 1..1000');
+      const rows = await q.bench(sizes, repeats);
+      if (options.json) { console.log(JSON.stringify({ engine: '@ruvector/ruqu-wasm', node: process.version, rows }, null, 2)); return; }
+      console.log(chalk.cyan(`\n  GHZ simulation, median of ${repeats} (node ${process.version})\n`));
+      for (const r of rows) {
+        console.log(`  ${String(r.qubits).padStart(2)} qubits  ${r.medianMs.toFixed(2).padStart(9)} ms  (min ${r.minMs.toFixed(2)} ms, state ${(r.memoryBytes / 1048576).toFixed(2)} MiB)`);
+      }
+      console.log('');
+    } catch (e) { quantumFail(e); }
+  });
+
+quantumCmd
+  .command('info')
+  .description('Show quantum engine availability, version, limits and supported gates')
+  .option('--json', 'Machine-readable output')
+  .action(async (options) => {
+    const q = require('../dist/core/quantum-wrapper.js');
+    const i = await q.info(q.CLI_LIMITS);
+    if (options.json) { console.log(JSON.stringify(i, null, 2)); if (!i.available) process.exitCode = 1; return; }
+    if (!i.available) {
+      console.log(chalk.yellow(`\n  @ruvector/ruqu-wasm not installed.  ${i.install}\n`));
+      process.exitCode = 1;
+      return;
+    }
+    console.log(chalk.green(`\n  ${i.package} ${i.version} — state-vector simulator, engine max ${i.engineMaxQubits} qubits`));
+    console.log(chalk.gray(`  gates: ${i.gates.join(', ')}`));
+    console.log(chalk.gray(`  bit order: ${i.bitOrder}; measurement via --shots (seeded sampling)`));
+    for (const [n, b] of Object.entries(i.memoryBytes || {})) console.log(chalk.gray(`  ${n} qubits → ${(b / 1048576).toFixed(2)} MiB state vector`));
+    console.log(chalk.gray('  try:   npx ruvector quantum simulate bell\n'));
   });
 
 // =============================================================================

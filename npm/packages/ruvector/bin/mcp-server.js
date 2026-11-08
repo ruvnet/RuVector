@@ -1768,6 +1768,39 @@ const TOOLS = [
       required: ['path']
     }
   },
+  // ── Quantum Tools (optional @ruvector/ruqu-wasm) ──────────────────────────
+  {
+    name: 'quantum_simulate',
+    description: 'Simulate a quantum circuit on the ruqu state-vector engine and return the most probable basis states plus optional seeded measurement counts. Caps: 20 qubits (2^n * 16 bytes of state), 10000 gates, 100000 shots. Bit order: qubit 0 = rightmost bit. Requires @ruvector/ruqu-wasm (npm i @ruvector/ruqu-wasm).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        circuit: {
+          type: 'object',
+          description: 'Circuit: {qubits, gates}. Omit and pass preset instead for bell/ghz.',
+          properties: {
+            qubits: { type: 'number', description: 'Qubit count, 1..20' },
+            gates: {
+              type: 'array',
+              description: 'Gates in order, e.g. {gate:"h",qubits:[0]}, {gate:"cnot",qubits:[0,1]}, {gate:"rx",qubits:[0],angle:1.57}. Gates: h x y z s t rx ry rz cnot cx cz swap rzz barrier',
+              items: { type: 'object' }
+            }
+          },
+          required: ['qubits']
+        },
+        preset: { type: 'string', description: 'Instead of circuit: "bell" or "ghz" (uses qubits, default 3)' },
+        qubits: { type: 'number', description: 'Qubit count for the ghz preset' },
+        shots: { type: 'number', description: 'Measurements to sample from the final state (0..100000)', default: 0 },
+        seed: { type: 'number', description: 'Sampling seed (uint32) for reproducible counts' },
+        top: { type: 'number', description: 'Most probable states to return (1..256)', default: 16 }
+      }
+    }
+  },
+  {
+    name: 'quantum_info',
+    description: 'Report whether the ruqu quantum engine (@ruvector/ruqu-wasm) is installed, its version, limits, supported gates and state-vector memory per qubit count',
+    inputSchema: { type: 'object', properties: {} }
+  },
   // ── DiskANN Tools (optional @ruvector/diskann) ────────────────────────────
   {
     name: 'diskann_build',
@@ -4033,6 +4066,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             error: `Config load failed from '${configFile}'`,
             message: e.message
           }, null, 2) }] };
+        }
+      }
+
+      // ── Quantum Tool Handlers (optional @ruvector/ruqu-wasm) ──────────────
+      case 'quantum_simulate': {
+        try {
+          // Validation runs in the wrapper before the WASM engine is loaded.
+          const q = require('../dist/core/quantum-wrapper.js');
+          let spec = args.circuit;
+          if (args.preset !== undefined) {
+            if (spec !== undefined) throw new Error('pass either circuit or preset, not both');
+            if (args.preset === 'bell') spec = q.ghzCircuit(2);
+            else if (args.preset === 'ghz') {
+              const n = args.qubits === undefined ? 3 : args.qubits;
+              q.validateCircuit({ qubits: n, gates: [] });
+              spec = q.ghzCircuit(n);
+            } else throw new Error(`unknown preset ${JSON.stringify(args.preset)} (bell, ghz)`);
+          }
+          if (spec === undefined) throw new Error('circuit (or preset) is required');
+          const result = await q.simulate(spec, { shots: args.shots, seed: args.seed, top: args.top });
+          return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
+        }
+      }
+
+      case 'quantum_info': {
+        try {
+          const q = require('../dist/core/quantum-wrapper.js');
+          const result = await q.info();
+          return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
         }
       }
 
