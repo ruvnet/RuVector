@@ -7262,9 +7262,11 @@ hooksCmd.command('pretrain')
         const files = execSync('git ls-files 2>/dev/null || find . -type f -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./target/*"',
           { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 }).trim().split('\n').filter(f => f);
 
-        const filesByType = {};
-        const dirPatterns = {};
-        const agentCountsByState = {};
+        // File and directory names come from the repository: keep them out of
+        // Object.prototype (e.g. a top-level `__proto__/` directory).
+        const filesByType = Object.create(null);
+        const dirPatterns = Object.create(null);
+        const agentCountsByState = Object.create(null);
 
         files.forEach(file => {
           stats.files++;
@@ -7274,9 +7276,9 @@ hooksCmd.command('pretrain')
 
           // Determine agent for this file
           let agent = 'coder'; // default
-          if (agentMapping[basename]) {
+          if (Object.hasOwn(agentMapping, basename)) {
             agent = agentMapping[basename];
-          } else if (agentMapping[ext]) {
+          } else if (Object.hasOwn(agentMapping, ext)) {
             agent = agentMapping[ext];
           } else if (file.includes('.test.') || file.includes('.spec.') || file.includes('_test.')) {
             agent = 'test-engineer';
@@ -7290,14 +7292,14 @@ hooksCmd.command('pretrain')
           // Track directory patterns
           const parts = dir.split('/');
           if (parts[0]) {
-            dirPatterns[parts[0]] = dirPatterns[parts[0]] || { count: 0, agents: {} };
+            dirPatterns[parts[0]] = dirPatterns[parts[0]] || { count: 0, agents: Object.create(null) };
             dirPatterns[parts[0]].count++;
             dirPatterns[parts[0]].agents[agent] = (dirPatterns[parts[0]].agents[agent] || 0) + 1;
           }
 
           // Count agents per routing state; patterns are written once below.
           const state = `edit:${ext || 'unknown'}`;
-          agentCountsByState[state] = agentCountsByState[state] || {};
+          agentCountsByState[state] = agentCountsByState[state] || Object.create(null);
           agentCountsByState[state][agent] = (agentCountsByState[state][agent] || 0) + 1;
         });
 
@@ -7374,7 +7376,10 @@ hooksCmd.command('pretrain')
         strongPatterns.slice(0, 100).forEach(([key, count]) => {
           const [file1, file2] = key.split('|');
           if (!intel.data.sequences) intel.data.sequences = {};
-          if (!intel.data.sequences[file1]) intel.data.sequences[file1] = [];
+          if (file1 === '__proto__') return; // would replace the map's prototype
+          if (!Object.hasOwn(intel.data.sequences, file1) || !Array.isArray(intel.data.sequences[file1])) {
+            intel.data.sequences[file1] = [];
+          }
 
           const existing = intel.data.sequences[file1].find(s => s.file === file2);
           if (existing) {
