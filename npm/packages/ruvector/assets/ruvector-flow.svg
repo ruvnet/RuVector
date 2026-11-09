@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="778" height="150" viewBox="0 0 778 150" role="img" aria-label="ruvector: text or vector to embeddings to HNSW search to ranked results">
+<title>ruvector</title>
+<style>
+.bg{fill:#0d1117}.box{fill:#161b22;stroke:#30363d;stroke-width:1.5}
+.lbl{fill:#e6edf3;font:600 13px system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif}
+.ttl{fill:#7d8590;font:500 12px system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif}
+.wire{fill:none;stroke:#30363d;stroke-width:2;stroke-dasharray:6 6}
+.tok{fill:#58a6ff}
+@media (prefers-reduced-motion: reduce){animate,animateMotion{display:none}}
+</style>
+<rect class="bg" width="778" height="150" rx="10"/>
+<text class="ttl" x="20" y="28">ruvector</text>
+<path id="wire" class="wire" d="M95 84 H683"><animate attributeName="stroke-dashoffset" from="24" to="0" dur="1s" repeatCount="indefinite"/></path>
+<g><rect class="box" x="20" y="52" width="150" height="64" rx="8"><animate attributeName="stroke" values="#30363d;#58a6ff;#30363d" keyTimes="0;0.15;1" dur="4.8s" begin="0.0s" repeatCount="indefinite"/></rect><text class="lbl" x="95" y="89" text-anchor="middle">text or vector</text></g>
+<g><rect class="box" x="216" y="52" width="150" height="64" rx="8"><animate attributeName="stroke" values="#30363d;#58a6ff;#30363d" keyTimes="0;0.15;1" dur="4.8s" begin="1.2s" repeatCount="indefinite"/></rect><text class="lbl" x="291" y="89" text-anchor="middle">embeddings</text></g>
+<g><rect class="box" x="412" y="52" width="150" height="64" rx="8"><animate attributeName="stroke" values="#30363d;#58a6ff;#30363d" keyTimes="0;0.15;1" dur="4.8s" begin="2.4s" repeatCount="indefinite"/></rect><text class="lbl" x="487" y="89" text-anchor="middle">HNSW search</text></g>
+<g><rect class="box" x="608" y="52" width="150" height="64" rx="8"><animate attributeName="stroke" values="#30363d;#58a6ff;#30363d" keyTimes="0;0.15;1" dur="4.8s" begin="3.6s" repeatCount="indefinite"/></rect><text class="lbl" x="683" y="89" text-anchor="middle">ranked results</text></g>
+<circle class="tok" r="6"><animateMotion dur="4.8s" repeatCount="indefinite" keyPoints="0;1" keyTimes="0;1" calcMode="linear"><mpath xlink:href="#wire"/></animateMotion></circle>
+</svg>
