@@ -9,6 +9,7 @@ license.workspace = true
 repository.workspace = true
 readme = "README.md"
 description = "Production-grade AI agent routing system with FastGRNN neural inference"
+homepage = "https://ruv.io"
 
 [lib]
 crate-type = ["lib", "staticlib"]

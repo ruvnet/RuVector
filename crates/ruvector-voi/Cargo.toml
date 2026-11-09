@@ -6,6 +6,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Small value-of-information routing primitive for security gates and routers"
+homepage = "https://ruv.io"
 
 [features]
 default = []
