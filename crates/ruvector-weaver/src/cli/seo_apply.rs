@@ -76,7 +76,8 @@ pub fn apply(
         println!("{}", ap::repo_reason(&rp));
         let meets = ruvector_weaver::seo::audit::audit_repo(tax, &g, &rf, &rf.owner)
             .issues
-            .is_empty();
+            .is_empty()
+            && rf.topics.len() >= 5;
         if ap::repo_noop(&rp) || meets {
             println!("{slug}: already meets ADR-356 (homepage + taxonomy topics); skipped");
         } else if !dry_run {
