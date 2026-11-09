@@ -366,3 +366,18 @@ async function postTask(task, result) {
 ## License
 
 MIT OR Apache-2.0
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for vector database, WASM, RAG.
+
+- **Works with** (its runtime dependencies): [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) (optional), [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) (optional)
+- **Used by** (published packages that depend on it): [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all), [`ruvector`](https://www.npmjs.com/package/ruvector) (peer)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 240" width="760" height="240" role="img" aria-labelledby="t d">
+  <title id="t">@ruvector/kge link prediction flow</title>
+  <desc id="d">A query triple (Tim, citizenOf, ?) is embedded, every candidate tail is scored with HolE, r dotted with the circular correlation of the head and tail vectors, and the tails come out ranked with UK first.</desc>
+  <style>
+    .bg { fill: #0f172a; }
+    .box { fill: #1e293b; stroke: #334155; stroke-width: 1.5; }
+    .hl { fill: #1e3a5f; stroke: #38bdf8; stroke-width: 1.5; }
+    .lbl { font: 600 12px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; fill: #94a3b8; letter-spacing: .08em; }
+    .txt { font: 15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #e2e8f0; }
+    .sm { font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #cbd5e1; }
+    .q { fill: #f472b6; }
+    .ok { fill: #4ade80; }
+    .wire { stroke: #475569; stroke-width: 2; fill: none; stroke-dasharray: 6 6; animation: flow 1s linear infinite; }
+    .pulse { fill: #38bdf8; animation: pulse 6s ease-in-out infinite; }
+    .vec rect { fill: #38bdf8; animation: vec 6s ease-in-out infinite; }
+    .r1, .r2, .r3 { opacity: 0; animation: rank 6s ease-out infinite; }
+    .r2 { animation-delay: .25s; }
+    .r3 { animation-delay: .5s; }
+    @keyframes flow { to { stroke-dashoffset: -12; } }
+    @keyframes pulse { 0%, 20% { opacity: .15; } 35%, 55% { opacity: .9; } 70%, 100% { opacity: .15; } }
+    @keyframes vec { 0%, 20% { opacity: .25; } 40% { opacity: 1; } 60%, 100% { opacity: .25; } }
+    @keyframes rank { 0%, 55% { opacity: 0; transform: translateX(-8px); } 65%, 92% { opacity: 1; transform: translateX(0); } 100% { opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      .wire, .pulse, .vec rect { animation: none; }
+      .r1, .r2, .r3 { animation: none; opacity: 1; }
+    }
+  </style>
+  <rect class="bg" width="760" height="240" rx="14"/>
+
+  <!-- 1. query triple -->
+  <text class="lbl" x="28" y="40">QUERY TRIPLE</text>
+  <rect class="box" x="28" y="56" width="200" height="128" rx="10"/>
+  <text class="txt" x="46" y="94">h  Tim</text>
+  <text class="txt" x="46" y="124">r  citizenOf</text>
+  <text class="txt" x="46" y="154">t  <tspan class="q">?</tspan></text>
+
+  <path class="wire" d="M228 120 H292"/>
+
+  <!-- 2. embedding scoring -->
+  <text class="lbl" x="292" y="40">EMBEDDING SCORING</text>
+  <rect class="box" x="292" y="56" width="216" height="128" rx="10"/>
+  <circle class="pulse" cx="400" cy="120" r="54" opacity=".15"/>
+  <g class="vec">
+    <rect x="312" y="78" width="10" height="22" rx="2"/>
+    <rect x="326" y="84" width="10" height="16" rx="2" style="animation-delay:.1s"/>
+    <rect x="340" y="72" width="10" height="28" rx="2" style="animation-delay:.2s"/>
+    <rect x="354" y="88" width="10" height="12" rx="2" style="animation-delay:.3s"/>
+  </g>
+  <text class="sm" x="372" y="96">h, r, t vectors</text>
+  <text class="txt" x="318" y="138">r · (h ⋆ t)</text>
+  <text class="sm" x="318" y="164">HolE, every candidate t</text>
+
+  <path class="wire" d="M508 120 H572"/>
+
+  <!-- 3. ranked tails -->
+  <text class="lbl" x="572" y="40">RANKED TAILS</text>
+  <rect class="box" x="572" y="56" width="160" height="128" rx="10"/>
+  <g class="r1"><rect class="hl" x="584" y="68" width="136" height="30" rx="6"/><text class="txt" x="598" y="89"><tspan class="ok">UK</tspan></text></g>
+  <g class="r2"><text class="txt" x="598" y="129">Ada</text></g>
+  <g class="r3"><text class="txt" x="598" y="164">Alan</text></g>
+
+  <text class="sm" x="28" y="216">kge demo: train on bundled triples, hold the citizenOf facts out, then predict them</text>
+</svg>

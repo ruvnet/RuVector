@@ -3,9 +3,9 @@
 //! Wires the `rvf-index` HNSW implementation into `RvfStore` queries:
 //!
 //! - **Build strategy**: the index is built lazily on the first eligible
-//!   query (so ingest-only workloads pay nothing up front), then maintained
-//!   incrementally as new vectors are ingested.
-//! - **Persistence**: on `close()`, a dirty index is encoded with the
+//!   query, then maintained incrementally as new vectors are ingested. For
+//!   ingest-only workloads, `close()` builds the graph before persisting it.
+//! - **Persistence**: on `close()`, an eligible dirty index is encoded with the
 //!   existing `rvf-index` INDEX_SEG codec and appended as an INDEX_SEG.
 //!   The codec stores adjacency for dense ordinals `0..n`; a versioned,
 //!   self-delimiting trailer (ignored by readers that only parse the
@@ -179,6 +179,18 @@ impl VectorIndex {
             self.graph.insert(id, level_rng(id), &store, &dist);
             self.members.insert(id);
             self.dirty = true;
+        }
+    }
+
+    /// Re-link IDs that are already in the graph after their vectors were
+    /// overwritten (upsert), so the graph stays valid without a rebuild.
+    pub(crate) fn relink_ids(&mut self, ids: &[u64], vectors: &VectorData, metric: DistanceMetric) {
+        let store = VecDataStore { data: vectors };
+        let dist = metric_distance_fn(metric);
+        for &id in ids {
+            if self.members.contains(&id) && self.graph.relink(id, &store, &dist) {
+                self.dirty = true;
+            }
         }
     }
 

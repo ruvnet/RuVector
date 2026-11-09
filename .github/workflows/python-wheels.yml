@@ -264,7 +264,7 @@ jobs:
             architecture: x64
             machine: x86_64
           - target: aarch64-apple-darwin
-            runner: macos-14
+            runner: macos-15
             architecture: arm64
             machine: arm64
     steps:

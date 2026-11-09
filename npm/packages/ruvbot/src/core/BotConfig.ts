@@ -57,12 +57,12 @@ export const APIConfigSchema = z.object({
   rateLimit: z.object({
     max: z.number().int().default(100),
     timeWindow: z.number().int().default(60000),
-  }).default({}),
+  }).prefault({}),
   auth: z.object({
     enabled: z.boolean().default(false),
     type: z.enum(['bearer', 'basic', 'apikey']).default('bearer'),
     secret: z.string().optional(),
-  }).default({}),
+  }).prefault({}),
 });
 
 export const StorageConfigSchema = z.object({
@@ -84,37 +84,37 @@ export const BotConfigSchema = z.object({
   environment: z.enum(['development', 'staging', 'production']).default('development'),
 
   // Core settings
-  memory: MemoryConfigSchema.default({}),
-  llm: LLMConfigSchema.default({}),
-  storage: StorageConfigSchema.default({}),
-  logging: LoggingConfigSchema.default({}),
-  api: APIConfigSchema.default({}),
+  memory: MemoryConfigSchema.prefault({}),
+  llm: LLMConfigSchema.prefault({}),
+  storage: StorageConfigSchema.prefault({}),
+  logging: LoggingConfigSchema.prefault({}),
+  api: APIConfigSchema.prefault({}),
 
   // Integrations
-  slack: SlackConfigSchema.default({}),
-  discord: DiscordConfigSchema.default({}),
-  webhook: WebhookConfigSchema.default({}),
+  slack: SlackConfigSchema.prefault({}),
+  discord: DiscordConfigSchema.prefault({}),
+  webhook: WebhookConfigSchema.prefault({}),
 
   // Skills
   skills: z.object({
     enabled: z.array(z.string()).default(['search', 'summarize', 'code', 'memory']),
     custom: z.array(z.string()).default([]),
     directory: z.string().default('./skills'),
-  }).default({}),
+  }).prefault({}),
 
   // Session settings
   session: z.object({
     defaultTTL: z.number().int().min(60000).default(3600000), // 1 hour
     maxPerUser: z.number().int().min(1).max(100).default(10),
     maxMessages: z.number().int().min(10).max(10000).default(1000),
-  }).default({}),
+  }).prefault({}),
 
   // Worker settings
   workers: z.object({
     poolSize: z.number().int().min(1).max(50).default(4),
     taskTimeout: z.number().int().min(1000).default(30000),
     retryAttempts: z.number().int().min(0).max(10).default(3),
-  }).default({}),
+  }).prefault({}),
 });
 
 export type BotConfig = z.infer<typeof BotConfigSchema>;
@@ -165,7 +165,7 @@ export class ConfigManager {
       if (error instanceof z.ZodError) {
         return {
           valid: false,
-          errors: error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
+          errors: error.issues.map((e) => `${e.path.join('.')}: ${e.message}`),
         };
       }
       throw error;

@@ -208,7 +208,7 @@ impl HnswGraph {
             m0: config.m0,
             ef_construction: config.ef_construction,
             alpha: DEFAULT_ALPHA,
-            ml: 1.0 / (config.m as f64).ln(),
+            ml: 1.0 / crate::ln_f64(config.m as f64),
         }
     }
 
@@ -216,7 +216,7 @@ impl HnswGraph {
     /// Level = floor(-ln(uniform(0,1)) * ml).
     fn random_level(&self, rng_val: f64) -> usize {
         let r = if rng_val <= 0.0 { 1e-10 } else { rng_val };
-        (-r.ln() * self.ml).floor() as usize
+        crate::floor_f64(-crate::ln_f64(r) * self.ml) as usize
     }
 
     /// Insert a new node into the HNSW graph.
@@ -315,6 +315,150 @@ impl HnswGraph {
             self.entry_point = Some(id);
             self.max_layer = level;
         }
+    }
+
+    /// Re-link an existing node whose vector has changed (an upsert).
+    ///
+    /// The node keeps its level. Its outgoing edges at every level it occupies
+    /// are recomputed against the new vector exactly as an insert would
+    /// (beam search + alpha pruning), and it is offered back to the chosen
+    /// neighbors with the usual degree pruning.
+    ///
+    /// The neighborhood it left is then repaired, as hnswlib's `updatePoint`
+    /// does: every former neighbor the moved node no longer links to
+    /// re-selects its neighbors from its current list plus the moved node's
+    /// former neighbors (its old neighborhood), which drops the edge to the
+    /// moved node unless it is still among the best. Without
+    /// this each former neighbor kept a slot spent on a node that is now far
+    /// away and got no replacement for it, so in-place upserts lost recall
+    /// that delete + insert kept (rvf:upsert-relink-recall: recall@10 0.9675
+    /// vs 0.9955 at 3,000 x 384 after 300 updates; 1.0 with the repair). Cost
+    /// is one insert plus O(M^2) distance evaluations per former neighbor,
+    /// not a rebuild (upsert 2.2 -> 3.2 ms at 3,000 x 384 through Node). A
+    /// 2-hop candidate pool measured the same recall at 5.9 ms.
+    /// Returns false (and changes nothing) when `id` is not in the graph.
+    pub fn relink(
+        &mut self,
+        id: u64,
+        vectors: &dyn VectorStore,
+        distance_fn: &dyn Fn(&[f32], &[f32]) -> f32,
+    ) -> bool {
+        let Some(level) = (0..self.layers.len())
+            .rev()
+            .find(|&l| self.layers[l].contains(id))
+        else {
+            return false;
+        };
+        let query_vec = match vectors.get_vector(id) {
+            Some(v) => v,
+            None => return false,
+        };
+        let Some(ep) = self.entry_point else {
+            return false;
+        };
+        if self.layers[0].len() <= 1 {
+            return true; // sole node: nothing to link
+        }
+
+        // Route from the entry point; when the node itself is the entry point,
+        // start from one of its neighbors so the search does not begin at the
+        // vector being moved (any node at the top layer is a valid start).
+        let mut current_ep = ep;
+        if current_ep == id {
+            if let Some(&n) = (0..=self.max_layer)
+                .rev()
+                .find_map(|l| self.layers[l].neighbors(id).first())
+            {
+                current_ep = n;
+            }
+        }
+        let top = self.max_layer;
+        if top > level {
+            for l in (level + 1..=top).rev() {
+                current_ep = self.greedy_closest(query_vec, current_ep, l, vectors, distance_fn);
+            }
+        }
+
+        // Former out-neighbors per layer, captured before they are replaced.
+        let former: Vec<Vec<u64>> = (0..=level.min(top))
+            .map(|l| self.layers[l].neighbors(id).to_vec())
+            .collect();
+
+        let mut entry_points = vec![current_ep];
+        for l in (0..=level.min(top)).rev() {
+            let max_neighbors = if l == 0 { self.m0 } else { self.m };
+            let mut candidates = self.search_layer(
+                query_vec,
+                &entry_points,
+                self.ef_construction,
+                l,
+                vectors,
+                distance_fn,
+            );
+            candidates.retain(|&(nid, _)| nid != id);
+            let selected =
+                self.select_neighbors_alpha(&candidates, max_neighbors, vectors, distance_fn);
+            let neighbor_ids: Vec<u64> = selected.iter().map(|&(nid, _)| nid).collect();
+            self.layers[l].adjacency.insert(id, neighbor_ids.clone());
+            for &nid in &neighbor_ids {
+                let nlist = self.layers[l].adjacency.entry(nid).or_default();
+                if !nlist.contains(&id) {
+                    nlist.push(id);
+                }
+                if nlist.len() > max_neighbors {
+                    self.prune_neighbors(nid, l, max_neighbors, vectors, distance_fn);
+                }
+            }
+            if !neighbor_ids.is_empty() {
+                entry_points = neighbor_ids;
+            }
+        }
+
+        for (l, old) in former.iter().enumerate() {
+            let max_neighbors = if l == 0 { self.m0 } else { self.m };
+            let kept = self.layers[l].neighbors(id).to_vec();
+            for &n in old {
+                if n != id && !kept.contains(&n) {
+                    self.repair_neighbors(n, old, l, max_neighbors, vectors, distance_fn);
+                }
+            }
+        }
+        true
+    }
+
+    /// Re-select `node`'s neighbors at `layer` after a neighbor moved out of its
+    /// neighborhood. Candidates are `node`'s neighbors and `moved`'s former
+    /// neighbors, chosen with the same alpha-RNG selection as an insert.
+    /// The moved node stays only if it is still among the best.
+    #[allow(clippy::too_many_arguments)]
+    fn repair_neighbors(
+        &mut self,
+        node: u64,
+        moved_former: &[u64],
+        layer: usize,
+        max_neighbors: usize,
+        vectors: &dyn VectorStore,
+        distance_fn: &dyn Fn(&[f32], &[f32]) -> f32,
+    ) {
+        let Some(node_vec) = vectors.get_vector(node) else {
+            return;
+        };
+        let current = self.layers[layer].neighbors(node).to_vec();
+        let mut pool: Vec<u64> = Vec::with_capacity(2 * max_neighbors + 1);
+        pool.extend_from_slice(&current);
+        pool.extend_from_slice(moved_former);
+        pool.sort_unstable();
+        pool.dedup();
+        let mut scored: Vec<(u64, f32)> = pool
+            .into_iter()
+            .filter(|&c| c != node && self.layers[layer].contains(c))
+            .filter_map(|c| vectors.get_vector(c).map(|v| (c, distance_fn(node_vec, v))))
+            .collect();
+        // Deterministic order: (distance, id), independent of input order.
+        scored.sort_unstable_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+        let selected = self.select_neighbors_alpha(&scored, max_neighbors, vectors, distance_fn);
+        let ids: Vec<u64> = selected.into_iter().map(|(c, _)| c).collect();
+        self.layers[layer].adjacency.insert(node, ids);
     }
 
     /// Greedy search: starting from `ep`, walk to the closest node at `layer`.

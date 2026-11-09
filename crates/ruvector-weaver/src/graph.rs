@@ -128,7 +128,7 @@ fn npm_package(http: &Http, npm: &crate::config::NpmPolicy, obj: &Value) -> Pack
 
 /// api.npmjs.org last-month downloads: bulk (128 / call) for unscoped
 /// names, one call per scoped name (bulk does not support scopes).
-fn fresh_downloads(http: &Http, names: &[String], workers: usize) -> BTreeMap<String, u64> {
+pub fn fresh_downloads(http: &Http, names: &[String], workers: usize) -> BTreeMap<String, u64> {
     let mut out = BTreeMap::new();
     let (scoped, unscoped): (Vec<&String>, Vec<&String>) =
         names.iter().partition(|n| n.starts_with('@'));
@@ -150,6 +150,11 @@ fn fresh_downloads(http: &Http, names: &[String], workers: usize) -> BTreeMap<St
         }
     }
     let got = par_map(&scoped, workers.min(4), |n| {
+        if workers <= 1 {
+            // Serial mode: api.npmjs.org rate-limits bursts of scoped calls
+            // (Cloudflare 1015), so pace them.
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+        }
         let url = format!("https://api.npmjs.org/downloads/point/last-month/{n}");
         http.get_json(&url)
             .ok()

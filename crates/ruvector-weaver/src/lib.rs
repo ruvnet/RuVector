@@ -26,6 +26,7 @@ pub mod resolve;
 pub mod saturation;
 pub mod scan;
 pub mod semver;
+pub mod seo;
 pub mod svg;
 pub mod util;
 pub mod vuln;

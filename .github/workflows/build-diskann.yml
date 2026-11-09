@@ -37,10 +37,10 @@ jobs:
           - host: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
-          - host: macos-14
+          - host: macos-15
             target: x86_64-apple-darwin
             platform: darwin-x64
-          - host: macos-14
+          - host: macos-15
             target: aarch64-apple-darwin
             platform: darwin-arm64
           - host: windows-2022
@@ -170,7 +170,9 @@ jobs:
             "files": ["${NODE_NAME}"],
             "description": "DiskANN native bindings - ${platform}",
             "license": "MIT",
-            "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector"},
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "npm/packages/diskann"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"},
             "engines": {"node": ">= 18"},
             "publishConfig": {"access": "public"}
           }

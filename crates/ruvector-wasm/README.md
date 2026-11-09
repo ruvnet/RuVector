@@ -1002,3 +1002,12 @@ Free to use for commercial and personal projects.
 [Get Started](../../docs/guide/GETTING_STARTED.md) • [API Docs](../../docs/getting-started/wasm-api.md) • [Examples](../../examples/)
 
 </div>
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for WASM, Rust, vector search.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@claude-flow/plugins`](https://www.npmjs.com/package/@claude-flow/plugins) (peer), [`@dream-machine/memory`](https://www.npmjs.com/package/@dream-machine/memory) (peer)
+<!-- weaver:seo:links:end -->

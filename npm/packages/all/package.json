@@ -1,15 +1,15 @@
 {
   "name": "@ruvector/all",
-  "version": "0.1.1",
-  "description": "Opt-in umbrella bundle that installs the whole RuVector toolkit in one go (ruvector, RVF, SONA, DiskANN, RaBitQ, graph, Tiny Dancer, rvlite, ruvllm-wasm, emergent-time). Most users should install only the packages they need.",
+  "version": "0.1.2",
+  "description": "Opt-in umbrella bundle that installs the whole RuVector toolkit in one go (ruvector, RVF, SONA, DiskANN, RaBitQ, graph, Tiny Dancer, rvlite, ruvllm-wasm, emergent-time).",
   "main": "index.js",
   "types": "index.d.ts",
   "author": "ruv.io Team <info@ruv.io> (https://ruv.io)",
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/npm/packages/all#readme",
+  "homepage": "https://ruv.io",
   "repository": {
+    "directory": "npm/packages/all",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
-    "directory": "npm/packages/all"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
@@ -44,19 +44,15 @@
     "access": "public"
   },
   "keywords": [
-    "ruvector",
-    "umbrella",
-    "bundle",
-    "vector-database",
-    "vector-search",
-    "hnsw",
-    "diskann",
-    "rabitq",
-    "rvf",
-    "sona",
-    "graph",
     "wasm",
+    "graph",
+    "rust",
     "napi",
-    "rust"
+    "vector-search",
+    "vector-database",
+    "ruvector",
+    "ruvnet",
+    "hnsw",
+    "sona"
   ]
 }

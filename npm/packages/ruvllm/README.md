@@ -1,5 +1,9 @@
 # @ruvector/ruvllm
 
+<!-- weaver:seo:flow:start -->
+![@ruvector/ruvllm: prompt → router → GGUF model → tokens](https://raw.githubusercontent.com/ruvnet/ruvector/main/npm/packages/ruvllm/assets/ruvector-ruvllm-flow.svg)
+<!-- weaver:seo:flow:end -->
+
 <p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/ruvllm.svg" alt="@ruvector/ruvllm: self-learning LLM runtime for Node.js with GGUF inference, SONA, TurboQuant KV cache and an optional GPU job loop." width="100%"></p>
 
 [![npm version](https://img.shields.io/npm/v/@ruvector/ruvllm.svg)](https://www.npmjs.com/package/@ruvector/ruvllm)
@@ -471,3 +475,18 @@ requirements").
 ## License
 
 MIT OR Apache-2.0
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for local LLM, LLM, self-learning.
+
+- **Works with** (its runtime dependencies): [`@ruvector/ruvllm-gpu-loop`](https://www.npmjs.com/package/@ruvector/ruvllm-gpu-loop) (optional)
+- **Used by** (published packages that depend on it): [`@claude-flow/providers`](https://www.npmjs.com/package/@claude-flow/providers) (peer), [`@ruvector/edge-net`](https://www.npmjs.com/package/@ruvector/edge-net), [`agentdb`](https://www.npmjs.com/package/agentdb) (optional), [`metaharness`](https://www.npmjs.com/package/metaharness) (optional), [`ruvbot`](https://www.npmjs.com/package/ruvbot) (optional), [`ruvector`](https://www.npmjs.com/package/ruvector) (peer)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

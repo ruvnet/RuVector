@@ -12,7 +12,7 @@ export const TenantSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).max(255),
   slug: z.string().regex(/^[a-z0-9-]+$/).min(1).max(63),
-  settings: z.record(z.unknown()).default({}),
+  settings: z.record(z.string(), z.unknown()).default({}),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
@@ -53,7 +53,7 @@ export const AgentSchema = z.object({
   description: z.string().max(1000).optional(),
   status: AgentStatusSchema.default('idle'),
   config: AgentConfigSchema,
-  metadata: z.record(z.unknown()).default({}),
+  metadata: z.record(z.string(), z.unknown()).default({}),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
@@ -74,14 +74,14 @@ export const MessageSchema = z.object({
   toolCalls: z.array(z.object({
     id: z.string(),
     name: z.string(),
-    arguments: z.record(z.unknown()),
+    arguments: z.record(z.string(), z.unknown()),
   })).optional(),
   toolResults: z.array(z.object({
     toolCallId: z.string(),
     result: z.unknown(),
     isError: z.boolean().default(false),
   })).optional(),
-  metadata: z.record(z.unknown()).default({}),
+  metadata: z.record(z.string(), z.unknown()).default({}),
   createdAt: z.date(),
 });
 
@@ -95,7 +95,7 @@ export const SessionSchema = z.object({
   channelId: z.string().optional(),
   channelType: z.enum(['slack', 'discord', 'webhook', 'api', 'cli']).optional(),
   messages: z.array(MessageSchema).default([]),
-  context: z.record(z.unknown()).default({}),
+  context: z.record(z.string(), z.unknown()).default({}),
   isActive: z.boolean().default(true),
   expiresAt: z.date().optional(),
   createdAt: z.date(),
@@ -127,7 +127,7 @@ export const MemoryEntrySchema = z.object({
   importance: z.number().min(0).max(1).default(0.5),
   accessCount: z.number().default(0),
   lastAccessedAt: z.date().optional(),
-  metadata: z.record(z.unknown()).default({}),
+  metadata: z.record(z.string(), z.unknown()).default({}),
   tags: z.array(z.string()).default([]),
   expiresAt: z.date().optional(),
   createdAt: z.date(),
@@ -163,7 +163,7 @@ export const SkillSchema = z.object({
   })).default([]),
   isBuiltin: z.boolean().default(false),
   isEnabled: z.boolean().default(true),
-  metadata: z.record(z.unknown()).default({}),
+  metadata: z.record(z.string(), z.unknown()).default({}),
 });
 
 export type Skill = z.infer<typeof SkillSchema>;
@@ -197,8 +197,8 @@ export const DomainEventSchema = z.object({
   tenantId: z.string().uuid(),
   aggregateId: z.string().uuid(),
   aggregateType: z.enum(['agent', 'session', 'memory', 'skill', 'task']),
-  payload: z.record(z.unknown()),
-  metadata: z.record(z.unknown()).default({}),
+  payload: z.record(z.string(), z.unknown()),
+  metadata: z.record(z.string(), z.unknown()).default({}),
   timestamp: z.date(),
 });
 
@@ -225,7 +225,7 @@ export const TaskSchema = z.object({
   type: z.string(),
   priority: z.number().min(0).max(100).default(50),
   status: TaskStatusSchema.default('pending'),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
   result: z.unknown().optional(),
   error: z.string().optional(),
   attempts: z.number().default(0),
@@ -262,7 +262,7 @@ export const TrajectorySchema = z.object({
   steps: z.array(TrajectoryStepSchema),
   outcome: z.enum(['success', 'failure', 'partial', 'unknown']),
   reward: z.number().min(-1).max(1).default(0),
-  metadata: z.record(z.unknown()).default({}),
+  metadata: z.record(z.string(), z.unknown()).default({}),
   createdAt: z.date(),
 });
 

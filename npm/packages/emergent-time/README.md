@@ -321,3 +321,18 @@ toolchain emits (a plain `wasm-opt -O` rejects them).
 ## License
 
 MIT
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for WASM, AI agents, WebAssembly.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@metaharness/kernel`](https://www.npmjs.com/package/@metaharness/kernel), [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

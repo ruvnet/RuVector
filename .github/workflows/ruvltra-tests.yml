@@ -136,7 +136,7 @@ jobs:
   # ============================================================================
   apple-silicon-tests:
     name: Apple Silicon Tests
-    runs-on: macos-14  # M1/M2 runners
+    runs-on: macos-15  # M1/M2 runners
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -245,7 +245,7 @@ jobs:
   # ============================================================================
   benchmarks:
     name: Performance Benchmarks
-    runs-on: macos-14
+    runs-on: macos-15
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_benchmarks == 'true'
     steps:
       - name: Checkout

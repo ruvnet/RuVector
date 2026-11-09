@@ -1,15 +1,15 @@
 {
   "name": "@ruvector/graph-node",
-  "version": "2.1.2",
-  "description": "Native Node.js bindings for RuVector Graph Database with hypergraph support, Cypher queries, and persistence - 10x faster than WASM",
+  "version": "2.1.3",
+  "description": "Native Node.js graph database bindings for RuVector: hypergraphs, Cypher queries, knowledge graph persistence, built in Rust.",
   "main": "index.js",
   "types": "index.d.ts",
   "author": "ruv.io Team <info@ruv.io> (https://ruv.io)",
   "homepage": "https://ruv.io",
   "repository": {
+    "directory": "npm/packages/graph-node",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
-    "directory": "npm/packages/graph-node"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
@@ -44,24 +44,18 @@
   },
   "keywords": [
     "graph-database",
-    "graph",
-    "hypergraph",
-    "cypher",
-    "neo4j",
-    "vector-database",
-    "graph-query",
     "knowledge-graph",
-    "property-graph",
-    "native",
     "napi",
     "rust",
-    "fast",
-    "performance",
-    "zero-copy",
+    "rag",
+    "ruvector",
+    "ruvnet",
+    "graph",
+    "neo4j",
+    "vector-database",
     "ai",
     "machine-learning",
-    "rag",
-    "ruv",
-    "ruvector"
+    "nodejs",
+    "wasm"
   ]
 }

@@ -56,6 +56,12 @@ const EXTRAS = Object.freeze(Object.assign(Object.create(null), {
     why: 'Cost-optimal FastGRNN model router behind `ruvector tiny-dancer` (optional dependency)',
     usage: 'npx ruvector tiny-dancer info',
   },
+  quantum: {
+    pkg: '@ruvector/ruqu-wasm',
+    spec: '@ruvector/ruqu-wasm@^2.2.0',
+    why: 'ruqu state-vector quantum circuit simulator (Rust/WASM) behind `ruvector quantum` and the quantum_* MCP tools (optional dependency)',
+    usage: 'npx ruvector quantum simulate bell',
+  },
   sona: {
     pkg: '@ruvector/sona',
     spec: '@ruvector/sona@^0.1.4',

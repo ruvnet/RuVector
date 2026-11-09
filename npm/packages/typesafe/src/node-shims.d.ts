@@ -40,9 +40,19 @@ declare class URL {
 }
 
 declare module 'node:fs' {
+  export function readFileSync(path: string): Uint8Array;
   export function readFileSync(path: string | number, encoding: string): string;
   export function writeFileSync(path: string, data: string): void;
   export function existsSync(path: string): boolean;
+  export function realpathSync(path: string): string;
+}
+
+declare module 'node:path' {
+  export function basename(path: string): string;
+  export function isAbsolute(path: string): boolean;
+  export function join(...paths: string[]): string;
+  export function resolve(...paths: string[]): string;
+  export const sep: string;
 }
 
 declare module 'node:url' {
