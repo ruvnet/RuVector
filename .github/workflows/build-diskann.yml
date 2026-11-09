@@ -170,7 +170,9 @@ jobs:
             "files": ["${NODE_NAME}"],
             "description": "DiskANN native bindings - ${platform}",
             "license": "MIT",
-            "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector"},
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "npm/packages/diskann"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"},
             "engines": {"node": ">= 18"},
             "publishConfig": {"access": "public"}
           }

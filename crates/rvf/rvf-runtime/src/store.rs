@@ -635,19 +635,22 @@ impl RvfStore {
         {
             let mut guard = self.index.write().unwrap_or_else(|e| e.into_inner());
             if let Some(idx) = guard.as_mut() {
-                if valid_ids.iter().any(|&id| idx.contains(id)) {
-                    // An existing ID was overwritten: the graph's edges for
-                    // that node are stale. Drop the index (it is rebuilt
-                    // lazily) and unlink any persisted INDEX_SEG so a
-                    // reopen does not load the stale graph.
-                    *guard = None;
+                let (mut overwritten, mut new_ids): (Vec<u64>, Vec<u64>) =
+                    valid_ids.iter().copied().partition(|&id| idx.contains(id));
+                if !overwritten.is_empty() {
+                    // An existing ID was overwritten (upsert): re-link just
+                    // those nodes against their new vectors instead of
+                    // dropping the graph, which cost a full O(N log N)
+                    // rebuild on the next query (rvf:reingest-live-id-drops-hnsw).
+                    // The persisted INDEX_SEG holds the old edges, so unlink
+                    // it; the updated in-memory graph is persisted on close.
+                    overwritten.sort_unstable();
+                    idx.relink_ids(&overwritten, &self.vectors, self.options.metric);
                     self.segment_dir
                         .retain(|&(_, _, _, stype)| stype != SegmentType::Index as u8);
-                } else {
-                    let mut new_ids = valid_ids.clone();
-                    new_ids.sort_unstable();
-                    idx.insert_ids(&new_ids, &self.vectors, self.options.metric);
                 }
+                new_ids.sort_unstable();
+                idx.insert_ids(&new_ids, &self.vectors, self.options.metric);
             }
         }
 
@@ -5773,8 +5776,135 @@ mod tests {
         store.close().unwrap();
     }
 
-    /// Overwriting an existing id must still invalidate stale index state
-    /// and produce correct nearest-neighbor results afterwards.
+    /// Regression (rvf:reingest-live-id-drops-hnsw): re-ingesting a live id
+    /// at 5k vectors used to discard the whole HNSW graph, so the next query
+    /// rebuilt it (seconds). It must now keep the graph, re-link the node,
+    /// and keep recall. Prints the measured upsert-then-query latency.
+    #[test]
+    fn upsert_of_live_id_keeps_hnsw_index() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("upsert_keeps_index.rvf");
+        let dim = 32;
+        let mut store = RvfStore::create(
+            &path,
+            RvfOptions {
+                dimension: dim as u16,
+                metric: DistanceMetric::L2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let n = 5000u64;
+        let vecs: Vec<Vec<f32>> = (0..n).map(|i| random_vector(dim, i)).collect();
+        let refs: Vec<&[f32]> = vecs.iter().map(|v| v.as_slice()).collect();
+        let ids: Vec<u64> = (0..n).collect();
+        store.ingest_batch(&refs, &ids, None).unwrap();
+        store
+            .query(&random_vector(dim, 1), 10, &QueryOptions::default())
+            .unwrap();
+        assert!(store.index_ready());
+        let nodes = |s: &RvfStore| s.index.read().unwrap().as_ref().map(|i| i.node_count());
+        assert_eq!(nodes(&store), Some(n as usize));
+
+        // One upsert of a live id, then a query: no rebuild.
+        let moved = random_vector(dim, 1_000_000);
+        let t0 = std::time::Instant::now();
+        store
+            .ingest_batch(&[moved.as_slice()], &[42], None)
+            .unwrap();
+        let hit = store.query(&moved, 1, &QueryOptions::default()).unwrap();
+        let upsert_then_query = t0.elapsed();
+        assert!(store.index_ready(), "upsert must not drop the index");
+        assert_eq!(nodes(&store), Some(n as usize));
+        assert_eq!(hit[0].id, 42);
+        assert!(hit[0].distance < 1e-4);
+        eprintln!(
+            "upsert_then_query_5k_ms={:.3}",
+            upsert_then_query.as_secs_f64() * 1e3
+        );
+
+        // 500 more upserts, then HNSW top-10 vs exact on 50 queries.
+        for j in 0..500u64 {
+            let id = (j * 7919) % n;
+            let v = random_vector(dim, 2_000_000 + j);
+            store.ingest_batch(&[v.as_slice()], &[id], None).unwrap();
+        }
+        assert!(store.index_ready());
+        let exact = QueryOptions {
+            force_exact: true,
+            ..Default::default()
+        };
+        let mut hits = 0usize;
+        for q in 0..50u64 {
+            let query = random_vector(dim, 3_000_000 + q);
+            let approx: HashSet<u64> = store
+                .query(&query, 10, &QueryOptions::default())
+                .unwrap()
+                .iter()
+                .map(|r| r.id)
+                .collect();
+            for r in store.query(&query, 10, &exact).unwrap() {
+                hits += approx.contains(&r.id) as usize;
+            }
+        }
+        let recall = hits as f64 / 500.0;
+        eprintln!("recall_at_10_after_500_upserts={recall:.3}");
+        assert!(recall >= 0.9, "recall@10 after upserts {recall}");
+        store.close().unwrap();
+    }
+
+    /// Bench for rvf:meta-snapshot-every-32-commits: 3000 single-record
+    /// commits, each carrying metadata. Prints file size and per-write cost.
+    /// `cargo test --release -p rvf-runtime --lib -- --ignored meta_single_commit_bench --nocapture`
+    #[test]
+    #[ignore]
+    fn meta_single_commit_bench() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("meta_bench.rvf");
+        let dim = 32;
+        let mut store = RvfStore::create(
+            &path,
+            RvfOptions {
+                dimension: dim as u16,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let total = 3000u64;
+        let mut first = std::time::Duration::ZERO;
+        let mut last = std::time::Duration::ZERO;
+        let t_all = std::time::Instant::now();
+        for i in 0..total {
+            let v = random_vector(dim, i);
+            let meta = [MetadataEntry {
+                field_id: 1,
+                value: MetadataValue::String(format!("doc-{i}-payload-text-of-moderate-length")),
+            }];
+            let t0 = std::time::Instant::now();
+            store
+                .ingest_batch(&[v.as_slice()], &[i], Some(&meta))
+                .unwrap();
+            let dt = t0.elapsed();
+            if i < 500 {
+                first += dt;
+            } else if i >= total - 500 {
+                last += dt;
+            }
+        }
+        let all = t_all.elapsed();
+        store.close().unwrap();
+        let bytes = std::fs::metadata(&path).unwrap().len();
+        eprintln!(
+            "meta_bench commits={total} file_mb={:.1} avg_us={:.0} first500_avg_us={:.0} last500_avg_us={:.0}",
+            bytes as f64 / 1048576.0,
+            all.as_secs_f64() * 1e6 / total as f64,
+            first.as_secs_f64() * 1e6 / 500.0,
+            last.as_secs_f64() * 1e6 / 500.0,
+        );
+    }
+
+    /// Overwriting an existing id must re-link the stale node (the index stays
+    /// built) and produce correct nearest-neighbor results afterwards.
     #[test]
     fn overwrite_returns_fresh_vector_via_index_path() {
         let dir = TempDir::new().unwrap();
@@ -5801,7 +5931,10 @@ mod tests {
         // Overwrite id 3 with a far-away vector.
         let far = vec![100.0f32; 8];
         store.ingest_batch(&[far.as_slice()], &[3], None).unwrap();
-        assert!(!store.index_ready(), "overwrite must drop the stale index");
+        assert!(
+            store.index_ready(),
+            "an upsert re-links the node instead of dropping the index"
+        );
 
         // Query at the new location must find the overwritten id first.
         let results = store.query(&far, 1, &QueryOptions::default()).unwrap();

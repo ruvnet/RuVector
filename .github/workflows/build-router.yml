@@ -240,7 +240,9 @@ jobs:
             "keywords": ["ruvector", "router", "semantic-router", "napi-rs"],
             "author": "ruv.io Team <info@ruv.io>",
             "license": "MIT",
-            "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector"},
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "npm/packages/router-${platform}"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"},
             "engines": {"node": ">= 18"},
             "publishConfig": {"registry": "https://registry.npmjs.org/", "access": "public"}
           }

@@ -343,7 +343,9 @@ jobs:
             "files": ["attention.linux-x64-gnu.node"],
             "description": "Linux x64 GNU native module for @ruvector/attention",
             "license": "MIT",
-            "repository": "https://github.com/ruvnet/ruvector"
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "crates/ruvector-attention-node/npm/linux-x64-gnu"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"}
           }
           EOF
           bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
@@ -366,7 +368,9 @@ jobs:
             "files": ["attention.linux-arm64-gnu.node"],
             "description": "Linux ARM64 GNU native module for @ruvector/attention",
             "license": "MIT",
-            "repository": "https://github.com/ruvnet/ruvector"
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "crates/ruvector-attention-node/npm/linux-arm64-gnu"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"}
           }
           EOF
           bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
@@ -389,7 +393,9 @@ jobs:
             "files": ["attention.darwin-x64.node"],
             "description": "macOS Intel x64 native module for @ruvector/attention",
             "license": "MIT",
-            "repository": "https://github.com/ruvnet/ruvector"
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "crates/ruvector-attention-node/npm/darwin-x64"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"}
           }
           EOF
           bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
@@ -412,7 +418,9 @@ jobs:
             "files": ["attention.darwin-arm64.node"],
             "description": "macOS Apple Silicon ARM64 native module for @ruvector/attention",
             "license": "MIT",
-            "repository": "https://github.com/ruvnet/ruvector"
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "crates/ruvector-attention-node/npm/darwin-arm64"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"}
           }
           EOF
           bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
@@ -435,7 +443,9 @@ jobs:
             "files": ["attention.win32-x64-msvc.node"],
             "description": "Windows x64 MSVC native module for @ruvector/attention",
             "license": "MIT",
-            "repository": "https://github.com/ruvnet/ruvector"
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "crates/ruvector-attention-node/npm/win32-x64-msvc"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"}
           }
           EOF
           bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public

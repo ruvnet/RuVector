@@ -2,6 +2,7 @@
   "name": "@ruvector/graph-transformer",
   "version": "2.0.4",
   "description": "Proof-gated graph transformer with 8 verified modules — physics, biological, manifold, temporal, economic graph intelligence via NAPI-RS",
+  "homepage": "https://ruv.io",
   "main": "index.js",
   "types": "index.d.ts",
   "napi": {
@@ -41,7 +42,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector"
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "crates/ruvector-graph-transformer-node"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
   },
   "devDependencies": {
     "@napi-rs/cli": "^2.16.0"

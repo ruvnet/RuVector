@@ -1,9 +1,100 @@
 # @ruvector/kge
 
-Holographic knowledge-graph embeddings for [ruvector](https://github.com/ruvnet/ruvector):
-score a triple `(subject, relation, object)` for plausibility, then answer link
-prediction, relation similarity, and 2-hop composition — locally, with no
-network and no per-query cost. Native (napi-rs) with a WASM fallback.
+![Link prediction flow: a (head, relation, ?) query is scored with HolE embeddings and the candidate tails come out ranked](https://raw.githubusercontent.com/ruvnet/RuVector/main/npm/packages/kge/assets/kge-flow.svg)
+
+**Link prediction for knowledge graphs in Node.js.** Give it `(head, relation, tail)`
+triples, train knowledge-graph embeddings (HolE or RotatE) on your machine, and
+ask for the missing piece: `(Tim, citizenOf, ?)` returns every entity ranked by
+how plausible it is as the tail. No network, no API key, no per-query cost.
+
+## Supported environments
+
+- **Node.js 18 or later** (`engines.node >= 18`), CommonJS and ESM.
+- **Native addon bundled** for Linux x64 and arm64 (glibc), macOS x64 and arm64,
+  and Windows x64. Every other platform, or `KGE_BACKEND=wasm`, uses the bundled
+  WASM build (the demo below prints identical output on both).
+- No runtime dependencies and no install scripts.
+
+## Quickstart
+
+The quickstart was run in an empty directory on Linux x64 with Node 22. The WASM
+backend (`KGE_BACKEND=wasm`) printed the same output.
+
+```sh
+npx @ruvector/kge demo
+```
+
+The demo trains on a bundled toy graph of 39 triples about people, the cities they live in,
+the languages they speak, and the countries those cities are in. Three
+`citizenOf` facts are held out of training, and the demo predicts them.
+
+Expected output:
+
+```text
+Trained HolE (dims 64, 500 epochs) on 39 triples: 24 entities, 4 relations.
+3 citizenOf facts were held out of training. Predicting them:
+
+(Tim, citizenOf, ?)  held-out answer: UK, rank 1 of 24
+  1. UK           3.34  <- held out
+  2. Ada          2.68
+  3. Alan         2.54
+
+(Simone, citizenOf, ?)  held-out answer: France, rank 1 of 24
+  1. France       3.35  <- held out
+  2. German       2.70
+  3. Manchester   1.49
+
+(Max, citizenOf, ?)  held-out answer: Germany, rank 1 of 24
+  1. Germany      3.58  <- held out
+  2. English      1.63
+  3. Lyon         1.05
+```
+
+`npx @ruvector/kge demo --json` prints the same result as JSON, and `-k 5`
+shows more candidates.
+
+The same thing from code. Install the package, save this as `link.mjs`, and
+run `node link.mjs`:
+
+```sh
+npm install @ruvector/kge
+```
+
+```js
+import { createKge } from '@ruvector/kge';
+
+const kge = createKge({ scorer: 'hole', dims: 64, seed: 42 });
+const lives = {
+  Ada: 'London', Alan: 'London', Tim: 'London',
+  Marie: 'Paris', Pierre: 'Paris', Simone: 'Paris',
+  Albert: 'Berlin', Emmy: 'Berlin', Max: 'Berlin',
+};
+const country = { London: 'UK', Paris: 'France', Berlin: 'Germany' };
+const facts = Object.entries(lives).flatMap(([person, city]) => [
+  { s: person, r: 'livesIn', o: city },
+  { s: city, r: 'locatedIn', o: country[city] },
+  ...(person === 'Tim' ? [] : [{ s: person, r: 'citizenOf', o: country[city] }]),
+]);
+kge.addTriples(facts);
+await kge.train({ epochs: 500, lr: 0.1, n3_lambda: 0.05 });
+
+// Tim's citizenship is never stated. Rank every entity for (Tim, citizenOf, ?):
+const { candidates } = kge.predict({ s: 'Tim', r: 'citizenOf', k: 3 });
+console.log(candidates.map((c) => c.entity).join(' > '));
+```
+
+Expected output:
+
+```text
+UK > London > Paris
+```
+
+## Works with / used by
+
+`@ruvector/kge` is standalone: it has no runtime dependencies, and no package in
+the RuVector monorepo depends on it. **Next:** [`ruvector`](https://www.npmjs.com/package/ruvector),
+the flagship package of the same family, stores and searches vectors with HNSW
+indexing, a CLI and an MCP server.
 
 ## What it is
 
@@ -26,10 +117,12 @@ arXiv:1902.10197), the one family member that represents relation
 
 ## Status (v1)
 
-- **Platforms.** 0.1.0 bundles the native addon for `linux-x64-gnu` plus the
-  WASM fallback; other platforms use WASM until the five `optionalDependencies`
-  platform packages are added in a later bump PR (ADR-001 §5).
-  `KGE_BACKEND=wasm` forces the fallback.
+- **Platforms.** 0.1.0 bundled only the `linux-x64-gnu` native addon plus the
+  WASM fallback. Since 0.2.0 the package bundles all five native addons
+  (`linux-x64-gnu`, `linux-arm64-gnu`, `darwin-x64`, `darwin-arm64`,
+  `win32-x64-msvc`) and the WASM fallback; the matching `@ruvector/kge-<platform>`
+  packages are published too but are not declared as `optionalDependencies`
+  (ADR-001 §5). `KGE_BACKEND=wasm` forces the fallback.
 - **`predict`, `similarRelations`, `compose`, `train`, `eval`, `buildIndex` and
   `optimize` all work today.** `predict` is exhaustive until you `buildIndex`,
   then ANN-accelerated. Before `train`, the tables are the deterministic seed
@@ -66,7 +159,7 @@ npm run build                  # tsc -> dist/
 `KGE_BACKEND=wasm` forces the fallback; otherwise the native addon loads when
 present, else WASM.
 
-## Quick start (TypeScript)
+## API at a glance (TypeScript)
 
 ```ts
 import { createKge, defineSchema } from '@ruvector/kge';
@@ -103,9 +196,10 @@ Errors are thrown as `KgeError` with a `.kind` in
 throw. A malformed or tampered `save()` envelope makes `loadKge` throw
 `KgeError{kind:'invalid'}`.
 
-## Quick start (CLI)
+## CLI
 
 ```sh
+kge demo                                    # bundled toy graph, no files needed
 kge import  --triples facts.jsonl --out model.json --scorer hole --dims 256
 kge predict --model model.json --s Ada --r bornIn -k 10
 kge similar --model model.json --r bornIn -k 5
@@ -238,3 +332,7 @@ that have not yet been run at full scale are listed as such rather than implied.
 ## License
 
 MIT
+
+---
+
+Part of [RuVector](https://github.com/ruvnet/RuVector) by [ruv.io](https://ruv.io).
