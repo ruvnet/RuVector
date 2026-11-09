@@ -18,7 +18,7 @@ jobs:
   # Issue #437: parking_lot::RwLock is non-reentrant. Two .write() (or .read())
   # in the same expression deadlocks. Forbid the exact textual pattern.
   reentrant-rwlock-double-write:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Forbid reentrant parking_lot lock acquisition in a single statement
@@ -45,7 +45,7 @@ jobs:
   # Issue #458: Windows clones break on case-only collisions because NTFS is
   # case-insensitive. Fail CI if any two paths in the tree differ only by case.
   case-insensitive-collisions:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Detect case-only filename collisions
@@ -61,7 +61,7 @@ jobs:
   # Issue #438: AVX-512 intrinsics must be gated. ruvector-core must build on
   # stable Rust 1.77+ without the simd-avx512 feature.
   ruvector-core-no-avx512-builds-on-stable:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
@@ -78,7 +78,7 @@ jobs:
   # Issue #430: HNSW recall@1 must stay above 95% on the regression test that
   # historically exposed the result-heap inversion.
   hnsw-recall-at-1:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
@@ -102,7 +102,7 @@ jobs:
   # by default (m=16) and collapses recall at scale. This guard textually
   # forbids the regression.
   hnsw-insert-beam-no-m2-clamp:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Forbid ef_construction.min(m * 2) clamp in HNSW insert beam
@@ -121,7 +121,7 @@ jobs:
   # that complements the behavioural `test_pruning_keeps_closest_not_newest`
   # test below.
   hnsw-distance-based-neighbor-pruning:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Require calculate_distance() inside HNSW overflow gate
@@ -144,7 +144,7 @@ jobs:
   # persisted storage. The historical bug was that a fresh empty HnswIndex
   # was created on every open, so search returned 0 results after restart.
   vector-db-rebuilds-index-on-open:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Require storage.get_all_ids() rebuild path in VectorDB::new
@@ -159,7 +159,7 @@ jobs:
   # (which now triggers our prepack hooks) and assert the entry points exist
   # inside the resulting tarball.
   npm-publish-pipeline:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -223,7 +223,7 @@ jobs:
   # to subprocess-only commands (security-scan, git-churn, verify) and are
   # tracked separately — this guard locks the #463 regression shut.
   no-npx-execSync-in-route-enhanced:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Forbid execSync('npx ruvector …') inside hooks_route_enhanced case
@@ -249,7 +249,7 @@ jobs:
   # drowning in false positives, we only flag template literals that include
   # `${args.…}` and don't wrap it in sanitizeShellArg(...).
   shell-injection-in-mcp-server:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Forbid unsanitized ${args.X} in exec*/spawn* calls
@@ -265,7 +265,7 @@ jobs:
   # wasm32-unknown-unknown and can't use std::time::SystemTime / Instant —
   # they panic at runtime.
   no-systemtime-in-wasm-crates:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Reject SystemTime/Instant in wasm32-targeted crates
@@ -299,7 +299,7 @@ jobs:
   # configured per-developer (not committed-by-default). Markdown docs and
   # JS example/test files are excluded — they're illustrative.
   no-hardcoded-workspaces-paths:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Forbid hardcoded devcontainer path in checked-in config
@@ -324,7 +324,7 @@ jobs:
   # If a future refactor removes the log lines, we lose the diagnostic when
   # we need it most. Assert all four "Hydrate <collection>:" log lines stay.
   brain-hydration-counters-present:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Assert hydration counter log lines exist
@@ -349,7 +349,7 @@ jobs:
   # against the live npm registry and fail if any are missing. Soft-skip on
   # network errors so transient registry hiccups don't false-fail.
   optional-deps-resolvable-on-npm:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -397,7 +397,7 @@ jobs:
   # `cargo check --workspace` builds them — but no job runs their unit tests,
   # integration tests, or benches, so they can silently rot. Run them explicitly.
   graph-condense-perception-tests:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
@@ -416,7 +416,7 @@ jobs:
   # downstream to the stale published mincut 2.0.6 and could ship a crate that
   # fails to compile for crates.io consumers. Forbid regressing the pin to 2.0.x.
   mincut-pin-tracks-workspace-version:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: ruvector-mincut pin must not regress to 2.0.x

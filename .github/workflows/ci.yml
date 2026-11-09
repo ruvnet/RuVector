@@ -19,7 +19,7 @@ env:
 jobs:
   workspace-membership:
     name: Workspace membership guard
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -35,7 +35,7 @@ jobs:
 
   adr-numbering:
     name: ADR numbering guard
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -54,7 +54,7 @@ jobs:
 
   frozen-weights:
     name: Frozen-weights structural gate
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -73,7 +73,7 @@ jobs:
 
   fmt:
     name: Rustfmt
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     continue-on-error: true
     steps:
@@ -91,7 +91,7 @@ jobs:
 
   check:
     name: Cargo check
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -112,7 +112,7 @@ jobs:
 
   clippy:
     name: Clippy
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     continue-on-error: true
     steps:
@@ -141,7 +141,7 @@ jobs:
   test:
     name: Tests (${{ matrix.name }})
     # ORT prebuilt binaries require glibc 2.38+ and GCC 13 libstdc++.
-    runs-on: ${{ matrix.name == 'core-and-rest' && 'ubuntu-24.04' || 'ubuntu-22.04' }}
+    runs-on: ubuntu-24.04
     # `core-and-rest` is the catch-all shard and compiles ~50 crates; on a
     # cold cache the build alone has hit ~90min, so headroom matters more
     # than tight feedback for this job. Faster shards still finish in ~10–20m.
@@ -614,7 +614,7 @@ jobs:
 
   audit:
     name: Security audit
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262

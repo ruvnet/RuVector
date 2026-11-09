@@ -12,7 +12,7 @@ permissions:
   contents: read
 jobs:
   kernel:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -29,7 +29,7 @@ jobs:
           rustfmt --edition=2021 --config skip_children=true crates/ruvector-mincut/src/algorithm/exact.rs crates/ruvector-mincut/src/algorithm/mod.rs crates/ruvector-mincut/src/routing/mod.rs crates/ruvector-mincut/src/routing/rufield.rs crates/ruvector-mincut/src/routing/spatial.rs crates/ruvector-mincut/src/graph/mod.rs crates/ruvector-mincut/src/canonical/dynamic/mod.rs crates/ruvector-mincut/src/canonical/dynamic/tests.rs crates/ruvector-mincut/tests/exact_kernel.rs crates/ruvector-mincut/tests/exact_regression.rs crates/ruvector-mincut/examples/dynamic_bench.rs crates/ruvector-mincut-node/src/lib.rs crates/ruvector-mincut-wasm/src/lib.rs
           git diff --exit-code -- crates/ruvector-mincut crates/ruvector-mincut-node crates/ruvector-mincut-wasm
   public-api:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -64,7 +64,7 @@ jobs:
           git show "$BASE_SHA:crates/ruvector-mincut/src/algorithm/mod.rs" > crates/ruvector-mincut/src/algorithm/mod.rs
           cargo run -p ruvector-mincut --release --example dynamic_bench
   javascript:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
