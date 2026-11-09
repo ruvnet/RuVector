@@ -25,7 +25,7 @@
   ],
   "scripts": {
     "build:napi": "napi build --platform --release --cargo-cwd ../../../crates/ruvector-node",
-    "test": "node test.js",
+    "test": "node test.js && node test-retrieval.js",
     "publish:platforms": "node scripts/publish-platforms.js"
   },
   "devDependencies": {

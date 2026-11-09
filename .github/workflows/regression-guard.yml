@@ -75,6 +75,35 @@ jobs:
       - name: cargo check ruvector-core with simd-avx512 (default)
         run: cargo check -p ruvector-core
 
+  # Issues #1310 / #1313: filtered top-k is full at 1% and 10% selectivity
+  # (10k vectors), duplicate-id inserts are upserts with no ghost nodes, and
+  # NaN/Inf vectors are rejected before storage.
+  ruvector-core-retrieval-correctness:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: '1.89.0'
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: retrieval correctness contract
+        run: cargo test -p ruvector-core --release --test retrieval_correctness --test filtered_search
+
+  # Issue #1239: ruvector-delta-core must build without std (no parking_lot,
+  # bincode or other std-only dependencies on the no_std path).
+  ruvector-delta-core-no-std:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: '1.89.0'
+          targets: thumbv7em-none-eabihf
+      - name: cargo build ruvector-delta-core for a bare-metal target
+        run: |
+          cargo build -p ruvector-delta-core --no-default-features --target thumbv7em-none-eabihf
+          cargo build -p ruvector-delta-core --no-default-features --features serde --target thumbv7em-none-eabihf
+
   # Issue #430: HNSW recall@1 must stay above 95% on the regression test that
   # historically exposed the result-heap inversion.
   hnsw-recall-at-1:
