@@ -6,6 +6,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { RvfDatabase } from '@ruvector/rvf';
 import { RvfMcpServer } from '../dist/index.js';
 
 const tmpDirs = [];
@@ -133,6 +134,28 @@ test('stores persist on disk across a server restart', { timeout: 30_000 }, asyn
   await server.close();
 });
 
+test('an index built outside the server reports the metric it was created with', { timeout: 30_000 }, async () => {
+  // A portable .rvf made directly with @ruvector/rvf has no .mcp-meta.jsonl sidecar.
+  const dataDir = tempDataDir();
+  for (const [file, metric] of [['cos.rvf', 'cosine'], ['dot.rvf', 'dotproduct']]) {
+    const db = await RvfDatabase.create(path.join(dataDir, file), { dimensions: 2, metric }, 'node');
+    await db.ingestBatch([{ id: 'a', vector: new Float32Array([1, 0]) }]);
+    await db.close();
+  }
+  const { server, client } = await connect({ dataDir });
+  const cos = await call(client, 'rvf_open_store', { path: 'cos.rvf', readOnly: true });
+  assert.equal(cos.metric, 'cosine');
+  const q = await call(client, 'rvf_query', { storeId: cos.storeId, vector: [0, 1], k: 1 });
+  assert.equal(q.metric, 'cosine');
+  const dot = await call(client, 'rvf_open_store', { path: 'dot.rvf' });
+  assert.equal(dot.metric, 'dotproduct');
+  await call(client, 'rvf_close_store', { storeId: dot.storeId });
+  // A writable open records the metric in the sidecar it creates.
+  const header = JSON.parse(fs.readFileSync(path.join(dataDir, 'dot.rvf.mcp-meta.jsonl'), 'utf-8').split('\n')[0]);
+  assert.equal(header.metric, 'dotproduct');
+  await server.close();
+});
+
 test('re-ingesting an id replaces its vector and metadata', { timeout: 10_000 }, async () => {
   const { server, client } = await connect();
   const { storeId } = await call(client, 'rvf_create_store', { path: 'u.rvf', dimensions: 2 });
@@ -216,4 +239,63 @@ test('concurrent rvf_query requests all resolve with correct results', { timeout
     name: 'rvf_query', arguments: { storeId, vector: vec(i), k: 1 },
   })));
   replies.forEach((r, j) => assert.equal(JSON.parse(text(r)).results[0].id, `c${ids[j]}`));
+});
+
+// A portable store is <store>.rvf plus sidecars; the string-id map is the one
+// most easily left behind when copying it.
+async function seedMovedStore() {
+  const src = tempDataDir();
+  const dst = tempDataDir();
+  const { server, client } = await connect({ dataDir: src });
+  const { storeId } = await call(client, 'rvf_create_store', { path: 'kb.rvf', dimensions: 3, metric: 'cosine' });
+  await call(client, 'rvf_ingest', {
+    storeId,
+    entries: [
+      { id: 'hnsw-tuning', vector: [1, 0, 0], metadata: { topic: 'search' } },
+      { id: 'filtered-knn', vector: [0.9, 0.1, 0], metadata: { topic: 'search' } },
+      { id: 'pasta', vector: [0, 0, 1], metadata: { topic: 'food' } },
+      { id: 'stale', vector: [0, 1, 0] },
+    ],
+  });
+  // Embedded ids must survive a delete + compaction rewrite of the file.
+  await call(client, 'rvf_delete', { storeId, ids: ['stale'] });
+  await call(client, 'rvf_compact', { storeId });
+  await server.close();
+  for (const f of ['kb.rvf', 'kb.rvf.mcp-meta.jsonl']) fs.copyFileSync(path.join(src, f), path.join(dst, f));
+  return dst;
+}
+
+test('a store copied without its .idmap.json still answers by string id', { timeout: 30_000 }, async () => {
+  const { server, client } = await connect({ dataDir: await seedMovedStore() });
+  const { storeId } = await call(client, 'rvf_open_store', { path: 'kb.rvf', readOnly: true });
+  const filtered = await call(client, 'rvf_query', { storeId, vector: [1, 0, 0], k: 2, filter: { topic: 'search' } });
+  assert.deepEqual(filtered.results.map((r) => r.id), ['hnsw-tuning', 'filtered-knn']);
+  const plain = await call(client, 'rvf_query', { storeId, vector: [0, 0, 1], k: 1 });
+  assert.deepEqual(plain.results.map((r) => r.id), ['pasta']);
+  await server.close();
+});
+
+test('a writable open without the .idmap.json is refused', { timeout: 30_000 }, async () => {
+  const { server, client } = await connect({ dataDir: await seedMovedStore() });
+  const opened = await call(client, 'rvf_open_store', { path: 'kb.rvf' });
+  assert.match(opened.error, /kb\.rvf\.idmap\.json/);
+  await server.close();
+});
+
+test('a store without embedded ids or its .idmap.json fails loudly instead of returning []', { timeout: 30_000 }, async () => {
+  // Shape of a store written by rvf-mcp-server <= 0.2.3: ids only in the id map.
+  const dataDir = tempDataDir();
+  const file = path.join(dataDir, 'old.rvf');
+  const db = await RvfDatabase.create(file, { dimensions: 2, metric: 'l2' }, 'node');
+  await db.ingestBatch([{ id: 'a', vector: new Float32Array([0, 0]) }, { id: 'b', vector: new Float32Array([5, 5]) }]);
+  await db.close();
+  fs.writeFileSync(`${file}.mcp-meta.jsonl`, '{"rvfMcpMeta":1,"dimensions":2,"metric":"l2"}\n["s","a",{"tag":"x"}]\n');
+  fs.rmSync(`${file}.idmap.json`);
+  const { server, client } = await connect({ dataDir });
+  const { storeId } = await call(client, 'rvf_open_store', { path: 'old.rvf', readOnly: true });
+  const filtered = await call(client, 'rvf_query', { storeId, vector: [0, 0], k: 1, filter: { tag: 'x' } });
+  assert.match(filtered.error, /old\.rvf\.idmap\.json/);
+  const plain = await call(client, 'rvf_query', { storeId, vector: [0, 0], k: 1 });
+  assert.match(plain.error, /old\.rvf\.idmap\.json/);
+  await server.close();
 });

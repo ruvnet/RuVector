@@ -1239,7 +1239,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "hangs in CI (>14min). TODO: investigate SubpolynomialMinCut::build hot loop — see PR #389 follow-up."]
     fn test_min_cut_triangle() {
         let mut mincut = SubpolynomialMinCut::new(SubpolyConfig::default());
 
@@ -1253,7 +1252,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "hangs in CI (>25min). TODO: investigate SubpolynomialMinCut::build hot loop — see PR #389 follow-up."]
     fn test_min_cut_bridge() {
         let mut mincut = SubpolynomialMinCut::new(SubpolyConfig::default());
 
@@ -1315,7 +1313,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "hangs in CI (>7min). TODO: investigate SubpolynomialMinCut::build hot loop — see PR #389 follow-up."]
     fn test_recourse_stats() {
         let mut mincut = SubpolynomialMinCut::new(SubpolyConfig::default());
 
@@ -1336,7 +1333,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "hangs in CI (>40min). TODO: investigate SubpolynomialMinCut::build hot loop — see PR #389 follow-up."]
+    #[ignore = "fails its recourse bound (amortized recourse > 2^(ln n)^0.9 on an 11-vertex path); it used to be hidden behind the LocalKCut hot loop, now fixed. Needs a look at the recourse accounting."]
     fn test_is_subpolynomial() {
         let mut mincut = SubpolynomialMinCut::new(SubpolyConfig::default());
 

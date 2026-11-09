@@ -7,15 +7,19 @@
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { RvfDatabase } from '@ruvector/rvf';
+import { RvfDatabase, type RvfSearchResult } from '@ruvector/rvf';
 import * as fs from 'node:fs';
 import { z } from 'zod';
 import {
+  ID_FIELD,
   META_SUFFIX,
   MetadataLog,
   defaultDataDir,
+  idMapMissing,
+  missingIdMapError,
   matchesFilter,
   resolveStorePath,
+  storedMetric,
   type Metadata,
 } from './stores.js';
 
@@ -67,6 +71,8 @@ interface StoreHandle {
   readOnly: boolean;
   db: RvfDatabase;
   meta: MetadataLog;
+  /** A server-managed store opened without its `.idmap.json` sidecar. */
+  idMapMissing: boolean;
   createdAt: number;
 }
 
@@ -79,6 +85,16 @@ const fail = (message: string): ToolResult => ({
   content: [{ type: 'text' as const, text: `Error: ${message}` }],
 });
 const errMessage = (err: unknown): string => (err instanceof Error ? err.message : String(err));
+
+/** Live vectors in a store, read without taking the writer lock. */
+async function countVectors(file: string): Promise<number> {
+  const db = await RvfDatabase.openReadonly(file, 'node');
+  try {
+    return (await db.status()).totalVectors;
+  } finally {
+    await db.close();
+  }
+}
 
 // ─── Server ─────────────────────────────────────────────────────────────────
 
@@ -136,11 +152,25 @@ export class RvfMcpServer {
     return full;
   }
 
+  /**
+   * Report each hit by the string id embedded in the .rvf when present. A
+   * hit without one is only trustworthy while the id map is beside the store;
+   * otherwise its id is a bare internal label, so fail instead of returning it.
+   */
+  private withStringIds(h: StoreHandle, hits: RvfSearchResult[]): Array<{ id: string; distance: number }> {
+    return hits.map((r) => {
+      const embedded = r.metadata?.[ID_FIELD];
+      if (typeof embedded === 'string') return { id: embedded, distance: r.distance };
+      if (h.idMapMissing) throw missingIdMapError(h.path);
+      return { id: r.id, distance: r.distance };
+    });
+  }
+
   /** k-NN with exact-match metadata filtering applied to an over-fetched result. */
   private async search(h: StoreHandle, vector: number[], k: number, filter?: Metadata) {
     const q = new Float32Array(vector);
     if (!filter) {
-      const results = await h.db.query(q, k);
+      const results = this.withStringIds(h, await h.db.query(q, k));
       return { results, scanned: results.length };
     }
     const candidates = [...h.meta.entries.values()].filter((m) => matchesFilter(m, filter)).length;
@@ -148,7 +178,7 @@ export class RvfMcpServer {
     const total = (await h.db.status()).totalVectors;
     let fetch = Math.min(total, Math.max(k * 4, 64));
     for (;;) {
-      const raw = await h.db.query(q, fetch);
+      const raw = this.withStringIds(h, await h.db.query(q, fetch));
       const hits = raw.filter((r) => matchesFilter(h.meta.entries.get(r.id), filter));
       if (hits.length >= Math.min(k, candidates) || fetch >= total) {
         return { results: hits.slice(0, k), scanned: raw.length };
@@ -180,7 +210,7 @@ export class RvfMcpServer {
           const db = await RvfDatabase.create(file, { dimensions, metric: metric as Metric }, 'node');
           meta.header = { dimensions, metric };
           meta.rewrite();
-          const h = this.register({ path, file, dimensions, metric, readOnly: false, db, meta });
+          const h = this.register({ path, file, dimensions, metric, readOnly: false, db, meta, idMapMissing: false });
           return reply({ storeId: h.id, path, dimensions, metric, status: 'created' });
         } catch (err) {
           return fail(errMessage(err));
@@ -203,6 +233,13 @@ export class RvfMcpServer {
         try {
           const file = resolveStorePath(this.opts.dataDir, path, false);
           if (!fs.existsSync(file)) throw new Error(`store ${path} does not exist`);
+          // Only a store this server wrote (it has the metadata sidecar) is known
+          // to use string ids; a bare .rvf may legitimately have none.
+          const idsDetached = fs.existsSync(file + META_SUFFIX) && idMapMissing(file);
+          if (idsDetached && !readOnly && (await countVectors(file)) > 0) {
+            // A writer would hand out labels that already belong to stored vectors.
+            throw new Error(`${missingIdMapError(path).message} It can still be opened with readOnly: true.`);
+          }
           const db = readOnly
             ? await RvfDatabase.openReadonly(file, 'node')
             : await RvfDatabase.open(file, 'node');
@@ -214,9 +251,10 @@ export class RvfMcpServer {
             throw err;
           }
           const dimensions = await db.dimension();
-          const metric = meta.header?.metric ?? 'l2';
+          // The file is the source of truth; a store built outside this server has no sidecar.
+          const metric = storedMetric(db) ?? meta.header?.metric ?? 'unknown';
           meta.header ??= { dimensions, metric };
-          const h = this.register({ path, file, dimensions, metric, readOnly, db, meta });
+          const h = this.register({ path, file, dimensions, metric, readOnly, db, meta, idMapMissing: idsDetached });
           return reply({ storeId: h.id, path, readOnly, dimensions, metric, status: 'opened' });
         } catch (err) {
           return fail(errMessage(err));
@@ -260,7 +298,9 @@ export class RvfMcpServer {
           else batch.set(e.id, { vector: e.vector, metadata: e.metadata });
         }
         if (batch.size > 0) {
-          await h.db.ingestBatch([...batch].map(([id, e]) => ({ id, vector: new Float32Array(e.vector) })));
+          await h.db.ingestBatch([...batch].map(([id, e]) => (
+            { id, vector: new Float32Array(e.vector), metadata: { [ID_FIELD]: id } }
+          )));
           const sets: Array<[string, Metadata]> = [];
           const cleared: string[] = [];
           for (const [id, e] of batch) {

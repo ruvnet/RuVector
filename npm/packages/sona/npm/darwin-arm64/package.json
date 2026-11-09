@@ -1,10 +1,24 @@
 {
   "name": "@ruvector/sona-darwin-arm64",
   "version": "0.1.11",
-  "os": ["darwin"],
-  "cpu": ["arm64"],
+  "homepage": "https://ruv.io",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
   "main": "sona.darwin-arm64.node",
-  "files": ["sona.darwin-arm64.node"],
+  "files": [
+    "sona.darwin-arm64.node"
+  ],
   "license": "MIT",
-  "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector.git"}
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "npm/packages/sona/npm/darwin-arm64"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
+  }
 }

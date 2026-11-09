@@ -255,3 +255,18 @@ MIT (see [`package.json`](https://github.com/ruvnet/ruvector/blob/main/npm/packa
 - [GitHub Repository](https://github.com/ruvnet/ruvector)
 - [RVF Format Specification](https://github.com/ruvnet/ruvector/tree/main/crates/rvf)
 - [npm Package](https://www.npmjs.com/package/@ruvector/rvf-solver)
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for solver, self-learning, WASM.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all), [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf), [`agentdb`](https://www.npmjs.com/package/agentdb)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

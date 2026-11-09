@@ -1776,8 +1776,8 @@ const TOOLS = [
       type: 'object',
       properties: {
         circuit: {
-          type: 'object',
-          description: 'Circuit: {qubits, gates}. Omit and pass preset instead for bell/ghz.',
+          type: ['object', 'string'],
+          description: 'Circuit: {qubits, gates}, or the CLI shorthand as a string: "bell", "ghz" / "ghz:N", text ops like "h 0; cx 0 1" (angle last: "rx 0 1.57"), or inline JSON. Same limits either way.',
           properties: {
             qubits: { type: 'number', description: 'Qubit count, 1..20' },
             gates: {
@@ -4075,6 +4075,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           // Validation runs in the wrapper before the WASM engine is loaded.
           const q = require('../dist/core/quantum-wrapper.js');
           let spec = args.circuit;
+          // Same shorthand as `ruvector quantum simulate`: bell, ghz[:N],
+          // "h 0; cx 0 1" or inline JSON, parsed under the MCP limits.
+          if (typeof spec === 'string') spec = q.circuitFromString(spec, args.qubits, q.DEFAULT_LIMITS);
           if (args.preset !== undefined) {
             if (spec !== undefined) throw new Error('pass either circuit or preset, not both');
             if (args.preset === 'bell') spec = q.ghzCircuit(2);
