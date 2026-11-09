@@ -473,25 +473,20 @@ jobs:
           set -euo pipefail
           mkdir -p publish/attention-main
           cd publish/attention-main
-          cat > package.json << 'EOF'
-          {
-            "name": "@ruvector/attention",
-            "version": "${{ inputs.version || '0.1.31' }}",
-            "description": "High-performance attention mechanisms with 7 mathematical theories: Optimal Transport, Mixed Curvature, Topology, Information Geometry, Information Bottleneck, PDE/Diffusion, Unified Diagnostics",
-            "main": "index.js",
-            "types": "index.d.ts",
-            "license": "MIT",
-            "repository": "https://github.com/ruvnet/ruvector",
-            "keywords": ["attention", "transformer", "machine-learning", "optimal-transport", "hyperbolic", "topology"],
-            "optionalDependencies": {
-              "@ruvector/attention-linux-x64-gnu": "${{ inputs.version || '0.1.31' }}",
-              "@ruvector/attention-linux-arm64-gnu": "${{ inputs.version || '0.1.31' }}",
-              "@ruvector/attention-darwin-x64": "${{ inputs.version || '0.1.31' }}",
-              "@ruvector/attention-darwin-arm64": "${{ inputs.version || '0.1.31' }}",
-              "@ruvector/attention-win32-x64-msvc": "${{ inputs.version || '0.1.31' }}"
+          # Derive the manifest from the checked-in source package so its
+          # metadata (homepage, keywords, description, repository, bugs) ships
+          # with the release; only version and the platform pins are set here.
+          V="${{ inputs.version || '0.1.31' }}" node -e '
+            const fs = require("fs");
+            const p = JSON.parse(fs.readFileSync(process.env.GITHUB_WORKSPACE + "/crates/ruvector-attention-node/package.json", "utf8"));
+            p.version = process.env.V;
+            p.optionalDependencies = {};
+            for (const s of ["linux-x64-gnu", "linux-arm64-gnu", "darwin-x64", "darwin-arm64", "win32-x64-msvc"]) {
+              p.optionalDependencies["@ruvector/attention-" + s] = process.env.V;
             }
-          }
-          EOF
+            delete p.scripts; delete p.devDependencies; delete p.napi;
+            fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");
+          '
 
           # Ship the committed napi-rs loader and the full generated typings
           # (every class, computeFlat, async/batch helpers, training utils).
