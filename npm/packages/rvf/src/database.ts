@@ -13,6 +13,7 @@ import type {
   RvfEbpfData,
   RvfSegmentInfo,
   BackendType,
+  DistanceMetric,
 } from './types';
 import type { RvfBackend } from './backend';
 import { resolveBackend } from './backend';
@@ -303,6 +304,15 @@ export class RvfDatabase {
   async dimension(): Promise<number> {
     this.ensureOpen();
     return this.backend.dimension();
+  }
+
+  /** Get the distance metric the store was created with. */
+  async metric(): Promise<DistanceMetric> {
+    this.ensureOpen();
+    if (!this.backend.metric) {
+      throw new RvfError(RvfErrorCode.BackendNotFound, 'this backend does not report its metric');
+    }
+    return this.backend.metric();
   }
 
   // -----------------------------------------------------------------------

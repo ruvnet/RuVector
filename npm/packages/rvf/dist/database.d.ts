@@ -1,4 +1,4 @@
-import type { RvfOptions, RvfQueryOptions, RvfSearchResult, RvfQueryOptionsWithCount, RvfIngestResult, RvfIngestEntry, RvfDeleteResult, RvfCompactionResult, RvfStatus, RvfFilterExpr, RvfKernelData, RvfEbpfData, RvfSegmentInfo, BackendType } from './types';
+import type { RvfOptions, RvfQueryOptions, RvfSearchResult, RvfQueryOptionsWithCount, RvfIngestResult, RvfIngestEntry, RvfDeleteResult, RvfCompactionResult, RvfStatus, RvfFilterExpr, RvfKernelData, RvfEbpfData, RvfSegmentInfo, BackendType, DistanceMetric } from './types';
 import type { RvfBackend } from './backend';
 /**
  * Main user-facing RVF database class.
@@ -133,6 +133,8 @@ export declare class RvfDatabase {
     segments(): Promise<RvfSegmentInfo[]>;
     /** Get the vector dimensionality. */
     dimension(): Promise<number>;
+    /** Get the distance metric the store was created with. */
+    metric(): Promise<DistanceMetric>;
     /**
      * Serialize the store to an in-memory `.rvf` byte buffer.
      *
@@ -143,6 +145,9 @@ export declare class RvfDatabase {
     exportBytes(): Promise<Uint8Array>;
     /**
      * Close the store, releasing the writer lock and flushing pending data.
+     * On the Node backend, this may build and persist an HNSW index for a large
+     * ingest-only store. Await close before opening the file read-only if the
+     * first query must use the persisted index.
      *
      * After calling `close()`, all other methods will throw `RvfError` with
      * code `StoreClosed`.

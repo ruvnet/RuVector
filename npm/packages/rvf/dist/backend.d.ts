@@ -1,4 +1,4 @@
-import type { RvfOptions, RvfQueryOptions, RvfSearchResult, RvfIngestResult, RvfIngestEntry, RvfDeleteResult, RvfCompactionResult, RvfStatus, RvfFilterExpr, RvfKernelData, RvfEbpfData, RvfSegmentInfo, BackendType } from './types';
+import type { RvfOptions, RvfQueryOptions, RvfSearchResult, RvfIngestResult, RvfIngestEntry, RvfDeleteResult, RvfCompactionResult, RvfStatus, RvfFilterExpr, RvfKernelData, RvfEbpfData, RvfSegmentInfo, BackendType, DistanceMetric } from './types';
 /**
  * Abstract backend that wraps either the native (N-API) or WASM build of
  * rvf-runtime.  The `RvfDatabase` class delegates all I/O to a backend
@@ -37,6 +37,11 @@ export interface RvfBackend {
     extractEbpf(): Promise<RvfEbpfData | null>;
     segments(): Promise<RvfSegmentInfo[]>;
     dimension(): Promise<number>;
+    /**
+     * Distance metric the store was created with. Optional so third-party
+     * backends written against older versions still type-check.
+     */
+    metric?(): Promise<DistanceMetric>;
     /** Serialize the store to an in-memory `.rvf` byte buffer. */
     exportBytes(): Promise<Uint8Array>;
     /** Load a store from an in-memory `.rvf` byte buffer. */
@@ -89,6 +94,7 @@ export declare class NodeBackend implements RvfBackend {
     extractEbpf(): Promise<RvfEbpfData | null>;
     segments(): Promise<RvfSegmentInfo[]>;
     dimension(): Promise<number>;
+    metric(): Promise<DistanceMetric>;
     exportBytes(): Promise<Uint8Array>;
     openBytes(_bytes: Uint8Array): Promise<void>;
     /**
@@ -168,6 +174,8 @@ export declare class WasmBackend implements RvfBackend {
     /** Integer store handle returned by `rvf_store_create` / `rvf_store_open`. */
     private handle;
     private dim;
+    /** Metric given to create(); unknown for stores loaded with openBytes(). */
+    private storeMetric;
     private loadWasm;
     private ensureHandle;
     private metricCode;
@@ -193,6 +201,7 @@ export declare class WasmBackend implements RvfBackend {
     extractEbpf(): Promise<RvfEbpfData | null>;
     segments(): Promise<RvfSegmentInfo[]>;
     dimension(): Promise<number>;
+    metric(): Promise<DistanceMetric>;
     /**
      * Serialize the in-memory store to `.rvf` bytes via the `rvf_store_export`
      * C-ABI export. `rvf_store_export` follows a probe-then-write pattern:
