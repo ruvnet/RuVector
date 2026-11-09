@@ -136,6 +136,38 @@ The engine adds 458 KB unpacked to an install. `npx ruvector --help` cold start 
 
 **Works with:** [ruqu](https://github.com/ruvnet/ruqu), the quantum simulator and agent harness (`npx @ruvector/ruqu`), which this command uses as its engine.
 
+## Recipe: knowledge-graph link prediction (`@ruvector/kge`)
+
+Predict missing facts in a knowledge graph. [`@ruvector/kge`](https://www.npmjs.com/package/@ruvector/kge) trains HolE / RotatE embeddings on `(head, relation, tail)` triples locally and ranks candidate tails for a query like `(Tim, citizenOf, ?)`. It is opt-in: `ruvector` does not depend on it or install it, and it has no runtime dependencies of its own.
+
+```bash
+npx @ruvector/kge demo
+```
+
+The demo trains on a bundled toy graph of 39 triples with three `citizenOf` facts held out, then predicts them. Output from a clean install of 0.2.1 (Node 22, under a second):
+
+```text
+Trained HolE (dims 64, 500 epochs) on 39 triples: 24 entities, 4 relations.
+3 citizenOf facts were held out of training. Predicting them:
+
+(Tim, citizenOf, ?)  held-out answer: UK, rank 1 of 24
+  1. UK           3.34  <- held out
+  2. Ada          2.68
+  3. Alan         2.54
+
+(Simone, citizenOf, ?)  held-out answer: France, rank 1 of 24
+  1. France       3.35  <- held out
+  2. German       2.70
+  3. Manchester   1.49
+
+(Max, citizenOf, ?)  held-out answer: Germany, rank 1 of 24
+  1. Germany      3.58  <- held out
+  2. English      1.63
+  3. Lyon         1.05
+```
+
+Each held-out answer ranks first. To use it from code, `npm install @ruvector/kge` and see its [README](https://www.npmjs.com/package/@ruvector/kge).
+
 ## Coding hooks and harnesses
 
 [Hooks reference](https://github.com/ruvnet/RuVector/blob/main/npm/packages/ruvector/HOOKS.md) covers setup, generated configuration, and workflow integration.
