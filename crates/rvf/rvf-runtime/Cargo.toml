@@ -1,6 +1,6 @@
 [package]
 name = "rvf-runtime"
-version = "0.5.3"
+version = "0.5.4"
 edition = "2021"
 description = "RuVector Format runtime -- RvfStore API, compaction, and streaming I/O"
 license = "MIT OR Apache-2.0"

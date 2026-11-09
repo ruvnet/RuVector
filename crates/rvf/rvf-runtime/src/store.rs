@@ -42,15 +42,22 @@ use crate::read_path::{self, VectorData};
 use crate::status::{CompactionState, StoreStatus};
 use crate::write_path::{self, SegmentWriter};
 
+mod custom_segments;
 mod dir_growth;
 mod filtered_query;
 #[cfg(test)]
 mod filtered_query_tests;
+mod lineage;
 mod policy_api;
 mod security;
 mod stream_support;
 
+pub use custom_segments::{
+    CustomRecord, CustomSegmentType, CUSTOM_SEGMENT_TYPE_MAX, CUSTOM_SEGMENT_TYPE_MIN,
+    MAX_CUSTOM_SEGMENT_KEY_LEN, MAX_CUSTOM_SEGMENT_VALUE_LEN,
+};
 use filtered_query::FilterScan;
+pub use lineage::{LINEAGE_SEG_TYPE, MAX_MERGE_PARENTS};
 pub use security::security_error_code;
 use security::SecurityState;
 
@@ -3246,24 +3253,53 @@ impl RvfStore {
     /// Creates a new RVF file at `child_path` that records this store as its
     /// parent. The child gets a new file_id, inherits dimensions and options,
     /// and records the parent's manifest hash for provenance verification.
+    ///
+    /// `derivation_type` is recorded in the child: a lineage record segment
+    /// (readable with [`RvfStore::derivation_type`] and
+    /// [`RvfStore::lineage_records`]) plus a `WITNESS_DERIVATION` witness
+    /// entry whose action hash is the SHAKE-256 of that record (#1289).
+    /// Recording is all it does: the child starts empty for every type, as
+    /// before; [`RvfStore::branch`] is the copy-on-write path.
+    ///
+    /// `DerivationType::Merge` needs more than one parent and is rejected
+    /// here with `LineageBroken`; use [`RvfStore::merge`].
     pub fn derive(
         &self,
         child_path: &Path,
-        _derivation_type: rvf_types::DerivationType,
+        derivation_type: rvf_types::DerivationType,
         child_options: Option<RvfOptions>,
     ) -> Result<Self, RvfError> {
-        let opts = child_options.unwrap_or_else(|| self.options.clone());
-
-        let child_file_id = generate_file_id(child_path);
-
-        // Compute parent manifest hash from the file on disk
+        if derivation_type == rvf_types::DerivationType::Merge {
+            return Err(err(ErrorCode::LineageBroken));
+        }
         let parent_hash = self.compute_own_manifest_hash()?;
-
         let new_depth = self
             .file_identity
             .lineage_depth
             .checked_add(1)
             .ok_or_else(|| err(ErrorCode::LineageBroken))?;
+        let mut store = self.derive_child(child_path, parent_hash, new_depth, child_options)?;
+        store.record_lineage(
+            derivation_type,
+            &[(self.file_identity.file_id, parent_hash)],
+        )?;
+        store.write_manifest()?;
+        Ok(store)
+    }
+
+    /// Build an empty, unwritten child of this store whose `FileIdentity`
+    /// names this store as (first) parent. The caller records lineage and
+    /// writes the first manifest.
+    pub(super) fn derive_child(
+        &self,
+        child_path: &Path,
+        parent_hash: [u8; 32],
+        new_depth: u32,
+        child_options: Option<RvfOptions>,
+    ) -> Result<Self, RvfError> {
+        let opts = child_options.unwrap_or_else(|| self.options.clone());
+
+        let child_file_id = generate_file_id(child_path);
 
         let child_identity = FileIdentity {
             file_id: child_file_id,
@@ -3291,7 +3327,7 @@ impl RvfStore {
         let mut child_opts = opts;
         child_opts.domain_profile = domain_profile;
 
-        let mut store = Self {
+        let store = Self {
             path: child_path.to_path_buf(),
             options: child_opts,
             file,
@@ -3332,12 +3368,11 @@ impl RvfStore {
             security: SecurityState::permissive(),
         };
 
-        store.write_manifest()?;
         Ok(store)
     }
 
     /// Compute a hash of this file's content for use as parent_hash in derivation.
-    fn compute_own_manifest_hash(&self) -> Result<[u8; 32], RvfError> {
+    pub(super) fn compute_own_manifest_hash(&self) -> Result<[u8; 32], RvfError> {
         use std::io::Read;
         let file_len = self
             .file

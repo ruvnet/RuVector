@@ -78,7 +78,10 @@ pub use seed_crypto::{
 #[cfg(feature = "ed25519")]
 pub use seed_crypto::{sign_seed_ed25519, verify_seed_ed25519, SIG_ALGO_ED25519};
 pub use status::StoreStatus;
-pub use store::RvfStore;
+pub use store::{
+    CustomRecord, CustomSegmentType, RvfStore, CUSTOM_SEGMENT_TYPE_MAX, CUSTOM_SEGMENT_TYPE_MIN,
+    LINEAGE_SEG_TYPE, MAX_CUSTOM_SEGMENT_KEY_LEN, MAX_CUSTOM_SEGMENT_VALUE_LEN, MAX_MERGE_PARENTS,
+};
 pub use witness::{
     GovernancePolicy, ParsedWitness, ScorecardBuilder, WitnessBuilder, WitnessError,
 };
