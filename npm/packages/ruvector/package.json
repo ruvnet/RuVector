@@ -69,8 +69,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "@ruvector/attention": "^2.2.3",
-    "@ruvector/core": "^0.1.25",
+    "@ruvector/attention": "^2.3.0",
+    "@ruvector/core": "^0.1.36",
     "@ruvector/gnn": "^0.1.22",
     "@ruvector/sona": "^0.1.11",
     "chalk": "^4.1.2",
@@ -89,7 +89,7 @@
     "@ruvector/mincut-wasm": "^2.3.0",
     "@ruvector/rabitq-wasm": "^0.1.1",
     "@ruvector/ruqu-wasm": "^2.1.0",
-    "@ruvector/rvf": "^0.4.2",
+    "@ruvector/rvf": "^0.4.7",
     "@ruvector/tiny-dancer": "^0.1.22",
     "metaharness": "^0.4.20"
   },
