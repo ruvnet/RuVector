@@ -22,6 +22,11 @@ pub struct ExtractedKernel {
     pub header: KernelHeader,
     /// The kernel command line string.
     pub cmdline: String,
+    /// True when the file ends in a signed Level-0 root page but was opened
+    /// without signature verification (`open_readonly` is `Permissive`): the
+    /// kernel was NOT authenticated. Callers that execute it must verify the
+    /// file first (`RvfStore::open_with_policy`) or refuse.
+    pub signature_unverified: bool,
     /// Temp directory holding the extracted files (kept alive via ownership).
     _tempdir: tempfile::TempDir,
 }
@@ -107,11 +112,21 @@ pub fn extract_kernel(rvf_path: &Path) -> Result<ExtractedKernel, LaunchError> {
     // the standard Linux trailer magic (0x6d65736800000000).
     let initramfs_path = None;
 
+    let signature_unverified = store.has_signed_root_page();
+    if signature_unverified {
+        eprintln!(
+            "rvf-launch: WARNING: {} carries a signed root page but was opened without \
+             signature verification; the extracted kernel is NOT authenticated",
+            rvf_path.display()
+        );
+    }
+
     Ok(ExtractedKernel {
         kernel_path: kernel_file_path,
         initramfs_path,
         header,
         cmdline,
+        signature_unverified,
         _tempdir: tempdir,
     })
 }

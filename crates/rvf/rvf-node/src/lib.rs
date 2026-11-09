@@ -6,7 +6,7 @@
 extern crate napi_derive;
 
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Arc, RwLock};
 
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
@@ -15,10 +15,20 @@ use serde_json::Value as JsonValue;
 use rvf_runtime::filter::{FilterExpr as RustFilterExpr, FilterValue as RustFilterValue};
 use rvf_runtime::options::{
     DistanceMetric, MetadataEntry as RustMetadataEntry, MetadataValue as RustMetadataValue,
-    QueryOptions as RustQueryOptions, RvfOptions as RustRvfOptions,
+    RvfOptions as RustRvfOptions,
 };
 use rvf_runtime::RvfStore;
 use rvf_types::RvfError;
+
+mod metadata;
+mod tasks;
+
+pub use metadata::RvfVectorMetadata;
+
+use tasks::{
+    run_compact, run_delete, run_ingest, run_query, with_store, with_store_mut, CompactTask,
+    DeleteTask, IngestTask, QueryTask,
+};
 
 // ── Error mapping ────────────────────────────────────────────────────
 
@@ -39,6 +49,8 @@ fn map_rvf_err(e: RvfError) -> napi::Error {
         RvfError::QualityBelowThreshold { quality, reason } => {
             format!("Quality below threshold ({quality:?}): {reason}")
         }
+        // `RvfError` is `#[non_exhaustive]`.
+        other => format!("RVF error: {other}"),
     };
     napi::Error::from_reason(msg)
 }
@@ -81,6 +93,14 @@ pub struct RvfQueryOptions {
     pub filter: Option<String>,
     /// Query timeout in milliseconds. 0 = no timeout.
     pub timeout_ms: Option<u32>,
+    /// Opt in to the RaBitQ two-stage path (1-bit candidate scan + exact
+    /// rescore; L2, cosine and inner product). Defaults to false.
+    pub rabitq: Option<bool>,
+    /// Force the exact brute-force scan (no HNSW), so filtered and
+    /// unfiltered results are exact. Defaults to false: a filtered query
+    /// whose filter keeps a large share of the store is served by the
+    /// predicate-aware HNSW walk and is approximate, like an unfiltered one.
+    pub force_exact: Option<bool>,
 }
 
 /// A single search result returned from a query.
@@ -90,6 +110,8 @@ pub struct RvfSearchResult {
     pub id: i64,
     /// Distance from the query vector (lower = more similar).
     pub distance: f64,
+    /// The vector's committed metadata record, or `undefined` when it has none.
+    pub metadata: Option<Vec<RvfMetadataEntry>>,
 }
 
 /// Result of a batch ingest operation.
@@ -149,7 +171,8 @@ pub struct RvfCompactionResult {
 pub struct RvfMetadataEntry {
     /// Metadata field identifier.
     pub field_id: u32,
-    /// Value type: "u64" | "i64" | "f64" | "string".
+    /// Value type: "u64" | "i64" | "f64" | "string" | "bool" | "null" |
+    /// "bytes" (hex-encoded).| "i64" | "f64" | "string".
     pub value_type: String,
     /// The value as a string representation (parsed based on value_type).
     pub value: String,
@@ -343,6 +366,18 @@ fn parse_metadata_entry(e: &RvfMetadataEntry) -> Result<RustMetadataEntry> {
             .map(RustMetadataValue::F64)
             .map_err(|_| napi::Error::from_reason(format!("Cannot parse '{}' as f64", e.value)))?,
         "string" => RustMetadataValue::String(e.value.clone()),
+        "bool" => match e.value.as_str() {
+            "true" => RustMetadataValue::Bool(true),
+            "false" => RustMetadataValue::Bool(false),
+            _ => {
+                return Err(napi::Error::from_reason(format!(
+                    "Cannot parse '{}' as bool",
+                    e.value
+                )))
+            }
+        },
+        "null" => RustMetadataValue::Null,
+        "bytes" => RustMetadataValue::Bytes(metadata::hex_decode(&e.value)?),
         other => {
             return Err(napi::Error::from_reason(format!(
                 "Unknown metadata value_type '{other}'"
@@ -351,7 +386,9 @@ fn parse_metadata_entry(e: &RvfMetadataEntry) -> Result<RustMetadataEntry> {
     };
 
     Ok(RustMetadataEntry {
-        field_id: e.field_id as u16,
+        field_id: u16::try_from(e.field_id).map_err(|_| {
+            napi::Error::from_reason(format!("metadata fieldId {} exceeds 65535", e.field_id))
+        })?,
         value,
     })
 }
@@ -430,11 +467,12 @@ pub struct RvfQuantConfig {
 
 /// The main RVF database handle exposed to Node.js.
 ///
-/// All mutating methods acquire an internal mutex so the handle is safe
-/// to share across async operations (though RVF itself is single-writer).
+/// The store sits behind an `Arc<RwLock>` shared with queued `*Async`
+/// tasks: queries and status reads take the read lock, mutations take the
+/// write lock (RVF itself is single-writer).
 #[napi]
 pub struct RvfDatabase {
-    inner: Mutex<Option<RvfStore>>,
+    inner: Arc<RwLock<Option<RvfStore>>>,
 }
 
 #[napi]
@@ -445,7 +483,7 @@ impl RvfDatabase {
         let rust_opts = js_options_to_rust(&options)?;
         let store = RvfStore::create(Path::new(&path), rust_opts).map_err(map_rvf_err)?;
         Ok(Self {
-            inner: Mutex::new(Some(store)),
+            inner: Arc::new(RwLock::new(Some(store))),
         })
     }
 
@@ -454,7 +492,7 @@ impl RvfDatabase {
     pub fn open(path: String) -> Result<Self> {
         let store = RvfStore::open(Path::new(&path)).map_err(map_rvf_err)?;
         Ok(Self {
-            inner: Mutex::new(Some(store)),
+            inner: Arc::new(RwLock::new(Some(store))),
         })
     }
 
@@ -463,7 +501,7 @@ impl RvfDatabase {
     pub fn open_readonly(path: String) -> Result<Self> {
         let store = RvfStore::open_readonly(Path::new(&path)).map_err(map_rvf_err)?;
         Ok(Self {
-            inner: Mutex::new(Some(store)),
+            inner: Arc::new(RwLock::new(Some(store))),
         })
     }
 
@@ -479,54 +517,25 @@ impl RvfDatabase {
         ids: Vec<i64>,
         metadata: Option<Vec<RvfMetadataEntry>>,
     ) -> Result<RvfIngestResult> {
-        let mut guard = self
-            .inner
-            .lock()
-            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
-        let store = guard
-            .as_mut()
-            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        with_store_mut(&self.inner, |s| {
+            run_ingest(s, &vectors, &ids, metadata.as_deref())
+        })
+    }
 
-        let n = ids.len();
-        if n == 0 {
-            return Ok(RvfIngestResult {
-                accepted: 0,
-                rejected: 0,
-                epoch: 0,
-            });
-        }
-
-        let vec_data: &[f32] = &vectors;
-        let total_floats = vec_data.len();
-        if !total_floats.is_multiple_of(n) {
-            return Err(napi::Error::from_reason(format!(
-                "vectors length ({total_floats}) must be divisible by ids length ({n})"
-            )));
-        }
-        let dim = total_floats / n;
-
-        let vec_slices: Vec<&[f32]> = (0..n).map(|i| &vec_data[i * dim..(i + 1) * dim]).collect();
-        let rust_ids: Vec<u64> = ids.iter().map(|&id| id as u64).collect();
-
-        let rust_metadata: Option<Vec<RustMetadataEntry>> = match metadata {
-            Some(entries) => {
-                let parsed: Vec<RustMetadataEntry> = entries
-                    .iter()
-                    .map(parse_metadata_entry)
-                    .collect::<Result<_>>()?;
-                Some(parsed)
-            }
-            None => None,
-        };
-
-        let result = store
-            .ingest_batch(&vec_slices, &rust_ids, rust_metadata.as_deref())
-            .map_err(map_rvf_err)?;
-
-        Ok(RvfIngestResult {
-            accepted: result.accepted as i64,
-            rejected: result.rejected as i64,
-            epoch: result.epoch,
+    /// `ingestBatch` on the libuv threadpool. Takes the store's write lock;
+    /// resolves with the same result, rejects on any error.
+    #[napi(ts_return_type = "Promise<RvfIngestResult>")]
+    pub fn ingest_batch_async(
+        &self,
+        vectors: Float32Array,
+        ids: Vec<i64>,
+        metadata: Option<Vec<RvfMetadataEntry>>,
+    ) -> AsyncTask<IngestTask> {
+        AsyncTask::new(IngestTask {
+            inner: Arc::clone(&self.inner),
+            vectors: vectors.to_vec(),
+            ids,
+            metadata,
         })
     }
 
@@ -549,60 +558,97 @@ impl RvfDatabase {
         k: u32,
         options: Option<RvfQueryOptions>,
     ) -> Result<Vec<RvfSearchResult>> {
-        let guard = self
-            .inner
-            .lock()
-            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
-        let store = guard
-            .as_ref()
-            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        with_store(&self.inner, |s| run_query(s, &vector, k, options.as_ref()))
+    }
 
-        let rust_opts = match options {
-            Some(ref opts) => {
-                let filter = match &opts.filter {
-                    Some(json_str) => Some(parse_filter_json(json_str)?),
-                    None => None,
-                };
-                RustQueryOptions {
-                    ef_search: opts.ef_search.unwrap_or(100) as u16,
-                    filter,
-                    timeout_ms: opts.timeout_ms.unwrap_or(0),
-                    ..RustQueryOptions::default()
-                }
-            }
-            None => RustQueryOptions::default(),
-        };
+    /// `query` on the libuv threadpool. Takes the store's read lock, so
+    /// concurrent `queryAsync` calls run in parallel (bounded by
+    /// `UV_THREADPOOL_SIZE`). Resolves with the same results as `query`;
+    /// rejects on any error, including invalid filter JSON.
+    #[napi(ts_return_type = "Promise<RvfSearchResult[]>")]
+    pub fn query_async(
+        &self,
+        vector: Float32Array,
+        k: u32,
+        options: Option<RvfQueryOptions>,
+    ) -> AsyncTask<QueryTask> {
+        AsyncTask::new(QueryTask {
+            inner: Arc::clone(&self.inner),
+            vector: vector.to_vec(),
+            k,
+            options,
+        })
+    }
 
-        let results = store
-            .query(&vector, k as usize, &rust_opts)
-            .map_err(map_rvf_err)?;
+    /// Ingest a batch of vectors together with per-vector metadata records.
+    ///
+    /// Each record names its vector by `id`; vectors without a record get
+    /// none. Records are committed with the batch and survive close/reopen.
+    #[napi]
+    pub fn ingest_batch_with_metadata(
+        &self,
+        vectors: Float32Array,
+        ids: Vec<i64>,
+        records: Vec<RvfVectorMetadata>,
+    ) -> Result<RvfIngestResult> {
+        with_store_mut(&self.inner, |s| {
+            metadata::run_ingest_with_metadata(s, &vectors, &ids, &records)
+        })
+    }
 
-        Ok(results
-            .into_iter()
-            .map(|r| RvfSearchResult {
-                id: r.id as i64,
-                distance: r.distance as f64,
-            })
-            .collect())
+    /// `ingestBatchWithMetadata` on the libuv threadpool.
+    #[napi(ts_return_type = "Promise<RvfIngestResult>")]
+    pub fn ingest_batch_with_metadata_async(
+        &self,
+        vectors: Float32Array,
+        ids: Vec<i64>,
+        records: Vec<RvfVectorMetadata>,
+    ) -> AsyncTask<metadata::IngestWithMetadataTask> {
+        AsyncTask::new(metadata::IngestWithMetadataTask {
+            inner: Arc::clone(&self.inner),
+            vectors: vectors.to_vec(),
+            ids,
+            records,
+        })
+    }
+
+    /// Return one vector's committed metadata record, or `null` when the
+    /// vector has no record.
+    #[napi]
+    pub fn get_metadata(&self, id: i64) -> Result<Option<Vec<RvfMetadataEntry>>> {
+        with_store(&self.inner, |s| Ok(metadata::record_to_js(s, id as u64)))
+    }
+
+    /// Return a file-level metadata value as a string, or `null` if unset.
+    #[napi]
+    pub fn get_file_metadata(&self, key: String) -> Result<Option<String>> {
+        with_store(&self.inner, |s| {
+            Ok(s.get_file_metadata(&key).map(metadata::file_value_to_js))
+        })
+    }
+
+    /// Durably set a file-level string metadata value. Keys starting with
+    /// `rvf.` are reserved for the runtime.
+    #[napi]
+    pub fn set_file_metadata(&self, key: String, value: String) -> Result<()> {
+        with_store_mut(&self.inner, |s| {
+            s.set_file_metadata(key, RustMetadataValue::String(value))
+                .map_err(map_rvf_err)
+        })
     }
 
     /// Soft-delete vectors by ID.
     #[napi]
     pub fn delete(&self, ids: Vec<i64>) -> Result<RvfDeleteResult> {
-        let mut guard = self
-            .inner
-            .lock()
-            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
-        let store = guard
-            .as_mut()
-            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        with_store_mut(&self.inner, |s| run_delete(s, &ids))
+    }
 
-        let rust_ids: Vec<u64> = ids.iter().map(|&id| id as u64).collect();
-        let result = store.delete(&rust_ids).map_err(map_rvf_err)?;
-
-        Ok(RvfDeleteResult {
-            deleted: result.deleted as i64,
-            epoch: result.epoch,
+    /// `delete` on the libuv threadpool (write lock).
+    #[napi(ts_return_type = "Promise<RvfDeleteResult>")]
+    pub fn delete_async(&self, ids: Vec<i64>) -> AsyncTask<DeleteTask> {
+        AsyncTask::new(DeleteTask {
+            inner: Arc::clone(&self.inner),
+            ids,
         })
     }
 
@@ -611,40 +657,29 @@ impl RvfDatabase {
     /// See `query()` for the filter expression JSON format.
     #[napi]
     pub fn delete_by_filter(&self, filter_json: String) -> Result<RvfDeleteResult> {
-        let mut guard = self
-            .inner
-            .lock()
-            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
-        let store = guard
-            .as_mut()
-            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
-
-        let rust_filter = parse_filter_json(&filter_json)?;
-        let result = store.delete_by_filter(&rust_filter).map_err(map_rvf_err)?;
-
-        Ok(RvfDeleteResult {
-            deleted: result.deleted as i64,
-            epoch: result.epoch,
+        with_store_mut(&self.inner, |store| {
+            let rust_filter = parse_filter_json(&filter_json)?;
+            let result = store.delete_by_filter(&rust_filter).map_err(map_rvf_err)?;
+            Ok(RvfDeleteResult {
+                deleted: result.deleted as i64,
+                epoch: result.epoch,
+            })
         })
     }
 
     /// Run compaction to reclaim dead space from deleted vectors.
     #[napi]
     pub fn compact(&self) -> Result<RvfCompactionResult> {
-        let mut guard = self
-            .inner
-            .lock()
-            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
-        let store = guard
-            .as_mut()
-            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        with_store_mut(&self.inner, run_compact)
+    }
 
-        let result = store.compact().map_err(map_rvf_err)?;
-
-        Ok(RvfCompactionResult {
-            segments_compacted: result.segments_compacted,
-            bytes_reclaimed: result.bytes_reclaimed as i64,
-            epoch: result.epoch,
+    /// `compact` on the libuv threadpool (write lock): the event loop keeps
+    /// running while the file is rewritten; queries queued meanwhile wait
+    /// for the lock instead of blocking the loop.
+    #[napi(ts_return_type = "Promise<RvfCompactionResult>")]
+    pub fn compact_async(&self) -> AsyncTask<CompactTask> {
+        AsyncTask::new(CompactTask {
+            inner: Arc::clone(&self.inner),
         })
     }
 
@@ -653,7 +688,7 @@ impl RvfDatabase {
     pub fn status(&self) -> Result<RvfStatus> {
         let guard = self
             .inner
-            .lock()
+            .read()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .as_ref()
@@ -685,7 +720,7 @@ impl RvfDatabase {
     pub fn close(&self) -> Result<()> {
         let mut guard = self
             .inner
-            .lock()
+            .write()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .take()
@@ -701,7 +736,7 @@ impl RvfDatabase {
     pub fn file_id(&self) -> Result<String> {
         let guard = self
             .inner
-            .lock()
+            .read()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .as_ref()
@@ -714,7 +749,7 @@ impl RvfDatabase {
     pub fn parent_id(&self) -> Result<String> {
         let guard = self
             .inner
-            .lock()
+            .read()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .as_ref()
@@ -727,7 +762,7 @@ impl RvfDatabase {
     pub fn lineage_depth(&self) -> Result<u32> {
         let guard = self
             .inner
-            .lock()
+            .read()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .as_ref()
@@ -740,7 +775,7 @@ impl RvfDatabase {
     pub fn derive(&self, child_path: String, options: Option<RvfOptions>) -> Result<RvfDatabase> {
         let guard = self
             .inner
-            .lock()
+            .read()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .as_ref()
@@ -760,7 +795,7 @@ impl RvfDatabase {
             .map_err(map_rvf_err)?;
 
         Ok(RvfDatabase {
-            inner: Mutex::new(Some(child_store)),
+            inner: Arc::new(RwLock::new(Some(child_store))),
         })
     }
 
@@ -781,7 +816,7 @@ impl RvfDatabase {
     pub fn branch(&self, child_path: String) -> Result<RvfDatabase> {
         let guard = self
             .inner
-            .lock()
+            .read()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .as_ref()
@@ -790,7 +825,7 @@ impl RvfDatabase {
         let child_store = store.branch(Path::new(&child_path)).map_err(map_rvf_err)?;
 
         Ok(RvfDatabase {
-            inner: Mutex::new(Some(child_store)),
+            inner: Arc::new(RwLock::new(Some(child_store))),
         })
     }
 
@@ -810,7 +845,7 @@ impl RvfDatabase {
     ) -> Result<i64> {
         let mut guard = self
             .inner
-            .lock()
+            .write()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .as_mut()
@@ -836,7 +871,7 @@ impl RvfDatabase {
     pub fn extract_kernel(&self) -> Result<Option<RvfKernelData>> {
         let guard = self
             .inner
-            .lock()
+            .read()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .as_ref()
@@ -864,7 +899,7 @@ impl RvfDatabase {
     ) -> Result<i64> {
         let mut guard = self
             .inner
-            .lock()
+            .write()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .as_mut()
@@ -890,7 +925,7 @@ impl RvfDatabase {
     pub fn extract_ebpf(&self) -> Result<Option<RvfEbpfData>> {
         let guard = self
             .inner
-            .lock()
+            .read()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .as_ref()
@@ -912,7 +947,7 @@ impl RvfDatabase {
     pub fn segments(&self) -> Result<Vec<RvfSegmentInfo>> {
         let guard = self
             .inner
-            .lock()
+            .read()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .as_ref()
@@ -935,7 +970,7 @@ impl RvfDatabase {
     pub fn dimension(&self) -> Result<u32> {
         let guard = self
             .inner
-            .lock()
+            .read()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .as_ref()
@@ -950,7 +985,7 @@ impl RvfDatabase {
     pub fn index_stats(&self) -> Result<RvfIndexStats> {
         let guard = self
             .inner
-            .lock()
+            .read()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .as_ref()
@@ -976,7 +1011,7 @@ impl RvfDatabase {
     pub fn verify_witness(&self) -> Result<RvfWitnessResult> {
         let guard = self
             .inner
-            .lock()
+            .read()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .as_ref()
@@ -1019,7 +1054,7 @@ impl RvfDatabase {
     pub fn freeze(&self) -> Result<u32> {
         let mut guard = self
             .inner
-            .lock()
+            .write()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .as_mut()
@@ -1035,7 +1070,7 @@ impl RvfDatabase {
     pub fn metric(&self) -> Result<String> {
         let guard = self
             .inner
-            .lock()
+            .read()
             .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
         let store = guard
             .as_ref()

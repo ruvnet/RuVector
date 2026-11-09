@@ -31,6 +31,32 @@ impl RoPEConfig {
     pub fn builder() -> RoPEConfigBuilder {
         RoPEConfigBuilder::default()
     }
+
+    /// Checks that the configuration can be used to build a [`GraphRoPE`].
+    pub fn validate(&self) -> AttentionResult<()> {
+        if self.dim == 0 || self.dim % 2 != 0 {
+            return Err(AttentionError::InvalidConfig(format!(
+                "RoPE dimension must be a positive even number, got {}",
+                self.dim
+            )));
+        }
+        if self.max_position == 0 {
+            return Err(AttentionError::InvalidConfig(
+                "RoPE max_position must be greater than zero".to_string(),
+            ));
+        }
+        if !(self.base.is_finite() && self.base > 0.0) {
+            return Err(AttentionError::InvalidConfig(
+                "RoPE base must be a positive finite number".to_string(),
+            ));
+        }
+        if !(self.scaling_factor.is_finite() && self.scaling_factor > 0.0) {
+            return Err(AttentionError::InvalidConfig(
+                "RoPE scaling_factor must be a positive finite number".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Default)]
@@ -74,6 +100,12 @@ pub struct GraphRoPE {
 }
 
 impl GraphRoPE {
+    /// Creates the layer, returning an error for an invalid configuration.
+    pub fn try_new(config: RoPEConfig) -> AttentionResult<Self> {
+        config.validate()?;
+        Ok(Self::new(config))
+    }
+
     pub fn new(config: RoPEConfig) -> Self {
         let dim = config.dim;
         let max_pos = config.max_position;
@@ -113,8 +145,28 @@ impl GraphRoPE {
         }
     }
 
-    /// Apply rotary embedding to a vector at given position
+    /// Apply rotary embedding to a vector at given position.
+    ///
+    /// Returns the input unchanged when it cannot be rotated (wrong length or an
+    /// invalid configuration); use [`GraphRoPE::try_apply_rotary`] to get an error.
     pub fn apply_rotary(&self, x: &[f32], position: usize) -> Vec<f32> {
+        self.try_apply_rotary(x, position)
+            .unwrap_or_else(|_| x.to_vec())
+    }
+
+    /// Apply rotary embedding to a vector at given position, checking lengths.
+    pub fn try_apply_rotary(&self, x: &[f32], position: usize) -> AttentionResult<Vec<f32>> {
+        self.config.validate()?;
+        if x.len() != self.config.dim {
+            return Err(AttentionError::DimensionMismatch {
+                expected: self.config.dim,
+                actual: x.len(),
+            });
+        }
+        Ok(self.rotate(x, position))
+    }
+
+    fn rotate(&self, x: &[f32], position: usize) -> Vec<f32> {
         let dim = self.config.dim;
         let half = dim / 2;
         let pos = position.min(self.config.max_position - 1);
@@ -156,16 +208,29 @@ impl GraphRoPE {
                 actual: query.len(),
             });
         }
+        self.config.validate()?;
+        if keys.len() != values.len() {
+            return Err(AttentionError::DimensionMismatch {
+                expected: keys.len(),
+                actual: values.len(),
+            });
+        }
+        if let Some(key) = keys.iter().find(|k| k.len() != self.config.dim) {
+            return Err(AttentionError::DimensionMismatch {
+                expected: self.config.dim,
+                actual: key.len(),
+            });
+        }
 
         // Apply rotary to query
-        let q_rot = self.apply_rotary(query, query_pos);
+        let q_rot = self.rotate(query, query_pos);
 
         // Compute attention scores with rotary keys
         let scores: Vec<f32> = keys
             .iter()
             .zip(key_positions.iter())
             .map(|(key, &pos)| {
-                let k_rot = self.apply_rotary(key, pos);
+                let k_rot = self.rotate(key, pos);
                 q_rot
                     .iter()
                     .zip(k_rot.iter())
@@ -198,7 +263,7 @@ impl GraphRoPE {
             distance
         } else {
             let log_dist = (distance as f32).log2().ceil() as usize;
-            8 + log_dist.min(max_distance - 8)
+            8 + log_dist.min(max_distance.saturating_sub(8))
         }
     }
 }
@@ -224,6 +289,12 @@ impl Attention for GraphRoPE {
         mask: Option<&[bool]>,
     ) -> AttentionResult<Vec<f32>> {
         if let Some(m) = mask {
+            if m.len() != keys.len() || keys.len() != values.len() {
+                return Err(AttentionError::InvalidMask {
+                    expected: format!("{} entries", keys.len()),
+                    actual: format!("{} entries", m.len()),
+                });
+            }
             let filtered: Vec<(usize, bool)> = m
                 .iter()
                 .copied()
@@ -246,6 +317,57 @@ impl Attention for GraphRoPE {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_invalid_config_is_an_error() {
+        assert!(GraphRoPE::try_new(RoPEConfig {
+            max_position: 0,
+            ..RoPEConfig::default()
+        })
+        .is_err());
+        assert!(GraphRoPE::try_new(RoPEConfig {
+            dim: 7,
+            max_position: 8,
+            ..RoPEConfig::default()
+        })
+        .is_err());
+
+        // Built unchecked, an invalid layer must still not panic.
+        let rope = GraphRoPE::new(RoPEConfig {
+            dim: 4,
+            max_position: 0,
+            ..RoPEConfig::default()
+        });
+        let v = vec![1.0_f32; 4];
+        assert!(rope.try_apply_rotary(&v, 3).is_err());
+        assert_eq!(rope.apply_rotary(&v, 3), v);
+        assert!(rope.compute(&v, &[v.as_slice()], &[v.as_slice()]).is_err());
+    }
+
+    #[test]
+    fn test_short_vectors_are_an_error() {
+        let rope = GraphRoPE::try_new(RoPEConfig {
+            dim: 8,
+            max_position: 16,
+            ..RoPEConfig::default()
+        })
+        .unwrap();
+        let full = vec![1.0_f32; 8];
+        let short = vec![1.0_f32; 3];
+        assert!(rope.try_apply_rotary(&short, 1).is_err());
+        assert!(rope
+            .compute(&full, &[short.as_slice()], &[full.as_slice()])
+            .is_err());
+        assert!(rope
+            .compute_with_mask(
+                &full,
+                &[full.as_slice()],
+                &[full.as_slice()],
+                Some(&[true, true])
+            )
+            .is_err());
+        assert_eq!(GraphRoPE::distance_to_position(100, 4), 8);
+    }
 
     #[test]
     fn test_rope_basic() {

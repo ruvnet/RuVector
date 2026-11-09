@@ -27,7 +27,7 @@ npm install ruvector-extensions express ws
 
 ```typescript
 import { RuvectorCore } from 'ruvector-core';
-import { startUIServer } from 'ruvector-extensions/ui-server';
+import { startUIServer } from 'ruvector-extensions';
 
 // Initialize database
 const db = new RuvectorCore({ dimension: 384 });
@@ -41,6 +41,8 @@ const server = await startUIServer(db, 3000);
 
 // Open browser at http://localhost:3000
 ```
+
+> **Database contract:** `UIServer` / `startUIServer(db, port, host = '127.0.0.1')` accept any object and call `db.add(id, embedding, metadata)`, `db.get(id)`, `db.list()`, `db.query(vector, { topK })` and `db.getStats()`. The `RuvectorCore` class shown above is illustrative — it is not exported by `ruvector-core`, and the `VectorDB` in `ruvector` 0.2.x uses a different method set (`insert`, `search`, `get`, ...), so you need an adapter object exposing the methods above. The server binds to loopback by default because its API is unauthenticated and includes a write endpoint (`POST /api/nodes`).
 
 ### Run Example
 
@@ -191,7 +193,7 @@ this.simulation
 ### Custom Server
 
 ```typescript
-import { UIServer } from 'ruvector-extensions/ui-server';
+import { UIServer } from 'ruvector-extensions';
 
 const server = new UIServer(db, 3000);
 
@@ -257,9 +259,8 @@ label.style('display', d => zoom.scale() > 1.5 ? 'block' : 'none');
 
 ## 📚 Documentation
 
-- [UI Guide](./docs/UI_GUIDE.md) - Complete documentation
-- [API Reference](./docs/API.md) - REST and WebSocket API
-- [Examples](./src/examples/) - Usage examples
+- [UI Guide](https://github.com/ruvnet/ruvector/blob/main/npm/packages/ruvector-extensions/docs/UI_GUIDE.md) - Complete documentation
+- [Examples](https://github.com/ruvnet/ruvector/tree/main/npm/packages/ruvector-extensions/src/examples) - Usage examples
 
 ## 🐛 Troubleshooting
 
@@ -301,7 +302,7 @@ Contributions welcome! Please:
 
 ## 📜 License
 
-MIT License - see [LICENSE](../../LICENSE) file
+MIT License - see [LICENSE](https://github.com/ruvnet/ruvector/blob/main/LICENSE) file
 
 ## 🙏 Acknowledgments
 

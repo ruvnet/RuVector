@@ -181,6 +181,8 @@ pub use backends::{
 };
 #[cfg(feature = "async-runtime")]
 pub use backends::{AsyncTokenStream, LlmBackendAsync};
+#[cfg(feature = "async-runtime")]
+pub use claude_flow::ResponseStreamer;
 pub use claude_flow::{
     AgentContext,
     AgentCoordinator,
@@ -237,7 +239,6 @@ pub use claude_flow::{
     PreTaskResult,
     QualityAssessment,
     QualityMonitor,
-    ResponseStreamer,
     RoutingDecision as AgentRoutingDecision,
     SelectionCriteria,
     SelectorStats,

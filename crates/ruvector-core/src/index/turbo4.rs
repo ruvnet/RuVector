@@ -421,6 +421,10 @@ impl Turbo4HnswIndex {
         fetch: usize,
         ef: usize,
     ) -> Vec<SearchResult> {
+        // `fetch`/`ef` scale with the caller's `k`; hnsw_rs sizes buffers from them, so cap at the graph's node count.
+        let nodes = inner.next_idx.max(1);
+        let fetch = fetch.min(nodes);
+        let ef = ef.min(nodes).max(fetch);
         let neighbors = inner.hnsw.search(traversal_blob, fetch, ef);
         let mut results: Vec<SearchResult> = neighbors
             .into_iter()

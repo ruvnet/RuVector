@@ -1,6 +1,6 @@
 [package]
 name = "rvf-cli"
-version = "0.1.0"
+version = "0.4.0"
 edition = "2021"
 description = "Unified CLI for RuVector Format vector stores"
 license = "MIT OR Apache-2.0"
@@ -16,21 +16,24 @@ name = "rvf"
 path = "src/main.rs"
 
 [dependencies]
-rvf-runtime = { version = "0.3.1", path = "../rvf-runtime" }
-rvf-types = { version = "0.2.0", path = "../rvf-types", features = ["std"] }
-rvf-wire = { version = "0.1.0", path = "../rvf-wire" }
-rvf-manifest = { version = "0.1.0", path = "../rvf-manifest" }
-rvf-crypto = { version = "0.2.0", path = "../rvf-crypto" }
-rvf-server = { version = "0.1.0", path = "../rvf-server", optional = true }
+rvf-runtime = { version = "0.5.1", path = "../rvf-runtime" }
+rvf-types = { version = "0.3.0", path = "../rvf-types", features = ["std"] }
+rvf-wire = { version = "0.2.0", path = "../rvf-wire" }
+rvf-manifest = { version = "0.2.0", path = "../rvf-manifest" }
+rvf-crypto = { version = "0.3.0", path = "../rvf-crypto" }
+rvf-server = { version = "0.4.0", path = "../rvf-server", optional = true }
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
 
-rvf-launch = { version = "0.1.0", path = "../rvf-launch", optional = true }
+rvf-launch = { version = "0.3.0", path = "../rvf-launch", optional = true }
 ctrlc = { version = "3", optional = true }
 
 [features]
 default = []
 serve = ["dep:rvf-server", "dep:tokio"]
 launch = ["dep:rvf-launch", "dep:ctrlc"]
+
+[dev-dependencies]
+tempfile = "3"

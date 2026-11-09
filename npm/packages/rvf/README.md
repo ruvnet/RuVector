@@ -1,4 +1,10 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/rvf.svg" alt="@ruvector/rvf: Unified TypeScript SDK for the RuVector Format (RVF) cognitive container." width="100%"></p>
+
 # @ruvector/rvf
+
+<!-- weaver:seo:flow:start -->
+![@ruvector/rvf: vectors → RVF file → HNSW search → top-k results](https://raw.githubusercontent.com/ruvnet/ruvector/main/npm/packages/rvf/assets/ruvector-rvf-flow.svg)
+<!-- weaver:seo:flow:end -->
 
 Unified TypeScript/JavaScript SDK for the **RuVector Format (RVF)** — a cognitive container that stores vectors, carries models, boots compute kernels, and proves everything in a single `.rvf` file.
 
@@ -18,7 +24,7 @@ Unified TypeScript/JavaScript SDK for the **RuVector Format (RVF)** — a cognit
 
 **Deno**: The WASM build targets `wasm32-unknown-unknown`, which runs natively in Deno. Import via `npm:` specifier or load the `.wasm` bundle directly.
 
-**Browser**: The `@ruvector/rvf-wasm` package provides a ~46 KB control-plane WASM module plus a ~5.5 KB tile-compute module. Works in any browser with WebAssembly support.
+**Browser**: The `@ruvector/rvf-wasm` package provides a single ~40 KB WASM module (in-memory store plus tile query kernels). Works in any browser with WebAssembly support.
 
 ## Install
 
@@ -34,56 +40,53 @@ npm install @ruvector/rvf-wasm
 
 ### Node.js
 
+All `RvfDatabase` methods are async and return Promises.
+
 ```typescript
 import { RvfDatabase } from '@ruvector/rvf';
 
-// Create a vector store
-const db = RvfDatabase.create('vectors.rvf', { dimension: 384 });
+// Create a vector store (throws if the file exists unless { overwrite: true })
+const db = await RvfDatabase.create('vectors.rvf', { dimensions: 384, metric: 'cosine' });
 
-// Insert vectors
-db.ingestBatch(new Float32Array(384), [1]);
+// Insert vectors: an array of { id, vector } entries (Float32Array or number[])
+await db.ingestBatch([
+  { id: '1', vector: new Float32Array(384).fill(0.1) },
+  { id: '2', vector: new Float32Array(384).fill(0.2) },
+]);
 
-// Query nearest neighbors
-const results = db.query(new Float32Array(384), 10);
+// Query nearest neighbors: k positionally, or query(vec, { k: 10, efSearch: 200 })
+const results = await db.query(new Float32Array(384).fill(0.1), 10);
+// [{ id: '1', distance: ... }, { id: '2', distance: ... }]
 
 // Lineage & inspection
-console.log(db.fileId());       // unique file UUID
-console.log(db.dimension());    // 384
-console.log(db.segments());     // [{ type, id, size }]
+console.log(await db.fileId());     // hex file identifier
+console.log(await db.dimension());  // 384
+console.log(await db.segments());   // [{ id, offset, payloadLength, segType }]
 
-// Derive child (COW branching)
-const child = db.derive('child.rvf');
+// Derive a child store that records this one as its parent
+const child = await db.derive('child.rvf');
+await child.close();
 
-db.close();
+await db.close();
 ```
 
-### Browser (WASM)
+### Browser / Deno / Edge (WASM)
 
-```html
-<script type="module">
-import init, { RvfStore } from '@ruvector/rvf-wasm';
-
-await init();
-
-const store = RvfStore.create(384, 'cosine');
-store.ingest(new Float32Array(384), 0);
-const results = store.query(new Float32Array(384), 10);
-console.log('Results:', results);
-</script>
-```
-
-### Deno
+Use the same SDK with the `'wasm'` backend (requires `@ruvector/rvf-wasm`,
+installed as an optional dependency). The WASM store is in-memory; persist it
+with `exportBytes()` / `RvfDatabase.openBytes()`. IDs must be decimal-integer
+strings on this backend.
 
 ```typescript
-// Import via npm: specifier
-import init, { RvfStore } from "npm:@ruvector/rvf-wasm";
+import { RvfDatabase } from '@ruvector/rvf'; // Deno: 'npm:@ruvector/rvf'
 
-await init();
+const db = await RvfDatabase.create('unused-in-wasm', { dimensions: 384 }, 'wasm');
+await db.ingestBatch([{ id: '1', vector: new Float32Array(384).fill(0.1) }]);
+const results = await db.query(new Float32Array(384).fill(0.1), 10);
+console.log('Results:', results); // [{ id: '1', distance: 0 }]
 
-const store = RvfStore.create(384, 'cosine');
-store.ingest(new Float32Array(384), 0);
-const results = store.query(new Float32Array(384), 10);
-console.log('Results:', results);
+const bytes = await db.exportBytes();                    // save to IndexedDB/OPFS
+const reopened = await RvfDatabase.openBytes(bytes, 'wasm');
 ```
 
 ## What is RVF?
@@ -115,47 +118,70 @@ RVF (RuVector Format) is a universal binary substrate that merges database, mode
 | 0x22 | MEMBERSHIP_SEG | Branch membership filter |
 | 0x23 | DELTA_SEG | Sparse delta patches (LoRA) |
 
-## N-API Methods (Node.js)
+## `RvfDatabase` API
 
-19 methods on the `RvfDatabase` class:
+Every instance method is async. `backend` is `'node' | 'wasm' | 'auto'` (default `'auto'`).
 
 | Method | Description |
 |--------|-------------|
-| `RvfDatabase.create(path, opts)` | Create new RVF file |
-| `RvfDatabase.open(path)` | Open existing (read-write) |
-| `RvfDatabase.openReadonly(path)` | Open existing (read-only) |
-| `db.ingestBatch(vectors, ids)` | Insert vectors by batch |
-| `db.query(vector, k)` | k-NN search |
+| `RvfDatabase.create(path, options, backend?)` | Create a new store (`options.dimensions` required; also `metric: 'l2' \| 'cosine' \| 'dotproduct'`, `m`, `efConstruction`, `overwrite`, ...) |
+| `RvfDatabase.open(path, backend?)` | Open existing (read-write) |
+| `RvfDatabase.openReadonly(path, backend?)` | Open existing (read-only) |
+| `RvfDatabase.openBytes(bytes, backend?)` | Open from an in-memory `.rvf` buffer (WASM backend) |
+| `db.ingestBatch(entries)` | Insert or update `{ id: string, vector: Float32Array \| number[] }` entries. Re-ingesting an id updates it in place; an id repeated within one batch keeps its last entry |
+| `db.query(vector, k \| { k, efSearch, filter, timeoutMs, forceExact }, options?)` | k-NN search, returns `[{ id, distance }]` |
 | `db.delete(ids)` | Delete vectors by ID |
-| `db.deleteByFilter(filter)` | Delete vectors matching filter |
+| `db.deleteByFilter(filter)` | Delete vectors matching a filter expression |
 | `db.compact()` | Compact and reclaim space |
-| `db.status()` | File status (count, dimension, metric) |
-| `db.close()` | Close file handle |
-| `db.fileId()` | UUID of this file |
-| `db.parentId()` | UUID of parent (if derived) |
-| `db.lineageDepth()` | Derivation depth |
-| `db.derive(path)` | COW-branch to new file |
-| `db.embedKernel(bytes)` | Embed Linux kernel image |
-| `db.extractKernel()` | Extract kernel image |
-| `db.embedEbpf(bytes)` | Embed eBPF program |
-| `db.extractEbpf()` | Extract eBPF program |
+| `db.status()` | Store status (vector/segment counts, epoch, compaction state, ...) |
+| `db.fileId()` / `db.parentId()` | Hex identifiers of this file and its parent |
+| `db.lineageDepth()` | Derivation depth (0 for root files) |
+| `db.derive(childPath, options?)` | Create a child store that records this one as parent |
+| `db.branch(childPath)` | Durable copy-on-write branch that persists only child edits |
+| `db.freeze()` | Freeze this generation; returns the frozen epoch |
+| `db.embedKernel(arch, kernelType, flags, image, apiPort, cmdline?)` | Embed a kernel image |
+| `db.extractKernel()` | Extract kernel image (`{ header, image }` or `null`) |
+| `db.embedEbpf(programType, attachType, maxDimension, bytecode, btf?)` | Embed an eBPF program |
+| `db.extractEbpf()` | Extract eBPF program (`{ header, payload }` or `null`) |
 | `db.segments()` | List all segments |
+| `db.dimension()` | Vector dimensionality |
+| `db.metric()` | Distance metric the store was created with (`'l2' \| 'cosine' \| 'dotproduct'`) |
+| `db.exportBytes()` | Serialize the store to bytes (WASM backend) |
+| `db.close()` / `db.isClosed` | Close the store / closed flag |
+
+The package also re-exports `RvfError`, `RvfErrorCode`, `NodeBackend`, `WasmBackend`,
+`resolveBackend`, and `RvfSolver` (from `@ruvector/rvf-solver`).
+
+For eligible Node stores (at least 1,024 vectors, not a COW branch, and without
+heavy deletion), await `db.close()` after ingestion. Close builds and persists
+the HNSW index even if no query has run, so a later read-only open can use the
+index on its first query. Building a large index can make close take longer.
+Smaller stores use the exact scan and do not need an index segment.
 
 ## WASM Exports
 
-29 exported functions for browser and edge runtimes:
+`@ruvector/rvf-wasm` exposes raw C-ABI functions (integer handles and linear-memory
+pointers), declared in its `pkg/rvf_wasm.d.ts`:
 
-**Control plane** (10): `rvf_create`, `rvf_open`, `rvf_close`, `rvf_ingest`, `rvf_query`, `rvf_delete`, `rvf_status`, `rvf_compact`, `rvf_derive`, `rvf_segments`
+**Memory**: `rvf_alloc`, `rvf_free` (plus the `memory` export)
 
-**Tile compute** (14): `tile_dot_f32`, `tile_cosine_f32`, `tile_l2_f32`, `tile_dot_f16`, `tile_cosine_f16`, `tile_l2_f16`, `tile_topk`, `tile_quantize_sq8`, `tile_dequantize_sq8`, `tile_scan_filtered`, `tile_merge_topk`, `tile_batch_distance`, `tile_prefetch`, `tile_accumulate`
+**Core query path**: `rvf_init`, `rvf_load_query`, `rvf_load_block`, `rvf_distances`, `rvf_topk_merge`, `rvf_topk_read`
 
-**Segment parsing** (3): `parse_segment_header`, `parse_vec_header`, `parse_manifest`
+**Quantization**: `rvf_load_sq_params`, `rvf_dequant_i8`, `rvf_load_pq_codebook`, `rvf_pq_distances`
 
-**Memory** (2): `rvf_alloc`, `rvf_free`
+**HNSW navigation**: `rvf_load_neighbors`, `rvf_greedy_step`
+
+**Segment verification**: `rvf_verify_header`, `rvf_crc32c`, `rvf_verify_checksum`
+
+**In-memory store**: `rvf_store_create`, `rvf_store_open`, `rvf_store_ingest`, `rvf_store_query`, `rvf_store_delete`, `rvf_store_count`, `rvf_store_dimension`, `rvf_store_status`, `rvf_store_export`, `rvf_store_close`
+
+**Segment parsing**: `rvf_parse_header`, `rvf_segment_count`, `rvf_segment_info`
+
+**Witness chain**: `rvf_witness_verify`, `rvf_witness_count`
 
 ## CLI (Rust)
 
-18 subcommands available through the `rvf` binary:
+17 subcommands available through the `rvf` binary:
 
 ```bash
 # Core operations
@@ -168,7 +194,7 @@ rvf inspect vectors.rvf
 rvf compact vectors.rvf
 
 # Branching & lineage
-rvf derive vectors.rvf --output child.rvf
+rvf derive vectors.rvf child.rvf --derivation-type clone
 rvf filter vectors.rvf --include "[1,2,3]"
 rvf freeze vectors.rvf
 rvf rebuild-refcounts vectors.rvf
@@ -182,10 +208,9 @@ rvf embed-ebpf vectors.rvf --program filter.o
 # Verification
 rvf verify-witness vectors.rvf
 rvf verify-attestation vectors.rvf
-
-# Export
-rvf export vectors.rvf --output dump.json
 ```
+
+(JSON export is available through `npx ruvector rvf export`, see below.)
 
 Build the CLI:
 
@@ -271,7 +296,7 @@ ls output/  # 45 .rvf files
 
 ### With `ruvector` (npx ruvector)
 
-The `ruvector` npm package includes 8 RVF CLI commands:
+The `ruvector` npm package includes an `rvf` command group:
 
 ```bash
 npm install ruvector @ruvector/rvf
@@ -285,12 +310,14 @@ npx ruvector --backend rvf create mydb.rvf -d 384
 # RVF-specific commands
 npx ruvector rvf create mydb.rvf -d 384
 npx ruvector rvf ingest mydb.rvf --input data.json
-npx ruvector rvf query mydb.rvf --vector "[0.1,...]" --k 10
+npx ruvector rvf query mydb.rvf --vector "0.1,0.2,..." --k 10
+npx ruvector rvf delete mydb.rvf --ids 1,2
 npx ruvector rvf status mydb.rvf
 npx ruvector rvf segments mydb.rvf
-npx ruvector rvf derive mydb.rvf --output child.rvf
+npx ruvector rvf derive mydb.rvf child.rvf
 npx ruvector rvf compact mydb.rvf
 npx ruvector rvf export mydb.rvf --output dump.json
+npx ruvector rvf examples            # list downloadable example .rvf files
 ```
 
 ### With `rvlite`
@@ -309,15 +336,6 @@ const db = await createRvLite({ dimensions: 384 });
 await db.insert([0.1, 0.2, ...], { text: "Hello world" });
 const results = await db.search([0.1, 0.2, ...], 5);
 ```
-
-## Packages
-
-| Package | Description | Runtime |
-|---------|-------------|---------|
-| `@ruvector/rvf` | Unified SDK (this package) | Node.js |
-| `@ruvector/rvf-node` | Native N-API bindings | Node.js |
-| `@ruvector/rvf-wasm` | WASM build (~46 KB + ~5.5 KB tile) | Browser, Deno, Edge |
-| `@ruvector/rvf-mcp-server` | MCP server for AI agents | Node.js |
 
 ## Crate Structure (Rust)
 
@@ -441,7 +459,7 @@ rvf ingest demo.rvf --input data.json --format json
 rvf query demo.rvf --vector "0.1,0.2,0.3,..." --k 5
 
 # Derive a COW child (only stores differences)
-rvf derive demo.rvf child.rvf --type filter
+rvf derive demo.rvf child.rvf -t filter
 
 # Inspect all segments
 rvf inspect demo.rvf
@@ -531,6 +549,29 @@ ls output/
 #   ... and 39 more
 ```
 
+## Related packages
+
+- [`@ruvector/rvf-node`](https://www.npmjs.com/package/@ruvector/rvf-node) — native N-API bindings; the `'node'` backend of this SDK (a direct dependency).
+- [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) — single ~40 KB WASM module; the `'wasm'` backend for browsers, Deno and edge runtimes (optional dependency).
+- [`@ruvector/rvf-solver`](https://www.npmjs.com/package/@ruvector/rvf-solver) — source of the re-exported `RvfSolver` (optional dependency).
+- [`@ruvector/rvf-mcp-server`](https://www.npmjs.com/package/@ruvector/rvf-mcp-server) — MCP server exposing RVF stores to AI agents.
+- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package and CLI (`npx ruvector`).
+
 ## License
 
 MIT
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for vector database, vector search, HNSW.
+
+- **Works with** (its runtime dependencies): [`@ruvector/rvf-node`](https://www.npmjs.com/package/@ruvector/rvf-node), [`@ruvector/rvf-solver`](https://www.npmjs.com/package/@ruvector/rvf-solver), [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm)
+- **Used by** (published packages that depend on it): [`@metaharness/kernel`](https://www.npmjs.com/package/@metaharness/kernel), [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all), [`@ruvector/rvf-mcp-server`](https://www.npmjs.com/package/@ruvector/rvf-mcp-server), [`agentdb`](https://www.npmjs.com/package/agentdb), [`aidefence`](https://www.npmjs.com/package/aidefence), [`ruvector`](https://www.npmjs.com/package/ruvector)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

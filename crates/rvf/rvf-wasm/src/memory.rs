@@ -59,6 +59,7 @@ pub const SIMD_PQ_TABLE_SIZE: usize = 16 * 1024;
 
 /// Hot cache: 12 KB at offset 0xC000
 pub const SIMD_HOT_CACHE_OFFSET: usize = 0xC000;
+pub const SIMD_HOT_CACHE_SIZE: usize = 12 * 1024;
 
 // === Static Buffers ===
 

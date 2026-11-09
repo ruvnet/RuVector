@@ -26,6 +26,7 @@ const H_INIT: [u32; 8] = [
 ];
 
 /// Streaming SHA-256 hasher.
+#[derive(Clone)]
 pub struct Sha256 {
     state: [u32; 8],
     buffer: [u8; 64],

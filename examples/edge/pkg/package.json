@@ -1,26 +1,25 @@
 {
   "name": "@ruvector/edge",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "type": "module",
-  "description": "Free edge-based AI swarms in the browser - P2P, crypto, vector search, neural networks. Install @ruvector/edge-full for graph DB, SQL, ONNX embeddings.",
+  "description": "Consensus: Free edge-based AI swarms in the browser - P2P, crypto, vector search, neural networks. Install @ruvector/edge-full for graph DB, SQL, ONNX embeddings.",
   "main": "ruvector_edge.js",
   "module": "ruvector_edge.js",
   "types": "ruvector_edge.d.ts",
   "keywords": [
+    "consensus",
+    "ai",
+    "cryptography",
+    "p2p",
+    "neural-network",
+    "vector-search",
+    "ruvector",
+    "ruvnet",
     "wasm",
     "rust",
-    "ai",
     "swarm",
-    "p2p",
-    "cryptography",
     "post-quantum",
     "hnsw",
-    "vector-search",
-    "neural-network",
-    "raft",
-    "consensus",
-    "ed25519",
-    "aes-gcm",
     "webassembly",
     "semantic-search",
     "machine-learning"
@@ -28,10 +27,11 @@
   "author": "RuVector Team",
   "license": "MIT",
   "repository": {
+    "directory": "examples/edge/pkg",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/examples/edge",
+  "homepage": "https://ruv.io",
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },

@@ -1,10 +1,24 @@
 {
   "name": "@ruvector/graph-node-win32-x64-msvc",
   "version": "0.1.26",
-  "os": ["win32"],
-  "cpu": ["x64"],
+  "homepage": "https://ruv.io",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "main": "ruvector-graph.node",
-  "files": ["ruvector-graph.node"],
+  "files": [
+    "ruvector-graph.node"
+  ],
   "license": "MIT",
-  "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector.git"}
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "npm/packages/graph-node/npm/win32-x64-msvc"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
+  }
 }

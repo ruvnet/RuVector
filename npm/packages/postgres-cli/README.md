@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/postgres-cli.svg" alt="@ruvector/postgres-cli: Vector database CLI for PostgreSQL — a pgvector drop-in with SQL functions, GNN layers and attention." width="100%"></p>
+
 # @ruvector/postgres-cli
 
 [![npm version](https://img.shields.io/npm/v/@ruvector/postgres-cli.svg)](https://www.npmjs.com/package/@ruvector/postgres-cli)
@@ -427,3 +429,18 @@ Contributions welcome! See [CONTRIBUTING.md](https://github.com/ruvnet/ruvector/
 ## License
 
 MIT - see [LICENSE](https://github.com/ruvnet/ruvector/blob/main/LICENSE)
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for vector search, CLI, AI.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

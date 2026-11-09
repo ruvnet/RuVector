@@ -1,7 +1,7 @@
 {
   "name": "@ruvector/rvf",
-  "version": "0.3.4",
-  "description": "RuVector Format — unified TypeScript SDK for vector intelligence",
+  "version": "0.4.10",
+  "description": "RuVector Format (RVF): TypeScript SDK for a portable single-file vector database with HNSW vector search, native and WASM backends.",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -22,21 +22,34 @@
     "smoke": "node scripts/smoke-query-create.mjs",
     "smoke:idmap": "node scripts/smoke-idmap-durability.mjs",
     "smoke:cow": "node scripts/smoke-cow-durability.mjs",
+    "smoke:batch-upsert": "node scripts/smoke-batch-upsert.mjs",
     "bench": "tsx bench/index.ts",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
-    "vector",
-    "database",
-    "binary-format",
+    "rvf",
+    "vector-database",
+    "vector-search",
     "hnsw",
-    "simd",
-    "rvf"
+    "typescript",
+    "wasm",
+    "ruvector",
+    "ruvnet",
+    "copy-on-write",
+    "napi"
   ],
   "license": "MIT",
-  "repository": "https://github.com/ruvnet/ruvector",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/ruvector.git",
+    "directory": "npm/packages/rvf"
+  },
+  "homepage": "https://ruv.io",
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
+  },
   "dependencies": {
-    "@ruvector/rvf-node": "^0.2.3"
+    "@ruvector/rvf-node": "^0.4.5"
   },
   "optionalDependencies": {
     "@ruvector/rvf-wasm": "^0.1.7",

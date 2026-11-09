@@ -364,9 +364,9 @@ export class MoEAttention {
     const attention = getAttentionModule();
     this.inner = new attention.MoEAttention({
       dim: config.dim,
-      num_experts: config.numExperts,
-      top_k: config.topK,
-      expert_capacity: config.expertCapacity ?? 1.25,
+      numExperts: config.numExperts,
+      topK: config.topK,
+      expertCapacity: config.expertCapacity ?? 1.25,
     });
     this.config = config;
   }
@@ -544,7 +544,7 @@ export class EdgeFeaturedAttention {
 
   constructor(dim: number, edgeDim: number = 16) {
     const attention = getAttentionModule();
-    this.inner = new attention.EdgeFeaturedAttention(dim, edgeDim);
+    this.inner = new attention.EdgeFeaturedAttention({ nodeDim: dim, edgeDim, numHeads: 1 });
     this.dim = dim;
     this.edgeDim = edgeDim;
   }

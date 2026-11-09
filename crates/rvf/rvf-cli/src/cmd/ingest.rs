@@ -82,5 +82,11 @@ pub fn run(args: IngestArgs) -> Result<(), Box<dyn std::error::Error>> {
         crate::output::print_kv("Rejected:", &total_rejected.to_string());
         crate::output::print_kv("Epoch:", &last_epoch.to_string());
     }
+    if total_accepted == 0 && total_rejected > 0 {
+        return Err(format!(
+            "all {total_rejected} record(s) were rejected (expected dimension does not match); nothing was ingested"
+        )
+        .into());
+    }
     Ok(())
 }

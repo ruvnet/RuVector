@@ -9,6 +9,15 @@
     "rvf-node.linux-arm64-gnu.node"
   ],
   "description": "RuVector Format Node.js native bindings",
+  "homepage": "https://ruv.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "crates/rvf/rvf-node/npm/linux-arm64-gnu"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
+  },
   "license": "MIT",
   "os": [
     "linux"

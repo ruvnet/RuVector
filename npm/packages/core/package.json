@@ -1,15 +1,15 @@
 {
   "name": "@ruvector/core",
-  "version": "0.1.33",
-  "description": "High-performance vector database with HNSW indexing - 50k+ inserts/sec, built in Rust for AI/ML similarity search and semantic search applications",
+  "version": "0.1.37",
+  "description": "Vector database core with HNSW indexing, built in Rust with native Node.js bindings, for similarity search, semantic search and RAG.",
   "main": "index.js",
   "types": "index.d.ts",
   "author": "ruv.io Team <info@ruv.io> (https://ruv.io)",
   "homepage": "https://ruv.io",
   "repository": {
+    "directory": "npm/packages/core",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
-    "directory": "npm/packages/core"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
@@ -32,11 +32,11 @@
     "@napi-rs/cli": "^2.18.0"
   },
   "optionalDependencies": {
-    "ruvector-core-linux-x64-gnu": "0.1.31",
-    "ruvector-core-linux-arm64-gnu": "0.1.31",
-    "ruvector-core-darwin-x64": "0.1.31",
-    "ruvector-core-darwin-arm64": "0.1.31",
-    "ruvector-core-win32-x64-msvc": "0.1.31"
+    "ruvector-core-linux-x64-gnu": "0.1.34",
+    "ruvector-core-linux-arm64-gnu": "0.1.34",
+    "ruvector-core-darwin-x64": "0.1.34",
+    "ruvector-core-darwin-arm64": "0.1.34",
+    "ruvector-core-win32-x64-msvc": "0.1.34"
   },
   "publishConfig": {
     "access": "public"
@@ -44,25 +44,14 @@
   "keywords": [
     "vector-database",
     "vector-search",
-    "similarity-search",
-    "semantic-search",
     "hnsw",
-    "ann",
-    "approximate-nearest-neighbor",
-    "embedding-database",
-    "ai",
-    "machine-learning",
-    "ml",
-    "llm",
-    "rag",
-    "retrieval-augmented-generation",
-    "native",
-    "napi",
+    "embeddings",
     "rust",
-    "simd",
-    "fast",
-    "performance",
-    "ruv",
-    "ruvector"
+    "napi",
+    "ruvector",
+    "ruvnet",
+    "semantic-search",
+    "rag",
+    "simd"
   ]
 }

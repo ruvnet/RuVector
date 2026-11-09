@@ -2,7 +2,8 @@
 name = "ruvector-edge-store"
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
+# rusqlite 0.41 (RUSTSEC-2026-0459 fix) needs Rust 1.89.
+rust-version = "1.89"
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
@@ -23,4 +24,4 @@ thiserror = { workspace = true }
 proptest = { workspace = true }
 # SQL conformance only: runs the same statement constants against real SQLite
 # (what Durable Objects execute). Never part of the wasm graph.
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.41", features = ["bundled", "fallible_uint"] }

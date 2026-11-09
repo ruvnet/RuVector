@@ -15,7 +15,7 @@ RuVector Format runtime providing the RvfStore API, background compaction, and s
 
 ```toml
 [dependencies]
-rvf-runtime = "0.3"
+rvf-runtime = "0.4"
 ```
 
 ## Features

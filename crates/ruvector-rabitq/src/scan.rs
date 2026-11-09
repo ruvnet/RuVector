@@ -46,6 +46,25 @@ type ScanFn = fn(
 
 static SCAN_IMPL: OnceLock<ScanFn> = OnceLock::new();
 
+/// Hard (release-mode) shape check guarding every `get_unchecked` in the
+/// kernels below. `scan` / `scan_scalar` are safe `pub` fns, so a
+/// `debug_assert!` alone would let a caller trigger out-of-bounds reads.
+/// Three compares per scan call, not per candidate.
+#[inline]
+fn check_shapes(packed: &[u64], n_words: usize, n: usize, q_packed: &[u64], out_agree: &[u32]) {
+    assert!(
+        n == 0 || n_words > 0,
+        "scan: n_words must be > 0 when n > 0"
+    );
+    assert_eq!(
+        Some(packed.len()),
+        n.checked_mul(n_words),
+        "scan: packed.len() != n * n_words"
+    );
+    assert_eq!(q_packed.len(), n_words, "scan: q_packed.len() != n_words");
+    assert_eq!(out_agree.len(), n, "scan: out_agree.len() != n");
+}
+
 /// Portable scalar kernel. Matches the pre-SIMD inline loop byte-for-byte.
 #[inline]
 pub fn scan_scalar(
@@ -56,9 +75,7 @@ pub fn scan_scalar(
     mask: u64,
     out_agree: &mut [u32],
 ) {
-    debug_assert_eq!(packed.len(), n * n_words);
-    debug_assert_eq!(q_packed.len(), n_words);
-    debug_assert_eq!(out_agree.len(), n);
+    check_shapes(packed, n_words, n, q_packed, out_agree);
 
     let aligned = mask == !0u64;
     if aligned && n_words == 2 {
@@ -429,6 +446,7 @@ pub fn scan(
     mask: u64,
     out_agree: &mut [u32],
 ) {
+    check_shapes(packed, n_words, n, q_packed, out_agree);
     let f = SCAN_IMPL.get_or_init(select_impl);
     f(packed, n_words, n, q_packed, mask, out_agree);
 }

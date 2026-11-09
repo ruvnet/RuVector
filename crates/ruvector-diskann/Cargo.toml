@@ -1,6 +1,6 @@
 [package]
 name = "ruvector-diskann"
-version = "2.3.2"
+version = "2.3.3"
 edition.workspace = true
 authors.workspace = true
 license.workspace = true

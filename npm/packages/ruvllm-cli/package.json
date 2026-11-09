@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ruvllm-cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "CLI for LLM inference, benchmarking, and model management - run local LLMs with Metal/CUDA acceleration",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -31,28 +31,26 @@
     "typescript": "^5.9.3"
   },
   "keywords": [
-    "llm",
     "cli",
+    "llm",
+    "benchmark",
     "inference",
-    "benchmarking",
-    "gguf",
-    "metal",
-    "cuda",
     "local-llm",
     "ai",
-    "machine-learning",
     "ruvector",
     "ruvllm",
-    "model-serving"
+    "ruvnet",
+    "cuda",
+    "machine-learning"
   ],
   "author": "rUv Team <team@ruv.io>",
   "license": "MIT OR Apache-2.0",
   "repository": {
+    "directory": "npm/packages/ruvllm-cli",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
-    "directory": "npm/packages/ruvllm-cli"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/crates/ruvllm-cli",
+  "homepage": "https://ruv.io",
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },

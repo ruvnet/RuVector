@@ -117,21 +117,26 @@ pub fn decode_attestation_record(
 ) -> Result<(AttestationHeader, Vec<u8>, Vec<u8>), RvfError> {
     let header = decode_attestation_header(data)?;
 
-    let rd_len = header.report_data_len as usize;
+    // `report_data_len` is a u64 read from the record. Convert and sum with
+    // checked arithmetic so a large value cannot truncate or wrap on targets
+    // where `usize` is 32 bits (wasm32 and other 32-bit platforms).
+    let rd_len = usize::try_from(header.report_data_len)
+        .map_err(|_| RvfError::Code(ErrorCode::TruncatedSegment))?;
     let q_len = header.quote_length as usize;
-    let total_needed = ATTESTATION_HEADER_SIZE + rd_len + q_len;
+    let rd_start = ATTESTATION_HEADER_SIZE;
+    let rd_end = rd_start
+        .checked_add(rd_len)
+        .ok_or(RvfError::Code(ErrorCode::TruncatedSegment))?;
+    let q_end = rd_end
+        .checked_add(q_len)
+        .ok_or(RvfError::Code(ErrorCode::TruncatedSegment))?;
 
-    if data.len() < total_needed {
+    if data.len() < q_end {
         return Err(RvfError::Code(ErrorCode::TruncatedSegment));
     }
 
-    let rd_start = ATTESTATION_HEADER_SIZE;
-    let rd_end = rd_start + rd_len;
     let report_data = data[rd_start..rd_end].to_vec();
-
-    let q_start = rd_end;
-    let q_end = q_start + q_len;
-    let quote = data[q_start..q_end].to_vec();
+    let quote = data[rd_end..q_end].to_vec();
 
     Ok((header, report_data, quote))
 }
@@ -223,25 +228,30 @@ pub fn verify_attestation_witness_payload(
         return Ok(Vec::new());
     }
 
-    // 2. Read offset table.
-    let offsets_end = 4 + count * 8;
-    if data.len() < offsets_end {
-        return Err(RvfError::Code(ErrorCode::TruncatedSegment));
+    // 2. Read offset table. All sizes derive from the untrusted `count`, so use
+    //    checked arithmetic: on 32-bit targets `count * 8` can wrap.
+    let truncated = || RvfError::Code(ErrorCode::TruncatedSegment);
+    let offsets_end = count
+        .checked_mul(8)
+        .and_then(|n| n.checked_add(4))
+        .ok_or_else(truncated)?;
+    let chain_len = count
+        .checked_mul(WITNESS_ENTRY_SIZE)
+        .ok_or_else(truncated)?;
+    let chain_end = offsets_end.checked_add(chain_len).ok_or_else(truncated)?;
+    if data.len() < chain_end {
+        return Err(truncated());
     }
     let mut offsets = Vec::with_capacity(count);
     for i in 0..count {
         let o = 4 + i * 8;
         let offset = u64::from_le_bytes(data[o..o + 8].try_into().unwrap());
-        offsets.push(offset as usize);
+        // An offset that does not fit in usize can never be in bounds.
+        offsets.push(usize::try_from(offset).map_err(|_| truncated())?);
     }
 
     // 3. Extract witness chain bytes and verify.
     let chain_start = offsets_end;
-    let chain_len = count * WITNESS_ENTRY_SIZE;
-    let chain_end = chain_start + chain_len;
-    if data.len() < chain_end {
-        return Err(RvfError::Code(ErrorCode::TruncatedSegment));
-    }
     let chain_bytes = &data[chain_start..chain_end];
     let entries = verify_witness_chain(chain_bytes)?;
 
@@ -264,7 +274,7 @@ pub fn verify_attestation_witness_payload(
             records_data.len()
         };
 
-        if rec_start > records_data.len() || rec_end > records_data.len() {
+        if rec_start > rec_end || rec_end > records_data.len() {
             return Err(RvfError::Code(ErrorCode::TruncatedSegment));
         }
 
@@ -281,6 +291,14 @@ pub fn verify_attestation_witness_payload(
     }
 
     Ok(results)
+}
+
+/// True iff `data` is a complete, internally consistent attestation witness
+/// payload (non-empty; chain, record hashes and record headers all verify).
+/// Used to tell attestation WITNESS_SEGs from runtime chain entries without
+/// guessing from the length: a payload that merely looks similar is not one.
+pub fn is_valid_attestation_witness(data: &[u8]) -> bool {
+    matches!(verify_attestation_witness_payload(data), Ok(v) if !v.is_empty())
 }
 
 // ---------------------------------------------------------------------------
@@ -835,5 +853,53 @@ mod tests {
             u64::MAX, // far future -- should still pass
         );
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn decode_record_rejects_length_overflow() {
+        // Lengths whose sum with the header size exceeds usize must return an
+        // error, never wrap or panic.
+        for rd_len in [u64::MAX, u64::MAX - 111, u64::MAX - 112, usize::MAX as u64] {
+            let header = make_test_header(rd_len, u16::MAX);
+            let mut encoded = encode_attestation_header(&header).to_vec();
+            encoded.extend_from_slice(&[0u8; 64]);
+            assert!(
+                matches!(
+                    decode_attestation_record(&encoded),
+                    Err(RvfError::Code(ErrorCode::TruncatedSegment))
+                ),
+                "report_data_len = {rd_len:#x}"
+            );
+        }
+    }
+
+    #[test]
+    fn decode_record_rejects_length_above_u32() {
+        // On 32-bit targets this value used to truncate to 5 via `as usize`.
+        let header = make_test_header((1u64 << 32) + 5, 0);
+        let mut encoded = encode_attestation_header(&header).to_vec();
+        encoded.extend_from_slice(&[0u8; 16]);
+        assert!(decode_attestation_record(&encoded).is_err());
+    }
+
+    #[test]
+    fn verify_payload_rejects_huge_count_and_offsets() {
+        // count = u32::MAX: the offset table size must not wrap.
+        let mut data = u32::MAX.to_le_bytes().to_vec();
+        data.extend_from_slice(&[0u8; 64]);
+        assert!(verify_attestation_witness_payload(&data).is_err());
+        assert!(!is_valid_attestation_witness(&data));
+
+        // A valid single-record payload with its offset rewritten to u64::MAX.
+        let (h, rd, q) = make_test_record(8, 8);
+        let rec = encode_attestation_record(&h, &rd, &q);
+        let mut payload = build_attestation_witness_payload(
+            &[rec],
+            &[1_000],
+            &[AttestationWitnessType::PlatformAttestation],
+        )
+        .unwrap();
+        payload[4..12].copy_from_slice(&u64::MAX.to_le_bytes());
+        assert!(verify_attestation_witness_payload(&payload).is_err());
     }
 }

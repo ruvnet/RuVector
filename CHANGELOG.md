@@ -5,6 +5,97 @@ All notable changes to RuVector will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Count undirected edge weights once when scoring modularity in the npm
+  graph helpers and returned minimum-cut partitions. Single-edge and
+  disconnected-component scores now use the correct total edge weight.
+
+## [ruvector 0.3.14] - 2026-11-06
+### Security
+- `decompile_url` private-address guard also checks IPv4 addresses embedded
+  in IPv6 forms (#1359).
+- DiskANN build/search refuse symlinked index files (#1381).
+
+### Changed
+- Fresh installs resolve `@ruvector/rvf` 0.4.6 (filtered queries exact on
+  weak graphs, `forceExact`), `@ruvector/attention` 2.3.0 (native faster than
+  a JS loop, `computeFlat`, complete typings) and `@ruvector/core` 0.1.36
+  (`version()` reports the package version) through the existing ranges.
+
+## [ruvector 0.3.13] - 2026-11-05
+### Added
+- Hook memory recall (`IntelligenceEngine.recall`, MCP `hooks_recall` /
+  `hooks_suggest_context`) uses a RaBitQ candidate index from
+  `@ruvector/rabitq-wasm` once a store holds `RUVECTOR_RABITQ_THRESHOLD`
+  memories (default 5000; `0` disables). The index proposes 10 x k candidates
+  and they are re-scored with exact cosine, so scores are exact and top-10
+  recall matched brute force (1.000) on 20k x 384 at ~2.7 ms vs ~38 ms per
+  query. The index is built on the second eligible recall in a process, so
+  one-shot hook commands never pay the ~0.4 s build. Post-build
+  inserts/deletes apply as a delta without a rebuild. Without the package,
+  recall is the unchanged exact scan. `@ruvector/rabitq-wasm` moves from
+  devDependencies to optionalDependencies (282 KB).
+- `ruvector diskann build <dir> -i vectors.json` / `ruvector diskann search
+  <dir> -v ...` and MCP tools `diskann_build` / `diskann_search` (paths
+  confined to the working directory) expose `@ruvector/diskann`, previously
+  library-only. It stays an opt-in extra: `npx ruvector add diskann`.
+- `ruvector skills list|install` ships the `ruvector-integrations` agent
+  skill and installs it into `.claude/skills` (Claude Code) and/or
+  `.agents/skills` (Codex). `skills/` is now in the published files.
+### Fixed
+- Every open-ended `>=` peer range is now bounded. `@ruvector/ruvllm >=2.0.0`
+  resolved to 4.0.1, a different product published under the same name
+  without the runtime that `ruvector llm` / `ruvector sona` load (`ruvllm.RuvLLM is
+  not a constructor`); it is now `^4.1.0`, the restored runtime, verified
+  with `llm info|models|embed` and `sona status`. Other peers take their optionalDependencies spec
+  or a caret on their previous minimum.
+- Security: `@metaharness/darwin` moves from `^0.9.1` to `^0.13.0` (and the
+  `metaharness` meta-package from `^0.4.7` to `^0.4.20`, which itself requires
+  darwin `^0.13.0`) for the high-severity sandbox bypass fixed in darwin 0.13.0
+  (GHSA-mjwg-5fm3-fx2p). The 0.x caret could never reach 0.13. `ruvector harness
+  darwin --execute` and `runMetaHarnessDarwin` call `evolve(config)`, whose
+  signature is unchanged; verified with a real evolution run against 0.13.0.
+- Security: `@ruvector/attention` moves from `^0.1.3` (resolved 0.1.32) to
+  `^2.2.3`, which contains the H1 fix: on 0.1.x a malformed input panicked in
+  the NAPI binding and aborted the whole Node process (SIGABRT); 2.2.3 throws a
+  catchable error. The JS surface is identical (same 39 exports, byte-identical
+  wrapper); a differential run of every ruvector attention wrapper gave identical
+  outputs (max |diff| 1.8e-3 on hyperbolic, float drift). `@ruvector/core`,
+  `gnn` and `sona` already resolve to their latest. Guarded by
+  `test/attention-panic.js`.
+- `harness status` no longer imports `@metaharness/darwin` to report it (darwin
+  0.13 eagerly loads `@babel/parser`, ~35 ms, which pushed status past the
+  ADR-256 startup budget: +135 ms vs 120 ms on CI). Status reports darwin as
+  installed, with its real installed version, without loading it; `harness
+  doctor` still imports every package. Delta back to ~+40 ms.
+- Security: `@ruvector/sona` floor raised from `^0.1.4` to `^0.1.11`
+  (GHSA-c27m-v4wg-f9qj, affects < 0.1.9; 0.1.11 adds catch_unwind on every sync
+  NAPI entry point and a bounded trajectory store) so existing lockfiles move.
+
+## [ruvector 0.3.12] - 2026-11-05
+### Fixed
+- `hooks graph-mincut` and `hooks graph-cluster` (and the MCP tools
+  `hooks_graph_mincut` / `hooks_graph_cluster` that shell out to them) failed
+  on every input: the CLI passed `(nodes, edges)` with `{source,target}` edges
+  to functions that take one `Graph` built from `{from,to}` edges. They now
+  build the graph correctly, recognise `require('./x')` and extension-ful
+  imports, and print clusters as JSON (`assignments`, `groups`, `modularity`)
+  instead of empty objects from serialized `Map`s.
+- `graph-mincut` now uses `minCutFast`, which runs on the optional
+  `@ruvector/mincut-wasm` when installed and falls back to the exact TS
+  Stoer-Wagner otherwise; the output reports which `engine` ran.
+- `louvainCommunities` could loop forever on any graph with a bridge edge: it
+  scored only the gain of joining a community, not the loss of leaving one, so
+  a bridge node oscillated. It now scores moves with the node removed from its
+  community, moves only on strict improvement, and normalizes by the
+  undirected edge weight like `calculateModularity`.
+- `spectralClustering` used the largest eigenvectors of the normalized
+  Laplacian (power iteration) instead of the smallest, and seeded both power
+  iteration and k-means randomly. It now iterates on `2I - L` and seeds
+  deterministically, so it finds the real clusters and is reproducible.
+
 ## [@ruvector/router 0.1.32] - 2026-09-30
 ### Fixed
 - `maxElements` was typed and documented as "Maximum number of elements" but

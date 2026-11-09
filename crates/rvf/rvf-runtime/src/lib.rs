@@ -30,13 +30,16 @@ mod index_path;
 pub mod locking;
 pub mod membership;
 pub mod options;
+pub mod progressive_stream;
 #[cfg(feature = "qr")]
 pub mod qr_encode;
 pub mod qr_seed;
 mod rabitq_path;
 pub mod read_path;
+pub mod root_page;
 pub mod safety_net;
 pub mod seed_crypto;
+mod sparse_ids;
 pub mod status;
 pub mod store;
 mod vector_slab;
@@ -56,9 +59,9 @@ pub use dos::{BudgetTokenBucket, NegativeCache, ProofOfWork, QuerySignature};
 pub use filter::FilterExpr;
 pub use membership::MembershipFilter;
 pub use options::{
-    CompactionResult, DeleteResult, EmbeddingCompatibility, IngestResult, MetadataEntry,
+    CompactionResult, DeleteResult, EmbeddingCompatibility, Freshness, IngestResult, MetadataEntry,
     MetadataFilterStats, MetadataValue, QualityEnvelope, QueryOptions, RvfOptions, SearchResult,
-    VectorMetadata, WitnessConfig,
+    TailRecovery, VectorMetadata, WitnessConfig,
 };
 #[cfg(feature = "qr")]
 pub use qr_encode::{EcLevel, QrCode, QrEncoder, QrError};

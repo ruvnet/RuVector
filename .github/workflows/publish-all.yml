@@ -25,6 +25,11 @@ on:
         required: false
         type: boolean
         default: false
+      publish_wasm:
+        description: 'Also publish @ruvector/math-wasm and @ruvector/attention-wasm (skip for a native-only patch release)'
+        required: false
+        type: boolean
+        default: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -72,11 +77,11 @@ jobs:
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
             node_file: attention.linux-arm64-gnu.node
-          - host: macos-14
+          - host: macos-15
             target: x86_64-apple-darwin
             platform: darwin-x64
             node_file: attention.darwin-x64.node
-          - host: macos-14
+          - host: macos-15
             target: aarch64-apple-darwin
             platform: darwin-arm64
             node_file: attention.darwin-arm64.node
@@ -300,28 +305,31 @@ jobs:
 
       # --- Publish WASM packages ---
       - name: Publish @ruvector/math-wasm to npm
+        if: ${{ inputs.publish_wasm != false }}
         run: |
+          set -euo pipefail
           cd artifacts/wasm-ruvector-math-wasm
           # Update package name to scoped
           jq '.name = "@ruvector/math-wasm"' package.json > tmp.json && mv tmp.json package.json
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
 
       - name: Publish @ruvector/attention-wasm to npm
+        if: ${{ inputs.publish_wasm != false }}
         run: |
+          set -euo pipefail
           cd artifacts/wasm-ruvector-attention-wasm
           # Update package name to scoped
           jq '.name = "@ruvector/attention-wasm"' package.json > tmp.json && mv tmp.json package.json
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
 
       # --- Publish platform-specific native packages ---
       - name: Prepare and publish @ruvector/attention-linux-x64-gnu
         run: |
+          set -euo pipefail
           mkdir -p publish/linux-x64-gnu
           cp artifacts/native-linux-x64-gnu/*.node publish/linux-x64-gnu/
           cd publish/linux-x64-gnu
@@ -335,16 +343,18 @@ jobs:
             "files": ["attention.linux-x64-gnu.node"],
             "description": "Linux x64 GNU native module for @ruvector/attention",
             "license": "MIT",
-            "repository": "https://github.com/ruvnet/ruvector"
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "crates/ruvector-attention-node/npm/linux-x64-gnu"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"}
           }
           EOF
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
 
       - name: Prepare and publish @ruvector/attention-linux-arm64-gnu
         run: |
+          set -euo pipefail
           mkdir -p publish/linux-arm64-gnu
           cp artifacts/native-linux-arm64-gnu/*.node publish/linux-arm64-gnu/
           cd publish/linux-arm64-gnu
@@ -358,16 +368,18 @@ jobs:
             "files": ["attention.linux-arm64-gnu.node"],
             "description": "Linux ARM64 GNU native module for @ruvector/attention",
             "license": "MIT",
-            "repository": "https://github.com/ruvnet/ruvector"
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "crates/ruvector-attention-node/npm/linux-arm64-gnu"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"}
           }
           EOF
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
 
       - name: Prepare and publish @ruvector/attention-darwin-x64
         run: |
+          set -euo pipefail
           mkdir -p publish/darwin-x64
           cp artifacts/native-darwin-x64/*.node publish/darwin-x64/
           cd publish/darwin-x64
@@ -381,16 +393,18 @@ jobs:
             "files": ["attention.darwin-x64.node"],
             "description": "macOS Intel x64 native module for @ruvector/attention",
             "license": "MIT",
-            "repository": "https://github.com/ruvnet/ruvector"
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "crates/ruvector-attention-node/npm/darwin-x64"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"}
           }
           EOF
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
 
       - name: Prepare and publish @ruvector/attention-darwin-arm64
         run: |
+          set -euo pipefail
           mkdir -p publish/darwin-arm64
           cp artifacts/native-darwin-arm64/*.node publish/darwin-arm64/
           cd publish/darwin-arm64
@@ -404,16 +418,18 @@ jobs:
             "files": ["attention.darwin-arm64.node"],
             "description": "macOS Apple Silicon ARM64 native module for @ruvector/attention",
             "license": "MIT",
-            "repository": "https://github.com/ruvnet/ruvector"
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "crates/ruvector-attention-node/npm/darwin-arm64"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"}
           }
           EOF
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
 
       - name: Prepare and publish @ruvector/attention-win32-x64-msvc
         run: |
+          set -euo pipefail
           mkdir -p publish/win32-x64-msvc
           cp artifacts/native-win32-x64-msvc/*.node publish/win32-x64-msvc/
           cd publish/win32-x64-msvc
@@ -427,17 +443,34 @@ jobs:
             "files": ["attention.win32-x64-msvc.node"],
             "description": "Windows x64 MSVC native module for @ruvector/attention",
             "license": "MIT",
-            "repository": "https://github.com/ruvnet/ruvector"
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "crates/ruvector-attention-node/npm/win32-x64-msvc"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"}
           }
           EOF
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
+
+      # The main package lists the platform packages as optionalDependencies.
+      # npm can take minutes to expose a fresh version; publishing the main
+      # package first leaves `npm install @ruvector/attention` without a
+      # native binary until then.
+      - name: Wait for platform packages on the registry
+        run: |
+          set -euo pipefail
+          v="${{ inputs.version || '0.1.31' }}"
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-wait-visible.sh" \
+            "@ruvector/attention-linux-x64-gnu@$v" \
+            "@ruvector/attention-linux-arm64-gnu@$v" \
+            "@ruvector/attention-darwin-x64@$v" \
+            "@ruvector/attention-darwin-arm64@$v" \
+            "@ruvector/attention-win32-x64-msvc@$v"
 
       # --- Publish main @ruvector/attention package ---
       - name: Publish @ruvector/attention (main package)
         run: |
+          set -euo pipefail
           mkdir -p publish/attention-main
           cd publish/attention-main
           cat > package.json << 'EOF'
@@ -460,46 +493,20 @@ jobs:
           }
           EOF
 
-          # Create index.js that loads the correct platform binary
-          cat > index.js << 'INDEXJS'
-          const { platform, arch } = process;
+          # Ship the committed napi-rs loader and the full generated typings
+          # (every class, computeFlat, async/batch helpers, training utils).
+          # This step used to write a hand-made index.d.ts that declared only
+          # four functions the binary never exported.
+          SRC="$GITHUB_WORKSPACE/crates/ruvector-attention-node"
+          cp "$SRC/index.js" "$SRC/index.d.ts" "$SRC/README.md" .
+          grep -q "class FlashAttention" index.d.ts
+          grep -q "computeFlat(" index.d.ts
+          node -e 'const p=require("./package.json"); p.files=["index.js","index.d.ts","README.md"]; require("fs").writeFileSync("package.json", JSON.stringify(p,null,2)+"\n")'
 
-          const platformPackages = {
-            'linux-x64': '@ruvector/attention-linux-x64-gnu',
-            'linux-arm64': '@ruvector/attention-linux-arm64-gnu',
-            'darwin-x64': '@ruvector/attention-darwin-x64',
-            'darwin-arm64': '@ruvector/attention-darwin-arm64',
-            'win32-x64': '@ruvector/attention-win32-x64-msvc',
-          };
-
-          const key = `${platform}-${arch}`;
-          const pkg = platformPackages[key];
-
-          if (!pkg) {
-            throw new Error(`Unsupported platform: ${key}. Supported: ${Object.keys(platformPackages).join(', ')}`);
-          }
-
-          module.exports = require(pkg);
-          INDEXJS
-
-          # Create TypeScript definitions
-          cat > index.d.ts << 'INDEXDTS'
-          export interface AttentionConfig {
-            dim: number;
-            numHeads?: number;
-            dropout?: number;
-          }
-
-          export function scaledDotProductAttention(query: Float32Array, keys: Float32Array[], values: Float32Array[]): Float32Array;
-          export function multiHeadAttention(query: Float32Array, keys: Float32Array[], values: Float32Array[], config: AttentionConfig): Float32Array;
-          export function flashAttention(query: Float32Array, keys: Float32Array[], values: Float32Array[], blockSize?: number): Float32Array;
-          export function hyperbolicAttention(query: Float32Array, keys: Float32Array[], values: Float32Array[], curvature?: number): Float32Array;
-          INDEXDTS
-
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-wait-visible.sh" "@ruvector/attention@${{ inputs.version || '0.1.31' }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
 
       - name: Summary
         run: |

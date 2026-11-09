@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/gnn-wasm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "WebAssembly bindings for ruvector-gnn - Graph Neural Network layers for browsers",
   "main": "pkg/ruvector_gnn_wasm.js",
   "types": "pkg/ruvector_gnn_wasm.d.ts",
@@ -14,22 +14,24 @@
     "test": "wasm-pack test --headless --firefox"
   },
   "repository": {
+    "directory": "crates/ruvector-gnn-wasm",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
   "keywords": [
+    "gnn",
     "wasm",
     "webassembly",
-    "gnn",
-    "graph-neural-network",
+    "neural-network",
     "machine-learning",
-    "neural-networks",
-    "browser"
+    "graph",
+    "ruvector",
+    "ruvnet"
   ],
   "author": "rUv",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },
-  "homepage": "https://github.com/ruvnet/ruvector"
+  "homepage": "https://ruv.io"
 }

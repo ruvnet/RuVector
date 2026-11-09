@@ -1,6 +1,7 @@
 {
   "name": "@ruvector/attention-darwin-x64",
-  "version": "0.1.4",
+  "version": "2.3.0",
+  "homepage": "https://ruv.io",
   "os": [
     "darwin"
   ],
@@ -15,5 +16,12 @@
   "engines": {
     "node": ">= 10"
   },
-  "repository": "https://github.com/ruvnet/ruvector"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "crates/ruvector-attention-node/npm/darwin-x64"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
+  }
 }

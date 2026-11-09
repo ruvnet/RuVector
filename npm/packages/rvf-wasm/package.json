@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/rvf-wasm",
-  "version": "0.1.9",
+  "version": "0.1.13",
   "description": "RuVector Format WASM microkernel for browser and edge vector operations",
   "type": "module",
   "main": "pkg/rvf_wasm.mjs",
@@ -19,10 +19,29 @@
   "scripts": {
     "build": "cargo build --release --target wasm32-unknown-unknown --manifest-path ../../crates/rvf/rvf-wasm/Cargo.toml && wasm-opt -Oz ../../crates/rvf/target/wasm32-unknown-unknown/release/rvf_wasm.wasm -o pkg/rvf_wasm_bg.wasm"
   },
+  "keywords": [
+    "rvf",
+    "wasm",
+    "webassembly",
+    "vector-search",
+    "vector-database",
+    "hnsw",
+    "ruvector",
+    "ruvnet",
+    "browser",
+    "edge",
+    "cloudflare-workers",
+    "deno"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector"
+    "url": "git+https://github.com/ruvnet/ruvector.git",
+    "directory": "npm/packages/rvf-wasm"
+  },
+  "homepage": "https://ruv.io",
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",

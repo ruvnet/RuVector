@@ -16,4 +16,5 @@ rvf-runtime = { path = "../../rvf-runtime" }
 rvf-adapter-rvlite = { path = "../../rvf-adapters/rvlite" }
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 rand = "0.8"
+rvf-forge-core = { path = "../../../rvf-forge-core" }
 tempfile = "3"

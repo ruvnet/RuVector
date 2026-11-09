@@ -56,6 +56,9 @@ var RvfErrorCode;
     RvfErrorCode[RvfErrorCode["SidecarWriteFailed"] = 65286] = "SidecarWriteFailed";
     RvfErrorCode[RvfErrorCode["SidecarCorrupt"] = 65287] = "SidecarCorrupt";
     RvfErrorCode[RvfErrorCode["FileExists"] = 65288] = "FileExists";
+    RvfErrorCode[RvfErrorCode["MetadataTypeConflict"] = 65289] = "MetadataTypeConflict";
+    RvfErrorCode[RvfErrorCode["InvalidMetadataRegistry"] = 65290] = "InvalidMetadataRegistry";
+    RvfErrorCode[RvfErrorCode["InvalidFilter"] = 65291] = "InvalidFilter";
 })(RvfErrorCode || (exports.RvfErrorCode = RvfErrorCode = {}));
 /** Human-readable labels for each error code. */
 const ERROR_MESSAGES = {
@@ -95,12 +98,15 @@ const ERROR_MESSAGES = {
     [RvfErrorCode.BackendInitFailed]: 'Backend initialization failed',
     [RvfErrorCode.StoreClosed]: 'Store has been closed',
     [RvfErrorCode.InvalidOptions]: 'Invalid store creation options',
-    [RvfErrorCode.MetadataNotSupported]: 'Per-vector metadata is not yet supported by this SDK (see issue #704) — ' +
-        'ingest without a metadata field, or wait for durable metadata support',
+    [RvfErrorCode.MetadataNotSupported]: 'Per-vector metadata is not supported by this backend (the native ' +
+        '/rvf-node backend stores it durably)',
     [RvfErrorCode.InvalidArgument]: 'Invalid argument',
     [RvfErrorCode.SidecarWriteFailed]: 'Failed to persist the string-id map sidecar',
     [RvfErrorCode.SidecarCorrupt]: 'The string-id map sidecar is missing fields or corrupt',
     [RvfErrorCode.FileExists]: 'A file already exists at the target path',
+    [RvfErrorCode.MetadataTypeConflict]: 'Metadata value does not match the type already stored in that field',
+    [RvfErrorCode.InvalidMetadataRegistry]: 'The stored metadata field registry is corrupt',
+    [RvfErrorCode.InvalidFilter]: 'Invalid filter expression',
 };
 /**
  * Custom error class for all RVF operations.

@@ -2216,7 +2216,7 @@ version = "0.1.0"
 
 [[package]]
 name = "ruvector-domain-expansion"
-version = "2.3.0"
+version = "2.4.0"
 dependencies = [
  "rand 0.8.7",
  "rvf-crypto",
@@ -2272,22 +2272,25 @@ dependencies = [
 
 [[package]]
 name = "rvf-crypto"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ed25519-dalek",
  "rvf-types",
+ "sha2",
  "sha3",
 ]
 
 [[package]]
 name = "rvf-types"
-version = "0.2.1"
+version = "0.3.0"
 
 [[package]]
 name = "rvf-wire"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "crc32c",
+ "ed25519-dalek",
+ "rvf-crypto",
  "rvf-types",
  "sha3",
  "subtle",

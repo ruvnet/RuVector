@@ -1,6 +1,6 @@
 [package]
 name        = "ruvector-staged-workspace"
-version     = "0.1.0"
+version     = "0.1.1"
 edition     = "2021"
 description = "StagedWorkspace (arXiv:2608.18050) content-hash + revision-id state binding for RuV artifacts: stale views fail closed (ADR-318, PIR WP16)"
 authors     = ["ruvnet", "claude-flow"]
@@ -18,7 +18,7 @@ serde_json = { workspace = true }
 # no_std, zero deps). ADR-318 §Decision 1 reuses RVF's canonical-format
 # discipline; the program's canonical receipt contract (ruflo ADR-322C,
 # adopted via ADR-312) specifies SHA-256 — no new hash is introduced.
-rvf-types = { version = "0.2", path = "../rvf/rvf-types", default-features = false }
+rvf-types = { version = "0.3", path = "../rvf/rvf-types", default-features = false }
 
 [[bin]]
 name = "staged-workspace-adapter"

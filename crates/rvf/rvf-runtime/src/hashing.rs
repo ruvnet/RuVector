@@ -1,23 +1,42 @@
-//! Segment content hashing for the runtime's on-disk format — the single
-//! source of truth.
+//! Segment content hashing for the runtime's on-disk formats.
 //!
-//! The runtime's 0.2.0 format stores a 16-byte content hash built from four
-//! byte-rotations of an IEEE CRC32 (poly 0xEDB88320) over the payload, with
-//! `checksum_algo = 0` in the segment header. This module is the ONE
-//! implementation of that algorithm; both `write_path` (computing hashes)
-//! and `read_path` (verifying them) delegate here. Previously each file
-//! carried its own copy of the same function.
+//! Two dialects exist (ADR-354):
 //!
-//! Relationship to `rvf-wire`: the wire crate defines the standard
-//! algorithm registry (0 = legacy CRC32C upgraded to XXH3-128,
-//! 1 = XXH3-128, 2 = SHAKE-256/128) which is NOT byte-compatible with this
-//! legacy hash — the runtime historically labelled its CRC-rotation hash
-//! with `checksum_algo = 0`, which rvf-wire interprets as XXH3-128.
-//! Migrating the runtime onto the rvf-wire registry therefore requires a
-//! format-version bump plus a dual-accept reader (verify XXH3 first, fall
-//! back to this legacy hash) so existing .rvf files keep opening. That
-//! migration is tracked as follow-up work; until then this module keeps the
-//! 0.2.0 on-disk contract byte-for-byte intact.
+//! * **Wire dialect** (current writer): `checksum_algo` follows the
+//!   `rvf-wire` registry (1 = XXH3-128, 2 = SHAKE-256-128) and segments are
+//!   padded to 64 bytes.
+//! * **Legacy dialect** (every file written before ADR-354): a 16-byte hash
+//!   built from four byte-rotations of an IEEE CRC32 (poly 0xEDB88320) over
+//!   the payload, stored with `checksum_algo = 0`, in unpadded segments.
+//!
+//! `rvf-wire` reads algo 0 as XXH3-128, so the two are not byte-compatible.
+//! The reader therefore dual-accepts: algo 0 verifies as the legacy CRC
+//! rotation first, then as XXH3-128 (what `rvf-wire` means by algo 0); algo 1
+//! and 2 use the registry; anything else is refused (fail closed). The writer
+//! never emits algo 0 any more.
+
+use rvf_wire::hash::compute_content_hash;
+
+/// Checksum algorithm the wire-dialect writer uses by default (XXH3-128).
+pub(crate) const ALGO_XXH3_128: u8 = 1;
+/// Checksum algorithm for anything that will be signed (SHAKE-256-128).
+pub(crate) const ALGO_SHAKE256_128: u8 = 2;
+
+/// Verify `payload` against a header's `(algo, expected)` pair.
+///
+/// Returns `false` for an unknown algorithm. `true` means only that the
+/// payload matches the header hash; whether that hash is trustworthy is a
+/// policy question (see `Strict`).
+pub(crate) fn verify_payload_hash(algo: u8, payload: &[u8], expected: &[u8; 16]) -> bool {
+    match algo {
+        0 => {
+            legacy_content_hash(payload) == *expected
+                || compute_content_hash(1, payload) == *expected
+        }
+        1 | 2 => compute_content_hash(algo, payload) == *expected,
+        _ => false,
+    }
+}
 
 /// Compute the legacy 16-byte content hash: IEEE CRC32 over the payload
 /// (via `crc32fast`), rotated left by 0/8/16/24 bits to fill four distinct

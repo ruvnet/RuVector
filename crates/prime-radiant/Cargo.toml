@@ -72,16 +72,16 @@ ruvllm = { version = "2.0.1", default-features = false, features = ["async-runti
 # -----------------------------------------------------------------------------
 # Math and Numerics
 # -----------------------------------------------------------------------------
-ndarray = { workspace = true, features = ["serde"] }
+ndarray = { version = "0.16", features = ["serde"] }
 nalgebra = { version = "0.33", optional = true }
 
 # -----------------------------------------------------------------------------
 # Serialization
 # -----------------------------------------------------------------------------
-serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-bincode = { workspace = true }
-rkyv = { workspace = true, optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = { version = "2.0.0-rc.3", features = ["serde"] }
+rkyv = { version = "0.8", optional = true }
 
 # -----------------------------------------------------------------------------
 # Hashing and Cryptography
@@ -91,18 +91,18 @@ blake3 = "1.5"
 # -----------------------------------------------------------------------------
 # Error Handling and Logging
 # -----------------------------------------------------------------------------
-thiserror = { workspace = true }
-anyhow = { workspace = true }
-tracing = { workspace = true }
+thiserror = "2.0"
+anyhow = "1.0"
+tracing = "0.1"
 
 # -----------------------------------------------------------------------------
 # Concurrency and Performance
 # -----------------------------------------------------------------------------
-rayon = { workspace = true, optional = true }
-crossbeam = { workspace = true, optional = true }
-parking_lot = { workspace = true }
-dashmap = { workspace = true }
-once_cell = { workspace = true }
+rayon = { version = "1.10", optional = true }
+crossbeam = { version = "0.8", optional = true }
+parking_lot = "0.12"
+dashmap = "6.1"
+once_cell = "1.20"
 
 # -----------------------------------------------------------------------------
 # SIMD
@@ -119,8 +119,8 @@ bytemuck = { version = "1.19", features = ["derive"], optional = true }
 # -----------------------------------------------------------------------------
 # Async Runtime (for distributed)
 # -----------------------------------------------------------------------------
-tokio = { workspace = true, features = ["rt-multi-thread", "sync", "macros", "time"], optional = true }
-futures = { workspace = true, optional = true }
+tokio = { version = "1.41", features = ["rt-multi-thread", "sync", "macros", "time"], optional = true }
+futures = { version = "0.3", optional = true }
 
 # -----------------------------------------------------------------------------
 # Data Structures
@@ -132,14 +132,14 @@ petgraph = { version = "0.6", optional = true }
 # -----------------------------------------------------------------------------
 # Time and UUID
 # -----------------------------------------------------------------------------
-chrono = { workspace = true, features = ["serde"] }
-uuid = { workspace = true, features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.11", features = ["v4", "serde", "js"] }
 
 # -----------------------------------------------------------------------------
 # Random Number Generation
 # -----------------------------------------------------------------------------
-rand = { workspace = true }
-rand_distr = { workspace = true }
+rand = "0.8"
+rand_distr = "0.4"
 
 # -----------------------------------------------------------------------------
 # Database (optional for postgres governance storage)
@@ -151,12 +151,12 @@ sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chro
 # ============================================================================
 
 [dev-dependencies]
-criterion = { workspace = true }
-proptest = { workspace = true }
-mockall = { workspace = true }
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.5"
+mockall = "0.13"
 tempfile = "3.13"
-tracing-subscriber = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tokio = { version = "1.41", features = ["rt-multi-thread", "sync", "macros", "test-util"] }
 approx = "0.5"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
@@ -513,3 +513,12 @@ single_char_lifetime_names = "allow"
 mut_range_bound = "allow"
 unnecessary_sort_by = "allow"
 assign_op_pattern = "allow"
+
+# Standalone workspace (like crates/rvf): kept out of the root workspace so
+# its sqlx dependency (`postgres` feature) does not pin libsqlite3-sys below
+# the RUSTSEC-2026-0459 fix for the root workspace's rusqlite users. sqlx's
+# `links = "sqlite3"` edge is resolved even though sqlite is never enabled.
+[workspace]
+
+[patch.crates-io]
+hnsw_rs = { path = "../../patches/hnsw_rs" }

@@ -1,13 +1,17 @@
 {
   "name": "ruvector-core-darwin-x64",
-  "version": "0.1.31",
+  "version": "0.1.34",
   "description": "macOS x64 (Intel) native binding for ruvector-core - High-performance vector database with HNSW indexing built in Rust",
+  "homepage": "https://ruv.io",
   "main": "index.js",
   "type": "commonjs",
-  "os": ["darwin"],
-  "cpu": ["x64"],
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "author": "ruv.io Team <info@ruv.io> (https://ruv.io)",
-  "homepage": "https://ruv.io",
   "engines": {
     "node": ">= 18"
   },
@@ -41,11 +45,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
     "directory": "npm/core/platforms/darwin-x64"
   },
   "bugs": {
-    "url": "https://github.com/ruvnet/ruvector/issues"
+    "url": "https://github.com/ruvnet/RuVector/issues"
   },
   "publishConfig": {
     "access": "public"

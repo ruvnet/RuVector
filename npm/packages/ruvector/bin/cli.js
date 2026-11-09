@@ -8,6 +8,9 @@ const _chalk = require('chalk');
 const chalk = _chalk.default || _chalk;
 const fs = require('fs');
 const path = require('path');
+const { serializeStore, resolveIntelStorePath } = require('./intel-store');
+const memoryStore = require('./memory-store');
+const recordValidate = require('./record-validate');
 
 // Lazy load ora (spinner) - only needed for commands with progress indicators
 let _oraModule = null;
@@ -383,6 +386,106 @@ program
     }
   });
 
+// Open an existing store for get/update/delete. Dimension comes from the
+// sidecar written by create/insert; a missing store is an error (these
+// commands never create one).
+function openExistingVectorDb(dbPath) {
+  if (!fs.existsSync(dbPath)) throw new Error(`Database not found: ${dbPath}`);
+  let dimension = 384;
+  let provenance = null;
+  const metaPath = `${dbPath}.meta.json`;
+  if (fs.existsSync(metaPath)) {
+    try {
+      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+      dimension = sanitizeDimension(meta.dimension, 384);
+      provenance = sanitizeProvenanceSafe(meta.provenance);
+    } catch (_) {}
+  }
+  return { db: new VectorDB({ dimensions: dimension, storagePath: dbPath }), dimension, provenance };
+}
+
+function recordView(record) {
+  return { id: record.id, vector: Array.from(record.vector || []), metadata: record.metadata };
+}
+
+// Read one vector by id
+program
+  .command('get <database> <id>')
+  .description('Get a vector and its metadata by id')
+  .option('--no-vector', 'Omit the vector values from the output')
+  .action(async (dbPath, id, options) => {
+    requireRuvector();
+    try {
+      id = recordValidate.validateRecordId(id);
+      const { db } = openExistingVectorDb(dbPath);
+      const record = await db.get(id);
+      if (!record) {
+        console.error(chalk.red(`Not found: ${id}`));
+        process.exit(1);
+      }
+      const view = recordView({ ...record, id });
+      if (!options.vector) delete view.vector;
+      console.log(JSON.stringify(view, null, 2));
+    } catch (error) {
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+// Update an existing vector (never creates)
+program
+  .command('update <database> <id>')
+  .description('Update the vector and/or metadata of an existing id')
+  .option('-v, --vector <json>', 'New vector as JSON array')
+  .option('-m, --metadata <json>', 'New metadata as JSON object')
+  .option('--merge', 'Merge --metadata into the stored metadata instead of replacing it')
+  .action(async (dbPath, id, options) => {
+    requireRuvector();
+    try {
+      id = recordValidate.validateRecordId(id);
+      if (options.vector === undefined && options.metadata === undefined) {
+        throw new Error('Nothing to update: pass --vector and/or --metadata');
+      }
+      const { db, dimension, provenance } = openExistingVectorDb(dbPath);
+      const patch = { mergeMetadata: !!options.merge };
+      if (options.vector !== undefined) {
+        let parsed;
+        try { parsed = JSON.parse(options.vector); } catch { throw new Error('--vector is not valid JSON'); }
+        // ADR-210 D0: the stored provenance fixes the dimension.
+        patch.vector = recordValidate.validateVector(parsed, provenance ? provenance.dimension : dimension);
+      }
+      if (options.metadata !== undefined) patch.metadata = recordValidate.validateMetadata(options.metadata);
+      const updated = await db.update(id, patch);
+      if (!updated) {
+        console.error(chalk.red(`Not found: ${id}`));
+        process.exit(1);
+      }
+      console.log(chalk.green(`Updated ${id}`));
+    } catch (error) {
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+// Delete vectors by id
+program
+  .command('delete <database> <ids...>')
+  .description('Delete one or more vectors by id')
+  .action(async (dbPath, ids) => {
+    requireRuvector();
+    try {
+      ids = recordValidate.validateIdList(ids);
+      const { db } = openExistingVectorDb(dbPath);
+      const { deleted, missing } = await db.deleteMany(ids);
+      console.log(chalk.green(`Deleted ${deleted.length} vector(s)`));
+      if (missing.length) console.log(chalk.yellow(`  Not found: ${missing.join(', ')}`));
+      if (deleted.length === 0) process.exit(1);
+    } catch (error) {
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
 // Benchmark
 program
   .command('benchmark')
@@ -472,7 +575,8 @@ program
 
     // Try to load ruvector for implementation info
     if (loadRuvector()) {
-      const version = typeof getVersion === 'function' ? getVersion() : 'unknown';
+      const v = typeof getVersion === 'function' ? getVersion() : 'unknown';
+      const version = v && typeof v === 'object' ? (v.version || JSON.stringify(v)) : v;
       const impl = typeof getImplementationType === 'function' ? getImplementationType() : 'native';
       console.log(chalk.white(`  Core Version: ${chalk.yellow(version)}`));
       console.log(chalk.white(`  Implementation: ${chalk.yellow(impl)}`));
@@ -488,6 +592,7 @@ program
     if (!gnnAvailable) {
       console.log(chalk.gray('\n  Install GNN with: npx ruvector install gnn'));
     }
+    console.log(chalk.gray('  Optional extras (RaBitQ, DiskANN, router, graph, rvlite, quantum): npx ruvector add --list'));
   });
 
 // =============================================================================
@@ -787,6 +892,77 @@ program
         process.exit(1);
       }
     }
+  });
+
+// =============================================================================
+// Add Command — opt-in extras (allowlisted, see bin/extras.js)
+// =============================================================================
+
+program
+  .command('add [extras...]')
+  .description('Install an optional ruvector extra (rabitq, diskann, router, graph, rvlite, rvf, tiny-dancer, quantum) into this project')
+  .option('-l, --list', 'List available extras and whether they are installed')
+  .option('--json', 'With --list, print JSON')
+  .option('--dry-run', 'Print what would be installed without installing')
+  .action((names, options) => {
+    const extras = require('./extras');
+
+    if (options.list) {
+      const rows = extras.listExtras().map((e) => ({
+        key: e.key, package: e.pkg, spec: e.spec, why: e.why, usage: e.usage,
+        bundled: !!e.bundled, installed: extras.isPackageInstalled(e.pkg),
+      }));
+      if (options.json) {
+        console.log(JSON.stringify({ extras: rows }, null, 2));
+        return;
+      }
+      console.log(chalk.cyan('\nruvector extras (opt-in, installed only on request)\n'));
+      for (const r of rows) {
+        const status = r.bundled ? chalk.green('bundled') : r.installed ? chalk.green('installed') : chalk.gray('available');
+        console.log(`  ${chalk.yellow(r.key.padEnd(12))} ${status.padEnd(10)} ${chalk.white(r.package)}`);
+        console.log(chalk.gray(`      ${r.why}`));
+        console.log(chalk.gray(`      use: ${r.usage}`));
+      }
+      console.log(chalk.gray('\n  npx ruvector add <extra> [--dry-run]\n'));
+      return;
+    }
+
+    if (!names || names.length === 0) {
+      console.error(chalk.red('No extra given.'));
+      console.error(chalk.yellow('  See what is available: npx ruvector add --list'));
+      process.exit(1);
+    }
+
+    const plan = extras.runAdd(names, { dryRun: true });
+    if (!plan.ok) {
+      console.error(chalk.red(`Unknown extra: ${plan.unknown.join(', ')}`));
+      console.error(chalk.yellow(`  Available: ${extras.listExtras().map((e) => e.key).join(', ')}`));
+      console.error(chalk.yellow('  Details:   npx ruvector add --list'));
+      process.exit(1);
+    }
+    for (const s of plan.skipped) {
+      console.log(chalk.green(`  ✓ ${s.key}: ${s.reason}`));
+    }
+    if (!plan.command) return;
+
+    console.log(chalk.cyan('\nWill install into ' + plan.cwd + ':'));
+    for (const e of plan.toInstall) {
+      console.log(`  ${chalk.yellow(e.spec)}`);
+      console.log(chalk.gray(`      why: ${e.why}`));
+      console.log(chalk.gray(`      use: ${e.usage}`));
+    }
+    console.log(chalk.white(`\n  $ ${plan.command.cmd} ${plan.command.args.join(' ')}\n`));
+    if (options.dryRun) {
+      console.log(chalk.gray('  Dry run — nothing installed.'));
+      return;
+    }
+
+    const result = extras.runAdd(names);
+    if (!result.ok) {
+      console.error(chalk.red(`Install failed${result.error ? `: ${result.error}` : ` (exit ${result.status})`}`));
+      process.exit(result.status || 1);
+    }
+    console.log(chalk.green(`Installed: ${result.toInstall.map((e) => e.pkg).join(', ')}`));
   });
 
 // =============================================================================
@@ -1938,7 +2114,7 @@ function loadTinyDancer() {
     return require('@ruvector/tiny-dancer');
   } catch (e) {
     console.error(chalk.red('\n  This command requires @ruvector/tiny-dancer'));
-    console.error(chalk.yellow('  Install it:  npm install @ruvector/tiny-dancer'));
+    console.error(chalk.yellow('  Install it:  npx ruvector add tiny-dancer   (or: npm install @ruvector/tiny-dancer)'));
     console.error(chalk.dim('  (native router; ships for linux/macos/windows incl. musl + arm64)\n'));
     process.exit(1);
   }
@@ -2012,6 +2188,140 @@ tinyDancer
     } catch {
       console.log(chalk.yellow('\n  @ruvector/tiny-dancer not installed.  npm install @ruvector/tiny-dancer\n'));
     }
+  });
+
+// =============================================================================
+// Quantum (ruqu) - state-vector circuit simulation via optional @ruvector/ruqu-wasm
+// =============================================================================
+
+const quantumCmd = program
+  .command('quantum')
+  .alias('ruqu')
+  .description('Quantum circuit simulation — simulate, grover, bench, info (requires @ruvector/ruqu-wasm)');
+
+/** Lazy: the wrapper and the WASM engine load only inside a quantum action. */
+function loadQuantumApi() {
+  const q = require('../dist/core/quantum-wrapper.js');
+  if (!q.isQuantumAvailable()) {
+    console.error(chalk.red('\n  This command requires @ruvector/ruqu-wasm (quantum circuit engine, ~0.5 MB WASM)'));
+    console.error(chalk.yellow(`  Install it:  ${q.QUANTUM_INSTALL_HINT}   (or: npx ruvector add quantum)\n`));
+    process.exit(1);
+  }
+  return q;
+}
+
+function quantumFail(e) {
+  console.error(chalk.red(`  ${e && e.message ? e.message : e}`));
+  process.exit(1);
+}
+
+/** <circuit> = preset (bell, ghz, ghz:N) | JSON file | inline JSON | text ops ("h 0; cx 0 1"). */
+function readCircuitArg(q, arg, qubits) {
+  const s = String(arg).trim();
+  if (/\.json$/i.test(s) && fs.existsSync(s)) return JSON.parse(fs.readFileSync(s, 'utf8'));
+  return q.circuitFromString(s, qubits, q.CLI_LIMITS);
+}
+
+function intOpt(v, name) {
+  if (v === undefined) return undefined;
+  if (!/^\d+$/.test(String(v))) quantumFail(`--${name} must be a non-negative integer`);
+  return parseInt(v, 10);
+}
+
+quantumCmd
+  .command('simulate <circuit>')
+  .description('Simulate a circuit: bell | ghz[:N] | circuit.json | \'{"qubits":2,"gates":[...]}\' | "h 0; cx 0 1"')
+  .option('-q, --qubits <n>', 'Qubit count (for text circuits / ghz; default: inferred)')
+  .option('-s, --shots <n>', 'Sample N measurements from the final state', '1024')
+  .option('--seed <n>', 'Sampling seed (reproducible counts)')
+  .option('-t, --top <n>', 'Show the N most probable basis states', '8')
+  .option('--full', 'Include the full 2^n probability vector (with --json)')
+  .option('--json', 'Machine-readable output')
+  .action(async (circuitArg, options) => {
+    const q = loadQuantumApi();
+    try {
+      const spec = readCircuitArg(q, circuitArg, intOpt(options.qubits, 'qubits'));
+      const r = await q.simulate(spec, {
+        shots: intOpt(options.shots, 'shots'),
+        seed: intOpt(options.seed, 'seed'),
+        top: intOpt(options.top, 'top'),
+        full: !!options.full,
+        limits: q.CLI_LIMITS,
+      });
+      if (options.json) { console.log(JSON.stringify(r, null, 2)); return; }
+      console.log(chalk.cyan(`\n  ${r.numQubits} qubits, ${r.gateCount} gates, depth ${r.depth} — simulated in ${r.wallTimeMs.toFixed(2)} ms (state ${r.memoryBytes < 1048576 ? (r.memoryBytes / 1024).toFixed(1) + " KiB" : (r.memoryBytes / 1048576).toFixed(1) + " MiB"})`));
+      console.log(chalk.gray(`  bit order: ${r.bitOrder}\n`));
+      for (const s of r.top) {
+        const bar = '█'.repeat(Math.max(1, Math.round(s.probability * 40)));
+        console.log(`  |${s.state}>  ${s.probability.toFixed(4)}  ${chalk.green(bar)}`);
+      }
+      if (r.counts) {
+        const entries = Object.entries(r.counts).sort((a, b) => b[1] - a[1]).slice(0, r.top.length);
+        console.log(chalk.white(`\n  ${r.shots} shots (seed ${r.seed}):`));
+        for (const [k, v] of entries) console.log(`  |${k}>  ${v}`);
+      }
+      console.log('');
+    } catch (e) { quantumFail(e); }
+  });
+
+quantumCmd
+  .command('grover')
+  .description('Grover search over 2^qubits items')
+  .requiredOption('-q, --qubits <n>', 'Search-space qubits')
+  .requiredOption('--target <list>', 'Target index or comma-separated indices')
+  .option('--seed <n>', 'RNG seed')
+  .option('--json', 'Machine-readable output')
+  .action(async (options) => {
+    const q = loadQuantumApi();
+    try {
+      const targets = String(options.target).split(',').map((t) => intOpt(t.trim(), 'target'));
+      const r = await q.grover(intOpt(options.qubits, 'qubits'), targets, intOpt(options.seed, 'seed'), q.CLI_LIMITS);
+      if (options.json) { console.log(JSON.stringify(r, null, 2)); return; }
+      console.log(chalk.cyan(`\n  measured |${r.measured}> (${r.measuredState}) — ${r.targetFound ? chalk.green('target found') : chalk.yellow('target missed')}`));
+      console.log(chalk.gray(`  success probability ${r.successProbability.toFixed(4)} after ${r.iterations} iterations\n`));
+    } catch (e) { quantumFail(e); }
+  });
+
+quantumCmd
+  .command('bench')
+  .description('Time GHZ-state simulation (H + CNOT chain) at several sizes')
+  .option('--qubits <list>', 'Comma-separated qubit counts', '10,16,20')
+  .option('-r, --repeats <n>', 'Repeats per size (median reported)', '5')
+  .option('--json', 'Machine-readable output')
+  .action(async (options) => {
+    const q = loadQuantumApi();
+    try {
+      const sizes = String(options.qubits).split(',').map((s) => intOpt(s.trim(), 'qubits'));
+      const repeats = intOpt(options.repeats, 'repeats');
+      if (!repeats || repeats < 1 || repeats > 1000) quantumFail('--repeats must be in 1..1000');
+      const rows = await q.bench(sizes, repeats);
+      if (options.json) { console.log(JSON.stringify({ engine: '@ruvector/ruqu-wasm', node: process.version, rows }, null, 2)); return; }
+      console.log(chalk.cyan(`\n  GHZ simulation, median of ${repeats} (node ${process.version})\n`));
+      for (const r of rows) {
+        console.log(`  ${String(r.qubits).padStart(2)} qubits  ${r.medianMs.toFixed(2).padStart(9)} ms  (min ${r.minMs.toFixed(2)} ms, state ${(r.memoryBytes / 1048576).toFixed(2)} MiB)`);
+      }
+      console.log('');
+    } catch (e) { quantumFail(e); }
+  });
+
+quantumCmd
+  .command('info')
+  .description('Show quantum engine availability, version, limits and supported gates')
+  .option('--json', 'Machine-readable output')
+  .action(async (options) => {
+    const q = require('../dist/core/quantum-wrapper.js');
+    const i = await q.info(q.CLI_LIMITS);
+    if (options.json) { console.log(JSON.stringify(i, null, 2)); if (!i.available) process.exitCode = 1; return; }
+    if (!i.available) {
+      console.log(chalk.yellow(`\n  @ruvector/ruqu-wasm not installed.  ${i.install}\n`));
+      process.exitCode = 1;
+      return;
+    }
+    console.log(chalk.green(`\n  ${i.package} ${i.version} — state-vector simulator, engine max ${i.engineMaxQubits} qubits`));
+    console.log(chalk.gray(`  gates: ${i.gates.join(', ')}`));
+    console.log(chalk.gray(`  bit order: ${i.bitOrder}; measurement via --shots (seeded sampling)`));
+    for (const [n, b] of Object.entries(i.memoryBytes || {})) console.log(chalk.gray(`  ${n} qubits → ${(b / 1048576).toFixed(2)} MiB state vector`));
+    console.log(chalk.gray('  try:   npx ruvector quantum simulate bell\n'));
   });
 
 // =============================================================================
@@ -3089,6 +3399,14 @@ function sanitizeDimension(value, fallback) {
  * the temp file; the final rename is last-writer-wins.
  */
 function atomicWriteFileSync(filePath, data) {
+  try {
+    return atomicWriteFileSyncUnlocked(filePath, data);
+  } finally {
+    releaseIntelLock(filePath);
+  }
+}
+
+function atomicWriteFileSyncUnlocked(filePath, data) {
   const dir = path.dirname(filePath);
   const tmp = path.join(dir, `.${path.basename(filePath)}.tmp.${process.pid}.${Date.now()}`);
   try {
@@ -3109,6 +3427,7 @@ function atomicWriteFileSync(filePath, data) {
  * store. Mirrors Intelligence.load()'s corrupt handling.
  */
 function readIntelStoreSafe(dataPath) {
+  acquireIntelLock(dataPath);
   if (!fs.existsSync(dataPath)) return {};
   try {
     return JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
@@ -3121,6 +3440,77 @@ function readIntelStoreSafe(dataPath) {
       `restore it or delete it to start fresh. (${err.message})`
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Cross-process lock for the intelligence store. Claude Code runs every hook as
+// its own short-lived process, so load → modify → save from two hooks at once
+// used to be last-writer-wins and silently dropped learning updates. The lock
+// is taken on read and released on write (or process exit), is reentrant per
+// process, breaks stale locks left by dead processes, and never blocks a hook
+// for more than INTEL_LOCK_WAIT_MS (it then proceeds unlocked, as before).
+// ---------------------------------------------------------------------------
+const INTEL_LOCK_WAIT_MS = 10000;
+const INTEL_LOCK_STALE_MS = 30000;
+const heldIntelLocks = new Set();
+
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function acquireIntelLock(dataPath) {
+  const lockPath = `${dataPath}.lock`;
+  if (heldIntelLocks.has(lockPath)) return true;
+  try { fs.mkdirSync(path.dirname(dataPath), { recursive: true }); } catch { return false; }
+  const deadline = Date.now() + INTEL_LOCK_WAIT_MS;
+  while (true) {
+    try {
+      const fd = fs.openSync(lockPath, 'wx');
+      fs.writeSync(fd, String(process.pid));
+      fs.closeSync(fd);
+      heldIntelLocks.add(lockPath);
+      if (heldIntelLocks.size === 1) process.once('exit', releaseAllIntelLocks);
+      return true;
+    } catch (err) {
+      if (err.code !== 'EEXIST') return false;
+    }
+    try {
+      const st = fs.statSync(lockPath);
+      const owner = parseInt(fs.readFileSync(lockPath, 'utf8'), 10);
+      let ownerAlive = true;
+      if (Number.isInteger(owner) && owner > 0) {
+        try { process.kill(owner, 0); } catch (e) { ownerAlive = e.code === 'EPERM'; }
+      }
+      if (!ownerAlive || Date.now() - st.mtimeMs > INTEL_LOCK_STALE_MS) {
+        fs.rmSync(lockPath, { force: true });
+        continue;
+      }
+    } catch { continue; }
+    if (Date.now() > deadline) return false;
+    sleepSync(5 + Math.floor(Math.random() * 10));
+  }
+}
+
+function releaseIntelLock(dataPath) {
+  const lockPath = `${dataPath}.lock`;
+  if (!heldIntelLocks.delete(lockPath)) return;
+  try { fs.rmSync(lockPath, { force: true }); } catch { /* best effort */ }
+}
+
+function releaseAllIntelLocks() {
+  for (const lockPath of heldIntelLocks) {
+    try { fs.rmSync(lockPath, { force: true }); } catch { /* best effort */ }
+  }
+  heldIntelLocks.clear();
+}
+
+/** Parse a numeric CLI/MCP input; reject non-finite values and clamp to [min, max]. */
+function parseBoundedNumber(value, min, max, name) {
+  const n = typeof value === 'number' ? value : parseFloat(value);
+  if (!Number.isFinite(n)) {
+    throw new Error(`${name} must be a finite number, got ${JSON.stringify(value)}`);
+  }
+  return Math.min(max, Math.max(min, n));
 }
 
 class Intelligence {
@@ -3206,8 +3596,9 @@ class Intelligence {
     if (data.patterns) {
       for (const [key, value] of Object.entries(data.patterns)) {
         const [state, action] = key.split('|');
-        if (state && action) {
-          if (!converted.routingPatterns[state]) {
+        const unsafe = (k) => k === '__proto__' || k === 'constructor' || k === 'prototype';
+        if (state && action && !unsafe(state) && !unsafe(action)) {
+          if (!Object.prototype.hasOwnProperty.call(converted.routingPatterns, state)) {
             converted.routingPatterns[state] = {};
           }
           converted.routingPatterns[state][action] = value.q_value || 0.5;
@@ -3230,16 +3621,11 @@ class Intelligence {
 
   // Prefer project-local storage, fall back to home directory
   getIntelPath() {
-    const projectPath = path.join(process.cwd(), '.ruvector', 'intelligence.json');
-    const homePath = path.join(require('os').homedir(), '.ruvector', 'intelligence.json');
-
-    if (fs.existsSync(path.dirname(projectPath))) return projectPath;
-    if (fs.existsSync(path.join(process.cwd(), '.claude'))) return projectPath;
-    if (fs.existsSync(homePath)) return homePath;
-    return projectPath;
+    return resolveIntelStorePath();
   }
 
   load() {
+    acquireIntelLock(this.intelPath);
     const defaults = {
       patterns: {},
       memories: [],
@@ -3279,9 +3665,12 @@ class Intelligence {
     // that iterates arrays or spreads objects.
     const asArray = (v, dflt) => (Array.isArray(v) ? v : dflt);
     const asObject = (v, dflt) => (v && typeof v === 'object' && !Array.isArray(v) ? v : dflt);
+    const memories = asArray(data.memories, defaults.memories);
+    // Every memory gets a stable id so get/update/forget can address it.
+    memoryStore.ensureMemoryIds({ memories });
     return {
       patterns: asObject(data.patterns, defaults.patterns),
-      memories: asArray(data.memories, defaults.memories),
+      memories,
       trajectories: asArray(data.trajectories, defaults.trajectories),
       errors: asObject(data.errors, defaults.errors),
       file_sequences: asArray(data.file_sequences, defaults.file_sequences),
@@ -3312,14 +3701,22 @@ class Intelligence {
       try {
         const engineData = eng.export();
         // Merge engine data with legacy format for compatibility
-        this.data.patterns = {};
+        // Merge engine patterns into the store. Replacing the map here used to
+        // delete every pattern the engine had not loaded (pretrain output, CLI
+        // trajectory outcomes) and reset visit counts to 1.
+        if (!this.data.patterns) this.data.patterns = {};
         for (const [state, actions] of Object.entries(engineData.routingPatterns || {})) {
           for (const [action, value] of Object.entries(actions)) {
-            this.data.patterns[`${state}|${action}`] = { state, action, q_value: value, visits: 1, last_update: this.now() };
+            if (!Number.isFinite(value)) continue;
+            const key = `${state}|${action}`;
+            const existing = this.data.patterns[key];
+            this.data.patterns[key] = existing
+              ? { ...existing, q_value: value, last_update: this.now() }
+              : { state, action, q_value: value, visits: 1, last_update: this.now() };
           }
         }
         this.data.stats.total_patterns = Object.keys(this.data.patterns).length;
-        this.data.stats.total_memories = engineData.stats?.totalMemories || this.data.memories.length;
+        this.data.stats.total_memories = (this.data.memories || []).length;
 
         // Add engine stats
         this.data.engineStats = engineData.stats;
@@ -3328,7 +3725,7 @@ class Intelligence {
       }
     }
 
-    atomicWriteFileSync(this.intelPath, JSON.stringify(this.data, null, 2));
+    atomicWriteFileSync(this.intelPath, serializeStore(this.data));
   }
 
   now() { return Math.floor(Date.now() / 1000); }
@@ -3490,7 +3887,7 @@ class Intelligence {
     if (this.engine) {
       let entry = null;
       try {
-        entry = await this.engine.remember(content, memoryType);
+        entry = await this.engine.remember(content, memoryType, memoryStore.newMemoryId());
       } catch (e) {
         // RUVECTOR_EMBEDDER=minilm is an explicit hard requirement. Do not
         // silently route a failed semantic write through the sync hash path:
@@ -3524,7 +3921,7 @@ class Intelligence {
   }
 
   remember(memoryType, content, metadata = {}) {
-    const id = `mem_${this.now()}`;
+    const id = memoryStore.newMemoryId();
     const embedding = this.embed(content);
     // ADR-210 D0: refuse mismatched/legacy vector writes (throws), or skip
     // under RUVECTOR_REEMBED=warn (returns null).
@@ -3541,6 +3938,45 @@ class Intelligence {
     }
 
     return id;
+  }
+
+  /**
+   * Update a memory in place. New content is embedded through the same path
+   * as remember()/rememberAsync() and passes the same provenance gate, so an
+   * edit can never create a mixed store (ADR-210). Returns the updated view,
+   * null when the id is unknown, or throws on invalid input / refusal.
+   */
+  async updateMemory(id, patch, { semantic = false } = {}) {
+    const hit = memoryStore.findMemory(this.data, id);
+    if (!hit) return null;
+    const clean = memoryStore.validateMemoryPatch(patch);
+    let embedding;
+    if (clean.content !== undefined) {
+      if (semantic && this.engine) {
+        embedding = await this.engine.embedAsync(clean.content);
+        const active = typeof this.engine.getActiveProvenance === 'function'
+          ? this.engine.getActiveProvenance()
+          : this.syncWriteProvenance(embedding);
+        const guard = this.guardVectorWrite(active);
+        if (!guard.ok) throw Object.assign(new Error(guard.error || 'store is read-only for vector writes (ADR-210)'), { code: 'ERR_EMBEDDING_PROVENANCE' });
+      } else {
+        embedding = this.embed(clean.content);
+        const guard = this.guardVectorWrite(this.syncWriteProvenance(embedding));
+        if (!guard.ok) throw Object.assign(new Error(guard.error || 'store is read-only for vector writes (ADR-210)'), { code: 'ERR_EMBEDDING_PROVENANCE' });
+      }
+    }
+    const view = memoryStore.applyMemoryPatch(hit.memory, clean, embedding);
+    const eng = this.getEngineIfReady();
+    if (eng && typeof eng.forget === 'function') eng.forget(id);
+    return view;
+  }
+
+  /** Remove memories by id; returns { deleted, missing }. */
+  forgetMemories(ids) {
+    const result = memoryStore.deleteMemories(this.data, ids);
+    const eng = this.getEngineIfReady();
+    if (eng && typeof eng.forget === 'function') result.deleted.forEach(id => eng.forget(id));
+    return result;
   }
 
   /**
@@ -3763,8 +4199,22 @@ class Intelligence {
         if (learned && !agents.includes(learned)) agents.push(learned);
       }
     }
-    const { action, confidence } = this.suggest(state, agents);
-    const reason = confidence > 0.5 ? 'learned from past success' : confidence > 0 ? 'based on patterns' : `default for ${fileType} files`;
+    // Unseen agents get a neutral 0.5 prior (recordRouteOutcome starts new
+    // agents at 0.5), so an agent with a record of failures (Q < 0.5) no longer
+    // beats the default just because the default has no history.
+    const NEUTRAL_Q = 0.5;
+    let action = agents[0];
+    let bestScore = -Infinity;
+    for (const candidate of agents) {
+      const learned = this.data.patterns?.[`${state}|${candidate}`]?.q_value;
+      const score = Number.isFinite(learned) ? learned : NEUTRAL_Q;
+      if (score > bestScore) { bestScore = score; action = candidate; }
+    }
+    const record = this.data.patterns?.[`${state}|${action}`];
+    const learnedQ = record?.q_value;
+    const confidence = Number.isFinite(learnedQ) ? Math.max(0, Math.min(learnedQ, 1)) : 0;
+    const reason = record?.source === 'pretrain' && !record.visits ? 'pretrained from repository structure'
+      : confidence > 0.5 ? 'learned from past success' : confidence > 0 ? 'based on patterns' : `default for ${fileType} files`;
 
     // Begin trajectory in engine (only if already initialized)
     const eng = this.getEngineIfReady();
@@ -3872,6 +4322,15 @@ class Intelligence {
   // Enhanced stats with engine metrics
   stats() {
     const baseStats = this.data.stats;
+    // The stored total_errors counter is only refreshed by recordErrorFix(), so a store whose errors arrived another
+    // way (an import, a merge, another process) reported "0 error patterns" beside stored fixes. Count them.
+    if (baseStats && this.data.errors && typeof this.data.errors === 'object') baseStats.total_errors = Object.keys(this.data.errors).length;
+    // Same for the other counters: report what is stored, not a cached number.
+    if (baseStats) {
+      baseStats.total_patterns = Object.keys(this.data.patterns || {}).length;
+      baseStats.total_memories = (this.data.memories || []).length;
+      baseStats.total_trajectories = (this.data.trajectories || []).length;
+    }
 
     // Only use engine if already initialized (don't trigger lazy load for optional stats)
     const eng = this.getEngineIfReady();
@@ -4375,7 +4834,7 @@ exec node "$RUVECTOR_CLI" "$@"
   // Advanced hooks (unless --minimal)
   if (!opts.minimal) {
     // Create agentic-flow fast wrapper for background workers
-    let workersCmd = 'npx agentic-flow@alpha';
+    let workersCmd = 'npx agentic-flow@3.0.0-alpha.2';
     if (opts.fast && !isWindows) {
       const agenticFastPath = path.join(settingsDir, 'agentic-flow-fast.sh');
       const agenticFastContent = `#!/bin/bash
@@ -4390,7 +4849,7 @@ elif [ -f "$PWD/node_modules/.bin/agentic-flow" ]; then
 elif command -v agentic-flow &> /dev/null; then
   exec agentic-flow "$@"
 else
-  exec npx agentic-flow@alpha "$@"
+  exec npx agentic-flow@3.0.0-alpha.2 "$@"
 fi
 `;
       fs.writeFileSync(agenticFastPath, agenticFastContent);
@@ -4700,9 +5159,9 @@ npx ruvector hooks init --force      # Overwrite existing configuration
   // Run pretrain if requested
   if (opts.pretrain) {
     console.log(chalk.yellow('\n📚 Running pretrain to bootstrap intelligence...\n'));
-    const { execSync } = require('child_process');
+    const { execFileSync } = require('child_process');
     try {
-      execSync('npx ruvector hooks pretrain', { stdio: 'inherit' });
+      execFileSync(process.execPath, [__filename, 'hooks', 'pretrain'], { stdio: 'inherit' });
     } catch (e) {
       console.log(chalk.yellow('⚠️  Pretrain completed with warnings'));
     }
@@ -4711,10 +5170,15 @@ npx ruvector hooks init --force      # Overwrite existing configuration
   // Build agents if requested
   if (opts.buildAgents) {
     const focus = typeof opts.buildAgents === 'string' ? opts.buildAgents : 'quality';
+    const allowedFocus = ['quality', 'speed', 'security', 'testing', 'fullstack'];
+    if (!allowedFocus.includes(focus)) {
+      console.error(chalk.red(`Invalid --build-agents focus: ${JSON.stringify(focus)} (expected one of ${allowedFocus.join(', ')})`));
+      process.exit(1);
+    }
     console.log(chalk.yellow(`\n🏗️  Building optimized agents (focus: ${focus})...\n`));
-    const { execSync } = require('child_process');
+    const { execFileSync } = require('child_process');
     try {
-      execSync(`npx ruvector hooks build-agents --focus ${focus} --include-prompts`, { stdio: 'inherit' });
+      execFileSync(process.execPath, [__filename, 'hooks', 'build-agents', '--focus', focus, '--include-prompts'], { stdio: 'inherit' });
     } catch (e) {
       console.log(chalk.yellow('⚠️  Agent build completed with warnings'));
     }
@@ -4894,7 +5358,77 @@ hooksCmd.command('recall').description('Search memory').argument('<query...>', '
   } else {
     results = intel.recall(query.join(' '), parseInt(opts.topK));
   }
-  console.log(JSON.stringify({ query: query.join(' '), semantic, results: results.map(r => ({ type: r.memory_type || 'unknown', content: (r.content || '').slice(0, 200), timestamp: r.timestamp || '', score: r.score })) }, null, 2));
+  console.log(JSON.stringify({ query: query.join(' '), semantic, results: results.map(r => ({ id: r.id, type: r.memory_type || 'unknown', content: (r.content || '').slice(0, 200), timestamp: r.timestamp || '', score: r.score })) }, null, 2));
+});
+
+// Memory CRUD: remember (create) / recall + memory-get + memory-list (read) /
+// memory-update / forget (delete). Ids come from `remember`, `recall` or `memory-list`.
+function printJsonResult(obj, ok = true) {
+  console.log(JSON.stringify(obj, null, 2));
+  if (!ok) process.exitCode = 1;
+}
+
+hooksCmd.command('memory-get').description('Show one memory by id').argument('<id>', 'Memory id').action((id) => {
+  try {
+    const intel = new Intelligence({ skipEngine: true });
+    const memory = memoryStore.getMemory(intel.data, id);
+    releaseIntelLock(intel.intelPath);
+    if (!memory) return printJsonResult({ success: false, error: `memory not found: ${id}` }, false);
+    printJsonResult({ success: true, memory });
+  } catch (e) { printJsonResult({ success: false, error: e.message }, false); }
+});
+
+hooksCmd.command('memory-list').description('List memories, newest first')
+  .option('-t, --type <type>', 'Only memories of this type')
+  .option('-l, --limit <n>', 'Page size (max 1000)', '50')
+  .option('-o, --offset <n>', 'Skip this many', '0')
+  .action((opts) => {
+    try {
+      const intel = new Intelligence({ skipEngine: true });
+      const type = opts.type ? memoryStore.validateMemoryType(opts.type) : undefined;
+      const page = memoryStore.listMemories(intel.data, { type, limit: opts.limit, offset: opts.offset });
+      releaseIntelLock(intel.intelPath);
+      printJsonResult({ success: true, ...page });
+    } catch (e) { printJsonResult({ success: false, error: e.message }, false); }
+  });
+
+hooksCmd.command('memory-update').description('Update a memory (content is re-embedded)')
+  .argument('<id>', 'Memory id')
+  .option('-c, --content <text>', 'New content')
+  .option('-t, --type <type>', 'New type')
+  .option('-m, --metadata <json>', 'Replace metadata (JSON object)')
+  .option('--semantic', 'Embed new content with ONNX (match how the store was written)')
+  .action(async (id, opts) => {
+    const intel = new Intelligence();
+    try {
+      const patch = {};
+      if (opts.content !== undefined) patch.content = opts.content;
+      if (opts.type !== undefined) patch.type = opts.type;
+      if (opts.metadata !== undefined) patch.metadata = opts.metadata;
+      const semantic = opts.content !== undefined && hooksUseSemanticEmbedder(intel, opts.semantic);
+      const memory = await intel.updateMemory(id, patch, { semantic });
+      if (!memory) {
+        releaseIntelLock(intel.intelPath);
+        return printJsonResult({ success: false, error: `memory not found: ${id}` }, false);
+      }
+      intel.save();
+      printJsonResult({ success: true, memory });
+    } catch (e) {
+      releaseIntelLock(intel.intelPath);
+      printJsonResult({ success: false, error: e.message, code: e.code }, false);
+    }
+  });
+
+hooksCmd.command('forget').description('Delete memories by id').argument('<ids...>', 'Memory ids').action((ids) => {
+  const intel = new Intelligence({ skipEngine: true });
+  try {
+    const result = intel.forgetMemories(recordValidate.validateIdList(ids, 'memory ids'));
+    if (result.deleted.length > 0) intel.save(); else releaseIntelLock(intel.intelPath);
+    printJsonResult({ success: result.deleted.length > 0, ...result }, result.deleted.length > 0);
+  } catch (e) {
+    releaseIntelLock(intel.intelPath);
+    printJsonResult({ success: false, error: e.message }, false);
+  }
 });
 
 // ADR-210 D1: maintenance command — re-embed hash-era memories with the
@@ -5086,7 +5620,14 @@ hooksCmd.command('trajectory-end')
     }
     const latestTrajId = trajIds[trajIds.length - 1];
     const traj = trajectories[latestTrajId];
-    const quality = opts.success ? 0.8 : parseFloat(opts.quality);
+    let quality;
+    try {
+      quality = opts.success ? 0.8 : parseBoundedNumber(opts.quality, 0, 1, '--quality');
+    } catch (e) {
+      console.log(JSON.stringify({ success: false, error: e.message }));
+      process.exitCode = 1;
+      return;
+    }
     traj.endTime = Date.now();
     traj.quality = quality;
     traj.success = opts.success || false;
@@ -5480,6 +6021,48 @@ hooksCmd.command('coverage-suggest')
   });
 
 // Graph Algorithm Commands
+
+// Build an undirected import graph over the given files. Nodes are file
+// basenames without extension; an edge a->b exists when a imports './b'
+// (via `from` or `require`, with or without an extension). The result is the
+// Graph shape every function in dist/core/graph-algorithms.js expects.
+function buildImportGraph(files) {
+  const graphMod = require('../dist/core/graph-algorithms.js');
+  const stem = (f) => path.basename(f, path.extname(f));
+  const nodes = [...new Set(files.map(stem))];
+  const nodeSet = new Set(nodes);
+  const seen = new Set();
+  const edges = [];
+  const importRe = /(?:from\s+|require\s*\(\s*)['"]\.\/([^'"]+)['"]/g;
+  for (const file of files) {
+    if (!fs.existsSync(file)) continue;
+    const from = stem(file);
+    const content = fs.readFileSync(file, 'utf-8');
+    for (const m of content.matchAll(importRe)) {
+      const to = stem(m[1]);
+      if (to === from || !nodeSet.has(to)) continue;
+      const key = from < to ? from + '\0' + to : to + '\0' + from;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      edges.push({ from, to, weight: 1 });
+    }
+  }
+  return { graphMod, nodes, edges, graph: graphMod.buildGraph(nodes, edges) };
+}
+
+// Map<node, clusterId> -> { assignments: {node: id}, groups: [[node...]] }
+function clustersToJson(map) {
+  const assignments = {};
+  const byId = new Map();
+  for (const [node, id] of map) {
+    assignments[node] = id;
+    if (!byId.has(id)) byId.set(id, []);
+    byId.get(id).push(node);
+  }
+  const groups = [...byId.keys()].sort((a, b) => a - b).map((id) => byId.get(id));
+  return { assignments, groups };
+}
+
 hooksCmd.command('graph-mincut')
   .description('Find optimal code boundaries using MinCut algorithm')
   .argument('<files...>', 'Files to analyze')
@@ -5490,24 +6073,21 @@ hooksCmd.command('graph-mincut')
       return;
     }
     try {
-      const graphMod = require('../dist/core/graph-algorithms.js');
-      // Build dependency graph from files
-      const nodes = files.map(f => path.basename(f, path.extname(f)));
-      const edges = [];
-      // Simple edge detection based on imports
-      for (const file of files) {
-        if (!fs.existsSync(file)) continue;
-        const content = fs.readFileSync(file, 'utf-8');
-        const imports = content.match(/from ['"]\.\/([^'"]+)['"]/g) || [];
-        imports.forEach(imp => {
-          const target = imp.match(/from ['"]\.\/([^'"]+)['"]/)?.[1];
-          if (target && nodes.includes(target)) {
-            edges.push({ source: path.basename(file, path.extname(file)), target, weight: 1 });
-          }
-        });
-      }
-      const result = graphMod.minCut(nodes, edges);
-      console.log(JSON.stringify({ success: true, nodes: nodes.length, edges: edges.length, ...result }));
+      const { nodes, edges, graph } = buildImportGraph(files);
+      // minCutFast uses @ruvector/mincut-wasm when it is installed and falls
+      // back to the exact pure-TS Stoer-Wagner otherwise; both are exact.
+      const wasm = require('../dist/core/mincut-wasm-wrapper.js');
+      const engine = wasm.isMinCutWasmAvailable() ? 'mincut-wasm' : 'typescript';
+      const result = wasm.minCutFast(graph);
+      console.log(JSON.stringify({
+        success: true,
+        engine,
+        nodes: nodes.length,
+        edges: edges.length,
+        groups: result.groups,
+        cutWeight: result.cutWeight,
+        modularity: result.modularity,
+      }));
     } catch (e) {
       console.log(JSON.stringify({ success: false, error: e.message }));
     }
@@ -5524,27 +6104,26 @@ hooksCmd.command('graph-cluster')
       return;
     }
     try {
-      const graphMod = require('../dist/core/graph-algorithms.js');
-      const nodes = files.map(f => path.basename(f, path.extname(f)));
-      const edges = [];
-      for (const file of files) {
-        if (!fs.existsSync(file)) continue;
-        const content = fs.readFileSync(file, 'utf-8');
-        const imports = content.match(/from ['"]\.\/([^'"]+)['"]/g) || [];
-        imports.forEach(imp => {
-          const target = imp.match(/from ['"]\.\/([^'"]+)['"]/)?.[1];
-          if (target && nodes.includes(target)) {
-            edges.push({ source: path.basename(file, path.extname(file)), target, weight: 1 });
-          }
-        });
+      const method = opts.method === 'spectral' ? 'spectral' : opts.method === 'louvain' ? 'louvain' : null;
+      if (!method) {
+        console.log(JSON.stringify({ success: false, error: `Unknown method '${opts.method}' (use spectral or louvain)` }));
+        return;
       }
-      let result;
-      if (opts.method === 'spectral') {
-        result = graphMod.spectralClustering(nodes, edges, parseInt(opts.clusters));
+      const { graphMod, nodes, edges, graph } = buildImportGraph(files);
+      let out;
+      if (method === 'spectral') {
+        const k = parseInt(opts.clusters, 10);
+        if (!Number.isInteger(k) || k < 1) {
+          console.log(JSON.stringify({ success: false, error: '--clusters must be a positive integer' }));
+          return;
+        }
+        const r = graphMod.spectralClustering(graph, k);
+        out = { ...clustersToJson(r.clusters), eigenvalues: r.eigenvalues };
       } else {
-        result = graphMod.louvainCommunities(nodes, edges);
+        out = clustersToJson(graphMod.louvainCommunities(graph));
       }
-      console.log(JSON.stringify({ success: true, method: opts.method, ...result }));
+      out.modularity = graphMod.calculateModularity(graph, out.groups);
+      console.log(JSON.stringify({ success: true, method, nodes: nodes.length, edges: edges.length, ...out }));
     } catch (e) {
       console.log(JSON.stringify({ success: false, error: e.message }));
     }
@@ -5612,16 +6191,17 @@ hooksCmd.command('rag-context')
     // Use async recall with engine (VectorDB + HNSW)
     const memories = await intel.recallAsync(queryStr, parseInt(opts.topK));
 
-    // Rerank if requested
+    // Rerank if requested (see bin/rerank.js: this was a silent no-op)
     let results = memories;
-    if (opts.rerank && ExtendedWorkerPool) {
-      try {
-        const pool = new ExtendedWorkerPool();
-        results = await pool.rankContext(queryStr, memories.map(m => m.content || m));
-      } catch (e) {}
+    let rerank = {};
+    if (opts.rerank) {
+      loadNewModules();
+      const r = await require('./rerank.js').rerankMemories(memories, queryStr, ExtendedWorkerPool);
+      results = r.results;
+      rerank = { reranked: r.reranked, ...(r.error ? { rerank_error: r.error } : {}) };
     }
 
-    console.log(JSON.stringify({ success: true, query: queryStr, results }));
+    console.log(JSON.stringify({ success: true, query: queryStr, results, ...rerank }));
   });
 
 // Git Churn Analysis Command
@@ -5631,9 +6211,10 @@ hooksCmd.command('git-churn')
   .option('--top <n>', 'Top N files', '10')
   .action((opts) => {
     try {
-      const { execSync } = require('child_process');
-      const since = new Date(Date.now() - parseInt(opts.days) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const log = execSync(`git log --since="${since}" --name-only --format="" 2>/dev/null`, { encoding: 'utf-8' });
+      const { execFileSync } = require('child_process');
+      const days = Math.max(1, parseInt(opts.days, 10) || 30);
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const log = execFileSync('git', ['log', `--since=${since}`, '--name-only', '--format='], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] });
       const files = log.trim().split('\n').filter(Boolean);
       const counts = {};
       files.forEach(f => { counts[f] = (counts[f] || 0) + 1; });
@@ -5763,7 +6344,7 @@ hooksCmd.command('learning-config')
     }
 
     // Load existing intelligence data
-    const dataPath = path.join(process.cwd(), '.ruvector', 'intelligence.json');
+    const dataPath = resolveIntelStorePath();
     let data = readIntelStoreSafe(dataPath);
 
     const engine = new LearningEngineClass();
@@ -5793,7 +6374,13 @@ hooksCmd.command('learning-config')
     if (opts.epsilon !== undefined) config.epsilon = opts.epsilon;
     if (opts.lambda !== undefined) config.lambda = opts.lambda;
 
-    engine.configure(opts.task, config);
+    try {
+      engine.configure(opts.task, config);
+    } catch (e) {
+      console.log(JSON.stringify({ success: false, error: e.message }));
+      process.exitCode = 1;
+      return;
+    }
 
     // Save
     data.learning = engine.export();
@@ -5817,7 +6404,7 @@ hooksCmd.command('learning-stats')
       return;
     }
 
-    const dataPath = path.join(process.cwd(), '.ruvector', 'intelligence.json');
+    const dataPath = resolveIntelStorePath();
     let data = readIntelStoreSafe(dataPath);
 
     const engine = new LearningEngineClass();
@@ -5833,12 +6420,12 @@ hooksCmd.command('learning-stats')
       console.log(chalk.bold.cyan('\n📊 Learning Statistics\n'));
       console.log(`  Best Algorithm: ${chalk.green(summary.bestAlgorithm)}`);
       console.log(`  Total Updates:  ${summary.totalUpdates}`);
-      console.log(`  Avg Reward:     ${summary.avgReward.toFixed(4)}`);
+      console.log(`  Avg Reward:     ${Number(summary.avgReward || 0).toFixed(4)}`);
 
       if (summary.algorithms.length > 0) {
         console.log(chalk.bold('\n  Algorithm Performance:'));
         for (const alg of summary.algorithms) {
-          console.log(`    ${alg.algorithm.padEnd(20)} updates: ${String(alg.updates).padStart(6)}  avgReward: ${alg.avgReward.toFixed(3).padStart(8)}  convergence: ${alg.convergenceScore.toFixed(3)}`);
+          console.log(`    ${alg.algorithm.padEnd(20)} updates: ${String(alg.updates).padStart(6)}  avgReward: ${Number(alg.avgReward || 0).toFixed(3).padStart(8)}  convergence: ${Number(alg.convergenceScore || 0).toFixed(3)}`);
         }
       }
       console.log('');
@@ -5860,7 +6447,7 @@ hooksCmd.command('learning-update')
       return;
     }
 
-    const dataPath = path.join(process.cwd(), '.ruvector', 'intelligence.json');
+    const dataPath = resolveIntelStorePath();
     let data = readIntelStoreSafe(dataPath);
 
     const engine = new LearningEngineClass();
@@ -5868,10 +6455,18 @@ hooksCmd.command('learning-update')
       engine.import(data.learning);
     }
 
+    let reward;
+    try {
+      reward = parseBoundedNumber(opts.reward, -1, 1, '--reward');
+    } catch (e) {
+      console.log(JSON.stringify({ success: false, error: e.message }));
+      process.exitCode = 1;
+      return;
+    }
     const experience = {
       state: opts.state,
       action: opts.action,
-      reward: opts.reward,
+      reward,
       nextState: opts.nextState || opts.state,
       done: opts.done || false,
       timestamp: Date.now()
@@ -5903,7 +6498,7 @@ hooksCmd.command('compress')
       return;
     }
 
-    const dataPath = path.join(process.cwd(), '.ruvector', 'intelligence.json');
+    const dataPath = resolveIntelStorePath();
     let data = readIntelStoreSafe(dataPath);
 
     const compress = new TensorCompressClass({
@@ -5957,7 +6552,7 @@ hooksCmd.command('compress-stats')
       return;
     }
 
-    const dataPath = path.join(process.cwd(), '.ruvector', 'intelligence.json');
+    const dataPath = resolveIntelStorePath();
     let data = readIntelStoreSafe(dataPath);
 
     const compress = new TensorCompressClass({ autoCompress: false });
@@ -6006,7 +6601,7 @@ hooksCmd.command('compress-store')
       return;
     }
 
-    const dataPath = path.join(process.cwd(), '.ruvector', 'intelligence.json');
+    const dataPath = resolveIntelStorePath();
     let data = readIntelStoreSafe(dataPath);
 
     const compress = new TensorCompressClass({ autoCompress: false });
@@ -6040,7 +6635,7 @@ hooksCmd.command('compress-get')
       return;
     }
 
-    const dataPath = path.join(process.cwd(), '.ruvector', 'intelligence.json');
+    const dataPath = resolveIntelStorePath();
     let data = readIntelStoreSafe(dataPath);
 
     const compress = new TensorCompressClass({ autoCompress: false });
@@ -6076,7 +6671,7 @@ hooksCmd.command('learn')
       return;
     }
 
-    const dataPath = path.join(process.cwd(), '.ruvector', 'intelligence.json');
+    const dataPath = resolveIntelStorePath();
     let data = readIntelStoreSafe(dataPath);
 
     const engine = new LearningEngineClass();
@@ -6088,10 +6683,18 @@ hooksCmd.command('learn')
 
     // If action and reward provided, record the experience
     if (opts.action && opts.reward !== undefined) {
+      let reward;
+      try {
+        reward = parseBoundedNumber(opts.reward, -1, 1, '--reward');
+      } catch (e) {
+        console.log(JSON.stringify({ success: false, error: e.message }));
+        process.exitCode = 1;
+        return;
+      }
       const experience = {
         state: opts.state,
         action: opts.action,
-        reward: opts.reward,
+        reward,
         nextState: opts.state,
         done: true,
         timestamp: Date.now()
@@ -6099,6 +6702,20 @@ hooksCmd.command('learn')
 
       const delta = engine.update(opts.task, experience);
       result.recorded = { experience, delta, algorithm: engine.getConfig(opts.task).algorithm };
+
+      // Agent-routing rewards must reach `hooks route`, which reads
+      // data.patterns keyed by "<task>:<ext>|<agent>" (the same state format
+      // used here). Reward in [-1, 1] maps to route quality in [0, 1].
+      if (opts.task === 'agent-routing') {
+        if (!data.patterns) data.patterns = {};
+        const key = `${opts.state}|${opts.action}`;
+        const p = data.patterns[key] || { state: opts.state, action: opts.action, q_value: 0.5, visits: 0, last_update: 0 };
+        p.q_value = p.q_value + 0.1 * ((reward + 1) / 2 - p.q_value);
+        p.visits = (p.visits || 0) + 1;
+        p.last_update = Math.floor(Date.now() / 1000);
+        data.patterns[key] = p;
+        if (data.stats) data.stats.total_patterns = Object.keys(data.patterns).length;
+      }
     }
 
     // Get best action recommendation
@@ -6155,7 +6772,7 @@ hooksCmd.command('batch-learn')
       experiences = [experiences];
     }
 
-    const dataPath = path.join(process.cwd(), '.ruvector', 'intelligence.json');
+    const dataPath = resolveIntelStorePath();
     let data = readIntelStoreSafe(dataPath);
 
     const engine = new LearningEngineClass();
@@ -6166,11 +6783,26 @@ hooksCmd.command('batch-learn')
     const results = [];
     let totalReward = 0;
 
-    for (const exp of experiences) {
+    // Validate the whole batch before applying any of it.
+    let rewards;
+    try {
+      rewards = experiences.map((exp, i) => {
+        if (!exp || typeof exp.state !== 'string' || typeof exp.action !== 'string') {
+          throw new Error(`experience ${i}: state and action must be strings`);
+        }
+        return parseBoundedNumber(exp.reward ?? 0.5, -1, 1, `experience ${i} reward`);
+      });
+    } catch (e) {
+      console.log(JSON.stringify({ success: false, error: e.message }));
+      process.exitCode = 1;
+      return;
+    }
+
+    for (const [i, exp] of experiences.entries()) {
       const experience = {
         state: exp.state,
         action: exp.action,
-        reward: exp.reward ?? 0.5,
+        reward: rewards[i],
         nextState: exp.nextState ?? exp.state,
         done: exp.done ?? false,
         timestamp: exp.timestamp ?? Date.now()
@@ -6208,7 +6840,7 @@ hooksCmd.command('subscribe')
   .option('--poll <ms>', 'Poll interval in ms', parseInt, 1000)
   .action(async (opts) => {
     const events = opts.events.split(',').map(e => e.trim());
-    const dataPath = path.join(process.cwd(), '.ruvector', 'intelligence.json');
+    const dataPath = resolveIntelStorePath();
 
     let lastStats = { patterns: 0, memories: 0, trajectories: 0 };
     let lastLearning = { totalUpdates: 0 };
@@ -6767,6 +7399,7 @@ hooksCmd.command('pretrain')
 
         const filesByType = {};
         const dirPatterns = {};
+        const agentCountsByState = {};
 
         files.forEach(file => {
           stats.files++;
@@ -6797,14 +7430,31 @@ hooksCmd.command('pretrain')
             dirPatterns[parts[0]].agents[agent] = (dirPatterns[parts[0]].agents[agent] || 0) + 1;
           }
 
-          // Create Q-learning pattern for this file type
+          // Count agents per routing state; patterns are written once below.
           const state = `edit:${ext || 'unknown'}`;
-          if (!intel.data.patterns[state]) {
-            intel.data.patterns[state] = {};
-          }
-          intel.data.patterns[state][agent] = (intel.data.patterns[state][agent] || 0) + 0.5;
-          stats.patterns++;
+          agentCountsByState[state] = agentCountsByState[state] || {};
+          agentCountsByState[state][agent] = (agentCountsByState[state][agent] || 0) + 1;
         });
+
+        // Seed routing patterns in the "state|agent" record format that
+        // `hooks route` reads. Earlier versions wrote `state: {agent: n*0.5}`,
+        // which routing never read and which grew on every re-run. Seeding is
+        // idempotent and never overwrites an outcome-learned record.
+        const PRETRAIN_PRIOR_Q = 0.6;
+        for (const key of Object.keys(intel.data.patterns)) {
+          const v = intel.data.patterns[key];
+          if (!key.includes('|') && v && typeof v === 'object' && !('q_value' in v)) {
+            delete intel.data.patterns[key]; // legacy pretrain shape
+          }
+        }
+        for (const [state, counts] of Object.entries(agentCountsByState)) {
+          const [agent] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+          const key = `${state}|${agent}`;
+          if (!intel.data.patterns[key]) {
+            intel.data.patterns[key] = { state, action: agent, q_value: PRETRAIN_PRIOR_Q, visits: 0, last_update: intel.now(), source: 'pretrain' };
+          }
+          stats.patterns++;
+        }
 
         // Log summary
         if (opts.verbose) {
@@ -6828,7 +7478,7 @@ hooksCmd.command('pretrain')
       try {
         // Get commits with files changed
         const gitLog = execSync(
-          `git log --name-only --pretty=format:"COMMIT:%H" -n ${opts.depth} 2>/dev/null`,
+          `git log --name-only --pretty=format:"COMMIT:%H" -n ${Math.max(1, parseInt(opts.depth, 10) || 100)} 2>/dev/null`,
           { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 }
         );
 
@@ -6901,6 +7551,8 @@ hooksCmd.command('pretrain')
           try {
             const content = fs.readFileSync(filePath, 'utf-8').slice(0, 2000); // First 2KB
             intel.data.memories = intel.data.memories || [];
+            // Re-running pretrain refreshes the project memory instead of duplicating it.
+            intel.data.memories = intel.data.memories.filter(m => !(m && m.type === 'project' && typeof m.content === 'string' && m.content.startsWith(`[${filename}] `)));
             intel.data.memories.push({
               content: `[${filename}] ${content.replace(/\n/g, ' ').slice(0, 500)}`,
               type: 'project',
@@ -7140,20 +7792,29 @@ hooksCmd.command('pretrain')
         engine.configure('context-ranking', { algorithm: 'ppo', clipRange: 0.2 });
         engine.configure('memory-recall', { algorithm: 'td-lambda', lambda: 0.8 });
 
-        // Bootstrap with initial experiences from file patterns
+        // Bootstrap with initial experiences from file patterns.
+        // Since updateQ() a pattern is `"state|action": {state, action, q_value, visits, last_update}`; reading it as
+        // `state: {action: value}` learned the FIELD NAMES as actions and Unix timestamps as rewards. Both shapes are
+        // read, and a reward is used only when it is a finite number in (0.3, 1] (rewards lie in [-1, 1]).
         let bootstrapCount = 0;
-        for (const [state, actions] of Object.entries(intel.data.patterns || {})) {
-          for (const [action, value] of Object.entries(actions)) {
-            if (value > 0.3) { // Only strong patterns
-              engine.update('agent-routing', {
-                state,
-                action,
-                reward: value,
-                nextState: state,
-                done: true
-              });
-              bootstrapCount++;
-            }
+        const bootstrapPairs = [];
+        for (const [key, entry] of Object.entries(intel.data.patterns || {})) {
+          if (entry && typeof entry === 'object' && typeof entry.action === 'string' && 'q_value' in entry) {
+            bootstrapPairs.push([entry.state ?? key.split('|')[0], entry.action, entry.q_value]);
+          } else if (entry && typeof entry === 'object') {
+            for (const [action, value] of Object.entries(entry)) bootstrapPairs.push([key, action, value]);
+          }
+        }
+        for (const [state, action, value] of bootstrapPairs) {
+          if (typeof value === 'number' && Number.isFinite(value) && value > 0.3 && value <= 1) { // Only strong patterns
+            engine.update('agent-routing', {
+              state,
+              action,
+              reward: value,
+              nextState: state,
+              done: true
+            });
+            bootstrapCount++;
           }
         }
 
@@ -7249,7 +7910,8 @@ hooksCmd.command('build-agents')
     console.log(chalk.bold.cyan('\n🏗️  RuVector Agent Builder\n'));
 
     const intel = new Intelligence();
-    const outputDir = path.join(process.cwd(), opts.output);
+    // resolve, not join: an absolute --output was glued onto the current folder
+    const outputDir = path.resolve(process.cwd(), opts.output);
 
     // Check if pretrained
     if (!intel.data.pretrained && Object.keys(intel.data.patterns || {}).length === 0) {
@@ -7518,13 +8180,18 @@ ${focus.description}` : null
 
     fs.writeFileSync(path.join(outputDir, `index.${opts.format === 'md' ? 'json' : opts.format}`), indexContent);
 
-    // Update settings to reference agents
+    // Update settings to reference agents — only when the agents were written inside
+    // this project, and by a relative path: an --output elsewhere (a scratch run) wrote a dead absolute path into the
+    // project's own settings.json
     const settingsPath = path.join(process.cwd(), '.claude', 'settings.json');
-    if (fs.existsSync(settingsPath)) {
+    const relOut = path.relative(process.cwd(), outputDir);
+    const insideProject = relOut !== '' && !relOut.startsWith('..') && !path.isAbsolute(relOut);
+    if (!insideProject) console.log(chalk.dim('\n  (output is outside this project: .claude/settings.json left unchanged)'));
+    if (insideProject && fs.existsSync(settingsPath)) {
       try {
         const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
         settings.agentConfig = {
-          directory: opts.output,
+          directory: relOut,
           focus: opts.focus,
           agents: agents.map(a => a.name),
           generated: new Date().toISOString()
@@ -7549,9 +8216,10 @@ const workersCmd = program.command('workers').description('Background analysis w
 async function runAgenticFlow(args) {
   const { spawn } = require('child_process');
   return new Promise((resolve, reject) => {
-    const proc = spawn('npx', ['agentic-flow@alpha', ...args], {
+    // No shell on POSIX so prompt text is never interpreted; Windows needs one to run npx.cmd.
+    const proc = spawn('npx', ['agentic-flow@3.0.0-alpha.2', ...args], {
       stdio: 'inherit',
-      shell: true
+      shell: process.platform === 'win32'
     });
     proc.on('close', code => code === 0 ? resolve() : reject(new Error(`Exit code ${code}`)));
     proc.on('error', reject);
@@ -7637,7 +8305,7 @@ workersCmd.command('cancel')
     }
   });
 
-// Custom Worker System (agentic-flow@alpha.39+)
+// Custom Worker System (agentic-flow@3.0.0-alpha.2.39+)
 workersCmd.command('presets')
   .description('List available worker presets (quick-scan, deep-analysis, security-scan, etc.)')
   .action(async () => {
@@ -7917,7 +8585,7 @@ nativeCmd.command('compare')
 
       } catch (e) {
         console.log(chalk.yellow('\n3. agentic-flow Workers'));
-        console.log(chalk.dim('   Not installed (npm i agentic-flow@alpha)'));
+        console.log(chalk.dim('   Not installed (npm i agentic-flow@3.0.0-alpha.2)'));
       }
 
       // Summary
@@ -7949,6 +8617,37 @@ nativeCmd.command('compare')
 // RVF (RuVector Format) commands
 const rvfCmd = program.command('rvf').description('RuVector Format (.rvf) cognitive container operations');
 
+// Every store a command opens is closed in `finally`: the writer lock file
+// outlives the process, so a command that failed before close() left the store
+// locked (LockHeld) until someone deleted <store>.lock by hand.
+async function withRvfStore(storePath, fn) {
+  const { openRvfStore, rvfClose } = require('../dist/core/rvf-wrapper.js');
+  const store = await openRvfStore(storePath);
+  try { return await fn(store); } finally { await rvfClose(store); }
+}
+
+// `-v 0.1,0.2` or `-v "[0.1, 0.2]"` -> number[]; anything else is rejected
+// before the backend is touched (it used to surface as NonFiniteQuery).
+function parseVectorArg(raw) {
+  const text = String(raw).trim();
+  const bracketed = text.startsWith('[') || text.endsWith(']');
+  if (bracketed && !(text.startsWith('[') && text.endsWith(']'))) {
+    throw new Error(`Invalid vector "${raw}": unbalanced brackets (use 0.1,0.2,0.3 or [0.1,0.2,0.3])`);
+  }
+  const body = bracketed ? text.slice(1, -1) : text;
+  const parts = body.split(',').map(p => p.trim());
+  const vector = parts.map(p => (p === '' ? NaN : Number(p)));
+  const bad = vector.findIndex(v => !Number.isFinite(v));
+  if (parts.length === 0 || bad !== -1) {
+    throw new Error(`Invalid vector "${raw}": element ${bad + 1} (${JSON.stringify(parts[bad] ?? '')}) is not a finite number (use 0.1,0.2,0.3 or [0.1,0.2,0.3])`);
+  }
+  try {
+    return Array.from(recordValidate.validateVector(vector));
+  } catch (e) {
+    throw new Error(`Invalid vector "${raw}": ${e.message}`);
+  }
+}
+
 rvfCmd.command('create <path>')
   .description('Create a new .rvf store')
   .requiredOption('-d, --dimension <n>', 'Vector dimension', parseInt)
@@ -7968,28 +8667,37 @@ rvfCmd.command('ingest <path>')
   .option('-f, --format <fmt>', 'Input format (json)', 'json')
   .action(async (storePath, opts) => {
     try {
-      const { openRvfStore, rvfIngest, rvfClose } = require('../dist/core/rvf-wrapper.js');
-      const store = await openRvfStore(storePath);
+      const { rvfIngest } = require('../dist/core/rvf-wrapper.js');
       const data = JSON.parse(fs.readFileSync(opts.input, 'utf8'));
-      const result = await rvfIngest(store, data);
-      await rvfClose(store);
+      const result = await withRvfStore(storePath, store => rvfIngest(store, data));
       console.log(chalk.green(`Ingested ${result.accepted} vectors (${result.rejected} rejected)`));
     } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
   });
 
 rvfCmd.command('query <path>')
   .description('Query nearest neighbors')
-  .requiredOption('-v, --vector <values>', 'Comma-separated vector values')
+  .requiredOption('-v, --vector <values>', 'Comma-separated vector values (or [a,b,c])')
   .option('-k, --k <n>', 'Number of results', parseInt, 10)
   .action(async (storePath, opts) => {
     try {
-      const { openRvfStore, rvfQuery, rvfClose } = require('../dist/core/rvf-wrapper.js');
-      const store = await openRvfStore(storePath);
-      const vector = opts.vector.split(',').map(Number);
-      const results = await rvfQuery(store, vector, opts.k);
-      await rvfClose(store);
+      const { rvfQuery } = require('../dist/core/rvf-wrapper.js');
+      const vector = parseVectorArg(opts.vector);
+      const k = recordValidate.validateK(opts.k);
+      const results = await withRvfStore(storePath, store => rvfQuery(store, vector, k));
       results.forEach((r, i) => console.log(chalk.dim(`  ${i+1}. id=${r.id}  dist=${r.distance.toFixed(6)}`)));
       console.log(chalk.green(`${results.length} results`));
+    } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
+  });
+
+rvfCmd.command('delete <path>')
+  .description('Delete vectors by id (ingest of an existing id already replaces it)')
+  .requiredOption('--ids <ids>', 'Comma-separated vector ids')
+  .action(async (storePath, opts) => {
+    try {
+      const ids = recordValidate.validateIdList(opts.ids.split(',').map(s => s.trim()).filter(Boolean));
+      const { rvfDelete } = require('../dist/core/rvf-wrapper.js');
+      const result = await withRvfStore(storePath, store => rvfDelete(store, ids));
+      console.log(chalk.green(`Deleted ${result.deleted} vector(s)`));
     } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
   });
 
@@ -7997,10 +8705,8 @@ rvfCmd.command('status <path>')
   .description('Show store statistics')
   .action(async (storePath) => {
     try {
-      const { openRvfStore, rvfStatus, rvfClose } = require('../dist/core/rvf-wrapper.js');
-      const store = await openRvfStore(storePath);
-      const s = await rvfStatus(store);
-      await rvfClose(store);
+      const { rvfStatus } = require('../dist/core/rvf-wrapper.js');
+      const s = await withRvfStore(storePath, store => rvfStatus(store));
       console.log(chalk.cyan('RVF Store Status'));
       Object.entries(s).forEach(([k, v]) => console.log(chalk.dim(`  ${k}: ${v}`)));
     } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
@@ -8010,11 +8716,9 @@ rvfCmd.command('segments <path>')
   .description('List all segments in an .rvf file')
   .action(async (storePath) => {
     try {
-      const { openRvfStore, rvfClose } = require('../dist/core/rvf-wrapper.js');
-      const store = await openRvfStore(storePath);
-      const segs = await store.segments();
-      await rvfClose(store);
-      segs.forEach((seg, i) => console.log(chalk.dim(`  [${i}] type=0x${seg.type.toString(16)} size=${seg.size}`)));
+      const segs = await withRvfStore(storePath, store => store.segments());
+      // The SDK returns { id, offset, payloadLength, segType }.
+      segs.forEach((seg, i) => console.log(chalk.dim(`  [${i}] id=${seg.id} type=${seg.segType} offset=${seg.offset} size=${seg.payloadLength}`)));
       console.log(chalk.green(`${segs.length} segments`));
     } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
   });
@@ -8023,10 +8727,11 @@ rvfCmd.command('derive <parent> <child>')
   .description('Create a derived store with lineage tracking')
   .action(async (parentPath, childPath) => {
     try {
-      const { openRvfStore, rvfDerive, rvfClose } = require('../dist/core/rvf-wrapper.js');
-      const store = await openRvfStore(parentPath);
-      await rvfDerive(store, childPath);
-      await rvfClose(store);
+      const { rvfDerive, rvfClose } = require('../dist/core/rvf-wrapper.js');
+      await withRvfStore(parentPath, async (store) => {
+        const child = await rvfDerive(store, childPath);
+        await rvfClose(child);
+      });
       console.log(chalk.green(`Derived ${childPath} from ${parentPath}`));
     } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
   });
@@ -8035,10 +8740,8 @@ rvfCmd.command('compact <path>')
   .description('Compact store, reclaim deleted space')
   .action(async (storePath) => {
     try {
-      const { openRvfStore, rvfCompact, rvfClose } = require('../dist/core/rvf-wrapper.js');
-      const store = await openRvfStore(storePath);
-      const result = await rvfCompact(store);
-      await rvfClose(store);
+      const { rvfCompact } = require('../dist/core/rvf-wrapper.js');
+      const result = await withRvfStore(storePath, store => rvfCompact(store));
       console.log(chalk.green(`Compacted: ${result.segmentsCompacted} segments, ${result.bytesReclaimed} bytes reclaimed`));
     } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
   });
@@ -8048,11 +8751,8 @@ rvfCmd.command('export <path>')
   .option('-o, --output <file>', 'Output file')
   .action(async (storePath, opts) => {
     try {
-      const { openRvfStore, rvfStatus, rvfClose } = require('../dist/core/rvf-wrapper.js');
-      const store = await openRvfStore(storePath);
-      const status = await rvfStatus(store);
-      const segs = await store.segments();
-      await rvfClose(store);
+      const { rvfStatus } = require('../dist/core/rvf-wrapper.js');
+      const { status, segs } = await withRvfStore(storePath, async store => ({ status: await rvfStatus(store), segs: await store.segments() }));
       const data = JSON.stringify({ status, segments: segs }, null, 2);
       if (opts.output) { fs.writeFileSync(opts.output, data); console.log(chalk.green(`Exported to ${opts.output}`)); }
       else { console.log(data); }
@@ -8221,6 +8921,140 @@ rvfCmd.command('download [names...]')
   });
 
 // MCP Server command
+// Agent skills shipped in the package (skills/<name>/SKILL.md). Same format
+// for Claude Code (.claude/skills) and Codex (.agents/skills).
+const SKILLS_SRC = path.join(__dirname, '..', 'skills');
+const SKILL_TARGETS = { claude: path.join('.claude', 'skills'), codex: path.join('.agents', 'skills') };
+const skillsCmd = program.command('skills').description('Agent skills for Claude Code and Codex that document ruvector features');
+
+function listShippedSkills() {
+  if (!fs.existsSync(SKILLS_SRC)) return [];
+  return fs.readdirSync(SKILLS_SRC, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && fs.existsSync(path.join(SKILLS_SRC, d.name, 'SKILL.md')))
+    .map((d) => {
+      const head = fs.readFileSync(path.join(SKILLS_SRC, d.name, 'SKILL.md'), 'utf8').slice(0, 2000);
+      const desc = (head.match(/^description:\s*(.+)$/m) || [])[1] || '';
+      return { name: d.name, description: desc.trim() };
+    });
+}
+
+skillsCmd.command('list')
+  .description('List the skills shipped with ruvector')
+  .option('--json', 'Output as JSON')
+  .action((opts) => {
+    const skills = listShippedSkills();
+    if (opts.json) { console.log(JSON.stringify({ skills })); return; }
+    for (const sk of skills) console.log(`${chalk.bold(sk.name)}\n  ${chalk.dim(sk.description)}`);
+  });
+
+skillsCmd.command('install [names...]')
+  .description('Copy shipped skills into a project (.claude/skills for Claude Code, .agents/skills for Codex)')
+  .option('-t, --target <target>', 'claude, codex, or both', 'both')
+  .option('-d, --dir <dir>', 'Project directory', '.')
+  .option('-f, --force', 'Overwrite an existing skill of the same name')
+  .option('--json', 'Output as JSON')
+  .action((names, opts) => {
+    try {
+      const shipped = listShippedSkills().map((sk) => sk.name);
+      const wanted = names && names.length ? names : shipped;
+      const unknown = wanted.filter((n) => !shipped.includes(n));
+      if (unknown.length) throw new Error(`Unknown skill(s): ${unknown.join(', ')} (available: ${shipped.join(', ')})`);
+      const targets = opts.target === 'both' ? ['claude', 'codex'] : [opts.target];
+      for (const t of targets) if (!SKILL_TARGETS[t]) throw new Error(`--target must be claude, codex, or both (got ${t})`);
+      const root = path.resolve(opts.dir);
+      const results = [];
+      for (const t of targets) {
+        for (const n of wanted) {
+          const dest = path.join(root, SKILL_TARGETS[t], n);
+          if (fs.existsSync(dest) && !opts.force) { results.push({ skill: n, target: t, path: dest, status: 'exists' }); continue; }
+          fs.mkdirSync(path.dirname(dest), { recursive: true });
+          fs.cpSync(path.join(SKILLS_SRC, n), dest, { recursive: true, force: true });
+          results.push({ skill: n, target: t, path: dest, status: 'installed' });
+        }
+      }
+      if (opts.json) { console.log(JSON.stringify({ success: true, results })); return; }
+      for (const r of results) {
+        const mark = r.status === 'installed' ? chalk.green('installed') : chalk.yellow('exists (use --force)');
+        console.log(`  ${mark}  ${r.skill} -> ${path.relative(process.cwd(), r.path) || r.path}`);
+      }
+    } catch (e) {
+      if (opts.json) console.log(JSON.stringify({ success: false, error: e.message }));
+      else console.error(chalk.red(e.message));
+      process.exit(1);
+    }
+  });
+
+// DiskANN (Vamana graph ANN, optional @ruvector/diskann)
+const diskannCmd = program.command('diskann').description('DiskANN / Vamana on-disk ANN index (optional @ruvector/diskann)');
+
+function requireDiskAnn() {
+  const wrapper = require('../dist/core/diskann-wrapper.js');
+  if (!wrapper.isDiskAnnAvailable()) {
+    throw new Error('@ruvector/diskann is not installed. Install with: npx ruvector add diskann');
+  }
+  return wrapper;
+}
+
+function positiveIntOpt(raw, name) {
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1) throw new Error(`--${name} must be a positive integer`);
+  return n;
+}
+
+diskannCmd.command('build <dir>')
+  .description('Build a DiskANN index from a JSON array of {id, vector} and save it to <dir>')
+  .requiredOption('-i, --input <file>', 'Input file (JSON array of {id, vector})')
+  .option('--max-degree <n>', 'Max graph out-degree (default 64)')
+  .option('--build-beam <n>', 'Build beam width (default 128)')
+  .option('--alpha <a>', 'Vamana pruning alpha (default 1.2)')
+  .option('--json', 'Output as JSON')
+  .action((dir, opts) => {
+    try {
+      const { buildDiskAnnIndex } = requireDiskAnn();
+      const records = recordValidate.validateEntries(JSON.parse(fs.readFileSync(opts.input, 'utf8')), undefined, 'input');
+      const options = {};
+      if (opts.maxDegree !== undefined) options.maxDegree = positiveIntOpt(opts.maxDegree, 'max-degree');
+      if (opts.buildBeam !== undefined) options.buildBeam = positiveIntOpt(opts.buildBeam, 'build-beam');
+      if (opts.alpha !== undefined) {
+        const a = Number(opts.alpha);
+        if (!Number.isFinite(a) || a < 1) throw new Error('--alpha must be a number >= 1');
+        options.alpha = a;
+      }
+      const t0 = Date.now();
+      const result = buildDiskAnnIndex(dir, records, options);
+      if (opts.json) console.log(JSON.stringify({ success: true, ...result, ms: Date.now() - t0 }));
+      else console.log(chalk.green(`Built DiskANN index at ${dir}: ${result.count} vectors, dim=${result.dim} (${Date.now() - t0}ms)`));
+    } catch (e) {
+      if (opts.json) console.log(JSON.stringify({ success: false, error: e.message }));
+      else console.error(chalk.red(e.message));
+      process.exit(1);
+    }
+  });
+
+diskannCmd.command('search <dir>')
+  .description('k nearest neighbours (L2 squared) from a saved DiskANN index')
+  .requiredOption('-v, --vector <values>', 'Comma-separated vector values (or [a,b,c])')
+  .option('-k, --k <n>', 'Number of results', '10')
+  .option('--json', 'Output as JSON')
+  .action((dir, opts) => {
+    try {
+      const { searchDiskAnnIndex } = requireDiskAnn();
+      const vector = parseVectorArg(opts.vector);
+      const k = recordValidate.validateK(opts.k);
+      const results = searchDiskAnnIndex(dir, vector, k);
+      if (opts.json) {
+        console.log(JSON.stringify({ success: true, results }));
+      } else {
+        results.forEach((r, i) => console.log(chalk.dim(`  ${i + 1}. id=${r.id}  dist=${r.distance.toFixed(6)}`)));
+        console.log(chalk.green(`${results.length} results`));
+      }
+    } catch (e) {
+      if (opts.json) console.log(JSON.stringify({ success: false, error: e.message }));
+      else console.error(chalk.red(e.message));
+      process.exit(1);
+    }
+  });
+
 const mcpCmd = program.command('mcp').description('MCP (Model Context Protocol) server for Claude Code integration');
 
 mcpCmd.command('start')
@@ -8493,8 +9327,8 @@ mcpCmd.command('test')
 
     // Test 2: syntax check
     try {
-      const { execSync } = require('child_process');
-      execSync(`node -c ${mcpServerPath}`, { stdio: 'pipe' });
+      const { execFileSync } = require('child_process');
+      execFileSync(process.execPath, ['-c', mcpServerPath], { stdio: 'pipe' });
       console.log(`  ${chalk.green('PASS')} mcp-server.js syntax valid`);
     } catch {
       console.log(`  ${chalk.red('FAIL')} mcp-server.js has syntax errors`);
@@ -9272,14 +10106,18 @@ edgeCmd
   .action(async () => {
     console.log(chalk.cyan(`\n  Opening edge-net dashboard: ${EDGE_DASHBOARD_URL}\n`));
     try {
-      const { execSync } = require('child_process');
+      const { execFileSync } = require('child_process');
       const platform = process.platform;
       if (platform === 'darwin') {
-        execSync(`open "${EDGE_DASHBOARD_URL}"`);
+        execFileSync('open', [EDGE_DASHBOARD_URL]);
       } else if (platform === 'win32') {
-        execSync(`start "" "${EDGE_DASHBOARD_URL}"`);
+        execFileSync('cmd', ['/c', 'start', '', EDGE_DASHBOARD_URL]);
       } else {
-        execSync(`xdg-open "${EDGE_DASHBOARD_URL}" 2>/dev/null || echo "Open manually: ${EDGE_DASHBOARD_URL}"`);
+        try {
+          execFileSync('xdg-open', [EDGE_DASHBOARD_URL], { stdio: 'ignore' });
+        } catch {
+          console.log(`Open manually: ${EDGE_DASHBOARD_URL}`);
+        }
       }
     } catch {
       console.log(chalk.yellow(`  Could not open browser. Visit manually:`));
@@ -9904,7 +10742,7 @@ routeCmd.command('classify')
     let router;
     try { router = require('@ruvector/router'); } catch (e) {
       console.error(chalk.red('Route commands require @ruvector/router'));
-      console.error(chalk.yellow('  npm install @ruvector/router'));
+      console.error(chalk.yellow('  npx ruvector add router   (or: npm install @ruvector/router)'));
       console.error(chalk.dim('  or: npx ruvector install router'));
       process.exit(1);
     }
@@ -9951,7 +10789,7 @@ routeCmd.command('benchmark')
     let router;
     try { router = require('@ruvector/router'); } catch (e) {
       console.error(chalk.red('Route commands require @ruvector/router'));
-      console.error(chalk.yellow('  npm install @ruvector/router'));
+      console.error(chalk.yellow('  npx ruvector add router   (or: npm install @ruvector/router)'));
       console.error(chalk.dim('  or: npx ruvector install router'));
       process.exit(1);
     }
@@ -10333,7 +11171,7 @@ function readHarnessJson(file, label) {
   }
 }
 
-async function buildHarnessSurface() {
+async function buildHarnessSurface(opts) {
   const primitives = {};
 
   // Cost-optimal model router — Tiny Dancer FastGRNN (ADR-252)
@@ -10410,7 +11248,7 @@ async function buildHarnessSurface() {
     namespace: (process.env.RUVECTOR_MEMORY_NAMESPACE || 'ruvector').trim() || 'ruvector',
   };
 
-  const capabilities = await loadMetaHarnessSdk().getMetaHarnessCapabilities();
+  const capabilities = await loadMetaHarnessSdk().getMetaHarnessCapabilities({ deep: !!(opts && opts.deep) });
   for (const capability of capabilities) {
     primitives[`metaharness.${capability.name}`] = {
       name: capability.package,
@@ -10439,7 +11277,7 @@ const harnessCmd = program
   .description('MetaHarness, Darwin, Flywheel, routing, safety, and workspace capabilities');
 
 async function printHarnessStatus(opts) {
-  const surface = await buildHarnessSurface();
+  const surface = await buildHarnessSurface(opts);
   if (opts && opts.json) {
     console.log(JSON.stringify(surface, null, 2));
     return;
@@ -10468,9 +11306,9 @@ harnessCmd
 
 harnessCmd
   .command('doctor')
-  .description('Alias for harness status with dependency load checks')
+  .description('Harness status that also imports every dependency (including deferred ones like Darwin)')
   .option('--json', 'Output as JSON')
-  .action(async (opts) => printHarnessStatus(opts));
+  .action(async (opts) => printHarnessStatus({ ...opts, deep: true }));
 
 harnessCmd
   .command('route')

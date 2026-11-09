@@ -1,6 +1,6 @@
 [package]
 name = "ruvector-graph"
-version = "2.3.2"
+version = "2.3.4"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -73,7 +73,7 @@ lru = "0.18"
 moka = { version = "0.12", features = ["future"], optional = true }
 
 # Compression (for storage optimization, optional for WASM)
-zstd = { version = "0.13", optional = true }
+zstd = { version = "0.14", optional = true }
 lz4 = { version = "1.24", optional = true }
 
 # Networking (for federation)

@@ -1,10 +1,15 @@
-//! Cypher query language parser and execution engine for WASM
+//! Cypher query language parser and execution engine
 //!
-//! This module provides a WASM-compatible Cypher implementation including:
+//! This module provides a pure-Rust Cypher implementation including:
 //! - Lexical analysis (tokenization)
 //! - Syntax parsing (AST generation)
 //! - In-memory property graph storage
 //! - Query execution engine
+//!
+//! With the default `browser` feature, [`CypherEngine`] is also exported to
+//! JavaScript through wasm-bindgen. Without it, use the Rust API
+//! ([`CypherEngine::run`], [`CypherEngine::graph_stats`],
+//! [`CypherEngine::export_state`] / [`CypherEngine::load_state`]).
 //!
 //! Supported operations:
 //! - CREATE: Create nodes and relationships
@@ -22,53 +27,58 @@ pub mod parser;
 
 pub use ast::{Expression, Pattern, Query, Statement};
 pub use executor::{ContextValue, ExecutionError, ExecutionResult, Executor};
-pub use graph_store::{Edge, EdgeId, Node, NodeId, PropertyGraph, Value};
+pub use graph_store::{Edge, EdgeId, GraphStats, Node, NodeId, PropertyGraph, Value};
 pub use lexer::{tokenize, Token, TokenKind};
 pub use parser::{parse_cypher, ParseError};
 
 use crate::storage::state::{EdgeState, GraphState, NodeState, PropertyValue};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+#[cfg(feature = "browser")]
 use wasm_bindgen::prelude::*;
 
+/// Error returned by the pure-Rust [`CypherEngine`] API.
+///
+/// The `Display` text matches the error strings the JavaScript bindings have
+/// always thrown, so the browser wrappers stay byte-for-byte compatible.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CypherError {
+    /// The query could not be parsed.
+    Parse(String),
+    /// The query parsed but failed while executing against the graph.
+    Execution(String),
+    /// A persisted edge could not be restored by [`CypherEngine::load_state`].
+    Import(String),
+}
+
+impl std::fmt::Display for CypherError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Parse(e) => write!(f, "Parse error: {}", e),
+            Self::Execution(e) => write!(f, "Execution error: {}", e),
+            Self::Import(e) => write!(f, "Failed to import edge: {}", e),
+        }
+    }
+}
+
+impl std::error::Error for CypherError {}
+
 /// WASM-compatible Cypher engine
-#[wasm_bindgen]
+// (Exported to JS only with the default `browser` feature; the pure-Rust API
+// below is always available.)
+#[cfg_attr(feature = "browser", wasm_bindgen)]
 pub struct CypherEngine {
     graph: PropertyGraph,
 }
 
-#[wasm_bindgen]
+#[cfg_attr(feature = "browser", wasm_bindgen)]
 impl CypherEngine {
     /// Create a new Cypher engine with empty graph
-    #[wasm_bindgen(constructor)]
+    #[cfg_attr(feature = "browser", wasm_bindgen(constructor))]
     pub fn new() -> Self {
         Self {
             graph: PropertyGraph::new(),
         }
-    }
-
-    /// Execute a Cypher query and return JSON results
-    pub fn execute(&mut self, query: &str) -> Result<JsValue, JsValue> {
-        // Parse the query
-        let ast =
-            parse_cypher(query).map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-
-        // Execute the query
-        let mut executor = Executor::new(&mut self.graph);
-        let result = executor
-            .execute(&ast)
-            .map_err(|e| JsValue::from_str(&format!("Execution error: {}", e)))?;
-
-        // Convert to JS value
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
-    }
-
-    /// Get graph statistics
-    pub fn stats(&self) -> Result<JsValue, JsValue> {
-        let stats = self.graph.stats();
-        serde_wasm_bindgen::to_value(&stats)
-            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
     }
 
     /// Clear the graph
@@ -77,7 +87,61 @@ impl CypherEngine {
     }
 }
 
+/// JavaScript bindings (default `browser` feature)
+#[cfg(feature = "browser")]
+#[wasm_bindgen]
 impl CypherEngine {
+    /// Execute a Cypher query and return JSON results
+    pub fn execute(&mut self, query: &str) -> Result<JsValue, JsValue> {
+        let result = self
+            .run(query)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        // Convert to JS value
+        serde_wasm_bindgen::to_value(&result)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    }
+
+    /// Get graph statistics
+    pub fn stats(&self) -> Result<JsValue, JsValue> {
+        let stats = self.graph_stats();
+        serde_wasm_bindgen::to_value(&stats)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    }
+}
+
+#[cfg(feature = "browser")]
+impl CypherEngine {
+    /// Import state to restore the graph (JavaScript-error flavour of
+    /// [`CypherEngine::load_state`])
+    pub fn import_state(&mut self, state: &GraphState) -> Result<(), JsValue> {
+        self.load_state(state)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+}
+
+/// Pure-Rust API, available with or without the `browser` feature
+impl CypherEngine {
+    /// Parse and execute a Cypher query against the graph
+    pub fn run(&mut self, query: &str) -> Result<ExecutionResult, CypherError> {
+        let ast = parse_cypher(query).map_err(|e| CypherError::Parse(e.to_string()))?;
+
+        let mut executor = Executor::new(&mut self.graph);
+        executor
+            .execute(&ast)
+            .map_err(|e| CypherError::Execution(e.to_string()))
+    }
+
+    /// Get graph statistics
+    pub fn graph_stats(&self) -> GraphStats {
+        self.graph.stats()
+    }
+
+    /// Borrow the underlying property graph
+    pub fn graph(&self) -> &PropertyGraph {
+        &self.graph
+    }
+
     /// Export graph state for persistence
     pub fn export_state(&self) -> GraphState {
         let nodes: Vec<NodeState> = self
@@ -122,8 +186,8 @@ impl CypherEngine {
         }
     }
 
-    /// Import state to restore the graph
-    pub fn import_state(&mut self, state: &GraphState) -> Result<(), JsValue> {
+    /// Restore the graph from persisted state, replacing the current graph
+    pub fn load_state(&mut self, state: &GraphState) -> Result<(), CypherError> {
         self.graph = PropertyGraph::new();
 
         // Import nodes first
@@ -150,7 +214,7 @@ impl CypherEngine {
                 edge = edge.with_property(key.clone(), property_to_value(value));
             }
             if let Err(e) = self.graph.add_edge(edge) {
-                return Err(JsValue::from_str(&format!("Failed to import edge: {}", e)));
+                return Err(CypherError::Import(e.to_string()));
             }
         }
 
@@ -230,6 +294,75 @@ mod tests {
         assert_eq!(stats.edge_count, 1);
     }
 
+    /// Issue #269: MATCH returns one row per match, not only the last one.
+    #[test]
+    fn test_match_returns_multiple_rows() {
+        let mut engine = CypherEngine::new();
+        run(
+            &mut engine,
+            "CREATE (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'}), (c:Person {name: 'Charlie'})",
+        );
+
+        let result = run(&mut engine, "MATCH (n:Person) RETURN n");
+
+        assert_eq!(result.rows.len(), 3);
+        assert_eq!(result.columns, vec!["n"]);
+    }
+
+    /// RETURN n.name names its column "n.name" and yields one value per row.
+    #[test]
+    fn test_match_return_properties() {
+        let mut engine = CypherEngine::new();
+        run(
+            &mut engine,
+            "CREATE (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'})",
+        );
+
+        let result = run(&mut engine, "MATCH (n:Person) RETURN n.name");
+
+        assert_eq!(result.columns, vec!["n.name"]);
+        assert_eq!(string_column(&result, "n.name"), vec!["Alice", "Bob"]);
+    }
+
+    #[test]
+    fn test_match_where_filter() {
+        let mut engine = CypherEngine::new();
+        run(
+            &mut engine,
+            "CREATE (a:Person {name: 'Alice', age: 30}), (b:Person {name: 'Bob', age: 25}), (c:Person {name: 'Charlie', age: 35})",
+        );
+
+        let result = run(
+            &mut engine,
+            "MATCH (n:Person) WHERE n.age > 28 RETURN n.name",
+        );
+
+        assert_eq!(string_column(&result, "n.name"), vec!["Alice", "Charlie"]);
+    }
+
+    /// A MATCH with no matches gives zero rows, not an unbound-variable error.
+    #[test]
+    fn test_match_no_results() {
+        let mut engine = CypherEngine::new();
+        run(&mut engine, "CREATE (a:Person {name: 'Alice'})");
+
+        let result = run(&mut engine, "MATCH (n:Animal) RETURN n");
+
+        assert_eq!(result.rows.len(), 0);
+    }
+
+    #[test]
+    fn test_match_many_nodes() {
+        let mut engine = CypherEngine::new();
+        for i in 0..100 {
+            run(&mut engine, &format!("CREATE (n:Item {{id: {}}})", i));
+        }
+
+        let result = run(&mut engine, "MATCH (n:Item) RETURN n");
+
+        assert_eq!(result.rows.len(), 100);
+    }
+
     #[test]
     fn test_match_nodes() {
         let mut engine = CypherEngine::new();
@@ -261,6 +394,93 @@ mod tests {
         for query in queries {
             let result = parse_cypher(query);
             assert!(result.is_ok(), "Failed to parse: {}", query);
+        }
+    }
+
+    fn run(engine: &mut CypherEngine, query: &str) -> ExecutionResult {
+        let ast = parse_cypher(query).unwrap();
+        let mut executor = Executor::new(&mut engine.graph);
+        executor.execute(&ast).unwrap()
+    }
+
+    fn string_column(result: &ExecutionResult, column: &str) -> Vec<String> {
+        let mut values: Vec<String> = result
+            .rows
+            .iter()
+            .filter_map(|row| match row.get(column) {
+                Some(ContextValue::Value(Value::String(s))) => Some(s.clone()),
+                _ => None,
+            })
+            .collect();
+        values.sort();
+        values
+    }
+
+    #[test]
+    fn test_return_multiple_property_columns() {
+        let mut engine = CypherEngine::new();
+        run(
+            &mut engine,
+            "CREATE (a:Person {name: 'Alice', city: 'Oslo'}), (b:Person {name: 'Bob', city: 'Rome'})",
+        );
+
+        let result = run(&mut engine, "MATCH (n:Person) RETURN n.name, n.city");
+
+        assert_eq!(result.columns, vec!["n.name", "n.city"]);
+        assert_eq!(string_column(&result, "n.name"), vec!["Alice", "Bob"]);
+        assert_eq!(string_column(&result, "n.city"), vec!["Oslo", "Rome"]);
+    }
+
+    #[test]
+    fn test_match_set_updates_every_row() {
+        let mut engine = CypherEngine::new();
+        run(
+            &mut engine,
+            "CREATE (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'}), (c:Person {name: 'Charlie'})",
+        );
+
+        run(&mut engine, "MATCH (n:Person) SET n.seen = 'yes'");
+
+        let result = run(
+            &mut engine,
+            "MATCH (n:Person) WHERE n.seen = 'yes' RETURN n.name",
+        );
+        assert_eq!(
+            string_column(&result, "n.name"),
+            vec!["Alice", "Bob", "Charlie"]
+        );
+    }
+
+    #[test]
+    fn test_match_detach_delete_every_row() {
+        let mut engine = CypherEngine::new();
+        run(
+            &mut engine,
+            "CREATE (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'}), (c:Item {id: 1})",
+        );
+
+        run(&mut engine, "MATCH (n:Person) DETACH DELETE n");
+
+        assert_eq!(engine.graph.stats().node_count, 1);
+        assert!(engine.graph.find_nodes_by_label("Person").is_empty());
+    }
+
+    #[test]
+    fn test_match_comma_patterns_cross_product() {
+        let mut engine = CypherEngine::new();
+        run(
+            &mut engine,
+            "CREATE (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'}), (x:Company {name: 'Acme'}), (y:Company {name: 'Initech'}), (z:Company {name: 'Umbrella'})",
+        );
+
+        let result = run(
+            &mut engine,
+            "MATCH (p:Person), (c:Company) RETURN p.name, c.name",
+        );
+
+        assert_eq!(result.rows.len(), 6);
+        for row in &result.rows {
+            assert!(row.contains_key("p.name") && row.contains_key("c.name"));
         }
     }
 }
