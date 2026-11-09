@@ -105,7 +105,9 @@ opened docs.rvf: 4 dims, cosine
 
 Results are ranked by distance, closest first. For `cosine` the distance is `1 - cosine similarity`.
 
-**Moving an index.** `RvfDatabase` keeps string ids in a sidecar, so copy `docs.rvf` *and* `docs.rvf.idmap.json` together; without the sidecar, results come back with numeric ids. Metadata filters (`filter` on `rvf_query`) use the server's own `<store>.mcp-meta.jsonl`, so they apply to vectors ingested through the server's `rvf_ingest` tool, not to an index built elsewhere.
+**Moving an index.** Copy every `<store>.rvf*` file together. `@ruvector/rvf` keeps string ids in a `<store>.rvf.idmap.json` sidecar, so an index built directly with it (like `docs.rvf` above) and moved without that sidecar answers with numeric ids. Metadata filters (`filter` on `rvf_query`) use the server's own `<store>.rvf.mcp-meta.jsonl`, so they apply to vectors ingested through the server's `rvf_ingest` tool, not to an index built elsewhere.
+
+Since 0.2.4 the server also writes each vector's string id into the `.rvf` itself, as the native metadata field `rvf_mcp_id`. A store written by the server therefore still returns, and filters by, its original ids when only `<store>.rvf` and `<store>.rvf.mcp-meta.jsonl` were copied. If a store the server manages is missing its `.idmap.json` and holds vectors without an embedded id (written by 0.2.3 or earlier), queries return an error naming the missing file instead of empty or renumbered results. Opening such a store for writing is refused, because new vectors would reuse labels that already belong to stored ones; `readOnly: true` still works.
 
 ### Use the same index from Claude Code
 
@@ -170,7 +172,7 @@ The SSE transport binds `127.0.0.1` by default and serves one session at a time.
 
 ## Storage
 
-Stores are real `.rvf` files written through [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf), so they survive server restarts and queries go through the native HNSW index instead of a linear scan. Every tool `path` is resolved inside the data directory: `--data-dir <dir>`, else `$RVF_MCP_DATA_DIR`, else `~/.rvf-mcp-server`. Absolute paths, `..` segments and symlinks that lead outside it are rejected. Per-vector metadata, which the native store does not hold, lives next to each store in `<store>.mcp-meta.jsonl`. Metadata filters are applied to an over-fetched index result.
+Stores are real `.rvf` files written through [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf), so they survive server restarts and queries go through the native HNSW index instead of a linear scan. Every tool `path` is resolved inside the data directory: `--data-dir <dir>`, else `$RVF_MCP_DATA_DIR`, else `~/.rvf-mcp-server`. Absolute paths, `..` segments and symlinks that lead outside it are rejected. Per-vector metadata lives next to each store in `<store>.mcp-meta.jsonl`; only the vector id is also written into the `.rvf` itself. Metadata filters are applied to an over-fetched index result.
 
 ## MCP Tools
 

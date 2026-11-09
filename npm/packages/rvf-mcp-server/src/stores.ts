@@ -208,3 +208,24 @@ export function storedMetric(db: unknown): string | undefined {
     return undefined;
   }
 }
+
+/**
+ * Native per-vector metadata field holding the vector's string id. The
+ * @ruvector/rvf string-id map lives in a `<store>.idmap.json` sidecar; with
+ * the id also inside the `.rvf`, a store copied without that sidecar still
+ * answers with (and filters by) the original ids.
+ */
+export const ID_FIELD = 'rvf_mcp_id';
+
+/** True when neither the id-map snapshot nor its journal is beside `file`. */
+export function idMapMissing(file: string): boolean {
+  return !fs.existsSync(`${file}.idmap.json`) && !fs.existsSync(`${file}.idmap.json.journal`);
+}
+
+export function missingIdMapError(storePath: string): Error {
+  return new Error(
+    `${storePath}.idmap.json is missing, so string ids cannot be resolved for vectors ` +
+      `written without an embedded id (rvf-mcp-server <= 0.2.3). Copy every ${storePath}* ` +
+      `file together, or re-ingest the vectors with rvf-mcp-server >= 0.2.4.`,
+  );
+}
