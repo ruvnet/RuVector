@@ -23,6 +23,19 @@ Each server entry requires:
 - `url` - MCP server endpoint URL
 - `headers` (optional) - Custom headers for authentication
 
+Other web search servers plug in the same way. For example, [Keenable](https://docs.keenable.ai) serves a keyless MCP endpoint (`search_web_pages`, `fetch_page_content`); an API key only raises the rate limits:
+
+```ini
+MCP_SERVERS=[
+  {"name": "Web Search (Keenable)", "url": "https://api.keenable.ai/mcp-public"}
+]
+
+# With an API key:
+MCP_SERVERS=[
+  {"name": "Web Search (Keenable)", "url": "https://api.keenable.ai/mcp", "headers": {"X-API-Key": "<your key>"}}
+]
+```
+
 ### User Servers (Added from UI)
 
 Users can add their own MCP servers directly from the UI:
