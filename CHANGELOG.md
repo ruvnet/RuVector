@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session hooks run on `SessionEnd` instead of after every reply,
   `compressedPatterns` survive later saves, and `hooks compress` /
   AUTO_COMPRESS store the Q-table (#1223).
+- `hooks graph-cluster` / `graph-mincut` name nodes by relative path, so
+  same-named files in different directories stay distinct, and follow
+  `../x`, subpath and directory-index imports (#1217).
 
 ## [ruvector 0.3.19, core platform packages 0.1.35] - 2026-11-09
 ### Fixed

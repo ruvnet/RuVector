@@ -6046,25 +6046,46 @@ hooksCmd.command('coverage-suggest')
 
 // Graph Algorithm Commands
 
-// Build an undirected import graph over the given files. Nodes are file
-// basenames without extension; an edge a->b exists when a imports './b'
-// (via `from` or `require`, with or without an extension). The result is the
-// Graph shape every function in dist/core/graph-algorithms.js expects.
+// Build an undirected import graph over the given files. Each file is one
+// node, named by its path relative to the cwd without extension (`pkg/a/x`),
+// so same-named files in different directories stay distinct (#1217). An
+// edge a->b exists when a imports a relative specifier (`./b`, `../b`,
+// `./sub/b`, with or without an extension, or a directory's index) that
+// resolves to b, via `from`, `import`, `import()` or `require()`. The result
+// is the Graph shape every function in dist/core/graph-algorithms.js expects.
 function buildImportGraph(files) {
   const graphMod = require('../dist/core/graph-algorithms.js');
-  const stem = (f) => path.basename(f, path.extname(f));
-  const nodes = [...new Set(files.map(stem))];
-  const nodeSet = new Set(nodes);
+  const stripExt = (p) => p.slice(0, p.length - path.extname(p).length);
+  const relId = (abs) => path.relative(process.cwd(), abs).split(path.sep).join('/');
+  const absFiles = [...new Set(files.map((f) => path.resolve(f)))];
+  // Name nodes without extension unless two files would then collide (a.ts + a.js).
+  const stemCount = new Map();
+  for (const abs of absFiles) stemCount.set(stripExt(abs), (stemCount.get(stripExt(abs)) || 0) + 1);
+  const nodeOf = new Map(); // absolute path (with and without extension) -> node id
+  for (const abs of absFiles) {
+    const unique = stemCount.get(stripExt(abs)) === 1;
+    const id = relId(unique ? stripExt(abs) : abs);
+    nodeOf.set(abs, id);
+    if (unique) nodeOf.set(stripExt(abs), id);
+  }
+  const resolveImport = (fromAbs, spec) => {
+    const target = path.resolve(path.dirname(fromAbs), spec);
+    for (const cand of [target, stripExt(target), path.join(target, 'index')]) {
+      if (nodeOf.has(cand)) return nodeOf.get(cand);
+    }
+    return null;
+  };
+  const nodes = absFiles.map((abs) => nodeOf.get(abs));
   const seen = new Set();
   const edges = [];
-  const importRe = /(?:from\s+|require\s*\(\s*)['"]\.\/([^'"]+)['"]/g;
-  for (const file of files) {
-    if (!fs.existsSync(file)) continue;
-    const from = stem(file);
-    const content = fs.readFileSync(file, 'utf-8');
+  const importRe = /(?:from\s+|import\s*\(\s*|import\s+|require\s*\(\s*)['"](\.\.?\/[^'"]+)['"]/g;
+  for (const abs of absFiles) {
+    if (!fs.existsSync(abs)) continue;
+    const from = nodeOf.get(abs);
+    const content = fs.readFileSync(abs, 'utf-8');
     for (const m of content.matchAll(importRe)) {
-      const to = stem(m[1]);
-      if (to === from || !nodeSet.has(to)) continue;
+      const to = resolveImport(abs, m[1]);
+      if (!to || to === from) continue;
       const key = from < to ? from + '\0' + to : to + '\0' + from;
       if (seen.has(key)) continue;
       seen.add(key);
