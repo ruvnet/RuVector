@@ -191,6 +191,43 @@ fn parse_metric(s: &str) -> Result<DistanceMetric> {
     }
 }
 
+/// Derivation types `derive()` accepts at the JS boundary.
+const DERIVE_TYPE_NAMES: &str =
+    "'clone', 'filter', 'merge', 'quantize', 'reindex', 'transform', 'snapshot' or 'user_defined'";
+
+fn parse_derivation_type(s: &str) -> Result<rvf_types::DerivationType> {
+    use rvf_types::DerivationType as D;
+    match s {
+        "clone" => Ok(D::Clone),
+        "filter" => Ok(D::Filter),
+        "quantize" => Ok(D::Quantize),
+        "reindex" => Ok(D::Reindex),
+        "transform" => Ok(D::Transform),
+        "snapshot" => Ok(D::Snapshot),
+        "user_defined" => Ok(D::UserDefined),
+        // Recorded with this store as the only parent.
+        "merge" => Ok(D::Merge),
+        _ => Err(napi::Error::new(
+            Status::InvalidArg,
+            format!("Invalid derivationType '{s}'. Expected {DERIVE_TYPE_NAMES}."),
+        )),
+    }
+}
+
+fn derivation_type_name(t: rvf_types::DerivationType) -> &'static str {
+    use rvf_types::DerivationType as D;
+    match t {
+        D::Clone => "clone",
+        D::Filter => "filter",
+        D::Merge => "merge",
+        D::Quantize => "quantize",
+        D::Reindex => "reindex",
+        D::Transform => "transform",
+        D::Snapshot => "snapshot",
+        D::UserDefined => "user_defined",
+    }
+}
+
 fn parse_compression(s: &str) -> Result<rvf_runtime::options::CompressionProfile> {
     use rvf_runtime::options::CompressionProfile;
     match s {
@@ -770,9 +807,28 @@ impl RvfDatabase {
         Ok(store.lineage_depth())
     }
 
-    /// Derive a child store from this parent.
-    #[napi]
-    pub fn derive(&self, child_path: String, options: Option<RvfOptions>) -> Result<RvfDatabase> {
+    /// Derive a child store from this parent, recording how it was derived.
+    ///
+    /// `derivationType` is one of `'clone'`, `'filter'`, `'merge'`,
+    /// `'quantize'`, `'reindex'`, `'transform'`, `'snapshot'` or
+    /// `'user_defined'`; it defaults to `'filter'` (what this method always
+    /// recorded before #1289). Any other string is rejected. `'merge'` is
+    /// recorded with this store as the only parent. The child starts empty
+    /// whatever the type; use `branch()` for a child that reads through to
+    /// this store.
+    #[napi(
+        ts_args_type = "childPath: string, options?: RvfOptions | undefined | null, derivationType?: 'clone' | 'filter' | 'merge' | 'quantize' | 'reindex' | 'transform' | 'snapshot' | 'user_defined' | undefined | null"
+    )]
+    pub fn derive(
+        &self,
+        child_path: String,
+        options: Option<RvfOptions>,
+        derivation_type: Option<String>,
+    ) -> Result<RvfDatabase> {
+        let derivation_type = match derivation_type.as_deref() {
+            None => rvf_types::DerivationType::Filter,
+            Some(name) => parse_derivation_type(name)?,
+        };
         let guard = self
             .inner
             .read()
@@ -787,16 +843,32 @@ impl RvfDatabase {
         };
 
         let child_store = store
-            .derive(
-                Path::new(&child_path),
-                rvf_types::DerivationType::Filter,
-                child_opts,
-            )
+            .derive(Path::new(&child_path), derivation_type, child_opts)
             .map_err(map_rvf_err)?;
 
         Ok(RvfDatabase {
             inner: Arc::new(RwLock::new(Some(child_store))),
         })
+    }
+
+    /// How this store was derived from its parent (see `derive`), or `null`
+    /// for a root store or one derived by a runtime older than rvf-runtime
+    /// 0.5.4. A merge child reports `'merge'`.
+    #[napi(
+        ts_return_type = "'clone' | 'filter' | 'merge' | 'quantize' | 'reindex' | 'transform' | 'snapshot' | 'user_defined' | null"
+    )]
+    pub fn derivation_type(&self) -> Result<Option<String>> {
+        let guard = self
+            .inner
+            .read()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard
+            .as_ref()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        Ok(store
+            .derivation_type()
+            .map_err(map_rvf_err)?
+            .map(|t| derivation_type_name(t).to_string()))
     }
 
     /// Create a **queryable** copy-on-write branch of this store.
@@ -1120,6 +1192,10 @@ fn segment_type_name(seg_type: u8) -> String {
         0x0F => "ebpf".to_string(),
         0x20 => "cow_map".to_string(),
         0x22 => "membership".to_string(),
+        rvf_runtime::LINEAGE_SEG_TYPE => "lineage".to_string(),
+        rvf_runtime::CUSTOM_SEGMENT_TYPE_MIN..=rvf_runtime::CUSTOM_SEGMENT_TYPE_MAX => {
+            format!("custom(0x{:02X})", seg_type)
+        }
         other => format!("unknown(0x{:02X})", other),
     }
 }

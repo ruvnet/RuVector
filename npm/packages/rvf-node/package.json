@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/rvf-node",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "Native Node.js (N-API) bindings for the RuVector Format vector database, built in Rust: HNSW indexing and search over portable .rvf files.",
   "main": "index.js",
   "types": "index.d.ts",
