@@ -310,7 +310,9 @@ jobs:
             "keywords": ["ruvector", "gnn", "graph-neural-network", "napi-rs"],
             "author": "Ruvector Team",
             "license": "MIT",
-            "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector"},
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "crates/ruvector-gnn-node/npm/${platform}"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"},
             "engines": {"node": ">= 10"},
             "publishConfig": {"registry": "https://registry.npmjs.org/", "access": "public"}
           }

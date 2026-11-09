@@ -1,6 +1,7 @@
 {
   "name": "@ruvector/attention-linux-x64-musl",
   "version": "2.3.0",
+  "homepage": "https://ruv.io",
   "os": [
     "linux"
   ],
@@ -18,5 +19,12 @@
   "libc": [
     "musl"
   ],
-  "repository": "https://github.com/ruvnet/ruvector"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "crates/ruvector-attention-node/npm/linux-x64-musl"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
+  }
 }

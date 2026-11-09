@@ -237,9 +237,9 @@ jobs:
               mkdir -p "npm/$dir_name"
               cp "$node_file" "npm/$dir_name/"
               if [ -n "$libc_val" ]; then
-                node -e "require('fs').writeFileSync('npm/$dir_name/package.json', JSON.stringify({name:'$name',version:'$VERSION',os:['$os_val'],cpu:['$cpu_val'],libc:['$libc_val'],main:'$node_file',files:['$node_file'],license:'MIT OR Apache-2.0',repository:{type:'git',url:'https://github.com/ruvnet/ruvector.git'}},null,2))"
+                node -e "require('fs').writeFileSync('npm/$dir_name/package.json', JSON.stringify({name:'$name',version:'$VERSION',os:['$os_val'],cpu:['$cpu_val'],libc:['$libc_val'],main:'$node_file',files:['$node_file'],homepage:'https://ruv.io',license:'MIT OR Apache-2.0',repository:{type:'git',url:'git+https://github.com/ruvnet/RuVector.git',directory:'npm/packages/sona/npm/$dir_name'},bugs:{url:'https://github.com/ruvnet/RuVector/issues'}},null,2))"
               else
-                node -e "require('fs').writeFileSync('npm/$dir_name/package.json', JSON.stringify({name:'$name',version:'$VERSION',os:['$os_val'],cpu:['$cpu_val'],main:'$node_file',files:['$node_file'],license:'MIT OR Apache-2.0',repository:{type:'git',url:'https://github.com/ruvnet/ruvector.git'}},null,2))"
+                node -e "require('fs').writeFileSync('npm/$dir_name/package.json', JSON.stringify({name:'$name',version:'$VERSION',os:['$os_val'],cpu:['$cpu_val'],main:'$node_file',files:['$node_file'],homepage:'https://ruv.io',license:'MIT OR Apache-2.0',repository:{type:'git',url:'git+https://github.com/ruvnet/RuVector.git',directory:'npm/packages/sona/npm/$dir_name'},bugs:{url:'https://github.com/ruvnet/RuVector/issues'}},null,2))"
               fi
               echo "Publishing $name..."
               cd "npm/$dir_name"
