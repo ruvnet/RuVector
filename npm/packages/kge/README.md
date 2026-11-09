@@ -1,9 +1,63 @@
 # @ruvector/kge
 
-Holographic knowledge-graph embeddings for [ruvector](https://github.com/ruvnet/ruvector):
-score a triple `(subject, relation, object)` for plausibility, then answer link
-prediction, relation similarity, and 2-hop composition — locally, with no
-network and no per-query cost. Native (napi-rs) with a WASM fallback.
+Predict missing links in a knowledge graph from example relationships. This
+opt-in [RuVector](https://github.com/ruvnet/ruvector) package ranks plausible
+triples, compares relations, and supports two-hop composition with RotatE.
+Inference runs locally in Node.js through a native addon or the WASM fallback.
+
+![Animated link prediction: train on known facts, rank candidate links, then verify a candidate against evidence](./docs/link-prediction.svg)
+
+## Predict a missing link in Node.js
+
+Use Node.js 18 or later. The package offers native builds for Linux (glibc x64
+and ARM64), macOS (x64 and ARM64), and Windows x64, plus a Node.js WASM
+fallback. This example works without a database, API key, or network access
+after installation.
+
+```sh
+npm install --save-exact @ruvector/kge@0.2.0
+```
+
+Save as `predict.cjs`, then run `node predict.cjs`:
+
+```js
+const assert = require('node:assert/strict');
+const { createKge } = require('@ruvector/kge');
+
+async function main() {
+  const kge = createKge({ scorer: 'hole', dims: 32, seed: 42 });
+  const rows = [
+    ['iris', 'flowers', 'garden'],
+    ['tulip', 'flowers', 'garden'],
+    ['daisy', 'flowers', 'garden'],
+    ['lily', 'flowers', null],
+    ['trout', 'fish', 'water'],
+    ['salmon', 'fish', 'water'],
+    ['carp', 'fish', 'water'],
+    ['perch', 'fish', 'water'],
+  ];
+  kge.addTriples(rows.flatMap(([s, family, habitat]) => [
+    { s, r: 'isA', o: family, split: 'train' },
+    ...(habitat ? [{ s, r: 'foundIn', o: habitat, split: 'train' }] : []),
+  ]));
+  await kge.train({ epochs: 10, lr: 0.1 });
+  const { candidates } = kge.predict({ s: 'lily', r: 'foundIn', k: 3 });
+  assert.equal(candidates[0]?.entity, 'garden');
+  console.log('Predicted: lily foundIn garden');
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+```
+
+Expected output: `Predicted: lily foundIn garden`. The fixture deliberately
+omits the `lily foundIn garden` training edge. This result is a prediction on
+a toy graph; it is neither a stored fact nor a model accuracy benchmark.
+To test the fallback, set `KGE_BACKEND=wasm` before running the same command.
+For retrieving explicit edges and their provenance, see the
+[RuVector graph examples](https://github.com/ruvnet/ruvector/tree/main/examples/graph).
 
 ## What it is
 
@@ -26,10 +80,10 @@ arXiv:1902.10197), the one family member that represents relation
 
 ## Status (v1)
 
-- **Platforms.** 0.1.0 bundles the native addon for `linux-x64-gnu` plus the
-  WASM fallback; other platforms use WASM until the five `optionalDependencies`
-  platform packages are added in a later bump PR (ADR-001 §5).
-  `KGE_BACKEND=wasm` forces the fallback.
+- **Platforms.** 0.2.0 bundles native addons for the five platforms listed
+  above plus the WASM fallback. Older 0.1.0 builds bundled only
+  `linux-x64-gnu` and WASM. `KGE_BACKEND=wasm` forces the fallback on
+  either version.
 - **`predict`, `similarRelations`, `compose`, `train`, `eval`, `buildIndex` and
   `optimize` all work today.** `predict` is exhaustive until you `buildIndex`,
   then ANN-accelerated. Before `train`, the tables are the deterministic seed

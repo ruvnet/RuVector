@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 228" role="img" aria-labelledby="title desc">
+  <title id="title">From known graph edges to a candidate link</title>
+  <desc id="desc">Train on known graph edges, rank possible links, and verify the top candidate separately. A prediction is not a stored fact.</desc>
+  <style>
+    .heading { font: 700 23px system-ui,sans-serif; fill: #e6edf3; }
+    .label { font: 700 16px system-ui,sans-serif; fill: #e6edf3; }
+    .note { font: 13px system-ui,sans-serif; fill: #aebdd0; }
+    .pulse { animation: pulse 5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: .45; } 50% { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+  </style>
+  <rect width="800" height="228" rx="16" fill="#0d1524"/>
+  <text x="26" y="40" class="heading">Local knowledge graph link prediction</text>
+  <rect x="26" y="70" width="222" height="96" rx="10" fill="#17253a" stroke="#6883a3"/>
+  <rect x="289" y="70" width="222" height="96" rx="10" fill="#17253a" stroke="#6bcaed"/>
+  <rect x="552" y="70" width="222" height="96" rx="10" fill="#17253a" stroke="#83dba7"/>
+  <path class="pulse" d="M253 118h30m-8-6 8 6-8 6m241-6h30m-8-6 8 6-8 6" fill="none" stroke="#6bcaed" stroke-width="3" stroke-linejoin="round"/>
+  <text x="44" y="110" class="label">1. Train</text>
+  <text x="44" y="139" class="note">Start with observed edges</text>
+  <text x="307" y="110" class="label">2. Rank</text>
+  <text x="307" y="139" class="note">Score possible missing links</text>
+  <text x="570" y="110" class="label">3. Verify</text>
+  <text x="570" y="139" class="note">Check candidates against evidence</text>
+  <text x="26" y="201" class="note">Prediction stays separate from stored facts.</text>
+</svg>
