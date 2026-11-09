@@ -1369,9 +1369,3 @@ Part of the [ruv.io](https://ruv.io) open-source stack for RAG, agentic AI, NLP.
 - **Works with** (its runtime dependencies): [`agentic-robotics`](https://www.npmjs.com/package/agentic-robotics), [`dspy.ts`](https://www.npmjs.com/package/dspy.ts), [`midstreamer`](https://www.npmjs.com/package/midstreamer), [`ruvector`](https://www.npmjs.com/package/ruvector)
 - **Used by** (published packages that depend on it): [`@ruvector/agentic-synth-examples`](https://www.npmjs.com/package/@ruvector/agentic-synth-examples), [`@ruvector/graph-data-generator`](https://www.npmjs.com/package/@ruvector/graph-data-generator), [`psycho-symbolic-integration`](https://www.npmjs.com/package/psycho-symbolic-integration)
 <!-- weaver:seo:links:end -->
-
-<!-- weaver:seo:footer:start -->
----
-
-Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
-<!-- weaver:seo:footer:end -->
