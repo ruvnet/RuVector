@@ -81,7 +81,23 @@ let child = parent.derive(
     None, // inherit parent options
 )?;
 assert_eq!(child.lineage_depth(), 1);
+// Since 0.5.4 the type is recorded (lineage segment + witness entry):
+assert_eq!(child.derivation_type()?, Some(DerivationType::Filter));
 ```
+
+`derive()` records lineage only: the child starts empty for every type (use
+`branch()` for a copy-on-write child that reads through to its parent).
+`RvfStore::merge(&[&a, &b], path, None)` records several parents
+(`DerivationType::Merge`, one `LineageRecord` per parent); the merged read path
+is still being designed (#1289).
+
+### Application segments
+
+`append_segment(ty, key, value)`, `read_segment(ty, key)` and
+`list_segments(ty)` store application records in the file as segments of a
+`CustomSegmentType` (0xC0..=0xEF). They are checksummed, listed in the
+manifest (and so covered by a signed store's root page), witnessed, and
+carried through compaction; the latest value per key wins (#1290).
 
 ### FileIdentity Accessors
 

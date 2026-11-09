@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/rvf",
-  "version": "0.4.10",
+  "version": "0.4.11",
   "description": "RuVector Format (RVF): TypeScript SDK for a portable single-file vector database with HNSW vector search, native and WASM backends.",
   "main": "dist/index.js",
   "module": "dist/index.js",

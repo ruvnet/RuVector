@@ -408,6 +408,26 @@ jobs:
               ver=$(echo "$line" | awk '{print $2}' | tr -d '" ')
               # Skip workspace: protocol and other non-semver specs.
               case "$ver" in workspace:*|file:*|*://*) continue ;; esac
+              # @ruvector/core and its ruvector-core-* platform packages are
+              # sealed and published together by protected-release.yml
+              # (platforms first). A core pin that equals the exact version of
+              # the in-tree platform manifest is part of that same release, so
+              # it cannot be on npm before the merge that the release is cut
+              # from. Any other unpublished pin still fails.
+              if [ "$pkgjson" = "npm/packages/core/package.json" ]; then
+                coreleased=$(node -e "
+                  const fs = require('fs');
+                  const dir = '${PWD}/npm/core/platforms';
+                  const hit = fs.readdirSync(dir).some((d) => {
+                    try { const p = require(dir + '/' + d + '/package.json'); return p.name === '${name}' && p.version === '${ver}'; } catch { return false; }
+                  });
+                  console.log(hit ? 'yes' : 'no');
+                ")
+                if [ "$coreleased" = "yes" ]; then
+                  echo "::notice file=$pkgjson::${name}@${ver} is co-released with @ruvector/core by protected-release.yml"
+                  continue
+                fi
+              fi
               out=$(npm view "${name}@${ver}" version 2>&1) || true
               if echo "$out" | grep -qE '^npm (error|ERR!)' || [ -z "$out" ]; then
                 # Distinguish "not in registry" from transient network error.
