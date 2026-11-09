@@ -135,7 +135,11 @@ fn alias_text(desc: &str) -> bool {
 
 /// (class, check) from the hint and the manifest.
 pub fn classify(name: &str, hint: Option<&str>, f: Option<&PkgFacts>) -> (String, String) {
-    let platform = is_platform_binary(name) || f.is_some_and(|f| f.os_cpu);
+    // The platform-suffixed name decides; `os`/`cpu` alone only restricts
+    // where a package installs (entry points like `qudag` declare it too).
+    let suffix = is_platform_binary(name);
+    let os_cpu = f.is_some_and(|f| f.os_cpu);
+    let platform = suffix || (os_cpu && hint == Some("platform"));
     let Some(f) = f else {
         return (
             hint.unwrap_or("unknown").to_string(),
@@ -171,11 +175,11 @@ pub fn classify(name: &str, hint: Option<&str>, f: Option<&PkgFacts>) -> (String
                 "unverified: not deprecated, no rename text (migration audit needed)".into()
             },
         ),
-        (Some("entry"), _) | (Some("pilot"), _) if !f.has_bin && f.version.is_empty() => (
-            hint.unwrap_or_default().into(),
-            "unverifiable: no version".into(),
-        ),
         (Some(h), Some("alias")) => (h.into(), "note: deprecated on the registry".into()),
+        (Some(h), None) if os_cpu => (
+            h.into(),
+            "hint kept; note: manifest restricts os/cpu but is not a platform build by name".into(),
+        ),
         (Some(h), _) => (
             h.into(),
             "hint kept (not contradicted by the manifest)".into(),
@@ -199,7 +203,10 @@ pub fn disposition(
         return "blocker: no published manifest (404 or unreadable)".into();
     }
     if repo.is_some_and(|r| tax.hands_off_repo(r)) || tax.hands_off_package(name) {
-        return format!("handed off: owned by the {} lane", repo.unwrap_or("owning"));
+        return format!(
+            "handed off: another lane owns it ({})",
+            repo.unwrap_or("owning repo")
+        );
     }
     if f.is_some_and(|f| f.deprecated.is_some()) {
         return "deprecated: leave (no republish)".into();

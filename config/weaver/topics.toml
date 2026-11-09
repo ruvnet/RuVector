@@ -33,7 +33,7 @@ min_npm_kw_total = 50
 min_gh_topic_repos = 500
 # Another lane owns these manifests: `propose` only, `apply` refuses.
 hands_off_packages = ["ruvector", "@claude-flow/cli", "claude-flow", "ruflo"]
-hands_off_repos = ["ruvnet/ruflo", "ruvnet/metaharness"]
+hands_off_repos = ["ruvnet/ruflo", "ruvnet/claude-flow", "ruvnet/metaharness"]
 
 # ---- demand topics ----
 [[topic]]
