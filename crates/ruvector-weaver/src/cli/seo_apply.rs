@@ -44,7 +44,7 @@ pub fn apply(
     packages: Vec<String>,
     top: usize,
     checkout: Option<PathBuf>,
-    dry_run: bool,
+    (dry_run, in_place): (bool, bool),
 ) -> Result<()> {
     let g: Graph = read_json(&ctx.graph_path())?;
     let slug = g.canon(repo);
@@ -153,7 +153,16 @@ pub fn apply(
             bail!("{n} is owned by another lane (hands_off_packages)");
         }
     }
-    package_pr(ctx, tax, &g, &slug, &rf, &names, checkout, dry_run)
+    package_pr(
+        ctx,
+        tax,
+        &g,
+        &slug,
+        &rf,
+        &names,
+        checkout,
+        (dry_run, in_place),
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -165,7 +174,7 @@ fn package_pr(
     rf: &ruvector_weaver::seo::audit::RepoFacts,
     names: &[String],
     checkout: Option<PathBuf>,
-    dry_run: bool,
+    (dry_run, in_place): (bool, bool),
 ) -> Result<()> {
     let tmp;
     let root = match checkout {
@@ -225,7 +234,15 @@ fn package_pr(
             .unwrap_or_default();
         let ver = propose::bump_patch(&cur, &f.version).context("unparseable version")?;
         print!("{}", pp.diff);
-        for (path, text) in ap::with_version(&pp, &ver)? {
+        let files: Vec<(String, String)> = if in_place {
+            pp.edits
+                .iter()
+                .map(|e| (e.path.clone(), e.after.clone()))
+                .collect()
+        } else {
+            ap::with_version(&pp, &ver)?
+        };
+        for (path, text) in files {
             let full = root.join(&path);
             if !dry_run {
                 if let Some(d) = full.parent() {
@@ -239,6 +256,14 @@ fn package_pr(
     }
     for s in &skipped {
         println!("skipped {s}");
+    }
+    if in_place && !dry_run {
+        println!(
+            "in place: {} files rewritten under {}",
+            written.len(),
+            root.display()
+        );
+        return Ok(());
     }
     if dry_run || lines.is_empty() {
         println!("dry run: {} files would change", written.len());

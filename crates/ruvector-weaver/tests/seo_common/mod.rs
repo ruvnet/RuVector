@@ -67,6 +67,10 @@ pub fn graph() -> Graph {
     );
     let core = pkg("@acme/core", 9000, &[], &["rust"], "Core runtime", recent);
     let app = pkg("@acme/app", 100, &["@acme/vecdb"], &[], "An app", recent);
+    let mut plugin = pkg("@acme/plugin", 50, &[], &[], "A plugin", recent);
+    plugin.optional_dependencies = vec!["@acme/vecdb".into()];
+    let mut ui = pkg("@acme/ui", 40, &[], &[], "A UI", recent);
+    ui.peer_dependencies = vec!["@acme/vecdb".into()];
     let old = pkg(
         "acme-old",
         10,
@@ -95,7 +99,7 @@ pub fn graph() -> Graph {
             ],
             monthly_downloads: 14100,
         }],
-        packages: vec![vecdb, core, app, old, plat],
+        packages: vec![vecdb, core, app, plugin, ui, old, plat],
         repo_aliases: BTreeMap::new(),
     }
 }

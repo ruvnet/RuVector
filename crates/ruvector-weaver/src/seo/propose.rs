@@ -162,8 +162,8 @@ fn place_flow(md: &str, block: &str) -> String {
 pub fn links_block(
     tax: &Taxonomy,
     primary: &[String],
-    works: &[String],
-    used: &[String],
+    works: &[(String, &str)],
+    used: &[(String, &str)],
 ) -> String {
     let mut b = format!("{LINKS_START}\n## Works with / Used by\n\n");
     let phrases: Vec<String> = primary
@@ -178,7 +178,18 @@ pub fn links_block(
             phrases.join(", ")
         ));
     }
-    let list = |v: &[String]| v.iter().map(|n| npm_link(n)).collect::<Vec<_>>().join(", ");
+    let list = |v: &[(String, &str)]| {
+        v.iter()
+            .map(|(n, k)| {
+                if k.is_empty() {
+                    npm_link(n)
+                } else {
+                    format!("{} ({k})", npm_link(n))
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
     b.push_str(&format!(
         "- **Works with** (its runtime dependencies): {}\n",
         if works.is_empty() {
@@ -251,6 +262,18 @@ pub fn propose_package(
         .cloned()
         .collect();
     let used = dependents(graph, &p.name);
+    // optional / peer edges are real edges too (npm installs optional deps
+    // by default): label them rather than drop them.
+    let works_l: Vec<(String, &str)> = works.iter().map(|d| (d.clone(), edge_kind(p, d))).collect();
+    let used_l: Vec<(String, &str)> = used
+        .iter()
+        .map(|u| {
+            (
+                u.clone(),
+                graph.get(u).map_or("", |x| edge_kind(x, &p.name)),
+            )
+        })
+        .collect();
     let dir = src
         .map(|s| s.rel_dir.clone())
         .or(facts.repository_directory.clone())
@@ -346,7 +369,7 @@ pub fn propose_package(
                 &md,
                 LINKS_START,
                 LINKS_END,
-                &links_block(tax, &primary, &works, &used),
+                &links_block(tax, &primary, &works_l, &used_l),
             );
         }
         if !had_ruvio {
@@ -450,5 +473,18 @@ fn before_first_h2(md: &str, block: &str) -> String {
             s
         }
         None => replace_block(md, "\u{0}", "\u{0}", block),
+    }
+}
+
+/// How `p` depends on `dep`: "" (dependencies), "optional" or "peer".
+pub fn edge_kind(p: &Package, dep: &str) -> &'static str {
+    if p.dependencies.iter().any(|d| d == dep) {
+        ""
+    } else if p.optional_dependencies.iter().any(|d| d == dep) {
+        "optional"
+    } else if p.peer_dependencies.iter().any(|d| d == dep) {
+        "peer"
+    } else {
+        ""
     }
 }
