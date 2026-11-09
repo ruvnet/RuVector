@@ -12,8 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
 
-## [ruvector 0.3.19, core platform packages 0.1.35] - 2026-11-09
+## [@ruvector/core 0.1.38 (platforms 0.1.35), ruvector 0.3.19] - 2026-11-09
 ### Fixed
+- Re-inserting an existing id is an upsert with no HNSW ghost of the old
+  vector, and NaN/Inf vectors are rejected on insert, insertBatch and search
+  (#1443, issues #1310 / #1313). Core binaries built from b59a81a06.
 - HNSW returns complete results on very small graphs and skips deleted
   nodes (#1299). Shipped as core platform packages 0.1.35; 0.1.37 still
   pinned the 0.1.34 binaries, built before the fix.

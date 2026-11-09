@@ -72,6 +72,7 @@ jobs:
           test "$(find release-evidence/sealed -name '*.tgz' -type f | wc -l)" = 6
           (cd release-evidence/sealed && sha256sum ./*.tgz | sort > SHA256SUMS)
           cp npm/packages/core/test.js release-evidence/core.test.js
+          cp npm/packages/core/test-retrieval.js release-evidence/core.test-retrieval.js
           node -e '
             const fs = require("fs");
             const receipt = {
@@ -157,6 +158,9 @@ jobs:
               if (await db.len() !== 1 || result.length !== 1 || result[0].id !== id) process.exit(1);
             })().catch(error => { console.error(error); process.exit(1); });
           '
+          # Retrieval correctness (#1310 / #1313 / #1443) against the sealed install.
+          cp "$GITHUB_WORKSPACE/release-evidence/core.test-retrieval.js" node_modules/@ruvector/core/test-retrieval.js
+          node node_modules/@ruvector/core/test-retrieval.js
           npm install --global agentic-qe@3.13.10 --no-audit --no-fund
           cp "$GITHUB_WORKSPACE/release-evidence/core.test.js" node_modules/@ruvector/core/core.test.js
           AQE_LLM_PROVIDER=claude-code aqe test execute \
