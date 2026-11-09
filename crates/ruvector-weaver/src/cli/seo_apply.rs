@@ -197,17 +197,28 @@ fn package_pr(
     let idx = index_checkout(&root);
     let mut written: Vec<String> = Vec::new();
     let mut lines = Vec::new();
+    let mut skipped: Vec<String> = Vec::new();
     for n in names {
-        let p = g.get(n).with_context(|| format!("{n} not in graph"))?;
+        let Some(p) = g.get(n) else {
+            skipped.push(format!("`{n}`: not in graph"));
+            continue;
+        };
         let f = facts.get(n).cloned().unwrap_or_default();
-        let src = source_for(
+        // Generated manifests (wasm-pack `pkg/`) are not in the checkout:
+        // their metadata comes from the crate / build template instead.
+        let Some(src) = source_for(
             &root,
             &idx,
             n,
             f.repository_directory.as_deref(),
             &f.version,
-        )
-        .with_context(|| format!("{n}: package.json not found in {}", root.display()))?;
+        ) else {
+            eprintln!("{n}: no package.json in the checkout (generated?); skipped");
+            skipped.push(format!(
+                "`{n}`: no checked-in package.json (generated at build time)"
+            ));
+            continue;
+        };
         let pp = propose::propose_package(tax, g, p, &f, Some(&src), Some(rf))?;
         let cur = ruvector_weaver::seo::jsontext::get(&src.package_json, "version")
             .and_then(|v| v.as_str().map(String::from))
@@ -226,11 +237,14 @@ fn package_pr(
         }
         lines.push(format!("- `{n}` {} -> {ver}: homepage, {} keywords, description, repository/bugs, Works with / Used by, ruv.io footer", f.version, pp.keywords.len()));
     }
-    if dry_run {
+    for s in &skipped {
+        println!("skipped {s}");
+    }
+    if dry_run || lines.is_empty() {
         println!("dry run: {} files would change", written.len());
         return Ok(());
     }
-    let date = chrono::Utc::now().format("%Y%m%d").to_string();
+    let date = chrono::Utc::now().format("%Y%m%d-%H%M").to_string();
     let branch = ap::branch_for(slug, &date);
     sh("git", &["checkout", "-b", &branch], &root)?;
     let mut add = vec!["add", "--"];
@@ -238,10 +252,15 @@ fn package_pr(
     sh("git", &add, &root)?;
     let title = format!(
         "SEO metadata: homepage https://ruv.io, keywords, cross-links ({} packages, ADR-356)",
-        names.len()
+        lines.len()
     );
+    let skipped_md = if skipped.is_empty() {
+        String::new()
+    } else {
+        format!("\n\nNot in this PR:\n- {}", skipped.join("\n- "))
+    };
     let body = format!(
-        "Portfolio distribution layer (ADR-356, ruvnet/RuVector). Metadata only; no dependency added.\n\n{}\n\nCross-links come from real dependency edges in the weaver graph. Publish through this repo's normal release path after merge.\n\n{ATTR_PR}\n",
+        "Portfolio distribution layer (ADR-356, ruvnet/RuVector). Metadata only; no dependency added.\n\n{}{skipped_md}\n\nCross-links come from real dependency edges in the weaver graph. Publish through this repo's normal release path after merge.\n\n{ATTR_PR}\n",
         lines.join("\n")
     );
     let msg = format!("{title}\n\n{}\n\n{ATTR_COMMIT}\n", lines.join("\n"));
