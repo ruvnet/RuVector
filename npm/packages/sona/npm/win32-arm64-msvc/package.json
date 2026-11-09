@@ -1,10 +1,24 @@
 {
   "name": "@ruvector/sona-win32-arm64-msvc",
-  "version": "0.1.5",
-  "os": ["win32"],
-  "cpu": ["arm64"],
+  "version": "0.1.11",
+  "homepage": "https://ruv.io",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "arm64"
+  ],
   "main": "sona.win32-arm64-msvc.node",
-  "files": ["sona.win32-arm64-msvc.node"],
+  "files": [
+    "sona.win32-arm64-msvc.node"
+  ],
   "license": "MIT",
-  "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector.git"}
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "npm/packages/sona/npm/win32-arm64-msvc"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
+  }
 }

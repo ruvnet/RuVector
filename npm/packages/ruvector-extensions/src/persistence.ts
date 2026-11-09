@@ -22,6 +22,13 @@ import type { VectorEntry, DbOptions, DbStats } from 'ruvector';
 // VectorDB is a class, not a type - we need to use InstanceType
 type VectorDBInstance = any; // Will be replaced with actual instance type
 
+/** Reject snapshot ids that could resolve outside the snapshots directory. */
+function assertSafeSnapshotId(snapshotId: string): void {
+  if (typeof snapshotId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(snapshotId)) {
+    throw new Error(`Invalid snapshot id: ${JSON.stringify(snapshotId)}`);
+  }
+}
+
 // ============================================================================
 // Types and Interfaces
 // ============================================================================
@@ -196,6 +203,7 @@ export class DatabasePersistence {
   private options: Required<PersistenceOptions>;
   private incrementalState: IncrementalState | null = null;
   private autoSaveTimer: NodeJS.Timeout | null = null;
+  private ready: Promise<void>;
 
   /**
    * Create a new database persistence manager
@@ -215,7 +223,10 @@ export class DatabasePersistence {
       batchSize: options.batchSize ?? 1000,
     };
 
-    this.initialize();
+    // Surface init failures (e.g. unwritable baseDir) on the next awaited
+    // operation instead of as an unhandled rejection that kills the process.
+    this.ready = this.initialize();
+    this.ready.catch(() => {});
   }
 
   /**
@@ -253,6 +264,7 @@ export class DatabasePersistence {
     compress?: boolean;
     onProgress?: ProgressCallback;
   } = {}): Promise<string> {
+    await this.ready;
     const format = options.format || this.options.format;
     const compress = options.compress ?? (this.options.compression !== 'none');
     const savePath = options.path || this.getDefaultSavePath(format, compress);
@@ -299,6 +311,7 @@ export class DatabasePersistence {
     format?: PersistenceFormat;
     onProgress?: ProgressCallback;
   } = {}): Promise<string | null> {
+    await this.ready;
     if (!this.incrementalState) {
       // First save, do full save
       return this.save(options);
@@ -344,6 +357,7 @@ export class DatabasePersistence {
     verifyChecksum?: boolean;
     onProgress?: ProgressCallback;
   }): Promise<void> {
+    await this.ready;
     const format = options.format || this.detectFormat(options.path);
 
     if (options.onProgress) {
@@ -403,6 +417,7 @@ export class DatabasePersistence {
     name: string,
     metadata?: Record<string, any>
   ): Promise<SnapshotMetadata> {
+    await this.ready;
     const id = crypto.randomUUID();
     const timestamp = Date.now();
     const stats = this.db.stats();
@@ -455,6 +470,7 @@ export class DatabasePersistence {
    * @returns Array of snapshot metadata, sorted by timestamp (newest first)
    */
   async listSnapshots(): Promise<SnapshotMetadata[]> {
+    await this.ready;
     const snapshotsDir = path.join(this.options.baseDir, 'snapshots');
     const files = await fs.readdir(snapshotsDir);
 
@@ -482,6 +498,8 @@ export class DatabasePersistence {
       onProgress?: ProgressCallback;
     } = {}
   ): Promise<void> {
+    assertSafeSnapshotId(snapshotId);
+    await this.ready;
     const snapshotsDir = path.join(this.options.baseDir, 'snapshots');
     const metadataPath = path.join(snapshotsDir, `${snapshotId}.meta.json`);
 
@@ -526,6 +544,8 @@ export class DatabasePersistence {
    * @param snapshotId - Snapshot ID to delete
    */
   async deleteSnapshot(snapshotId: string): Promise<void> {
+    assertSafeSnapshotId(snapshotId);
+    await this.ready;
     const snapshotsDir = path.join(this.options.baseDir, 'snapshots');
     const metadataPath = path.join(snapshotsDir, `${snapshotId}.meta.json`);
 

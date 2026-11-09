@@ -274,8 +274,7 @@ impl DynamicGraph {
 
     /// Get all edges
     ///
-    /// Order is unspecified (`DashMap` iteration). Deliberately left unsorted:
-    /// this is called per boundary edge in `LocalKCut::check_cut` (#942), and
+    /// Order is unspecified (`DashMap` iteration). Deliberately left unsorted;
     /// determinism of `partition()` comes from [`Self::vertices`] ordering.
     pub fn edges(&self) -> Vec<Edge> {
         self.edges.iter().map(|entry| *entry.value()).collect()

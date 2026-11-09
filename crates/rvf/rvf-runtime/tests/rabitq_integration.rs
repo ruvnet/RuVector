@@ -7,8 +7,10 @@
 //! 3. Opt-in semantics: default options never use the RaBitQ path
 //! 4. Soft-deleted vectors are excluded from two-stage results
 //! 5. Vectors ingested after the code book is built are still found
+//! 6. Cosine and inner-product stores meet the same recall gate
 
 use rvf_quant::rabitq::{RabitqQuantizer, CORRECTION_BYTES};
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{QueryOptions, RvfOptions, RvfStore};
 use tempfile::TempDir;
 
@@ -26,9 +28,20 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
 }
 
 fn make_store(dir: &TempDir, name: &str, dim: u16, count: usize) -> RvfStore {
+    make_store_with_metric(dir, name, dim, count, DistanceMetric::L2)
+}
+
+fn make_store_with_metric(
+    dir: &TempDir,
+    name: &str,
+    dim: u16,
+    count: usize,
+    metric: DistanceMetric,
+) -> RvfStore {
     let path = dir.path().join(name);
     let options = RvfOptions {
         dimension: dim,
+        metric,
         security_policy: rvf_types::security::SecurityPolicy::Permissive,
         ..Default::default()
     };
@@ -208,4 +221,37 @@ fn rabitq_code_book_tracks_new_and_overwritten_vectors() {
     assert!(results[0].distance < f32::EPSILON);
 
     store.close().unwrap();
+}
+
+// ── 6. Cosine and inner product ─────────────────────────────────────
+
+#[test]
+fn rabitq_recall_at_10_meets_095_for_cosine_and_inner_product() {
+    for metric in [DistanceMetric::Cosine, DistanceMetric::InnerProduct] {
+        let dir = TempDir::new().unwrap();
+        let store = make_store_with_metric(&dir, "rabitq_metric.rvf", 128, 10_000, metric);
+        let (k, num_queries) = (10, 25);
+        let mut total_recall = 0.0f64;
+        for qi in 0..num_queries {
+            let query = random_vector(128, 2_000_000 + qi);
+            let truth = store.query(&query, k, &exact_opts()).unwrap();
+            let approx = store.query(&query, k, &rabitq_opts()).unwrap();
+            assert_eq!(approx.len(), k);
+            // Stage 2 rescores in the store's true metric.
+            for r in &approx {
+                if let Some(gt) = truth.iter().find(|t| t.id == r.id) {
+                    assert!((gt.distance - r.distance).abs() < 1e-4, "{metric:?}");
+                }
+            }
+            let hit = approx
+                .iter()
+                .filter(|r| truth.iter().any(|t| t.id == r.id))
+                .count();
+            total_recall += hit as f64 / k as f64;
+        }
+        let avg = total_recall / num_queries as f64;
+        eprintln!("rabitq two-stage recall@10 {metric:?} (10k x 128) = {avg:.4}");
+        assert!(avg >= 0.95, "{metric:?} rabitq recall@10 = {avg:.3}");
+        store.close().unwrap();
+    }
 }

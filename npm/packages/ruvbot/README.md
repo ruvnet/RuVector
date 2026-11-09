@@ -1,6 +1,8 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/ruvbot.svg" alt="ruvbot: Self-learning AI assistant with vector memory, security controls and multi-model LLM support." width="100%"></p>
+
 # RuvBot
 
-[![npm version](https://img.shields.io/npm/v/@ruvector/ruvbot.svg)](https://www.npmjs.com/package/@ruvector/ruvbot)
+[![npm version](https://img.shields.io/npm/v/ruvbot.svg)](https://www.npmjs.com/package/ruvbot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
@@ -285,9 +287,8 @@ ruvbot start --channel telegram
 # Check status
 ruvbot status
 
-# Manage skills
+# List built-in skills (enable them in ruvbot.config.json)
 ruvbot skills list
-ruvbot skills add <name>
 
 # Channel setup help
 ruvbot channels list
@@ -306,6 +307,8 @@ ruvbot doctor
 # Show configuration
 ruvbot config --show
 ```
+
+Other command groups: `ruvbot memory`, `ruvbot security`, `ruvbot plugins`, `ruvbot agent`, `ruvbot webhooks`, `ruvbot deploy-cloud` and `ruvbot version`. Run `ruvbot <command> --help` for their options.
 
 ## Channel Integrations
 
@@ -583,8 +586,10 @@ curl -X POST https://your-ruvbot.run.app/api/sessions/{id}/chat \
 
 ### Programmatic Usage
 
+> **Note (0.3.4):** the `RuvBot` class and `createRuvBot()` / `createRuvBotFromEnv()` live in `src/RuvBot.ts` but are not re-exported from the package entry point, and the `exports` map blocks deep imports, so the import below does not resolve yet. The ESM build (`import ... from 'ruvbot'`) also currently fails to load (directory import in `dist/esm/core/index.js`); use `require('ruvbot')` for the exports that are available (providers, AIDefence, plugins, memory, channels, swarm). The CLI (`ruvbot start`) uses the `RuvBot` class internally.
+
 ```typescript
-import { RuvBot, createRuvBot } from '@ruvector/ruvbot';
+import { RuvBot, createRuvBot } from 'ruvbot';
 
 // Create bot instance
 const bot = createRuvBot({
@@ -694,7 +699,7 @@ Compliance Ready: **GDPR**, **SOC 2**, **HIPAA** (configurable).
 ### Usage
 
 ```typescript
-import { createAIDefenceGuard, createAIDefenceMiddleware } from '@ruvector/ruvbot';
+import { createAIDefenceGuard, createAIDefenceMiddleware } from 'ruvbot';
 
 // Create guard
 const guard = createAIDefenceGuard({
@@ -725,7 +730,7 @@ const { allowed, sanitizedInput } = await middleware.validateInput(input);
 | PII Exposure | Medium-Critical | <3ms |
 | Control Characters | Medium | <1ms |
 
-See [ADR-014: AIDefence Integration](docs/adr/ADR-014-aidefence-integration.md) for details.
+See [ADR-014: AIDefence Integration](https://github.com/ruvnet/ruvector/blob/main/npm/packages/ruvbot/docs/adr/ADR-014-aidefence-integration.md) for details.
 
 ## Plugin System
 
@@ -742,7 +747,7 @@ RuvBot includes an extensible plugin system inspired by claude-flow's IPFS-based
 ### Usage
 
 ```typescript
-import { createPluginManager } from '@ruvector/ruvbot';
+import { createPluginManager } from 'ruvbot';
 
 // Create and initialize plugin manager
 const plugins = createPluginManager({
@@ -811,11 +816,11 @@ const skills = plugins.getPluginSkills();
 
 ### Custom Skills
 
-Create custom skills in the `skills/` directory:
+Create custom skills in the `skills/` directory. (Note: a `defineSkill` helper is not part of the 0.3.4 package exports; the snippet shows the intended shape of a skill definition.)
 
 ```typescript
 // skills/my-skill.ts
-import { defineSkill } from '@ruvector/ruvbot';
+import { defineSkill } from 'ruvbot';
 
 export default defineSkill({
   name: 'my-skill',
@@ -834,10 +839,10 @@ export default defineSkill({
 
 ## Memory System
 
-RuvBot uses HNSW-indexed vector memory for fast semantic search:
+RuvBot uses HNSW-indexed vector memory for fast semantic search. (Note: in 0.3.4 `MemoryManager` is exported from `ruvbot` and `ruvbot/learning`, but `createWasmEmbedder` is not re-exported from either entry point.)
 
 ```typescript
-import { MemoryManager, createWasmEmbedder } from '@ruvector/ruvbot/learning';
+import { MemoryManager, createWasmEmbedder } from 'ruvbot/learning';
 
 const embedder = createWasmEmbedder({ dimensions: 384 });
 const memory = new MemoryManager({
@@ -961,7 +966,7 @@ terraform apply \
 - **CI/CD**: Cloud Build pipeline included
 - **Terraform**: Full infrastructure as code support
 
-See [ADR-013: GCP Deployment](docs/adr/ADR-013-gcp-deployment.md) for architecture details.
+See [ADR-013: GCP Deployment](https://github.com/ruvnet/ruvector/blob/main/npm/packages/ruvbot/docs/adr/ADR-013-gcp-deployment.md) for architecture details.
 
 ### gcloud CLI Integration
 
@@ -1219,7 +1224,7 @@ curl https://your-ruvbot.run.app/api/models
 ### OpenRouter (Default - 200+ Models)
 
 ```typescript
-import { createOpenRouterProvider } from '@ruvector/ruvbot';
+import { createOpenRouterProvider } from 'ruvbot';
 
 // Gemini 2.5 Pro (recommended)
 const provider = createOpenRouterProvider({
@@ -1231,7 +1236,7 @@ const provider = createOpenRouterProvider({
 ### Anthropic (Direct)
 
 ```typescript
-import { createAnthropicProvider } from '@ruvector/ruvbot';
+import { createAnthropicProvider } from 'ruvbot';
 
 const provider = createAnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -1239,11 +1244,11 @@ const provider = createAnthropicProvider({
 });
 ```
 
-See [ADR-012: LLM Providers](docs/adr/ADR-012-llm-providers.md) for details.
+See [ADR-012: LLM Providers](https://github.com/ruvnet/ruvector/blob/main/npm/packages/ruvbot/docs/adr/ADR-012-llm-providers.md) for details.
 
 ## TypeScript Support
 
-RuvBot is written in TypeScript and provides full type definitions:
+RuvBot is written in TypeScript and provides full type definitions. As noted under [Programmatic Usage](#programmatic-usage), `RuvBot`, `RuvBotOptions`, `BotConfig` and `createRuvBot` are not yet exported from the package entry point in 0.3.4; the snippets in this section and the next two show the intended API.
 
 ```typescript
 import type {
@@ -1254,7 +1259,7 @@ import type {
   Session,
   Message,
   BotConfig,
-} from '@ruvector/ruvbot';
+} from 'ruvbot';
 
 // Full IntelliSense support
 const bot = createRuvBot({
@@ -1270,7 +1275,7 @@ const bot = createRuvBot({
 RuvBot emits events for lifecycle and message handling:
 
 ```typescript
-import { createRuvBot } from '@ruvector/ruvbot';
+import { createRuvBot } from 'ruvbot';
 
 const bot = createRuvBot();
 
@@ -1298,7 +1303,7 @@ bot.on('message', (message, session) => {
 RuvBot supports streaming for real-time responses:
 
 ```typescript
-import { createRuvBot } from '@ruvector/ruvbot';
+import { createRuvBot } from 'ruvbot';
 
 const bot = createRuvBot({
   config: {
@@ -1328,19 +1333,17 @@ clawdbot export --format json > clawdbot-data.json
 ### 2. Install RuvBot
 
 ```bash
-npm install -g @ruvector/ruvbot
+npm install -g ruvbot
 ```
 
 ### 3. Import Data
 
-```bash
-ruvbot import --from-clawdbot clawdbot-data.json
-```
+There is no Clawdbot import command in the 0.3.4 CLI, and `ruvbot memory import --input <file>` only prints instructions for importing through a running server. The Clawdbot export format is not converted automatically.
 
 ### 4. Verify Migration
 
 ```bash
-ruvbot doctor --verify-migration
+ruvbot doctor
 ```
 
 ### Key Differences
@@ -1388,7 +1391,7 @@ Solution: Ensure you've stored memories first and the HNSW index is initialized.
 
 ```bash
 # Enable debug logging
-export LOG_LEVEL=debug
+export RUVBOT_LOG_LEVEL=debug
 ruvbot start --debug
 ```
 
@@ -1432,11 +1435,17 @@ npm run build
 
 | Package | Purpose |
 |---------|---------|
-| `@ruvector/ruvllm` | LLM orchestration with SONA learning |
-| `@ruvector/wasm-unified` | WASM vector operations |
-| `@ruvector/postgres-cli` | PostgreSQL vector storage |
-| `fastify` | REST API server |
-| `@slack/bolt` | Slack integration |
+| `@anthropic-ai/sdk` | Anthropic LLM provider |
+| `aidefence` | Prompt-injection / threat detection |
+| `commander`, `chalk`, `ora` | CLI |
+| `zod` | Configuration validation |
+| `pino` | Logging |
+| `@ruvector/ruvllm` (optional) | Local LLM orchestration with SONA learning |
+| `@slack/bolt`, `@slack/web-api` (optional) | Slack integration |
+| `pg` (optional) | PostgreSQL storage |
+| `bullmq`, `ioredis` (optional) | Background job queue |
+
+The REST API server is built on Node's built-in `node:http` module.
 
 ## What's New in v0.3.1
 
@@ -1452,23 +1461,29 @@ npm run build
 - 6-Layer Security, HNSW Vector Search (150x-12,500x faster)
 - SONA Learning, Cloud Run Ready, Multi-tenancy
 
+## Related packages
+
+- [`aidefence`](https://www.npmjs.com/package/aidefence) — prompt-injection and threat detection engine behind RuvBot's AIDefence layer (direct dependency).
+- [`@ruvector/ruvllm`](https://www.npmjs.com/package/@ruvector/ruvllm) — optional dependency for local LLM inference and SONA learning.
+- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package and CLI (`npx ruvector`).
+
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License - see [LICENSE](https://github.com/ruvnet/ruvector/blob/main/LICENSE) for details.
 
 ## Contributing
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for contribution guidelines.
+Contributions are welcome via issues and pull requests on the [ruvector repository](https://github.com/ruvnet/ruvector).
 
 ## Links
 
 - **Live Demo**: https://ruvbot-875130704813.us-central1.run.app
-- **npm Package**: https://www.npmjs.com/package/@ruvector/ruvbot
+- **npm Package**: https://www.npmjs.com/package/ruvbot
 - **Repository**: https://github.com/ruvnet/ruvector
 - **Issues**: https://github.com/ruvnet/ruvector/issues
 - **Documentation**: https://github.com/ruvnet/ruvector/tree/main/npm/packages/ruvbot
-- **Feature Comparison**: [docs/FEATURE_COMPARISON.md](docs/FEATURE_COMPARISON.md)
-- **ADR Documents**: [docs/adr/](docs/adr/)
+- **Feature Comparison**: [docs/FEATURE_COMPARISON.md](https://github.com/ruvnet/ruvector/blob/main/npm/packages/ruvbot/docs/FEATURE_COMPARISON.md)
+- **ADR Documents**: [docs/adr/](https://github.com/ruvnet/ruvector/tree/main/npm/packages/ruvbot/docs/adr)
 
 ## Support
 
@@ -1478,3 +1493,18 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for contribution guidelines.
 ---
 
 Made with security in mind by the RuVector Team
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for LLM, vector search, self-learning.
+
+- **Works with** (its runtime dependencies): [`@ruvector/ruvllm`](https://www.npmjs.com/package/@ruvector/ruvllm) (optional), [`aidefence`](https://www.npmjs.com/package/aidefence) (optional)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

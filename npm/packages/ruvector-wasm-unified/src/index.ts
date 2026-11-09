@@ -89,8 +89,16 @@ export {
   type MapperNode,
   type MapperEdge,
   type ExoticStats,
+  type QuantumBackendOptions,
+  type QuantumBackendStatus,
+  type QuantumGateOp,
+  type QuantumGateType,
+  type RuquModule,
   createExoticEngine,
   createCircuitBuilder,
+  initQuantumBackend,
+  quantumBackendStatus,
+  QuantumBackendError,
   projectToPoincare,
   poincareToLorentz,
 } from './exotic';
@@ -103,7 +111,7 @@ import { createAttentionEngine, type AttentionEngine } from './attention';
 import { createLearningEngine, type LearningEngine } from './learning';
 import { createNervousEngine, type NervousEngine } from './nervous';
 import { createEconomyEngine, type EconomyEngine } from './economy';
-import { createExoticEngine, type ExoticEngine } from './exotic';
+import { createExoticEngine, initQuantumBackend, type ExoticEngine } from './exotic';
 import type { UnifiedConfig, ModuleConfig } from './types';
 
 /**
@@ -221,7 +229,7 @@ export function createUnifiedEngine(
     economy,
     exotic,
 
-    version: () => '1.0.0',
+    version: () => '1.1.0',
 
     getStats: () => ({
       attention: {
@@ -254,13 +262,13 @@ export function createUnifiedEngine(
       },
     }),
 
-    init: () => {
-      // WASM initialization would happen here
-      // await wasmModule.init();
+    init: async () => {
+      // Quantum gates need the optional @ruvector/ruqu-wasm; without it the
+      // other engines still work and quantum ops throw a clear error.
+      await initQuantumBackend().catch(() => undefined);
       if (config?.logLevel === 'debug') {
         console.log('[ruvector-wasm-unified] Initialized');
       }
-      return Promise.resolve();
     },
 
     dispose: () => {

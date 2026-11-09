@@ -25,7 +25,8 @@
 //! The root must be private to the uid running the index.
 //! [`ScopedContextIndex::open`] creates it `0700`, creates shard files and the
 //! lock `0600`, and refuses a root that is group- or other-accessible with
-//! [`ContextIndexError::InsecureRoot`].
+//! [`ContextIndexError::InsecureRoot`]. On macOS it also refuses any extended
+//! ACL on the root, because ACL grants are not reflected in the mode bits.
 //!
 //! This is the boundary the crate actually rests on. Every name under the root
 //! — shard files, the lock, the staging directory — is re-resolved by the

@@ -167,6 +167,15 @@ pub struct QueryOptions {
     /// HNSW ef_search parameter (beam width during search).
     pub ef_search: u16,
     /// Optional metadata filter expression.
+    ///
+    /// When the filter matches a large share of the store, a filtered query
+    /// runs a predicate-aware HNSW walk, but only if the graph itself
+    /// measures at least 0.95 recall@10 at the query's `ef` (a one-off
+    /// calibration against the exact scan, cached on the index). Graphs
+    /// that measure lower (e.g. high intrinsic-dimension data) and small
+    /// match sets are scanned exactly. `QualityPreference::PreferLatency` /
+    /// `AcceptDegraded` skip the calibration gate and always take the walk.
+    /// Set [`QueryOptions::force_exact`] to always get exact results.
     pub filter: Option<FilterExpr>,
     /// Query timeout in milliseconds (0 = no timeout).
     pub timeout_ms: u32,
@@ -181,8 +190,8 @@ pub struct QueryOptions {
     /// Opt in to the RaBitQ two-stage path: a 1-bit-code candidate scan
     /// (~32x smaller than f32) followed by an exact f32 rescore of the
     /// oversampled candidates. Default `false` (full-precision HNSW /
-    /// exact scan). v1 serves the L2 metric only; other metrics and
-    /// filtered/COW queries fall back to the default routing.
+    /// exact scan). Serves L2, cosine and inner product; filtered/COW
+    /// queries fall back to the default routing.
     pub rabitq: bool,
     /// Candidate oversampling factor for the RaBitQ first stage: the
     /// binary scan collects `rabitq_oversample * k` candidates (floored

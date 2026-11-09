@@ -37,10 +37,10 @@ jobs:
           - host: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
-          - host: macos-14
+          - host: macos-15
             target: x86_64-apple-darwin
             platform: darwin-x64
-          - host: macos-14
+          - host: macos-15
             target: aarch64-apple-darwin
             platform: darwin-arm64
           - host: windows-2022
@@ -170,14 +170,22 @@ jobs:
             "files": ["${NODE_NAME}"],
             "description": "DiskANN native bindings - ${platform}",
             "license": "MIT",
-            "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector"},
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "npm/packages/diskann"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"},
             "engines": {"node": ">= 18"},
             "publishConfig": {"access": "public"}
           }
           EOF
 
             cd "$PKG_DIR"
-            npm publish --access public || echo "Failed to publish @ruvector/diskann-${platform}"
+            # Skip only a version that is already on npm; any other failure
+            # must fail the job (it used to be swallowed by `|| echo`).
+            if npm view "@ruvector/diskann-${platform}@${VERSION}" version >/dev/null 2>&1; then
+              echo "@ruvector/diskann-${platform}@${VERSION} already published, skipping"
+            else
+              npm publish --access public
+            fi
             cd ../..
           done
 
@@ -185,4 +193,12 @@ jobs:
         working-directory: npm/packages/diskann
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public || echo "Package may already exist"
+        run: |
+          # `files` silently drops missing entries; refuse to ship without the loader.
+          test -f index.js && test -f index.d.ts
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "@ruvector/diskann@${VERSION}" version >/dev/null 2>&1; then
+            echo "@ruvector/diskann@${VERSION} already published, skipping"
+          else
+            npm publish --access public
+          fi

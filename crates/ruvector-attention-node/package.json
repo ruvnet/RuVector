@@ -1,10 +1,12 @@
 {
   "name": "@ruvector/attention",
-  "version": "0.1.4",
-  "description": "High-performance attention mechanisms for Node.js",
+  "version": "2.3.1",
+  "description": "Attention mechanisms for transformer models in Node.js: optimal transport, mixed curvature, topology, information geometry and diffusion variants, built in Rust.",
+  "homepage": "https://ruv.io",
   "main": "index.js",
   "types": "index.d.ts",
   "napi": {
+    "name": "attention",
     "binaryName": "attention",
     "targets": [
       "x86_64-pc-windows-msvc",
@@ -22,14 +24,17 @@
     "build": "napi build --platform --release",
     "build:debug": "napi build --platform",
     "prepublishOnly": "napi prepublish -t npm",
-    "test": "node --test",
+    "test": "node --test test/*.test.js",
     "universal": "napi universal",
     "version": "napi version"
   },
   "repository": {
+    "directory": "crates/ruvector-attention-node",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector",
-    "directory": "crates/ruvector-attention-node"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
   },
   "author": "rUv <ruv@ruv.io>",
   "license": "MIT OR Apache-2.0",
@@ -37,13 +42,19 @@
     "attention",
     "transformer",
     "machine-learning",
-    "neural-network",
-    "napi-rs",
+    "napi",
     "rust",
-    "multi-head-attention",
-    "flash-attention",
-    "hyperbolic",
-    "mixture-of-experts"
+    "ruvector",
+    "ruvnet",
+    "vector-database",
+    "vector-search",
+    "hnsw",
+    "embeddings",
+    "rag",
+    "semantic-search",
+    "knowledge-graph",
+    "gnn",
+    "graph-embeddings"
   ],
   "engines": {
     "node": ">= 10"
@@ -53,11 +64,11 @@
     "access": "public"
   },
   "optionalDependencies": {
-    "@ruvector/attention-win32-x64-msvc": "0.1.4",
-    "@ruvector/attention-darwin-x64": "0.1.4",
-    "@ruvector/attention-darwin-arm64": "0.1.4",
-    "@ruvector/attention-linux-x64-gnu": "0.1.4",
-    "@ruvector/attention-linux-arm64-gnu": "0.1.4"
+    "@ruvector/attention-win32-x64-msvc": "2.3.0",
+    "@ruvector/attention-darwin-x64": "2.3.0",
+    "@ruvector/attention-darwin-arm64": "2.3.0",
+    "@ruvector/attention-linux-x64-gnu": "2.3.0",
+    "@ruvector/attention-linux-arm64-gnu": "2.3.0"
   },
   "devDependencies": {
     "@napi-rs/cli": "^2.18.0"

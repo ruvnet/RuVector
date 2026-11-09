@@ -1,0 +1,188 @@
+# Capability table: domain keyword -> fabric package that implements it.
+# `weaver scan` maps signals (404 imports, stub/fallback markers) to a
+# candidate through this table; `weaver propose-new` treats a signal that
+# matches NO entry as a capability gap. Keywords are case-insensitive regex
+# fragments anchored at a word start (`\bkeyword`). `weight` scales the
+# signal confidence (generic words such as "graph" get a low weight).
+
+[[capability]]
+package = "@ruvector/mincut-wasm"
+category = "graph"
+summary = "Weighted dynamic minimum cut with validated typed-array batches"
+keywords = ["mincut", "min-cut", "min_cut", "minimum cut", "stoer", "karger", "graph partition"]
+weight = 1.0
+
+[[capability]]
+package = "@ruvector/rabitq-wasm"
+category = "vector-index"
+summary = "RaBitQ 1-bit quantized vector index in WebAssembly"
+keywords = ["rabitq", "quantiz", "binary quantization", "1-bit"]
+weight = 0.9
+
+[[capability]]
+package = "@ruvector/diskann"
+category = "vector-index"
+summary = "DiskANN / Vamana SSD-friendly approximate nearest-neighbour search"
+keywords = ["diskann", "vamana"]
+weight = 1.0
+
+[[capability]]
+package = "ruvector"
+category = "vector-index"
+summary = "Self-learning vector database for Node.js with native HNSW"
+keywords = ["hnsw", "vector search", "nearest neighbou?r"]
+weight = 0.8
+
+[[capability]]
+package = "@ruvector/learning-wasm"
+category = "learning"
+summary = "MicroLoRA adaptation in WebAssembly"
+keywords = ["lora", "microlora", "low-rank adapt"]
+weight = 1.0
+
+[[capability]]
+package = "@ruvector/sona"
+category = "learning"
+summary = "Self-Optimizing Neural Architecture runtime-adaptive learning"
+keywords = ["sona", "self-optimizing", "ewc"]
+weight = 0.9
+
+[[capability]]
+package = "@ruvector/emergent-time"
+category = "agent-health"
+summary = "Agentic time: internal time and health states of an agent"
+keywords = ["emergent.time", "agentic time", "temporal health"]
+weight = 0.8
+
+[[capability]]
+package = "@ruvector/kge"
+category = "graph"
+summary = "Holographic knowledge-graph embeddings (HolE / RotatE)"
+keywords = ["kge", "knowledge.graph embedding", "rotate embedding", "hole embedding"]
+weight = 0.9
+
+[[capability]]
+package = "@ruvector/graph-wasm"
+category = "graph"
+summary = "Neo4j-compatible hypergraph database in WebAssembly (Cypher)"
+keywords = ["cypher", "hypergraph", "graph database", "graph"]
+weight = 0.4
+
+[[capability]]
+package = "@ruvector/graph-transformer"
+category = "graph"
+summary = "Proof-gated graph transformer"
+keywords = ["graph.transformer"]
+weight = 0.9
+
+[[capability]]
+package = "@ruvector/cnn"
+category = "embedding"
+summary = "CNN feature extraction for image embeddings"
+keywords = ["cnn", "image embedding", "convolution"]
+weight = 0.8
+
+[[capability]]
+package = "ruvector-onnx-embeddings-wasm"
+category = "embedding"
+summary = "Portable WASM embedding generation (ONNX)"
+keywords = ["embedding", "onnx", "minilm", "sentence.transformer"]
+weight = 0.6
+
+[[capability]]
+package = "@ruvector/rvlite"
+category = "database"
+summary = "Standalone vector database with SQL, SPARQL and Cypher"
+keywords = ["rvlite", "sparql"]
+weight = 0.8
+
+[[capability]]
+package = "@ruvector/attention"
+category = "attention"
+summary = "Attention mechanisms (flash, hyperbolic, sparse ...)"
+keywords = ["attention", "flash.attention"]
+weight = 0.6
+
+[[capability]]
+package = "@ruvector/gnn"
+category = "graph"
+summary = "Graph neural network layers for ruvector"
+keywords = ["gnn", "graph neural"]
+weight = 0.9
+
+[[capability]]
+package = "@ruvector/router"
+category = "routing"
+summary = "Semantic router: vector-based intent matching"
+keywords = ["semantic rout", "intent match"]
+weight = 0.8
+
+[[capability]]
+package = "@ruvector/tiny-dancer"
+category = "routing"
+summary = "FastGRNN neural router for agent orchestration"
+keywords = ["fastgrnn", "tiny.dancer", "neural router"]
+weight = 0.9
+
+[[capability]]
+package = "@ruvector/pi-brain"
+category = "memory"
+summary = "CLI and SDK for the RuVector shared brain"
+keywords = ["pi.brain", "shared brain"]
+weight = 0.8
+
+[[capability]]
+package = "@ruvector/typesafe"
+category = "decision"
+summary = "Local typed decisions over sentence embeddings"
+keywords = ["typed decision", "typesafe"]
+weight = 0.7
+
+[[capability]]
+package = "aidefence"
+category = "security"
+summary = "Prompt-injection and manipulation detection"
+keywords = ["injection", "jailbreak", "aidefence"]
+weight = 0.9
+
+[[capability]]
+package = "agent-booster"
+category = "code-edit"
+summary = "Fast local code-editing engine"
+keywords = ["agent.booster", "code edit"]
+weight = 0.7
+
+[[capability]]
+package = "agentic-jujutsu"
+category = "vcs"
+summary = "Agent coordination for the Jujutsu VCS"
+keywords = ["jujutsu"]
+weight = 0.8
+
+[[capability]]
+package = "sublinear-time-solver"
+category = "solver"
+summary = "Sublinear-time linear solvers and PageRank"
+keywords = ["solver", "sublinear", "pagerank", "linear system"]
+weight = 0.6
+
+[[capability]]
+package = "@ruvnet/bmssp"
+category = "graph"
+summary = "WASM shortest-path / pathfinding SDK"
+keywords = ["bmssp", "shortest.path", "pathfind", "dijkstra"]
+weight = 0.9
+
+[[capability]]
+package = "strange-loops"
+category = "agent"
+summary = "Temporal multi-agent strange-loop runtime"
+keywords = ["strange.loop"]
+weight = 0.7
+
+[[capability]]
+package = "goalie"
+category = "research"
+summary = "Research assistant with signed citations"
+keywords = ["goalie"]
+weight = 0.7

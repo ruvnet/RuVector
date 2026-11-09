@@ -1,6 +1,7 @@
 {
   "name": "@ruvector/attention-linux-x64-gnu",
-  "version": "0.1.4",
+  "version": "2.3.0",
+  "homepage": "https://ruv.io",
   "os": [
     "linux"
   ],
@@ -18,5 +19,12 @@
   "libc": [
     "glibc"
   ],
-  "repository": "https://github.com/ruvnet/ruvector"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "crates/ruvector-attention-node/npm/linux-x64-gnu"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
+  }
 }

@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/ruvllm-wasm.svg" alt="@ruvector/ruvllm-wasm: RuvLLM runtime pieces in WebAssembly — KV cache, chat templates, HNSW routing and MicroLoRA." width="100%"></p>
+
 # @ruvector/ruvllm-wasm
 
 [![npm](https://img.shields.io/npm/v/@ruvector/ruvllm-wasm.svg)](https://www.npmjs.com/package/@ruvector/ruvllm-wasm)

@@ -846,3 +846,12 @@ Built with:
 [Get Started](../../docs/guide/GETTING_STARTED.md) • [Documentation](../../docs/README.md) • [Examples](../../examples/)
 
 </div>
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for WASM, WebAssembly, vector search.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->

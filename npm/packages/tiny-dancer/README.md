@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/tiny-dancer.svg" alt="@ruvector/tiny-dancer: FastGRNN neural router for AI agent orchestration, with circuit breakers and uncertainty estimates." width="100%"></p>
+
 # @ruvector/tiny-dancer
 
 Neural router for AI agent orchestration - FastGRNN-based intelligent routing with circuit breaker, uncertainty estimation, and hot-reload.
@@ -19,7 +21,11 @@ npm install @ruvector/tiny-dancer
 
 The package automatically installs the correct native binary for your platform.
 
+> **Embeddings must be `Float32Array`.** `queryEmbedding` and each candidate's `embedding` are passed straight to the native binding, which rejects plain `number[]` arrays (`Get TypedArray info failed`). Wrap arrays with `new Float32Array(arr)`.
+
 ## Quick Start
+
+`Router` needs a FastGRNN model file at `modelPath`. If you don't have one yet, create one with [`trainRouter`](#training-a-model) first.
 
 ```typescript
 import { Router } from '@ruvector/tiny-dancer';
@@ -179,18 +185,50 @@ const agents = [
 ];
 
 const best = (await router.route({ queryEmbedding, candidates: agents })).decisions[0];
-await agents[best.candidateId].execute(task);
+const agent = agents.find((a) => a.id === best.candidateId);
+await runAgent(agent.id, task); // your own dispatch function
 ```
+
+## Training a model
+
+`trainRouter` trains a FastGRNN model from DRACO-style rows (`{ embedding, scores }`, where `scores` maps a model id to the quality it achieved on that query) and writes a `.safetensors` file. `score` runs that model directly on an embedding and returns a value in 0..1 — high means the cheaper model is good enough. Unlike `Router`, these two functions take plain `number[]` embeddings.
+
+```javascript
+const { trainRouter, score, Router } = require('@ruvector/tiny-dancer');
+
+const rows = Array.from({ length: 200 }, () => {
+  const embedding = Array.from({ length: 5 }, () => Math.random());
+  return { embedding, scores: { cheap: embedding[0] > 0.5 ? 0.9 : 0.2, strong: 0.95 } };
+});
+
+const res = await trainRouter(rows, { cheap: 1, strong: 15 }, {
+  outputPath: './router.safetensors',
+  inputDim: 5,
+  epochs: 40,
+});
+console.log(res.valAccuracy, res.modelBytes);
+
+const s = await score(res.modelPath, [0.9, 0.1, 0.1, 0.1, 0.1]); // close to 1 => use "cheap"
+
+// A model trained with inputDim: 5 can also back a Router, which feeds the
+// model 5 engineered features per candidate.
+const router = new Router({ modelPath: res.modelPath });
+```
+
+`trainRouter` prints per-epoch training progress to stdout.
 
 ## Platform Support
 
 | Platform | Architecture | Package |
 |----------|--------------|---------|
-| Linux | x64 | `@ruvector/tiny-dancer-linux-x64-gnu` |
-| Linux | ARM64 | `@ruvector/tiny-dancer-linux-arm64-gnu` |
+| Linux (glibc) | x64 | `@ruvector/tiny-dancer-linux-x64-gnu` |
+| Linux (glibc) | ARM64 | `@ruvector/tiny-dancer-linux-arm64-gnu` |
+| Linux (musl/Alpine) | x64 | `@ruvector/tiny-dancer-linux-x64-musl` |
+| Linux (musl/Alpine) | ARM64 | `@ruvector/tiny-dancer-linux-arm64-musl` |
 | macOS | x64 | `@ruvector/tiny-dancer-darwin-x64` |
 | macOS | ARM64 | `@ruvector/tiny-dancer-darwin-arm64` |
 | Windows | x64 | `@ruvector/tiny-dancer-win32-x64-msvc` |
+| Windows | ARM64 | `@ruvector/tiny-dancer-win32-arm64-msvc` |
 
 ## Performance
 
@@ -198,12 +236,28 @@ await agents[best.candidateId].execute(task);
 - **Throughput**: 10,000+ routes/second
 - **Memory**: ~10MB base + model size
 
-## Related Packages
+## Related packages
 
-- [`@ruvector/core`](https://www.npmjs.com/package/@ruvector/core) - Vector database
-- [`@ruvector/gnn`](https://www.npmjs.com/package/@ruvector/gnn) - Graph Neural Networks
-- [`@ruvector/graph-node`](https://www.npmjs.com/package/@ruvector/graph-node) - Hypergraph database
+- [`@ruvector/router`](https://www.npmjs.com/package/@ruvector/router) — embedding-similarity intent routing (HNSW); a non-learned alternative to a trained FastGRNN router.
+- [`@ruvector/core`](https://www.npmjs.com/package/@ruvector/core) — native HNSW vector database, e.g. for storing the candidate embeddings you route between.
+- [`@ruvector/sona`](https://www.npmjs.com/package/@ruvector/sona) — runtime adaptive learning (LoRA/EWC) for agent and LLM-routing feedback loops.
+- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package and CLI (`npx ruvector`).
 
 ## License
 
 MIT
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for LLM routing, agent orchestration, Rust.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@metaharness/router`](https://www.npmjs.com/package/@metaharness/router) (peer), [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all), [`agentic-flow`](https://www.npmjs.com/package/agentic-flow), [`ruvector`](https://www.npmjs.com/package/ruvector) (optional)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

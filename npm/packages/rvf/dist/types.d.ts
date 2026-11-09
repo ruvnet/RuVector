@@ -54,45 +54,54 @@ export interface RvfOptions {
 /** Primitive value types usable in filter expressions. */
 export type RvfFilterValue = number | string | boolean;
 /**
+ * A per-vector metadata value. Numbers are stored as f64, objects and arrays
+ * as JSON. A field keeps the type of the first non-null value written to it.
+ */
+export type RvfMetadataValue = string | number | boolean | null | object;
+/**
+ * Names the metadata field a filter leaf tests: `field` is the metadata key
+ * used at ingest; `fieldId` is the raw native field id.
+ */
+export type RvfFilterField = {
+    field: string;
+    fieldId?: undefined;
+} | {
+    fieldId: number;
+    field?: undefined;
+};
+/**
  * A filter expression for metadata-based vector filtering.
  *
- * Leaf operators compare a `fieldId` against a literal `value`.
+ * Leaf operators compare a field (by `field` name or raw `fieldId`) against a
+ * literal `value`; literals are typed from the field's stored type.
  * Composite operators combine sub-expressions with boolean logic.
  */
-export type RvfFilterExpr = {
+export type RvfFilterExpr = ({
     op: 'eq';
-    fieldId: number;
     value: RvfFilterValue;
-} | {
+} & RvfFilterField) | ({
     op: 'ne';
-    fieldId: number;
     value: RvfFilterValue;
-} | {
+} & RvfFilterField) | ({
     op: 'lt';
-    fieldId: number;
     value: RvfFilterValue;
-} | {
+} & RvfFilterField) | ({
     op: 'le';
-    fieldId: number;
     value: RvfFilterValue;
-} | {
+} & RvfFilterField) | ({
     op: 'gt';
-    fieldId: number;
     value: RvfFilterValue;
-} | {
+} & RvfFilterField) | ({
     op: 'ge';
-    fieldId: number;
     value: RvfFilterValue;
-} | {
+} & RvfFilterField) | ({
     op: 'in';
-    fieldId: number;
     values: RvfFilterValue[];
-} | {
+} & RvfFilterField) | ({
     op: 'range';
-    fieldId: number;
     low: RvfFilterValue;
     high: RvfFilterValue;
-} | {
+} & RvfFilterField) | {
     op: 'and';
     exprs: RvfFilterExpr[];
 } | {
@@ -106,10 +115,20 @@ export type RvfFilterExpr = {
 export interface RvfQueryOptions {
     /** HNSW ef_search parameter (beam width during search). Default: `100`. */
     efSearch?: number;
-    /** Optional metadata filter expression. */
+    /**
+     * Optional metadata filter expression. On the native backend a filter that
+     * keeps a large share of the store is served by the predicate-aware HNSW
+     * walk, so the result is approximate like an unfiltered query; set
+     * `forceExact` for exact filtered results.
+     */
     filter?: RvfFilterExpr;
     /** Query timeout in milliseconds (0 = no timeout). Default: `0`. */
     timeoutMs?: number;
+    /**
+     * Force the exact brute-force scan instead of the HNSW index (native
+     * backend). Default: `false`.
+     */
+    forceExact?: boolean;
 }
 /**
  * Query options that also carry the result count, for the object-argument
@@ -131,6 +150,11 @@ export interface RvfSearchResult {
     id: string;
     /** Distance from the query vector (lower = more similar). */
     distance: number;
+    /**
+     * The vector's metadata, keyed by the names used at ingest (native
+     * backend). Absent when the vector has no metadata record.
+     */
+    metadata?: Record<string, RvfMetadataValue>;
 }
 /** Result of a batch ingest operation. */
 export interface RvfIngestResult {
@@ -185,16 +209,15 @@ export interface RvfIngestEntry {
     /** The embedding vector (must match store dimensions). */
     vector: Float32Array | number[];
     /**
-     * Optional per-vector metadata fields.
-     *
-     * **Not yet implemented** (see issue #704): the native layer stores
-     * metadata by numeric `fieldId`, but there is no SDK-level design yet for
-     * mapping these string field names to native field IDs, or for persisting
-     * metadata durably across close/reopen. Passing a non-empty object here
-     * throws `RvfError` with code `MetadataNotSupported` rather than silently
-     * dropping the data (the original bug).
+     * Optional per-vector metadata. Stored durably with the vector by the
+     * native backend (issue #704), returned on query hits as
+     * `RvfSearchResult.metadata`, and filterable with `{ field: name }` leaves.
+     * A field keeps the type of its first non-null value (numbers are f64;
+     * objects/arrays are JSON); a conflicting type throws
+     * `MetadataTypeConflict`. The WASM backend rejects metadata with
+     * `MetadataNotSupported` rather than dropping it.
      */
-    metadata?: Record<string, RvfFilterValue>;
+    metadata?: Record<string, RvfMetadataValue>;
 }
 /** Derivation type for creating derived stores. */
 export type DerivationType = 'filter' | 'merge' | 'snapshot' | 'transform';

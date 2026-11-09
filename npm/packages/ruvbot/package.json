@@ -1,6 +1,6 @@
 {
   "name": "ruvbot",
-  "version": "0.3.3",
+  "version": "0.4.1",
   "description": "Enterprise-grade self-learning AI assistant with military-strength security, 150x faster vector search, and 12+ LLM models",
   "main": "dist/index.js",
   "module": "dist/esm/index.js",
@@ -39,7 +39,7 @@
   "scripts": {
     "build": "npm run build:cjs && npm run build:esm",
     "build:cjs": "tsc -p tsconfig.json",
-    "build:esm": "tsc -p tsconfig.esm.json",
+    "build:esm": "tsc -p tsconfig.esm.json && node scripts/fix-esm.js",
     "build:rvf": "node scripts/build-rvf.js",
     "run:rvf": "node scripts/run-rvf.js",
     "inspect:rvf": "node scripts/run-rvf.js --inspect",
@@ -49,43 +49,29 @@
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run clean && npm run build"
   },
   "keywords": [
-    "ai",
-    "ai-assistant",
-    "chatbot",
     "llm",
-    "gemini",
-    "claude",
-    "openai",
-    "openrouter",
-    "vector-database",
     "vector-search",
-    "hnsw",
-    "embeddings",
-    "wasm",
-    "memory",
     "self-learning",
-    "neural",
-    "multi-tenant",
-    "enterprise",
-    "security",
+    "cli",
+    "chatbot",
+    "openrouter",
+    "ruvnet",
+    "ruvector",
     "prompt-injection",
-    "aidefence",
-    "slack-bot",
-    "discord-bot",
-    "typescript",
-    "cli"
+    "ai",
+    "security"
   ],
   "author": "RuVector Team <team@ruv.io>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
+    "url": "git+https://github.com/ruvnet/ruvector.git",
     "directory": "npm/packages/ruvbot"
   },
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/npm/packages/ruvbot",
+  "homepage": "https://ruv.io",
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },
@@ -94,7 +80,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.0",
-    "aidefence": "^2.1.1",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",
     "dotenv": "^16.3.1",
@@ -103,12 +88,13 @@
     "pino": "^8.17.2",
     "pino-pretty": "^10.3.1",
     "uuid": "^11.1.1",
-    "zod": "^3.22.4"
+    "zod": "^4.6.7"
   },
   "optionalDependencies": {
     "@ruvector/ruvllm": "^2.3.0",
     "@slack/bolt": "^3.17.0",
     "@slack/web-api": "^7.0.0",
+    "aidefence": "^3.0.2",
     "bullmq": "^5.1.0",
     "ioredis": "^5.3.2",
     "pg": "^8.11.3"
@@ -117,7 +103,7 @@
     "@types/node": "^20.10.5",
     "@types/pg": "^8.10.9",
     "@types/uuid": "^9.0.7",
-    "@vitest/coverage-v8": "^3.2.6",
+    "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^8.56.0",
     "typescript": "^5.3.3",
     "vitest": "^4.1.11"

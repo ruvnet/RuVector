@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/emergent-time",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "Agentic Time: measure an AI agent's internal time and 7-state health from per-channel state deltas, in the browser, on the edge, or in Node — via a tiny WASM build of the emergent-time Rust crate.",
   "type": "module",
   "main": "pkg/emergent_time_wasm.js",
@@ -27,22 +27,28 @@
     "test": "node ../../../crates/emergent-time-wasm/tests/smoke.mjs"
   },
   "keywords": [
-    "agentic-time",
-    "agents",
-    "ai-agents",
-    "observability",
-    "change-point",
     "wasm",
+    "ai-agents",
     "webassembly",
-    "emergent-time"
+    "ai",
+    "nodejs",
+    "rust",
+    "ruvector",
+    "ruvnet",
+    "emergent-time",
+    "agentic-ai"
   ],
   "license": "MIT",
   "author": "Ruvector Team",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector"
+    "url": "git+https://github.com/ruvnet/ruvector.git",
+    "directory": "npm/packages/emergent-time"
   },
-  "homepage": "https://github.com/ruvnet/ruvector",
+  "homepage": "https://ruv.io",
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
+  },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public"

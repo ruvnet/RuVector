@@ -46,7 +46,7 @@ engine.nervous.step();
 const balance = engine.economy.creditBalance();
 engine.economy.stakeDeposit(100);
 
-// Exotic computations
+// Exotic computations (quantum gates need @ruvector/ruqu-wasm, loaded by init())
 const qstate = engine.exotic.quantumInit(4);
 const measured = engine.exotic.quantumMeasure(qstate);
 
@@ -285,6 +285,7 @@ console.log('Net flow:', formatCredits(analytics.netFlow));
 import {
   createExoticEngine,
   createCircuitBuilder,
+  initQuantumBackend,
   projectToPoincare,
   poincareToLorentz,
 } from '@ruvector/wasm-unified';
@@ -295,7 +296,12 @@ const exotic = createExoticEngine({
   topologicalMaxDimension: 3,
 });
 
-// Quantum-inspired computation
+// Quantum gates are simulated by the optional @ruvector/ruqu-wasm package
+// (npm install @ruvector/ruqu-wasm). Without it, quantum calls throw a
+// QuantumBackendError. amplitudes hold sqrt(P(i)) (qubit 0 = least
+// significant bit); phases are zero-filled. Measurement is sampled and the
+// collapsed state is terminal. quantumAmplify / quantumVqe are not backed and throw.
+await initQuantumBackend();
 const qstate = exotic.quantumInit(4);
 let state = exotic.quantumHadamard(qstate, 0);  // Superposition
 state = exotic.quantumCnot(state, 0, 1);         // Entanglement

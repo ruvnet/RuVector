@@ -1,4 +1,4 @@
-import type { RvfOptions, RvfQueryOptions, RvfSearchResult, RvfIngestResult, RvfIngestEntry, RvfDeleteResult, RvfCompactionResult, RvfStatus, RvfFilterExpr, RvfKernelData, RvfEbpfData, RvfSegmentInfo, BackendType } from './types';
+import type { RvfOptions, RvfQueryOptions, RvfSearchResult, RvfIngestResult, RvfIngestEntry, RvfDeleteResult, RvfCompactionResult, RvfStatus, RvfFilterExpr, RvfKernelData, RvfEbpfData, RvfSegmentInfo, BackendType, DistanceMetric } from './types';
 /**
  * Abstract backend that wraps either the native (N-API) or WASM build of
  * rvf-runtime.  The `RvfDatabase` class delegates all I/O to a backend
@@ -37,6 +37,11 @@ export interface RvfBackend {
     extractEbpf(): Promise<RvfEbpfData | null>;
     segments(): Promise<RvfSegmentInfo[]>;
     dimension(): Promise<number>;
+    /**
+     * Distance metric the store was created with. Optional so third-party
+     * backends written against older versions still type-check.
+     */
+    metric?(): Promise<DistanceMetric>;
     /** Serialize the store to an in-memory `.rvf` byte buffer. */
     exportBytes(): Promise<Uint8Array>;
     /** Load a store from an in-memory `.rvf` byte buffer. */
@@ -56,6 +61,13 @@ export declare class NodeBackend implements RvfBackend {
     private labelToId;
     private nextLabel;
     private storePath;
+    private readOnly;
+    private journal;
+    /** Metadata field-name registry, persisted in the store's file metadata. */
+    private fields;
+    /** Byte size of the last snapshot written or loaded. */
+    private snapshotBytes;
+    private journalCompactMinBytes;
     private loadNative;
     private ensureHandle;
     /** Release a native handle without persisting mappings after open failed. */
@@ -82,6 +94,7 @@ export declare class NodeBackend implements RvfBackend {
     extractEbpf(): Promise<RvfEbpfData | null>;
     segments(): Promise<RvfSegmentInfo[]>;
     dimension(): Promise<number>;
+    metric(): Promise<DistanceMetric>;
     exportBytes(): Promise<Uint8Array>;
     openBytes(_bytes: Uint8Array): Promise<void>;
     /**
@@ -91,6 +104,16 @@ export declare class NodeBackend implements RvfBackend {
     private resolveLabel;
     /** Path to the sidecar mappings file. */
     private mappingsPath;
+    /** Journal ops for labels allocated since `fromLabel` (labels are sequential). */
+    private newLabelOps;
+    /**
+     * Append ops to the id-map journal. If the append fails, labels allocated
+     * since `rollbackTo` are released so memory never runs ahead of disk.
+     */
+    private persistOps;
+    /** Fold the journal into a fresh snapshot once it outgrows the snapshot. */
+    private maybeCompactJournal;
+    private closeJournal;
     /**
      * Persist the string↔label mapping to a sidecar JSON file.
      *
@@ -114,6 +137,28 @@ export declare class NodeBackend implements RvfBackend {
      * raised so the caller learns string-id operations are unsafe.
      */
     private loadMappings;
+    /**
+     * Load the metadata field-name registry from the store's file metadata
+     * (issue #704). Stores written before the registry existed, or by an
+     * rvf-node without file-metadata support, start with an empty registry.
+     */
+    private loadFieldRegistry;
+    /**
+     * Encode entry metadata into native per-vector records, persisting any
+     * newly registered field names before the vectors are committed.
+     * Returns null when no entry carries metadata.
+     */
+    private encodeMetadataRecords;
+    /** Decode a native hit's metadata entries through the field registry. */
+    private decodeHitMetadata;
+    /**
+     * Replay `<sidecar>.journal` over the loaded snapshot. A torn last append
+     * (crash mid-write) is dropped, and cut off on read-write opens so the next
+     * append cannot fuse with it; any other damage fails loud like a corrupt
+     * snapshot does.
+     */
+    private replayJournalFile;
+    private loadSnapshot;
 }
 /**
  * Backend that delegates to the `@ruvector/rvf-wasm` WASM build.
@@ -129,6 +174,8 @@ export declare class WasmBackend implements RvfBackend {
     /** Integer store handle returned by `rvf_store_create` / `rvf_store_open`. */
     private handle;
     private dim;
+    /** Metric given to create(); unknown for stores loaded with openBytes(). */
+    private storeMetric;
     private loadWasm;
     private ensureHandle;
     private metricCode;
@@ -154,6 +201,7 @@ export declare class WasmBackend implements RvfBackend {
     extractEbpf(): Promise<RvfEbpfData | null>;
     segments(): Promise<RvfSegmentInfo[]>;
     dimension(): Promise<number>;
+    metric(): Promise<DistanceMetric>;
     /**
      * Serialize the in-memory store to `.rvf` bytes via the `rvf_store_export`
      * C-ABI export. `rvf_store_export` follows a probe-then-write pattern:

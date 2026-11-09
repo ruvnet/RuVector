@@ -103,6 +103,7 @@ export class HyperbolicCommands {
     } catch (err) {
       spinner.fail(chalk.red('Distance computation failed'));
       console.error(chalk.red((err as Error).message));
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -138,6 +139,7 @@ export class HyperbolicCommands {
     } catch (err) {
       spinner.fail(chalk.red('Distance computation failed'));
       console.error(chalk.red((err as Error).message));
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -176,6 +178,7 @@ export class HyperbolicCommands {
     } catch (err) {
       spinner.fail(chalk.red('Mobius addition failed'));
       console.error(chalk.red((err as Error).message));
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -211,6 +214,7 @@ export class HyperbolicCommands {
     } catch (err) {
       spinner.fail(chalk.red('Exponential map failed'));
       console.error(chalk.red((err as Error).message));
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -246,6 +250,7 @@ export class HyperbolicCommands {
     } catch (err) {
       spinner.fail(chalk.red('Logarithmic map failed'));
       console.error(chalk.red((err as Error).message));
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -280,6 +285,7 @@ export class HyperbolicCommands {
     } catch (err) {
       spinner.fail(chalk.red('Conversion failed'));
       console.error(chalk.red((err as Error).message));
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -314,6 +320,7 @@ export class HyperbolicCommands {
     } catch (err) {
       spinner.fail(chalk.red('Conversion failed'));
       console.error(chalk.red((err as Error).message));
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -348,6 +355,7 @@ export class HyperbolicCommands {
     } catch (err) {
       spinner.fail(chalk.red('Computation failed'));
       console.error(chalk.red((err as Error).message));
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }

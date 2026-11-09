@@ -10,11 +10,18 @@
 
 #![allow(clippy::new_without_default)]
 
+mod validate;
+
 use ruvector_cnn::contrastive::{
     InfoNCELoss as RustInfoNCE, TripletDistance, TripletLoss as RustTriplet,
 };
 use ruvector_cnn::simd;
 use wasm_bindgen::prelude::*;
+
+/// Map a boundary-validation error into a JS exception.
+fn js_err<T, E: ToString>(r: Result<T, E>) -> Result<T, JsValue> {
+    r.map_err(|e| JsValue::from_str(&e.to_string()))
+}
 
 /// Initialize panic hook for better error messages
 #[wasm_bindgen(start)]
@@ -61,7 +68,7 @@ impl WasmCnnEmbedder {
     pub fn new(config: Option<EmbedderConfig>) -> Result<WasmCnnEmbedder, JsValue> {
         let cfg = config.unwrap_or_else(EmbedderConfig::new);
         Ok(Self {
-            embedding_dim: cfg.embedding_dim as usize,
+            embedding_dim: js_err(validate::embedding_dim(cfg.embedding_dim))?,
             normalize: cfg.normalize,
         })
     }
@@ -69,20 +76,20 @@ impl WasmCnnEmbedder {
     /// Extract embedding from image data (RGB format, row-major)
     #[wasm_bindgen]
     pub fn extract(&self, image_data: &[u8], width: u32, height: u32) -> Result<Vec<f32>, JsValue> {
-        if image_data.len() != (width * height * 3) as usize {
-            return Err(JsValue::from_str(&format!(
-                "Invalid image data length: expected {}, got {}",
-                width * height * 3,
-                image_data.len()
-            )));
-        }
+        let (w, h) = (width as usize, height as usize);
+        let expected = js_err(validate::checked_size("image", &[w, h, 3]))?;
+        js_err(validate::expect_len(
+            "image data",
+            expected,
+            image_data.len(),
+        ))?;
 
         // Convert u8 RGB to f32 normalized [0, 1]
         let float_data: Vec<f32> = image_data.iter().map(|&x| x as f32 / 255.0).collect();
 
         // Simple global average pooling to get embedding
         let channels = 3;
-        let pixels_per_channel = (width * height) as usize;
+        let pixels_per_channel = w * h;
 
         let mut embedding = vec![0.0f32; self.embedding_dim];
 
@@ -187,10 +194,11 @@ pub struct WasmInfoNCELoss {
 impl WasmInfoNCELoss {
     /// Create new InfoNCE loss with temperature parameter
     #[wasm_bindgen(constructor)]
-    pub fn new(temperature: f32) -> Self {
-        Self {
-            inner: RustInfoNCE::new(temperature as f64),
-        }
+    pub fn new(temperature: f32) -> Result<WasmInfoNCELoss, JsValue> {
+        let t = js_err(validate::positive_finite("temperature", temperature))?;
+        Ok(Self {
+            inner: RustInfoNCE::new(t),
+        })
     }
 
     /// Compute loss for a batch of embedding pairs
@@ -202,26 +210,28 @@ impl WasmInfoNCELoss {
         batch_size: usize,
         dim: usize,
     ) -> Result<f32, JsValue> {
-        if embeddings.len() != 2 * batch_size * dim {
-            return Err(JsValue::from_str(&format!(
-                "Expected {} elements, got {}",
-                2 * batch_size * dim,
-                embeddings.len()
-            )));
-        }
+        let expected = js_err(validate::checked_size("embeddings", &[2, batch_size, dim]))?;
+        js_err(validate::expect_len(
+            "embeddings",
+            expected,
+            embeddings.len(),
+        ))?;
 
-        // Convert to Vec<Vec<f64>>
-        let embs: Vec<Vec<f64>> = (0..2 * batch_size)
-            .map(|i| {
-                embeddings[i * dim..(i + 1) * dim]
-                    .iter()
-                    .map(|&x| x as f64)
-                    .collect()
-            })
+        // The core loss groups views of one sample consecutively, so
+        // interleave rows i and i+N into [x0, x0', x1, x1', ...].
+        let row = |i: usize| -> Vec<f64> {
+            embeddings[i * dim..(i + 1) * dim]
+                .iter()
+                .map(|&x| x as f64)
+                .collect()
+        };
+        let embs: Vec<Vec<f64>> = (0..batch_size)
+            .flat_map(|i| [row(i), row(i + batch_size)])
             .collect();
 
         // Forward with num_views = 2 (pairs)
-        Ok(self.inner.forward(&embs, 2) as f32)
+        let r = js_err(self.inner.forward_detailed(&embs, 2))?;
+        Ok(r.loss as f32)
     }
 
     /// Get the temperature parameter
@@ -241,10 +251,11 @@ pub struct WasmTripletLoss {
 impl WasmTripletLoss {
     /// Create new triplet loss with margin
     #[wasm_bindgen(constructor)]
-    pub fn new(margin: f32) -> Self {
-        Self {
-            inner: RustTriplet::new(margin as f64),
-        }
+    pub fn new(margin: f32) -> Result<WasmTripletLoss, JsValue> {
+        let m = js_err(validate::non_negative_finite("margin", margin))?;
+        Ok(Self {
+            inner: RustTriplet::new(m),
+        })
     }
 
     /// Compute loss for a single triplet
@@ -263,7 +274,7 @@ impl WasmTripletLoss {
         let p: Vec<f64> = positive.iter().map(|&x| x as f64).collect();
         let n: Vec<f64> = negative.iter().map(|&x| x as f64).collect();
 
-        Ok(self.inner.forward(&a, &p, &n) as f32)
+        Ok(js_err(self.inner.forward_detailed(&a, &p, &n))?.loss as f32)
     }
 
     /// Compute loss for a batch of triplets
@@ -275,7 +286,11 @@ impl WasmTripletLoss {
         negatives: &[f32],
         dim: usize,
     ) -> Result<f32, JsValue> {
-        if anchors.len() % dim != 0
+        if dim == 0 {
+            return Err(JsValue::from_str("Triplet dim must be non-zero"));
+        }
+        if anchors.is_empty()
+            || anchors.len() % dim != 0
             || positives.len() != anchors.len()
             || negatives.len() != anchors.len()
         {
@@ -298,7 +313,7 @@ impl WasmTripletLoss {
                 .iter()
                 .map(|&x| x as f64)
                 .collect();
-            total_loss += self.inner.forward(&a, &p, &n);
+            total_loss += js_err(self.inner.forward_detailed(&a, &p, &n))?.loss;
         }
 
         Ok((total_loss / batch_size as f64) as f32)
@@ -319,8 +334,9 @@ pub struct SimdOps;
 impl SimdOps {
     /// Dot product of two vectors
     #[wasm_bindgen]
-    pub fn dot_product(a: &[f32], b: &[f32]) -> f32 {
-        simd::dot_product_simd(a, b)
+    pub fn dot_product(a: &[f32], b: &[f32]) -> Result<f32, JsValue> {
+        js_err(validate::expect_len("dot_product b", a.len(), b.len()))?;
+        Ok(simd::dot_product_simd(a, b))
     }
 
     /// ReLU activation (returns new array)
@@ -366,8 +382,14 @@ impl LayerOps {
         mean: &[f32],
         var: &[f32],
         epsilon: f32,
-    ) -> Vec<f32> {
-        let channels = gamma.len();
+    ) -> Result<Vec<f32>, JsValue> {
+        let channels = js_err(validate::batch_norm(
+            input.len(),
+            gamma.len(),
+            beta.len(),
+            mean.len(),
+            var.len(),
+        ))?;
         let mut output = vec![0.0f32; input.len()];
         simd::batch_norm_simd(
             input,
@@ -379,10 +401,10 @@ impl LayerOps {
             epsilon,
             channels,
         );
-        output
+        Ok(output)
     }
 
-    /// Apply global average pooling
+    /// Apply global average pooling over an NHWC tensor [H, W, C]
     /// Returns one value per channel
     #[wasm_bindgen]
     pub fn global_avg_pool(
@@ -390,10 +412,19 @@ impl LayerOps {
         height: usize,
         width: usize,
         channels: usize,
-    ) -> Vec<f32> {
+    ) -> Result<Vec<f32>, JsValue> {
+        let expected = js_err(validate::checked_size(
+            "global_avg_pool",
+            &[height, width, channels],
+        ))?;
+        js_err(validate::expect_len(
+            "global_avg_pool input",
+            expected,
+            input.len(),
+        ))?;
         let mut output = vec![0.0f32; channels];
         simd::global_avg_pool_simd(input, &mut output, height, width, channels);
-        output
+        Ok(output)
     }
 }
 
@@ -443,13 +474,13 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_infonce_loss() {
-        let loss = WasmInfoNCELoss::new(0.1);
+        let loss = WasmInfoNCELoss::new(0.1).unwrap();
         assert!((loss.temperature() - 0.1).abs() < 0.001);
     }
 
     #[wasm_bindgen_test]
     fn test_triplet_loss() {
-        let loss = WasmTripletLoss::new(1.0);
+        let loss = WasmTripletLoss::new(1.0).unwrap();
         assert!((loss.margin() - 1.0).abs() < 0.001);
     }
 
@@ -458,7 +489,7 @@ mod tests {
         let a = vec![1.0, 2.0, 3.0, 4.0];
         let b = vec![1.0, 1.0, 1.0, 1.0];
 
-        let dot = SimdOps::dot_product(&a, &b);
+        let dot = SimdOps::dot_product(&a, &b).unwrap();
         assert!((dot - 10.0).abs() < 0.001);
 
         let relu_out = SimdOps::relu(&[-1.0, 0.0, 1.0, 2.0]);

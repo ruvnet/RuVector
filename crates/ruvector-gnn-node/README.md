@@ -250,3 +250,18 @@ Contributions are welcome! Please see the main Ruvector repository for guideline
 - [GitHub Repository](https://github.com/ruvnet/ruvector)
 - [Documentation](https://docs.ruvector.io)
 - [Issues](https://github.com/ruvnet/ruvector/issues)
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for graph neural network, machine learning, vector database.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@ruvector/node`](https://www.npmjs.com/package/@ruvector/node), [`agentdb`](https://www.npmjs.com/package/agentdb) (optional), [`ruvector`](https://www.npmjs.com/package/ruvector)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->
