@@ -56,7 +56,8 @@ jobs:
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            sudo git curl wget ca-certificates build-essential pkg-config xz-utils unzip zip python3 jq file
+            sudo git curl wget ca-certificates build-essential pkg-config xz-utils unzip zip python3 jq file \
+            libssl-dev cmake clang libclang-dev
           git config --global --add safe.directory '*'
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
