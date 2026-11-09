@@ -128,7 +128,7 @@ fn npm_package(http: &Http, npm: &crate::config::NpmPolicy, obj: &Value) -> Pack
 
 /// api.npmjs.org last-month downloads: bulk (128 / call) for unscoped
 /// names, one call per scoped name (bulk does not support scopes).
-fn fresh_downloads(http: &Http, names: &[String], workers: usize) -> BTreeMap<String, u64> {
+pub fn fresh_downloads(http: &Http, names: &[String], workers: usize) -> BTreeMap<String, u64> {
     let mut out = BTreeMap::new();
     let (scoped, unscoped): (Vec<&String>, Vec<&String>) =
         names.iter().partition(|n| n.starts_with('@'));
