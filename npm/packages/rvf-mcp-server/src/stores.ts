@@ -190,3 +190,21 @@ export function matchesFilter(meta: Metadata | undefined, filter: Metadata): boo
   }
   return true;
 }
+
+const NATIVE_METRICS: Record<string, string> = { l2: 'l2', cosine: 'cosine', inner_product: 'dotproduct' };
+
+/**
+ * The distance metric an open `.rvf` file was created with, read from the
+ * native store. @ruvector/rvf has no public accessor for it yet, so this asks
+ * the native handle directly and returns undefined if that is unavailable.
+ */
+export function storedMetric(db: unknown): string | undefined {
+  const handle = (db as { backend?: { handle?: { metric?: () => unknown } } })?.backend?.handle;
+  if (typeof handle?.metric !== 'function') return undefined;
+  try {
+    const raw = handle.metric();
+    return typeof raw === 'string' ? NATIVE_METRICS[raw] : undefined;
+  } catch {
+    return undefined;
+  }
+}

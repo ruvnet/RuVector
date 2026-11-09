@@ -6,6 +6,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { RvfDatabase } from '@ruvector/rvf';
 import { RvfMcpServer } from '../dist/index.js';
 
 const tmpDirs = [];
@@ -130,6 +131,28 @@ test('stores persist on disk across a server restart', { timeout: 30_000 }, asyn
   assert.deepEqual(left.results.map((r) => r.id), ['green']);
   const denied = await call(client, 'rvf_ingest', { storeId: ro.storeId, entries: [{ id: 'x', vector: [1, 1, 1] }] });
   assert.match(denied.error, /read-only/);
+  await server.close();
+});
+
+test('an index built outside the server reports the metric it was created with', { timeout: 30_000 }, async () => {
+  // A portable .rvf made directly with @ruvector/rvf has no .mcp-meta.jsonl sidecar.
+  const dataDir = tempDataDir();
+  for (const [file, metric] of [['cos.rvf', 'cosine'], ['dot.rvf', 'dotproduct']]) {
+    const db = await RvfDatabase.create(path.join(dataDir, file), { dimensions: 2, metric }, 'node');
+    await db.ingestBatch([{ id: 'a', vector: new Float32Array([1, 0]) }]);
+    await db.close();
+  }
+  const { server, client } = await connect({ dataDir });
+  const cos = await call(client, 'rvf_open_store', { path: 'cos.rvf', readOnly: true });
+  assert.equal(cos.metric, 'cosine');
+  const q = await call(client, 'rvf_query', { storeId: cos.storeId, vector: [0, 1], k: 1 });
+  assert.equal(q.metric, 'cosine');
+  const dot = await call(client, 'rvf_open_store', { path: 'dot.rvf' });
+  assert.equal(dot.metric, 'dotproduct');
+  await call(client, 'rvf_close_store', { storeId: dot.storeId });
+  // A writable open records the metric in the sidecar it creates.
+  const header = JSON.parse(fs.readFileSync(path.join(dataDir, 'dot.rvf.mcp-meta.jsonl'), 'utf-8').split('\n')[0]);
+  assert.equal(header.metric, 'dotproduct');
   await server.close();
 });
 

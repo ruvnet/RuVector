@@ -16,6 +16,7 @@ import {
   defaultDataDir,
   matchesFilter,
   resolveStorePath,
+  storedMetric,
   type Metadata,
 } from './stores.js';
 
@@ -214,7 +215,8 @@ export class RvfMcpServer {
             throw err;
           }
           const dimensions = await db.dimension();
-          const metric = meta.header?.metric ?? 'l2';
+          // The file is the source of truth; a store built outside this server has no sidecar.
+          const metric = storedMetric(db) ?? meta.header?.metric ?? 'unknown';
           meta.header ??= { dimensions, metric };
           const h = this.register({ path, file, dimensions, metric, readOnly, db, meta });
           return reply({ storeId: h.id, path, readOnly, dimensions, metric, status: 'opened' });
