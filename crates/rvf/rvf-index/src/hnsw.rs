@@ -332,7 +332,10 @@ impl HnswGraph {
         vectors: &dyn VectorStore,
         distance_fn: &dyn Fn(&[f32], &[f32]) -> f32,
     ) -> bool {
-        let Some(level) = (0..self.layers.len()).rev().find(|&l| self.layers[l].contains(id)) else {
+        let Some(level) = (0..self.layers.len())
+            .rev()
+            .find(|&l| self.layers[l].contains(id))
+        else {
             return false;
         };
         let query_vec = match vectors.get_vector(id) {

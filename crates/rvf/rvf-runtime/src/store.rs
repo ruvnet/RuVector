@@ -5799,28 +5799,29 @@ mod tests {
         let refs: Vec<&[f32]> = vecs.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (0..n).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();
-        store.query(&random_vector(dim, 1), 10, &QueryOptions::default()).unwrap();
+        store
+            .query(&random_vector(dim, 1), 10, &QueryOptions::default())
+            .unwrap();
         assert!(store.index_ready());
-        let nodes = |s: &RvfStore| {
-            s.index
-                .read()
-                .unwrap()
-                .as_ref()
-                .map(|i| i.node_count())
-        };
+        let nodes = |s: &RvfStore| s.index.read().unwrap().as_ref().map(|i| i.node_count());
         assert_eq!(nodes(&store), Some(n as usize));
 
         // One upsert of a live id, then a query: no rebuild.
         let moved = random_vector(dim, 1_000_000);
         let t0 = std::time::Instant::now();
-        store.ingest_batch(&[moved.as_slice()], &[42], None).unwrap();
+        store
+            .ingest_batch(&[moved.as_slice()], &[42], None)
+            .unwrap();
         let hit = store.query(&moved, 1, &QueryOptions::default()).unwrap();
         let upsert_then_query = t0.elapsed();
         assert!(store.index_ready(), "upsert must not drop the index");
         assert_eq!(nodes(&store), Some(n as usize));
         assert_eq!(hit[0].id, 42);
         assert!(hit[0].distance < 1e-4);
-        eprintln!("upsert_then_query_5k_ms={:.3}", upsert_then_query.as_secs_f64() * 1e3);
+        eprintln!(
+            "upsert_then_query_5k_ms={:.3}",
+            upsert_then_query.as_secs_f64() * 1e3
+        );
 
         // 500 more upserts, then HNSW top-10 vs exact on 50 queries.
         for j in 0..500u64 {
@@ -5852,6 +5853,56 @@ mod tests {
         store.close().unwrap();
     }
 
+    /// Bench for rvf:meta-snapshot-every-32-commits: 3000 single-record
+    /// commits, each carrying metadata. Prints file size and per-write cost.
+    /// `cargo test --release -p rvf-runtime --lib -- --ignored meta_single_commit_bench --nocapture`
+    #[test]
+    #[ignore]
+    fn meta_single_commit_bench() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("meta_bench.rvf");
+        let dim = 32;
+        let mut store = RvfStore::create(
+            &path,
+            RvfOptions {
+                dimension: dim as u16,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let total = 3000u64;
+        let mut first = std::time::Duration::ZERO;
+        let mut last = std::time::Duration::ZERO;
+        let t_all = std::time::Instant::now();
+        for i in 0..total {
+            let v = random_vector(dim, i);
+            let meta = [MetadataEntry {
+                field_id: 1,
+                value: MetadataValue::String(format!("doc-{i}-payload-text-of-moderate-length")),
+            }];
+            let t0 = std::time::Instant::now();
+            store
+                .ingest_batch(&[v.as_slice()], &[i], Some(&meta))
+                .unwrap();
+            let dt = t0.elapsed();
+            if i < 500 {
+                first += dt;
+            } else if i >= total - 500 {
+                last += dt;
+            }
+        }
+        let all = t_all.elapsed();
+        store.close().unwrap();
+        let bytes = std::fs::metadata(&path).unwrap().len();
+        eprintln!(
+            "meta_bench commits={total} file_mb={:.1} avg_us={:.0} first500_avg_us={:.0} last500_avg_us={:.0}",
+            bytes as f64 / 1048576.0,
+            all.as_secs_f64() * 1e6 / total as f64,
+            first.as_secs_f64() * 1e6 / 500.0,
+            last.as_secs_f64() * 1e6 / 500.0,
+        );
+    }
+
     /// Overwriting an existing id must re-link the stale node (the index stays
     /// built) and produce correct nearest-neighbor results afterwards.
     #[test]
@@ -5880,7 +5931,10 @@ mod tests {
         // Overwrite id 3 with a far-away vector.
         let far = vec![100.0f32; 8];
         store.ingest_batch(&[far.as_slice()], &[3], None).unwrap();
-        assert!(store.index_ready(), "an upsert re-links the node instead of dropping the index");
+        assert!(
+            store.index_ready(),
+            "an upsert re-links the node instead of dropping the index"
+        );
 
         // Query at the new location must find the overwritten id first.
         let results = store.query(&far, 1, &QueryOptions::default()).unwrap();

@@ -434,7 +434,10 @@ mod tests {
         fs::write(&rvf_path, b"").unwrap();
         let lock_path = lock_path_for(&rvf_path);
 
-        let mut child = std::process::Command::new("sleep").arg("30").spawn().unwrap();
+        let mut child = std::process::Command::new("sleep")
+            .arg("30")
+            .spawn()
+            .unwrap();
         let content = build_lock_content(child.id(), &get_hostname(), now_ns(), &[0xCDu8; 16]);
         fs::write(&lock_path, &content).unwrap();
         // While the owner lives the lock holds.
@@ -446,7 +449,10 @@ mod tests {
         let lock = WriterLock::acquire(&rvf_path).expect("dead owner's lock must break");
         let took = t0.elapsed();
         assert!(lock.is_valid());
-        assert!(took < std::time::Duration::from_secs(1), "reopen took {took:?}");
+        assert!(
+            took < std::time::Duration::from_secs(1),
+            "reopen took {took:?}"
+        );
     }
 
     #[test]
@@ -456,7 +462,8 @@ mod tests {
         fs::write(&rvf_path, b"").unwrap();
         let lock_path = lock_path_for(&rvf_path);
         // Our own (live) PID, but stamped with a different boot id.
-        let mut content = build_lock_content(std::process::id(), &get_hostname(), now_ns(), &[0xEEu8; 16]);
+        let mut content =
+            build_lock_content(std::process::id(), &get_hostname(), now_ns(), &[0xEEu8; 16]);
         if current_boot_id().is_none() {
             return; // no boot id on this platform
         }
@@ -471,7 +478,8 @@ mod tests {
         let rvf_path = dir.path().join("live.rvf");
         fs::write(&rvf_path, b"").unwrap();
         let lock_path = lock_path_for(&rvf_path);
-        let content = build_lock_content(std::process::id(), &get_hostname(), now_ns(), &[0x22u8; 16]);
+        let content =
+            build_lock_content(std::process::id(), &get_hostname(), now_ns(), &[0x22u8; 16]);
         fs::write(&lock_path, &content).unwrap();
         assert!(WriterLock::acquire(&rvf_path).is_err());
         // A lock written by an older rvf (no boot id trailer) still holds.
