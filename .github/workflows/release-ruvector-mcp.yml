@@ -1,0 +1,185 @@
+# Build and release ruvector-mcp binaries on tag push.
+name: Release ruvector-mcp
+
+on:
+  push:
+    tags:
+      - 'ruvector-mcp-v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. ruvector-mcp-v0.1.0)'
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-22.04
+            name: ruvector-mcp-linux-x64
+            ext: ''
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-22.04
+            name: ruvector-mcp-linux-arm64
+            ext: ''
+            cross: true
+          - target: x86_64-apple-darwin
+            os: macos-14
+            name: ruvector-mcp-darwin-x64
+            ext: ''
+          - target: aarch64-apple-darwin
+            os: macos-14
+            name: ruvector-mcp-darwin-arm64
+            ext: ''
+          - target: x86_64-pc-windows-msvc
+            os: windows-2022
+            name: ruvector-mcp-windows-x64
+            ext: .exe
+
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ruvector-mcp-${{ matrix.target }}
+
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.cross
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Build
+        shell: bash
+        run: cargo build -p ruvector-cli --bin ruvector-mcp --release --target ${{ matrix.target }}
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+
+      - name: Package
+        shell: bash
+        run: |
+          BINARY="target/${{ matrix.target }}/release/ruvector-mcp${{ matrix.ext }}"
+          ARCHIVE="${{ matrix.name }}${{ matrix.ext }}"
+
+          if [ "${{ matrix.ext }}" = ".exe" ]; then
+            cp "$BINARY" "$ARCHIVE"
+          else
+            chmod +x "$BINARY"
+            cp "$BINARY" "$ARCHIVE"
+          fi
+
+          ls -lh "$ARCHIVE"
+
+      - name: Compute SHA256 sidecar
+        shell: bash
+        run: |
+          ARCHIVE="${{ matrix.name }}${{ matrix.ext }}"
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
+          else
+            shasum -a 256 "$ARCHIVE" > "$ARCHIVE.sha256"
+          fi
+          cat "$ARCHIVE.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            ${{ matrix.name }}${{ matrix.ext }}
+            ${{ matrix.name }}${{ matrix.ext }}.sha256
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/ruvector-mcp-v') || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          for dir in artifacts/*/; do
+            for file in "$dir"*; do
+              cp "$file" "release/$(basename "$file")"
+            done
+          done
+          ls -lh release/
+
+      - name: Aggregate checksums
+        working-directory: release
+        run: |
+          # Per-binary .sha256 sidecars are already present from the build matrix.
+          # Also produce a combined manifest for convenience.
+          cat *.sha256 > checksums-sha256.txt
+          cat checksums-sha256.txt
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "ruvector-mcp ${{ steps.tag.outputs.tag }}"
+          body: |
+            ## ruvector-mcp Release
+
+            MCP server binary for the RuVector vector database. Speaks the Model Context Protocol over stdio.
+
+            ### Download
+
+            | Platform | Binary | Checksum |
+            |----------|--------|----------|
+            | Linux x64 | `ruvector-mcp-linux-x64` | `ruvector-mcp-linux-x64.sha256` |
+            | Linux ARM64 | `ruvector-mcp-linux-arm64` | `ruvector-mcp-linux-arm64.sha256` |
+            | macOS x64 (Intel) | `ruvector-mcp-darwin-x64` | `ruvector-mcp-darwin-x64.sha256` |
+            | macOS ARM64 (Apple Silicon) | `ruvector-mcp-darwin-arm64` | `ruvector-mcp-darwin-arm64.sha256` |
+            | Windows x64 | `ruvector-mcp-windows-x64.exe` | `ruvector-mcp-windows-x64.exe.sha256` |
+
+            A combined `checksums-sha256.txt` is also attached.
+
+            ### Quick start
+
+            ```bash
+            # Download (macOS ARM64 example)
+            curl -L -o ruvector-mcp https://github.com/ruvnet/ruvector/releases/download/${{ steps.tag.outputs.tag }}/ruvector-mcp-darwin-arm64
+            curl -L -o ruvector-mcp.sha256 https://github.com/ruvnet/ruvector/releases/download/${{ steps.tag.outputs.tag }}/ruvector-mcp-darwin-arm64.sha256
+            shasum -a 256 -c ruvector-mcp.sha256
+            chmod +x ruvector-mcp
+            ```
+          files: release/*
+          draft: false
+          prerelease: false
