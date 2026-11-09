@@ -2,6 +2,10 @@
 
 # ruvector: vector search and persistent agent memory
 
+<!-- weaver:seo:flow:start -->
+![ruvector: text or vector → embeddings → HNSW search → ranked results](https://raw.githubusercontent.com/ruvnet/ruvector/main/npm/packages/ruvector/assets/ruvector-flow.svg)
+<!-- weaver:seo:flow:end -->
+
 ![RuVector memory and feedback loop](https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/build-loop.svg)
 
 [![npm version](https://img.shields.io/npm/v/ruvector.svg)](https://www.npmjs.com/package/ruvector)
@@ -155,3 +159,18 @@ Review generated hooks before using them. Harness execution and hosted Brain com
 | A write tool is unavailable | Check the configured MCP profile and explicit tool policy |
 
 [Benchmarks with scope and evidence](https://github.com/ruvnet/RuVector#reproduce-the-evidence) · [Known boundaries](https://github.com/ruvnet/RuVector#known-boundaries) · [Issues](https://github.com/ruvnet/RuVector/issues) · [MIT license](https://github.com/ruvnet/RuVector/blob/main/LICENSE)
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for vector database, vector search, embeddings.
+
+- **Works with** (its runtime dependencies): [`@ruvector/attention`](https://www.npmjs.com/package/@ruvector/attention), [`@ruvector/core`](https://www.npmjs.com/package/@ruvector/core), [`@ruvector/gnn`](https://www.npmjs.com/package/@ruvector/gnn), [`@ruvector/sona`](https://www.npmjs.com/package/@ruvector/sona), [`@metaharness/darwin`](https://www.npmjs.com/package/@metaharness/darwin), [`@metaharness/flywheel`](https://www.npmjs.com/package/@metaharness/flywheel), [`@metaharness/harness`](https://www.npmjs.com/package/@metaharness/harness), [`@metaharness/redblue`](https://www.npmjs.com/package/@metaharness/redblue), [`@metaharness/router`](https://www.npmjs.com/package/@metaharness/router), [`@metaharness/weight-eft`](https://www.npmjs.com/package/@metaharness/weight-eft), [`@metaharness/workspace-lens`](https://www.npmjs.com/package/@metaharness/workspace-lens), [`@metaharness/workspace-probe`](https://www.npmjs.com/package/@metaharness/workspace-probe), [`@ruvector/mincut-wasm`](https://www.npmjs.com/package/@ruvector/mincut-wasm), [`@ruvector/rabitq-wasm`](https://www.npmjs.com/package/@ruvector/rabitq-wasm), [`@ruvector/ruqu-wasm`](https://www.npmjs.com/package/@ruvector/ruqu-wasm), [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf), [`@ruvector/tiny-dancer`](https://www.npmjs.com/package/@ruvector/tiny-dancer), [`metaharness`](https://www.npmjs.com/package/metaharness), [`@ruvector/diskann`](https://www.npmjs.com/package/@ruvector/diskann), [`@ruvector/pi-brain`](https://www.npmjs.com/package/@ruvector/pi-brain), [`@ruvector/router`](https://www.npmjs.com/package/@ruvector/router), [`@ruvector/ruvllm`](https://www.npmjs.com/package/@ruvector/ruvllm), [`rvlite`](https://www.npmjs.com/package/rvlite)
+- **Used by** (published packages that depend on it): [`@claude-flow/cli`](https://www.npmjs.com/package/@claude-flow/cli), [`@foxruv/iris-agentic-synth`](https://www.npmjs.com/package/@foxruv/iris-agentic-synth), [`@ruvector/agentic-synth`](https://www.npmjs.com/package/@ruvector/agentic-synth), [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all), [`agentdb`](https://www.npmjs.com/package/agentdb), [`agentic-flow`](https://www.npmjs.com/package/agentic-flow), [`claude-flow`](https://www.npmjs.com/package/claude-flow), [`psycho-symbolic-integration`](https://www.npmjs.com/package/psycho-symbolic-integration), [`ruvector-extensions`](https://www.npmjs.com/package/ruvector-extensions), [`ruvector-mragent`](https://www.npmjs.com/package/ruvector-mragent)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

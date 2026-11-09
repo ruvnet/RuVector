@@ -234,6 +234,14 @@ class RvfDatabase {
         this.ensureOpen();
         return this.backend.dimension();
     }
+    /** Get the distance metric the store was created with. */
+    async metric() {
+        this.ensureOpen();
+        if (!this.backend.metric) {
+            throw new errors_1.RvfError(errors_1.RvfErrorCode.BackendNotFound, 'this backend does not report its metric');
+        }
+        return this.backend.metric();
+    }
     // -----------------------------------------------------------------------
     // Byte-level persistence (WASM backend)
     // -----------------------------------------------------------------------
@@ -253,6 +261,9 @@ class RvfDatabase {
     // -----------------------------------------------------------------------
     /**
      * Close the store, releasing the writer lock and flushing pending data.
+     * On the Node backend, this may build and persist an HNSW index for a large
+     * ingest-only store. Await close before opening the file read-only if the
+     * first query must use the persisted index.
      *
      * After calling `close()`, all other methods will throw `RvfError` with
      * code `StoreClosed`.

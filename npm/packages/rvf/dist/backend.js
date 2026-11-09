@@ -537,6 +537,15 @@ class NodeBackend {
             throw errors_1.RvfError.fromNative(err);
         }
     }
+    async metric() {
+        this.ensureHandle();
+        try {
+            return metricFromNative(this.handle.metric());
+        }
+        catch (err) {
+            throw errors_1.RvfError.fromNative(err);
+        }
+    }
     async exportBytes() {
         throw new errors_1.RvfError(errors_1.RvfErrorCode.BackendNotFound, 'exportBytes is not supported by the node backend — use a file path with create()/open() instead');
     }
@@ -885,6 +894,8 @@ class WasmBackend {
         /** Integer store handle returned by `rvf_store_create` / `rvf_store_open`. */
         this.handle = 0;
         this.dim = 0;
+        /** Metric given to create(); unknown for stores loaded with openBytes(). */
+        this.storeMetric = null;
     }
     async loadWasm() {
         if (this.wasm)
@@ -926,6 +937,7 @@ class WasmBackend {
                 throw new Error('rvf_store_create returned ' + h);
             this.handle = h;
             this.dim = dim;
+            this.storeMetric = options.metric ?? 'l2';
         }
         catch (err) {
             throw errors_1.RvfError.fromNative(err);
@@ -1090,6 +1102,13 @@ class WasmBackend {
             throw new errors_1.RvfError(errors_1.RvfErrorCode.StoreClosed);
         return d;
     }
+    async metric() {
+        this.ensureHandle();
+        if (this.storeMetric === null) {
+            throw new errors_1.RvfError(errors_1.RvfErrorCode.BackendNotFound, 'metric is not recorded for a WASM store loaded from bytes');
+        }
+        return this.storeMetric;
+    }
     /**
      * Serialize the in-memory store to `.rvf` bytes via the `rvf_store_export`
      * C-ABI export. `rvf_store_export` follows a probe-then-write pattern:
@@ -1132,6 +1151,7 @@ class WasmBackend {
                     throw new Error('rvf_store_open returned ' + h);
                 this.handle = h;
                 this.dim = this.wasm.rvf_store_dimension(h);
+                this.storeMetric = null;
             }
             finally {
                 this.wasm.rvf_free(ptr, bytes.byteLength);
@@ -1171,6 +1191,21 @@ function resolveBackend(type) {
 // ---------------------------------------------------------------------------
 // Mapping helpers (TS options -> native/wasm shapes)
 // ---------------------------------------------------------------------------
+/** Map the native metric name (`l2`, `inner_product`, `cosine`) to the SDK's. */
+function metricFromNative(raw) {
+    switch (String(raw).toLowerCase()) {
+        case 'cosine':
+            return 'cosine';
+        case 'inner_product':
+        case 'innerproduct':
+        case 'dotproduct':
+            return 'dotproduct';
+        case 'l2':
+            return 'l2';
+        default:
+            throw new errors_1.RvfError(errors_1.RvfErrorCode.InvalidArgument, `unknown native metric ${String(raw)}`);
+    }
+}
 function mapMetricToNative(metric) {
     switch (metric) {
         case 'cosine':

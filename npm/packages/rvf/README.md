@@ -128,7 +128,7 @@ Every instance method is async. `backend` is `'node' | 'wasm' | 'auto'` (default
 | `RvfDatabase.open(path, backend?)` | Open existing (read-write) |
 | `RvfDatabase.openReadonly(path, backend?)` | Open existing (read-only) |
 | `RvfDatabase.openBytes(bytes, backend?)` | Open from an in-memory `.rvf` buffer (WASM backend) |
-| `db.ingestBatch(entries)` | Insert `{ id: string, vector: Float32Array \| number[] }` entries |
+| `db.ingestBatch(entries)` | Insert or update `{ id: string, vector: Float32Array \| number[] }` entries. Re-ingesting an id updates it in place; an id repeated within one batch keeps its last entry |
 | `db.query(vector, k \| { k, efSearch, filter, timeoutMs, forceExact }, options?)` | k-NN search, returns `[{ id, distance }]` |
 | `db.delete(ids)` | Delete vectors by ID |
 | `db.deleteByFilter(filter)` | Delete vectors matching a filter expression |
@@ -145,6 +145,7 @@ Every instance method is async. `backend` is `'node' | 'wasm' | 'auto'` (default
 | `db.extractEbpf()` | Extract eBPF program (`{ header, payload }` or `null`) |
 | `db.segments()` | List all segments |
 | `db.dimension()` | Vector dimensionality |
+| `db.metric()` | Distance metric the store was created with (`'l2' \| 'cosine' \| 'dotproduct'`) |
 | `db.exportBytes()` | Serialize the store to bytes (WASM backend) |
 | `db.close()` / `db.isClosed` | Close the store / closed flag |
 

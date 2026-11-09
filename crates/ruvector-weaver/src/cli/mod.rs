@@ -2,6 +2,9 @@
 
 mod cmds;
 mod io;
+mod seo;
+mod seo_apply;
+mod seo_report;
 mod sources;
 
 use anyhow::Result;
@@ -142,6 +145,11 @@ pub enum Cmd {
     },
     /// Capability gaps -> `create` items merged into queue.json.
     ProposeNew,
+    /// Portfolio SEO / distribution layer (ADR-356).
+    Seo {
+        #[command(subcommand)]
+        op: seo::SeoOp,
+    },
 }
 
 #[derive(Subcommand)]
@@ -217,6 +225,7 @@ impl Ctx {
 
 pub fn run() -> Result<()> {
     let cli = Cli::parse();
+    let config_dir = cli.config_dir.clone();
     let cfg = Config::load(cli.config_dir.as_deref(), cli.work_dir.clone())?;
     let http = Http::new(
         Some(cli.work_dir.join("http-cache")),
@@ -271,6 +280,7 @@ pub fn run() -> Result<()> {
             show,
         } => cmds::queue(&ctx, gate_top, no_create, show),
         Cmd::ProposeNew => cmds::propose_new(&ctx),
+        Cmd::Seo { op } => seo::run(&ctx, config_dir.as_deref(), op),
         Cmd::VulnEvidence {
             package,
             dir,
