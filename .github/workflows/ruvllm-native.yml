@@ -22,11 +22,13 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-24.04
+            container: ubuntu:22.04
             node_file: ruvllm.linux-x64-gnu.node
             npm_package: ruvllm-linux-x64-gnu
           - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-24.04
+            container: ubuntu:22.04
             node_file: ruvllm.linux-arm64-gnu.node
             npm_package: ruvllm-linux-arm64-gnu
           - target: x86_64-apple-darwin
@@ -43,9 +45,19 @@ jobs:
             npm_package: ruvllm-win32-x64-msvc
 
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
     name: Build ${{ matrix.target }}
 
     steps:
+      - name: Bootstrap ubuntu:22.04 build container (keeps the glibc floor)
+        if: ${{ matrix.container != '' }}
+        shell: bash
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            sudo git curl wget ca-certificates build-essential pkg-config xz-utils unzip zip python3 jq file \
+            libssl-dev cmake clang libclang-dev
+          git config --global --add safe.directory '*'
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
@@ -156,6 +168,27 @@ jobs:
             bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
             cd ../../..
           done
+
+      - name: Lock the wrapper's platform optionalDependencies to the published version
+        # The committed wrapper keeps pins that resolve on npm (the
+        # optional-deps-resolvable-on-npm guard); at publish time they move to
+        # the platform version just published, so installs get the new binaries.
+        run: |
+          set -euo pipefail
+          node -e '
+            const fs = require("fs");
+            const plats = ["linux-x64-gnu", "linux-arm64-gnu", "darwin-x64", "darwin-arm64", "win32-x64-msvc"];
+            const v = require("./npm/packages/ruvllm-linux-x64-gnu/package.json").version;
+            for (const p of plats) {
+              const pv = require(`./npm/packages/ruvllm-${p}/package.json`).version;
+              if (pv !== v) throw new Error(`ruvllm-${p} is ${pv}, expected ${v}`);
+            }
+            const file = "./npm/packages/ruvllm/package.json";
+            const pkg = JSON.parse(fs.readFileSync(file, "utf8"));
+            for (const p of plats) pkg.optionalDependencies[`@ruvector/ruvllm-${p}`] = v;
+            fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + "\n");
+            console.log("locked platform optionalDependencies to " + v);
+          '
 
       - name: Build and publish main package
         env:
