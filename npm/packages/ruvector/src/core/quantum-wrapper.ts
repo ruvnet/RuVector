@@ -10,11 +10,12 @@
  * plain `import()` into `require()` — so the engine is loaded through a real
  * dynamic import and initialised synchronously from the .wasm bytes.
  *
- * Circuits are validated here, before the engine is loaded, because the engine
- * does not reject everything itself (a NaN rotation angle silently yields NaN
- * probabilities). Measurement and reset are not accepted as circuit ops: the
- * engine collapses them with unseeded randomness. Use `shots` (seeded sampling
- * of the final state) instead.
+ * Circuits are validated here, before the engine is loaded, so bad input fails
+ * with a precise message (which gate, which field) without paying for the WASM
+ * load; the engine (^2.2.0) also rejects non-finite angles itself. The seed is
+ * passed to the engine's `simulate(circuit, seed)` as well as to the shot
+ * sampler. Measurement and reset are not accepted as circuit ops; use `shots`
+ * (seeded sampling of the final state) instead.
  *
  * Bit order: qubit 0 is the least-significant bit, i.e. the RIGHTMOST
  * character of a basis-state bitstring (`x 0` on 2 qubits gives "01").
@@ -224,19 +225,26 @@ export function validateCircuit(spec: unknown, limitsIn?: Partial<QuantumLimits>
  * `"rx 0 1.5708"` (one gate per `;` or newline; angle last). Also accepts the
  * presets `bell` and `ghz` / `ghz:N`.
  */
-export function parseCircuitText(text: string, qubits?: number): { qubits: number; gates: unknown[] } {
+export function parseCircuitText(
+  text: string,
+  qubits?: number,
+  limitsIn?: Partial<QuantumLimits>
+): { qubits: number; gates: unknown[] } {
+  const limits = resolveLimits(limitsIn);
   const t = String(text).trim();
   const preset = /^(bell|ghz)(?::(\d+))?$/i.exec(t);
   if (preset) {
     const kind = preset[1].toLowerCase();
     const n = kind === 'bell' ? 2 : preset[2] ? parseInt(preset[2], 10) : qubits ?? 3;
-    return ghzCircuit(n);
+    // Checked before building: ghz:N allocates N gates.
+    return ghzCircuit(checkQubitCount(n, limits));
   }
   const gates: Record<string, unknown>[] = [];
   let maxIndex = -1;
   for (const raw of t.split(/[;\n]+/)) {
     const line = raw.trim();
     if (!line || line.startsWith('#')) continue;
+    if (gates.length >= limits.maxGates) fail(`gate count exceeds the cap of ${limits.maxGates}`);
     const [name, ...args] = line.split(/[\s,]+/);
     const key = name.toLowerCase();
     const def = GATES[key];
@@ -251,6 +259,24 @@ export function parseCircuitText(text: string, qubits?: number): { qubits: numbe
     gates.push(angle === undefined ? { gate: name, qubits: qs } : { gate: name, qubits: qs, angle });
   }
   return { qubits: qubits ?? Math.max(1, maxIndex + 1), gates };
+}
+
+/**
+ * Turn a string circuit into a spec: inline JSON (`'{"qubits":2,...}'`), a
+ * preset (`bell`, `ghz`, `ghz:N`) or text ops (`"h 0; cx 0 1"`). Shared by the
+ * CLI and the MCP tool so both accept the same shorthand under the caller's
+ * limits. Never reads files.
+ */
+export function circuitFromString(text: string, qubits?: number, limits?: Partial<QuantumLimits>): unknown {
+  const s = String(text).trim();
+  if (s.startsWith('{')) {
+    try {
+      return JSON.parse(s);
+    } catch (e) {
+      fail(`circuit JSON does not parse: ${(e as Error).message}`);
+    }
+  }
+  return parseCircuitText(s, qubits, limits);
 }
 
 /** n-qubit GHZ circuit: H on qubit 0, then a CNOT chain. n=2 is the Bell state. */
@@ -387,7 +413,7 @@ export async function simulate(spec: unknown, options: QuantumSimulateOptions = 
       else c[m](...g.qubits);
     }
     const t0 = process.hrtime.bigint();
-    const r = q.simulate(c);
+    const r = q.simulate(c, seed);
     const wallTimeMs = Number(process.hrtime.bigint() - t0) / 1e6;
     const probs: number[] = r.probabilities;
     const out: QuantumSimulateResult = {

@@ -2218,9 +2218,8 @@ function quantumFail(e) {
 /** <circuit> = preset (bell, ghz, ghz:N) | JSON file | inline JSON | text ops ("h 0; cx 0 1"). */
 function readCircuitArg(q, arg, qubits) {
   const s = String(arg).trim();
-  if (s.startsWith('{')) return JSON.parse(s);
   if (/\.json$/i.test(s) && fs.existsSync(s)) return JSON.parse(fs.readFileSync(s, 'utf8'));
-  return q.parseCircuitText(s, qubits);
+  return q.circuitFromString(s, qubits, q.CLI_LIMITS);
 }
 
 function intOpt(v, name) {

@@ -267,3 +267,68 @@ test('MCP: quantum tools listed; validation limits enforced; Bell over stdio', a
     s.close();
   }
 });
+
+// ── seeding + CLI/MCP shorthand parity ──────────────────────────────────────
+
+const stable = (r) => {
+  const { executionTimeMs, wallTimeMs, ...rest } = r; // timing varies per run
+  void executionTimeMs; void wallTimeMs;
+  return rest;
+};
+
+test('seeded runs are reproducible across calls (library and CLI)', { skip: skipNoEngine }, async () => {
+  const a = await q.simulate(q.parseCircuitText('h 0; h 1; cx 0 2; rz 2 0.3'), { shots: 3000, seed: 7 });
+  const b = await q.simulate(q.parseCircuitText('h 0; h 1; cx 0 2; rz 2 0.3'), { shots: 3000, seed: 7 });
+  assert.deepEqual(stable(a), stable(b));
+  assert.equal(a.seed, 7);
+  const c = await q.simulate(q.parseCircuitText('h 0; h 1; cx 0 2; rz 2 0.3'), { shots: 3000, seed: 8 });
+  assert.notDeepEqual(c.counts, a.counts, 'a different seed samples differently');
+
+  const cli = () => {
+    const r = run(['quantum', 'simulate', 'bell', '--seed', '7', '--json']);
+    assert.equal(r.status, 0, r.stderr);
+    return stable(JSON.parse(r.stdout));
+  };
+  assert.deepEqual(cli(), cli());
+});
+
+test('circuitFromString: shorthand obeys the caller limits before building', () => {
+  assert.throws(() => q.circuitFromString('ghz:30'), /cap of 20/);
+  assert.throws(() => q.circuitFromString('ghz:1000000000'), /cap of 20/);
+  assert.equal(q.circuitFromString('ghz:22', undefined, q.CLI_LIMITS).qubits, 22);
+  assert.throws(() => q.circuitFromString(Array.from({ length: 10001 }, () => 'h 0').join(';')), /cap of 10000/);
+  assert.throws(() => q.circuitFromString('{"qubits":'), /does not parse/);
+  assert.deepEqual(q.circuitFromString('{"qubits":1,"gates":[]}'), { qubits: 1, gates: [] });
+  assert.deepEqual(q.circuitFromString('bell'), q.ghzCircuit(2));
+});
+
+test('MCP quantum_simulate accepts the CLI string shorthand with the same result', async () => {
+  const s = mcpSession();
+  try {
+    await s.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'quantum-shorthand', version: '1' } });
+    s.child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`);
+
+    const reject = async (args, re) => {
+      const r = await s.call('quantum_simulate', args);
+      assert.equal(r.isError, true, JSON.stringify(args));
+      assert.match(r.body.error, re);
+    };
+    await reject({ circuit: 'ghz:21' }, /cap of 20/);
+    await reject({ circuit: 'measure 0' }, /use shots/);
+    await reject({ circuit: 'rx 0 NaN' }, /finite/);
+    await reject({ circuit: 'qft 0' }, /unknown gate/);
+
+    if (!HAVE_ENGINE) return;
+    for (const [shorthand, cliArg] of [['bell', 'bell'], ['h 0; cx 0 1', 'h 0; cx 0 1'], ['ghz:5', 'ghz:5']]) {
+      const m = await s.call('quantum_simulate', { circuit: shorthand, shots: 1024, seed: 7, top: 8 });
+      assert.equal(m.isError, false, JSON.stringify(m.body));
+      const c = run(['quantum', 'simulate', cliArg, '--shots', '1024', '--seed', '7', '--top', '8', '--json']);
+      assert.equal(c.status, 0, c.stderr);
+      const { success, ...mcp } = m.body;
+      assert.equal(success, true);
+      assert.deepEqual(stable(mcp), stable(JSON.parse(c.stdout)), `MCP vs CLI for ${shorthand}`);
+    }
+  } finally {
+    s.close();
+  }
+});
