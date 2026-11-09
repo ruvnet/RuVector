@@ -1499,7 +1499,7 @@ Made with security in mind by the RuVector Team
 
 Part of the [ruv.io](https://ruv.io) open-source stack for LLM, vector search, self-learning.
 
-- **Works with** (its runtime dependencies): [`@ruvector/ruvllm`](https://www.npmjs.com/package/@ruvector/ruvllm), [`aidefence`](https://www.npmjs.com/package/aidefence)
+- **Works with** (its runtime dependencies): [`@ruvector/ruvllm`](https://www.npmjs.com/package/@ruvector/ruvllm) (optional), [`aidefence`](https://www.npmjs.com/package/aidefence) (optional)
 - **Used by** (published packages that depend on it): none yet
 <!-- weaver:seo:links:end -->
 

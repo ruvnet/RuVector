@@ -182,7 +182,7 @@ For the full design — including persistence layout, optimization rationale, an
 Part of the [ruv.io](https://ruv.io) open-source stack for vector search, quantization, Rust.
 
 - **Works with** (its runtime dependencies): no other ruvnet package (standalone)
-- **Used by** (published packages that depend on it): [`@claude-flow/embeddings`](https://www.npmjs.com/package/@claude-flow/embeddings), [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all), [`ruvector`](https://www.npmjs.com/package/ruvector)
+- **Used by** (published packages that depend on it): [`@claude-flow/embeddings`](https://www.npmjs.com/package/@claude-flow/embeddings) (peer), [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all), [`ruvector`](https://www.npmjs.com/package/ruvector) (peer)
 <!-- weaver:seo:links:end -->
 
 <!-- weaver:seo:footer:start -->

@@ -372,8 +372,8 @@ MIT OR Apache-2.0
 
 Part of the [ruv.io](https://ruv.io) open-source stack for vector database, WASM, RAG.
 
-- **Works with** (its runtime dependencies): [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm), [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm)
-- **Used by** (published packages that depend on it): [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all), [`ruvector`](https://www.npmjs.com/package/ruvector)
+- **Works with** (its runtime dependencies): [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) (optional), [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) (optional)
+- **Used by** (published packages that depend on it): [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all), [`ruvector`](https://www.npmjs.com/package/ruvector) (peer)
 <!-- weaver:seo:links:end -->
 
 <!-- weaver:seo:footer:start -->

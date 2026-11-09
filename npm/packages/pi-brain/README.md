@@ -192,7 +192,7 @@ MIT
 Part of the [ruv.io](https://ruv.io) open-source stack for CLI, MCP, Claude.
 
 - **Works with** (its runtime dependencies): no other ruvnet package (standalone)
-- **Used by** (published packages that depend on it): [`ruvector`](https://www.npmjs.com/package/ruvector)
+- **Used by** (published packages that depend on it): [`ruvector`](https://www.npmjs.com/package/ruvector) (peer)
 <!-- weaver:seo:links:end -->
 
 <!-- weaver:seo:footer:start -->

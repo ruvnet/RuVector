@@ -16,7 +16,7 @@ npm install @ruvector/mincut-wasm
 Part of the [ruv.io](https://ruv.io) open-source stack for WASM, vector database, vector search.
 
 - **Works with** (its runtime dependencies): no other ruvnet package (standalone)
-- **Used by** (published packages that depend on it): [`agentdb`](https://www.npmjs.com/package/agentdb), [`agentic-flow`](https://www.npmjs.com/package/agentic-flow), [`ruvector`](https://www.npmjs.com/package/ruvector)
+- **Used by** (published packages that depend on it): [`agentdb`](https://www.npmjs.com/package/agentdb) (optional), [`agentic-flow`](https://www.npmjs.com/package/agentic-flow) (optional), [`ruvector`](https://www.npmjs.com/package/ruvector) (optional)
 <!-- weaver:seo:links:end -->
 
 <!-- weaver:seo:footer:start -->

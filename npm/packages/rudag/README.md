@@ -764,7 +764,7 @@ MIT OR Apache-2.0
 Part of the [ruv.io](https://ruv.io) open-source stack for DAG, Node.js, machine learning.
 
 - **Works with** (its runtime dependencies): no other ruvnet package (standalone)
-- **Used by** (published packages that depend on it): none yet
+- **Used by** (published packages that depend on it): [`agentic-flow`](https://www.npmjs.com/package/agentic-flow) (optional)
 <!-- weaver:seo:links:end -->
 
 <!-- weaver:seo:footer:start -->

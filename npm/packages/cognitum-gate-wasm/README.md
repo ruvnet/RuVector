@@ -1272,6 +1272,6 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 
 Part of the [ruv.io](https://ruv.io) open-source stack for AI, AI agents, LLM.
 
-- **Works with** (its runtime dependencies): [`claude-flow`](https://www.npmjs.com/package/claude-flow)
+- **Works with** (its runtime dependencies): [`claude-flow`](https://www.npmjs.com/package/claude-flow) (peer)
 - **Used by** (published packages that depend on it): none yet
 <!-- weaver:seo:links:end -->

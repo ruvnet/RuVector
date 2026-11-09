@@ -630,7 +630,7 @@ MIT
 Part of the [ruv.io](https://ruv.io) open-source stack for embeddings, WASM, N-API.
 
 - **Works with** (its runtime dependencies): no other ruvnet package (standalone)
-- **Used by** (published packages that depend on it): [`@claude-flow/cli`](https://www.npmjs.com/package/@claude-flow/cli)
+- **Used by** (published packages that depend on it): [`@claude-flow/cli`](https://www.npmjs.com/package/@claude-flow/cli) (peer)
 <!-- weaver:seo:links:end -->
 
 <!-- weaver:seo:footer:start -->
