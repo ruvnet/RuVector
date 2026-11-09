@@ -1,15 +1,15 @@
 {
   "name": "@ruvector/core",
-  "version": "0.1.36",
-  "description": "High-performance vector database with HNSW indexing - 50k+ inserts/sec, built in Rust for AI/ML similarity search and semantic search applications",
+  "version": "0.1.37",
+  "description": "Vector database core with HNSW indexing, built in Rust with native Node.js bindings, for similarity search, semantic search and RAG.",
   "main": "index.js",
   "types": "index.d.ts",
   "author": "ruv.io Team <info@ruv.io> (https://ruv.io)",
   "homepage": "https://ruv.io",
   "repository": {
+    "directory": "npm/packages/core",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
-    "directory": "npm/packages/core"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
@@ -42,17 +42,16 @@
     "access": "public"
   },
   "keywords": [
-    "ruvector",
     "vector-database",
     "vector-search",
-    "embeddings",
-    "semantic-search",
-    "similarity-search",
     "hnsw",
-    "approximate-nearest-neighbor",
-    "rag",
-    "napi",
+    "embeddings",
     "rust",
+    "napi",
+    "ruvector",
+    "ruvnet",
+    "semantic-search",
+    "rag",
     "simd"
   ]
 }
