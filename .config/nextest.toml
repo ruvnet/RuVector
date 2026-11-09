@@ -16,5 +16,5 @@ slow-timeout = { period = "120s", terminate-after = 5 }
 # LocalKCut loop (fixed) without ever failing; none needs more than ~10
 # minutes now (ledger ci:tests-shard-hang).
 [[profile.default.overrides]]
-filter = 'package(ruvector-attention) | package(ruvector-mincut) | package(ruvector-fpga-transformer) | package(ruvector-graph-transformer) | package(ruvllm) | package(ruvllm-cli) | package(ruvector-dag) | package(ruvector-nervous-system) | package(ruvector-math) | package(ruvector-consciousness) | package(prime-radiant) | package(mcp-brain) | package(ruvector-decompiler)'
+filter = 'package(ruvector-attention) | package(ruvector-mincut) | package(ruvector-fpga-transformer) | package(ruvector-graph-transformer) | package(ruvllm) | package(ruvllm-cli) | package(ruvector-dag) | package(ruvector-nervous-system) | package(ruvector-math) | package(ruvector-consciousness) | package(mcp-brain) | package(ruvector-decompiler)'
 slow-timeout = { period = "300s", terminate-after = 6 }
