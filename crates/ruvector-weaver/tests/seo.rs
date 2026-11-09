@@ -92,8 +92,8 @@ fn audit_flags_each_rule_and_ranks_by_downloads_times_issues() {
     assert!(!codes.contains(&"stale"));
     assert_eq!(
         a.dependents,
-        vec!["@acme/app"],
-        "platform builds are not consumers"
+        vec!["@acme/app", "@acme/plugin", "@acme/ui"],
+        "optional + peer dependents count; platform builds are not consumers"
     );
     assert_eq!(a.score, 5000 * a.issues.len() as u64);
 

@@ -81,6 +81,10 @@ pub enum SeoOp {
         checkout: Option<PathBuf>,
         #[arg(long)]
         dry_run: bool,
+        /// With --checkout: rewrite the metadata/README in place on an
+        /// existing PR branch (no version bump, no git); commit it yourself.
+        #[arg(long, requires = "checkout")]
+        in_place: bool,
     },
 }
 
@@ -131,8 +135,16 @@ pub fn run(ctx: &Ctx, config_dir: Option<&Path>, op: SeoOp) -> Result<()> {
             top,
             checkout,
             dry_run,
+            in_place,
         } => super::seo_apply::apply(
-            ctx, &tax, &repo, repo_level, packages, top, checkout, dry_run,
+            ctx,
+            &tax,
+            &repo,
+            repo_level,
+            packages,
+            top,
+            checkout,
+            (dry_run, in_place),
         ),
     }
 }

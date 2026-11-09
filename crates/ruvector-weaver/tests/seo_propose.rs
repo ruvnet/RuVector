@@ -62,7 +62,7 @@ fn propose_builds_links_from_real_edges_and_is_idempotent() {
         vec!["@acme/core"],
         "only fabric deps, never left-pad"
     );
-    assert_eq!(pp.used_by, vec!["@acme/app"]);
+    assert_eq!(pp.used_by, vec!["@acme/app", "@acme/plugin", "@acme/ui"]);
     assert_eq!(
         &pp.keywords[..3],
         &["vector-database", "hnsw", "embeddings"]
@@ -102,6 +102,12 @@ fn propose_builds_links_from_real_edges_and_is_idempotent() {
     assert!(md.contains("npm install @acme/vecdb"));
     assert!(md.contains(LINKS_START) && md.contains(FOOTER_START));
     assert!(md.contains("[`@acme/core`](https://www.npmjs.com/package/@acme/core)"));
+    assert!(
+        md.contains("[`@acme/plugin`](https://www.npmjs.com/package/@acme/plugin) (optional)"),
+        "optional dependents count and are labelled"
+    );
+    assert!(md.contains("[`@acme/ui`](https://www.npmjs.com/package/@acme/ui) (peer)"));
+    assert!(md.contains("[`@acme/app`](https://www.npmjs.com/package/@acme/app),"));
     assert!(md.contains("https://raw.githubusercontent.com/acme/stack/main/packages/vecdb/assets/acme-vecdb-flow.svg"));
     assert!(
         ruvector_weaver::readme::lint(md).is_empty(),
