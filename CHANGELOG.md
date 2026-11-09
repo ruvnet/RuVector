@@ -12,6 +12,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
 
+## [ruvector 0.3.20] - 2026-11-09
+### Fixed
+- Attention wrappers call `@ruvector/attention` with its real argument
+  shapes (GraphRoPe, DualSpace, async flash/hyperbolic, parallel/batch
+  compute, InfoNCE, hard-negative mining, Adam, benchmark), and
+  `ruvector attention compute -t flash|linear` works (#1375).
+- `hooks init` merges with other tools' hooks instead of replacing them,
+  hook commands read Claude Code's stdin JSON (`--stdin`), timeouts are in
+  seconds, and init no longer enables `claude-flow` or adds agentic-flow
+  alpha prompt hooks (#1222).
+- Session hooks run on `SessionEnd` instead of after every reply,
+  `compressedPatterns` survive later saves, and `hooks compress` /
+  AUTO_COMPRESS store the Q-table (#1223).
+- `hooks graph-cluster` / `graph-mincut` name nodes by relative path, so
+  same-named files in different directories stay distinct, and follow
+  `../x`, subpath and directory-index imports (#1217).
+
 ## [@ruvector/core 0.1.38 (platforms 0.1.35), ruvector 0.3.19] - 2026-11-09
 ### Fixed
 - Re-inserting an existing id is an upsert with no HNSW ghost of the old

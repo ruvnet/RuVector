@@ -1236,6 +1236,8 @@ attentionCmd
   .option('-h, --heads <number>', 'Number of attention heads (for multi-head)', '4')
   .option('-d, --head-dim <number>', 'Head dimension (for multi-head)', '64')
   .option('--curvature <number>', 'Curvature for hyperbolic attention', '1.0')
+  .option('--block-size <number>', 'Block size (for flash)', '64')
+  .option('--num-features <number>', 'Random feature count (for linear, default: query dim)')
   .option('-o, --output <file>', 'Output file for results')
   .action((options) => {
     requireAttention();
@@ -1283,7 +1285,9 @@ attentionCmd
           break;
         }
         case 'flash': {
-          const attn = new FlashAttention(dim);
+          // Native FlashAttention(dim, blockSize) and LinearAttention(dim, numFeatures)
+          // require the second argument (#1375).
+          const attn = new FlashAttention(dim, parseInt(options.blockSize, 10) || 64);
           result = attn.compute(query, keys, values);
           break;
         }
@@ -1294,13 +1298,16 @@ attentionCmd
           break;
         }
         case 'linear': {
-          const attn = new LinearAttention(dim);
+          const attn = new LinearAttention(dim, parseInt(options.numFeatures, 10) || dim);
           result = attn.compute(query, keys, values);
           break;
         }
         default:
           throw new Error(`Unknown attention type: ${options.type}`);
       }
+      // Native kernels return Float32Array: print and serialize as plain numbers.
+      result = Array.from(result);
+      if (attentionWeights) attentionWeights = Array.from(attentionWeights);
 
       spinner.succeed(chalk.green(`Attention computed (${options.type})`));
 
@@ -3504,6 +3511,25 @@ function releaseAllIntelLocks() {
   heldIntelLocks.clear();
 }
 
+/**
+ * Tensors for TensorCompress from the store's `patterns`. Q-table entries are
+ * `{state, action, q_value, visits, last_update}` objects, stored as
+ * `[q_value, visits]`; legacy number-array patterns pass through. `hooks
+ * compress` used to accept only the legacy form and so wrote nothing (#1223).
+ */
+function patternTensors(patterns) {
+  const out = [];
+  if (!patterns || typeof patterns !== 'object') return out;
+  for (const [key, value] of Object.entries(patterns)) {
+    if (Array.isArray(value)) {
+      if (value.length > 0 && value.every(Number.isFinite)) out.push([key, value]);
+    } else if (value && typeof value === 'object' && Number.isFinite(value.q_value)) {
+      out.push([key, [value.q_value, Number.isFinite(value.visits) ? value.visits : 0]]);
+    }
+  }
+  return out;
+}
+
 /** Parse a numeric CLI/MCP input; reject non-finite values and clamp to [min, max]. */
 function parseBoundedNumber(value, min, max, name) {
   const n = typeof value === 'number' ? value : parseFloat(value);
@@ -3687,7 +3713,9 @@ class Intelligence {
       // Preserve auxiliary learned data if present
       coEditPatterns: data.coEditPatterns || undefined,
       sequences: data.sequences || undefined,
-      learning: data.learning || undefined
+      learning: data.learning || undefined,
+      // Kept so a later save does not drop what `hooks compress` wrote (#1223)
+      compressedPatterns: data.compressedPatterns || undefined
     };
   }
 
@@ -4402,9 +4430,11 @@ class Intelligence {
     try {
       if (process.env.RUVECTOR_AUTO_COMPRESS === 'true' || process.env.RUVECTOR_TENSOR_COMPRESS === 'true') {
         const TensorCompressClass = require('../dist/core/tensor-compress').default;
-        if (TensorCompressClass && this.data.compressedPatterns) {
+        const tensors = patternTensors(this.data.patterns);
+        if (TensorCompressClass && (this.data.compressedPatterns || tensors.length > 0)) {
           const compress = new TensorCompressClass({ autoCompress: false });
-          compress.import(this.data.compressedPatterns);
+          if (this.data.compressedPatterns) compress.import(this.data.compressedPatterns);
+          for (const [key, tensor] of tensors) compress.store(key, tensor);
           const stats = compress.recompressAll();
           this.data.compressedPatterns = compress.export();
           // Only log if significant savings
@@ -4493,8 +4523,38 @@ function getPermissionsForProjectType(types) {
   return [...new Set(perms)];
 }
 
+// A hook entry ruvector owns: any `ruvector[@ver] hooks …` or fast-wrapper
+// call, plus the agentic-flow prompt workers that older inits added.
+const RUVECTOR_HOOK_RE = /\bruvector(?:@\S+)?\s+hooks\s|ruvector-fast\.sh\s+hooks\s|agentic-flow(?:@\S+|-fast\.sh)\s+workers\s/;
+
+/**
+ * Merge ruvector's hook groups into an existing `settings.hooks` object.
+ * ruvector-owned entries are removed from every event (so a re-run, or an
+ * upgrade from an older layout, never duplicates them) and every other entry
+ * is kept exactly as it was; ruvector's groups are appended after them.
+ */
+function mergeRuvectorHooks(existing, ours) {
+  const merged = {};
+  const isOurs = (h) => h && typeof h.command === 'string' && RUVECTOR_HOOK_RE.test(h.command);
+  for (const [event, groups] of Object.entries(existing && typeof existing === 'object' ? existing : {})) {
+    if (!Array.isArray(groups)) { merged[event] = groups; continue; }
+    const kept = [];
+    for (const group of groups) {
+      if (!group || !Array.isArray(group.hooks)) { kept.push(group); continue; }
+      const hooks = group.hooks.filter((h) => !isOurs(h));
+      if (hooks.length === group.hooks.length) kept.push(group);
+      else if (hooks.length > 0) kept.push({ ...group, hooks });
+    }
+    if (kept.length > 0 || groups.length === 0 || ours[event]) merged[event] = kept;
+  }
+  for (const [event, groups] of Object.entries(ours)) {
+    merged[event] = [...(merged[event] || []), ...groups];
+  }
+  return merged;
+}
+
 hooksCmd.command('init')
-  .description('Initialize hooks in current project')
+  .description('Initialize hooks in current project (merges with existing hooks)')
   .option('--force', 'Force overwrite existing settings')
   .option('--minimal', 'Only basic hooks (no env, permissions, or advanced hooks)')
   .option('--fast', 'Use fast local wrapper (20x faster, bypasses npx overhead)')
@@ -4656,17 +4716,11 @@ hooksCmd.command('init')
     console.log(chalk.blue('  ✓ Permissions configured (project-specific)'));
   }
 
-  // MCP server configuration (unless --minimal or --no-mcp)
+  // MCP servers are left as the project has them: init used to push
+  // `claude-flow` into enabledMcpjsonServers, re-enabling a server a project
+  // may have disabled on purpose (#1222). Print how to add ruvector's own.
   if (!opts.minimal && opts.mcp !== false) {
-    settings.mcpServers = settings.mcpServers || {};
-    // Only add if not already configured
-    if (!settings.mcpServers['claude-flow'] && !settings.enabledMcpjsonServers?.includes('claude-flow')) {
-      settings.enabledMcpjsonServers = settings.enabledMcpjsonServers || [];
-      if (!settings.enabledMcpjsonServers.includes('claude-flow')) {
-        settings.enabledMcpjsonServers.push('claude-flow');
-      }
-    }
-    console.log(chalk.blue('  ✓ MCP servers configured'));
+    console.log(chalk.blue('  ✓ MCP servers left unchanged (add ruvector with: claude mcp add ruvector -- npx -y ruvector mcp start)'));
   }
 
   // StatusLine configuration (unless --minimal or --no-statusline)
@@ -4754,9 +4808,10 @@ fi
     }
   }
 
-  // Fast wrapper creation (--fast option) - 20x faster than npx
-  let hookCmd = 'npx ruvector@latest';
-  let fastTimeouts = { simple: 2000, complex: 2000, session: 5000 };
+  // Fast wrapper creation (--fast option) - 20x faster than npx.
+  // Without it, hooks run the exact version that wrote them: `npx -y pkg@x.y.z`
+  // is served from the npx cache, where `@latest` checks the registry per event.
+  let hookCmd = `npx -y ruvector@${packageJson.version}`;
   if (opts.fast && !isWindows) {
     const fastWrapperPath = path.join(settingsDir, 'ruvector-fast.sh');
     const fastWrapperContent = `#!/bin/bash
@@ -4779,7 +4834,7 @@ elif command -v ruvector &> /dev/null; then
   exec ruvector "$@"
 # Fallback to npx (slow but works)
 else
-  exec npx ruvector@latest "$@"
+  exec npx -y ruvector@${packageJson.version} "$@"
 fi
 
 # Execute with node directly (fast path)
@@ -4788,7 +4843,6 @@ exec node "$RUVECTOR_CLI" "$@"
     fs.writeFileSync(fastWrapperPath, fastWrapperContent);
     fs.chmodSync(fastWrapperPath, '755');
     hookCmd = '.claude/ruvector-fast.sh';
-    fastTimeouts = { simple: 300, complex: 500, session: 1000 };
     // Add permission for fast wrapper
     if (settings.permissions && settings.permissions.allow) {
       if (!settings.permissions.allow.includes('Bash(.claude/ruvector-fast.sh:*)')) {
@@ -4798,132 +4852,49 @@ exec node "$RUVECTOR_CLI" "$@"
     console.log(chalk.blue('  ✓ Fast wrapper created (.claude/ruvector-fast.sh) - 20x faster hooks'));
   }
 
-  // Core hooks (always included) - with timeouts and error suppression
-  settings.hooks = settings.hooks || {};
-  settings.hooks.PreToolUse = [
-    {
-      matcher: 'Edit|Write|MultiEdit',
-      hooks: [
-        { type: 'command', timeout: fastTimeouts.complex, command: `${hookCmd} hooks pre-edit "$TOOL_INPUT_file_path" 2>/dev/null || true` },
-        { type: 'command', timeout: fastTimeouts.complex, command: `${hookCmd} hooks coedit-suggest --file "$TOOL_INPUT_file_path" 2>/dev/null || true` }
-      ]
-    },
-    { matcher: 'Bash', hooks: [{ type: 'command', timeout: fastTimeouts.complex, command: `${hookCmd} hooks pre-command "$TOOL_INPUT_command" 2>/dev/null || true` }] },
-    { matcher: 'Read', hooks: [{ type: 'command', timeout: fastTimeouts.simple, command: `${hookCmd} hooks remember "Reading: $TOOL_INPUT_file_path" -t file_access 2>/dev/null || true` }] },
-    { matcher: 'Glob|Grep', hooks: [{ type: 'command', timeout: fastTimeouts.simple, command: `${hookCmd} hooks remember "Search: $TOOL_INPUT_pattern" -t search_pattern 2>/dev/null || true` }] },
-    { matcher: 'Task', hooks: [{ type: 'command', timeout: fastTimeouts.simple, command: `${hookCmd} hooks remember "Agent: $TOOL_INPUT_subagent_type" -t agent_spawn 2>/dev/null || true` }] }
-  ];
-  settings.hooks.PostToolUse = [
-    { matcher: 'Edit|Write|MultiEdit', hooks: [{ type: 'command', timeout: fastTimeouts.complex, command: `${hookCmd} hooks post-edit "$TOOL_INPUT_file_path" 2>/dev/null || true` }] },
-    { matcher: 'Bash', hooks: [{ type: 'command', timeout: fastTimeouts.complex, command: `${hookCmd} hooks post-command "$TOOL_INPUT_command" 2>/dev/null || true` }] }
-  ];
-  settings.hooks.SessionStart = [{
-    hooks: [
-      { type: 'command', timeout: fastTimeouts.session, command: `${hookCmd} hooks session-start 2>/dev/null || true` },
-      { type: 'command', timeout: fastTimeouts.complex, command: `${hookCmd} hooks trajectory-begin -c "claude-session" -a "claude" 2>/dev/null || true` }
-    ]
-  }];
-  settings.hooks.Stop = [{
-    hooks: [
-      { type: 'command', timeout: fastTimeouts.complex, command: `${hookCmd} hooks trajectory-end --success --quality 0.8 2>/dev/null || true` },
-      { type: 'command', timeout: fastTimeouts.complex, command: `${hookCmd} hooks session-end 2>/dev/null || true` }
-    ]
-  }];
-  console.log(chalk.blue(`  ✓ Core hooks (PreToolUse, PostToolUse, SessionStart, Stop) ${opts.fast ? 'with fast wrapper' : 'with error handling'}`));
+  // Claude Code hook timeouts are in seconds. Keep them above the 10 s the
+  // store lock may wait (INTEL_LOCK_WAIT_MS) so a queued hook is not killed
+  // before it writes (#1222).
+  const timeouts = { tool: 15, session: 30 };
+  // Claude Code sends the hook input as JSON on stdin (`--stdin` reads it) and
+  // runs hooks in the session's current directory, so pin the project root
+  // to keep every hook on the project's store (#1222, #1223).
+  const hook = (args, timeout = timeouts.tool) => ({
+    type: 'command',
+    timeout,
+    command: `cd "\${CLAUDE_PROJECT_DIR:-.}" && ${hookCmd} hooks ${args} 2>/dev/null || true`,
+  });
 
-  // Advanced hooks (unless --minimal)
+  const ruvectorHooks = {
+    PreToolUse: [
+      { matcher: 'Edit|Write|MultiEdit', hooks: [hook('pre-edit --stdin'), hook('coedit-suggest --stdin')] },
+      { matcher: 'Bash', hooks: [hook('pre-command --stdin')] },
+      { matcher: 'Read', hooks: [hook('remember -t file_access --silent --stdin "Reading:"')] },
+      { matcher: 'Glob|Grep', hooks: [hook('remember -t search_pattern --silent --stdin "Search:"')] },
+      { matcher: 'Task', hooks: [hook('remember -t agent_spawn --silent --stdin "Agent:"')] },
+    ],
+    PostToolUse: [
+      { matcher: 'Edit|Write|MultiEdit', hooks: [hook('post-edit --stdin')] },
+      { matcher: 'Bash', hooks: [hook('post-command --stdin')] },
+    ],
+    SessionStart: [{ hooks: [hook('session-start', timeouts.session), hook('trajectory-begin -c "claude-session" -a "claude"')] }],
+    // Once per session. `Stop` fires after every reply, which closed the
+    // session trajectory and re-ran end-of-session learning each turn (#1223).
+    SessionEnd: [{ hooks: [hook('trajectory-end --success --quality 0.8'), hook('session-end', timeouts.session)] }],
+  };
   if (!opts.minimal) {
-    // Create agentic-flow fast wrapper for background workers
-    let workersCmd = 'npx agentic-flow@3.0.0-alpha.2';
-    if (opts.fast && !isWindows) {
-      const agenticFastPath = path.join(settingsDir, 'agentic-flow-fast.sh');
-      const agenticFastContent = `#!/bin/bash
-# Fast agentic-flow wrapper - avoids npx overhead
-# Usage: .claude/agentic-flow-fast.sh workers <command> [args...]
-
-# Find agentic-flow CLI
-if [ -f "$PWD/node_modules/agentic-flow/bin/cli.js" ]; then
-  exec node "$PWD/node_modules/agentic-flow/bin/cli.js" "$@"
-elif [ -f "$PWD/node_modules/.bin/agentic-flow" ]; then
-  exec "$PWD/node_modules/.bin/agentic-flow" "$@"
-elif command -v agentic-flow &> /dev/null; then
-  exec agentic-flow "$@"
-else
-  exec npx agentic-flow@3.0.0-alpha.2 "$@"
-fi
-`;
-      fs.writeFileSync(agenticFastPath, agenticFastContent);
-      fs.chmodSync(agenticFastPath, '755');
-      workersCmd = '.claude/agentic-flow-fast.sh';
-      // Add permission for agentic-flow fast wrapper
-      if (settings.permissions && settings.permissions.allow) {
-        if (!settings.permissions.allow.includes('Bash(.claude/agentic-flow-fast.sh:*)')) {
-          settings.permissions.allow.push('Bash(.claude/agentic-flow-fast.sh:*)');
-        }
-      }
-      console.log(chalk.blue('  ✓ Background workers wrapper created (.claude/agentic-flow-fast.sh)'));
-    }
-
-    // UserPromptSubmit - context suggestions + background workers dispatch
-    settings.hooks.UserPromptSubmit = [{
-      hooks: [
-        {
-          type: 'command',
-          timeout: fastTimeouts.complex,
-          command: `${hookCmd} hooks suggest-context 2>/dev/null || true`
-        },
-        {
-          type: 'command',
-          timeout: 2000,
-          command: `${workersCmd} workers dispatch-prompt "$CLAUDE_USER_PROMPT" 2>/dev/null || true`
-        },
-        {
-          type: 'command',
-          timeout: 1000,
-          command: `${workersCmd} workers inject-context "$CLAUDE_USER_PROMPT" 2>/dev/null || true`
-        }
-      ]
-    }];
-    console.log(chalk.blue('  ✓ Background workers integration (ultralearn, optimize, audit, map, etc.)'));
-
-    // PreCompact - preserve important context before compaction
-    settings.hooks.PreCompact = [
-      {
-        matcher: 'auto',
-        hooks: [
-          { type: 'command', timeout: fastTimeouts.session, command: `${hookCmd} hooks pre-compact --auto 2>/dev/null || true` },
-          { type: 'command', timeout: fastTimeouts.session, command: `${hookCmd} hooks compress 2>/dev/null || true` }
-        ]
-      },
-      {
-        matcher: 'manual',
-        hooks: [{
-          type: 'command',
-          timeout: fastTimeouts.session,
-          command: `${hookCmd} hooks pre-compact 2>/dev/null || true`
-        }]
-      }
+    ruvectorHooks.UserPromptSubmit = [{ hooks: [hook('suggest-context')] }];
+    ruvectorHooks.PreCompact = [
+      { matcher: 'auto', hooks: [hook('pre-compact --auto', timeouts.session), hook('compress', timeouts.session)] },
+      { matcher: 'manual', hooks: [hook('pre-compact', timeouts.session)] },
     ];
-
-    // Notification - track all notifications for learning
-    settings.hooks.Notification = [{
-      matcher: '.*',
-      hooks: [{
-        type: 'command',
-        timeout: fastTimeouts.simple,
-        command: `${hookCmd} hooks track-notification 2>/dev/null || true`
-      }]
-    }];
-    console.log(chalk.blue(`  ✓ Advanced hooks (UserPromptSubmit, PreCompact, Notification, Compress)${opts.fast ? ' - fast mode' : ''}`));
-
-    // Extended environment variables for new capabilities
-    settings.env.RUVECTOR_AST_ENABLED = settings.env.RUVECTOR_AST_ENABLED || 'true';
-    settings.env.RUVECTOR_DIFF_EMBEDDINGS = settings.env.RUVECTOR_DIFF_EMBEDDINGS || 'true';
-    settings.env.RUVECTOR_COVERAGE_ROUTING = settings.env.RUVECTOR_COVERAGE_ROUTING || 'true';
-    settings.env.RUVECTOR_GRAPH_ALGORITHMS = settings.env.RUVECTOR_GRAPH_ALGORITHMS || 'true';
-    settings.env.RUVECTOR_SECURITY_SCAN = settings.env.RUVECTOR_SECURITY_SCAN || 'true';
-    console.log(chalk.blue('  ✓ Extended capabilities (AST, Diff, Coverage, Graph, Security)'));
+    ruvectorHooks.Notification = [{ matcher: '.*', hooks: [hook('track-notification')] }];
   }
+
+  // Merge: replace only ruvector's own entries and keep every other tool's
+  // hooks in place (#1222). Re-running init is idempotent.
+  settings.hooks = mergeRuvectorHooks(settings.hooks, ruvectorHooks);
+  console.log(chalk.blue(`  ✓ Hooks merged into existing settings (${Object.keys(ruvectorHooks).join(', ')})${opts.fast ? ' with fast wrapper' : ''}`));
 
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
   console.log(chalk.green('\n✅ Hooks initialized in .claude/settings.json'));
@@ -4952,7 +4923,7 @@ This project uses RuVector's self-learning intelligence hooks with advanced capa
 | **PreToolUse** | Before Edit/Write/Bash | Agent routing, AST analysis, command risk assessment |
 | **PostToolUse** | After Edit/Write/Bash | Q-learning update, diff embeddings, outcome tracking |
 | **SessionStart** | Conversation begins | Load intelligence state, display learning stats |
-| **Stop** | Conversation ends | Save learning data, export metrics |
+| **SessionEnd** | Session ends | Close the session trajectory, save learning data |
 | **UserPromptSubmit** | User sends message | RAG context suggestions, pattern recommendations |
 | **PreCompact** | Before context compaction | Preserve important context and memories |
 | **Notification** | Any notification | Track events for learning |
@@ -5221,7 +5192,46 @@ hooksCmd.command('session-end').description('Session end hook').option('--export
   if (opts.exportMetrics) console.log(JSON.stringify({ duration_seconds: sessionInfo.duration, actions_recorded: sessionInfo.actions }));
 });
 
-hooksCmd.command('pre-edit').description('Pre-edit intelligence').argument('<file>', 'File path').action((file) => {
+/**
+ * Claude Code passes hook input as JSON on stdin (it does not set
+ * $TOOL_INPUT_* variables), so `--stdin` lets a hook command take its subject
+ * from that payload (#1222). Only read when asked: a bare read of fd 0 would
+ * block on an interactive terminal.
+ */
+let hookStdinCache;
+function readHookStdin() {
+  if (hookStdinCache !== undefined) return hookStdinCache;
+  hookStdinCache = {};
+  try {
+    const raw = fs.readFileSync(0, 'utf8');
+    const parsed = raw.trim() ? JSON.parse(raw) : {};
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) hookStdinCache = parsed;
+  } catch { /* no or invalid payload: callers treat it as empty */ }
+  return hookStdinCache;
+}
+
+/** The value a tool hook is about: file path, command, search pattern, agent type or prompt. */
+function hookStdinSubject(field) {
+  const input = readHookStdin();
+  const toolInput = input.tool_input && typeof input.tool_input === 'object' ? input.tool_input : {};
+  const keys = field ? [field] : ['file_path', 'notebook_path', 'command', 'pattern', 'subagent_type', 'prompt'];
+  for (const key of keys) {
+    const v = key in toolInput ? toolInput[key] : input[key];
+    if (typeof v === 'string' && v.length > 0) return v;
+  }
+  return '';
+}
+
+/** Resolve a hook's positional subject from argv or, with --stdin, from the payload. */
+function hookSubject(positional, opts, field) {
+  const fromArgs = Array.isArray(positional) ? positional.join(' ') : (positional || '');
+  if (fromArgs) return fromArgs;
+  return opts && opts.stdin ? hookStdinSubject(field) : '';
+}
+
+hooksCmd.command('pre-edit').description('Pre-edit intelligence').argument('[file]', 'File path').option('--stdin', 'Read the file path from Claude Code hook JSON on stdin').action((fileArg, opts) => {
+  const file = hookSubject(fileArg, opts, 'file_path');
+  if (!file) { if (!opts.stdin) hooksCmd.error('error: missing required argument \'file\''); return; }
   const intel = new Intelligence();
   const fileName = path.basename(file);
   const crateMatch = file.match(/crates\/([^/]+)/);
@@ -5238,7 +5248,9 @@ hooksCmd.command('pre-edit').description('Pre-edit intelligence').argument('<fil
   }
 });
 
-hooksCmd.command('post-edit').description('Post-edit learning').argument('<file>', 'File path').option('--success', 'Edit succeeded').option('--error <msg>', 'Error message').action((file, opts) => {
+hooksCmd.command('post-edit').description('Post-edit learning').argument('[file]', 'File path').option('--success', 'Edit succeeded').option('--error <msg>', 'Error message').option('--stdin', 'Read the file path from Claude Code hook JSON on stdin').action((fileArg, opts) => {
+  const file = hookSubject(fileArg, opts, 'file_path');
+  if (!file) { if (!opts.stdin) hooksCmd.error('error: missing required argument \'file\''); return; }
   const intel = new Intelligence();
   const success = opts.error ? false : (opts.success ?? true);
   const ext = path.extname(file).slice(1);
@@ -5256,9 +5268,10 @@ hooksCmd.command('post-edit').description('Post-edit learning').argument('<file>
   if (test.suggest) console.log(`   🧪 Consider: ${chalk.cyan(test.command)}`);
 });
 
-hooksCmd.command('pre-command').description('Pre-command intelligence').argument('<command...>', 'Command').action((command) => {
+hooksCmd.command('pre-command').description('Pre-command intelligence').argument('[command...]', 'Command').option('--stdin', 'Read the command from Claude Code hook JSON on stdin').action((command, opts) => {
+  const cmd = hookSubject(command, opts, 'command');
+  if (!cmd) { if (!opts.stdin) hooksCmd.error('error: missing required argument \'command\''); return; }
   const intel = new Intelligence();
-  const cmd = command.join(' ');
   const classification = intel.classifyCommand(cmd);
   console.log(chalk.bold('🧠 Command Analysis:'));
   console.log(`   📦 Category: ${chalk.cyan(classification.category)}`);
@@ -5268,9 +5281,10 @@ hooksCmd.command('pre-command').description('Pre-command intelligence').argument
   else console.log(`   ✅ Risk: ${chalk.green('LOW')}`);
 });
 
-hooksCmd.command('post-command').description('Post-command learning').argument('<command...>', 'Command').option('--success', 'Success').option('--error <msg>', 'Error message').action((command, opts) => {
+hooksCmd.command('post-command').description('Post-command learning').argument('[command...]', 'Command').option('--success', 'Success').option('--error <msg>', 'Error message').option('--stdin', 'Read the command from Claude Code hook JSON on stdin').action((command, opts) => {
+  const cmd = hookSubject(command, opts, 'command');
+  if (!cmd) { if (!opts.stdin) hooksCmd.error('error: missing required argument \'command\''); return; }
   const intel = new Intelligence();
-  const cmd = command.join(' ');
   const success = opts.error ? false : (opts.success ?? true);
   const classification = intel.classifyCommand(cmd);
   intel.learn(`cmd_${classification.category}_${classification.subcategory}`, success ? 'success' : 'failure', success ? 'completed' : 'failed', success ? 0.8 : -0.3);
@@ -5317,7 +5331,14 @@ function hooksUseSemanticEmbedder(intel, forceSemantic) {
   return explicitAuto || legacyOnnx;
 }
 
-hooksCmd.command('remember').description('Store in memory').requiredOption('-t, --type <type>', 'Memory type').option('--silent', 'Suppress output').option('--semantic', 'Use ONNX semantic embeddings (slower, better quality)').argument('<content...>', 'Content').action(async (content, opts) => {
+hooksCmd.command('remember').description('Store in memory').requiredOption('-t, --type <type>', 'Memory type').option('--silent', 'Suppress output').option('--semantic', 'Use ONNX semantic embeddings (slower, better quality)').option('--stdin', 'Append the subject of the Claude Code hook JSON on stdin (file path, command, pattern or agent type)').argument('[content...]', 'Content').action(async (contentArgs, opts) => {
+  const content = [...(contentArgs || [])];
+  if (opts.stdin) {
+    const subject = hookStdinSubject();
+    if (!subject) return; // nothing to remember for this event
+    content.push(subject);
+  }
+  if (content.length === 0) hooksCmd.error('error: missing required argument \'content\'');
   const intel = new Intelligence();
   let semantic = false;
   try {
@@ -5674,9 +5695,12 @@ hooksCmd.command('coedit-record')
 
 hooksCmd.command('coedit-suggest')
   .description('Get suggested related files based on co-edit patterns')
-  .requiredOption('-f, --file <file>', 'Current file')
+  .option('-f, --file <file>', 'Current file')
   .option('-k, --top-k <n>', 'Number of suggestions', '5')
+  .option('--stdin', 'Read the file path from Claude Code hook JSON on stdin')
   .action((opts) => {
+    opts.file = hookSubject(opts.file, opts, 'file_path');
+    if (!opts.file) { if (!opts.stdin) hooksCmd.error('error: required option \'-f, --file <file>\' not specified'); return; }
     const intel = new Intelligence({ skipEngine: true });  // Fast mode
     let suggestions = [];
 
@@ -6022,25 +6046,46 @@ hooksCmd.command('coverage-suggest')
 
 // Graph Algorithm Commands
 
-// Build an undirected import graph over the given files. Nodes are file
-// basenames without extension; an edge a->b exists when a imports './b'
-// (via `from` or `require`, with or without an extension). The result is the
-// Graph shape every function in dist/core/graph-algorithms.js expects.
+// Build an undirected import graph over the given files. Each file is one
+// node, named by its path relative to the cwd without extension (`pkg/a/x`),
+// so same-named files in different directories stay distinct (#1217). An
+// edge a->b exists when a imports a relative specifier (`./b`, `../b`,
+// `./sub/b`, with or without an extension, or a directory's index) that
+// resolves to b, via `from`, `import`, `import()` or `require()`. The result
+// is the Graph shape every function in dist/core/graph-algorithms.js expects.
 function buildImportGraph(files) {
   const graphMod = require('../dist/core/graph-algorithms.js');
-  const stem = (f) => path.basename(f, path.extname(f));
-  const nodes = [...new Set(files.map(stem))];
-  const nodeSet = new Set(nodes);
+  const stripExt = (p) => p.slice(0, p.length - path.extname(p).length);
+  const relId = (abs) => path.relative(process.cwd(), abs).split(path.sep).join('/');
+  const absFiles = [...new Set(files.map((f) => path.resolve(f)))];
+  // Name nodes without extension unless two files would then collide (a.ts + a.js).
+  const stemCount = new Map();
+  for (const abs of absFiles) stemCount.set(stripExt(abs), (stemCount.get(stripExt(abs)) || 0) + 1);
+  const nodeOf = new Map(); // absolute path (with and without extension) -> node id
+  for (const abs of absFiles) {
+    const unique = stemCount.get(stripExt(abs)) === 1;
+    const id = relId(unique ? stripExt(abs) : abs);
+    nodeOf.set(abs, id);
+    if (unique) nodeOf.set(stripExt(abs), id);
+  }
+  const resolveImport = (fromAbs, spec) => {
+    const target = path.resolve(path.dirname(fromAbs), spec);
+    for (const cand of [target, stripExt(target), path.join(target, 'index')]) {
+      if (nodeOf.has(cand)) return nodeOf.get(cand);
+    }
+    return null;
+  };
+  const nodes = absFiles.map((abs) => nodeOf.get(abs));
   const seen = new Set();
   const edges = [];
-  const importRe = /(?:from\s+|require\s*\(\s*)['"]\.\/([^'"]+)['"]/g;
-  for (const file of files) {
-    if (!fs.existsSync(file)) continue;
-    const from = stem(file);
-    const content = fs.readFileSync(file, 'utf-8');
+  const importRe = /(?:from\s+|import\s*\(\s*|import\s+|require\s*\(\s*)['"](\.\.?\/[^'"]+)['"]/g;
+  for (const abs of absFiles) {
+    if (!fs.existsSync(abs)) continue;
+    const from = nodeOf.get(abs);
+    const content = fs.readFileSync(abs, 'utf-8');
     for (const m of content.matchAll(importRe)) {
-      const to = stem(m[1]);
-      if (to === from || !nodeSet.has(to)) continue;
+      const to = resolveImport(abs, m[1]);
+      if (!to || to === from) continue;
       const key = from < to ? from + '\0' + to : to + '\0' + from;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -6509,19 +6554,11 @@ hooksCmd.command('compress')
       coldThreshold: 0.01
     });
 
-    // Import existing compressed data
+    // Import existing compressed data, then refresh it from the live Q-table.
     if (data.compressedPatterns) {
       compress.import(data.compressedPatterns);
     }
-
-    // Also compress any uncompressed patterns from the regular patterns
-    if (data.patterns && !data.compressedPatterns) {
-      for (const [key, value] of Object.entries(data.patterns)) {
-        if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'number') {
-          compress.store(key, value);
-        }
-      }
-    }
+    for (const [key, tensor] of patternTensors(data.patterns)) compress.store(key, tensor);
 
     if (opts.stats) {
       const stats = compress.getStats();
@@ -7048,7 +7085,7 @@ hooksCmd.command('verify')
       try {
         const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
         // Check hooks
-        const requiredHooks = ['PreToolUse', 'PostToolUse', 'SessionStart', 'Stop'];
+        const requiredHooks = ['PreToolUse', 'PostToolUse', 'SessionStart', 'SessionEnd'];
         const missingHooks = requiredHooks.filter(h => !settings.hooks?.[h]);
         if (missingHooks.length === 0) {
           checks.push({ name: 'Required hooks', status: 'pass', detail: 'All core hooks configured' });
@@ -7154,7 +7191,7 @@ hooksCmd.command('doctor')
 
         // Check for old hook names
         if (settings.hooks?.Start || settings.hooks?.End) {
-          issues.push({ severity: 'error', message: 'Invalid hook names (Start/End)', fix: 'Should be SessionStart/Stop' });
+          issues.push({ severity: 'error', message: 'Invalid hook names (Start/End)', fix: 'Should be SessionStart/SessionEnd' });
           if (opts.fix) {
             delete settings.hooks.Start;
             delete settings.hooks.End;
@@ -7179,7 +7216,7 @@ hooksCmd.command('doctor')
           if (!hooks) return;
           hooks.forEach(h => {
             h.hooks?.forEach(hh => {
-              if (hh.command && hh.command.includes('ruvector') && !hh.command.startsWith('npx ') && !hh.command.includes('/bin/')) {
+              if (hh.command && hh.command.includes('ruvector') && !/(^|&& )npx /.test(hh.command) && !hh.command.includes('/bin/') && !hh.command.includes('ruvector-fast.sh')) {
                 issues.push({ severity: 'warning', message: `Command should use 'npx ruvector' for portability`, fix: 'Update to use npx' });
               }
             });
