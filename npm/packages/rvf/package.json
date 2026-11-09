@@ -1,7 +1,7 @@
 {
   "name": "@ruvector/rvf",
   "version": "0.4.9",
-  "description": "RuVector Format — unified TypeScript SDK for vector intelligence",
+  "description": "RuVector Format (RVF): TypeScript SDK for a portable single-file vector database with HNSW vector search, native and WASM backends.",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -26,16 +26,16 @@
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
-    "ruvector",
     "rvf",
     "vector-database",
     "vector-search",
     "hnsw",
-    "binary-format",
-    "copy-on-write",
-    "napi",
+    "typescript",
     "wasm",
-    "typescript"
+    "ruvector",
+    "ruvnet",
+    "copy-on-write",
+    "napi"
   ],
   "license": "MIT",
   "repository": {
@@ -43,7 +43,7 @@
     "url": "git+https://github.com/ruvnet/ruvector.git",
     "directory": "npm/packages/rvf"
   },
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/npm/packages/rvf#readme",
+  "homepage": "https://ruv.io",
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },
