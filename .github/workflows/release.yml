@@ -66,7 +66,7 @@ jobs:
         # `extension-module` Cargo feature (required so `cargo test -p
         # ruvector-py` can link against libpython at all — see the
         # comment on that crate's Cargo.toml `pyo3 = {...}` line, ADR-352).
-        # This bare ubuntu-22.04 runner has no Python dev headers/shared
+        # This bare ubuntu-24.04 runner has no Python dev headers/shared
         # lib set up, so linking its test binary here is unverified and
         # not worth risking breaking this shared validation job over.
         # ruvector-py's Rust tests (49, added alongside the pytest suite)

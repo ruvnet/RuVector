@@ -13,6 +13,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - '.github/workflows/build-tiny-dancer.yml'
       - 'crates/ruvector-tiny-dancer-core/**'
       - 'crates/ruvector-tiny-dancer-node/**'
       - 'npm/packages/tiny-dancer/**'
@@ -33,19 +34,23 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: x86_64-unknown-linux-gnu
             platform: linux-x64-gnu
             extraFlags: ""
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: x86_64-unknown-linux-musl
             platform: linux-x64-musl
             extraFlags: "--zig"
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
             extraFlags: ""
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: aarch64-unknown-linux-musl
             platform: linux-arm64-musl
             extraFlags: "--zig"
@@ -68,8 +73,17 @@ jobs:
 
     name: Build Tiny Dancer ${{ matrix.settings.platform }}
     runs-on: ${{ matrix.settings.host }}
+    container: ${{ matrix.settings.container }}
 
     steps:
+      - name: Bootstrap ubuntu:22.04 build container (keeps the glibc floor)
+        if: ${{ matrix.settings.container != '' }}
+        shell: bash
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            sudo git curl wget ca-certificates build-essential pkg-config xz-utils unzip zip python3 jq file
+          git config --global --add safe.directory '*'
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
