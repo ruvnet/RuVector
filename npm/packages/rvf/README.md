@@ -2,6 +2,10 @@
 
 # @ruvector/rvf
 
+<!-- weaver:seo:flow:start -->
+![@ruvector/rvf: vectors → RVF file → HNSW search → top-k results](https://raw.githubusercontent.com/ruvnet/ruvector/main/npm/packages/rvf/assets/ruvector-rvf-flow.svg)
+<!-- weaver:seo:flow:end -->
+
 Unified TypeScript/JavaScript SDK for the **RuVector Format (RVF)** — a cognitive container that stores vectors, carries models, boots compute kernels, and proves everything in a single `.rvf` file.
 
 ## Platform Support
@@ -555,3 +559,18 @@ ls output/
 ## License
 
 MIT
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for vector database, vector search, HNSW.
+
+- **Works with** (its runtime dependencies): [`@ruvector/rvf-node`](https://www.npmjs.com/package/@ruvector/rvf-node), [`@ruvector/rvf-solver`](https://www.npmjs.com/package/@ruvector/rvf-solver), [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm)
+- **Used by** (published packages that depend on it): [`@metaharness/kernel`](https://www.npmjs.com/package/@metaharness/kernel), [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all), [`@ruvector/rvf-mcp-server`](https://www.npmjs.com/package/@ruvector/rvf-mcp-server), [`agentdb`](https://www.npmjs.com/package/agentdb), [`aidefence`](https://www.npmjs.com/package/aidefence), [`ruvector`](https://www.npmjs.com/package/ruvector)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

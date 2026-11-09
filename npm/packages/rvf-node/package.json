@@ -1,7 +1,7 @@
 {
   "name": "@ruvector/rvf-node",
   "version": "0.4.4",
-  "description": "RuVector Format Node.js native bindings",
+  "description": "Native Node.js (N-API) bindings for the RuVector Format vector database, built in Rust: HNSW indexing and search over portable .rvf files.",
   "main": "index.js",
   "types": "index.d.ts",
   "files": [
@@ -23,15 +23,15 @@
     "build": "napi build --platform --release"
   },
   "keywords": [
-    "ruvector",
     "rvf",
     "vector-database",
-    "vector-search",
-    "hnsw",
     "napi",
-    "napi-rs",
+    "hnsw",
+    "rust",
     "nodejs",
-    "rust"
+    "ruvector",
+    "ruvnet",
+    "vector-search"
   ],
   "license": "MIT",
   "repository": {
@@ -39,7 +39,7 @@
     "url": "git+https://github.com/ruvnet/ruvector.git",
     "directory": "npm/packages/rvf-node"
   },
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/npm/packages/rvf-node#readme",
+  "homepage": "https://ruv.io",
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },
