@@ -182,6 +182,18 @@ impl VectorIndex {
         }
     }
 
+    /// Re-link IDs that are already in the graph after their vectors were
+    /// overwritten (upsert), so the graph stays valid without a rebuild.
+    pub(crate) fn relink_ids(&mut self, ids: &[u64], vectors: &VectorData, metric: DistanceMetric) {
+        let store = VecDataStore { data: vectors };
+        let dist = metric_distance_fn(metric);
+        for &id in ids {
+            if self.members.contains(&id) && self.graph.relink(id, &store, &dist) {
+                self.dirty = true;
+            }
+        }
+    }
+
     /// Insert any store vectors that are not yet in the graph (e.g. vectors
     /// ingested after the persisted index was written).
     pub(crate) fn sync_missing(&mut self, vectors: &VectorData, metric: DistanceMetric) {
