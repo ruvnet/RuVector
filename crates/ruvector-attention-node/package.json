@@ -2,6 +2,7 @@
   "name": "@ruvector/attention",
   "version": "2.3.0",
   "description": "High-performance attention mechanisms for Node.js",
+  "homepage": "https://ruv.io",
   "main": "index.js",
   "types": "index.d.ts",
   "napi": {
@@ -29,8 +30,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
     "directory": "crates/ruvector-attention-node"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
   },
   "author": "rUv <ruv@ruv.io>",
   "license": "MIT OR Apache-2.0",

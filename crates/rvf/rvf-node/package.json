@@ -2,6 +2,15 @@
   "name": "@ruvector/rvf-node",
   "version": "0.2.3",
   "description": "RuVector Format Node.js native bindings",
+  "homepage": "https://ruv.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "crates/rvf/rvf-node"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
+  },
   "main": "index.js",
   "types": "index.d.ts",
   "files": [
