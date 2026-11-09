@@ -36,6 +36,11 @@ simsimd = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = "3.9"
+criterion = { workspace = true }
+
+[[bench]]
+name = "distance"
+harness = false
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 # wasm32 SIMD128 correctness + A/B timing tests (`wasm-pack test --node`).
