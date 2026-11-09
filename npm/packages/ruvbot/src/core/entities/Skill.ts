@@ -94,7 +94,7 @@ export class SkillEntity<TInput = unknown, TOutput = unknown> {
       if (error instanceof z.ZodError) {
         return {
           valid: false,
-          errors: error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
+          errors: error.issues.map((e) => `${e.path.join('.')}: ${e.message}`),
         };
       }
       throw error;
@@ -116,7 +116,7 @@ export class SkillEntity<TInput = unknown, TOutput = unknown> {
       if (error instanceof z.ZodError) {
         return {
           valid: false,
-          errors: error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
+          errors: error.issues.map((e) => `${e.path.join('.')}: ${e.message}`),
         };
       }
       throw error;

@@ -1,6 +1,6 @@
 {
   "name": "ruvbot",
-  "version": "0.3.6",
+  "version": "0.4.0",
   "description": "Enterprise-grade self-learning AI assistant with military-strength security, 150x faster vector search, and 12+ LLM models",
   "main": "dist/index.js",
   "module": "dist/esm/index.js",
@@ -82,7 +82,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.0",
-    "aidefence": "^2.1.1",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",
     "dotenv": "^16.3.1",
@@ -91,12 +90,13 @@
     "pino": "^8.17.2",
     "pino-pretty": "^10.3.1",
     "uuid": "^11.1.1",
-    "zod": "^3.22.4"
+    "zod": "^4.6.7"
   },
   "optionalDependencies": {
     "@ruvector/ruvllm": "^2.3.0",
     "@slack/bolt": "^3.17.0",
     "@slack/web-api": "^7.0.0",
+    "aidefence": "^3.0.2",
     "bullmq": "^5.1.0",
     "ioredis": "^5.3.2",
     "pg": "^8.11.3"
@@ -105,7 +105,7 @@
     "@types/node": "^20.10.5",
     "@types/pg": "^8.10.9",
     "@types/uuid": "^9.0.7",
-    "@vitest/coverage-v8": "^3.2.6",
+    "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^8.56.0",
     "typescript": "^5.3.3",
     "vitest": "^4.1.11"
