@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- npm rvf WASM queries use the metric stored on the database. Passing zero to `rvf_store_query` forced L2, so cosine and inner-product stores ranked with the wrong distance.
+- npm rvf rejects a batch whose rows do not match the store dimension before flattening, so a short vector cannot pad into the next row.
+- npm rvf keeps a quarantined id-map sidecar refused on the next open until a valid mapping is restored. A fresh store with no quarantine still opens.
 - Count undirected edge weights once when scoring modularity in the npm
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
