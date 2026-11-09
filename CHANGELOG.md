@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
 
-## [@ruvector/core 0.1.38 / ruvector 0.3.19] - 2026-11-09
+## [ruvector 0.3.19, core platform packages 0.1.35] - 2026-11-09
 ### Fixed
 - HNSW returns complete results on very small graphs and skips deleted
   nodes (#1299). Shipped as core platform packages 0.1.35; 0.1.37 still
