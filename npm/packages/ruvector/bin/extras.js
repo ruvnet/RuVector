@@ -58,7 +58,7 @@ const EXTRAS = Object.freeze(Object.assign(Object.create(null), {
   },
   quantum: {
     pkg: '@ruvector/ruqu-wasm',
-    spec: '@ruvector/ruqu-wasm@^2.1.0',
+    spec: '@ruvector/ruqu-wasm@^2.2.0',
     why: 'ruqu state-vector quantum circuit simulator (Rust/WASM) behind `ruvector quantum` and the quantum_* MCP tools (optional dependency)',
     usage: 'npx ruvector quantum simulate bell',
   },
