@@ -346,6 +346,24 @@ jobs:
             cd ../..
           done
 
+      - name: Lock platform optionalDependencies to package version
+        working-directory: crates/ruvector-gnn-node
+        run: |
+          # The platform packages above were just published at this version;
+          # without this the wrapper kept pointing at the previous release
+          # (gnn 0.1.27 shipped pinned to the 0.1.26 binaries).
+          node -e '
+            const fs = require("fs");
+            const p = require("./package.json");
+            const v = p.version;
+            const prefix = p.name + "-";
+            for (const k of Object.keys(p.optionalDependencies || {})) {
+              if (k.startsWith(prefix)) p.optionalDependencies[k] = v;
+            }
+            fs.writeFileSync("./package.json", JSON.stringify(p, null, 2) + "\n");
+            console.log("Locked platform optionalDependencies to " + v);
+          '
+
       - name: Publish main @ruvector/gnn package
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
