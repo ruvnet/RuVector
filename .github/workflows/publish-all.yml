@@ -343,6 +343,7 @@ jobs:
             "files": ["attention.linux-x64-gnu.node"],
             "description": "Linux x64 GNU native module for @ruvector/attention",
             "license": "MIT",
+            "homepage": "https://ruv.io",
             "repository": "https://github.com/ruvnet/ruvector"
           }
           EOF
@@ -366,6 +367,7 @@ jobs:
             "files": ["attention.linux-arm64-gnu.node"],
             "description": "Linux ARM64 GNU native module for @ruvector/attention",
             "license": "MIT",
+            "homepage": "https://ruv.io",
             "repository": "https://github.com/ruvnet/ruvector"
           }
           EOF
@@ -389,6 +391,7 @@ jobs:
             "files": ["attention.darwin-x64.node"],
             "description": "macOS Intel x64 native module for @ruvector/attention",
             "license": "MIT",
+            "homepage": "https://ruv.io",
             "repository": "https://github.com/ruvnet/ruvector"
           }
           EOF
@@ -412,6 +415,7 @@ jobs:
             "files": ["attention.darwin-arm64.node"],
             "description": "macOS Apple Silicon ARM64 native module for @ruvector/attention",
             "license": "MIT",
+            "homepage": "https://ruv.io",
             "repository": "https://github.com/ruvnet/ruvector"
           }
           EOF
@@ -435,6 +439,7 @@ jobs:
             "files": ["attention.win32-x64-msvc.node"],
             "description": "Windows x64 MSVC native module for @ruvector/attention",
             "license": "MIT",
+            "homepage": "https://ruv.io",
             "repository": "https://github.com/ruvnet/ruvector"
           }
           EOF
