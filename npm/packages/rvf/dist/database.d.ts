@@ -1,4 +1,4 @@
-import type { RvfOptions, RvfQueryOptions, RvfSearchResult, RvfQueryOptionsWithCount, RvfIngestResult, RvfIngestEntry, RvfDeleteResult, RvfCompactionResult, RvfStatus, RvfFilterExpr, RvfKernelData, RvfEbpfData, RvfSegmentInfo, BackendType, DistanceMetric } from './types';
+import type { RvfOptions, RvfQueryOptions, RvfSearchResult, RvfQueryOptionsWithCount, RvfIngestResult, RvfIngestEntry, RvfDeleteResult, RvfCompactionResult, RvfStatus, RvfFilterExpr, RvfKernelData, RvfEbpfData, RvfSegmentInfo, BackendType, DistanceMetric, DerivationType } from './types';
 import type { RvfBackend } from './backend';
 /**
  * Main user-facing RVF database class.
@@ -109,8 +109,17 @@ export declare class RvfDatabase {
      * Creates a new RVF file at `childPath` that records this store as its
      * parent for provenance tracking. Returns a new `RvfDatabase` wrapping
      * the child store.
+     *
+     * `derivationType` is recorded in the child (default `'filter'`); it
+     * needs `@ruvector/rvf-node` >= 0.4.7. `'merge'` is rejected: a merge
+     * needs several parents.
      */
-    derive(childPath: string, options?: RvfOptions): Promise<RvfDatabase>;
+    derive(childPath: string, options?: RvfOptions, derivationType?: Exclude<DerivationType, 'merge'>): Promise<RvfDatabase>;
+    /**
+     * How this store was derived from its parent(s), or `null` for a root
+     * store or one derived before `@ruvector/rvf-node` 0.4.7.
+     */
+    derivationType(): Promise<DerivationType | null>;
     /**
      * Create a durable copy-on-write branch that reads inherited vectors from
      * this store and persists only child edits.

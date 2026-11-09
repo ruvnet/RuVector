@@ -219,8 +219,11 @@ export interface RvfIngestEntry {
      */
     metadata?: Record<string, RvfMetadataValue>;
 }
-/** Derivation type for creating derived stores. */
-export type DerivationType = 'filter' | 'merge' | 'snapshot' | 'transform';
+/**
+ * How a store was derived from its parent(s). `derive()` accepts every value
+ * except `'merge'` (a merge needs several parents); a merge child reports it.
+ */
+export type DerivationType = 'clone' | 'filter' | 'merge' | 'quantize' | 'reindex' | 'transform' | 'snapshot' | 'user_defined';
 /** Data returned from kernel extraction. */
 export interface RvfKernelData {
     /** Serialized KernelHeader bytes. */

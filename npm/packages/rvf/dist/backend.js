@@ -410,12 +410,31 @@ class NodeBackend {
             throw errors_1.RvfError.fromNative(err);
         }
     }
-    async derive(childPath, options) {
+    async derivationType() {
         this.ensureHandle();
+        if (typeof this.handle.derivationType !== 'function') {
+            return null; // @ruvector/rvf-node < 0.4.7 records no derivation type
+        }
+        try {
+            return this.handle.derivationType();
+        }
+        catch (err) {
+            throw errors_1.RvfError.fromNative(err);
+        }
+    }
+    async derive(childPath, options, derivationType) {
+        this.ensureHandle();
+        if (derivationType !== undefined && typeof this.handle.derivationType !== 'function') {
+            // An older addon would silently ignore the argument and record 'filter'.
+            throw new errors_1.RvfError(errors_1.RvfErrorCode.InvalidArgument, 'derive(…, derivationType) needs @ruvector/rvf-node >= 0.4.7');
+        }
         let childHandle = null;
         try {
             const nativeOpts = options ? mapOptionsToNative(options) : undefined;
-            childHandle = this.handle.derive(childPath, nativeOpts);
+            childHandle =
+                derivationType === undefined
+                    ? this.handle.derive(childPath, nativeOpts)
+                    : this.handle.derive(childPath, nativeOpts ?? null, derivationType);
             const child = new NodeBackend();
             child.native = this.native;
             child.handle = childHandle;
@@ -1071,8 +1090,11 @@ class WasmBackend {
     async lineageDepth() {
         throw new errors_1.RvfError(errors_1.RvfErrorCode.BackendNotFound, 'lineageDepth not supported in WASM backend');
     }
-    async derive(_childPath, _options) {
+    async derive(_childPath, _options, _derivationType) {
         throw new errors_1.RvfError(errors_1.RvfErrorCode.BackendNotFound, 'derive not supported in WASM backend');
+    }
+    async derivationType() {
+        throw new errors_1.RvfError(errors_1.RvfErrorCode.BackendNotFound, 'derivationType not supported in WASM backend');
     }
     async branch(_childPath) {
         throw new errors_1.RvfError(errors_1.RvfErrorCode.BackendNotFound, 'branch not supported in WASM backend');
