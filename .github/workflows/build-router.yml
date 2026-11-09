@@ -271,6 +271,23 @@ jobs:
           done
           ls -la npm/packages/router/*.node || true
 
+      - name: Lock platform optionalDependencies to package version
+        working-directory: npm/packages/router
+        run: |
+          # The platform packages above were just published at this version;
+          # without this the wrapper kept pointing at the previous release.
+          node -e '
+            const fs = require("fs");
+            const p = require("./package.json");
+            const v = p.version;
+            const prefix = p.name + "-";
+            for (const k of Object.keys(p.optionalDependencies || {})) {
+              if (k.startsWith(prefix)) p.optionalDependencies[k] = v;
+            }
+            fs.writeFileSync("./package.json", JSON.stringify(p, null, 2) + "\n");
+            console.log("Locked platform optionalDependencies to " + v);
+          '
+
       - name: Publish main package
         working-directory: npm/packages/router
         env:
