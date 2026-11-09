@@ -274,7 +274,7 @@ fn write_safetensors(path: &Path, tensors: &[FixtureTensor]) {
         );
     }
     let mut json = serde_json::to_vec(&header).unwrap();
-    while json.len() % 8 != 0 {
+    while !json.len().is_multiple_of(8) {
         json.push(b' ');
     }
     let mut bytes = Vec::new();
@@ -463,7 +463,12 @@ fn assert_tensor_values(parsed: &Parsed, source: &FixtureTensor, architecture: &
     let actual = parsed.values(&source.output_name);
     assert_eq!(actual.len(), expected.len());
     if tensor.dtype == GgufQuantType::Q8_0 {
-        for (source_block, output_block) in expected.chunks_exact(32).zip(actual.chunks_exact(32)) {
+        for (source_block, output_block) in expected
+            .as_chunks::<32>()
+            .0
+            .iter()
+            .zip(actual.as_chunks::<32>().0)
+        {
             let maximum = source_block.iter().fold(0.0_f32, |a, &b| a.max(b.abs()));
             let scale = maximum / 127.0;
             let stored_scale = f16::from_f32(scale).to_f32();

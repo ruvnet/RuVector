@@ -460,7 +460,7 @@ fn input_row(output_row: usize, rows: usize, heads: Option<usize>) -> Result<usi
     let Some(heads) = heads else {
         return Ok(output_row);
     };
-    if heads == 0 || rows % heads != 0 || (rows / heads) % 2 != 0 {
+    if heads == 0 || !rows.is_multiple_of(heads) || !(rows / heads).is_multiple_of(2) {
         return Err(invalid(
             "llama rotary projection requires an even head dimension",
         ));
