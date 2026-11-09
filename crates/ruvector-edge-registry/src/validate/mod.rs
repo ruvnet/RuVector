@@ -16,7 +16,7 @@
 //! exactly the recorded offset, id, length and type. VEC_SEGs must match the
 //! runtime's flat layout exactly, and live ones must match the manifest
 //! dimension. Executable (kernel/eBPF/WASM), compressed and unknown segment
-//! types are refused.
+//! types are refused; the rvf lineage segment (0x24) is accepted as opaque.
 
 mod error;
 mod hasher;
