@@ -337,18 +337,26 @@ pub fn propose_package(
                 after: svg,
             });
         }
-        md = replace_block(
-            &md,
-            LINKS_START,
-            LINKS_END,
-            &links_block(tax, &primary, &works, &used),
-        );
-        md = replace_block(
-            &md,
-            FOOTER_START,
-            FOOTER_END,
-            &footer_block(tax, slug.as_deref()),
-        );
+        // Never duplicate a hand-written section: generated blocks are added
+        // only where the README lacks one (or replace their own markers).
+        let had_ruvio =
+            md.replace(FOOTER_START, "").contains("ruv.io") && !md.contains(FOOTER_START);
+        if md.contains(LINKS_START) || !super::audit::has_links_block(&md) {
+            md = replace_block(
+                &md,
+                LINKS_START,
+                LINKS_END,
+                &links_block(tax, &primary, &works, &used),
+            );
+        }
+        if !had_ruvio {
+            md = replace_block(
+                &md,
+                FOOTER_START,
+                FOOTER_END,
+                &footer_block(tax, slug.as_deref()),
+            );
+        }
         if before.contains("\r\n") {
             md = md.replace('\n', "\r\n");
         }

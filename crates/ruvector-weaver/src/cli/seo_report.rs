@@ -132,7 +132,7 @@ pub fn baseline_cmd(
         .collect();
     names.extend(extra.iter().cloned());
     let facts = gather(ctx, &names);
-    let dl = ruvector_weaver::graph::fresh_downloads(&ctx.http, &names, 8);
+    let dl = ruvector_weaver::graph::fresh_downloads(&ctx.http, &names, 1);
     let owner = ctx.cfg.policy.npm.maintainer.clone();
     let rows: Vec<baseline::Row> = names
         .iter()

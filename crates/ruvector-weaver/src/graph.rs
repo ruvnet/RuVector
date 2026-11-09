@@ -150,6 +150,11 @@ pub fn fresh_downloads(http: &Http, names: &[String], workers: usize) -> BTreeMa
         }
     }
     let got = par_map(&scoped, workers.min(4), |n| {
+        if workers <= 1 {
+            // Serial mode: api.npmjs.org rate-limits bursts of scoped calls
+            // (Cloudflare 1015), so pace them.
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+        }
         let url = format!("https://api.npmjs.org/downloads/point/last-month/{n}");
         http.get_json(&url)
             .ok()

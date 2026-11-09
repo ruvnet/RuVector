@@ -173,3 +173,22 @@ fn apply_bumps_patch_from_the_higher_version() {
         "weaver/seo-agentdb-20261108"
     );
 }
+
+#[test]
+fn propose_never_duplicates_hand_written_sections() {
+    let t = tax();
+    let g = graph();
+    let p = g.get("@acme/vecdb").unwrap();
+    let mut s = source();
+    s.readme = Some((
+        "README.md".into(),
+        "# x\n\nnpm install @acme/vecdb\n\n## Works with\n\nfoo\n\n## Used by\n\nbar\n\nSee [ruv.io](https://ruv.io).\n".into(),
+    ));
+    let pp = propose::propose_package(&t, &g, p, &vecdb_facts(), Some(&s), None).unwrap();
+    let md = &pp.edits[1].after;
+    assert!(
+        !md.contains(LINKS_START),
+        "existing Works with / Used by kept"
+    );
+    assert!(!md.contains(FOOTER_START), "existing ruv.io link kept");
+}

@@ -39,16 +39,24 @@ pub fn repo_noop(p: &RepoProposal) -> bool {
 
 /// Ledger reason carrying the OLD values so the change can be reverted.
 pub fn repo_reason(p: &RepoProposal) -> String {
+    let mut revert = format!(
+        "gh repo edit {} --homepage '{}'",
+        p.slug,
+        p.homepage_old.as_deref().unwrap_or("")
+    );
+    // Empty topic flags are rejected by gh, so only emit the ones needed.
+    if !p.add.is_empty() {
+        revert.push_str(&format!(" --remove-topic '{}'", p.add.join(",")));
+    }
+    if !p.remove.is_empty() {
+        revert.push_str(&format!(" --add-topic '{}'", p.remove.join(",")));
+    }
     format!(
-        "repo metadata: homepage {} -> {}; topics [{}] -> [{}]; revert: gh repo edit {} --homepage '{}' --remove-topic '{}' --add-topic '{}'",
+        "repo metadata: homepage {} -> {}; topics [{}] -> [{}]; revert: {revert}",
         p.homepage_old.as_deref().unwrap_or("(none)"),
         p.homepage_new,
         p.topics_old.join(","),
-        p.topics_new.join(","),
-        p.slug,
-        p.homepage_old.as_deref().unwrap_or(""),
-        p.add.join(","),
-        p.remove.join(",")
+        p.topics_new.join(",")
     )
 }
 
