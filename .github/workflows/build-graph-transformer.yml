@@ -326,6 +326,7 @@ jobs:
             "keywords": ["ruvector", "graph-transformer", "napi-rs"],
             "author": "Ruvector Team",
             "license": "MIT",
+            "homepage": "https://ruv.io",
             "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector"},
             "engines": {"node": ">= 10"},
             "publishConfig": {"registry": "https://registry.npmjs.org/", "access": "public"}

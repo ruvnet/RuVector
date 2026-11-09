@@ -449,6 +449,7 @@ jobs:
             "keywords": ["ruvector", "typesafe", "decisions", "napi-rs"],
             "author": "ruv.io Team <info@ruv.io>",
             "license": "MIT",
+            "homepage": "https://ruv.io",
             "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector"},
             "engines": {"node": ">= 18"},
             "publishConfig": {"registry": "https://registry.npmjs.org/", "access": "public"}
