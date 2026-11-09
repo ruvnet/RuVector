@@ -481,8 +481,8 @@ MIT OR Apache-2.0
 
 Part of the [ruv.io](https://ruv.io) open-source stack for local LLM, LLM, self-learning.
 
-- **Works with** (its runtime dependencies): [`@ruvector/ruvllm-gpu-loop`](https://www.npmjs.com/package/@ruvector/ruvllm-gpu-loop)
-- **Used by** (published packages that depend on it): [`@claude-flow/providers`](https://www.npmjs.com/package/@claude-flow/providers), [`@ruvector/edge-net`](https://www.npmjs.com/package/@ruvector/edge-net), [`agentdb`](https://www.npmjs.com/package/agentdb), [`metaharness`](https://www.npmjs.com/package/metaharness), [`ruvbot`](https://www.npmjs.com/package/ruvbot), [`ruvector`](https://www.npmjs.com/package/ruvector)
+- **Works with** (its runtime dependencies): [`@ruvector/ruvllm-gpu-loop`](https://www.npmjs.com/package/@ruvector/ruvllm-gpu-loop) (optional)
+- **Used by** (published packages that depend on it): [`@claude-flow/providers`](https://www.npmjs.com/package/@claude-flow/providers) (peer), [`@ruvector/edge-net`](https://www.npmjs.com/package/@ruvector/edge-net), [`agentdb`](https://www.npmjs.com/package/agentdb) (optional), [`metaharness`](https://www.npmjs.com/package/metaharness) (optional), [`ruvbot`](https://www.npmjs.com/package/ruvbot) (optional), [`ruvector`](https://www.npmjs.com/package/ruvector) (peer)
 <!-- weaver:seo:links:end -->
 
 <!-- weaver:seo:footer:start -->

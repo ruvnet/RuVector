@@ -395,7 +395,7 @@ Built with ❤️ by the rUv Team
 Part of the [ruv.io](https://ruv.io) open-source stack for self-learning, LoRA, LLM routing.
 
 - **Works with** (its runtime dependencies): no other ruvnet package (standalone)
-- **Used by** (published packages that depend on it): [`@claude-flow/neural`](https://www.npmjs.com/package/@claude-flow/neural), [`@claude-flow/performance`](https://www.npmjs.com/package/@claude-flow/performance), [`@claude-flow/plugin-hyperbolic-reasoning`](https://www.npmjs.com/package/@claude-flow/plugin-hyperbolic-reasoning), [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all), [`agentdb`](https://www.npmjs.com/package/agentdb), [`agentic-flow`](https://www.npmjs.com/package/agentic-flow), [`claude-flow`](https://www.npmjs.com/package/claude-flow), [`ruvector`](https://www.npmjs.com/package/ruvector)
+- **Used by** (published packages that depend on it): [`@claude-flow/neural`](https://www.npmjs.com/package/@claude-flow/neural), [`@claude-flow/performance`](https://www.npmjs.com/package/@claude-flow/performance), [`@claude-flow/plugin-hyperbolic-reasoning`](https://www.npmjs.com/package/@claude-flow/plugin-hyperbolic-reasoning) (optional), [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all), [`agentdb`](https://www.npmjs.com/package/agentdb) (optional), [`agentic-flow`](https://www.npmjs.com/package/agentic-flow) (optional), [`claude-flow`](https://www.npmjs.com/package/claude-flow) (optional), [`ruvector`](https://www.npmjs.com/package/ruvector)
 <!-- weaver:seo:links:end -->
 
 <!-- weaver:seo:footer:start -->

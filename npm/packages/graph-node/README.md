@@ -154,7 +154,7 @@ MIT
 Part of the [ruv.io](https://ruv.io) open-source stack for graph database, knowledge graph, N-API.
 
 - **Works with** (its runtime dependencies): no other ruvnet package (standalone)
-- **Used by** (published packages that depend on it): [`agentdb`](https://www.npmjs.com/package/agentdb)
+- **Used by** (published packages that depend on it): [`agentdb`](https://www.npmjs.com/package/agentdb) (optional)
 <!-- weaver:seo:links:end -->
 
 <!-- weaver:seo:footer:start -->
