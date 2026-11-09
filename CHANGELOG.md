@@ -12,6 +12,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
 
+## [@ruvector/core 0.1.38 / ruvector 0.3.19] - 2026-11-09
+### Fixed
+- HNSW returns complete results on very small graphs and skips deleted
+  nodes (#1299). Shipped as core platform packages 0.1.35; 0.1.37 still
+  pinned the 0.1.34 binaries, built before the fix.
+- linux-arm64-gnu core binary is baseline aarch64 again (#1384): 0.1.34
+  carried 2,524 LDAPR (`+rcpc`) instructions and died with SIGILL on
+  Cortex-A72 (Pi 4) and Jetson AGX Xavier. The 0.1.35 binary has none.
+- `ruvector hooks build-agents` honours an absolute `--output` (#1294) and
+  `hooks rag-context --rerank` actually reranks (#1319).
+- `@ruvector/rvf-mcp-server` 0.2.5 and `ruvector-extensions` 0.1.6 require
+  express ^4.22.3 (#1281).
+
 ## [ruvector 0.3.14] - 2026-11-06
 ### Security
 - `decompile_url` private-address guard also checks IPv4 addresses embedded
