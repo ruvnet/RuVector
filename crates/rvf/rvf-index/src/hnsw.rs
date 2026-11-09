@@ -317,6 +317,89 @@ impl HnswGraph {
         }
     }
 
+    /// Re-link an existing node whose vector has changed (an upsert).
+    ///
+    /// The node keeps its level. Its outgoing edges at every level it occupies
+    /// are recomputed against the new vector exactly as an insert would
+    /// (beam search + alpha pruning), and it is offered back to the chosen
+    /// neighbors with the usual degree pruning. Edges other nodes still hold
+    /// to it stay: search measures true distances on visit, so they remain
+    /// valid routes. Cost is one insert, not a rebuild. Returns false (and
+    /// changes nothing) when `id` is not in the graph.
+    pub fn relink(
+        &mut self,
+        id: u64,
+        vectors: &dyn VectorStore,
+        distance_fn: &dyn Fn(&[f32], &[f32]) -> f32,
+    ) -> bool {
+        let Some(level) = (0..self.layers.len())
+            .rev()
+            .find(|&l| self.layers[l].contains(id))
+        else {
+            return false;
+        };
+        let query_vec = match vectors.get_vector(id) {
+            Some(v) => v,
+            None => return false,
+        };
+        let Some(ep) = self.entry_point else {
+            return false;
+        };
+        if self.layers[0].len() <= 1 {
+            return true; // sole node: nothing to link
+        }
+
+        // Route from the entry point; when the node itself is the entry point,
+        // start from one of its neighbors so the search does not begin at the
+        // vector being moved (any node at the top layer is a valid start).
+        let mut current_ep = ep;
+        if current_ep == id {
+            if let Some(&n) = (0..=self.max_layer)
+                .rev()
+                .find_map(|l| self.layers[l].neighbors(id).first())
+            {
+                current_ep = n;
+            }
+        }
+        let top = self.max_layer;
+        if top > level {
+            for l in (level + 1..=top).rev() {
+                current_ep = self.greedy_closest(query_vec, current_ep, l, vectors, distance_fn);
+            }
+        }
+
+        let mut entry_points = vec![current_ep];
+        for l in (0..=level.min(top)).rev() {
+            let max_neighbors = if l == 0 { self.m0 } else { self.m };
+            let mut candidates = self.search_layer(
+                query_vec,
+                &entry_points,
+                self.ef_construction,
+                l,
+                vectors,
+                distance_fn,
+            );
+            candidates.retain(|&(nid, _)| nid != id);
+            let selected =
+                self.select_neighbors_alpha(&candidates, max_neighbors, vectors, distance_fn);
+            let neighbor_ids: Vec<u64> = selected.iter().map(|&(nid, _)| nid).collect();
+            self.layers[l].adjacency.insert(id, neighbor_ids.clone());
+            for &nid in &neighbor_ids {
+                let nlist = self.layers[l].adjacency.entry(nid).or_default();
+                if !nlist.contains(&id) {
+                    nlist.push(id);
+                }
+                if nlist.len() > max_neighbors {
+                    self.prune_neighbors(nid, l, max_neighbors, vectors, distance_fn);
+                }
+            }
+            if !neighbor_ids.is_empty() {
+                entry_points = neighbor_ids;
+            }
+        }
+        true
+    }
+
     /// Greedy search: starting from `ep`, walk to the closest node at `layer`.
     fn greedy_closest(
         &self,

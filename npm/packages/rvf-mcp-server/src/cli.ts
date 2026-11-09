@@ -84,8 +84,8 @@ stdio config (.mcp.json):
   {
     "mcpServers": {
       "rvf": {
-        "command": "node",
-        "args": ["dist/cli.js"]
+        "command": "npx",
+        "args": ["-y", "@ruvector/rvf-mcp-server", "--data-dir", "/abs/path/to/stores"]
       }
     }
   }

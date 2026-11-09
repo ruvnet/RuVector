@@ -24,8 +24,9 @@
 //! network.seed_cell(50, 50, CellType::Stem);
 //! network.seed_cell(25, 75, CellType::Signaling);
 //!
-//! // Run growth simulation
-//! for _ in 0..1000 {
+//! // Run growth simulation (a few steps; the cell count grows quickly and
+//! // each step is O(cells x signaling cells))
+//! for _ in 0..10 {
 //!     network.grow(0.1);  // Grow
 //!     network.differentiate();  // Cell fate decisions
 //! }

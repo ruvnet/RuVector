@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/rvf-solver",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "RVF self-learning temporal solver — Thompson Sampling, PolicyKernel, ReasoningBank",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -11,20 +11,36 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist/", "pkg/", "package.json"],
+  "files": [
+    "dist/",
+    "pkg/",
+    "package.json"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "node test/solver.test.mjs",
     "build:wasm": "cargo build --release --target wasm32-unknown-unknown --manifest-path ../../../crates/rvf/rvf-solver-wasm/Cargo.toml && wasm-opt -Oz ../../../crates/rvf/target/wasm32-unknown-unknown/release/rvf_solver_wasm.wasm -o pkg/rvf_solver_bg.wasm"
   },
-  "keywords": ["ruvector", "rvf", "solver", "wasm", "webassembly", "thompson-sampling", "multi-armed-bandit", "reasoning-bank", "self-learning", "witness-chain"],
+  "keywords": [
+    "rvf",
+    "solver",
+    "self-learning",
+    "wasm",
+    "webassembly",
+    "ruvector",
+    "ruvnet",
+    "thompson-sampling",
+    "multi-armed-bandit",
+    "reasoning-bank",
+    "witness-chain"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ruvnet/ruvector.git",
     "directory": "npm/packages/rvf-solver"
   },
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/npm/packages/rvf-solver#readme",
+  "homepage": "https://ruv.io",
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },
