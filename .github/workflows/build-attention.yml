@@ -170,7 +170,7 @@ jobs:
 
   build-wasm:
     name: Build WASM
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -205,7 +205,7 @@ jobs:
 
   commit-binaries:
     name: Commit Built Binaries
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [build, build-wasm]
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     permissions:
@@ -272,7 +272,7 @@ jobs:
 
   publish:
     name: Publish Attention Platform Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [build, build-wasm]
     if: startsWith(github.ref, 'refs/tags/v')
 

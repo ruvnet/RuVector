@@ -166,7 +166,7 @@ jobs:
 
   publish:
     name: Publish Tiny Dancer Platform Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     if: inputs.publish == true || startsWith(github.ref, 'refs/tags/v')
 

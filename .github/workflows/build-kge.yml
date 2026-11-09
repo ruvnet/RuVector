@@ -172,7 +172,7 @@ jobs:
 
   publish:
     name: Publish KGE Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     if: github.event_name == 'workflow_dispatch' && inputs.publish == true
 

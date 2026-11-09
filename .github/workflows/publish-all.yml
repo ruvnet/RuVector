@@ -41,7 +41,7 @@ jobs:
   # ============================================================================
   validate:
     name: Validate & Test
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
@@ -146,7 +146,7 @@ jobs:
   # ============================================================================
   build-wasm:
     name: Build WASM
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: validate
     strategy:
       matrix:
@@ -188,7 +188,7 @@ jobs:
   # ============================================================================
   publish-crates:
     name: Publish to crates.io
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [build-native, build-wasm]
     if: ${{ !inputs.dry_run && (inputs.publish_crates || github.event_name == 'push') }}
 
@@ -282,7 +282,7 @@ jobs:
   # ============================================================================
   publish-npm:
     name: Publish to npm
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [build-native, build-wasm]
     if: ${{ !inputs.dry_run && (inputs.publish_npm || github.event_name == 'push') }}
 
@@ -525,7 +525,7 @@ jobs:
   # ============================================================================
   create-release:
     name: Create GitHub Release
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [publish-crates, publish-npm]
     if: ${{ !inputs.dry_run && github.event_name == 'push' }}
     permissions:

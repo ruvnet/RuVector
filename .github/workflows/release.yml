@@ -29,7 +29,7 @@ jobs:
   # Job 1: Validate code quality and run tests
   validate:
     name: Validate Code Quality
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     if: ${{ !inputs.skip_tests }}
 
     steps:
@@ -97,7 +97,7 @@ jobs:
   # Job 2: Build and test Rust crates
   build-crates:
     name: Build Rust Crates
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: validate
     if: always() && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
 
@@ -140,7 +140,7 @@ jobs:
   # Job 3: Build WASM packages
   build-wasm:
     name: Build WASM Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: validate
     if: always() && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
 
@@ -230,7 +230,7 @@ jobs:
   # Job 5: Publish crates to crates.io
   publish-crates:
     name: Publish Rust Crates
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [validate, build-crates]
     if: |
       always() &&
@@ -338,7 +338,7 @@ jobs:
   # NOTE: Automatic npm publishing disabled - packages are published manually
   prepare-npm:
     name: Prepare npm Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [validate, build-native, build-wasm]
     if: |
       always() &&
@@ -451,7 +451,7 @@ jobs:
   # Job 7: Create GitHub release
   create-release:
     name: Create GitHub Release
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [build-crates, build-native, build-wasm, publish-crates, prepare-npm]
     if: |
       always() &&
@@ -605,7 +605,7 @@ jobs:
   # Summary job to report overall status
   release-summary:
     name: Release Summary
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [validate, build-crates, build-native, build-wasm, publish-crates, prepare-npm, create-release]
     if: always()
 

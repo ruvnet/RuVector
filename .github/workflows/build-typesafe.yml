@@ -276,7 +276,7 @@ jobs:
 
   release-bench:
     name: ONNX ticket evidence (strict for manual publish)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     if: github.event_name != 'workflow_dispatch' || (github.ref == 'refs/heads/main' && inputs.publish == true)
     defaults:
@@ -332,7 +332,7 @@ jobs:
 
   publish:
     name: Publish Typesafe Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [build, release-bench]
     # Exact shipped binary and frozen ONNX ticket gates must pass first.
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish == true
