@@ -77,3 +77,18 @@ getters are defined at runtime, so Node cannot detect them as named exports.
 ## License
 
 MIT
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for WASM, graph, Rust.
+
+- **Works with** (its runtime dependencies): [`@ruvector/diskann`](https://www.npmjs.com/package/@ruvector/diskann), [`@ruvector/emergent-time`](https://www.npmjs.com/package/@ruvector/emergent-time), [`@ruvector/graph-wasm`](https://www.npmjs.com/package/@ruvector/graph-wasm), [`@ruvector/rabitq-wasm`](https://www.npmjs.com/package/@ruvector/rabitq-wasm), [`@ruvector/ruvllm-wasm`](https://www.npmjs.com/package/@ruvector/ruvllm-wasm), [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf), [`@ruvector/rvf-solver`](https://www.npmjs.com/package/@ruvector/rvf-solver), [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm), [`@ruvector/sona`](https://www.npmjs.com/package/@ruvector/sona), [`@ruvector/tiny-dancer`](https://www.npmjs.com/package/@ruvector/tiny-dancer), [`ruvector`](https://www.npmjs.com/package/ruvector), [`rvlite`](https://www.npmjs.com/package/rvlite)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

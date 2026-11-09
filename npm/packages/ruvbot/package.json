@@ -1,6 +1,6 @@
 {
   "name": "ruvbot",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Enterprise-grade self-learning AI assistant with military-strength security, 150x faster vector search, and 12+ LLM models",
   "main": "dist/index.js",
   "module": "dist/esm/index.js",
@@ -52,19 +52,17 @@
     "prepublishOnly": "npm run clean && npm run build"
   },
   "keywords": [
-    "ruvector",
-    "ai-assistant",
-    "chatbot",
     "llm",
-    "openrouter",
     "vector-search",
     "self-learning",
-    "multi-tenant",
+    "cli",
+    "chatbot",
+    "openrouter",
+    "ruvnet",
+    "ruvector",
     "prompt-injection",
-    "aidefence",
-    "slack-bot",
-    "discord-bot",
-    "cli"
+    "ai",
+    "security"
   ],
   "author": "RuVector Team <team@ruv.io>",
   "license": "MIT",
@@ -73,7 +71,7 @@
     "url": "git+https://github.com/ruvnet/ruvector.git",
     "directory": "npm/packages/ruvbot"
   },
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/npm/packages/ruvbot",
+  "homepage": "https://ruv.io",
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },

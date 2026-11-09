@@ -1,6 +1,6 @@
 {
   "name": "ruvector-extensions",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Advanced features for ruvector: embeddings, UI, exports, temporal tracking, and persistence",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -20,15 +20,22 @@
     "example:ui": "tsx src/examples/ui-example.ts"
   },
   "keywords": [
-    "ruvector",
     "embeddings",
     "openai",
-    "cohere",
-    "graph-visualization",
-    "graphml",
     "neo4j",
-    "temporal-tracking",
-    "persistence"
+    "ruvector",
+    "ruvnet",
+    "vector-database",
+    "vector-search",
+    "hnsw",
+    "rag",
+    "semantic-search",
+    "knowledge-graph",
+    "gnn",
+    "graph-embeddings",
+    "link-prediction",
+    "attention",
+    "local-llm"
   ],
   "author": "ruv.io Team <info@ruv.io> (https://ruv.io)",
   "license": "MIT",
@@ -37,7 +44,7 @@
     "url": "git+https://github.com/ruvnet/ruvector.git",
     "directory": "npm/packages/ruvector-extensions"
   },
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/npm/packages/ruvector-extensions#readme",
+  "homepage": "https://ruv.io",
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },
