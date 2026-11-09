@@ -10,6 +10,7 @@ on:
       - '.github/workflows/sona-napi.yml'
   pull_request:
     paths:
+      - '.github/workflows/sona-napi.yml'
       - 'crates/sona/**'
       - 'npm/packages/sona/**'
   workflow_dispatch:
@@ -37,7 +38,8 @@ jobs:
             target: x86_64-unknown-linux-musl
             node-file: sona.linux-x64-musl.node
           # Linux ARM64 — 22.04 so the gcc cross-link needs glibc 2.35, not 24.04's 2.39
-          - os: ubuntu-22.04
+          - os: ubuntu-24.04
+            container: ubuntu:22.04
             target: aarch64-unknown-linux-gnu
             node-file: sona.linux-arm64-gnu.node
           # macOS x64 — cross-compiled on Apple Silicon (macos-13 Intel runners are retired;
@@ -59,9 +61,20 @@ jobs:
             node-file: sona.win32-arm64-msvc.node
 
     runs-on: ${{ matrix.os }}
+
+    container: ${{ matrix.container }}
     name: Build ${{ matrix.target }}
 
     steps:
+      - name: Bootstrap ubuntu:22.04 build container (keeps the glibc floor)
+        if: ${{ matrix.container != '' }}
+        shell: bash
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            sudo git curl wget ca-certificates build-essential pkg-config xz-utils unzip zip python3 jq file \
+            libssl-dev cmake clang libclang-dev
+          git config --global --add safe.directory '*'
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
