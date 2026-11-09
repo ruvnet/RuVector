@@ -41,17 +41,6 @@ yanked = "warn"
 ignore = [
     # ── Real vulnerabilities (need active migration path) ────────────
 
-    # libsqlite3-sys < 0.39 — CVE-2026-119375 (RUSTSEC-2026-0459): bundled
-    # SQLite < 3.54.0 can return uninitialized page-cache memory when it
-    # opens a db with a mismatched `-wal` file. Local disclosure; needs an
-    # attacker who can write the db/-wal files. Blocked: rusqlite 0.41 (the
-    # fix) cannot resolve while sqlx (prime-radiant `postgres` feature)
-    # caps libsqlite3-sys at ^0.30 / <0.38 under the graph-wide
-    # `links = "sqlite3"` rule. All sqlite consumers open application-chosen
-    # paths; no `bundled-sqlcipher`. Full rationale and follow-up in
-    # .cargo/audit.toml. Added 2026-11-09, re-review by 2026-12-09.
-    "RUSTSEC-2026-0459",
-
     # rsa 0.9.x — Marvin Attack timing sidechannel (RUSTSEC-2023-0071).
     # No patched version exists; the RustCrypto/RSA team is rewriting
     # to constant-time. Used by `ruvector-kalshi` for Kalshi exchange

@@ -35,7 +35,7 @@ p256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
 getrandom = { version = "0.2", features = ["js"] }
 zeroize = "1"
 # Native-only test double for the Durable Object SQLite port.
-rusqlite = { version = "=0.32.1", features = ["bundled"] }
+rusqlite = { version = "=0.41.1", features = ["bundled", "fallible_uint"] }
 
 ruvector-edge-auth = { path = "../crates/ruvector-edge-auth" }
 ruvector-edge-tenancy = { path = "../crates/ruvector-edge-tenancy" }

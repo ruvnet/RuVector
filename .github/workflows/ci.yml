@@ -229,7 +229,6 @@ jobs:
               -p ruvector-nervous-system
               -p ruvector-math
               -p ruvector-consciousness
-              -p prime-radiant
               -p mcp-brain
               -p ruvector-decompiler
           - name: core-and-rest-wasm
@@ -490,7 +489,6 @@ jobs:
               --exclude ruvector-nervous-system
               --exclude ruvector-math
               --exclude ruvector-consciousness
-              --exclude prime-radiant
               --exclude mcp-brain
               --exclude ruvector-rabitq
               --exclude ruvector-rulake
@@ -596,6 +594,16 @@ jobs:
       - name: Run timesfm tests (candle feature, research-nightly only)
         if: matrix.name == 'research-nightly'
         run: cargo nextest run --no-fail-fast -p timesfm --features candle
+
+      - name: Run prime-radiant tests (standalone workspace, core-and-rest-heavy only)
+        # prime-radiant is its own workspace (like crates/rvf) so its sqlx
+        # dependency does not pin libsqlite3-sys below the RUSTSEC-2026-0459
+        # fix for the root workspace. Tested here so it keeps CI coverage.
+        if: matrix.name == 'core-and-rest-heavy'
+        run: |
+          cargo nextest run --no-fail-fast --manifest-path crates/prime-radiant/Cargo.toml
+          cargo test --doc --manifest-path crates/prime-radiant/Cargo.toml
+          cargo check --manifest-path crates/prime-radiant/Cargo.toml --features postgres
 
       - name: Run doctests (${{ matrix.name }})
         # nextest does not run doctests; do them in a separate step. Cheap
