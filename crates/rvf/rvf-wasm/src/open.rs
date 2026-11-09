@@ -8,11 +8,21 @@ use alloc::vec::Vec;
 /// A decoded vector: (id, components).
 pub type Entry = (u64, Vec<f32>);
 
+/// Why `rvf_store_open` refuses a buffer instead of allocating a handle.
+#[derive(Debug, PartialEq, Eq)]
+pub enum OpenError {
+    /// A VEC segment is truncated, declares no dimension, or disagrees with
+    /// the dimension already read. Skipping it would hide the damage.
+    Malformed,
+    /// No VEC segment declared a dimension. Callers must not invent one.
+    Dimensionless,
+}
+
 /// Decode every VEC_SEG in `buf`.
 ///
-/// Returns the store dimension (0 if no Vec segment declared one) and the
-/// decoded entries. Every returned entry has exactly `dimension` components.
-pub fn parse_vec_entries(buf: &[u8]) -> (u32, Vec<Entry>) {
+/// Every returned entry has exactly the store dimension. A malformed or
+/// dimensionless buffer is an error; it is not opened as an empty dim-1 store.
+pub fn parse_vec_entries(buf: &[u8]) -> Result<(u32, Vec<Entry>), OpenError> {
     let segments = segment::parse_segments(buf);
     let mut dim: u32 = 0;
     let mut entries: Vec<Entry> = Vec::new();
@@ -30,7 +40,7 @@ pub fn parse_vec_entries(buf: &[u8]) -> (u32, Vec<Entry>) {
             .and_then(|len| payload_start.checked_add(len))
         {
             Some(end) if end <= buf.len() && seg.payload_length >= 6 => end,
-            _ => continue,
+            _ => return Err(OpenError::Malformed),
         };
         let payload = &buf[payload_start..payload_end];
 
@@ -42,7 +52,7 @@ pub fn parse_vec_entries(buf: &[u8]) -> (u32, Vec<Entry>) {
         // none) would leave entries shorter than it, and query/export index
         // every entry by the store dimension.
         if seg_dim == 0 || (dim != 0 && seg_dim != dim) {
-            continue;
+            return Err(OpenError::Malformed);
         }
         // seg_dim fits in u16, so this cannot overflow even on wasm32.
         let vec_bytes = seg_dim as usize * 4;
@@ -52,14 +62,14 @@ pub fn parse_vec_entries(buf: &[u8]) -> (u32, Vec<Entry>) {
         for _ in 0..count {
             // offset <= payload.len() always holds here, so these cannot wrap.
             if payload.len() - offset < 8 {
-                break;
+                return Err(OpenError::Malformed);
             }
             let mut id_bytes = [0u8; 8];
             id_bytes.copy_from_slice(&payload[offset..offset + 8]);
             let id = u64::from_le_bytes(id_bytes);
             offset += 8;
             if payload.len() - offset < vec_bytes {
-                break;
+                return Err(OpenError::Malformed);
             }
             let mut vec_data = Vec::with_capacity(seg_dim as usize);
             for d in 0..seg_dim as usize {
@@ -76,7 +86,10 @@ pub fn parse_vec_entries(buf: &[u8]) -> (u32, Vec<Entry>) {
         }
     }
 
-    (dim, entries)
+    if dim == 0 {
+        return Err(OpenError::Dimensionless);
+    }
+    Ok((dim, entries))
 }
 
 #[cfg(test)]
@@ -112,23 +125,10 @@ mod tests {
         s
     }
 
-    fn store_from(buf: &[u8]) -> WasmStore {
-        let (dim, entries) = parse_vec_entries(buf);
-        let mut s = WasmStore::new(dim.max(1), 0);
-        for (id, data) in entries {
-            s.entries.push(VecEntry {
-                id,
-                data,
-                deleted: false,
-            });
-        }
-        s
-    }
-
     #[test]
     fn round_trips_a_well_formed_segment() {
         let buf = vec_seg(2, &[(7, &[1.0, 2.0]), (9, &[3.0, 4.0])]);
-        let (dim, entries) = parse_vec_entries(&buf);
+        let (dim, entries) = parse_vec_entries(&buf).unwrap();
         assert_eq!(dim, 2);
         assert_eq!(
             entries,
@@ -143,8 +143,7 @@ mod tests {
         for len in [u64::MAX, u64::MAX - 40, u64::MAX - 63, 1u64 << 63] {
             let mut buf = header(0x01, len);
             buf.extend_from_slice(&[0u8; 32]);
-            let (_, entries) = parse_vec_entries(&buf);
-            assert!(entries.is_empty());
+            assert_eq!(parse_vec_entries(&buf), Err(OpenError::Malformed));
         }
     }
 
@@ -153,17 +152,7 @@ mod tests {
         // First segment fixes dim = 4; a second one smuggles a 2-dim vector.
         let mut buf = vec_seg(4, &[(1, &[0.0, 0.0, 0.0, 1.0])]);
         buf.extend_from_slice(&vec_seg(2, &[(2, &[1.0, 1.0])]));
-        let (dim, entries) = parse_vec_entries(&buf);
-        assert_eq!(dim, 4);
-        assert!(entries.iter().all(|(_, v)| v.len() == dim as usize));
-
-        // And the opened store survives query + export (both indexed by dim).
-        let s = store_from(&buf);
-        let q = [0.0f32; 4];
-        let mut out = [0u8; 24];
-        assert_eq!(s.query(q.as_ptr(), 2, 0, out.as_mut_ptr()), 1);
-        let mut exp = alloc::vec![0u8; 512];
-        assert!(s.export(exp.as_mut_ptr(), exp.len() as u32) > 0);
+        assert_eq!(parse_vec_entries(&buf), Err(OpenError::Malformed));
     }
 
     #[test]
@@ -182,7 +171,7 @@ mod tests {
         let mut buf = alloc::vec![0u8; 64 + 6 + n * 12 + 64 + 44];
         let written = s.export(buf.as_mut_ptr(), buf.len() as u32);
         assert!(written > 0, "export failed: {written}");
-        let (_, entries) = parse_vec_entries(&buf[..written as usize]);
+        let (_, entries) = parse_vec_entries(&buf[..written as usize]).unwrap();
         assert_eq!(entries.len(), n, "export round-trip lost vectors");
     }
 
@@ -219,7 +208,7 @@ mod tests {
         store.close().unwrap();
 
         let bytes = std::fs::read(&path).unwrap();
-        let (dim, entries) = parse_vec_entries(&bytes);
+        let (dim, entries) = parse_vec_entries(&bytes).unwrap();
         assert_eq!(dim, 3);
         assert_eq!(
             entries,
@@ -236,8 +225,7 @@ mod tests {
         // segment set dim, leaving entries shorter than the store dimension.
         let mut buf = vec_seg(0, &[(1, &[]), (2, &[])]);
         buf.extend_from_slice(&vec_seg(3, &[(3, &[1.0, 2.0, 3.0])]));
-        let (dim, entries) = parse_vec_entries(&buf);
-        assert_eq!(dim, 3);
-        assert_eq!(entries, alloc::vec![(3, alloc::vec![1.0, 2.0, 3.0])]);
+        assert_eq!(parse_vec_entries(&buf), Err(OpenError::Malformed));
+        assert_eq!(parse_vec_entries(&[]), Err(OpenError::Dimensionless));
     }
 }
