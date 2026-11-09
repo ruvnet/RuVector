@@ -200,8 +200,14 @@ fn package_pr(
     for n in names {
         let p = g.get(n).with_context(|| format!("{n} not in graph"))?;
         let f = facts.get(n).cloned().unwrap_or_default();
-        let src = source_for(&root, &idx, n, f.repository_directory.as_deref())
-            .with_context(|| format!("{n}: package.json not found in {}", root.display()))?;
+        let src = source_for(
+            &root,
+            &idx,
+            n,
+            f.repository_directory.as_deref(),
+            &f.version,
+        )
+        .with_context(|| format!("{n}: package.json not found in {}", root.display()))?;
         let pp = propose::propose_package(tax, g, p, &f, Some(&src), Some(rf))?;
         let cur = ruvector_weaver::seo::jsontext::get(&src.package_json, "version")
             .and_then(|v| v.as_str().map(String::from))

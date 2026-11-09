@@ -289,12 +289,34 @@ pub fn source_for(
     idx: &BTreeMap<String, Vec<String>>,
     name: &str,
     dir_hint: Option<&str>,
+    registry_version: &str,
 ) -> Option<SourcePkg> {
     let dirs = idx.get(name)?;
+    // Several package.json files can carry one name (a stale root manifest
+    // plus the published sub-package): prefer the declared directory, then
+    // the manifest at the published version, then the highest version.
+    let ver = |d: &String| -> (bool, Vec<u64>) {
+        let t = std::fs::read_to_string(root.join(d).join("package.json")).unwrap_or_default();
+        let v = ruvector_weaver::seo::jsontext::get(&t, "version")
+            .and_then(|v| v.as_str().map(String::from))
+            .unwrap_or_default();
+        let nums = v
+            .split(['-', '+'])
+            .next()
+            .unwrap_or("")
+            .split('.')
+            .map(|x| x.parse().unwrap_or(0))
+            .collect();
+        (v == registry_version, nums)
+    };
     let rel = dirs
         .iter()
         .find(|d| Some(d.as_str()) == dir_hint)
-        .or_else(|| dirs.iter().min_by_key(|d| d.len()))?
+        .or_else(|| dirs.iter().find(|d| ver(d).0))
+        .or_else(|| {
+            dirs.iter()
+                .max_by(|a, b| ver(a).1.cmp(&ver(b).1).then(b.len().cmp(&a.len())))
+        })?
         .clone();
     let dir = root.join(&rel);
     let package_json = std::fs::read_to_string(dir.join("package.json")).ok()?;
@@ -357,7 +379,13 @@ fn propose_cmd(
                 let idx = index_checkout(&root);
                 (root, idx)
             });
-            source_for(root, idx, name, f.repository_directory.as_deref())
+            source_for(
+                root,
+                idx,
+                name,
+                f.repository_directory.as_deref(),
+                &f.version,
+            )
         });
         let rf = p.repo_slug.as_ref().map(|s| RepoFacts {
             slug: s.clone(),
