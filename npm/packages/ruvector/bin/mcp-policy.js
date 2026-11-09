@@ -41,6 +41,8 @@ const MCP_PROFILES = {
     'hooks_doctor',
     'hooks_attention_info',
     'hooks_gnn_info',
+    'quantum_info',
+    'quantum_simulate',
   ],
 };
 

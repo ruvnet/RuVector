@@ -97,8 +97,40 @@ npx ruvector add rabitq diskann
 | `router` | `@ruvector/router` | `ruvector route`, `SemanticRouter` |
 | `graph` | `@ruvector/graph-node` | `CodeGraph` with Cypher queries |
 | `rvlite` | `rvlite` | `rvlite_sql`, `rvlite_cypher`, `rvlite_sparql` MCP tools |
+| `quantum` | `@ruvector/ruqu-wasm` | `ruvector quantum`, `quantum_simulate` / `quantum_info` MCP tools, `ruvector.quantum` |
 
-`rvf` and `tiny-dancer` are optional dependencies and are usually present already; `add` installs them if your install skipped optional packages.
+`rvf`, `tiny-dancer` and `quantum` are optional dependencies and are usually present already; `add` installs them if your install skipped optional packages.
+
+## Quantum (ruqu)
+
+`ruvector quantum` (alias `ruvector ruqu`) runs state-vector quantum circuits on the [ruqu](https://github.com/ruvnet/ruqu) engine, Rust compiled to WebAssembly. The engine is the optional package `@ruvector/ruqu-wasm`. If it is missing, the command prints `npm i @ruvector/ruqu-wasm` and exits non-zero.
+
+```bash
+npm i @ruvector/ruqu-wasm                          # if optional deps were skipped
+npx ruvector quantum simulate bell                 # |00> and |11> at 0.5 each, plus 1024 sampled shots
+npx ruvector quantum simulate ghz:5 --shots 4096 --seed 1
+npx ruvector quantum simulate "h 0; rx 1 1.5708; cx 0 2" --json
+npx ruvector quantum simulate circuit.json         # {"qubits":2,"gates":[{"gate":"h","qubits":[0]},{"gate":"cnot","qubits":[0,1]}]}
+npx ruvector quantum grover --qubits 4 --target 11
+npx ruvector quantum bench                         # GHZ at 10, 16 and 20 qubits
+npx ruvector quantum info
+```
+
+The gates are `h x y z s t rx ry rz cnot/cx cz swap rzz barrier`. Measurement is not a circuit op, because the engine would collapse it with unseeded randomness. Use `--shots` instead: it samples the final state with a seeded PRNG, so the counts are reproducible. Qubit 0 is the rightmost bit, so `x 0` on 2 qubits gives `|01>`.
+
+From code, `const { quantum } = require('ruvector'); await quantum.simulate(quantum.ghzCircuit(3), { shots: 1000 })`. The accessor is lazy, so neither the wrapper nor the WASM engine loads until you use it. MCP clients get `quantum_simulate` and `quantum_info`. Both are in the `readonly` profile. The MCP caps are 20 qubits (a 16 MiB state vector, since the state takes 2^n × 16 bytes), 10,000 gates, 100,000 shots and the top 256 states. NaN or infinite angles are rejected. The CLI allows up to the engine's 25 qubits.
+
+Measured with `ruvector quantum bench` (GHZ circuit, median of 7, Node 22, Ryzen 9 9950X):
+
+| Qubits | State vector | Simulate |
+| ---: | ---: | ---: |
+| 10 | 16 KiB | 0.11 ms |
+| 16 | 1 MiB | 5.60 ms |
+| 20 | 16 MiB | 104.70 ms |
+
+The engine adds 458 KB unpacked to an install. `npx ruvector --help` cold start was unchanged: 30 ms, against 31 ms before.
+
+**Works with:** [ruqu](https://github.com/ruvnet/ruqu), the quantum simulator and agent harness (`npx @ruvector/ruqu`), which this command uses as its engine.
 
 ## Coding hooks and harnesses
 

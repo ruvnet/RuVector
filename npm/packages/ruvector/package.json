@@ -1,6 +1,6 @@
 {
   "name": "ruvector",
-  "version": "0.3.14",
+  "version": "0.3.15",
   "description": "Self-learning vector database for Node.js — native HNSW, ONNX embeddings, GNN, attention, SONA routing, and an MCP server for agents",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -52,7 +52,9 @@
     "pi-brain",
     "identity",
     "pi-key",
-    "distributed-compute"
+    "distributed-compute",
+    "quantum",
+    "quantum-simulation"
   ],
   "author": "ruv.io Team <info@ruv.io> (https://ruv.io)",
   "homepage": "https://ruv.io",
@@ -67,8 +69,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "@ruvector/attention": "^2.2.3",
-    "@ruvector/core": "^0.1.25",
+    "@ruvector/attention": "^2.3.0",
+    "@ruvector/core": "^0.1.36",
     "@ruvector/gnn": "^0.1.22",
     "@ruvector/sona": "^0.1.11",
     "chalk": "^4.1.2",
@@ -86,7 +88,8 @@
     "@metaharness/workspace-probe": "^0.1.1",
     "@ruvector/mincut-wasm": "^2.3.0",
     "@ruvector/rabitq-wasm": "^0.1.1",
-    "@ruvector/rvf": "^0.4.2",
+    "@ruvector/ruqu-wasm": "^2.1.0",
+    "@ruvector/rvf": "^0.4.7",
     "@ruvector/tiny-dancer": "^0.1.22",
     "metaharness": "^0.4.20"
   },
