@@ -708,8 +708,12 @@ export class HuggingFaceEmbeddings extends EmbeddingProvider {
     if (this.initialized) return;
 
     try {
-      // Dynamic import of transformers.js
-      const { pipeline } = await import('@xenova/transformers');
+      // Dynamic import of transformers.js (optional, untyped here so the
+      // build does not need it installed)
+      const specifier: string = '@xenova/transformers';
+      const { pipeline } = (await import(specifier)) as {
+        pipeline: (task: string, model: string) => Promise<any>;
+      };
 
       this.pipeline = await pipeline(
         'feature-extraction',

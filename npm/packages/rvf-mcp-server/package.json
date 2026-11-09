@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/rvf-mcp-server",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "MCP server for RuVector Format (RVF) vector database — stdio and SSE transports",
   "type": "module",
   "main": "dist/index.js",
@@ -40,7 +40,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "@ruvector/rvf": "^0.4.5",
+    "@ruvector/rvf": "^0.4.8",
     "express": "^4.18.0",
     "zod": "^4.6.7"
   },
