@@ -67,6 +67,9 @@ pub struct PkgAudit {
     pub stale: bool,
     pub primary_topics: Vec<String>,
     pub import: String,
+    /// Ships a `bin`: a failed `require` does not mean the CLI is broken.
+    #[serde(default)]
+    pub has_bin: bool,
     pub dependents: Vec<String>,
     pub issues: Vec<Issue>,
     pub score: u64,
@@ -290,6 +293,7 @@ pub fn audit_package(
         stale,
         primary_topics: primary,
         import: import.into(),
+        has_bin: f.has_bin,
         dependents: dependents(graph, &p.name),
         score: p.monthly_downloads.max(1) * out.len() as u64,
         issues: out,
@@ -361,6 +365,10 @@ pub fn stale_rec(a: &PkgAudit) -> StaleRec {
         ("ok", false) => (
             "refresh+republish",
             format!("imports cleanly; used by {}", a.dependents.join(", ")),
+        ),
+        ("fail", true) if a.has_bin => (
+            "leave as-is (CLI: verify the bin, import n/a)",
+            "require/import fails but it ships a bin; a CLI-only package needs a bin check, not an import".to_string(),
         ),
         ("fail", true) => (
             "deprecate-candidate (owner, 2FA, after migration audit)",

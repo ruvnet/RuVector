@@ -167,6 +167,14 @@ fn stale_recommendations_never_deprecate_on_downloads_alone() {
     let mut used = a.clone();
     used.dependents = vec!["@acme/app".into()];
     assert_eq!(audit::stale_rec(&used).recommendation, "fix+republish");
+    f.has_bin = true;
+    let cli = audit::audit_package(&t, &g, old, &f, now());
+    assert!(
+        audit::stale_rec(&cli)
+            .recommendation
+            .starts_with("leave as-is (CLI"),
+        "a CLI-only package is never a deprecation candidate on a failed require"
+    );
 }
 
 #[test]

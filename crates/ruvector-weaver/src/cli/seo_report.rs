@@ -53,7 +53,13 @@ pub fn audit_cmd(
                 .map(|r| r.is_ok())
                 .unwrap_or(false)
         });
-        for ((n, _), ok) in todo.iter().zip(res) {
+        for ((n, v), ok) in todo.iter().zip(res) {
+            // Parallel installs time out under load: a failure is retried
+            // once, alone, before it counts.
+            let ok = ok
+                || ruvector_weaver::gate::smoke(&ctx.cfg, n, v)
+                    .map(|r| r.is_ok())
+                    .unwrap_or(false);
             cache.insert(n.clone(), ok);
             if let Some(f) = facts.get_mut(n) {
                 f.import_ok = Some(ok);
