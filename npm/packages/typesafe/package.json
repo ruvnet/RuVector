@@ -1,12 +1,16 @@
 {
   "name": "@ruvector/typesafe",
-  "version": "0.2.0",
-  "description": "Local typed decisions (choice / score / noul) over sentence embeddings — a ruvector-powered, self-optimizing alternative to typesafe.ai's System One API. Native (napi-rs) with a WASM fallback; no network, no per-token cost.",
+  "version": "0.2.1",
+  "description": "Local typed decisions (choice / score / noul) over sentence embeddings — a ruvector-powered, self-optimizing alternative to typesafe.ai's System One API.",
+  "homepage": "https://ruv.io",
   "license": "MIT",
   "repository": {
+    "directory": "npm/packages/typesafe",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
-    "directory": "npm/packages/typesafe"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -26,19 +30,22 @@
     "models/manifest.json"
   ],
   "keywords": [
-    "typesafe",
-    "decisions",
-    "classification",
     "embeddings",
-    "calibration",
-    "confidence",
-    "jev",
-    "system-one",
+    "wasm",
+    "napi",
     "ruvector",
-    "choice",
-    "noul",
-    "local-first",
-    "zero-dependency"
+    "ruvnet",
+    "typesafe",
+    "vector-database",
+    "vector-search",
+    "hnsw",
+    "rag",
+    "semantic-search",
+    "knowledge-graph",
+    "gnn",
+    "graph-embeddings",
+    "link-prediction",
+    "attention"
   ],
   "engines": {
     "node": ">=18.0.0"

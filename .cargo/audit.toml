@@ -38,9 +38,14 @@ ignore = [
     "RUSTSEC-2024-0436",  # paste — transitive proc-macro, build-time only
     "RUSTSEC-2025-0119",  # number_prefix — transitive via indicatif rendering
     "RUSTSEC-2025-0124",  # rand_os — transitive, replaced by getrandom in modern code paths
-    # RUSTSEC-2025-0134 (rustls-pemfile 1.x) dropped: the only edge was
-    # reqwest 0.11 -> hyper 0.14, removed by the h2 RUSTSEC-2026-0258 fix.
-    # The tree now carries rustls-pemfile 2.2.0 only, which is unaffected.
+    # rustls-pemfile — unmaintained; the notice covers every version, 2.2.0
+    # included (an earlier comment here said 2.2.0 was unaffected; it is
+    # not). Only edge: tonic 0.12 (`tls` feature) <- ruvector-hailo-cluster.
+    # tonic 0.13 drops it for the rustls-pki-types PEM API; that migration
+    # (tonic + tonic-build 0.12 -> 0.13) is queued as
+    # security:rustls-pemfile-tonic-0.13. Added 2026-11-09, re-review by
+    # 2026-12-09.
+    "RUSTSEC-2025-0134",
     "RUSTSEC-2025-0141",  # bincode — unmaintained notice; we pin a known-good version
 
     # Added 2026-08-03. All four carry `patched = []` upstream — there is no
@@ -67,6 +72,25 @@ ignore = [
     # this path. Re-evaluate when pprof bumps its inferno pin to 0.12+.
     "RUSTSEC-2026-0194",
     "RUSTSEC-2026-0195",
+
+    # libsqlite3-sys < 0.39 — bundled SQLite < 3.54.0 can return
+    # uninitialized page-cache memory when it opens a database together with
+    # a mismatched `-wal` file (CVE-2026-119375; local information
+    # disclosure, needs an attacker who can write the db/-wal files).
+    # Added 2026-11-09, re-review by 2026-12-09.
+    # Blocked: the fix is rusqlite 0.41 (libsqlite3-sys 0.39.1), but the
+    # `links = "sqlite3"` check spans the whole resolved graph, and sqlx
+    # (prime-radiant, `postgres` feature only, never sqlite) caps
+    # libsqlite3-sys at ^0.30 (0.8) / <0.38 (0.9). No sqlx release accepts
+    # 0.39, so rusqlite cannot move while sqlx is a root-workspace dep.
+    # Exposure: every sqlite consumer opens an application-chosen path
+    # (tiny-dancer-core `Storage::new(path)`, mcp-brain-server `RUVBRAIN_DB`,
+    # edge-store test/conformance harness); none opens a db or -wal file
+    # supplied by an untrusted party. No crate uses `bundled-sqlcipher`.
+    # Follow-up (queued as security:rustsec-2026-0459-sqlx-links): move
+    # prime-radiant to its own workspace (like crates/rvf) or off sqlx, then
+    # take rusqlite 0.41 and drop this entry.
+    "RUSTSEC-2026-0459",
 
     # ------------------------------------------------------------------
     # Soundness/unsoundness notices in deps we do not directly control
