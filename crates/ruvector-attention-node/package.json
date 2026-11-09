@@ -1,7 +1,7 @@
 {
   "name": "@ruvector/attention",
-  "version": "2.3.0",
-  "description": "High-performance attention mechanisms for Node.js",
+  "version": "2.3.1",
+  "description": "Attention mechanisms for transformer models in Node.js: optimal transport, mixed curvature, topology, information geometry and diffusion variants, built in Rust.",
   "homepage": "https://ruv.io",
   "main": "index.js",
   "types": "index.d.ts",
@@ -29,12 +29,12 @@
     "version": "napi version"
   },
   "repository": {
+    "directory": "crates/ruvector-attention-node",
     "type": "git",
-    "url": "git+https://github.com/ruvnet/RuVector.git",
-    "directory": "crates/ruvector-attention-node"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
   "bugs": {
-    "url": "https://github.com/ruvnet/RuVector/issues"
+    "url": "https://github.com/ruvnet/ruvector/issues"
   },
   "author": "rUv <ruv@ruv.io>",
   "license": "MIT OR Apache-2.0",
@@ -42,13 +42,19 @@
     "attention",
     "transformer",
     "machine-learning",
-    "neural-network",
-    "napi-rs",
+    "napi",
     "rust",
-    "multi-head-attention",
-    "flash-attention",
-    "hyperbolic",
-    "mixture-of-experts"
+    "ruvector",
+    "ruvnet",
+    "vector-database",
+    "vector-search",
+    "hnsw",
+    "embeddings",
+    "rag",
+    "semantic-search",
+    "knowledge-graph",
+    "gnn",
+    "graph-embeddings"
   ],
   "engines": {
     "node": ">= 10"
