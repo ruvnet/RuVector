@@ -64,3 +64,18 @@ default export `init(input?)` instantiates the module and resolves to them.
 ## License
 
 MIT
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for WASM, vector search, WebAssembly.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all), [`@ruvector/ruqu`](https://www.npmjs.com/package/@ruvector/ruqu), [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf), [`agentdb`](https://www.npmjs.com/package/agentdb), [`rvlite`](https://www.npmjs.com/package/rvlite)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

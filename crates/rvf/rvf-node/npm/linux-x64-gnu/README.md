@@ -1,3 +1,7 @@
 # `@ruvector/rvf-node-linux-x64-gnu`
 
-This is the **x86_64-unknown-linux-gnu** binary for `@ruvector/rvf-node`
+Platform binary for [`@ruvector/rvf-node`](https://www.npmjs.com/package/@ruvector/rvf-node); see `@ruvector/rvf-node` for the quickstart.
+
+Do not install this package directly: `npm install @ruvector/rvf-node` pulls in the right binary for your platform.
+
+https://ruv.io

@@ -1,11 +1,18 @@
 {
   "name": "@ruvector/ruvllm-linux-x64-gnu",
   "version": "2.1.0",
-  "os": ["linux"],
-  "cpu": ["x64"],
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "main": "ruvllm.linux-x64-gnu.node",
-  "files": ["ruvllm.linux-x64-gnu.node"],
+  "files": [
+    "ruvllm.linux-x64-gnu.node"
+  ],
   "description": "RuvLLM native binding (SIMD + candle GGUF inference) - linux-x64-gnu platform",
+  "homepage": "https://ruv.io",
   "keywords": [
     "ruvllm",
     "llm",
@@ -18,8 +25,11 @@
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
     "directory": "npm/packages/ruvllm-linux-x64-gnu"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
   },
   "engines": {
     "node": ">= 18"
@@ -28,5 +38,7 @@
     "registry": "https://registry.npmjs.org/",
     "access": "public"
   },
-  "libc": ["glibc"]
+  "libc": [
+    "glibc"
+  ]
 }

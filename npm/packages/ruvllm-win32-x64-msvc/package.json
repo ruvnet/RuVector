@@ -1,11 +1,18 @@
 {
   "name": "@ruvector/ruvllm-win32-x64-msvc",
   "version": "2.1.0",
-  "os": ["win32"],
-  "cpu": ["x64"],
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "main": "ruvllm.win32-x64-msvc.node",
-  "files": ["ruvllm.win32-x64-msvc.node"],
+  "files": [
+    "ruvllm.win32-x64-msvc.node"
+  ],
   "description": "RuvLLM native SIMD acceleration - win32-x64-msvc (Windows) platform",
+  "homepage": "https://ruv.io",
   "keywords": [
     "ruvllm",
     "llm",
@@ -19,8 +26,11 @@
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
     "directory": "npm/packages/ruvllm-win32-x64-msvc"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
   },
   "engines": {
     "node": ">= 18"

@@ -2,6 +2,7 @@
   "name": "@ruvector/ruvllm-win32-x64-msvc",
   "version": "2.5.6",
   "description": "RuvLLM native bindings for Windows x64 (MSVC)",
+  "homepage": "https://ruv.io",
   "os": [
     "win32"
   ],
@@ -14,8 +15,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
-    "directory": "npm/packages/ruvllm"
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "npm/packages/ruvllm/npm/win32-x64-msvc"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
   },
   "license": "MIT",
   "engines": {

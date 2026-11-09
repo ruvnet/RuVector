@@ -154,7 +154,9 @@ jobs:
     # (ci/supply-chain-guards branch), hitting the 180-min cap. Bumped
     # 180→240 to restore headroom. The right long-term fix is to split
     # heavy crates out into a new sibling shard.
-    timeout-minutes: 240
+    # A shard may set its own `timeout-minutes` (below); 240 is the default
+    # for shards that compile a lot on a cold cache.
+    timeout-minutes: ${{ matrix.timeout-minutes || 240 }}
     strategy:
       fail-fast: false
       matrix:
@@ -200,6 +202,10 @@ jobs:
           - name: ml-research-heavy
             # Heaviest crates split into their own shard so ml-research
             # doesn't exceed the 45-min timeout.
+            # 45 min: ~10 min when warm since the LocalKCut query fix; it ran
+            # 40-70 min for days on a redundant 60M-iteration loop, holding a
+            # runner instead of failing (ledger ci:tests-shard-hang).
+            timeout-minutes: 45
             packages: >-
               -p ruvector-attention
               -p ruvector-mincut
@@ -227,6 +233,9 @@ jobs:
               -p mcp-brain
               -p ruvector-decompiler
           - name: core-and-rest-wasm
+            # 45 min: the morphogenetic doctests alone took 47 min before they
+            # were cut to 10 growth steps (ledger ci:tests-shard-hang).
+            timeout-minutes: 45
             # Iter 232 — split out the *-wasm crates from core-and-rest
             # because the catch-all shard had grown to 115 crates and was
             # consistently missing the 180min cap (iter-228 + iter-230 +
@@ -591,6 +600,8 @@ jobs:
       - name: Run doctests (${{ matrix.name }})
         # nextest does not run doctests; do them in a separate step. Cheap
         # because compilation is already cached from the nextest run.
+        # rustdoc has no per-test timeout, so bound the step instead.
+        timeout-minutes: 20
         run: cargo test --doc ${{ matrix.packages }}
 
   audit:

@@ -45,7 +45,9 @@
 //! let mut net = MorphogeneticNetwork::new(100, 100);
 //! net.seed_cell(50, 50, ruvector_exotic_wasm::morphogenetic::CellType::Signaling);
 //!
-//! for _ in 0..1000 {
+//! // A few growth steps: the cell count grows quickly and each step is
+//! // O(cells x signaling cells).
+//! for _ in 0..10 {
 //!     net.grow(0.1);
 //!     net.differentiate();
 //! }
