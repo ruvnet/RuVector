@@ -566,9 +566,55 @@ impl RvfStore {
         ) {
             return Err(err(ErrorCode::InvalidManifest));
         }
-        let unique_ids: HashSet<u64> = valid_ids.iter().copied().collect();
+        // A batch that names an id more than once keeps the last occurrence,
+        // as consecutive single-row ingests would (rvf:ingest-dup-id-invalid-
+        // manifest: it used to fail the whole batch with InvalidManifest).
+        // Superseded rows are not counted as accepted or rejected.
+        let mut unique_ids: HashSet<u64> = valid_ids.iter().copied().collect();
+        let deduped_legacy: Vec<MetadataEntry>;
+        let deduped_records: Vec<VectorMetadata>;
+        let mut metadata = metadata;
         if unique_ids.len() != valid_ids.len() {
-            return Err(err(ErrorCode::InvalidManifest));
+            // id -> (index of its last occurrence, occurrences)
+            let mut last: HashMap<u64, (usize, usize)> = HashMap::with_capacity(unique_ids.len());
+            for (i, &id) in valid_ids.iter().enumerate() {
+                let slot = last.entry(id).or_insert((i, 0));
+                *slot = (i, slot.1 + 1);
+            }
+            let keep: Vec<usize> = (0..valid_ids.len())
+                .filter(|&i| last[&valid_ids[i]].0 == i)
+                .collect();
+            match metadata {
+                IngestMetadata::Legacy(entries) if !entries.is_empty() => {
+                    let stride = entries.len() / valid_ids.len();
+                    deduped_legacy = keep
+                        .iter()
+                        .flat_map(|&i| entries[i * stride..(i + 1) * stride].iter().cloned())
+                        .collect();
+                    metadata = IngestMetadata::Legacy(&deduped_legacy);
+                }
+                IngestMetadata::Records(records) => {
+                    // Records for a repeated id follow the same rule; records
+                    // for ids named once keep their strict uniqueness check.
+                    let mut seen = HashSet::new();
+                    let mut kept: Vec<VectorMetadata> = Vec::with_capacity(records.len());
+                    for record in records.iter().rev() {
+                        let repeated = last.get(&record.vector_id).is_some_and(|&(_, n)| n > 1);
+                        if repeated && !seen.insert(record.vector_id) {
+                            continue;
+                        }
+                        kept.push(record.clone());
+                    }
+                    kept.reverse();
+                    deduped_records = kept;
+                    metadata = IngestMetadata::Records(&deduped_records);
+                }
+                _ => {}
+            }
+            valid_vectors = keep.iter().map(|&i| valid_vectors[i]).collect();
+            valid_ids = keep.iter().map(|&i| valid_ids[i]).collect();
+            accepted = valid_ids.len() as u64;
+            unique_ids = valid_ids.iter().copied().collect();
         }
 
         let old_vectors = self.vectors.clone();
@@ -4736,6 +4782,69 @@ mod tests {
             v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
         }
         v
+    }
+
+    /// rvf:ingest-dup-id-invalid-manifest: a batch naming an id twice keeps
+    /// the last row (vector and metadata), for every metadata shape, and the
+    /// store keeps working and survives reopen.
+    #[test]
+    fn batch_with_repeated_id_keeps_last_write() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("dup_batch.rvf");
+        let opts = RvfOptions {
+            dimension: 4,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+        let mut store = RvfStore::create(&path, opts).unwrap();
+        let axis = |i: usize| {
+            let mut v = vec![0.0f32; 4];
+            v[i] = 1.0;
+            v
+        };
+        let tag = |s: &str| MetadataEntry {
+            field_id: 0,
+            value: MetadataValue::String(s.into()),
+        };
+        let (a0, a1, a2, a3) = (axis(0), axis(1), axis(2), axis(3));
+
+        // No metadata.
+        let r = store
+            .ingest_batch(&[&a0, &a1, &a2], &[7, 8, 7], None)
+            .unwrap();
+        assert_eq!((r.accepted, r.rejected), (2, 0));
+        // Legacy metadata, one entry per row.
+        let r = store
+            .ingest_batch(&[&a1, &a3], &[9, 9], Some(&[tag("first"), tag("last")]))
+            .unwrap();
+        assert_eq!(r.accepted, 1);
+        // Per-vector records, one per row (what the Node binding sends).
+        let rec = |id: u64, s: &str| VectorMetadata {
+            vector_id: id,
+            fields: vec![tag(s)],
+            delete_record: false,
+        };
+        let r = store
+            .ingest_batch_with_metadata(&[&a0, &a2], &[10, 10], &[rec(10, "old"), rec(10, "new")])
+            .unwrap();
+        assert_eq!(r.accepted, 1);
+
+        let check = |s: &RvfStore, n: u64| {
+            assert_eq!(s.status().total_vectors, n);
+            let hit = s.query(&a2, 1, &QueryOptions::default()).unwrap();
+            assert!(hit[0].id == 7 || hit[0].id == 10);
+            assert!(hit[0].distance < 1e-6);
+            let hit = s.query(&a3, 1, &QueryOptions::default()).unwrap();
+            assert_eq!(hit[0].id, 9);
+            assert_eq!(s.get_metadata(9), Some(vec![tag("last")]));
+            assert_eq!(s.get_metadata(10), Some(vec![tag("new")]));
+        };
+        check(&store, 4);
+        // The store still accepts ordinary writes.
+        store.ingest_batch(&[&a1], &[11], None).unwrap();
+        store.close().unwrap();
+        let reopened = RvfStore::open(&path).unwrap();
+        check(&reopened, 5);
     }
 
     #[test]

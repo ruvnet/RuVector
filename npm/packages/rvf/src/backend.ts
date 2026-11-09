@@ -13,6 +13,7 @@ import type {
   RvfSegmentInfo,
   RvfMetadataValue,
   BackendType,
+  DistanceMetric,
 } from './types';
 import { RvfError, RvfErrorCode } from './errors';
 import { FieldRegistry, FIELD_REGISTRY_KEY, NativeMetadataEntry } from './metadata-fields';
@@ -86,6 +87,11 @@ export interface RvfBackend {
   // Inspection
   segments(): Promise<RvfSegmentInfo[]>;
   dimension(): Promise<number>;
+  /**
+   * Distance metric the store was created with. Optional so third-party
+   * backends written against older versions still type-check.
+   */
+  metric?(): Promise<DistanceMetric>;
   // Byte-level persistence (for backends with no file-based storage, e.g. WASM)
   /** Serialize the store to an in-memory `.rvf` byte buffer. */
   exportBytes(): Promise<Uint8Array>;
@@ -590,6 +596,15 @@ export class NodeBackend implements RvfBackend {
     }
   }
 
+  async metric(): Promise<DistanceMetric> {
+    this.ensureHandle();
+    try {
+      return metricFromNative(this.handle.metric());
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
+
   async exportBytes(): Promise<Uint8Array> {
     throw new RvfError(
       RvfErrorCode.BackendNotFound,
@@ -963,6 +978,8 @@ export class WasmBackend implements RvfBackend {
   /** Integer store handle returned by `rvf_store_create` / `rvf_store_open`. */
   private handle: number = 0;
   private dim: number = 0;
+  /** Metric given to create(); unknown for stores loaded with openBytes(). */
+  private storeMetric: DistanceMetric | null = null;
 
   private async loadWasm(): Promise<void> {
     if (this.wasm) return;
@@ -1006,6 +1023,7 @@ export class WasmBackend implements RvfBackend {
       if (h <= 0) throw new Error('rvf_store_create returned ' + h);
       this.handle = h;
       this.dim = dim;
+      this.storeMetric = options.metric ?? 'l2';
     } catch (err) {
       throw RvfError.fromNative(err);
     }
@@ -1180,6 +1198,16 @@ export class WasmBackend implements RvfBackend {
     if (d < 0) throw new RvfError(RvfErrorCode.StoreClosed);
     return d;
   }
+  async metric(): Promise<DistanceMetric> {
+    this.ensureHandle();
+    if (this.storeMetric === null) {
+      throw new RvfError(
+        RvfErrorCode.BackendNotFound,
+        'metric is not recorded for a WASM store loaded from bytes',
+      );
+    }
+    return this.storeMetric;
+  }
 
   /**
    * Serialize the in-memory store to `.rvf` bytes via the `rvf_store_export`
@@ -1220,6 +1248,7 @@ export class WasmBackend implements RvfBackend {
         if (h <= 0) throw new Error('rvf_store_open returned ' + h);
         this.handle = h;
         this.dim = this.wasm.rvf_store_dimension(h);
+        this.storeMetric = null;
       } finally {
         this.wasm.rvf_free(ptr, bytes.byteLength);
       }
@@ -1260,6 +1289,22 @@ export function resolveBackend(type: BackendType): RvfBackend {
 // ---------------------------------------------------------------------------
 // Mapping helpers (TS options -> native/wasm shapes)
 // ---------------------------------------------------------------------------
+
+/** Map the native metric name (`l2`, `inner_product`, `cosine`) to the SDK's. */
+function metricFromNative(raw: unknown): DistanceMetric {
+  switch (String(raw).toLowerCase()) {
+    case 'cosine':
+      return 'cosine';
+    case 'inner_product':
+    case 'innerproduct':
+    case 'dotproduct':
+      return 'dotproduct';
+    case 'l2':
+      return 'l2';
+    default:
+      throw new RvfError(RvfErrorCode.InvalidArgument, `unknown native metric ${String(raw)}`);
+  }
+}
 
 function mapMetricToNative(metric: string | undefined): string {
   switch (metric) {

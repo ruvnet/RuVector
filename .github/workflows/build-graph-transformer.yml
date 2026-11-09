@@ -45,10 +45,10 @@ jobs:
           - host: ubuntu-22.04
             target: aarch64-unknown-linux-musl
             platform: linux-arm64-musl
-          - host: macos-14
+          - host: macos-15
             target: x86_64-apple-darwin
             platform: darwin-x64
-          - host: macos-14
+          - host: macos-15
             target: aarch64-apple-darwin
             platform: darwin-arm64
           - host: windows-2022
