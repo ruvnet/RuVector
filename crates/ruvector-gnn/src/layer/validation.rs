@@ -16,7 +16,7 @@ impl RuvectorLayer {
         heads: usize,
         dropout: f32,
     ) -> Result<(), GnnError> {
-        if input_dim == 0 || hidden_dim == 0 || heads == 0 || hidden_dim % heads != 0 {
+        if input_dim == 0 || hidden_dim == 0 || heads == 0 || !hidden_dim.is_multiple_of(heads) {
             return Err(GnnError::layer_config(
                 "Checkpoint dimensions and attention heads are inconsistent",
             ));
