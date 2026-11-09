@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/tiny-dancer",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "description": "LLM routing: Neural router for AI agent orchestration - FastGRNN-based intelligent routing with circuit breaker, uncertainty estimation, and hot-reload",
   "main": "index.js",
   "types": "index.d.ts",
