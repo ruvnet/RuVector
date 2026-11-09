@@ -68,7 +68,7 @@ fn witness_chain(path: &Path) -> Vec<u8> {
 
 // ---- #1289: derive records its type ---------------------------------------------
 
-const SINGLE_PARENT_TYPES: [DerivationType; 7] = [
+const SINGLE_PARENT_TYPES: [DerivationType; 8] = [
     DerivationType::Clone,
     DerivationType::Filter,
     DerivationType::Quantize,
@@ -76,6 +76,8 @@ const SINGLE_PARENT_TYPES: [DerivationType; 7] = [
     DerivationType::Transform,
     DerivationType::Snapshot,
     DerivationType::UserDefined,
+    // Still accepted by derive() (no breakage): recorded with its one parent.
+    DerivationType::Merge,
 ];
 
 #[test]
@@ -134,11 +136,15 @@ fn derive_chains_a_witness_entry_over_the_lineage_record() {
 }
 
 #[test]
-fn derive_rejects_merge_and_branch_records_clone() {
+fn single_parent_merge_is_recorded_and_branch_records_clone() {
     let d = tempfile::tempdir().unwrap();
     let parent = store_with(&d.path().join("p.rvf"), &[1, 2, 3]);
-    let e = parent.derive(&d.path().join("m.rvf"), DerivationType::Merge, None);
-    assert_eq!(failure(e), ErrorCode::LineageBroken);
+    let m = parent
+        .derive(&d.path().join("m.rvf"), DerivationType::Merge, None)
+        .unwrap();
+    assert_eq!(m.derivation_type().unwrap(), Some(DerivationType::Merge));
+    assert_eq!(m.lineage_records().unwrap().len(), 1);
+    assert_eq!(m.parent_id(), parent.file_id());
 
     let branch = parent.branch(&d.path().join("b.rvf")).unwrap();
     assert_eq!(

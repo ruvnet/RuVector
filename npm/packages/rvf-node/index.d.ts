@@ -87,18 +87,16 @@ export interface RvfSegmentInfo {
   segType: string;
 }
 
-/** Derivation types `derive()` accepts. */
-export type RvfDeriveType =
+/** Derivation types `derive()` accepts and a store can report. */
+export type RvfDerivationType =
   | 'clone'
   | 'filter'
+  | 'merge'
   | 'quantize'
   | 'reindex'
   | 'transform'
   | 'snapshot'
   | 'user_defined';
-
-/** Derivation types a store can report (a merge child reports `'merge'`). */
-export type RvfDerivationType = RvfDeriveType | 'merge';
 
 export class RvfDatabase {
   static create(path: string, options: RvfOptions): RvfDatabase;
@@ -134,9 +132,10 @@ export class RvfDatabase {
   lineageDepth(): number;
   /**
    * Create an empty child that records this store as its parent and how it
-   * was derived (default `'filter'`). `'merge'` and unknown strings throw.
+   * was derived (default `'filter'`). Unknown strings throw; `'merge'` is
+   * recorded with this store as the only parent.
    */
-  derive(childPath: string, options?: RvfOptions | null, derivationType?: RvfDeriveType | null): RvfDatabase;
+  derive(childPath: string, options?: RvfOptions | null, derivationType?: RvfDerivationType | null): RvfDatabase;
   /** How this store was derived, or null (root store, or derived before rvf-node 0.4.7). */
   derivationType(): RvfDerivationType | null;
   embedKernel(arch: number, kernelType: number, flags: number, image: Buffer, apiPort: number, cmdline?: string): number;

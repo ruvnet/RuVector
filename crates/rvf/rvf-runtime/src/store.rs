@@ -3261,17 +3261,15 @@ impl RvfStore {
     /// Recording is all it does: the child starts empty for every type, as
     /// before; [`RvfStore::branch`] is the copy-on-write path.
     ///
-    /// `DerivationType::Merge` needs more than one parent and is rejected
-    /// here with `LineageBroken`; use [`RvfStore::merge`].
+    /// `DerivationType::Merge` is accepted and recorded with this store as
+    /// its only parent (as before, nothing fails); to record several parents
+    /// use [`RvfStore::merge`].
     pub fn derive(
         &self,
         child_path: &Path,
         derivation_type: rvf_types::DerivationType,
         child_options: Option<RvfOptions>,
     ) -> Result<Self, RvfError> {
-        if derivation_type == rvf_types::DerivationType::Merge {
-            return Err(err(ErrorCode::LineageBroken));
-        }
         let parent_hash = self.compute_own_manifest_hash()?;
         let new_depth = self
             .file_identity

@@ -78,7 +78,10 @@ function mockBackend(withDerivationType) {
     const plain = await parent.derive(path.join(dir, 'plain.rvf'));
     assert.strictEqual(await plain.derivationType(), 'filter');
     await plain.close();
-    await assert.rejects(parent.derive(path.join(dir, 'm.rvf'), undefined, 'merge'), /merge/);
+    const merged = await parent.derive(path.join(dir, 'm.rvf'), undefined, 'merge');
+    assert.strictEqual(await merged.derivationType(), 'merge');
+    await merged.close();
+    await assert.rejects(parent.derive(path.join(dir, 'x.rvf'), undefined, 'copy'), /derivationType/);
     await parent.close();
   });
 

@@ -228,8 +228,8 @@ export interface RvfIngestEntry {
 // ---------------------------------------------------------------------------
 
 /**
- * How a store was derived from its parent(s). `derive()` accepts every value
- * except `'merge'` (a merge needs several parents); a merge child reports it.
+ * How a store was derived from its parent(s). `derive()` accepts every value;
+ * `'merge'` there is recorded with the one parent.
  */
 export type DerivationType =
   | 'clone'

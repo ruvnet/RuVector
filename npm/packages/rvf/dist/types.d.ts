@@ -220,8 +220,8 @@ export interface RvfIngestEntry {
     metadata?: Record<string, RvfMetadataValue>;
 }
 /**
- * How a store was derived from its parent(s). `derive()` accepts every value
- * except `'merge'` (a merge needs several parents); a merge child reports it.
+ * How a store was derived from its parent(s). `derive()` accepts every value;
+ * `'merge'` there is recorded with the one parent.
  */
 export type DerivationType = 'clone' | 'filter' | 'merge' | 'quantize' | 'reindex' | 'transform' | 'snapshot' | 'user_defined';
 /** Data returned from kernel extraction. */

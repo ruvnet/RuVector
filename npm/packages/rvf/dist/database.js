@@ -177,8 +177,8 @@ class RvfDatabase {
      * the child store.
      *
      * `derivationType` is recorded in the child (default `'filter'`); it
-     * needs `@ruvector/rvf-node` >= 0.4.7. `'merge'` is rejected: a merge
-     * needs several parents.
+     * needs `@ruvector/rvf-node` >= 0.4.7. `'merge'` is recorded with this
+     * store as the only parent.
      */
     async derive(childPath, options, derivationType) {
         this.ensureOpen();

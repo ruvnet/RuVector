@@ -191,10 +191,9 @@ fn parse_metric(s: &str) -> Result<DistanceMetric> {
     }
 }
 
-/// Derivation types `derive()` accepts at the JS boundary (`'merge'` is not
-/// one: it needs several parents).
+/// Derivation types `derive()` accepts at the JS boundary.
 const DERIVE_TYPE_NAMES: &str =
-    "'clone', 'filter', 'quantize', 'reindex', 'transform', 'snapshot' or 'user_defined'";
+    "'clone', 'filter', 'merge', 'quantize', 'reindex', 'transform', 'snapshot' or 'user_defined'";
 
 fn parse_derivation_type(s: &str) -> Result<rvf_types::DerivationType> {
     use rvf_types::DerivationType as D;
@@ -206,10 +205,8 @@ fn parse_derivation_type(s: &str) -> Result<rvf_types::DerivationType> {
         "transform" => Ok(D::Transform),
         "snapshot" => Ok(D::Snapshot),
         "user_defined" => Ok(D::UserDefined),
-        "merge" => Err(napi::Error::new(
-            Status::InvalidArg,
-            "Invalid derivationType 'merge': a merge needs several parents and derive() has one.",
-        )),
+        // Recorded with this store as the only parent.
+        "merge" => Ok(D::Merge),
         _ => Err(napi::Error::new(
             Status::InvalidArg,
             format!("Invalid derivationType '{s}'. Expected {DERIVE_TYPE_NAMES}."),
@@ -812,14 +809,15 @@ impl RvfDatabase {
 
     /// Derive a child store from this parent, recording how it was derived.
     ///
-    /// `derivationType` is one of `'clone'`, `'filter'`, `'quantize'`,
-    /// `'reindex'`, `'transform'`, `'snapshot'` or `'user_defined'`; it
-    /// defaults to `'filter'` (what this method always recorded before
-    /// #1289). Any other string, including `'merge'` (a merge needs several
-    /// parents), is rejected. The child starts empty whatever the type; use
-    /// `branch()` for a child that reads through to this store.
+    /// `derivationType` is one of `'clone'`, `'filter'`, `'merge'`,
+    /// `'quantize'`, `'reindex'`, `'transform'`, `'snapshot'` or
+    /// `'user_defined'`; it defaults to `'filter'` (what this method always
+    /// recorded before #1289). Any other string is rejected. `'merge'` is
+    /// recorded with this store as the only parent. The child starts empty
+    /// whatever the type; use `branch()` for a child that reads through to
+    /// this store.
     #[napi(
-        ts_args_type = "childPath: string, options?: RvfOptions | undefined | null, derivationType?: 'clone' | 'filter' | 'quantize' | 'reindex' | 'transform' | 'snapshot' | 'user_defined' | undefined | null"
+        ts_args_type = "childPath: string, options?: RvfOptions | undefined | null, derivationType?: 'clone' | 'filter' | 'merge' | 'quantize' | 'reindex' | 'transform' | 'snapshot' | 'user_defined' | undefined | null"
     )]
     pub fn derive(
         &self,

@@ -15,7 +15,9 @@ function withDir(fn) {
   return Promise.resolve(fn(dir)).finally(() => rmSync(dir, { recursive: true, force: true }));
 }
 
-const TYPES = ['clone', 'filter', 'quantize', 'reindex', 'transform', 'snapshot', 'user_defined'];
+// 'merge' is accepted too (recorded with the one parent), so nothing that
+// worked before #1289 starts failing.
+const TYPES = ['clone', 'filter', 'merge', 'quantize', 'reindex', 'transform', 'snapshot', 'user_defined'];
 
 test('derive records each requested type, and it survives reopen', () =>
   withDir((dir) => {
@@ -43,10 +45,10 @@ test("derive without a type keeps recording 'filter'", () =>
     parent.close();
   }));
 
-test('derive rejects unknown types and merge at the JS boundary', () =>
+test('derive rejects unknown types at the JS boundary', () =>
   withDir((dir) => {
     const parent = RvfDatabase.create(join(dir, 'p.rvf'), { dimension: 2 });
-    for (const bad of ['merge', 'Clone', 'FILTER', 'copy', '']) {
+    for (const bad of ['Merge', 'Clone', 'FILTER', 'copy', '']) {
       const path = join(dir, `bad-${bad || 'empty'}.rvf`);
       assert.throws(() => parent.derive(path, undefined, bad), /Invalid derivationType/, bad);
       assert.equal(existsSync(path), false, `no file created for '${bad}'`);
