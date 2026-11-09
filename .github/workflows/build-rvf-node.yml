@@ -6,12 +6,14 @@ on:
     paths:
       - 'crates/rvf/rvf-node/**'
       - 'crates/rvf/rvf-runtime/**'
+      - 'crates/rvf/rvf-index/**'
       - 'npm/packages/rvf-node/**'
   pull_request:
     branches: [main]
     paths:
       - 'crates/rvf/rvf-node/**'
       - 'crates/rvf/rvf-runtime/**'
+      - 'crates/rvf/rvf-index/**'
       - 'npm/packages/rvf-node/**'
   workflow_dispatch:
 

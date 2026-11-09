@@ -322,10 +322,21 @@ impl HnswGraph {
     /// The node keeps its level. Its outgoing edges at every level it occupies
     /// are recomputed against the new vector exactly as an insert would
     /// (beam search + alpha pruning), and it is offered back to the chosen
-    /// neighbors with the usual degree pruning. Edges other nodes still hold
-    /// to it stay: search measures true distances on visit, so they remain
-    /// valid routes. Cost is one insert, not a rebuild. Returns false (and
-    /// changes nothing) when `id` is not in the graph.
+    /// neighbors with the usual degree pruning.
+    ///
+    /// The neighborhood it left is then repaired, as hnswlib's `updatePoint`
+    /// does: every former neighbor the moved node no longer links to
+    /// re-selects its neighbors from its current list plus the moved node's
+    /// former neighbors (its old neighborhood), which drops the edge to the
+    /// moved node unless it is still among the best. Without
+    /// this each former neighbor kept a slot spent on a node that is now far
+    /// away and got no replacement for it, so in-place upserts lost recall
+    /// that delete + insert kept (rvf:upsert-relink-recall: recall@10 0.9675
+    /// vs 0.9955 at 3,000 x 384 after 300 updates; 1.0 with the repair). Cost
+    /// is one insert plus O(M^2) distance evaluations per former neighbor,
+    /// not a rebuild (upsert 2.2 -> 3.2 ms at 3,000 x 384 through Node). A
+    /// 2-hop candidate pool measured the same recall at 5.9 ms.
+    /// Returns false (and changes nothing) when `id` is not in the graph.
     pub fn relink(
         &mut self,
         id: u64,
@@ -368,6 +379,11 @@ impl HnswGraph {
             }
         }
 
+        // Former out-neighbors per layer, captured before they are replaced.
+        let former: Vec<Vec<u64>> = (0..=level.min(top))
+            .map(|l| self.layers[l].neighbors(id).to_vec())
+            .collect();
+
         let mut entry_points = vec![current_ep];
         for l in (0..=level.min(top)).rev() {
             let max_neighbors = if l == 0 { self.m0 } else { self.m };
@@ -397,7 +413,52 @@ impl HnswGraph {
                 entry_points = neighbor_ids;
             }
         }
+
+        for (l, old) in former.iter().enumerate() {
+            let max_neighbors = if l == 0 { self.m0 } else { self.m };
+            let kept = self.layers[l].neighbors(id).to_vec();
+            for &n in old {
+                if n != id && !kept.contains(&n) {
+                    self.repair_neighbors(n, old, l, max_neighbors, vectors, distance_fn);
+                }
+            }
+        }
         true
+    }
+
+    /// Re-select `node`'s neighbors at `layer` after a neighbor moved out of its
+    /// neighborhood. Candidates are `node`'s neighbors and `moved`'s former
+    /// neighbors, chosen with the same alpha-RNG selection as an insert.
+    /// The moved node stays only if it is still among the best.
+    #[allow(clippy::too_many_arguments)]
+    fn repair_neighbors(
+        &mut self,
+        node: u64,
+        moved_former: &[u64],
+        layer: usize,
+        max_neighbors: usize,
+        vectors: &dyn VectorStore,
+        distance_fn: &dyn Fn(&[f32], &[f32]) -> f32,
+    ) {
+        let Some(node_vec) = vectors.get_vector(node) else {
+            return;
+        };
+        let current = self.layers[layer].neighbors(node).to_vec();
+        let mut pool: Vec<u64> = Vec::with_capacity(2 * max_neighbors + 1);
+        pool.extend_from_slice(&current);
+        pool.extend_from_slice(moved_former);
+        pool.sort_unstable();
+        pool.dedup();
+        let mut scored: Vec<(u64, f32)> = pool
+            .into_iter()
+            .filter(|&c| c != node && self.layers[layer].contains(c))
+            .filter_map(|c| vectors.get_vector(c).map(|v| (c, distance_fn(node_vec, v))))
+            .collect();
+        // Deterministic order: (distance, id), independent of input order.
+        scored.sort_unstable_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+        let selected = self.select_neighbors_alpha(&scored, max_neighbors, vectors, distance_fn);
+        let ids: Vec<u64> = selected.into_iter().map(|(c, _)| c).collect();
+        self.layers[layer].adjacency.insert(node, ids);
     }
 
     /// Greedy search: starting from `ep`, walk to the closest node at `layer`.

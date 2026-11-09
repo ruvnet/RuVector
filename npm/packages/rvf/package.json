@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/rvf",
-  "version": "0.4.9",
+  "version": "0.4.10",
   "description": "RuVector Format (RVF): TypeScript SDK for a portable single-file vector database with HNSW vector search, native and WASM backends.",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -22,6 +22,7 @@
     "smoke": "node scripts/smoke-query-create.mjs",
     "smoke:idmap": "node scripts/smoke-idmap-durability.mjs",
     "smoke:cow": "node scripts/smoke-cow-durability.mjs",
+    "smoke:batch-upsert": "node scripts/smoke-batch-upsert.mjs",
     "bench": "tsx bench/index.ts",
     "typecheck": "tsc --noEmit"
   },
@@ -48,7 +49,7 @@
     "url": "https://github.com/ruvnet/ruvector/issues"
   },
   "dependencies": {
-    "@ruvector/rvf-node": "^0.4.4"
+    "@ruvector/rvf-node": "^0.4.5"
   },
   "optionalDependencies": {
     "@ruvector/rvf-wasm": "^0.1.7",
