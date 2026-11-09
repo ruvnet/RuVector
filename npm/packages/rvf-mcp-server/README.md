@@ -2,7 +2,7 @@
 
 # @ruvector/rvf-mcp-server
 
-MCP (Model Context Protocol) server for RuVector Format (RVF) vector stores. Exposes RVF capabilities to AI agents like Claude Code, Cursor, and other MCP-compatible tools.
+Search local RuVector Format (RVF) vector stores from MCP clients such as Claude Code, Cursor, or Ruflo. Use stdio for a local session; no public HTTP listener is required. [Ruvnet homepage](https://ruv.io).
 
 ## Install
 
@@ -24,6 +24,10 @@ Add to your MCP config:
   }
 }
 ```
+
+## Read-only vector search
+
+Start the stdio server with `--data-dir` set to the directory containing your RVF store. In your MCP client, call `rvf_open_store` with the relative file path and `readOnly: true`. Use `rvf_query` with a vector matching the store dimensions. The expected result is a ranked list of matching vector IDs; write tools reject the read-only handle. Use the [RVF SDK](https://www.npmjs.com/package/@ruvector/rvf) to create or inspect a store before connecting it.
 
 ## Transports
 
