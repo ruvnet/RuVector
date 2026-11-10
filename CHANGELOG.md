@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Memory-backed Rust batches validate all vector dimensions before storing any
 - Count undirected edge weights once when scoring modularity in the npm
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
@@ -78,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   skill and installs it into `.claude/skills` (Claude Code) and/or
   `.agents/skills` (Codex). `skills/` is now in the published files.
 ### Fixed
+- Keep generated memory-storage IDs from overwriting live caller-selected rows, reserve explicit IDs in mixed batches, and refuse generated-counter wraparound while preserving intentional explicit upserts.
+- Preserve current HNSW caller IDs across replacements and deletion, widen live top-k retrieval when obsolete graph rows crowd candidates, and repair stale reverse mappings when restoring older snapshots.
 - Every open-ended `>=` peer range is now bounded. `@ruvector/ruvllm >=2.0.0`
   resolved to 4.0.1, a different product published under the same name
   without the runtime that `ruvector llm` / `ruvector sona` load (`ruvllm.RuvLLM is
