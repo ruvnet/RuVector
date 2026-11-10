@@ -1,0 +1,37 @@
+[package]
+name = "ruvector-coherence-quant"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Coherence-gated mixed-precision vector quantization: allocates Turbo4/1-bit codes per-vector from mincut-derived local coherence scores (ADR-353)"
+keywords = ["quantization", "min-cut", "coherence", "agent-memory", "vector-search"]
+categories = ["algorithms", "science", "mathematics"]
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ruvector-attn-mincut = { path = "../ruvector-attn-mincut" }
+ruvector-turboquant = { path = "../ruvector-turboquant" }
+serde = { workspace = true }
+
+[dev-dependencies]
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", priority = -1 }
+unused_imports = "allow"
+dead_code = "allow"
+unused_variables = "allow"
+
+[lints.clippy]
+pedantic = { level = "allow", priority = -2 }
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+needless_range_loop = "allow"
+cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+too_many_arguments = "allow"
