@@ -5,6 +5,14 @@ All notable changes to the ruvllm crate will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Model-generation LoRA adapter load, unload, and active-adapter queries on
+  `LlmBackend`, returning `ModelAdapterError`. The macOS Lattice backend applies
+  uniform-rank PEFT SafeTensors adapters to Qwen3.5 full-attention and dense MLP
+  projections; other backends report an unsupported operation.
+
 ## [2.5.0] - 2026-10-08
 
 ### Added

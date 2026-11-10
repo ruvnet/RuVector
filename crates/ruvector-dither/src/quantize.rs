@@ -1,6 +1,6 @@
 //! Drop-in quantization helpers that apply dither before rounding.
 
-use crate::DitherSource;
+use crate::{round_f32, DitherSource};
 
 /// Quantize a single value with deterministic dither.
 ///
@@ -26,7 +26,7 @@ pub fn quantize_dithered(x: f32, bits: u32, eps: f32, source: &mut impl DitherSo
     let lsb = 1.0 / qmax;
     let dither = source.next(eps * lsb);
     let shifted = (x + dither) * qmax;
-    let rounded = shifted.round().clamp(-qmax, qmax);
+    let rounded = round_f32(shifted).clamp(-qmax, qmax);
     rounded / qmax
 }
 
@@ -56,7 +56,7 @@ pub fn quantize_slice_dithered(
     for x in xs.iter_mut() {
         let dither = source.next(eps * lsb);
         let shifted = (*x + dither) * qmax;
-        *x = shifted.round().clamp(-qmax, qmax) / qmax;
+        *x = round_f32(shifted).clamp(-qmax, qmax) / qmax;
     }
 }
 
@@ -69,13 +69,15 @@ pub fn quantize_to_code(x: f32, bits: u32, eps: f32, source: &mut impl DitherSou
     let qmax = ((1u32 << (bits - 1)) - 1) as f32;
     let lsb = 1.0 / qmax;
     let dither = source.next(eps * lsb);
-    ((x + dither) * qmax).round().clamp(-qmax, qmax) as i32
+    round_f32((x + dither) * qmax).clamp(-qmax, qmax) as i32
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{GoldenRatioDither, PiDither};
+    #[cfg(feature = "no_std")]
+    use alloc::{vec, vec::Vec};
 
     #[test]
     fn output_in_unit_range() {

@@ -1,6 +1,7 @@
 {
   "name": "@ruvector/sona-win32-x64-msvc",
-  "version": "0.1.5",
+  "version": "0.1.11",
+  "homepage": "https://ruv.io",
   "os": [
     "win32"
   ],
@@ -14,6 +15,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git"
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "npm/packages/sona/npm/win32-x64-msvc"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
   }
 }

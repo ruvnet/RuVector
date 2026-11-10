@@ -113,7 +113,7 @@ impl QuantParams {
         epoch: u64,
     ) -> Result<Self, IndexError> {
         check_dim(dim)?;
-        if samples.is_empty() || samples.len() % dim != 0 {
+        if samples.is_empty() || !samples.len().is_multiple_of(dim) {
             return Err(IndexError::InvalidParams(
                 "samples must be whole non-empty rows",
             ));
@@ -320,9 +320,8 @@ fn wsum(w: &[f32], c: &[u8]) -> f32 {
     let n = w.len().min(c.len());
     let (w, c) = (&w[..n], &c[..n]);
     let mut acc = [0.0f32; 8];
-    let (cw, cc) = (w.chunks_exact(8), c.chunks_exact(8));
-    let (rw, rc) = (cw.remainder(), cc.remainder());
-    for (x, y) in cw.zip(cc) {
+    let ((cw, rw), (cc, rc)) = (w.as_chunks::<8>(), c.as_chunks::<8>());
+    for (x, y) in cw.iter().zip(cc) {
         for k in 0..8 {
             acc[k] += x[k] * f32::from(y[k]);
         }

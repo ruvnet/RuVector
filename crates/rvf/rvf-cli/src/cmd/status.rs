@@ -1,12 +1,6 @@
 //! `rvf status` -- Show store status.
 
 use clap::Args;
-use std::path::Path;
-
-use rvf_runtime::RvfStore;
-
-use super::map_rvf_err;
-
 #[derive(Args)]
 pub struct StatusArgs {
     /// Path to the RVF store
@@ -14,10 +8,13 @@ pub struct StatusArgs {
     /// Output as JSON
     #[arg(long)]
     json: bool,
+    /// Open the last committed snapshot even if the file ends inside a segment
+    #[arg(long)]
+    recover: bool,
 }
 
 pub fn run(args: StatusArgs) -> Result<(), Box<dyn std::error::Error>> {
-    let store = RvfStore::open_readonly(Path::new(&args.path)).map_err(map_rvf_err)?;
+    let store = crate::cmd::open_readonly_checked(&args.path, args.recover)?;
     crate::cmd::warn_on_metadata_recovery(&store, &args.path);
     let status = store.status();
 

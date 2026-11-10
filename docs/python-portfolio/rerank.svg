@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="240" viewBox="0 0 1000 240" role="img" aria-labelledby="title desc">
+<title id="title">Attention ranking for RAG</title><desc id="desc">Python API flows through PyO3 into ruvector-attention. Shared native runtime.</desc>
+<style>text{font-family:system-ui,sans-serif}.pulse{animation:flow 4s infinite}@keyframes flow{0%,100%{opacity:.3}50%{opacity:1}}@media(prefers-reduced-motion:reduce){.pulse{animation:none}}</style>
+<rect width="1000" height="240" rx="20" fill="#09151b"/>
+<text x="40" y="48" fill="#62efd0" font-size="16">RUVECTOR / PYTHON</text>
+<text x="40" y="88" fill="#ffffff" font-size="28">Attention ranking for RAG</text>
+<path d="M210 157H770" stroke="#62efd0" stroke-width="3" class="pulse"/>
+<g fill="#16313a" stroke="#62efd0"><rect x="40" y="125" width="220" height="62" rx="10"/><rect x="365" y="125" width="220" height="62" rx="10"/><rect x="690" y="125" width="270" height="62" rx="10"/></g>
+<g fill="white" font-size="18" text-anchor="middle"><text x="150" y="163">Python API</text><text x="475" y="163">PyO3 runtime</text><text x="825" y="163">ruvector-attention</text></g>
+<text x="40" y="218" fill="#afc4cc" font-size="14">Local execution • Shared Rust implementation • Typed Python interface</text></svg>

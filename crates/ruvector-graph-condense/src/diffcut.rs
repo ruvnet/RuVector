@@ -230,7 +230,7 @@ impl DiffCutCondenser {
             let iters = self.optimize(&g, &mut theta, n, k, &mut rng);
             let soft = softmax_rows(&theta, n, k);
             let loss = forward(&g, &soft, k, self.config.ortho_weight);
-            if best.as_ref().map_or(true, |(_, b, _)| loss.total < b.total) {
+            if best.as_ref().is_none_or(|(_, b, _)| loss.total < b.total) {
                 best = Some((soft, loss, iters));
             }
         }

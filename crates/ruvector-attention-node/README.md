@@ -41,7 +41,6 @@ const mha = new MultiHeadAttention(512, 8); // 512 dim, 8 heads
 const output = mha.compute(query, keys, values);
 
 // Async version for large computations
-const outputAsync = await mha.computeAsync(query, keys, values);
 ```
 
 ### Flash Attention
@@ -52,6 +51,29 @@ const { FlashAttention } = require('@ruvector/attention');
 const flash = new FlashAttention(512, 64); // 512 dim, 64 block size
 const output = flash.compute(query, keys, values);
 ```
+
+### Flat inputs (fastest)
+
+Every mechanism also has `computeFlat(query, keys, values)`, where `keys` and
+`values` are single row-major `Float32Array`s of `n * dim` floats. Only three
+typed arrays cross into native code, so it avoids the per-key cost of
+`Float32Array[]`:
+
+```javascript
+const keysFlat = new Float32Array(n * 384);   // row i at offset i * 384
+const valuesFlat = new Float32Array(n * 384);
+const output = flash.computeFlat(query, keysFlat, valuesFlat);
+```
+
+Measured in 2.3.0 (dim 384, x86-64, median µs per call, `FlashAttention(384, 64)`
+and `MultiHeadAttention(384, 8)`), against a plain JS loop over the same data:
+
+| case | plain JS | `compute` | `computeFlat` |
+|---|---|---|---|
+| flash, 20 keys | 8.6 | 5.6 | 3.9 |
+| multi-head, 20 keys | 24.0 | 6.7 | 5.0 |
+| flash, 200 keys | 115.9 | 43.2 | 31.3 |
+| flash, 1000 keys | 412.9 | 204.5 | 155.8 |
 
 ### Hyperbolic Attention
 
@@ -137,27 +159,32 @@ const results = await parallelAttentionCompute(
 #### `DotProductAttention`
 - `constructor(dim: number, scale?: number)`
 - `compute(query: Float32Array, keys: Float32Array[], values: Float32Array[]): Float32Array`
+- `computeFlat(query: Float32Array, keys: Float32Array, values: Float32Array): Float32Array`
 
 #### `MultiHeadAttention`
 - `constructor(dim: number, numHeads: number)`
 - `compute(query: Float32Array, keys: Float32Array[], values: Float32Array[]): Float32Array`
-- `computeAsync(query: Float32Array, keys: Float32Array[], values: Float32Array[]): Promise<Float32Array>`
+- `computeFlat(query: Float32Array, keys: Float32Array, values: Float32Array): Float32Array`
 
 #### `FlashAttention`
 - `constructor(dim: number, blockSize: number)`
 - `compute(query: Float32Array, keys: Float32Array[], values: Float32Array[]): Float32Array`
+- `computeFlat(query: Float32Array, keys: Float32Array, values: Float32Array): Float32Array`
 
 #### `LinearAttention`
 - `constructor(dim: number, numFeatures: number)`
 - `compute(query: Float32Array, keys: Float32Array[], values: Float32Array[]): Float32Array`
+- `computeFlat(query: Float32Array, keys: Float32Array, values: Float32Array): Float32Array`
 
 #### `HyperbolicAttention`
 - `constructor(dim: number, curvature: number)`
 - `compute(query: Float32Array, keys: Float32Array[], values: Float32Array[]): Float32Array`
+- `computeFlat(query: Float32Array, keys: Float32Array, values: Float32Array): Float32Array`
 
 #### `MoEAttention`
 - `constructor(config: MoEConfig)`
 - `compute(query: Float32Array, keys: Float32Array[], values: Float32Array[]): Float32Array`
+- `computeFlat(query: Float32Array, keys: Float32Array, values: Float32Array): Float32Array`
 - `getExpertUsage(): number[]`
 
 #### `Trainer`
@@ -211,3 +238,18 @@ Pre-built binaries are provided for:
 ## License
 
 MIT OR Apache-2.0
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for attention, transformer, machine learning.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@claude-flow/embeddings`](https://www.npmjs.com/package/@claude-flow/embeddings) (peer), [`@claude-flow/performance`](https://www.npmjs.com/package/@claude-flow/performance), [`agentdb`](https://www.npmjs.com/package/agentdb) (optional), [`agentic-flow`](https://www.npmjs.com/package/agentic-flow) (optional), [`claude-flow`](https://www.npmjs.com/package/claude-flow), [`ruvector`](https://www.npmjs.com/package/ruvector)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

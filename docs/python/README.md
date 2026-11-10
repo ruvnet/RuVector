@@ -10,39 +10,38 @@ security findings, and the full capability-coverage table live in
 [`docs/adr/ADR-352-ruvector-python-sdk-cli-mcp.md`](../adr/ADR-352-ruvector-python-sdk-cli-mcp.md) —
 read that for the "why", this guide for the "how".
 
-> **Status**: this package has not been published to PyPI yet. Everything below describes the
-> package as built on branch `feat/python-sdk`; install from source until a release ships.
+![Animated tutorial: install, write, reopen, verify](../../assets/ruvector/tutorial-steps.svg)
+
+[Examples hub](../../examples/README.md) · [Main quick starts](../../README.md#quick-start-choose-your-track) · [Package manifest](../../crates/ruvector-py/pyproject.toml)
 
 ## Install
 
-```bash
-# from source, this branch (not yet on PyPI)
-cd crates/ruvector-py
-pip install maturin
-maturin develop --release        # or: maturin build --release && pip install dist/*.whl
+The distribution and import name are both `ruvector`. This guide uses the repository source; registry wheel availability must be checked separately. Python 3.9+, Rust, and platform build tools are required.
 
-# once published:
-pip install ruvector
-# or
-uv add ruvector
+```bash
+git clone https://github.com/ruvnet/RuVector.git
+cd RuVector
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install maturin
+cd crates/ruvector-py
+maturin develop --release
+python -c "from ruvector import Collection; print('RuVector import OK')"
 ```
 
-Plain `pip install ruvector` gives you the library only (`numpy` is the one hard dependency —
-`import ruvector` never pulls in anything else). Everything else is an opt-in extra:
+On Windows PowerShell, activate with `.venv\\Scripts\\Activate.ps1`. Keep the environment active for the following commands.
 
-| Extra | Pulls in | Needed for |
-|---|---|---|
-| `ruvector[cli]` | `click`, `rich` | the `ruvector` console script |
-| `ruvector[mcp]` | `mcp>=2.0` | `ruvector serve` (the MCP server) |
-| `ruvector[langchain]` | `langchain-core>=1.6` | `ruvector.integrations.langchain.RuVectorStore` |
-| `ruvector[llamaindex]` | `llama-index-core>=0.14` | `ruvector.integrations.llamaindex.RuVectorStore` |
-| `ruvector[salesforce]` | `httpx>=0.27` | `ruvector.integrations.salesforce` + the Agentforce action routes |
-| `ruvector[all]` | all of the above | everything |
+The manifest declares NumPy, Click, and Rich as base dependencies. Optional integrations add their own dependencies:
 
-Each extra is imported lazily by only the module that needs it — `import ruvector` stays
-numpy-only regardless of what's installed, and `ruvector.cli` imports `click`/`rich` per
-subcommand rather than at module load, which is why `ruvector --help` stays fast (see "Perf
-tips" below).
+| Extra | Purpose |
+| :--- | :--- |
+| `mcp` | Python MCP server |
+| `langchain` | LangChain adapter |
+| `llamaindex` | LlamaIndex adapter |
+| `salesforce` | Salesforce HTTP integration |
+| `all` | All optional integrations |
+
+For example, from `crates/ruvector-py`, run `maturin develop --release --extras mcp`. The Python MCP server and the npm MCP server are separate implementations; their tools and policy settings differ.
 
 ## Quick start
 
@@ -195,7 +194,7 @@ a real TTY; piping to a file strips all ANSI regardless.
 ## MCP server + ChatGPT `ui://` widget
 
 ```bash
-pip install 'ruvector[mcp]'
+maturin develop --release --extras mcp
 ruvector serve                       # stdio (default) — for Claude Desktop, most MCP clients
 ruvector serve --http --port 8420    # streamable-HTTP — for a ChatGPT connector or a remote client
 ```
@@ -252,7 +251,7 @@ beyond using `vector_explore` instead of `vector_search` from that client.
 ### LangChain
 
 ```bash
-pip install 'ruvector[langchain]'
+maturin develop --release --extras langchain
 ```
 
 ```python
@@ -271,7 +270,7 @@ Verified against `langchain-core==1.6.6`.
 ### LlamaIndex
 
 ```bash
-pip install 'ruvector[llamaindex]'
+maturin develop --release --extras llamaindex
 ```
 
 ```python
@@ -297,7 +296,7 @@ for your similarity-cutoff thresholds.
 ### Salesforce Agentforce
 
 ```bash
-pip install 'ruvector[salesforce]'
+maturin develop --release --extras salesforce
 ```
 
 Exposes vector search as Agentforce actions via **External Services + OpenAPI** — the

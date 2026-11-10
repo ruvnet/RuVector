@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "runtime": "0.1.4",
+  "packages": [
+    "ruvector-attention",
+    "ruvector-cluster",
+    "ruvector-core",
+    "ruvector-gnn",
+    "ruvector-graph",
+    "ruvector-rerank",
+    "ruvector-router",
+    "ruvector-ruvllm",
+    "ruvector-rvf",
+    "ruvector-rvf-wasm",
+    "ruvector-sona"
+  ]
+}

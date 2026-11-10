@@ -1,63 +1,36 @@
 {
   "name": "ruvector",
-  "version": "0.3.3",
-  "description": "Self-learning vector database for Node.js — hybrid search, Graph RAG, FlashAttention-3, HNSW, 50+ attention mechanisms",
+  "version": "0.3.20",
+  "description": "Self-learning vector database for Node.js: native HNSW vector search, ONNX embeddings, GNN, attention, SONA routing and an MCP server for agents.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
     "ruvector": "bin/cli.js"
   },
   "scripts": {
-    "build": "tsc && node -e \"require('fs').cpSync('src/core/onnx','dist/core/onnx',{recursive:true})\"",
+    "build": "tsc && node -e \"require('fs').cpSync('src/core/onnx','dist/core/onnx',{recursive:true,filter:(f)=>!/\\.(db|rvf|lock)$/.test(f)})\"",
     "verify-dist": "node scripts/verify-dist.js",
     "prepack": "npm run build && npm run verify-dist",
     "prepublishOnly": "npm run build && npm run verify-dist",
-    "test": "node test/integration.js && node test/backend-fallback.js && node test/mincut-wasm.js && node test/metaharness-sdk.js && node test/metaharness-optional-deps.js && node test/cli-commands.js && node test/metaharness-cli.js && node test/db-workflow.js && node test/mcp-stdio.js && node test/metaharness-mcp.js && node test/sigterm-cleanup.js && node test/mcp-policy.js && node test/mcp-command-security.js && node test/mcp-handshake.js && node test/mcp-intel-durability.js && node test/startup-budget.js"
+    "test": "node test/integration.js && node test/graph-modularity.js && node test/backend-fallback.js && node test/mincut-wasm.js && node test/graph-cli-e2e.js && node test/metaharness-sdk.js && node test/metaharness-optional-deps.js && node test/cli-commands.js && node test/metaharness-cli.js && node test/db-workflow.js && node test/fast-agentdb-native.js && node test/mcp-stdio.js && node test/metaharness-mcp.js && node test/sigterm-cleanup.js && node test/mcp-policy.js && node test/mcp-command-security.js && node test/mcp-exploit-regression.js && node test/mcp-handshake.js && node test/mcp-intel-durability.js && node test/add-extras.js && node test/rabitq-optional.js && node test/rabitq-recall.js && node test/diskann-cli.js && node test/skills-install.js && node test/manifest-ranges.js && node test/attention-panic.js && node test/mcp-extras.js && node test/rvf-e2e.js && node test/startup-budget.js && node test/rag-context-rerank.js"
   },
   "keywords": [
-    "vector",
-    "database",
     "vector-database",
     "vector-search",
-    "similarity-search",
-    "semantic-search",
     "embeddings",
     "hnsw",
-    "ann",
+    "mcp",
+    "self-learning",
+    "ruvector",
+    "ruvnet",
+    "semantic-search",
     "ai",
     "machine-learning",
     "rag",
     "rust",
     "wasm",
-    "native",
-    "ruv",
-    "ruvector",
     "attention",
-    "transformer",
-    "flash-attention",
-    "hyperbolic",
-    "sona",
-    "lora",
-    "ewc",
-    "adaptive-learning",
-    "continual-learning",
-    "onnx",
-    "semantic-embeddings",
-    "minilm",
-    "brain",
-    "shared-intelligence",
-    "mcp",
-    "edge-computing",
-    "graph-rag",
-    "hnsw",
-    "hybrid-search",
-    "colbert",
-    "turboquant",
-    "mamba",
-    "pi-brain",
-    "identity",
-    "pi-key",
-    "distributed-compute"
+    "transformer"
   ],
   "author": "ruv.io Team <info@ruv.io> (https://ruv.io)",
   "homepage": "https://ruv.io",
@@ -71,17 +44,17 @@
     "directory": "npm/packages/ruvector"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
-    "@ruvector/attention": "^0.1.3",
-    "@ruvector/core": "^0.1.25",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@ruvector/attention": "^2.3.0",
+    "@ruvector/core": "^0.1.36",
     "@ruvector/gnn": "^0.1.22",
-    "@ruvector/sona": "^0.1.4",
+    "@ruvector/sona": "^0.1.11",
     "chalk": "^4.1.2",
     "commander": "^11.1.0",
     "ora": "^5.4.1"
   },
   "optionalDependencies": {
-    "@metaharness/darwin": "^0.9.1",
+    "@metaharness/darwin": "^0.13.0",
     "@metaharness/flywheel": "^0.1.10",
     "@metaharness/harness": "^0.2.0",
     "@metaharness/redblue": "^0.1.6",
@@ -90,13 +63,16 @@
     "@metaharness/workspace-lens": "^0.1.2",
     "@metaharness/workspace-probe": "^0.1.1",
     "@ruvector/mincut-wasm": "^2.3.0",
-    "@ruvector/rvf": "^0.3.4",
+    "@ruvector/rabitq-wasm": "^0.1.1",
+    "@ruvector/ruqu-wasm": "^2.2.0",
+    "@ruvector/rvf": "^0.4.7",
     "@ruvector/tiny-dancer": "^0.1.22",
-    "metaharness": "^0.4.7"
+    "metaharness": "^0.4.20"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "@ruvector/diskann": "^0.1.3"
   },
   "files": [
     "bin/",
@@ -104,23 +80,26 @@
     "src/decompiler/",
     "src/optimizer/",
     "wasm/",
+    "skills/",
     "README.md",
     "LICENSE"
   ],
   "peerDependencies": {
-    "@metaharness/darwin": ">=0.9.1",
-    "@metaharness/flywheel": ">=0.1.10",
-    "@metaharness/harness": ">=0.2.0",
-    "@metaharness/redblue": ">=0.1.6",
-    "@metaharness/router": ">=0.4.0",
-    "@metaharness/weight-eft": ">=0.1.1",
-    "@metaharness/workspace-lens": ">=0.1.2",
-    "@metaharness/workspace-probe": ">=0.1.1",
-    "@ruvector/diskann": ">=0.1.0",
-    "@ruvector/pi-brain": ">=0.1.0",
-    "@ruvector/router": ">=0.1.0",
-    "@ruvector/ruvllm": ">=2.0.0",
-    "metaharness": ">=0.4.7"
+    "@metaharness/darwin": "^0.13.0",
+    "@metaharness/flywheel": "^0.1.10",
+    "@metaharness/harness": "^0.2.0",
+    "@metaharness/redblue": "^0.1.6",
+    "@metaharness/router": "^0.4.0",
+    "@metaharness/weight-eft": "^0.1.1",
+    "@metaharness/workspace-lens": "^0.1.2",
+    "@metaharness/workspace-probe": "^0.1.1",
+    "@ruvector/diskann": "^0.1.0",
+    "@ruvector/pi-brain": "^0.1.0",
+    "@ruvector/router": "^0.1.0",
+    "@ruvector/ruvllm": "^4.1.0",
+    "metaharness": "^0.4.20",
+    "@ruvector/rabitq-wasm": "^0.1.1",
+    "rvlite": "^0.2.0"
   },
   "peerDependenciesMeta": {
     "@metaharness/darwin": {
@@ -160,6 +139,12 @@
       "optional": true
     },
     "@ruvector/diskann": {
+      "optional": true
+    },
+    "@ruvector/rabitq-wasm": {
+      "optional": true
+    },
+    "rvlite": {
       "optional": true
     }
   },

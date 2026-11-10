@@ -97,7 +97,7 @@ const SIGNED_3BIT_LUT: [i8; 8] = [-4, -3, -2, -1, 0, 1, 2, 3];
 /// ```
 pub fn pi_dequantize_scalar(packed: &[u8], scale: f32, output: &mut [f32]) {
     assert!(
-        packed.len() % PI3_BYTES_PER_GROUP == 0,
+        packed.len().is_multiple_of(PI3_BYTES_PER_GROUP),
         "Packed length {} must be a multiple of {}",
         packed.len(),
         PI3_BYTES_PER_GROUP
@@ -451,7 +451,7 @@ unsafe fn neon_extract_and_convert(
 /// - Using _mm512_cvtepi32_ps for fast int-to-float conversion
 /// - Fused multiply with _mm512_mul_ps
 /// - 2x theoretical throughput over AVX2 with wider registers
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", ruvllm_stable_avx512))]
 #[target_feature(enable = "avx512f")]
 pub unsafe fn pi_dequantize_avx512(packed: &[u8], scale: f32, output: &mut [f32]) {
     use core::arch::x86_64::*;
@@ -584,13 +584,13 @@ pub unsafe fn pi_dequantize_avx512(packed: &[u8], scale: f32, output: &mut [f32]
 /// # Performance
 ///
 /// Uses 512-bit wide operations for efficient quantization of large weight tensors.
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", ruvllm_stable_avx512))]
 #[target_feature(enable = "avx512f")]
 pub unsafe fn pi_quantize_avx512(weights: &[f32], scale: f32, output: &mut [u8]) {
     use core::arch::x86_64::*;
 
     assert!(
-        weights.len() % PI3_VALUES_PER_GROUP == 0,
+        weights.len().is_multiple_of(PI3_VALUES_PER_GROUP),
         "Weights length must be multiple of 8"
     );
 
@@ -865,6 +865,7 @@ pub fn pi_dequantize(packed: &[u8], scale: f32, output: &mut [f32]) {
     #[cfg(target_arch = "x86_64")]
     {
         // Prefer AVX-512 when available (highest throughput)
+        #[cfg(ruvllm_stable_avx512)]
         if is_x86_feature_detected!("avx512f") {
             // SAFETY: AVX-512F feature detected at runtime
             unsafe {
@@ -905,6 +906,7 @@ pub fn pi_dequantize_kernel_name() -> &'static str {
 
     #[cfg(target_arch = "x86_64")]
     {
+        #[cfg(ruvllm_stable_avx512)]
         if is_x86_feature_detected!("avx512f") {
             return "avx512";
         }
@@ -931,6 +933,7 @@ pub fn pi_quantize(weights: &[f32], scale: f32, output: &mut [u8]) {
     #[cfg(target_arch = "x86_64")]
     {
         // Prefer AVX-512 when available
+        #[cfg(ruvllm_stable_avx512)]
         if is_x86_feature_detected!("avx512f") {
             // SAFETY: AVX-512F feature detected at runtime
             unsafe {
@@ -950,6 +953,7 @@ pub fn pi_quantize(weights: &[f32], scale: f32, output: &mut [u8]) {
 pub fn pi_quantize_kernel_name() -> &'static str {
     #[cfg(target_arch = "x86_64")]
     {
+        #[cfg(ruvllm_stable_avx512)]
         if is_x86_feature_detected!("avx512f") {
             return "avx512";
         }
@@ -973,7 +977,7 @@ pub fn pi_quantize_kernel_name() -> &'static str {
 /// * `output` - Output packed buffer (length must be values.len() * 3 / 8)
 pub fn pi_quantize_scalar(values: &[f32], scale: f32, output: &mut [u8]) {
     assert!(
-        values.len() % PI3_VALUES_PER_GROUP == 0,
+        values.len().is_multiple_of(PI3_VALUES_PER_GROUP),
         "Values length must be multiple of 8"
     );
 
@@ -1079,6 +1083,44 @@ pub fn pi_quantize_value(value: f32, scale: f32) -> i8 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_compiler_aware_dispatch_matches_scalar() {
+        let scale = pi_scale(4);
+        for groups in [0, 1, 7, 8, 9, 31, 32, 33] {
+            let weights: Vec<f32> = (0..groups * PI3_VALUES_PER_GROUP)
+                .map(|i| ((i % 8) as f32 - 4.0) * scale)
+                .collect();
+            let mut reference = vec![0u8; groups * PI3_BYTES_PER_GROUP];
+            let mut dispatched = reference.clone();
+            pi_quantize_scalar(&weights, scale, &mut reference);
+            pi_quantize(&weights, scale, &mut dispatched);
+            assert_eq!(dispatched, reference, "quantization at {groups} groups");
+            let mut expected = vec![0.0f32; weights.len()];
+            let mut actual = expected.clone();
+            pi_dequantize_scalar(&reference, scale, &mut expected);
+            pi_dequantize(&reference, scale, &mut actual);
+            assert_eq!(actual, expected, "dequantization at {groups} groups");
+        }
+        #[cfg(target_arch = "x86_64")]
+        {
+            #[cfg(ruvllm_stable_avx512)]
+            if is_x86_feature_detected!("avx512f") {
+                assert_eq!(pi_quantize_kernel_name(), "avx512");
+                assert_eq!(pi_dequantize_kernel_name(), "avx512");
+                return;
+            }
+            assert_eq!(pi_quantize_kernel_name(), "scalar");
+            assert_eq!(
+                pi_dequantize_kernel_name(),
+                if is_x86_feature_detected!("avx2") {
+                    "avx2"
+                } else {
+                    "scalar"
+                }
+            );
+        }
+    }
 
     const EPSILON: f32 = 1e-6;
 
@@ -1404,7 +1446,7 @@ mod tests {
         }
     }
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(target_arch = "x86_64", ruvllm_stable_avx512))]
     #[test]
     fn test_avx512_dequantize_equivalence_to_scalar() {
         if !is_x86_feature_detected!("avx512f") {
@@ -1443,7 +1485,7 @@ mod tests {
         }
     }
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(target_arch = "x86_64", ruvllm_stable_avx512))]
     #[test]
     fn test_avx512_quantize_equivalence_to_scalar() {
         if !is_x86_feature_detected!("avx512f") {
@@ -1485,7 +1527,7 @@ mod tests {
         }
     }
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(target_arch = "x86_64", ruvllm_stable_avx512))]
     #[test]
     fn test_avx512_quantize_dequantize_roundtrip() {
         if !is_x86_feature_detected!("avx512f") {
@@ -1533,7 +1575,7 @@ mod tests {
         }
     }
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(target_arch = "x86_64", ruvllm_stable_avx512))]
     #[test]
     fn test_avx512_all_value_combinations() {
         if !is_x86_feature_detected!("avx512f") {
@@ -1590,7 +1632,7 @@ mod tests {
         }
     }
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(target_arch = "x86_64", ruvllm_stable_avx512))]
     #[test]
     fn test_avx512_edge_cases() {
         if !is_x86_feature_detected!("avx512f") {

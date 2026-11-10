@@ -12,7 +12,8 @@ export function engineOptionsFromFlags(flags: ParsedArgs['flags']): EngineOption
     if (!modelDir || !manifest) {
       throw new Error('--embedder onnx requires --model-dir and --manifest');
     }
-    return { embedder: { kind: 'onnx', modelDir, manifest } };
+    const model = flagString(flags, 'model');
+    return { embedder: { kind: 'onnx', modelDir, manifest, ...(model ? { model } : {}) } };
   }
   if (embedder !== undefined && embedder !== 'hash') {
     throw new Error(`unknown --embedder "${embedder}" (expected hash or onnx)`);

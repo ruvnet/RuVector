@@ -23,6 +23,16 @@ use rvf_types::{
 };
 use sha2::{Digest, Sha256};
 
+/// Segment types the format assigns that are not (yet) `SegmentType`
+/// variants, accepted as opaque, non-executable segments:
+/// - `0x24`: the lineage record segment written by every `derive()` /
+///   `branch()` since rvf-runtime 0.5.4 (`rvf_runtime::LINEAGE_SEG_TYPE`,
+///   #1289). This crate does not depend on rvf-runtime, hence the literal.
+///
+/// Application segments (`0xC0..=0xEF`, #1290) stay refused: an admission
+/// validator only takes types it knows.
+const OPAQUE_FORMAT_TYPES: [u8; 1] = [0x24];
+
 /// Flag bits defined by rvf-types (`SegmentFlags::KNOWN_MASK`).
 const KNOWN_FLAGS: u16 = 0x0FFF;
 const HDR: usize = SEGMENT_HEADER_SIZE;
@@ -214,18 +224,28 @@ impl StreamValidator {
                 limit: limits.max_segments,
             });
         }
+        // `None` = a format-assigned type that is not a `SegmentType` variant
+        // (see `OPAQUE_FORMAT_TYPES`): checked and hashed like any other
+        // segment, its payload is not interpreted.
         let seg_type = match SegmentType::try_from(header.seg_type) {
-            Ok(SegmentType::Invalid) | Err(_) => {
+            Ok(SegmentType::Invalid) => {
                 return Err(ValidationError::UnknownSegmentType {
                     offset,
                     seg_type: header.seg_type,
                 })
             }
-            Ok(t) => t,
+            Ok(t) => Some(t),
+            Err(raw) if OPAQUE_FORMAT_TYPES.contains(&raw) => None,
+            Err(_) => {
+                return Err(ValidationError::UnknownSegmentType {
+                    offset,
+                    seg_type: header.seg_type,
+                })
+            }
         };
         let executable = matches!(
             seg_type,
-            SegmentType::Kernel | SegmentType::Ebpf | SegmentType::Wasm
+            Some(SegmentType::Kernel | SegmentType::Ebpf | SegmentType::Wasm)
         );
         if executable && !limits.allow_executable {
             return Err(ValidationError::ExecutableSegment { offset });
@@ -252,7 +272,7 @@ impl StreamValidator {
             },
         )?;
         let capture = match seg_type {
-            SegmentType::Manifest => {
+            Some(SegmentType::Manifest) => {
                 if header.payload_length > u64::from(limits.max_manifest_payload) {
                     return Err(ValidationError::ManifestTooLarge {
                         offset,
@@ -261,7 +281,7 @@ impl StreamValidator {
                 }
                 Capture::Manifest(Vec::with_capacity(header.payload_length as usize))
             }
-            SegmentType::Vec => Capture::VecHead([0; VEC_HEAD], 0),
+            Some(SegmentType::Vec) => Capture::VecHead([0; VEC_HEAD], 0),
             _ => Capture::None,
         };
         let mut sha = Sha256::new();

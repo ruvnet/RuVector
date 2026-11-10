@@ -487,7 +487,11 @@ impl PooledBuffer {
     pub fn as_slice<T: Copy>(&self) -> &[T] {
         let size = std::mem::size_of::<T>();
         assert!(
-            self.data.len() % size == 0,
+            self.data
+                .len()
+                .checked_rem(size)
+                .expect("attempt to calculate the remainder with a divisor of zero")
+                == 0,
             "Buffer size not aligned to type"
         );
         // SAFETY: Buffer is aligned and size is checked
@@ -501,7 +505,11 @@ impl PooledBuffer {
     pub fn as_slice_mut<T: Copy>(&mut self) -> &mut [T] {
         let size = std::mem::size_of::<T>();
         assert!(
-            self.data.len() % size == 0,
+            self.data
+                .len()
+                .checked_rem(size)
+                .expect("attempt to calculate the remainder with a divisor of zero")
+                == 0,
             "Buffer size not aligned to type"
         );
         // SAFETY: Buffer is aligned and size is checked
@@ -1548,7 +1556,7 @@ mod tests {
 
         // Next allocation should still be aligned
         let buf: &mut [f32] = arena.alloc(10).unwrap();
-        assert!(buf.as_ptr() as usize % DEFAULT_ALIGNMENT == 0);
+        assert!((buf.as_ptr() as usize).is_multiple_of(DEFAULT_ALIGNMENT));
     }
 
     #[test]

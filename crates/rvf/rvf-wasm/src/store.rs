@@ -60,6 +60,10 @@ impl WasmStore {
             for d in 0..dim {
                 data.push(unsafe { *vecs_ptr.add(i * dim + d) });
             }
+            // Non-finite components make every distance NaN/inf: reject the row.
+            if data.iter().any(|x| !x.is_finite()) {
+                continue;
+            }
             self.entries.push(VecEntry {
                 id,
                 data,
@@ -89,6 +93,10 @@ impl WasmStore {
         };
 
         let query: Vec<f32> = (0..dim).map(|i| unsafe { *query_ptr.add(i) }).collect();
+        // Invalid input: NaN/inf query (same rule as rvf-runtime NonFiniteQuery).
+        if query.iter().any(|x| !x.is_finite()) {
+            return -2;
+        }
 
         // Collect (distance, id) for all live entries
         let mut candidates: Vec<(f32, u64)> = Vec::new();
@@ -98,6 +106,10 @@ impl WasmStore {
             }
             let dist = compute_distance(&query, &entry.data, metric);
             candidates.push((dist, entry.id));
+        }
+        // Distances that overflow to inf/NaN cannot be ranked: refuse.
+        if candidates.iter().any(|(d, _)| !d.is_finite()) {
+            return -2;
         }
 
         // Sort by distance ascending
@@ -165,14 +177,31 @@ impl WasmStore {
         let live_entries: Vec<&VecEntry> = self.entries.iter().filter(|e| !e.deleted).collect();
         let n = live_entries.len();
 
-        // Vec segment payload: [count: u16, dim: u32, (id: u64, vec: f32*dim)*]
-        let vec_payload_len = 2 + 4 + n * (8 + dim * 4);
+        // The VEC_SEG and manifest dimension fields are u16: a wider store
+        // would be written truncated and silently change on reopen. Refuse
+        // instead. (The u32 count cannot overflow: total_size <= i32::MAX.)
+        if self.dimension > u32::from(u16::MAX) {
+            return -1;
+        }
+
+        // Vec segment payload (native layout): [dim: u16, count: u32, (id: u64, vec: f32*dim)*]
         // Manifest segment payload: [epoch: u32, dim: u16, total_vecs: u64, profile: u8,
         //   seg_count: u32, (seg_id: u64, offset: u64, payload_len: u64, type: u8)*]
         let manifest_payload_len = 4 + 2 + 8 + 1 + 4 + 1 * 25; // 1 segment entry
-
-        let total_size =
-            SEGMENT_HEADER_SIZE + vec_payload_len + SEGMENT_HEADER_SIZE + manifest_payload_len;
+        let sizes = dim
+            .checked_mul(4)
+            .and_then(|v| v.checked_add(8))
+            .and_then(|e| e.checked_mul(n))
+            .and_then(|v| v.checked_add(2 + 4))
+            .and_then(|vec_len| {
+                (2 * SEGMENT_HEADER_SIZE + manifest_payload_len)
+                    .checked_add(vec_len)
+                    .map(|total| (vec_len, total))
+            });
+        let (vec_payload_len, total_size) = match sizes {
+            Some((v, t)) if t <= i32::MAX as usize => (v, t),
+            _ => return -1,
+        };
 
         if (out_len as usize) < total_size {
             return -(total_size as i32);
@@ -197,9 +226,9 @@ impl WasmStore {
 
         // -- Vec segment payload --
         unsafe {
-            write_u16_at(out_ptr, offset, n as u16);
+            write_u16_at(out_ptr, offset, self.dimension as u16);
             offset += 2;
-            write_u32(out_ptr, offset, self.dimension);
+            write_u32(out_ptr, offset, n as u32);
             offset += 4;
             for entry in &live_entries {
                 write_u64(out_ptr, offset, entry.id);

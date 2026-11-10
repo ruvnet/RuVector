@@ -18,6 +18,7 @@ import {
   runSimilar,
   runTrain,
 } from './commands';
+import { runDemo } from './demo';
 import { HELP, VERSION } from './help';
 import { runServe } from './serveCmd';
 
@@ -62,6 +63,8 @@ export async function main(
         return { code: runSimilar(parsed.flags, ctx) };
       case 'optimize':
         return { code: runOptimize(parsed.flags, ctx) };
+      case 'demo':
+        return { code: await runDemo(parsed.flags, ctx) };
       case 'serve':
         return { code: 0, serve: await runServe(parsed.flags, ctx) };
       case 'bench':

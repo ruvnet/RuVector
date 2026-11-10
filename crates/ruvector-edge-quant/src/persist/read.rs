@@ -135,11 +135,19 @@ impl Decoder {
         self.crcs.update(&crc.to_le_bytes());
         let section = (frame[4] - 1) as usize;
         match section {
-            0 => self.keys.extend(payload.chunks_exact(8).map(le_u64)),
-            1 => self
-                .norms
-                .extend(payload.chunks_exact(4).map(|b| f32::from_bits(le_u32(b)))),
-            _ => self.packed.extend(payload.chunks_exact(8).map(le_u64)),
+            0 => self
+                .keys
+                .extend(payload.as_chunks::<8>().0.iter().map(|b| le_u64(b))),
+            1 => self.norms.extend(
+                payload
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .map(|b| f32::from_bits(le_u32(b))),
+            ),
+            _ => self
+                .packed
+                .extend(payload.as_chunks::<8>().0.iter().map(|b| le_u64(b))),
         }
         self.got[section] += len as u64;
         self.next_frame += 1;

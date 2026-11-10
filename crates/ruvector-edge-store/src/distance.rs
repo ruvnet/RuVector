@@ -52,9 +52,8 @@ fn fold4(a: &[f32], b: &[f32], term: impl Fn(f64, f64) -> f64) -> f64 {
     let n = a.len().min(b.len());
     let (a, b) = (&a[..n], &b[..n]);
     let mut acc = [0.0f64; 4];
-    let (ca, cb) = (a.chunks_exact(4), b.chunks_exact(4));
-    let (ra, rb) = (ca.remainder(), cb.remainder());
-    for (x, y) in ca.zip(cb) {
+    let ((ca, ra), (cb, rb)) = (a.as_chunks::<4>(), b.as_chunks::<4>());
+    for (x, y) in ca.iter().zip(cb) {
         for k in 0..4 {
             acc[k] += term(f64::from(x[k]), f64::from(y[k]));
         }

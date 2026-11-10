@@ -11,6 +11,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - '.github/workflows/build-diskann.yml'
       - 'crates/ruvector-diskann/**'
       - 'crates/ruvector-diskann-node/**'
       - 'npm/packages/diskann/**'
@@ -31,16 +32,18 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: x86_64-unknown-linux-gnu
             platform: linux-x64-gnu
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
-          - host: macos-14
+          - host: macos-15
             target: x86_64-apple-darwin
             platform: darwin-x64
-          - host: macos-14
+          - host: macos-15
             target: aarch64-apple-darwin
             platform: darwin-arm64
           - host: windows-2022
@@ -49,8 +52,18 @@ jobs:
 
     name: Build DiskANN ${{ matrix.settings.platform }}
     runs-on: ${{ matrix.settings.host }}
+    container: ${{ matrix.settings.container }}
 
     steps:
+      - name: Bootstrap ubuntu:22.04 build container (keeps the glibc floor)
+        if: ${{ matrix.settings.container != '' }}
+        shell: bash
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            sudo git curl wget ca-certificates build-essential pkg-config xz-utils unzip zip python3 jq file \
+            libssl-dev cmake clang libclang-dev
+          git config --global --add safe.directory '*'
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
@@ -114,7 +127,7 @@ jobs:
 
   publish:
     name: Publish DiskANN Platform Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     if: inputs.publish == true || startsWith(github.ref, 'refs/tags/v')
 
@@ -170,19 +183,53 @@ jobs:
             "files": ["${NODE_NAME}"],
             "description": "DiskANN native bindings - ${platform}",
             "license": "MIT",
-            "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector"},
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "npm/packages/diskann"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"},
             "engines": {"node": ">= 18"},
             "publishConfig": {"access": "public"}
           }
           EOF
 
             cd "$PKG_DIR"
-            npm publish --access public || echo "Failed to publish @ruvector/diskann-${platform}"
+            # Skip only a version that is already on npm; any other failure
+            # must fail the job (it used to be swallowed by `|| echo`).
+            if npm view "@ruvector/diskann-${platform}@${VERSION}" version >/dev/null 2>&1; then
+              echo "@ruvector/diskann-${platform}@${VERSION} already published, skipping"
+            else
+              npm publish --access public
+            fi
             cd ../..
           done
+
+      - name: Lock platform optionalDependencies to package version
+        working-directory: npm/packages/diskann
+        run: |
+          # The platform packages above were just published at this version;
+          # without this the wrapper kept pointing at the previous release
+          # (gnn 0.1.27 shipped pinned to the 0.1.26 binaries).
+          node -e '
+            const fs = require("fs");
+            const p = require("./package.json");
+            const v = p.version;
+            const prefix = p.name + "-";
+            for (const k of Object.keys(p.optionalDependencies || {})) {
+              if (k.startsWith(prefix)) p.optionalDependencies[k] = v;
+            }
+            fs.writeFileSync("./package.json", JSON.stringify(p, null, 2) + "\n");
+            console.log("Locked platform optionalDependencies to " + v);
+          '
 
       - name: Publish main package
         working-directory: npm/packages/diskann
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public || echo "Package may already exist"
+        run: |
+          # `files` silently drops missing entries; refuse to ship without the loader.
+          test -f index.js && test -f index.d.ts
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "@ruvector/diskann@${VERSION}" version >/dev/null 2>&1; then
+            echo "@ruvector/diskann@${VERSION} already published, skipping"
+          else
+            npm publish --access public
+          fi

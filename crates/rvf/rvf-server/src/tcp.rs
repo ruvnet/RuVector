@@ -10,24 +10,29 @@
 
 use std::sync::Arc;
 
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
 use rvf_runtime::QueryOptions;
 
 use crate::http::SharedStore;
+use crate::stream::StreamServer;
 
 /// TCP message types (client -> server).
 const MSG_QUERY: u8 = 0x01;
 const MSG_INGEST: u8 = 0x02;
 const MSG_DELETE: u8 = 0x03;
 const MSG_STATUS: u8 = 0x04;
+/// Stream request (ADR-353): `kind u8 | offset u64 BE | max_len u32 BE`.
+const MSG_STREAM_REQ: u8 = 0x05;
 
 /// TCP message types (server -> client).
 const MSG_QUERY_RESULT: u8 = 0x81;
 const MSG_INGEST_ACK: u8 = 0x82;
 const MSG_DELETE_ACK: u8 = 0x83;
 const MSG_STATUS_RESP: u8 = 0x84;
+/// Stream reply: `total u64 BE | bytes`.
+const MSG_STREAM_RESP: u8 = 0x85;
 const MSG_ERROR: u8 = 0xFF;
 
 /// Maximum frame payload: 16 MB.
@@ -35,24 +40,58 @@ const MAX_FRAME_SIZE: u32 = 16 * 1024 * 1024;
 
 /// Start the TCP listener on the given address.
 pub async fn serve_tcp(addr: &str, store: SharedStore) -> std::io::Result<()> {
+    serve_tcp_with_stream(addr, store, None).await
+}
+
+/// [`serve_tcp`] plus the `0x05`/`0x85` stream message pair when `stream` is
+/// configured. Without it `0x05` is an unknown message type, as before.
+pub async fn serve_tcp_with_stream(
+    addr: &str,
+    store: SharedStore,
+    stream_cfg: Option<Arc<StreamServer>>,
+) -> std::io::Result<()> {
     let listener = TcpListener::bind(addr).await?;
 
     loop {
-        let (stream, _peer) = listener.accept().await?;
+        let (stream, peer) = listener.accept().await?;
         let store = Arc::clone(&store);
+        let stream_srv = stream_cfg.clone();
+        let slot = match &stream_srv {
+            Some(s) => match s.try_tcp_client(peer.ip()) {
+                Some(g) => Some(g),
+                None => continue, // per-client cap: drop the connection
+            },
+            None => None,
+        };
         tokio::spawn(async move {
-            if let Err(e) = handle_connection(stream, store).await {
+            let _slot = slot;
+            if let Err(e) = handle_connection(stream, store, stream_srv).await {
                 eprintln!("tcp connection error: {e}");
             }
         });
     }
 }
 
-async fn handle_connection(mut stream: TcpStream, store: SharedStore) -> std::io::Result<()> {
+async fn handle_connection(
+    mut stream: TcpStream,
+    store: SharedStore,
+    stream_srv: Option<Arc<StreamServer>>,
+) -> std::io::Result<()> {
     loop {
         // Read frame header: 4 bytes length + 1 byte msg_type + 3 bytes msg_id = 8 bytes
         let mut header = [0u8; 8];
-        match stream.read_exact(&mut header).await {
+        // With stream serving enabled, an idle connection is closed after the
+        // configured idle timeout (silent sockets must not linger).
+        let idle = stream_srv.as_ref().map(|s| s.config().idle_timeout);
+        let read = stream.read_exact(&mut header);
+        let got = match idle {
+            Some(t) => match tokio::time::timeout(t, read).await {
+                Ok(r) => r,
+                Err(_) => return Ok(()),
+            },
+            None => read.await,
+        };
+        match got {
             Ok(_) => {}
             Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(()),
             Err(e) => return Err(e),
@@ -67,14 +106,24 @@ async fn handle_connection(mut stream: TcpStream, store: SharedStore) -> std::io
             return Ok(());
         }
 
-        let mut payload = vec![0u8; payload_len as usize];
-        stream.read_exact(&mut payload).await?;
+        let payload = match idle {
+            Some(t) => {
+                match tokio::time::timeout(t, read_payload(&mut stream, payload_len)).await {
+                    Ok(r) => r?,
+                    Err(_) => return Ok(()),
+                }
+            }
+            None => read_payload(&mut stream, payload_len).await?,
+        };
 
         let response = match msg_type {
             MSG_QUERY => handle_query(&payload, &store).await,
             MSG_INGEST => handle_ingest(&payload, &store).await,
             MSG_DELETE => handle_delete(&payload, &store).await,
             MSG_STATUS => handle_status(&store).await,
+            MSG_STREAM_REQ if stream_srv.is_some() => {
+                handle_stream(&payload, stream_srv.as_deref().expect("checked"))
+            }
             _ => Err(TcpError {
                 code: 0x0107,
                 message: "unknown message type".into(),
@@ -90,6 +139,22 @@ async fn handle_connection(mut stream: TcpStream, store: SharedStore) -> std::io
             }
         }
     }
+}
+
+/// Initial buffer for a frame payload; larger frames grow as bytes arrive.
+const PAYLOAD_PREALLOC: usize = 64 * 1024;
+
+/// Read exactly `len` payload bytes. The length comes from the peer, so the
+/// buffer grows with the bytes actually received instead of being
+/// preallocated from the header.
+async fn read_payload<R: AsyncRead + Unpin>(r: &mut R, len: u32) -> std::io::Result<Vec<u8>> {
+    let len = len as usize;
+    let mut payload = Vec::with_capacity(len.min(PAYLOAD_PREALLOC));
+    (&mut *r).take(len as u64).read_to_end(&mut payload).await?;
+    if payload.len() != len {
+        return Err(std::io::ErrorKind::UnexpectedEof.into());
+    }
+    Ok(payload)
 }
 
 struct TcpError {
@@ -326,6 +391,43 @@ async fn handle_status(store: &SharedStore) -> Result<(u8, Vec<u8>), TcpError> {
     Ok((MSG_STATUS_RESP, resp))
 }
 
+/// `0x05` stream request: kind 0 = descriptor, kind 1 = frame-stream bytes
+/// `[offset, offset + min(max_len, tcp_max_response))`. The reply payload is
+/// the total stream length (u64 BE) followed by the bytes.
+fn handle_stream(payload: &[u8], srv: &StreamServer) -> Result<(u8, Vec<u8>), TcpError> {
+    let bad = |m: &str| TcpError {
+        code: 0x0104,
+        message: m.into(),
+    };
+    if payload.len() != 13 {
+        return Err(bad("stream request must be 13 bytes"));
+    }
+    let _permit = srv.try_tcp_permit().ok_or_else(|| TcpError {
+        code: 0x0108,
+        message: "too many concurrent streams".into(),
+    })?;
+    let offset = u64::from_be_bytes(payload[1..9].try_into().expect("8"));
+    let max_len = u32::from_be_bytes(payload[9..13].try_into().expect("4"));
+    let total = srv.stream_len();
+    let mut out = Vec::new();
+    match payload[0] {
+        0 => {
+            out.extend_from_slice(&total.to_be_bytes());
+            out.extend_from_slice(srv.descriptor());
+        }
+        1 => {
+            if offset >= total {
+                return Err(bad("offset beyond end of stream"));
+            }
+            let len = (max_len.min(srv.config().tcp_max_response)) as u64;
+            out.extend_from_slice(&total.to_be_bytes());
+            out.extend_from_slice(&srv.read_range(offset, offset.saturating_add(len)));
+        }
+        _ => return Err(bad("unknown stream request kind")),
+    }
+    Ok((MSG_STREAM_RESP, out))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -377,7 +479,7 @@ mod tests {
         let store_clone = Arc::clone(&store);
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
-            handle_connection(stream, store_clone).await.unwrap();
+            handle_connection(stream, store_clone, None).await.unwrap();
         });
 
         let mut client = TcpStream::connect(addr).await.unwrap();
@@ -402,7 +504,7 @@ mod tests {
         let store_clone = Arc::clone(&store);
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
-            handle_connection(stream, store_clone).await.unwrap();
+            handle_connection(stream, store_clone, None).await.unwrap();
         });
 
         let mut client = TcpStream::connect(addr).await.unwrap();
@@ -450,5 +552,18 @@ mod tests {
         assert_eq!(count, 1);
         let id = u64::from_le_bytes(payload[4..12].try_into().unwrap());
         assert_eq!(id, 1);
+    }
+
+    #[tokio::test]
+    async fn claimed_frame_length_does_not_drive_allocation() {
+        // Header claims a 16 MiB payload; the peer sends 10 bytes and stops.
+        let mut short: &[u8] = &[0u8; 10];
+        let err = read_payload(&mut short, MAX_FRAME_SIZE).await.unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof);
+
+        let mut exact: &[u8] = &[7u8; 10];
+        let buf = read_payload(&mut exact, 10).await.unwrap();
+        assert_eq!(buf, [7u8; 10]);
+        assert!(buf.capacity() < 1 << 20);
     }
 }

@@ -56,6 +56,27 @@ pub async fn rebuild_off_lock<F>(
 where
     F: FnOnce() -> Vec<BrainMemory> + Send + 'static,
 {
+    rebuild_with_builder(
+        graph,
+        load,
+        sparsifier_max_edges,
+        KnowledgeGraph::build_batch,
+    )
+    .await
+}
+
+// Keep the build boundary explicit so tests can pause there and verify that
+// requests can acquire the graph lock, independently of runner scheduling.
+pub(super) async fn rebuild_with_builder<F, B>(
+    graph: Arc<RwLock<KnowledgeGraph>>,
+    load: F,
+    sparsifier_max_edges: Option<usize>,
+    builder: B,
+) -> RebuildOutcome
+where
+    F: FnOnce() -> Vec<BrainMemory> + Send + 'static,
+    B: FnOnce(&[BrainMemory], f64, usize) -> super::BatchBuild + Send + 'static,
+{
     let Some(ticket) = graph.write().begin_rebuild() else {
         tracing::info!("Graph rebuild already in progress; skipping");
         return RebuildOutcome::AlreadyRunning;
@@ -69,7 +90,7 @@ where
     let threads = default_build_threads();
     let built = tokio::task::spawn_blocking(move || {
         let memories = load();
-        KnowledgeGraph::build_batch(&memories, ticket.threshold, threads)
+        builder(&memories, ticket.threshold, threads)
     })
     .await;
     let build = match built {

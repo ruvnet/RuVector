@@ -1,0 +1,2 @@
+# Preserve the byte-pinned release inventory on every checkout.
+python/portfolio/frozen-release-0.2.0.json text eol=lf

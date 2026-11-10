@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 330" role="img" aria-labelledby="recovery-title recovery-desc">
+  <title id="recovery-title">Recover the original RuVector Python portfolio release</title>
+  <desc id="recovery-desc">The frozen 0.2.0 release and its checksum ledger are compared with the current PyPI inventory. Only missing original files may advance through reviewed protected publishing. A mismatch or HTTP 429 stops promotion. Animation is decorative; all information remains visible when reduced motion is enabled.</desc>
+  <style>
+    .label{font:600 17px system-ui,sans-serif;fill:#edf5ff}
+    .detail{font:14px system-ui,sans-serif;fill:#b8cadf}
+    .flow{stroke:#55d8c4;stroke-width:2;stroke-dasharray:6 8;animation:flow 1.8s linear infinite}
+    .pulse{animation:pulse 3s ease-in-out infinite}
+    @keyframes flow{to{stroke-dashoffset:-28}}
+    @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
+    @media(prefers-reduced-motion:reduce){.flow,.pulse{animation:none}}
+  </style>
+  <rect width="1040" height="330" rx="20" fill="#101a2b"/>
+  <text x="32" y="46" class="label" style="font-size:25px">Recover the original release</text>
+  <text x="32" y="73" class="detail">Companions 0.2.0 · frozen native runtime 0.1.3 · one publisher owner</text>
+  <path d="M206 160H248 M408 160H450 M610 160H652 M812 160H854" class="flow"/>
+  <g fill="#192a41" stroke="#46708a">
+    <rect x="32" y="112" width="174" height="97" rx="12"/>
+    <rect x="248" y="112" width="160" height="97" rx="12"/>
+    <rect x="450" y="112" width="160" height="97" rx="12"/>
+    <rect x="652" y="112" width="160" height="97" rx="12"/>
+    <rect x="854" y="112" width="154" height="97" rx="12"/>
+  </g>
+  <g class="label">
+    <text x="47" y="142">Frozen artifact</text>
+    <text x="264" y="142">Compare PyPI</text>
+    <text x="466" y="142">Missing files</text>
+    <text x="668" y="142">Review gate</text>
+    <text x="870" y="142">Verify</text>
+  </g>
+  <g class="detail">
+    <text x="47" y="171">22 original files</text>
+    <text x="47" y="193">SHA256 ledger</text>
+    <text x="264" y="171">Name + version</text>
+    <text x="264" y="193">Existing hashes</text>
+    <text x="466" y="171">Original bytes</text>
+    <text x="466" y="193">No overwrite</text>
+    <text x="668" y="171">Protected PyPI</text>
+    <text x="668" y="193">Required checks</text>
+    <text x="870" y="171">Fresh inventory</text>
+    <text x="870" y="193">Consumer tests</text>
+  </g>
+  <rect x="32" y="239" width="976" height="57" rx="10" fill="#2c2634" stroke="#bf7c91"/>
+  <circle cx="54" cy="267" r="6" fill="#ffb2c4" class="pulse"/>
+  <text x="73" y="262" class="label" style="fill:#ffcbda">Mismatch or HTTP 429: stop promotion</text>
+  <text x="73" y="284" class="detail">Reinspect live state before retrying. Publication and installation verification are separate milestones.</text>
+</svg>

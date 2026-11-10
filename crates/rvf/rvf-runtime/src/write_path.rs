@@ -6,20 +6,85 @@
 //! 3. Write segment header + payload, fsync
 //! 4. Build new MANIFEST_SEG, fsync (two-fsync protocol)
 
-use rvf_types::{SegmentHeader, SegmentType, SEGMENT_HEADER_SIZE};
+use crate::hashing::{ALGO_SHAKE256_128, ALGO_XXH3_128};
+use rvf_types::{SegmentHeader, SegmentType, SEGMENT_ALIGNMENT, SEGMENT_HEADER_SIZE};
+use rvf_wire::hash::compute_content_hash;
+use rvf_wire::writer::calculate_padded_size;
+use std::collections::BTreeMap;
 use std::io::{self, Seek, Write};
 
+/// Marker ("SHDG") of the optional per-segment hash trailer appended to the
+/// manifest payload by signed stores: `count:u32` then `count` entries of
+/// `segment_id:u64 || content_hash:[u8;16]`. Old readers stop before it.
+pub(crate) const SEG_HASH_TRAILER_MARKER: u32 = 0x4744_4853;
+
+/// Bytes per trailer entry.
+pub(crate) const SEG_HASH_ENTRY_LEN: usize = 8 + 16;
+
+/// Exact length of a manifest payload as written by
+/// [`SegmentWriter::write_manifest_seg_with_identity`].
+pub(crate) fn manifest_payload_len(
+    seg_count: usize,
+    deleted: usize,
+    has_identity: bool,
+    hash_entries: Option<usize>,
+) -> u64 {
+    let mut n = 22 + seg_count * 25 + 4 + deleted * 8;
+    if has_identity {
+        n += 4 + 68;
+    }
+    if let Some(h) = hash_entries {
+        n += 8 + h * SEG_HASH_ENTRY_LEN;
+    }
+    n as u64
+}
+
 /// Segment writer that handles the append-only write protocol.
+///
+/// Segments are written in the `rvf-wire` dialect: each starts on a 64-byte
+/// boundary (zero fill is inserted first if the file tail is unaligned, as it
+/// is after a legacy-dialect writer) and is padded to a 64-byte multiple.
 pub(crate) struct SegmentWriter {
     /// Next segment ID to assign (monotonic counter).
     next_seg_id: u64,
+    /// `checksum_algo` stamped into every segment header written.
+    checksum_algo: u8,
+    /// Content hash of each segment written (or seeded) by this writer,
+    /// keyed by segment id; feeds the signed per-segment hash trailer.
+    hashes: BTreeMap<u64, [u8; 16]>,
 }
 
 impl SegmentWriter {
     pub(crate) fn new(starting_id: u64) -> Self {
         Self {
             next_seg_id: starting_id,
+            checksum_algo: ALGO_XXH3_128,
+            hashes: BTreeMap::new(),
         }
+    }
+
+    /// Hash segments with SHAKE-256-128 (anything that will be signed).
+    pub(crate) fn use_cryptographic_hash(&mut self) {
+        self.checksum_algo = ALGO_SHAKE256_128;
+    }
+
+    /// Record the committed hash of a segment this writer did not write
+    /// (carried over from an earlier manifest or a compaction copy).
+    pub(crate) fn record_hash(&mut self, seg_id: u64, hash: [u8; 16]) {
+        self.hashes.insert(seg_id, hash);
+    }
+
+    /// Committed hash entries for the given directory, in directory order.
+    /// `None` if any entry has no recorded hash.
+    pub(crate) fn hash_entries(&self, dir: &[(u64, u64, u64, u8)]) -> Option<Vec<(u64, [u8; 16])>> {
+        dir.iter()
+            .map(|&(id, _, _, _)| self.hashes.get(&id).map(|h| (id, *h)))
+            .collect()
+    }
+
+    /// The recorded content hash of one segment.
+    pub(crate) fn hash_of(&self, seg_id: u64) -> Option<[u8; 16]> {
+        self.hashes.get(&seg_id).copied()
     }
 
     /// Allocate a new segment ID.
@@ -185,6 +250,7 @@ impl SegmentWriter {
             segment_dir,
             deleted_ids,
             None,
+            None,
         )
     }
 
@@ -205,6 +271,7 @@ impl SegmentWriter {
         segment_dir: &[(u64, u64, u64, u8)],
         deleted_ids: &[u64],
         file_identity: Option<&rvf_types::FileIdentity>,
+        seg_hashes: Option<&[(u64, [u8; 16])]>,
     ) -> io::Result<(u64, u64)> {
         let seg_id = self.alloc_seg_id();
 
@@ -214,7 +281,8 @@ impl SegmentWriter {
         let payload_size = 4 + 2 + 8 + 4 + 1 + 3 // header fields
             + (segment_dir.len() * (8 + 8 + 8 + 1)) // directory
             + 4 + (deleted_ids.len() * 8) // deletion bitmap
-            + if file_identity.is_some() { 4 + 68 } else { 0 }; // lineage marker + identity
+            + if file_identity.is_some() { 4 + 68 } else { 0 } // lineage marker + identity
+            + seg_hashes.map_or(0, |h| 8 + h.len() * SEG_HASH_ENTRY_LEN);
 
         let mut payload = Vec::with_capacity(payload_size);
 
@@ -227,7 +295,10 @@ impl SegmentWriter {
         payload.extend_from_slice(&seg_count.to_le_bytes());
         payload.push(profile_id);
         payload.push(metric_id); // byte [19]: distance metric identifier
-        payload.extend_from_slice(&[0u8; 2]); // bytes [20..22]: reserved
+                                 // Bytes [20..22] stay zero: strict third-party validators (e.g. the
+                                 // edge registry's) reject non-zero reserved header bytes. The dialect
+                                 // is carried by the segment header instead (`checksum_algo` != 0).
+        payload.extend_from_slice(&[0u8; 2]);
 
         // Segment directory.
         for &(sid, off, plen, stype) in segment_dir {
@@ -248,6 +319,17 @@ impl SegmentWriter {
         if let Some(fi) = file_identity {
             payload.extend_from_slice(&0x4649_4449u32.to_le_bytes()); // "FIDI"
             payload.extend_from_slice(&fi.to_bytes());
+        }
+
+        // Signed stores: per-segment hash trailer, covered by the signed root
+        // page through the manifest payload hash.
+        if let Some(entries) = seg_hashes {
+            payload.extend_from_slice(&SEG_HASH_TRAILER_MARKER.to_le_bytes());
+            payload.extend_from_slice(&(entries.len() as u32).to_le_bytes());
+            for (sid, h) in entries {
+                payload.extend_from_slice(&sid.to_le_bytes());
+                payload.extend_from_slice(h);
+            }
         }
 
         let offset = self.write_segment(writer, SegmentType::Manifest as u8, seg_id, &payload)?;
@@ -425,11 +507,17 @@ impl SegmentWriter {
         Ok((seg_id, offset))
     }
 
-    /// Write a WITNESS_SEG containing a serialized witness entry.
+    /// Write a WITNESS_SEG containing ONE chain entry.
     ///
-    /// Payload layout:
-    ///   `witness_type` (u8) + `timestamp_ns` (u64 LE) +
-    ///   `action_len` (u32 LE) + `action` (bytes) + `prev_hash` (32 bytes)
+    /// Payload layout: the fixed 73-byte entry of `rvf_crypto::witness`
+    /// (`prev_hash[32] | SHAKE-256(action)[32] | timestamp_ns u64 | type u8`),
+    /// so `rvf verify-witness` / `verify_witness_chain` can verify it. The
+    /// action text itself is not stored, only its hash. The caller passes the
+    /// hash of the previous entry (zero for the first) and advances its head
+    /// with `rvf_crypto::chain_entry_hash` over `encode_chain_entry(..)` of the
+    /// same arguments.
+    /// (Before 0.5.0 this wrote a variable-length record that no verifier
+    /// accepted.)
     ///
     /// Returns the segment ID and byte offset where it was written.
     pub(crate) fn write_witness_seg<W: Write + Seek>(
@@ -442,44 +530,89 @@ impl SegmentWriter {
     ) -> io::Result<(u64, u64)> {
         let seg_id = self.alloc_seg_id();
 
-        let action_len = action.len() as u32;
-        let payload_size = 1 + 8 + 4 + action.len() + 32;
-        let mut payload = Vec::with_capacity(payload_size);
-
-        payload.push(witness_type);
-        payload.extend_from_slice(&timestamp_ns.to_le_bytes());
-        payload.extend_from_slice(&action_len.to_le_bytes());
-        payload.extend_from_slice(action);
-        payload.extend_from_slice(prev_hash);
+        let payload = rvf_crypto::encode_chain_entry(prev_hash, action, timestamp_ns, witness_type);
 
         let offset = self.write_segment(writer, SegmentType::Witness as u8, seg_id, &payload)?;
         Ok((seg_id, offset))
     }
 
-    /// Low-level: write a segment header + payload to the writer.
-    /// Returns the byte offset where the segment was written.
+    /// Write one segment whose type byte is not a [`SegmentType`] variant:
+    /// the lineage record segment and application (custom) segments. Same
+    /// header, checksum and committed-hash bookkeeping as every other writer.
+    ///
+    /// Returns the segment ID and byte offset where it was written.
+    pub(crate) fn write_typed_seg<W: Write + Seek>(
+        &mut self,
+        writer: &mut W,
+        seg_type: u8,
+        payload: &[u8],
+    ) -> io::Result<(u64, u64)> {
+        let seg_id = self.alloc_seg_id();
+        let offset = self.write_segment(writer, seg_type, seg_id, payload)?;
+        Ok((seg_id, offset))
+    }
+
+    /// Low-level: write one wire-dialect segment (64-byte aligned start,
+    /// header + payload + zero padding to a 64-byte multiple).
+    /// Returns the byte offset where the segment header was written.
     fn write_segment<W: Write + Seek>(
-        &self,
+        &mut self,
         writer: &mut W,
         seg_type: u8,
         seg_id: u64,
         payload: &[u8],
     ) -> io::Result<u64> {
-        let offset = writer.stream_position()?;
+        const ZEROS: [u8; SEGMENT_ALIGNMENT] = [0u8; SEGMENT_ALIGNMENT];
+        let mut offset = writer.stream_position()?;
+
+        // A legacy-dialect tail leaves the file unaligned: fill to the next
+        // boundary so this segment (and the wire tail scanner) is aligned.
+        let misalign = (offset % SEGMENT_ALIGNMENT as u64) as usize;
+        if misalign != 0 {
+            let fill = SEGMENT_ALIGNMENT - misalign;
+            writer.write_all(&ZEROS[..fill])?;
+            offset += fill as u64;
+        }
+
+        let total = calculate_padded_size(SEGMENT_HEADER_SIZE, payload.len());
+        let pad_after = total - SEGMENT_HEADER_SIZE - payload.len();
 
         let mut header = SegmentHeader::new(seg_type, seg_id);
         header.payload_length = payload.len() as u64;
+        header.checksum_algo = self.checksum_algo;
+        header.content_hash = compute_content_hash(self.checksum_algo, payload);
+        header.alignment_pad = pad_after as u32;
+        self.hashes.insert(seg_id, header.content_hash);
 
-        // Content hash: single shared implementation (see crate::hashing).
-        header.content_hash = crate::hashing::legacy_content_hash(payload);
-
-        // Write header as raw bytes.
-        let header_bytes = header_to_bytes(&header);
-        writer.write_all(&header_bytes)?;
-
-        // Write payload.
+        writer.write_all(&header_to_bytes(&header))?;
         writer.write_all(payload)?;
+        writer.write_all(&ZEROS[..pad_after])?;
 
+        Ok(offset)
+    }
+
+    /// Copy an existing segment (`header + payload`, exactly as found in
+    /// another file) to the writer at a 64-byte boundary, padding after it.
+    /// Bytes are preserved verbatim, so a copied legacy segment stays legacy.
+    /// Returns the offset it was written at.
+    pub(crate) fn copy_raw_segment<W: Write + Seek>(
+        &mut self,
+        writer: &mut W,
+        src: &[u8],
+    ) -> io::Result<u64> {
+        const ZEROS: [u8; SEGMENT_ALIGNMENT] = [0u8; SEGMENT_ALIGNMENT];
+        let mut offset = writer.stream_position()?;
+        let misalign = (offset % SEGMENT_ALIGNMENT as u64) as usize;
+        if misalign != 0 {
+            let fill = SEGMENT_ALIGNMENT - misalign;
+            writer.write_all(&ZEROS[..fill])?;
+            offset += fill as u64;
+        }
+        writer.write_all(src)?;
+        let tail = src.len() % SEGMENT_ALIGNMENT;
+        if tail != 0 {
+            writer.write_all(&ZEROS[..SEGMENT_ALIGNMENT - tail])?;
+        }
         Ok(offset)
     }
 
@@ -617,31 +750,24 @@ mod tests {
         // Check seg_type == Witness (0x0A).
         assert_eq!(data[5], SegmentType::Witness as u8);
 
-        // Verify payload starts with witness_type byte.
+        // The payload is exactly one fixed 73-byte chain entry (#1275):
+        // prev_hash | SHAKE-256(action) | timestamp_ns | witness_type.
         let payload_start = SEGMENT_HEADER_SIZE;
-        assert_eq!(data[payload_start], witness_type);
-
-        // Verify timestamp.
-        let ts_bytes: [u8; 8] = data[payload_start + 1..payload_start + 9]
-            .try_into()
-            .unwrap();
-        assert_eq!(u64::from_le_bytes(ts_bytes), timestamp_ns);
-
-        // Verify action length.
-        let action_len_bytes: [u8; 4] = data[payload_start + 9..payload_start + 13]
-            .try_into()
-            .unwrap();
-        assert_eq!(u32::from_le_bytes(action_len_bytes), action.len() as u32);
-
-        // Verify action bytes.
-        let action_start = payload_start + 13;
-        let action_end = action_start + action.len();
-        assert_eq!(&data[action_start..action_end], action);
-
-        // Verify prev_hash (32 zero bytes).
-        let hash_start = action_end;
-        let hash_end = hash_start + 32;
-        assert_eq!(&data[hash_start..hash_end], &[0u8; 32]);
+        let p = &data[payload_start..payload_start + rvf_crypto::WITNESS_ENTRY_SIZE];
+        assert_eq!(&p[0..32], &prev_hash);
+        assert_eq!(
+            &p[32..64],
+            &rvf_crypto::encode_chain_entry(&prev_hash, action, timestamp_ns, witness_type)[32..64]
+        );
+        assert_eq!(
+            u64::from_le_bytes(p[64..72].try_into().unwrap()),
+            timestamp_ns
+        );
+        assert_eq!(p[72], witness_type);
+        let header_payload_len = u64::from_le_bytes(data[0x10..0x18].try_into().unwrap());
+        assert_eq!(header_payload_len, 73);
+        let chain = rvf_crypto::verify_witness_chain(p).expect("runtime record is a valid chain");
+        assert_eq!(chain.len(), 1);
     }
 
     #[test]

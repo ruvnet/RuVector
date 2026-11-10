@@ -221,7 +221,6 @@ export class RuDag {
   // Cache for expensive operations
   private _topoCache: number[] | null = null;
   private _criticalPathCache: CriticalPath | null = null;
-  private _dirty = true;
 
   constructor(options: RuDagOptions = {}) {
     this.id = sanitizeOrGenerateId(options.id);
@@ -291,7 +290,6 @@ export class RuDag {
    * Invalidate caches (called when DAG structure changes)
    */
   private invalidateCache(): void {
-    this._dirty = true;
     this._topoCache = null;
     this._criticalPathCache = null;
   }
@@ -384,7 +382,7 @@ export class RuDag {
    * @returns Array of node IDs in topological order
    */
   topoSort(): number[] {
-    if (!this._dirty && this._topoCache) {
+    if (this._topoCache) {
       return [...this._topoCache]; // Return copy to prevent mutation
     }
 
@@ -399,7 +397,7 @@ export class RuDag {
    * @throws {Error} If WASM returns invalid data
    */
   criticalPath(): CriticalPath {
-    if (!this._dirty && this._criticalPathCache) {
+    if (this._criticalPathCache) {
       return { ...this._criticalPathCache, path: [...this._criticalPathCache.path] };
     }
 
@@ -421,7 +419,6 @@ export class RuDag {
     }
 
     this._criticalPathCache = parsed;
-    this._dirty = false;
 
     return { ...parsed, path: [...parsed.path] };
   }

@@ -94,7 +94,7 @@ pub fn verify_inclusion(
         }
         if node_index % 2 == 1 || node_index == last_index {
             acc = node_hash(sibling, &acc);
-            while node_index % 2 == 0 && node_index != 0 {
+            while node_index.is_multiple_of(2) && node_index != 0 {
                 node_index /= 2;
                 last_index /= 2;
             }

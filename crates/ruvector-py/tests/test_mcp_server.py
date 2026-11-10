@@ -524,3 +524,82 @@ def test_validation_errors_reach_the_client():
         assert "no such collection" in str(e)
     else:
         raise AssertionError("expected ToolError")
+
+
+# ── per-collection vector cap ────────────────────────────────────────────
+
+
+@pytest.fixture
+def capped(server_module: ModuleType, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
+    monkeypatch.delenv("RUVECTOR_MCP_MAX_VECTORS", raising=False)
+    server_module.set_max_vectors(None)
+    yield server_module
+    server_module.set_max_vectors(None)
+
+
+def test_default_vector_cap_is_one_million(capped: ModuleType) -> None:
+    assert capped.max_vectors() == 1_000_000
+
+
+def test_env_var_sets_vector_cap_and_option_wins(capped: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RUVECTOR_MCP_MAX_VECTORS", "7")
+    assert capped.max_vectors() == 7
+    capped.set_max_vectors(3)
+    assert capped.max_vectors() == 3
+    capped.set_max_vectors(None)
+    monkeypatch.setenv("RUVECTOR_MCP_MAX_VECTORS", "  ")
+    assert capped.max_vectors() == 1_000_000  # blank counts as unset
+
+
+@pytest.mark.parametrize("bad", ["0", "-5", "abc", "1.5"])
+def test_invalid_vector_cap_is_rejected(capped: ModuleType, monkeypatch: pytest.MonkeyPatch, bad: str) -> None:
+    monkeypatch.setenv("RUVECTOR_MCP_MAX_VECTORS", bad)
+    with pytest.raises(ValueError, match="RUVECTOR_MCP_MAX_VECTORS"):
+        capped.max_vectors()
+    with pytest.raises(ValueError):
+        capped.set_max_vectors(int(bad) if bad.lstrip("-").isdigit() else 0)
+
+
+def test_insert_stops_at_vector_cap(capped: ModuleType) -> None:
+    m = capped
+    m.set_max_vectors(2)
+    _call(m, "vector_create_collection", name="cap1", dim=2)
+    _call(m, "vector_insert", name="cap1", vector=[1.0, 0.0])
+    _call(m, "vector_insert", name="cap1", vector=[0.0, 1.0])
+    with _raises_chain(r"vector limit.*maximum of 2"):
+        _call(m, "vector_insert", name="cap1", vector=[1.0, 1.0])
+    assert _call(m, "vector_stats", name="cap1")["count"] == 2
+
+
+def test_batch_insert_is_all_or_nothing_at_cap(capped: ModuleType) -> None:
+    m = capped
+    m.set_max_vectors(3)
+    _call(m, "vector_create_collection", name="cap2", dim=2)
+    _call(m, "vector_insert_batch", name="cap2", vectors=[[1.0, 0.0], [0.0, 1.0]])
+    with _raises_chain("maximum of 3"):
+        _call(m, "vector_insert_batch", name="cap2", vectors=[[1.0, 1.0], [2.0, 2.0]])
+    assert _call(m, "vector_stats", name="cap2")["count"] == 2  # nothing partially written
+    _call(m, "vector_insert_batch", name="cap2", vectors=[[1.0, 1.0]])  # exactly reaches the cap
+    assert _call(m, "vector_stats", name="cap2")["count"] == 3
+
+
+def test_cap_message_is_a_tool_error(capped: ModuleType) -> None:
+    """mcp 2.x hides non-ToolError messages from the client; the cap text must survive."""
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    m = capped
+    m.set_max_vectors(1)
+    _call(m, "vector_create_collection", name="cap3", dim=2)
+    _call(m, "vector_insert", name="cap3", vector=[1.0, 0.0])
+    with pytest.raises(ToolError, match="vector limit"):
+        asyncio.run(m.server.call_tool("vector_insert", {"name": "cap3", "vector": [0.0, 1.0]}))
+
+
+@pytest.mark.parametrize("backend", ["hnsw", "rabitq"])
+def test_deleted_rows_count_until_vacuumed(capped: ModuleType, backend: str) -> None:
+    m = capped
+    m.set_max_vectors(2)
+    _call(m, "vector_create_collection", name=f"cap4{backend}", dim=2, backend=backend)
+    ids = _call(m, "vector_insert_batch", name=f"cap4{backend}", vectors=[[1.0, 0.0], [0.0, 1.0]])["ids"]
+    _call(m, "vector_delete", name=f"cap4{backend}", id=ids[0], vacuum=True)
+    _call(m, "vector_insert", name=f"cap4{backend}", vector=[1.0, 1.0])  # vacuumed -> room again

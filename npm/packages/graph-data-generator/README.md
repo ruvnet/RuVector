@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/graph-data-generator.svg" alt="@ruvector/graph-data-generator: AI-powered synthetic graph data for Neo4j knowledge graphs, social networks and temporal events." width="100%"></p>
+
 # @ruvector/graph-data-generator
 
 AI-powered synthetic graph data generation with OpenRouter/Kimi K2 integration for Neo4j knowledge graphs, social networks, and temporal events.
@@ -268,3 +270,18 @@ rUv - https://github.com/ruvnet
 ## Repository
 
 https://github.com/ruvnet/ruvector/tree/main/packages/graph-data-generator
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for graph, knowledge graph, Neo4j.
+
+- **Works with** (its runtime dependencies): [`@ruvector/agentic-synth`](https://www.npmjs.com/package/@ruvector/agentic-synth), [`@ruvector/agentic-synth`](https://www.npmjs.com/package/@ruvector/agentic-synth)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

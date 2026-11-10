@@ -30,6 +30,7 @@ decide:
   --embedder hash|onnx      Embedder to use (default: hash, a test double).
   --model-dir <path>        ONNX model directory (with --embedder onnx).
   --manifest <path>         ONNX model manifest (with --embedder onnx).
+  --model <name>            Select an entry when the manifest has multiple models.
   --jev                     Emit Jev-shape-only answers (strip additive fields).
 
 train:

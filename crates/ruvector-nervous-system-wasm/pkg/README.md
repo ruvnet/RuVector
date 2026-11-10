@@ -408,3 +408,12 @@ MIT
 ---
 
 **Keywords**: hyperdimensional computing, HDC, BTSP, behavioral timescale synaptic plasticity, neuromorphic, winner-take-all, WTA, K-WTA, sparse coding, neural networks, one-shot learning, WebAssembly, WASM, bio-inspired, brain-inspired, neural competition, lateral inhibition, global workspace, attention, consciousness, associative memory
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for WASM, WebAssembly, neural network.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->

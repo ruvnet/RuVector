@@ -1,0 +1,93 @@
+//! One-off generator for legacy-dialect (pre ADR-354) fixtures. Run ONLY at
+//! the base commit; later code writes the wire dialect.
+use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore};
+use std::fmt::Write as _;
+use std::path::Path;
+
+fn vecs(n: usize, dim: usize, seed: u64) -> Vec<Vec<f32>> {
+    let mut x = seed;
+    (0..n)
+        .map(|_| {
+            (0..dim)
+                .map(|_| {
+                    x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                    ((x >> 33) as f32) / (u32::MAX as f32) - 0.5
+                })
+                .collect()
+        })
+        .collect()
+}
+
+fn record(out: &mut String, name: &str, path: &Path, dim: usize) {
+    let s = RvfStore::open_readonly(path).unwrap();
+    let st = s.status();
+    writeln!(out, "{name} total_vectors={} segments={} epoch={}", st.total_vectors, st.total_segments, st.current_epoch).unwrap();
+    for (qi, q) in vecs(3, dim, 99).iter().enumerate() {
+        let r = s.query(q, 5, &QueryOptions::default()).unwrap();
+        for (rank, h) in r.iter().enumerate() {
+            writeln!(out, "{name} q{qi} r{rank} id={} dist={:08x}", h.id, h.distance.to_bits()).unwrap();
+        }
+    }
+}
+
+fn main() {
+    let dir = std::env::args().nth(1).unwrap();
+    let dir = Path::new(&dir);
+    let mut expected = String::new();
+    let dim = 8usize;
+
+    // 1. basic: one batch, L2.
+    let p = dir.join("legacy_basic.rvf");
+    let _ = std::fs::remove_file(&p);
+    let mut o = RvfOptions::default();
+    o.dimension = dim as u16;
+    let mut s = RvfStore::create(&p, o).unwrap();
+    let v = vecs(20, dim, 1);
+    let refs: Vec<&[f32]> = v.iter().map(|x| x.as_slice()).collect();
+    let ids: Vec<u64> = (0..20).collect();
+    s.ingest_batch(&refs, &ids, None).unwrap();
+    s.close().unwrap();
+    record(&mut expected, "basic", &p, dim);
+
+    // 2. multi: cosine, three batches, metadata, deletes.
+    let p = dir.join("legacy_multi.rvf");
+    let _ = std::fs::remove_file(&p);
+    let mut o = RvfOptions::default();
+    o.dimension = dim as u16;
+    o.metric = DistanceMetric::Cosine;
+    let mut s = RvfStore::create(&p, o).unwrap();
+    for b in 0..3u64 {
+        let v = vecs(15, dim, 10 + b);
+        let refs: Vec<&[f32]> = v.iter().map(|x| x.as_slice()).collect();
+        let ids: Vec<u64> = (0..15).map(|i| b * 100 + i).collect();
+        let meta: Vec<MetadataEntry> = ids
+            .iter()
+            .map(|&i| MetadataEntry { field_id: 1, value: MetadataValue::U64(i) })
+            .collect();
+        s.ingest_batch(&refs, &ids, Some(&meta)).unwrap();
+    }
+    s.delete(&[3, 104, 205]).unwrap();
+    s.close().unwrap();
+    record(&mut expected, "multi", &p, dim);
+
+    // 3. compacted: deletes then compact (witness after manifest).
+    let p = dir.join("legacy_compacted.rvf");
+    let _ = std::fs::remove_file(&p);
+    let mut o = RvfOptions::default();
+    o.dimension = dim as u16;
+    let mut s = RvfStore::create(&p, o).unwrap();
+    let v = vecs(30, dim, 5);
+    let refs: Vec<&[f32]> = v.iter().map(|x| x.as_slice()).collect();
+    let ids: Vec<u64> = (0..30).collect();
+    s.ingest_batch(&refs, &ids, None).unwrap();
+    s.delete(&[1, 2, 3, 4, 5]).unwrap();
+    s.compact().unwrap();
+    let v2 = vecs(5, dim, 6);
+    let refs2: Vec<&[f32]> = v2.iter().map(|x| x.as_slice()).collect();
+    s.ingest_batch(&refs2, &[100, 101, 102, 103, 104], None).unwrap();
+    s.close().unwrap();
+    record(&mut expected, "compacted", &p, dim);
+
+    std::fs::write(dir.join("legacy_expected.txt"), expected).unwrap();
+}

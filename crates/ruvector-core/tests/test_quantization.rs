@@ -732,36 +732,51 @@ mod performance_tests {
     }
 
     #[test]
-    fn test_distance_calculation_speed() {
-        let v1: Vec<f32> = (0..512).map(|i| i as f32 * 0.01).collect();
-        let v2: Vec<f32> = (0..512).map(|i| (i as f32 * 0.01) + 0.5).collect();
+    fn test_repeated_distance_calculation_matches_reference() {
+        // Timing belongs in quantization_bench: this correctness suite also runs
+        // unoptimized and concurrently on shared CI runners. Cover SIMD dispatch
+        // boundaries and tails, including the former 512-dimension timing case.
+        for dimensions in [15, 16, 31, 32, 33, 511, 512, 513] {
+            let v1: Vec<f32> = (0..dimensions).map(|i| (i % 251) as f32 - 125.0).collect();
+            let v2: Vec<f32> = (0..dimensions)
+                .map(|i| ((i * 37 + 11) % 251) as f32 - 125.0)
+                .collect();
+            let q1_s = ScalarQuantized::quantize(&v1);
+            let q2_s = ScalarQuantized::quantize(&v2);
+            let q1_b = BinaryQuantized::quantize(&v1);
+            let q2_b = BinaryQuantized::quantize(&v2);
 
-        let q1_s = ScalarQuantized::quantize(&v1);
-        let q2_s = ScalarQuantized::quantize(&v2);
+            // Independent scalar oracle over quantized bytes, matching the
+            // distance API's average-scale contract rather than its SIMD kernel.
+            let sum_squared: u64 = q1_s
+                .data
+                .iter()
+                .zip(&q2_s.data)
+                .map(|(&a, &b)| {
+                    let delta = i64::from(a) - i64::from(b);
+                    (delta * delta) as u64
+                })
+                .sum();
+            let expected_scalar = (sum_squared as f32).sqrt() * (q1_s.scale + q2_s.scale) / 2.0;
+            let expected_binary = v1
+                .iter()
+                .zip(&v2)
+                .filter(|(a, b)| (**a > 0.0) != (**b > 0.0))
+                .count() as f32;
+            assert!(expected_scalar > 0.0 && expected_binary > 0.0);
 
-        let q1_b = BinaryQuantized::quantize(&v1);
-        let q2_b = BinaryQuantized::quantize(&v2);
-
-        // Scalar distance
-        let start = std::time::Instant::now();
-        for _ in 0..100000 {
-            let _ = q1_s.distance(&q2_s);
+            for _ in 0..1000 {
+                let scalar = std::hint::black_box(&q1_s).distance(std::hint::black_box(&q2_s));
+                let binary = std::hint::black_box(&q1_b).distance(std::hint::black_box(&q2_b));
+                assert!(
+                    (scalar - expected_scalar).abs() <= expected_scalar * 1e-5,
+                    "scalar mismatch at {dimensions} dimensions: {scalar} vs {expected_scalar}"
+                );
+                assert_eq!(
+                    binary, expected_binary,
+                    "Hamming mismatch at {dimensions} dimensions"
+                );
+            }
         }
-        let scalar_duration = start.elapsed();
-
-        // Binary distance (Hamming)
-        let start = std::time::Instant::now();
-        for _ in 0..100000 {
-            let _ = q1_b.distance(&q2_b);
-        }
-        let binary_duration = start.elapsed();
-
-        println!("Scalar distance: {:?} for 100k ops", scalar_duration);
-        println!("Binary distance: {:?} for 100k ops", binary_duration);
-
-        // Binary should be faster (just XOR and popcount)
-        // But both should be fast
-        assert!(scalar_duration.as_millis() < 1000);
-        assert!(binary_duration.as_millis() < 1000);
     }
 }

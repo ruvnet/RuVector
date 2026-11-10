@@ -5,7 +5,7 @@
  * Cross-platform installation and flashing tool for RuvLLM on ESP32
  */
 
-const { spawn, execSync } = require('child_process');
+const { spawn, execSync, execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -159,12 +159,17 @@ async function installToolchain() {
 
                 // Download espup for Windows
                 const espupUrl = 'https://github.com/esp-rs/espup/releases/latest/download/espup-x86_64-pc-windows-msvc.exe';
-                const espupPath = path.join(os.tmpdir(), 'espup.exe');
+                // Private, freshly created directory: a fixed temp path could be
+                // pre-created by another local user and its contents executed.
+                const espupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ruvllm-espup-'));
+                const espupPath = path.join(espupDir, 'espup.exe');
 
-                execSync(`powershell -Command "Invoke-WebRequest -Uri '${espupUrl}' -OutFile '${espupPath}'"`, { stdio: 'inherit' });
+                execFileSync('powershell', ['-NoProfile', '-Command',
+                    `Invoke-WebRequest -Uri '${espupUrl}' -OutFile '${espupPath.replace(/'/g, "''")}'`],
+                    { stdio: 'inherit' });
 
                 logStep('Running espup install...');
-                execSync(`"${espupPath}" install`, { stdio: 'inherit' });
+                execFileSync(espupPath, ['install'], { stdio: 'inherit' });
 
                 // Install espflash
                 logStep('Installing espflash...');
@@ -183,7 +188,13 @@ async function installToolchain() {
                 ? `espup-${arch}-apple-darwin`
                 : `espup-${arch}-unknown-linux-gnu`;
 
-            execSync(`curl -L https://github.com/esp-rs/espup/releases/latest/download/${binary} -o /tmp/espup && chmod +x /tmp/espup && /tmp/espup install`, { stdio: 'inherit' });
+            // Download into a private, freshly created directory (mode 0700)
+            // rather than a fixed /tmp path another local user could pre-create.
+            const espupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ruvllm-espup-'));
+            const espupPath = path.join(espupDir, 'espup');
+            execFileSync('curl', ['-fL', `https://github.com/esp-rs/espup/releases/latest/download/${binary}`, '-o', espupPath], { stdio: 'inherit' });
+            fs.chmodSync(espupPath, 0o700);
+            execFileSync(espupPath, ['install'], { stdio: 'inherit' });
 
             // Install espflash
             logStep('Installing espflash...');
@@ -402,7 +413,11 @@ async function main() {
     }
 }
 
-main().catch(e => {
-    logError(e.message);
-    process.exit(1);
-});
+if (require.main === module) {
+    main().catch(e => {
+        logError(e.message);
+        process.exit(1);
+    });
+}
+
+module.exports = { installToolchain };

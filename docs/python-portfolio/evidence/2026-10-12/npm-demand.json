@@ -1,0 +1,26 @@
+{
+  "retrieved_at": "2026-10-12T06:47:51.149881+00:00",
+  "counts": [
+    {
+      "downloads": 332090,
+      "start": "2026-09-12",
+      "end": "2026-10-11",
+      "package": "@ruvector/core",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-12:2026-10-11/@ruvector/core"
+    },
+    {
+      "downloads": 480813,
+      "start": "2026-09-12",
+      "end": "2026-10-11",
+      "package": "@ruvector/rvf",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-12:2026-10-11/@ruvector/rvf"
+    },
+    {
+      "downloads": 422,
+      "start": "2026-09-12",
+      "end": "2026-10-11",
+      "package": "@ruvector/kge",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-12:2026-10-11/@ruvector/kge"
+    }
+  ]
+}

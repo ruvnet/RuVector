@@ -222,7 +222,11 @@ pub fn load_index<R: Read>(r: &mut R) -> Result<RabitqPlusIndex> {
 
     // Payload.
     let dim_usize = dim as usize;
-    let mut items: Vec<(usize, Vec<f32>)> = Vec::with_capacity(n as usize);
+    // `n` comes from an untrusted header: cap the up-front reservation so a
+    // 32-byte truncated file cannot request MAX_N × 32 B (3.2 GB) before the
+    // first payload read fails. The Vec grows normally past the cap.
+    const PREALLOC_CAP: usize = 1 << 16;
+    let mut items: Vec<(usize, Vec<f32>)> = Vec::with_capacity((n as usize).min(PREALLOC_CAP));
     for _ in 0..n {
         let id = read_u32(r)? as usize;
         let mut v = Vec::with_capacity(dim_usize);

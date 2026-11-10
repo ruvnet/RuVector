@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/rabitq-wasm",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "type": "module",
   "description": "RaBitQ 1-bit quantized vector index in WebAssembly — 32× embedding compression with high-recall rerank, for browsers, Cloudflare Workers, Deno, and Bun",
   "main": "ruvector_rabitq_wasm.js",
@@ -16,25 +16,19 @@
     "approximate-nearest-neighbor",
     "quantization",
     "1-bit-quantization",
-    "embeddings",
     "wasm",
     "webassembly",
-    "ai",
-    "machine-learning",
     "rag",
-    "retrieval-augmented-generation",
     "semantic-search",
-    "rust",
-    "browser",
-    "edge",
-    "cloudflare-workers"
+    "cloudflare-workers",
+    "ruvector"
   ],
   "author": "RuVector Team",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ruvnet/RuVector.git",
-    "directory": "crates/ruvector-rabitq-wasm"
+    "url": "git+https://github.com/ruvnet/ruvector.git",
+    "directory": "npm/packages/rabitq-wasm"
   },
   "homepage": "https://github.com/ruvnet/RuVector#readme",
   "bugs": {
@@ -45,7 +39,9 @@
     "ruvector_rabitq_wasm.js",
     "ruvector_rabitq_wasm.d.ts",
     "ruvector_rabitq_wasm_bg.wasm.d.ts",
-    "README.md"
+    "README.md",
+    "node/",
+    "bundler/"
   ],
   "publishConfig": {
     "access": "public"

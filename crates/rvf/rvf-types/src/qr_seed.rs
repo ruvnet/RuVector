@@ -221,7 +221,11 @@ pub struct HostEntry {
 impl HostEntry {
     /// Get the URL as a string slice.
     pub fn url_str(&self) -> Option<&str> {
-        core::str::from_utf8(&self.url[..self.url_length as usize]).ok()
+        // `url_length` comes from untrusted bytes; a value beyond the field is
+        // treated as invalid rather than sliced.
+        self.url
+            .get(..self.url_length as usize)
+            .and_then(|b| core::str::from_utf8(b).ok())
     }
 
     /// Encode to bytes.
@@ -281,6 +285,20 @@ pub mod layer_id {
 mod tests {
     use super::*;
     extern crate alloc;
+
+    #[test]
+    fn url_str_rejects_length_beyond_field() {
+        let mut entry = HostEntry {
+            url: [b'a'; 128],
+            url_length: 200,
+            priority: 0,
+            region: 0,
+            host_key_hash: [0; 16],
+        };
+        assert_eq!(entry.url_str(), None);
+        entry.url_length = 4;
+        assert_eq!(entry.url_str(), Some("aaaa"));
+    }
 
     fn test_header() -> SeedHeader {
         SeedHeader {

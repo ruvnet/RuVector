@@ -335,17 +335,66 @@ def info(path: str, as_json: bool, no_color: bool) -> None:
     console.print(Panel(table, title=f"[bold]{p.name}[/bold]", expand=False))
 
 
+def _recall_at_k(coll: "Collection", vecs: "NDArray[np.float32]", qs: "NDArray[np.float32]", k: int) -> float:
+    """Mean recall@k of ``coll.search`` against exact brute-force top-k.
+
+    Ground truth uses the collection's own metric (cosine, or squared L2 for
+    rabitq). Ids are row indices because the benchmark builds with the
+    default ``ids=range(n)``. Ties at the k-th distance are resolved by the
+    stable sort, so recall can differ from 1.0 only through the index.
+    """
+    import numpy as np
+
+    k = min(k, vecs.shape[0])
+    if coll.metric == "squared_l2":
+        # |v|^2 - 2 v.q  (|q|^2 is constant per query and does not change the order)
+        scores = (vecs * vecs).sum(axis=1)[None, :] - 2.0 * (qs @ vecs.T)
+    else:
+        vn = vecs / np.maximum(np.linalg.norm(vecs, axis=1, keepdims=True), 1e-30)
+        scores = -(qs @ vn.T)  # cosine order = order of v.q / |v|, |q| is per-query constant
+    truth = np.argsort(scores, axis=1, kind="stable")[:, :k]
+    total = 0.0
+    for i in range(qs.shape[0]):
+        got = {hit.id for hit in coll.search(qs[i], k)}
+        total += len(got.intersection(truth[i].tolist())) / k
+    return total / qs.shape[0]
+
+
 @main.command()
 @click.option("-n", default=10_000, show_default=True, type=int, help="Number of vectors.")
 @click.option("--dim", default=128, show_default=True, type=int)
 @click.option("--k", default=10, show_default=True, type=int)
 @click.option("--queries", default=100, show_default=True, type=int)
-@click.option("--rerank-factor", default=20, show_default=True, type=int)
+@click.option("--rerank-factor", default=20, show_default=True, type=int, help="Only used by --backend rabitq.")
+@click.option(
+    "--backend",
+    default="hnsw",
+    show_default=True,
+    type=click.Choice(["hnsw", "rabitq"]),
+    help="Index backend to benchmark.",
+)
+@click.option(
+    "--recall-k",
+    default=10,
+    show_default=True,
+    type=int,
+    help="k for recall@k, measured against exact brute-force search over the same vectors.",
+)
 @click.option("--json", "as_json", is_flag=True, default=False)
-def benchmark(n: int, dim: int, k: int, queries: int, rerank_factor: int, as_json: bool) -> None:
-    """Run an in-memory build+search latency benchmark (no comparator — see
-    the ADR-352 benchmark methodology for a real side-by-side)."""
+def benchmark(
+    n: int, dim: int, k: int, queries: int, rerank_factor: int, backend: str, recall_k: int, as_json: bool
+) -> None:
+    """Run an in-memory build+search benchmark: latency, QPS and recall@k
+    against exact brute-force search (no comparator — see the ADR-352
+    benchmark methodology for a real side-by-side).
+
+    Recall is computed on the same queries as the latency loop, using the
+    index's own distance (cosine for hnsw, squared L2 for rabitq), and is
+    not included in the timings."""
     import time
+
+    if n < 1 or dim < 1 or k < 1 or queries < 1 or recall_k < 1:
+        raise click.ClickException("-n, --dim, --k, --queries and --recall-k must all be >= 1")
 
     import numpy as np
 
@@ -355,7 +404,7 @@ def benchmark(n: int, dim: int, k: int, queries: int, rerank_factor: int, as_jso
     vecs = rng.standard_normal((n, dim)).astype(np.float32)
 
     t0 = time.perf_counter()
-    coll = Collection.from_vectors(vecs, rerank_factor=rerank_factor)
+    coll = Collection.from_vectors(vecs, backend=backend, rerank_factor=rerank_factor)
     build_s = time.perf_counter() - t0
 
     qs = rng.standard_normal((queries, dim)).astype(np.float32)
@@ -368,8 +417,13 @@ def benchmark(n: int, dim: int, k: int, queries: int, rerank_factor: int, as_jso
     p50 = latencies[len(latencies) // 2]
     p99 = latencies[int(len(latencies) * 0.99) - 1]
 
+    recall = _recall_at_k(coll, vecs, qs, recall_k)
+
     result = {
         "n": n, "dim": dim, "k": k, "queries": queries, "rerank_factor": rerank_factor,
+        "backend": backend,
+        f"recall_at_{recall_k}": recall,
+        "recall_k": recall_k,
         "build_seconds": build_s,
         "p50_ms": p50 * 1000,
         "p99_ms": p99 * 1000,
@@ -381,7 +435,8 @@ def benchmark(n: int, dim: int, k: int, queries: int, rerank_factor: int, as_jso
     else:
         _secho(
             f"n={n} dim={dim} build={build_s:.3f}s p50={result['p50_ms']:.3f}ms "
-            f"p99={result['p99_ms']:.3f}ms qps={result['qps']:.0f}",
+            f"p99={result['p99_ms']:.3f}ms qps={result['qps']:.0f} "
+            f"recall@{recall_k}={recall:.4f}",
             fg="cyan",
         )
 
@@ -396,7 +451,14 @@ def benchmark(n: int, dim: int, k: int, queries: int, rerank_factor: int, as_jso
     default=False,
     help="Do not register mutating tools (create/insert/insert_batch/delete) or the Salesforce upsert route.",
 )
-def serve(use_http: bool, host: str, port: int, read_only: bool) -> None:
+@click.option(
+    "--max-vectors",
+    default=None,
+    type=int,
+    help="Maximum vectors per collection a client may write "
+    "(default 1000000; also settable with RUVECTOR_MCP_MAX_VECTORS; this option wins).",
+)
+def serve(use_http: bool, host: str, port: int, read_only: bool, max_vectors: Optional[int]) -> None:
     """Launch the ruvector MCP server (stdio by default).
 
     If ``RUVECTOR_ENABLE_SALESFORCE_ACTIONS`` is set, also mounts the
@@ -422,6 +484,18 @@ def serve(use_http: bool, host: str, port: int, read_only: bool) -> None:
 
     if read_only:
         apply_read_only()
+
+    try:
+        if max_vectors is not None:
+            from ruvector.mcp_server import set_max_vectors
+
+            set_max_vectors(max_vectors)
+        else:
+            from ruvector.mcp_server import max_vectors as _effective_max_vectors
+
+            _effective_max_vectors()  # fail at startup, not on the first insert, if the env var is malformed
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
 
     if use_http and os.environ.get("RUVECTOR_ENABLE_SALESFORCE_ACTIONS"):
         from ruvector.salesforce_routes import SalesforceAuthNotConfiguredError, maybe_register

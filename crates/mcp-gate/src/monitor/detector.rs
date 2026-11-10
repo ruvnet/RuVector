@@ -82,9 +82,9 @@ impl RiskSignal {
     /// **before** any comparison downstream can consume them.
     ///
     /// `risk` must be finite and within `[0, 1]`. `uncertainty` must be
-    /// finite and strictly positive — a zero-uncertainty prior claims perfect
-    /// knowledge, leaving nothing for an investigator to reveal and making
-    /// every value-of-information evaluation identically zero.
+    /// finite and within `(0, 1]` on the same unit scale. A zero-uncertainty
+    /// prior leaves nothing for an investigator to reveal; a value above one
+    /// inflates the value-of-information ceiling.
     pub fn new(risk: f64, uncertainty: f64) -> Result<Self, MonitorError> {
         if !risk.is_finite() {
             return Err(MonitorError::NonFinite {
@@ -103,6 +103,9 @@ impl RiskSignal {
         }
         if uncertainty <= 0.0 {
             return Err(MonitorError::NonPositiveUncertainty { uncertainty });
+        }
+        if uncertainty > 1.0 {
+            return Err(MonitorError::UncertaintyOutOfRange { uncertainty });
         }
         Ok(Self { risk, uncertainty })
     }
@@ -140,13 +143,10 @@ pub trait TinyDetector {
     /// *larger* declared value inflates the ceiling and makes the guard more
     /// permissive — so the one field that exists to catch a never-escalate
     /// ladder could be used to wave one through. Deriving it from the
-    /// detector *bounds* the divergence rather than removing it. Nothing
-    /// cross-checks this against what [`TinyDetector::score`] actually
-    /// carries, so an implementation may still declare one figure and
-    /// produce another; the (0,1] bound caps how far apart they can be, and
-    /// residual inflation at the legal maximum reaches 44x at sigma=0.05.
-    /// Requiring a trait implementation rather than a config value is what
-    /// changed -- the divergence itself is still there.
+    /// detector bounds the construction-time value. Inspection recalibrates
+    /// against the actual signal and halts when no rung is purchasable at
+    /// that uncertainty, so an inflated declaration cannot silently admit
+    /// a ladder that never escalates.
     ///
     /// A detector whose uncertainty varies per input should report the
     /// **largest** value it can return, since that is the most permissive

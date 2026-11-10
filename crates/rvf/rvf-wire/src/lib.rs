@@ -10,6 +10,7 @@ pub mod hot_seg_codec;
 pub mod index_seg_codec;
 pub mod manifest_codec;
 pub mod reader;
+pub mod stream;
 pub mod tail_scan;
 pub mod varint;
 pub mod vec_seg_codec;

@@ -6,6 +6,13 @@ import type {
   AcceptanceManifest,
   PolicyState,
 } from './types';
+import {
+  checkInt,
+  splitSeed,
+  toTrainResult,
+  toManifest,
+  toPolicyState,
+} from './wire';
 
 let wasmExports: RvfSolverWasmExports | null = null;
 
@@ -18,14 +25,9 @@ async function getWasm(): Promise<RvfSolverWasmExports> {
   return wasmExports;
 }
 
-function splitSeed(seed?: bigint | number): [number, number] {
-  if (seed === undefined) {
-    const s = BigInt(Math.floor(Math.random() * 2 ** 64));
-    return [Number(s & 0xFFFFFFFFn), Number((s >> 32n) & 0xFFFFFFFFn)];
-  }
-  const s = typeof seed === 'number' ? BigInt(seed) : seed;
-  return [Number(s & 0xFFFFFFFFn), Number((s >> 32n) & 0xFFFFFFFFn)];
-}
+/** Puzzle difficulty range accepted by the solver. */
+const MIN_DIFFICULTY = 1;
+const MAX_DIFFICULTY = 10;
 
 function readJson<T>(
   wasm: RvfSolverWasmExports,
@@ -87,30 +89,35 @@ export class RvfSolver {
    * - Fast loop: constraint propagation solver
    * - Medium loop: PolicyKernel skip-mode selection
    * - Slow loop: KnowledgeCompiler pattern distillation
+   *
+   * @throws RangeError if `count` is not a positive integer, a difficulty is
+   *   outside 1-10, `minDifficulty > maxDifficulty`, or `seed` is not an integer.
    */
   train(options: TrainOptions): TrainResult {
+    const count = checkInt('count', options.count, 1);
+    const minDiff = checkInt('minDifficulty', options.minDifficulty ?? MIN_DIFFICULTY, MIN_DIFFICULTY, MAX_DIFFICULTY);
+    const maxDiff = checkInt('maxDifficulty', options.maxDifficulty ?? MAX_DIFFICULTY, MIN_DIFFICULTY, MAX_DIFFICULTY);
+    if (minDiff > maxDiff) {
+      throw new RangeError(`minDifficulty (${minDiff}) must not exceed maxDifficulty (${maxDiff})`);
+    }
     const [seedLo, seedHi] = splitSeed(options.seed);
-    const correct = this.wasm.rvf_solver_train(
-      this.handle,
-      options.count,
-      options.minDifficulty ?? 1,
-      options.maxDifficulty ?? 10,
-      seedLo,
-      seedHi,
-    );
+    const correct = this.wasm.rvf_solver_train(this.handle, count, minDiff, maxDiff, seedLo, seedHi);
+    if (correct === -2) {
+      throw new RangeError('Training failed: invalid arguments');
+    }
     if (correct < 0) {
       throw new Error('Training failed: invalid handle');
     }
-    const result = readJson<TrainResult>(
+    const result = readJson<Record<string, unknown>>(
       this.wasm,
       this.handle,
       (h) => this.wasm.rvf_solver_result_len(h),
       (h, p) => this.wasm.rvf_solver_result_read(h, p),
     );
-    return result ?? {
-      trained: options.count,
+    return result ? toTrainResult(result) : {
+      trained: count,
       correct,
-      accuracy: correct / options.count,
+      accuracy: correct / count,
       patternsLearned: 0,
     };
   }
@@ -124,23 +131,34 @@ export class RvfSolver {
    * - Mode C: Learned Thompson Sampling policy
    *
    * Returns the full manifest with per-cycle metrics and witness chain.
+   *
+   * @throws RangeError if `holdoutSize`, `cycles` or `stepBudget` is not a
+   *   positive integer, `trainingPerCycle` is not a non-negative integer, or
+   *   `seed` is not an integer.
    */
   acceptance(options?: AcceptanceOptions): AcceptanceManifest {
     const opts = options ?? {};
+    const holdout = checkInt('holdoutSize', opts.holdoutSize ?? 50, 1);
+    const training = checkInt('trainingPerCycle', opts.trainingPerCycle ?? 200, 0);
+    const cycles = checkInt('cycles', opts.cycles ?? 5, 1);
+    const budget = checkInt('stepBudget', opts.stepBudget ?? 500, 1);
     const [seedLo, seedHi] = splitSeed(opts.seed);
     const status = this.wasm.rvf_solver_acceptance(
       this.handle,
-      opts.holdoutSize ?? 50,
-      opts.trainingPerCycle ?? 200,
-      opts.cycles ?? 5,
-      opts.stepBudget ?? 500,
+      holdout,
+      training,
+      cycles,
+      budget,
       seedLo,
       seedHi,
     );
+    if (status === -2) {
+      throw new RangeError('Acceptance test failed: invalid arguments');
+    }
     if (status < 0) {
       throw new Error('Acceptance test failed: invalid handle');
     }
-    const manifest = readJson<any>(
+    const manifest = readJson<Record<string, unknown>>(
       this.wasm,
       this.handle,
       (h) => this.wasm.rvf_solver_result_len(h),
@@ -149,15 +167,7 @@ export class RvfSolver {
     if (!manifest) {
       throw new Error('Failed to read acceptance manifest');
     }
-    return {
-      version: manifest.version,
-      modeA: manifest.mode_a,
-      modeB: manifest.mode_b,
-      modeC: manifest.mode_c,
-      allPassed: manifest.all_passed,
-      witnessEntries: manifest.witness_entries,
-      witnessChainBytes: manifest.witness_chain_bytes,
-    };
+    return toManifest(manifest);
   }
 
   /**
@@ -165,12 +175,13 @@ export class RvfSolver {
    * context buckets, KnowledgeCompiler cache stats).
    */
   policy(): PolicyState | null {
-    return readJson<PolicyState>(
+    const raw = readJson<Record<string, unknown>>(
       this.wasm,
       this.handle,
       (h) => this.wasm.rvf_solver_policy_len(h),
       (h, p) => this.wasm.rvf_solver_policy_read(h, p),
     );
+    return raw ? toPolicyState(raw) : null;
   }
 
   /**

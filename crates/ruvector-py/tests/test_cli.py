@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, List, Optional
 
 import numpy as np
 import pytest
@@ -165,6 +166,41 @@ def test_benchmark_human_readable_has_data(runner: CliRunner) -> None:
     assert "dim=16" in r.output
 
 
+@pytest.mark.parametrize("backend", ["hnsw", "rabitq"])
+def test_benchmark_reports_recall(runner: CliRunner, backend: str) -> None:
+    r = runner.invoke(
+        main, ["benchmark", "-n", "400", "--dim", "16", "--queries", "15", "--backend", backend, "--json"]
+    )
+    assert r.exit_code == 0, r.output
+    result = json.loads(r.output)
+    assert result["backend"] == backend
+    assert result["recall_k"] == 10
+    assert 0.5 <= result["recall_at_10"] <= 1.0
+    # the existing latency fields are unchanged
+    for key in ("n", "dim", "k", "queries", "build_seconds", "p50_ms", "p99_ms", "qps"):
+        assert key in result
+
+
+def test_benchmark_recall_k_is_configurable_and_in_human_output(runner: CliRunner) -> None:
+    r = runner.invoke(main, ["benchmark", "-n", "300", "--dim", "8", "--queries", "10", "--recall-k", "5"])
+    assert r.exit_code == 0, r.output
+    assert "recall@5=" in r.output
+    j = json.loads(runner.invoke(main, ["benchmark", "-n", "300", "--dim", "8", "--queries", "10", "--recall-k", "5", "--json"]).output)
+    assert "recall_at_5" in j and "recall_at_10" not in j
+
+
+def test_benchmark_recall_is_exact_for_tiny_corpus(runner: CliRunner) -> None:
+    # n <= recall-k: every vector is in the top-k, so recall must be exactly 1.0
+    r = runner.invoke(main, ["benchmark", "-n", "6", "--dim", "8", "--queries", "5", "--recall-k", "10", "--json"])
+    assert r.exit_code == 0, r.output
+    assert json.loads(r.output)["recall_at_10"] == 1.0
+
+
+def test_benchmark_rejects_nonpositive_recall_k(runner: CliRunner) -> None:
+    r = runner.invoke(main, ["benchmark", "-n", "50", "--dim", "8", "--recall-k", "0"])
+    assert r.exit_code != 0
+
+
 def test_search_no_color_flag_forces_plain(runner: CliRunner, tmp_path: Path) -> None:
     """--no-color is a no-op in terms of data under CliRunner (already
     non-TTY => already plain), but exercise the flag itself end to end so
@@ -263,3 +299,39 @@ def test_serve_without_mcp_sdk_gives_install_hint(runner: CliRunner, monkeypatch
     assert result.exit_code != 0
     assert "ruvector[mcp]" in result.output
     assert "Traceback" not in result.output
+
+
+# ── serve --max-vectors ─────────────────────────────────────────────────────
+
+
+def test_serve_max_vectors_option_sets_cap(runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
+    pytest.importorskip("mcp")
+    import ruvector.mcp_server as m
+
+    monkeypatch.delenv("RUVECTOR_MCP_MAX_VECTORS", raising=False)
+    monkeypatch.setattr(m.server, "run", lambda *a, **kw: None)
+    try:
+        result = runner.invoke(main, ["serve", "--max-vectors", "123"])
+        assert result.exit_code == 0, result.output
+        assert m.max_vectors() == 123
+    finally:
+        m.set_max_vectors(None)
+
+
+@pytest.mark.parametrize("args,env", [(["--max-vectors", "0"], None), ([], "nope")])
+def test_serve_rejects_bad_max_vectors(
+    runner: CliRunner, monkeypatch: pytest.MonkeyPatch, args: List[str], env: Optional[str]
+) -> None:
+    pytest.importorskip("mcp")
+    import ruvector.mcp_server as m
+
+    ran: List[Any] = []
+    monkeypatch.setattr(m.server, "run", lambda *a, **kw: ran.append(1))
+    if env is None:
+        monkeypatch.delenv("RUVECTOR_MCP_MAX_VECTORS", raising=False)
+    else:
+        monkeypatch.setenv("RUVECTOR_MCP_MAX_VECTORS", env)
+    result = runner.invoke(main, ["serve", *args])
+    assert result.exit_code != 0
+    assert "positive integer" in result.output
+    assert not ran

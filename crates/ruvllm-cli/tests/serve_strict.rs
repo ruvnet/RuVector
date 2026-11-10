@@ -167,9 +167,11 @@ fn allow_mock_serves_labeled_placeholder_responses() {
         .unwrap();
     let mut server = Server(child);
 
-    let stdout = BufReader::new(server.0.stdout.take().unwrap());
+    // Keep the pipe open until requests finish: dropping it at the banner
+    // can make the child panic on its remaining stdout writes.
+    let mut stdout = BufReader::new(server.0.stdout.take().unwrap());
     let mut banner = String::new();
-    for line in stdout.lines() {
+    for line in stdout.by_ref().lines() {
         let line = line.unwrap();
         banner.push_str(&line);
         banner.push('\n');

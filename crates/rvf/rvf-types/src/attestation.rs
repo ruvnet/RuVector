@@ -43,6 +43,7 @@ impl TryFrom<u8> for TeePlatform {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u8)]
+#[non_exhaustive]
 pub enum AttestationWitnessType {
     /// TEE identity and measurement.
     PlatformAttestation = 0x05,

@@ -142,24 +142,39 @@ pub fn read_restart_index(data: &[u8]) -> Result<(RestartPointIndex, usize), &'s
 /// Each node stores: layer_count(varint), then for each layer:
 /// neighbor_count(varint) followed by delta-encoded neighbor IDs (varints).
 pub fn read_adjacency(data: &[u8], node_count: u64) -> Result<Vec<NodeAdjacency>, &'static str> {
-    let mut nodes = Vec::with_capacity(node_count as usize);
+    let node_count = usize::try_from(node_count).map_err(|_| "node count overflow")?;
+    // Even an empty node requires its layer-count byte. Never allocate
+    // directly from an unvalidated count carried by the file.
+    if node_count > data.len() {
+        return Err("adjacency nodes truncated");
+    }
+    let mut nodes = Vec::with_capacity(node_count);
     let mut pos = 0;
     for _ in 0..node_count {
         let (layer_count, consumed) =
             decode_varint(&data[pos..]).map_err(|_| "adjacency layer_count decode failed")?;
         pos += consumed;
-        let mut layers = Vec::with_capacity(layer_count as usize);
+        let layer_count = usize::try_from(layer_count).map_err(|_| "layer count overflow")?;
+        if layer_count > data.len() - pos {
+            return Err("adjacency layers truncated");
+        }
+        let mut layers = Vec::with_capacity(layer_count);
         for _ in 0..layer_count {
             let (neighbor_count, consumed) = decode_varint(&data[pos..])
                 .map_err(|_| "adjacency neighbor_count decode failed")?;
             pos += consumed;
-            let mut neighbors = Vec::with_capacity(neighbor_count as usize);
+            let neighbor_count =
+                usize::try_from(neighbor_count).map_err(|_| "neighbor count overflow")?;
+            if neighbor_count > data.len() - pos {
+                return Err("adjacency neighbors truncated");
+            }
+            let mut neighbors = Vec::with_capacity(neighbor_count);
             let mut prev = 0u64;
             for _ in 0..neighbor_count {
                 let (delta, consumed) =
                     decode_varint(&data[pos..]).map_err(|_| "adjacency delta decode failed")?;
                 pos += consumed;
-                prev += delta;
+                prev = prev.checked_add(delta).ok_or("adjacency ID overflow")?;
                 neighbors.push(prev);
             }
             layers.push(neighbors);

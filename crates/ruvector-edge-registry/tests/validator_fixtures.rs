@@ -88,6 +88,31 @@ fn dist(metric: DistanceMetric, a: &[f32], b: &[f32]) -> f32 {
 /// M5 acceptance, core half: an RVF written by the rvf CLI's engine
 /// validates, and the vectors decoded from it answer queries exactly as the
 /// engine does (after deletions and a reopen).
+/// A store produced by `derive()` validates. From rvf-runtime 0.5.4 it
+/// carries the lineage segment (0x24, #1289), which the registry must take.
+#[test]
+fn runtime_derived_store_validates() {
+    let dir = tempfile::tempdir().unwrap();
+    let opts = RvfOptions {
+        dimension: 4,
+        ..Default::default()
+    };
+    let parent = RvfStore::create(&dir.path().join("p.rvf"), opts).unwrap();
+    let path = dir.path().join("c.rvf");
+    let mut child = parent
+        .derive(&path, rvf_types::DerivationType::Snapshot, None)
+        .unwrap();
+    let data = rows(10, 4, 3);
+    let vecs: Vec<&[f32]> = data.iter().map(|(_, v)| v.as_slice()).collect();
+    let ids: Vec<u64> = data.iter().map(|(i, _)| *i).collect();
+    child.ingest_batch(&vecs, &ids, None).unwrap();
+    child.close().unwrap();
+
+    let bytes = std::fs::read(&path).unwrap();
+    let v = validate(&bytes, ValidationLimits::default()).unwrap();
+    assert_eq!(v.live_vectors(&bytes).unwrap().len(), 10);
+}
+
 #[test]
 fn runtime_created_store_validates_and_queries_identically() {
     for (metric, want) in [

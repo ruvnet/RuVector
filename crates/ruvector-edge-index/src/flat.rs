@@ -244,7 +244,7 @@ impl QuantFlatIndex {
                 bits &= bits - 1;
                 let s = id as usize * d;
                 let dist = pq.distance(&self.codes[s..s + d]);
-                if top.bound().map_or(true, |b| dist <= b) {
+                if top.bound().is_none_or(|b| dist <= b) {
                     top.push(Cand { d: dist, id });
                 }
             }
@@ -356,7 +356,7 @@ impl QuantFlatIndex {
         let present = r.u64_vec((slots as usize).div_ceil(64))?;
         let codes = r.bytes_vec(slots as usize, quant.dim())?;
         let ones: u32 = present.iter().map(|w| w.count_ones()).sum();
-        let tail_clear = slots % 64 == 0 || present.last().map_or(true, |w| w >> (slots % 64) == 0);
+        let tail_clear = slots % 64 == 0 || present.last().is_none_or(|w| w >> (slots % 64) == 0);
         if ones != live || !tail_clear {
             return Err(DecodeError::Malformed("flat presence bitmap"));
         }

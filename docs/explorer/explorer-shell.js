@@ -36,3 +36,11 @@ lab.addEventListener('click',e=>{const a=e.target.closest('a[href="#stage"]');if
 window.addEventListener('ruvector:navigate',e=>setTab(e.detail,{focus:true}));
 window.addEventListener('hashchange',()=>setTab(location.hash.slice(1),{history:false}));
 setTab(location.hash.slice(1)||'search',{history:false});
+// Let the visualization take over the page without removing its own controls.
+const focusBtn=document.getElementById('focusBtn'),fullBtn=document.getElementById('fullBtn');let focusFallback=false;
+function setFocusMode(on){document.body.classList.toggle('rx-focus-mode',on);focusBtn.setAttribute('aria-pressed',String(on));focusBtn.setAttribute('aria-label',on?'Restore explorer interface':'Collapse explorer interface');focusBtn.title=on?'Restore explorer interface':'Collapse explorer interface';window.dispatchEvent(new Event('resize'));}
+focusBtn.addEventListener('click',()=>setFocusMode(!document.body.classList.contains('rx-focus-mode')));
+function syncFullscreen(){const on=document.fullscreenElement===stage;stage.classList.toggle('rx-fullscreen',on);if(on)focusFallback=false;fullBtn.setAttribute('aria-label',on?'Exit animation fullscreen':focusFallback?'Restore page view':'Enter animation fullscreen');fullBtn.title=on?'Exit fullscreen':focusFallback?'Restore page view':'Fullscreen animation';window.dispatchEvent(new Event('resize'));}
+fullBtn.addEventListener('click',async()=>{try{if(document.fullscreenElement){await document.exitFullscreen();}else if(focusFallback){focusFallback=false;setFocusMode(false);syncFullscreen();}else if(stage.requestFullscreen){await stage.requestFullscreen();}else{focusFallback=true;setFocusMode(true);syncFullscreen();}}catch(error){focusFallback=true;setFocusMode(true);syncFullscreen();console.warn('Fullscreen unavailable; expanded the animation to fill the page instead.',error);}});
+document.addEventListener('fullscreenchange',syncFullscreen);
+document.addEventListener('fullscreenerror',()=>setFocusMode(true));

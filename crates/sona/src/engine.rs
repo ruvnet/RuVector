@@ -117,6 +117,12 @@ impl SonaEngine {
         self.coordinator.flush_instant();
     }
 
+    /// Mark a task boundary for EWC++ (for example, a change of season or
+    /// workload) so that later learning does not overwrite the current task.
+    pub fn start_new_task(&self) {
+        self.coordinator.start_new_task();
+    }
+
     /// Find similar patterns to query
     pub fn find_patterns(&self, query_embedding: &[f32], k: usize) -> Vec<crate::LearnedPattern> {
         self.coordinator
@@ -324,6 +330,114 @@ impl Default for SonaEngineBuilder {
 mod tests {
     use super::*;
     use crate::types::TrajectoryStep;
+
+    /// Deterministic pseudo-random unit vector.
+    fn unit(dim: usize, seed: u64) -> Vec<f32> {
+        let mut s = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15).wrapping_add(1);
+        let mut v: Vec<f32> = (0..dim)
+            .map(|_| {
+                s = s
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                ((s >> 33) as f32 / (1u64 << 31) as f32) - 0.5
+            })
+            .collect();
+        normalize(&mut v);
+        v
+    }
+
+    fn normalize(v: &mut [f32]) {
+        let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+        v.iter_mut().for_each(|x| *x /= n);
+    }
+
+    /// `centre` plus `noise_weight` of a random direction, normalised.
+    fn near(centre: &[f32], seed: u64, noise_weight: f32) -> Vec<f32> {
+        let noise = unit(centre.len(), seed);
+        let mut v: Vec<f32> = centre
+            .iter()
+            .zip(&noise)
+            .map(|(c, n)| c + noise_weight * n)
+            .collect();
+        normalize(&mut v);
+        v
+    }
+
+    /// Mean cosine between the adapted inputs and `target`.
+    fn alignment(engine: &SonaEngine, inputs: &[Vec<f32>], target: &[f32]) -> f32 {
+        let total: f32 = inputs
+            .iter()
+            .map(|x| {
+                let mut out = x.clone();
+                engine.apply_micro_lora(x, &mut out);
+                let norm = out.iter().map(|v| v * v).sum::<f32>().sqrt();
+                out.iter().zip(target).map(|(a, b)| a * b).sum::<f32>() / norm
+            })
+            .sum();
+        total / inputs.len() as f32
+    }
+
+    /// Train task A, mark a task boundary, train task B on overlapping
+    /// inputs with a different target, and return task A's held-out
+    /// alignment after A and after B.
+    fn task_a_then_b(ewc_lambda: f32) -> (f32, f32) {
+        let dim = 64;
+        let engine = SonaEngine::with_config(SonaConfig {
+            hidden_dim: dim,
+            embedding_dim: dim,
+            micro_lora_lr: 0.5,
+            ewc_lambda,
+            ..Default::default()
+        });
+        let centre_a = unit(dim, 31);
+        let centre_b = near(&centre_a, 32, 1.2); // cosine about 0.64 with task A
+        let (target_a, target_b) = (unit(dim, 33), unit(dim, 34));
+        let train = |centre: &[f32], target: &[f32], seed: u64| {
+            for k in 0..300 {
+                let x = near(centre, seed + k % 100, 0.4);
+                let mut builder = engine.begin_trajectory(x);
+                builder.add_step(target.to_vec(), vec![], 1.0);
+                engine.end_trajectory(builder, 1.0);
+                if k % 5 == 4 {
+                    engine.flush();
+                }
+            }
+        };
+        let held_out_a: Vec<Vec<f32>> = (0..30).map(|k| near(&centre_a, 5_000 + k, 0.4)).collect();
+
+        train(&centre_a, &target_a, 1_000);
+        let after_a = alignment(&engine, &held_out_a, &target_a);
+        engine.start_new_task();
+        train(&centre_b, &target_b, 2_000);
+        let after_b = alignment(&engine, &held_out_a, &target_a);
+        (after_a, after_b)
+    }
+
+    #[test]
+    fn test_micro_lora_learns_from_step_activations() {
+        let (after_a, _) = task_a_then_b(0.0);
+        // Unadapted inputs are close to orthogonal to the target.
+        assert!(after_a > 0.5, "task A alignment {}", after_a);
+    }
+
+    #[test]
+    fn test_ewc_reduces_forgetting() {
+        let (a_plain, b_plain) = task_a_then_b(0.0);
+        let (a_ewc, b_ewc) = task_a_then_b(2000.0);
+        let forgot_plain = a_plain - b_plain;
+        let forgot_ewc = a_ewc - b_ewc;
+        assert!(
+            forgot_plain > 0.4,
+            "expected forgetting without EWC++, got {}",
+            forgot_plain
+        );
+        assert!(
+            forgot_ewc < forgot_plain * 0.5,
+            "EWC++ forgot {} vs {} without",
+            forgot_ewc,
+            forgot_plain
+        );
+    }
 
     #[test]
     fn test_engine_creation() {

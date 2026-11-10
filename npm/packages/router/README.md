@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/router.svg" alt="@ruvector/router: Semantic router for AI agents — vector-based intent matching with HNSW indexing and SIMD." width="100%"></p>
+
 # @ruvector/router
 
 Semantic router for AI agents - vector-based intent matching with HNSW indexing and SIMD acceleration.
@@ -7,7 +9,7 @@ Semantic router for AI agents - vector-based intent matching with HNSW indexing 
 - **Semantic Intent Matching**: Route queries to intents based on meaning, not keywords
 - **HNSW Indexing**: Fast approximate nearest neighbor search
 - **SIMD Optimized**: Native Rust performance with vectorized operations
-- **Quantization**: Memory-efficient storage for large intent sets
+- **Bring Your Own Embedder**: Plug in any `(text) => Promise<Float32Array>` function
 - **Multi-Platform**: Works on Linux, macOS, and Windows
 
 ## Installation
@@ -18,7 +20,22 @@ npm install @ruvector/router
 
 The package automatically installs the correct native binary for your platform.
 
+The package is CommonJS. The `import { ... }` samples below work from TypeScript
+compiled to CommonJS and from bundlers; in native Node ESM (`.mjs` or
+`"type": "module"`) named imports of `SemanticRouter` / `DistanceMetric` fail, so
+use the default import:
+
+```js
+import router from '@ruvector/router';
+const { SemanticRouter, VectorDb, DistanceMetric } = router;
+// or, in CommonJS: const { SemanticRouter } = require('@ruvector/router');
+```
+
 ## Quick Start
+
+The router does not ship an embedding model. Give it an embedder (any async
+function that turns text into a `Float32Array` of length `dimension`), or pass
+pre-computed embeddings yourself.
 
 ```typescript
 import { SemanticRouter } from '@ruvector/router';
@@ -26,8 +43,12 @@ import { SemanticRouter } from '@ruvector/router';
 // Create router
 const router = new SemanticRouter({ dimension: 384 });
 
-// Add intents with example utterances
-router.addIntent({
+// Plug in your embedding model (must return a Float32Array of length 384)
+router.setEmbedder(async (text) => myEmbeddingModel.embed(text));
+
+// Add intents with example utterances; addIntentAsync embeds each
+// utterance and indexes their centroid
+await router.addIntentAsync({
   name: 'weather',
   utterances: [
     'What is the weather today?',
@@ -37,7 +58,7 @@ router.addIntent({
   metadata: { handler: 'weather_agent' }
 });
 
-router.addIntent({
+await router.addIntentAsync({
   name: 'greeting',
   utterances: [
     'Hello',
@@ -48,7 +69,7 @@ router.addIntent({
   metadata: { handler: 'greeting_agent' }
 });
 
-router.addIntent({
+await router.addIntentAsync({
   name: 'help',
   utterances: [
     'I need help',
@@ -62,9 +83,12 @@ router.addIntent({
 const results = await router.route('What will the weather be like this weekend?');
 
 console.log(results[0].intent);   // 'weather'
-console.log(results[0].score);    // 0.92
+console.log(results[0].score);    // similarity, e.g. 0.92
 console.log(results[0].metadata); // { handler: 'weather_agent' }
 ```
+
+Matches scoring below `threshold` (default `0.7`) are dropped, so `route()` can
+return fewer than `k` results — or an empty array.
 
 ## API Reference
 
@@ -82,35 +106,58 @@ new SemanticRouter(config: RouterConfig)
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `dimension` | number | required | Embedding dimension size |
-| `metric` | string | 'cosine' | Distance metric: 'cosine', 'euclidean', 'dot' |
+| `metric` | string | 'cosine' | Distance metric: 'cosine', 'euclidean', 'dot', 'manhattan' |
 | `m` | number | 16 | HNSW M parameter |
 | `efConstruction` | number | 200 | HNSW ef_construction |
-| `quantization` | boolean | false | Enable memory-efficient quantization |
+| `efSearch` | number | 100 | HNSW ef_search |
+| `threshold` | number | 0.7 | Minimum similarity; lower-scoring matches are dropped |
+| `quantization` | boolean | false | Accepted but not yet implemented (no effect) |
 
 #### Methods
 
-##### `addIntent(intent: Intent): void`
+##### `setEmbedder(embedder: (text: string) => Promise<Float32Array>): void`
 
-Add an intent to the router.
+Set the function used to embed utterances (`addIntentAsync`) and string queries (`route`).
+
+##### `addIntentAsync(intent: Intent): Promise<void>`
+
+Add an intent, embedding its utterances with the embedder and indexing their
+centroid. If `intent.embedding` is given, that is used instead. Throws if there
+is neither an embedder nor an `embedding`.
 
 ```typescript
-router.addIntent({
+await router.addIntentAsync({
   name: 'booking',
   utterances: ['Book a flight', 'Reserve a hotel'],
   metadata: { department: 'travel' }
 });
 ```
 
+##### `addIntent(intent: Intent): void`
+
+Synchronous variant. The intent is only searchable if you pass a pre-computed
+`embedding` — without one it is registered by name but never matched.
+
+```typescript
+router.addIntent({
+  name: 'booking',
+  utterances: ['Book a flight', 'Reserve a hotel'],
+  embedding: bookingCentroid, // Float32Array | number[] of length `dimension`
+  metadata: { department: 'travel' }
+});
+```
+
 ##### `route(query: string | Float32Array, k?: number): Promise<RouteResult[]>`
 
-Route a query to matching intents.
+Route a query to matching intents (`k` defaults to 1). A string query requires
+`setEmbedder()`; otherwise it throws `No embedder set`.
 
 ```typescript
 const results = await router.route('I want to book a vacation');
 // [{ intent: 'booking', score: 0.89, metadata: {...} }]
 ```
 
-##### `routeWithEmbedding(embedding: Float32Array, k?: number): RouteResult[]`
+##### `routeWithEmbedding(embedding: Float32Array | number[], k?: number): RouteResult[]`
 
 Route with a pre-computed embedding (synchronous).
 
@@ -127,17 +174,26 @@ Remove an intent from the router.
 
 Get all registered intent names.
 
+##### `getIntent(name: string): { name, utterances, metadata } | null`
+
+Get one intent's details.
+
+##### `count(): number`
+
+Number of registered intents.
+
 ##### `clear(): void`
 
 Remove all intents.
 
 ##### `save(path: string): Promise<void>`
 
-Persist router state to disk.
+Write intents (names, utterances, metadata, embeddings) and the threshold to a JSON file.
 
 ##### `load(path: string): Promise<void>`
 
-Load router state from disk.
+Replace the router's intents with those from a file written by `save()`. The
+router's `dimension` must match the saved one.
 
 ### Types
 
@@ -162,12 +218,37 @@ interface RouteResult {
 }
 ```
 
+### `VectorDb` (low-level)
+
+The native HNSW index behind `SemanticRouter` is also exported.
+
+```typescript
+import { VectorDb, DistanceMetric } from '@ruvector/router';
+
+const db = new VectorDb({
+  dimensions: 384,
+  distanceMetric: DistanceMetric.Cosine, // enum: Euclidean | Cosine | DotProduct | Manhattan
+});
+
+db.insert('doc-1', new Float32Array(384).fill(0.5));
+const hits = db.search(new Float32Array(384).fill(0.5), 5);
+// [{ id: 'doc-1', score: ~0 }]  — score is a distance (lower = closer)
+```
+
+- Vectors must be `Float32Array`; a plain `number[]` throws `Get TypedArray info failed`.
+- `distanceMetric` takes the `DistanceMetric` enum, not a string (`'cosine'` / `'Cosine'` throw).
+- Other options: `hnswM`, `hnswEfConstruction`, `hnswEfSearch`, `storagePath`, and
+  `maxElements` (a capacity hint; with `enforceMaxElements: true` an insert past it
+  throws `ERR_CAPACITY_EXCEEDED: ...`).
+- Methods: `insert`, `insertAsync`, `search`, `searchAsync`, `delete`, `count`, `getAllIds`.
+
 ## Use Cases
 
 ### Chatbot Intent Detection
 
 ```typescript
 const router = new SemanticRouter({ dimension: 384 });
+router.setEmbedder(embed); // your (text) => Promise<Float32Array>
 
 // Define intents
 const intents = [
@@ -176,11 +257,12 @@ const intents = [
   { name: 'return', utterances: ['I want to return this', 'How do I get a refund?'] }
 ];
 
-intents.forEach(i => router.addIntent(i));
+for (const i of intents) await router.addIntentAsync(i);
 
 // Handle user message
 async function handleMessage(text: string) {
   const [result] = await router.route(text);
+  if (!result) return handleUnknown(text); // nothing above the threshold
 
   switch(result.intent) {
     case 'faq': return handleFAQ(text);
@@ -201,14 +283,15 @@ const agents = {
 };
 
 const router = new SemanticRouter({ dimension: 768 });
+router.setEmbedder(embed); // your (text) => Promise<Float32Array>
 
-router.addIntent({
+await router.addIntentAsync({
   name: 'code',
   utterances: ['Write code', 'Debug this', 'Implement a function'],
   metadata: { agent: 'code' }
 });
 
-router.addIntent({
+await router.addIntentAsync({
   name: 'research',
   utterances: ['Find information', 'Search for', 'Look up'],
   metadata: { agent: 'research' }
@@ -217,6 +300,7 @@ router.addIntent({
 // Route task to best agent
 async function routeTask(task: string) {
   const [result] = await router.route(task);
+  if (!result) throw new Error(`No agent matched: ${task}`);
   const agent = agents[result.metadata.agent];
   return agent.execute(task);
 }
@@ -238,12 +322,28 @@ async function routeTask(task: string) {
 - **Throughput**: 100,000+ routes/second
 - **Memory**: ~1KB per intent + embeddings
 
-## Related Packages
+## Related packages
 
-- [`@ruvector/core`](https://www.npmjs.com/package/@ruvector/core) - Vector database
-- [`@ruvector/tiny-dancer`](https://www.npmjs.com/package/@ruvector/tiny-dancer) - Neural routing
-- [`@ruvector/gnn`](https://www.npmjs.com/package/@ruvector/gnn) - Graph Neural Networks
+- [`@ruvector/router-wasm`](https://www.npmjs.com/package/@ruvector/router-wasm) — WebAssembly build of the same router core, for browsers.
+- [`@ruvector/tiny-dancer`](https://www.npmjs.com/package/@ruvector/tiny-dancer) — learned (FastGRNN) neural router for agent orchestration, an alternative to similarity routing.
+- [`@ruvector/core`](https://www.npmjs.com/package/@ruvector/core) — full native vector database with HNSW indexing.
+- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package and CLI (`npx ruvector`).
 
 ## License
 
 MIT
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for vector search, SIMD, HNSW.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`agentdb`](https://www.npmjs.com/package/agentdb) (optional), [`agentic-flow`](https://www.npmjs.com/package/agentic-flow), [`claude-flow`](https://www.npmjs.com/package/claude-flow) (optional), [`ruvector`](https://www.npmjs.com/package/ruvector) (peer)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

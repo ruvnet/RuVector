@@ -25,7 +25,7 @@ fn params() -> HnswParams {
 fn replay(metric: Metric, base: &[f32]) -> HnswIndex {
     let q = QuantParams::train(metric, D, &base[..500 * D], 7).unwrap();
     let mut idx = HnswIndex::new(params(), q).unwrap();
-    for (i, v) in base.chunks_exact(D).enumerate() {
+    for (i, v) in base.as_chunks::<D>().0.iter().enumerate() {
         idx.insert(i as u32, v, &mut op_rng(i as u64)).unwrap();
     }
     for i in (0..NP as u32).step_by(97) {
@@ -36,7 +36,7 @@ fn replay(metric: Metric, base: &[f32]) -> HnswIndex {
 
 fn same_results(a: &HnswIndex, b: &HnswIndex, base: &[f32], queries: &[f32]) {
     let (mut fa, mut fb) = (SliceFetch::new(base, D), SliceFetch::new(base, D));
-    for q in queries.chunks_exact(D) {
+    for q in queries.as_chunks::<D>().0.iter() {
         let hits = a.search(q, 10, 48).unwrap();
         assert!(
             hits.iter().all(|h| a.contains(h.iid)),
@@ -86,14 +86,14 @@ fn flat_roundtrip_is_bit_identical() {
     let (base, queries) = data(NP, D, 20);
     let q = QuantParams::train(Metric::L2, D, &base[..500 * D], 3).unwrap();
     let mut idx = QuantFlatIndex::new(q, 1 << 20).unwrap();
-    for (i, v) in base.chunks_exact(D).enumerate() {
+    for (i, v) in base.as_chunks::<D>().0.iter().enumerate() {
         idx.upsert(2 * i as u32, v).unwrap(); // gaps are fine for flat
     }
     assert!(idx.remove(4));
     let enc = idx.to_chunks(2, 32 * 1024).unwrap();
     let back = QuantFlatIndex::from_chunks(&enc.chunks, Some(&enc.sha256)).unwrap();
     assert_eq!((back.len(), back.slots()), (NP - 1, 2 * NP as u32 - 1));
-    for qv in queries.chunks_exact(D) {
+    for qv in queries.as_chunks::<D>().0.iter() {
         assert_eq!(idx.search(qv, 10).unwrap(), back.search(qv, 10).unwrap());
     }
     assert_eq!(back.to_chunks(2, 32 * 1024).unwrap().chunks, enc.chunks);
@@ -227,7 +227,7 @@ fn gapped_iid_encode_fails_loudly_and_compaction_fixes_it() {
     let mut idx = HnswIndex::new(params(), q).unwrap();
     let mut iid = 0u32;
     let mut ids = Vec::new();
-    for (i, v) in base.chunks_exact(D).enumerate() {
+    for (i, v) in base.as_chunks::<D>().0.iter().enumerate() {
         iid += if i % 50 == 49 { 3 } else { 1 }; // holes from deleted rows
         idx.insert(iid, v, &mut op_rng(i as u64)).unwrap();
         ids.push(iid);
@@ -248,7 +248,7 @@ fn gapped_iid_encode_fails_loudly_and_compaction_fixes_it() {
     assert_eq!(dense.node_count(), 400);
     let enc = dense.to_chunks(1, CHUNK).unwrap();
     let back = HnswIndex::from_chunks(&enc.chunks, None).unwrap();
-    for qv in queries.chunks_exact(D) {
+    for qv in queries.as_chunks::<D>().0.iter() {
         let a: Vec<(u32, f32)> = idx
             .search(qv, 10, 40)
             .unwrap()

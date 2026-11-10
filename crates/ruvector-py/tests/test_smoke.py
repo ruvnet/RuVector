@@ -25,8 +25,8 @@ import ruvector
 
 def test_version() -> None:
     assert ruvector.__version__
-    # Cargo.toml ships 0.1.0; if you bump there, bump here.
-    assert ruvector.__version__ == "0.1.1"
+    from importlib.metadata import version
+    assert ruvector.__version__ == version("ruvector")
 
 
 def test_build_and_search() -> None:

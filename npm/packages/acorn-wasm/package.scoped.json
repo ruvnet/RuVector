@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/acorn-wasm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "ACORN predicate-agnostic filtered HNSW in WebAssembly — high-recall vector search with arbitrary metadata filters, for browsers, Cloudflare Workers, Deno, and Bun",
   "main": "ruvector_acorn_wasm.js",

@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-12",
+  "source_sha": "31549f798997cbb16b1ec872ca30b9e690bbd3ff",
+  "download_window": {
+    "start": "2026-09-12",
+    "end": "2026-10-11"
+  },
+  "weights": {
+    "customer_usefulness": 0.4,
+    "npm_demand": 0.25,
+    "implementation_readiness": 0.2,
+    "maintenance_ease": 0.15
+  },
+  "method": "Scores 0..5 are prioritization estimates, not measured customer outcomes. Demand uses log(downloads+1) relative to the largest observed candidate package. Core downloads are a package proxy, not feature-specific demand. Downloads are not unique users.",
+  "ranking": [
+    {
+      "candidate": "Filtered retrieval extension",
+      "demand_package": "@ruvector/core",
+      "npm_downloads": 332090,
+      "source_paths": "crates/ruvector-py/src/lib.rs; crates/ruvector-core/src/advanced_features/filtered_search.rs",
+      "scores": {
+        "customer_usefulness": 5,
+        "npm_demand": 4.859,
+        "implementation_readiness": 5,
+        "maintenance_ease": 4
+      },
+      "weighted_score": 4.815,
+      "exclusion": "Extend existing core after recovery; nativeCollection already implementsmetadatafilteredretrieval"
+    },
+    {
+      "candidate": "RVF import/export extension",
+      "demand_package": "@ruvector/rvf",
+      "npm_downloads": 480813,
+      "source_paths": "crates/rvf/; native prerequisite PR1190",
+      "scores": {
+        "customer_usefulness": 5,
+        "npm_demand": 5.0,
+        "implementation_readiness": 2,
+        "maintenance_ease": 4
+      },
+      "weighted_score": 4.25,
+      "exclusion": "Export/metadataAPI proposal unmerged; verify versionidentity beforeextendingexistingRVF"
+    },
+    {
+      "candidate": "Sparse/dense hybrid retrieval",
+      "demand_package": "@ruvector/core",
+      "npm_downloads": 332090,
+      "source_paths": "crates/ruvector-core/src/advanced_features/hybrid_search.rs; sparse_vector.rs",
+      "scores": {
+        "customer_usefulness": 4,
+        "npm_demand": 4.859,
+        "implementation_readiness": 2,
+        "maintenance_ease": 3
+      },
+      "weighted_score": 3.665,
+      "exclusion": "Rustsourceexists; inspectbinding/capabilitymatrix beforeselection"
+    },
+    {
+      "candidate": "KGE link prediction",
+      "demand_package": "@ruvector/kge",
+      "npm_downloads": 422,
+      "source_paths": "crates/ruvector-kge-wasm/src/",
+      "scores": {
+        "customer_usefulness": 4,
+        "npm_demand": 2.311,
+        "implementation_readiness": 2,
+        "maintenance_ease": 2
+      },
+      "weighted_score": 2.878,
+      "exclusion": "422monthlydownloads; PythonAPI/exportreadiness unverified; avoid duplicatepackage"
+    }
+  ],
+  "selection": null,
+  "decision": "REPAIR_FIRST_NO_NEW_LIBRARY",
+  "reason": "Nine target companion0.2.0 releases absent and20originalfilesmissing. Newprojectupload429 unresolved; existingunmergedintegration/nativeAPIprerequisites alreadyconsumeattention. Repairfrozenportfolioanddeliverpublishedattentiontutorial; no newcandidatebranch/package."
+}

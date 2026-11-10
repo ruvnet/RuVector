@@ -55,7 +55,7 @@ fn accounting_matches_measured_heap_within_10_percent() {
 
     let before = live();
     let mut h = HnswIndex::with_capacity(HnswParams::default(), quant.clone(), N).unwrap();
-    for (i, v) in base.chunks_exact(DIM).enumerate() {
+    for (i, v) in base.as_chunks::<DIM>().0.iter().enumerate() {
         h.insert(i as u32, v, &mut op_rng(i as u64)).unwrap();
     }
     h.shrink_to_fit();
@@ -78,7 +78,7 @@ fn accounting_matches_measured_heap_within_10_percent() {
 
     let before = live();
     let mut f = QuantFlatIndex::with_capacity(quant, N as u32, N).unwrap();
-    for (i, v) in base.chunks_exact(DIM).enumerate() {
+    for (i, v) in base.as_chunks::<DIM>().0.iter().enumerate() {
         f.upsert(i as u32, v).unwrap();
     }
     let measured = live() - before + std::mem::size_of::<QuantFlatIndex>();

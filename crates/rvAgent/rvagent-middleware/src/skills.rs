@@ -98,6 +98,95 @@ fn truncate(s: &str, max_len: usize) -> String {
     }
 }
 
+// Retain only the scalar strings and string-keyed maps used by skill metadata.
+// Other YAML values are consumed without coercing numeric keys into strings.
+enum FrontmatterValue {
+    String(String),
+    Mapping(HashMap<String, FrontmatterValue>),
+    Other,
+}
+
+impl FrontmatterValue {
+    fn as_str(&self) -> Option<&str> {
+        match self {
+            Self::String(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    fn as_mapping(&self) -> Option<&HashMap<String, Self>> {
+        match self {
+            Self::Mapping(value) => Some(value),
+            _ => None,
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for FrontmatterValue {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Visitor;
+        impl<'de> serde::de::Visitor<'de> for Visitor {
+            type Value = FrontmatterValue;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("YAML skill frontmatter")
+            }
+
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+                Ok(FrontmatterValue::String(value.to_owned()))
+            }
+
+            fn visit_string<E: serde::de::Error>(self, value: String) -> Result<Self::Value, E> {
+                Ok(FrontmatterValue::String(value))
+            }
+
+            fn visit_bool<E: serde::de::Error>(self, _: bool) -> Result<Self::Value, E> {
+                Ok(FrontmatterValue::Other)
+            }
+
+            fn visit_i64<E: serde::de::Error>(self, _: i64) -> Result<Self::Value, E> {
+                Ok(FrontmatterValue::Other)
+            }
+
+            fn visit_u64<E: serde::de::Error>(self, _: u64) -> Result<Self::Value, E> {
+                Ok(FrontmatterValue::Other)
+            }
+
+            fn visit_f64<E: serde::de::Error>(self, _: f64) -> Result<Self::Value, E> {
+                Ok(FrontmatterValue::Other)
+            }
+
+            fn visit_unit<E: serde::de::Error>(self) -> Result<Self::Value, E> {
+                Ok(FrontmatterValue::Other)
+            }
+
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(
+                self,
+                mut sequence: A,
+            ) -> Result<Self::Value, A::Error> {
+                while sequence.next_element::<serde::de::IgnoredAny>()?.is_some() {}
+                Ok(FrontmatterValue::Other)
+            }
+
+            fn visit_map<A: serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> Result<Self::Value, A::Error> {
+                let mut strings = HashMap::new();
+                while let Some((key, value)) =
+                    map.next_entry::<FrontmatterValue, FrontmatterValue>()?
+                {
+                    if let FrontmatterValue::String(key) = key {
+                        strings.insert(key, value);
+                    }
+                }
+                Ok(FrontmatterValue::Mapping(strings))
+            }
+        }
+        deserializer.deserialize_any(Visitor)
+    }
+}
+
 /// Parse skill metadata from YAML frontmatter in a SKILL.md file.
 ///
 /// Returns `None` if the file is too large, has no frontmatter, or frontmatter is invalid.
@@ -135,19 +224,26 @@ pub fn parse_skill_metadata(
         return None;
     }
 
-    let frontmatter: serde_yaml::Value = serde_yaml::from_str(frontmatter_str).ok()?;
+    // Pure-Rust YAML parsing; filesystem includes and property expansion stay disabled.
+    let mut budget = serde_saphyr::Budget::default();
+    budget.max_depth = 32;
+    budget.max_documents = 1;
+    budget.max_aliases = 64;
+    budget.max_anchors = 64;
+    budget.max_nodes = 4096;
+    budget.max_events = 8192;
+    budget.max_total_scalar_bytes = 64 * 1024;
+    let mut options = serde_saphyr::Options::default();
+    options.budget = Some(budget);
+    // Match serde_yaml::Value: merge keys are data unless explicitly applied.
+    options.merge_keys = serde_saphyr::MergeKeyPolicy::AsOrdinary;
+    options.strict_booleans = true;
+    let frontmatter: FrontmatterValue =
+        serde_saphyr::from_str_with_options(frontmatter_str, options).ok()?;
     let map = frontmatter.as_mapping()?;
 
-    let name = map
-        .get(&serde_yaml::Value::String("name".into()))?
-        .as_str()?
-        .trim()
-        .to_string();
-    let description = map
-        .get(&serde_yaml::Value::String("description".into()))?
-        .as_str()?
-        .trim()
-        .to_string();
+    let name = map.get("name")?.as_str()?.trim().to_string();
+    let description = map.get("description")?.as_str()?.trim().to_string();
 
     // Validate skill name (warn but continue for backwards compatibility)
     if let Err(err) = validate_skill_name(&name, directory_name) {
@@ -161,7 +257,7 @@ pub fn parse_skill_metadata(
 
     // Parse allowed-tools (space-delimited string, strip commas)
     let allowed_tools = map
-        .get(&serde_yaml::Value::String("allowed-tools".into()))
+        .get("allowed-tools")
         .and_then(|v| v.as_str())
         .map(|s| {
             s.split_whitespace()
@@ -172,21 +268,21 @@ pub fn parse_skill_metadata(
         .unwrap_or_default();
 
     let license = map
-        .get(&serde_yaml::Value::String("license".into()))
+        .get("license")
         .and_then(|v| v.as_str())
         .map(|s| s.trim().to_string());
 
     let compatibility = map
-        .get(&serde_yaml::Value::String("compatibility".into()))
+        .get("compatibility")
         .and_then(|v| v.as_str())
         .map(|s| truncate(s.trim(), MAX_SKILL_COMPATIBILITY_LENGTH));
 
     let metadata = map
-        .get(&serde_yaml::Value::String("metadata".into()))
+        .get("metadata")
         .and_then(|v| v.as_mapping())
         .map(|m| {
             m.iter()
-                .filter_map(|(k, v)| Some((k.as_str()?.to_string(), v.as_str()?.to_string())))
+                .filter_map(|(k, v)| Some((k.to_string(), v.as_str()?.to_string())))
                 .collect()
         })
         .unwrap_or_default();
@@ -447,5 +543,63 @@ mod tests {
         let meta = parse_skill_metadata(content, "path", "my-skill").unwrap();
         assert_eq!(meta.metadata.get("version"), Some(&"1.0".to_string()));
         assert_eq!(meta.metadata.get("author"), Some(&"test".to_string()));
+    }
+
+    #[test]
+    fn test_yaml_metadata_preserves_string_only_filtering() {
+        let content = "---\nname: skill\ndescription: Test\nmetadata:\n  4: ignored\n  good: value\n  count: 4\n  flag: true\n  items: [one, two]\nunknown: { [a, b]: ignored }\n---\n";
+        let meta = parse_skill_metadata(content, "path", "skill").unwrap();
+        assert_eq!(
+            meta.metadata,
+            HashMap::from([("good".into(), "value".into())])
+        );
+    }
+
+    #[test]
+    fn test_yaml_alias_and_block_scalar() {
+        let content = "---\nname: skill\ndescription: &description >-\n  useful\n  skill\nmetadata:\n  copy: *description\n---\n";
+        let meta = parse_skill_metadata(content, "path", "skill").unwrap();
+        assert_eq!(meta.description, "useful skill");
+        assert_eq!(meta.metadata["copy"], "useful skill");
+    }
+
+    #[test]
+    fn test_yaml_rejects_duplicate_and_malformed_frontmatter() {
+        for yaml in [
+            "name: skill\nname: other\ndescription: Test",
+            "name: [broken",
+            "name: 5\ndescription: Test",
+        ] {
+            assert!(
+                parse_skill_metadata(&format!("---\n{yaml}\n---\n"), "path", "skill").is_none()
+            );
+        }
+    }
+
+    #[test]
+    fn test_yaml_rejects_excessive_nesting_and_aliases() {
+        let nested = format!(
+            "---\nname: skill\ndescription: Test\nignored: {}0{}\n---\n",
+            "[".repeat(40),
+            "]".repeat(40)
+        );
+        assert!(parse_skill_metadata(&nested, "path", "skill").is_none());
+        let aliases = format!(
+            "---\nname: skill\ndescription: &a Test\nignored: [{}]\n---\n",
+            vec!["*a"; 65].join(",")
+        );
+        assert!(parse_skill_metadata(&aliases, "path", "skill").is_none());
+    }
+
+    #[test]
+    fn test_yaml_merge_keys_remain_ordinary_data() {
+        let content = "---\nbase: &base {name: skill, description: Test}\n<<: *base\n---\n";
+        assert!(parse_skill_metadata(content, "path", "skill").is_none());
+        let content = "---\nname: skill\ndescription: Test\nmetadata: {<<: {hidden: ignored}, visible: yes}\n---\n";
+        let meta = parse_skill_metadata(content, "path", "skill").unwrap();
+        assert_eq!(
+            meta.metadata,
+            HashMap::from([("visible".into(), "yes".into())])
+        );
     }
 }

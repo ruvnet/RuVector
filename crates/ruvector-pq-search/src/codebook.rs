@@ -30,7 +30,13 @@ impl PqConfig {
 
     /// Dimension of each sub-vector given total dimension `dim`.
     pub fn sub_dim(&self, dim: usize) -> usize {
-        assert!(dim % self.m == 0, "dim must be divisible by m");
+        assert!(
+            (dim)
+                .checked_rem(self.m)
+                .expect("attempt to calculate the remainder with a divisor of zero")
+                == 0,
+            "dim must be divisible by m"
+        );
         dim / self.m
     }
 }

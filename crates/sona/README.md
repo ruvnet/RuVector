@@ -209,6 +209,31 @@ Without EWC++:                    With EWC++:
 └────────────────────┘           └────────────────────┘
 ```
 
+EWC++ protects both the MicroLoRA (instant loop) and the background loop. When
+the application knows the task changed, mark the boundary explicitly with
+`startNewTask()`. Automatic detection from gradient statistics is
+conservative and may not fire when only the feedback targets change.
+`ewc_lambda` trades protection of old tasks
+against learning speed on new ones, and `0` turns EWC++ off for the
+MicroLoRA. In WASM, `recordStepWithActivations` passes the representation a
+step produced, so the MicroLoRA learns to move a query toward the steps that
+scored well. Updates are applied when the instant loop flushes, so call
+`runInstantCycle()` after feedback; without it they apply only occasionally:
+
+```javascript
+const id = engine.startTrajectory(queryEmbedding);
+engine.recordStepWithActivations(id, 0, chosenEmbedding, 0.9);
+engine.endTrajectory(id, 0.9);
+engine.runInstantCycle();
+
+engine.startNewTask();                   // e.g. the season changed
+const adapted = engine.applyLora(queryEmbedding);
+```
+
+The MicroLoRA output is bounded: `|applyLora(x) - x| <= |x|`. With
+unit-length embeddings, a `micro_lora_lr` of about 0.02 or higher learns
+within a few hundred feedback calls.
+
 ### ReasoningBank: Pattern Library
 
 ReasoningBank stores successful interaction patterns using K-means++ clustering:
@@ -1327,6 +1352,7 @@ let config = SonaConfig {
 | `tick()` | Run learning if due | ~34μs |
 | `force_learn()` | Force background cycle | ~5ms |
 | `flush()` | Flush instant updates | ~10μs |
+| `start_new_task()` | Mark a task boundary for EWC++ | ~10μs |
 | `find_patterns(embedding, k)` | Find similar patterns | ~100μs |
 | `get_stats()` | Get JSON statistics | ~1μs |
 | `set_enabled(bool)` | Enable/disable engine | ~1ns |
