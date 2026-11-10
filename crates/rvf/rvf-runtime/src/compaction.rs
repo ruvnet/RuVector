@@ -231,7 +231,7 @@ mod tests {
     }
 
     #[test]
-    fn dead_space_over_the_threshold_is_read_from_LIVE_state() {
+    fn dead_space_over_the_threshold_is_read_from_live_state() {
         // 6 of 10 deleted = 0.60: over the 0.20 normal trigger, under the 0.70 emergency.
         // This is the case that could not be reached before, because nothing called the
         // policy with the store's real numbers.
