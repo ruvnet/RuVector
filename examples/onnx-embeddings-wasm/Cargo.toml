@@ -6,6 +6,7 @@ authors = ["RuVector Team"]
 description = "WASM embedding generation with SIMD - runs in browsers, Cloudflare Workers, Deno, and edge runtimes"
 license = "MIT"
 repository = "https://github.com/ruvnet/ruvector"
+homepage = "https://ruv.io"
 keywords = ["onnx", "embeddings", "wasm", "webassembly", "ml"]
 categories = ["wasm", "science", "algorithms"]
 
