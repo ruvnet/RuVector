@@ -46,6 +46,7 @@
 //! - Karhade 2026, "Not All Memories Age the Same" (arXiv:2604.26970)
 //! - Survey 2026, "From Storage to Experience" (arXiv:2605.06716)
 
+pub mod approx_bridge;
 pub mod arbitration;
 pub mod compaction;
 pub mod diagnostic;
@@ -60,6 +61,7 @@ pub mod scoring;
 pub mod witness_signing;
 pub mod witnessed_compaction;
 
+pub use approx_bridge::{default_pivot_count, ApproxBridgeForgetting, BridgeMode};
 pub use arbitration::{
     arbitrate, ArbitrationConfig, ArbitrationError, ArbitrationOutcome, ArbitrationVerdict,
     EvidenceLineage, ReliabilityModel,
