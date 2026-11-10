@@ -189,3 +189,36 @@ fn invalid_relationship_replacement_preserves_existing_control() {
     assert_eq!(db.get_edges_by_type("OLD").len(), 1);
     assert_eq!(db.get_outgoing_edges(&"a".to_string()).len(), 1);
 }
+
+#[test]
+fn edge_deletes_drop_type_and_adjacency_membership() {
+    use ruvector_graph::EdgeBuilder;
+    let db = GraphDB::new();
+    for id in ["a", "b", "c"] {
+        db.create_node(NodeBuilder::new().id(id).build()).unwrap();
+    }
+    for (id, from, to) in [("e1", "a", "b"), ("e2", "a", "c"), ("e3", "b", "c")] {
+        db.create_edge(
+            EdgeBuilder::new(from.into(), to.into(), "LINK")
+                .id(id)
+                .build(),
+        )
+        .unwrap();
+    }
+
+    assert!(db.delete_edge("e1").unwrap());
+    assert!(!db.delete_edge("e1").unwrap(), "second delete is a no-op");
+    assert!(db.get_edge("e1").is_none());
+    assert_eq!(db.get_outgoing_edges(&"a".to_string()).len(), 1);
+    assert_eq!(db.get_edges_by_type("LINK").len(), 2);
+
+    // Missing and repeated IDs are counted once per edge actually removed.
+    assert_eq!(
+        db.delete_edges_batch(&["e2", "missing", "e3", "e2"])
+            .unwrap(),
+        2
+    );
+    assert!(db.get_edges_by_type("LINK").is_empty());
+    assert!(db.get_outgoing_edges(&"a".to_string()).is_empty());
+    assert!(db.get_outgoing_edges(&"b".to_string()).is_empty());
+}
