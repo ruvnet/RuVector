@@ -1,0 +1,24 @@
+[package]
+name = "ruvector-matryoshka-rabitq"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Matryoshka coarse-to-fine ANN with a RaBitQ 1-bit brute-force coarse stage, measured against the HNSW-coarse baseline on recall, latency, and memory"
+readme = "README.md"
+keywords = ["vector-search", "ann", "matryoshka", "rabitq", "quantization"]
+categories = ["algorithms", "data-structures", "science"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
+ruvector-matryoshka = { path = "../ruvector-matryoshka" }
+
+[lints.rust]
+dead_code = "allow"
+unused_variables = "allow"
