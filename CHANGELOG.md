@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
 
+## [ruvector 0.3.21, ruvector-cli 2.3.1] - 2026-11-10
+### Fixed
+- `rvlite_sql`, `rvlite_cypher` and `rvlite_sparql` MCP tools work. They
+  constructed a nonexistent `rvlite.Database` (the class is `RvLite`), did
+  not await the async query methods, and stripped `( ) { } ' "` from queries
+  with a shell sanitizer although queries never reach a shell. `db_path`
+  stays confined to the working directory and is loaded, never written
+  back (#1463).
+- Both MCP servers (`ruvector mcp start` and `ruvector-mcp`) answer
+  `resources/templates/list` with an empty list instead of -32601, which
+  clients such as Continue treat as fatal during setup (#1464, from #217).
+
 ## [ruvector 0.3.20] - 2026-11-09
 ### Fixed
 - Attention wrappers call `@ruvector/attention` with its real argument
