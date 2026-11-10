@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
 
+## [ruvector 0.3.22] - 2026-11-10
+### Added
+- `neural-q` learning algorithm: a small MLP Q-function (hashed state features,
+  64-32-|actions|) trained with AdamW on the experience buffer, so routing
+  generalises to states the tabular Q-table has never seen. Available in
+  `LearningEngine`, `ruvector hooks learning-config -a neural-q` and the
+  `hooks_learning_config` MCP tool. It runs on the optional peer `ruv-fann`
+  (`npm i ruv-fann@0.1.0`); without it `neural-q` behaves exactly like
+  `q-learning`. The default install is unchanged. Held-out benchmark
+  (`scripts/neural-q-bench.js`, 9 agents, 5 seeds): unseen-state routing
+  accuracy 0.924 vs 0.204 (route keys) and 0.597 vs 0.203 (free-text states)
+  for neural-q vs q-learning; about 7 us per decision vs about 1 us.
+
 ## [rvf-runtime 0.5.5] - 2026-11-10
 ### Added
 - `RvfStore::should_compact`, `should_compact_with` and

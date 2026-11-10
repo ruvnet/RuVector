@@ -6362,7 +6362,7 @@ function loadLearningModules() {
 hooksCmd.command('learning-config')
   .description('Configure learning algorithms for different tasks')
   .option('-t, --task <type>', 'Task type (agent-routing, error-avoidance, confidence-scoring, trajectory-learning, context-ranking, memory-recall)')
-  .option('-a, --algorithm <alg>', 'Algorithm (q-learning, sarsa, double-q, actor-critic, ppo, decision-transformer, monte-carlo, td-lambda, dqn)')
+  .option('-a, --algorithm <alg>', 'Algorithm (q-learning, sarsa, double-q, actor-critic, ppo, decision-transformer, monte-carlo, td-lambda, dqn, neural-q)')
   .option('-l, --learning-rate <rate>', 'Learning rate (0.0-1.0)', parseFloat)
   .option('-g, --gamma <gamma>', 'Discount factor (0.0-1.0)', parseFloat)
   .option('-e, --epsilon <epsilon>', 'Exploration rate (0.0-1.0)', parseFloat)
@@ -6499,6 +6499,8 @@ hooksCmd.command('learning-update')
     if (data.learning) {
       engine.import(data.learning);
     }
+    // 'neural-q' tasks use the optional ruv-fann MLP when installed (tabular otherwise).
+    if (engine.usesNeural()) await engine.enableNeural();
 
     let reward;
     try {
@@ -6715,6 +6717,8 @@ hooksCmd.command('learn')
     if (data.learning) {
       engine.import(data.learning);
     }
+    // 'neural-q' tasks use the optional ruv-fann MLP when installed (tabular otherwise).
+    if (engine.usesNeural()) await engine.enableNeural();
 
     let result = { success: true };
 
@@ -6816,6 +6820,8 @@ hooksCmd.command('batch-learn')
     if (data.learning) {
       engine.import(data.learning);
     }
+    // 'neural-q' tasks use the optional ruv-fann MLP when installed (tabular otherwise).
+    if (engine.usesNeural()) await engine.enableNeural();
 
     const results = [];
     let totalReward = 0;

@@ -1434,7 +1434,7 @@ const TOOLS = [
   // Learning Engine Tools (v2.1)
   {
     name: 'hooks_learning_config',
-    description: 'Configure learning algorithms for different tasks. Supports 9 algorithms: q-learning, sarsa, double-q, actor-critic, ppo, decision-transformer, monte-carlo, td-lambda, dqn',
+    description: 'Configure learning algorithms for different tasks. Supports 10 algorithms: q-learning, sarsa, double-q, actor-critic, ppo, decision-transformer, monte-carlo, td-lambda, dqn, neural-q (neural-q needs the optional ruv-fann package; it falls back to the tabular Q-table without it)',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1446,7 +1446,7 @@ const TOOLS = [
         algorithm: {
           type: 'string',
           description: 'Learning algorithm',
-          enum: ['q-learning', 'sarsa', 'double-q', 'actor-critic', 'ppo', 'decision-transformer', 'monte-carlo', 'td-lambda', 'dqn']
+          enum: ['q-learning', 'sarsa', 'double-q', 'actor-critic', 'ppo', 'decision-transformer', 'monte-carlo', 'td-lambda', 'dqn', 'neural-q']
         },
         learningRate: { type: 'number', description: 'Learning rate (0.0-1.0)' },
         discountFactor: { type: 'number', description: 'Discount factor gamma (0.0-1.0)' },
@@ -3556,6 +3556,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const engine = new LearningEngine();
         if (intel.data.learning) engine.import(intel.data.learning);
+        if (engine.usesNeural()) await engine.enableNeural();
 
         const experience = {
           state: args.state,
@@ -3589,6 +3590,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const engine = new LearningEngine();
         if (intel.data.learning) engine.import(intel.data.learning);
+        if (engine.usesNeural()) await engine.enableNeural();
 
         const task = args.task || 'agent-routing';
         let result = { success: true };
@@ -3742,6 +3744,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (intel.data.learning) {
           engine.import(intel.data.learning);
         }
+        if (engine.usesNeural()) await engine.enableNeural();
 
         const results = [];
         let totalReward = 0;

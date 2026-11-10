@@ -136,6 +136,23 @@ The engine adds 458 KB unpacked to an install. `npx ruvector --help` cold start 
 
 **Works with:** [ruqu](https://github.com/ruvnet/ruqu), the quantum simulator and agent harness (`npx @ruvector/ruqu`), which this command uses as its engine.
 
+## Recipe: route unseen states with `neural-q` (`ruv-fann`)
+
+The tabular learning algorithms score a state they have never seen as all zeros. `neural-q` fits a small MLP Q-function over hashed state features, so `refactor:.rs` is routed from what was learned on `fix:.rs` and `edit:.rs`. It runs on the optional peer [`ruv-fann`](https://www.npmjs.com/package/ruv-fann). Without it, `neural-q` behaves exactly like `q-learning`, and `ruvector` does not install it by default.
+
+```bash
+npm i ruvector ruv-fann@0.1.0
+npx ruvector hooks learning-config -t agent-routing -a neural-q
+npx ruvector hooks learn -s fix:.rs -a rust-developer -r 1
+npx ruvector hooks learn -s fix:.rs -a coder -r -0.5
+npx ruvector hooks learn -s edit:.py -a python-developer -r 1
+npx ruvector hooks learn -s edit:.py -a coder -r -0.5
+npx ruvector hooks learn -s refactor:.rs --actions coder,rust-developer,python-developer
+# {"success":true,"recommendation":{"action":"rust-developer",...,"backend":"ruv-fann"}}
+```
+
+On a held-out benchmark (`node scripts/neural-q-bench.js`, 9 agents, 5 seeds, every test state unseen in training), unseen-state accuracy was 0.924 for `neural-q` vs 0.204 for `q-learning` on hook route keys, and 0.597 vs 0.203 on free-text states. A decision takes about 7 µs vs about 1 µs.
+
 ## Recipe: knowledge-graph link prediction (`@ruvector/kge`)
 
 Predict missing facts in a knowledge graph. [`@ruvector/kge`](https://www.npmjs.com/package/@ruvector/kge) trains HolE / RotatE embeddings on `(head, relation, tail)` triples locally and ranks candidate tails for a query like `(Tim, citizenOf, ?)`. It is opt-in: `ruvector` does not depend on it or install it, and it has no runtime dependencies of its own.
@@ -197,7 +214,7 @@ Review generated hooks before using them. Harness execution and hosted Brain com
 
 Part of the [ruv.io](https://ruv.io) open-source stack for vector database, vector search, embeddings.
 
-- **Works with** (its runtime dependencies): [`@ruvector/attention`](https://www.npmjs.com/package/@ruvector/attention), [`@ruvector/core`](https://www.npmjs.com/package/@ruvector/core), [`@ruvector/gnn`](https://www.npmjs.com/package/@ruvector/gnn), [`@ruvector/sona`](https://www.npmjs.com/package/@ruvector/sona), [`@metaharness/darwin`](https://www.npmjs.com/package/@metaharness/darwin), [`@metaharness/flywheel`](https://www.npmjs.com/package/@metaharness/flywheel), [`@metaharness/harness`](https://www.npmjs.com/package/@metaharness/harness), [`@metaharness/redblue`](https://www.npmjs.com/package/@metaharness/redblue), [`@metaharness/router`](https://www.npmjs.com/package/@metaharness/router), [`@metaharness/weight-eft`](https://www.npmjs.com/package/@metaharness/weight-eft), [`@metaharness/workspace-lens`](https://www.npmjs.com/package/@metaharness/workspace-lens), [`@metaharness/workspace-probe`](https://www.npmjs.com/package/@metaharness/workspace-probe), [`@ruvector/mincut-wasm`](https://www.npmjs.com/package/@ruvector/mincut-wasm), [`@ruvector/rabitq-wasm`](https://www.npmjs.com/package/@ruvector/rabitq-wasm), [`@ruvector/ruqu-wasm`](https://www.npmjs.com/package/@ruvector/ruqu-wasm), [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf), [`@ruvector/tiny-dancer`](https://www.npmjs.com/package/@ruvector/tiny-dancer), [`metaharness`](https://www.npmjs.com/package/metaharness), [`@ruvector/diskann`](https://www.npmjs.com/package/@ruvector/diskann), [`@ruvector/pi-brain`](https://www.npmjs.com/package/@ruvector/pi-brain), [`@ruvector/router`](https://www.npmjs.com/package/@ruvector/router), [`@ruvector/ruvllm`](https://www.npmjs.com/package/@ruvector/ruvllm), [`rvlite`](https://www.npmjs.com/package/rvlite)
+- **Works with** (its runtime dependencies): [`@ruvector/attention`](https://www.npmjs.com/package/@ruvector/attention), [`@ruvector/core`](https://www.npmjs.com/package/@ruvector/core), [`@ruvector/gnn`](https://www.npmjs.com/package/@ruvector/gnn), [`@ruvector/sona`](https://www.npmjs.com/package/@ruvector/sona), [`@metaharness/darwin`](https://www.npmjs.com/package/@metaharness/darwin), [`@metaharness/flywheel`](https://www.npmjs.com/package/@metaharness/flywheel), [`@metaharness/harness`](https://www.npmjs.com/package/@metaharness/harness), [`@metaharness/redblue`](https://www.npmjs.com/package/@metaharness/redblue), [`@metaharness/router`](https://www.npmjs.com/package/@metaharness/router), [`@metaharness/weight-eft`](https://www.npmjs.com/package/@metaharness/weight-eft), [`@metaharness/workspace-lens`](https://www.npmjs.com/package/@metaharness/workspace-lens), [`@metaharness/workspace-probe`](https://www.npmjs.com/package/@metaharness/workspace-probe), [`@ruvector/mincut-wasm`](https://www.npmjs.com/package/@ruvector/mincut-wasm), [`@ruvector/rabitq-wasm`](https://www.npmjs.com/package/@ruvector/rabitq-wasm), [`@ruvector/ruqu-wasm`](https://www.npmjs.com/package/@ruvector/ruqu-wasm), [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf), [`@ruvector/tiny-dancer`](https://www.npmjs.com/package/@ruvector/tiny-dancer), [`metaharness`](https://www.npmjs.com/package/metaharness), [`@ruvector/diskann`](https://www.npmjs.com/package/@ruvector/diskann), [`@ruvector/pi-brain`](https://www.npmjs.com/package/@ruvector/pi-brain), [`@ruvector/router`](https://www.npmjs.com/package/@ruvector/router), [`@ruvector/ruvllm`](https://www.npmjs.com/package/@ruvector/ruvllm), [`rvlite`](https://www.npmjs.com/package/rvlite), [`ruv-fann`](https://www.npmjs.com/package/ruv-fann) (optional, for `neural-q`)
 - **Used by** (published packages that depend on it): [`@claude-flow/cli`](https://www.npmjs.com/package/@claude-flow/cli), [`@foxruv/iris-agentic-synth`](https://www.npmjs.com/package/@foxruv/iris-agentic-synth), [`@ruvector/agentic-synth`](https://www.npmjs.com/package/@ruvector/agentic-synth), [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all), [`agentdb`](https://www.npmjs.com/package/agentdb), [`agentic-flow`](https://www.npmjs.com/package/agentic-flow), [`claude-flow`](https://www.npmjs.com/package/claude-flow), [`psycho-symbolic-integration`](https://www.npmjs.com/package/psycho-symbolic-integration), [`ruvector-extensions`](https://www.npmjs.com/package/ruvector-extensions), [`ruvector-mragent`](https://www.npmjs.com/package/ruvector-mragent)
 <!-- weaver:seo:links:end -->
 
