@@ -24,8 +24,18 @@ status=0
 for f in "$@"; do
   [ -f "$f" ] || { echo "::error::$f does not exist"; status=1; continue; }
 
-  ldapr=$("$OBJDUMP" -d "$f" | grep -c ldapr || true)
-  glibc=$("$OBJDUMP" -T "$f" | grep -o 'GLIBC_[0-9][0-9.]*' | sed 's/^GLIBC_//' | sort -uV | tail -1)
+  # A non-aarch64 file would disassemble to nothing and pass the LDAPR count
+  # vacuously, so verify the ELF architecture first.
+  arch=$("$OBJDUMP" -f "$f" 2>/dev/null | sed -n 's/^architecture: \([^,]*\).*/\1/p')
+  if [ "$arch" != "aarch64" ]; then
+    echo "::error file=$f::not an aarch64 ELF (objdump architecture: ${arch:-unrecognised})"
+    status=1
+    continue
+  fi
+
+  # Match the mnemonic column only (objdump prints the file path in its header).
+  ldapr=$("$OBJDUMP" -d "$f" | grep -cE $'\tldapr' || true)
+  glibc=$("$OBJDUMP" -T "$f" | { grep -o 'GLIBC_[0-9][0-9.]*' || true; } | sed 's/^GLIBC_//' | sort -uV | tail -1)
   glibc="${glibc:-none}"
   echo "$f: ldapr=$ldapr max_glibc=$glibc (limit $MAX_GLIBC)"
 
