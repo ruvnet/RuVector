@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
 
+## [ruvector-sona 0.2.5, ruvector-graph 2.3.5] - 2026-11-10
+### Fixed
+- `MicroLoRA::set_weights` rejects NaN/Inf in either projection before
+  changing any state, so corrupt external weights cannot poison an adapter
+  (#1472, from #375).
+- `GraphDB::delete_edge` and `delete_edges_batch` persist the deletion
+  before touching memory and indexes, so a storage error no longer leaves
+  memory and disk disagreeing (#1472, from #375).
+
+### Documentation
+- ruvector-graph README quickstart rewritten against the real `GraphDB` /
+  `NodeBuilder` / `EdgeBuilder` API (it used types that do not exist).
+
 ## [ruvector 0.3.21, ruvector-cli 2.3.1] - 2026-11-10
 ### Fixed
 - `rvlite_sql`, `rvlite_cypher` and `rvlite_sparql` MCP tools work. They
