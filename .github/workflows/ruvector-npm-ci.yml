@@ -118,6 +118,9 @@ jobs:
       - name: neural-q (ruv-fann real import, tabular fallback, CJS entry)
         run: node test/neural-q.js
 
+      - name: LearningEngine.import() accepts pre-0.3.22 state (type-level)
+        run: node test/learning-import-types.js
+
       - name: SIGTERM cleanup test
         run: node test/sigterm-cleanup.js
 

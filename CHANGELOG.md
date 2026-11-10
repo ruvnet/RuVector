@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
 
+## [ruvector 0.3.23] - 2026-11-10
+### Fixed
+- `LearningEngine.import()` accepts state without the `neural` field again.
+  0.3.22 typed its parameter as the full `export()` return type, so TypeScript
+  code passing state exported by, or typed against, 0.3.21 stopped compiling.
+  `neural` is now optional (`LearningEngineImportState`); runtime behaviour is
+  unchanged. A type-level test compiles a 0.3.21 `export()` shape.
+- `@ruvector/edge-full` source: `modules.onnx.size` and `totalSize.withOnnx`
+  report the current ONNX wasm size (10.2MB, 11.5MB with ONNX) instead of
+  7.1MB / 8.4MB (not republished).
+
 ## [ruvector 0.3.22] - 2026-11-10
 ### Added
 - `neural-q` learning algorithm: a small MLP Q-function (hashed state features,

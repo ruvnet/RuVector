@@ -59,6 +59,13 @@ export interface AlgorithmStats {
   lastUpdate: number;
 }
 
+/**
+ * State accepted by LearningEngine.import(). `neural` (added in 0.3.22 for 'neural-q') is
+ * optional so state exported by, or typed against, earlier versions still compiles and loads.
+ */
+export type LearningEngineImportState =
+  Omit<ReturnType<LearningEngine['export']>, 'neural'> & { neural?: Record<string, NeuralTaskState> };
+
 // Default configs for each task type
 const TASK_ALGORITHM_MAP: Record<TaskType, LearningConfig> = {
   'agent-routing': {
@@ -780,7 +787,7 @@ export class LearningEngine {
   /**
    * Import state from persistence
    */
-  import(data: ReturnType<LearningEngine['export']>): void {
+  import(data: LearningEngineImportState): void {
     // Q-tables
     this.qTables.clear();
     for (const [state, actions] of Object.entries(data.qTables || {})) {
