@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 200" width="760" height="200" role="img" aria-labelledby="t d">
+  <title id="t">@ruvector/weight-space flow</title>
+  <desc id="d">A task embedding queries the RuVector index with nearest(); the closest ruv-fann snapshot warm-starts training; recorded outcomes fine-tune it; the child is saved only if a held-out check improves, linked to its parent.</desc>
+  <style>
+    .box{fill:#f6f8fa;stroke:#57606a;stroke-width:1.5;rx:8}
+    .hot{fill:#ddf4ff;stroke:#0969da}
+    .ok{fill:#dafbe1;stroke:#1a7f37}
+    text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:13px;fill:#1f2328;text-anchor:middle}
+    .s{font-size:11px;fill:#57606a}
+    .ln{stroke:#57606a;stroke-width:1.5;fill:none;marker-end:url(#a)}
+    .dot{fill:#0969da}
+    @media (prefers-color-scheme:dark){
+      .box{fill:#161b22;stroke:#8b949e}.hot{fill:#0c2d6b;stroke:#58a6ff}.ok{fill:#033a16;stroke:#3fb950}
+      text{fill:#e6edf3}.s{fill:#8b949e}.ln{stroke:#8b949e}.dot{fill:#58a6ff}
+    }
+  </style>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#8b949e"/></marker></defs>
+
+  <rect class="box" x="10" y="60" width="120" height="56"/>
+  <text x="70" y="84">task embedding</text><text class="s" x="70" y="102">float[d]</text>
+
+  <rect class="box hot" x="165" y="60" width="130" height="56"/>
+  <text x="230" y="84">RuVector index</text><text class="s" x="230" y="102">nearest(e, k)</text>
+
+  <rect class="box" x="330" y="60" width="130" height="56"/>
+  <text x="395" y="84">snapshot v1</text><text class="s" x="395" y="102">ruv-fann DenseModel</text>
+
+  <rect class="box hot" x="495" y="60" width="120" height="56"/>
+  <text x="555" y="84">train (WASM)</text><text class="s" x="555" y="102">learnFromOutcomes</text>
+
+  <rect class="box ok" x="650" y="60" width="100" height="56"/>
+  <text x="700" y="84">child v2</text><text class="s" x="700" y="102">parent = v1</text>
+
+  <path class="ln" d="M130 88H163"/><path class="ln" d="M295 88H328"/><path class="ln" d="M460 88H493"/><path class="ln" d="M615 88H648"/>
+  <path class="ln" d="M555 116V150H395V118"/><text class="s" x="475" y="168">holdout MSE did not improve: no child saved</text>
+  <path class="ln" d="M395 60V30H555V58"/><text class="s" x="475" y="22">trajectories (input, output, score)</text>
+
+  <circle class="dot" r="5" cy="88">
+    <animate attributeName="cx" values="70;230;395;555;700" keyTimes="0;0.25;0.5;0.75;1" dur="4s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="1;1;1;1;0" keyTimes="0;0.25;0.5;0.9;1" dur="4s" repeatCount="indefinite"/>
+  </circle>
+</svg>

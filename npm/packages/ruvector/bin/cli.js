@@ -9098,6 +9098,9 @@ diskannCmd.command('search <dir>')
     }
   });
 
+// Weight registry (optional peer @ruvector/weight-space, loaded inside the actions)
+require('./weights').registerWeightsCommands(program, chalk);
+
 const mcpCmd = program.command('mcp').description('MCP (Model Context Protocol) server for Claude Code integration');
 
 mcpCmd.command('start')
