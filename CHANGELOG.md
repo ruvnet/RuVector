@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
 
+## [rvf-runtime 0.5.5] - 2026-11-10
+### Added
+- `RvfStore::should_compact`, `should_compact_with` and
+  `compact_if_needed` wire the spec 10 §7 compaction policy (dead space,
+  segment count, interval, emergency ratio) into the store. The policy and
+  `compaction::{CompactionThresholds, CompactionDecision, evaluate_triggers}`
+  were implemented and tested but unreachable (#755, from #753).
+
 ## [ruvector-sona 0.2.5, ruvector-graph 2.3.5] - 2026-11-10
 ### Fixed
 - `MicroLoRA::set_weights` rejects NaN/Inf in either projection before

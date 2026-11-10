@@ -1,11 +1,11 @@
 [package]
 name = "rvf-runtime"
-version = "0.5.4"
+version = "0.5.5"
 edition = "2021"
 description = "RuVector Format runtime -- RvfStore API, compaction, and streaming I/O"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ruvnet/ruvector"
-homepage = "https://github.com/ruvnet/ruvector"
+homepage = "https://ruv.io"
 readme = "README.md"
 categories = ["database-implementations", "data-structures"]
 keywords = ["vector", "database", "storage", "compaction", "rvf"]
