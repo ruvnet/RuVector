@@ -72,7 +72,8 @@
   "devDependencies": {
     "@types/node": "^20.10.5",
     "typescript": "^5.9.3",
-    "@ruvector/diskann": "^0.1.3"
+    "@ruvector/diskann": "^0.1.3",
+    "rvlite": "^0.2.8"
   },
   "files": [
     "bin/",
