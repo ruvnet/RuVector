@@ -13,10 +13,10 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use rsa::pkcs1::DecodeRsaPrivateKey;
 use rsa::pkcs8::DecodePrivateKey;
 use rsa::pss::{SigningKey, VerifyingKey};
-use rsa::signature::{Keypair, RandomizedSigner, SignatureEncoding, Verifier};
+use rsa::signature::{Keypair, SignatureEncoding, Signer as _, Verifier};
 use rsa::traits::PublicKeyParts;
-use rsa::RsaPrivateKey;
-use sha2::Sha256;
+use rsa::sha2::Sha256;
+use rsa::PrivateKey as RsaPrivateKey;
 
 use crate::{KalshiError, Result};
 
@@ -78,8 +78,8 @@ impl Signer {
     /// Sign with an explicit timestamp (deterministic — for tests/replay).
     pub fn sign_with_ts(&self, ts_ms: u64, method: &str, path: &str) -> SignedHeaders {
         let msg = canonical_string(ts_ms, method, path);
-        let mut rng = rand::thread_rng();
-        let sig = self.signing_key.sign_with_rng(&mut rng, msg.as_bytes());
+        // RSA-PSS salt comes from the OS RNG (rsa `getrandom` feature).
+        let sig = self.signing_key.sign(msg.as_bytes());
         SignedHeaders {
             access_key: self.api_key.as_ref().to_string(),
             timestamp_ms: ts_ms.to_string(),
@@ -144,8 +144,7 @@ mod tests {
 
     /// Generate a fresh 2048-bit RSA key in PKCS#1 PEM form for tests.
     fn gen_pkcs1_pem() -> String {
-        let mut rng = rand::thread_rng();
-        let key = RsaPrivateKey::new(&mut rng, 2048).expect("keygen");
+        let key = RsaPrivateKey::new(&mut getrandom::SysRng, 2048).expect("keygen");
         key.to_pkcs1_pem(rsa::pkcs1::LineEnding::LF)
             .expect("encode pkcs1")
             .to_string()
