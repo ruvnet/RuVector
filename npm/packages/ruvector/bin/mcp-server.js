@@ -20,6 +20,7 @@ const {
   CallToolRequestSchema,
   ListToolsRequestSchema,
   ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
   ReadResourceRequestSchema,
 } = require('@modelcontextprotocol/sdk/types.js');
 const path = require('path');
@@ -4922,6 +4923,13 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
       }
     ]
   };
+});
+
+// The server advertises the resources capability, so clients such as Continue
+// call resources/templates/list during setup and treat -32601 as fatal. There
+// are no parameterized resources, so the list is empty.
+server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
+  return { resourceTemplates: [] };
 });
 
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
