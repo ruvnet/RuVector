@@ -70,7 +70,7 @@ export const modules = {
   },
   onnx: {
     name: 'ONNX Embeddings',
-    size: '7.1MB',
+    size: '10.2MB',
     features: ['HuggingFace models', '6 pre-trained models',
                'Parallel workers', 'SIMD acceleration']
   }
@@ -79,7 +79,7 @@ export const modules = {
 // Calculate total size
 export const totalSize = {
   core: '1.28MB', // edge + graph + rvlite + sona + dag
-  withOnnx: '8.4MB' // including ONNX
+  withOnnx: '11.5MB' // including ONNX
 };
 
 /**
