@@ -1,6 +1,6 @@
 use super::*;
 use crate::ledger::{AlwaysAdmitGate, TransactionalLedger};
-use crate::ops::MemoryWitnessLog;
+use crate::ops::{EvidenceGrade, MemoryWitnessLog};
 
 const TEST_SECRET: [u8; 32] = [7u8; 32];
 const GENESIS: SignedAnchor = SignedAnchor::genesis();
@@ -33,11 +33,42 @@ fn populated(strategy: SigningStrategy, n: usize) -> SignedWitnessSink<MemoryWit
     sink
 }
 
-const STRATEGIES: [SigningStrategy; 3] = [
+const STRATEGIES: [SigningStrategy; 4] = [
     SigningStrategy::PerRecord,
     SigningStrategy::BatchTail { batch_size: 4 },
     SigningStrategy::BatchTail { batch_size: 5 },
+    // max_wait_ns set to an hour so only batch_size ever triggers sealing
+    // in these fast, real-wall-clock-timestamped tests — deterministic,
+    // same shape as the plain `BatchTail { batch_size: 5 }` case above.
+    SigningStrategy::BatchTailTimeout {
+        batch_size: 5,
+        max_wait_ns: 3_600_000_000_000,
+    },
 ];
+
+/// A record with only `sequence` and `timestamp_ns` set meaningfully — for
+/// tests that exercise the batch-fill *scheduling* decision directly via
+/// [`SignedWitnessSink::emit_batch`] rather than through a [`TransactionalLedger`].
+/// `MemoryWitnessLog::emit_batch` does not validate hash-chain integrity, so
+/// this is sufficient for scheduling assertions (span boundaries, pending
+/// count, timeout firing) that don't call [`verify_signed_chain`].
+fn minimal_record(sequence: u64, timestamp_ns: u64) -> LedgerWitnessRecord {
+    LedgerWitnessRecord {
+        sequence,
+        timestamp_ns,
+        action_kind: 0,
+        proof_tier: 0,
+        flags: 0,
+        actor_partition_id: 0,
+        target_object_id: 0,
+        capability_hash: 0,
+        payload: 0,
+        prev_hash: 0,
+        record_hash: 0,
+        aux: 0,
+        evidence_grade: EvidenceGrade::Recomputed,
+    }
+}
 
 /// Diligent adversary: recompute the whole FNV chain from `at` onward and
 /// fix the unsigned head commitment, so `verify_chain` passes.
@@ -142,6 +173,116 @@ fn zero_batch_size_is_an_error_not_a_panic() {
         SigningStrategy::BatchTail { batch_size: 0 },
     );
     assert_eq!(r.err(), Some(WitnessSignerError::ZeroBatchSize));
+}
+
+#[test]
+fn batch_tail_timeout_zero_batch_size_is_an_error_not_a_panic() {
+    let r = SignedWitnessSink::from_keypair(
+        MemoryWitnessLog::default(),
+        &keypair(),
+        SigningStrategy::BatchTailTimeout {
+            batch_size: 0,
+            max_wait_ns: 1_000,
+        },
+    );
+    assert_eq!(r.err(), Some(WitnessSignerError::ZeroBatchSize));
+}
+
+// ---------------------------------------------- BatchTailTimeout scheduling
+
+#[test]
+fn batch_tail_timeout_seals_at_batch_size_without_waiting_for_timeout() {
+    let mut sink = sink_for(SigningStrategy::BatchTailTimeout {
+        batch_size: 3,
+        max_wait_ns: 1_000_000_000,
+    });
+    sink.emit_batch(&[
+        minimal_record(0, 0),
+        minimal_record(1, 0),
+        minimal_record(2, 0),
+    ])
+    .unwrap();
+    assert_eq!(sink.spans().len(), 1);
+    assert_eq!(sink.unsigned_pending(), 0);
+}
+
+#[test]
+fn batch_tail_timeout_does_not_seal_before_its_deadline() {
+    let mut sink = sink_for(SigningStrategy::BatchTailTimeout {
+        batch_size: 100,
+        max_wait_ns: 1_000,
+    });
+    sink.emit_batch(&[minimal_record(0, 10_000)]).unwrap();
+    assert_eq!(sink.oldest_pending_arrival_ns(), Some(10_000));
+    assert!(!sink.check_timeout(10_999)); // deadline is 10_000 + 1_000 = 11_000
+    assert_eq!(sink.unsigned_pending(), 1);
+    assert!(sink.spans().is_empty());
+}
+
+#[test]
+fn batch_tail_timeout_seals_exactly_at_its_deadline() {
+    let mut sink = sink_for(SigningStrategy::BatchTailTimeout {
+        batch_size: 100,
+        max_wait_ns: 1_000,
+    });
+    sink.emit_batch(&[minimal_record(0, 10_000)]).unwrap();
+    assert!(sink.check_timeout(11_000));
+    assert_eq!(sink.unsigned_pending(), 0);
+    assert_eq!(sink.spans().len(), 1);
+    assert_eq!(sink.spans()[0].covers_from_seq, 0);
+    assert_eq!(sink.spans()[0].covers_to_seq, 0);
+}
+
+#[test]
+fn check_timeout_is_a_noop_with_nothing_pending() {
+    let mut sink = sink_for(SigningStrategy::BatchTailTimeout {
+        batch_size: 4,
+        max_wait_ns: 1,
+    });
+    assert!(!sink.check_timeout(u64::MAX));
+}
+
+#[test]
+fn check_timeout_is_a_noop_for_per_record_and_plain_batch_tail() {
+    for s in [
+        SigningStrategy::PerRecord,
+        SigningStrategy::BatchTail { batch_size: 4 },
+    ] {
+        let mut sink = sink_for(s);
+        sink.emit_batch(&[minimal_record(0, 0)]).unwrap();
+        assert!(!sink.check_timeout(u64::MAX));
+    }
+}
+
+#[test]
+fn batch_tail_timeout_bounds_worst_case_pending_span_age() {
+    // One record arrives, then nothing else ever does (a stalled writer).
+    // Under plain `BatchTail`, that record's signature would never become
+    // available (nothing drives `emit_batch` again to notice `batch_size`
+    // is unreachable); `BatchTailTimeout` bounds its unsigned age to
+    // `max_wait_ns` regardless of whether more records ever arrive.
+    const MAX_WAIT_NS: u64 = 50_000_000; // 50ms
+    let mut sink = sink_for(SigningStrategy::BatchTailTimeout {
+        batch_size: 1_000,
+        max_wait_ns: MAX_WAIT_NS,
+    });
+    sink.emit_batch(&[minimal_record(0, 0)]).unwrap();
+    let deadline = sink.oldest_pending_arrival_ns().unwrap() + MAX_WAIT_NS;
+    assert!(!sink.check_timeout(deadline - 1));
+    assert!(sink.check_timeout(deadline));
+}
+
+#[test]
+fn batch_tail_timeout_reopens_a_fresh_span_after_sealing_on_timeout() {
+    let mut sink = sink_for(SigningStrategy::BatchTailTimeout {
+        batch_size: 100,
+        max_wait_ns: 1_000,
+    });
+    sink.emit_batch(&[minimal_record(0, 0)]).unwrap();
+    assert!(sink.check_timeout(1_000));
+    sink.emit_batch(&[minimal_record(1, 5_000)]).unwrap();
+    assert_eq!(sink.oldest_pending_arrival_ns(), Some(5_000));
+    assert_eq!(sink.spans().len(), 1); // the sealed-on-timeout span only
 }
 
 #[test]

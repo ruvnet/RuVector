@@ -1,0 +1,21 @@
+=== ruvector-agent-memory witness-signing batch-fill latency simulation ===
+records_per_regime=4000
+
+regime                       policy                    records    spans   mean_sz   lat_mean    lat_p50    lat_p95    lat_p99    lat_max  sign_amort_ns  verified
+target_load_2000rps          baseline_batchtail32         4000      125      32.0    8.087ms    8.005ms   16.508ms   19.047ms   23.687ms         1270.0      true
+target_load_2000rps          candidate_a_hybrid50ms       4000      125      32.0    8.087ms    8.005ms   16.508ms   19.046ms   23.668ms         1267.7      true
+target_load_2000rps          candidate_b_per_record       4000     4000       1.0    0.041ms    0.039ms    0.056ms    0.069ms    0.995ms        40846.1      true
+light_load_50rps             baseline_batchtail32         4000      125      32.0  311.370ms  299.756ms  655.450ms  761.093ms  944.354ms         1244.5      true
+light_load_50rps             candidate_a_hybrid50ms       4000     1141       3.5   31.933ms   34.786ms   50.038ms   50.057ms   50.137ms        11292.1      true
+light_load_50rps             candidate_b_per_record       4000     4000       1.0    0.044ms    0.039ms    0.063ms    0.086ms    0.975ms        44104.1      true
+bursty_on1500rps_off400ms    baseline_batchtail32         4000      125      32.0   59.874ms   10.549ms  416.212ms  423.349ms  428.339ms         1307.3      true
+bursty_on1500rps_off400ms    candidate_a_hybrid50ms       4000      138      29.0   13.728ms   11.074ms   44.297ms   49.656ms   50.056ms         1425.1      true
+bursty_on1500rps_off400ms    candidate_b_per_record       4000     4000       1.0    0.042ms    0.039ms    0.058ms    0.081ms    0.319ms        41868.5      true
+
+=== acceptance ===
+all closed spans verify under verify_signed_chain, every regime/policy: true
+candidate_a p99 latency bounded by 70.000ms: target=19.046ms light=50.057ms bursty=49.656ms -> true
+baseline p99 at light load exceeds 2x candidate_a's p99 (demonstrates the unbounded-tail failure mode): baseline=761.093ms candidate_a=50.057ms -> true
+candidate_a amortized signing cost at target load within 2x of baseline: candidate_a=1267.7ns baseline=1270.0ns -> true
+
+BATCH-FILL LATENCY ACCEPTANCE RESULT: ACCEPT
