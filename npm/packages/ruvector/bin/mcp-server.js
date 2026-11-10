@@ -209,6 +209,67 @@ function sanitizeShellArg(arg) {
 }
 
 /**
+ * Run one rvlite_* MCP query.
+ *
+ * rvlite exports the `RvLite` class (also its default export); there is no
+ * `Database` class. Its query methods are async and parse the text in-process
+ * (WASM), so the query is never handed to a shell: shell-metacharacter
+ * stripping would remove the parentheses, braces and quotes every SQL, Cypher
+ * and SPARQL statement needs. Only NUL bytes and oversize input are rejected.
+ *
+ * With `db_path` the RVF file is loaded (path-confined like every other RVF
+ * tool) but never written back: rvlite's RVF export only carries vector
+ * state, so saving after a query would silently drop SQL tables.
+ */
+const RVLITE_MAX_QUERY_LEN = 65536;
+async function runRvliteQuery(kind, args) {
+  let rvliteModule;
+  try {
+    rvliteModule = await import('rvlite');
+  } catch (_e) {
+    return {
+      success: false,
+      error: 'rvlite package not installed',
+      hint: 'Install with: npx ruvector add rvlite  (or: npm install rvlite)'
+    };
+  }
+  const RvLite = rvliteModule.RvLite
+    || (rvliteModule.default && rvliteModule.default.RvLite)
+    || rvliteModule.default;
+  if (typeof RvLite !== 'function') {
+    throw new Error('installed rvlite does not export the RvLite class');
+  }
+  const query = args.query;
+  if (typeof query !== 'string' || query.trim().length === 0) {
+    throw new Error('query must be a non-empty string');
+  }
+  if (query.includes('\0')) throw new Error('query contains null bytes');
+  if (query.length > RVLITE_MAX_QUERY_LEN) {
+    throw new Error(`query exceeds ${RVLITE_MAX_QUERY_LEN} characters`);
+  }
+  let db;
+  if (args.db_path) {
+    const rvfPath = validateRvfPath(args.db_path);
+    db = typeof RvLite.createWithRvf === 'function'
+      ? await RvLite.createWithRvf({ rvfPath })
+      : new RvLite({ rvfPath });
+  } else {
+    db = new RvLite({});
+  }
+  const results = await db[kind](query);
+  const rows = Array.isArray(results) ? results
+    : (results && Array.isArray(results.rows)) ? results.rows
+    : (results && Array.isArray(results.bindings)) ? results.bindings
+    : null;
+  return {
+    success: true,
+    query_type: kind,
+    results,
+    row_count: rows ? rows.length : 0
+  };
+}
+
+/**
  * Validate a numeric argument (returns integer or default).
  * Prevents injection via numeric-looking fields.
  */
@@ -4355,91 +4416,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       // ── rvlite Query Tool Handlers ──────────────────────────────────────
-      case 'rvlite_sql': {
-        try {
-          let rvliteModule;
-          try {
-            rvliteModule = await import('rvlite');
-          } catch (_e) {
-            return { content: [{ type: 'text', text: JSON.stringify({
-              success: false,
-              error: 'rvlite package not installed',
-              hint: 'Install with: npx ruvector add rvlite  (or: npm install rvlite)'
-            }, null, 2) }] };
-          }
-          const rvlite = rvliteModule.default || rvliteModule;
-          const safeQuery = sanitizeShellArg(args.query);
-          const dbOpts = args.db_path ? { path: validateRvfPath(args.db_path) } : {};
-          const db = new rvlite.Database(dbOpts);
-          const results = db.sql(safeQuery);
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: true,
-            query_type: 'sql',
-            results,
-            row_count: Array.isArray(results) ? results.length : 0
-          }, null, 2) }] };
-        } catch (e) {
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: false,
-            error: e.message
-          }, null, 2) }], isError: true };
-        }
-      }
-
-      case 'rvlite_cypher': {
-        try {
-          let rvliteModule;
-          try {
-            rvliteModule = await import('rvlite');
-          } catch (_e) {
-            return { content: [{ type: 'text', text: JSON.stringify({
-              success: false,
-              error: 'rvlite package not installed',
-              hint: 'Install with: npx ruvector add rvlite  (or: npm install rvlite)'
-            }, null, 2) }] };
-          }
-          const rvlite = rvliteModule.default || rvliteModule;
-          const safeQuery = sanitizeShellArg(args.query);
-          const dbOpts = args.db_path ? { path: validateRvfPath(args.db_path) } : {};
-          const db = new rvlite.Database(dbOpts);
-          const results = db.cypher(safeQuery);
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: true,
-            query_type: 'cypher',
-            results,
-            row_count: Array.isArray(results) ? results.length : 0
-          }, null, 2) }] };
-        } catch (e) {
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: false,
-            error: e.message
-          }, null, 2) }], isError: true };
-        }
-      }
-
+      case 'rvlite_sql':
+      case 'rvlite_cypher':
       case 'rvlite_sparql': {
+        const kind = name.slice('rvlite_'.length);
         try {
-          let rvliteModule;
-          try {
-            rvliteModule = await import('rvlite');
-          } catch (_e) {
-            return { content: [{ type: 'text', text: JSON.stringify({
-              success: false,
-              error: 'rvlite package not installed',
-              hint: 'Install with: npx ruvector add rvlite  (or: npm install rvlite)'
-            }, null, 2) }] };
-          }
-          const rvlite = rvliteModule.default || rvliteModule;
-          const safeQuery = sanitizeShellArg(args.query);
-          const dbOpts = args.db_path ? { path: validateRvfPath(args.db_path) } : {};
-          const db = new rvlite.Database(dbOpts);
-          const results = db.sparql(safeQuery);
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: true,
-            query_type: 'sparql',
-            results,
-            row_count: Array.isArray(results) ? results.length : 0
-          }, null, 2) }] };
+          const outcome = await runRvliteQuery(kind, args);
+          return { content: [{ type: 'text', text: JSON.stringify(outcome, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({
             success: false,
