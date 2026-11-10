@@ -9,12 +9,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ruvnet/ruvector.git",
-    "directory": "crates/ruvector-graph-transformer-wasm"
-  },
-  "homepage": "https://ruv.io",
-  "bugs": {
-    "url": "https://github.com/ruvnet/ruvector/issues"
+    "url": "https://github.com/ruvnet/ruvector"
   },
   "files": [
     "ruvector_graph_transformer_wasm_bg.wasm",
@@ -22,20 +17,16 @@
     "ruvector_graph_transformer_wasm.d.ts"
   ],
   "main": "ruvector_graph_transformer_wasm.js",
+  "homepage": "https://ruv.io",
   "types": "ruvector_graph_transformer_wasm.d.ts",
   "sideEffects": [
     "./snippets/*"
   ],
   "keywords": [
+    "wasm",
     "graph-transformer",
-    "graph-neural-network",
-    "graph-attention",
     "attention",
     "verified",
-    "proof-carrying",
-    "wasm",
-    "webassembly",
-    "browser",
-    "ruvector"
+    "webassembly"
   ]
 }
