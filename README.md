@@ -19,6 +19,16 @@ Built by [Reuven Cohen (rUv)](https://ruv.io/) as part of the [ruvnet open sourc
 
 **Explore:** [Quick starts](#quick-start-choose-your-track) · [Build recipes](#build-by-example) · [Tutorials](./examples/README.md) · [Library catalog](#library-and-capability-map) · [Contrastive AI](#where-does-contrastive-ai-fit) · [Deployment](#deployment-surfaces) · [Benchmarks](#reproduce-the-evidence)
 
+<!-- ecosystem-cta:start -->
+### Explore the wider ecosystem
+
+[![RuVector: explore Cognitum One. Conceptual project-to-destination animation.](assets/ruvector/ecosystem-cta.svg)](https://cognitum.one/)
+
+Building with vector memory? Explore the wider ecosystem.
+
+**[Explore Cognitum One](https://cognitum.one/) · [Try ruOS](https://ruos.cognitum.one/)**, an agentic desktop in your browser.
+<!-- ecosystem-cta:end -->
+
 ## System 0, System 1, and System 2
 
 RuVector supports three complementary roles in the wider ruvnet stack. These are architecture groups, not automatic execution tiers or a claim that every component is installed together.
