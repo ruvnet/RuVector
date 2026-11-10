@@ -37,7 +37,7 @@ fn cosine_distance_scalar(a: &[f32], b: &[f32]) -> f32 {
         norm_a += x * x;
         norm_b += y * y;
     }
-    let denom = (norm_a * norm_b).sqrt();
+    let denom = crate::sqrt_f32(norm_a * norm_b);
     if denom < f32::EPSILON {
         return 1.0;
     }
@@ -57,7 +57,7 @@ fn dot_product_scalar(a: &[f32], b: &[f32]) -> f32 {
 
 // ── x86_64 AVX2+FMA implementations ────────────────────────────────
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(feature = "std", target_arch = "x86_64"))]
 mod avx2 {
     #[target_feature(enable = "avx2", enable = "fma")]
     pub(super) unsafe fn l2_distance_avx2(a: &[f32], b: &[f32]) -> f32 {
@@ -149,7 +149,7 @@ mod avx2 {
             norm_b += y * y;
         }
 
-        let denom = (norm_a * norm_b).sqrt();
+        let denom = crate::sqrt_f32(norm_a * norm_b);
         if denom < f32::EPSILON {
             return 1.0;
         }
@@ -195,7 +195,7 @@ mod avx2 {
 
 // ── aarch64 NEON implementations ────────────────────────────────────
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(feature = "std", target_arch = "aarch64"))]
 mod neon {
     #[target_feature(enable = "neon")]
     pub(super) unsafe fn l2_distance_neon(a: &[f32], b: &[f32]) -> f32 {
@@ -264,7 +264,7 @@ mod neon {
             norm_b += y * y;
         }
 
-        let denom = (norm_a * norm_b).sqrt();
+        let denom = crate::sqrt_f32(norm_a * norm_b);
         if denom < f32::EPSILON {
             return 1.0;
         }
@@ -322,7 +322,7 @@ const SCALAR_KERNELS: Kernels = Kernels {
 /// Resolve the best kernels for this CPU once and cache them, so each
 /// distance call is a single indirect call instead of re-running CPU
 /// feature detection (atomic loads + branches) on every invocation.
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#[cfg(all(feature = "std", any(target_arch = "x86_64", target_arch = "aarch64")))]
 fn kernels() -> &'static Kernels {
     use std::sync::OnceLock;
     static KERNELS: OnceLock<Kernels> = OnceLock::new();
@@ -347,7 +347,7 @@ fn kernels() -> &'static Kernels {
     })
 }
 
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[cfg(not(all(feature = "std", any(target_arch = "x86_64", target_arch = "aarch64"))))]
 #[inline]
 fn kernels() -> &'static Kernels {
     &SCALAR_KERNELS
@@ -362,8 +362,14 @@ fn kernels() -> &'static Kernels {
 /// - x86_64: AVX2+FMA (processes 8 floats per cycle)
 /// - aarch64: NEON (processes 4 floats per cycle)
 /// - Fallback: scalar loop
+///
+/// # Panics
+///
+/// Panics if `a` and `b` differ in length (the SIMD kernels read both by
+/// `a.len()`, so this is checked in release builds too).
 #[inline]
 pub fn l2_distance(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len(), "l2_distance: vector length mismatch");
     (kernels().l2)(a, b)
 }
 
@@ -373,8 +379,13 @@ pub fn l2_distance(a: &[f32], b: &[f32]) -> f32 {
 /// If either vector has zero norm, returns `1.0`.
 ///
 /// Automatically selects the best SIMD implementation at runtime.
+///
+/// # Panics
+///
+/// Panics if `a` and `b` differ in length.
 #[inline]
 pub fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len(), "cosine_distance: vector length mismatch");
     (kernels().cosine)(a, b)
 }
 
@@ -384,8 +395,13 @@ pub fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
 /// which is consistent with the min-heap search ordering.
 ///
 /// Automatically selects the best SIMD implementation at runtime.
+///
+/// # Panics
+///
+/// Panics if `a` and `b` differ in length.
 #[inline]
 pub fn dot_product(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len(), "dot_product: vector length mismatch");
     (kernels().dot)(a, b)
 }
 
@@ -526,5 +542,31 @@ mod tests {
             let dps = dot_product_scalar(&a, &b);
             assert!((dp - dps).abs() < 1e-3, "Dot mismatch for n={n}");
         }
+    }
+
+    // The SIMD kernels index `b` by `a.len()`; a shorter `b` must be refused
+    // in release builds too, not read past its end.
+    #[test]
+    #[should_panic(expected = "vector length mismatch")]
+    fn l2_rejects_mismatched_lengths() {
+        let a = [1.0f32; 16];
+        let b = [1.0f32; 8];
+        let _ = l2_distance(&a, &b);
+    }
+
+    #[test]
+    #[should_panic(expected = "vector length mismatch")]
+    fn cosine_rejects_mismatched_lengths() {
+        let a = [1.0f32; 16];
+        let b = [1.0f32; 8];
+        let _ = cosine_distance(&a, &b);
+    }
+
+    #[test]
+    #[should_panic(expected = "vector length mismatch")]
+    fn dot_rejects_mismatched_lengths() {
+        let a = [1.0f32; 16];
+        let b = [1.0f32; 8];
+        let _ = dot_product(&a, &b);
     }
 }

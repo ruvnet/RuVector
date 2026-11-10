@@ -1,0 +1,24 @@
+{
+  "name": "rvlite",
+  "type": "module",
+  "collaborators": [
+    "RuVector Contributors"
+  ],
+  "description": "Standalone vector database with SQL, SPARQL, and Cypher - powered by RuVector WASM",
+  "version": "0.3.2",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/ruvector"
+  },
+  "files": [
+    "rvlite_bg.wasm",
+    "rvlite.js",
+    "rvlite.d.ts"
+  ],
+  "main": "rvlite.js",
+  "types": "rvlite.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

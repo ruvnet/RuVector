@@ -134,6 +134,10 @@ fn rss_kb() -> u64 {
 /// 24+ byte struct. Measures resident growth for a Layer A payload that is
 /// 40 MB of empty top layers, and a Layer B of 12-byte empty adjacency rows.
 #[test]
+#[cfg_attr(
+    not(target_os = "linux"),
+    ignore = "reads /proc/self/statm (Linux only)"
+)]
 fn f2_01_layer_decode_memory_amplification() {
     if rss::rss_kb().is_none() {
         eprintln!("SKIPPED f2_01: no RSS measure (no /proc, no getrusage) on this platform");

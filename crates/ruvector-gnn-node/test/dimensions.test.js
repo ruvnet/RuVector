@@ -128,3 +128,26 @@ test('zero-input positive-hidden layers preserve constant projection behavior', 
       assert.ok(Array.from(output).every(Number.isFinite));
     }`);
 });
+
+// TensorCompress: PQ config comes from JS and compressed JSON may come from disk.
+test('compressWithLevel rejects zero or out-of-range PQ subvectors without aborting', () => {
+  runNative(`const c = new g.TensorCompress(); const e = new Float32Array(8).fill(1);
+    for (const levelType of ['pq8', 'pq4']) {
+      assert.throws(() => c.compressWithLevel(e, {levelType, subvectors: 0}));
+      assert.throws(() => c.compressWithLevel(e, {levelType, subvectors: 264}),
+        {code: 'InvalidArg'});
+      const ok = c.compressWithLevel(e, {levelType, subvectors: 4});
+      assert.equal(c.decompress(ok).length, 8);
+    }
+    assert.throws(() => c.compressWithLevel(e, {levelType: 'pq8', centroids: 256}),
+      {code: 'InvalidArg'});`);
+});
+
+test('decompress rejects malformed PQ JSON without aborting or huge allocation', () => {
+  runNative(`const c = new g.TensorCompress();
+    for (const pq of [
+      {PQ8: {codes: [0], codebooks: [[1]], subvector_dim: 0, dim: 0}},
+      {PQ8: {codes: [0], codebooks: [[]], subvector_dim: 2 ** 40, dim: 2 ** 40}},
+      {PQ4: {codes: [0, 0], codebooks: [[1]], outliers: [], subvector_dim: 1, dim: 2}},
+    ]) assert.throws(() => c.decompress(JSON.stringify(pq)));`);
+});

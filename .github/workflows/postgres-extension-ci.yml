@@ -216,6 +216,12 @@ jobs:
   security:
     name: Security Audit
     runs-on: ubuntu-latest
+    # rustsec/audit-check reports through the Checks API. On pull_request it
+    # falls back to annotations, but on push to main it creates a check run,
+    # which the workflow-level token (contents: read) cannot do.
+    permissions:
+      contents: read
+      checks: write
 
     steps:
       - name: Checkout code

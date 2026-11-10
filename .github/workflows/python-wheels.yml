@@ -51,7 +51,7 @@ jobs:
     # ruvector-py's own Rust unit tests (49, under crates/ruvector-py/src/).
     # release.yml's "validate"/"build-crates" jobs explicitly `--exclude
     # ruvector-py` (their pyo3 `extension-module` comment explains why: a
-    # bare ubuntu-22.04 runner with no Python dev headers can't link a test
+    # bare ubuntu-24.04 runner with no Python dev headers can't link a test
     # binary against libpython). This job is the other half of that split —
     # a runner that DOES set up Python (via actions/setup-python, same as
     # the `linux` wheel job below) so `cargo test -p ruvector-py` can link
@@ -264,7 +264,7 @@ jobs:
             architecture: x64
             machine: x86_64
           - target: aarch64-apple-darwin
-            runner: macos-14
+            runner: macos-15
             architecture: arm64
             machine: arm64
     steps:

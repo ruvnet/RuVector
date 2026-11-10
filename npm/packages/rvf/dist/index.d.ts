@@ -16,7 +16,7 @@
  * await db.close();
  * ```
  */
-export type { DistanceMetric, CompressionProfile, HardwareProfile, RvfOptions, RvfFilterValue, RvfFilterExpr, RvfQueryOptions, RvfSearchResult, RvfIngestResult, RvfIngestEntry, RvfDeleteResult, RvfCompactionResult, CompactionState, RvfStatus, DerivationType, RvfKernelData, RvfEbpfData, RvfSegmentInfo, BackendType, RvfIndexStats, RvfWitnessResult, } from './types';
+export type { DistanceMetric, CompressionProfile, HardwareProfile, RvfOptions, RvfFilterValue, RvfFilterExpr, RvfFilterField, RvfMetadataValue, RvfQueryOptions, RvfSearchResult, RvfIngestResult, RvfIngestEntry, RvfDeleteResult, RvfCompactionResult, CompactionState, RvfStatus, DerivationType, RvfKernelData, RvfEbpfData, RvfSegmentInfo, BackendType, RvfIndexStats, RvfWitnessResult, } from './types';
 export { RvfError, RvfErrorCode } from './errors';
 export type { RvfBackend } from './backend';
 export { NodeBackend, WasmBackend, resolveBackend } from './backend';

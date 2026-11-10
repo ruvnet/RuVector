@@ -19,7 +19,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 
 # Install production dependencies only
-RUN npm ci --only=production --ignore-scripts && \
+RUN npm ci --omit=dev --ignore-scripts --legacy-peer-deps && \
     npm cache clean --force
 
 # -----------------------------------------------------------------------------
@@ -33,10 +33,11 @@ WORKDIR /app
 COPY package.json package-lock.json* tsconfig*.json ./
 
 # Install all dependencies (including dev)
-RUN npm ci --ignore-scripts
+RUN npm ci --ignore-scripts --legacy-peer-deps
 
 # Copy source code
 COPY src/ ./src/
+COPY scripts/fix-esm.js ./scripts/fix-esm.js
 
 # Build TypeScript
 RUN npm run build

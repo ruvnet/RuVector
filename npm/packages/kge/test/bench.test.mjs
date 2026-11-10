@@ -264,3 +264,36 @@ test('check-security fails on a temp file using child_process', () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+
+test('--require-engine requires explicit --gate', async () => {
+  await assert.rejects(main(['--require-engine']), /requires --gate/);
+});
+
+test('--require-engine fails unavailable engine, preserving report-only compatibility', async () => {
+  const binding = { Model: class { constructor() { throw new Error('required backend missing'); } }, version: () => '0', backend: 'stub' };
+  for (const reportOnly of [false, true]) {
+    const dir = mkdtempSync(join(tmpdir(), 'kge-required-'));
+    try {
+      const args = ['--suite', 'synthetic', '--gate', '--require-engine', '--out', join(dir, 'receipt.json')];
+      if (reportOnly) args.push('--report-only');
+      const { code, receipt } = await main(args, { binding });
+      assert.equal(code, reportOnly ? 0 : 1);
+      assert.equal(receipt.gates.pass, false);
+      assert.equal(receipt.gates.anyFail, true);
+      assert.equal(receipt.gates.rows.find(r => r.name === 'required_engine').status, 'FAIL');
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
+test('--require-engine accepts available engine without claiming binding provenance', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kge-required-'));
+  try {
+    const { code, receipt } = await main(
+      ['--suite', 'synthetic', '--epochs', '1', '--gate', '--require-engine', '--out', join(dir, 'receipt.json')],
+      { binding: FAKE });
+    assert.equal(code, 0);
+    assert.equal(receipt.gates.rows.find(r => r.name === 'required_engine').status, 'PASS');
+    assert.equal(receipt.binding.backend, 'fake');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

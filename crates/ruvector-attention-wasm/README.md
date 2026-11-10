@@ -218,3 +218,18 @@ The WASM bindings provide near-native performance for attention computations:
 ## License
 
 MIT OR Apache-2.0
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for attention, WASM, LLM.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@claude-flow/plugin-hyperbolic-reasoning`](https://www.npmjs.com/package/@claude-flow/plugin-hyperbolic-reasoning) (optional)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

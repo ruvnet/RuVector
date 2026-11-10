@@ -3,12 +3,17 @@
 use crate::distance::distance;
 use crate::error::{Result, RuvectorError};
 use crate::index::flat_graph::FlatGraph;
-use crate::index::VectorIndex;
+use crate::index::{FilteredResults, FilteredSearch, VectorIndex};
 use crate::types::{DistanceMetric, HnswConfig, SearchResult, VectorId};
 use bincode::{Decode, Encode};
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use std::sync::Arc;
+
+/// At or below this many live vectors, HNSW's approximation is not worth its
+/// blind spots (ruvnet/RuVector#1298): a graph this small is scanned exactly,
+/// which also skips tombstones left behind by deletes.
+const EXACT_SEARCH_MAX_ELEMENTS: usize = 1_024;
 
 /// HNSW index wrapper
 pub struct HnswIndex {
@@ -194,7 +199,16 @@ impl HnswIndex {
             .collect();
 
         let id_to_idx: DashMap<VectorId, usize> = state.id_to_idx.into_iter().collect();
-        let idx_to_id: DashMap<usize, VectorId> = state.idx_to_id.into_iter().collect();
+        // Older snapshots retained reverse mappings for replaced versions.
+        // Reconstruct only each live ID's canonical current graph position.
+        let idx_to_id: DashMap<usize, VectorId> = state
+            .idx_to_id
+            .into_iter()
+            .filter(|(idx, id)| {
+                vectors_lookup.contains_key(id.as_str())
+                    && id_to_idx.get(id).is_some_and(|current| *current == *idx)
+            })
+            .collect();
 
         // Insert vectors into HNSW in index order for deterministic reconstruction.
         let mut sorted_entries: Vec<_> = idx_to_id
@@ -257,15 +271,46 @@ impl HnswIndex {
             return Ok(vec![]);
         }
 
-        // ef_search < k causes hnsw_rs to return fewer than k candidates; clamp.
-        let effective_ef = ef_search.max(k);
+        // On tiny indexes, scan the live vectors exactly. HNSW can return
+        // fewer than the stored rows (ruvnet/RuVector#1298), and a deleted
+        // node still occupies a graph slot, so a top-k cut made before
+        // filtering tombstones also drops live neighbours.
+        if inner.vectors.len() <= EXACT_SEARCH_MAX_ELEMENTS {
+            let mut results: Vec<SearchResult> = inner
+                .vectors
+                .iter()
+                .map(|entry| SearchResult {
+                    id: entry.key().clone(),
+                    score: distance(query, entry.value(), self.metric).unwrap_or(f32::MAX),
+                    vector: None,
+                    metadata: None,
+                })
+                .collect();
+            results.sort_unstable_by(|a, b| {
+                a.score
+                    .partial_cmp(&b.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            results.truncate(k);
+            return Ok(results);
+        }
 
-        let neighbors = inner.hnsw.search(query, k, effective_ef);
+        // ef_search < k causes the graph to return fewer than k candidates;
+        // clamp. Tombstoned nodes still have graph slots, so over-fetch enough
+        // candidates to fill k after they are filtered out.
+        let tombstones = inner.hnsw.len().saturating_sub(inner.vectors.len());
+        let wanted = k.saturating_add(tombstones);
+        let effective_ef = ef_search.max(wanted);
 
+        let neighbors = inner.hnsw.search(query, wanted, effective_ef);
+
+        // Only an id's live node answers for it (snapshots from older versions can still map superseded nodes).
         let mut results: Vec<SearchResult> = neighbors
             .into_iter()
             .filter_map(|(idx, distance)| {
-                inner.idx_to_id.get(&idx).map(|id| SearchResult {
+                let id = inner.idx_to_id.get(&idx)?;
+                let live = inner.id_to_idx.get(id.as_str()).is_some_and(|i| *i == idx);
+                live.then(|| SearchResult {
                     id: id.clone(),
                     score: distance,
                     vector: None,
@@ -274,12 +319,13 @@ impl HnswIndex {
             })
             .collect();
 
-        // hnsw_rs does not guarantee sort order — ensure ascending distance.
+        // The graph does not guarantee sort order — ensure ascending distance.
         results.sort_unstable_by(|a, b| {
             a.score
                 .partial_cmp(&b.score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
+        results.truncate(k);
 
         Ok(results)
     }
@@ -300,9 +346,11 @@ impl VectorIndex for HnswIndex {
 
         inner.hnsw.insert(&vector, idx);
 
-        // Store mappings
+        // Store mappings. Re-adding an id is an upsert: the old graph node becomes a tombstone.
         inner.vectors.insert(id.clone(), vector);
-        inner.id_to_idx.insert(id.clone(), idx);
+        if let Some(old) = inner.id_to_idx.insert(id.clone(), idx) {
+            inner.idx_to_id.remove(&old);
+        }
         inner.idx_to_id.insert(idx, id);
 
         Ok(())
@@ -334,10 +382,12 @@ impl VectorIndex for HnswIndex {
             .collect();
         inner.hnsw.insert_batch(&items);
 
-        // Store mappings
+        // Store mappings; an id seen earlier (in the index or this batch) keeps only its newest node.
         for (id, idx, vector) in data_with_ids {
             inner.vectors.insert(id.clone(), vector);
-            inner.id_to_idx.insert(id.clone(), idx);
+            if let Some(old) = inner.id_to_idx.insert(id.clone(), idx) {
+                inner.idx_to_id.remove(&old);
+            }
             inner.idx_to_id.insert(idx, id);
         }
 
@@ -356,6 +406,84 @@ impl VectorIndex for HnswIndex {
         ef_search: Option<usize>,
     ) -> Result<Vec<SearchResult>> {
         self.search_with_ef(query, k, ef_search.unwrap_or(self.config.ef_search))
+    }
+
+    fn search_ef_filtered(
+        &self,
+        query: &[f32],
+        k: usize,
+        ef_search: Option<usize>,
+        filter: &FilteredSearch<'_>,
+    ) -> Result<FilteredResults> {
+        if query.len() != self.dimensions {
+            return Err(RuvectorError::DimensionMismatch {
+                expected: self.dimensions,
+                actual: query.len(),
+            });
+        }
+        let inner = self.inner.read();
+        if k == 0 || inner.vectors.is_empty() {
+            return Ok(FilteredResults::complete(vec![]));
+        }
+        let ef = ef_search.unwrap_or(self.config.ef_search).max(k);
+        // A graph node passes only while it is the live node for its id: removed ids have no `idx_to_id` entry, and
+        // a re-added id leaves its old node mapped to the id but no longer `id_to_idx`'s choice.
+        let live = |idx: usize| {
+            inner.idx_to_id.get(&idx).is_some_and(|id| {
+                (filter.predicate)(&id)
+                    && inner.id_to_idx.get(id.as_str()).is_some_and(|i| *i == idx)
+            })
+        };
+        let to_results = |hits: Vec<(usize, f32)>| -> Vec<SearchResult> {
+            hits.into_iter()
+                .filter_map(|(idx, score)| {
+                    inner.idx_to_id.get(&idx).map(|id| SearchResult {
+                        id: id.clone(),
+                        score,
+                        vector: None,
+                        metadata: None,
+                    })
+                })
+                .collect()
+        };
+        // A filter that passes much of the index is cheapest as a modestly widened plain search, post-filtered: the
+        // predicate then runs on `fetch` nodes instead of on every node the walk admits. If the passing vectors are
+        // not where the query's neighbours are, too few survive and the walk below takes over.
+        if let Some(fetch) = filter.graph_overfetch(k, ef) {
+            let hits: Vec<(usize, f32)> = inner
+                .hnsw
+                .search(query, fetch, ef.max(fetch))
+                .into_iter()
+                .filter(|(idx, _)| live(*idx))
+                .take(k)
+                .collect();
+            if hits.len() >= k {
+                return Ok(FilteredResults::complete(to_results(hits)));
+            }
+        }
+        let found =
+            inner
+                .hnsw
+                .search_filtered(query, k, ef, filter.budget.unwrap_or(usize::MAX), live);
+        Ok(FilteredResults {
+            complete: !found.budget_exhausted,
+            results: to_results(found.hits),
+        })
+    }
+
+    fn exact_distances(&self, query: &[f32], ids: &[&str]) -> Option<Result<Vec<(usize, f32)>>> {
+        let inner = self.inner.read();
+        Some(
+            ids.iter()
+                .enumerate()
+                .filter_map(|(pos, id)| {
+                    inner
+                        .vectors
+                        .get(*id)
+                        .map(|v| distance(query, &v, self.metric).map(|d| (pos, d)))
+                })
+                .collect(),
+        )
     }
 
     fn remove(&mut self, id: &VectorId) -> Result<bool> {
@@ -551,6 +679,56 @@ mod tests {
 
         assert!(!results.is_empty());
 
+        Ok(())
+    }
+
+    #[test]
+    fn filtered_search_skips_removed_and_superseded_nodes() -> Result<()> {
+        let (n, dim) = (2000usize, 8usize);
+        let base = generate_random_vectors(n, dim);
+        let mut index = HnswIndex::new(dim, DistanceMetric::Euclidean, HnswConfig::default())?;
+        for (i, v) in base.iter().enumerate() {
+            index.add(i.to_string(), v.clone())?;
+        }
+        for i in (0..n).step_by(4) {
+            index.remove(&i.to_string())?;
+        }
+        // Re-add id "1" elsewhere: its first node must not resurface with the old vector.
+        let far = vec![100.0f32; dim];
+        index.add("1".to_string(), far.clone())?;
+        let even = |id: &str| id.parse::<usize>().is_ok_and(|i| i % 2 == 0);
+        let odd = |id: &str| id.parse::<usize>().is_ok_and(|i| i % 2 == 1);
+        for selectivity in [None, Some(0.25)] {
+            let spec = FilteredSearch {
+                predicate: &even,
+                selectivity,
+                budget: None,
+            };
+            let r = index
+                .search_ef_filtered(&base[0], 50, Some(64), &spec)?
+                .results;
+            assert_eq!(r.len(), 50);
+            for hit in &r {
+                let i: usize = hit.id.parse().unwrap();
+                assert!(
+                    i % 2 == 0 && i % 4 != 0,
+                    "{} is filtered out or removed",
+                    hit.id
+                );
+            }
+            let spec = FilteredSearch {
+                predicate: &odd,
+                selectivity,
+                budget: None,
+            };
+            let r = index
+                .search_ef_filtered(&base[1], 5, Some(64), &spec)?
+                .results;
+            assert!(r.iter().all(|h| h.id != "1"), "stale node for id 1");
+            let r = index.search_ef_filtered(&far, 1, Some(64), &spec)?.results;
+            assert_eq!(r[0].id, "1");
+            assert!(r[0].score < 1e-3);
+        }
         Ok(())
     }
 

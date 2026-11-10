@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/agentic-synth.svg" alt="@ruvector/agentic-synth: Synthetic data generator for AI/ML training, RAG systems and agentic workflows." width="100%"></p>
+
 # 🎲 Agentic-Synth
 
 <div align="center">
@@ -1358,3 +1360,12 @@ npx @ruvector/agentic-synth interactive
 ---
 
 **Keywords:** synthetic data generation, AI training data, test data generator, machine learning datasets, time-series data, event generation, structured data, RAG systems, vector embeddings, agentic AI, LLM training, GPT, Claude, Gemini, OpenRouter, data augmentation, edge cases, ruvector, agenticdb, langchain, typescript, nodejs, nlp, natural language processing, streaming, context caching, model routing, performance optimization, automation, CI/CD testing, financial data, cryptocurrency, security testing, log analytics, swarm coordination, business intelligence, employee simulation, DSPy, prompt optimization, self-learning, reinforcement learning
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for RAG, agentic AI, NLP.
+
+- **Works with** (its runtime dependencies): [`agentic-robotics`](https://www.npmjs.com/package/agentic-robotics) (peer), [`dspy.ts`](https://www.npmjs.com/package/dspy.ts) (peer), [`midstreamer`](https://www.npmjs.com/package/midstreamer) (peer), [`ruvector`](https://www.npmjs.com/package/ruvector) (peer)
+- **Used by** (published packages that depend on it): [`@ruvector/agentic-synth-examples`](https://www.npmjs.com/package/@ruvector/agentic-synth-examples), [`@ruvector/graph-data-generator`](https://www.npmjs.com/package/@ruvector/graph-data-generator), [`psycho-symbolic-integration`](https://www.npmjs.com/package/psycho-symbolic-integration)
+<!-- weaver:seo:links:end -->

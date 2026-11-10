@@ -119,6 +119,20 @@ impl VectorStorage {
             }
         }
 
+        // The database may not exist yet, so canonicalize its existing parent
+        // before using the path as a pool key. This also resolves symlinked
+        // directories and redundant components to the same redb file.
+        let parent = path_buf
+            .parent()
+            .ok_or_else(|| RuvectorError::InvalidPath("Database path has no parent".to_string()))?;
+        let file_name = path_buf.file_name().ok_or_else(|| {
+            RuvectorError::InvalidPath("Database path has no file name".to_string())
+        })?;
+        let path_buf = parent
+            .canonicalize()
+            .map_err(|e| RuvectorError::InvalidPath(format!("Failed to resolve directory: {}", e)))?
+            .join(file_name);
+
         // Claim this path's slot. Slot handles are only ever cloned while the
         // pool lock is held, which is what makes the reference-count check in
         // `release_slot_if_unused` sound.
@@ -566,6 +580,62 @@ mod tests {
         assert!(retrieved2.is_some());
 
         Ok(())
+    }
+
+    #[test]
+    fn different_spellings_of_one_database_share_the_pool() -> Result<()> {
+        let dir = tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("sub")).unwrap();
+        let db_path = dir.path().join("shared.db");
+        let alias = dir.path().join("sub/../shared.db");
+
+        let first = VectorStorage::new(&db_path, 3)?;
+        let second = VectorStorage::new(&alias, 3)?;
+        assert!(Arc::ptr_eq(
+            &first.pooled.as_ref().unwrap().db,
+            &second.pooled.as_ref().unwrap().db
+        ));
+        first.insert(&VectorEntry {
+            id: Some("shared".to_string()),
+            vector: vec![1.0, 2.0, 3.0],
+            metadata: None,
+        })?;
+        assert!(second.get("shared")?.is_some());
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_directory_shares_the_pool() -> Result<()> {
+        use std::os::unix::fs::symlink;
+
+        let dir = tempdir().unwrap();
+        let real = dir.path().join("real");
+        std::fs::create_dir(&real).unwrap();
+        let alias = dir.path().join("alias");
+        symlink(&real, &alias).unwrap();
+
+        let first = VectorStorage::new(real.join("shared.db"), 3)?;
+        let second = VectorStorage::new(alias.join("shared.db"), 3)?;
+        assert!(Arc::ptr_eq(
+            &first.pooled.as_ref().unwrap().db,
+            &second.pooled.as_ref().unwrap().db
+        ));
+        first.insert(&VectorEntry {
+            id: Some("shared".to_string()),
+            vector: vec![1.0, 2.0, 3.0],
+            metadata: None,
+        })?;
+        assert!(second.get("shared")?.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn relative_parent_traversal_is_still_rejected() {
+        assert!(matches!(
+            VectorStorage::new("../escape.db", 3),
+            Err(RuvectorError::InvalidPath(message)) if message == "Path traversal attempt detected"
+        ));
     }
 
     #[test]

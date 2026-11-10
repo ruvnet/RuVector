@@ -1,7 +1,7 @@
 {
   "name": "@ruvector/router-wasm",
-  "version": "0.1.0",
-  "description": "WebAssembly bindings for ruvector-router - Semantic router with HNSW vector search for browsers",
+  "version": "0.1.1",
+  "description": "WASM: WebAssembly bindings for ruvector-router - Semantic router with HNSW vector search for browsers",
   "main": "pkg/ruvector_router_wasm.js",
   "types": "pkg/ruvector_router_wasm.d.ts",
   "files": [
@@ -14,22 +14,32 @@
     "test": "wasm-pack test --headless --firefox"
   },
   "repository": {
+    "directory": "crates/ruvector-router-wasm",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
   "keywords": [
     "wasm",
     "webassembly",
-    "semantic-router",
-    "hnsw",
     "vector-search",
-    "ai-routing",
-    "browser"
+    "hnsw",
+    "ruvector",
+    "ruvnet",
+    "vector-database",
+    "embeddings",
+    "rag",
+    "semantic-search",
+    "knowledge-graph",
+    "gnn",
+    "graph-embeddings",
+    "link-prediction",
+    "attention",
+    "local-llm"
   ],
   "author": "rUv",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },
-  "homepage": "https://github.com/ruvnet/ruvector"
+  "homepage": "https://ruv.io"
 }

@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/burst-scaling",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Adaptive burst scaling system for ruvector - handles 10-50x traffic spikes",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
-    "test": "jest",
+    "test": "npm run build && node --test tests/*.test.js",
     "test:watch": "jest --watch",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write \"**/*.ts\"",

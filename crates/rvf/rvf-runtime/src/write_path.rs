@@ -536,6 +536,22 @@ impl SegmentWriter {
         Ok((seg_id, offset))
     }
 
+    /// Write one segment whose type byte is not a [`SegmentType`] variant:
+    /// the lineage record segment and application (custom) segments. Same
+    /// header, checksum and committed-hash bookkeeping as every other writer.
+    ///
+    /// Returns the segment ID and byte offset where it was written.
+    pub(crate) fn write_typed_seg<W: Write + Seek>(
+        &mut self,
+        writer: &mut W,
+        seg_type: u8,
+        payload: &[u8],
+    ) -> io::Result<(u64, u64)> {
+        let seg_id = self.alloc_seg_id();
+        let offset = self.write_segment(writer, seg_type, seg_id, payload)?;
+        Ok((seg_id, offset))
+    }
+
     /// Low-level: write one wire-dialect segment (64-byte aligned start,
     /// header + payload + zero padding to a 64-byte multiple).
     /// Returns the byte offset where the segment header was written.

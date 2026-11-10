@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/acorn-wasm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "ACORN predicate-agnostic filtered HNSW in WebAssembly — high-recall vector search with arbitrary metadata filters, for browsers, Cloudflare Workers, Deno, and Bun",
   "main": "ruvector_acorn_wasm.js",
@@ -38,7 +38,7 @@
     "url": "git+https://github.com/ruvnet/RuVector.git",
     "directory": "crates/ruvector-acorn-wasm"
   },
-  "homepage": "https://github.com/ruvnet/RuVector#readme",
+  "homepage": "https://ruv.io",
   "bugs": {
     "url": "https://github.com/ruvnet/RuVector/issues"
   },

@@ -105,7 +105,7 @@ impl MandatoryClass {
                 // ordinary spelling of assuming another identity.
                 "setcap",
                 "chattr",
-                "impersonate",
+                "impersonat",
             ],
             MandatoryClass::NetworkAccess => &[
                 "http", "https", "socket", "curl", "wget", "fetch", "request", "download",
@@ -164,6 +164,8 @@ impl MandatoryClass {
                 "mkfs",
                 "dd if=",
                 "dd of=",
+                "if=/dev/",
+                "of=/dev/",
             ],
         }
     }
@@ -257,6 +259,36 @@ mod tests {
                 c.matched()
             );
         }
+    }
+
+    #[test]
+    fn dd_with_options_is_mandatory() {
+        let destructive = [
+            "dd bs=1M if=/dev/zero of=/dev/sda",
+            "dd status=progress of=/dev/nvme0n1",
+            "dd conv=notrunc if=/dev/urandom of=/tmp/disk.img",
+        ];
+        for command in destructive {
+            let found = classify(&subject("run", command, json!({})));
+            assert!(
+                found
+                    .matched()
+                    .contains(&MandatoryClass::DestructiveOperation),
+                "{command} was not classified as destructive"
+            );
+        }
+    }
+
+    #[test]
+    fn impersonation_is_mandatory() {
+        let found = classify(&subject(
+            "run",
+            "impersonation of a service account",
+            json!({}),
+        ));
+        assert!(found
+            .matched()
+            .contains(&MandatoryClass::PrivilegeEscalation));
     }
 
     #[test]

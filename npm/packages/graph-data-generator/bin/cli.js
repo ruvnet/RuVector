@@ -14,7 +14,7 @@ const program = new Command();
 program
   .name('graph-synth')
   .description('AI-powered synthetic graph data generator with OpenRouter/Kimi K2')
-  .version('0.1.0');
+  .version('0.1.2');
 
 program
   .command('knowledge-graph')

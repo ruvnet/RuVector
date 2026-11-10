@@ -50,6 +50,9 @@ allow = [
     "MPL-2.0",
     "CC0-1.0",
     "0BSD",
+    # webpki-roots (Mozilla CA bundle data) via reqwest -> ruvector-core;
+    # also allowed in the workspace deny.toml.
+    "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.93
 

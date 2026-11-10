@@ -9,6 +9,15 @@
     "rvf-node.darwin-arm64.node"
   ],
   "description": "RuVector Format Node.js native bindings",
+  "homepage": "https://ruv.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "crates/rvf/rvf-node/npm/darwin-arm64"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
+  },
   "license": "MIT",
   "os": [
     "darwin"

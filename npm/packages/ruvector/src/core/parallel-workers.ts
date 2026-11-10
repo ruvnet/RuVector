@@ -486,11 +486,11 @@ export class ExtendedWorkerPool {
       }
 
       async function gitBlame(files) {
-        const { execSync } = require('child_process');
+        const { execFileSync } = require('child_process');
         const results = [];
         for (const file of files) {
           try {
-            const output = execSync(\`git blame --line-porcelain "\${file}" 2>/dev/null\`, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
+            const output = execFileSync('git', ['blame', '--line-porcelain', '--', String(file)], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] });
             const lines = [];
             let currentLine = {};
             for (const line of output.split('\\n')) {
@@ -511,13 +511,13 @@ export class ExtendedWorkerPool {
       }
 
       async function gitChurn(files, since) {
-        const { execSync } = require('child_process');
+        const { execFileSync } = require('child_process');
         const results = [];
-        const sinceArg = since ? \`--since="\${since}"\` : '--since="30 days ago"';
+        const sinceArg = '--since=' + (since ? String(since) : '30 days ago');
 
         for (const file of files) {
           try {
-            const log = execSync(\`git log \${sinceArg} --format="%H|%an|%aI" --numstat -- "\${file}" 2>/dev/null\`, { encoding: 'utf8' });
+            const log = execFileSync('git', ['log', sinceArg, '--format=%H|%an|%aI', '--numstat', '--', String(file)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
             let additions = 0, deletions = 0, commits = 0;
             const authors = new Set();
             let lastModified = '';

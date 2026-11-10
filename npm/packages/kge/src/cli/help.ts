@@ -10,6 +10,7 @@ export const HELP = `kge ${VERSION} — holographic knowledge-graph embeddings (
 Usage: kge <command> [options]
 
 Commands:
+  demo      Train on a bundled toy graph and predict held-out facts.
   import    Build a model from a triples file and save it.
   train     Train the tables of a saved model.
   eval      Score a split: filtered MRR / Hits@k.
@@ -39,6 +40,7 @@ compose: --model <path> --r1 <label> --r2 <label> --s <label> [-k 10]
 similar: --model <path> --r <label> [-k 10]
 optimize:--model <path> --budget <n> [--campaign <path.json>] [--receipts <path.jsonl>] [--out <path>]
 serve:   --model <path> [--port 8788] [--host 127.0.0.1]
+demo:    [-k 3] [--json]   (no files needed; trains in about a second)
 
 The engine makes no network requests and spawns no processes. Every command —
 import / train / eval / predict / compose / similar / optimize and the ANN

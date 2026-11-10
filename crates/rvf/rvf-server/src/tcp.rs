@@ -10,7 +10,7 @@
 
 use std::sync::Arc;
 
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
 use rvf_runtime::QueryOptions;
@@ -106,18 +106,15 @@ async fn handle_connection(
             return Ok(());
         }
 
-        let mut payload = vec![0u8; payload_len as usize];
-        match idle {
-            Some(t) => match tokio::time::timeout(t, stream.read_exact(&mut payload)).await {
-                Ok(r) => {
-                    r?;
+        let payload = match idle {
+            Some(t) => {
+                match tokio::time::timeout(t, read_payload(&mut stream, payload_len)).await {
+                    Ok(r) => r?,
+                    Err(_) => return Ok(()),
                 }
-                Err(_) => return Ok(()),
-            },
-            None => {
-                stream.read_exact(&mut payload).await?;
             }
-        }
+            None => read_payload(&mut stream, payload_len).await?,
+        };
 
         let response = match msg_type {
             MSG_QUERY => handle_query(&payload, &store).await,
@@ -142,6 +139,22 @@ async fn handle_connection(
             }
         }
     }
+}
+
+/// Initial buffer for a frame payload; larger frames grow as bytes arrive.
+const PAYLOAD_PREALLOC: usize = 64 * 1024;
+
+/// Read exactly `len` payload bytes. The length comes from the peer, so the
+/// buffer grows with the bytes actually received instead of being
+/// preallocated from the header.
+async fn read_payload<R: AsyncRead + Unpin>(r: &mut R, len: u32) -> std::io::Result<Vec<u8>> {
+    let len = len as usize;
+    let mut payload = Vec::with_capacity(len.min(PAYLOAD_PREALLOC));
+    (&mut *r).take(len as u64).read_to_end(&mut payload).await?;
+    if payload.len() != len {
+        return Err(std::io::ErrorKind::UnexpectedEof.into());
+    }
+    Ok(payload)
 }
 
 struct TcpError {
@@ -539,5 +552,18 @@ mod tests {
         assert_eq!(count, 1);
         let id = u64::from_le_bytes(payload[4..12].try_into().unwrap());
         assert_eq!(id, 1);
+    }
+
+    #[tokio::test]
+    async fn claimed_frame_length_does_not_drive_allocation() {
+        // Header claims a 16 MiB payload; the peer sends 10 bytes and stops.
+        let mut short: &[u8] = &[0u8; 10];
+        let err = read_payload(&mut short, MAX_FRAME_SIZE).await.unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof);
+
+        let mut exact: &[u8] = &[7u8; 10];
+        let buf = read_payload(&mut exact, 10).await.unwrap();
+        assert_eq!(buf, [7u8; 10]);
+        assert!(buf.capacity() < 1 << 20);
     }
 }

@@ -31,6 +31,7 @@ Start with a language tutorial, then choose a system capability. Each example ha
 ![System 1 library flow](../assets/ruvector/system-1-library-header.svg)
 
 * [Graph queries and relationships](./graph/README.md)
+* [Vector search + graph expansion with npm packages](./npm-vector-graph/README.md)
 * [Knowledge graph embeddings](../npm/packages/kge/README.md)
 * [MinCut graph diagnostics](./mincut/README.md)
 * [MRAgent memory reconstruction](./mragent/README.md)
