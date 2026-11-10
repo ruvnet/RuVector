@@ -115,6 +115,9 @@ jobs:
       - name: CLI commands test
         run: node test/cli-commands.js
 
+      - name: neural-q (ruv-fann real import, tabular fallback, CJS entry)
+        run: node test/neural-q.js
+
       - name: SIGTERM cleanup test
         run: node test/sigterm-cleanup.js
 
