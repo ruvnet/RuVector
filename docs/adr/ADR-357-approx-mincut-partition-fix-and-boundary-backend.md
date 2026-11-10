@@ -1,4 +1,4 @@
-# ADR-355: Fix `ApproxMinCut`'s Stub Partition and Add It as a `MincutGatedForgetting` Backend
+# ADR-357: Fix `ApproxMinCut`'s Stub Partition and Add It as a `MincutGatedForgetting` Backend
 
 ## Status
 

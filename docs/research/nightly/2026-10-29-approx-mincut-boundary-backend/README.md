@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-29
 **Slug:** `approx-mincut-boundary-backend`
-**ADR:** [ADR-355](../../../adr/ADR-355-approx-mincut-partition-fix-and-boundary-backend.md)
+**ADR:** [ADR-357](../../../adr/ADR-357-approx-mincut-partition-fix-and-boundary-backend.md)
 **Crates:** `ruvector-mincut` (`algorithm::approximate`), `ruvector-agent-memory` (`graph_forget`)
 **Acceptance:** see [Acceptance result](#acceptance-result)
 

@@ -185,5 +185,5 @@ experiment and a fair re-trial."
 `examples/mincut_backend_bench.rs`). Full research writeup, raw benchmark
 output, and ADR:
 `docs/research/nightly/2026-10-29-approx-mincut-boundary-backend/` and
-`docs/adr/ADR-355-approx-mincut-partition-fix-and-boundary-backend.md` in
+`docs/adr/ADR-357-approx-mincut-partition-fix-and-boundary-backend.md` in
 the [ruvector](https://github.com/ruvnet/ruvector) repository.*
