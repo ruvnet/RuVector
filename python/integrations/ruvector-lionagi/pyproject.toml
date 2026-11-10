@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ruvector-lionagi"
+version = "0.1.0"
+description = "Bounded native RuVector cosine retrieval and read-only tools for LionAGI workflows"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{name = "Reuven Cohen"}]
+dependencies = ["ruvector>=0.1.2,<0.2", "lionagi>=0.35.3,<0.36", "numpy>=1.24,<3"]
+keywords = ["lionagi", "ruvector", "vector-search", "hnsw", "retrieval", "agents", "rust"]
+classifiers = ["Programming Language :: Python :: 3", "Topic :: Scientific/Engineering :: Artificial Intelligence"]
+
+[project.urls]
+Repository = "https://github.com/ruvnet/RuVector"
+Documentation = "https://github.com/ruvnet/RuVector/tree/main/python/integrations/ruvector-lionagi"
+Issues = "https://github.com/ruvnet/RuVector/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ruvector_lionagi"]
