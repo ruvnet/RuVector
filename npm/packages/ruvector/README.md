@@ -136,6 +136,22 @@ The engine adds 458 KB unpacked to an install. `npx ruvector --help` cold start 
 
 **Works with:** [ruqu](https://github.com/ruvnet/ruqu), the quantum simulator and agent harness (`npx @ruvector/ruqu`), which this command uses as its engine.
 
+## Weight registry (`@ruvector/weight-space`)
+
+`ruvector weights` stores [`ruv-fann`](https://www.npmjs.com/package/ruv-fann) model snapshots (`ruv-fann.dense-layers/1` JSON) in a versioned registry keyed by a task embedding, so you can find the snapshot saved for the most similar past task. It runs on the optional peer `@ruvector/weight-space`, which `ruvector` does not install. Without it, the command prints `npm i @ruvector/weight-space@0.1.0` and exits non-zero.
+
+```bash
+npm i @ruvector/weight-space@0.1.0
+npx ruvector weights save --model model.json --embedding 1,0,0 --task classify --tags v1
+npx ruvector weights save --model model.json --text "classify support tickets"   # ONNX embedding
+npx ruvector weights nearest --embedding 0.9,0.1,0 -k 5
+npx ruvector weights lineage <id>
+npx ruvector weights diff <idA> <idB> --json
+npx ruvector weights get <id>
+```
+
+The registry is an append-only JSON-lines log, `.ruvector/weights.jsonl` by default (`--registry <path>`), with a `.index.db` vector index beside it. All snapshots in one registry share one embedding dimension, so do not mix `--text` (384-d) and hand-written `--embedding` vectors in the same registry. Registry and model paths must be inside the working directory. MCP clients get `weights_save`, `weights_nearest`, `weights_diff` and `weights_lineage`, which take an explicit `embedding` array and apply the same path rule (plus `RUVECTOR_MCP_ROOTS`).
+
 ## Recipe: route unseen states with `neural-q` (`ruv-fann`)
 
 The tabular learning algorithms score a state they have never seen as all zeros. `neural-q` fits a small MLP Q-function over hashed state features, so `refactor:.rs` is routed from what was learned on `fix:.rs` and `edit:.rs`. It runs on the optional peer [`ruv-fann`](https://www.npmjs.com/package/ruv-fann). Without it, `neural-q` behaves exactly like `q-learning`, and `ruvector` does not install it by default.

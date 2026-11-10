@@ -28,6 +28,8 @@ const fs = require('fs');
 const { serializeStore, resolveIntelStorePath } = require('./intel-store');
 const memoryStore = require('./memory-store');
 const recordValidate = require('./record-validate');
+// weights_* tools; @ruvector/weight-space itself is loaded only inside a call
+const weightsTools = require('./weights');
 const { execFileSync } = require('child_process');
 
 // ADR-256: default-deny MCP tool-access policy (RUVECTOR_MCP_ALLOW/DENY/PROFILE)
@@ -1899,6 +1901,9 @@ const TOOLS = [
       required: ['path', 'vector']
     }
   },
+  // ── Weight registry Tools (optional @ruvector/weight-space) ──────────────
+  // weights_save, weights_nearest, weights_diff, weights_lineage
+  ...weightsTools.MCP_TOOLS,
   // ── RVF Vector Store Tools ────────────────────────────────────────────────
   {
     name: 'rvf_create',
@@ -4202,6 +4207,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
         }
       }
+
+      // ── Weight registry Tool Handlers ───────────────────────────────────
+      // Registry and model paths go through validateRvfPath (working directory
+      // + RUVECTOR_MCP_ROOTS); a missing package returns ERR_WEIGHT_SPACE_MISSING.
+      case 'weights_save':
+      case 'weights_nearest':
+      case 'weights_diff':
+      case 'weights_lineage':
+        return await weightsTools.runMcpTool(name, args, validateRvfPath);
 
       // ── RVF Tool Handlers ─────────────────────────────────────────────────
       case 'rvf_create': {
