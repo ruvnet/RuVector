@@ -297,3 +297,177 @@ test('--require-engine accepts available engine without claiming binding provena
     assert.equal(receipt.binding.backend, 'fake');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+
+test('--strict-evidence requires explicit --gate', async () => {
+  await assert.rejects(main(['--strict-evidence']), /requires --gate/);
+});
+
+test('--strict-evidence fails training errors that evaluation alone would hide', async () => {
+  class Model extends FAKE.Model {
+    trainJson() { return JSON.stringify({ error: { kind: 'forced', message: 'training failed' } }); }
+  }
+  const dir = mkdtempSync(join(tmpdir(), 'kge-strict-'));
+  try {
+    const { code, receipt } = await main(
+      ['--suite', 'synthetic', '--epochs', '1', '--gate', '--strict-evidence', '--out', join(dir, 'receipt.json')],
+      { binding: { ...FAKE, Model } });
+    assert.equal(code, 1);
+    assert.equal(receipt.gates.rows.find(r => r.name === 'strict_training').status, 'FAIL');
+    assert.match(receipt.training.unavailable, /training failed/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('--strict-evidence fails missing metrics and unavailable requested arms', async () => {
+  class Model extends FAKE.Model {
+    evalJson(json) {
+      const result = JSON.parse(super.evalJson(json));
+      result.report.combined.mrr = null;
+      return JSON.stringify(result);
+    }
+    buildIndexJson() {
+      return JSON.stringify({ error: { kind: 'forced', message: 'index unavailable' } });
+    }
+  }
+  const dir = mkdtempSync(join(tmpdir(), 'kge-strict-'));
+  try {
+    const { code, receipt } = await main(
+      ['--suite', 'synthetic', '--epochs', '1', '--ann', '--gate', '--strict-evidence', '--out', join(dir, 'receipt.json')],
+      { binding: { ...FAKE, Model } });
+    assert.equal(code, 1);
+    assert.equal(receipt.gates.rows.find(r => r.name === 'strict_metrics').status, 'FAIL');
+    assert.equal(receipt.gates.rows.find(r => r.name === 'strict_requested_arms').status, 'FAIL');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('--strict-evidence fails an unavailable requested adversarial retrain', async () => {
+  let trainCalls = 0;
+  class Model extends FAKE.Model {
+    trainJson(json) {
+      trainCalls++;
+      if (trainCalls === 2) {
+        return JSON.stringify({ error: { kind: 'forced', message: 'incremental retraining failed' } });
+      }
+      return super.trainJson(json);
+    }
+  }
+
+  const out = join(mkdtempSync(join(tmpdir(), 'kge-strict-adversarial-')), 'receipt.json');
+  const { code, receipt } = await main(
+    ['--suite', 'synthetic', '--epochs', '1', '--adversarial', '--gate', '--strict-evidence', '--out', out],
+    { binding: { ...FAKE, Model } },
+  );
+
+  assert.equal(trainCalls, 2);
+  assert.equal(code, 1, 'a failed requested adversarial retrain must fail strict evidence');
+  assert.equal(receipt.gates.rows.find((r) => r.name === 'strict_training').status, 'PASS');
+  const requested = receipt.gates.rows.find((r) => r.name === 'strict_requested_arms');
+  assert.equal(requested.status, 'FAIL');
+  assert.match(requested.detail, /adversarial/);
+  assert.match(receipt.adversarial.skipped, /incremental retraining unavailable: incremental retraining failed/);
+  assert.equal(receipt.gates.pass, false);
+});
+
+test('--strict-evidence fails a requested tie-check that cannot be evaluated', async () => {
+  class Model extends FAKE.Model {
+    constructor(configJson) {
+      super(configJson);
+      this.tieProbe = JSON.parse(configJson || '{}').epochs === 0;
+    }
+
+    evalJson(json) {
+      const raw = super.evalJson(json);
+      if (!this.tieProbe) return raw;
+      const result = JSON.parse(raw);
+      for (const side of ['combined', 'head', 'tail']) {
+        Object.assign(result.report[side], { mr: 2, mrr: 0.5, hits1: 0, hits3: 1, hits10: 1 });
+      }
+      return JSON.stringify(result);
+    }
+  }
+
+  const out = join(mkdtempSync(join(tmpdir(), 'kge-strict-tie-')), 'receipt.json');
+  const { code, receipt } = await main(
+    ['--suite', 'synthetic', '--epochs', '1', '--tie-check', '--gate', '--strict-evidence', '--out', out],
+    { binding: { ...FAKE, Model } },
+  );
+
+  assert.equal(code, 1, 'a requested but unevaluable tie-check must fail strict evidence');
+  const requested = receipt.gates.rows.find((r) => r.name === 'strict_requested_arms');
+  assert.equal(requested.status, 'FAIL');
+  assert.match(requested.detail, /tie-check/);
+  assert.equal(receipt.gates.rows.find((r) => r.name === 'tie_break_random').status, 'SKIP');
+});
+
+test('--strict-evidence rejects an incompatible baseline receipt', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kge-strict-'));
+  try {
+    const baseline = join(dir, 'baseline.json');
+    writeFileSync(baseline, JSON.stringify({
+      schema: 'ruvector-kge-bench/receipt@1',
+      suite: 'yago310',
+      scorer: 'complex',
+      config: { dims: 7 },
+      dataset: { splits_hash: 'wrong', hashes: {} },
+      metrics: { transfer: { mrr: 0.2 } },
+    }));
+    const { code, receipt } = await main(
+      ['--suite', 'synthetic', '--epochs', '1', '--gate', '--strict-evidence',
+        '--baseline-receipt', baseline, '--out', join(dir, 'receipt.json')],
+      { binding: FAKE });
+    assert.equal(code, 1);
+    const row = receipt.gates.rows.find(r => r.name === 'strict_baseline_identity');
+    assert.equal(row.status, 'FAIL');
+    assert.match(row.detail, /suite/);
+    assert.match(row.detail, /splits_hash/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('--strict-evidence rejects scorer and config mismatch with identical data identity', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kge-strict-'));
+  try {
+    const { receipt: candidate } = await main(
+      ['--suite', 'synthetic', '--epochs', '1', '--gate', '--strict-evidence',
+        '--out', join(dir, 'candidate.json')],
+      { binding: FAKE });
+    const baseline = join(dir, 'baseline.json');
+    writeFileSync(baseline, JSON.stringify(candidate));
+    const exact = await main(
+      ['--suite', 'synthetic', '--epochs', '1', '--gate', '--strict-evidence',
+        '--baseline-receipt', baseline, '--out', join(dir, 'exact.json')],
+      { binding: FAKE });
+    assert.equal(exact.code, 0);
+    assert.equal(
+      exact.receipt.gates.rows.find(r => r.name === 'strict_baseline_identity').status,
+      'PASS');
+
+    writeFileSync(baseline, JSON.stringify({
+      ...candidate,
+      scorer: 'rotate',
+      config: { ...candidate.config, scorer: 'rotate', dims: 128, seed: 999, epochs: 9 },
+    }));
+    const { code, receipt } = await main(
+      ['--suite', 'synthetic', '--epochs', '1', '--gate', '--strict-evidence',
+        '--baseline-receipt', baseline, '--out', join(dir, 'receipt.json')],
+      { binding: FAKE });
+    assert.equal(code, 1);
+    const row = receipt.gates.rows.find(r => r.name === 'strict_baseline_identity');
+    assert.equal(row.status, 'FAIL');
+    assert.match(row.detail, /scorer/);
+    assert.match(row.detail, /config/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('--strict-evidence passes a complete finite run and remains report-only compatible', async () => {
+  for (const reportOnly of [false, true]) {
+    const dir = mkdtempSync(join(tmpdir(), 'kge-strict-'));
+    try {
+      const args = ['--suite', 'synthetic', '--epochs', '1', '--gate', '--strict-evidence',
+        '--out', join(dir, 'receipt.json')];
+      if (reportOnly) args.push('--report-only');
+      const { code, receipt } = await main(args, { binding: FAKE });
+      assert.equal(code, 0);
+      assert.ok(receipt.gates.rows.filter(r => r.name.startsWith('strict_')).every(r => r.status === 'PASS'));
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
