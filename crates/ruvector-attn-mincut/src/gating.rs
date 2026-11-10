@@ -8,7 +8,10 @@ pub struct AttentionOutput {
 }
 
 /// Compute raw logits: Q * K^T / sqrt(d). Returns flattened `seq_len x seq_len`.
-fn compute_logits(q: &[f32], k: &[f32], d: usize, seq_len: usize) -> Vec<f32> {
+///
+/// Exposed (not just `fn`) so benchmarks/audits can recompute the exact same
+/// logits the gating operators see, e.g. to build an eps-only ablation mask.
+pub fn compute_logits(q: &[f32], k: &[f32], d: usize, seq_len: usize) -> Vec<f32> {
     let scale = 1.0 / (d as f32).sqrt();
     let mut logits = vec![0.0f32; seq_len * seq_len];
     for i in 0..seq_len {
@@ -101,6 +104,42 @@ pub fn attn_mincut(
     }
 }
 
+/// Candidate-B min-cut gated attention: exhaustive best-sink search (see
+/// [`crate::mincut::dynamic_min_cut_best_sink`]) instead of `attn_mincut`'s
+/// single fixed sink. `O(seq_len)` more Dinic calls than `attn_mincut`;
+/// intended for research/benchmark use at `seq_len <= ~128`.
+pub fn attn_mincut_best_sink(
+    q: &[f32],
+    k: &[f32],
+    v: &[f32],
+    d: usize,
+    seq_len: usize,
+    lambda: f32,
+    tau: usize,
+    eps: f32,
+) -> AttentionOutput {
+    assert!(q.len() == seq_len * d && k.len() == seq_len * d && v.len() == seq_len * d);
+    let mut logits = compute_logits(q, k, d, seq_len);
+    let gating = crate::mincut::dynamic_min_cut_best_sink(&logits, seq_len, lambda, tau, eps);
+
+    for i in 0..logits.len() {
+        if !gating.keep_mask[i] {
+            logits[i] = f32::NEG_INFINITY;
+        }
+    }
+    row_softmax(&mut logits, seq_len, seq_len);
+    for v in logits.iter_mut() {
+        if v.is_nan() {
+            *v = 0.0;
+        }
+    }
+
+    AttentionOutput {
+        output: matmul_wv(&logits, v, seq_len, d),
+        gating,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -128,6 +167,15 @@ mod tests {
     fn test_mincut_shape_and_finite() {
         let (q, k, v) = make_qkv(4, 3);
         let r = attn_mincut(&q, &k, &v, 3, 4, 0.5, 2, 0.01);
+        assert_eq!(r.output.len(), 12);
+        assert!(r.output.iter().all(|x| x.is_finite()));
+        assert_eq!(r.gating.edges_total, 16);
+    }
+
+    #[test]
+    fn test_mincut_best_sink_shape_and_finite() {
+        let (q, k, v) = make_qkv(4, 3);
+        let r = attn_mincut_best_sink(&q, &k, &v, 3, 4, 0.5, 2, 0.01);
         assert_eq!(r.output.len(), 12);
         assert!(r.output.iter().all(|x| x.is_finite()));
         assert_eq!(r.gating.edges_total, 16);
