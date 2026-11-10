@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-10-13T12:15:14.862445+00:00",
+  "tests": {
+    "command": "ULTRA_CHECKOUT=/path/to/pinned/ULTRA python -m unittest discover -s npm/packages/kge/bench/transfer -p 'test_*.py'",
+    "passed": 29,
+    "skipped": 0
+  },
+  "pythonCompilePassed": true,
+  "diffCheckPassed": true,
+  "security": {
+    "command": "npx -y @claude-flow/cli@3.25.6 security scan --target npm/packages/kge/bench/transfer --depth deep --type all",
+    "exitCode": 0,
+    "reportedIssues": 0,
+    "advisoryFeedTimestamp": null,
+    "scope": "Static scan only. Python coverage is not independently established. No dependency advisory audit or production release assurance.",
+    "manualReview": "Hash before restricted deserialization; 64 MiB cap; finite tensors; schema before mutation; rollback on rejection or exception; trusted local artifacts only."
+  },
+  "sourceHashes": {
+    "validation_gate.py": "a8008ccb686a656a75a17854bebb7984f2a0b84ee6e307710a60e63fb0e18ba6",
+    "guarded_adaptation.py": "2c8a2ea2f0a3b7cb6d71bfca87dae8d0c70dd57d1b6702bbeae055bb49c8efb5",
+    "evaluate_validation_gate.py": "86773b26833347982b471480b1c868e93035fb81a6106044a6c40fa3631d4af0",
+    "test_validation_gate.py": "b9ca8ac4ec6dd87400685dbab6978eceb07ccbed4b1666870f6f9976699a5f29",
+    "requirements-cpu.txt": "612adaad061ec9a307230e381c8ea440f797973c38e777dc80c23d71ec99ed0a"
+  },
+  "promotion": false
+}

@@ -1,0 +1,3579 @@
+{
+  "manifest": {
+    "protocol": {
+      "maxTokens": 512,
+      "batchSize": 8,
+      "threads": 2,
+      "scoring": "normalized CLS dot product; maximum chunk score per file",
+      "baseline": "BM25 k1=1.5 b=.75 over identical chunks",
+      "candidatePolicy": "all production Python files under declared package prefixes",
+      "scope": "six development smoke cases; no reranker, graph scoring, fine tuning or transfer confirmation",
+      "license": "SWERank model card declares CC BY NC 4.0; research comparator, no commercial deployment claim",
+      "promotion": false
+    },
+    "modelRevision": "745d2a06103a66d3cfa600aa52fc0d3523010daa",
+    "codeRevision": "92d97331f1f4b6a366c1f161354b9f3390cc219f",
+    "data": {
+      "dataset": "princeton-nlp/SWE-bench_Lite",
+      "revision": "6ec7bb89b9342f664a54a6e0a6ea6501d3437cc2",
+      "parquetHash": "7a21f37b8bc179c7db5beeb14e88ac538ba283455c776e6b2535bbfb6e3551b4",
+      "selection": "first 3 instance_id SHA256 per declared repository",
+      "role": "Development smoke pilot; pretrained overlap unknown; no transfer confirmation",
+      "cases": [
+        {
+          "id": "psf__requests-2674",
+          "repo": "psf/requests",
+          "baseCommit": "0be38a0c37c59c4b66ce908731da15b401655113",
+          "snapshotUrl": "https://codeload.github.com/psf/requests/tar.gz/0be38a0c37c59c4b66ce908731da15b401655113",
+          "archiveHash": "f91bf0c1463f0e1349c0c2aa8c0d547412694d0bd87870e774a582410cb9e7fc",
+          "sourceFileHashes": {
+            "requests/__init__.py": "364d408838c8073cab46f4846cefaabb03c5b8d18b530c6d8d563f4d6a3920bf",
+            "requests/adapters.py": "f1cd7e353c80129d3cd3e1ece2ca47b0648856446cb00dc8218bb9e80cdad1b8",
+            "requests/api.py": "5fc66787cdaceb6ff71413c592a69f3509fbb382fee6af3e18b7252ca287b372",
+            "requests/auth.py": "5a9fc72cade4aab67e3debc72c5c3bd0de2dc6d4034d848408e50e7b4d4ea183",
+            "requests/certs.py": "457e47d5c4a2079d876e387faafdde316f21a87105febe108afff80307f38ae5",
+            "requests/compat.py": "86aec2287a3290db3ccb328f00988e9074093e8369f40f3d32e7d37619429e26",
+            "requests/cookies.py": "8b780a0f44d08ea7935317fc81e9245eac07c681d627c59a1207c80e9b822f74",
+            "requests/exceptions.py": "cd984789e5e0475b5ea9bbeea3ff4eaf00cc1e7aef46dba55bded57f3ba642fe",
+            "requests/hooks.py": "f6f362ba244745de50cba057ff4a751f736c5330e8d4cfc76854760052f8d538",
+            "requests/models.py": "f7370706ed60fdcc323109f967e763ce543a6cd2e9bd36367cdd6a5caf66d55a",
+            "requests/packages/__init__.py": "69791b3428ccfd686bc91068704e00680fe9efe093c4be4b3aeb58ed7cca9b8b",
+            "requests/packages/chardet/__init__.py": "5ee4ca098391ec9c2ca07c6a653607f3a2d5c8c0db0c8decd6cd16feaa061013",
+            "requests/packages/chardet/big5freq.py": "0fca13773f8633b260f13b1a5890e6eb9bccfce2c70b7c6e6faa94277ace82c4",
+            "requests/packages/chardet/big5prober.py": "5d7f7a0befba58a616dfa98bfb3ee925202d735ebd67c648981c823f8a4437d0",
+            "requests/packages/chardet/chardetect.py": "7f8dbdf54646eae59dde2debfcdd0e76b163dac03d245239e0f0260cb0059960",
+            "requests/packages/chardet/chardistribution.py": "714011405af5a132d778908342b0d19143fbefc02f48cce14829c6f152c2579f",
+            "requests/packages/chardet/charsetgroupprober.py": "d252a4ed5139d7a7e0330d75f6d35e7c5a8b3b129f204f567dd929213ebd38a5",
+            "requests/packages/chardet/charsetprober.py": "678f28d8a88e8f6dc536a607f05ab3847e66d6a766deb23c0dc4e6d98aad9258",
+            "requests/packages/chardet/codingstatemachine.py": "13ce6b6211d5330f710c4255822421a743a72c6afa8b6afcffb40e58c2931f4f",
+            "requests/packages/chardet/compat.py": "e669bacab1f079fd49106e4ec643c9952ab99648cb56910687788f805064a643",
+            "requests/packages/chardet/constants.py": "f949d8f14ec43fbcfd7d3c9dd3dcaadf9044912144014022bfda217750d6d6ce",
+            "requests/packages/chardet/cp949prober.py": "14cbdd2f207b7de8cf5d1b136dc6bb2cad4fdd152fbecb268d43726847f3f336",
+            "requests/packages/chardet/escprober.py": "ab94dc40a795ab7d56c6b5bb4aff328e96648c4a1a1cef12f7610967d868772b",
+            "requests/packages/chardet/escsm.py": "ee296310a37c9574e1f091573d44b09626cc9e8e91ea4b2ae1ebcbc5b9337eba",
+            "requests/packages/chardet/eucjpprober.py": "e48a5f4848c06fb87785c18c77a76453cd0ef74d02d8deb192edbcadd6052ae7",
+            "requests/packages/chardet/euckrfreq.py": "4f9b1a2b99889b2486e728103edb29ea8dae2ae968b82c189b61253b216426a5",
+            "requests/packages/chardet/euckrprober.py": "5a8edd9d9e44af0fe70781fe9b96a53223b13ae2549861e5c0249a1aa1310d90",
+            "requests/packages/chardet/euctwfreq.py": "1bf234056f62d70d0e35e794c0862a57bfd4d3d6ee20776a87ec0d1d56aa97b2",
+            "requests/packages/chardet/euctwprober.py": "ba94b63fa1ae4f9ba33b15d8c3e4492dc4fb0383d3ba8dbb28650a538519a484",
+            "requests/packages/chardet/gb2312freq.py": "336805768fea43f06c952b44721acf5b90ab3c464469c0b4bb20cbc38a24fa46",
+            "requests/packages/chardet/gb2312prober.py": "5569e3a116bcdd8e95ea873331ac7252bd2ecb8f220a70b69f393dcdf1084477",
+            "requests/packages/chardet/hebrewprober.py": "f2976851fb155dffcbe019c975efc17b04ba1f6c889d5e7af3c7aed271612c76",
+            "requests/packages/chardet/jisfreq.py": "65c2f84797a41c76cfd8a09819a915301b222aa659640001ce1c22fae4643a9b",
+            "requests/packages/chardet/jpcntx.py": "c9fb66a7441a17a4493b9489b3c23b2d4e40178af03f6dde6de0902f804cd4e6",
+            "requests/packages/chardet/langbulgarianmodel.py": "6723ec03bf7a31256161d7d684c0a0296724ba900a0272aa59c1370a5dde8faa",
+            "requests/packages/chardet/langcyrillicmodel.py": "7e471de4ebe8814a7e1ab34358064f82462c491083da89a8b4012faa39662ca1",
+            "requests/packages/chardet/langgreekmodel.py": "407332df5087fe8b7aed40ad9aeac210aa8ac765b0a1a2abc3660261804ad8bc",
+            "requests/packages/chardet/langhebrewmodel.py": "e004a5e6fcca24f9e0e07dbbf151cab51602d374e94297a79474dcb26647d6b1",
+            "requests/packages/chardet/langhungarianmodel.py": "497c2e533878f7f70178c5e1b2144776b865933d13f3fa59595fe976a04a3459",
+            "requests/packages/chardet/langthaimodel.py": "fa4edd8e1ddd18a9e00069eddd67eea0937b69c0dc59c98700fa2385a51deeae",
+            "requests/packages/chardet/latin1prober.py": "db7f091cec47f1a46e749636366792bf9b3b8b441edc6ba49485371e56326ef8",
+            "requests/packages/chardet/mbcharsetprober.py": "f6b3828c356c992329e9eeeadaccaa6a4db68fb96b6d466126131e7b681b54bd",
+            "requests/packages/chardet/mbcsgroupprober.py": "48747334f2e90d77cc24b03ca61087554d1682a6e00c23710d03289465ffef29",
+            "requests/packages/chardet/mbcssm.py": "20ac095f2c6edf89fa3688e6c55c42eb430b16d24a9be8487f16851276f7b810",
+            "requests/packages/chardet/sbcharsetprober.py": "5ead25383a899c3831825062408e01a931623db9fadfed1ae57340e7e855bbb5",
+            "requests/packages/chardet/sbcsgroupprober.py": "f212f21fc4401be6a8841a3ba3f29c896560468e36644ff312db8d1b524c4582",
+            "requests/packages/chardet/sjisprober.py": "5183a688c0f3b6d6089120e8381d3c5046a08af269517cf8b6e5a25b34e23abf",
+            "requests/packages/chardet/universaldetector.py": "87e136c7a5d20b394d8f2718586d057b809fd5219d688cd436ed870a98693190",
+            "requests/packages/chardet/utf8prober.py": "eed74d646ac963b8d95010f8f3718632488fd13c7c169f9c1af587a00b229478",
+            "requests/packages/urllib3/__init__.py": "59da422f1e63b81a0c02b04c6d54f5db9043f12bcaf8877d26ce7b3d39e97d2b",
+            "requests/packages/urllib3/_collections.py": "b5ab571e6379027de0c3e6a54baf2ab37c8efefc1e27c7854d49b0317be52a94",
+            "requests/packages/urllib3/connection.py": "baac2c577e75019a95d34f1f6fb3ac7056f266de9d462723410ad40342b4d62c",
+            "requests/packages/urllib3/connectionpool.py": "906969c707369516b1d09edfdad1555a35de7c221d216c8b1ea1c36ba6a637b0",
+            "requests/packages/urllib3/contrib/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "requests/packages/urllib3/contrib/ntlmpool.py": "176f418e920c21ddaef41c26cb46e683c78360abd06625cbb1978ad9c0cd72d4",
+            "requests/packages/urllib3/contrib/pyopenssl.py": "a2834c31fa7d7048ab1b22d170813e7feaa27503dd0e9da4065f8ae402ce2725",
+            "requests/packages/urllib3/exceptions.py": "cdaf9c13006ac4128eaaa29368854031d1f78f59c346a8be32d7688dda54e167",
+            "requests/packages/urllib3/fields.py": "d3a5e00634ef13255851603e8ffeb38677d732977e23165dcd3f39a690057d88",
+            "requests/packages/urllib3/filepost.py": "4c4a50fcf30ed25a0f40444baf813b55c81b31f84dc0e0b1b7c72e761ae990cd",
+            "requests/packages/urllib3/packages/__init__.py": "10a09300e8d9b4f47f1c2e747bb5fc852e63e1b90590df3b5d9393f967697eeb",
+            "requests/packages/urllib3/packages/ordered_dict.py": "55068f38d7e154cb1bf01eb75e0ed93b2749a8813f8f378c8553773de73aa20c",
+            "requests/packages/urllib3/packages/six.py": "53eacef9606b152f0fc4779a99297aa242828ea3c5d7c3618996f4a8f67aed73",
+            "requests/packages/urllib3/packages/ssl_match_hostname/__init__.py": "70e58c227d68ae0268037e69ea94b33bff8373a88e5fd0e197a0f6b0bf5bff6a",
+            "requests/packages/urllib3/packages/ssl_match_hostname/_implementation.py": "7cadbc937ee12fbf83efdbfd88cd9f1e034af50d4fc3433ba9544be2b91f1634",
+            "requests/packages/urllib3/poolmanager.py": "430d544ad4573e1e911f904e4fbc78358ec6aa4868da78d81038aa93dffcef6f",
+            "requests/packages/urllib3/request.py": "3639cb56a70a655a2d98f577df99bcec0a8c141487d15fe6976b4e1b12922912",
+            "requests/packages/urllib3/response.py": "b783e5e89550f636176eb8aed1c41fe5d46e452a7148ff5896d80cbb7e4914fa",
+            "requests/packages/urllib3/util/__init__.py": "ceb0750454cd3945b180456f66589c2bcb84536015a53d531665a8da04067c30",
+            "requests/packages/urllib3/util/connection.py": "3d3c5c90f7ecb6b15500f01f627d7691a65811fa109fe0830a8d95ac804fb69a",
+            "requests/packages/urllib3/util/request.py": "cd8db1e6d057cef80b5a01775d193f08493e5fc43c2fd6eaa444aa5a7d7723fd",
+            "requests/packages/urllib3/util/response.py": "40cacecbaf563e4a1ee36114d18e63c1136a05ffb0d4517c189580c758d00e66",
+            "requests/packages/urllib3/util/retry.py": "6dc45bdd00b52c33072f1f200430c616a67774ab3a6d87297d6649dc5a4e32d1",
+            "requests/packages/urllib3/util/ssl_.py": "5f89a9f8503e25a72ded9dec133c5e9d0ebd267c25cf6f86ee08c95cbd4231dc",
+            "requests/packages/urllib3/util/timeout.py": "d8ca89543fefff4b4bc609b632bfde3ea6267e7079ce3657a619487b15a870a3",
+            "requests/packages/urllib3/util/url.py": "b8f732fe508c7664217687e77a65b28d88c7b0f25a674562b0035adaf682af78",
+            "requests/sessions.py": "9167eea5b58dfd486ef8528f11cef2d4dcafc90344e63af2b80e5469dd98cb45",
+            "requests/status_codes.py": "0d5037dede14b612226613f889848285b5a3ba1ac95af540d38aa57bd9f08f64",
+            "requests/structures.py": "8b7c8c69a0db978fe034929d70ade40e67922e8a34af9f571085a873faad372a",
+            "requests/utils.py": "b893c30e57d63ec4ef458427ca409e59f4727f9fa7956e7092b07615f9afbfcb"
+          },
+          "inputHash": "19d8ac4853b201f437eb4259b8b379ebfc91421fbbd28857370e2fb7c0265a42",
+          "labelHash": "d6d33846c658c806d02fae13d0ab5b664caa970e5d99d3e6de607772c9ec8565",
+          "documentCount": 636,
+          "fileCount": 79
+        },
+        {
+          "id": "psf__requests-1963",
+          "repo": "psf/requests",
+          "baseCommit": "110048f9837f8441ea536804115e80b69f400277",
+          "snapshotUrl": "https://codeload.github.com/psf/requests/tar.gz/110048f9837f8441ea536804115e80b69f400277",
+          "archiveHash": "6b57e47f3b319ad4483676cbd1448d331a893363c84c04bb2a18db209690dc36",
+          "sourceFileHashes": {
+            "requests/__init__.py": "465e36de457e3014c50e24ed10e2623fd0ae6ae6c54a2f2b1daab3ab5281374c",
+            "requests/adapters.py": "a55f48ee2d619c3054c85cb5f607ce9b171ba3ac5c016020424bdb8e5bf8556c",
+            "requests/api.py": "e31ada6c137cd326aa1f1b289875500f4f6fd959dd802cf5712b049d1bc618bd",
+            "requests/auth.py": "c766c5a872b72e46e6eea3d4ca1fdd02a60b4c34e8b418bed736bd12909d0345",
+            "requests/certs.py": "c126aa8523680748a0a7a0dafa15b0d23b5720229705b2fc692f6cc2d865b79d",
+            "requests/compat.py": "246ac93d5d9819ab73c2b7b197d912b7c67c42d9856e84591fdcb0b0b2bf30c0",
+            "requests/cookies.py": "06330ab6b23c4d7403e68415793a18b64441175e3d788f395215ac046c2c25a7",
+            "requests/exceptions.py": "cfedd0a6271a7cab4887ce5b30468294bd8ea4d3ddb1ce933fff3729cb1587c6",
+            "requests/hooks.py": "f6f362ba244745de50cba057ff4a751f736c5330e8d4cfc76854760052f8d538",
+            "requests/models.py": "c736269f3fd404a69b80bdff908497a89e837bd9916b6ed367b6d1cb0cf05cac",
+            "requests/packages/__init__.py": "69791b3428ccfd686bc91068704e00680fe9efe093c4be4b3aeb58ed7cca9b8b",
+            "requests/packages/chardet/__init__.py": "f3edfd0e0daa12ea1de4334ded131d9f665838ef73154ddf15f684f348835867",
+            "requests/packages/chardet/big5freq.py": "0fca13773f8633b260f13b1a5890e6eb9bccfce2c70b7c6e6faa94277ace82c4",
+            "requests/packages/chardet/big5prober.py": "5d7f7a0befba58a616dfa98bfb3ee925202d735ebd67c648981c823f8a4437d0",
+            "requests/packages/chardet/chardetect.py": "f20f9d45203dedb484e8cdb94ea7b5ae828ab65dd71d2327aa2eaf4f3a47355d",
+            "requests/packages/chardet/chardistribution.py": "714011405af5a132d778908342b0d19143fbefc02f48cce14829c6f152c2579f",
+            "requests/packages/chardet/charsetgroupprober.py": "d252a4ed5139d7a7e0330d75f6d35e7c5a8b3b129f204f567dd929213ebd38a5",
+            "requests/packages/chardet/charsetprober.py": "678f28d8a88e8f6dc536a607f05ab3847e66d6a766deb23c0dc4e6d98aad9258",
+            "requests/packages/chardet/codingstatemachine.py": "13ce6b6211d5330f710c4255822421a743a72c6afa8b6afcffb40e58c2931f4f",
+            "requests/packages/chardet/compat.py": "e669bacab1f079fd49106e4ec643c9952ab99648cb56910687788f805064a643",
+            "requests/packages/chardet/constants.py": "f949d8f14ec43fbcfd7d3c9dd3dcaadf9044912144014022bfda217750d6d6ce",
+            "requests/packages/chardet/cp949prober.py": "14cbdd2f207b7de8cf5d1b136dc6bb2cad4fdd152fbecb268d43726847f3f336",
+            "requests/packages/chardet/escprober.py": "ab94dc40a795ab7d56c6b5bb4aff328e96648c4a1a1cef12f7610967d868772b",
+            "requests/packages/chardet/escsm.py": "ee296310a37c9574e1f091573d44b09626cc9e8e91ea4b2ae1ebcbc5b9337eba",
+            "requests/packages/chardet/eucjpprober.py": "e48a5f4848c06fb87785c18c77a76453cd0ef74d02d8deb192edbcadd6052ae7",
+            "requests/packages/chardet/euckrfreq.py": "4f9b1a2b99889b2486e728103edb29ea8dae2ae968b82c189b61253b216426a5",
+            "requests/packages/chardet/euckrprober.py": "5a8edd9d9e44af0fe70781fe9b96a53223b13ae2549861e5c0249a1aa1310d90",
+            "requests/packages/chardet/euctwfreq.py": "1bf234056f62d70d0e35e794c0862a57bfd4d3d6ee20776a87ec0d1d56aa97b2",
+            "requests/packages/chardet/euctwprober.py": "ba94b63fa1ae4f9ba33b15d8c3e4492dc4fb0383d3ba8dbb28650a538519a484",
+            "requests/packages/chardet/gb2312freq.py": "336805768fea43f06c952b44721acf5b90ab3c464469c0b4bb20cbc38a24fa46",
+            "requests/packages/chardet/gb2312prober.py": "5569e3a116bcdd8e95ea873331ac7252bd2ecb8f220a70b69f393dcdf1084477",
+            "requests/packages/chardet/hebrewprober.py": "f2976851fb155dffcbe019c975efc17b04ba1f6c889d5e7af3c7aed271612c76",
+            "requests/packages/chardet/jisfreq.py": "65c2f84797a41c76cfd8a09819a915301b222aa659640001ce1c22fae4643a9b",
+            "requests/packages/chardet/jpcntx.py": "f5f27da12d0151aadc7593724b09b3551b93d37b18742952985c170e3df254d8",
+            "requests/packages/chardet/langbulgarianmodel.py": "6723ec03bf7a31256161d7d684c0a0296724ba900a0272aa59c1370a5dde8faa",
+            "requests/packages/chardet/langcyrillicmodel.py": "7e471de4ebe8814a7e1ab34358064f82462c491083da89a8b4012faa39662ca1",
+            "requests/packages/chardet/langgreekmodel.py": "407332df5087fe8b7aed40ad9aeac210aa8ac765b0a1a2abc3660261804ad8bc",
+            "requests/packages/chardet/langhebrewmodel.py": "e004a5e6fcca24f9e0e07dbbf151cab51602d374e94297a79474dcb26647d6b1",
+            "requests/packages/chardet/langhungarianmodel.py": "497c2e533878f7f70178c5e1b2144776b865933d13f3fa59595fe976a04a3459",
+            "requests/packages/chardet/langthaimodel.py": "fa4edd8e1ddd18a9e00069eddd67eea0937b69c0dc59c98700fa2385a51deeae",
+            "requests/packages/chardet/latin1prober.py": "83aee0a99db3f3d2d43a547b059100878fa9e5ad72196b2cf675b2f0508d9bc4",
+            "requests/packages/chardet/mbcharsetprober.py": "f6b3828c356c992329e9eeeadaccaa6a4db68fb96b6d466126131e7b681b54bd",
+            "requests/packages/chardet/mbcsgroupprober.py": "48747334f2e90d77cc24b03ca61087554d1682a6e00c23710d03289465ffef29",
+            "requests/packages/chardet/mbcssm.py": "52e880e0873cbc47345e94ca0e77aa672887d93c06b85559c4ec5625ea775ffe",
+            "requests/packages/chardet/sbcharsetprober.py": "5ead25383a899c3831825062408e01a931623db9fadfed1ae57340e7e855bbb5",
+            "requests/packages/chardet/sbcsgroupprober.py": "f212f21fc4401be6a8841a3ba3f29c896560468e36644ff312db8d1b524c4582",
+            "requests/packages/chardet/sjisprober.py": "d518e94362d4da0be8101ff83bcdfdc434157215b1d9f1bf0bbfef5e1e763f92",
+            "requests/packages/chardet/universaldetector.py": "1a465dc0dc8d7db1560bc235baa9f3ca139417b7dabd60aa08e2aa750971ea04",
+            "requests/packages/chardet/utf8prober.py": "eed74d646ac963b8d95010f8f3718632488fd13c7c169f9c1af587a00b229478",
+            "requests/packages/urllib3/__init__.py": "b0b20abfd7462630e5a225575010635c3596abc6cceba91cbd31f6494fd664a8",
+            "requests/packages/urllib3/_collections.py": "611616dfcaacea619583d2b0ff2fdeb4fd278784911ab2ccea4be922b5f73f0a",
+            "requests/packages/urllib3/connection.py": "5af01865997b6e8c0265603bb75051830fa2d7f57b37555f89f61215f14c16c6",
+            "requests/packages/urllib3/connectionpool.py": "faeab17e36f3139609bb8a0506e53c174c48cc77c6c9d69c1026233d6cf4ef32",
+            "requests/packages/urllib3/contrib/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "requests/packages/urllib3/contrib/ntlmpool.py": "549f868f1a58213c528f8503297d22aaf1f069ab72836440dcf693ca6e56a7ac",
+            "requests/packages/urllib3/contrib/pyopenssl.py": "f011a1d9173bdc86dc16f0b025929422768c5e42d9d71b0b6996ee3928251df1",
+            "requests/packages/urllib3/exceptions.py": "dc4af7e589b8c6b7f9c4d7533d520000d45d45551fe35bae32c342e2ca4f9347",
+            "requests/packages/urllib3/fields.py": "52eb88dc819fc47c0ea0a71bc39152e98b98ddfe32b82bd02edba649a22282be",
+            "requests/packages/urllib3/filepost.py": "b563d8df71e714cfd13e9114f4f1eff43df89faef0f1946df34652b1622fd0a9",
+            "requests/packages/urllib3/packages/__init__.py": "10a09300e8d9b4f47f1c2e747bb5fc852e63e1b90590df3b5d9393f967697eeb",
+            "requests/packages/urllib3/packages/ordered_dict.py": "1ed1e986d4ad265a2bcd0aa821ab7ccd41f496a2e7b38d7a81f48ef72fda4804",
+            "requests/packages/urllib3/packages/six.py": "53eacef9606b152f0fc4779a99297aa242828ea3c5d7c3618996f4a8f67aed73",
+            "requests/packages/urllib3/packages/ssl_match_hostname/__init__.py": "0ecb345326fef8f57f22eeccfd2d74c78afe6d6a6e766e6621124d88e2772b4a",
+            "requests/packages/urllib3/packages/ssl_match_hostname/_implementation.py": "7cadbc937ee12fbf83efdbfd88cd9f1e034af50d4fc3433ba9544be2b91f1634",
+            "requests/packages/urllib3/poolmanager.py": "6cc60774d6952393b862b247af54fab44d9160710ccccdbf2b4713cbbbb35f63",
+            "requests/packages/urllib3/request.py": "7174dcaebf5de7446ddb5dd95cb8027f9dca356c5ee0b43c971495d470586bd1",
+            "requests/packages/urllib3/response.py": "69a0b04bdd5fe69daa8c08d18abf41f1b093420c8fd59abb5f861d9c74eafbcc",
+            "requests/packages/urllib3/util.py": "87ca3f11220369c7292d62062af1ce80f0d4fe67c71061408ddf766c0c8db676",
+            "requests/sessions.py": "9ca65f6e9cc89cd13154143db72d7c2c668a0e975a7f10852e3d39a3252e4023",
+            "requests/status_codes.py": "2d8a6a2efe0010ab933dbcbe412be097f808edf7159540ea481727748c17f908",
+            "requests/structures.py": "9fb92004e5099d05d64c9a518744b36b892e5a1b963249f7593678236e7f0119",
+            "requests/utils.py": "30c2b99f6c674333148ad4c6889ceaf2780e798a9f8ac54f27f86344a2d8e227"
+          },
+          "inputHash": "2df1b95397a06fec4da591ed5cca19801d8bd5c67469a8577f340d434f26528f",
+          "labelHash": "721cb01c5fd12c032d766e68e87e8edf92e450a3f6f45731b0ff5eec65a47387",
+          "documentCount": 560,
+          "fileCount": 72
+        },
+        {
+          "id": "psf__requests-863",
+          "repo": "psf/requests",
+          "baseCommit": "a0df2cbb10419037d11d04352b3175405ab52941",
+          "snapshotUrl": "https://codeload.github.com/psf/requests/tar.gz/a0df2cbb10419037d11d04352b3175405ab52941",
+          "archiveHash": "d80266cff495d9104c195e3fe0f89acda9ef7abfb3cf2bcec3f3912666547436",
+          "sourceFileHashes": {
+            "requests/__init__.py": "96e71a5fe4d8619e67c05edcba531c6a4150b4430b308ec2e3684c098e21bffd",
+            "requests/_oauth.py": "d6de4598a04fa505dbd6ad4f6adb5b8ee6ace4da2978249a781052e32b131cba",
+            "requests/api.py": "49ea50d57e5f38958af3d914735494e956135ddad0d17a852752757c01530a67",
+            "requests/async.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "requests/auth.py": "f9598e7fa171bbe525e9a63f1739c46e8d3a79e3b77c54706f289ae7b373f025",
+            "requests/certs.py": "5bab14a50bbb4aac568586b209b624013e70ac2e20261f2b04b7d3d2a43efb3d",
+            "requests/compat.py": "41d41b558dfd5ceca75f982b7c867780b56736f327065a5fac07f6500a9fce1a",
+            "requests/cookies.py": "84529906ebe3bf574321e05b9beb3686fd5573f8ac2c8cf0b0a45249eca80c57",
+            "requests/defaults.py": "59efedd45ea54a06aa2fc2eb1e7f87f5e854f291bedc8a838be2876fe99e1151",
+            "requests/exceptions.py": "cceda937a16cccd2d5b455f58fcfb7e17ed0d6629e2258d226e1e2741e8cb954",
+            "requests/hooks.py": "bbbc4eab3c68852bbee2373eae7dfd7efd514eeeb0745e3a1e4bc5e1667a0eb1",
+            "requests/models.py": "db8968b317791fc238d7f024e329d1846f861def3e508e8200de5c1fabad54bf",
+            "requests/packages/__init__.py": "69791b3428ccfd686bc91068704e00680fe9efe093c4be4b3aeb58ed7cca9b8b",
+            "requests/packages/chardet/__init__.py": "f6081a8b5a969c9f3fdf23bc02a26aa238c0c66a4ac2ff374a76ba3c26f7da19",
+            "requests/packages/chardet/big5freq.py": "2d2beee8ec539f5973978dcbfad4573e62fd9f44c2e42a67611f63d181a9b0b7",
+            "requests/packages/chardet/big5prober.py": "7f45a57ca8820fc61f2e61b2c8862660d3d123892b94ef9f20f8e009ae8a0013",
+            "requests/packages/chardet/chardistribution.py": "a0299c9134c29ded756eff65663034e48108e446afd46988dbe4109c292ec649",
+            "requests/packages/chardet/charsetgroupprober.py": "f68fb761b9587564a5d03c489438496a6f8ff98b0c19389d8a71c59d4ba82093",
+            "requests/packages/chardet/charsetprober.py": "697889eb68de2a249444cbe34b2c23cf76fc6f6bb497686068f6e022769dffb8",
+            "requests/packages/chardet/codingstatemachine.py": "d75d630b60907881f151793a321ebee6fabbb239d50af9ff168b1383ec6301a5",
+            "requests/packages/chardet/constants.py": "e6fa9f941ee3bf36ac719e3ee5c910ca9dd5737414ac89cffcc0df9531f71b4c",
+            "requests/packages/chardet/escprober.py": "2cf9dca16f3faf2f7977b116ac083bbb85de585ea24e25f4d7fe762acef0cdfe",
+            "requests/packages/chardet/escsm.py": "455f1363b284f1682234906ade25c5c6fbfe54af0049be29baf5bc791f9f0fdc",
+            "requests/packages/chardet/eucjpprober.py": "bcac63591e9c5d8fa7c4fec75d4fe7c1aff046ef0b6e6cab37484eeb7c8d10f9",
+            "requests/packages/chardet/euckrfreq.py": "2404fceaf2451c0a4964186dd2069f6560ef8b5d0c5374702302436fb4a6c974",
+            "requests/packages/chardet/euckrprober.py": "fb490ede79dea97662fff6a3c8d6963c454767b34db8a2e9d1c22b9879620de8",
+            "requests/packages/chardet/euctwfreq.py": "7155b8bdf549f4b124fb5c3ae21a1f96d1ab5ae288dbbd28078df8b23a6d7f22",
+            "requests/packages/chardet/euctwprober.py": "a3d96c7ce9ea8e632f14983ac394f8b68b2fc7ade39284f99764f3c11673f058",
+            "requests/packages/chardet/gb2312freq.py": "63948da5d79defc93f68e77d04086d7d0166c96f1eed238df5ad4fb50b3c481a",
+            "requests/packages/chardet/gb2312prober.py": "f2aa4e710da828285633cbeefc3d56fe565e3bfabf5241fb507ee38df8e6dd83",
+            "requests/packages/chardet/hebrewprober.py": "4043798de9bf1485ebf7b4cfc399f62759922df5e66f6c3cf76fa7662fd00916",
+            "requests/packages/chardet/jisfreq.py": "a40a67a06121aac66235d319fb2fecfd8350930b6e36a981fb5a7ee6ec750145",
+            "requests/packages/chardet/jpcntx.py": "78a512fb0c6f43733cc6d721f5389b5e2b1604abba3fbf09b46a740134d443e9",
+            "requests/packages/chardet/langbulgarianmodel.py": "9dc1e33d854830ab7ebf4f8e29c244e3117c1de8acea31eb755d8b211c379d36",
+            "requests/packages/chardet/langcyrillicmodel.py": "7a20fde10e7c00d53d782a3ff266fb2a218be15cfc2293cf1f859ea4510a2b4c",
+            "requests/packages/chardet/langgreekmodel.py": "83891badffa4473b337abbc78e0f24fddce5083254f437f08c5f2638757846a1",
+            "requests/packages/chardet/langhebrewmodel.py": "d54660451ec25573e333465090e3ddcd1a3a680f51f8cc219680a8bdd310fe6c",
+            "requests/packages/chardet/langhungarianmodel.py": "45221b12364c448123c134366aad57a436f4ef81e8f36e846038a7e7970b7690",
+            "requests/packages/chardet/langthaimodel.py": "caf1cda99823862fade632445124ca77bf88d9aaa08640ff52d3041ce6a70902",
+            "requests/packages/chardet/latin1prober.py": "5a1668c5c8511f7b5e55811b36f7485ee08e4d0ca6afdb1cc7027b8feaa91587",
+            "requests/packages/chardet/mbcharsetprober.py": "17d05081588c00c0c7591bf1459d466a933d88a101d82008a1f527acc1c6278d",
+            "requests/packages/chardet/mbcsgroupprober.py": "162bc6af8cb07eff68b721cc3b06ec95d21959fb23aab63f4a946e8aaca46404",
+            "requests/packages/chardet/mbcssm.py": "7cf2511d791fb25efacee94fdf74c64bef2e4670d23c39906d758c533dd142f5",
+            "requests/packages/chardet/sbcharsetprober.py": "df9de738b401ceb876ce46b7ac7c3bf141870d5b0ba4362f2ffb0fb411f2c564",
+            "requests/packages/chardet/sbcsgroupprober.py": "480cc8d742175e095ebcc35bbc57d795cd2064ae3593e4d9c8e9c98eaafb5df9",
+            "requests/packages/chardet/sjisprober.py": "08267815da336587a0ca9e0fcffa16c686faef5caf4daaf98117dc07f5a502d6",
+            "requests/packages/chardet/universaldetector.py": "c31590c0cf6e6ae6f3a98d5f3e7e30ab701de3b2be36bbec62705f53fbc7ab99",
+            "requests/packages/chardet/utf8prober.py": "70966e6b266ecc66a856b63683f041f5b30a05020c8222cc37d7ef0ce4355745",
+            "requests/packages/chardet2/__init__.py": "a2dcc104702e348717220f44cf66ff02176a196c17dadcf309640c59f94b8f13",
+            "requests/packages/chardet2/big5freq.py": "2d2beee8ec539f5973978dcbfad4573e62fd9f44c2e42a67611f63d181a9b0b7",
+            "requests/packages/chardet2/big5prober.py": "234edf81e48027b7005f09772a4ae2ec6ed72efb13203a741b356d7b45acbdeb",
+            "requests/packages/chardet2/chardistribution.py": "8a4f4191f651a870ee4dd191cc320e71e8e8e0c219c728b87b421b600c8a445f",
+            "requests/packages/chardet2/charsetgroupprober.py": "9630a876516e7c6093ebe7c34f8e724bbd41150cdf2e8b6d751ff032f141c076",
+            "requests/packages/chardet2/charsetprober.py": "58cb43092dfdf0064f2ea453770f72bcd86759aada3dd11ece94dcd20668c99b",
+            "requests/packages/chardet2/codingstatemachine.py": "ef1197c8d29cdef3ac12f65cb993e61bc6777d356846c657115a673a6199855c",
+            "requests/packages/chardet2/constants.py": "f4e31b1a6e60ce88389a9a5279fa9acb5732ce2f8f437d98eb22c9dde45e8ccd",
+            "requests/packages/chardet2/escprober.py": "23d90e3f6a9c6f656f044068ecf2abf45c7a3d793b64fe883ea463756ce0c751",
+            "requests/packages/chardet2/escsm.py": "37aa32ae492b91e87be9388c7e74ba08f1e0ed9426f480aa88e1602cd63e574f",
+            "requests/packages/chardet2/eucjpprober.py": "da4dd80e8127bcd4dac5535d6f422ce0cdac3c3a6407b51c700aefd3e0bd7224",
+            "requests/packages/chardet2/euckrfreq.py": "2404fceaf2451c0a4964186dd2069f6560ef8b5d0c5374702302436fb4a6c974",
+            "requests/packages/chardet2/euckrprober.py": "90b0f3ee46f3028f7951d76da212cde225ed1507cd804bd3415abf96f3bfe669",
+            "requests/packages/chardet2/euctwfreq.py": "7155b8bdf549f4b124fb5c3ae21a1f96d1ab5ae288dbbd28078df8b23a6d7f22",
+            "requests/packages/chardet2/euctwprober.py": "24acca6fe7f3a203da75ecc956bd94aed58fa24e2309a898faaba1445dbcac65",
+            "requests/packages/chardet2/gb2312freq.py": "63948da5d79defc93f68e77d04086d7d0166c96f1eed238df5ad4fb50b3c481a",
+            "requests/packages/chardet2/gb2312prober.py": "e70daeb5116549dd6e87038f708db858bb566d1aa9816078b9d7966e13a6fd8e",
+            "requests/packages/chardet2/hebrewprober.py": "03d9928a55ecdcae6fb54229560526b10771564e2eea1995fcb08afb69a240ab",
+            "requests/packages/chardet2/jisfreq.py": "a40a67a06121aac66235d319fb2fecfd8350930b6e36a981fb5a7ee6ec750145",
+            "requests/packages/chardet2/jpcntx.py": "7ec5eb5270d004b60bf7e1973a0cd2d1d839de5f5aa8f0d5d2504e07c0d57d43",
+            "requests/packages/chardet2/langbulgarianmodel.py": "d7ce34ea38f725dbaa9ea568e782ed2db3412be73f3a30576db3dc50d1c0d0a5",
+            "requests/packages/chardet2/langcyrillicmodel.py": "43e93e49dfd549bc068de1cc4996f7fdd822d870d82bb137965475c240edf6da",
+            "requests/packages/chardet2/langgreekmodel.py": "1c43239ed12cce59b2179fdb5792c178021ce85011ab23a4397c616748650f72",
+            "requests/packages/chardet2/langhebrewmodel.py": "426cce93335f172dddd13837f1c495b662c5262537420af2cceb52f53dcf1491",
+            "requests/packages/chardet2/langhungarianmodel.py": "fbcb11611b5ea8c6c84df816023259564e559aee8315e894f07d7163e9fab458",
+            "requests/packages/chardet2/langthaimodel.py": "b12c42bb1e8c0720e5d2f6104a4863f0ceaddaae0bb4cbf07c87efcf29bfd68d",
+            "requests/packages/chardet2/latin1prober.py": "78b46eb9afc374f4397ab15d1bf568217865f0914cc5410abd082e64085c5b25",
+            "requests/packages/chardet2/mbcharsetprober.py": "56ed20803130caeb222c4deb72cf956df420a40bc2bc12c7d3bb7038827f3b8d",
+            "requests/packages/chardet2/mbcsgroupprober.py": "05c49579aa1862779e320664e3f7295a370db444a25c6edf7309eeb6383baed2",
+            "requests/packages/chardet2/mbcssm.py": "4151c8e4407952ccf4f98ff5290dfbcc44908f097d21062ea903087ddf26e0c2",
+            "requests/packages/chardet2/sbcharsetprober.py": "d766da132db62f36023a0fafa2971a59e4b6af3e3de144953d14c8f8cc99d503",
+            "requests/packages/chardet2/sbcsgroupprober.py": "e1defee21a3acea68a1ffd3ec8f74fbc30ac791a73ab457a7f776763d9c45a86",
+            "requests/packages/chardet2/sjisprober.py": "e0127c3902082d2cd1ce8680b24673fb4827b22eaf7d5f53e4129707a7af61cc",
+            "requests/packages/chardet2/test.py": "268f0329f88fc51d6ce56784c622241fa223f408286b43197ce8df0307d33901",
+            "requests/packages/chardet2/universaldetector.py": "410294e91cbe098709806aa49aea636cf5f67a51868c2cd147dfdbd01a109d09",
+            "requests/packages/chardet2/utf8prober.py": "07d0db4000fddbd3865e08f0ce990aad8a270357aeb858b3d271be3e41716914",
+            "requests/packages/oauthlib/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "requests/packages/oauthlib/common.py": "47871a1a802a830040cf5cb84cf4bf656231690bc9bb80e7bc1443ccc513f72a",
+            "requests/packages/oauthlib/oauth1/__init__.py": "52b62da2c228e93dcefe80dc260605716fa6962ece668f4638fcbc6de599e8e5",
+            "requests/packages/oauthlib/oauth1/rfc5849/__init__.py": "4c52615ad10822bfe289d499264a821167555803f5b83968c94b174cbf5f2359",
+            "requests/packages/oauthlib/oauth1/rfc5849/parameters.py": "448850dd167cbcfa455f069293ff56edf02169b1bcf0365bec5a64ca68d90226",
+            "requests/packages/oauthlib/oauth1/rfc5849/signature.py": "ab2fc39d39a7bfe9fbac6d275e94016cb35f8e28ae95d2b1618d308f9816713c",
+            "requests/packages/oauthlib/oauth1/rfc5849/utils.py": "5a9ba448115d6c0ccc21ba5e48164e062cefdbbdffac67e35e9c3265f777a27d",
+            "requests/packages/oauthlib/oauth2/__init__.py": "20f02c1ebfd14faa1903fee2b1b31480e7cbb846ab5e5338a85dc40ccb476208",
+            "requests/packages/oauthlib/oauth2/draft25/__init__.py": "fbf39ca21569b2ab38496d2370cac8559f583730cf5e072dd5b1afad15837248",
+            "requests/packages/oauthlib/oauth2/draft25/parameters.py": "79dd19bf66ce29515b969df4edf65d1961649d4eb2fb445c4af71b82c47dce91",
+            "requests/packages/oauthlib/oauth2/draft25/tokens.py": "59bccb080d3931698014d563ce41656212bdea33cd88261c460ab3c7bec4c079",
+            "requests/packages/oauthlib/oauth2/draft25/utils.py": "f327e1fb8243dbbed1383e41005fac77b0646b340098962c7fbeff64940c1fa7",
+            "requests/packages/urllib3/__init__.py": "57891db349ff757a9414f62311bdf5a98b7da8436059afeaeb4cf43cdfac1ff5",
+            "requests/packages/urllib3/_collections.py": "7e01b078a5457912af4188f636e9c497391fcba8d7ae8d4eb1efc1c87c68a0f4",
+            "requests/packages/urllib3/connectionpool.py": "340e5929ed5466091827bc17592b934244597eb1ff0b6ca56010aac44ad03692",
+            "requests/packages/urllib3/contrib/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "requests/packages/urllib3/contrib/ntlmpool.py": "009bd8110fa3ac46eb2fe9ce0ccb88076ba2e3057d883cc78b37489d970133c9",
+            "requests/packages/urllib3/exceptions.py": "db846615e08fceb763fe141e8ea808f80707ac77d9f1bc11e8347e0194896233",
+            "requests/packages/urllib3/filepost.py": "c844c1468fa4b2b7248cdf377107e05d079e28adf46b4055f27cbb568ea90b97",
+            "requests/packages/urllib3/packages/__init__.py": "10a09300e8d9b4f47f1c2e747bb5fc852e63e1b90590df3b5d9393f967697eeb",
+            "requests/packages/urllib3/packages/ordered_dict.py": "1ed1e986d4ad265a2bcd0aa821ab7ccd41f496a2e7b38d7a81f48ef72fda4804",
+            "requests/packages/urllib3/packages/six.py": "b9298fa83728aa2ef6ed512e00c6556223c905e487b63336e11cc22bd17c4fcd",
+            "requests/packages/urllib3/packages/ssl_match_hostname/__init__.py": "e06a17559caa0a8d87c0b86eafd13c7ab0b3ab143398a6fe71500de0bdef0be5",
+            "requests/packages/urllib3/poolmanager.py": "a2eaa9a12e382d2275153a1a8aa208bdfb091ac1ca1921b85dc935f1d6cfef23",
+            "requests/packages/urllib3/request.py": "bfd27b6c321e2b90b914ba4435d187330425b53d3131abe37f332e1d9535af4b",
+            "requests/packages/urllib3/response.py": "3b387b2df50e662686e5aa44e064838ffe890687e96ebf110db5d72e2ea4ddb5",
+            "requests/packages/urllib3/util.py": "bea10a4662be5997704c35ce587665190cc9f333c160f47196be26a663c313ee",
+            "requests/safe_mode.py": "684f3600ce5362befb7bc361d3ba3ffecb0e1568b45374c8d9bf9ebbd8bef08d",
+            "requests/sessions.py": "f0232ff58adce64f2c94e97082a7c10d8d6a00b7f24a1fdc69f03d06d6924fb4",
+            "requests/status_codes.py": "0ca5c66dfb00b9b85690fcb33fc706c34dec203124f5d212b6e06dbe2689e72d",
+            "requests/structures.py": "94ddc756ad15d779f652c122ee221f909f70f44ec3e41fe734219279838da158",
+            "requests/utils.py": "abc25b393acb11c7899a7f13f338a326d1bf2a3a74f9082464b7cfe9f8fbdde7"
+          },
+          "inputHash": "01c361c9cd8d7418cc1be6c9f309502f46a0adcaff389dd668a094a88613b013",
+          "labelHash": "e7b2f7ff2eea665d2cddfd4482ac59ac3fb79734abd8aa6aa8f734dbbadd9fbd",
+          "documentCount": 677,
+          "fileCount": 116
+        },
+        {
+          "id": "pallets__flask-5063",
+          "repo": "pallets/flask",
+          "baseCommit": "182ce3dd15dfa3537391c3efaf9c3ff407d134d4",
+          "snapshotUrl": "https://codeload.github.com/pallets/flask/tar.gz/182ce3dd15dfa3537391c3efaf9c3ff407d134d4",
+          "archiveHash": "65ad2f841eab91d6f8711f4ddcf5fdf972aad0a62f300b422af56a9628e4e2ed",
+          "sourceFileHashes": {
+            "src/flask/__init__.py": "f85c27310419f8c36d52e31ab9355f12b44a60d761ff117d2ba2b2032da74cb7",
+            "src/flask/__main__.py": "6d8b7d7846a845059d7a3107143f11131f63c5511d669b44085b15ec5e3d2279",
+            "src/flask/app.py": "364930553c007864f26346d87d0e3b0d69330e186c574ccaad1bef332b08a840",
+            "src/flask/blueprints.py": "d449d715d57276945d15de8d90baa199384a2a21b00bf10783d22805196d02df",
+            "src/flask/cli.py": "a4b9a758e6defc6e3f640150761ee4830a8f3314579b8a1485a51206924c7aae",
+            "src/flask/config.py": "584fd038985cd82c1ab2e6e7d9934cbbf99d0b9e25086ef15177567a3040188e",
+            "src/flask/ctx.py": "f91f8737986d998a14d15e0fcb7123bbc02d2d18216c1a0747527869fc7b56eb",
+            "src/flask/debughelpers.py": "fd1bc02f74d6e65a8c25e0955ad4d4eab483242ee39d16812fa3849159a8a325",
+            "src/flask/globals.py": "33342ac58f569f596c2c47eab863b37af7d3203134135a11aed845bdf28d3f3d",
+            "src/flask/helpers.py": "31c01de25c4e7d591e462225b71a0be29d6d84761317256a2deb83bf4125006d",
+            "src/flask/json/__init__.py": "a5db69a0ad9bd1bd6eed2c5bc777de33b55686c236d25d72180bdb616c5ac6f7",
+            "src/flask/json/provider.py": "43324b473bce7096def0847139f97a4f53f763326983a58f5a91f56cc83b04ea",
+            "src/flask/json/tag.py": "7f2b371c12ecb161ee300209b9371fd8ad1b0ada2c78f04a5c85804991048e75",
+            "src/flask/logging.py": "5989e0d1b2d3452fc226ba1c19c08b26989b1dfd65ca01c4fe983e2a8508438c",
+            "src/flask/scaffold.py": "12d4caff83fd4f57d51c2d29ec0a873508ac035f596a100d1729edccd18d04ac",
+            "src/flask/sessions.py": "6dfead27c4dafff0c7321a0d62e170f9858794f09f07ee67525878e9b29055b9",
+            "src/flask/signals.py": "b351f8c8a8dfddce5d815af8d55eac26913d74b26f99324c62e2b4ae4ab1decc",
+            "src/flask/templating.py": "3f0b397f02cc2b0866711758c4ded7d651fcb88f956da2246e68f61b48c4eb86",
+            "src/flask/testing.py": "c83f954bd78fa755aec2fb329f23ca9d384705e3acefa9b91992bd1feccc22b0",
+            "src/flask/typing.py": "2a0c5e81317dbfd5afba89e0785f0ba2822fa593dabb31ababd6577f78019587",
+            "src/flask/views.py": "2ee96db562f8a30545960c2b262f0608d3388a70b7c5bb36201958df56dd092e",
+            "src/flask/wrappers.py": "13746a9fd8c391f91a18d32a36495a020d93706d0b94d3fb88546de6664cece2"
+          },
+          "inputHash": "160a348daaf6d6c7f246829aac643778900326068da38dac64eb1efe5b1ac7fc",
+          "labelHash": "c8eec628a35c4e1a46fb1cd8614542b0171eda13619818704e1b4aab87a9a329",
+          "documentCount": 380,
+          "fileCount": 22
+        },
+        {
+          "id": "pallets__flask-4992",
+          "repo": "pallets/flask",
+          "baseCommit": "4c288bc97ea371817199908d0d9b12de9dae327e",
+          "snapshotUrl": "https://codeload.github.com/pallets/flask/tar.gz/4c288bc97ea371817199908d0d9b12de9dae327e",
+          "archiveHash": "3643d985acd981e2787a937fe773d8912c95988a28e8ee79832f4c5530e29896",
+          "sourceFileHashes": {
+            "src/flask/__init__.py": "cb74621666b9ca1383af7591214a0e48917428a8b808d8d04cdbb8591bcc89a7",
+            "src/flask/__main__.py": "6d8b7d7846a845059d7a3107143f11131f63c5511d669b44085b15ec5e3d2279",
+            "src/flask/app.py": "422d43f62d2f6bf7ca2b0d78a922713d1d0a2e0b3b822d7f951cfc5cab08338c",
+            "src/flask/blueprints.py": "9d296c3a0dffffbafd59ef15290a6d4c2061a470f3ad2b00709388d35d1dddc0",
+            "src/flask/cli.py": "a4b9a758e6defc6e3f640150761ee4830a8f3314579b8a1485a51206924c7aae",
+            "src/flask/config.py": "51ba3f8eecd262c00aa83daf0f7be6ea68ec3e8dc43890dd484cd8abc94a4c92",
+            "src/flask/ctx.py": "6c611042e176fdc1ea67764d31e31e106f0738b2640e52fcf2ed810710ab45aa",
+            "src/flask/debughelpers.py": "fd1bc02f74d6e65a8c25e0955ad4d4eab483242ee39d16812fa3849159a8a325",
+            "src/flask/globals.py": "33342ac58f569f596c2c47eab863b37af7d3203134135a11aed845bdf28d3f3d",
+            "src/flask/helpers.py": "efa15481302a200fabae2498f5e6ff9ae002906bd0ad9550b91a32269d4a4c1e",
+            "src/flask/json/__init__.py": "a5db69a0ad9bd1bd6eed2c5bc777de33b55686c236d25d72180bdb616c5ac6f7",
+            "src/flask/json/provider.py": "43324b473bce7096def0847139f97a4f53f763326983a58f5a91f56cc83b04ea",
+            "src/flask/json/tag.py": "7f2b371c12ecb161ee300209b9371fd8ad1b0ada2c78f04a5c85804991048e75",
+            "src/flask/logging.py": "5989e0d1b2d3452fc226ba1c19c08b26989b1dfd65ca01c4fe983e2a8508438c",
+            "src/flask/scaffold.py": "12d4caff83fd4f57d51c2d29ec0a873508ac035f596a100d1729edccd18d04ac",
+            "src/flask/sessions.py": "ebaa06944faff6269cf9e6f9e2d14ddc82c08c9d4579eb871d6c3df1455aa317",
+            "src/flask/signals.py": "1fb4300dc88af9db41c629e32a97b1a6094fd04ea4d0c2482e21564c8b5f9aa5",
+            "src/flask/templating.py": "3591a3224d577b651e48697ef9ae9a8fff57c8f2f52dfcdf31bbaf055e04bc75",
+            "src/flask/testing.py": "aa8314e4bf62322a6f35543ff3831a749c7782c2a848c1c3d1c41a6433f6deb1",
+            "src/flask/typing.py": "2a0c5e81317dbfd5afba89e0785f0ba2822fa593dabb31ababd6577f78019587",
+            "src/flask/views.py": "2ee96db562f8a30545960c2b262f0608d3388a70b7c5bb36201958df56dd092e",
+            "src/flask/wrappers.py": "7a5ded9f52e049457478d1a060c8ca2024f923ba862606e9221bdc8b89ebc10f"
+          },
+          "inputHash": "95eb153ef27a54b1dda9a9239c8cd4838d24bfb7f17051524d00b85e37b633fe",
+          "labelHash": "5c7344ef03a14fcf9049b387fbd86f1ba0ca3d43255035c7e1cc207a9e1babfd",
+          "documentCount": 383,
+          "fileCount": 22
+        },
+        {
+          "id": "pallets__flask-4045",
+          "repo": "pallets/flask",
+          "baseCommit": "d8c37f43724cd9fb0870f77877b7c4c7e38a19e0",
+          "snapshotUrl": "https://codeload.github.com/pallets/flask/tar.gz/d8c37f43724cd9fb0870f77877b7c4c7e38a19e0",
+          "archiveHash": "844fa3af247aa5004e4691f56ced6cbb1a26c6e6484385d1026ce970f28f273e",
+          "sourceFileHashes": {
+            "src/flask/__init__.py": "a9ce94aeef61c020e10ac72846cae4471e7db34eb117ac999353724d41194dd3",
+            "src/flask/__main__.py": "6d8b7d7846a845059d7a3107143f11131f63c5511d669b44085b15ec5e3d2279",
+            "src/flask/app.py": "b68a51cacdca7ce4ae6f9ede160a53bf749abbfe58fde0b39b7e932dad617500",
+            "src/flask/blueprints.py": "4491da7637d5d262c95fb1992fccf5d8236a9608b8934e6f607821098436569c",
+            "src/flask/cli.py": "88dd692f649ebc4e4d9af7b2fb45b09f11b79e2a595c8884fff11de25c7722e3",
+            "src/flask/config.py": "41730e6ad37b8ce3bd659f1217ef3e07a7512c4c27c14891378719d840eca78a",
+            "src/flask/ctx.py": "86d6af5bf5acb1045ccc5d49353153f118d6321aa747146045a60609b74277c0",
+            "src/flask/debughelpers.py": "c24e47b4bc0436c4387bcb64c5f067eb2914795443b8c6d008a82d1157ba8f19",
+            "src/flask/globals.py": "71677e4768541f756a3e19e640dc30f3ddad412e988ea83fc20f14bd6d4cecd3",
+            "src/flask/helpers.py": "1200d03393e11f6eb165b7708b822b4e978afce046e5fa2a822891559a9a0593",
+            "src/flask/json/__init__.py": "77e75bd8324c012ab41bb088f89be86de8511356ac351197d6b203435185f563",
+            "src/flask/json/tag.py": "7f2b371c12ecb161ee300209b9371fd8ad1b0ada2c78f04a5c85804991048e75",
+            "src/flask/logging.py": "d68fe18ab546a9d8fb4817444e7857ec80239251bcf515e5af0cffd828f34101",
+            "src/flask/scaffold.py": "71cf79a0a66ff57fbce26eae9921a31f8453f8c653b9509e021e4da6b43cbaa0",
+            "src/flask/sessions.py": "29bef3638a8120e536730d71339990fca9a061404315b5185a3964ab4105622b",
+            "src/flask/signals.py": "1d05a00445e5acb6c7c0b0685aa012b4929c37eaec075fc030ef3e559ecb0cea",
+            "src/flask/templating.py": "97de950f7f494349ee7b805c8fbc19e3e1565acfa9a4bc6f8010a9c034382809",
+            "src/flask/testing.py": "3ac1d3fb607bd1a6d61f7ba563d21b84b7215c87b28f72fe71f7036bcf30bf91",
+            "src/flask/typing.py": "eb98baf1e7e801f69c0e173d837faa0cf33225d4e0e1c80856fe1ebdcf02dd5f",
+            "src/flask/views.py": "1763e958f9687b8c74f74e885239cf72c3aa83962f99021f934eff9457800f8b",
+            "src/flask/wrappers.py": "e806c22038deecec61d372d818d6274e52a0cc2deafe55a0d41a541d385c942f"
+          },
+          "inputHash": "431e25e6646b51e8df4ab824cc246852f11bf0e3b03d48e2098bb032b6027c83",
+          "labelHash": "1c5f807807b1b33ee7cb33abf4905e4ebcb2f8b52b2040d4258b3e6e0a5db934",
+          "documentCount": 377,
+          "fileCount": 21
+        }
+      ]
+    },
+    "artifacts": {
+      "/workspace/scratch/83b0d7057773/swerank-model/modeling_hf_nomic_bert.py": "502ccfb9c2d5dac976109ac2f04dc3125d8540329e5d4af92bc587d6dc65edcd",
+      "/workspace/scratch/83b0d7057773/swerank-model/sentence_bert_config.json": "3d6a189af065b6fe6517e1f7fb201a8136da0efa14e9cc552de9708a485cc84d",
+      "/workspace/scratch/83b0d7057773/swerank-model/model.safetensors": "e40687da7f148e684648691facbaa2222503829afb9d21b9b3913034bef14f41",
+      "/workspace/scratch/83b0d7057773/swerank-model/vocab.txt": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+      "/workspace/scratch/83b0d7057773/swerank-model/README.md": "025af4ccb59a10393d0fd15580695c531656c10996576c6588c150c651ffe7c4",
+      "/workspace/scratch/83b0d7057773/swerank-model/.gitattributes": "11ad7efa24975ee4b0c3c3a38ed18737f0658a5f75a0a96787b576a78a023361",
+      "/workspace/scratch/83b0d7057773/swerank-model/tokenizer.json": "91f1def9b9391fdabe028cd3f3fcc4efd34e5d1f08c3bf2de513ebb5911a1854",
+      "/workspace/scratch/83b0d7057773/swerank-model/tokenizer_config.json": "8de9ab7560d7fb63338c00736faac7bb9d85d49da44c774c607e7766b59614ea",
+      "/workspace/scratch/83b0d7057773/swerank-model/modules.json": "f93c503b32fa7bc2e186843f0add961caa14eb68f7be516e327df3cadbcd541a",
+      "/workspace/scratch/83b0d7057773/swerank-model/config.json": "af32e52eb2adf0fd67cec785edfcfb806f77bbb776aeb568f668fbcda2569f49",
+      "/workspace/scratch/83b0d7057773/swerank-model/config_sentence_transformers.json": "8d19d58940bc82f359cc7a0df73cf7731d947eb6d6b56506a7c279302ca2dfda",
+      "/workspace/scratch/83b0d7057773/swerank-model/special_tokens_map.json": "5d5b662e421ea9fac075174bb0688ee0d9431699900b90662acd44b2a350503a",
+      "/workspace/scratch/83b0d7057773/swerank-code/modeling_hf_nomic_bert.py": "90570ba771cb802592f5bdccec9a9616f65f27151a559d8228d7d990f3807050",
+      "/workspace/scratch/83b0d7057773/swerank-code/configuration_hf_nomic_bert.py": "8b42dd8e1d73af914e227f0a38138686ef63121fb468815a4293f868d2071d74"
+    },
+    "sourceHashes": {
+      "prepare.py": "733e62e76505c0ee13680f4cb88d2528d8b03942c5acdc2146053141f7014ef3",
+      "retrieval.py": "4e97a5f394e4f66fad9be6e3165591de1555a3a9b5ae6cb896782d71c7ae518e",
+      "run.py": "11bf5d0a5bb7b866439344e9dcc8f875de32a7abe3b0531a93691831a9804e1f"
+    },
+    "versions": {
+      "torch": "2.5.1+cpu",
+      "transformers": "4.52.4",
+      "huggingface-hub": "0.36.0",
+      "einops": "0.8.1",
+      "safetensors": "0.6.2",
+      "pyarrow": "19.0.1"
+    }
+  },
+  "records": [
+    {
+      "id": "psf__requests-2674",
+      "repo": "psf/requests",
+      "baseCommit": "0be38a0c37c59c4b66ce908731da15b401655113",
+      "inputHash": "19d8ac4853b201f437eb4259b8b379ebfc91421fbbd28857370e2fb7c0265a42",
+      "labelHash": "d6d33846c658c806d02fae13d0ab5b664caa970e5d99d3e6de607772c9ec8565",
+      "predictionHash": "998cb284c48b71dfaf2cb5e876ed0e635da5fb7ba5dae5c68f424c8ce43174d9",
+      "documents": 636,
+      "files": 79,
+      "fallbackChunks": 0,
+      "bm25": {
+        "mrr": 1.0,
+        "hit1": 1,
+        "recall5": 1.0,
+        "recall10": 1.0,
+        "goldCount": 1,
+        "goldRanks": [
+          1
+        ]
+      },
+      "swerank": {
+        "mrr": 0.14285714285714285,
+        "hit1": 0,
+        "recall5": 0.0,
+        "recall10": 1.0,
+        "goldCount": 1,
+        "goldRanks": [
+          7
+        ]
+      },
+      "indexing": {
+        "seconds": 466.655534395999,
+        "truncated": 87,
+        "count": 636
+      },
+      "queryEncoding": {
+        "seconds": 0.22103212700312724,
+        "truncated": 0,
+        "count": 1
+      },
+      "rankingSeconds": 0.000880876999872271,
+      "bm25Seconds": 0.040883515001041815
+    },
+    {
+      "id": "psf__requests-1963",
+      "repo": "psf/requests",
+      "baseCommit": "110048f9837f8441ea536804115e80b69f400277",
+      "inputHash": "2df1b95397a06fec4da591ed5cca19801d8bd5c67469a8577f340d434f26528f",
+      "labelHash": "721cb01c5fd12c032d766e68e87e8edf92e450a3f6f45731b0ff5eec65a47387",
+      "predictionHash": "048f75668efbf8fd48a09c0479887f86206e7181189090cc7c545987b9e8aaa1",
+      "documents": 560,
+      "files": 72,
+      "fallbackChunks": 0,
+      "bm25": {
+        "mrr": 1.0,
+        "hit1": 1,
+        "recall5": 1.0,
+        "recall10": 1.0,
+        "goldCount": 1,
+        "goldRanks": [
+          1
+        ]
+      },
+      "swerank": {
+        "mrr": 1.0,
+        "hit1": 1,
+        "recall5": 1.0,
+        "recall10": 1.0,
+        "goldCount": 1,
+        "goldRanks": [
+          1
+        ]
+      },
+      "indexing": {
+        "seconds": 421.3686915990038,
+        "truncated": 79,
+        "count": 560
+      },
+      "queryEncoding": {
+        "seconds": 0.35126680599933024,
+        "truncated": 0,
+        "count": 1
+      },
+      "rankingSeconds": 0.0004510099970502779,
+      "bm25Seconds": 0.036291457996412646
+    },
+    {
+      "id": "psf__requests-863",
+      "repo": "psf/requests",
+      "baseCommit": "a0df2cbb10419037d11d04352b3175405ab52941",
+      "inputHash": "01c361c9cd8d7418cc1be6c9f309502f46a0adcaff389dd668a094a88613b013",
+      "labelHash": "e7b2f7ff2eea665d2cddfd4482ac59ac3fb79734abd8aa6aa8f734dbbadd9fbd",
+      "predictionHash": "acc08113e55b9176b6bbd13818230b20ae9ab2323827d1f49b273d3dacc6de65",
+      "documents": 677,
+      "files": 116,
+      "fallbackChunks": 37,
+      "bm25": {
+        "mrr": 0.5,
+        "hit1": 0,
+        "recall5": 1.0,
+        "recall10": 1.0,
+        "goldCount": 1,
+        "goldRanks": [
+          2
+        ]
+      },
+      "swerank": {
+        "mrr": 0.25,
+        "hit1": 0,
+        "recall5": 1.0,
+        "recall10": 1.0,
+        "goldCount": 1,
+        "goldRanks": [
+          4
+        ]
+      },
+      "indexing": {
+        "seconds": 526.6863171290024,
+        "truncated": 135,
+        "count": 677
+      },
+      "queryEncoding": {
+        "seconds": 0.36438986899884185,
+        "truncated": 0,
+        "count": 1
+      },
+      "rankingSeconds": 0.0005257619995973073,
+      "bm25Seconds": 0.060741178996977396
+    },
+    {
+      "id": "pallets__flask-5063",
+      "repo": "pallets/flask",
+      "baseCommit": "182ce3dd15dfa3537391c3efaf9c3ff407d134d4",
+      "inputHash": "160a348daaf6d6c7f246829aac643778900326068da38dac64eb1efe5b1ac7fc",
+      "labelHash": "c8eec628a35c4e1a46fb1cd8614542b0171eda13619818704e1b4aab87a9a329",
+      "predictionHash": "be0043894ee09754a6f08da3ac9b643168deaa7d780aeacf19187d94bdec8bdf",
+      "documents": 380,
+      "files": 22,
+      "fallbackChunks": 0,
+      "bm25": {
+        "mrr": 1.0,
+        "hit1": 1,
+        "recall5": 1.0,
+        "recall10": 1.0,
+        "goldCount": 1,
+        "goldRanks": [
+          1
+        ]
+      },
+      "swerank": {
+        "mrr": 0.2,
+        "hit1": 0,
+        "recall5": 1.0,
+        "recall10": 1.0,
+        "goldCount": 1,
+        "goldRanks": [
+          5
+        ]
+      },
+      "indexing": {
+        "seconds": 283.4802988279989,
+        "truncated": 43,
+        "count": 380
+      },
+      "queryEncoding": {
+        "seconds": 0.8605546090038843,
+        "truncated": 1,
+        "count": 1
+      },
+      "rankingSeconds": 0.00031123899680096656,
+      "bm25Seconds": 0.03658482500031823
+    },
+    {
+      "id": "pallets__flask-4992",
+      "repo": "pallets/flask",
+      "baseCommit": "4c288bc97ea371817199908d0d9b12de9dae327e",
+      "inputHash": "95eb153ef27a54b1dda9a9239c8cd4838d24bfb7f17051524d00b85e37b633fe",
+      "labelHash": "5c7344ef03a14fcf9049b387fbd86f1ba0ca3d43255035c7e1cc207a9e1babfd",
+      "predictionHash": "c12aff48146defee7f3038f8a57cbaa2494c1abf7e9294363cbe5720136c0aa5",
+      "documents": 383,
+      "files": 22,
+      "fallbackChunks": 0,
+      "bm25": {
+        "mrr": 1.0,
+        "hit1": 1,
+        "recall5": 1.0,
+        "recall10": 1.0,
+        "goldCount": 1,
+        "goldRanks": [
+          1
+        ]
+      },
+      "swerank": {
+        "mrr": 1.0,
+        "hit1": 1,
+        "recall5": 1.0,
+        "recall10": 1.0,
+        "goldCount": 1,
+        "goldRanks": [
+          1
+        ]
+      },
+      "indexing": {
+        "seconds": 286.2442116120001,
+        "truncated": 45,
+        "count": 383
+      },
+      "queryEncoding": {
+        "seconds": 0.659418335002556,
+        "truncated": 0,
+        "count": 1
+      },
+      "rankingSeconds": 0.00032388799445470795,
+      "bm25Seconds": 0.0347183350022533
+    },
+    {
+      "id": "pallets__flask-4045",
+      "repo": "pallets/flask",
+      "baseCommit": "d8c37f43724cd9fb0870f77877b7c4c7e38a19e0",
+      "inputHash": "431e25e6646b51e8df4ab824cc246852f11bf0e3b03d48e2098bb032b6027c83",
+      "labelHash": "1c5f807807b1b33ee7cb33abf4905e4ebcb2f8b52b2040d4258b3e6e0a5db934",
+      "predictionHash": "b9ded72836f1ce3c896719e99f59c96d5936136637b69acc59480e5e288d5187",
+      "documents": 377,
+      "files": 21,
+      "fallbackChunks": 0,
+      "bm25": {
+        "mrr": 0.3333333333333333,
+        "hit1": 0,
+        "recall5": 1.0,
+        "recall10": 1.0,
+        "goldCount": 1,
+        "goldRanks": [
+          3
+        ]
+      },
+      "swerank": {
+        "mrr": 1.0,
+        "hit1": 1,
+        "recall5": 1.0,
+        "recall10": 1.0,
+        "goldCount": 1,
+        "goldRanks": [
+          1
+        ]
+      },
+      "indexing": {
+        "seconds": 281.21929535000527,
+        "truncated": 40,
+        "count": 377
+      },
+      "queryEncoding": {
+        "seconds": 0.15495641799498117,
+        "truncated": 0,
+        "count": 1
+      },
+      "rankingSeconds": 0.000364669002010487,
+      "bm25Seconds": 0.017269148003833834
+    }
+  ],
+  "aggregate": {
+    "bm25": {
+      "mrr": 0.8055555555555556,
+      "hit1": 0.6666666666666666,
+      "recall5": 1.0,
+      "recall10": 1.0
+    },
+    "swerank": {
+      "mrr": 0.5988095238095238,
+      "hit1": 0.5,
+      "recall5": 0.8333333333333334,
+      "recall10": 1.0
+    }
+  },
+  "initializationSeconds": 4.499978940999426,
+  "promotion": false,
+  "limits": "Six preselected public benchmark cases. Training overlap unknown. 512-token float32 CPU variant, not official paper reproduction. No reranker or RuVector graph arm yet.",
+  "evidence": {
+    "psf__requests-2674": {
+      "predictions": {
+        "bm25": [
+          {
+            "path": "requests/adapters.py",
+            "score": 38.34935590455429
+          },
+          {
+            "path": "requests/utils.py",
+            "score": 36.736586818478685
+          },
+          {
+            "path": "requests/packages/urllib3/connectionpool.py",
+            "score": 31.37744583727999
+          },
+          {
+            "path": "requests/packages/chardet/hebrewprober.py",
+            "score": 29.58732353706044
+          },
+          {
+            "path": "requests/packages/chardet/jpcntx.py",
+            "score": 29.418579190670297
+          },
+          {
+            "path": "requests/packages/urllib3/poolmanager.py",
+            "score": 28.324870984262063
+          },
+          {
+            "path": "requests/packages/urllib3/util/retry.py",
+            "score": 27.68817891844097
+          },
+          {
+            "path": "requests/packages/urllib3/packages/six.py",
+            "score": 27.683392071028514
+          },
+          {
+            "path": "requests/packages/urllib3/util/timeout.py",
+            "score": 26.937062414155815
+          },
+          {
+            "path": "requests/packages/chardet/compat.py",
+            "score": 26.834515443176368
+          },
+          {
+            "path": "requests/packages/urllib3/util/ssl_.py",
+            "score": 26.51253758078459
+          },
+          {
+            "path": "requests/packages/urllib3/__init__.py",
+            "score": 26.508911326683723
+          },
+          {
+            "path": "requests/packages/urllib3/exceptions.py",
+            "score": 26.06227919699991
+          },
+          {
+            "path": "requests/packages/chardet/eucjpprober.py",
+            "score": 25.949402748621505
+          },
+          {
+            "path": "requests/packages/urllib3/response.py",
+            "score": 25.9331703392765
+          },
+          {
+            "path": "requests/packages/urllib3/request.py",
+            "score": 25.761333768580247
+          },
+          {
+            "path": "requests/cookies.py",
+            "score": 25.729963446940516
+          },
+          {
+            "path": "requests/packages/chardet/mbcharsetprober.py",
+            "score": 25.564227742489514
+          },
+          {
+            "path": "requests/packages/chardet/codingstatemachine.py",
+            "score": 25.463374545774556
+          },
+          {
+            "path": "requests/packages/chardet/sjisprober.py",
+            "score": 25.251923953003352
+          },
+          {
+            "path": "requests/packages/chardet/utf8prober.py",
+            "score": 25.11198564729812
+          },
+          {
+            "path": "requests/packages/chardet/cp949prober.py",
+            "score": 25.102321899664478
+          },
+          {
+            "path": "requests/exceptions.py",
+            "score": 24.930656498586632
+          },
+          {
+            "path": "requests/packages/chardet/escprober.py",
+            "score": 24.500502195656296
+          },
+          {
+            "path": "requests/packages/urllib3/connection.py",
+            "score": 23.96287305186925
+          },
+          {
+            "path": "requests/models.py",
+            "score": 23.842818222396225
+          },
+          {
+            "path": "requests/packages/chardet/constants.py",
+            "score": 23.78056229193971
+          },
+          {
+            "path": "requests/packages/chardet/gb2312prober.py",
+            "score": 23.698702958989685
+          },
+          {
+            "path": "requests/packages/chardet/big5prober.py",
+            "score": 23.64052261349016
+          },
+          {
+            "path": "requests/packages/chardet/euckrprober.py",
+            "score": 23.64052261349016
+          },
+          {
+            "path": "requests/packages/chardet/euctwprober.py",
+            "score": 23.64052261349016
+          },
+          {
+            "path": "requests/sessions.py",
+            "score": 23.5771354641671
+          },
+          {
+            "path": "requests/packages/urllib3/packages/ssl_match_hostname/_implementation.py",
+            "score": 23.040703480829755
+          },
+          {
+            "path": "requests/packages/urllib3/_collections.py",
+            "score": 23.011625896370028
+          },
+          {
+            "path": "requests/packages/urllib3/util/connection.py",
+            "score": 22.93045038155763
+          },
+          {
+            "path": "requests/packages/chardet/sbcharsetprober.py",
+            "score": 22.926340626958464
+          },
+          {
+            "path": "requests/packages/chardet/__init__.py",
+            "score": 22.90341056830491
+          },
+          {
+            "path": "requests/packages/chardet/charsetgroupprober.py",
+            "score": 22.248785758534066
+          },
+          {
+            "path": "requests/packages/chardet/charsetprober.py",
+            "score": 21.859319608023664
+          },
+          {
+            "path": "requests/packages/chardet/mbcsgroupprober.py",
+            "score": 21.535897474097936
+          },
+          {
+            "path": "requests/packages/chardet/chardistribution.py",
+            "score": 21.482778528811206
+          },
+          {
+            "path": "requests/packages/chardet/universaldetector.py",
+            "score": 21.012255830852308
+          },
+          {
+            "path": "requests/api.py",
+            "score": 19.681671972776595
+          },
+          {
+            "path": "requests/packages/urllib3/packages/ordered_dict.py",
+            "score": 19.6793789016173
+          },
+          {
+            "path": "requests/packages/chardet/sbcsgroupprober.py",
+            "score": 19.412827445175346
+          },
+          {
+            "path": "requests/packages/urllib3/filepost.py",
+            "score": 19.077415806694205
+          },
+          {
+            "path": "requests/packages/urllib3/util/url.py",
+            "score": 18.606338360402614
+          },
+          {
+            "path": "requests/__init__.py",
+            "score": 17.348995957927773
+          },
+          {
+            "path": "requests/structures.py",
+            "score": 17.277284339451782
+          },
+          {
+            "path": "requests/packages/chardet/chardetect.py",
+            "score": 16.464800476399663
+          },
+          {
+            "path": "requests/packages/urllib3/contrib/pyopenssl.py",
+            "score": 16.435205609822255
+          },
+          {
+            "path": "requests/packages/urllib3/contrib/ntlmpool.py",
+            "score": 15.757544490886275
+          },
+          {
+            "path": "requests/packages/urllib3/fields.py",
+            "score": 15.347703207599606
+          },
+          {
+            "path": "requests/compat.py",
+            "score": 15.312011734011449
+          },
+          {
+            "path": "requests/auth.py",
+            "score": 14.078412800586097
+          },
+          {
+            "path": "requests/packages/chardet/latin1prober.py",
+            "score": 13.502250913214844
+          },
+          {
+            "path": "requests/packages/urllib3/util/response.py",
+            "score": 13.488675227582775
+          },
+          {
+            "path": "requests/hooks.py",
+            "score": 13.039700722972729
+          },
+          {
+            "path": "requests/packages/chardet/mbcssm.py",
+            "score": 12.567544866063738
+          },
+          {
+            "path": "requests/packages/chardet/jisfreq.py",
+            "score": 12.551290190376491
+          },
+          {
+            "path": "requests/packages/urllib3/util/__init__.py",
+            "score": 12.483518254270967
+          },
+          {
+            "path": "requests/packages/chardet/escsm.py",
+            "score": 12.146096179850561
+          },
+          {
+            "path": "requests/packages/chardet/langbulgarianmodel.py",
+            "score": 11.492982231263529
+          },
+          {
+            "path": "requests/packages/chardet/euctwfreq.py",
+            "score": 11.143166125770794
+          },
+          {
+            "path": "requests/packages/chardet/gb2312freq.py",
+            "score": 11.021186906699185
+          },
+          {
+            "path": "requests/packages/chardet/big5freq.py",
+            "score": 11.002886541768287
+          },
+          {
+            "path": "requests/packages/chardet/langhungarianmodel.py",
+            "score": 10.79699482311966
+          },
+          {
+            "path": "requests/packages/chardet/langgreekmodel.py",
+            "score": 10.550695600244367
+          },
+          {
+            "path": "requests/packages/urllib3/util/request.py",
+            "score": 10.404802178363113
+          },
+          {
+            "path": "requests/packages/chardet/euckrfreq.py",
+            "score": 10.190520513209863
+          },
+          {
+            "path": "requests/status_codes.py",
+            "score": 10.052855091287348
+          },
+          {
+            "path": "requests/packages/chardet/langhebrewmodel.py",
+            "score": 8.633459509098016
+          },
+          {
+            "path": "requests/packages/chardet/langthaimodel.py",
+            "score": 8.579120968397852
+          },
+          {
+            "path": "requests/packages/chardet/langcyrillicmodel.py",
+            "score": 8.573336742052573
+          },
+          {
+            "path": "requests/certs.py",
+            "score": 8.385575914167793
+          },
+          {
+            "path": "requests/packages/urllib3/packages/ssl_match_hostname/__init__.py",
+            "score": 8.194439861164426
+          },
+          {
+            "path": "requests/packages/urllib3/contrib/__init__.py",
+            "score": 2.0471739493186516
+          },
+          {
+            "path": "requests/packages/urllib3/packages/__init__.py",
+            "score": 2.0460156312258277
+          },
+          {
+            "path": "requests/packages/__init__.py",
+            "score": 1.962581735093646
+          }
+        ],
+        "swerank": [
+          {
+            "path": "requests/exceptions.py",
+            "score": 0.6962616443634033
+          },
+          {
+            "path": "requests/packages/urllib3/exceptions.py",
+            "score": 0.6303704380989075
+          },
+          {
+            "path": "requests/packages/urllib3/__init__.py",
+            "score": 0.5981136560440063
+          },
+          {
+            "path": "requests/packages/urllib3/response.py",
+            "score": 0.5690150260925293
+          },
+          {
+            "path": "requests/packages/urllib3/util/retry.py",
+            "score": 0.5642220377922058
+          },
+          {
+            "path": "requests/packages/urllib3/util/timeout.py",
+            "score": 0.5571035146713257
+          },
+          {
+            "path": "requests/adapters.py",
+            "score": 0.5494955778121948
+          },
+          {
+            "path": "requests/packages/urllib3/connectionpool.py",
+            "score": 0.5403302907943726
+          },
+          {
+            "path": "requests/packages/urllib3/connection.py",
+            "score": 0.5378440022468567
+          },
+          {
+            "path": "requests/packages/__init__.py",
+            "score": 0.5314345359802246
+          },
+          {
+            "path": "requests/packages/urllib3/poolmanager.py",
+            "score": 0.5296121835708618
+          },
+          {
+            "path": "requests/packages/urllib3/util/__init__.py",
+            "score": 0.5084142088890076
+          },
+          {
+            "path": "requests/packages/urllib3/_collections.py",
+            "score": 0.4991151690483093
+          },
+          {
+            "path": "requests/packages/urllib3/util/connection.py",
+            "score": 0.4989456832408905
+          },
+          {
+            "path": "requests/__init__.py",
+            "score": 0.49822694063186646
+          },
+          {
+            "path": "requests/packages/urllib3/packages/__init__.py",
+            "score": 0.49654677510261536
+          },
+          {
+            "path": "requests/packages/urllib3/util/url.py",
+            "score": 0.4888976812362671
+          },
+          {
+            "path": "requests/packages/urllib3/packages/ssl_match_hostname/__init__.py",
+            "score": 0.48402339220046997
+          },
+          {
+            "path": "requests/packages/urllib3/request.py",
+            "score": 0.4817003905773163
+          },
+          {
+            "path": "requests/packages/urllib3/util/request.py",
+            "score": 0.47525954246520996
+          },
+          {
+            "path": "requests/packages/urllib3/util/ssl_.py",
+            "score": 0.44719743728637695
+          },
+          {
+            "path": "requests/compat.py",
+            "score": 0.4423248767852783
+          },
+          {
+            "path": "requests/packages/urllib3/packages/six.py",
+            "score": 0.43983781337738037
+          },
+          {
+            "path": "requests/packages/urllib3/contrib/__init__.py",
+            "score": 0.4306829571723938
+          },
+          {
+            "path": "requests/models.py",
+            "score": 0.42496854066848755
+          },
+          {
+            "path": "requests/packages/urllib3/packages/ordered_dict.py",
+            "score": 0.4218689203262329
+          },
+          {
+            "path": "requests/packages/urllib3/contrib/ntlmpool.py",
+            "score": 0.4169144034385681
+          },
+          {
+            "path": "requests/status_codes.py",
+            "score": 0.4113010764122009
+          },
+          {
+            "path": "requests/auth.py",
+            "score": 0.4102502465248108
+          },
+          {
+            "path": "requests/utils.py",
+            "score": 0.40659260749816895
+          },
+          {
+            "path": "requests/packages/urllib3/contrib/pyopenssl.py",
+            "score": 0.40392065048217773
+          },
+          {
+            "path": "requests/packages/urllib3/fields.py",
+            "score": 0.401798278093338
+          },
+          {
+            "path": "requests/packages/urllib3/packages/ssl_match_hostname/_implementation.py",
+            "score": 0.4007602334022522
+          },
+          {
+            "path": "requests/packages/urllib3/filepost.py",
+            "score": 0.3932992219924927
+          },
+          {
+            "path": "requests/api.py",
+            "score": 0.39166444540023804
+          },
+          {
+            "path": "requests/sessions.py",
+            "score": 0.39127951860427856
+          },
+          {
+            "path": "requests/hooks.py",
+            "score": 0.3539900779724121
+          },
+          {
+            "path": "requests/packages/chardet/__init__.py",
+            "score": 0.3494252562522888
+          },
+          {
+            "path": "requests/cookies.py",
+            "score": 0.33003538846969604
+          },
+          {
+            "path": "requests/packages/urllib3/util/response.py",
+            "score": 0.32908955216407776
+          },
+          {
+            "path": "requests/structures.py",
+            "score": 0.32652974128723145
+          },
+          {
+            "path": "requests/packages/chardet/compat.py",
+            "score": 0.3014012575149536
+          },
+          {
+            "path": "requests/packages/chardet/chardetect.py",
+            "score": 0.2882430851459503
+          },
+          {
+            "path": "requests/packages/chardet/universaldetector.py",
+            "score": 0.275898277759552
+          },
+          {
+            "path": "requests/packages/chardet/utf8prober.py",
+            "score": 0.2722986340522766
+          },
+          {
+            "path": "requests/packages/chardet/langhebrewmodel.py",
+            "score": 0.26479917764663696
+          },
+          {
+            "path": "requests/packages/chardet/langgreekmodel.py",
+            "score": 0.24573318660259247
+          },
+          {
+            "path": "requests/packages/chardet/gb2312prober.py",
+            "score": 0.24220363795757294
+          },
+          {
+            "path": "requests/packages/chardet/charsetprober.py",
+            "score": 0.24141210317611694
+          },
+          {
+            "path": "requests/packages/chardet/langthaimodel.py",
+            "score": 0.2355467528104782
+          },
+          {
+            "path": "requests/packages/chardet/latin1prober.py",
+            "score": 0.23454920947551727
+          },
+          {
+            "path": "requests/packages/chardet/jpcntx.py",
+            "score": 0.22837960720062256
+          },
+          {
+            "path": "requests/packages/chardet/langbulgarianmodel.py",
+            "score": 0.22762608528137207
+          },
+          {
+            "path": "requests/packages/chardet/gb2312freq.py",
+            "score": 0.22701291739940643
+          },
+          {
+            "path": "requests/packages/chardet/langhungarianmodel.py",
+            "score": 0.22535748779773712
+          },
+          {
+            "path": "requests/packages/chardet/codingstatemachine.py",
+            "score": 0.2250949740409851
+          },
+          {
+            "path": "requests/packages/chardet/chardistribution.py",
+            "score": 0.21983975172042847
+          },
+          {
+            "path": "requests/certs.py",
+            "score": 0.21798881888389587
+          },
+          {
+            "path": "requests/packages/chardet/escprober.py",
+            "score": 0.2177814394235611
+          },
+          {
+            "path": "requests/packages/chardet/sjisprober.py",
+            "score": 0.21752634644508362
+          },
+          {
+            "path": "requests/packages/chardet/constants.py",
+            "score": 0.2165798544883728
+          },
+          {
+            "path": "requests/packages/chardet/hebrewprober.py",
+            "score": 0.21644125878810883
+          },
+          {
+            "path": "requests/packages/chardet/eucjpprober.py",
+            "score": 0.212845116853714
+          },
+          {
+            "path": "requests/packages/chardet/escsm.py",
+            "score": 0.20841756463050842
+          },
+          {
+            "path": "requests/packages/chardet/mbcsgroupprober.py",
+            "score": 0.2077586054801941
+          },
+          {
+            "path": "requests/packages/chardet/charsetgroupprober.py",
+            "score": 0.20480498671531677
+          },
+          {
+            "path": "requests/packages/chardet/euckrfreq.py",
+            "score": 0.2041260004043579
+          },
+          {
+            "path": "requests/packages/chardet/mbcharsetprober.py",
+            "score": 0.20182517170906067
+          },
+          {
+            "path": "requests/packages/chardet/langcyrillicmodel.py",
+            "score": 0.20003648102283478
+          },
+          {
+            "path": "requests/packages/chardet/euckrprober.py",
+            "score": 0.1996833086013794
+          },
+          {
+            "path": "requests/packages/chardet/sbcharsetprober.py",
+            "score": 0.1978442370891571
+          },
+          {
+            "path": "requests/packages/chardet/big5prober.py",
+            "score": 0.19318124651908875
+          },
+          {
+            "path": "requests/packages/chardet/euctwprober.py",
+            "score": 0.1881641447544098
+          },
+          {
+            "path": "requests/packages/chardet/mbcssm.py",
+            "score": 0.1872256100177765
+          },
+          {
+            "path": "requests/packages/chardet/jisfreq.py",
+            "score": 0.18550056219100952
+          },
+          {
+            "path": "requests/packages/chardet/big5freq.py",
+            "score": 0.1741003394126892
+          },
+          {
+            "path": "requests/packages/chardet/sbcsgroupprober.py",
+            "score": 0.17350366711616516
+          },
+          {
+            "path": "requests/packages/chardet/cp949prober.py",
+            "score": 0.14418594539165497
+          },
+          {
+            "path": "requests/packages/chardet/euctwfreq.py",
+            "score": 0.13988877832889557
+          }
+        ]
+      },
+      "goldFiles": [
+        "requests/adapters.py"
+      ]
+    },
+    "psf__requests-1963": {
+      "predictions": {
+        "bm25": [
+          {
+            "path": "requests/sessions.py",
+            "score": 55.31785453682398
+          },
+          {
+            "path": "requests/api.py",
+            "score": 45.39508384285467
+          },
+          {
+            "path": "requests/packages/urllib3/connectionpool.py",
+            "score": 44.09323524765164
+          },
+          {
+            "path": "requests/packages/urllib3/poolmanager.py",
+            "score": 38.26432130491989
+          },
+          {
+            "path": "requests/status_codes.py",
+            "score": 34.80308674434309
+          },
+          {
+            "path": "requests/models.py",
+            "score": 34.322507379544376
+          },
+          {
+            "path": "requests/packages/urllib3/util.py",
+            "score": 31.71949105338374
+          },
+          {
+            "path": "requests/packages/urllib3/contrib/ntlmpool.py",
+            "score": 29.1851291543634
+          },
+          {
+            "path": "requests/cookies.py",
+            "score": 28.559459015584817
+          },
+          {
+            "path": "requests/__init__.py",
+            "score": 26.85339756074285
+          },
+          {
+            "path": "requests/packages/urllib3/request.py",
+            "score": 26.351115006533394
+          },
+          {
+            "path": "requests/adapters.py",
+            "score": 22.856971896773935
+          },
+          {
+            "path": "requests/packages/urllib3/contrib/pyopenssl.py",
+            "score": 22.7919052881801
+          },
+          {
+            "path": "requests/packages/urllib3/packages/six.py",
+            "score": 22.712788134574154
+          },
+          {
+            "path": "requests/packages/urllib3/response.py",
+            "score": 22.657959998454835
+          },
+          {
+            "path": "requests/packages/urllib3/exceptions.py",
+            "score": 21.963185599338576
+          },
+          {
+            "path": "requests/packages/urllib3/connection.py",
+            "score": 21.808200953394135
+          },
+          {
+            "path": "requests/packages/chardet/constants.py",
+            "score": 21.17465295526582
+          },
+          {
+            "path": "requests/packages/urllib3/packages/ordered_dict.py",
+            "score": 20.97251502227852
+          },
+          {
+            "path": "requests/utils.py",
+            "score": 20.78205970839387
+          },
+          {
+            "path": "requests/packages/chardet/cp949prober.py",
+            "score": 20.6677433462491
+          },
+          {
+            "path": "requests/packages/chardet/hebrewprober.py",
+            "score": 20.60548907788325
+          },
+          {
+            "path": "requests/structures.py",
+            "score": 20.58234556916735
+          },
+          {
+            "path": "requests/packages/chardet/codingstatemachine.py",
+            "score": 20.290288379727834
+          },
+          {
+            "path": "requests/packages/chardet/gb2312prober.py",
+            "score": 19.682537348315968
+          },
+          {
+            "path": "requests/packages/chardet/big5prober.py",
+            "score": 19.634714313271374
+          },
+          {
+            "path": "requests/packages/chardet/euckrprober.py",
+            "score": 19.634714313271374
+          },
+          {
+            "path": "requests/packages/chardet/euctwprober.py",
+            "score": 19.634714313271374
+          },
+          {
+            "path": "requests/packages/chardet/chardistribution.py",
+            "score": 19.259955762950558
+          },
+          {
+            "path": "requests/packages/chardet/charsetprober.py",
+            "score": 18.94913101952355
+          },
+          {
+            "path": "requests/packages/chardet/universaldetector.py",
+            "score": 18.449985773208443
+          },
+          {
+            "path": "requests/packages/chardet/mbcsgroupprober.py",
+            "score": 18.3937908818466
+          },
+          {
+            "path": "requests/packages/chardet/charsetgroupprober.py",
+            "score": 17.980681556197638
+          },
+          {
+            "path": "requests/packages/chardet/utf8prober.py",
+            "score": 17.966778935804566
+          },
+          {
+            "path": "requests/packages/chardet/mbcharsetprober.py",
+            "score": 17.922366994642807
+          },
+          {
+            "path": "requests/exceptions.py",
+            "score": 17.92183643505052
+          },
+          {
+            "path": "requests/packages/urllib3/fields.py",
+            "score": 17.816405963593443
+          },
+          {
+            "path": "requests/packages/chardet/__init__.py",
+            "score": 17.694711847276654
+          },
+          {
+            "path": "requests/packages/chardet/eucjpprober.py",
+            "score": 17.427383196443788
+          },
+          {
+            "path": "requests/packages/urllib3/packages/ssl_match_hostname/_implementation.py",
+            "score": 17.38935552532365
+          },
+          {
+            "path": "requests/packages/chardet/escprober.py",
+            "score": 17.387578436639735
+          },
+          {
+            "path": "requests/auth.py",
+            "score": 17.185631253129404
+          },
+          {
+            "path": "requests/packages/chardet/sjisprober.py",
+            "score": 17.17127988166631
+          },
+          {
+            "path": "requests/packages/chardet/sbcharsetprober.py",
+            "score": 16.80253105029463
+          },
+          {
+            "path": "requests/packages/chardet/sbcsgroupprober.py",
+            "score": 16.65531683169447
+          },
+          {
+            "path": "requests/packages/chardet/compat.py",
+            "score": 15.784622629171382
+          },
+          {
+            "path": "requests/packages/chardet/latin1prober.py",
+            "score": 13.91798669125927
+          },
+          {
+            "path": "requests/packages/urllib3/_collections.py",
+            "score": 13.384280418341328
+          },
+          {
+            "path": "requests/packages/chardet/jpcntx.py",
+            "score": 13.300868016989725
+          },
+          {
+            "path": "requests/packages/chardet/mbcssm.py",
+            "score": 13.297452987958193
+          },
+          {
+            "path": "requests/packages/urllib3/__init__.py",
+            "score": 13.1536178177312
+          },
+          {
+            "path": "requests/packages/chardet/escsm.py",
+            "score": 13.117933075738328
+          },
+          {
+            "path": "requests/packages/chardet/euctwfreq.py",
+            "score": 12.515798277012458
+          },
+          {
+            "path": "requests/packages/chardet/big5freq.py",
+            "score": 10.931287864325947
+          },
+          {
+            "path": "requests/packages/chardet/langthaimodel.py",
+            "score": 10.53197741709185
+          },
+          {
+            "path": "requests/packages/chardet/gb2312freq.py",
+            "score": 10.12266835621112
+          },
+          {
+            "path": "requests/packages/chardet/langhebrewmodel.py",
+            "score": 10.098491902490732
+          },
+          {
+            "path": "requests/packages/chardet/langhungarianmodel.py",
+            "score": 9.409724168940608
+          },
+          {
+            "path": "requests/packages/chardet/jisfreq.py",
+            "score": 9.10866305552961
+          },
+          {
+            "path": "requests/packages/chardet/langbulgarianmodel.py",
+            "score": 8.940489687732706
+          },
+          {
+            "path": "requests/packages/urllib3/filepost.py",
+            "score": 8.863077596264091
+          },
+          {
+            "path": "requests/packages/chardet/euckrfreq.py",
+            "score": 8.740841789960793
+          },
+          {
+            "path": "requests/packages/chardet/langgreekmodel.py",
+            "score": 8.739469679556699
+          },
+          {
+            "path": "requests/packages/chardet/chardetect.py",
+            "score": 8.31825833601533
+          },
+          {
+            "path": "requests/packages/chardet/langcyrillicmodel.py",
+            "score": 7.777572758135088
+          },
+          {
+            "path": "requests/hooks.py",
+            "score": 7.706425017766513
+          },
+          {
+            "path": "requests/certs.py",
+            "score": 7.4939049366001464
+          },
+          {
+            "path": "requests/packages/urllib3/packages/ssl_match_hostname/__init__.py",
+            "score": 4.749800748609372
+          },
+          {
+            "path": "requests/compat.py",
+            "score": 4.029929506764164
+          },
+          {
+            "path": "requests/packages/urllib3/contrib/__init__.py",
+            "score": 0.0015519795383739032
+          },
+          {
+            "path": "requests/packages/__init__.py",
+            "score": 0.0014884234340333182
+          },
+          {
+            "path": "requests/packages/urllib3/packages/__init__.py",
+            "score": 0.0014488677619063888
+          }
+        ],
+        "swerank": [
+          {
+            "path": "requests/sessions.py",
+            "score": 0.5266740322113037
+          },
+          {
+            "path": "requests/models.py",
+            "score": 0.3629763126373291
+          },
+          {
+            "path": "requests/cookies.py",
+            "score": 0.32062357664108276
+          },
+          {
+            "path": "requests/auth.py",
+            "score": 0.3111441433429718
+          },
+          {
+            "path": "requests/packages/urllib3/packages/six.py",
+            "score": 0.2651035785675049
+          },
+          {
+            "path": "requests/status_codes.py",
+            "score": 0.26189228892326355
+          },
+          {
+            "path": "requests/packages/urllib3/response.py",
+            "score": 0.261224627494812
+          },
+          {
+            "path": "requests/api.py",
+            "score": 0.25061291456222534
+          },
+          {
+            "path": "requests/packages/urllib3/util.py",
+            "score": 0.23815393447875977
+          },
+          {
+            "path": "requests/packages/urllib3/poolmanager.py",
+            "score": 0.23380886018276215
+          },
+          {
+            "path": "requests/adapters.py",
+            "score": 0.22951693832874298
+          },
+          {
+            "path": "requests/utils.py",
+            "score": 0.22512593865394592
+          },
+          {
+            "path": "requests/__init__.py",
+            "score": 0.22207355499267578
+          },
+          {
+            "path": "requests/packages/urllib3/_collections.py",
+            "score": 0.20325522124767303
+          },
+          {
+            "path": "requests/packages/urllib3/packages/ordered_dict.py",
+            "score": 0.1992676854133606
+          },
+          {
+            "path": "requests/packages/urllib3/contrib/pyopenssl.py",
+            "score": 0.19521202147006989
+          },
+          {
+            "path": "requests/structures.py",
+            "score": 0.1763022243976593
+          },
+          {
+            "path": "requests/packages/urllib3/connection.py",
+            "score": 0.17397131025791168
+          },
+          {
+            "path": "requests/hooks.py",
+            "score": 0.17070233821868896
+          },
+          {
+            "path": "requests/certs.py",
+            "score": 0.16608665883541107
+          },
+          {
+            "path": "requests/packages/urllib3/packages/__init__.py",
+            "score": 0.15870586037635803
+          },
+          {
+            "path": "requests/packages/__init__.py",
+            "score": 0.15512138605117798
+          },
+          {
+            "path": "requests/exceptions.py",
+            "score": 0.1547296941280365
+          },
+          {
+            "path": "requests/packages/urllib3/contrib/ntlmpool.py",
+            "score": 0.15375399589538574
+          },
+          {
+            "path": "requests/packages/urllib3/connectionpool.py",
+            "score": 0.15233244001865387
+          },
+          {
+            "path": "requests/packages/urllib3/filepost.py",
+            "score": 0.15171675384044647
+          },
+          {
+            "path": "requests/packages/urllib3/fields.py",
+            "score": 0.14971359074115753
+          },
+          {
+            "path": "requests/compat.py",
+            "score": 0.14874309301376343
+          },
+          {
+            "path": "requests/packages/urllib3/exceptions.py",
+            "score": 0.14797481894493103
+          },
+          {
+            "path": "requests/packages/urllib3/packages/ssl_match_hostname/_implementation.py",
+            "score": 0.1394110769033432
+          },
+          {
+            "path": "requests/packages/urllib3/contrib/__init__.py",
+            "score": 0.1347268521785736
+          },
+          {
+            "path": "requests/packages/chardet/codingstatemachine.py",
+            "score": 0.12817856669425964
+          },
+          {
+            "path": "requests/packages/chardet/jpcntx.py",
+            "score": 0.12625999748706818
+          },
+          {
+            "path": "requests/packages/urllib3/request.py",
+            "score": 0.12316704541444778
+          },
+          {
+            "path": "requests/packages/urllib3/__init__.py",
+            "score": 0.12059162557125092
+          },
+          {
+            "path": "requests/packages/urllib3/packages/ssl_match_hostname/__init__.py",
+            "score": 0.11637192964553833
+          },
+          {
+            "path": "requests/packages/chardet/utf8prober.py",
+            "score": 0.11466377973556519
+          },
+          {
+            "path": "requests/packages/chardet/sbcharsetprober.py",
+            "score": 0.10649542510509491
+          },
+          {
+            "path": "requests/packages/chardet/charsetgroupprober.py",
+            "score": 0.10060182958841324
+          },
+          {
+            "path": "requests/packages/chardet/latin1prober.py",
+            "score": 0.09238438308238983
+          },
+          {
+            "path": "requests/packages/chardet/hebrewprober.py",
+            "score": 0.09226303547620773
+          },
+          {
+            "path": "requests/packages/chardet/charsetprober.py",
+            "score": 0.08576840162277222
+          },
+          {
+            "path": "requests/packages/chardet/escprober.py",
+            "score": 0.0853782445192337
+          },
+          {
+            "path": "requests/packages/chardet/eucjpprober.py",
+            "score": 0.08464498817920685
+          },
+          {
+            "path": "requests/packages/chardet/langthaimodel.py",
+            "score": 0.08244802802801132
+          },
+          {
+            "path": "requests/packages/chardet/__init__.py",
+            "score": 0.07802639156579971
+          },
+          {
+            "path": "requests/packages/chardet/mbcharsetprober.py",
+            "score": 0.07701213657855988
+          },
+          {
+            "path": "requests/packages/chardet/langhungarianmodel.py",
+            "score": 0.07662387192249298
+          },
+          {
+            "path": "requests/packages/chardet/sjisprober.py",
+            "score": 0.07486291974782944
+          },
+          {
+            "path": "requests/packages/chardet/euckrfreq.py",
+            "score": 0.0706283450126648
+          },
+          {
+            "path": "requests/packages/chardet/langhebrewmodel.py",
+            "score": 0.06855203211307526
+          },
+          {
+            "path": "requests/packages/chardet/universaldetector.py",
+            "score": 0.06845536828041077
+          },
+          {
+            "path": "requests/packages/chardet/langgreekmodel.py",
+            "score": 0.06529299169778824
+          },
+          {
+            "path": "requests/packages/chardet/chardetect.py",
+            "score": 0.0650811418890953
+          },
+          {
+            "path": "requests/packages/chardet/compat.py",
+            "score": 0.0626789778470993
+          },
+          {
+            "path": "requests/packages/chardet/constants.py",
+            "score": 0.06247464567422867
+          },
+          {
+            "path": "requests/packages/chardet/gb2312prober.py",
+            "score": 0.058213971555233
+          },
+          {
+            "path": "requests/packages/chardet/euctwprober.py",
+            "score": 0.058213215321302414
+          },
+          {
+            "path": "requests/packages/chardet/langcyrillicmodel.py",
+            "score": 0.05741426348686218
+          },
+          {
+            "path": "requests/packages/chardet/langbulgarianmodel.py",
+            "score": 0.054840635508298874
+          },
+          {
+            "path": "requests/packages/chardet/big5prober.py",
+            "score": 0.0491221621632576
+          },
+          {
+            "path": "requests/packages/chardet/sbcsgroupprober.py",
+            "score": 0.04738542437553406
+          },
+          {
+            "path": "requests/packages/chardet/chardistribution.py",
+            "score": 0.047010306268930435
+          },
+          {
+            "path": "requests/packages/chardet/mbcssm.py",
+            "score": 0.04443658888339996
+          },
+          {
+            "path": "requests/packages/chardet/mbcsgroupprober.py",
+            "score": 0.04316907748579979
+          },
+          {
+            "path": "requests/packages/chardet/euckrprober.py",
+            "score": 0.042605359107255936
+          },
+          {
+            "path": "requests/packages/chardet/escsm.py",
+            "score": 0.035218603909015656
+          },
+          {
+            "path": "requests/packages/chardet/cp949prober.py",
+            "score": 0.02823023870587349
+          },
+          {
+            "path": "requests/packages/chardet/jisfreq.py",
+            "score": 0.02247520163655281
+          },
+          {
+            "path": "requests/packages/chardet/gb2312freq.py",
+            "score": 0.013341981917619705
+          },
+          {
+            "path": "requests/packages/chardet/big5freq.py",
+            "score": 0.004799827933311462
+          },
+          {
+            "path": "requests/packages/chardet/euctwfreq.py",
+            "score": 0.00225978996604681
+          }
+        ]
+      },
+      "goldFiles": [
+        "requests/sessions.py"
+      ]
+    },
+    "psf__requests-863": {
+      "predictions": {
+        "bm25": [
+          {
+            "path": "requests/sessions.py",
+            "score": 84.41788117391033
+          },
+          {
+            "path": "requests/models.py",
+            "score": 77.59616761704761
+          },
+          {
+            "path": "requests/api.py",
+            "score": 72.0419643788379
+          },
+          {
+            "path": "requests/packages/urllib3/connectionpool.py",
+            "score": 70.22612797907098
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth1/rfc5849/__init__.py",
+            "score": 61.30772026930164
+          },
+          {
+            "path": "requests/cookies.py",
+            "score": 61.29481322219078
+          },
+          {
+            "path": "requests/hooks.py",
+            "score": 58.04936181953384
+          },
+          {
+            "path": "requests/utils.py",
+            "score": 54.9929996624379
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth1/rfc5849/signature.py",
+            "score": 53.76752796740791
+          },
+          {
+            "path": "requests/packages/urllib3/request.py",
+            "score": 53.64358263584326
+          },
+          {
+            "path": "requests/packages/urllib3/packages/ordered_dict.py",
+            "score": 52.99820795225474
+          },
+          {
+            "path": "requests/auth.py",
+            "score": 49.42183384652509
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth1/rfc5849/utils.py",
+            "score": 48.300107515739306
+          },
+          {
+            "path": "requests/packages/chardet2/charsetprober.py",
+            "score": 46.67035258610088
+          },
+          {
+            "path": "requests/packages/urllib3/exceptions.py",
+            "score": 46.29261600059141
+          },
+          {
+            "path": "requests/packages/chardet/charsetprober.py",
+            "score": 45.79563982280728
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth1/rfc5849/parameters.py",
+            "score": 45.62343223603118
+          },
+          {
+            "path": "requests/packages/chardet2/hebrewprober.py",
+            "score": 44.8992411433775
+          },
+          {
+            "path": "requests/packages/chardet/hebrewprober.py",
+            "score": 44.774058394644925
+          },
+          {
+            "path": "requests/packages/chardet/gb2312prober.py",
+            "score": 44.46652516632272
+          },
+          {
+            "path": "requests/packages/chardet2/gb2312prober.py",
+            "score": 44.46652516632272
+          },
+          {
+            "path": "requests/packages/chardet/big5prober.py",
+            "score": 44.38817797326824
+          },
+          {
+            "path": "requests/packages/chardet/euckrprober.py",
+            "score": 44.38817797326824
+          },
+          {
+            "path": "requests/packages/chardet/euctwprober.py",
+            "score": 44.38817797326824
+          },
+          {
+            "path": "requests/packages/chardet2/big5prober.py",
+            "score": 44.38817797326824
+          },
+          {
+            "path": "requests/packages/chardet2/euckrprober.py",
+            "score": 44.38817797326824
+          },
+          {
+            "path": "requests/packages/chardet2/euctwprober.py",
+            "score": 44.38817797326824
+          },
+          {
+            "path": "requests/safe_mode.py",
+            "score": 43.70958464856959
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth2/draft25/parameters.py",
+            "score": 43.263262134803995
+          },
+          {
+            "path": "requests/packages/chardet/mbcsgroupprober.py",
+            "score": 42.77254308240938
+          },
+          {
+            "path": "requests/packages/chardet2/mbcsgroupprober.py",
+            "score": 42.77254308240938
+          },
+          {
+            "path": "requests/packages/chardet2/utf8prober.py",
+            "score": 42.68051595499251
+          },
+          {
+            "path": "requests/packages/chardet/utf8prober.py",
+            "score": 42.61534666043534
+          },
+          {
+            "path": "requests/packages/chardet2/codingstatemachine.py",
+            "score": 42.493989438767684
+          },
+          {
+            "path": "requests/packages/chardet/codingstatemachine.py",
+            "score": 42.2768563654171
+          },
+          {
+            "path": "requests/packages/chardet2/chardistribution.py",
+            "score": 41.61378068568763
+          },
+          {
+            "path": "requests/packages/chardet/chardistribution.py",
+            "score": 41.486167145220094
+          },
+          {
+            "path": "requests/packages/urllib3/packages/six.py",
+            "score": 41.07198627270385
+          },
+          {
+            "path": "requests/packages/chardet2/escprober.py",
+            "score": 40.34874871525623
+          },
+          {
+            "path": "requests/packages/urllib3/contrib/ntlmpool.py",
+            "score": 40.32535920523381
+          },
+          {
+            "path": "requests/packages/chardet2/mbcharsetprober.py",
+            "score": 40.151574328562454
+          },
+          {
+            "path": "requests/packages/chardet/escprober.py",
+            "score": 39.987530545510886
+          },
+          {
+            "path": "requests/packages/chardet/mbcharsetprober.py",
+            "score": 39.89799009713842
+          },
+          {
+            "path": "requests/packages/chardet2/charsetgroupprober.py",
+            "score": 39.44237350391402
+          },
+          {
+            "path": "requests/packages/chardet2/sbcsgroupprober.py",
+            "score": 39.24382479474306
+          },
+          {
+            "path": "requests/packages/chardet/sbcsgroupprober.py",
+            "score": 39.187044306053316
+          },
+          {
+            "path": "requests/packages/chardet2/constants.py",
+            "score": 39.00095396218452
+          },
+          {
+            "path": "requests/packages/chardet/charsetgroupprober.py",
+            "score": 38.78080660394518
+          },
+          {
+            "path": "requests/packages/chardet2/jpcntx.py",
+            "score": 38.757007175432356
+          },
+          {
+            "path": "requests/packages/urllib3/packages/ssl_match_hostname/__init__.py",
+            "score": 38.69913479074141
+          },
+          {
+            "path": "requests/packages/chardet/constants.py",
+            "score": 38.56511199527799
+          },
+          {
+            "path": "requests/packages/chardet2/eucjpprober.py",
+            "score": 38.13003548884844
+          },
+          {
+            "path": "requests/packages/chardet2/sbcharsetprober.py",
+            "score": 38.00136992822117
+          },
+          {
+            "path": "requests/structures.py",
+            "score": 37.88187204856766
+          },
+          {
+            "path": "requests/packages/chardet/eucjpprober.py",
+            "score": 37.68303512371567
+          },
+          {
+            "path": "requests/packages/chardet2/sjisprober.py",
+            "score": 37.59870372563628
+          },
+          {
+            "path": "requests/packages/chardet/sjisprober.py",
+            "score": 37.49788079337018
+          },
+          {
+            "path": "requests/packages/urllib3/response.py",
+            "score": 37.253339069355654
+          },
+          {
+            "path": "requests/packages/urllib3/poolmanager.py",
+            "score": 37.13797284297674
+          },
+          {
+            "path": "requests/packages/chardet/sbcharsetprober.py",
+            "score": 37.0035349647947
+          },
+          {
+            "path": "requests/packages/urllib3/util.py",
+            "score": 36.730854852825786
+          },
+          {
+            "path": "requests/defaults.py",
+            "score": 36.604964110913876
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth2/draft25/__init__.py",
+            "score": 36.33216496317121
+          },
+          {
+            "path": "requests/packages/chardet2/__init__.py",
+            "score": 35.78691666221512
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth2/draft25/tokens.py",
+            "score": 35.4708947968151
+          },
+          {
+            "path": "requests/packages/chardet2/universaldetector.py",
+            "score": 35.0564972942824
+          },
+          {
+            "path": "requests/packages/urllib3/filepost.py",
+            "score": 34.493297701986414
+          },
+          {
+            "path": "requests/packages/oauthlib/common.py",
+            "score": 34.43775113603994
+          },
+          {
+            "path": "requests/packages/chardet/universaldetector.py",
+            "score": 34.37990024612438
+          },
+          {
+            "path": "requests/packages/chardet/__init__.py",
+            "score": 34.33994900606539
+          },
+          {
+            "path": "requests/packages/urllib3/_collections.py",
+            "score": 32.050336001871884
+          },
+          {
+            "path": "requests/packages/urllib3/__init__.py",
+            "score": 29.39402297735238
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth2/draft25/utils.py",
+            "score": 29.079712870089782
+          },
+          {
+            "path": "requests/packages/chardet/mbcssm.py",
+            "score": 26.52740490058179
+          },
+          {
+            "path": "requests/packages/chardet2/mbcssm.py",
+            "score": 26.52740490058179
+          },
+          {
+            "path": "requests/packages/chardet2/latin1prober.py",
+            "score": 26.19040792874904
+          },
+          {
+            "path": "requests/packages/chardet/latin1prober.py",
+            "score": 25.763926588212296
+          },
+          {
+            "path": "requests/packages/chardet/jpcntx.py",
+            "score": 25.029684883938284
+          },
+          {
+            "path": "requests/__init__.py",
+            "score": 24.796750825788543
+          },
+          {
+            "path": "requests/packages/chardet/escsm.py",
+            "score": 23.79851843490978
+          },
+          {
+            "path": "requests/packages/chardet2/escsm.py",
+            "score": 23.79851843490978
+          },
+          {
+            "path": "requests/packages/chardet/euctwfreq.py",
+            "score": 23.388187177702804
+          },
+          {
+            "path": "requests/packages/chardet2/euctwfreq.py",
+            "score": 23.388187177702804
+          },
+          {
+            "path": "requests/packages/chardet2/langbulgarianmodel.py",
+            "score": 23.14989990778884
+          },
+          {
+            "path": "requests/packages/chardet/gb2312freq.py",
+            "score": 23.14386802866616
+          },
+          {
+            "path": "requests/packages/chardet2/gb2312freq.py",
+            "score": 23.14386802866616
+          },
+          {
+            "path": "requests/packages/chardet/langbulgarianmodel.py",
+            "score": 22.601143572657467
+          },
+          {
+            "path": "requests/packages/chardet/big5freq.py",
+            "score": 22.575294109306824
+          },
+          {
+            "path": "requests/packages/chardet2/big5freq.py",
+            "score": 22.575294109306824
+          },
+          {
+            "path": "requests/packages/chardet2/langhungarianmodel.py",
+            "score": 22.094287102993327
+          },
+          {
+            "path": "requests/packages/chardet/jisfreq.py",
+            "score": 21.918685904966182
+          },
+          {
+            "path": "requests/packages/chardet2/jisfreq.py",
+            "score": 21.918685904966182
+          },
+          {
+            "path": "requests/packages/chardet2/langgreekmodel.py",
+            "score": 21.645090684829178
+          },
+          {
+            "path": "requests/packages/chardet/langhungarianmodel.py",
+            "score": 21.528291258053546
+          },
+          {
+            "path": "requests/packages/chardet/langgreekmodel.py",
+            "score": 21.093000322273674
+          },
+          {
+            "path": "requests/packages/chardet/euckrfreq.py",
+            "score": 20.406067796905788
+          },
+          {
+            "path": "requests/packages/chardet2/euckrfreq.py",
+            "score": 20.406067796905788
+          },
+          {
+            "path": "requests/status_codes.py",
+            "score": 20.15561434017194
+          },
+          {
+            "path": "requests/packages/chardet2/langhebrewmodel.py",
+            "score": 18.61017539774198
+          },
+          {
+            "path": "requests/packages/chardet2/langthaimodel.py",
+            "score": 18.285280484220774
+          },
+          {
+            "path": "requests/packages/chardet2/langcyrillicmodel.py",
+            "score": 18.18336566175051
+          },
+          {
+            "path": "requests/packages/chardet/langhebrewmodel.py",
+            "score": 18.164889612688288
+          },
+          {
+            "path": "requests/packages/chardet/langthaimodel.py",
+            "score": 17.95035718046314
+          },
+          {
+            "path": "requests/packages/chardet/langcyrillicmodel.py",
+            "score": 17.686862026113285
+          },
+          {
+            "path": "requests/exceptions.py",
+            "score": 17.500676959413433
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth1/__init__.py",
+            "score": 13.741915207078593
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth2/__init__.py",
+            "score": 13.741915207078593
+          },
+          {
+            "path": "requests/compat.py",
+            "score": 10.494778910555045
+          },
+          {
+            "path": "requests/packages/chardet2/test.py",
+            "score": 9.237060905765933
+          },
+          {
+            "path": "requests/_oauth.py",
+            "score": 8.662745472960772
+          },
+          {
+            "path": "requests/certs.py",
+            "score": 5.732683765324864
+          },
+          {
+            "path": "requests/packages/__init__.py",
+            "score": 5.043393439032307
+          },
+          {
+            "path": "requests/packages/urllib3/packages/__init__.py",
+            "score": 4.977754547090225
+          },
+          {
+            "path": "requests/packages/oauthlib/__init__.py",
+            "score": 2.219976833062504
+          },
+          {
+            "path": "requests/packages/urllib3/contrib/__init__.py",
+            "score": 2.210161453885587
+          },
+          {
+            "path": "requests/async.py",
+            "score": 0.0
+          }
+        ],
+        "swerank": [
+          {
+            "path": "requests/hooks.py",
+            "score": 0.5398719906806946
+          },
+          {
+            "path": "requests/sessions.py",
+            "score": 0.4482143819332123
+          },
+          {
+            "path": "requests/api.py",
+            "score": 0.36086177825927734
+          },
+          {
+            "path": "requests/models.py",
+            "score": 0.36031419038772583
+          },
+          {
+            "path": "requests/cookies.py",
+            "score": 0.34369194507598877
+          },
+          {
+            "path": "requests/auth.py",
+            "score": 0.326431542634964
+          },
+          {
+            "path": "requests/utils.py",
+            "score": 0.29454660415649414
+          },
+          {
+            "path": "requests/status_codes.py",
+            "score": 0.2580203413963318
+          },
+          {
+            "path": "requests/structures.py",
+            "score": 0.25002729892730713
+          },
+          {
+            "path": "requests/packages/__init__.py",
+            "score": 0.24922236800193787
+          },
+          {
+            "path": "requests/packages/urllib3/request.py",
+            "score": 0.2476779818534851
+          },
+          {
+            "path": "requests/packages/urllib3/packages/ordered_dict.py",
+            "score": 0.24674148857593536
+          },
+          {
+            "path": "requests/safe_mode.py",
+            "score": 0.2429104596376419
+          },
+          {
+            "path": "requests/packages/urllib3/poolmanager.py",
+            "score": 0.24206319451332092
+          },
+          {
+            "path": "requests/defaults.py",
+            "score": 0.23866885900497437
+          },
+          {
+            "path": "requests/packages/oauthlib/common.py",
+            "score": 0.23777702450752258
+          },
+          {
+            "path": "requests/__init__.py",
+            "score": 0.23626428842544556
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth2/draft25/__init__.py",
+            "score": 0.227333664894104
+          },
+          {
+            "path": "requests/compat.py",
+            "score": 0.2131541520357132
+          },
+          {
+            "path": "requests/packages/urllib3/response.py",
+            "score": 0.21105220913887024
+          },
+          {
+            "path": "requests/packages/urllib3/util.py",
+            "score": 0.21095553040504456
+          },
+          {
+            "path": "requests/packages/urllib3/_collections.py",
+            "score": 0.2092006355524063
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth2/__init__.py",
+            "score": 0.20425596833229065
+          },
+          {
+            "path": "requests/packages/oauthlib/__init__.py",
+            "score": 0.20056287944316864
+          },
+          {
+            "path": "requests/packages/urllib3/connectionpool.py",
+            "score": 0.19923779368400574
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth2/draft25/tokens.py",
+            "score": 0.19153596460819244
+          },
+          {
+            "path": "requests/packages/urllib3/packages/__init__.py",
+            "score": 0.188360333442688
+          },
+          {
+            "path": "requests/packages/urllib3/exceptions.py",
+            "score": 0.1874246746301651
+          },
+          {
+            "path": "requests/packages/urllib3/packages/six.py",
+            "score": 0.18368849158287048
+          },
+          {
+            "path": "requests/packages/urllib3/__init__.py",
+            "score": 0.18078401684761047
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth2/draft25/parameters.py",
+            "score": 0.17705173790454865
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth1/rfc5849/__init__.py",
+            "score": 0.17222996056079865
+          },
+          {
+            "path": "requests/packages/urllib3/contrib/ntlmpool.py",
+            "score": 0.1673581898212433
+          },
+          {
+            "path": "requests/packages/urllib3/filepost.py",
+            "score": 0.1641799807548523
+          },
+          {
+            "path": "requests/packages/chardet2/charsetgroupprober.py",
+            "score": 0.1604001522064209
+          },
+          {
+            "path": "requests/async.py",
+            "score": 0.15978635847568512
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth1/__init__.py",
+            "score": 0.15335923433303833
+          },
+          {
+            "path": "requests/exceptions.py",
+            "score": 0.15164321660995483
+          },
+          {
+            "path": "requests/packages/urllib3/contrib/__init__.py",
+            "score": 0.15066097676753998
+          },
+          {
+            "path": "requests/_oauth.py",
+            "score": 0.14777609705924988
+          },
+          {
+            "path": "requests/packages/chardet/euctwprober.py",
+            "score": 0.14697620272636414
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth1/rfc5849/signature.py",
+            "score": 0.1453164517879486
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth1/rfc5849/utils.py",
+            "score": 0.14376290142536163
+          },
+          {
+            "path": "requests/packages/chardet2/euctwprober.py",
+            "score": 0.14125896990299225
+          },
+          {
+            "path": "requests/packages/chardet2/hebrewprober.py",
+            "score": 0.13765840232372284
+          },
+          {
+            "path": "requests/packages/chardet/big5prober.py",
+            "score": 0.136764794588089
+          },
+          {
+            "path": "requests/packages/chardet/hebrewprober.py",
+            "score": 0.1356532871723175
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth1/rfc5849/parameters.py",
+            "score": 0.13562336564064026
+          },
+          {
+            "path": "requests/packages/chardet/euckrprober.py",
+            "score": 0.13519488275051117
+          },
+          {
+            "path": "requests/packages/chardet2/big5prober.py",
+            "score": 0.13227008283138275
+          },
+          {
+            "path": "requests/packages/chardet/latin1prober.py",
+            "score": 0.1304590255022049
+          },
+          {
+            "path": "requests/packages/chardet2/chardistribution.py",
+            "score": 0.13011491298675537
+          },
+          {
+            "path": "requests/packages/urllib3/packages/ssl_match_hostname/__init__.py",
+            "score": 0.1295868307352066
+          },
+          {
+            "path": "requests/packages/chardet2/euckrprober.py",
+            "score": 0.1295137107372284
+          },
+          {
+            "path": "requests/packages/chardet2/latin1prober.py",
+            "score": 0.1291324943304062
+          },
+          {
+            "path": "requests/packages/chardet2/charsetprober.py",
+            "score": 0.12802714109420776
+          },
+          {
+            "path": "requests/packages/oauthlib/oauth2/draft25/utils.py",
+            "score": 0.12755993008613586
+          },
+          {
+            "path": "requests/packages/chardet2/universaldetector.py",
+            "score": 0.12416502833366394
+          },
+          {
+            "path": "requests/packages/chardet2/eucjpprober.py",
+            "score": 0.12348233163356781
+          },
+          {
+            "path": "requests/packages/chardet/euckrfreq.py",
+            "score": 0.12287971377372742
+          },
+          {
+            "path": "requests/packages/chardet/eucjpprober.py",
+            "score": 0.1223299503326416
+          },
+          {
+            "path": "requests/packages/chardet2/euckrfreq.py",
+            "score": 0.12144101411104202
+          },
+          {
+            "path": "requests/packages/chardet/charsetprober.py",
+            "score": 0.12083332240581512
+          },
+          {
+            "path": "requests/packages/chardet/mbcharsetprober.py",
+            "score": 0.11902138590812683
+          },
+          {
+            "path": "requests/packages/chardet/langcyrillicmodel.py",
+            "score": 0.11793231219053268
+          },
+          {
+            "path": "requests/packages/chardet2/mbcharsetprober.py",
+            "score": 0.11721363663673401
+          },
+          {
+            "path": "requests/packages/chardet/gb2312prober.py",
+            "score": 0.11669792979955673
+          },
+          {
+            "path": "requests/packages/chardet/chardistribution.py",
+            "score": 0.1165827289223671
+          },
+          {
+            "path": "requests/packages/chardet2/gb2312prober.py",
+            "score": 0.11488606780767441
+          },
+          {
+            "path": "requests/packages/chardet2/sbcharsetprober.py",
+            "score": 0.11034364998340607
+          },
+          {
+            "path": "requests/packages/chardet/mbcsgroupprober.py",
+            "score": 0.1092953234910965
+          },
+          {
+            "path": "requests/packages/chardet2/escprober.py",
+            "score": 0.10821601748466492
+          },
+          {
+            "path": "requests/packages/chardet2/mbcsgroupprober.py",
+            "score": 0.10813337564468384
+          },
+          {
+            "path": "requests/packages/chardet/sjisprober.py",
+            "score": 0.1076388880610466
+          },
+          {
+            "path": "requests/packages/chardet/universaldetector.py",
+            "score": 0.1067701131105423
+          },
+          {
+            "path": "requests/packages/chardet2/__init__.py",
+            "score": 0.106662318110466
+          },
+          {
+            "path": "requests/packages/chardet/jisfreq.py",
+            "score": 0.10615091770887375
+          },
+          {
+            "path": "requests/packages/chardet2/jisfreq.py",
+            "score": 0.1058773398399353
+          },
+          {
+            "path": "requests/packages/chardet2/jpcntx.py",
+            "score": 0.10517940670251846
+          },
+          {
+            "path": "requests/packages/chardet2/sjisprober.py",
+            "score": 0.10499279201030731
+          },
+          {
+            "path": "requests/packages/chardet/__init__.py",
+            "score": 0.10440818965435028
+          },
+          {
+            "path": "requests/packages/chardet2/test.py",
+            "score": 0.1012948602437973
+          },
+          {
+            "path": "requests/packages/chardet/sbcharsetprober.py",
+            "score": 0.10071220993995667
+          },
+          {
+            "path": "requests/packages/chardet2/euctwfreq.py",
+            "score": 0.1006288006901741
+          },
+          {
+            "path": "requests/packages/chardet/charsetgroupprober.py",
+            "score": 0.1005241721868515
+          },
+          {
+            "path": "requests/packages/chardet/langhebrewmodel.py",
+            "score": 0.10031506419181824
+          },
+          {
+            "path": "requests/certs.py",
+            "score": 0.0992225930094719
+          },
+          {
+            "path": "requests/packages/chardet2/utf8prober.py",
+            "score": 0.09912872314453125
+          },
+          {
+            "path": "requests/packages/chardet/euctwfreq.py",
+            "score": 0.09845252335071564
+          },
+          {
+            "path": "requests/packages/chardet/utf8prober.py",
+            "score": 0.09830690920352936
+          },
+          {
+            "path": "requests/packages/chardet2/mbcssm.py",
+            "score": 0.09673823416233063
+          },
+          {
+            "path": "requests/packages/chardet/mbcssm.py",
+            "score": 0.0937509685754776
+          },
+          {
+            "path": "requests/packages/chardet2/codingstatemachine.py",
+            "score": 0.09204690158367157
+          },
+          {
+            "path": "requests/packages/chardet2/langhebrewmodel.py",
+            "score": 0.09042379260063171
+          },
+          {
+            "path": "requests/packages/chardet2/big5freq.py",
+            "score": 0.089246466755867
+          },
+          {
+            "path": "requests/packages/chardet/codingstatemachine.py",
+            "score": 0.08776222169399261
+          },
+          {
+            "path": "requests/packages/chardet2/langcyrillicmodel.py",
+            "score": 0.08765731751918793
+          },
+          {
+            "path": "requests/packages/chardet2/sbcsgroupprober.py",
+            "score": 0.08747386932373047
+          },
+          {
+            "path": "requests/packages/chardet/sbcsgroupprober.py",
+            "score": 0.08595846593379974
+          },
+          {
+            "path": "requests/packages/chardet/constants.py",
+            "score": 0.08534545451402664
+          },
+          {
+            "path": "requests/packages/chardet2/constants.py",
+            "score": 0.08527666330337524
+          },
+          {
+            "path": "requests/packages/chardet/big5freq.py",
+            "score": 0.08489692211151123
+          },
+          {
+            "path": "requests/packages/chardet2/langbulgarianmodel.py",
+            "score": 0.08383780717849731
+          },
+          {
+            "path": "requests/packages/chardet/langbulgarianmodel.py",
+            "score": 0.07705762982368469
+          },
+          {
+            "path": "requests/packages/chardet2/langthaimodel.py",
+            "score": 0.07633839547634125
+          },
+          {
+            "path": "requests/packages/chardet/escprober.py",
+            "score": 0.07500132918357849
+          },
+          {
+            "path": "requests/packages/chardet/langthaimodel.py",
+            "score": 0.0740901529788971
+          },
+          {
+            "path": "requests/packages/chardet2/langhungarianmodel.py",
+            "score": 0.06257108598947525
+          },
+          {
+            "path": "requests/packages/chardet/jpcntx.py",
+            "score": 0.06256996840238571
+          },
+          {
+            "path": "requests/packages/chardet2/escsm.py",
+            "score": 0.05673903971910477
+          },
+          {
+            "path": "requests/packages/chardet/escsm.py",
+            "score": 0.05559922009706497
+          },
+          {
+            "path": "requests/packages/chardet/langhungarianmodel.py",
+            "score": 0.055438652634620667
+          },
+          {
+            "path": "requests/packages/chardet2/langgreekmodel.py",
+            "score": 0.0498289056122303
+          },
+          {
+            "path": "requests/packages/chardet/langgreekmodel.py",
+            "score": 0.04516461491584778
+          },
+          {
+            "path": "requests/packages/chardet2/gb2312freq.py",
+            "score": 0.04419618472456932
+          },
+          {
+            "path": "requests/packages/chardet/gb2312freq.py",
+            "score": 0.03687390685081482
+          }
+        ]
+      },
+      "goldFiles": [
+        "requests/models.py"
+      ]
+    },
+    "pallets__flask-5063": {
+      "predictions": {
+        "bm25": [
+          {
+            "path": "src/flask/cli.py",
+            "score": 68.5235731438469
+          },
+          {
+            "path": "src/flask/app.py",
+            "score": 59.395667894891055
+          },
+          {
+            "path": "src/flask/wrappers.py",
+            "score": 54.27941012113104
+          },
+          {
+            "path": "src/flask/scaffold.py",
+            "score": 53.566220336782855
+          },
+          {
+            "path": "src/flask/blueprints.py",
+            "score": 53.52734943372439
+          },
+          {
+            "path": "src/flask/config.py",
+            "score": 51.76517658037034
+          },
+          {
+            "path": "src/flask/helpers.py",
+            "score": 50.07708819969712
+          },
+          {
+            "path": "src/flask/views.py",
+            "score": 43.42325332733115
+          },
+          {
+            "path": "src/flask/logging.py",
+            "score": 43.26458042826561
+          },
+          {
+            "path": "src/flask/testing.py",
+            "score": 40.375437974553414
+          },
+          {
+            "path": "src/flask/debughelpers.py",
+            "score": 39.15047848788027
+          },
+          {
+            "path": "src/flask/ctx.py",
+            "score": 34.254968490975976
+          },
+          {
+            "path": "src/flask/globals.py",
+            "score": 33.801372513271694
+          },
+          {
+            "path": "src/flask/sessions.py",
+            "score": 30.153464895097084
+          },
+          {
+            "path": "src/flask/templating.py",
+            "score": 26.361093274326148
+          },
+          {
+            "path": "src/flask/json/__init__.py",
+            "score": 25.807895713945918
+          },
+          {
+            "path": "src/flask/typing.py",
+            "score": 24.943633687750356
+          },
+          {
+            "path": "src/flask/json/tag.py",
+            "score": 24.50990577718651
+          },
+          {
+            "path": "src/flask/json/provider.py",
+            "score": 23.104561922913188
+          },
+          {
+            "path": "src/flask/__init__.py",
+            "score": 19.89799069113144
+          },
+          {
+            "path": "src/flask/signals.py",
+            "score": 12.941964261817155
+          },
+          {
+            "path": "src/flask/__main__.py",
+            "score": 2.082142677373459
+          }
+        ],
+        "swerank": [
+          {
+            "path": "src/flask/blueprints.py",
+            "score": 0.5460760593414307
+          },
+          {
+            "path": "src/flask/testing.py",
+            "score": 0.527277946472168
+          },
+          {
+            "path": "src/flask/app.py",
+            "score": 0.4773208498954773
+          },
+          {
+            "path": "src/flask/views.py",
+            "score": 0.46157872676849365
+          },
+          {
+            "path": "src/flask/cli.py",
+            "score": 0.4421827793121338
+          },
+          {
+            "path": "src/flask/scaffold.py",
+            "score": 0.44159790873527527
+          },
+          {
+            "path": "src/flask/config.py",
+            "score": 0.42089343070983887
+          },
+          {
+            "path": "src/flask/helpers.py",
+            "score": 0.4148517847061157
+          },
+          {
+            "path": "src/flask/__init__.py",
+            "score": 0.41099321842193604
+          },
+          {
+            "path": "src/flask/wrappers.py",
+            "score": 0.3956398665904999
+          },
+          {
+            "path": "src/flask/sessions.py",
+            "score": 0.3938257098197937
+          },
+          {
+            "path": "src/flask/ctx.py",
+            "score": 0.36933037638664246
+          },
+          {
+            "path": "src/flask/debughelpers.py",
+            "score": 0.35996127128601074
+          },
+          {
+            "path": "src/flask/__main__.py",
+            "score": 0.3431267738342285
+          },
+          {
+            "path": "src/flask/templating.py",
+            "score": 0.3423883318901062
+          },
+          {
+            "path": "src/flask/json/__init__.py",
+            "score": 0.34215056896209717
+          },
+          {
+            "path": "src/flask/logging.py",
+            "score": 0.3354010581970215
+          },
+          {
+            "path": "src/flask/json/provider.py",
+            "score": 0.32598626613616943
+          },
+          {
+            "path": "src/flask/json/tag.py",
+            "score": 0.3217948377132416
+          },
+          {
+            "path": "src/flask/signals.py",
+            "score": 0.302084743976593
+          },
+          {
+            "path": "src/flask/globals.py",
+            "score": 0.2889340817928314
+          },
+          {
+            "path": "src/flask/typing.py",
+            "score": 0.2663937211036682
+          }
+        ]
+      },
+      "goldFiles": [
+        "src/flask/cli.py"
+      ]
+    },
+    "pallets__flask-4992": {
+      "predictions": {
+        "bm25": [
+          {
+            "path": "src/flask/config.py",
+            "score": 71.62245917901485
+          },
+          {
+            "path": "src/flask/scaffold.py",
+            "score": 56.77131388185845
+          },
+          {
+            "path": "src/flask/app.py",
+            "score": 56.00097319356618
+          },
+          {
+            "path": "src/flask/helpers.py",
+            "score": 51.31020007850029
+          },
+          {
+            "path": "src/flask/json/__init__.py",
+            "score": 47.902571933959244
+          },
+          {
+            "path": "src/flask/debughelpers.py",
+            "score": 39.06532108647742
+          },
+          {
+            "path": "src/flask/sessions.py",
+            "score": 38.31175568777634
+          },
+          {
+            "path": "src/flask/cli.py",
+            "score": 36.36100107635058
+          },
+          {
+            "path": "src/flask/testing.py",
+            "score": 35.35535202242981
+          },
+          {
+            "path": "src/flask/json/provider.py",
+            "score": 32.664427666050656
+          },
+          {
+            "path": "src/flask/views.py",
+            "score": 31.841494367417354
+          },
+          {
+            "path": "src/flask/wrappers.py",
+            "score": 31.030429580360998
+          },
+          {
+            "path": "src/flask/json/tag.py",
+            "score": 30.120342825277568
+          },
+          {
+            "path": "src/flask/ctx.py",
+            "score": 29.503242825613597
+          },
+          {
+            "path": "src/flask/templating.py",
+            "score": 23.180306422258205
+          },
+          {
+            "path": "src/flask/blueprints.py",
+            "score": 22.3018914937638
+          },
+          {
+            "path": "src/flask/logging.py",
+            "score": 21.253384468310884
+          },
+          {
+            "path": "src/flask/globals.py",
+            "score": 21.117331397130577
+          },
+          {
+            "path": "src/flask/typing.py",
+            "score": 20.77807253646881
+          },
+          {
+            "path": "src/flask/__init__.py",
+            "score": 19.3368431722254
+          },
+          {
+            "path": "src/flask/signals.py",
+            "score": 14.380504394651346
+          },
+          {
+            "path": "src/flask/__main__.py",
+            "score": 2.080223277355688
+          }
+        ],
+        "swerank": [
+          {
+            "path": "src/flask/config.py",
+            "score": 0.7009803056716919
+          },
+          {
+            "path": "src/flask/json/__init__.py",
+            "score": 0.4685279130935669
+          },
+          {
+            "path": "src/flask/scaffold.py",
+            "score": 0.45193344354629517
+          },
+          {
+            "path": "src/flask/app.py",
+            "score": 0.41460755467414856
+          },
+          {
+            "path": "src/flask/helpers.py",
+            "score": 0.40921270847320557
+          },
+          {
+            "path": "src/flask/testing.py",
+            "score": 0.39164042472839355
+          },
+          {
+            "path": "src/flask/json/provider.py",
+            "score": 0.371501088142395
+          },
+          {
+            "path": "src/flask/blueprints.py",
+            "score": 0.3667314946651459
+          },
+          {
+            "path": "src/flask/logging.py",
+            "score": 0.36114001274108887
+          },
+          {
+            "path": "src/flask/ctx.py",
+            "score": 0.3504364788532257
+          },
+          {
+            "path": "src/flask/cli.py",
+            "score": 0.3462395668029785
+          },
+          {
+            "path": "src/flask/templating.py",
+            "score": 0.3421466052532196
+          },
+          {
+            "path": "src/flask/debughelpers.py",
+            "score": 0.33360710740089417
+          },
+          {
+            "path": "src/flask/wrappers.py",
+            "score": 0.32464373111724854
+          },
+          {
+            "path": "src/flask/views.py",
+            "score": 0.31089210510253906
+          },
+          {
+            "path": "src/flask/__init__.py",
+            "score": 0.3072502017021179
+          },
+          {
+            "path": "src/flask/sessions.py",
+            "score": 0.30437275767326355
+          },
+          {
+            "path": "src/flask/__main__.py",
+            "score": 0.304304301738739
+          },
+          {
+            "path": "src/flask/typing.py",
+            "score": 0.2764948904514313
+          },
+          {
+            "path": "src/flask/json/tag.py",
+            "score": 0.24145346879959106
+          },
+          {
+            "path": "src/flask/globals.py",
+            "score": 0.24014312028884888
+          },
+          {
+            "path": "src/flask/signals.py",
+            "score": 0.22474540770053864
+          }
+        ]
+      },
+      "goldFiles": [
+        "src/flask/config.py"
+      ]
+    },
+    "pallets__flask-4045": {
+      "predictions": {
+        "bm25": [
+          {
+            "path": "src/flask/helpers.py",
+            "score": 33.24550104626162
+          },
+          {
+            "path": "src/flask/scaffold.py",
+            "score": 29.321400065347248
+          },
+          {
+            "path": "src/flask/blueprints.py",
+            "score": 29.07481183807479
+          },
+          {
+            "path": "src/flask/debughelpers.py",
+            "score": 27.22371342715752
+          },
+          {
+            "path": "src/flask/app.py",
+            "score": 26.523868298882494
+          },
+          {
+            "path": "src/flask/wrappers.py",
+            "score": 22.76861448900037
+          },
+          {
+            "path": "src/flask/views.py",
+            "score": 21.452228132561988
+          },
+          {
+            "path": "src/flask/json/tag.py",
+            "score": 18.783935915155467
+          },
+          {
+            "path": "src/flask/cli.py",
+            "score": 18.301013151755086
+          },
+          {
+            "path": "src/flask/sessions.py",
+            "score": 17.8819583275127
+          },
+          {
+            "path": "src/flask/config.py",
+            "score": 17.64090689634567
+          },
+          {
+            "path": "src/flask/json/__init__.py",
+            "score": 17.615975766276126
+          },
+          {
+            "path": "src/flask/testing.py",
+            "score": 15.541737914443308
+          },
+          {
+            "path": "src/flask/ctx.py",
+            "score": 15.497522710717142
+          },
+          {
+            "path": "src/flask/signals.py",
+            "score": 13.238349024622302
+          },
+          {
+            "path": "src/flask/templating.py",
+            "score": 12.915139827136525
+          },
+          {
+            "path": "src/flask/logging.py",
+            "score": 12.322516684587987
+          },
+          {
+            "path": "src/flask/globals.py",
+            "score": 9.840544960069586
+          },
+          {
+            "path": "src/flask/__init__.py",
+            "score": 9.010186833092531
+          },
+          {
+            "path": "src/flask/typing.py",
+            "score": 5.41660764029495
+          },
+          {
+            "path": "src/flask/__main__.py",
+            "score": 0.0
+          }
+        ],
+        "swerank": [
+          {
+            "path": "src/flask/blueprints.py",
+            "score": 0.37959349155426025
+          },
+          {
+            "path": "src/flask/app.py",
+            "score": 0.31085681915283203
+          },
+          {
+            "path": "src/flask/wrappers.py",
+            "score": 0.306476354598999
+          },
+          {
+            "path": "src/flask/helpers.py",
+            "score": 0.24229593575000763
+          },
+          {
+            "path": "src/flask/debughelpers.py",
+            "score": 0.2299378365278244
+          },
+          {
+            "path": "src/flask/scaffold.py",
+            "score": 0.20538893342018127
+          },
+          {
+            "path": "src/flask/cli.py",
+            "score": 0.1951509267091751
+          },
+          {
+            "path": "src/flask/signals.py",
+            "score": 0.188984677195549
+          },
+          {
+            "path": "src/flask/sessions.py",
+            "score": 0.17806047201156616
+          },
+          {
+            "path": "src/flask/__init__.py",
+            "score": 0.16997534036636353
+          },
+          {
+            "path": "src/flask/globals.py",
+            "score": 0.16905498504638672
+          },
+          {
+            "path": "src/flask/testing.py",
+            "score": 0.16458484530448914
+          },
+          {
+            "path": "src/flask/templating.py",
+            "score": 0.16236954927444458
+          },
+          {
+            "path": "src/flask/json/__init__.py",
+            "score": 0.1479565054178238
+          },
+          {
+            "path": "src/flask/ctx.py",
+            "score": 0.13804146647453308
+          },
+          {
+            "path": "src/flask/views.py",
+            "score": 0.12403759360313416
+          },
+          {
+            "path": "src/flask/config.py",
+            "score": 0.11744870990514755
+          },
+          {
+            "path": "src/flask/typing.py",
+            "score": 0.10952230542898178
+          },
+          {
+            "path": "src/flask/logging.py",
+            "score": 0.08996959030628204
+          },
+          {
+            "path": "src/flask/json/tag.py",
+            "score": 0.05434218794107437
+          },
+          {
+            "path": "src/flask/__main__.py",
+            "score": -0.004569736309349537
+          }
+        ]
+      },
+      "goldFiles": [
+        "src/flask/blueprints.py"
+      ]
+    }
+  },
+  "downloadMetadata": [
+    {
+      "folder": "model",
+      "file": ".gitattributes.metadata",
+      "revision": "745d2a06103a66d3cfa600aa52fc0d3523010daa",
+      "etag": "a6344aac8c09253b3b630fb776ae94478aa0275b"
+    },
+    {
+      "folder": "model",
+      "file": "1_Pooling/config.json.metadata",
+      "revision": "745d2a06103a66d3cfa600aa52fc0d3523010daa",
+      "etag": "d0ad7ab1d57beb390b576bcf93682460383454d6"
+    },
+    {
+      "folder": "model",
+      "file": "README.md.metadata",
+      "revision": "745d2a06103a66d3cfa600aa52fc0d3523010daa",
+      "etag": "33f438863e370e39ff75f489e56dab26605937c2"
+    },
+    {
+      "folder": "model",
+      "file": "config.json.metadata",
+      "revision": "745d2a06103a66d3cfa600aa52fc0d3523010daa",
+      "etag": "f97b42f6583a4af6df91800767aa37694d297ac7"
+    },
+    {
+      "folder": "model",
+      "file": "config_sentence_transformers.json.metadata",
+      "revision": "745d2a06103a66d3cfa600aa52fc0d3523010daa",
+      "etag": "f6d7ac6b546ee92ebf951ee13c549143352734b5"
+    },
+    {
+      "folder": "model",
+      "file": "model.safetensors.metadata",
+      "revision": "745d2a06103a66d3cfa600aa52fc0d3523010daa",
+      "etag": "e40687da7f148e684648691facbaa2222503829afb9d21b9b3913034bef14f41"
+    },
+    {
+      "folder": "model",
+      "file": "modeling_hf_nomic_bert.py.metadata",
+      "revision": "745d2a06103a66d3cfa600aa52fc0d3523010daa",
+      "etag": "8a731329ba5364dc8798df668b8ef35c4f796d89"
+    },
+    {
+      "folder": "model",
+      "file": "modules.json.metadata",
+      "revision": "745d2a06103a66d3cfa600aa52fc0d3523010daa",
+      "etag": "45a8beea3dc567c0172999f5eca5c9e181a4ae15"
+    },
+    {
+      "folder": "model",
+      "file": "sentence_bert_config.json.metadata",
+      "revision": "745d2a06103a66d3cfa600aa52fc0d3523010daa",
+      "etag": "182764e3436f4475917ebe7ec2ebd1726ad4c56e"
+    },
+    {
+      "folder": "model",
+      "file": "special_tokens_map.json.metadata",
+      "revision": "745d2a06103a66d3cfa600aa52fc0d3523010daa",
+      "etag": "9bbecc17cabbcbd3112c14d6982b51403b264bfa"
+    },
+    {
+      "folder": "model",
+      "file": "tokenizer.json.metadata",
+      "revision": "745d2a06103a66d3cfa600aa52fc0d3523010daa",
+      "etag": "3c0e6344ec45a9a6e5a621d6711baf109c2d9f87"
+    },
+    {
+      "folder": "model",
+      "file": "tokenizer_config.json.metadata",
+      "revision": "745d2a06103a66d3cfa600aa52fc0d3523010daa",
+      "etag": "db8d32d1a2b736a6fa6c8040e62671249822334e"
+    },
+    {
+      "folder": "model",
+      "file": "vocab.txt.metadata",
+      "revision": "745d2a06103a66d3cfa600aa52fc0d3523010daa",
+      "etag": "fb140275c155a9c7c5a3b3e0e77a9e839594a938"
+    },
+    {
+      "folder": "code",
+      "file": "configuration_hf_nomic_bert.py.metadata",
+      "revision": "92d97331f1f4b6a366c1f161354b9f3390cc219f",
+      "etag": "b5ead11e9d6e5478ce59d5eabfa7aaa3f007c632"
+    },
+    {
+      "folder": "code",
+      "file": "modeling_hf_nomic_bert.py.metadata",
+      "revision": "92d97331f1f4b6a366c1f161354b9f3390cc219f",
+      "etag": "910ebc85be76c92347ceee9e3a654234b38ede36"
+    },
+    {
+      "folder": "dataset",
+      "file": "README.md.metadata",
+      "revision": "6ec7bb89b9342f664a54a6e0a6ea6501d3437cc2",
+      "etag": "6f543e75122c1721e4f4528c5dfc3ba4b877c69d"
+    },
+    {
+      "folder": "dataset",
+      "file": "data/test-00000-of-00001.parquet.metadata",
+      "revision": "6ec7bb89b9342f664a54a6e0a6ea6501d3437cc2",
+      "etag": "7a21f37b8bc179c7db5beeb14e88ac538ba283455c776e6b2535bbfb6e3551b4"
+    }
+  ],
+  "verification": {
+    "independentRankArithmetic": true,
+    "completeFileUniverse": true,
+    "sourceAndArtifactHashes": true,
+    "predictionHashes": true,
+    "declaredSourceCommit": "5957f51018cbb5d58e5f0af527e4b52342814860",
+    "downloadMetadataAuthenticatesOrigin": false,
+    "verifierHash": "76b628ae6fa8dded5f09b9bc5652e0517e29024e5d1889a83156662737d2ce27"
+  }
+}

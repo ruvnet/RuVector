@@ -1,0 +1,32 @@
+{
+  "protocol": {
+    "graphs": [
+      "nations",
+      "kinships",
+      "umls"
+    ],
+    "fraction": 0.25,
+    "seeds": [
+      101,
+      202,
+      303
+    ],
+    "seconds": 20.0,
+    "maxSteps": 1000,
+    "minimumRelativeGain": 0.1,
+    "timeTolerance": 0.1,
+    "decision": "Each graph must improve mean MRR >=10% over frozen and scratch; all training durations within 10% of 20s",
+    "role": "Development only. No fresh graph accessed unless this gate passes.",
+    "limitations": "Selected support fraction; existing diagnostic queries; no KGE comparison or promotion"
+  },
+  "inputHashes": {
+    "/workspace/scratch/83b0d7057773/transfer-data/nations.json": "25503259e045011e6c6e9b9cea9889dc829df5626c4cde982b183ec0b9552034",
+    "/workspace/scratch/83b0d7057773/transfer-data/kinships.json": "c7276584118002b690a773a1369d50a941f4bce2cda8fa6e1d0952beb536a418",
+    "/workspace/scratch/83b0d7057773/transfer-data/umls.json": "d7935cd3c996b617ac8a1b235357aef42c216ef5291f2a959b1a1dc14258c912"
+  },
+  "sourceHashes": {
+    "adaptation_budget.py": "5838cd7fb2a0fcd5bdace4b67577c0dc1d97c1f863a45902ffcefe680463d057",
+    "sparse_transfer.py": "430ff7257215018fc8644dc4931cb8e230b5377006747734da6d88f1f62d3bf4",
+    "ultra_adapter.py": "353745fc9865335221ec1a30a02f3c160c76b55b53e5671da375fd3aea82ee70"
+  }
+}

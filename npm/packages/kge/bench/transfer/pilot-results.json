@@ -1,0 +1,4734 @@
+{
+  "schema": "ruvector.cross-graph-pilot.v1",
+  "graphs": [
+    {
+      "dataset": {
+        "name": "nations",
+        "source": "https://github.com/pykeen/pykeen",
+        "sourceCommit": "cbc1ea107afd7bebc531c1739c210c620f908fbf",
+        "fileHashes": {
+          "train": "0830fa9da8e5bba2ccdaa45b7bdc9130451ba66b09ff2708f35fccaf82473e57",
+          "valid": "2b337a62e51a2f45c283eac98a70d21b7e0e102136be1539b2a52c652a7b0530",
+          "test": "3971085165b47b6aeaec68058c6d8d98b3005e929db81268410b95ae4db770ab"
+        },
+        "selection": "first 64 test triples by sha256 of JSON [s,r,o]; other test facts filter-only valid",
+        "originalTestCount": 201
+      },
+      "summary": {
+        "pretrainedMRR": 0.5753225073537573,
+        "randomMeanMRR": 0.27014937464156213,
+        "kgeScratchMeanMRR": 0.739648719628652,
+        "pretrainedMinusRandom": 0.3051731327121952,
+        "conditionalQueryBootstrap95": [
+          0.24353131677350429,
+          0.3710720919705295
+        ]
+      },
+      "ultra": {
+        "schema": "ruvector.ultra-transfer.v1",
+        "inputSha256": "25503259e045011e6c6e9b9cea9889dc829df5626c4cde982b183ec0b9552034",
+        "adapterSha256": "353745fc9865335221ec1a30a02f3c160c76b55b53e5671da375fd3aea82ee70",
+        "upstreamCommit": "427966ad8ed60420eef034063d44f3153addff90",
+        "checkpointSha256": "fdedc01b0045fc089d2ad5da08569466b7b221691fe978a18e91082bbb133c18",
+        "declaredPretrainingGraphs": [
+          "FB15k237",
+          "WN18RR",
+          "CoDExMedium"
+        ],
+        "graph": "nations",
+        "entities": 14,
+        "relations": 55,
+        "targetTrainingSteps": 0,
+        "candidatePolicy": "all-entities",
+        "ties": "pessimistic",
+        "permutation": {
+          "maxAbsoluteError": 6.198883056640625e-06,
+          "atol": 0.0001,
+          "rtol": 0.0001,
+          "queries": 10
+        },
+        "pretrained": {
+          "metrics": {
+            "count": 128,
+            "mrr": 0.5753225073537573,
+            "hits1": 0.3984375,
+            "hits10": 0.9765625
+          },
+          "ranks": [
+            [
+              2,
+              8
+            ],
+            [
+              5,
+              2
+            ],
+            [
+              2,
+              6
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              5
+            ],
+            [
+              3,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              1,
+              6
+            ],
+            [
+              4,
+              9
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              11,
+              1
+            ],
+            [
+              7,
+              3
+            ],
+            [
+              5,
+              6
+            ],
+            [
+              2,
+              6
+            ],
+            [
+              3,
+              5
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              3,
+              1
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              1,
+              10
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              4,
+              6
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              8
+            ],
+            [
+              3,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              4,
+              1
+            ],
+            [
+              1,
+              5
+            ],
+            [
+              11,
+              13
+            ],
+            [
+              3,
+              6
+            ],
+            [
+              2,
+              5
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              5,
+              1
+            ],
+            [
+              6,
+              8
+            ],
+            [
+              3,
+              1
+            ],
+            [
+              1,
+              7
+            ],
+            [
+              1,
+              7
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              3,
+              2
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              7,
+              2
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              4,
+              1
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              4,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              2
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              1,
+              8
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              1,
+              6
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "queryHashes": [
+            "4457f6aa324c9288940b792c09d49105ed887066c6b82ffd3e1eff22a1337655",
+            "1ffd0b200dd1709efa62e75aa343f38fe93bc0e898f6e9c004815ed7ddc529bd",
+            "3541442ee1e25d593c0a318e026757a381339923c55fb9187a8ae560f3de6937",
+            "2c80adefece32d2c53ae4c2239b1eb13be714b1c4dfea1636dfa193f5dd80444",
+            "26c12654d3915fc58aa660941dc560618678d2e6d84af7f884f0dbadfa9f2717",
+            "346fa90b56be95572a9d35b48a4a6cbef76afc53eaf11ce81e7223d8addd5f2d",
+            "0bc89218fa44eec6aec846a35e216ec54afcfd5ee294cf8f3d1a42fec3f782f5",
+            "02a55a1253ff5674b925b138c47d8e4aee9e7bc292479ce7d8a71335d5e64fab",
+            "3072282860848b8b89d6f4f156baa27d6ff8b0ec6f19c601deb9bf324a97fd7e",
+            "0e28e697c6578a347f2abfead8c039e211a59f4045d4c8951ef0505beea36325",
+            "003fa1af3c578837e02535053fa5f20376d9e65ba7d096a4369e2fcbbfdf42ff",
+            "449dc1c99b16f262f9a33aa7e24f16246e111e9edc3aed997a36dae9d5ab85c1",
+            "47949787652acdee76c0ff5ca494dbfa28454019cae224fd52f920600428f89f",
+            "39dad8495814e35b9e19dbf3a5b312b724aeacc5020653c6f979c014301c982d",
+            "2e64d1ced90cb78773aca18b175ea4b9cbca9383853b21acb446ffe7044c8263",
+            "3013f29996c52e759b0fd35eba8d65603a951f791ab8e4c1ce5873f86761042c",
+            "27cef951311fc2d583e3190b83418643c21313077f6870cc1c6eae0a6e0e3817",
+            "1ac96687bbe843a33424395433cfa0dabf515633bc9cdcf6e4524822d6c2f484",
+            "2f6c18f527b047058af57177974429c88fc1b483b22ce917b0789dab7799e092",
+            "40e4ca22749d7596636e45a670e1379a212e8b8f45a0139651d67911ac22746f",
+            "026aa94a2564b3a133a46677810262596ed3a9e864793048ad0a17db7505d055",
+            "416f3574554951b4ab2dfc29140337d57f9bede98315e773fdc895a354a298d9",
+            "12dc651dea9c18a3321801ab757cd394047ff85143a8307212b65883ee848219",
+            "4699a740fb71f283e132cc7e69080e33afcef860863e26dce55dcec0de7a7cfe",
+            "197398b56b0f74af36be32a59f94a6cbe4bcdb4316bf6e57385cacef001c5e0f",
+            "3fa912aa747a2264cf69609d5674680b5e609bc952bc378218091103cca9cf74",
+            "3a5878098d634ed6bc211ca1e5dc47bc51b088ec9f7a19cb5f33bf4128315a9d",
+            "388d4417f32d8c66dc5e8430ac711026dfd3cf36197d8cbed8bb44189ffbfe51",
+            "1de4c5f19df62086f0a68f4a76b549750ba3092b8c114032ba11134a0a253585",
+            "01499c2e2893a8de2c7b4ecf23315f6c4a7f606a8e30d91e470fd967d5f2a7f1",
+            "171c56e94961f204a8333eaf9076eb52e8afb8b42c0150d9e582e8813aa888f9",
+            "082dbb0d523f5bf9fb7ff92e7db6845417351b94ffbdbe86f2392b45dd12836c",
+            "05b73f00bf1afbb19cddf219b35f6de9ce45b72f2683557bf69d0f4384351e61",
+            "472880936395527a6c300cac7bb136f03d9036797a02407f9ba1b2a4235bcfd0",
+            "48fd9381f246a12fcb4252cd5490a1ccc3440adfca01c23f3bc5054953f39e2f",
+            "08a0d45ebf752d3b5f68de597767c98294526f71930a56c8b79727371aa626ea",
+            "23f276aa564f02f2449a4f22bfe32e463e24f85934250b36fbe60742f6c8da21",
+            "0672e02dd28edd82790f54fe00118af51de0f345eca72f95a888eddcd0899e43",
+            "1801ba76a3e636149fc73fd734a1bc286b277d4d3099d3efd05a2212539c4c11",
+            "34fedcc2954a0082d021b1f49638582a05500739bffb4c4049297f5649a119b9",
+            "24f02ce873c7f3ff7fef65560479fcbcc48a381670fcfbffd03dd3646347893c",
+            "16674d24934a871737a25d5f4f58ec545fa7db53b4748be53280cd26db1306a5",
+            "0811629bf41c0237902ef981b70e31d7b3e76f525c166ae048a992e8426e7263",
+            "2662c4225b81c307050e50165fd6b88398c5e5703eab16a77bdd53ea33440809",
+            "231500415d1d29f908918f5228da8b80747269312cee11cb195c8c5f59c8f1e0",
+            "37c5946107505612f00d7ae0dad856f6f9beb6a0009f878ca6d7520b7b01d51d",
+            "2318beef93f81645399d6f6012d4a94f1439f48cd7ad3533feccfd80c8f8b528",
+            "04c865369ad21599db361dd44c808c2d39fe451037b7b80020cb12fa2a17cf12",
+            "4197b9edd3236e2379338fbf8f6a650a67e2bc2f39cc33803c035a81b4723b8c",
+            "17c2d43ac0dc4b8ce3da50811ed25ab3174717e552ea0bf7c550e7971010d4db",
+            "0101e36ae6d08c36ec95ff9f605fd046aef52c54478abbbf56a30c84d0d3e7a0",
+            "2fbf76dad4cbbb5de9ffdcf634d3d04dbb0431e45cdc1788f7f3fae9c6d7a81a",
+            "3c407a38066cce6cc050d93dbbabcd0c87e983e93ec88507f164adbfd8a31470",
+            "3056f51b0752cfc101aead7af05fe1823318705b22030c77bebe3225f4e6b346",
+            "352f60233d06fd01856582c980232aa5a4ef97c1b0ae7b859be63fc657fb08a9",
+            "20f579a162c29a0eccc61c33f695b08bffa56f87e67e428b1a0b262fc15c93ce",
+            "15085a42e3bbe9eec3a95b81063c5dec111c91cdbfe3b52da17d16907f651eff",
+            "49349f80286d27a6106b363fcd23b798b5072c72fa2bbfee5790458630a4a14e",
+            "1d093ff1b87504622815fadc62289fcd769c0447a8f075270c42730193dd4fb2",
+            "270a21376e6e0e5516e49654103a24b3081138bd7b71cc2a33aa4ac8b1429949",
+            "10215dccc158529c449aa47f9b8385a6bac57ca8f42e94774f5c2293bc1d3bcc",
+            "41890541e15afbddeb26a143fe5fe3f553819c293b9d14957147777c8e23821a",
+            "098ff52e2c3004054b1463d8cfbfd9fd0af6f7620f9b1dea8cfbbd240bfd46c0",
+            "1b00936001f7315f483d1d541d9d79b360e6c12d1826f8215dcc337e0ad66e47"
+          ],
+          "seconds": 2.2750401539960876
+        },
+        "random": [
+          {
+            "seed": 101,
+            "metrics": {
+              "count": 128,
+              "mrr": 0.2852647569444444,
+              "hits1": 0.0,
+              "hits10": 1.0
+            },
+            "ranks": [
+              [
+                5,
+                8
+              ],
+              [
+                6,
+                5
+              ],
+              [
+                6,
+                2
+              ],
+              [
+                5,
+                4
+              ],
+              [
+                9,
+                7
+              ],
+              [
+                7,
+                8
+              ],
+              [
+                6,
+                2
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                5,
+                4
+              ],
+              [
+                9,
+                3
+              ],
+              [
+                9,
+                4
+              ],
+              [
+                6,
+                2
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                4,
+                4
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                7,
+                2
+              ],
+              [
+                2,
+                5
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                9,
+                8
+              ],
+              [
+                6,
+                7
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                5,
+                3
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                7,
+                6
+              ],
+              [
+                4,
+                4
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                4,
+                6
+              ],
+              [
+                7,
+                2
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                2,
+                4
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                6,
+                7
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                7,
+                2
+              ],
+              [
+                7,
+                5
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                4,
+                5
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                5,
+                2
+              ],
+              [
+                9,
+                7
+              ],
+              [
+                3,
+                4
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                5,
+                4
+              ],
+              [
+                5,
+                5
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                7,
+                5
+              ],
+              [
+                7,
+                6
+              ],
+              [
+                4,
+                5
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                2,
+                3
+              ],
+              [
+                5,
+                5
+              ],
+              [
+                6,
+                7
+              ],
+              [
+                5,
+                2
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                3,
+                5
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                4,
+                5
+              ],
+              [
+                3,
+                2
+              ]
+            ],
+            "queryHashes": [
+              "4457f6aa324c9288940b792c09d49105ed887066c6b82ffd3e1eff22a1337655",
+              "1ffd0b200dd1709efa62e75aa343f38fe93bc0e898f6e9c004815ed7ddc529bd",
+              "3541442ee1e25d593c0a318e026757a381339923c55fb9187a8ae560f3de6937",
+              "2c80adefece32d2c53ae4c2239b1eb13be714b1c4dfea1636dfa193f5dd80444",
+              "26c12654d3915fc58aa660941dc560618678d2e6d84af7f884f0dbadfa9f2717",
+              "346fa90b56be95572a9d35b48a4a6cbef76afc53eaf11ce81e7223d8addd5f2d",
+              "0bc89218fa44eec6aec846a35e216ec54afcfd5ee294cf8f3d1a42fec3f782f5",
+              "02a55a1253ff5674b925b138c47d8e4aee9e7bc292479ce7d8a71335d5e64fab",
+              "3072282860848b8b89d6f4f156baa27d6ff8b0ec6f19c601deb9bf324a97fd7e",
+              "0e28e697c6578a347f2abfead8c039e211a59f4045d4c8951ef0505beea36325",
+              "003fa1af3c578837e02535053fa5f20376d9e65ba7d096a4369e2fcbbfdf42ff",
+              "449dc1c99b16f262f9a33aa7e24f16246e111e9edc3aed997a36dae9d5ab85c1",
+              "47949787652acdee76c0ff5ca494dbfa28454019cae224fd52f920600428f89f",
+              "39dad8495814e35b9e19dbf3a5b312b724aeacc5020653c6f979c014301c982d",
+              "2e64d1ced90cb78773aca18b175ea4b9cbca9383853b21acb446ffe7044c8263",
+              "3013f29996c52e759b0fd35eba8d65603a951f791ab8e4c1ce5873f86761042c",
+              "27cef951311fc2d583e3190b83418643c21313077f6870cc1c6eae0a6e0e3817",
+              "1ac96687bbe843a33424395433cfa0dabf515633bc9cdcf6e4524822d6c2f484",
+              "2f6c18f527b047058af57177974429c88fc1b483b22ce917b0789dab7799e092",
+              "40e4ca22749d7596636e45a670e1379a212e8b8f45a0139651d67911ac22746f",
+              "026aa94a2564b3a133a46677810262596ed3a9e864793048ad0a17db7505d055",
+              "416f3574554951b4ab2dfc29140337d57f9bede98315e773fdc895a354a298d9",
+              "12dc651dea9c18a3321801ab757cd394047ff85143a8307212b65883ee848219",
+              "4699a740fb71f283e132cc7e69080e33afcef860863e26dce55dcec0de7a7cfe",
+              "197398b56b0f74af36be32a59f94a6cbe4bcdb4316bf6e57385cacef001c5e0f",
+              "3fa912aa747a2264cf69609d5674680b5e609bc952bc378218091103cca9cf74",
+              "3a5878098d634ed6bc211ca1e5dc47bc51b088ec9f7a19cb5f33bf4128315a9d",
+              "388d4417f32d8c66dc5e8430ac711026dfd3cf36197d8cbed8bb44189ffbfe51",
+              "1de4c5f19df62086f0a68f4a76b549750ba3092b8c114032ba11134a0a253585",
+              "01499c2e2893a8de2c7b4ecf23315f6c4a7f606a8e30d91e470fd967d5f2a7f1",
+              "171c56e94961f204a8333eaf9076eb52e8afb8b42c0150d9e582e8813aa888f9",
+              "082dbb0d523f5bf9fb7ff92e7db6845417351b94ffbdbe86f2392b45dd12836c",
+              "05b73f00bf1afbb19cddf219b35f6de9ce45b72f2683557bf69d0f4384351e61",
+              "472880936395527a6c300cac7bb136f03d9036797a02407f9ba1b2a4235bcfd0",
+              "48fd9381f246a12fcb4252cd5490a1ccc3440adfca01c23f3bc5054953f39e2f",
+              "08a0d45ebf752d3b5f68de597767c98294526f71930a56c8b79727371aa626ea",
+              "23f276aa564f02f2449a4f22bfe32e463e24f85934250b36fbe60742f6c8da21",
+              "0672e02dd28edd82790f54fe00118af51de0f345eca72f95a888eddcd0899e43",
+              "1801ba76a3e636149fc73fd734a1bc286b277d4d3099d3efd05a2212539c4c11",
+              "34fedcc2954a0082d021b1f49638582a05500739bffb4c4049297f5649a119b9",
+              "24f02ce873c7f3ff7fef65560479fcbcc48a381670fcfbffd03dd3646347893c",
+              "16674d24934a871737a25d5f4f58ec545fa7db53b4748be53280cd26db1306a5",
+              "0811629bf41c0237902ef981b70e31d7b3e76f525c166ae048a992e8426e7263",
+              "2662c4225b81c307050e50165fd6b88398c5e5703eab16a77bdd53ea33440809",
+              "231500415d1d29f908918f5228da8b80747269312cee11cb195c8c5f59c8f1e0",
+              "37c5946107505612f00d7ae0dad856f6f9beb6a0009f878ca6d7520b7b01d51d",
+              "2318beef93f81645399d6f6012d4a94f1439f48cd7ad3533feccfd80c8f8b528",
+              "04c865369ad21599db361dd44c808c2d39fe451037b7b80020cb12fa2a17cf12",
+              "4197b9edd3236e2379338fbf8f6a650a67e2bc2f39cc33803c035a81b4723b8c",
+              "17c2d43ac0dc4b8ce3da50811ed25ab3174717e552ea0bf7c550e7971010d4db",
+              "0101e36ae6d08c36ec95ff9f605fd046aef52c54478abbbf56a30c84d0d3e7a0",
+              "2fbf76dad4cbbb5de9ffdcf634d3d04dbb0431e45cdc1788f7f3fae9c6d7a81a",
+              "3c407a38066cce6cc050d93dbbabcd0c87e983e93ec88507f164adbfd8a31470",
+              "3056f51b0752cfc101aead7af05fe1823318705b22030c77bebe3225f4e6b346",
+              "352f60233d06fd01856582c980232aa5a4ef97c1b0ae7b859be63fc657fb08a9",
+              "20f579a162c29a0eccc61c33f695b08bffa56f87e67e428b1a0b262fc15c93ce",
+              "15085a42e3bbe9eec3a95b81063c5dec111c91cdbfe3b52da17d16907f651eff",
+              "49349f80286d27a6106b363fcd23b798b5072c72fa2bbfee5790458630a4a14e",
+              "1d093ff1b87504622815fadc62289fcd769c0447a8f075270c42730193dd4fb2",
+              "270a21376e6e0e5516e49654103a24b3081138bd7b71cc2a33aa4ac8b1429949",
+              "10215dccc158529c449aa47f9b8385a6bac57ca8f42e94774f5c2293bc1d3bcc",
+              "41890541e15afbddeb26a143fe5fe3f553819c293b9d14957147777c8e23821a",
+              "098ff52e2c3004054b1463d8cfbfd9fd0af6f7620f9b1dea8cfbbd240bfd46c0",
+              "1b00936001f7315f483d1d541d9d79b360e6c12d1826f8215dcc337e0ad66e47"
+            ],
+            "seconds": 2.3722979149970342
+          },
+          {
+            "seed": 202,
+            "metrics": {
+              "count": 128,
+              "mrr": 0.2811417748917749,
+              "hits1": 0.0,
+              "hits10": 0.9921875
+            },
+            "ranks": [
+              [
+                5,
+                9
+              ],
+              [
+                5,
+                4
+              ],
+              [
+                3,
+                7
+              ],
+              [
+                4,
+                4
+              ],
+              [
+                4,
+                7
+              ],
+              [
+                7,
+                9
+              ],
+              [
+                5,
+                2
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                3,
+                4
+              ],
+              [
+                5,
+                4
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                9,
+                4
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                3,
+                3
+              ],
+              [
+                4,
+                6
+              ],
+              [
+                5,
+                3
+              ],
+              [
+                5,
+                2
+              ],
+              [
+                2,
+                4
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                9,
+                6
+              ],
+              [
+                6,
+                7
+              ],
+              [
+                4,
+                5
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                5,
+                4
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                11,
+                2
+              ],
+              [
+                5,
+                4
+              ],
+              [
+                4,
+                4
+              ],
+              [
+                2,
+                6
+              ],
+              [
+                9,
+                8
+              ],
+              [
+                5,
+                3
+              ],
+              [
+                7,
+                5
+              ],
+              [
+                2,
+                3
+              ],
+              [
+                5,
+                2
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                6,
+                7
+              ],
+              [
+                3,
+                3
+              ],
+              [
+                6,
+                2
+              ],
+              [
+                5,
+                8
+              ],
+              [
+                4,
+                3
+              ],
+              [
+                4,
+                5
+              ],
+              [
+                5,
+                2
+              ],
+              [
+                6,
+                6
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                5,
+                7
+              ],
+              [
+                3,
+                6
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                4,
+                4
+              ],
+              [
+                3,
+                5
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                3,
+                6
+              ],
+              [
+                4,
+                5
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                2,
+                3
+              ],
+              [
+                4,
+                7
+              ],
+              [
+                6,
+                5
+              ],
+              [
+                9,
+                2
+              ],
+              [
+                4,
+                3
+              ],
+              [
+                2,
+                6
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                3,
+                6
+              ],
+              [
+                3,
+                2
+              ]
+            ],
+            "queryHashes": [
+              "4457f6aa324c9288940b792c09d49105ed887066c6b82ffd3e1eff22a1337655",
+              "1ffd0b200dd1709efa62e75aa343f38fe93bc0e898f6e9c004815ed7ddc529bd",
+              "3541442ee1e25d593c0a318e026757a381339923c55fb9187a8ae560f3de6937",
+              "2c80adefece32d2c53ae4c2239b1eb13be714b1c4dfea1636dfa193f5dd80444",
+              "26c12654d3915fc58aa660941dc560618678d2e6d84af7f884f0dbadfa9f2717",
+              "346fa90b56be95572a9d35b48a4a6cbef76afc53eaf11ce81e7223d8addd5f2d",
+              "0bc89218fa44eec6aec846a35e216ec54afcfd5ee294cf8f3d1a42fec3f782f5",
+              "02a55a1253ff5674b925b138c47d8e4aee9e7bc292479ce7d8a71335d5e64fab",
+              "3072282860848b8b89d6f4f156baa27d6ff8b0ec6f19c601deb9bf324a97fd7e",
+              "0e28e697c6578a347f2abfead8c039e211a59f4045d4c8951ef0505beea36325",
+              "003fa1af3c578837e02535053fa5f20376d9e65ba7d096a4369e2fcbbfdf42ff",
+              "449dc1c99b16f262f9a33aa7e24f16246e111e9edc3aed997a36dae9d5ab85c1",
+              "47949787652acdee76c0ff5ca494dbfa28454019cae224fd52f920600428f89f",
+              "39dad8495814e35b9e19dbf3a5b312b724aeacc5020653c6f979c014301c982d",
+              "2e64d1ced90cb78773aca18b175ea4b9cbca9383853b21acb446ffe7044c8263",
+              "3013f29996c52e759b0fd35eba8d65603a951f791ab8e4c1ce5873f86761042c",
+              "27cef951311fc2d583e3190b83418643c21313077f6870cc1c6eae0a6e0e3817",
+              "1ac96687bbe843a33424395433cfa0dabf515633bc9cdcf6e4524822d6c2f484",
+              "2f6c18f527b047058af57177974429c88fc1b483b22ce917b0789dab7799e092",
+              "40e4ca22749d7596636e45a670e1379a212e8b8f45a0139651d67911ac22746f",
+              "026aa94a2564b3a133a46677810262596ed3a9e864793048ad0a17db7505d055",
+              "416f3574554951b4ab2dfc29140337d57f9bede98315e773fdc895a354a298d9",
+              "12dc651dea9c18a3321801ab757cd394047ff85143a8307212b65883ee848219",
+              "4699a740fb71f283e132cc7e69080e33afcef860863e26dce55dcec0de7a7cfe",
+              "197398b56b0f74af36be32a59f94a6cbe4bcdb4316bf6e57385cacef001c5e0f",
+              "3fa912aa747a2264cf69609d5674680b5e609bc952bc378218091103cca9cf74",
+              "3a5878098d634ed6bc211ca1e5dc47bc51b088ec9f7a19cb5f33bf4128315a9d",
+              "388d4417f32d8c66dc5e8430ac711026dfd3cf36197d8cbed8bb44189ffbfe51",
+              "1de4c5f19df62086f0a68f4a76b549750ba3092b8c114032ba11134a0a253585",
+              "01499c2e2893a8de2c7b4ecf23315f6c4a7f606a8e30d91e470fd967d5f2a7f1",
+              "171c56e94961f204a8333eaf9076eb52e8afb8b42c0150d9e582e8813aa888f9",
+              "082dbb0d523f5bf9fb7ff92e7db6845417351b94ffbdbe86f2392b45dd12836c",
+              "05b73f00bf1afbb19cddf219b35f6de9ce45b72f2683557bf69d0f4384351e61",
+              "472880936395527a6c300cac7bb136f03d9036797a02407f9ba1b2a4235bcfd0",
+              "48fd9381f246a12fcb4252cd5490a1ccc3440adfca01c23f3bc5054953f39e2f",
+              "08a0d45ebf752d3b5f68de597767c98294526f71930a56c8b79727371aa626ea",
+              "23f276aa564f02f2449a4f22bfe32e463e24f85934250b36fbe60742f6c8da21",
+              "0672e02dd28edd82790f54fe00118af51de0f345eca72f95a888eddcd0899e43",
+              "1801ba76a3e636149fc73fd734a1bc286b277d4d3099d3efd05a2212539c4c11",
+              "34fedcc2954a0082d021b1f49638582a05500739bffb4c4049297f5649a119b9",
+              "24f02ce873c7f3ff7fef65560479fcbcc48a381670fcfbffd03dd3646347893c",
+              "16674d24934a871737a25d5f4f58ec545fa7db53b4748be53280cd26db1306a5",
+              "0811629bf41c0237902ef981b70e31d7b3e76f525c166ae048a992e8426e7263",
+              "2662c4225b81c307050e50165fd6b88398c5e5703eab16a77bdd53ea33440809",
+              "231500415d1d29f908918f5228da8b80747269312cee11cb195c8c5f59c8f1e0",
+              "37c5946107505612f00d7ae0dad856f6f9beb6a0009f878ca6d7520b7b01d51d",
+              "2318beef93f81645399d6f6012d4a94f1439f48cd7ad3533feccfd80c8f8b528",
+              "04c865369ad21599db361dd44c808c2d39fe451037b7b80020cb12fa2a17cf12",
+              "4197b9edd3236e2379338fbf8f6a650a67e2bc2f39cc33803c035a81b4723b8c",
+              "17c2d43ac0dc4b8ce3da50811ed25ab3174717e552ea0bf7c550e7971010d4db",
+              "0101e36ae6d08c36ec95ff9f605fd046aef52c54478abbbf56a30c84d0d3e7a0",
+              "2fbf76dad4cbbb5de9ffdcf634d3d04dbb0431e45cdc1788f7f3fae9c6d7a81a",
+              "3c407a38066cce6cc050d93dbbabcd0c87e983e93ec88507f164adbfd8a31470",
+              "3056f51b0752cfc101aead7af05fe1823318705b22030c77bebe3225f4e6b346",
+              "352f60233d06fd01856582c980232aa5a4ef97c1b0ae7b859be63fc657fb08a9",
+              "20f579a162c29a0eccc61c33f695b08bffa56f87e67e428b1a0b262fc15c93ce",
+              "15085a42e3bbe9eec3a95b81063c5dec111c91cdbfe3b52da17d16907f651eff",
+              "49349f80286d27a6106b363fcd23b798b5072c72fa2bbfee5790458630a4a14e",
+              "1d093ff1b87504622815fadc62289fcd769c0447a8f075270c42730193dd4fb2",
+              "270a21376e6e0e5516e49654103a24b3081138bd7b71cc2a33aa4ac8b1429949",
+              "10215dccc158529c449aa47f9b8385a6bac57ca8f42e94774f5c2293bc1d3bcc",
+              "41890541e15afbddeb26a143fe5fe3f553819c293b9d14957147777c8e23821a",
+              "098ff52e2c3004054b1463d8cfbfd9fd0af6f7620f9b1dea8cfbbd240bfd46c0",
+              "1b00936001f7315f483d1d541d9d79b360e6c12d1826f8215dcc337e0ad66e47"
+            ],
+            "seconds": 2.335766923002666
+          },
+          {
+            "seed": 303,
+            "metrics": {
+              "count": 128,
+              "mrr": 0.2440415920884671,
+              "hits1": 0.0,
+              "hits10": 0.9375
+            },
+            "ranks": [
+              [
+                4,
+                3
+              ],
+              [
+                3,
+                5
+              ],
+              [
+                5,
+                2
+              ],
+              [
+                3,
+                6
+              ],
+              [
+                5,
+                10
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                5,
+                2
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                6,
+                11
+              ],
+              [
+                10,
+                10
+              ],
+              [
+                5,
+                2
+              ],
+              [
+                9,
+                5
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                9,
+                6
+              ],
+              [
+                4,
+                8
+              ],
+              [
+                2,
+                3
+              ],
+              [
+                10,
+                3
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                6,
+                5
+              ],
+              [
+                9,
+                12
+              ],
+              [
+                6,
+                7
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                8,
+                4
+              ],
+              [
+                13,
+                14
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                5,
+                7
+              ],
+              [
+                4,
+                5
+              ],
+              [
+                8,
+                8
+              ],
+              [
+                11,
+                8
+              ],
+              [
+                4,
+                3
+              ],
+              [
+                6,
+                5
+              ],
+              [
+                5,
+                3
+              ],
+              [
+                3,
+                6
+              ],
+              [
+                2,
+                5
+              ],
+              [
+                9,
+                9
+              ],
+              [
+                5,
+                2
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                7,
+                8
+              ],
+              [
+                3,
+                3
+              ],
+              [
+                6,
+                2
+              ],
+              [
+                8,
+                8
+              ],
+              [
+                10,
+                4
+              ],
+              [
+                10,
+                7
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                6,
+                6
+              ],
+              [
+                4,
+                6
+              ],
+              [
+                4,
+                3
+              ],
+              [
+                10,
+                7
+              ],
+              [
+                4,
+                5
+              ],
+              [
+                11,
+                8
+              ],
+              [
+                4,
+                4
+              ],
+              [
+                2,
+                4
+              ],
+              [
+                6,
+                13
+              ],
+              [
+                5,
+                4
+              ],
+              [
+                8,
+                3
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                11,
+                6
+              ],
+              [
+                6,
+                4
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                6,
+                4
+              ],
+              [
+                7,
+                2
+              ]
+            ],
+            "queryHashes": [
+              "4457f6aa324c9288940b792c09d49105ed887066c6b82ffd3e1eff22a1337655",
+              "1ffd0b200dd1709efa62e75aa343f38fe93bc0e898f6e9c004815ed7ddc529bd",
+              "3541442ee1e25d593c0a318e026757a381339923c55fb9187a8ae560f3de6937",
+              "2c80adefece32d2c53ae4c2239b1eb13be714b1c4dfea1636dfa193f5dd80444",
+              "26c12654d3915fc58aa660941dc560618678d2e6d84af7f884f0dbadfa9f2717",
+              "346fa90b56be95572a9d35b48a4a6cbef76afc53eaf11ce81e7223d8addd5f2d",
+              "0bc89218fa44eec6aec846a35e216ec54afcfd5ee294cf8f3d1a42fec3f782f5",
+              "02a55a1253ff5674b925b138c47d8e4aee9e7bc292479ce7d8a71335d5e64fab",
+              "3072282860848b8b89d6f4f156baa27d6ff8b0ec6f19c601deb9bf324a97fd7e",
+              "0e28e697c6578a347f2abfead8c039e211a59f4045d4c8951ef0505beea36325",
+              "003fa1af3c578837e02535053fa5f20376d9e65ba7d096a4369e2fcbbfdf42ff",
+              "449dc1c99b16f262f9a33aa7e24f16246e111e9edc3aed997a36dae9d5ab85c1",
+              "47949787652acdee76c0ff5ca494dbfa28454019cae224fd52f920600428f89f",
+              "39dad8495814e35b9e19dbf3a5b312b724aeacc5020653c6f979c014301c982d",
+              "2e64d1ced90cb78773aca18b175ea4b9cbca9383853b21acb446ffe7044c8263",
+              "3013f29996c52e759b0fd35eba8d65603a951f791ab8e4c1ce5873f86761042c",
+              "27cef951311fc2d583e3190b83418643c21313077f6870cc1c6eae0a6e0e3817",
+              "1ac96687bbe843a33424395433cfa0dabf515633bc9cdcf6e4524822d6c2f484",
+              "2f6c18f527b047058af57177974429c88fc1b483b22ce917b0789dab7799e092",
+              "40e4ca22749d7596636e45a670e1379a212e8b8f45a0139651d67911ac22746f",
+              "026aa94a2564b3a133a46677810262596ed3a9e864793048ad0a17db7505d055",
+              "416f3574554951b4ab2dfc29140337d57f9bede98315e773fdc895a354a298d9",
+              "12dc651dea9c18a3321801ab757cd394047ff85143a8307212b65883ee848219",
+              "4699a740fb71f283e132cc7e69080e33afcef860863e26dce55dcec0de7a7cfe",
+              "197398b56b0f74af36be32a59f94a6cbe4bcdb4316bf6e57385cacef001c5e0f",
+              "3fa912aa747a2264cf69609d5674680b5e609bc952bc378218091103cca9cf74",
+              "3a5878098d634ed6bc211ca1e5dc47bc51b088ec9f7a19cb5f33bf4128315a9d",
+              "388d4417f32d8c66dc5e8430ac711026dfd3cf36197d8cbed8bb44189ffbfe51",
+              "1de4c5f19df62086f0a68f4a76b549750ba3092b8c114032ba11134a0a253585",
+              "01499c2e2893a8de2c7b4ecf23315f6c4a7f606a8e30d91e470fd967d5f2a7f1",
+              "171c56e94961f204a8333eaf9076eb52e8afb8b42c0150d9e582e8813aa888f9",
+              "082dbb0d523f5bf9fb7ff92e7db6845417351b94ffbdbe86f2392b45dd12836c",
+              "05b73f00bf1afbb19cddf219b35f6de9ce45b72f2683557bf69d0f4384351e61",
+              "472880936395527a6c300cac7bb136f03d9036797a02407f9ba1b2a4235bcfd0",
+              "48fd9381f246a12fcb4252cd5490a1ccc3440adfca01c23f3bc5054953f39e2f",
+              "08a0d45ebf752d3b5f68de597767c98294526f71930a56c8b79727371aa626ea",
+              "23f276aa564f02f2449a4f22bfe32e463e24f85934250b36fbe60742f6c8da21",
+              "0672e02dd28edd82790f54fe00118af51de0f345eca72f95a888eddcd0899e43",
+              "1801ba76a3e636149fc73fd734a1bc286b277d4d3099d3efd05a2212539c4c11",
+              "34fedcc2954a0082d021b1f49638582a05500739bffb4c4049297f5649a119b9",
+              "24f02ce873c7f3ff7fef65560479fcbcc48a381670fcfbffd03dd3646347893c",
+              "16674d24934a871737a25d5f4f58ec545fa7db53b4748be53280cd26db1306a5",
+              "0811629bf41c0237902ef981b70e31d7b3e76f525c166ae048a992e8426e7263",
+              "2662c4225b81c307050e50165fd6b88398c5e5703eab16a77bdd53ea33440809",
+              "231500415d1d29f908918f5228da8b80747269312cee11cb195c8c5f59c8f1e0",
+              "37c5946107505612f00d7ae0dad856f6f9beb6a0009f878ca6d7520b7b01d51d",
+              "2318beef93f81645399d6f6012d4a94f1439f48cd7ad3533feccfd80c8f8b528",
+              "04c865369ad21599db361dd44c808c2d39fe451037b7b80020cb12fa2a17cf12",
+              "4197b9edd3236e2379338fbf8f6a650a67e2bc2f39cc33803c035a81b4723b8c",
+              "17c2d43ac0dc4b8ce3da50811ed25ab3174717e552ea0bf7c550e7971010d4db",
+              "0101e36ae6d08c36ec95ff9f605fd046aef52c54478abbbf56a30c84d0d3e7a0",
+              "2fbf76dad4cbbb5de9ffdcf634d3d04dbb0431e45cdc1788f7f3fae9c6d7a81a",
+              "3c407a38066cce6cc050d93dbbabcd0c87e983e93ec88507f164adbfd8a31470",
+              "3056f51b0752cfc101aead7af05fe1823318705b22030c77bebe3225f4e6b346",
+              "352f60233d06fd01856582c980232aa5a4ef97c1b0ae7b859be63fc657fb08a9",
+              "20f579a162c29a0eccc61c33f695b08bffa56f87e67e428b1a0b262fc15c93ce",
+              "15085a42e3bbe9eec3a95b81063c5dec111c91cdbfe3b52da17d16907f651eff",
+              "49349f80286d27a6106b363fcd23b798b5072c72fa2bbfee5790458630a4a14e",
+              "1d093ff1b87504622815fadc62289fcd769c0447a8f075270c42730193dd4fb2",
+              "270a21376e6e0e5516e49654103a24b3081138bd7b71cc2a33aa4ac8b1429949",
+              "10215dccc158529c449aa47f9b8385a6bac57ca8f42e94774f5c2293bc1d3bcc",
+              "41890541e15afbddeb26a143fe5fe3f553819c293b9d14957147777c8e23821a",
+              "098ff52e2c3004054b1463d8cfbfd9fd0af6f7620f9b1dea8cfbbd240bfd46c0",
+              "1b00936001f7315f483d1d541d9d79b360e6c12d1826f8215dcc337e0ad66e47"
+            ],
+            "seconds": 2.1353504750004504
+          }
+        ],
+        "promotion": false,
+        "limits": "Exploratory external checkpoint transfer. Pretraining provenance is upstream-declared. Random is not target-trained scratch. No replay comparison or generalization claim."
+      },
+      "kge": {
+        "schema": "ruvector.kge-transfer-control.v1",
+        "graph": "nations",
+        "inputSha256": "25503259e045011e6c6e9b9cea9889dc829df5626c4cde982b183ec0b9552034",
+        "runnerSha256": "60e608b66912aa4cb5c50a61a82b934316f966cc3b88243f62acac8f8154d6a6",
+        "engineVersion": "2.4.0",
+        "backend": "native",
+        "scorer": "hole",
+        "config": {
+          "dims": 64,
+          "epochs": 50,
+          "batch_size": 256,
+          "lr": 0.1,
+          "optimizer": {
+            "kind": "adagrad",
+            "epsilon": 1e-08
+          },
+          "loss": {
+            "kind": "one_vs_all"
+          },
+          "n3_lambda": 0.001
+        },
+        "arms": [
+          {
+            "seed": 101,
+            "training": {
+              "batches": 7,
+              "entities": 14,
+              "epoch": 49,
+              "epochs": 50,
+              "loss": 3.358814239501953,
+              "n3Penalty": 0.01054009236395359,
+              "relations": 55,
+              "triples": 1992
+            },
+            "trainingMs": 240.800769,
+            "evaluationMs": 1.3722280000000069,
+            "checkpointSha256": "4f1898bbbd63df8942cf6d9e2b7cc1fae2739d18dccb8e5c34e562345eb92a17",
+            "evaluation": {
+              "evalTriples": 64,
+              "filtered": true,
+              "note": "frozen per-triple split",
+              "report": {
+                "combined": {
+                  "count": 128,
+                  "hits1": 0.5546875,
+                  "hits10": 0.9765625,
+                  "hits3": 0.8046875,
+                  "mr": 2.3359375,
+                  "mrr": 0.7002114057540894
+                },
+                "head": {
+                  "count": 64,
+                  "hits1": 0.546875,
+                  "hits10": 0.96875,
+                  "hits3": 0.828125,
+                  "mr": 2.296875,
+                  "mrr": 0.7049360871315002
+                },
+                "tail": {
+                  "count": 64,
+                  "hits1": 0.5625,
+                  "hits10": 0.984375,
+                  "hits3": 0.78125,
+                  "mr": 2.375,
+                  "mrr": 0.6954866647720337
+                }
+              },
+              "split": "test",
+              "splitSource": "per-triple"
+            }
+          },
+          {
+            "seed": 202,
+            "training": {
+              "batches": 7,
+              "entities": 14,
+              "epoch": 49,
+              "epochs": 50,
+              "loss": 3.351090669631958,
+              "n3Penalty": 0.010846836492419243,
+              "relations": 55,
+              "triples": 1992
+            },
+            "trainingMs": 215.479607,
+            "evaluationMs": 1.2020109999999704,
+            "checkpointSha256": "c61ad4dfea692f324ace0aee54c47d0b267b5dbab956342c501003086cf63545",
+            "evaluation": {
+              "evalTriples": 64,
+              "filtered": true,
+              "note": "frozen per-triple split",
+              "report": {
+                "combined": {
+                  "count": 128,
+                  "hits1": 0.703125,
+                  "hits10": 0.9921875,
+                  "hits3": 0.859375,
+                  "mr": 1.9609375,
+                  "mrr": 0.7967543601989746
+                },
+                "head": {
+                  "count": 64,
+                  "hits1": 0.6875,
+                  "hits10": 0.984375,
+                  "hits3": 0.875,
+                  "mr": 2.015625,
+                  "mrr": 0.7876555919647217
+                },
+                "tail": {
+                  "count": 64,
+                  "hits1": 0.71875,
+                  "hits10": 1,
+                  "hits3": 0.84375,
+                  "mr": 1.90625,
+                  "mrr": 0.8058531880378723
+                }
+              },
+              "split": "test",
+              "splitSource": "per-triple"
+            }
+          },
+          {
+            "seed": 303,
+            "training": {
+              "batches": 7,
+              "entities": 14,
+              "epoch": 49,
+              "epochs": 50,
+              "loss": 3.3671600818634033,
+              "n3Penalty": 0.01100673247128725,
+              "relations": 55,
+              "triples": 1992
+            },
+            "trainingMs": 205.102805,
+            "evaluationMs": 1.1859779999999773,
+            "checkpointSha256": "0edad9d2b95e159452c92209e61f43fdc2aa3ab1be7ae0e73694e712a3a95b89",
+            "evaluation": {
+              "evalTriples": 64,
+              "filtered": true,
+              "note": "frozen per-triple split",
+              "report": {
+                "combined": {
+                  "count": 128,
+                  "hits1": 0.5703125,
+                  "hits10": 1,
+                  "hits3": 0.828125,
+                  "mr": 2.0546875,
+                  "mrr": 0.7219803929328918
+                },
+                "head": {
+                  "count": 64,
+                  "hits1": 0.640625,
+                  "hits10": 1,
+                  "hits3": 0.859375,
+                  "mr": 1.921875,
+                  "mrr": 0.7670758962631226
+                },
+                "tail": {
+                  "count": 64,
+                  "hits1": 0.5,
+                  "hits10": 1,
+                  "hits3": 0.796875,
+                  "mr": 2.1875,
+                  "mrr": 0.6768849492073059
+                }
+              },
+              "split": "test",
+              "splitSource": "per-triple"
+            }
+          }
+        ],
+        "promotion": false,
+        "limits": "Target-only KGE scratch control. Not equal total pretraining compute; no source replay."
+      }
+    },
+    {
+      "dataset": {
+        "name": "kinships",
+        "source": "https://github.com/pykeen/pykeen",
+        "sourceCommit": "cbc1ea107afd7bebc531c1739c210c620f908fbf",
+        "fileHashes": {
+          "train": "738612111a6acf0e39662bde24c7e72a4d1edf20931beea077da367dda689731",
+          "valid": "c56f8630a583178b1e569f11a64aa535ae1ce0b0912d8b1e24716be2b37f04da",
+          "test": "05e5733265761d55be9c05bfaff5a8d0808df46f9c1e9d66cc3f2fe114e43d88"
+        },
+        "selection": "first 64 test triples by sha256 of JSON [s,r,o]; other test facts filter-only valid",
+        "originalTestCount": 1074
+      },
+      "summary": {
+        "pretrainedMRR": 0.18582762227506466,
+        "randomMeanMRR": 0.05823380612652668,
+        "kgeScratchMeanMRR": 0.8128483096758524,
+        "pretrainedMinusRandom": 0.127593816148538,
+        "conditionalQueryBootstrap95": [
+          0.07964488374532051,
+          0.1806228440036233
+        ]
+      },
+      "ultra": {
+        "schema": "ruvector.ultra-transfer.v1",
+        "inputSha256": "c7276584118002b690a773a1369d50a941f4bce2cda8fa6e1d0952beb536a418",
+        "adapterSha256": "353745fc9865335221ec1a30a02f3c160c76b55b53e5671da375fd3aea82ee70",
+        "upstreamCommit": "427966ad8ed60420eef034063d44f3153addff90",
+        "checkpointSha256": "fdedc01b0045fc089d2ad5da08569466b7b221691fe978a18e91082bbb133c18",
+        "declaredPretrainingGraphs": [
+          "FB15k237",
+          "WN18RR",
+          "CoDExMedium"
+        ],
+        "graph": "kinships",
+        "entities": 104,
+        "relations": 25,
+        "targetTrainingSteps": 0,
+        "candidatePolicy": "all-entities",
+        "ties": "pessimistic",
+        "permutation": {
+          "maxAbsoluteError": 8.165836334228516e-06,
+          "atol": 0.0001,
+          "rtol": 0.0001,
+          "queries": 10
+        },
+        "pretrained": {
+          "metrics": {
+            "count": 128,
+            "mrr": 0.18582762227506466,
+            "hits1": 0.125,
+            "hits10": 0.2578125
+          },
+          "ranks": [
+            [
+              85,
+              90
+            ],
+            [
+              22,
+              2
+            ],
+            [
+              63,
+              21
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              75,
+              81
+            ],
+            [
+              51,
+              59
+            ],
+            [
+              34,
+              42
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              3,
+              15
+            ],
+            [
+              50,
+              36
+            ],
+            [
+              9,
+              46
+            ],
+            [
+              63,
+              73
+            ],
+            [
+              48,
+              91
+            ],
+            [
+              2,
+              28
+            ],
+            [
+              13,
+              3
+            ],
+            [
+              80,
+              85
+            ],
+            [
+              1,
+              75
+            ],
+            [
+              79,
+              79
+            ],
+            [
+              1,
+              96
+            ],
+            [
+              95,
+              42
+            ],
+            [
+              8,
+              17
+            ],
+            [
+              1,
+              100
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              26,
+              86
+            ],
+            [
+              22,
+              61
+            ],
+            [
+              1,
+              14
+            ],
+            [
+              62,
+              77
+            ],
+            [
+              1,
+              27
+            ],
+            [
+              81,
+              92
+            ],
+            [
+              2,
+              77
+            ],
+            [
+              8,
+              65
+            ],
+            [
+              28,
+              25
+            ],
+            [
+              80,
+              82
+            ],
+            [
+              13,
+              26
+            ],
+            [
+              2,
+              5
+            ],
+            [
+              55,
+              77
+            ],
+            [
+              37,
+              18
+            ],
+            [
+              39,
+              88
+            ],
+            [
+              1,
+              96
+            ],
+            [
+              47,
+              67
+            ],
+            [
+              1,
+              40
+            ],
+            [
+              48,
+              25
+            ],
+            [
+              1,
+              44
+            ],
+            [
+              25,
+              10
+            ],
+            [
+              15,
+              34
+            ],
+            [
+              23,
+              94
+            ],
+            [
+              3,
+              89
+            ],
+            [
+              19,
+              1
+            ],
+            [
+              48,
+              43
+            ],
+            [
+              22,
+              26
+            ],
+            [
+              59,
+              38
+            ],
+            [
+              69,
+              92
+            ],
+            [
+              18,
+              95
+            ],
+            [
+              1,
+              77
+            ],
+            [
+              34,
+              50
+            ],
+            [
+              1,
+              91
+            ],
+            [
+              16,
+              80
+            ],
+            [
+              27,
+              96
+            ],
+            [
+              1,
+              97
+            ],
+            [
+              33,
+              62
+            ],
+            [
+              38,
+              19
+            ],
+            [
+              12,
+              66
+            ],
+            [
+              9,
+              1
+            ],
+            [
+              1,
+              99
+            ]
+          ],
+          "queryHashes": [
+            "083f9574d2164f44c661c2dbe588f890b5d280319fbe17ba9ba690b92761c821",
+            "0ce92ae0db09606066f6ca376ffde0cab7a3fbfe74e56d5d0ed197a0c41fe89f",
+            "0d8b6f209806988261f09081fa29a49ab13b80c25546ca663bf4ee0c9ba997b8",
+            "08bad1d4c36a758c7ff0337bbcee75db55fa952c5e36e4f7dfad70c48142b86a",
+            "0f94d51b5528deba73f8ed6d6d37d7c8a2d6c5ccc13ac0ebb44789873e4cbf73",
+            "0c956ecc2c14ca44a05b1e5d721c3cafd3bce9fc8c1af942626f715831d13c93",
+            "012aa703708210ba5cbc187db8bbc3ebf48af857782063c761cf1a8823353453",
+            "043ca1f6a8aee00828e707cf203e35f42e18b625910f549056e65351be7942b9",
+            "0b877f1d2afa52c3db8e6b605ab95278490a3dc11f5db04452756b139eeea36c",
+            "099570d0267ead08693e659431cfd4a2a17584d6c912e07896f44120329453f0",
+            "0576287afac7faa0370ec55e9dc84a7a8c660f3eba8921f62e08c19f79c43361",
+            "008565c4e2bcc613b7f27d053c86cac734ced1310e1f624ee97bd302694e1d61",
+            "065593e2bb7a66805999bd934d1bcdf08af50fdf19169196d0baff3473a01d86",
+            "027613c3e19086925cfa1f340694d18b2d3f5c875713868293e225aa54e89ad3",
+            "061aec8f183a33e16e9d02e2ad07a4ca6cec2e2f2e85d32d025776f5b9b1dbaf",
+            "0d1c2f83e2db06a3eda72648fa07bb2fbfc2ae9acd340365c3afbc9efefcd8bf",
+            "0c625da7e9ebaae3371299b243747403a899a4104445957889500bec15fdbadf",
+            "0b5482274689d337ed45673e9e59fdeb73827650d09b70047d955c815b0de29d",
+            "0d2132a91bce3a711a7d1ee8c86822fb347d983bae7a238d28f7c2ce68ccb668",
+            "0e43196bf85f78f55d5396a41a2c90f91d407e6adb7aa05d93139bda62fdd616",
+            "071b6b8db773ea5576655fbb391fa0c9a531e296f0024542733ff57c5818398b",
+            "0253e011a2b85f8a4b1dc5060b7ec3d42d062b51f11db26388f42780b1774cd7",
+            "02dcf04bf8cfdbfa9b0f982b2f22ef6f1d7e5f887835e3a03ee84becee8f4876",
+            "014320d00d629c2d7ffee1b64605b0c563b269383e0c904634aca127fe2aa41b",
+            "0d503618cb14f8c981651feffb8922b0e770f8a35d2ebfd1d4d5def472b692ad",
+            "0519556ac87db890a8e9c058bd0d9219f7d17543deede97d3f84424f7d8c8489",
+            "090a69991eb8de4c08224844bc5c2b1d68d776defa8133269bd9dbbc6509f489",
+            "03062fa51695f8f8440654f7ba3a945b2fd3bc94320486f941e5138919212705",
+            "01116ac734b8887271332fd3ac150cfae6e61c93a09fc1abcb60f12d3f567754",
+            "0d2b762139bf7d433579097780e500f61e53f2a733542ec24be074c2adc42ae7",
+            "0a9a6974329050ac9afa55a5f1740cee89ad17a3dfbcf2a88a6454f7924a1e48",
+            "017a6912f73401f4039cf2830f163305e40504d67c104f81a7fcfd5250578fe7",
+            "0af53ecc9dd4aa91d2f664179cc9d0c9b75ea8e11d9b1ba39c991555a6a37a2e",
+            "09093a40d5a16e94be64cca1cfd1dbfb6c1c22e8b85b3d19ba72a22f789557bd",
+            "0aeef43834aaadbd1cde8e232601e22b79515f60b985c66bc9e5e2fc18bbb299",
+            "07b4cb09556339e90a1228dea2421fc27a36998239baee6d764e9cfb34e2051a",
+            "006e965353742b5837c8f5d68d6b9109045b93e30959619469fd5a1792212936",
+            "0d4e9fcf69ab47e97d0689cdaff6c01ce4f3ec1f21d664d8cf4e9ea19919f768",
+            "05cf8d5073e7f568bf1f44558c9a3514b8890966654936dcf26b1523e1b33bed",
+            "093eb3a9c956f7ee616f8a2a2331a130b117f820df9e34fb91836ebab11175c3",
+            "00942501a8fed2fe7a0228a944373920f22e36566b13c79174509ef1973e7a91",
+            "0659f6540b60ac37121da0d562c16cc7be461df253c3b3fe346c3fdf1d83748c",
+            "0eded6caf5017aa4c5a6fcbcd8316885349a2ea5bce30cf5fbac390efedf5089",
+            "04ab569ebc7d523b73d5c2952d1713df38b08c05df8acee7fd974e4bf6222b6e",
+            "03e26dc209dbf74e2352814b6a37981f2d1eace91a7251ae32d7dd8013d1e23c",
+            "0807ff2de82c41917014d9fce2665ce32d406dac5e4e75913afb99642e9b57df",
+            "03c144b17480bd40dea3f7ff827e2a55735f9b5eec229df28cfcec804e0801de",
+            "0a5a36b99d3c091acff1ce975a30fcd9daf0dc7252937eba9d3dad227f91502a",
+            "0a8e072e16788a0494eafc8f27f2c20a0f6d6b310d8b79065be41177d2145585",
+            "0bdbc433d3ca9e1ac6d685a2cb1aab85e0f154419899239423ff1882891daec8",
+            "0ed7a6e9869781a0c1e1a849ca4f70be2dca5dce749cf8edda7d86eda1047b4a",
+            "0251105125a7d7b30c6d410fadb3a9409dbcf17ed3c52cab7eccb1dd1da5803f",
+            "0f62a2a012957e12ccdf7b2a1620873c613f81467eb336025ebfb94f7bbe2786",
+            "01aa52377cf4eb5a1f040a9bb64536ff3ac778f68a12f9d2d747742d4161d98c",
+            "04620c26a0ce13869a5e3a6ca583d0530975d6df2720966a34b10c90a609d70e",
+            "0522780a3a922b031b02e312809f9cdfaae8249ee8e2e1f1b2b533d0f15e3f0d",
+            "059ae6d0f84fcb1e6270d5312589d0aefd42124f9e759046de65660842f39085",
+            "017fdfacbf2f0abe6d4997b346334df556f27c5ff441f685533224e4f04dd127",
+            "062d999b4fd237ed4b13249e5575ca9dcc9be632323a50edd1b49f5cbf1a7722",
+            "012f8f44e431b4ae8fe2895b9831e4953d5cbb76de27e5cedefcbad20a71f15d",
+            "0507d1ed6d82bd5fbb9f3923e59e0cab0546f1f3ca99564eae726f086de2464c",
+            "02a6f4f5cad8ae2b5bd1bbe6065cb36e3b73cd47e18cf9e0222ec53b16c1e1bf",
+            "028d73755d596b03bf0d2e35b2d0bbce1a0bea7cbdeabcc17b75e70d49c5cfeb",
+            "0e8ba137f254b72e523f62b3d90b884f4a0f06c7e7faed6bf5457acacda09402"
+          ],
+          "seconds": 2.120557298003405
+        },
+        "random": [
+          {
+            "seed": 101,
+            "metrics": {
+              "count": 128,
+              "mrr": 0.03198891171316424,
+              "hits1": 0.0,
+              "hits10": 0.0625
+            },
+            "ranks": [
+              [
+                76,
+                21
+              ],
+              [
+                81,
+                79
+              ],
+              [
+                70,
+                71
+              ],
+              [
+                97,
+                94
+              ],
+              [
+                76,
+                32
+              ],
+              [
+                74,
+                47
+              ],
+              [
+                86,
+                82
+              ],
+              [
+                103,
+                88
+              ],
+              [
+                82,
+                56
+              ],
+              [
+                84,
+                66
+              ],
+              [
+                90,
+                81
+              ],
+              [
+                81,
+                26
+              ],
+              [
+                48,
+                26
+              ],
+              [
+                84,
+                85
+              ],
+              [
+                40,
+                40
+              ],
+              [
+                82,
+                13
+              ],
+              [
+                97,
+                63
+              ],
+              [
+                82,
+                2
+              ],
+              [
+                90,
+                62
+              ],
+              [
+                75,
+                70
+              ],
+              [
+                96,
+                96
+              ],
+              [
+                84,
+                39
+              ],
+              [
+                96,
+                94
+              ],
+              [
+                91,
+                8
+              ],
+              [
+                66,
+                53
+              ],
+              [
+                95,
+                80
+              ],
+              [
+                65,
+                6
+              ],
+              [
+                94,
+                28
+              ],
+              [
+                78,
+                8
+              ],
+              [
+                96,
+                59
+              ],
+              [
+                95,
+                84
+              ],
+              [
+                85,
+                48
+              ],
+              [
+                78,
+                13
+              ],
+              [
+                97,
+                17
+              ],
+              [
+                91,
+                88
+              ],
+              [
+                52,
+                33
+              ],
+              [
+                93,
+                27
+              ],
+              [
+                77,
+                4
+              ],
+              [
+                94,
+                66
+              ],
+              [
+                68,
+                10
+              ],
+              [
+                101,
+                60
+              ],
+              [
+                75,
+                8
+              ],
+              [
+                91,
+                54
+              ],
+              [
+                49,
+                51
+              ],
+              [
+                75,
+                67
+              ],
+              [
+                66,
+                51
+              ],
+              [
+                90,
+                100
+              ],
+              [
+                94,
+                96
+              ],
+              [
+                38,
+                38
+              ],
+              [
+                85,
+                84
+              ],
+              [
+                53,
+                62
+              ],
+              [
+                73,
+                20
+              ],
+              [
+                91,
+                21
+              ],
+              [
+                95,
+                43
+              ],
+              [
+                92,
+                22
+              ],
+              [
+                87,
+                62
+              ],
+              [
+                82,
+                11
+              ],
+              [
+                44,
+                64
+              ],
+              [
+                93,
+                75
+              ],
+              [
+                70,
+                56
+              ],
+              [
+                90,
+                66
+              ],
+              [
+                80,
+                2
+              ],
+              [
+                77,
+                50
+              ],
+              [
+                90,
+                71
+              ]
+            ],
+            "queryHashes": [
+              "083f9574d2164f44c661c2dbe588f890b5d280319fbe17ba9ba690b92761c821",
+              "0ce92ae0db09606066f6ca376ffde0cab7a3fbfe74e56d5d0ed197a0c41fe89f",
+              "0d8b6f209806988261f09081fa29a49ab13b80c25546ca663bf4ee0c9ba997b8",
+              "08bad1d4c36a758c7ff0337bbcee75db55fa952c5e36e4f7dfad70c48142b86a",
+              "0f94d51b5528deba73f8ed6d6d37d7c8a2d6c5ccc13ac0ebb44789873e4cbf73",
+              "0c956ecc2c14ca44a05b1e5d721c3cafd3bce9fc8c1af942626f715831d13c93",
+              "012aa703708210ba5cbc187db8bbc3ebf48af857782063c761cf1a8823353453",
+              "043ca1f6a8aee00828e707cf203e35f42e18b625910f549056e65351be7942b9",
+              "0b877f1d2afa52c3db8e6b605ab95278490a3dc11f5db04452756b139eeea36c",
+              "099570d0267ead08693e659431cfd4a2a17584d6c912e07896f44120329453f0",
+              "0576287afac7faa0370ec55e9dc84a7a8c660f3eba8921f62e08c19f79c43361",
+              "008565c4e2bcc613b7f27d053c86cac734ced1310e1f624ee97bd302694e1d61",
+              "065593e2bb7a66805999bd934d1bcdf08af50fdf19169196d0baff3473a01d86",
+              "027613c3e19086925cfa1f340694d18b2d3f5c875713868293e225aa54e89ad3",
+              "061aec8f183a33e16e9d02e2ad07a4ca6cec2e2f2e85d32d025776f5b9b1dbaf",
+              "0d1c2f83e2db06a3eda72648fa07bb2fbfc2ae9acd340365c3afbc9efefcd8bf",
+              "0c625da7e9ebaae3371299b243747403a899a4104445957889500bec15fdbadf",
+              "0b5482274689d337ed45673e9e59fdeb73827650d09b70047d955c815b0de29d",
+              "0d2132a91bce3a711a7d1ee8c86822fb347d983bae7a238d28f7c2ce68ccb668",
+              "0e43196bf85f78f55d5396a41a2c90f91d407e6adb7aa05d93139bda62fdd616",
+              "071b6b8db773ea5576655fbb391fa0c9a531e296f0024542733ff57c5818398b",
+              "0253e011a2b85f8a4b1dc5060b7ec3d42d062b51f11db26388f42780b1774cd7",
+              "02dcf04bf8cfdbfa9b0f982b2f22ef6f1d7e5f887835e3a03ee84becee8f4876",
+              "014320d00d629c2d7ffee1b64605b0c563b269383e0c904634aca127fe2aa41b",
+              "0d503618cb14f8c981651feffb8922b0e770f8a35d2ebfd1d4d5def472b692ad",
+              "0519556ac87db890a8e9c058bd0d9219f7d17543deede97d3f84424f7d8c8489",
+              "090a69991eb8de4c08224844bc5c2b1d68d776defa8133269bd9dbbc6509f489",
+              "03062fa51695f8f8440654f7ba3a945b2fd3bc94320486f941e5138919212705",
+              "01116ac734b8887271332fd3ac150cfae6e61c93a09fc1abcb60f12d3f567754",
+              "0d2b762139bf7d433579097780e500f61e53f2a733542ec24be074c2adc42ae7",
+              "0a9a6974329050ac9afa55a5f1740cee89ad17a3dfbcf2a88a6454f7924a1e48",
+              "017a6912f73401f4039cf2830f163305e40504d67c104f81a7fcfd5250578fe7",
+              "0af53ecc9dd4aa91d2f664179cc9d0c9b75ea8e11d9b1ba39c991555a6a37a2e",
+              "09093a40d5a16e94be64cca1cfd1dbfb6c1c22e8b85b3d19ba72a22f789557bd",
+              "0aeef43834aaadbd1cde8e232601e22b79515f60b985c66bc9e5e2fc18bbb299",
+              "07b4cb09556339e90a1228dea2421fc27a36998239baee6d764e9cfb34e2051a",
+              "006e965353742b5837c8f5d68d6b9109045b93e30959619469fd5a1792212936",
+              "0d4e9fcf69ab47e97d0689cdaff6c01ce4f3ec1f21d664d8cf4e9ea19919f768",
+              "05cf8d5073e7f568bf1f44558c9a3514b8890966654936dcf26b1523e1b33bed",
+              "093eb3a9c956f7ee616f8a2a2331a130b117f820df9e34fb91836ebab11175c3",
+              "00942501a8fed2fe7a0228a944373920f22e36566b13c79174509ef1973e7a91",
+              "0659f6540b60ac37121da0d562c16cc7be461df253c3b3fe346c3fdf1d83748c",
+              "0eded6caf5017aa4c5a6fcbcd8316885349a2ea5bce30cf5fbac390efedf5089",
+              "04ab569ebc7d523b73d5c2952d1713df38b08c05df8acee7fd974e4bf6222b6e",
+              "03e26dc209dbf74e2352814b6a37981f2d1eace91a7251ae32d7dd8013d1e23c",
+              "0807ff2de82c41917014d9fce2665ce32d406dac5e4e75913afb99642e9b57df",
+              "03c144b17480bd40dea3f7ff827e2a55735f9b5eec229df28cfcec804e0801de",
+              "0a5a36b99d3c091acff1ce975a30fcd9daf0dc7252937eba9d3dad227f91502a",
+              "0a8e072e16788a0494eafc8f27f2c20a0f6d6b310d8b79065be41177d2145585",
+              "0bdbc433d3ca9e1ac6d685a2cb1aab85e0f154419899239423ff1882891daec8",
+              "0ed7a6e9869781a0c1e1a849ca4f70be2dca5dce749cf8edda7d86eda1047b4a",
+              "0251105125a7d7b30c6d410fadb3a9409dbcf17ed3c52cab7eccb1dd1da5803f",
+              "0f62a2a012957e12ccdf7b2a1620873c613f81467eb336025ebfb94f7bbe2786",
+              "01aa52377cf4eb5a1f040a9bb64536ff3ac778f68a12f9d2d747742d4161d98c",
+              "04620c26a0ce13869a5e3a6ca583d0530975d6df2720966a34b10c90a609d70e",
+              "0522780a3a922b031b02e312809f9cdfaae8249ee8e2e1f1b2b533d0f15e3f0d",
+              "059ae6d0f84fcb1e6270d5312589d0aefd42124f9e759046de65660842f39085",
+              "017fdfacbf2f0abe6d4997b346334df556f27c5ff441f685533224e4f04dd127",
+              "062d999b4fd237ed4b13249e5575ca9dcc9be632323a50edd1b49f5cbf1a7722",
+              "012f8f44e431b4ae8fe2895b9831e4953d5cbb76de27e5cedefcbad20a71f15d",
+              "0507d1ed6d82bd5fbb9f3923e59e0cab0546f1f3ca99564eae726f086de2464c",
+              "02a6f4f5cad8ae2b5bd1bbe6065cb36e3b73cd47e18cf9e0222ec53b16c1e1bf",
+              "028d73755d596b03bf0d2e35b2d0bbce1a0bea7cbdeabcc17b75e70d49c5cfeb",
+              "0e8ba137f254b72e523f62b3d90b884f4a0f06c7e7faed6bf5457acacda09402"
+            ],
+            "seconds": 2.0673167669956456
+          },
+          {
+            "seed": 202,
+            "metrics": {
+              "count": 128,
+              "mrr": 0.013512702754011712,
+              "hits1": 0.0,
+              "hits10": 0.0
+            },
+            "ranks": [
+              [
+                69,
+                87
+              ],
+              [
+                65,
+                69
+              ],
+              [
+                69,
+                87
+              ],
+              [
+                97,
+                94
+              ],
+              [
+                79,
+                71
+              ],
+              [
+                76,
+                80
+              ],
+              [
+                59,
+                67
+              ],
+              [
+                72,
+                85
+              ],
+              [
+                62,
+                80
+              ],
+              [
+                53,
+                85
+              ],
+              [
+                60,
+                69
+              ],
+              [
+                79,
+                78
+              ],
+              [
+                58,
+                98
+              ],
+              [
+                66,
+                75
+              ],
+              [
+                79,
+                86
+              ],
+              [
+                73,
+                78
+              ],
+              [
+                70,
+                69
+              ],
+              [
+                79,
+                90
+              ],
+              [
+                54,
+                87
+              ],
+              [
+                86,
+                74
+              ],
+              [
+                95,
+                98
+              ],
+              [
+                59,
+                81
+              ],
+              [
+                96,
+                94
+              ],
+              [
+                62,
+                90
+              ],
+              [
+                68,
+                79
+              ],
+              [
+                93,
+                96
+              ],
+              [
+                66,
+                69
+              ],
+              [
+                67,
+                90
+              ],
+              [
+                73,
+                94
+              ],
+              [
+                60,
+                73
+              ],
+              [
+                59,
+                67
+              ],
+              [
+                43,
+                86
+              ],
+              [
+                74,
+                86
+              ],
+              [
+                60,
+                89
+              ],
+              [
+                93,
+                88
+              ],
+              [
+                60,
+                80
+              ],
+              [
+                66,
+                83
+              ],
+              [
+                62,
+                87
+              ],
+              [
+                61,
+                92
+              ],
+              [
+                60,
+                81
+              ],
+              [
+                74,
+                69
+              ],
+              [
+                58,
+                83
+              ],
+              [
+                57,
+                91
+              ],
+              [
+                79,
+                82
+              ],
+              [
+                70,
+                79
+              ],
+              [
+                54,
+                85
+              ],
+              [
+                90,
+                104
+              ],
+              [
+                97,
+                95
+              ],
+              [
+                73,
+                53
+              ],
+              [
+                77,
+                48
+              ],
+              [
+                94,
+                64
+              ],
+              [
+                82,
+                87
+              ],
+              [
+                66,
+                85
+              ],
+              [
+                62,
+                92
+              ],
+              [
+                79,
+                90
+              ],
+              [
+                56,
+                83
+              ],
+              [
+                65,
+                87
+              ],
+              [
+                79,
+                93
+              ],
+              [
+                62,
+                94
+              ],
+              [
+                64,
+                82
+              ],
+              [
+                81,
+                71
+              ],
+              [
+                63,
+                89
+              ],
+              [
+                79,
+                76
+              ],
+              [
+                54,
+                91
+              ]
+            ],
+            "queryHashes": [
+              "083f9574d2164f44c661c2dbe588f890b5d280319fbe17ba9ba690b92761c821",
+              "0ce92ae0db09606066f6ca376ffde0cab7a3fbfe74e56d5d0ed197a0c41fe89f",
+              "0d8b6f209806988261f09081fa29a49ab13b80c25546ca663bf4ee0c9ba997b8",
+              "08bad1d4c36a758c7ff0337bbcee75db55fa952c5e36e4f7dfad70c48142b86a",
+              "0f94d51b5528deba73f8ed6d6d37d7c8a2d6c5ccc13ac0ebb44789873e4cbf73",
+              "0c956ecc2c14ca44a05b1e5d721c3cafd3bce9fc8c1af942626f715831d13c93",
+              "012aa703708210ba5cbc187db8bbc3ebf48af857782063c761cf1a8823353453",
+              "043ca1f6a8aee00828e707cf203e35f42e18b625910f549056e65351be7942b9",
+              "0b877f1d2afa52c3db8e6b605ab95278490a3dc11f5db04452756b139eeea36c",
+              "099570d0267ead08693e659431cfd4a2a17584d6c912e07896f44120329453f0",
+              "0576287afac7faa0370ec55e9dc84a7a8c660f3eba8921f62e08c19f79c43361",
+              "008565c4e2bcc613b7f27d053c86cac734ced1310e1f624ee97bd302694e1d61",
+              "065593e2bb7a66805999bd934d1bcdf08af50fdf19169196d0baff3473a01d86",
+              "027613c3e19086925cfa1f340694d18b2d3f5c875713868293e225aa54e89ad3",
+              "061aec8f183a33e16e9d02e2ad07a4ca6cec2e2f2e85d32d025776f5b9b1dbaf",
+              "0d1c2f83e2db06a3eda72648fa07bb2fbfc2ae9acd340365c3afbc9efefcd8bf",
+              "0c625da7e9ebaae3371299b243747403a899a4104445957889500bec15fdbadf",
+              "0b5482274689d337ed45673e9e59fdeb73827650d09b70047d955c815b0de29d",
+              "0d2132a91bce3a711a7d1ee8c86822fb347d983bae7a238d28f7c2ce68ccb668",
+              "0e43196bf85f78f55d5396a41a2c90f91d407e6adb7aa05d93139bda62fdd616",
+              "071b6b8db773ea5576655fbb391fa0c9a531e296f0024542733ff57c5818398b",
+              "0253e011a2b85f8a4b1dc5060b7ec3d42d062b51f11db26388f42780b1774cd7",
+              "02dcf04bf8cfdbfa9b0f982b2f22ef6f1d7e5f887835e3a03ee84becee8f4876",
+              "014320d00d629c2d7ffee1b64605b0c563b269383e0c904634aca127fe2aa41b",
+              "0d503618cb14f8c981651feffb8922b0e770f8a35d2ebfd1d4d5def472b692ad",
+              "0519556ac87db890a8e9c058bd0d9219f7d17543deede97d3f84424f7d8c8489",
+              "090a69991eb8de4c08224844bc5c2b1d68d776defa8133269bd9dbbc6509f489",
+              "03062fa51695f8f8440654f7ba3a945b2fd3bc94320486f941e5138919212705",
+              "01116ac734b8887271332fd3ac150cfae6e61c93a09fc1abcb60f12d3f567754",
+              "0d2b762139bf7d433579097780e500f61e53f2a733542ec24be074c2adc42ae7",
+              "0a9a6974329050ac9afa55a5f1740cee89ad17a3dfbcf2a88a6454f7924a1e48",
+              "017a6912f73401f4039cf2830f163305e40504d67c104f81a7fcfd5250578fe7",
+              "0af53ecc9dd4aa91d2f664179cc9d0c9b75ea8e11d9b1ba39c991555a6a37a2e",
+              "09093a40d5a16e94be64cca1cfd1dbfb6c1c22e8b85b3d19ba72a22f789557bd",
+              "0aeef43834aaadbd1cde8e232601e22b79515f60b985c66bc9e5e2fc18bbb299",
+              "07b4cb09556339e90a1228dea2421fc27a36998239baee6d764e9cfb34e2051a",
+              "006e965353742b5837c8f5d68d6b9109045b93e30959619469fd5a1792212936",
+              "0d4e9fcf69ab47e97d0689cdaff6c01ce4f3ec1f21d664d8cf4e9ea19919f768",
+              "05cf8d5073e7f568bf1f44558c9a3514b8890966654936dcf26b1523e1b33bed",
+              "093eb3a9c956f7ee616f8a2a2331a130b117f820df9e34fb91836ebab11175c3",
+              "00942501a8fed2fe7a0228a944373920f22e36566b13c79174509ef1973e7a91",
+              "0659f6540b60ac37121da0d562c16cc7be461df253c3b3fe346c3fdf1d83748c",
+              "0eded6caf5017aa4c5a6fcbcd8316885349a2ea5bce30cf5fbac390efedf5089",
+              "04ab569ebc7d523b73d5c2952d1713df38b08c05df8acee7fd974e4bf6222b6e",
+              "03e26dc209dbf74e2352814b6a37981f2d1eace91a7251ae32d7dd8013d1e23c",
+              "0807ff2de82c41917014d9fce2665ce32d406dac5e4e75913afb99642e9b57df",
+              "03c144b17480bd40dea3f7ff827e2a55735f9b5eec229df28cfcec804e0801de",
+              "0a5a36b99d3c091acff1ce975a30fcd9daf0dc7252937eba9d3dad227f91502a",
+              "0a8e072e16788a0494eafc8f27f2c20a0f6d6b310d8b79065be41177d2145585",
+              "0bdbc433d3ca9e1ac6d685a2cb1aab85e0f154419899239423ff1882891daec8",
+              "0ed7a6e9869781a0c1e1a849ca4f70be2dca5dce749cf8edda7d86eda1047b4a",
+              "0251105125a7d7b30c6d410fadb3a9409dbcf17ed3c52cab7eccb1dd1da5803f",
+              "0f62a2a012957e12ccdf7b2a1620873c613f81467eb336025ebfb94f7bbe2786",
+              "01aa52377cf4eb5a1f040a9bb64536ff3ac778f68a12f9d2d747742d4161d98c",
+              "04620c26a0ce13869a5e3a6ca583d0530975d6df2720966a34b10c90a609d70e",
+              "0522780a3a922b031b02e312809f9cdfaae8249ee8e2e1f1b2b533d0f15e3f0d",
+              "059ae6d0f84fcb1e6270d5312589d0aefd42124f9e759046de65660842f39085",
+              "017fdfacbf2f0abe6d4997b346334df556f27c5ff441f685533224e4f04dd127",
+              "062d999b4fd237ed4b13249e5575ca9dcc9be632323a50edd1b49f5cbf1a7722",
+              "012f8f44e431b4ae8fe2895b9831e4953d5cbb76de27e5cedefcbad20a71f15d",
+              "0507d1ed6d82bd5fbb9f3923e59e0cab0546f1f3ca99564eae726f086de2464c",
+              "02a6f4f5cad8ae2b5bd1bbe6065cb36e3b73cd47e18cf9e0222ec53b16c1e1bf",
+              "028d73755d596b03bf0d2e35b2d0bbce1a0bea7cbdeabcc17b75e70d49c5cfeb",
+              "0e8ba137f254b72e523f62b3d90b884f4a0f06c7e7faed6bf5457acacda09402"
+            ],
+            "seconds": 1.9739900429995032
+          },
+          {
+            "seed": 303,
+            "metrics": {
+              "count": 128,
+              "mrr": 0.12919980391240407,
+              "hits1": 0.03125,
+              "hits10": 0.28125
+            },
+            "ranks": [
+              [
+                13,
+                34
+              ],
+              [
+                8,
+                14
+              ],
+              [
+                34,
+                31
+              ],
+              [
+                96,
+                94
+              ],
+              [
+                18,
+                11
+              ],
+              [
+                11,
+                27
+              ],
+              [
+                7,
+                18
+              ],
+              [
+                101,
+                85
+              ],
+              [
+                16,
+                35
+              ],
+              [
+                26,
+                27
+              ],
+              [
+                20,
+                17
+              ],
+              [
+                18,
+                27
+              ],
+              [
+                12,
+                36
+              ],
+              [
+                10,
+                7
+              ],
+              [
+                29,
+                25
+              ],
+              [
+                10,
+                31
+              ],
+              [
+                2,
+                17
+              ],
+              [
+                3,
+                34
+              ],
+              [
+                2,
+                20
+              ],
+              [
+                38,
+                18
+              ],
+              [
+                96,
+                98
+              ],
+              [
+                2,
+                10
+              ],
+              [
+                95,
+                94
+              ],
+              [
+                4,
+                31
+              ],
+              [
+                18,
+                28
+              ],
+              [
+                2,
+                6
+              ],
+              [
+                13,
+                4
+              ],
+              [
+                1,
+                23
+              ],
+              [
+                9,
+                32
+              ],
+              [
+                2,
+                22
+              ],
+              [
+                15,
+                16
+              ],
+              [
+                24,
+                23
+              ],
+              [
+                8,
+                23
+              ],
+              [
+                19,
+                26
+              ],
+              [
+                92,
+                89
+              ],
+              [
+                13,
+                18
+              ],
+              [
+                25,
+                35
+              ],
+              [
+                12,
+                29
+              ],
+              [
+                2,
+                27
+              ],
+              [
+                4,
+                30
+              ],
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                31
+              ],
+              [
+                1,
+                32
+              ],
+              [
+                44,
+                60
+              ],
+              [
+                29,
+                30
+              ],
+              [
+                32,
+                42
+              ],
+              [
+                90,
+                104
+              ],
+              [
+                97,
+                96
+              ],
+              [
+                28,
+                9
+              ],
+              [
+                16,
+                4
+              ],
+              [
+                33,
+                9
+              ],
+              [
+                10,
+                31
+              ],
+              [
+                6,
+                29
+              ],
+              [
+                1,
+                32
+              ],
+              [
+                5,
+                29
+              ],
+              [
+                1,
+                27
+              ],
+              [
+                4,
+                33
+              ],
+              [
+                33,
+                12
+              ],
+              [
+                2,
+                22
+              ],
+              [
+                19,
+                29
+              ],
+              [
+                20,
+                12
+              ],
+              [
+                2,
+                29
+              ],
+              [
+                13,
+                37
+              ],
+              [
+                2,
+                21
+              ]
+            ],
+            "queryHashes": [
+              "083f9574d2164f44c661c2dbe588f890b5d280319fbe17ba9ba690b92761c821",
+              "0ce92ae0db09606066f6ca376ffde0cab7a3fbfe74e56d5d0ed197a0c41fe89f",
+              "0d8b6f209806988261f09081fa29a49ab13b80c25546ca663bf4ee0c9ba997b8",
+              "08bad1d4c36a758c7ff0337bbcee75db55fa952c5e36e4f7dfad70c48142b86a",
+              "0f94d51b5528deba73f8ed6d6d37d7c8a2d6c5ccc13ac0ebb44789873e4cbf73",
+              "0c956ecc2c14ca44a05b1e5d721c3cafd3bce9fc8c1af942626f715831d13c93",
+              "012aa703708210ba5cbc187db8bbc3ebf48af857782063c761cf1a8823353453",
+              "043ca1f6a8aee00828e707cf203e35f42e18b625910f549056e65351be7942b9",
+              "0b877f1d2afa52c3db8e6b605ab95278490a3dc11f5db04452756b139eeea36c",
+              "099570d0267ead08693e659431cfd4a2a17584d6c912e07896f44120329453f0",
+              "0576287afac7faa0370ec55e9dc84a7a8c660f3eba8921f62e08c19f79c43361",
+              "008565c4e2bcc613b7f27d053c86cac734ced1310e1f624ee97bd302694e1d61",
+              "065593e2bb7a66805999bd934d1bcdf08af50fdf19169196d0baff3473a01d86",
+              "027613c3e19086925cfa1f340694d18b2d3f5c875713868293e225aa54e89ad3",
+              "061aec8f183a33e16e9d02e2ad07a4ca6cec2e2f2e85d32d025776f5b9b1dbaf",
+              "0d1c2f83e2db06a3eda72648fa07bb2fbfc2ae9acd340365c3afbc9efefcd8bf",
+              "0c625da7e9ebaae3371299b243747403a899a4104445957889500bec15fdbadf",
+              "0b5482274689d337ed45673e9e59fdeb73827650d09b70047d955c815b0de29d",
+              "0d2132a91bce3a711a7d1ee8c86822fb347d983bae7a238d28f7c2ce68ccb668",
+              "0e43196bf85f78f55d5396a41a2c90f91d407e6adb7aa05d93139bda62fdd616",
+              "071b6b8db773ea5576655fbb391fa0c9a531e296f0024542733ff57c5818398b",
+              "0253e011a2b85f8a4b1dc5060b7ec3d42d062b51f11db26388f42780b1774cd7",
+              "02dcf04bf8cfdbfa9b0f982b2f22ef6f1d7e5f887835e3a03ee84becee8f4876",
+              "014320d00d629c2d7ffee1b64605b0c563b269383e0c904634aca127fe2aa41b",
+              "0d503618cb14f8c981651feffb8922b0e770f8a35d2ebfd1d4d5def472b692ad",
+              "0519556ac87db890a8e9c058bd0d9219f7d17543deede97d3f84424f7d8c8489",
+              "090a69991eb8de4c08224844bc5c2b1d68d776defa8133269bd9dbbc6509f489",
+              "03062fa51695f8f8440654f7ba3a945b2fd3bc94320486f941e5138919212705",
+              "01116ac734b8887271332fd3ac150cfae6e61c93a09fc1abcb60f12d3f567754",
+              "0d2b762139bf7d433579097780e500f61e53f2a733542ec24be074c2adc42ae7",
+              "0a9a6974329050ac9afa55a5f1740cee89ad17a3dfbcf2a88a6454f7924a1e48",
+              "017a6912f73401f4039cf2830f163305e40504d67c104f81a7fcfd5250578fe7",
+              "0af53ecc9dd4aa91d2f664179cc9d0c9b75ea8e11d9b1ba39c991555a6a37a2e",
+              "09093a40d5a16e94be64cca1cfd1dbfb6c1c22e8b85b3d19ba72a22f789557bd",
+              "0aeef43834aaadbd1cde8e232601e22b79515f60b985c66bc9e5e2fc18bbb299",
+              "07b4cb09556339e90a1228dea2421fc27a36998239baee6d764e9cfb34e2051a",
+              "006e965353742b5837c8f5d68d6b9109045b93e30959619469fd5a1792212936",
+              "0d4e9fcf69ab47e97d0689cdaff6c01ce4f3ec1f21d664d8cf4e9ea19919f768",
+              "05cf8d5073e7f568bf1f44558c9a3514b8890966654936dcf26b1523e1b33bed",
+              "093eb3a9c956f7ee616f8a2a2331a130b117f820df9e34fb91836ebab11175c3",
+              "00942501a8fed2fe7a0228a944373920f22e36566b13c79174509ef1973e7a91",
+              "0659f6540b60ac37121da0d562c16cc7be461df253c3b3fe346c3fdf1d83748c",
+              "0eded6caf5017aa4c5a6fcbcd8316885349a2ea5bce30cf5fbac390efedf5089",
+              "04ab569ebc7d523b73d5c2952d1713df38b08c05df8acee7fd974e4bf6222b6e",
+              "03e26dc209dbf74e2352814b6a37981f2d1eace91a7251ae32d7dd8013d1e23c",
+              "0807ff2de82c41917014d9fce2665ce32d406dac5e4e75913afb99642e9b57df",
+              "03c144b17480bd40dea3f7ff827e2a55735f9b5eec229df28cfcec804e0801de",
+              "0a5a36b99d3c091acff1ce975a30fcd9daf0dc7252937eba9d3dad227f91502a",
+              "0a8e072e16788a0494eafc8f27f2c20a0f6d6b310d8b79065be41177d2145585",
+              "0bdbc433d3ca9e1ac6d685a2cb1aab85e0f154419899239423ff1882891daec8",
+              "0ed7a6e9869781a0c1e1a849ca4f70be2dca5dce749cf8edda7d86eda1047b4a",
+              "0251105125a7d7b30c6d410fadb3a9409dbcf17ed3c52cab7eccb1dd1da5803f",
+              "0f62a2a012957e12ccdf7b2a1620873c613f81467eb336025ebfb94f7bbe2786",
+              "01aa52377cf4eb5a1f040a9bb64536ff3ac778f68a12f9d2d747742d4161d98c",
+              "04620c26a0ce13869a5e3a6ca583d0530975d6df2720966a34b10c90a609d70e",
+              "0522780a3a922b031b02e312809f9cdfaae8249ee8e2e1f1b2b533d0f15e3f0d",
+              "059ae6d0f84fcb1e6270d5312589d0aefd42124f9e759046de65660842f39085",
+              "017fdfacbf2f0abe6d4997b346334df556f27c5ff441f685533224e4f04dd127",
+              "062d999b4fd237ed4b13249e5575ca9dcc9be632323a50edd1b49f5cbf1a7722",
+              "012f8f44e431b4ae8fe2895b9831e4953d5cbb76de27e5cedefcbad20a71f15d",
+              "0507d1ed6d82bd5fbb9f3923e59e0cab0546f1f3ca99564eae726f086de2464c",
+              "02a6f4f5cad8ae2b5bd1bbe6065cb36e3b73cd47e18cf9e0222ec53b16c1e1bf",
+              "028d73755d596b03bf0d2e35b2d0bbce1a0bea7cbdeabcc17b75e70d49c5cfeb",
+              "0e8ba137f254b72e523f62b3d90b884f4a0f06c7e7faed6bf5457acacda09402"
+            ],
+            "seconds": 1.9898933450022014
+          }
+        ],
+        "promotion": false,
+        "limits": "Exploratory external checkpoint transfer. Pretraining provenance is upstream-declared. Random is not target-trained scratch. No replay comparison or generalization claim."
+      },
+      "kge": {
+        "schema": "ruvector.kge-transfer-control.v1",
+        "graph": "kinships",
+        "inputSha256": "c7276584118002b690a773a1369d50a941f4bce2cda8fa6e1d0952beb536a418",
+        "runnerSha256": "60e608b66912aa4cb5c50a61a82b934316f966cc3b88243f62acac8f8154d6a6",
+        "engineVersion": "2.4.0",
+        "backend": "native",
+        "scorer": "hole",
+        "config": {
+          "dims": 64,
+          "epochs": 50,
+          "batch_size": 256,
+          "lr": 0.1,
+          "optimizer": {
+            "kind": "adagrad",
+            "epsilon": 1e-08
+          },
+          "loss": {
+            "kind": "one_vs_all"
+          },
+          "n3_lambda": 0.001
+        },
+        "arms": [
+          {
+            "seed": 101,
+            "training": {
+              "batches": 34,
+              "entities": 104,
+              "epoch": 49,
+              "epochs": 50,
+              "loss": 4.636902332305908,
+              "n3Penalty": 0.013512966223061085,
+              "relations": 25,
+              "triples": 10686
+            },
+            "trainingMs": 2317.7306599999997,
+            "evaluationMs": 6.434628999999859,
+            "checkpointSha256": "cbfca9da0016145f15fb3dd55b1dff8a19e01551a52b04e6e5af74c5374213af",
+            "evaluation": {
+              "evalTriples": 64,
+              "filtered": true,
+              "note": "frozen per-triple split",
+              "report": {
+                "combined": {
+                  "count": 128,
+                  "hits1": 0.671875,
+                  "hits10": 0.9609375,
+                  "hits3": 0.8984375,
+                  "mr": 3.203125,
+                  "mrr": 0.7904422879219055
+                },
+                "head": {
+                  "count": 64,
+                  "hits1": 0.6875,
+                  "hits10": 0.96875,
+                  "hits3": 0.90625,
+                  "mr": 2.96875,
+                  "mrr": 0.8018956184387207
+                },
+                "tail": {
+                  "count": 64,
+                  "hits1": 0.65625,
+                  "hits10": 0.953125,
+                  "hits3": 0.890625,
+                  "mr": 3.4375,
+                  "mrr": 0.7789889574050903
+                }
+              },
+              "split": "test",
+              "splitSource": "per-triple"
+            }
+          },
+          {
+            "seed": 202,
+            "training": {
+              "batches": 34,
+              "entities": 104,
+              "epoch": 49,
+              "epochs": 50,
+              "loss": 4.646744251251221,
+              "n3Penalty": 0.013182046823203564,
+              "relations": 25,
+              "triples": 10686
+            },
+            "trainingMs": 2395.883267,
+            "evaluationMs": 6.661681000000499,
+            "checkpointSha256": "a787beaed79fc2605e7c154ebaf248b96835c834da7e44c4aa5fadc6b3d70cfe",
+            "evaluation": {
+              "evalTriples": 64,
+              "filtered": true,
+              "note": "frozen per-triple split",
+              "report": {
+                "combined": {
+                  "count": 128,
+                  "hits1": 0.7578125,
+                  "hits10": 0.9375,
+                  "hits3": 0.890625,
+                  "mr": 3.3671875,
+                  "mrr": 0.8300400972366333
+                },
+                "head": {
+                  "count": 64,
+                  "hits1": 0.765625,
+                  "hits10": 0.9375,
+                  "hits3": 0.890625,
+                  "mr": 3.328125,
+                  "mrr": 0.832882821559906
+                },
+                "tail": {
+                  "count": 64,
+                  "hits1": 0.75,
+                  "hits10": 0.9375,
+                  "hits3": 0.890625,
+                  "mr": 3.40625,
+                  "mrr": 0.8271973729133606
+                }
+              },
+              "split": "test",
+              "splitSource": "per-triple"
+            }
+          },
+          {
+            "seed": 303,
+            "training": {
+              "batches": 34,
+              "entities": 104,
+              "epoch": 49,
+              "epochs": 50,
+              "loss": 4.668966770172119,
+              "n3Penalty": 0.012954648584127426,
+              "relations": 25,
+              "triples": 10686
+            },
+            "trainingMs": 2435.195804,
+            "evaluationMs": 7.277559999999539,
+            "checkpointSha256": "16af48a2b6035b35ba60f5ead7be2b058c15b16d9437b532a3d5e71675eec14a",
+            "evaluation": {
+              "evalTriples": 64,
+              "filtered": true,
+              "note": "frozen per-triple split",
+              "report": {
+                "combined": {
+                  "count": 128,
+                  "hits1": 0.7265625,
+                  "hits10": 0.984375,
+                  "hits3": 0.890625,
+                  "mr": 2.7890625,
+                  "mrr": 0.8180625438690186
+                },
+                "head": {
+                  "count": 64,
+                  "hits1": 0.734375,
+                  "hits10": 0.984375,
+                  "hits3": 0.859375,
+                  "mr": 2.765625,
+                  "mrr": 0.8187160491943359
+                },
+                "tail": {
+                  "count": 64,
+                  "hits1": 0.71875,
+                  "hits10": 0.984375,
+                  "hits3": 0.921875,
+                  "mr": 2.8125,
+                  "mrr": 0.8174090385437012
+                }
+              },
+              "split": "test",
+              "splitSource": "per-triple"
+            }
+          }
+        ],
+        "promotion": false,
+        "limits": "Target-only KGE scratch control. Not equal total pretraining compute; no source replay."
+      }
+    },
+    {
+      "dataset": {
+        "name": "umls",
+        "source": "https://github.com/pykeen/pykeen",
+        "sourceCommit": "cbc1ea107afd7bebc531c1739c210c620f908fbf",
+        "fileHashes": {
+          "train": "873ef4925516b83e7f6f8cc02b4be51d848828710a7f65a956f0ac4a9e452f35",
+          "valid": "025c98f8a4891e2a6582ec5b40ee0d904031edad9c52554522f4b7904820c98e",
+          "test": "a7eb529a3d2810fcc96341ccc97c625a5e202f8389673aa6bd317eeebbb79014"
+        },
+        "selection": "first 64 test triples by sha256 of JSON [s,r,o]; other test facts filter-only valid",
+        "originalTestCount": 661
+      },
+      "summary": {
+        "pretrainedMRR": 0.6766794358878458,
+        "randomMeanMRR": 0.04154407404857187,
+        "kgeScratchMeanMRR": 0.9275762637456259,
+        "pretrainedMinusRandom": 0.635135361839274,
+        "conditionalQueryBootstrap95": [
+          0.5605119631444548,
+          0.7140558011915005
+        ]
+      },
+      "ultra": {
+        "schema": "ruvector.ultra-transfer.v1",
+        "inputSha256": "d7935cd3c996b617ac8a1b235357aef42c216ef5291f2a959b1a1dc14258c912",
+        "adapterSha256": "353745fc9865335221ec1a30a02f3c160c76b55b53e5671da375fd3aea82ee70",
+        "upstreamCommit": "427966ad8ed60420eef034063d44f3153addff90",
+        "checkpointSha256": "fdedc01b0045fc089d2ad5da08569466b7b221691fe978a18e91082bbb133c18",
+        "declaredPretrainingGraphs": [
+          "FB15k237",
+          "WN18RR",
+          "CoDExMedium"
+        ],
+        "graph": "umls",
+        "entities": 135,
+        "relations": 46,
+        "targetTrainingSteps": 0,
+        "candidatePolicy": "all-entities",
+        "ties": "pessimistic",
+        "permutation": {
+          "maxAbsoluteError": 3.814697265625e-06,
+          "atol": 0.0001,
+          "rtol": 0.0001,
+          "queries": 10
+        },
+        "pretrained": {
+          "metrics": {
+            "count": 128,
+            "mrr": 0.6766794358878458,
+            "hits1": 0.5703125,
+            "hits10": 0.8984375
+          },
+          "ranks": [
+            [
+              1,
+              1
+            ],
+            [
+              7,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              3,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              9,
+              1
+            ],
+            [
+              7,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              6,
+              17
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              11,
+              1
+            ],
+            [
+              10,
+              5
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              5,
+              1
+            ],
+            [
+              4,
+              5
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              20,
+              1
+            ],
+            [
+              8,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              8,
+              2
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              11,
+              8
+            ],
+            [
+              8,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              11,
+              1
+            ],
+            [
+              4,
+              5
+            ],
+            [
+              1,
+              7
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              3
+            ],
+            [
+              17,
+              1
+            ],
+            [
+              1,
+              6
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              4,
+              14
+            ],
+            [
+              16,
+              2
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              13,
+              2
+            ],
+            [
+              1,
+              7
+            ],
+            [
+              13,
+              2
+            ],
+            [
+              2,
+              11
+            ],
+            [
+              3,
+              13
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              7,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              3,
+              1
+            ],
+            [
+              2,
+              13
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              3,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "queryHashes": [
+            "151629fb4499beb0b3251a78a2e6833ca6c797f5cb3cacb72a439eef949fa0c2",
+            "006cea3aec033edb61d6d8fda390c1b9a4be725b01edac71df79639eb94b5657",
+            "0375b9f1a6eb1db501777608fefba1b669de4fb2e52dc4b750c8972b0d1966dd",
+            "00a5d7702761af9a576ff65c10d81b525f8ddcb8b4c6d0cc8278dce8020349a8",
+            "002aeb3043c7f57568d726e71ef6cac3c43ed41017a4fd82b81c9671f564bbb4",
+            "0a6f0dc0e04fe6c287fec21886d6f5aee0b8cc7c5c5c9b1f4f0ade85efbd43fc",
+            "0293e9ba28b65a46b86ed0f64776909655d4fd8ab76d5dee826c90b649556f58",
+            "03e8f39ee2153591a6291ab2b5e4cf2a76d3cc61b00da3297edac21348c8f534",
+            "0156c68bfa277f76308ac246a689d9fc279c44323956d7445285bcb0102cf2be",
+            "1408268a95db9bd8e368373300d55b51522c77d1f6081dbfb7c37fc5114a55ef",
+            "1412140474283d734954351e7c30df67cd92d653e2f54e028d16d9353ac5010b",
+            "07543920911b7c3abae2e3e208a0ef28f776d9a8e1fe7071d11fea774594f499",
+            "147fd0009cf5d9f6f5d6cdbca22d4c95c0b066b07cf0022728cf300c77685bb0",
+            "13bc23b92c3d7e1097b4a29ee999ad03b13d2f9c2f12c37d5af361b1b63a4806",
+            "173c6e74c345c433e6345a19981adf6efa9de878fc2057a0e80020c06fa5050f",
+            "0b1589d9770efe8491a280d3d9dd332b2746d5435470e3ad4570e0cf933e2532",
+            "08e7dd517d2f36b52e4c112a375d2b5a2f59d60118ad7feabc480403dcfea191",
+            "12332384cc1b69e4661e6f865634cf32bda0fcf7699703aeef8e7ef6fba1174a",
+            "16cfc2c834086acf2541849d06d3d48fc3d0d426abc1df222b9b8b7884311ffd",
+            "16266dbede43b1c06afc091b3d1e407d52144149c9cb35dfdc6a3977dbbb5976",
+            "075ec1621a7cbc4af91ba9f1b6293e98daaa0fcd2285402b729ad0d456282483",
+            "0765128078870ce161affea48f7ae9ab754499a328a1ff1c7de11fd25ef146bb",
+            "0a3e9f2725ac770f4e825571ecc8ede06f9b5c04eac45fe844cb7b274a3502de",
+            "11f871754458ad087898820786009e1b1c91ab398672e1a753c52d1a42b1b5cf",
+            "1736dc75470ccca90d29c64fea5cd470ec7fa8524721b3f949291e1b7c48ced0",
+            "042f4403fc869e0dd65c4833b62414ece1de276f65c361bb661c354a4b64ab4f",
+            "1246b79a395b90063ed27116bda6d0d5cf15d0fd4c6e2693a7eab08351682fa6",
+            "0c23595a63b6ec194628bf7f203d10d2b12a0217790024683e47341dac3d8048",
+            "01d075e3bc919f112be9a8d24e838a57b050e9144169fe2d2ab11d4e47036bc8",
+            "0b5b7574b91898975a2fc9e4e46cd469fef9a7a3e21e69012897ba4df31f83c2",
+            "13914a74187a51754892caef2cd8d7cabbf2c57000d3e9905b24c15f0f5b6697",
+            "03397527ba08a900b8b88a6da63c8971e3198e99b00d57a9ef93227d998a6a2c",
+            "05233177a81f9c875de34e07e4f8a798bd97eefb627f1e17aba4b14aadf73c6a",
+            "181cd62ff8d0064659067c6d779ff95fbf77b485b169bd134da617108ec871b7",
+            "026690805cbf42d8c1bb47c510651c160a0e683350f51df624ffaaffaf5ae7eb",
+            "0bd4cdfab4c8ce6e376b32ef3a0b283ea5479c174786da42fd0b956535d15b82",
+            "06ab721af6eae6f07d65b5fe851f246ed0dea2684e33bdb6b6ce8e064a14dae4",
+            "17c707b2bce19dff5f096da57670942362af6f43201fe09ae2923d47a47767ce",
+            "05992e905abe67a60410116759e0a7da8299ff2bcff6c84d8a282207d5b1d0ad",
+            "13a801272d77bf1a265e4e34e92cea65374f81c9c09403c3297ca2dc78d8c660",
+            "12ec61b0fae5943bde2082a0d8cf672c2e59ef54633f7dddf7a91a8752e559bc",
+            "0a8e16309c076bae48f1324c19a7fe5821be9fc6c54d5456fced698ede7fa460",
+            "0ac0bd5ea3ddb45224a9a113cf5b94ce966f1648066abc02eb390d046bbe4980",
+            "0ade8a0c20b4a8b5526fab42011e08fc2c5c6499e18404d7debae6b5fb69254d",
+            "18b1b805303c0f79ef60d4a7fe8574159467a4fe5fb49f6f563b0e899281dabe",
+            "07310601710e6e7d056094cfb924154ca522161e13a364f75bf27ea00c07cece",
+            "021a74a6d64914f63e9ab6954ab031056668f1673fc5c16780a4de273bf1b528",
+            "0cf77140fc0e88ac84b6536b27aaf727a068e5b2e1258932952651dc36202c89",
+            "1324c9c58fbd6dff6605946ae2384342f1d37c5a69540c02a5641d4ece3ff516",
+            "043ec6638703a6d5a752aded5985b7858499d8a5d5e6ae2cff5d85c0e3dbad75",
+            "075a35561d34a079836fc4c87cf1841153d435768ee51f07cebd0a55d9ea5dab",
+            "15fe2042ac5f38a9f6fd5fe877e3a448ebb91beaab9a743744838a56bb296b84",
+            "101ec28fed750dcf93944ec0a9918d9bf71087bfbf37615554083aa8b70725fb",
+            "09c48b323c8b318a0a4e7129046e5032c56bfa81b664f844dce21704aab828b0",
+            "18807bcba845cefbd03774fc9b52f46904f8ce3b64a680bdecc469cce39b3404",
+            "0dcc51a06ad4e1bdea6de2a1c2a82a141a897b609d0e0089028843688979ba56",
+            "09ef997c9cc5e39a4f5534a5dce44516652298215ff03760847540798e7d4588",
+            "10b07d0d56291d089ea22b5b52f5166d768cfd40caeecab77b3adec6b1552ead",
+            "0e81654477c55497c6c5b075ac0e455086b16c8746a35a4c972a5da59c720a3e",
+            "01be7b298b57daa0ae47caead308d4c6822a0b4319a9d15d6e68f2f16fb3dbf4",
+            "03aa1a1b06548bd7cf32921e20d5ded97a67f5968133ec2735d38e48b6860fc6",
+            "1634803e2dfae6c2c8ffc486f338e87d4982be7c7fd811177464e6f5296a2514",
+            "0a242d80c973615b39a17847da09729ae72c9f1bf7751160cc44697826b6228b",
+            "0ef4f0b2ca068dc665d6b60489ac60674b8645647a9ca2b9b8e232ebd9c6c214"
+          ],
+          "seconds": 1.9224352329983958
+        },
+        "random": [
+          {
+            "seed": 101,
+            "metrics": {
+              "count": 128,
+              "mrr": 0.035124932597036904,
+              "hits1": 0.0,
+              "hits10": 0.0703125
+            },
+            "ranks": [
+              [
+                46,
+                84
+              ],
+              [
+                55,
+                37
+              ],
+              [
+                68,
+                104
+              ],
+              [
+                43,
+                27
+              ],
+              [
+                23,
+                62
+              ],
+              [
+                43,
+                106
+              ],
+              [
+                56,
+                38
+              ],
+              [
+                19,
+                99
+              ],
+              [
+                25,
+                24
+              ],
+              [
+                35,
+                10
+              ],
+              [
+                54,
+                33
+              ],
+              [
+                35,
+                88
+              ],
+              [
+                64,
+                31
+              ],
+              [
+                67,
+                94
+              ],
+              [
+                34,
+                41
+              ],
+              [
+                32,
+                71
+              ],
+              [
+                43,
+                78
+              ],
+              [
+                11,
+                69
+              ],
+              [
+                22,
+                5
+              ],
+              [
+                102,
+                98
+              ],
+              [
+                71,
+                77
+              ],
+              [
+                37,
+                39
+              ],
+              [
+                13,
+                20
+              ],
+              [
+                61,
+                5
+              ],
+              [
+                37,
+                63
+              ],
+              [
+                29,
+                51
+              ],
+              [
+                43,
+                105
+              ],
+              [
+                46,
+                10
+              ],
+              [
+                38,
+                44
+              ],
+              [
+                38,
+                82
+              ],
+              [
+                42,
+                66
+              ],
+              [
+                18,
+                40
+              ],
+              [
+                43,
+                8
+              ],
+              [
+                18,
+                61
+              ],
+              [
+                38,
+                107
+              ],
+              [
+                16,
+                17
+              ],
+              [
+                39,
+                64
+              ],
+              [
+                46,
+                35
+              ],
+              [
+                10,
+                11
+              ],
+              [
+                66,
+                65
+              ],
+              [
+                20,
+                26
+              ],
+              [
+                90,
+                75
+              ],
+              [
+                52,
+                32
+              ],
+              [
+                50,
+                45
+              ],
+              [
+                46,
+                40
+              ],
+              [
+                42,
+                28
+              ],
+              [
+                58,
+                48
+              ],
+              [
+                51,
+                26
+              ],
+              [
+                50,
+                48
+              ],
+              [
+                26,
+                29
+              ],
+              [
+                82,
+                40
+              ],
+              [
+                45,
+                17
+              ],
+              [
+                8,
+                16
+              ],
+              [
+                94,
+                7
+              ],
+              [
+                87,
+                106
+              ],
+              [
+                15,
+                12
+              ],
+              [
+                51,
+                60
+              ],
+              [
+                95,
+                75
+              ],
+              [
+                18,
+                35
+              ],
+              [
+                30,
+                26
+              ],
+              [
+                61,
+                63
+              ],
+              [
+                25,
+                24
+              ],
+              [
+                82,
+                68
+              ],
+              [
+                32,
+                7
+              ]
+            ],
+            "queryHashes": [
+              "151629fb4499beb0b3251a78a2e6833ca6c797f5cb3cacb72a439eef949fa0c2",
+              "006cea3aec033edb61d6d8fda390c1b9a4be725b01edac71df79639eb94b5657",
+              "0375b9f1a6eb1db501777608fefba1b669de4fb2e52dc4b750c8972b0d1966dd",
+              "00a5d7702761af9a576ff65c10d81b525f8ddcb8b4c6d0cc8278dce8020349a8",
+              "002aeb3043c7f57568d726e71ef6cac3c43ed41017a4fd82b81c9671f564bbb4",
+              "0a6f0dc0e04fe6c287fec21886d6f5aee0b8cc7c5c5c9b1f4f0ade85efbd43fc",
+              "0293e9ba28b65a46b86ed0f64776909655d4fd8ab76d5dee826c90b649556f58",
+              "03e8f39ee2153591a6291ab2b5e4cf2a76d3cc61b00da3297edac21348c8f534",
+              "0156c68bfa277f76308ac246a689d9fc279c44323956d7445285bcb0102cf2be",
+              "1408268a95db9bd8e368373300d55b51522c77d1f6081dbfb7c37fc5114a55ef",
+              "1412140474283d734954351e7c30df67cd92d653e2f54e028d16d9353ac5010b",
+              "07543920911b7c3abae2e3e208a0ef28f776d9a8e1fe7071d11fea774594f499",
+              "147fd0009cf5d9f6f5d6cdbca22d4c95c0b066b07cf0022728cf300c77685bb0",
+              "13bc23b92c3d7e1097b4a29ee999ad03b13d2f9c2f12c37d5af361b1b63a4806",
+              "173c6e74c345c433e6345a19981adf6efa9de878fc2057a0e80020c06fa5050f",
+              "0b1589d9770efe8491a280d3d9dd332b2746d5435470e3ad4570e0cf933e2532",
+              "08e7dd517d2f36b52e4c112a375d2b5a2f59d60118ad7feabc480403dcfea191",
+              "12332384cc1b69e4661e6f865634cf32bda0fcf7699703aeef8e7ef6fba1174a",
+              "16cfc2c834086acf2541849d06d3d48fc3d0d426abc1df222b9b8b7884311ffd",
+              "16266dbede43b1c06afc091b3d1e407d52144149c9cb35dfdc6a3977dbbb5976",
+              "075ec1621a7cbc4af91ba9f1b6293e98daaa0fcd2285402b729ad0d456282483",
+              "0765128078870ce161affea48f7ae9ab754499a328a1ff1c7de11fd25ef146bb",
+              "0a3e9f2725ac770f4e825571ecc8ede06f9b5c04eac45fe844cb7b274a3502de",
+              "11f871754458ad087898820786009e1b1c91ab398672e1a753c52d1a42b1b5cf",
+              "1736dc75470ccca90d29c64fea5cd470ec7fa8524721b3f949291e1b7c48ced0",
+              "042f4403fc869e0dd65c4833b62414ece1de276f65c361bb661c354a4b64ab4f",
+              "1246b79a395b90063ed27116bda6d0d5cf15d0fd4c6e2693a7eab08351682fa6",
+              "0c23595a63b6ec194628bf7f203d10d2b12a0217790024683e47341dac3d8048",
+              "01d075e3bc919f112be9a8d24e838a57b050e9144169fe2d2ab11d4e47036bc8",
+              "0b5b7574b91898975a2fc9e4e46cd469fef9a7a3e21e69012897ba4df31f83c2",
+              "13914a74187a51754892caef2cd8d7cabbf2c57000d3e9905b24c15f0f5b6697",
+              "03397527ba08a900b8b88a6da63c8971e3198e99b00d57a9ef93227d998a6a2c",
+              "05233177a81f9c875de34e07e4f8a798bd97eefb627f1e17aba4b14aadf73c6a",
+              "181cd62ff8d0064659067c6d779ff95fbf77b485b169bd134da617108ec871b7",
+              "026690805cbf42d8c1bb47c510651c160a0e683350f51df624ffaaffaf5ae7eb",
+              "0bd4cdfab4c8ce6e376b32ef3a0b283ea5479c174786da42fd0b956535d15b82",
+              "06ab721af6eae6f07d65b5fe851f246ed0dea2684e33bdb6b6ce8e064a14dae4",
+              "17c707b2bce19dff5f096da57670942362af6f43201fe09ae2923d47a47767ce",
+              "05992e905abe67a60410116759e0a7da8299ff2bcff6c84d8a282207d5b1d0ad",
+              "13a801272d77bf1a265e4e34e92cea65374f81c9c09403c3297ca2dc78d8c660",
+              "12ec61b0fae5943bde2082a0d8cf672c2e59ef54633f7dddf7a91a8752e559bc",
+              "0a8e16309c076bae48f1324c19a7fe5821be9fc6c54d5456fced698ede7fa460",
+              "0ac0bd5ea3ddb45224a9a113cf5b94ce966f1648066abc02eb390d046bbe4980",
+              "0ade8a0c20b4a8b5526fab42011e08fc2c5c6499e18404d7debae6b5fb69254d",
+              "18b1b805303c0f79ef60d4a7fe8574159467a4fe5fb49f6f563b0e899281dabe",
+              "07310601710e6e7d056094cfb924154ca522161e13a364f75bf27ea00c07cece",
+              "021a74a6d64914f63e9ab6954ab031056668f1673fc5c16780a4de273bf1b528",
+              "0cf77140fc0e88ac84b6536b27aaf727a068e5b2e1258932952651dc36202c89",
+              "1324c9c58fbd6dff6605946ae2384342f1d37c5a69540c02a5641d4ece3ff516",
+              "043ec6638703a6d5a752aded5985b7858499d8a5d5e6ae2cff5d85c0e3dbad75",
+              "075a35561d34a079836fc4c87cf1841153d435768ee51f07cebd0a55d9ea5dab",
+              "15fe2042ac5f38a9f6fd5fe877e3a448ebb91beaab9a743744838a56bb296b84",
+              "101ec28fed750dcf93944ec0a9918d9bf71087bfbf37615554083aa8b70725fb",
+              "09c48b323c8b318a0a4e7129046e5032c56bfa81b664f844dce21704aab828b0",
+              "18807bcba845cefbd03774fc9b52f46904f8ce3b64a680bdecc469cce39b3404",
+              "0dcc51a06ad4e1bdea6de2a1c2a82a141a897b609d0e0089028843688979ba56",
+              "09ef997c9cc5e39a4f5534a5dce44516652298215ff03760847540798e7d4588",
+              "10b07d0d56291d089ea22b5b52f5166d768cfd40caeecab77b3adec6b1552ead",
+              "0e81654477c55497c6c5b075ac0e455086b16c8746a35a4c972a5da59c720a3e",
+              "01be7b298b57daa0ae47caead308d4c6822a0b4319a9d15d6e68f2f16fb3dbf4",
+              "03aa1a1b06548bd7cf32921e20d5ded97a67f5968133ec2735d38e48b6860fc6",
+              "1634803e2dfae6c2c8ffc486f338e87d4982be7c7fd811177464e6f5296a2514",
+              "0a242d80c973615b39a17847da09729ae72c9f1bf7751160cc44697826b6228b",
+              "0ef4f0b2ca068dc665d6b60489ac60674b8645647a9ca2b9b8e232ebd9c6c214"
+            ],
+            "seconds": 1.8954007490028744
+          },
+          {
+            "seed": 202,
+            "metrics": {
+              "count": 128,
+              "mrr": 0.022131456055420575,
+              "hits1": 0.0,
+              "hits10": 0.0078125
+            },
+            "ranks": [
+              [
+                114,
+                74
+              ],
+              [
+                31,
+                28
+              ],
+              [
+                97,
+                118
+              ],
+              [
+                33,
+                27
+              ],
+              [
+                67,
+                58
+              ],
+              [
+                113,
+                124
+              ],
+              [
+                22,
+                28
+              ],
+              [
+                89,
+                45
+              ],
+              [
+                71,
+                23
+              ],
+              [
+                17,
+                87
+              ],
+              [
+                61,
+                19
+              ],
+              [
+                112,
+                73
+              ],
+              [
+                59,
+                22
+              ],
+              [
+                96,
+                117
+              ],
+              [
+                67,
+                30
+              ],
+              [
+                77,
+                46
+              ],
+              [
+                65,
+                66
+              ],
+              [
+                118,
+                97
+              ],
+              [
+                10,
+                81
+              ],
+              [
+                102,
+                111
+              ],
+              [
+                133,
+                83
+              ],
+              [
+                69,
+                34
+              ],
+              [
+                76,
+                82
+              ],
+              [
+                42,
+                83
+              ],
+              [
+                59,
+                45
+              ],
+              [
+                36,
+                61
+              ],
+              [
+                97,
+                64
+              ],
+              [
+                14,
+                36
+              ],
+              [
+                78,
+                32
+              ],
+              [
+                62,
+                56
+              ],
+              [
+                75,
+                47
+              ],
+              [
+                37,
+                84
+              ],
+              [
+                63,
+                62
+              ],
+              [
+                73,
+                65
+              ],
+              [
+                68,
+                68
+              ],
+              [
+                17,
+                12
+              ],
+              [
+                107,
+                109
+              ],
+              [
+                43,
+                47
+              ],
+              [
+                116,
+                33
+              ],
+              [
+                79,
+                77
+              ],
+              [
+                50,
+                31
+              ],
+              [
+                118,
+                85
+              ],
+              [
+                71,
+                19
+              ],
+              [
+                30,
+                36
+              ],
+              [
+                96,
+                132
+              ],
+              [
+                48,
+                31
+              ],
+              [
+                40,
+                71
+              ],
+              [
+                110,
+                37
+              ],
+              [
+                11,
+                73
+              ],
+              [
+                83,
+                89
+              ],
+              [
+                93,
+                130
+              ],
+              [
+                26,
+                17
+              ],
+              [
+                100,
+                131
+              ],
+              [
+                14,
+                68
+              ],
+              [
+                100,
+                127
+              ],
+              [
+                36,
+                35
+              ],
+              [
+                114,
+                90
+              ],
+              [
+                119,
+                90
+              ],
+              [
+                76,
+                88
+              ],
+              [
+                53,
+                31
+              ],
+              [
+                38,
+                100
+              ],
+              [
+                52,
+                30
+              ],
+              [
+                119,
+                115
+              ],
+              [
+                12,
+                93
+              ]
+            ],
+            "queryHashes": [
+              "151629fb4499beb0b3251a78a2e6833ca6c797f5cb3cacb72a439eef949fa0c2",
+              "006cea3aec033edb61d6d8fda390c1b9a4be725b01edac71df79639eb94b5657",
+              "0375b9f1a6eb1db501777608fefba1b669de4fb2e52dc4b750c8972b0d1966dd",
+              "00a5d7702761af9a576ff65c10d81b525f8ddcb8b4c6d0cc8278dce8020349a8",
+              "002aeb3043c7f57568d726e71ef6cac3c43ed41017a4fd82b81c9671f564bbb4",
+              "0a6f0dc0e04fe6c287fec21886d6f5aee0b8cc7c5c5c9b1f4f0ade85efbd43fc",
+              "0293e9ba28b65a46b86ed0f64776909655d4fd8ab76d5dee826c90b649556f58",
+              "03e8f39ee2153591a6291ab2b5e4cf2a76d3cc61b00da3297edac21348c8f534",
+              "0156c68bfa277f76308ac246a689d9fc279c44323956d7445285bcb0102cf2be",
+              "1408268a95db9bd8e368373300d55b51522c77d1f6081dbfb7c37fc5114a55ef",
+              "1412140474283d734954351e7c30df67cd92d653e2f54e028d16d9353ac5010b",
+              "07543920911b7c3abae2e3e208a0ef28f776d9a8e1fe7071d11fea774594f499",
+              "147fd0009cf5d9f6f5d6cdbca22d4c95c0b066b07cf0022728cf300c77685bb0",
+              "13bc23b92c3d7e1097b4a29ee999ad03b13d2f9c2f12c37d5af361b1b63a4806",
+              "173c6e74c345c433e6345a19981adf6efa9de878fc2057a0e80020c06fa5050f",
+              "0b1589d9770efe8491a280d3d9dd332b2746d5435470e3ad4570e0cf933e2532",
+              "08e7dd517d2f36b52e4c112a375d2b5a2f59d60118ad7feabc480403dcfea191",
+              "12332384cc1b69e4661e6f865634cf32bda0fcf7699703aeef8e7ef6fba1174a",
+              "16cfc2c834086acf2541849d06d3d48fc3d0d426abc1df222b9b8b7884311ffd",
+              "16266dbede43b1c06afc091b3d1e407d52144149c9cb35dfdc6a3977dbbb5976",
+              "075ec1621a7cbc4af91ba9f1b6293e98daaa0fcd2285402b729ad0d456282483",
+              "0765128078870ce161affea48f7ae9ab754499a328a1ff1c7de11fd25ef146bb",
+              "0a3e9f2725ac770f4e825571ecc8ede06f9b5c04eac45fe844cb7b274a3502de",
+              "11f871754458ad087898820786009e1b1c91ab398672e1a753c52d1a42b1b5cf",
+              "1736dc75470ccca90d29c64fea5cd470ec7fa8524721b3f949291e1b7c48ced0",
+              "042f4403fc869e0dd65c4833b62414ece1de276f65c361bb661c354a4b64ab4f",
+              "1246b79a395b90063ed27116bda6d0d5cf15d0fd4c6e2693a7eab08351682fa6",
+              "0c23595a63b6ec194628bf7f203d10d2b12a0217790024683e47341dac3d8048",
+              "01d075e3bc919f112be9a8d24e838a57b050e9144169fe2d2ab11d4e47036bc8",
+              "0b5b7574b91898975a2fc9e4e46cd469fef9a7a3e21e69012897ba4df31f83c2",
+              "13914a74187a51754892caef2cd8d7cabbf2c57000d3e9905b24c15f0f5b6697",
+              "03397527ba08a900b8b88a6da63c8971e3198e99b00d57a9ef93227d998a6a2c",
+              "05233177a81f9c875de34e07e4f8a798bd97eefb627f1e17aba4b14aadf73c6a",
+              "181cd62ff8d0064659067c6d779ff95fbf77b485b169bd134da617108ec871b7",
+              "026690805cbf42d8c1bb47c510651c160a0e683350f51df624ffaaffaf5ae7eb",
+              "0bd4cdfab4c8ce6e376b32ef3a0b283ea5479c174786da42fd0b956535d15b82",
+              "06ab721af6eae6f07d65b5fe851f246ed0dea2684e33bdb6b6ce8e064a14dae4",
+              "17c707b2bce19dff5f096da57670942362af6f43201fe09ae2923d47a47767ce",
+              "05992e905abe67a60410116759e0a7da8299ff2bcff6c84d8a282207d5b1d0ad",
+              "13a801272d77bf1a265e4e34e92cea65374f81c9c09403c3297ca2dc78d8c660",
+              "12ec61b0fae5943bde2082a0d8cf672c2e59ef54633f7dddf7a91a8752e559bc",
+              "0a8e16309c076bae48f1324c19a7fe5821be9fc6c54d5456fced698ede7fa460",
+              "0ac0bd5ea3ddb45224a9a113cf5b94ce966f1648066abc02eb390d046bbe4980",
+              "0ade8a0c20b4a8b5526fab42011e08fc2c5c6499e18404d7debae6b5fb69254d",
+              "18b1b805303c0f79ef60d4a7fe8574159467a4fe5fb49f6f563b0e899281dabe",
+              "07310601710e6e7d056094cfb924154ca522161e13a364f75bf27ea00c07cece",
+              "021a74a6d64914f63e9ab6954ab031056668f1673fc5c16780a4de273bf1b528",
+              "0cf77140fc0e88ac84b6536b27aaf727a068e5b2e1258932952651dc36202c89",
+              "1324c9c58fbd6dff6605946ae2384342f1d37c5a69540c02a5641d4ece3ff516",
+              "043ec6638703a6d5a752aded5985b7858499d8a5d5e6ae2cff5d85c0e3dbad75",
+              "075a35561d34a079836fc4c87cf1841153d435768ee51f07cebd0a55d9ea5dab",
+              "15fe2042ac5f38a9f6fd5fe877e3a448ebb91beaab9a743744838a56bb296b84",
+              "101ec28fed750dcf93944ec0a9918d9bf71087bfbf37615554083aa8b70725fb",
+              "09c48b323c8b318a0a4e7129046e5032c56bfa81b664f844dce21704aab828b0",
+              "18807bcba845cefbd03774fc9b52f46904f8ce3b64a680bdecc469cce39b3404",
+              "0dcc51a06ad4e1bdea6de2a1c2a82a141a897b609d0e0089028843688979ba56",
+              "09ef997c9cc5e39a4f5534a5dce44516652298215ff03760847540798e7d4588",
+              "10b07d0d56291d089ea22b5b52f5166d768cfd40caeecab77b3adec6b1552ead",
+              "0e81654477c55497c6c5b075ac0e455086b16c8746a35a4c972a5da59c720a3e",
+              "01be7b298b57daa0ae47caead308d4c6822a0b4319a9d15d6e68f2f16fb3dbf4",
+              "03aa1a1b06548bd7cf32921e20d5ded97a67f5968133ec2735d38e48b6860fc6",
+              "1634803e2dfae6c2c8ffc486f338e87d4982be7c7fd811177464e6f5296a2514",
+              "0a242d80c973615b39a17847da09729ae72c9f1bf7751160cc44697826b6228b",
+              "0ef4f0b2ca068dc665d6b60489ac60674b8645647a9ca2b9b8e232ebd9c6c214"
+            ],
+            "seconds": 1.8603004480028176
+          },
+          {
+            "seed": 303,
+            "metrics": {
+              "count": 128,
+              "mrr": 0.06737583349325812,
+              "hits1": 0.0,
+              "hits10": 0.2109375
+            },
+            "ranks": [
+              [
+                56,
+                27
+              ],
+              [
+                29,
+                28
+              ],
+              [
+                57,
+                80
+              ],
+              [
+                26,
+                18
+              ],
+              [
+                3,
+                8
+              ],
+              [
+                68,
+                75
+              ],
+              [
+                38,
+                27
+              ],
+              [
+                41,
+                30
+              ],
+              [
+                28,
+                23
+              ],
+              [
+                5,
+                9
+              ],
+              [
+                24,
+                21
+              ],
+              [
+                50,
+                23
+              ],
+              [
+                8,
+                14
+              ],
+              [
+                59,
+                79
+              ],
+              [
+                9,
+                7
+              ],
+              [
+                32,
+                33
+              ],
+              [
+                31,
+                28
+              ],
+              [
+                56,
+                6
+              ],
+              [
+                4,
+                15
+              ],
+              [
+                46,
+                59
+              ],
+              [
+                80,
+                45
+              ],
+              [
+                12,
+                15
+              ],
+              [
+                26,
+                22
+              ],
+              [
+                5,
+                32
+              ],
+              [
+                66,
+                27
+              ],
+              [
+                18,
+                32
+              ],
+              [
+                54,
+                37
+              ],
+              [
+                7,
+                6
+              ],
+              [
+                26,
+                13
+              ],
+              [
+                13,
+                20
+              ],
+              [
+                48,
+                37
+              ],
+              [
+                35,
+                33
+              ],
+              [
+                2,
+                9
+              ],
+              [
+                33,
+                41
+              ],
+              [
+                49,
+                57
+              ],
+              [
+                25,
+                21
+              ],
+              [
+                61,
+                44
+              ],
+              [
+                21,
+                47
+              ],
+              [
+                3,
+                5
+              ],
+              [
+                12,
+                22
+              ],
+              [
+                10,
+                21
+              ],
+              [
+                61,
+                46
+              ],
+              [
+                7,
+                18
+              ],
+              [
+                24,
+                31
+              ],
+              [
+                36,
+                122
+              ],
+              [
+                29,
+                13
+              ],
+              [
+                26,
+                6
+              ],
+              [
+                3,
+                24
+              ],
+              [
+                28,
+                79
+              ],
+              [
+                5,
+                22
+              ],
+              [
+                54,
+                123
+              ],
+              [
+                27,
+                44
+              ],
+              [
+                10,
+                62
+              ],
+              [
+                39,
+                25
+              ],
+              [
+                58,
+                121
+              ],
+              [
+                10,
+                38
+              ],
+              [
+                36,
+                45
+              ],
+              [
+                71,
+                53
+              ],
+              [
+                20,
+                22
+              ],
+              [
+                6,
+                8
+              ],
+              [
+                50,
+                118
+              ],
+              [
+                18,
+                31
+              ],
+              [
+                124,
+                100
+              ],
+              [
+                3,
+                3
+              ]
+            ],
+            "queryHashes": [
+              "151629fb4499beb0b3251a78a2e6833ca6c797f5cb3cacb72a439eef949fa0c2",
+              "006cea3aec033edb61d6d8fda390c1b9a4be725b01edac71df79639eb94b5657",
+              "0375b9f1a6eb1db501777608fefba1b669de4fb2e52dc4b750c8972b0d1966dd",
+              "00a5d7702761af9a576ff65c10d81b525f8ddcb8b4c6d0cc8278dce8020349a8",
+              "002aeb3043c7f57568d726e71ef6cac3c43ed41017a4fd82b81c9671f564bbb4",
+              "0a6f0dc0e04fe6c287fec21886d6f5aee0b8cc7c5c5c9b1f4f0ade85efbd43fc",
+              "0293e9ba28b65a46b86ed0f64776909655d4fd8ab76d5dee826c90b649556f58",
+              "03e8f39ee2153591a6291ab2b5e4cf2a76d3cc61b00da3297edac21348c8f534",
+              "0156c68bfa277f76308ac246a689d9fc279c44323956d7445285bcb0102cf2be",
+              "1408268a95db9bd8e368373300d55b51522c77d1f6081dbfb7c37fc5114a55ef",
+              "1412140474283d734954351e7c30df67cd92d653e2f54e028d16d9353ac5010b",
+              "07543920911b7c3abae2e3e208a0ef28f776d9a8e1fe7071d11fea774594f499",
+              "147fd0009cf5d9f6f5d6cdbca22d4c95c0b066b07cf0022728cf300c77685bb0",
+              "13bc23b92c3d7e1097b4a29ee999ad03b13d2f9c2f12c37d5af361b1b63a4806",
+              "173c6e74c345c433e6345a19981adf6efa9de878fc2057a0e80020c06fa5050f",
+              "0b1589d9770efe8491a280d3d9dd332b2746d5435470e3ad4570e0cf933e2532",
+              "08e7dd517d2f36b52e4c112a375d2b5a2f59d60118ad7feabc480403dcfea191",
+              "12332384cc1b69e4661e6f865634cf32bda0fcf7699703aeef8e7ef6fba1174a",
+              "16cfc2c834086acf2541849d06d3d48fc3d0d426abc1df222b9b8b7884311ffd",
+              "16266dbede43b1c06afc091b3d1e407d52144149c9cb35dfdc6a3977dbbb5976",
+              "075ec1621a7cbc4af91ba9f1b6293e98daaa0fcd2285402b729ad0d456282483",
+              "0765128078870ce161affea48f7ae9ab754499a328a1ff1c7de11fd25ef146bb",
+              "0a3e9f2725ac770f4e825571ecc8ede06f9b5c04eac45fe844cb7b274a3502de",
+              "11f871754458ad087898820786009e1b1c91ab398672e1a753c52d1a42b1b5cf",
+              "1736dc75470ccca90d29c64fea5cd470ec7fa8524721b3f949291e1b7c48ced0",
+              "042f4403fc869e0dd65c4833b62414ece1de276f65c361bb661c354a4b64ab4f",
+              "1246b79a395b90063ed27116bda6d0d5cf15d0fd4c6e2693a7eab08351682fa6",
+              "0c23595a63b6ec194628bf7f203d10d2b12a0217790024683e47341dac3d8048",
+              "01d075e3bc919f112be9a8d24e838a57b050e9144169fe2d2ab11d4e47036bc8",
+              "0b5b7574b91898975a2fc9e4e46cd469fef9a7a3e21e69012897ba4df31f83c2",
+              "13914a74187a51754892caef2cd8d7cabbf2c57000d3e9905b24c15f0f5b6697",
+              "03397527ba08a900b8b88a6da63c8971e3198e99b00d57a9ef93227d998a6a2c",
+              "05233177a81f9c875de34e07e4f8a798bd97eefb627f1e17aba4b14aadf73c6a",
+              "181cd62ff8d0064659067c6d779ff95fbf77b485b169bd134da617108ec871b7",
+              "026690805cbf42d8c1bb47c510651c160a0e683350f51df624ffaaffaf5ae7eb",
+              "0bd4cdfab4c8ce6e376b32ef3a0b283ea5479c174786da42fd0b956535d15b82",
+              "06ab721af6eae6f07d65b5fe851f246ed0dea2684e33bdb6b6ce8e064a14dae4",
+              "17c707b2bce19dff5f096da57670942362af6f43201fe09ae2923d47a47767ce",
+              "05992e905abe67a60410116759e0a7da8299ff2bcff6c84d8a282207d5b1d0ad",
+              "13a801272d77bf1a265e4e34e92cea65374f81c9c09403c3297ca2dc78d8c660",
+              "12ec61b0fae5943bde2082a0d8cf672c2e59ef54633f7dddf7a91a8752e559bc",
+              "0a8e16309c076bae48f1324c19a7fe5821be9fc6c54d5456fced698ede7fa460",
+              "0ac0bd5ea3ddb45224a9a113cf5b94ce966f1648066abc02eb390d046bbe4980",
+              "0ade8a0c20b4a8b5526fab42011e08fc2c5c6499e18404d7debae6b5fb69254d",
+              "18b1b805303c0f79ef60d4a7fe8574159467a4fe5fb49f6f563b0e899281dabe",
+              "07310601710e6e7d056094cfb924154ca522161e13a364f75bf27ea00c07cece",
+              "021a74a6d64914f63e9ab6954ab031056668f1673fc5c16780a4de273bf1b528",
+              "0cf77140fc0e88ac84b6536b27aaf727a068e5b2e1258932952651dc36202c89",
+              "1324c9c58fbd6dff6605946ae2384342f1d37c5a69540c02a5641d4ece3ff516",
+              "043ec6638703a6d5a752aded5985b7858499d8a5d5e6ae2cff5d85c0e3dbad75",
+              "075a35561d34a079836fc4c87cf1841153d435768ee51f07cebd0a55d9ea5dab",
+              "15fe2042ac5f38a9f6fd5fe877e3a448ebb91beaab9a743744838a56bb296b84",
+              "101ec28fed750dcf93944ec0a9918d9bf71087bfbf37615554083aa8b70725fb",
+              "09c48b323c8b318a0a4e7129046e5032c56bfa81b664f844dce21704aab828b0",
+              "18807bcba845cefbd03774fc9b52f46904f8ce3b64a680bdecc469cce39b3404",
+              "0dcc51a06ad4e1bdea6de2a1c2a82a141a897b609d0e0089028843688979ba56",
+              "09ef997c9cc5e39a4f5534a5dce44516652298215ff03760847540798e7d4588",
+              "10b07d0d56291d089ea22b5b52f5166d768cfd40caeecab77b3adec6b1552ead",
+              "0e81654477c55497c6c5b075ac0e455086b16c8746a35a4c972a5da59c720a3e",
+              "01be7b298b57daa0ae47caead308d4c6822a0b4319a9d15d6e68f2f16fb3dbf4",
+              "03aa1a1b06548bd7cf32921e20d5ded97a67f5968133ec2735d38e48b6860fc6",
+              "1634803e2dfae6c2c8ffc486f338e87d4982be7c7fd811177464e6f5296a2514",
+              "0a242d80c973615b39a17847da09729ae72c9f1bf7751160cc44697826b6228b",
+              "0ef4f0b2ca068dc665d6b60489ac60674b8645647a9ca2b9b8e232ebd9c6c214"
+            ],
+            "seconds": 1.8795463190035662
+          }
+        ],
+        "promotion": false,
+        "limits": "Exploratory external checkpoint transfer. Pretraining provenance is upstream-declared. Random is not target-trained scratch. No replay comparison or generalization claim."
+      },
+      "kge": {
+        "schema": "ruvector.kge-transfer-control.v1",
+        "graph": "umls",
+        "inputSha256": "d7935cd3c996b617ac8a1b235357aef42c216ef5291f2a959b1a1dc14258c912",
+        "runnerSha256": "60e608b66912aa4cb5c50a61a82b934316f966cc3b88243f62acac8f8154d6a6",
+        "engineVersion": "2.4.0",
+        "backend": "native",
+        "scorer": "hole",
+        "config": {
+          "dims": 64,
+          "epochs": 50,
+          "batch_size": 256,
+          "lr": 0.1,
+          "optimizer": {
+            "kind": "adagrad",
+            "epsilon": 1e-08
+          },
+          "loss": {
+            "kind": "one_vs_all"
+          },
+          "n3_lambda": 0.001
+        },
+        "arms": [
+          {
+            "seed": 101,
+            "training": {
+              "batches": 21,
+              "entities": 135,
+              "epoch": 49,
+              "epochs": 50,
+              "loss": 5.15796422958374,
+              "n3Penalty": 0.011157738976180553,
+              "relations": 46,
+              "triples": 6529
+            },
+            "trainingMs": 1571.986078,
+            "evaluationMs": 7.1328309999998964,
+            "checkpointSha256": "7a9b3a44f3e9563f196649a6c908527b418c4da374626dcc439e0222127c7b75",
+            "evaluation": {
+              "evalTriples": 64,
+              "filtered": true,
+              "note": "frozen per-triple split",
+              "report": {
+                "combined": {
+                  "count": 128,
+                  "hits1": 0.8671875,
+                  "hits10": 1,
+                  "hits3": 0.9921875,
+                  "mr": 1.171875,
+                  "mrr": 0.9286458492279053
+                },
+                "head": {
+                  "count": 64,
+                  "hits1": 0.875,
+                  "hits10": 1,
+                  "hits3": 0.984375,
+                  "mr": 1.1875,
+                  "mrr": 0.9302083253860474
+                },
+                "tail": {
+                  "count": 64,
+                  "hits1": 0.859375,
+                  "hits10": 1,
+                  "hits3": 1,
+                  "mr": 1.15625,
+                  "mrr": 0.9270833134651184
+                }
+              },
+              "split": "test",
+              "splitSource": "per-triple"
+            }
+          },
+          {
+            "seed": 202,
+            "training": {
+              "batches": 21,
+              "entities": 135,
+              "epoch": 49,
+              "epochs": 50,
+              "loss": 5.165114879608154,
+              "n3Penalty": 0.011047055013477802,
+              "relations": 46,
+              "triples": 6529
+            },
+            "trainingMs": 1522.0788269999998,
+            "evaluationMs": 6.455198999999993,
+            "checkpointSha256": "d09c3a56b306a7ad60118644fe41f7c6ba93f1e7990a7072b57fbac30f1b4bfc",
+            "evaluation": {
+              "evalTriples": 64,
+              "filtered": true,
+              "note": "frozen per-triple split",
+              "report": {
+                "combined": {
+                  "count": 128,
+                  "hits1": 0.84375,
+                  "hits10": 0.9921875,
+                  "hits3": 0.9609375,
+                  "mr": 1.4296875,
+                  "mrr": 0.9072079658508301
+                },
+                "head": {
+                  "count": 64,
+                  "hits1": 0.84375,
+                  "hits10": 0.984375,
+                  "hits3": 0.9375,
+                  "mr": 1.59375,
+                  "mrr": 0.9010044932365417
+                },
+                "tail": {
+                  "count": 64,
+                  "hits1": 0.84375,
+                  "hits10": 1,
+                  "hits3": 0.984375,
+                  "mr": 1.265625,
+                  "mrr": 0.9134114384651184
+                }
+              },
+              "split": "test",
+              "splitSource": "per-triple"
+            }
+          },
+          {
+            "seed": 303,
+            "training": {
+              "batches": 21,
+              "entities": 135,
+              "epoch": 49,
+              "epochs": 50,
+              "loss": 5.167507171630859,
+              "n3Penalty": 0.01104747224599123,
+              "relations": 46,
+              "triples": 6529
+            },
+            "trainingMs": 1689.8577649999997,
+            "evaluationMs": 6.403451999999561,
+            "checkpointSha256": "2e9916af86e7563f268bbeae71fe10aa9440ffb49163b67cf45146487171316b",
+            "evaluation": {
+              "evalTriples": 64,
+              "filtered": true,
+              "note": "frozen per-triple split",
+              "report": {
+                "combined": {
+                  "count": 128,
+                  "hits1": 0.90625,
+                  "hits10": 1,
+                  "hits3": 0.9921875,
+                  "mr": 1.140625,
+                  "mrr": 0.9468749761581421
+                },
+                "head": {
+                  "count": 64,
+                  "hits1": 0.96875,
+                  "hits10": 1,
+                  "hits3": 0.984375,
+                  "mr": 1.078125,
+                  "mrr": 0.979687511920929
+                },
+                "tail": {
+                  "count": 64,
+                  "hits1": 0.84375,
+                  "hits10": 1,
+                  "hits3": 1,
+                  "mr": 1.203125,
+                  "mrr": 0.9140625
+                }
+              },
+              "split": "test",
+              "splitSource": "per-triple"
+            }
+          }
+        ],
+        "promotion": false,
+        "limits": "Target-only KGE scratch control. Not equal total pretraining compute; no source replay."
+      }
+    }
+  ],
+  "host": {
+    "os": "Linux",
+    "arch": "x86_64",
+    "python": "3.12.14"
+  },
+  "nativeBinarySha256": "4a32175eab0256d0e48b2e619388fae21b3c25dfb0269c1988a74c48c0920463",
+  "dependencyFreeze": [
+    "certifi==2026.7.22",
+    "charset-normalizer==3.5.2",
+    "cloudpickle==3.1.2",
+    "filelock==3.32.3",
+    "fsspec==2026.7.0",
+    "idna==3.20",
+    "Jinja2==3.1.6",
+    "joblib==1.6.0",
+    "MarkupSafe==3.0.3",
+    "mpmath==1.3.0",
+    "narwhals==2.27.1",
+    "networkx==3.6.1",
+    "ninja==1.13.2",
+    "numpy==1.26.4",
+    "psutil==7.2.2",
+    "pyparsing==3.3.3",
+    "requests==2.34.2",
+    "scikit-learn==1.9.1",
+    "scipy==1.17.1",
+    "setuptools==78.1.0",
+    "sympy==1.13.1",
+    "threadpoolctl==3.7.0",
+    "torch==2.5.1+cpu",
+    "torch_geometric==2.4.0",
+    "torch_scatter==2.1.2+pt25cpu",
+    "tqdm==4.70.1",
+    "typing_extensions==4.16.0",
+    "urllib3==2.8.0"
+  ],
+  "decision": "EXPLORATORY_TRANSFER_SIGNAL_NOT_SUPERIOR_TO_TARGET_TRAINED_KGE",
+  "promotion": false,
+  "limits": [
+    "64 selected test facts per graph, not full benchmark scores",
+    "Three small graphs; no production graph evaluated",
+    "Random weights are not trained ULTRA scratch",
+    "No replay or equal target fine-tuning budget comparison",
+    "Bootstrap is descriptive conditional query uncertainty; graph facts are dependent",
+    "No provider calls; existing CPU resources, prior pretraining cost excluded"
+  ]
+}
