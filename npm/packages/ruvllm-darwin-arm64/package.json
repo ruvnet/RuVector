@@ -31,11 +31,11 @@
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ruvnet/ruvector.git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
     "directory": "npm/packages/ruvllm-darwin-arm64"
   },
   "bugs": {
-    "url": "https://github.com/ruvnet/ruvector/issues"
+    "url": "https://github.com/ruvnet/RuVector/issues"
   },
   "engines": {
     "node": ">= 18"
