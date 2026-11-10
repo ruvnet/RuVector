@@ -2,6 +2,10 @@ name: SONA NAPI Build & Publish
 
 on:
   push:
+    # `paths` is ignored for tag pushes, so without `branches` this workflow
+    # only ran on sona-v* tags and never built on main. Main pushes build and
+    # gate only; publishing still requires a sona-v* tag or workflow_dispatch.
+    branches: [main]
     tags:
       - 'sona-v*'
     paths:
@@ -135,6 +139,11 @@ jobs:
         working-directory: npm/packages/sona
         shell: bash
         run: ls -la *.node || echo "No .node files"
+
+      - name: Gate linux-arm64 binary (no LDAPR, GLIBC <= 2.34)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        shell: bash
+        run: bash scripts/ci/check-arm64-node-binary.sh npm/packages/sona/${{ matrix.node-file }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
