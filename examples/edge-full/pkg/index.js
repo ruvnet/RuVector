@@ -33,7 +33,7 @@ export * as rvlite from './rvlite/rvlite.js';
 export * as sona from './sona/ruvector_sona.js';
 export * as dag from './dag/ruvector_dag_wasm.js';
 
-// ONNX is large (7MB), export separately
+// ONNX is large (~10MB), export separately
 export { default as onnxInit } from './onnx/ruvector_onnx_embeddings_wasm.js';
 
 // Module info

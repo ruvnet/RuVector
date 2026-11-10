@@ -1,0 +1,84 @@
+{
+  "name": "ruvector-onnx-embeddings-wasm",
+  "version": "0.0.0",
+  "description": "Text embeddings in WebAssembly: run ONNX sentence-transformer models (MiniLM, BGE, E5) with Rust/Tract from Node.js (ESM and CommonJS) or the browser. No native modules.",
+  "type": "module",
+  "author": "RuVector Team",
+  "license": "MIT",
+  "homepage": "https://ruv.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/ruvector.git",
+    "directory": "examples/onnx-embeddings-wasm"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
+  },
+  "files": [
+    "ruvector_onnx_embeddings_wasm_bg.wasm",
+    "ruvector_onnx_embeddings_wasm.js",
+    "ruvector_onnx_embeddings_wasm.d.ts",
+    "ruvector_onnx_embeddings_wasm.cjs",
+    "ruvector_onnx_embeddings_wasm.d.cts",
+    "ruvector_onnx_embeddings_wasm.node.mjs",
+    "ruvector_onnx_embeddings_wasm.node.d.mts",
+    "loader.js",
+    "parallel-embedder.mjs",
+    "parallel-worker.mjs",
+    "LICENSE",
+    "README.md"
+  ],
+  "main": "./ruvector_onnx_embeddings_wasm.cjs",
+  "module": "./ruvector_onnx_embeddings_wasm.js",
+  "types": "./ruvector_onnx_embeddings_wasm.d.ts",
+  "exports": {
+    ".": {
+      "node": {
+        "import": {
+          "types": "./ruvector_onnx_embeddings_wasm.node.d.mts",
+          "default": "./ruvector_onnx_embeddings_wasm.node.mjs"
+        },
+        "require": {
+          "types": "./ruvector_onnx_embeddings_wasm.d.cts",
+          "default": "./ruvector_onnx_embeddings_wasm.cjs"
+        }
+      },
+      "types": "./ruvector_onnx_embeddings_wasm.d.ts",
+      "default": "./ruvector_onnx_embeddings_wasm.js"
+    },
+    "./web": {
+      "types": "./ruvector_onnx_embeddings_wasm.d.ts",
+      "default": "./ruvector_onnx_embeddings_wasm.js"
+    },
+    "./wasm": "./ruvector_onnx_embeddings_wasm_bg.wasm",
+    "./ruvector_onnx_embeddings_wasm_bg.wasm": "./ruvector_onnx_embeddings_wasm_bg.wasm",
+    "./ruvector_onnx_embeddings_wasm.js": "./ruvector_onnx_embeddings_wasm.js",
+    "./loader": "./loader.js",
+    "./loader.js": "./loader.js",
+    "./parallel": "./parallel-embedder.mjs",
+    "./parallel-embedder": "./parallel-embedder.mjs",
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "keywords": [
+    "onnx",
+    "embeddings",
+    "text-embeddings",
+    "sentence-transformers",
+    "wasm",
+    "webassembly",
+    "simd",
+    "tract",
+    "semantic-search",
+    "rag",
+    "nlp",
+    "huggingface",
+    "minilm",
+    "bge",
+    "worker-threads",
+    "ruvector"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
