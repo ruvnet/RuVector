@@ -4,7 +4,8 @@
 # v0.3.1: Fixes — Cypher self-reference, graph/RDF persistence, SONA dimension panic
 
 ARG PG_VERSION=17
-ARG RUST_VERSION=1.86
+# >= 1.87: the audited lockfile needs ctutils >= 0.4.4 (RUSTSEC-2026-0385), MSRV 1.87.
+ARG RUST_VERSION=1.87
 
 # ============================================================================
 # Stage 1: Base Builder with Rust and PostgreSQL dev dependencies
