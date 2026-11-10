@@ -13,9 +13,9 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use rsa::pkcs1::DecodeRsaPrivateKey;
 use rsa::pkcs8::DecodePrivateKey;
 use rsa::pss::{SigningKey, VerifyingKey};
+use rsa::sha2::Sha256;
 use rsa::signature::{Keypair, SignatureEncoding, Signer as _, Verifier};
 use rsa::traits::PublicKeyParts;
-use rsa::sha2::Sha256;
 use rsa::PrivateKey as RsaPrivateKey;
 
 use crate::{KalshiError, Result};
