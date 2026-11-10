@@ -3094,6 +3094,7 @@ dependencies = [
  "realfft",
  "rubato",
  "serde",
+ "serde_json",
  "sevensense-core",
  "symphonia",
  "tempfile",
@@ -3235,6 +3236,14 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "sevensense-wasm"
+version = "0.1.0"
+dependencies = [
+ "sevensense-audio",
+ "sevensense-vector",
 ]
 
 [[package]]
