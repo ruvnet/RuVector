@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/graph-node",
-  "version": "2.1.3",
+  "version": "2.1.4",
   "description": "Native Node.js graph database bindings for RuVector: hypergraphs, Cypher queries, knowledge graph persistence, built in Rust.",
   "main": "index.js",
   "types": "index.d.ts",
@@ -56,6 +56,7 @@
     "ai",
     "machine-learning",
     "nodejs",
-    "wasm"
+    "cypher",
+    "hypergraph"
   ]
 }

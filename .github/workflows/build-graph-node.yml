@@ -111,14 +111,50 @@ jobs:
         shell: bash
         run: |
           mkdir -p graph-artifacts/${{ matrix.settings.platform }}
-          NODE_FILE=$(find npm/packages/graph-node -name "index.*.node" -type f | head -1)
-          if [ -z "$NODE_FILE" ]; then
-            echo "ERROR: No .node file found"
+          # napi --platform writes exactly index.<platform>.node in the package
+          # dir. Do NOT `find | head -1`: anything else matching index.*.node
+          # (a host binary pulled into node_modules, a stale local build) could
+          # be picked instead, which is how attention shipped an x86-64 file as
+          # linux-arm64-gnu (#1456).
+          NODE_FILE="npm/packages/graph-node/index.${{ matrix.settings.platform }}.node"
+          if [ ! -f "$NODE_FILE" ]; then
+            echo "ERROR: expected napi output $NODE_FILE not found"
             find npm/packages/graph-node -name "*.node" -type f
             exit 1
           fi
           echo "Found: $NODE_FILE"
           cp -v "$NODE_FILE" "graph-artifacts/${{ matrix.settings.platform }}/"
+
+      - name: Assert binary architecture matches the platform
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          F="graph-artifacts/${{ matrix.settings.platform }}/index.${{ matrix.settings.platform }}.node"
+          desc=$(file -b "$F"); echo "$F: $desc"
+          case "${{ matrix.settings.platform }}" in
+            linux-x64-gnu)   want='ELF 64-bit.*x86-64' ;;
+            linux-arm64-gnu) want='ELF 64-bit.*(ARM aarch64|aarch64)' ;;
+            darwin-x64)      want='Mach-O 64-bit.*x86_64' ;;
+            darwin-arm64)    want='Mach-O 64-bit.*arm64' ;;
+          esac
+          echo "$desc" | grep -Eq "$want" || { echo "::error::$F is not a ${{ matrix.settings.platform }} binary: $desc"; exit 1; }
+
+      - name: Gate linux-arm64 binary (no LDAPR, GLIBC <= 2.34)
+        if: matrix.settings.platform == 'linux-arm64-gnu'
+        shell: bash
+        run: bash scripts/ci/check-arm64-node-binary.sh graph-artifacts/linux-arm64-gnu/index.linux-arm64-gnu.node
+
+      - name: Run the test suite on a Cortex-A72 (Pi 4) under qemu
+        if: matrix.settings.platform == 'linux-arm64-gnu'
+        shell: bash
+        run: |
+          # ARMv8.0 CPU model: any LDAPR (ARMv8.3) or other post-v8.0 instruction
+          # dies with SIGILL here, as it does on a Pi 4 / Jetson.
+          sudo apt-get install -y --no-install-recommends qemu-user
+          curl -fsSL https://nodejs.org/dist/v20.18.1/node-v20.18.1-linux-arm64.tar.xz | tar xJ -C "$RUNNER_TEMP"
+          cd npm/packages/graph-node
+          # index.js loads ./index.linux-arm64-gnu.node (the fresh build) first.
+          qemu-aarch64 -cpu cortex-a72 -L /usr/aarch64-linux-gnu "$RUNNER_TEMP/node-v20.18.1-linux-arm64/bin/node" test.js
 
       - name: Test native module (native platform only)
         if: |
