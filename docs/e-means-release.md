@@ -14,6 +14,9 @@ The copied npm package then runs its dependency audit, real WASM/Worker tests,
 strict declarations, installed consumers with and without the optional SDK,
 and real Chromium numerical checks before packing. A second job installs the
 sealed archive offline and exercises the portable APIs on Node 20.0.0.
+Both `qualify` and `node20` must succeed on the same release-branch push;
+a successful local seal or a pull-request merge commit cannot substitute for
+that immutable pre-main qualification.
 
 The source-bound candidate records actual command exit codes, owned logs and
 digests. The verifier requires the complete ordered command set and derives
