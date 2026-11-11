@@ -99,7 +99,7 @@ export interface ClusteringTuningOptions extends ClusteringEvaluationOptions {
 
 export interface ClusteringTuningReceipt extends Omit<ClusteringEvaluationReceipt, 'schema' | 'baseline'> {
   schema: 'e-means.clustering-tuning/1';
-  engine: { package: '@metaharness/darwin'; version: '0.13.0'; algorithm: 'evolveNumeric' };
+  engine: { package: '@metaharness/darwin'; version: '0.13.0' | '0.13.1'; algorithm: 'evolveNumeric' };
   baseline: ClusteringTrial;
   winner: ClusteringTrial;
   recommendation: EMeansOptions;
@@ -111,5 +111,5 @@ export interface ClusteringTuningReceipt extends Omit<ClusteringEvaluationReceip
 
 /** Copies inputs/configuration synchronously. First evaluate() must use baselineGenome. No SDK import occurs here. */
 export function createClusteringEvaluator(options: ClusteringEvaluationOptions): ClusteringEvaluator;
-/** Node-only bounded search using the actual optional @metaharness/darwin0.13.0 peer. Never applies a model. */
+/** Node-only bounded search using the actual optional @metaharness/darwin 0.13.0 or 0.13.1 peer. Never applies a model. */
 export function tuneClustering(options: ClusteringTuningOptions): Promise<ClusteringTuningReceipt>;

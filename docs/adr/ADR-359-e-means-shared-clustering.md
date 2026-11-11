@@ -189,8 +189,10 @@ WASM wrapper keeps JSON for the small config and returns vectors as owned typed
 arrays, releasing its temporary Rust handle in `finally`. Tests check repeated
 fits, error-path cleanup, and output survival after WASM memory growth.
 
-On the local AMD EPYC 9V74 environment, five interleaved native repetitions
-showed these median fit times for last-epoch-mean finalization:
+The author's run on an AMD EPYC 9V74 environment, with five interleaved native
+repetitions, recorded these median fit times for last-epoch-mean finalization.
+The "Before" build is a pre-optimization version of this crate that is not in
+the repository, so these ratios cannot be re-run from the tree:
 
 | Synthetic input (n × d, clusters) | Before | After | Speedup |
 |---|---:|---:|---:|
@@ -205,12 +207,35 @@ on the 768D fixture reduced peak additional requested heap from 721,664 to
 525,312 bytes. Last-epoch-mean mode may retain a little more scratch capacity;
 allocation-event reduction is distinct from peak-memory reduction.
 
-Node 24 WASM median-of-seven fit times were 36.19→15.00 ms (2.41×) for an
+In the same author run, Node 24 WASM median-of-seven fit times were 36.19→15.00 ms (2.41×) for an
 8192 × 64, 16-cluster fixture and 84.09→61.57 ms (1.37×) for one million
 scalar rows with one cluster. Both match baseline centroids, assignments and
 MSE. Comparing JSON and typed output using the same optimized kernel measured
 75.97→58.41 ms on the million-row fixture; this includes the whole fit and
 materialization, not just conversion time.
+
+Independent review reproduction (2026-11-11, ruvultra, Rust 1.99.1 with the
+workspace release profile for both sides, one pinned core, five interleaved
+rounds of five repetitions). The baseline is this tree with partial-distance
+pruning disabled (`nearest` always takes the scalar path), so it isolates the
+pruning change only. It does not include the other optimizations above:
+
+| Synthetic input (n × d, clusters) | Pruning off | Pruning on | Speedup |
+|---|---:|---:|---:|
+| Clustered embeddings (4096 × 128, 64) | 57.55 ms | 36.40 ms | 1.58× |
+| Diffuse embeddings (2048 × 768, 32) | 97.95 ms | 98.30 ms | 1.00× |
+| 8D PQ (8192 × 8, 256) | 28.83 ms | 28.80 ms | 1.00× |
+| Duplicate/zero rows (2048 × 32, 64) | 3.65 ms | 1.44 ms | 2.54× |
+
+The npm `benchmark` 8192 × 64, 16-cluster fixture measured 17.0→7.5 ms
+(2.26×) against a pruning-off WASM build. All eight native digests
+(centroid bits and assignments) equal both the pruning-off build and the
+digests recorded in the measurement artifact, and the WASM fixtures matched
+with zero label or centroid differences. The shipped `.wasm` rebuilds
+byte-for-byte from this source with Rust 1.99.1 and wasm-bindgen 0.2.125
+(`--remap-path-prefix` set to the author's home directory). Treat the author
+ratios above as that environment's results against an earlier build, and the
+reproduction as the checked effect of pruning.
 
 The [measurement artifact](../research/e-means/performance-2026-11-11.json)
 records shapes, options, raw native samples, environment, allocation definitions,

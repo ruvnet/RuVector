@@ -18,7 +18,7 @@ hnsw_rs = { workspace = true, optional = true }
 # WASM-safe, so it is unconditional: the codec plane exists on every build.
 ruvector-turboquant = { version = "2.3.0", path = "../ruvector-turboquant" }
 # Shared CPU/WASM e-means optimizer, used by the explicit PQ training API.
-ruvector-e-means = { version = "0.1.0", path = "../ruvector-e-means" }
+ruvector-e-means = { version = "=0.1.0", path = "../ruvector-e-means" }
 simsimd = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 crossbeam = { workspace = true, optional = true }

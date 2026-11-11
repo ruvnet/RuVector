@@ -16,7 +16,7 @@ name = "pq-benchmark"
 path = "src/main.rs"
 
 [dependencies]
-ruvector-e-means = { version = "0.1.0", path = "../ruvector-e-means" }
+ruvector-e-means = { version = "=0.1.0", path = "../ruvector-e-means" }
 rand = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }

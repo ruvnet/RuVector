@@ -1,6 +1,8 @@
 # ruvector-e-means
 
-CPU reference implementation of [e-means (Bessa et al., 2026)](https://arxiv.org/abs/2611.09501), shared by RuVector and ruv-FANN. MIT-licensed original Rust implementation; no upstream implementation code is copied.
+![e-means training loop: rows are assigned in mini-batches, EMA counts and sums move the centroids with a cosine-decaying step, a dead centroid is revived by splitting a busy donor, and the last epoch mean gives the codebook](https://raw.githubusercontent.com/ruvnet/ruvector/main/npm/packages/e-means/assets/e-means-flow.svg)
+
+CPU reference implementation of [e-means (Bessa et al., 2026)](https://arxiv.org/abs/2611.09501), used by RuVector's PQ and IVF crates. MIT-licensed original Rust implementation; no upstream implementation code is copied.
 
 ```rust
 use ruvector_e_means::{fit, Config};
@@ -19,14 +21,14 @@ Scaling laws were fitted on large, high-dimensional embeddings; override `batch_
 
 This version does not implement GPU/low-precision kernels, distributed or approximate IVF assignment, or slow-EMA finalization. It makes no claim to reproduce the paper's GPU speedups or universally outperform Lloyd. Existing consumer training defaults remain available.
 
-Native Rust has no default features. `serde` adds config/model serialization; `wasm` adds the wasm-bindgen bridge used by `@ruvector/e-means`. Native core MSRV is Rust 1.81; WASM builds use the toolchain required by the pinned wasm-bindgen dependency. See [ADR-359](../../docs/adr/ADR-359-e-means-shared-clustering.md) for integration, validation, and staged release instructions.
+Native Rust has no default features. `serde` adds config/model serialization; `wasm` adds the wasm-bindgen bridge used by `@ruvector/e-means`. Native core MSRV is Rust 1.81; WASM builds use the toolchain required by the pinned wasm-bindgen dependency. See [ADR-359](https://github.com/ruvnet/ruvector/blob/main/docs/adr/ADR-359-e-means-shared-clustering.md) for integration, validation, and staged release instructions.
 
-Run the deterministic native benchmark with `cargo run -p ruvector-e-means --release --example benchmark -- --case all --repeats 5 --seed 42 --finalization both`. Dataset generation and warmup are excluded from median fit/predict times. The [local measurements](../../docs/research/e-means/performance-2026-11-11.json) include baseline comparisons, allocation counts and unchanged-output checks; gains depend on shape and distribution.
+Run the deterministic native benchmark with `cargo run -p ruvector-e-means --release --example benchmark -- --case all --repeats 5 --seed 42 --finalization both`. Dataset generation and warmup are excluded from median fit/predict times. The [local measurements](https://github.com/ruvnet/ruvector/blob/main/docs/research/e-means/performance-2026-11-11.json) include baseline comparisons, allocation counts and unchanged-output checks; gains depend on shape and distribution.
 
 Reusable `quantization::ProductQuantizer` and `ivf::IvfPartition` modules add
 checked byte-code encode/decode, subspace-major codebooks, and stable inverted
 postings. Their private shape fields and serde restoration reject malformed
 persisted state. `ruvector-pq-search` and the IVF/RAIRS/SEIL family expose explicit
-e-means training using this dependency. See [ADR-360](../../docs/adr/ADR-360-e-means-ecosystem-integrations.md)
+e-means training using this dependency. See [ADR-360](https://github.com/ruvnet/ruvector/blob/main/docs/adr/ADR-360-e-means-ecosystem-integrations.md)
 for the native/npm integration matrix, MetaHarness evaluation, and Cloudflare
 static-WASM entrypoints. These additions preserve existing training defaults.

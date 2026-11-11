@@ -245,14 +245,20 @@ impl ProductQuantized {
             let start = subspace_idx * subspace_dim;
             let end = start + subspace_dim;
             let subvector = &vector[start..end];
-            // Finite f32 embeddings can have squared distances above f32::MAX.
-            // Compare in f64 so those candidates retain their nearest ordering.
+            // Keep the existing f32 distance, so codes for finite distances are
+            // unchanged. Only a candidate whose f32 squared distance overflows
+            // is re-measured in f64, keeping its nearest ordering.
             let squared_distance = |centroid: &[f32]| -> f64 {
-                subvector
-                    .iter()
-                    .zip(centroid)
-                    .map(|(&x, &y)| (f64::from(x) - f64::from(y)).powi(2))
-                    .sum()
+                let fast = euclidean_squared(subvector, centroid);
+                if fast.is_finite() {
+                    f64::from(fast)
+                } else {
+                    subvector
+                        .iter()
+                        .zip(centroid)
+                        .map(|(&x, &y)| (f64::from(x) - f64::from(y)).powi(2))
+                        .sum()
+                }
             };
 
             // Find nearest centroid
