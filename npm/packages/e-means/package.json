@@ -55,7 +55,7 @@
   ],
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test --test-reporter=tap test/*.test.mjs",
     "test:consumer": "node test/packed-consumer.mjs",
     "test:ecosystem": "node test/ecosystem-consumers.mjs",
     "test:cloudflare": "node --test test/cloudflare*.test.mjs",

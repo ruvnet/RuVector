@@ -196,7 +196,7 @@ class PublicEvidence(unittest.TestCase):
         args = [(['cargo', 'run', '--manifest-path', manifest], 'E_MEANS_PUBLIC_CHECKS=12\n'),
                 (['cargo', 'metadata', '--quiet', '--locked', '--format-version', '1', '--manifest-path', manifest], json.dumps(self.metadata)),
                 (['npm', 'install', '--ignore-scripts', '--workspaces=false', '--no-audit', '--no-fund'], 'installed'),
-                (['node', '--test', str(self.installed / 'test/one.test.mjs')], NODE),
+                (['node', '--test', '--test-reporter=tap', str(self.installed / 'test/one.test.mjs')], NODE),
                 (['node', str(self.fresh / 'npm/node_modules/typescript/bin/tsc'), '--noEmit', '-p', str(self.installed / 'test/tsconfig.json')], ''),
                 (['node', str(self.installed / 'test/browser-consumer.mjs')], release.BROWSER_MARKER + '\n')]
         self.commands = []

@@ -45,6 +45,14 @@ jobs:
           path: ${{ runner.temp }}/e-means-seal
           if-no-files-found: error
           retention-days: 90
+      - name: Preserve owned command logs when qualification fails
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: e-means-failure-logs-${{ github.sha }}
+          path: ${{ runner.temp }}/e-means-seal/command-*.log
+          if-no-files-found: ignore
+          retention-days: 14
   node20:
     needs: qualify
     runs-on: ubuntu-24.04
@@ -62,3 +70,11 @@ jobs:
           path: ${{ runner.temp }}/e-means-node20
       - name: Exercise sealed portable runtime and PQ/IVF on the advertised Node minimum
         run: python3 scripts/e-means/release.py node20 --expected-sha "$GITHUB_SHA" --directory "$RUNNER_TEMP/e-means-node20"
+      - name: Preserve Node minimum command logs when qualification fails
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: e-means-failure-logs-${{ github.sha }}
+          path: ${{ runner.temp }}/node20-consumer/command-*.log
+          if-no-files-found: ignore
+          retention-days: 14
