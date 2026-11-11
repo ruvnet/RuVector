@@ -55,7 +55,7 @@ struct MinC {
 
 impl PartialEq for MinC {
     fn eq(&self, o: &Self) -> bool {
-        self.id == o.id
+        self.cmp(o) == Ordering::Equal
     }
 }
 impl Eq for MinC {}
@@ -67,10 +67,7 @@ impl PartialOrd for MinC {
 impl Ord for MinC {
     fn cmp(&self, o: &Self) -> Ordering {
         // Reverse dist order so BinaryHeap (max-heap) behaves as min-heap.
-        o.dist
-            .partial_cmp(&self.dist)
-            .unwrap_or(Ordering::Equal)
-            .then(self.id.cmp(&o.id))
+        o.dist.total_cmp(&self.dist).then(self.id.cmp(&o.id))
     }
 }
 
@@ -84,7 +81,7 @@ struct MaxC {
 
 impl PartialEq for MaxC {
     fn eq(&self, o: &Self) -> bool {
-        self.id == o.id
+        self.cmp(o) == Ordering::Equal
     }
 }
 impl Eq for MaxC {}
@@ -96,10 +93,7 @@ impl PartialOrd for MaxC {
 impl Ord for MaxC {
     fn cmp(&self, o: &Self) -> Ordering {
         // Natural dist order so BinaryHeap pops the furthest element first.
-        self.dist
-            .partial_cmp(&o.dist)
-            .unwrap_or(Ordering::Equal)
-            .then(o.id.cmp(&self.id))
+        self.dist.total_cmp(&o.dist).then(o.id.cmp(&self.id))
     }
 }
 
@@ -187,7 +181,7 @@ impl HnswGraph {
                         .map(|&x| (l2_sq_prefix(&nb_vec, &self.vecs[x as usize], dim), x))
                         .collect();
                     all.push((l2_sq_prefix(&nb_vec, &self.vecs[id as usize], dim), id));
-                    all.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                    all.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
                     all.truncate(max_nb);
                     self.layers[lc][nb as usize] = all.iter().map(|(_, id)| *id).collect();
                 }
@@ -330,7 +324,7 @@ impl HnswGraph {
         }
 
         let mut out: Vec<(f32, u32)> = results.into_iter().map(|c| (c.dist, c.id)).collect();
-        out.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        out.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
         out
     }
 
@@ -351,5 +345,23 @@ impl HnswGraph {
             .wrapping_add(1_442_695_040_888_963_407);
         let r = (self.rng >> 33) as f64 / (u32::MAX as f64);
         (-r.max(1e-15).ln() * self.config.ml) as usize
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn heap_equality_matches_order_for_non_finite_distances() {
+        for (a, b) in [(f32::NAN, 0.0), (f32::NAN, f32::NAN), (1.0, 2.0)] {
+            let min_a = MinC { dist: a, id: 1 };
+            let min_b = MinC { dist: b, id: 1 };
+            assert_eq!(min_a == min_b, min_a.cmp(&min_b) == Ordering::Equal);
+
+            let max_a = MaxC { dist: a, id: 1 };
+            let max_b = MaxC { dist: b, id: 1 };
+            assert_eq!(max_a == max_b, max_a.cmp(&max_b) == Ordering::Equal);
+        }
     }
 }

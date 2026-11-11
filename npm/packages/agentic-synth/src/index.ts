@@ -20,6 +20,17 @@ import { EventGenerator } from './generators/events';
 import { StructuredGenerator } from './generators/structured';
 import { CacheManager } from './cache/index';
 
+function defaultApiKey(provider: ModelProvider): string | undefined {
+  return provider === 'openrouter'
+    ? process.env.OPENROUTER_API_KEY
+    : process.env.GEMINI_API_KEY;
+}
+
+// OpenRouter has no fixed default: the router picks its top-priority route.
+function defaultModel(provider: ModelProvider): string | undefined {
+  return provider === 'gemini' ? 'gemini-2.0-flash-exp' : undefined;
+}
+
 /**
  * Main AgenticSynth class for data generation
  */
@@ -31,10 +42,11 @@ export class AgenticSynth {
 
   constructor(config: Partial<SynthConfig> = {}) {
     // Validate and merge config
+    const provider = config.provider ?? 'gemini';
     const defaultConfig: SynthConfig = {
-      provider: 'gemini',
-      apiKey: process.env.GEMINI_API_KEY,
-      model: 'gemini-2.0-flash-exp',
+      provider,
+      apiKey: defaultApiKey(provider),
+      model: defaultModel(provider),
       cacheStrategy: 'memory',
       cacheTTL: 3600,
       maxRetries: 3,
@@ -143,7 +155,16 @@ export class AgenticSynth {
    * Configure instance
    */
   configure(config: Partial<SynthConfig>): void {
-    this.config = SynthConfigSchema.parse({ ...this.config, ...config });
+    const next = { ...this.config, ...config };
+    // Switching provider without a new key: the old key belongs to the old
+    // provider and must not be sent to the new one.
+    if (config.apiKey === undefined && next.provider !== this.config.provider) {
+      next.apiKey = defaultApiKey(next.provider);
+    }
+    if (config.model === undefined && next.provider !== this.config.provider) {
+      next.model = defaultModel(next.provider);
+    }
+    this.config = SynthConfigSchema.parse(next);
 
     // Recreate generators with new config
     this.timeSeriesGen = new TimeSeriesGenerator(this.config);

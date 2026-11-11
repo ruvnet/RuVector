@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/spiking-neural.svg" alt="@ruvector/spiking-neural: High-performance spiking neural network (SNN) library with SIMD optimization — CLI and SDK." width="100%"></p>
+
 # spiking-neural
 
 A high-performance Spiking Neural Network (SNN) library for Node.js with biologically-inspired neuron models and unsupervised learning. SNNs process information through discrete spike events rather than continuous values, making them more energy-efficient and better suited for temporal pattern recognition.
@@ -349,3 +351,12 @@ MIT © [rUv](https://ruv.io)
 - **GitHub**: [github.com/ruvnet/ruvector](https://github.com/ruvnet/ruvector)
 - **npm**: [npmjs.com/package/spiking-neural](https://www.npmjs.com/package/spiking-neural)
 - **SNN Guide**: [Meta-Cognition Examples](https://github.com/ruvnet/ruvector/tree/main/examples/meta-cognition-spiking-neural-network)
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for neural network, SIMD, AI.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->

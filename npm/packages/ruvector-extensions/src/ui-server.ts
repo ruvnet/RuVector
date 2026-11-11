@@ -2,7 +2,11 @@ import express, { Request, Response } from 'express';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import type { VectorDB } from 'ruvector';
+
+// ESM has no __dirname; the UI assets are copied next to this file (dist/ui).
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
 export interface GraphNode {
     id: string;
@@ -30,15 +34,36 @@ export class UIServer {
     private db: any;
     private clients: Set<WebSocket>;
     private port: number;
+    private host: string;
 
-    constructor(db: any, port: number = 3000) {
+    /**
+     * @param host - Interface to bind. Defaults to loopback: the API is
+     *   unauthenticated and includes a write endpoint (POST /api/nodes).
+     */
+    constructor(db: any, port: number = 3000, host: string = '127.0.0.1') {
         this.db = db;
         this.port = port;
+        this.host = host;
         this.clients = new Set();
 
         this.app = express();
         this.server = createServer(this.app);
-        this.wss = new WebSocketServer({ server: this.server });
+        // Browsers do not apply CORS to WebSockets: reject cross-origin pages
+        // so an arbitrary website cannot read the graph over ws://localhost.
+        this.wss = new WebSocketServer({
+            server: this.server,
+            verifyClient: ({ origin, req }: { origin?: string; req: any }) => {
+                if (!origin) return true; // non-browser client
+                try {
+                    return new URL(origin).host === req.headers.host;
+                } catch {
+                    return false;
+                }
+            }
+        });
+        // ws re-emits HTTP server errors (e.g. EADDRINUSE) on the wss; with no
+        // listener that is an uncaught exception. start() rejects on them.
+        this.wss.on('error', () => {});
 
         this.setupMiddleware();
         this.setupRoutes();
@@ -49,16 +74,8 @@ export class UIServer {
         // JSON parsing
         this.app.use(express.json());
 
-        // CORS
-        this.app.use((req, res, next) => {
-            res.header('Access-Control-Allow-Origin', '*');
-            res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-            res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-            next();
-        });
-
         // Static files
-        const uiPath = path.join(__dirname, 'ui');
+        const uiPath = path.join(moduleDir, 'ui');
         this.app.use(express.static(uiPath));
 
         // Logging
@@ -198,7 +215,7 @@ export class UIServer {
 
         // Serve UI
         this.app.get('*', (req: Request, res: Response) => {
-            res.sendFile(path.join(__dirname, 'ui', 'index.html'));
+            res.sendFile(path.join(moduleDir, 'ui', 'index.html'));
         });
     }
 
@@ -402,22 +419,29 @@ export class UIServer {
     }
 
     public start(): Promise<void> {
-        return new Promise((resolve) => {
-            this.server.listen(this.port, () => {
+        return new Promise((resolve, reject) => {
+            this.server.once('error', reject);
+            this.server.listen(this.port, this.host, () => {
+                this.server.off('error', reject);
                 console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║         RuVector Graph Explorer UI Server                  ║
 ╚════════════════════════════════════════════════════════════╝
 
-🌐 Server running at: http://localhost:${this.port}
-📊 WebSocket: ws://localhost:${this.port}
+🌐 Server running at: http://${this.host}:${this.address().port}
+📊 WebSocket: ws://${this.host}:${this.address().port}
 🗄️  Database: Connected
 
-Open your browser and navigate to http://localhost:${this.port}
+Open your browser and navigate to http://${this.host}:${this.address().port}
                 `);
                 resolve();
             });
         });
+    }
+
+    /** Bound address (useful when constructed with port 0). */
+    public address(): { address: string; port: number } {
+        return this.server.address();
     }
 
     public stop(): Promise<void> {
@@ -446,8 +470,8 @@ Open your browser and navigate to http://localhost:${this.port}
 }
 
 // Example usage
-export async function startUIServer(db: any, port: number = 3000): Promise<UIServer> {
-    const server = new UIServer(db, port);
+export async function startUIServer(db: any, port: number = 3000, host: string = '127.0.0.1'): Promise<UIServer> {
+    const server = new UIServer(db, port, host);
     await server.start();
     return server;
 }

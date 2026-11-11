@@ -1,0 +1,18 @@
+{
+  "name": "@acme/vecdb",
+  "dist-tags": {"latest": "1.2.3"},
+  "maintainers": [{"name": "ruvnet", "email": "x@example.com"}],
+  "readme": "# @acme/vecdb\n\nEmbedded vector store.\n",
+  "versions": {
+    "1.2.2": {"version": "1.2.2"},
+    "1.2.3": {
+      "version": "1.2.3",
+      "description": "Fast thing that is 100x faster",
+      "keywords": ["vector", "vectordb", "blazing", "hnsw"],
+      "homepage": "https://github.com/acme/stack#readme",
+      "repository": {"type": "git", "url": "git+https://github.com/acme/stack.git"},
+      "dist": {"unpackedSize": 12345},
+      "bin": {"vecdb": "cli.js"}
+    }
+  }
+}

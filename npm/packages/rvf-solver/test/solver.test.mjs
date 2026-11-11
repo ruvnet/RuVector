@@ -185,6 +185,69 @@ try {
     solver.destroy();
     console.log('  ✓ Solver destroyed successfully');
 
+    // Test 4: results match the declared camelCase types
+    console.log('\nTest 4: result shapes match the declared types');
+    const s4 = await RvfSolver.create();
+    const t4 = s4.train({ count: 20, seed: 1 });
+    assert(typeof t4.patternsLearned === 'number', `patternsLearned should be a number, got ${t4.patternsLearned}`);
+    const m4 = s4.acceptance({ holdoutSize: 5, trainingPerCycle: 5, cycles: 2, seed: 1 });
+    for (const key of ['modeA', 'modeB', 'modeC']) {
+      const mode = m4[key];
+      assert(typeof mode.passed === 'boolean', `${key}.passed should be boolean`);
+      assert(typeof mode.finalAccuracy === 'number', `${key}.finalAccuracy should be a number, got ${mode.finalAccuracy}`);
+      assert(mode.cycles.length === 2, `${key} should have 2 cycles`);
+      assert(typeof mode.cycles[0].costPerSolve === 'number', `${key}.cycles[0].costPerSolve should be a number`);
+      assert(mode.finalAccuracy === mode.cycles[1].accuracy, `${key}.finalAccuracy should equal the last cycle accuracy`);
+    }
+    const p4 = s4.policy();
+    assert(p4 && typeof p4.contextStats === 'object', 'policy.contextStats should be an object');
+    assert(typeof p4.earlyCommitPenalties === 'number', 'policy.earlyCommitPenalties should be a number');
+    const buckets = Object.values(p4.contextStats);
+    assert(buckets.length > 0, 'policy should have at least one context bucket after training');
+    const arm = Object.values(buckets[0])[0];
+    assert(typeof arm.alphaSafety === 'number', 'SkipModeStats.alphaSafety should be a number');
+    assert(typeof arm.totalSteps === 'number', 'SkipModeStats.totalSteps should be a number');
+    console.log('  ✓ train/acceptance/policy return camelCase fields');
+
+    // Test 5: invalid arguments are rejected without trapping the WASM module
+    console.log('\nTest 5: argument validation');
+    const bad = [
+      ['train count 0', () => s4.train({ count: 0 })],
+      ['train count -1', () => s4.train({ count: -1 })],
+      ['train count 1.5', () => s4.train({ count: 1.5 })],
+      ['train count NaN', () => s4.train({ count: NaN })],
+      ['train count 2^32', () => s4.train({ count: 2 ** 32 })],
+      ['train minDifficulty 0', () => s4.train({ count: 1, minDifficulty: 0 })],
+      ['train maxDifficulty 11', () => s4.train({ count: 1, maxDifficulty: 11 })],
+      ['train min > max', () => s4.train({ count: 1, minDifficulty: 5, maxDifficulty: 2 })],
+      ['acceptance cycles 0', () => s4.acceptance({ cycles: 0 })],
+      ['acceptance holdoutSize 0', () => s4.acceptance({ holdoutSize: 0, cycles: 1 })],
+      ['acceptance trainingPerCycle -1', () => s4.acceptance({ trainingPerCycle: -1, cycles: 1 })],
+      ['acceptance stepBudget 0', () => s4.acceptance({ stepBudget: 0, cycles: 1 })],
+    ];
+    for (const [label, fn] of bad) {
+      assert.throws(fn, RangeError, `${label} should throw RangeError`);
+    }
+    const after = s4.train({ count: 3, seed: 2 });
+    assert(after.trained === 3 && Number.isFinite(after.accuracy), 'solver should still work after rejected calls');
+    s4.destroy();
+    console.log(`  ✓ ${bad.length} invalid argument sets rejected with RangeError`);
+
+    // Test 6: the raw WASM ABI rejects bad arguments instead of trapping
+    console.log('\nTest 6: WASM ABI argument checks');
+    const initWasm = (await import(`file://${path.join(packageDir, 'pkg', 'rvf_solver.js')}`)).default;
+    const wasm = await initWasm();
+    const h = wasm.rvf_solver_create();
+    assert(h > 0, 'raw create should return a handle');
+    assert.strictEqual(wasm.rvf_solver_train(h, -1, 1, 10, 1, 0), -2, 'raw train count=-1 should return -2');
+    assert.strictEqual(wasm.rvf_solver_train(h, 0, 1, 10, 1, 0), -2, 'raw train count=0 should return -2');
+    assert.strictEqual(wasm.rvf_solver_acceptance(h, 5, 5, 0, 100, 1, 0), -2, 'raw acceptance cycles=0 should return -2');
+    assert.strictEqual(wasm.rvf_solver_acceptance(h, 0, 5, 1, 100, 1, 0), -2, 'raw acceptance holdout=0 should return -2');
+    assert.strictEqual(wasm.rvf_solver_acceptance(h, 5, -1, 1, 100, 1, 0), -2, 'raw acceptance training=-1 should return -2');
+    assert.strictEqual(wasm.rvf_solver_train(-2147483648, 1, 1, 10, 1, 0), -1, 'raw train with i32::MIN handle should return -1');
+    wasm.rvf_solver_destroy(h);
+    console.log('  ✓ raw exports return -2 for invalid arguments');
+
   }
 } catch (error) {
   console.error(`  ✗ FAILED: ${error.message}`);

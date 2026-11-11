@@ -123,19 +123,19 @@ The same `.rvf` file runs on servers, browsers (WASM), edge devices, TEE enclave
 
 | Crate | Version | Description |
 |-------|---------|-------------|
-| [`rvf-types`](https://crates.io/crates/rvf-types) | 0.2.1 | Segment types, 24 headers, quality, security, AGI container types (`no_std`) |
-| [`rvf-wire`](https://crates.io/crates/rvf-wire) | 0.1.0 | Wire format read/write (`no_std`) |
+| [`rvf-types`](https://crates.io/crates/rvf-types) | 0.2.3 | Segment types, 24 headers, quality, security, AGI container types (`no_std`) |
+| [`rvf-wire`](https://crates.io/crates/rvf-wire) | 0.1.2 | Wire format read/write (`no_std`) |
 | [`rvf-manifest`](https://crates.io/crates/rvf-manifest) | 0.1.0 | Two-level manifest, FileIdentity, COW pointers |
 | [`rvf-quant`](https://crates.io/crates/rvf-quant) | 0.2.0 | Scalar, product, binary, and RaBitQ quantization |
-| [`rvf-index`](https://crates.io/crates/rvf-index) | 0.2.0 | HNSW progressive indexing (Layer A/B/C), Vamana alpha-pruning |
-| [`rvf-crypto`](https://crates.io/crates/rvf-crypto) | 0.2.0 | SHAKE-256, Ed25519, witness chains, seed crypto |
-| [`rvf-runtime`](https://crates.io/crates/rvf-runtime) | 0.3.0 | Full store API, HNSW-backed queries, COW engine, AGI containers, QR seeds, safety net |
+| [`rvf-index`](https://crates.io/crates/rvf-index) | 0.2.1 | HNSW progressive indexing (Layer A/B/C), Vamana alpha-pruning |
+| [`rvf-crypto`](https://crates.io/crates/rvf-crypto) | 0.2.1 | SHAKE-256, Ed25519, witness chains, seed crypto, stream descriptor signing |
+| [`rvf-runtime`](https://crates.io/crates/rvf-runtime) | **0.4.0** | Full store API, HNSW-backed queries, COW engine, AGI containers, QR seeds, safety net; verified streaming ingest, Strict policy. **File format break: 0.4.0 files are not readable by 0.3.x** |
 | [`rvf-kernel`](https://crates.io/crates/rvf-kernel) | 0.1.0 | Linux kernel builder, initramfs, Docker pipeline |
 | [`rvf-ebpf`](https://crates.io/crates/rvf-ebpf) | 0.1.0 | BPF C compiler (XDP, socket filter, TC) |
-| [`rvf-launch`](https://crates.io/crates/rvf-launch) | 0.1.0 | QEMU microvm launcher, KVM/TCG, QMP |
-| [`rvf-server`](https://crates.io/crates/rvf-server) | 0.1.0 | HTTP REST + TCP streaming server |
-| [`rvf-import`](https://crates.io/crates/rvf-import) | 0.1.0 | JSON, CSV, NumPy importers |
-| [`rvf-cli`](https://crates.io/crates/rvf-cli) | 0.1.0 | Unified CLI with 17 subcommands |
+| [`rvf-launch`](https://crates.io/crates/rvf-launch) | 0.2.0 | QEMU microvm launcher, KVM/TCG, QMP |
+| [`rvf-server`](https://crates.io/crates/rvf-server) | 0.2.0 | HTTP REST + TCP server; verified stream endpoints (`/v1/stream/*`, TCP 0x05/0x85) |
+| [`rvf-import`](https://crates.io/crates/rvf-import) | 0.2.0 | JSON, CSV, NumPy importers |
+| [`rvf-cli`](https://crates.io/crates/rvf-cli) | 0.2.0 | Unified CLI with 17 subcommands |
 | [`rvf-solver-wasm`](https://crates.io/crates/rvf-solver-wasm) | 0.1.0 | Thompson Sampling temporal solver (WASM, `no_std`) |
 
 ### npm Packages (npmjs.org)
@@ -146,6 +146,8 @@ The same `.rvf` file runs on servers, browsers (WASM), edge devices, TEE enclave
 | [`@ruvector/rvf-node`](https://www.npmjs.com/package/@ruvector/rvf-node) | 0.1.7 | Node.js N-API native bindings |
 | [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) | 0.1.7 | WASM browser package |
 | [`@ruvector/rvf-mcp-server`](https://www.npmjs.com/package/@ruvector/rvf-mcp-server) | 0.1.0 | MCP server for AI agents |
+
+> The npm versions above predate Ofer. `@ruvector/rvf-node` still ships native binaries built on the 0.3.x runtime (files written by `rvf-runtime` 0.4.0 are not readable by it), so it needs a multi-platform rebuild and a new release; that has not been done.
 
 ### Platform Support
 
@@ -533,6 +535,52 @@ RVF doesn't make you wait for the full index:
 | **Layer A** | Entry points + centroids | >= 0.70 | < 5 ms |
 | **Layer B** | Hot region adjacency | >= 0.85 | ~10 ms |
 | **Layer C** | Full HNSW graph | >= 0.95 | ~50 ms |
+
+These recall figures are design targets (the constants in `rvf-index`'s layer model), not measurements. The measured numbers for answering from a partially delivered file are in [Verified Streaming](#-verified-streaming-project-ofer) below, and they are lower.
+
+### 🌊 Verified Streaming (project Ofer)
+
+Receive an RVF as a stream, verify it chunk by chunk, and answer queries from the bytes that have already been authenticated. Specified in [ADR-353](../../docs/adr/ADR-353-rvf-stream-descriptor.md) (wire format) and [ADR-354](../../docs/adr/ADR-354-rvf-dialect-convergence-and-strict-policy.md) (dialect and Strict policy); the RVM-side admission rules are in `ruvnet/rvm` ADR-160.
+
+**How it works.** A small signed *stream descriptor* (Ed25519, `verify_strict`) commits to every byte of an unchanged RVF body: a table of segments, and per-chunk SHA-256 leaves bound to `(file_id, segment, chunk index, length)`. A receiver verifies the descriptor first, then releases a chunk to any consumer only after its hash matches the descriptor. Truncation, reordering, splicing from another file, replay of an old epoch and bit flips are rejected; authentic duplicate frames are ignored; nothing unverified is ever indexed, queried or executed. Existing `.rvf` files can be streamed by generating a descriptor, with no rewrite.
+
+```rust,ignore
+// Receiver sketch. `trusted` is the set of publisher public keys you accept.
+let policy = StreamPolicy::new(&trusted);
+let mut ingest = StreamIngest::new(policy);
+for bytes in network_reads() {
+    let outcome = ingest.feed(&bytes);   // verifies every chunk before use
+    // ingest.state(): Receiving -> Complete / CompleteUnverified / Suspended / Poisoned
+}
+```
+
+The server side serves `GET /v1/stream/descriptor` and `GET /v1/stream/body` (HTTP Range for resume; stage-ordered frames) and the same over TCP message types `0x05/0x85`.
+
+**What was measured** (one x86_64 workstation, release builds, 100k x 128-d clustered vectors for the query numbers; see the ADR-353 "Measured" section for method and spread):
+
+| Question | Result |
+|---|---|
+| Peak memory, 256 MiB body | **2.7 MiB** streamed vs 258 MiB buffered |
+| Verifier throughput | 1.33 GB/s in file order (two SHA-256 passes per byte; 2.7 GB/s without the identity pass); descriptor overhead 0.052% at 64 KiB chunks; verifying a 4,096-segment descriptor takes 459 us |
+| First answer, 10 Mbps link | 5.9-7.5x earlier than download-then-open (8.4 s vs 49.7 s), **from partial data** |
+| Recall@10 of those early answers | exact scan over the verified vectors received so far: **0.37 / 0.60 / 0.85** at 40% / 60% / 80% of the bytes (the progressive layers measured 0.03 / 0.05 / 0.09 in the same setup); 0.95 after the full index arrives |
+| Total completion time | **no improvement**: 49.58 s streamed vs 49.54 s buffered |
+| Resume | a dropped connection re-sends 0 bytes; a killed process re-hashes about half the stream on average |
+| 64 MiB executable segment | verifies in 51 ms (the Reader budget is 500 ms) |
+| 10% corrupted frames | +12% bytes, -11% goodput; no unverified data was ever served in the tests |
+
+Early answers carry `sealed = false` and report coverage (the fraction of the dataset they were computed from). They are correct for the data received so far, not for the whole dataset, and recall can only approach the received fraction; the benefit is memory, early rejection, resumability and an earlier first answer, not faster completion.
+
+**Strict policy and format changes** ([ADR-354](../../docs/adr/ADR-354-rvf-dialect-convergence-and-strict-policy.md)). `rvf-runtime` 0.4.0 writes the wire dialect (64-byte padded segments, XXH3-128 or SHAKE-256-128 hashes) and still reads legacy files. **Files written by 0.4.0 are not readable by 0.3.x.** `RvfStore::open_with_policy`, `open_signed` and `create_signed` make Strict real (signed manifest and Level-0 page verified, committed hashes and header fields pinned to the signed directory). Plain `open()` stays Permissive, refuses to cut a valid signed page unless `allow_unsigning(true)`, and no in-tree consumer opts into Strict yet. A signed page carries no freshness by itself: every signature-checking open must choose `RvfOptions::freshness` (`Unchecked` or `MinEpoch(n)`); only `MinEpoch` or an external pin detects replay of an older validly signed file.
+
+**Limits you should know.**
+- Stage-ordered delivery finishes as `CompleteUnverified` until the persisted body is re-verified with `finish_identity`; only file-order delivery confirms the whole-body identity on the fly.
+- Defaults are generous (1 TiB body, 8 GiB table cap); use `StreamPolicy::conservative()` or `embedded()` on small hosts.
+- Per-client stream caps key on the socket peer and its IPv4 /24 or IPv6 /64 prefix, so clients behind one proxy or NAT share a cap. A many-prefix attacker can still exhaust the stream pool (8 distinct /24s reading at about 400 KB/s fill 8 slots); the reserve and slow-stream budget only leave room for fast and new-prefix clients.
+- Strict proves authenticity, not freshness, unless `MinEpoch` or an external pin is used.
+- Client memory grows with the bytes streamed (verified vectors and layers are retained); size the host and the ingest budget for the artifact.
+- Evaluation of untrusted publishers relies on a trusted-key set you supply; a signature proves who published, not that the content is correct.
+- Not built: starting a component before the whole stream completes, and any execution engine in RVM (admission and validation only).
 
 ---
 
@@ -1952,3 +2000,17 @@ Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE) at your o
 <p align="center">
   <sub>Built with Rust. Not a database &mdash; a portable cognitive runtime.</sub>
 </p>
+
+## Witness chain: what `rvf verify-witness` can and cannot tell you
+
+The runtime writes each witness as one fixed 73-byte hash-chain entry, and
+`rvf verify-witness` checks all witness segments as a single SHAKE-256 chain
+plus each segment's content hash. Exit codes: `0` verified, `1` failure,
+`2` only legacy (rvf-runtime <= 0.4.0) records that carry no verifiable hash
+(`--allow-legacy` turns this into `0`). Attestation witness segments are
+accepted only if they fully verify as attestation payloads.
+
+The chain is unkeyed and unsigned, so it does **not** detect: removal or
+replacement of the newest entries, stripping every witness segment (use
+`--require-witness` to fail when none are present; it still cannot prove one
+ever existed), or an attacker who recomputes the hashes of the tail.

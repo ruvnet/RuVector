@@ -3,7 +3,7 @@
 //! Each `OVERLAY_CHAIN` TLV record stores the epoch, a pointer to the
 //! previous MANIFEST_SEG, and a checkpoint hash for bisection debugging.
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use rvf_types::RvfError;
 
 /// Fixed size of the serialized overlay chain record.

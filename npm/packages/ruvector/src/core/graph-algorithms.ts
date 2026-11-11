@@ -207,10 +207,20 @@ export function spectralClustering(graph: Graph, k: number = 2): SpectralResult 
   const eigenvectors: number[][] = [];
   const eigenvalues: number[] = [];
 
+  // Spectral clustering needs the eigenvectors of the SMALLEST eigenvalues of
+  // L_norm, but power iteration converges to the largest. L_norm's spectrum
+  // lies in [0, 2], so iterate on the shifted matrix M = 2I - L_norm instead:
+  // its largest eigenvectors are L_norm's smallest, and lambda = 2 - mu.
+  const shifted: number[][] = laplacian.map((row, i) =>
+    row.map((v, j) => (i === j ? 2 : 0) - v)
+  );
+
   for (let ev = 0; ev < Math.min(k, n); ev++) {
+    // Deterministic, non-constant start vector (differs per eigenvector) so
+    // results are reproducible run to run.
     let vector = new Float64Array(n);
     for (let i = 0; i < n; i++) {
-      vector[i] = Math.random();
+      vector[i] = 1 + ((i + 1) * (ev + 1)) / (n + 1) + (i % 2 === 0 ? 0.25 : 0);
     }
     normalize(vector);
 
@@ -223,12 +233,12 @@ export function spectralClustering(graph: Graph, k: number = 2): SpectralResult 
     }
     normalize(vector);
 
-    // Power iteration
-    for (let iter = 0; iter < 100; iter++) {
+    // Power iteration (on the shifted matrix)
+    for (let iter = 0; iter < 300; iter++) {
       const newVector = new Float64Array(n);
       for (let i = 0; i < n; i++) {
         for (let j = 0; j < n; j++) {
-          newVector[i] += laplacian[i][j] * vector[j];
+          newVector[i] += shifted[i][j] * vector[j];
         }
       }
 
@@ -292,12 +302,14 @@ export function louvainCommunities(graph: Graph): Map<string, number> {
     communities.set(node, communityId++);
   }
 
-  // Total edge weight
+  // Total undirected edge weight. Taken from the symmetric adjacency (which
+  // de-duplicates repeated edges) and halved, so it agrees with the node
+  // degrees below. Same normalization as calculateModularity.
   let m = 0;
-  for (const { weight = 1 } of graph.edges) {
-    m += weight;
+  for (const [, neighbors] of graph.adjacency) {
+    for (const [, weight] of neighbors) m += weight;
   }
-  m /= 2; // Undirected
+  m /= 2;
 
   if (m === 0) return communities;
 
@@ -327,30 +339,32 @@ export function louvainCommunities(graph: Graph): Map<string, number> {
       const currentCommunity = communities.get(node)!;
       const ki = nodeWeight.get(node) || 0;
 
-      // Calculate modularity gain for moving to neighbor communities
-      let bestCommunity = currentCommunity;
-      let bestGain = 0;
-
-      const neighborCommunities = new Set<number>();
-      for (const [neighbor] of graph.adjacency.get(node) || []) {
-        neighborCommunities.add(communities.get(neighbor)!);
+      // Edge weight from this node into each neighbouring community
+      // (self-loops excluded: they do not change between communities).
+      const linksTo = new Map<number, number>();
+      for (const [neighbor, weight] of graph.adjacency.get(node) || []) {
+        if (neighbor === node) continue;
+        const c = communities.get(neighbor)!;
+        linksTo.set(c, (linksTo.get(c) || 0) + weight);
       }
 
-      for (const targetCommunity of neighborCommunities) {
+      // Score every candidate with the node REMOVED from its current
+      // community, so staying put is scored on the same footing as moving.
+      // Scoring only the insertion half (ignoring what is lost by leaving)
+      // lets a bridge node gain "both ways" and oscillate forever.
+      const score = (c: number): number => {
+        const sumTot = (communityWeight.get(c) || 0) - (c === currentCommunity ? ki : 0);
+        return (linksTo.get(c) || 0) / m - (ki * sumTot) / (2 * m * m);
+      };
+
+      let bestCommunity = currentCommunity;
+      let bestGain = score(currentCommunity);
+      for (const targetCommunity of linksTo.keys()) {
         if (targetCommunity === currentCommunity) continue;
-
-        // Calculate edge weight to target community
-        let ki_in = 0;
-        for (const [neighbor, weight] of graph.adjacency.get(node) || []) {
-          if (communities.get(neighbor) === targetCommunity) {
-            ki_in += weight;
-          }
-        }
-
-        const sumTot = communityWeight.get(targetCommunity) || 0;
-        const gain = ki_in / m - (ki * sumTot) / (2 * m * m);
-
-        if (gain > bestGain) {
+        const gain = score(targetCommunity);
+        // Strict improvement only: every move raises modularity, a bounded
+        // quantity, so the sweep is guaranteed to terminate.
+        if (gain > bestGain + 1e-12) {
           bestGain = gain;
           bestCommunity = targetCommunity;
         }
@@ -390,7 +404,7 @@ export function calculateModularity(graph: Graph, partition: string[][]): number
   for (const { weight = 1 } of graph.edges) {
     m += weight;
   }
-  m /= 2;
+  // Adjacency is symmetric, but graph.edges already counts each edge once.
 
   if (m === 0) return 0;
 
@@ -542,15 +556,29 @@ function kMeans(points: number[][], k: number, maxIter: number = 100): number[] 
 
   const dim = points[0].length;
 
-  // Random initialization
-  const centroids: number[][] = [];
-  const used = new Set<number>();
+  // Deterministic farthest-point seeding: start at point 0, then repeatedly
+  // take the point farthest from every chosen centroid. Reproducible, and
+  // spreads seeds across well-separated clusters.
+  const sqDist = (a: number[], b: number[]): number => {
+    let d = 0;
+    for (let i = 0; i < dim; i++) d += (a[i] - b[i]) ** 2;
+    return d;
+  };
+  const centroids: number[][] = [[...points[0]]];
+  const used = new Set<number>([0]);
   while (centroids.length < Math.min(k, n)) {
-    const idx = Math.floor(Math.random() * n);
-    if (!used.has(idx)) {
-      used.add(idx);
-      centroids.push([...points[idx]]);
+    let bestIdx = -1;
+    let bestD = -1;
+    for (let i = 0; i < n; i++) {
+      if (used.has(i)) continue;
+      const d = Math.min(...centroids.map((c) => sqDist(points[i], c)));
+      if (d > bestD) {
+        bestD = d;
+        bestIdx = i;
+      }
     }
+    used.add(bestIdx);
+    centroids.push([...points[bestIdx]]);
   }
 
   const assignment = new Array(n).fill(0);

@@ -28,7 +28,8 @@ export interface RvfWasmExports {
   rvf_greedy_step(current_id: bigint, layer: number): bigint;
 
   // Segment verification
-  rvf_verify_header(header_ptr: number): number;
+  rvf_verify_header(header_ptr: number, header_len: number): number;
+  /** Returns 0 for a negative length or null pointer. */
   rvf_crc32c(data_ptr: number, len: number): number;
   rvf_verify_checksum(buf_ptr: number, buf_len: number): number;
 

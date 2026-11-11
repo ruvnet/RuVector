@@ -145,6 +145,18 @@ pub struct CompressionLevelConfig {
 
 impl CompressionLevelConfig {
     fn to_rust(&self) -> Result<RustCompressionLevel> {
+        // The core stores these as u8; `as u8` would silently wrap 256 -> 0.
+        for (name, value) in [
+            ("subvectors", self.subvectors),
+            ("centroids", self.centroids),
+        ] {
+            if value.is_some_and(|v| v > u8::MAX as u32) {
+                return Err(Error::new(
+                    Status::InvalidArg,
+                    format!("{} must be at most {}", name, u8::MAX),
+                ));
+            }
+        }
         match self.level_type.as_str() {
             "none" => Ok(RustCompressionLevel::None),
             "half" => Ok(RustCompressionLevel::Half {

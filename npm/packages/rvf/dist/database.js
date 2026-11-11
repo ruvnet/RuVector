@@ -175,11 +175,23 @@ class RvfDatabase {
      * Creates a new RVF file at `childPath` that records this store as its
      * parent for provenance tracking. Returns a new `RvfDatabase` wrapping
      * the child store.
+     *
+     * `derivationType` is recorded in the child (default `'filter'`); it
+     * needs `@ruvector/rvf-node` >= 0.4.7. `'merge'` is recorded with this
+     * store as the only parent.
      */
-    async derive(childPath, options) {
+    async derive(childPath, options, derivationType) {
         this.ensureOpen();
-        const childBackend = await this.backend.derive(childPath, options);
+        const childBackend = await this.backend.derive(childPath, options, derivationType);
         return RvfDatabase.fromBackend(childBackend);
+    }
+    /**
+     * How this store was derived from its parent(s), or `null` for a root
+     * store or one derived before `@ruvector/rvf-node` 0.4.7.
+     */
+    async derivationType() {
+        this.ensureOpen();
+        return this.backend.derivationType();
     }
     /**
      * Create a durable copy-on-write branch that reads inherited vectors from
@@ -234,6 +246,14 @@ class RvfDatabase {
         this.ensureOpen();
         return this.backend.dimension();
     }
+    /** Get the distance metric the store was created with. */
+    async metric() {
+        this.ensureOpen();
+        if (!this.backend.metric) {
+            throw new errors_1.RvfError(errors_1.RvfErrorCode.BackendNotFound, 'this backend does not report its metric');
+        }
+        return this.backend.metric();
+    }
     // -----------------------------------------------------------------------
     // Byte-level persistence (WASM backend)
     // -----------------------------------------------------------------------
@@ -253,6 +273,9 @@ class RvfDatabase {
     // -----------------------------------------------------------------------
     /**
      * Close the store, releasing the writer lock and flushing pending data.
+     * On the Node backend, this may build and persist an HNSW index for a large
+     * ingest-only store. Await close before opening the file read-only if the
+     * first query must use the persisted index.
      *
      * After calling `close()`, all other methods will throw `RvfError` with
      * code `StoreClosed`.

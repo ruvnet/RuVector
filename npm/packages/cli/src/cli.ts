@@ -14,6 +14,18 @@ import * as path from 'path';
 import * as os from 'os';
 
 const INTEL_PATH = path.join(os.homedir(), '.ruvector', 'intelligence.json');
+const PKG_VERSION = (JSON.parse(
+  fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8')
+) as { version: string }).version;
+
+// Hook runs are separate processes that often start within the same second,
+// so a timestamp alone is not unique.
+let idCounter = 0;
+function uniqueId(prefix: string): string {
+  idCounter++;
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `${prefix}_${Date.now().toString(36)}${process.pid.toString(36)}${idCounter.toString(36)}_${rand}`;
+}
 
 interface QPattern {
   state: string;
@@ -161,7 +173,7 @@ class Intelligence {
   }
 
   remember(memoryType: string, content: string, metadata: Record<string, string> = {}): string {
-    const id = `mem_${this.now()}`;
+    const id = uniqueId('mem');
     this.data.memories.push({
       id,
       memory_type: memoryType,
@@ -204,7 +216,7 @@ class Intelligence {
   }
 
   learn(state: string, action: string, outcome: string, reward: number): string {
-    const id = `traj_${this.now()}`;
+    const id = uniqueId('traj');
     this.updateQ(state, action, reward);
     this.data.trajectories.push({ id, state, action, outcome, reward, timestamp: this.now() });
     if (this.data.trajectories.length > 1000) {
@@ -457,56 +469,71 @@ class Intelligence {
   }
 }
 
-// Generate Claude hooks configuration
-function generateClaudeHooksConfig(): object {
+interface HookCommand { type: 'command'; command: string }
+interface HookMatcherGroup { matcher?: string; hooks: HookCommand[] }
+type HooksConfig = Record<string, HookMatcherGroup[]>;
+
+const OWN_HOOK_MARKER = '@ruvector/cli hooks ';
+
+function group(command: string, matcher?: string): HookMatcherGroup {
+  const hooks: HookCommand[] = [{ type: 'command', command }];
+  return matcher ? { matcher, hooks } : { hooks };
+}
+
+// Generate Claude hooks configuration (Claude Code settings.json schema)
+function generateClaudeHooksConfig(): HooksConfig {
   return {
-    hooks: {
-      PreToolUse: [
-        {
-          matcher: "Edit|Write|MultiEdit",
-          hooks: [
-            "npx @ruvector/cli hooks pre-edit \"$TOOL_INPUT_file_path\""
-          ]
-        },
-        {
-          matcher: "Bash",
-          hooks: [
-            "npx @ruvector/cli hooks pre-command \"$TOOL_INPUT_command\""
-          ]
-        }
-      ],
-      PostToolUse: [
-        {
-          matcher: "Edit|Write|MultiEdit",
-          hooks: [
-            "npx @ruvector/cli hooks post-edit --success \"$TOOL_INPUT_file_path\""
-          ]
-        },
-        {
-          matcher: "Bash",
-          hooks: [
-            "npx @ruvector/cli hooks post-command --success \"$TOOL_INPUT_command\""
-          ]
-        }
-      ],
-      SessionStart: [
-        "npx @ruvector/cli hooks session-start"
-      ],
-      Stop: [
-        "npx @ruvector/cli hooks session-end"
-      ],
-      PreCompact: [
-        "npx @ruvector/cli hooks pre-compact"
-      ]
-    }
+    PreToolUse: [
+      group("npx @ruvector/cli hooks pre-edit \"$TOOL_INPUT_file_path\"", 'Edit|Write|MultiEdit'),
+      group("npx @ruvector/cli hooks pre-command \"$TOOL_INPUT_command\"", 'Bash')
+    ],
+    PostToolUse: [
+      group("npx @ruvector/cli hooks post-edit --success \"$TOOL_INPUT_file_path\"", 'Edit|Write|MultiEdit'),
+      group("npx @ruvector/cli hooks post-command --success \"$TOOL_INPUT_command\"", 'Bash')
+    ],
+    SessionStart: [group('npx @ruvector/cli hooks session-start')],
+    Stop: [group('npx @ruvector/cli hooks session-end')],
+    PreCompact: [group('npx @ruvector/cli hooks pre-compact')]
   };
+}
+
+// Add our hooks to existing settings without touching the user's own hooks.
+// Entries this CLI wrote before (including the legacy bare-string form, which
+// Claude Code rejects) are replaced so repeated installs stay idempotent.
+function mergeHooksIntoSettings(settings: Record<string, unknown>): Record<string, unknown> {
+  const isOwn = (h: unknown): boolean => {
+    const cmd = typeof h === 'string' ? h : (h as { command?: unknown } | null)?.command;
+    return typeof cmd === 'string' && cmd.includes(OWN_HOOK_MARKER);
+  };
+  const existing = (settings.hooks && typeof settings.hooks === 'object' && !Array.isArray(settings.hooks))
+    ? settings.hooks as Record<string, unknown>
+    : {};
+  const merged: Record<string, unknown> = { ...existing };
+
+  for (const [event, groups] of Object.entries(generateClaudeHooksConfig())) {
+    const current = Array.isArray(existing[event]) ? existing[event] as unknown[] : [];
+    const kept: unknown[] = [];
+    for (const entry of current) {
+      if (isOwn(entry)) continue;
+      const inner = (entry as { hooks?: unknown } | null)?.hooks;
+      if (Array.isArray(inner)) {
+        const rest = inner.filter(h => !isOwn(h));
+        if (rest.length === 0) continue;
+        kept.push({ ...(entry as object), hooks: rest });
+      } else {
+        kept.push(entry);
+      }
+    }
+    merged[event] = [...kept, ...groups];
+  }
+  return { ...settings, hooks: merged };
 }
 
 // CLI setup
 program
   .name('ruvector')
   .description('RuVector CLI - High-performance vector database')
-  .version('0.1.27');
+  .version(PKG_VERSION);
 
 const hooks = program.command('hooks').description('Self-learning intelligence hooks for Claude Code');
 
@@ -556,8 +583,7 @@ hooks.command('init')
       } catch {}
     }
 
-    const hooksConfig = generateClaudeHooksConfig();
-    settings = { ...settings, ...hooksConfig };
+    settings = mergeHooksIntoSettings(settings);
 
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
@@ -587,8 +613,7 @@ hooks.command('install')
       } catch {}
     }
 
-    const hooksConfig = generateClaudeHooksConfig();
-    settings = { ...settings, ...hooksConfig };
+    settings = mergeHooksIntoSettings(settings);
 
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
     console.log(`✅ Hooks installed to ${settingsPath}`);

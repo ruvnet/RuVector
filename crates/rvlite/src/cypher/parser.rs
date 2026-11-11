@@ -27,14 +27,37 @@ pub enum ParseError {
 
 type ParseResult<T> = Result<T, ParseError>;
 
+/// Maximum nesting of expressions and chained patterns. The wasm stack is
+/// ~1 MiB, so unbounded recursion would overflow it and corrupt linear memory.
+const MAX_NESTING_DEPTH: usize = 64;
+
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
+    depth: usize,
 }
 
 impl Parser {
     fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens, current: 0 }
+        Self {
+            tokens,
+            current: 0,
+            depth: 0,
+        }
+    }
+
+    /// Run `f` one nesting level deeper, failing once the limit is reached.
+    fn nested<T>(&mut self, f: impl FnOnce(&mut Self) -> ParseResult<T>) -> ParseResult<T> {
+        if self.depth >= MAX_NESTING_DEPTH {
+            return Err(ParseError::InvalidSyntax(format!(
+                "query nested deeper than {}",
+                MAX_NESTING_DEPTH
+            )));
+        }
+        self.depth += 1;
+        let result = f(self);
+        self.depth -= 1;
+        result
     }
 
     fn is_at_end(&self) -> bool {
@@ -320,6 +343,10 @@ impl Parser {
 
     /// Parse a chained pattern where we already have the starting node pattern
     fn parse_chained_pattern(&mut self, from: NodePattern) -> ParseResult<Pattern> {
+        self.nested(|p| p.parse_chained_pattern_unguarded(from))
+    }
+
+    fn parse_chained_pattern_unguarded(&mut self, from: NodePattern) -> ParseResult<Pattern> {
         // Check for relationship - can start with `-` or `<-`
         if self.check(&TokenKind::Dash) || self.check(&TokenKind::LeftArrow) {
             let starts_with_incoming = self.match_token(&[TokenKind::LeftArrow]);
@@ -786,7 +813,7 @@ impl Parser {
     }
 
     fn parse_expression(&mut self) -> ParseResult<Expression> {
-        self.parse_or()
+        self.nested(Self::parse_or)
     }
 
     fn parse_or(&mut self) -> ParseResult<Expression> {
@@ -923,7 +950,7 @@ impl Parser {
 
     fn parse_unary(&mut self) -> ParseResult<Expression> {
         if self.match_token(&[TokenKind::Not]) {
-            let operand = self.parse_unary()?;
+            let operand = self.nested(Self::parse_unary)?;
             return Ok(Expression::UnaryOp {
                 op: UnaryOperator::Not,
                 operand: Box::new(operand),
@@ -931,7 +958,7 @@ impl Parser {
         }
 
         if self.match_token(&[TokenKind::Minus]) {
-            let operand = self.parse_unary()?;
+            let operand = self.nested(Self::parse_unary)?;
             return Ok(Expression::UnaryOp {
                 op: UnaryOperator::Minus,
                 operand: Box::new(operand),

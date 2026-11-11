@@ -13,6 +13,8 @@ export {
   createPermissiveConfig,
   DEFAULT_AIDEFENCE_CONFIG,
   AIDefenceConfigSchema,
+  loadAidefenceDetector,
+  type AidefenceDetector,
   type AIDefenceConfig,
   type DetectionResult,
   type ThreatInfo,

@@ -34,7 +34,7 @@ export class LayerOps {
      */
     static batch_norm(input: Float32Array, gamma: Float32Array, beta: Float32Array, mean: Float32Array, _var: Float32Array, epsilon: number): Float32Array;
     /**
-     * Apply global average pooling
+     * Apply global average pooling over an NHWC tensor [H, W, C]
      * Returns one value per channel
      */
     static global_avg_pool(input: Float32Array, height: number, width: number, channels: number): Float32Array;
@@ -157,7 +157,7 @@ export interface InitOutput {
     readonly embedderconfig_new: () => number;
     readonly layerops_batch_norm: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => void;
     readonly layerops_global_avg_pool: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
-    readonly simdops_dot_product: (a: number, b: number, c: number, d: number) => number;
+    readonly simdops_dot_product: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly simdops_l2_normalize: (a: number, b: number, c: number) => void;
     readonly simdops_relu: (a: number, b: number, c: number) => void;
     readonly simdops_relu6: (a: number, b: number, c: number) => void;
@@ -166,12 +166,12 @@ export interface InitOutput {
     readonly wasmcnnembedder_extract: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly wasmcnnembedder_new: (a: number, b: number) => void;
     readonly wasminfonceloss_forward: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
-    readonly wasminfonceloss_new: (a: number) => number;
+    readonly wasminfonceloss_new: (a: number, b: number) => void;
     readonly wasminfonceloss_temperature: (a: number) => number;
     readonly wasmtripletloss_forward: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => void;
     readonly wasmtripletloss_forward_single: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
     readonly wasmtripletloss_margin: (a: number) => number;
-    readonly wasmtripletloss_new: (a: number) => number;
+    readonly wasmtripletloss_new: (a: number, b: number) => void;
     readonly init: () => void;
     readonly __wbg_simdops_free: (a: number, b: number) => void;
     readonly __wbindgen_export: (a: number, b: number, c: number) => void;

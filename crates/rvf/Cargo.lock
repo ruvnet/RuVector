@@ -228,6 +228,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
+name = "bit-set"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0700ddab506f33b20a03b13996eccd309a48e5ff77d0d95926aa0210fb4e95f1"
+dependencies = [
+ "bit-vec",
+]
+
+[[package]]
+name = "bit-vec"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
+
+[[package]]
 name = "bitflags"
 version = "2.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1070,6 +1085,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "lazy_static"
+version = "1.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20870f649af7073d53e38067b2a84312175d56ea15217e1b15bc83506ec50afb"
+
+[[package]]
 name = "libc"
 version = "0.2.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1397,6 +1418,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "proptest"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4c2511913b88df1637da85cc8d96ec8e43a3f8bb8ccb71ee1ac240d6f3df58d"
+dependencies = [
+ "bit-set",
+ "bit-vec",
+ "bitflags",
+ "lazy_static",
+ "num-traits",
+ "rand",
+ "rand_chacha",
+ "rand_xorshift",
+ "regex-syntax",
+ "rusty-fork",
+ "tempfile",
+ "unarray",
+]
+
+[[package]]
+name = "quick-error"
+version = "1.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
+
+[[package]]
 name = "quote"
 version = "1.0.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1449,6 +1496,15 @@ checksum = "32cb0b9bc82b0a0876c2dd994a7e7a2683d3e7390ca40e6886785ef0c7e3ee31"
 dependencies = [
  "num-traits",
  "rand",
+]
+
+[[package]]
+name = "rand_xorshift"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d25bf25ec5ae4a3f1b92f929810509a2f53d7dca2f50b794ff57e3face536c8f"
+dependencies = [
+ "rand_core",
 ]
 
 [[package]]
@@ -1563,6 +1619,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
+name = "rusty-fork"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc6bf79ff24e648f6da1f8d1f011e9cac26491b619e6b9280f2b47f1774e6ee2"
+dependencies = [
+ "fnv",
+ "quick-error",
+ "tempfile",
+ "wait-timeout",
+]
+
+[[package]]
 name = "rvf-adapter-agentdb"
 version = "0.1.0"
 dependencies = [
@@ -1638,7 +1706,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-cli"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "clap",
  "ctrlc",
@@ -1651,22 +1719,24 @@ dependencies = [
  "rvf-wire",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
 ]
 
 [[package]]
 name = "rvf-crypto"
-version = "0.2.0"
+version = "0.3.1"
 dependencies = [
  "ed25519-dalek",
  "rand",
  "rvf-types",
+ "sha2",
  "sha3",
 ]
 
 [[package]]
 name = "rvf-ebpf"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "rvf-types",
  "sha3",
@@ -1687,8 +1757,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "rvf-forge-core"
+version = "2.4.0"
+dependencies = [
+ "ed25519-dalek",
+ "rvf-crypto",
+ "rvf-types",
+ "rvf-wire",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.19",
+]
+
+[[package]]
 name = "rvf-import"
-version = "0.1.0"
+version = "0.2.1"
 dependencies = [
  "clap",
  "csv",
@@ -1701,8 +1784,9 @@ dependencies = [
 
 [[package]]
 name = "rvf-index"
-version = "0.2.0"
+version = "0.2.4"
 dependencies = [
+ "libm",
  "rand",
 ]
 
@@ -1714,6 +1798,7 @@ dependencies = [
  "rand",
  "rvf-adapter-rvlite",
  "rvf-crypto",
+ "rvf-forge-core",
  "rvf-index",
  "rvf-manifest",
  "rvf-quant",
@@ -1725,7 +1810,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-kernel"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "flate2",
  "rvf-types",
@@ -1735,7 +1820,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-launch"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "rvf-runtime",
  "rvf-types",
@@ -1746,7 +1831,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-manifest"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "crc32c",
  "rvf-types",
@@ -1766,38 +1851,50 @@ dependencies = [
 
 [[package]]
 name = "rvf-quant"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "approx",
+ "libm",
  "rand",
  "rvf-types",
 ]
 
 [[package]]
 name = "rvf-runtime"
-version = "0.3.2"
+version = "0.5.5"
 dependencies = [
  "crc32fast",
+ "ed25519-dalek",
+ "libc",
+ "log",
  "rand",
+ "rvf-crypto",
  "rvf-index",
  "rvf-quant",
  "rvf-types",
+ "rvf-wire",
  "tempfile",
 ]
 
 [[package]]
 name = "rvf-server"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "axum",
  "axum-test",
+ "bytes",
  "clap",
+ "ed25519-dalek",
+ "futures-util",
  "http-body-util",
  "mime_guess",
+ "rvf-crypto",
  "rvf-runtime",
  "rvf-types",
+ "rvf-wire",
  "serde",
  "serde_json",
+ "subtle",
  "tempfile",
  "tokio",
  "tower",
@@ -1818,7 +1915,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-types"
-version = "0.2.2"
+version = "0.3.1"
 dependencies = [
  "ed25519-dalek",
  "rand_core",
@@ -1827,19 +1924,25 @@ dependencies = [
 
 [[package]]
 name = "rvf-wasm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "dlmalloc",
  "rvf-crypto",
+ "rvf-runtime",
  "rvf-types",
+ "tempfile",
 ]
 
 [[package]]
 name = "rvf-wire"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "crc32c",
+ "ed25519-dalek",
+ "proptest",
+ "rvf-crypto",
  "rvf-types",
+ "sha2",
  "sha3",
  "subtle",
  "tempfile",
@@ -2190,9 +2293,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.53.1"
+version = "1.54.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "202caea871b69668250d242070849eb495be178ed697a3e98aebce5bc81a0bed"
+checksum = "b52fd3255258d26fac7264ab5a76b53c13367136dc011d3d6ad4f8ed070396a3"
 dependencies = [
  "bytes",
  "libc",
@@ -2321,6 +2424,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
+name = "unarray"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaea85b334db583fe3274d12b4cd1880032beab409c0d774be044d4480ab9a94"
+
+[[package]]
 name = "unicase"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2373,6 +2482,15 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "wait-timeout"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09ac3b126d3914f9849036f826e054cbabdc8519970b8998ddaf3b5bd3c65f11"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "walkdir"

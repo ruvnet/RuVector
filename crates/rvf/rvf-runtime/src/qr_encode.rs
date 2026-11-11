@@ -39,6 +39,7 @@ pub enum EcLevel {
 
 /// Errors that can occur during QR encoding.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum QrError {
     /// Data exceeds the capacity for the chosen version and EC level.
     DataTooLarge,

@@ -106,6 +106,7 @@ pub fn commit_manifest(
 mod tests {
     use super::*;
     use crate::directory::SegmentDirEntry;
+    use alloc::vec;
     use rvf_types::EntrypointPtr;
 
     fn sample_dir() -> SegmentDirectory {

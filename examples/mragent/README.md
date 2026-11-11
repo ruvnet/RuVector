@@ -157,3 +157,18 @@ examples/mragent/
 ├── probeDarwin.mjs       # probe optional @metaharness/darwin
 └── test/harness.test.mjs # 12 acceptance gates
 ```
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for RAG, HNSW, graph.
+
+- **Works with** (its runtime dependencies): [`@metaharness/darwin`](https://www.npmjs.com/package/@metaharness/darwin) (optional), [`ruvector`](https://www.npmjs.com/package/ruvector) (optional), [`@metaharness/darwin`](https://www.npmjs.com/package/@metaharness/darwin) (optional)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

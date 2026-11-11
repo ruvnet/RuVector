@@ -281,8 +281,12 @@ export class ModelLoader {
 export async function createEmbedder(modelName = DEFAULT_MODEL, wasmModule = null) {
     // Import WASM module if not provided
     if (!wasmModule) {
-        wasmModule = await import('./pkg/ruvector_onnx_embeddings_wasm.js');
-        // Only call default() for web/bundler targets (not nodejs)
+        // Node gets the CommonJS-backed entry (wasm compiled on load); everything else
+        // gets the web glue, whose default export fetches and instantiates the .wasm.
+        const isNode = typeof process !== 'undefined' && !!process.versions?.node;
+        wasmModule = isNode
+            ? await import('./ruvector_onnx_embeddings_wasm.node.mjs')
+            : await import('./ruvector_onnx_embeddings_wasm.js');
         if (typeof wasmModule.default === 'function') {
             await wasmModule.default();
         }

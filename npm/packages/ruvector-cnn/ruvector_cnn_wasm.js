@@ -16,7 +16,7 @@ export class EmbedderConfig {
     }
     constructor() {
         const ret = wasm.embedderconfig_new();
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         EmbedderConfigFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -108,6 +108,11 @@ export class LayerOps {
             wasm.layerops_batch_norm(retptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4, epsilon);
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+            if (r3) {
+                throw takeObject(r2);
+            }
             var v6 = getArrayF32FromWasm0(r0, r1).slice();
             wasm.__wbindgen_export(r0, r1 * 4, 4);
             return v6;
@@ -116,7 +121,7 @@ export class LayerOps {
         }
     }
     /**
-     * Apply global average pooling
+     * Apply global average pooling over an NHWC tensor [H, W, C]
      * Returns one value per channel
      * @param {Float32Array} input
      * @param {number} height
@@ -132,6 +137,11 @@ export class LayerOps {
             wasm.layerops_global_avg_pool(retptr, ptr0, len0, height, width, channels);
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+            if (r3) {
+                throw takeObject(r2);
+            }
             var v2 = getArrayF32FromWasm0(r0, r1).slice();
             wasm.__wbindgen_export(r0, r1 * 4, 4);
             return v2;
@@ -163,12 +173,23 @@ export class SimdOps {
      * @returns {number}
      */
     static dot_product(a, b) {
-        const ptr0 = passArrayF32ToWasm0(a, wasm.__wbindgen_export2);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passArrayF32ToWasm0(b, wasm.__wbindgen_export2);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.simdops_dot_product(ptr0, len0, ptr1, len1);
-        return ret;
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passArrayF32ToWasm0(a, wasm.__wbindgen_export2);
+            const len0 = WASM_VECTOR_LEN;
+            const ptr1 = passArrayF32ToWasm0(b, wasm.__wbindgen_export2);
+            const len1 = WASM_VECTOR_LEN;
+            wasm.simdops_dot_product(retptr, ptr0, len0, ptr1, len1);
+            var r0 = getDataViewMemory0().getFloat32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            if (r2) {
+                throw takeObject(r1);
+            }
+            return r0;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
     }
     /**
      * L2 normalize a vector (returns new array)
@@ -326,7 +347,7 @@ export class WasmCnnEmbedder {
             if (r2) {
                 throw takeObject(r1);
             }
-            this.__wbg_ptr = r0 >>> 0;
+            this.__wbg_ptr = r0;
             WasmCnnEmbedderFinalization.register(this, this.__wbg_ptr, this);
             return this;
         } finally {
@@ -380,10 +401,21 @@ export class WasmInfoNCELoss {
      * @param {number} temperature
      */
     constructor(temperature) {
-        const ret = wasm.wasminfonceloss_new(temperature);
-        this.__wbg_ptr = ret >>> 0;
-        WasmInfoNCELossFinalization.register(this, this.__wbg_ptr, this);
-        return this;
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.wasminfonceloss_new(retptr, temperature);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            if (r2) {
+                throw takeObject(r1);
+            }
+            this.__wbg_ptr = r0;
+            WasmInfoNCELossFinalization.register(this, this.__wbg_ptr, this);
+            return this;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
     }
     /**
      * Get the temperature parameter
@@ -480,10 +512,21 @@ export class WasmTripletLoss {
      * @param {number} margin
      */
     constructor(margin) {
-        const ret = wasm.wasmtripletloss_new(margin);
-        this.__wbg_ptr = ret >>> 0;
-        WasmTripletLossFinalization.register(this, this.__wbg_ptr, this);
-        return this;
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.wasmtripletloss_new(retptr, margin);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            if (r2) {
+                throw takeObject(r1);
+            }
+            this.__wbg_ptr = r0;
+            WasmTripletLossFinalization.register(this, this.__wbg_ptr, this);
+            return this;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
     }
 }
 if (Symbol.dispose) WasmTripletLoss.prototype[Symbol.dispose] = WasmTripletLoss.prototype.free;
@@ -494,11 +537,10 @@ if (Symbol.dispose) WasmTripletLoss.prototype[Symbol.dispose] = WasmTripletLoss.
 export function init() {
     wasm.init();
 }
-
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
-        __wbg___wbindgen_throw_39bc967c0e5a9b58: function(arg0, arg1) {
+        __wbg___wbindgen_throw_ea4887a5f8f9a9db: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
         __wbg_error_a6fa202b58aa1cd3: function(arg0, arg1) {
@@ -540,22 +582,22 @@ function __wbg_get_imports() {
 
 const EmbedderConfigFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_embedderconfig_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_embedderconfig_free(ptr, 1));
 const LayerOpsFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_layerops_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_layerops_free(ptr, 1));
 const SimdOpsFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_simdops_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_simdops_free(ptr, 1));
 const WasmCnnEmbedderFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_wasmcnnembedder_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_wasmcnnembedder_free(ptr, 1));
 const WasmInfoNCELossFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_wasminfonceloss_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_wasminfonceloss_free(ptr, 1));
 const WasmTripletLossFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_wasmtripletloss_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_wasmtripletloss_free(ptr, 1));
 
 function addHeapObject(obj) {
     if (heap_next === heap.length) heap.push(heap.length + 1);
@@ -600,8 +642,7 @@ function getFloat32ArrayMemory0() {
 }
 
 function getStringFromWasm0(ptr, len) {
-    ptr = ptr >>> 0;
-    return decodeText(ptr, len);
+    return decodeText(ptr >>> 0, len);
 }
 
 let cachedUint8ArrayMemory0 = null;
@@ -709,8 +750,9 @@ if (!('encodeInto' in cachedTextEncoder)) {
 
 let WASM_VECTOR_LEN = 0;
 
-let wasmModule, wasm;
+let wasmModule, wasmInstance, wasm;
 function __wbg_finalize_init(instance, module) {
+    wasmInstance = instance;
     wasm = instance.exports;
     wasmModule = module;
     cachedDataViewMemory0 = null;

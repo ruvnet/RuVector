@@ -42,12 +42,7 @@ Return ONLY a JSON array of ${count} objects, no additional text.`;
   protected parseResult(response: string, options: GeneratorOptions): unknown[] {
     try {
       // Extract JSON from response
-      const jsonMatch = response.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
-        throw new Error('No JSON array found in response');
-      }
-
-      const data = JSON.parse(jsonMatch[0]);
+      const data = this.extractJsonArray(response);
 
       if (!Array.isArray(data)) {
         throw new Error('Response is not an array');
@@ -104,6 +99,14 @@ Return ONLY a JSON array of ${count} objects, no additional text.`;
             `Field '${key}' should be array at index ${index}`,
             { item, schema }
           );
+        } else if (expectedType === 'integer') {
+          // JSON Schema "integer" has no typeof counterpart
+          if (!Number.isInteger(record[key])) {
+            throw new ValidationError(
+              `Field '${key}' has wrong type at index ${index}. Expected integer, got ${actualType}`,
+              { item, schema }
+            );
+          }
         } else if (expectedType !== 'array' && actualType !== expectedType) {
           throw new ValidationError(
             `Field '${key}' has wrong type at index ${index}. Expected ${expectedType}, got ${actualType}`,

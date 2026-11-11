@@ -1,6 +1,6 @@
 [package]
 name = "rvf-quant"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "RuVector Format temperature-tiered vector quantization (f32/f16/u8/binary)"
 license = "MIT OR Apache-2.0"
@@ -17,7 +17,8 @@ std = []
 simd = []
 
 [dependencies]
-rvf-types = { version = "0.2.0", path = "../rvf-types" }
+rvf-types = { version = "0.3.0", path = "../rvf-types" }
+libm = { version = "0.2", default-features = false }
 
 [dev-dependencies]
 rand = "0.8"

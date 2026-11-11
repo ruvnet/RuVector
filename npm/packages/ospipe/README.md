@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/ospipe.svg" alt="@ruvector/ospipe: RuVector-enhanced personal AI memory SDK for Screenpipe pipes." width="100%"></p>
+
 # @ruvector/ospipe
 
 **RuVector-enhanced personal AI memory SDK for Screenpipe**
@@ -555,3 +557,18 @@ wasm-pack build examples/OSpipe --target web
 ## License
 
 MIT
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for agent memory, semantic search, vector search.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

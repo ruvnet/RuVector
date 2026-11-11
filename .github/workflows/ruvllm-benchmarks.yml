@@ -42,7 +42,7 @@ jobs:
   # macOS ARM64 CPU/Accelerate microbenchmarks
   macos-arm64-benchmarks:
     name: macOS ARM64 Benchmarks (M-series)
-    runs-on: macos-14  # M1/M2 runner
+    runs-on: macos-15  # M1/M2 runner
     if: inputs.run_full_suite != true
     timeout-minutes: 45
 
@@ -243,7 +243,7 @@ jobs:
   prepare-full-macos:
     name: Prebuild full characterization (macos)
     if: github.event_name == 'workflow_dispatch' && inputs.run_full_suite == true
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 45
     outputs:
       matmul_bench: ${{ steps.cases.outputs.matmul_bench }}
@@ -268,7 +268,7 @@ jobs:
     name: Full macos matmul_bench / ${{ matrix.case }}
     needs: prepare-full-macos
     if: github.event_name == 'workflow_dispatch' && inputs.run_full_suite == true
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -295,7 +295,7 @@ jobs:
     name: Full macos attention_bench / ${{ matrix.case }}
     needs: prepare-full-macos
     if: github.event_name == 'workflow_dispatch' && inputs.run_full_suite == true
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -322,7 +322,7 @@ jobs:
     name: Full macos ane_bench / ${{ matrix.case }}
     needs: prepare-full-macos
     if: github.event_name == 'workflow_dispatch' && inputs.run_full_suite == true && inputs.run_ane_benchmarks == true
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 45
     strategy:
       fail-fast: false

@@ -1,12 +1,8 @@
 //! `rvf inspect` -- Inspect segments and lineage.
 
 use clap::Args;
-use std::path::Path;
 
-use rvf_runtime::RvfStore;
 use rvf_types::SegmentType;
-
-use super::map_rvf_err;
 
 #[derive(Args)]
 pub struct InspectArgs {
@@ -15,6 +11,9 @@ pub struct InspectArgs {
     /// Output as JSON
     #[arg(long)]
     json: bool,
+    /// Open the last committed snapshot even if the file ends inside a segment
+    #[arg(long)]
+    recover: bool,
 }
 
 fn segment_type_name(seg_type: u8) -> &'static str {
@@ -43,7 +42,7 @@ fn segment_type_name(seg_type: u8) -> &'static str {
 }
 
 pub fn run(args: InspectArgs) -> Result<(), Box<dyn std::error::Error>> {
-    let store = RvfStore::open_readonly(Path::new(&args.path)).map_err(map_rvf_err)?;
+    let store = crate::cmd::open_readonly_checked(&args.path, args.recover)?;
     crate::cmd::warn_on_metadata_recovery(&store, &args.path);
     let seg_dir = store.segment_dir();
     let dimension = store.dimension();

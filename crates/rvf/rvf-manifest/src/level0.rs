@@ -80,6 +80,32 @@ const OFF_DOUBLE_ROOT_HASH: usize = 0xF64;
 
 const OFF_CHECKSUM: usize = 0xFFC;
 
+// The accelerated crc32c crate requires std. Level-0 manifests also need to
+// work on bare-metal targets, so use the Castagnoli software path there.
+#[cfg(any(not(feature = "std"), test))]
+fn crc32c_software(data: &[u8]) -> u32 {
+    const POLYNOMIAL: u32 = 0x82F6_3B78;
+    let mut crc = !0u32;
+    for &byte in data {
+        crc ^= u32::from(byte);
+        for _ in 0..8 {
+            crc = (crc >> 1) ^ (POLYNOMIAL & 0u32.wrapping_sub(crc & 1));
+        }
+    }
+    !crc
+}
+
+fn checksum(data: &[u8]) -> u32 {
+    #[cfg(feature = "std")]
+    {
+        crc32c::crc32c(data)
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        crc32c_software(data)
+    }
+}
+
 /// Deserialize a Level 0 root manifest from exactly 4096 bytes.
 pub fn read_level0(data: &[u8; ROOT_MANIFEST_SIZE]) -> Result<Level0Root, RvfError> {
     let magic = read_u32_le(data, OFF_MAGIC);
@@ -91,7 +117,7 @@ pub fn read_level0(data: &[u8; ROOT_MANIFEST_SIZE]) -> Result<Level0Root, RvfErr
     }
 
     let stored_crc = read_u32_le(data, OFF_CHECKSUM);
-    let computed_crc = crc32c::crc32c(&data[..OFF_CHECKSUM]);
+    let computed_crc = checksum(&data[..OFF_CHECKSUM]);
     if stored_crc != computed_crc {
         return Err(RvfError::Code(ErrorCode::InvalidChecksum));
     }
@@ -279,7 +305,7 @@ pub fn write_level0(root: &Level0Root) -> [u8; ROOT_MANIFEST_SIZE] {
     }
 
     // CRC32C over first 4092 bytes
-    let crc = crc32c::crc32c(&buf[..OFF_CHECKSUM]);
+    let crc = checksum(&buf[..OFF_CHECKSUM]);
     write_u32_le(&mut buf, OFF_CHECKSUM, crc);
 
     buf
@@ -292,13 +318,25 @@ pub fn validate_level0(data: &[u8; ROOT_MANIFEST_SIZE]) -> bool {
         return false;
     }
     let stored_crc = read_u32_le(data, OFF_CHECKSUM);
-    let computed_crc = crc32c::crc32c(&data[..OFF_CHECKSUM]);
+    let computed_crc = checksum(&data[..OFF_CHECKSUM]);
     stored_crc == computed_crc
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn software_crc32c_matches_castagnoli_vectors() {
+        assert_eq!(crc32c_software(b""), 0);
+        assert_eq!(crc32c_software(b"123456789"), 0xE306_9283);
+
+        #[cfg(feature = "std")]
+        {
+            let data = [0xA5u8; OFF_CHECKSUM];
+            assert_eq!(crc32c_software(&data), crc32c::crc32c(&data));
+        }
+    }
 
     fn sample_root() -> Level0Root {
         let mut root = Level0Root::zeroed();
@@ -427,7 +465,7 @@ mod tests {
         bytes[2] = 0x00;
         bytes[3] = 0x00;
         // Fix CRC so only magic check fails
-        let crc = crc32c::crc32c(&bytes[..OFF_CHECKSUM]);
+        let crc = checksum(&bytes[..OFF_CHECKSUM]);
         write_u32_le(&mut bytes, OFF_CHECKSUM, crc);
 
         let err = read_level0(&bytes).unwrap_err();

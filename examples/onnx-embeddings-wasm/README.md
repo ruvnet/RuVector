@@ -29,7 +29,29 @@ Generate text embeddings directly in browsers, Cloudflare Workers, Deno, Node.js
 npm install ruvector-onnx-embeddings-wasm
 ```
 
+The package works from both ES modules and CommonJS on Node.js 18+, and ships the
+`--target web` glue for browsers and workers (`ruvector-onnx-embeddings-wasm/web`).
+Versions 0.1.0-0.1.2 could not be loaded with either `import` or `require`; use 0.1.3 or later.
+
+| Entry | Resolves to | Init |
+|-------|-------------|------|
+| `import` on Node | ESM wrapper over the CommonJS glue | ready on import |
+| `require` on Node | CommonJS glue | ready on require |
+| `/web`, browsers, bundlers | `--target web` ESM glue | `await init()` or `initSync({ module })` |
+| `/wasm` | the `.wasm` binary | — |
+
 ## Quick Start
+
+### Node.js core API (ESM or CommonJS, no model download)
+
+```javascript
+// const { version, cosineSimilarity, normalizeL2 } = require('ruvector-onnx-embeddings-wasm');
+import { version, cosineSimilarity, normalizeL2 } from 'ruvector-onnx-embeddings-wasm';
+
+console.log(version());
+console.log(cosineSimilarity(new Float32Array([1, 0]), new Float32Array([1, 0]))); // 1
+console.log(normalizeL2(new Float32Array([3, 4]))); // Float32Array [0.6, 0.8]
+```
 
 ### Node.js (Sequential)
 
@@ -102,7 +124,10 @@ console.log("Similarity:", sim.toFixed(4)); // ~0.85
 ### Cloudflare Workers
 
 ```javascript
-import { WasmEmbedder, WasmEmbedderConfig } from 'ruvector-onnx-embeddings-wasm';
+import { initSync, WasmEmbedder } from 'ruvector-onnx-embeddings-wasm/web';
+import wasmModule from 'ruvector-onnx-embeddings-wasm/wasm'; // Wrangler imports .wasm as a WebAssembly.Module
+
+initSync({ module: wasmModule });
 
 export default {
   async fetch(request, env) {
@@ -294,6 +319,11 @@ async function createEmbedder(modelName?: string): Promise<WasmEmbedder>;
 # Install wasm-pack
 cargo install wasm-pack
 
+# Build the npm package (both glues, one SIMD .wasm) into ./pkg, then test the packed tarball
+./scripts/build-npm.sh
+node scripts/test-pack.mjs            # EMBED=1 also downloads a model and embeds
+
+# Individual wasm-pack targets:
 # Build for Node.js with SIMD
 RUSTFLAGS='-C target-feature=+simd128' wasm-pack build --target nodejs --release
 

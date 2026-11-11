@@ -399,3 +399,12 @@ MIT OR Apache-2.0
 ---
 
 **Keywords**: attention mechanism, transformer, multi-head attention, DAG attention, graph neural network, GAT, GCN, GraphSAGE, Mamba, SSM, state space model, WebAssembly, WASM, hyperbolic attention, linear attention, flash attention, query optimization, neural network, deep learning, browser ML
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for attention, WASM, WebAssembly.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->

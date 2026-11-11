@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/ruvector-cnn.svg" alt="@ruvector/cnn: CNN feature extraction for image embeddings — SIMD-optimized, pure Rust compiled to WASM." width="100%"></p>
+
 # @ruvector/cnn
 
 [![npm version](https://img.shields.io/npm/v/@ruvector/cnn.svg)](https://www.npmjs.com/package/@ruvector/cnn)
@@ -28,13 +30,25 @@ const numbers = embedder.extract(imagePixels, 224, 224);
 const similarity = embedder.cosineSimilarity(numbers1, numbers2);
 ```
 
+> **Known issues in 0.1.1** (the `index.js` wrapper; the underlying WASM works):
+> - `new CnnEmbedder(...)` throws `null pointer passed to rust` — the wrapper
+>   reads the config after the WASM constructor has consumed it.
+> - `SimdOps.relu`, `SimdOps.relu6`, `SimdOps.l2Normalize` and
+>   `LayerOps.batchNorm` leave the input unchanged — the WASM returns a new
+>   array and the wrapper discards it.
+> - `LayerOps.globalAvgPool` returns an empty array — the wrapper passes
+>   `(input, channels, spatialSize)` but the WASM expects
+>   `(input, height, width, channels)`.
+>
+> `init()`, `InfoNCELoss`, `TripletLoss` and `SimdOps.dotProduct` work as documented.
+
 ## Why Use This?
 
 | What You Get | Why It Matters |
 |--------------|----------------|
 | Runs in the browser | No server costs, instant results |
 | ~5ms per image | Fast enough for real-time |
-| ~900KB download | Small enough for any website |
+| ~80KB download (52KB WASM + JS glue) | Small enough for any website |
 | No API calls | Works offline, no per-image fees |
 | Training included | Teach it your own categories |
 
@@ -210,6 +224,7 @@ const b = new Float32Array([5, 6, 7, 8]);
 const result = SimdOps.dotProduct(a, b); // 70
 
 // ReLU: set negative values to 0
+// (intended in-place; a no-op in 0.1.1, see Known issues)
 const data = new Float32Array([-1, 0, 1, 7]);
 SimdOps.relu(data); // [0, 0, 1, 7]
 
@@ -245,7 +260,7 @@ For best speed, use browsers with SIMD128 support:
 ## Troubleshooting
 
 **"init() takes too long"**
-- Normal: First call downloads ~900KB WASM file
+- Normal: First call downloads and compiles the ~52KB WASM file
 - Fix: Call init() early, before user needs results
 
 **"Images look wrong"**
@@ -263,6 +278,7 @@ For best speed, use browsers with SIMD128 support:
 
 ```typescript
 new CnnEmbedder(options?: {
+  inputSize?: number;     // Default: 224
   embeddingDim?: number;  // Default: 512
   normalize?: boolean;    // Default: true
 })
@@ -290,12 +306,27 @@ new TripletLoss(margin?: number)  // Default: 1.0
 .margin: number
 ```
 
-## Related Packages
+## Related packages
 
-- [`ruvector`](https://www.npmjs.com/package/ruvector) — Core vector database
-- [`@ruvector/attention`](https://www.npmjs.com/package/@ruvector/attention) — AI attention layers
-- [`@ruvector/gnn`](https://www.npmjs.com/package/@ruvector/gnn) — Graph neural networks
+- [`@ruvector/attention`](https://www.npmjs.com/package/@ruvector/attention) — attention layers from the same RuVector ML toolkit.
+- [`@ruvector/gnn`](https://www.npmjs.com/package/@ruvector/gnn) — graph neural network layers from the same toolkit.
+- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package and CLI (`npx ruvector`); stores and searches the embeddings this package produces.
 
 ## License
 
-MIT OR Apache-2.0
+MIT
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for embeddings, SIMD, machine learning.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

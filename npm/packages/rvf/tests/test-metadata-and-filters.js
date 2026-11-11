@@ -3,11 +3,12 @@
  * Tests for issue #704: RVF SDK silently drops metadata; filter
  * serialization omits the native parser's required `valueType`.
  *
- * Rather than silently accepting and dropping `RvfIngestEntry.metadata`
- * (the original bug — metadata vanished with no error), NodeBackend and
- * WasmBackend now reject it loudly until the SDK has a real field-name to
- * native-fieldId mapping design. Separately, query() filter serialization
- * now infers and includes the `valueType` the native parser requires.
+ * NodeBackend maps metadata field names to native field ids through a
+ * registry kept in the store's file metadata and sends per-vector records
+ * (or rejects loudly on an rvf-node without metadata support); WasmBackend
+ * rejects metadata. Filters carry the `valueType` the native parser requires,
+ * typed from the stored field type for name-based leaves. Real-native
+ * durability is covered by test-metadata-durable.js.
  */
 
 const assert = require('assert');
@@ -77,7 +78,7 @@ async function test(name, fn) {
     assert.strictEqual(result.accepted, 1);
   });
 
-  await test('NodeBackend rejects (not silently drops) non-empty metadata', async (tmp) => {
+  await test('NodeBackend on an rvf-node without metadata support rejects, never drops', async (tmp) => {
     const backend = await createNodeTestBackend(tmp);
     await assert.rejects(
       () => backend.ingestBatch([
@@ -90,6 +91,102 @@ async function test(name, fn) {
     );
     // Confirm it actually rejected before ingest, not after silently accepting.
     assert.strictEqual(backend['handle'].vectors.size, 0);
+  });
+
+  await test('NodeBackend sends per-vector records and persists the field registry first', async (tmp) => {
+    const backend = await createNodeTestBackend(tmp);
+    const h = backend['handle'];
+    const calls = [];
+    h.setFileMetadata = (k, v) => calls.push(['set', k, JSON.parse(v)]);
+    h.ingestBatchWithMetadata = (flat, ids, records) => {
+      calls.push(['ingest', ids, records]);
+      return { accepted: ids.length, rejected: 0, epoch: 2 };
+    };
+    await backend.ingestBatch([
+      { id: 'a', vector: new Float32Array([1, 0, 0, 0]), metadata: { color: 'red', score: 5, tags: ['x'] } },
+      { id: 'b', vector: new Float32Array([0, 1, 0, 0]) },
+      { id: 'c', vector: new Float32Array([0, 0, 1, 0]), metadata: { color: null, ok: true } },
+    ]);
+    assert.strictEqual(calls[0][0], 'set', 'registry must be persisted before the ingest commits');
+    assert.deepStrictEqual(calls[0][2].fields, {
+      color: { id: 0, type: 'string' },
+      score: { id: 1, type: 'f64' },
+      tags: { id: 2, type: 'json' },
+      ok: { id: 3, type: 'bool' },
+    });
+    const [, ids, records] = calls[1];
+    assert.deepStrictEqual(records, [
+      { id: ids[0], fields: [
+        { fieldId: 0, valueType: 'string', value: 'red' },
+        { fieldId: 1, valueType: 'f64', value: '5' },
+        { fieldId: 2, valueType: 'string', value: '["x"]' },
+      ] },
+      { id: ids[2], fields: [
+        { fieldId: 0, valueType: 'null', value: '' },
+        { fieldId: 3, valueType: 'bool', value: 'true' },
+      ] },
+    ]);
+  });
+
+  await test('a type conflict throws MetadataTypeConflict and leaves the registry unchanged', async (tmp) => {
+    const backend = await createNodeTestBackend(tmp);
+    const h = backend['handle'];
+    let sets = 0;
+    h.setFileMetadata = () => { sets++; };
+    h.ingestBatchWithMetadata = (flat, ids) => ({ accepted: ids.length, rejected: 0, epoch: 2 });
+    await backend.ingestBatch([{ id: 'a', vector: new Float32Array([1, 0, 0, 0]), metadata: { n: 1 } }]);
+    await assert.rejects(
+      () => backend.ingestBatch([
+        { id: 'b', vector: new Float32Array([1, 0, 0, 0]), metadata: { fresh: 'x', n: 'one' } },
+      ]),
+      (err) => err.code === RvfErrorCode.MetadataTypeConflict,
+    );
+    assert.strictEqual(sets, 1);
+    assert.strictEqual(JSON.parse(backend['fields'].toJSON()).fields.fresh, undefined);
+  });
+
+  await test('name-based filters use the stored field id and type (integer literal on f64 field)', async (tmp) => {
+    const backend = await createNodeTestBackend(tmp);
+    const h = backend['handle'];
+    h.setFileMetadata = () => {};
+    h.ingestBatchWithMetadata = (flat, ids) => ({ accepted: ids.length, rejected: 0, epoch: 2 });
+    await backend.ingestBatch([
+      { id: 'a', vector: new Float32Array([1, 0, 0, 0]), metadata: { color: 'red', score: 2.5 } },
+    ]);
+    await backend.query(new Float32Array([1, 0, 0, 0]), 5, {
+      filter: { op: 'and', exprs: [
+        { op: 'eq', field: 'color', value: 'red' },
+        { op: 'ge', field: 'score', value: 2 },
+        { op: 'in', field: 'score', values: [1, 2.5] },
+      ] },
+    });
+    assert.deepStrictEqual(JSON.parse(h.lastQueryOptions.filter), {
+      op: 'and',
+      children: [
+        { op: 'eq', fieldId: 0, valueType: 'string', value: 'red' },
+        { op: 'ge', fieldId: 1, valueType: 'f64', value: '2' },
+        { op: 'in', fieldId: 1, valueType: 'f64', values: ['1', '2.5'] },
+      ],
+    });
+  });
+
+  await test('query hits decode native metadata through the registry', async (tmp) => {
+    const backend = await createNodeTestBackend(tmp);
+    const h = backend['handle'];
+    h.setFileMetadata = () => {};
+    h.ingestBatchWithMetadata = (flat, ids) => ({ accepted: ids.length, rejected: 0, epoch: 2 });
+    await backend.ingestBatch([
+      { id: 'doc-1', vector: new Float32Array([1, 0, 0, 0]), metadata: { color: 'red', tags: { a: 1 } } },
+    ]);
+    const label = backend['idToLabel'].get('doc-1');
+    h.query = () => [{ id: label, distance: 0, metadata: [
+      { fieldId: 0, valueType: 'string', value: 'red' },
+      { fieldId: 1, valueType: 'string', value: '{"a":1}' },
+      { fieldId: 9, valueType: 'u64', value: '7' },
+    ] }];
+    const [hit] = await backend.query(new Float32Array([1, 0, 0, 0]), 1);
+    assert.strictEqual(hit.id, 'doc-1');
+    assert.deepStrictEqual({ ...hit.metadata }, { color: 'red', tags: { a: 1 }, 'field.9': 7 });
   });
 
   await test('NodeBackend accepts entries with an empty metadata object', async (tmp) => {

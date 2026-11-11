@@ -5,12 +5,12 @@
  * Downloads all-MiniLM-L6-v2 and runs embedding tests
  */
 
-import { ModelLoader, MODELS, DEFAULT_MODEL } from './loader.js';
+import { ModelLoader, MODELS, DEFAULT_MODEL } from './pkg/loader.js';
 import {
     WasmEmbedder,
     WasmEmbedderConfig,
     cosineSimilarity,
-} from './pkg/ruvector_onnx_embeddings_wasm.js';
+} from './pkg/ruvector_onnx_embeddings_wasm.node.mjs';
 
 console.log('🧪 RuVector ONNX Embeddings WASM - Full E2E Test\n');
 console.log('='.repeat(60));

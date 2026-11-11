@@ -89,7 +89,7 @@ Options:
 - Linux x64 (GNU) - `ubuntu-22.04`
 - Linux ARM64 (GNU) - `ubuntu-22.04` with cross-compilation
 - macOS x64 (Intel) - `macos-13`
-- macOS ARM64 (Apple Silicon) - `macos-14`
+- macOS ARM64 (Apple Silicon) - `macos-15`
 - Windows x64 (MSVC) - `windows-2022`
 
 **Build matrix details**:
@@ -97,7 +97,7 @@ Options:
 - host: ubuntu-22.04, target: x86_64-unknown-linux-gnu
 - host: ubuntu-22.04, target: aarch64-unknown-linux-gnu
 - host: macos-13, target: x86_64-apple-darwin
-- host: macos-14, target: aarch64-apple-darwin
+- host: macos-15, target: aarch64-apple-darwin
 - host: windows-2022, target: x86_64-pc-windows-msvc
 ```
 
@@ -297,7 +297,7 @@ The native build job uses a strategic matrix to cover all platforms:
 | Linux x64 | ubuntu-22.04 | x86_64-unknown-linux-gnu | linux-x64-gnu | No |
 | Linux ARM64 | ubuntu-22.04 | aarch64-unknown-linux-gnu | linux-arm64-gnu | Yes (gcc-aarch64) |
 | macOS Intel | macos-13 | x86_64-apple-darwin | darwin-x64 | No |
-| macOS ARM | macos-14 | aarch64-apple-darwin | darwin-arm64 | No |
+| macOS ARM | macos-15 | aarch64-apple-darwin | darwin-arm64 | No |
 | Windows | windows-2022 | x86_64-pc-windows-msvc | win32-x64-msvc | No |
 
 ## Artifact Retention

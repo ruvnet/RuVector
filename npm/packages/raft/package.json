@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/raft",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "Raft consensus implementation for distributed systems - leader election, log replication, and fault tolerance",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -31,24 +31,31 @@
     "eventemitter3": "^5.0.4"
   },
   "keywords": [
-    "raft",
     "consensus",
     "distributed-systems",
-    "leader-election",
-    "log-replication",
-    "fault-tolerance",
-    "distributed-consensus",
+    "vector-database",
     "ruvector",
-    "cluster"
+    "ruvnet",
+    "vector-search",
+    "hnsw",
+    "embeddings",
+    "rag",
+    "semantic-search",
+    "knowledge-graph",
+    "gnn",
+    "graph-embeddings",
+    "link-prediction",
+    "attention",
+    "local-llm"
   ],
   "author": "rUv Team <team@ruv.io>",
   "license": "MIT OR Apache-2.0",
   "repository": {
+    "directory": "npm/packages/raft",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
-    "directory": "npm/packages/raft"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/crates/ruvector-raft",
+  "homepage": "https://ruv.io",
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },
