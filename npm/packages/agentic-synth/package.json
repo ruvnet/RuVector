@@ -58,25 +58,17 @@
     "benchmark": "node benchmarks/run.js"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "@google/generative-ai": "0.24.1",
     "commander": "^11.1.0",
     "dotenv": "^16.6.1",
     "zod": "^4.1.13"
   },
   "peerDependencies": {
-    "agentic-robotics": "^1.0.0",
     "dspy.ts": "^2.2.0",
-    "midstreamer": "^1.0.0",
-    "ruvector": "^0.3.14"
+    "ruvector": "0.3.24"
   },
   "peerDependenciesMeta": {
     "dspy.ts": {
-      "optional": true
-    },
-    "midstreamer": {
-      "optional": true
-    },
-    "agentic-robotics": {
       "optional": true
     },
     "ruvector": {

@@ -68,13 +68,13 @@
   },
   "homepage": "https://ruv.io",
   "dependencies": {
-    "@ruvector/agentic-synth": "file:../agentic-synth",
+    "@ruvector/agentic-synth": "0.1.11",
     "commander": "^11.1.0",
     "zod": "^4.1.12"
   },
   "peerDependencies": {
-    "@ruvector/agentic-synth": "^0.1.0",
-    "dspy.ts": "^2.2.0"
+    "@ruvector/agentic-synth": "0.1.11",
+    "dspy.ts": "2.3.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

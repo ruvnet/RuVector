@@ -20,6 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.11] - 2026-11-11
+
+### Changed
+- `@google/generative-ai` is pinned to exactly `0.24.1`. The optional `ruvector` peer is pinned to exactly `0.3.24`.
+- Package metadata: homepage https://ruv.io, repository and bugs URLs, keywords.
+
+### Removed
+- The optional peers `midstreamer@^1.0.0` and `agentic-robotics@^1.0.0`. No 1.x of either package exists, so the ranges could never resolve, and nothing in the package imports them. The README no longer presents them as built-in integrations.
+
 ## [0.1.8] - 2026-11-04
 
 ### Security
