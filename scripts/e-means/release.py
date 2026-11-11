@@ -326,8 +326,14 @@ def verify_public(source, base):
     checks = re.search(r'E_MEANS_PUBLIC_CHECKS=(\d+)', output)
     if not checks or int(checks[1]) < 10:
         raise ValueError('Public Rust numerical checks missing')
-    lock = (cargo / 'Cargo.lock').read_text()
-    if receipt['artifacts'][f'{CRATE}-{VERSION}.crate'] not in lock:
+    metadata = json.loads(execute(['cargo', 'metadata', '--locked', '--format-version', '1', '--manifest-path', str(cargo / 'Cargo.toml')], cargo, fresh, commands, env=env))
+    resolved = [p for p in metadata['packages'] if p['name'] == CRATE and p['version'] == VERSION]
+    if len(resolved) != 1 or resolved[0].get('source') != 'registry+https://github.com/rust-lang/crates.io-index':
+        raise ValueError('Fresh Cargo consumer did not resolve the official registry package')
+    import tomllib
+    lock = tomllib.loads((cargo / 'Cargo.lock').read_text())
+    locked = [p for p in lock['package'] if p['name'] == CRATE and p['version'] == VERSION]
+    if len(locked) != 1 or locked[0].get('checksum') != receipt['artifacts'][f'{CRATE}-{VERSION}.crate']:
         raise ValueError('Fresh Cargo consumer did not resolve sealed public checksum')
     npm = fresh / 'npm'
     npm.mkdir()
