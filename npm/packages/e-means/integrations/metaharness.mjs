@@ -85,10 +85,24 @@ const DARWIN_VERSIONS = ['0.13.0', '0.13.1'];
 
 async function loadDarwin() {
   const { readFile } = await import('node:fs/promises');
-  let entry;
-  try { entry = import.meta.resolve('@metaharness/darwin'); }
-  catch (cause) { throw new Error(`tuneClustering requires optional peer @metaharness/darwin (${DARWIN_VERSIONS.join(' or ')})`, { cause }); }
-  const manifest = JSON.parse(await readFile(new URL('../package.json', entry), 'utf8'));
+  const missingPeer = cause => new Error(`tuneClustering requires optional peer @metaharness/darwin (${DARWIN_VERSIONS.join(' or ')})`, { cause });
+  let manifest;
+  if (typeof import.meta.resolve === 'function') {
+    let entry;
+    try { entry = import.meta.resolve('@metaharness/darwin'); }
+    catch (cause) { throw missingPeer(cause); }
+    manifest = JSON.parse(await readFile(new URL('../package.json', entry), 'utf8'));
+  } else {
+    // Node 20.0 predates unflagged import.meta.resolve. Search standard package
+    // directories without requiring Darwin's import-only exported entrypoint.
+    const { createRequire } = await import('node:module');
+    const { join } = await import('node:path');
+    for (const directory of createRequire(import.meta.url).resolve.paths('@metaharness/darwin') ?? []) {
+      try { manifest = JSON.parse(await readFile(join(directory, '@metaharness/darwin/package.json'), 'utf8')); break; }
+      catch (cause) { if (cause.code !== 'ENOENT') throw cause; }
+    }
+    if (!manifest) throw missingPeer();
+  }
   if (manifest.name !== '@metaharness/darwin' || !DARWIN_VERSIONS.includes(manifest.version)) throw new Error(`Expected @metaharness/darwin ${DARWIN_VERSIONS.join(' or ')}`);
   const { evolveNumeric } = await import('@metaharness/darwin');
   if (typeof evolveNumeric !== 'function') throw new Error('Darwin numeric API is unavailable');

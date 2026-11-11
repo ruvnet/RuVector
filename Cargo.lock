@@ -9541,7 +9541,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-e-means"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",

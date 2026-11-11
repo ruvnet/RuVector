@@ -146,7 +146,7 @@ Automatically installs the correct native module for:
 - **macOS**: x64 (Intel), ARM64 (Apple Silicon)
 - **Windows**: x64 (MSVC)
 
-Node.js 18+ required.
+Node.js 20+ required.
 
 ## Advanced Configuration
 
@@ -201,7 +201,7 @@ npm run build:napi
 
 Requires:
 - Rust 1.77+
-- Node.js 18+
+- Node.js 20+
 - Cargo
 
 ## Use Cases

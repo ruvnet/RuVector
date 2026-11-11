@@ -22,7 +22,9 @@ function vectors(data, dimensions, allowEmpty = false) {
   if ((!allowEmpty && data.length === 0) || data.length % dimensions !== 0) {
     throw new RangeError('data must contain complete vectors');
   }
-  for (const value of data) if (!Number.isFinite(value)) throw new RangeError('data must be finite');
+  for (let index = 0; index < data.length; index++) {
+    if (!Number.isFinite(data[index])) throw new RangeError('data must be finite');
+  }
 }
 
 function validated(model) {
@@ -33,7 +35,9 @@ function validated(model) {
   const subDimensions = shape(dimensions, subspaces, clusters);
   if (!(centroids instanceof Float32Array)) throw new TypeError('centroids must be a Float32Array');
   if (centroids.length !== dimensions * clusters) throw new RangeError('centroid count does not match the codebook shape');
-  for (const value of centroids) if (!Number.isFinite(value)) throw new RangeError('centroids must be finite');
+  for (let index = 0; index < centroids.length; index++) {
+    if (!Number.isFinite(centroids[index])) throw new RangeError('centroids must be finite');
+  }
   return { dimensions, subspaces, clusters, centroids, subDimensions };
 }
 
@@ -102,7 +106,9 @@ export function decodeProductQuantizer(model, codes) {
   const { dimensions, subspaces, clusters, centroids, subDimensions } = validated(model);
   if (!(codes instanceof Uint8Array)) throw new TypeError('codes must be a Uint8Array');
   if (codes.length % subspaces !== 0) throw new RangeError('codes must contain complete subspace groups');
-  for (const code of codes) if (code >= clusters) throw new RangeError('code exceeds the codebook cluster count');
+  for (let index = 0; index < codes.length; index++) {
+    if (codes[index] >= clusters) throw new RangeError('code exceeds the codebook cluster count');
+  }
   const rows = codes.length / subspaces;
   if (rows * dimensions > maxU32) throw new RangeError('decoded output exceeds the supported element count');
   const data = new Float32Array(rows * dimensions);
@@ -119,7 +125,7 @@ export function decodeProductQuantizer(model, codes) {
 /** Return owned JSON-compatible codebook data. */
 export function productQuantizerToJSON(model) {
   const { dimensions, subspaces, clusters, centroids } = validated(model);
-  return { schema, dimensions, subspaces, clusters, centroids: Array.from(centroids) };
+  return { schema, dimensions, subspaces, clusters, centroids: Array.from({ length: centroids.length }, (_, index) => centroids[index]) };
 }
 
 /** Restore a validated, owned typed codebook from parsed JSON. */

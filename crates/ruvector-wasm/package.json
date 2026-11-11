@@ -1,6 +1,9 @@
 {
   "name": "@ruvector/wasm",
   "version": "0.2.2",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "description": "High-performance Rust vector database for browsers via WASM",
   "homepage": "https://ruv.io",
   "main": "pkg/ruvector_wasm.js",

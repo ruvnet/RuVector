@@ -2,8 +2,22 @@
 
 - **Status**: Accepted; local implementation, registry publication pending
 - **Date**: 2026-11-11
+- **Updated**: 2026-11-11 (split shared release qualification)
 - **Source**: Bessa et al., [e-means: outperforming k-means (in one-tenth the epochs)](https://arxiv.org/abs/2611.09501), [version 1](https://arxiv.org/html/2611.09501v1), 2026-11-06
 - **Related**: [ruv-FANN ADR-013](https://github.com/ruvnet/ruv-FANN/blob/main/docs/adr/ADR-013-e-means-clustering.md)
+
+## Release qualification
+
+The shared package is promoted separately from dependent integrations; see
+[the protected leaf release protocol](../e-means-release.md). The browser route
+was corrected and its missing-route mutation fails. PQ/IVF validators inspect
+typed-array storage without caller-defined iterators. Local qualification of
+the archived-source WASM build passed native/MSRV, npm, installed-consumer,
+workerd and real Chromium checks; registry publication remains subject to the
+exact-source protected workflow and fresh public consumers. The minimum Node
+20.0 job now exercises actual Darwin tuning as well as the portable APIs;
+explicit TAP reporting and lock-bound offline tooling avoid reporter and npm
+metadata-cache assumptions.
 
 ## Context and scope
 
@@ -23,7 +37,7 @@ codebook formats.
 
 ## Decision and contracts
 
-Create `ruvector-e-means` 0.1.0 as a separately publishable, MIT-licensed crate in
+Create `ruvector-e-means` 0.1.1 as a separately publishable, MIT-licensed crate in
 `crates/ruvector-e-means`, registered in the workspace. The native core requires
 Rust 1.81, has no default features, and has no dependency on either consumer.
 `serde` adds config/model serialization. `wasm` adds a thin wasm-bindgen bridge.
@@ -69,7 +83,7 @@ reporting the loss of stale last-epoch assignments. Last-epoch mean is an averag
 of assignments made while centroids moved, not a separate Lloyd iteration, so we
 do not promise monotonic improvement over the final EMA model.
 
-`@ruvector/e-means` 0.1.0 in `npm/packages/e-means` ships that same Rust core as
+`@ruvector/e-means` 0.1.1 in `npm/packages/e-means` ships that same Rust core as
 portable WebAssembly, typed ESM APIs, and the matching generated loader.
 `await init()` loads bundled bytes in Node and fetches them in a browser;
 `fit(Float32Array, dimensions, options)` and `predict` run synchronously after
@@ -85,14 +99,15 @@ runs. The Rust crate itself does not spawn threads or fetch datasets.
   each subspace with the shared implementation and retains u8 codes and the
   current codebook serialization. f64 encode comparisons preserve nearest
   ordering for large finite f32 coordinates.
-- The main `ruvector` npm package depends on exact `@ruvector/e-means` 0.1.0 and
+- The main `ruvector` npm package temporarily pins public `@ruvector/e-means`
+  0.1.0 while shared 0.1.1 is qualified and published, and
   ships `ruvector/clustering.mjs` with matching ESM declarations. This explicit
   subpath avoids eagerly initializing WASM or restricting legacy package
   subpaths with a new exports map.
 - ruv-FANN has an optional `clustering` Cargo feature with a version-only
-  dependency on `ruvector-e-means` 0.1.0, re-exported types/functions, and
+  dependency on `ruvector-e-means` 0.1.1, re-exported types/functions, and
   `TrainingData<f32>::cluster_inputs`. It clusters inputs without mutating inputs
-  or outputs. Its npm facade depends on exact `@ruvector/e-means` 0.1.0 and
+  or outputs. Its npm facade depends on exact `@ruvector/e-means` 0.1.1 and
   exposes `ruv-fann/clustering` without changing the root neural API.
 
 Publish the new crate and npm package before releasing dependent consumer
@@ -151,7 +166,7 @@ universal quality superiority. Rollback means use the retained Lloyd/neural APIs
 or stop importing the clustering subpaths; existing persisted codebooks need no
 migration.
 
-### Local qualification on 2026-11-11
+### Initial local qualification on 2026-11-11 (historical)
 
 - The shared crate passed 10 native tests with all features and strict Clippy.
   `cargo package --allow-dirty` built and verified the archive. Its native core
@@ -241,10 +256,11 @@ The [measurement artifact](../research/e-means/performance-2026-11-11.json)
 records shapes, options, raw native samples, environment, allocation definitions,
 and source/artifact checksums. The native benchmark example and npm `benchmark`
 command reproduce current measurements. These synthetic CPU/WASM results do not
-establish speedups on arbitrary datasets or the paper's GPU benchmarks. Browser
-qualification and registry publication remain pending.
+establish speedups on arbitrary datasets or the paper's GPU benchmarks. At that initial checkpoint browser
+qualification and registry publication remained pending. The release qualification
+section above records later browser execution; publication still requires the protected workflow.
 
-Post-optimization validation passed 14 shared-crate tests, 6 PQ integration
+Initial post-optimization validation passed 14 shared-crate tests, 6 PQ integration
 tests, 20 existing core quantization tests, 207 ruv-FANN library tests and its
 3 adapter tests. The npm runtime passed 13 numerical/ownership tests, installed
 archive checks, both consumer facades and strict TypeScript. Strict Clippy,
