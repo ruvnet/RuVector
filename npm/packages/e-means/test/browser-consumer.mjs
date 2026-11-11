@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { constants } from 'node:fs';
+import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { access, readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
-const page = `<!doctype html><html><body data-result="pending"><script type="module">
+const page = `<!doctype html><html><head><link rel="icon" href="data:,"></head><body data-result="pending"><script type="module">
 import { init, fit, predict } from '/e-means.mjs';
 try {
   await init();
@@ -15,6 +15,8 @@ try {
   if (!(result.centroids instanceof Float32Array) || !(labels instanceof Uint32Array) ||
       String(result.centroids) !== '5,6' || String(labels) !== '0,0,0,0,0' ||
       result.mse !== 16 || result.updates !== 6) throw new Error('Rust/WASM golden result differs');
+  globalThis.eMeansBrowserOracle = { centroids: Array.from(result.centroids), labels: Array.from(labels),
+    mse: result.mse, updates: result.updates, typed: result.centroids instanceof Float32Array && labels instanceof Uint32Array };
   document.body.dataset.result = 'pass';
   document.body.textContent = 'Browser loaded bundled WASM and passed the shared numerical oracle';
 } catch (error) {
@@ -29,7 +31,6 @@ const routes = new Map([
   ['/wasm/ruvector_e_means.js', ['../wasm/ruvector_e_means.js', 'application/javascript']],
   ['/wasm/ruvector_e_means_bg.wasm', ['../wasm/ruvector_e_means_bg.wasm', 'application/wasm']],
 ]);
-let fetchedWasm = false;
 const server = createServer(async (request, response) => {
   try {
     if (request.url === '/') {
@@ -43,7 +44,6 @@ const server = createServer(async (request, response) => {
       response.end();
       return;
     }
-    if (request.url.endsWith('.wasm')) fetchedWasm = true;
     const bytes = await readFile(new URL(route[0], import.meta.url));
     response.writeHead(200, { 'content-type': route[1] });
     response.end(bytes);
@@ -53,39 +53,54 @@ const server = createServer(async (request, response) => {
   }
 });
 
-const profile = await mkdtemp(join(tmpdir(), 'e-means-chromium-'));
 let browser;
-function stopBrowser() {
-  if (!browser?.pid) return;
-  try { process.kill(-browser.pid, 'SIGKILL'); } catch (error) {
-    if (error.code !== 'ESRCH') throw error;
+const diagnostics = [];
+try {
+  const tooling = process.env.E_MEANS_PLAYWRIGHT_ROOT;
+  assert.ok(tooling, 'Set E_MEANS_PLAYWRIGHT_ROOT to the external pinned Playwright tooling directory');
+  const require = createRequire(resolve(tooling, 'package.json'));
+  assert.equal(require('playwright/package.json').version, '1.62.1', 'Browser qualification requires Playwright 1.62.1');
+  const { chromium } = require('playwright');
+  const executablePath = process.env.E_MEANS_CHROMIUM || chromium.executablePath();
+  await access(executablePath, constants.X_OK);
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const deadline = Date.now() + 30_000;
+  const remaining = () => Math.max(1, deadline - Date.now());
+  browser = await chromium.launch({ executablePath, headless: true, timeout: Math.min(25_000, remaining()),
+    args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  const browserPage = await browser.newPage();
+  const responses = new Map();
+  let rejectPage;
+  const pageFailure = new Promise((_, reject) => { rejectPage = reject; });
+  // An error may arrive between browser operations; keep it handled until the
+  // next race observes it. It still rejects qualification, never marks success.
+  pageFailure.catch(() => {});
+  const fail = (message) => { diagnostics.push(message); rejectPage(new Error(message)); };
+  browserPage.on('pageerror', (error) => fail(`Page error: ${error.message}`));
+  browserPage.on('console', (message) => { if (message.type() === 'error') fail(`Browser console: ${message.text()}`); });
+  browserPage.on('requestfailed', (request) => fail(`Browser request failed: ${request.url()} ${request.failure()?.errorText}`));
+  browserPage.on('response', (response) => {
+    const url = new URL(response.url());
+    if (url.origin === origin) responses.set(url.pathname, response.status());
+  });
+  const response = await Promise.race([browserPage.goto(origin + '/', { waitUntil: 'load', timeout: remaining() }), pageFailure]);
+  assert.equal(response.status(), 200, 'Browser page must load successfully');
+  await Promise.race([browserPage.waitForFunction(() => ['pass', 'fail'].includes(document.body.dataset.result),
+    undefined, { timeout: remaining() }), pageFailure]);
+  const result = await browserPage.evaluate(() => ({ status: document.body.dataset.result,
+    text: document.body.textContent, oracle: globalThis.eMeansBrowserOracle }));
+  assert.equal(result.status, 'pass', result.text);
+  assert.deepEqual(result.oracle, { centroids: [5, 6], labels: [0, 0, 0, 0, 0], mse: 16, updates: 6, typed: true });
+  for (const path of routes.keys()) assert.equal(responses.get(path), 200, `Browser must fetch ${path} successfully`);
+  assert.equal(diagnostics.length, 0, diagnostics.join('\n'));
+} catch (error) {
+  throw new Error(`Chromium browser consumer failed: ${error.message}\n${diagnostics.join('\n')}`, { cause: error });
+} finally {
+  await browser?.close();
+  if (server.listening) {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
   }
 }
-try {
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const chromium = process.env.E_MEANS_CHROMIUM || 'chromium';
-  const url = `http://127.0.0.1:${server.address().port}/`;
-  const result = await new Promise((resolve, reject) => {
-    const child = browser = spawn(chromium, ['--headless', '--no-sandbox', '--disable-dev-shm-usage',
-      '--disable-gpu', '--disable-background-networking', '--no-first-run',
-      `--user-data-dir=${profile}`, '--dump-dom', '--virtual-time-budget=10000', url],
-    { stdio: ['ignore', 'pipe', 'pipe'], detached: true });
-    let stdout = '', stderr = '';
-    child.stdout.on('data', (chunk) => { stdout += chunk; });
-    child.stderr.on('data', (chunk) => { stderr += chunk; });
-    const timer = setTimeout(() => {
-      stopBrowser();
-      reject(new Error(`Chromium browser consumer exceeded 25 seconds\n${stdout}\n${stderr.slice(-2000)}`));
-    }, 25_000);
-    child.once('error', (error) => { clearTimeout(timer); reject(error); });
-    child.once('close', (status) => { clearTimeout(timer); resolve({ status, stdout, stderr }); });
-  });
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /data-result="pass"/, result.stdout + '\n' + result.stderr.slice(-1500));
-  assert.ok(fetchedWasm, 'browser must fetch the bundled .wasm through default init()');
-  console.log('Chromium browser consumer passed: default WASM fetch, fit, predict and numerical oracle');
-} finally {
-  stopBrowser();
-  await new Promise((resolve) => server.close(resolve));
-  await rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
-}
+console.log('Chromium browser consumer passed: default WASM fetch, fit, predict and numerical oracle');

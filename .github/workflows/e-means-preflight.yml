@@ -35,6 +35,7 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/browser-tools" --ignore-scripts --no-save playwright@1.62.1
           "$RUNNER_TEMP/browser-tools/node_modules/.bin/playwright" install chromium
           node -e 'const p=require(process.env.RUNNER_TEMP+"/browser-tools/node_modules/playwright"); console.log("E_MEANS_CHROMIUM="+p.chromium.executablePath())' >> "$GITHUB_ENV"
+          echo "E_MEANS_PLAYWRIGHT_ROOT=$RUNNER_TEMP/browser-tools" >> "$GITHUB_ENV"
       - name: Exercise release guards
         run: python3 -m unittest discover -s scripts/e-means -p 'test_*.py' -v
       - name: Build exact archives and execute native, installed, Worker and browser consumers

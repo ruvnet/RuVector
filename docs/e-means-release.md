@@ -12,7 +12,9 @@ execute the packaged Rust tests, and build WASM from the extracted archive.
 The WASM build explicitly retains the workspace release optimization settings.
 The copied npm package then runs its dependency audit, real WASM/Worker tests,
 strict declarations, installed consumers with and without the optional SDK,
-and real Chromium numerical checks before packing. A second job installs the
+and real Chromium numerical checks before packing. The externally installed
+Playwright 1.62.1 driver waits for the actual page result and verifies successful
+module, runtime and default WASM responses; it does not depend on CLI DOM dumping. A second job installs the
 sealed archive offline and exercises the portable APIs on Node 20.0.0. It then
 warm-caches only six exact tooling tarball URLs from the sealed lock, requires
 real offline Darwin tuning and strict installed declarations, and never relies
