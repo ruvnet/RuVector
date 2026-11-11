@@ -19,6 +19,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 import release
 
 
+def role_index(name):
+    return list(release.QUALIFICATION).index(name)
+
+
 class ReleaseGuards(unittest.TestCase):
     def test_local_publication_cannot_reach_registry_or_github(self):
         with patch.object(release, 'identity'), patch.object(release, 'gh') as github:
@@ -186,10 +190,10 @@ class CandidateProof(unittest.TestCase):
         for mutation in ('missing', 'duplicate', 'reordered', 'unknown'):
             with self.subTest(mutation=mutation):
                 self.commands[:] = copy.deepcopy(valid)
-                if mutation == 'missing': self.commands.pop(8)
-                elif mutation == 'duplicate': self.commands[8] = copy.deepcopy(self.commands[7])
-                elif mutation == 'reordered': self.commands[7], self.commands[8] = self.commands[8], self.commands[7]
-                else: self.commands[8]['role'] = 'not-required'
+                if mutation == 'missing': self.commands.pop(role_index('rust-packed'))
+                elif mutation == 'duplicate': self.commands[role_index('rust-packed')] = copy.deepcopy(self.commands[role_index('rust-msrv')])
+                elif mutation == 'reordered': self.commands[role_index('rust-msrv')], self.commands[role_index('rust-packed')] = self.commands[role_index('rust-packed')], self.commands[role_index('rust-msrv')]
+                else: self.commands[role_index('rust-packed')]['role'] = 'not-required'
                 self.write_receipt()
                 with self.assertRaisesRegex(ValueError, 'required qualification roles'):
                     self.validate()
@@ -201,14 +205,14 @@ class CandidateProof(unittest.TestCase):
                            ('logSha256', 'b' * 64)]:
             with self.subTest(key=key, value=value):
                 self.commands[:] = copy.deepcopy(valid)
-                self.commands[8][key] = value
+                self.commands[role_index('rust-packed')][key] = value
                 self.write_receipt()
                 with self.assertRaisesRegex(ValueError, 'command/log differs'):
                     self.validate()
 
     def test_forged_evidence_claims_fail_even_when_outer_manifest_is_resealed(self):
         valid = copy.deepcopy(self.commands)
-        for index, key, value in [(8, 'testsPassed', 9000), (16, 'browserPassed', False), (16, 'browserPassed', 1), (4, 'testsPassed', 1), (0, 'browserPassed', True)]:
+        for index, key, value in [(role_index('rust-packed'), 'testsPassed', 9000), (role_index('npm-browser'), 'browserPassed', False), (role_index('npm-browser'), 'browserPassed', 1), (role_index('clippy'), 'testsPassed', 1), (0, 'browserPassed', True)]:
             with self.subTest(index=index, key=key):
                 self.commands[:] = copy.deepcopy(valid)
                 self.commands[index][key] = value
@@ -229,7 +233,7 @@ class CandidateProof(unittest.TestCase):
                      RUST_RESULT.replace('0 measured', '1 measured') * 4,
                      RUST_RESULT.replace('0 filtered out', '1 filtered out') * 4):
             with self.subTest(text=text):
-                self.replace_log(8, text)
+                self.replace_log(role_index('rust-packed'), text)
                 with self.assertRaisesRegex(ValueError, 'Rust qualification'):
                     self.validate()
 
@@ -238,19 +242,19 @@ class CandidateProof(unittest.TestCase):
         variants.extend(NODE_RESULT.replace(f'# {key} 0', f'# {key} 1') for key in ('fail', 'cancelled', 'skipped', 'todo'))
         for text in variants:
             with self.subTest(text=text):
-                self.replace_log(13, text)
+                self.replace_log(role_index('npm-tests'), text)
                 with self.assertRaisesRegex(ValueError, 'Node qualification'):
                     self.validate()
 
     def test_successful_browser_and_installed_consumer_without_oracles_fail(self):
-        for index, text, message in [(16, 'browser started', 'Actual browser'),
-                                     (15, release.CONSUMER_MARKERS[0], 'Installed archive consumer')]:
+        for index, text, message in [(role_index('npm-browser'), 'browser started', 'Actual browser'),
+                                     (role_index('npm-consumer'), release.CONSUMER_MARKERS[0], 'Installed archive consumer')]:
             with self.subTest(index=index):
                 self.replace_log(index, text)
                 with self.assertRaisesRegex(ValueError, message):
                     self.validate()
                 # Restore this role before testing the next one.
-                original = release.BROWSER_MARKER if index == 16 else '\n'.join(release.CONSUMER_MARKERS)
+                original = release.BROWSER_MARKER if index == role_index('npm-browser') else '\n'.join(release.CONSUMER_MARKERS)
                 self.replace_log(index, original)
 
     def test_files_manifest_cannot_omit_logs_or_accept_unlisted_payload(self):

@@ -2,6 +2,7 @@
 
 - **Status**: Accepted; local integration implemented, publication and deployment pending
 - **Date**: 2026-11-11
+- **Updated**: 2026-11-11 (leaf publication and dependency contract review)
 - **Related**: [ADR-359](./ADR-359-e-means-shared-clustering.md)
 
 ## Outcome and acceptance contract
@@ -41,7 +42,7 @@ that envelope before native serde deserialization, or construct the native
 quantizer with its checked `from_centroids` API. Do not assume arbitrary JSON
 records from the two APIs are interchangeable.
 
-## Actual consumers
+## Dependent integrations (separate promotion)
 
 - `ruvector-core::ProductQuantized::train_e_means` remains available from ADR-359.
 - `ruvector-pq-search` adds `PqCodebook::train_e_means`,
@@ -60,11 +61,12 @@ records from the two APIs are interchangeable.
   subpaths. Existing WSP Cloudflare and neural MetaHarness entrypoints retain
   their own meanings.
 
-Each npm consumer depends on exact `@ruvector/e-means` 0.1.0. It is an optional
-dependency for `@ruvector/core`, whose legacy entrypoint supports Node 18;
-clustering entrypoints require the shared package's Node 20 runtime. When optional
-dependencies are omitted, install the shared package explicitly. The new modules
-do not eagerly initialize WASM or import Darwin during ordinary SDK imports.
+Each npm consumer depends on exact `@ruvector/e-means` 0.1.0. Static
+clustering re-exports require it as a normal dependency, including in
+`@ruvector/core`; the package's Node 20 runtime requirement applies to these
+entrypoints. The new modules do not eagerly initialize WASM or import Darwin
+during ordinary SDK imports. These consumer changes are outside the leaf
+publication commit and are promoted after the shared registries are verified.
 
 Shared modules use f64 assignment arithmetic. Existing downstream ADC/scanning
 APIs retain their existing f32 precision and legacy validation behavior; this
@@ -88,7 +90,7 @@ and quadratic donor selection. Units are conservative estimates, not measured
 instructions or a process-memory limit. Deadlines are cooperative; synchronous
 fits and arbitrary host operations cannot be preempted.
 
-`tuneClustering` dynamically loads exact `@metaharness/darwin` 0.13.0, validates
+`tuneClustering` dynamically loads `@metaharness/darwin` 0.13.0 or 0.13.1, validates
 the installed identity/API, and calls its real `evolveNumeric` at concurrency 1.
 It checks worst-case search cost before execution and matches returned archive
 records to observed evaluations. Regressed/unmeasured winners cannot replace
@@ -174,7 +176,7 @@ checks use the explicit Cargo patch from ADR-359. Rollback means stop using the
 new feature methods or subpaths; existing codebooks, neural APIs, and search
 defaults require no migration. Storage helpers never delete external resources.
 
-Local qualification passed 50 targeted Rust tests, 44 shared npm tests, 8 FANN
+Initial integration qualification passed 50 targeted Rust tests, 44 shared npm tests, 8 FANN
 facade tests, and 3 Rust FANN adapter tests, plus strict declarations, Clippy,
 archive verification and the packaged Rust 1.81 check. Installed consumers
 exercised the optional-SDK absence path, actual Darwin evolution, all four

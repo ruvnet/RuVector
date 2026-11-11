@@ -75,9 +75,6 @@ CANDIDATE = '${CANDIDATE}'
 RUST = f'{CANDIDATE}/extracted/{CRATE}-{VERSION}'
 QUALIFICATION = {
     'rust-source': (['cargo', 'test', '--locked', '-p', CRATE, '--all-features', '--lib', '--tests'], SOURCE, 'rust', 4),
-    'core-adapter': (['cargo', 'test', '--locked', '-p', 'ruvector-core', '--no-default-features', '--test', 'e_means_quantization'], SOURCE, 'rust', 1),
-    'pq-adapter': (['cargo', 'test', '--locked', '-p', 'ruvector-pq-search', '--test', 'e_means'], SOURCE, 'rust', 1),
-    'rairs-adapter': (['cargo', 'test', '--locked', '-p', 'ruvector-rairs', '--test', 'e_means'], SOURCE, 'rust', 1),
     'clippy': (['cargo', 'clippy', '--locked', '-p', CRATE, '--all-features', '--all-targets', '--', '-D', 'warnings'], SOURCE, None, None),
     'rust-package': (['cargo', 'package', '--locked', '-p', CRATE, '--target-dir', f'{CANDIDATE}/package-build'], SOURCE, None, None),
     'rust-audit': (['cargo', 'audit', '--file', f'{RUST}/Cargo.lock', '--deny', 'warnings'], SOURCE, None, None),
@@ -176,9 +173,6 @@ def seal(source, base):
     env = {'RUSTFLAGS': '', 'CARGO_BUILD_JOBS': '2', 'CARGO_INCREMENTAL': '0', 'CARGO_PROFILE_DEV_DEBUG': '0'}
     for role, args in (
         ('rust-source', ['cargo', 'test', '--locked', '-p', CRATE, '--all-features', '--lib', '--tests']),
-        ('core-adapter', ['cargo', 'test', '--locked', '-p', 'ruvector-core', '--no-default-features', '--test', 'e_means_quantization']),
-        ('pq-adapter', ['cargo', 'test', '--locked', '-p', 'ruvector-pq-search', '--test', 'e_means']),
-        ('rairs-adapter', ['cargo', 'test', '--locked', '-p', 'ruvector-rairs', '--test', 'e_means']),
     ):
         execute(args, ROOT, base, commands, 'rust', env, role=role)
     execute(['cargo', 'clippy', '--locked', '-p', CRATE, '--all-features', '--all-targets', '--', '-D', 'warnings'], ROOT, base, commands, env=env, role='clippy')
@@ -434,7 +428,7 @@ def verify_public(source, base):
     checks = re.search(r'E_MEANS_PUBLIC_CHECKS=(\d+)', output)
     if not checks or int(checks[1]) < 10:
         raise ValueError('Public Rust numerical checks missing')
-    metadata = json.loads(execute(['cargo', 'metadata', '--locked', '--format-version', '1', '--manifest-path', str(cargo / 'Cargo.toml')], cargo, fresh, commands, env=env))
+    metadata = json.loads(execute(['cargo', 'metadata', '--quiet', '--locked', '--format-version', '1', '--manifest-path', str(cargo / 'Cargo.toml')], cargo, fresh, commands, env=env))
     resolved = [p for p in metadata['packages'] if p['name'] == CRATE and p['version'] == VERSION]
     if len(resolved) != 1 or resolved[0].get('source') != 'registry+https://github.com/rust-lang/crates.io-index':
         raise ValueError('Fresh Cargo consumer did not resolve the official registry package')

@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 45
     environment: npm-production
     permissions:
-      contents: read
+      contents: write
       issues: read
       actions: read
       id-token: write
@@ -56,6 +56,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_SHA: ${{ inputs.expected_sha }}
         run: python3 scripts/e-means/release.py verify-public --expected-sha "$EXPECTED_SHA" --directory "$RUNNER_TEMP/e-means-publication"
+      - name: Publish exact-source GitHub release and redownload every asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          E_MEANS_RELEASE_ENVIRONMENT: npm-production
+        run: python3 scripts/e-means/github_release.py --expected-sha "$EXPECTED_SHA" --directory "$RUNNER_TEMP/e-means-publication"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -69,3 +75,5 @@ jobs:
             ${{ runner.temp }}/e-means-publication/publication.json
             ${{ runner.temp }}/e-means-publication/public-consumers.json
             ${{ runner.temp }}/e-means-publication/fresh/command-*.log
+            ${{ runner.temp }}/e-means-publication/github-release.json
+            ${{ runner.temp }}/e-means-publication/github-release-assets/*
