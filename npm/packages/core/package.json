@@ -35,7 +35,7 @@
     "@napi-rs/cli": "^2.18.0"
   },
   "dependencies": {
-    "@ruvector/e-means": "0.1.0"
+    "@ruvector/e-means": "0.1.1"
   },
   "optionalDependencies": {
     "ruvector-core-linux-x64-gnu": "0.1.35",

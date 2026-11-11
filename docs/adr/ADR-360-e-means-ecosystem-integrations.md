@@ -61,7 +61,7 @@ records from the two APIs are interchangeable.
   subpaths. Existing WSP Cloudflare and neural MetaHarness entrypoints retain
   their own meanings.
 
-Each npm consumer depends on exact `@ruvector/e-means` 0.1.0. Static
+Each npm consumer depends on exact `@ruvector/e-means` 0.1.1. Static
 clustering re-exports require it as a normal dependency, including in
 `@ruvector/core`; the package's Node 20 runtime requirement applies to these
 entrypoints. The new modules do not eagerly initialize WASM or import Darwin

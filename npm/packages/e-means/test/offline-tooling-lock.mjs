@@ -55,7 +55,7 @@ export function offlineToolingLock(source, consumer, manifest) {
   assert.deepEqual(Object.keys(manifest.dependencies ?? {}), ['@ruvector/e-means']);
   assert.deepEqual(consumer.packages[''].dependencies, manifest.dependencies);
   const own = consumer.packages['node_modules/@ruvector/e-means'];
-  assert.equal(own?.version, '0.1.0', 'retain the actually installed shared archive');
+  assert.equal(own?.version, '0.1.1', 'retain the actually installed shared archive');
   assert.ok(own.resolved?.startsWith('file:') && own.integrity?.startsWith('sha512-'));
   const packages = { '': { ...consumer.packages[''], devDependencies: tooling },
     'node_modules/@ruvector/e-means': own, ...toolingPackages(source) };

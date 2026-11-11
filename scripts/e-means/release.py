@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 REPO = 'ruvnet/RuVector'
 PREFLIGHT = '.github/workflows/e-means-preflight.yml'
 PUBLISHER = 'e-means-protected-release'
-VERSION = '0.1.0'
+VERSION = '0.1.1'
 NPM_NAME = '@ruvector/e-means'
 CRATE = 'ruvector-e-means'
 
@@ -428,7 +428,7 @@ def verify_public(source, base):
     cargo = fresh / 'cargo'
     cargo.mkdir()
     (cargo / 'src').mkdir()
-    (cargo / 'Cargo.toml').write_text('[package]\nname="e-means-public-consumer"\nversion="0.0.0"\nedition="2021"\n[workspace]\n[dependencies]\nruvector-e-means="=0.1.0"\n')
+    (cargo / 'Cargo.toml').write_text('[package]\nname="e-means-public-consumer"\nversion="0.0.0"\nedition="2021"\n[workspace]\n[dependencies]\nruvector-e-means="=0.1.1"\n')
     shutil.copyfile(ROOT / 'scripts/e-means/public-consumer.rs', cargo / 'src/main.rs')
     commands = []
     env = {'CARGO_HOME': str(fresh / 'cargo-home'), 'CARGO_TARGET_DIR': str(fresh / 'target'),

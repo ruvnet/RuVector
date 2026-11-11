@@ -86,7 +86,7 @@
     "url": "https://github.com/ruvnet/ruvector/issues"
   },
   "dependencies": {
-    "@ruvector/e-means": "0.1.0"
+    "@ruvector/e-means": "0.1.1"
   },
   "devDependencies": {
     "wasm-pack": "^0.12.1"

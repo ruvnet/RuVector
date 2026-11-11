@@ -18,8 +18,8 @@ import zipfile
 
 import release
 
-TAG = 'e-means-v0.1.0'
-TITLE = 'Shared e-means 0.1.0 (Rust and WebAssembly)'
+TAG = 'e-means-v0.1.1'
+TITLE = 'Shared e-means 0.1.1 (Rust and WebAssembly)'
 
 
 def gh(*args):
@@ -245,7 +245,7 @@ def publish(source, base):
     if row is None:
         ensure_tag(source)
         notes = base / 'github-release-notes.md'
-        notes.write_text(f'Shared e-means 0.1.0 from `{source}`.\n\n'
+        notes.write_text(f'Shared e-means 0.1.1 from `{source}`.\n\n'
             'Canonical public Rust and npm archives, actual source-bound qualification logs, '
             'fresh public Cargo/Node/Worker/Chromium consumer evidence and the original sealed candidate are attached.\n')
         guard(source)

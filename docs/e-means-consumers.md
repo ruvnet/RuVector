@@ -3,7 +3,7 @@
 The reviewed consumer integration adds explicit clustering subpaths to
 `@ruvector/core@0.1.38`, `ruvector`, `@ruvector/all`, and
 `@ruvector/wasm@0.2.2`. These facades use the shared
-`@ruvector/e-means@0.1.0` runtime. Their existing root APIs remain separate
+`@ruvector/e-means@0.1.1` runtime. Their existing root APIs remain separate
 from the clustering subpaths.
 
 The core and WASM npm packages require Node.js 20 or newer because the shared

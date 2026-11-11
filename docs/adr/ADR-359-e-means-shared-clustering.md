@@ -37,7 +37,7 @@ codebook formats.
 
 ## Decision and contracts
 
-Create `ruvector-e-means` 0.1.0 as a separately publishable, MIT-licensed crate in
+Create `ruvector-e-means` 0.1.1 as a separately publishable, MIT-licensed crate in
 `crates/ruvector-e-means`, registered in the workspace. The native core requires
 Rust 1.81, has no default features, and has no dependency on either consumer.
 `serde` adds config/model serialization. `wasm` adds a thin wasm-bindgen bridge.
@@ -83,7 +83,7 @@ reporting the loss of stale last-epoch assignments. Last-epoch mean is an averag
 of assignments made while centroids moved, not a separate Lloyd iteration, so we
 do not promise monotonic improvement over the final EMA model.
 
-`@ruvector/e-means` 0.1.0 in `npm/packages/e-means` ships that same Rust core as
+`@ruvector/e-means` 0.1.1 in `npm/packages/e-means` ships that same Rust core as
 portable WebAssembly, typed ESM APIs, and the matching generated loader.
 `await init()` loads bundled bytes in Node and fetches them in a browser;
 `fit(Float32Array, dimensions, options)` and `predict` run synchronously after
@@ -99,14 +99,14 @@ runs. The Rust crate itself does not spawn threads or fetch datasets.
   each subspace with the shared implementation and retains u8 codes and the
   current codebook serialization. f64 encode comparisons preserve nearest
   ordering for large finite f32 coordinates.
-- The main `ruvector` npm package depends on exact `@ruvector/e-means` 0.1.0 and
+- The main `ruvector` npm package depends on exact `@ruvector/e-means` 0.1.1 and
   ships `ruvector/clustering.mjs` with matching ESM declarations. This explicit
   subpath avoids eagerly initializing WASM or restricting legacy package
   subpaths with a new exports map.
 - ruv-FANN has an optional `clustering` Cargo feature with a version-only
-  dependency on `ruvector-e-means` 0.1.0, re-exported types/functions, and
+  dependency on `ruvector-e-means` 0.1.1, re-exported types/functions, and
   `TrainingData<f32>::cluster_inputs`. It clusters inputs without mutating inputs
-  or outputs. Its npm facade depends on exact `@ruvector/e-means` 0.1.0 and
+  or outputs. Its npm facade depends on exact `@ruvector/e-means` 0.1.1 and
   exposes `ruv-fann/clustering` without changing the root neural API.
 
 Publish the new crate and npm package before releasing dependent consumer

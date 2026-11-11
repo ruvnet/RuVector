@@ -47,7 +47,7 @@ try {
   `);
   process.stdout.write(run(process.execPath, ['consumer.mjs']));
   const installed = JSON.parse(await readFile(join(temp, 'node_modules/@ruvector/e-means/package.json')));
-  assert.equal(installed.version, '0.1.0');
+  assert.equal(installed.version, '0.1.1');
   // npm ci cached the source lock's tarballs, not necessarily registry package
   // metadata. Transfer only the exact SDK/tool closure and the actual phase-one
   // shared archive record, then install without any name/version resolution.

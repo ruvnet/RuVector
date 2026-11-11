@@ -15,7 +15,7 @@ function fixture() {
     'node_modules/unrelated-build-tool': record('unrelated-build-tool', '1.0.0'),
   } };
   const manifest = { private: true, type: 'module', dependencies: { '@ruvector/e-means': 'file:actual-shared.tgz' } };
-  const own = { version: '0.1.0', resolved: 'file:actual-shared.tgz', integrity: 'sha512-actual-shared-fixture',
+  const own = { version: '0.1.1', resolved: 'file:actual-shared.tgz', integrity: 'sha512-actual-shared-fixture',
     peerDependencies: { '@metaharness/darwin': '0.13.0 || 0.13.1' }, peerDependenciesMeta: { '@metaharness/darwin': { optional: true } } };
   const consumer = { lockfileVersion: 3, packages: { '': { dependencies: manifest.dependencies }, 'node_modules/@ruvector/e-means': own } };
   return { source, consumer, manifest };

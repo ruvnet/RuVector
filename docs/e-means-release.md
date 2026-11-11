@@ -1,9 +1,10 @@
 # Shared e-means release
 
-The shared `ruvector-e-means` crate and `@ruvector/e-means` package are released
-before their dependent consumer integrations. This leaf change contains no new
-consumer dependency on an unpublished registry package. RuVector PR #1489 and
-ruv-FANN PR #227 integrate the public dependencies afterward.
+This protocol targets `ruvector-e-means@0.1.1` and `@ruvector/e-means@0.1.1`.
+Existing 0.1.0 artifacts are immutable and do not qualify this reviewed source.
+The protected lane publishes only the two shared archives; it never overwrites
+an earlier generation or publishes consumer packages. Dependent consumer
+publication and registry qualification follow verified shared publication.
 
 The release branch runs `e-means-preflight.yml` at an immutable source commit.
 Its 15 mandatory commands execute the shared native tests and strict Clippy,
@@ -46,7 +47,7 @@ test harness, strict declarations and actual Chromium. Partial publication is
 not a completed release; retained receipts and command logs identify the state.
 
 After public consumers pass, the protected job creates immutable tag
-`e-means-v0.1.0` and a draft GitHub release. It attaches the canonical archives,
+`e-means-v0.1.1` and a draft GitHub release. It attaches the canonical archives,
 original candidate ZIP, checksums, source-bound receipts and actual command logs.
 Every asset is downloaded and compared before the draft becomes public and
 again afterward. A conflicting tag or asset rejects promotion; an identical
