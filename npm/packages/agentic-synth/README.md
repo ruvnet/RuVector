@@ -95,8 +95,7 @@ Agentic-Synth generates **unlimited synthetic data** tailored to your exact need
 
 ### 🔌 **Ecosystem Integration**
 - 🎯 **Ruvector** - Native vector database for RAG systems
-- 🤖 **Agentic-Robotics** - Workflow automation and scheduling
-- 🌊 **Midstreamer** - Real-time streaming pipelines
+- **Agentic-Robotics** / **Midstreamer**: pair with them for scheduling and streaming (separate installs, not dependencies)
 - 🦜 **DSPy.ts** - Prompt optimization and self-learning
 - 🔄 **Agentic-Jujutsu** - Version-controlled data generation
 
@@ -173,7 +172,7 @@ import { AgenticSynth } from '@ruvector/agentic-synth';
 const synth = new AgenticSynth({
   provider: 'gemini',
   apiKey: process.env.GEMINI_API_KEY,
-  model: 'gemini-2.0-flash-exp',
+  model: 'gemini-2.5-flash',
   cache: { enabled: true, maxSize: 1000 }
 });
 
@@ -187,7 +186,7 @@ const timeSeries = await synth.generateTimeSeries({
 });
 
 console.log(`Generated ${timeSeries.data.length} time-series points`);
-console.log(`Quality: ${(timeSeries.metadata.quality * 100).toFixed(1)}%`);
+console.log('First point:', timeSeries.data[0]);
 ```
 
 ### 2️⃣ **Generate Event Logs**
@@ -326,7 +325,7 @@ import { AgenticSynth } from '@ruvector/agentic-synth';
 // Generate baseline with Gemini (fast, cheap)
 const baseline = new AgenticSynth({
   provider: 'gemini',
-  model: 'gemini-2.0-flash-exp'
+  model: 'gemini-2.5-flash'
 });
 
 const baselineData = await baseline.generateStructured({
@@ -795,54 +794,12 @@ const results = await db.search('wireless headphones', { limit: 5 });
 
 ---
 
-### 🌊 **Midstreamer - Real-Time Streaming**
+### **Streaming and scheduling (Midstreamer, Agentic-Robotics)**
 
-Stream generated data to real-time pipelines.
-
-```typescript
-import { AgenticSynth } from '@ruvector/agentic-synth';
-import { Midstreamer } from 'midstreamer';
-
-const synth = new AgenticSynth();
-const stream = new Midstreamer({ endpoint: 'ws://localhost:3000' });
-
-// Stream events to real-time pipeline
-for await (const event of synth.generateStream({ type: 'events', count: 10000 })) {
-  await stream.send('events', event);
-}
-```
+`midstreamer` and `agentic-robotics` are separate packages, not dependencies of agentic-synth. Nothing in this package imports them, so install them yourself if you want them, and pass `synth.generateStream()` or `synth.generateBatch()` output to that package's own API.
 
 **Links:**
-- 📦 [NPM Package](https://www.npmjs.com/package/midstreamer)
-- 🐙 [GitHub Repository](https://github.com/ruvnet/midstreamer)
-
----
-
-### 🤖 **Agentic-Robotics - Workflow Automation**
-
-Automate data generation workflows with scheduling.
-
-```typescript
-import { AgenticSynth } from '@ruvector/agentic-synth';
-import { AgenticRobotics } from 'agentic-robotics';
-
-const synth = new AgenticSynth();
-const robotics = new AgenticRobotics();
-
-// Schedule hourly data generation
-await robotics.schedule({
-  task: 'generate-training-data',
-  interval: '1h',
-  action: async () => {
-    const data = await synth.generateBatch({ count: 1000 });
-    await robotics.store('training-data', data);
-  }
-});
-```
-
-**Links:**
-- 📦 [NPM Package](https://www.npmjs.com/package/agentic-robotics)
-- 🐙 [GitHub Repository](https://github.com/ruvnet/agentic-robotics)
+- 📦 [midstreamer](https://www.npmjs.com/package/midstreamer) · [agentic-robotics](https://www.npmjs.com/package/agentic-robotics)
 
 ---
 
@@ -1366,6 +1323,6 @@ npx @ruvector/agentic-synth interactive
 
 Part of the [ruv.io](https://ruv.io) open-source stack for RAG, agentic AI, NLP.
 
-- **Works with** (its runtime dependencies): [`agentic-robotics`](https://www.npmjs.com/package/agentic-robotics) (peer), [`dspy.ts`](https://www.npmjs.com/package/dspy.ts) (peer), [`midstreamer`](https://www.npmjs.com/package/midstreamer) (peer), [`ruvector`](https://www.npmjs.com/package/ruvector) (peer)
+- **Works with** (its runtime dependencies): [`@google/generative-ai`](https://www.npmjs.com/package/@google/generative-ai), [`commander`](https://www.npmjs.com/package/commander), [`dotenv`](https://www.npmjs.com/package/dotenv), [`zod`](https://www.npmjs.com/package/zod); optional peers [`ruvector`](https://www.npmjs.com/package/ruvector) and [`dspy.ts`](https://www.npmjs.com/package/dspy.ts)
 - **Used by** (published packages that depend on it): [`@ruvector/agentic-synth-examples`](https://www.npmjs.com/package/@ruvector/agentic-synth-examples), [`@ruvector/graph-data-generator`](https://www.npmjs.com/package/@ruvector/graph-data-generator), [`psycho-symbolic-integration`](https://www.npmjs.com/package/psycho-symbolic-integration)
 <!-- weaver:seo:links:end -->
