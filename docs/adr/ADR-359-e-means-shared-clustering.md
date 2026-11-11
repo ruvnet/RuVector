@@ -14,7 +14,10 @@ was corrected and its missing-route mutation fails. PQ/IVF validators inspect
 typed-array storage without caller-defined iterators. Local qualification of
 the archived-source WASM build passed native/MSRV, npm, installed-consumer,
 workerd and real Chromium checks; registry publication remains subject to the
-exact-source protected workflow and fresh public consumers.
+exact-source protected workflow and fresh public consumers. The minimum Node
+20.0 job now exercises actual Darwin tuning as well as the portable APIs;
+explicit TAP reporting and lock-bound offline tooling avoid reporter and npm
+metadata-cache assumptions.
 
 ## Context and scope
 
