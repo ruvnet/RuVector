@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 pub const EMBEDDED_POLICY: &str = include_str!("../../../config/weaver/weaver.toml");
 pub const EMBEDDED_CAPABILITIES: &str = include_str!("../../../config/weaver/capabilities.toml");
 pub const EMBEDDED_LEDGER: &str = include_str!("../../../config/weaver/ledger.jsonl");
+pub const EMBEDDED_TOPICS: &str = include_str!("../../../config/weaver/topics.toml");
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Policy {

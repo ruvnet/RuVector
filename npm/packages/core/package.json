@@ -1,15 +1,15 @@
 {
   "name": "@ruvector/core",
-  "version": "0.1.36",
-  "description": "High-performance vector database with HNSW indexing - 50k+ inserts/sec, built in Rust for AI/ML similarity search and semantic search applications",
+  "version": "0.1.39",
+  "description": "Vector database core with HNSW indexing, built in Rust with native Node.js bindings, for similarity search, semantic search and RAG.",
   "main": "index.js",
   "types": "index.d.ts",
   "author": "ruv.io Team <info@ruv.io> (https://ruv.io)",
   "homepage": "https://ruv.io",
   "repository": {
+    "directory": "npm/packages/core",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
-    "directory": "npm/packages/core"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
@@ -21,38 +21,43 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "README.md"
+    "README.md",
+    "clustering.mjs",
+    "clustering.d.mts",
+    "clustering/"
   ],
   "scripts": {
     "build:napi": "napi build --platform --release --cargo-cwd ../../../crates/ruvector-node",
-    "test": "node test.js",
+    "test": "node test.js && node test-retrieval.js",
     "publish:platforms": "node scripts/publish-platforms.js"
   },
   "devDependencies": {
     "@napi-rs/cli": "^2.18.0"
   },
+  "dependencies": {
+    "@ruvector/e-means": "0.1.0"
+  },
   "optionalDependencies": {
-    "ruvector-core-linux-x64-gnu": "0.1.34",
-    "ruvector-core-linux-arm64-gnu": "0.1.34",
-    "ruvector-core-darwin-x64": "0.1.34",
-    "ruvector-core-darwin-arm64": "0.1.34",
-    "ruvector-core-win32-x64-msvc": "0.1.34"
+    "ruvector-core-linux-x64-gnu": "0.1.35",
+    "ruvector-core-linux-arm64-gnu": "0.1.35",
+    "ruvector-core-darwin-x64": "0.1.35",
+    "ruvector-core-darwin-arm64": "0.1.35",
+    "ruvector-core-win32-x64-msvc": "0.1.35"
   },
   "publishConfig": {
     "access": "public"
   },
   "keywords": [
-    "ruvector",
     "vector-database",
     "vector-search",
-    "embeddings",
-    "semantic-search",
-    "similarity-search",
     "hnsw",
-    "approximate-nearest-neighbor",
-    "rag",
-    "napi",
+    "embeddings",
     "rust",
+    "napi",
+    "ruvector",
+    "ruvnet",
+    "semantic-search",
+    "rag",
     "simd"
   ]
 }

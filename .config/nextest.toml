@@ -8,13 +8,13 @@
 [profile.default]
 slow-timeout = { period = "120s", terminate-after = 5 }
 
-# The heavy CI shards (ml-research-heavy, core-and-rest-heavy) exist to host
-# legitimately long-running tests — e.g. ruvector-mincut::subpolynomial tests
-# and ruvector-nervous-system::pattern_separation_collision_rate exceed 10
-# minutes by design and were killed by the default cap on the first sharded
-# run of main. Give those packages a 90-minute per-test bound instead: still
-# far below the 240-minute job budget, so a genuine hang fails the job in
-# 1.5h rather than 4h.
+# The heavy CI shards (ml-research-heavy, core-and-rest-heavy) host tests that
+# can exceed the 10-minute default (ruvector-mincut determinism_tests,
+# ruvector-nervous-system::pattern_separation_collision_rate). They get a
+# 30-minute per-test bound. This was 90 minutes, which let the
+# ruvector-mincut::subpolynomial tests run 40+ minutes each on a redundant
+# LocalKCut loop (fixed) without ever failing; none needs more than ~10
+# minutes now (ledger ci:tests-shard-hang).
 [[profile.default.overrides]]
-filter = 'package(ruvector-attention) | package(ruvector-mincut) | package(ruvector-fpga-transformer) | package(ruvector-graph-transformer) | package(ruvllm) | package(ruvllm-cli) | package(ruvector-dag) | package(ruvector-nervous-system) | package(ruvector-math) | package(ruvector-consciousness) | package(prime-radiant) | package(mcp-brain) | package(ruvector-decompiler)'
-slow-timeout = { period = "300s", terminate-after = 18 }
+filter = 'package(ruvector-attention) | package(ruvector-mincut) | package(ruvector-fpga-transformer) | package(ruvector-graph-transformer) | package(ruvllm) | package(ruvllm-cli) | package(ruvector-dag) | package(ruvector-nervous-system) | package(ruvector-math) | package(ruvector-consciousness) | package(mcp-brain) | package(ruvector-decompiler)'
+slow-timeout = { period = "300s", terminate-after = 6 }

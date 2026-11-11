@@ -2,6 +2,10 @@
 
 # @ruvector/rvf
 
+<!-- weaver:seo:flow:start -->
+![@ruvector/rvf: vectors → RVF file → HNSW search → top-k results](https://raw.githubusercontent.com/ruvnet/ruvector/main/npm/packages/rvf/assets/ruvector-rvf-flow.svg)
+<!-- weaver:seo:flow:end -->
+
 Unified TypeScript/JavaScript SDK for the **RuVector Format (RVF)** — a cognitive container that stores vectors, carries models, boots compute kernels, and proves everything in a single `.rvf` file.
 
 ## Platform Support
@@ -124,7 +128,7 @@ Every instance method is async. `backend` is `'node' | 'wasm' | 'auto'` (default
 | `RvfDatabase.open(path, backend?)` | Open existing (read-write) |
 | `RvfDatabase.openReadonly(path, backend?)` | Open existing (read-only) |
 | `RvfDatabase.openBytes(bytes, backend?)` | Open from an in-memory `.rvf` buffer (WASM backend) |
-| `db.ingestBatch(entries)` | Insert `{ id: string, vector: Float32Array \| number[] }` entries |
+| `db.ingestBatch(entries)` | Insert or update `{ id: string, vector: Float32Array \| number[] }` entries. Re-ingesting an id updates it in place; an id repeated within one batch keeps its last entry |
 | `db.query(vector, k \| { k, efSearch, filter, timeoutMs, forceExact }, options?)` | k-NN search, returns `[{ id, distance }]` |
 | `db.delete(ids)` | Delete vectors by ID |
 | `db.deleteByFilter(filter)` | Delete vectors matching a filter expression |
@@ -132,7 +136,8 @@ Every instance method is async. `backend` is `'node' | 'wasm' | 'auto'` (default
 | `db.status()` | Store status (vector/segment counts, epoch, compaction state, ...) |
 | `db.fileId()` / `db.parentId()` | Hex identifiers of this file and its parent |
 | `db.lineageDepth()` | Derivation depth (0 for root files) |
-| `db.derive(childPath, options?)` | Create a child store that records this one as parent |
+| `db.derive(childPath, options?, derivationType?)` | Create a child store that records this one as parent and how it was derived (`'clone'`, `'filter'` (default), `'quantize'`, `'reindex'`, `'transform'`, `'snapshot'`, `'user_defined'`) |
+| `db.derivationType()` | How this store was derived, or `null` |
 | `db.branch(childPath)` | Durable copy-on-write branch that persists only child edits |
 | `db.freeze()` | Freeze this generation; returns the frozen epoch |
 | `db.embedKernel(arch, kernelType, flags, image, apiPort, cmdline?)` | Embed a kernel image |
@@ -141,11 +146,18 @@ Every instance method is async. `backend` is `'node' | 'wasm' | 'auto'` (default
 | `db.extractEbpf()` | Extract eBPF program (`{ header, payload }` or `null`) |
 | `db.segments()` | List all segments |
 | `db.dimension()` | Vector dimensionality |
+| `db.metric()` | Distance metric the store was created with (`'l2' \| 'cosine' \| 'dotproduct'`) |
 | `db.exportBytes()` | Serialize the store to bytes (WASM backend) |
 | `db.close()` / `db.isClosed` | Close the store / closed flag |
 
 The package also re-exports `RvfError`, `RvfErrorCode`, `NodeBackend`, `WasmBackend`,
 `resolveBackend`, and `RvfSolver` (from `@ruvector/rvf-solver`).
+
+For eligible Node stores (at least 1,024 vectors, not a COW branch, and without
+heavy deletion), await `db.close()` after ingestion. Close builds and persists
+the HNSW index even if no query has run, so a later read-only open can use the
+index on its first query. Building a large index can make close take longer.
+Smaller stores use the exact scan and do not need an index segment.
 
 ## WASM Exports
 
@@ -549,3 +561,18 @@ ls output/
 ## License
 
 MIT
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for vector database, vector search, HNSW.
+
+- **Works with** (its runtime dependencies): [`@ruvector/rvf-node`](https://www.npmjs.com/package/@ruvector/rvf-node), [`@ruvector/rvf-solver`](https://www.npmjs.com/package/@ruvector/rvf-solver), [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm)
+- **Used by** (published packages that depend on it): [`@metaharness/kernel`](https://www.npmjs.com/package/@metaharness/kernel), [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all), [`@ruvector/rvf-mcp-server`](https://www.npmjs.com/package/@ruvector/rvf-mcp-server), [`agentdb`](https://www.npmjs.com/package/agentdb), [`aidefence`](https://www.npmjs.com/package/aidefence), [`ruvector`](https://www.npmjs.com/package/ruvector)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

@@ -1,8 +1,8 @@
 {
   "name": "@ruvector/edge-net",
-  "version": "0.1.1",
+  "version": "0.5.4",
   "type": "module",
-  "description": "Distributed compute intelligence network - contribute browser compute, earn credits. Features Time Crystal coordination, Neural DAG attention, and P2P swarm intelligence.",
+  "description": "Distributed compute intelligence network with WASM cryptographic security - contribute browser compute, spawn distributed AI agents, earn credits.",
   "main": "ruvector_edge_net.js",
   "module": "ruvector_edge_net.js",
   "types": "ruvector_edge_net.d.ts",
@@ -12,32 +12,31 @@
     "edge-net-join": "./join.js"
   },
   "keywords": [
-    "wasm",
-    "distributed-computing",
-    "p2p",
-    "web-workers",
     "ai",
+    "ai-agents",
+    "wasm",
+    "p2p",
+    "neural-network",
+    "swarm",
+    "ruvector",
+    "ruvnet",
     "machine-learning",
-    "compute",
-    "credits",
-    "marketplace",
-    "browser",
-    "edge-computing",
+    "edge-ai",
     "vector-search",
     "embeddings",
     "cryptography",
-    "time-crystal",
-    "dag-attention",
-    "swarm-intelligence",
-    "neural-network"
+    "multi-agent",
+    "onnx",
+    "semantic-search"
   ],
   "author": "RuVector Team <team@ruvector.dev>",
   "license": "MIT",
   "repository": {
+    "directory": "examples/edge-net/pkg",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/examples/edge-net",
+  "homepage": "https://ruv.io",
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },

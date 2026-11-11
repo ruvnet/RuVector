@@ -10,6 +10,11 @@ use dashmap::DashMap;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
+/// At or below this many live vectors, HNSW's approximation is not worth its
+/// blind spots (ruvnet/RuVector#1298): a graph this small is scanned exactly,
+/// which also skips tombstones left behind by deletes.
+const EXACT_SEARCH_MAX_ELEMENTS: usize = 1_024;
+
 /// HNSW index wrapper
 pub struct HnswIndex {
     inner: Arc<RwLock<HnswInner>>,
@@ -194,7 +199,16 @@ impl HnswIndex {
             .collect();
 
         let id_to_idx: DashMap<VectorId, usize> = state.id_to_idx.into_iter().collect();
-        let idx_to_id: DashMap<usize, VectorId> = state.idx_to_id.into_iter().collect();
+        // Older snapshots retained reverse mappings for replaced versions.
+        // Reconstruct only each live ID's canonical current graph position.
+        let idx_to_id: DashMap<usize, VectorId> = state
+            .idx_to_id
+            .into_iter()
+            .filter(|(idx, id)| {
+                vectors_lookup.contains_key(id.as_str())
+                    && id_to_idx.get(id).is_some_and(|current| *current == *idx)
+            })
+            .collect();
 
         // Insert vectors into HNSW in index order for deterministic reconstruction.
         let mut sorted_entries: Vec<_> = idx_to_id
@@ -257,15 +271,46 @@ impl HnswIndex {
             return Ok(vec![]);
         }
 
-        // ef_search < k causes hnsw_rs to return fewer than k candidates; clamp.
-        let effective_ef = ef_search.max(k);
+        // On tiny indexes, scan the live vectors exactly. HNSW can return
+        // fewer than the stored rows (ruvnet/RuVector#1298), and a deleted
+        // node still occupies a graph slot, so a top-k cut made before
+        // filtering tombstones also drops live neighbours.
+        if inner.vectors.len() <= EXACT_SEARCH_MAX_ELEMENTS {
+            let mut results: Vec<SearchResult> = inner
+                .vectors
+                .iter()
+                .map(|entry| SearchResult {
+                    id: entry.key().clone(),
+                    score: distance(query, entry.value(), self.metric).unwrap_or(f32::MAX),
+                    vector: None,
+                    metadata: None,
+                })
+                .collect();
+            results.sort_unstable_by(|a, b| {
+                a.score
+                    .partial_cmp(&b.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            results.truncate(k);
+            return Ok(results);
+        }
 
-        let neighbors = inner.hnsw.search(query, k, effective_ef);
+        // ef_search < k causes the graph to return fewer than k candidates;
+        // clamp. Tombstoned nodes still have graph slots, so over-fetch enough
+        // candidates to fill k after they are filtered out.
+        let tombstones = inner.hnsw.len().saturating_sub(inner.vectors.len());
+        let wanted = k.saturating_add(tombstones);
+        let effective_ef = ef_search.max(wanted);
 
+        let neighbors = inner.hnsw.search(query, wanted, effective_ef);
+
+        // Only an id's live node answers for it (snapshots from older versions can still map superseded nodes).
         let mut results: Vec<SearchResult> = neighbors
             .into_iter()
             .filter_map(|(idx, distance)| {
-                inner.idx_to_id.get(&idx).map(|id| SearchResult {
+                let id = inner.idx_to_id.get(&idx)?;
+                let live = inner.id_to_idx.get(id.as_str()).is_some_and(|i| *i == idx);
+                live.then(|| SearchResult {
                     id: id.clone(),
                     score: distance,
                     vector: None,
@@ -274,12 +319,13 @@ impl HnswIndex {
             })
             .collect();
 
-        // hnsw_rs does not guarantee sort order — ensure ascending distance.
+        // The graph does not guarantee sort order — ensure ascending distance.
         results.sort_unstable_by(|a, b| {
             a.score
                 .partial_cmp(&b.score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
+        results.truncate(k);
 
         Ok(results)
     }
@@ -300,9 +346,11 @@ impl VectorIndex for HnswIndex {
 
         inner.hnsw.insert(&vector, idx);
 
-        // Store mappings
+        // Store mappings. Re-adding an id is an upsert: the old graph node becomes a tombstone.
         inner.vectors.insert(id.clone(), vector);
-        inner.id_to_idx.insert(id.clone(), idx);
+        if let Some(old) = inner.id_to_idx.insert(id.clone(), idx) {
+            inner.idx_to_id.remove(&old);
+        }
         inner.idx_to_id.insert(idx, id);
 
         Ok(())
@@ -334,10 +382,12 @@ impl VectorIndex for HnswIndex {
             .collect();
         inner.hnsw.insert_batch(&items);
 
-        // Store mappings
+        // Store mappings; an id seen earlier (in the index or this batch) keeps only its newest node.
         for (id, idx, vector) in data_with_ids {
             inner.vectors.insert(id.clone(), vector);
-            inner.id_to_idx.insert(id.clone(), idx);
+            if let Some(old) = inner.id_to_idx.insert(id.clone(), idx) {
+                inner.idx_to_id.remove(&old);
+            }
             inner.idx_to_id.insert(idx, id);
         }
 

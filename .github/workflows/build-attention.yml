@@ -14,6 +14,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - '.github/workflows/build-attention.yml'
       - 'crates/ruvector-attention/**'
       - 'crates/ruvector-attention-node/**'
   workflow_dispatch:
@@ -27,10 +28,12 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: x86_64-unknown-linux-gnu
             platform: linux-x64-gnu
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
           - host: macos-15
@@ -45,8 +48,18 @@ jobs:
 
     name: Build ${{ matrix.settings.platform }}
     runs-on: ${{ matrix.settings.host }}
+    container: ${{ matrix.settings.container }}
 
     steps:
+      - name: Bootstrap ubuntu:22.04 build container (keeps the glibc floor)
+        if: ${{ matrix.settings.container != '' }}
+        shell: bash
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            sudo git curl wget ca-certificates build-essential pkg-config xz-utils unzip zip python3 jq file \
+            libssl-dev cmake clang libclang-dev
+          git config --global --add safe.directory '*'
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
@@ -94,11 +107,16 @@ jobs:
       - name: Copy to platform package
         shell: bash
         run: |
-          # Find the built .node file (exclude committed npm/ platform binaries)
-          NODE_FILE=$(find crates/ruvector-attention-node -name "*.node" -type f ! -path "*/npm/*" | head -1)
+          # napi --platform writes exactly attention.<platform>.node at the crate
+          # root. Do NOT `find` for it: `npm install` above pulls the host's
+          # previously published @ruvector/attention-<host> binary into
+          # node_modules, and a find | head -1 picked that stale host-arch file
+          # (linux-arm64-gnu shipped an x86-64 binary, darwin-x64 an arm64 one).
+          NODE_FILE="crates/ruvector-attention-node/attention.${{ matrix.settings.platform }}.node"
 
-          if [ -z "$NODE_FILE" ]; then
-            echo "ERROR: No .node file found"
+          if [ ! -f "$NODE_FILE" ]; then
+            echo "ERROR: expected napi output $NODE_FILE not found"
+            ls -la crates/ruvector-attention-node/*.node || true
             exit 1
           fi
 
@@ -141,7 +159,7 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
-          NODE_FILE=$(find crates/ruvector-attention-node -name "*.node" -type f ! -path "*/npm/*" | head -1)
+          NODE_FILE="crates/ruvector-attention-node/attention.${{ matrix.settings.platform }}.node"
           echo "Testing: $NODE_FILE"
           node -e "
             const native = require('./$NODE_FILE');
@@ -161,6 +179,25 @@ jobs:
           git checkout -- index.js index.d.ts
           node --test test/*.test.js
 
+      - name: Assert binary architecture matches the platform
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          F="crates/ruvector-attention-node/npm/${{ matrix.settings.platform }}/attention.${{ matrix.settings.platform }}.node"
+          desc=$(file -b "$F"); echo "$F: $desc"
+          case "${{ matrix.settings.platform }}" in
+            linux-x64-gnu)   want='ELF 64-bit.*x86-64' ;;
+            linux-arm64-gnu) want='ELF 64-bit.*(ARM aarch64|aarch64)' ;;
+            darwin-x64)      want='Mach-O 64-bit.*x86_64' ;;
+            darwin-arm64)    want='Mach-O 64-bit.*arm64' ;;
+          esac
+          echo "$desc" | grep -Eq "$want" || { echo "::error::$F is not a ${{ matrix.settings.platform }} binary: $desc"; exit 1; }
+
+      - name: Gate linux-arm64 binary (no LDAPR, GLIBC <= 2.34)
+        if: matrix.settings.platform == 'linux-arm64-gnu'
+        shell: bash
+        run: bash scripts/ci/check-arm64-node-binary.sh crates/ruvector-attention-node/npm/linux-arm64-gnu/attention.linux-arm64-gnu.node
+
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -170,7 +207,7 @@ jobs:
 
   build-wasm:
     name: Build WASM
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -205,7 +242,7 @@ jobs:
 
   commit-binaries:
     name: Commit Built Binaries
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [build, build-wasm]
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     permissions:
@@ -272,7 +309,7 @@ jobs:
 
   publish:
     name: Publish Attention Platform Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [build, build-wasm]
     if: startsWith(github.ref, 'refs/tags/v')
 
@@ -370,7 +407,9 @@ jobs:
             "keywords": ["ruvector", "attention", "transformer", "napi-rs"],
             "author": "rUv <ruv@ruv.io>",
             "license": "MIT OR Apache-2.0",
-            "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector"},
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "crates/ruvector-attention-node/npm/${platform}"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"},
             "engines": {"node": ">= 10"},
             "publishConfig": {"registry": "https://registry.npmjs.org/", "access": "public"}
           }

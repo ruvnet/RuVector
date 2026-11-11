@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="300" viewBox="0 0 1000 300" role="img" aria-labelledby="t d">
+<title id="t">How @ruvector/rvf-mcp-server answers a search</title>
+<desc id="d">An MCP client sends tools/call rvf_query over stdio. The server resolves the store inside its data directory, searches the HNSW index of the .rvf file, and returns results ranked by distance.</desc>
+<style>
+text{font-family:Arial,Helvetica,sans-serif}
+.h{fill:#f2f6ff;font-size:17px;font-weight:bold}
+.s{fill:#abbad0;font-size:13px}
+.m{fill:#8297b1;font-size:12px;font-family:Menlo,Consolas,monospace}
+.box{fill:#111e32;stroke:#223047;stroke-width:1.5}
+.req{fill:none;stroke:#5cf2c3;stroke-width:2;stroke-dasharray:8 7;animation:flow 2.4s linear infinite}
+.res{fill:none;stroke:#bd9bff;stroke-width:2;stroke-dasharray:8 7;animation:flow 2.4s linear infinite reverse}
+.pk{animation:pulse 4.8s ease-in-out infinite}
+.n{fill:#5cf2c3}
+.e{fill:none;stroke:#5cf2c3;stroke-width:1.2;opacity:.55}
+.r1,.r2,.r3{opacity:0;animation:show 4.8s ease-in-out infinite}
+.r2{animation-delay:.25s}.r3{animation-delay:.5s}
+@keyframes flow{to{stroke-dashoffset:-60}}
+@keyframes pulse{0%,100%{opacity:.35}30%,60%{opacity:1}}
+@keyframes show{0%,45%{opacity:0}60%,92%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.req,.res,.pk,.r1,.r2,.r3{animation:none;opacity:1}}
+</style>
+<rect width="1000" height="300" rx="18" fill="#0c1324"/>
+<text x="30" y="34" fill="#5cf2c3" font-size="13" letter-spacing="3">LOCAL VECTOR SEARCH VIA MCP</text>
+
+<rect class="box" x="30" y="70" width="210" height="150" rx="12"/>
+<text class="h" x="50" y="102">MCP client</text>
+<text class="s" x="50" y="126">Claude Code, Cursor, or</text>
+<text class="s" x="50" y="144">an SDK client script</text>
+<text class="m" x="50" y="190">stdio JSON-RPC</text>
+
+<rect class="box" x="370" y="70" width="230" height="150" rx="12"/>
+<text class="h" x="390" y="102">rvf-mcp-server</text>
+<text class="s" x="390" y="126">resolves the store path</text>
+<text class="s" x="390" y="144">inside --data-dir</text>
+<text class="m" x="390" y="190">rvf_open_store</text>
+<text class="m" x="390" y="206">rvf_query</text>
+
+<rect class="box" x="730" y="70" width="240" height="150" rx="12"/>
+<text class="h" x="750" y="102">docs.rvf</text>
+<text class="s" x="750" y="122">HNSW index via @ruvector/rvf</text>
+<g class="pk">
+<path class="e" d="M770 150L810 135L850 160L890 140L930 170M810 135L850 160M770 150L800 185L850 160L880 195M890 140L880 195"/>
+<circle class="n" cx="770" cy="150" r="4"/><circle class="n" cx="810" cy="135" r="4"/><circle class="n" cx="850" cy="160" r="5"/>
+<circle class="n" cx="890" cy="140" r="4"/><circle class="n" cx="930" cy="170" r="4"/><circle class="n" cx="800" cy="185" r="4"/><circle class="n" cx="880" cy="195" r="4"/>
+</g>
+
+<path class="req" d="M240 120H370"/>
+<path class="req" d="M600 120H730"/>
+<text class="m" x="252" y="110">tools/call</text>
+<text class="m" x="612" y="110">k-NN query</text>
+<path class="res" d="M240 170H370"/>
+<path class="res" d="M600 170H730"/>
+<text class="m" x="252" y="188" fill="#bd9bff">results</text>
+<text class="m" x="612" y="188" fill="#bd9bff">ids + distances</text>
+
+<rect class="box" x="30" y="236" width="940" height="48" rx="10"/>
+<text class="s" x="50" y="265">ranked by distance (closest first):</text>
+<text class="m r1" x="290" y="265" fill="#f2f6ff">1. nearest id</text>
+<text class="m r2" x="440" y="265" fill="#f2f6ff">2. next id</text>
+<text class="m r3" x="580" y="265" fill="#f2f6ff">3. next id …</text>
+</svg>

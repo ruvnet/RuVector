@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -72,4 +72,28 @@ test('pretrain treats repository file and directory names as data, not object ke
     assert.equal(typeof p.action, 'string', `pattern ${key} has a non-string action`);
     assert.match(p.action, /^[a-z][a-z-]*$/, `pattern ${key} has action ${JSON.stringify(p.action)}`);
   }
+});
+
+test('file_sequences keys from a project store cannot pollute Object.prototype', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruvector-store-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const proj = path.join(root, 'proj');
+  fs.mkdirSync(path.join(proj, '.ruvector'), { recursive: true });
+  fs.writeFileSync(path.join(proj, '.ruvector', 'intelligence.json'), JSON.stringify({
+    patterns: {}, memories: [], trajectories: [], errors: {}, stats: {},
+    file_sequences: [
+      { from_file: '__proto__', to_file: 'ruvectorPolluted', count: 1 },
+      { from_file: 'constructor', to_file: 'prototype', count: 1 },
+      { from_file: 'a.js', to_file: 'b.js', count: 2 },
+    ],
+  }));
+  // Report Object.prototype state when the CLI process exits.
+  const probe = path.join(root, 'probe.cjs');
+  fs.writeFileSync(probe, "process.on('exit', () => process.stderr.write('\\nPROTO=' + JSON.stringify([({}).ruvectorPolluted, Object.prototype.hasOwnProperty('prototype')]) + '\\n'));");
+  const env = { ...process.env, NO_COLOR: '1' };
+  // force-learn initializes the engine, which imports the legacy store.
+  const r = spawnSync(process.execPath, ['-r', probe, CLI, 'hooks', 'force-learn'], { cwd: proj, env, encoding: 'utf8', timeout: 120000 });
+  const m = /PROTO=(.*)/.exec(r.stderr || '');
+  assert.ok(m, `probe did not run: ${r.stderr}`);
+  assert.deepEqual(JSON.parse(m[1]), [null, false], 'store keys were written onto Object.prototype');
 });

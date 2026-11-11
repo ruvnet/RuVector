@@ -1,7 +1,8 @@
 {
   "name": "@ruvector/rvforge",
-  "version": "0.2.0",
-  "description": "RVForge — one canonical RVF to signed platform installers",
+  "version": "0.2.1",
+  "description": "Provenance: RVForge — one canonical RVF to signed platform installers",
+  "homepage": "https://ruv.io",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -27,20 +28,32 @@
     "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
-    "rvf",
-    "rvforge",
-    "packaging",
-    "installer",
-    "tauri",
     "provenance",
-    "signing"
+    "vector-database",
+    "vector-search",
+    "ruvector",
+    "ruvnet",
+    "rvforge",
+    "hnsw",
+    "embeddings",
+    "rag",
+    "semantic-search",
+    "knowledge-graph",
+    "gnn",
+    "graph-embeddings",
+    "link-prediction",
+    "attention",
+    "local-llm"
   ],
   "author": "RuVector Team",
   "license": "MIT",
   "repository": {
+    "directory": "npm/packages/rvforge",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
-    "directory": "npm/packages/forge"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
   },
   "publishConfig": {
     "access": "public"

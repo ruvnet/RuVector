@@ -29,12 +29,12 @@ export const PluginManifestSchema = z.object({
   main: z.string().default('index.js'),
   types: z.string().optional(),
   keywords: z.array(z.string()).default([]),
-  dependencies: z.record(z.string()).default({}),
-  peerDependencies: z.record(z.string()).default({}),
+  dependencies: z.record(z.string(), z.string()).default({}),
+  peerDependencies: z.record(z.string(), z.string()).default({}),
   engines: z.object({
     ruvbot: z.string().default('>=0.1.0'),
     node: z.string().default('>=18.0.0'),
-  }).default({}),
+  }).prefault({}),
   permissions: z.array(z.enum([
     'memory:read',
     'memory:write',
@@ -53,7 +53,7 @@ export const PluginManifestSchema = z.object({
     onUnload: z.string().optional(),
     onMessage: z.string().optional(),
     onSkillInvoke: z.string().optional(),
-  }).default({}),
+  }).prefault({}),
 });
 
 export type PluginManifest = z.infer<typeof PluginManifestSchema>;

@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/diskann",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "DiskANN/Vamana — SSD-friendly billion-scale approximate nearest neighbor search with product quantization",
   "main": "index.js",
   "types": "index.d.ts",
@@ -42,14 +42,19 @@
   "keywords": [
     "diskann",
     "vamana",
-    "ann",
-    "approximate-nearest-neighbor",
     "vector-search",
+    "approximate-nearest-neighbor",
+    "ann",
     "product-quantization",
+    "quantization",
     "ssd",
-    "billion-scale",
+    "vector-database",
+    "embeddings",
+    "rag",
+    "semantic-search",
     "rust",
     "napi",
-    "ruvector"
+    "ruvector",
+    "ruvnet"
   ]
 }

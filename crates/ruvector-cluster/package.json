@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/cluster",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Distributed clustering and coordination for RuVector - auto-sharding, Raft consensus integration",
   "main": "index.js",
   "types": "index.d.ts",
@@ -13,21 +13,32 @@
     "test": "cargo test"
   },
   "repository": {
+    "directory": "crates/ruvector-cluster",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
   "keywords": [
-    "cluster",
-    "distributed",
-    "sharding",
-    "raft",
     "consensus",
-    "vector-database"
+    "distributed-systems",
+    "vector-database",
+    "ruvector",
+    "ruvnet",
+    "cluster",
+    "vector-search",
+    "hnsw",
+    "embeddings",
+    "rag",
+    "semantic-search",
+    "knowledge-graph",
+    "gnn",
+    "graph-embeddings",
+    "link-prediction",
+    "attention"
   ],
   "author": "rUv",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },
-  "homepage": "https://github.com/ruvnet/ruvector"
+  "homepage": "https://ruv.io"
 }

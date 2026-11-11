@@ -272,3 +272,12 @@ MIT License - see [LICENSE](https://github.com/ruvnet/ruvector/blob/main/LICENSE
 ---
 
 Built with ❤️ by the [ruv.io](https://ruv.io) team
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for vector database, vector search, HNSW.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@claude-flow/embeddings`](https://www.npmjs.com/package/@claude-flow/embeddings) (peer), [`@ruvector/node`](https://www.npmjs.com/package/@ruvector/node), [`claude-flow`](https://www.npmjs.com/package/claude-flow) (optional), [`ruvector`](https://www.npmjs.com/package/ruvector)
+<!-- weaver:seo:links:end -->

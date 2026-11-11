@@ -1,7 +1,8 @@
 {
   "name": "@ruvector/gnn",
-  "version": "0.1.26",
-  "description": "Graph Neural Network capabilities for Ruvector - Node.js bindings",
+  "version": "0.1.28",
+  "description": "Graph neural network (GNN) layers for RuVector: native Node.js bindings for message passing and graph-aware vector search.",
+  "homepage": "https://ruv.io",
   "main": "index.js",
   "types": "index.d.ts",
   "files": [
@@ -32,19 +33,27 @@
     "version": "napi version"
   },
   "keywords": [
-    "ruvector",
     "gnn",
-    "graph-neural-network",
     "machine-learning",
     "vector-database",
+    "napi",
+    "rust",
+    "ruvector",
+    "ruvnet",
     "hnsw",
-    "napi-rs"
+    "nodejs",
+    "graph",
+    "neural-network"
   ],
   "author": "Ruvector Team",
   "license": "MIT",
   "repository": {
+    "directory": "crates/ruvector-gnn-node",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
   },
   "devDependencies": {
     "@napi-rs/cli": "^2.16.0"
@@ -57,11 +66,11 @@
     "access": "public"
   },
   "optionalDependencies": {
-    "@ruvector/gnn-linux-x64-gnu": "0.1.26",
-    "@ruvector/gnn-linux-x64-musl": "0.1.26",
-    "@ruvector/gnn-linux-arm64-gnu": "0.1.26",
-    "@ruvector/gnn-darwin-x64": "0.1.26",
-    "@ruvector/gnn-darwin-arm64": "0.1.26",
-    "@ruvector/gnn-win32-x64-msvc": "0.1.26"
+    "@ruvector/gnn-linux-x64-gnu": "0.1.28",
+    "@ruvector/gnn-linux-x64-musl": "0.1.28",
+    "@ruvector/gnn-linux-arm64-gnu": "0.1.28",
+    "@ruvector/gnn-darwin-x64": "0.1.28",
+    "@ruvector/gnn-darwin-arm64": "0.1.28",
+    "@ruvector/gnn-win32-x64-msvc": "0.1.28"
   }
 }

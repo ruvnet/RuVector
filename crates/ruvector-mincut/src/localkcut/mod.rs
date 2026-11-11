@@ -362,10 +362,10 @@ impl LocalKCut {
 
         // Find all edges crossing the cut
         for &v in vertices {
-            for (neighbor, edge_id) in self.graph.neighbors(v) {
+            for (neighbor, _) in self.graph.neighbors(v) {
                 if !vertices.contains(&neighbor) {
                     // This edge crosses the cut
-                    if let Some(edge) = self.graph.edges().iter().find(|e| e.id == edge_id) {
+                    if let Some(edge) = self.graph.get_edge(v, neighbor) {
                         cut_edges.push((v, neighbor));
                         cut_value += edge.weight;
                     }
@@ -768,6 +768,88 @@ mod tests {
             assert!(cut.cut_value > 0.0);
             assert!(!cut.cut_edges.is_empty());
         }
+    }
+
+    // Reference implementation retained in tests to protect the indexed lookup's
+    // weighted cut semantics. The production path must not call `edges()` per
+    // boundary adjacency: that materializes and scans the entire graph each time.
+    fn check_cut_by_scan(
+        graph: &DynamicGraph,
+        vertices: &HashSet<VertexId>,
+        k: usize,
+    ) -> Option<LocalCutResult> {
+        if vertices.is_empty() || vertices.len() >= graph.num_vertices() {
+            return None;
+        }
+        let mut cut_edges = Vec::new();
+        let mut cut_value = 0.0;
+        for &v in vertices {
+            for (neighbor, edge_id) in graph.neighbors(v) {
+                if !vertices.contains(&neighbor) {
+                    if let Some(edge) = graph.edges().iter().find(|e| e.id == edge_id) {
+                        cut_edges.push((v, neighbor));
+                        cut_value += edge.weight;
+                    }
+                }
+            }
+        }
+        (cut_value <= k as f64)
+            .then(|| LocalCutResult::new(cut_value, vertices.clone(), cut_edges, false, 0))
+    }
+
+    fn dense_weighted_fixture() -> (Arc<DynamicGraph>, HashSet<VertexId>) {
+        let graph = Arc::new(DynamicGraph::new());
+        // Fixed-seed, reproducible 512-vertex / 16384-edge fixture. The crossing
+        // edges have different weights, so a lookup error changes the result.
+        const SEED: u64 = 0x5eed;
+        for u in 0..512 {
+            for offset in 1..=32 {
+                let v = (u + offset) % 512;
+                let weight = 1.0 + ((u * 17 + offset * 31 + SEED) % 13) as f64 / 4.0;
+                graph.insert_edge(u, v, weight).unwrap();
+            }
+        }
+        let cut_set = (0..256).collect();
+        (graph, cut_set)
+    }
+
+    #[test]
+    fn test_check_cut_matches_weighted_scan() {
+        let (graph, cut_set) = dense_weighted_fixture();
+        let finder = LocalKCut::new(graph.clone(), 10_000);
+        let expected = check_cut_by_scan(&graph, &cut_set, 10_000).unwrap();
+        let actual = finder.check_cut(&cut_set).unwrap();
+
+        assert_eq!(actual.cut_set, expected.cut_set);
+        assert_eq!(actual.cut_value, expected.cut_value);
+        let mut actual_edges = actual.cut_edges;
+        let mut expected_edges = expected.cut_edges;
+        actual_edges.sort_unstable();
+        expected_edges.sort_unstable();
+        assert_eq!(actual_edges, expected_edges);
+    }
+
+    #[test]
+    #[ignore = "run explicitly to compare the legacy scan against indexed lookup"]
+    fn bench_check_cut_dense_indexed_vs_scan() {
+        use std::hint::black_box;
+        use std::time::Instant;
+
+        let (graph, cut_set) = dense_weighted_fixture();
+        let finder = LocalKCut::new(graph.clone(), 10_000);
+        let start = Instant::now();
+        let expected = black_box(check_cut_by_scan(&graph, &cut_set, 10_000));
+        let scan = start.elapsed();
+        let start = Instant::now();
+        let actual = black_box(finder.check_cut(&cut_set));
+        let indexed = start.elapsed();
+        assert_eq!(actual.unwrap().cut_value, expected.unwrap().cut_value);
+        let speedup = scan.as_secs_f64() / indexed.as_secs_f64();
+        eprintln!("dense cut: scan={scan:?}, indexed={indexed:?}, speedup={speedup:.1}x");
+        assert!(
+            speedup >= 100.0,
+            "expected >=100x speedup on the dense fixture"
+        );
     }
 
     #[test]

@@ -9,6 +9,15 @@
     "rvf-node.win32-x64-msvc.node"
   ],
   "description": "RuVector Format Node.js native bindings",
+  "homepage": "https://ruv.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "crates/rvf/rvf-node/npm/win32-x64-msvc"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
+  },
   "license": "MIT",
   "os": [
     "win32"

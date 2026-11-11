@@ -57,7 +57,7 @@ for (const platform of platforms) {
     version: version,
     description: 'RuVector Graph Node.js bindings for ' + platform.name,
     main: 'ruvector-graph.node',
-    files: ['ruvector-graph.node'],
+    files: ['ruvector-graph.node', 'README.md'],
     os: platform.name.includes('linux') ? ['linux'] :
         platform.name.includes('darwin') ? ['darwin'] :
         platform.name.includes('win32') ? ['win32'] : [],
@@ -65,17 +65,31 @@ for (const platform of platforms) {
          platform.name.includes('arm64') ? ['arm64'] : [],
     engines: { node: '>=18.0.0' },
     license: 'MIT',
+    // Platform packages share the parent's page (ADR-356): same homepage,
+    // repository directory and issue tracker as @ruvector/graph-node.
+    homepage: 'https://ruv.io',
     repository: {
       type: 'git',
-      url: 'https://github.com/ruvnet/ruvector.git',
+      url: 'git+https://github.com/ruvnet/ruvector.git',
       directory: 'npm/packages/graph-node'
     },
+    bugs: { url: 'https://github.com/ruvnet/ruvector/issues' },
+    keywords: ['ruvector', 'graph-database', 'cypher', 'hypergraph', 'napi', 'native-addon', 'prebuilt-binary', platform.name],
     publishConfig: { access: 'public' }
   };
 
   fs.writeFileSync(
     path.join(tmpDir, 'package.json'),
     JSON.stringify(pkgJson, null, 2)
+  );
+
+  // A platform package has no docs of its own: point at the parent's README.
+  fs.writeFileSync(
+    path.join(tmpDir, 'README.md'),
+    '# ' + pkgName + '\n\n' +
+      'Prebuilt ' + platform.name + ' native binary for [`@ruvector/graph-node`](https://www.npmjs.com/package/@ruvector/graph-node). ' +
+      'You do not install this package directly: `npm install @ruvector/graph-node` selects it for your platform.\n\n' +
+      'Quickstart, API and supported platforms: [@ruvector/graph-node README](https://github.com/ruvnet/ruvector/tree/main/npm/packages/graph-node#readme). Homepage: [ruv.io](https://ruv.io).\n'
   );
 
   // Copy the .node file

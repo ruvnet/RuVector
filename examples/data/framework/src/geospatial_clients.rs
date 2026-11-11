@@ -1034,6 +1034,7 @@ impl Default for OpenElevationClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::physics_clients::GeoUtils;
 
     #[tokio::test]
     async fn test_nominatim_client_creation() {

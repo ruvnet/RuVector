@@ -410,12 +410,31 @@ class NodeBackend {
             throw errors_1.RvfError.fromNative(err);
         }
     }
-    async derive(childPath, options) {
+    async derivationType() {
         this.ensureHandle();
+        if (typeof this.handle.derivationType !== 'function') {
+            return null; // @ruvector/rvf-node < 0.4.7 records no derivation type
+        }
+        try {
+            return this.handle.derivationType();
+        }
+        catch (err) {
+            throw errors_1.RvfError.fromNative(err);
+        }
+    }
+    async derive(childPath, options, derivationType) {
+        this.ensureHandle();
+        if (derivationType !== undefined && typeof this.handle.derivationType !== 'function') {
+            // An older addon would silently ignore the argument and record 'filter'.
+            throw new errors_1.RvfError(errors_1.RvfErrorCode.InvalidArgument, 'derive(…, derivationType) needs @ruvector/rvf-node >= 0.4.7');
+        }
         let childHandle = null;
         try {
             const nativeOpts = options ? mapOptionsToNative(options) : undefined;
-            childHandle = this.handle.derive(childPath, nativeOpts);
+            childHandle =
+                derivationType === undefined
+                    ? this.handle.derive(childPath, nativeOpts)
+                    : this.handle.derive(childPath, nativeOpts ?? null, derivationType);
             const child = new NodeBackend();
             child.native = this.native;
             child.handle = childHandle;
@@ -532,6 +551,15 @@ class NodeBackend {
         this.ensureHandle();
         try {
             return this.handle.dimension();
+        }
+        catch (err) {
+            throw errors_1.RvfError.fromNative(err);
+        }
+    }
+    async metric() {
+        this.ensureHandle();
+        try {
+            return metricFromNative(this.handle.metric());
         }
         catch (err) {
             throw errors_1.RvfError.fromNative(err);
@@ -885,6 +913,8 @@ class WasmBackend {
         /** Integer store handle returned by `rvf_store_create` / `rvf_store_open`. */
         this.handle = 0;
         this.dim = 0;
+        /** Metric given to create(); unknown for stores loaded with openBytes(). */
+        this.storeMetric = null;
     }
     async loadWasm() {
         if (this.wasm)
@@ -926,6 +956,7 @@ class WasmBackend {
                 throw new Error('rvf_store_create returned ' + h);
             this.handle = h;
             this.dim = dim;
+            this.storeMetric = options.metric ?? 'l2';
         }
         catch (err) {
             throw errors_1.RvfError.fromNative(err);
@@ -1059,8 +1090,11 @@ class WasmBackend {
     async lineageDepth() {
         throw new errors_1.RvfError(errors_1.RvfErrorCode.BackendNotFound, 'lineageDepth not supported in WASM backend');
     }
-    async derive(_childPath, _options) {
+    async derive(_childPath, _options, _derivationType) {
         throw new errors_1.RvfError(errors_1.RvfErrorCode.BackendNotFound, 'derive not supported in WASM backend');
+    }
+    async derivationType() {
+        throw new errors_1.RvfError(errors_1.RvfErrorCode.BackendNotFound, 'derivationType not supported in WASM backend');
     }
     async branch(_childPath) {
         throw new errors_1.RvfError(errors_1.RvfErrorCode.BackendNotFound, 'branch not supported in WASM backend');
@@ -1089,6 +1123,13 @@ class WasmBackend {
         if (d < 0)
             throw new errors_1.RvfError(errors_1.RvfErrorCode.StoreClosed);
         return d;
+    }
+    async metric() {
+        this.ensureHandle();
+        if (this.storeMetric === null) {
+            throw new errors_1.RvfError(errors_1.RvfErrorCode.BackendNotFound, 'metric is not recorded for a WASM store loaded from bytes');
+        }
+        return this.storeMetric;
     }
     /**
      * Serialize the in-memory store to `.rvf` bytes via the `rvf_store_export`
@@ -1132,6 +1173,7 @@ class WasmBackend {
                     throw new Error('rvf_store_open returned ' + h);
                 this.handle = h;
                 this.dim = this.wasm.rvf_store_dimension(h);
+                this.storeMetric = null;
             }
             finally {
                 this.wasm.rvf_free(ptr, bytes.byteLength);
@@ -1171,6 +1213,21 @@ function resolveBackend(type) {
 // ---------------------------------------------------------------------------
 // Mapping helpers (TS options -> native/wasm shapes)
 // ---------------------------------------------------------------------------
+/** Map the native metric name (`l2`, `inner_product`, `cosine`) to the SDK's. */
+function metricFromNative(raw) {
+    switch (String(raw).toLowerCase()) {
+        case 'cosine':
+            return 'cosine';
+        case 'inner_product':
+        case 'innerproduct':
+        case 'dotproduct':
+            return 'dotproduct';
+        case 'l2':
+            return 'l2';
+        default:
+            throw new errors_1.RvfError(errors_1.RvfErrorCode.InvalidArgument, `unknown native metric ${String(raw)}`);
+    }
+}
 function mapMetricToNative(metric) {
     switch (metric) {
         case 'cosine':

@@ -12,6 +12,7 @@
     "ruvector-gnn.linux-arm64-gnu.node"
   ],
   "description": "Graph Neural Network capabilities for Ruvector - linux-arm64-gnu platform",
+  "homepage": "https://ruv.io",
   "keywords": [
     "ruvector",
     "gnn",
@@ -23,7 +24,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector"
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "crates/ruvector-gnn-node/npm/linux-arm64-gnu"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
   },
   "engines": {
     "node": ">= 18"
