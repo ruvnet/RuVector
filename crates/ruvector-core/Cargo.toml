@@ -8,6 +8,9 @@ authors.workspace = true
 repository.workspace = true
 readme = "README.md"
 description = "High-performance Rust vector database core with HNSW indexing"
+homepage = "https://ruv.io"
+keywords = ["vector-database", "hnsw", "ann", "embeddings", "quantization"]
+categories = ["database-implementations", "algorithms", "data-structures"]
 
 [dependencies]
 # Core functionality
