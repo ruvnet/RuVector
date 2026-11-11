@@ -67,14 +67,87 @@ def protected(source):
         raise ValueError('Open release blockers')
 
 
-def execute(args, cwd, base, commands, kind=None, env=None):
+# These are the required publication gates, not caller-provided receipt claims.
+# Portable paths keep the owned command proof valid after the sealed artifact is
+# transferred from the preflight runner to the protected publication runner.
+SOURCE = '${SOURCE}'
+CANDIDATE = '${CANDIDATE}'
+RUST = f'{CANDIDATE}/extracted/{CRATE}-{VERSION}'
+QUALIFICATION = {
+    'rust-source': (['cargo', 'test', '--locked', '-p', CRATE, '--all-features', '--lib', '--tests'], SOURCE, 'rust', 4),
+    'core-adapter': (['cargo', 'test', '--locked', '-p', 'ruvector-core', '--no-default-features', '--test', 'e_means_quantization'], SOURCE, 'rust', 1),
+    'pq-adapter': (['cargo', 'test', '--locked', '-p', 'ruvector-pq-search', '--test', 'e_means'], SOURCE, 'rust', 1),
+    'rairs-adapter': (['cargo', 'test', '--locked', '-p', 'ruvector-rairs', '--test', 'e_means'], SOURCE, 'rust', 1),
+    'clippy': (['cargo', 'clippy', '--locked', '-p', CRATE, '--all-features', '--all-targets', '--', '-D', 'warnings'], SOURCE, None, None),
+    'rust-package': (['cargo', 'package', '--locked', '-p', CRATE, '--target-dir', f'{CANDIDATE}/package-build'], SOURCE, None, None),
+    'rust-audit': (['cargo', 'audit', '--file', f'{RUST}/Cargo.lock', '--deny', 'warnings'], SOURCE, None, None),
+    'rust-msrv': (['cargo', '+1.81.0', 'check', '--locked', '--manifest-path', f'{RUST}/Cargo.toml', '--no-default-features', '--target-dir', f'{CANDIDATE}/msrv-target'], SOURCE, None, None),
+    'rust-packed': (['cargo', 'test', '--locked', '--manifest-path', f'{RUST}/Cargo.toml', '--all-features', '--lib', '--tests', '--target-dir', f'{CANDIDATE}/packed-target'], SOURCE, 'rust', 4),
+    'wasm-build': (['cargo', 'build', '--locked', '--manifest-path', f'{RUST}/Cargo.toml', '--release', '--target', 'wasm32-unknown-unknown', '--features', 'wasm', '--target-dir', f'{CANDIDATE}/wasm-target'], SOURCE, None, None),
+    'wasm-bindgen': (['wasm-bindgen', f'{CANDIDATE}/wasm-target/wasm32-unknown-unknown/release/ruvector_e_means.wasm', '--target', 'web', '--out-dir', f'{CANDIDATE}/npm-source/wasm', '--out-name', 'ruvector_e_means'], SOURCE, None, None),
+    'npm-install': (['npm', 'ci', '--ignore-scripts', '--workspaces=false', '--no-audit', '--no-fund'], f'{CANDIDATE}/npm-source', None, None),
+    'npm-audit': (['npm', 'audit', '--audit-level=low', '--workspaces=false'], f'{CANDIDATE}/npm-source', None, None),
+    'npm-tests': (['npm', 'test', '--workspaces=false'], f'{CANDIDATE}/npm-source', 'node', None),
+    'npm-types': (['npm', 'run', 'typecheck', '--workspaces=false'], f'{CANDIDATE}/npm-source', None, None),
+    'npm-consumer': (['npm', 'run', 'test:consumer', '--workspaces=false'], f'{CANDIDATE}/npm-source', 'consumer', None),
+    'npm-browser': (['npm', 'run', 'test:browser', '--workspaces=false'], f'{CANDIDATE}/npm-source', 'browser', None),
+    'npm-package': (['npm', 'pack', '--json', '--workspaces=false', '--pack-destination', CANDIDATE], f'{CANDIDATE}/npm-source', None, None),
+}
+BROWSER_MARKER = 'Chromium browser consumer passed: default WASM fetch, fit, predict and numerical oracle'
+CONSUMER_MARKERS = (
+    'Installed archive runtime/evaluator passed without the optional SDK',
+    'Offline installed MetaHarness/WASM consumer passed',
+    'Offline installed integration declarations passed',
+)
+
+
+def evidence(output, kind, summaries=None):
+    """Derive evidence from actual command output, including when validating it."""
+    if kind == 'rust':
+        lines = re.findall(r'^test result: (.+)$', output, re.M)
+        parsed = [re.fullmatch(r'ok\. (\d+) passed; (\d+) failed; (\d+) ignored; (\d+) measured; (\d+) filtered out; finished in .+', line) for line in lines]
+        if (not parsed or (summaries is not None and len(parsed) != summaries)
+                or any(not row or int(row[1]) == 0 or any(int(row[n]) for n in range(2, 6)) for row in parsed)):
+            raise ValueError('Rust qualification needs nonzero test suites with no failures, ignored tests, measured or filtered tests')
+        return {'testsPassed': sum(int(row[1]) for row in parsed)}
+    if kind == 'node':
+        values = {key: re.findall(rf'^# {key} (\d+)$', output, re.M) for key in ('pass', 'fail', 'cancelled', 'skipped', 'todo')}
+        if any(len(rows) != 1 for rows in values.values()) or int(values['pass'][0]) == 0 or any(int(values[key][0]) for key in ('fail', 'cancelled', 'skipped', 'todo')):
+            raise ValueError('Node qualification needs nonzero tests and zero failures/skips/todos')
+        return {'testsPassed': int(values['pass'][0])}
+    if kind == 'browser':
+        if output.splitlines().count(BROWSER_MARKER) != 1:
+            raise ValueError('Actual browser numerical qualification missing')
+        return {'browserPassed': True}
+    if kind == 'consumer':
+        if any(output.splitlines().count(marker) != 1 for marker in CONSUMER_MARKERS):
+            raise ValueError('Installed archive consumer numerical/type qualification missing')
+    return {}
+
+
+def portable(value, base):
+    value = str(value)
+    for directory, placeholder in ((base, CANDIDATE), (ROOT, SOURCE)):
+        prefix = str(directory)
+        if value == prefix or value.startswith(prefix + '/'):
+            return placeholder + value[len(prefix):]
+    return value
+
+
+def execute(args, cwd, base, commands, kind=None, env=None, role=None):
+    record = {'args': [str(x) for x in args]}
+    summaries = None
+    if role is not None:
+        expected_args, expected_cwd, expected_kind, summaries = QUALIFICATION[role]
+        record.update(role=role, args=[portable(x, base) for x in args], cwd=portable(cwd, base))
+        if (record['args'], record['cwd'], kind) != (expected_args, expected_cwd, expected_kind):
+            raise ValueError('Owned qualification command differs from required role: ' + role)
     log = base / f'command-{len(commands)}.log'
     with log.open('w') as stream:
         result = subprocess.run(args, cwd=cwd, stdout=stream, stderr=subprocess.STDOUT,
                                 env={**os.environ, **(env or {})})
     output = log.read_text(errors='replace')
-    record = {'args': [str(x) for x in args], 'exitCode': result.returncode,
-              'log': log.name, 'logSha256': sha(log)}
+    record.update(exitCode=result.returncode, log=log.name, logSha256=sha(log))
     if env:
         # Only this explicit, non-secret build override map is recorded.
         record['environment'] = env
@@ -82,20 +155,7 @@ def execute(args, cwd, base, commands, kind=None, env=None):
     if result.returncode:
         print(output[-12000:], file=sys.stderr)
         raise RuntimeError(f'Command failed: {args}')
-    if kind == 'rust':
-        summaries = re.findall(r'test result: ok\. (\d+) passed; (\d+) failed; (\d+) ignored;', output)
-        if not summaries or not sum(int(x[0]) for x in summaries) or any(int(x[1]) or int(x[2]) for x in summaries):
-            raise ValueError('Rust qualification needs executed tests with no failures or ignored tests')
-        record['testsPassed'] = sum(int(x[0]) for x in summaries)
-    if kind == 'node':
-        passed = re.search(r'^# pass (\d+)$', output, re.M)
-        if not passed or int(passed[1]) == 0 or any(not re.search(rf'^# {key} 0$', output, re.M) for key in ('fail', 'cancelled', 'skipped', 'todo')):
-            raise ValueError('Node qualification needs nonzero tests and zero failures/skips/todos')
-        record['testsPassed'] = int(passed[1])
-    if kind == 'browser':
-        if 'Chromium browser consumer passed:' not in output:
-            raise ValueError('Actual browser numerical qualification missing')
-        record['browserPassed'] = True
+    record.update(evidence(output, kind, summaries))
     print(json.dumps(record), flush=True)
     return output
 
@@ -114,40 +174,40 @@ def seal(source, base):
     base.mkdir(parents=True, exist_ok=False)
     commands = []
     env = {'RUSTFLAGS': '', 'CARGO_BUILD_JOBS': '2', 'CARGO_INCREMENTAL': '0', 'CARGO_PROFILE_DEV_DEBUG': '0'}
-    for args in (
-        ['cargo', 'test', '--locked', '-p', CRATE, '--all-features', '--lib', '--tests'],
-        ['cargo', 'test', '--locked', '-p', 'ruvector-core', '--no-default-features', '--test', 'e_means_quantization'],
-        ['cargo', 'test', '--locked', '-p', 'ruvector-pq-search', '--test', 'e_means'],
-        ['cargo', 'test', '--locked', '-p', 'ruvector-rairs', '--test', 'e_means'],
+    for role, args in (
+        ('rust-source', ['cargo', 'test', '--locked', '-p', CRATE, '--all-features', '--lib', '--tests']),
+        ('core-adapter', ['cargo', 'test', '--locked', '-p', 'ruvector-core', '--no-default-features', '--test', 'e_means_quantization']),
+        ('pq-adapter', ['cargo', 'test', '--locked', '-p', 'ruvector-pq-search', '--test', 'e_means']),
+        ('rairs-adapter', ['cargo', 'test', '--locked', '-p', 'ruvector-rairs', '--test', 'e_means']),
     ):
-        execute(args, ROOT, base, commands, 'rust', env)
-    execute(['cargo', 'clippy', '--locked', '-p', CRATE, '--all-features', '--all-targets', '--', '-D', 'warnings'], ROOT, base, commands, env=env)
+        execute(args, ROOT, base, commands, 'rust', env, role=role)
+    execute(['cargo', 'clippy', '--locked', '-p', CRATE, '--all-features', '--all-targets', '--', '-D', 'warnings'], ROOT, base, commands, env=env, role='clippy')
     target = base / 'package-build'
-    execute(['cargo', 'package', '--locked', '-p', CRATE, '--target-dir', str(target)], ROOT, base, commands, env=env)
+    execute(['cargo', 'package', '--locked', '-p', CRATE, '--target-dir', str(target)], ROOT, base, commands, env=env, role='rust-package')
     crate = base / f'{CRATE}-{VERSION}.crate'
     shutil.copyfile(target / 'package' / crate.name, crate)
     extract(crate, base / 'extracted')
     rust = base / 'extracted' / f'{CRATE}-{VERSION}'
-    execute(['cargo', 'audit', '--file', str(rust / 'Cargo.lock'), '--deny', 'warnings'], ROOT, base, commands, env=env)
-    execute(['cargo', '+1.81.0', 'check', '--locked', '--manifest-path', str(rust / 'Cargo.toml'), '--no-default-features', '--target-dir', str(base / 'msrv-target')], ROOT, base, commands, env=env)
-    execute(['cargo', 'test', '--locked', '--manifest-path', str(rust / 'Cargo.toml'), '--all-features', '--lib', '--tests', '--target-dir', str(base / 'packed-target')], ROOT, base, commands, 'rust', env)
+    execute(['cargo', 'audit', '--file', str(rust / 'Cargo.lock'), '--deny', 'warnings'], ROOT, base, commands, env=env, role='rust-audit')
+    execute(['cargo', '+1.81.0', 'check', '--locked', '--manifest-path', str(rust / 'Cargo.toml'), '--no-default-features', '--target-dir', str(base / 'msrv-target')], ROOT, base, commands, env=env, role='rust-msrv')
+    execute(['cargo', 'test', '--locked', '--manifest-path', str(rust / 'Cargo.toml'), '--all-features', '--lib', '--tests', '--target-dir', str(base / 'packed-target')], ROOT, base, commands, 'rust', env, role='rust-packed')
     npm = base / 'npm-source'
     shutil.copytree(ROOT / 'npm/packages/e-means', npm, ignore=shutil.ignore_patterns('node_modules', '*.tgz'))
     wasm_env = {**env, 'CARGO_PROFILE_RELEASE_OPT_LEVEL': '3', 'CARGO_PROFILE_RELEASE_LTO': 'fat',
                 'CARGO_PROFILE_RELEASE_CODEGEN_UNITS': '1', 'CARGO_PROFILE_RELEASE_STRIP': 'true',
                 'CARGO_PROFILE_RELEASE_PANIC': 'unwind'}
-    execute(['cargo', 'build', '--locked', '--manifest-path', str(rust / 'Cargo.toml'), '--release', '--target', 'wasm32-unknown-unknown', '--features', 'wasm', '--target-dir', str(base / 'wasm-target')], ROOT, base, commands, env=wasm_env)
+    execute(['cargo', 'build', '--locked', '--manifest-path', str(rust / 'Cargo.toml'), '--release', '--target', 'wasm32-unknown-unknown', '--features', 'wasm', '--target-dir', str(base / 'wasm-target')], ROOT, base, commands, env=wasm_env, role='wasm-build')
     version = subprocess.check_output(['wasm-bindgen', '--version'], text=True).strip()
     if version != 'wasm-bindgen 0.2.125':
         raise ValueError('Wrong wasm-bindgen CLI')
-    execute(['wasm-bindgen', str(base / 'wasm-target/wasm32-unknown-unknown/release/ruvector_e_means.wasm'), '--target', 'web', '--out-dir', str(npm / 'wasm'), '--out-name', 'ruvector_e_means'], ROOT, base, commands)
-    execute(['npm', 'ci', '--ignore-scripts', '--workspaces=false', '--no-audit', '--no-fund'], npm, base, commands)
-    execute(['npm', 'audit', '--audit-level=low', '--workspaces=false'], npm, base, commands)
-    execute(['npm', 'test', '--workspaces=false'], npm, base, commands, 'node')
-    execute(['npm', 'run', 'typecheck', '--workspaces=false'], npm, base, commands)
-    execute(['npm', 'run', 'test:consumer', '--workspaces=false'], npm, base, commands)
-    execute(['npm', 'run', 'test:browser', '--workspaces=false'], npm, base, commands, 'browser')
-    execute(['npm', 'pack', '--json', '--workspaces=false', '--pack-destination', str(base)], npm, base, commands)
+    execute(['wasm-bindgen', str(base / 'wasm-target/wasm32-unknown-unknown/release/ruvector_e_means.wasm'), '--target', 'web', '--out-dir', str(npm / 'wasm'), '--out-name', 'ruvector_e_means'], ROOT, base, commands, role='wasm-bindgen')
+    execute(['npm', 'ci', '--ignore-scripts', '--workspaces=false', '--no-audit', '--no-fund'], npm, base, commands, role='npm-install')
+    execute(['npm', 'audit', '--audit-level=low', '--workspaces=false'], npm, base, commands, role='npm-audit')
+    execute(['npm', 'test', '--workspaces=false'], npm, base, commands, 'node', role='npm-tests')
+    execute(['npm', 'run', 'typecheck', '--workspaces=false'], npm, base, commands, role='npm-types')
+    execute(['npm', 'run', 'test:consumer', '--workspaces=false'], npm, base, commands, 'consumer', role='npm-consumer')
+    execute(['npm', 'run', 'test:browser', '--workspaces=false'], npm, base, commands, 'browser', role='npm-browser')
+    execute(['npm', 'pack', '--json', '--workspaces=false', '--pack-destination', str(base)], npm, base, commands, role='npm-package')
     archive = base / f'ruvector-e-means-{VERSION}.tgz'
     if not archive.is_file():
         raise ValueError('Missing packed npm archive')
@@ -172,20 +232,59 @@ def seal(source, base):
     (base / 'FILES.json').write_text(json.dumps(files, indent=2) + '\n')
 
 
-def validate_candidate(base, source):
+def validate_payload(base):
     files = json.loads((base / 'FILES.json').read_text())
+    if not isinstance(files, dict) or not files:
+        raise ValueError('Missing complete candidate FILES manifest')
+    paths = list(base.rglob('*'))
+    if any(path.is_symlink() for path in paths):
+        raise ValueError('Candidate payload may not contain symlinks')
+    actual = {path.relative_to(base).as_posix() for path in paths if path.is_file() and path != base / 'FILES.json'}
+    if set(files) != actual:
+        raise ValueError('Candidate FILES manifest must cover the complete payload')
     for relative, digest in files.items():
         path = (base / relative).resolve()
-        if not path.is_relative_to(base.resolve()) or sha(path) != digest:
+        if (not isinstance(relative, str) or Path(relative).as_posix() != relative
+                or '\\' in relative or not path.is_relative_to(base.resolve())
+                or not re.fullmatch('[a-f0-9]{64}', str(digest)) or sha(path) != digest):
             raise ValueError('Candidate payload changed: ' + relative)
-    receipt = json.loads((base / 'candidate.json').read_text())
-    if receipt.get('schema') != 'ruvector.e-means-candidate/1' or receipt.get('sourceSha') != source:
-        raise ValueError('Candidate identity mismatch')
+    # The transferred harness is reviewed source at this exact checkout, not a
+    # second authority supplied by the artifact producer.
+    npm = ROOT / 'npm/packages/e-means'
+    expected_harness = {'harness/' + name: sha(npm / name) for name in ('package.json', 'package-lock.json')}
+    expected_harness.update({'harness/test/' + path.relative_to(npm / 'test').as_posix(): sha(path)
+                             for path in (npm / 'test').rglob('*') if path.is_file()})
+    if {name: digest for name, digest in files.items() if name.startswith('harness/')} != expected_harness:
+        raise ValueError('Candidate harness differs from exact-source checkout')
+    return files
+
+
+def validate_qualification(base, receipt, files):
     commands = receipt.get('commands', [])
-    if len(commands) < 15 or any(c['exitCode'] != 0 or sha(base / c['log']) != c['logSha256'] for c in commands):
-        raise ValueError('Missing or failed real qualification commands')
-    if not any(c.get('browserPassed') for c in commands) or sum(c.get('testsPassed', 0) for c in commands) <= 0:
-        raise ValueError('Missing executed numerical/browser tests')
+    if not isinstance(commands, list) or [c.get('role') for c in commands] != list(QUALIFICATION):
+        raise ValueError('Missing, duplicated or reordered required qualification roles')
+    for index, command in enumerate(commands):
+        role = command['role']
+        args, cwd, kind, summaries = QUALIFICATION[role]
+        log = f'command-{index}.log'
+        if (command.get('args') != args or command.get('cwd') != cwd or type(command.get('exitCode')) is not int or command['exitCode'] != 0
+                or command.get('log') != log or files.get(log) != command.get('logSha256')):
+            raise ValueError('Qualification command/log differs from required role: ' + role)
+        derived = evidence((base / log).read_text(errors='replace'), kind, summaries)
+        claims = {key: command[key] for key in ('testsPassed', 'browserPassed') if key in command}
+        if claims != derived or any(type(claims[key]) is not type(value) for key, value in derived.items()):
+            raise ValueError('Qualification claims differ from actual owned log: ' + role)
+
+
+def validate_candidate(base, source):
+    files = validate_payload(base)
+    receipt = json.loads((base / 'candidate.json').read_text())
+    if (not re.fullmatch('[a-f0-9]{40}', source)
+            or receipt.get('schema') != 'ruvector.e-means-candidate/1' or receipt.get('sourceSha') != source):
+        raise ValueError('Candidate identity mismatch')
+    if receipt.get('wasmBindgen') != 'wasm-bindgen 0.2.125':
+        raise ValueError('Candidate WASM binding tool differs from pinned version')
+    validate_qualification(base, receipt, files)
     expected = {f'{CRATE}-{VERSION}.crate', f'ruvector-e-means-{VERSION}.tgz'}
     if set(receipt['artifacts']) != expected or any(sha(base / name) != digest for name, digest in receipt['artifacts'].items()):
         raise ValueError('Archive seal mismatch')
@@ -385,6 +484,7 @@ def main():
     elif args.mode == 'node20':
         node20(args.expected_sha, base)
     else:
+        identity(args.expected_sha)
         validate_candidate(base, args.expected_sha)
 
 
