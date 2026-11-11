@@ -308,8 +308,13 @@ def node20(source, base):
     execute(['npm', 'install', '--ignore-scripts', '--offline', '--no-audit', '--no-fund', str(base / f'ruvector-e-means-{VERSION}.tgz')], consumer, consumer, commands)
     installed = consumer / 'node_modules/@ruvector/e-means'
     shutil.copytree(base / 'harness/test', installed / 'test')
+    shutil.copyfile(base / 'harness/package-lock.json', installed / 'package-lock.json')
     selected = ['e-means', 'runtime', 'typed-bridge', 'quantization', 'ivf']
     execute(['node', '--test', '--test-reporter=tap', *[str(installed / f'test/{name}.test.mjs') for name in selected]], consumer, consumer, commands, 'node')
+    # The portable runtime first proves optional-SDK absence. Warm only the six
+    # source-lock tarballs, then require real offline Darwin tuning and types.
+    execute(['node', str(installed / 'test/offline-tooling-lock.mjs'), 'warm', str(installed / 'package-lock.json')], consumer, consumer, commands)
+    execute(['node', str(installed / 'test/packed-consumer.mjs')], consumer, consumer, commands, 'consumer')
 
 
 def select_and_download(source, base):

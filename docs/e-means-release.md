@@ -13,7 +13,11 @@ The WASM build explicitly retains the workspace release optimization settings.
 The copied npm package then runs its dependency audit, real WASM/Worker tests,
 strict declarations, installed consumers with and without the optional SDK,
 and real Chromium numerical checks before packing. A second job installs the
-sealed archive offline and exercises the portable APIs on Node 20.0.0.
+sealed archive offline and exercises the portable APIs on Node 20.0.0. It then
+warm-caches only six exact tooling tarball URLs from the sealed lock, requires
+real offline Darwin tuning and strict installed declarations, and never relies
+on cached registry package metadata. The Node 20.0 tuning path uses lazy
+package-manifest lookup when unflagged `import.meta.resolve` is unavailable.
 Both `qualify` and `node20` must succeed on the same release-branch push;
 a successful local seal or a pull-request merge commit cannot substitute for
 that immutable pre-main qualification.
