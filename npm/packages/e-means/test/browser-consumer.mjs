@@ -25,6 +25,7 @@ try {
 
 const routes = new Map([
   ['/e-means.mjs', ['../e-means.mjs', 'application/javascript']],
+  ['/runtime.mjs', ['../runtime.mjs', 'application/javascript']],
   ['/wasm/ruvector_e_means.js', ['../wasm/ruvector_e_means.js', 'application/javascript']],
   ['/wasm/ruvector_e_means_bg.wasm', ['../wasm/ruvector_e_means_bg.wasm', 'application/wasm']],
 ]);
