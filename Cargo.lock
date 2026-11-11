@@ -8715,15 +8715,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustls-pemfile"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dce314e5fee3f39953d46bb63bb8a46d40c2f8fb7cc5a3b6cab2bde9721d6e50"
-dependencies = [
- "rustls-pki-types",
-]
-
-[[package]]
 name = "rustls-pki-types"
 version = "1.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9914,7 +9905,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tokio-test",
- "tonic",
+ "tonic 0.12.3",
  "tower 0.4.13",
  "tracing",
  "tracing-subscriber",
@@ -10074,7 +10065,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
- "tonic",
+ "tonic 0.13.1",
  "tonic-build",
  "tracing",
  "tracing-subscriber",
@@ -13502,10 +13493,8 @@ dependencies = [
  "percent-encoding",
  "pin-project",
  "prost 0.13.5",
- "rustls-pemfile",
  "socket2 0.5.10",
  "tokio",
- "tokio-rustls",
  "tokio-stream",
  "tower 0.4.13",
  "tower-layer",
@@ -13514,10 +13503,40 @@ dependencies = [
 ]
 
 [[package]]
-name = "tonic-build"
-version = "0.12.3"
+name = "tonic"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9557ce109ea773b399c9b9e5dca39294110b74f1f342cb347a80d1fce8c26a11"
+checksum = "7e581ba15a835f4d9ea06c55ab1bd4dce26fc53752c69a04aac00703bfb49ba9"
+dependencies = [
+ "async-trait",
+ "axum 0.8.9",
+ "base64 0.22.1",
+ "bytes",
+ "h2",
+ "http 1.4.2",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-timeout",
+ "hyper-util",
+ "percent-encoding",
+ "pin-project",
+ "prost 0.13.5",
+ "socket2 0.5.10",
+ "tokio",
+ "tokio-rustls",
+ "tokio-stream",
+ "tower 0.5.3",
+ "tower-layer",
+ "tower-service",
+ "tracing",
+]
+
+[[package]]
+name = "tonic-build"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eac6f67be712d12f0b41328db3137e0d0757645d8904b4cb7d51cd9c2279e847"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -13556,9 +13575,12 @@ checksum = "ebe5ef63511595f1344e2d5cfa636d973292adc0eec1f0ad45fae9f0851ab1d4"
 dependencies = [
  "futures-core",
  "futures-util",
+ "indexmap 2.12.1",
  "pin-project-lite",
+ "slab",
  "sync_wrapper",
  "tokio",
+ "tokio-util",
  "tower-layer",
  "tower-service",
  "tracing",
