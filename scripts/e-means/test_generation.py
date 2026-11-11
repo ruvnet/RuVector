@@ -37,6 +37,7 @@ class SharedGeneration(unittest.TestCase):
         self.assertEqual(workspace['packages']['packages/e-means']['version'], release.VERSION)
         for name in ('core', 'all', 'ruvector'):
             manifest = json.loads((root / 'npm/packages' / name / 'package.json').read_text())
+            self.assertEqual(workspace['packages']['packages/' + name]['version'], manifest['version'])
             self.assertEqual(manifest['dependencies'][release.NPM_NAME], FACADE_VERSION)
             self.assertEqual(workspace['packages']['packages/' + name]['dependencies'][release.NPM_NAME], FACADE_VERSION)
             public = workspace['packages']['packages/' + name + '/node_modules/' + release.NPM_NAME]

@@ -33,6 +33,7 @@ Requires Node.js >= 20 (the strictest requirement among the members, from `ruvec
 | [`@ruvector/ruvllm-wasm`](https://www.npmjs.com/package/@ruvector/ruvllm-wasm) | Browser-compatible RuvLLM inference runtime (WebGPU) | `await all.loadRuvllmWasm()` |
 | [`@ruvector/emergent-time`](https://www.npmjs.com/package/@ruvector/emergent-time) | Agentic Time: an agent's internal time and 7-state health, in WASM | `await all.loadEmergentTime()` |
 | [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) | RVF WASM microkernel for browser and edge vector operations | `await all.loadRvfWasm()` |
+| [`@ruvector/e-means`](https://www.npmjs.com/package/@ruvector/e-means) | Deterministic e-means (EMA k-means) clustering, PQ codebooks and IVF partitions in WebAssembly | `await all.loadEMeans()` |
 
 Platform-specific native binaries (`*-linux-x64-gnu`, `*-darwin-arm64`, …) are
 not listed here; each member pulls the right one through its own

@@ -1,6 +1,6 @@
 [package]
 name        = "ruvector-rairs"
-version     = "0.1.0"
+version     = "0.1.1"
 edition     = "2021"
 description = "RAIRS IVF: Redundant Assignment with Amplified Inverse Residual — ruvector's first IVF index family"
 authors     = ["ruvnet", "claude-flow"]

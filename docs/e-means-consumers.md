@@ -1,7 +1,7 @@
 # e-means consumer packages
 
 The reviewed consumer integration adds explicit clustering subpaths to
-`@ruvector/core@0.1.38`, `ruvector`, `@ruvector/all`, and
+`@ruvector/core@0.1.39`, `ruvector`, `@ruvector/all`, and
 `@ruvector/wasm@0.2.2`. These facades use the shared
 public `@ruvector/e-means@0.1.0` runtime while the reviewed shared 0.1.1
 generation awaits publication. Their existing root APIs remain separate from
