@@ -9276,6 +9276,7 @@ dependencies = [
  "rkyv",
  "rustc_version",
  "ruvector-core 2.5.1",
+ "ruvector-e-means",
  "ruvector-turboquant",
  "serde",
  "serde_json",
@@ -9536,6 +9537,17 @@ dependencies = [
  "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-test",
+]
+
+[[package]]
+name = "ruvector-e-means"
+version = "0.1.0"
+dependencies = [
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -10409,6 +10421,7 @@ name = "ruvector-pq-search"
 version = "2.3.0"
 dependencies = [
  "rand 0.8.6",
+ "ruvector-e-means",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -10513,6 +10526,7 @@ version = "0.1.0"
 dependencies = [
  "criterion 0.5.1",
  "rand 0.8.6",
+ "ruvector-e-means",
  "serde",
 ]
 

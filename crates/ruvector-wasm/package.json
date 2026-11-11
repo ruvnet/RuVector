@@ -13,6 +13,26 @@
     "./adapter": {
       "types": "./src/adapter.d.ts",
       "default": "./src/adapter.js"
+    },
+    "./clustering": {
+      "types": "./clustering.d.mts",
+      "import": "./clustering.mjs"
+    },
+    "./clustering/quantization": {
+      "types": "./clustering/quantization.d.mts",
+      "import": "./clustering/quantization.mjs"
+    },
+    "./clustering/ivf": {
+      "types": "./clustering/ivf.d.mts",
+      "import": "./clustering/ivf.mjs"
+    },
+    "./clustering/metaharness": {
+      "types": "./clustering/metaharness.d.mts",
+      "import": "./clustering/metaharness.mjs"
+    },
+    "./clustering/cloudflare": {
+      "types": "./clustering/cloudflare.d.mts",
+      "import": "./clustering/cloudflare.mjs"
     }
   },
   "files": [
@@ -21,7 +41,10 @@
     "src/adapter.d.ts",
     "src/worker.js",
     "src/worker-pool.js",
-    "src/indexeddb.js"
+    "src/indexeddb.js",
+    "clustering.mjs",
+    "clustering.d.mts",
+    "clustering/"
   ],
   "scripts": {
     "build": "npm run build:web && npm run build:simd && npm run build:bundler",
@@ -58,6 +81,9 @@
   },
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
+  },
+  "dependencies": {
+    "@ruvector/e-means": "0.1.0"
   },
   "devDependencies": {
     "wasm-pack": "^0.12.1"
