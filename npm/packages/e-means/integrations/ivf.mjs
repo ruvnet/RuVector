@@ -28,7 +28,9 @@ function validated(value) {
   if (!(centroids instanceof Float32Array) || centroids.length === 0 || centroids.length % dimensions !== 0) {
     throw new RangeError('model centroids must be complete Float32Array vectors');
   }
-  for (const coordinate of centroids) if (!Number.isFinite(coordinate)) throw new RangeError('model centroids must be finite');
+  for (let index = 0; index < centroids.length; index++) {
+    if (!Number.isFinite(centroids[index])) throw new RangeError('model centroids must be finite');
+  }
   if (!Number.isFinite(mse) || mse < 0 || !Number.isFinite(peakStep) || peakStep <= 0 || peakStep > 1 ||
       !Number.isSafeInteger(batchSize) || batchSize < 1 || !Number.isSafeInteger(updates) || updates < 1 ||
       !Number.isSafeInteger(revivedClusters) || revivedClusters < 0) throw new RangeError('model metrics are invalid');
