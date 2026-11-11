@@ -127,3 +127,18 @@ fn invalid_optimizer_settings_return_errors() {
     options.peak_step = Some(f64::NAN);
     assert!(ProductQuantized::train_e_means(&vectors, 1, &options).is_err());
 }
+
+#[test]
+fn finite_distance_codes_keep_the_existing_f32_ordering() {
+    // These rows tie in f32 but not in f64. Existing encode picks the first
+    // f32 minimum, and codes for already-trained indexes must not change.
+    let bits = |v: [u32; 4]| v.map(f32::from_bits).to_vec();
+    let query = bits([1059241166, 3208695764, 3205419074, 1055842996]);
+    let first = bits([1063676912, 3210863684, 1060297430, 3212197722]);
+    let second = bits([1052646232, 3210863675, 1060297430, 3212197722]);
+    let quantized = ProductQuantized {
+        codes: Vec::new(),
+        codebooks: vec![vec![first, second]],
+    };
+    assert_eq!(quantized.encode(&query), vec![0]);
+}

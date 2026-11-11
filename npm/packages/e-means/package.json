@@ -1,7 +1,7 @@
 {
   "name": "@ruvector/e-means",
   "version": "0.1.0",
-  "description": "Deterministic e-means clustering from the shared Rust core, compiled to portable WebAssembly",
+  "description": "Deterministic e-means (EMA k-means) clustering for vectors: Rust core compiled to WebAssembly, with PQ codebook, IVF, MetaHarness tuning and Cloudflare Worker helpers",
   "type": "module",
   "main": "./e-means.mjs",
   "types": "./e-means.d.ts",
@@ -69,6 +69,10 @@
     "node": ">=20.0.0"
   },
   "license": "MIT",
+  "homepage": "https://ruv.io",
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/ruvnet/ruvector.git",
@@ -80,10 +84,18 @@
   "keywords": [
     "clustering",
     "e-means",
-    "ema",
     "k-means",
+    "ema",
     "webassembly",
-    "rust"
+    "wasm",
+    "rust",
+    "product-quantization",
+    "ivf",
+    "vector-search",
+    "codebook",
+    "embeddings",
+    "cloudflare-workers",
+    "ruvector"
   ],
   "devDependencies": {
     "typescript": "5.9.3",
@@ -92,7 +104,7 @@
     "miniflare": "4.20260730.0"
   },
   "peerDependencies": {
-    "@metaharness/darwin": "0.13.0"
+    "@metaharness/darwin": "0.13.0 || 0.13.1"
   },
   "peerDependenciesMeta": {
     "@metaharness/darwin": {

@@ -14,7 +14,7 @@ function holdoutMse(data, dimensions, centroids) {
   return loss / assignments.length;
 }
 
-/** NumericEvaluator compatible with published Darwin0.13.0. Snapshots happen
+/** NumericEvaluator compatible with published Darwin 0.13.0 and 0.13.1. Snapshots happen
  * synchronously before any await. The first dispatch must be the baseline.
  */
 export function createClusteringEvaluator(options) {
@@ -80,16 +80,19 @@ export function createClusteringEvaluator(options) {
   return Object.freeze(evaluator);
 }
 
+// Exact versions whose numeric API this integration was run against.
+const DARWIN_VERSIONS = ['0.13.0', '0.13.1'];
+
 async function loadDarwin() {
   const { readFile } = await import('node:fs/promises');
   let entry;
   try { entry = import.meta.resolve('@metaharness/darwin'); }
-  catch (cause) { throw new Error('tuneClustering requires optional peer @metaharness/darwin@0.13.0', { cause }); }
+  catch (cause) { throw new Error(`tuneClustering requires optional peer @metaharness/darwin (${DARWIN_VERSIONS.join(' or ')})`, { cause }); }
   const manifest = JSON.parse(await readFile(new URL('../package.json', entry), 'utf8'));
-  if (manifest.name !== '@metaharness/darwin' || manifest.version !== '0.13.0') throw new Error('Expected @metaharness/darwin 0.13.0');
+  if (manifest.name !== '@metaharness/darwin' || !DARWIN_VERSIONS.includes(manifest.version)) throw new Error(`Expected @metaharness/darwin ${DARWIN_VERSIONS.join(' or ')}`);
   const { evolveNumeric } = await import('@metaharness/darwin');
   if (typeof evolveNumeric !== 'function') throw new Error('Darwin numeric API is unavailable');
-  return evolveNumeric;
+  return { evolveNumeric, version: manifest.version };
 }
 
 /** Run bounded, local numeric evolution. Never mutates source or applies a model. */
@@ -108,7 +111,7 @@ export async function tuneClustering(options) {
   const worstCaseDispatches = 1 + childrenPerGeneration + 2 * childrenPerGeneration * (generations - 1);
   if (worstCaseDispatches > initial.budget.maxEvaluations) throw new RangeError('Darwin worst-case dispatches exceed maxEvaluations');
   if (worstCaseDispatches * initial.worstCaseWorkPerTrial > initial.budget.maxDistanceCoordinates) throw new RangeError('Darwin worst-case work exceeds maxDistanceCoordinates');
-  const evolveNumeric = await loadDarwin();
+  const { evolveNumeric, version: darwinVersion } = await loadDarwin();
   check();
   const { mkdtemp, rm } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
@@ -139,7 +142,7 @@ export async function tuneClustering(options) {
     let winner = result.winner ? verified(result.winner) : baseline;
     const winnerRejected = winner.score.regressed || winner.score.primary < baseline.score.primary;
     if (winnerRejected) winner = baseline;
-    answer = { engine: { package: '@metaharness/darwin', version: '0.13.0', algorithm: 'evolveNumeric' },
+    answer = { engine: { package: '@metaharness/darwin', version: darwinVersion, algorithm: 'evolveNumeric' },
       ...measured, schema: 'e-means.clustering-tuning/1', baseline, winner,
       recommendation: clone(winner.score.raw.fitConfig), winnerRejected,
       improvedOnObservedHoldout: winner.score.primary > baseline.score.primary,
