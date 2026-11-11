@@ -23,7 +23,15 @@ Node reads the bundled WASM from disk. In browsers, serve the `.wasm` artifact b
 
 From a source checkout: install the `wasm32-unknown-unknown` Rust target and `wasm-bindgen-cli` version `0.2.125`, then run `npm run build`, `npm test` and `npm run test:consumer` in this package. `npm pack` verifies the built runtime before creating an archive. The archive contains the runtime and needs neither Rust nor the source repository.
 
-`npm run typecheck` validates the declarations. `npm run test:browser` runs the same numerical oracle in headless Chromium against the default browser loader; set `E_MEANS_CHROMIUM` when Chromium is not on `PATH`.
+`npm run typecheck` validates the declarations. `npm run test:browser` uses external Playwright 1.62.1 tooling to run the numerical oracle in real headless Chromium against the default browser loader. Bootstrap the development-only driver outside this package:
+
+```sh
+npm install --prefix /tmp/e-means-browser-tools --ignore-scripts --no-save playwright@1.62.1
+/tmp/e-means-browser-tools/node_modules/.bin/playwright install chromium
+E_MEANS_PLAYWRIGHT_ROOT=/tmp/e-means-browser-tools npm run test:browser
+```
+
+`E_MEANS_CHROMIUM` can select an existing Chromium executable. Qualification requires successful module/runtime/WASM responses and the typed numerical result; browser errors or missing routes fail.
 
 `npm run benchmark -- --baseline /path/to/previous/package --repeats 7` measures median fit and prediction time on one million scalar rows and an embedding codebook workload. It also compares JSON and typed output on the same current Rust kernel. The baseline argument is optional; retain the previous package's module and WASM together. Run benchmarks without other compute workloads; results describe the current machine and these fixtures.
 
