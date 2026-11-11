@@ -75,6 +75,9 @@ def execute(args, cwd, base, commands, kind=None, env=None):
     output = log.read_text(errors='replace')
     record = {'args': [str(x) for x in args], 'exitCode': result.returncode,
               'log': log.name, 'logSha256': sha(log)}
+    if env:
+        # Only this explicit, non-secret build override map is recorded.
+        record['environment'] = env
     commands.append(record)
     if result.returncode:
         print(output[-12000:], file=sys.stderr)
@@ -130,7 +133,10 @@ def seal(source, base):
     execute(['cargo', 'test', '--locked', '--manifest-path', str(rust / 'Cargo.toml'), '--all-features', '--lib', '--tests', '--target-dir', str(base / 'packed-target')], ROOT, base, commands, 'rust', env)
     npm = base / 'npm-source'
     shutil.copytree(ROOT / 'npm/packages/e-means', npm, ignore=shutil.ignore_patterns('node_modules', '*.tgz'))
-    execute(['cargo', 'build', '--locked', '--manifest-path', str(rust / 'Cargo.toml'), '--release', '--target', 'wasm32-unknown-unknown', '--features', 'wasm', '--target-dir', str(base / 'wasm-target')], ROOT, base, commands, env=env)
+    wasm_env = {**env, 'CARGO_PROFILE_RELEASE_OPT_LEVEL': '3', 'CARGO_PROFILE_RELEASE_LTO': 'fat',
+                'CARGO_PROFILE_RELEASE_CODEGEN_UNITS': '1', 'CARGO_PROFILE_RELEASE_STRIP': 'true',
+                'CARGO_PROFILE_RELEASE_PANIC': 'unwind'}
+    execute(['cargo', 'build', '--locked', '--manifest-path', str(rust / 'Cargo.toml'), '--release', '--target', 'wasm32-unknown-unknown', '--features', 'wasm', '--target-dir', str(base / 'wasm-target')], ROOT, base, commands, env=wasm_env)
     version = subprocess.check_output(['wasm-bindgen', '--version'], text=True).strip()
     if version != 'wasm-bindgen 0.2.125':
         raise ValueError('Wrong wasm-bindgen CLI')
@@ -148,7 +154,10 @@ def seal(source, base):
     identity(source)
     receipt = {'schema': 'ruvector.e-means-candidate/1', 'sourceSha': source,
                'commands': commands, 'artifacts': {crate.name: sha(crate), archive.name: sha(archive)},
-               'wasmSha256': sha(npm / 'wasm/ruvector_e_means_bg.wasm'), 'wasmBindgen': version}
+               'wasmSha256': sha(npm / 'wasm/ruvector_e_means_bg.wasm'), 'wasmBindgen': version,
+               'rustcVersion': subprocess.check_output(['rustc', '--version'], text=True).strip(),
+               'cargoVersion': subprocess.check_output(['cargo', '--version'], text=True).strip(),
+               'nodeVersion': subprocess.check_output(['node', '--version'], text=True).strip()}
     (base / 'candidate.json').write_text(json.dumps(receipt, indent=2) + '\n')
     # Transfer only immutable archives, actual logs and the test harness; no
     # build trees or source checkout become publication authority.
