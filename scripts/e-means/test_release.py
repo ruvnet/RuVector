@@ -311,3 +311,40 @@ class RegistryIntegrity(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class Node20Consumer(unittest.TestCase):
+    def test_minimum_runtime_requires_portable_tests_then_lock_bound_full_consumer(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp) / 'candidate'
+            harness = base / 'harness'
+            (harness / 'test').mkdir(parents=True)
+            (harness / 'test/packed-consumer.mjs').write_text('owned packed consumer')
+            (harness / 'package-lock.json').write_text('exact sealed tooling lock')
+            calls = []
+
+            def execute(args, cwd, evidence, commands, kind=None):
+                calls.append((args, cwd, kind))
+                if len(calls) == 1:
+                    (cwd / 'node_modules/@ruvector/e-means').mkdir(parents=True)
+                if kind == 'consumer':
+                    self.assertEqual((cwd / 'node_modules/@ruvector/e-means/package-lock.json').read_text(), 'exact sealed tooling lock')
+                    self.assertEqual((cwd / 'node_modules/@ruvector/e-means/test/packed-consumer.mjs').read_text(), 'owned packed consumer')
+                return ''
+
+            with patch.object(release, 'identity'), patch.object(release, 'validate_candidate'), patch.object(release, 'execute', side_effect=execute):
+                release.node20('a' * 40, base)
+            consumer = base.parent / 'node20-consumer'
+            installed = consumer / 'node_modules/@ruvector/e-means'
+            self.assertEqual(len(calls), 4)
+            self.assertIn('--offline', calls[0][0])
+            self.assertEqual(calls[1][0][:3], ['node', '--test', '--test-reporter=tap'])
+            self.assertEqual(calls[1][2], 'node')
+            self.assertEqual(calls[2], (['node', str(installed / 'test/offline-tooling-lock.mjs'), 'warm', str(installed / 'package-lock.json')], consumer, None))
+            self.assertEqual(calls[3], (['node', str(installed / 'test/packed-consumer.mjs')], consumer, 'consumer'))
+
+    def test_partial_full_consumer_markers_do_not_qualify(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = '\n'.join(release.CONSUMER_MARKERS[:1])
+            with self.assertRaisesRegex(ValueError, 'Installed archive consumer'):
+                release.execute([sys.executable, '-c', f'print({output!r})'], Path(temp), Path(temp), [], 'consumer')

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { offlineToolingLock } from './offline-tooling-lock.mjs';
+import { offlineToolingLock, toolingTarballURLs } from './offline-tooling-lock.mjs';
 
 function fixture() {
   const record = (name, version, dependencies = {}) => ({ version, dev: true, dependencies,
@@ -47,4 +47,19 @@ test('missing transitive records, changed tools, missing integrity and non-regis
     if (mutation === 'shared') consumer.packages['node_modules/@ruvector/e-means'].resolved = 'https://registry.npmjs.org/shared.tgz';
     assert.throws(() => offlineToolingLock(source, consumer, manifest), undefined, mutation);
   }
+});
+
+test('cache warming selects only six locked tarball URLs and rejects metadata endpoints', () => {
+  const { source } = fixture();
+  const urls = toolingTarballURLs(source);
+  assert.equal(urls.length, 6);
+  assert.deepEqual(urls, Object.values(source.packages).slice(0, 6).map(row => row.resolved));
+  for (const url of ['https://registry.npmjs.org/@babel/parser', 'https://registry.npmjs.org/parser/-/parser.tgz?metadata=true']) {
+    const modified = structuredClone(source);
+    modified.packages['node_modules/@babel/parser'].resolved = url;
+    assert.throws(() => toolingTarballURLs(modified), /tarball URL/);
+  }
+  source.packages['node_modules/@babel/parser'].dependencies.unexpected = '*';
+  source.packages['node_modules/unexpected'] = { ...source.packages['node_modules/typescript'], resolved: 'https://registry.npmjs.org/unexpected/-/unexpected-1.0.0.tgz' };
+  assert.throws(() => toolingTarballURLs(source), /six minimal/);
 });

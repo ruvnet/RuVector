@@ -68,7 +68,7 @@ jobs:
         with:
           name: e-means-candidate-${{ github.sha }}
           path: ${{ runner.temp }}/e-means-node20
-      - name: Exercise sealed portable runtime and PQ/IVF on the advertised Node minimum
+      - name: Exercise sealed portable runtime, PQ/IVF and actual Darwin tuning on the advertised Node minimum
         run: python3 scripts/e-means/release.py node20 --expected-sha "$GITHUB_SHA" --directory "$RUNNER_TEMP/e-means-node20"
       - name: Preserve Node minimum command logs when qualification fails
         if: failure()
