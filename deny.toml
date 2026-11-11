@@ -100,9 +100,9 @@ ignore = [
     # removed from this list once the last rustls-pemfile 1.0.4 edge
     # left the graph — it came in via reqwest 0.11 -> hyper 0.14, and
     # that whole chain went away with the h2 RUSTSEC-2026-0258 fix.
-    # Only rustls-pemfile 2.2.0 remains, which the advisory doesn't
-    # cover. Keeping the entry made cargo-deny emit a permanent
-    # `advisory-not-detected` warning.
+    # The 2.2.0 edge (tonic 0.12 `tls` <- ruvector-hailo-cluster) went
+    # away with the tonic/tonic-build 0.13 bump, so rustls-pemfile is no
+    # longer in the graph at all.
 
     # ttf-parser — unmaintained (RUSTSEC-2026-0192), "no safe upgrade
     # available" per the advisory itself. Pulled via three unrelated
