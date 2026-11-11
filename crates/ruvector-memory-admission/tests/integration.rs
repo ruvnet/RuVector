@@ -1,6 +1,7 @@
 use ruvector_memory_admission::dataset::{StreamConfig, StreamDataset};
 use ruvector_memory_admission::policy::{
-    AdaptiveMincutAdmission, AdmissionPolicy, MincutGatedAdmission, NearestCentroidThreshold,
+    AdaptiveMincutAdmission, AdmissionPolicy, ConformalMincutAdmission, MincutGatedAdmission,
+    NearestCentroidThreshold,
 };
 
 fn small_dataset() -> StreamDataset {
@@ -17,7 +18,7 @@ fn small_dataset() -> StreamDataset {
 fn no_vectors_are_lost_across_all_policies() {
     let ds = small_dataset();
 
-    for policy_name in ["baseline", "mincut", "adaptive"] {
+    for policy_name in ["baseline", "mincut", "adaptive", "conformal"] {
         let mut assigned = 0usize;
         match policy_name {
             "baseline" => {
@@ -34,8 +35,15 @@ fn no_vectors_are_lost_across_all_policies() {
                     assigned += 1;
                 }
             }
-            _ => {
+            "adaptive" => {
                 let mut p = AdaptiveMincutAdmission::new(1.0, 32, 0.35);
+                for pt in &ds.points {
+                    p.admit(&pt.vector);
+                    assigned += 1;
+                }
+            }
+            _ => {
+                let mut p = ConformalMincutAdmission::new(0.15, 100, 32, 0.35);
                 for pt in &ds.points {
                     p.admit(&pt.vector);
                     assigned += 1;
@@ -71,6 +79,17 @@ fn mincut_admission_cluster_count_stays_bounded() {
 fn adaptive_admission_cluster_count_stays_bounded() {
     let ds = small_dataset();
     let mut p = AdaptiveMincutAdmission::new(1.0, 32, 0.35);
+    for pt in &ds.points {
+        p.admit(&pt.vector);
+    }
+    assert!(p.n_clusters() <= 32);
+    assert!(p.n_clusters() >= 1);
+}
+
+#[test]
+fn conformal_admission_cluster_count_stays_bounded() {
+    let ds = small_dataset();
+    let mut p = ConformalMincutAdmission::new(0.15, 100, 32, 0.35);
     for pt in &ds.points {
         p.admit(&pt.vector);
     }
