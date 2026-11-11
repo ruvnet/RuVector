@@ -9,6 +9,7 @@ repository.workspace = true
 description = "Product Quantization with Asymmetric Distance Computation (ADC) for compressed approximate nearest-neighbor search — Flat PQ, IVF+PQ, and Residual-corrected PQ variants in safe Rust"
 readme = "README.md"
 homepage = "https://ruv.io"
+documentation = "https://docs.rs/ruvector-pq-search"
 keywords = ["vector-search", "ann", "product-quantization", "compression", "approximate-search"]
 categories = ["algorithms", "data-structures", "science"]
 
