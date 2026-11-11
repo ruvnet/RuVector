@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/core",
-  "version": "0.1.38",
+  "version": "0.1.39",
   "description": "Vector database core with HNSW indexing, built in Rust with native Node.js bindings, for similarity search, semantic search and RAG.",
   "main": "index.js",
   "types": "index.d.ts",
