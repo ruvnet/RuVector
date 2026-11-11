@@ -195,6 +195,7 @@ impl BoundedInstance {
             }
         }
 
+        crate::profiling::record_connectivity_check(visited.len() as u64);
         visited.len() == self.vertices.len()
     }
 
@@ -272,6 +273,7 @@ impl BoundedInstance {
                         trigger: None,
                     });
 
+                crate::profiling::record_oracle_search_call();
                 match self.oracle.search(&graph, query) {
                     LocalKCutResult::Found { witness, cut_value } => {
                         // Update certificate
