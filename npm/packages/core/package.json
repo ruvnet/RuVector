@@ -21,7 +21,10 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "README.md"
+    "README.md",
+    "clustering.mjs",
+    "clustering.d.mts",
+    "clustering/"
   ],
   "scripts": {
     "build:napi": "napi build --platform --release --cargo-cwd ../../../crates/ruvector-node",
@@ -32,6 +35,7 @@
     "@napi-rs/cli": "^2.18.0"
   },
   "optionalDependencies": {
+    "@ruvector/e-means": "0.1.0",
     "ruvector-core-linux-x64-gnu": "0.1.35",
     "ruvector-core-linux-arm64-gnu": "0.1.35",
     "ruvector-core-darwin-x64": "0.1.35",

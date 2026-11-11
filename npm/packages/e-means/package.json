@@ -1,0 +1,108 @@
+{
+  "name": "@ruvector/e-means",
+  "version": "0.1.0",
+  "description": "Deterministic e-means clustering from the shared Rust core, compiled to portable WebAssembly",
+  "type": "module",
+  "main": "./e-means.mjs",
+  "types": "./e-means.d.ts",
+  "exports": {
+    ".": {
+      "types": "./e-means.d.ts",
+      "import": "./e-means.mjs"
+    },
+    "./runtime": {
+      "types": "./runtime.d.ts",
+      "import": "./runtime.mjs"
+    },
+    "./quantization": {
+      "types": "./integrations/quantization.d.ts",
+      "import": "./integrations/quantization.mjs"
+    },
+    "./ivf": {
+      "types": "./integrations/ivf.d.ts",
+      "import": "./integrations/ivf.mjs"
+    },
+    "./metaharness": {
+      "types": "./integrations/metaharness.d.ts",
+      "import": "./integrations/metaharness.mjs"
+    },
+    "./cloudflare": {
+      "types": "./integrations/cloudflare.d.ts",
+      "import": "./integrations/cloudflare.mjs"
+    },
+    "./cloudflare/build": {
+      "types": "./examples/cloudflare/build.d.ts",
+      "import": "./examples/cloudflare/build.mjs"
+    },
+    "./wasm": {
+      "types": "./wasm-module.d.ts",
+      "default": "./wasm/ruvector_e_means_bg.wasm"
+    }
+  },
+  "files": [
+    "e-means.mjs",
+    "e-means.d.ts",
+    "runtime.mjs",
+    "runtime.d.ts",
+    "wasm-module.d.ts",
+    "integrations/",
+    "examples/cloudflare/",
+    "examples/metaharness.mjs",
+    "wasm/",
+    "scripts/check-artifact.mjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.mjs",
+    "test:consumer": "node test/packed-consumer.mjs",
+    "test:ecosystem": "node test/ecosystem-consumers.mjs",
+    "test:cloudflare": "node --test test/cloudflare*.test.mjs",
+    "build:cloudflare": "node examples/cloudflare/build.mjs",
+    "prepack": "node scripts/check-artifact.mjs",
+    "typecheck": "tsc --noEmit -p test/tsconfig.json",
+    "test:browser": "node test/browser-consumer.mjs",
+    "benchmark": "node --expose-gc test/benchmark.mjs"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/ruvector.git",
+    "directory": "npm/packages/e-means"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "clustering",
+    "e-means",
+    "ema",
+    "k-means",
+    "webassembly",
+    "rust"
+  ],
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@metaharness/darwin": "0.13.0",
+    "esbuild": "0.28.2",
+    "miniflare": "4.20260730.0"
+  },
+  "peerDependencies": {
+    "@metaharness/darwin": "0.13.0"
+  },
+  "peerDependenciesMeta": {
+    "@metaharness/darwin": {
+      "optional": true
+    }
+  },
+  "overrides": {
+    "miniflare": {
+      "sharp": "0.35.5",
+      "undici": "7.30.1"
+    }
+  }
+}

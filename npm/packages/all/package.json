@@ -21,12 +21,16 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "README.md"
+    "README.md",
+    "clustering.mjs",
+    "clustering.d.mts",
+    "clustering/"
   ],
   "scripts": {
     "test": "node --test test/all.test.js"
   },
   "dependencies": {
+    "@ruvector/e-means": "0.1.0",
     "ruvector": "^0.3.7",
     "@ruvector/rvf": "^0.4.1",
     "@ruvector/sona": "^0.1.9",
