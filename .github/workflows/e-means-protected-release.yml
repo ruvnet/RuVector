@@ -16,6 +16,10 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-24.04
+    concurrency:
+      group: ruvector-main-mutation
+      queue: max
+      cancel-in-progress: false
     timeout-minutes: 45
     environment: npm-production
     permissions:
