@@ -91,4 +91,3 @@ def confirm_version_absent(name, version):
         raise ValueError('Invalid or empty sparse registry index: ' + name)
     if any(row['vers'] == version for row in records):
         raise ValueError(f'Published version {name} {version} exists in the index but its public archive is unavailable; nothing may be uploaded')
-
