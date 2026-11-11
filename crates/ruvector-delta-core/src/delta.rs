@@ -216,9 +216,11 @@ impl VectorDelta {
     pub fn l2_norm(&self) -> f32 {
         match &self.value {
             DeltaValue::Identity => 0.0,
-            DeltaValue::Sparse(ops) => ops.iter().map(|op| op.value * op.value).sum::<f32>().sqrt(),
+            DeltaValue::Sparse(ops) => {
+                crate::sqrt_f32(ops.iter().map(|op| op.value * op.value).sum::<f32>())
+            }
             DeltaValue::Dense(values) | DeltaValue::Replace(values) => {
-                values.iter().map(|v| v * v).sum::<f32>().sqrt()
+                crate::sqrt_f32(values.iter().map(|v| v * v).sum::<f32>())
             }
         }
     }

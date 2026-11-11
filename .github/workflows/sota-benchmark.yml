@@ -24,7 +24,7 @@ env:
 jobs:
   sota-smoke:
     name: SOTA Smoke (Tier 1)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
@@ -86,7 +86,7 @@ jobs:
 
   sota-full:
     name: SOTA Full Run (Tier 2, on demand)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.full_run == 'true'
 

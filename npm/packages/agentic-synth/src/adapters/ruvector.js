@@ -6,6 +6,23 @@
 
 let ruvectorCore = null;
 
+const scratchPaths = new Set();
+
+async function scratchDbPath() {
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { randomUUID } = await import('node:crypto');
+  const p = join(tmpdir(), `agentic-synth-${process.pid}-${randomUUID()}.db`);
+  if (scratchPaths.size === 0) {
+    const { rmSync } = await import('node:fs');
+    process.once('exit', () => {
+      for (const f of scratchPaths) rmSync(f, { force: true });
+    });
+  }
+  scratchPaths.add(p);
+  return p;
+}
+
 // Try to load native ruvector bindings
 async function loadRuvector() {
   if (ruvectorCore !== null) return ruvectorCore;
@@ -52,9 +69,13 @@ export class RuvectorAdapter {
       if (ruvector && ruvector.VectorDB) {
         // Use native RuVector NAPI-RS bindings
         // VectorDB constructor takes { dimensions: number, path?: string }
+        // ruvector has no in-memory mode and defaults to ./ruvector.db, so an
+        // in-memory adapter gets its own throwaway file.
         const dbOptions = { dimensions: this.dimensions };
         if (!this.inMemory && this.path) {
-          dbOptions.path = this.path;
+          dbOptions.storagePath = this.path;
+        } else {
+          dbOptions.storagePath = await scratchDbPath();
         }
         this.nativeDb = new ruvector.VectorDB(dbOptions);
         this.useNative = true;
@@ -109,7 +130,7 @@ export class RuvectorAdapter {
           ? item.vector
           : new Float32Array(item.vector);
 
-        this.nativeDb.insert({
+        await this.nativeDb.insert({
           id: item.id,
           vector: vectorArray,
           metadata: item.metadata
@@ -148,14 +169,20 @@ export class RuvectorAdapter {
     }
 
     if (this.useNative && this.nativeDb && this.nativeDb.insertBatch) {
-      // Use native batch insert if available
-      const ids = vectors.map(v => v.id);
-      const embeddings = vectors.map(v =>
-        v.vector instanceof Float32Array ? v.vector : new Float32Array(v.vector)
-      );
-      const metadataList = vectors.map(v => v.metadata || {});
-
-      this.nativeDb.insertBatch(ids, embeddings, metadataList);
+      // ruvector ^0.3 insertBatch takes [{ id, vector, metadata? }]
+      for (const v of vectors) {
+        if (!v.id || !v.vector) {
+          throw new Error('Each vector must have id and vector fields');
+        }
+        if (v.vector.length !== this.dimensions) {
+          throw new Error(`Vector dimension mismatch: expected ${this.dimensions}, got ${v.vector.length}`);
+        }
+      }
+      await this.nativeDb.insertBatch(vectors.map(v => ({
+        id: v.id,
+        vector: v.vector instanceof Float32Array ? v.vector : new Float32Array(v.vector),
+        metadata: v.metadata || {}
+      })));
       return vectors.map(v => ({ id: v.id, status: 'inserted', native: true }));
     }
 
@@ -173,6 +200,9 @@ export class RuvectorAdapter {
       throw new Error('RuVector adapter not initialized');
     }
 
+    if (!Array.isArray(query) && !ArrayBuffer.isView(query)) {
+      throw new Error('Query must be an array or Float32Array');
+    }
     const queryArray = Array.isArray(query) ? query : Array.from(query);
 
     if (queryArray.length !== this.dimensions) {
@@ -185,7 +215,9 @@ export class RuvectorAdapter {
       const results = await this.nativeDb.search({ vector: queryFloat32, k });
       return results.map(r => ({
         id: r.id,
-        score: r.score || r.similarity || r.distance,
+        // ruvector returns cosine distance (0 = identical); report similarity
+        // so native and fallback results rank the same way (higher is better).
+        score: 1 - r.score,
         metadata: r.metadata
       }));
     }
@@ -215,7 +247,7 @@ export class RuvectorAdapter {
 
     if (this.useNative && this.nativeDb && this.nativeDb.get) {
       const result = await this.nativeDb.get(id);
-      return result ? { id: result.id, vector: result.vector, metadata: result.metadata } : null;
+      return result ? { id: result.id ?? id, vector: result.vector, metadata: result.metadata } : null;
     }
 
     const vector = this.vectorDb.vectors.get(id);

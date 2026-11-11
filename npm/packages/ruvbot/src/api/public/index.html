@@ -664,6 +664,98 @@
     <a href="/health" target="_blank">Health</a>
   </footer>
 
+  <script id="ruvbot-api-client">
+    // API client: attaches "Authorization: Bearer <key>" to /api/* requests.
+    // When the server sets RUVBOT_API_KEY it answers 401 without the header;
+    // the user is then asked for the key once, and it is kept in sessionStorage
+    // (this tab only). With no key configured server-side nothing changes:
+    // requests succeed and no prompt is shown. The key never goes in a URL.
+    function createRuvBotApiClient(deps) {
+      const doFetch = deps.fetch;
+      const storage = deps.storage;
+      const ask = deps.prompt;
+      const STORAGE_KEY = 'ruvbot.apiKey';
+      let memoryKey = null; // fallback when sessionStorage is unavailable
+      let pendingPrompt = null; // share one prompt between concurrent 401s
+
+      function getKey() {
+        try {
+          const v = storage && storage.getItem(STORAGE_KEY);
+          if (v) return v;
+        } catch (e) { /* storage blocked */ }
+        return memoryKey;
+      }
+
+      function setKey(key) {
+        memoryKey = key;
+        try { if (storage) storage.setItem(STORAGE_KEY, key); } catch (e) { /* storage blocked */ }
+      }
+
+      function clearKey() {
+        memoryKey = null;
+        try { if (storage) storage.removeItem(STORAGE_KEY); } catch (e) { /* storage blocked */ }
+      }
+
+      function isApiUrl(url) {
+        const s = typeof url === 'string' ? url : (url && url.url) || '';
+        return s.startsWith('/api/') || s === '/api';
+      }
+
+      function withAuth(init, key) {
+        const next = Object.assign({}, init || {});
+        const headers = new Headers(next.headers || {});
+        headers.set('Authorization', 'Bearer ' + key);
+        next.headers = headers;
+        return next;
+      }
+
+      function promptForKey(rejected) {
+        if (!pendingPrompt) {
+          pendingPrompt = Promise.resolve().then(() => {
+            const msg = rejected
+              ? 'The RuvBot API key was rejected. Enter the API key (RUVBOT_API_KEY):'
+              : 'This RuvBot server requires an API key. Enter the API key (RUVBOT_API_KEY):';
+            const answer = ask(msg);
+            const key = typeof answer === 'string' ? answer.trim() : '';
+            if (key) setKey(key);
+            return key || null;
+          }).finally(() => { pendingPrompt = null; });
+        }
+        return pendingPrompt;
+      }
+
+      async function apiFetch(url, init) {
+        if (!isApiUrl(url)) return doFetch(url, init);
+
+        const sentKey = getKey();
+        const res = await doFetch(url, sentKey ? withAuth(init, sentKey) : init);
+        if (res.status !== 401) return res;
+
+        // Another request may already have obtained a fresh key.
+        const current = getKey();
+        if (current && current !== sentKey) {
+          return doFetch(url, withAuth(init, current));
+        }
+        if (sentKey) clearKey();
+
+        const key = await promptForKey(!!sentKey);
+        if (!key) return res; // user cancelled: surface the 401
+        const retry = await doFetch(url, withAuth(init, key));
+        if (retry.status === 401) clearKey();
+        return retry;
+      }
+
+      return { apiFetch, getKey, setKey, clearKey };
+    }
+
+    const ruvbotApi = createRuvBotApiClient({
+      fetch: (url, init) => window.fetch(url, init),
+      storage: (() => { try { return window.sessionStorage; } catch (e) { return null; } })(),
+      prompt: (msg) => window.prompt(msg),
+    });
+    const apiFetch = ruvbotApi.apiFetch;
+  </script>
+
   <script>
     // State
     let sessionId = null;
@@ -729,12 +821,17 @@
     async function createSession() {
       console.log('[RuvBot] Creating new session...');
       try {
-        const res = await fetch('/api/sessions', {
+        const res = await apiFetch('/api/sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ agentId: 'default-agent' })
         });
         const data = await res.json();
+        if (!res.ok) {
+          throw new Error(res.status === 401
+            ? 'Unauthorized: a valid API key is required'
+            : (data.message || data.error || 'Failed to create session'));
+        }
         console.log('[RuvBot] Session created:', data);
         sessionId = data.id || data.sessionId;
         return sessionId;
@@ -773,7 +870,7 @@
         console.log('[RuvBot] Sending message:', { sessionId, message, model: modelSelect.value });
         const startTime = performance.now();
 
-        const res = await fetch(`/api/sessions/${sessionId}/chat`, {
+        const res = await apiFetch(`/api/sessions/${sessionId}/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -801,7 +898,7 @@
         let skillBadges = '';
         if (data.skillsUsed && data.skillsUsed.length > 0) {
           const badges = data.skillsUsed.map(s =>
-            `<span class="skill-badge ${s.success ? 'success' : 'failed'}">${s.skillName}</span>`
+            `<span class="skill-badge ${s.success ? 'success' : 'failed'}">${escapeHtml(s.skillName)}</span>`
           ).join(' ');
           skillBadges = `<div class="skill-badges">${badges}</div>`;
           console.log('[RuvBot] Skills used:', data.skillsUsed.map(s => s.skillId));
@@ -810,11 +907,11 @@
         // Add assistant message
         const content = data.content || data.message || data.response || 'No response';
         console.log('[RuvBot] Displaying content:', content.substring(0, 100) + '...');
-        addMessage('assistant', skillBadges + content);
+        addMessage('assistant', skillBadges + formatMarkdown(content), true);
 
       } catch (err) {
         typingEl.remove();
-        addMessage('assistant', `<div class="error-message">Error: ${err.message}</div>`, true);
+        addMessage('assistant', `<div class="error-message">Error: ${escapeHtml(err.message)}</div>`, true);
       } finally {
         isLoading = false;
         sendBtn.disabled = !inputEl.value.trim();
@@ -862,11 +959,21 @@
       return el;
     }
 
-    // Simple markdown formatter
+    // Escape HTML so model/skill output cannot inject markup or script
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // Simple markdown formatter (input is escaped first)
     function formatMarkdown(text) {
       if (!text) return '';
 
-      return text
+      return escapeHtml(text)
         // Code blocks
         .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
         // Inline code
@@ -876,7 +983,7 @@
         // Italic
         .replace(/\*([^*]+)\*/g, '<em>$1</em>')
         // Links
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
         // Headers
         .replace(/^### (.+)$/gm, '<h3>$1</h3>')
         .replace(/^## (.+)$/gm, '<h2>$1</h2>')
@@ -886,7 +993,7 @@
         .replace(/^- (.+)$/gm, '<li>$1</li>')
         .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
         // Blockquotes
-        .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+        .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
         // Horizontal rule
         .replace(/^---$/gm, '<hr>')
         // Paragraphs
@@ -907,7 +1014,7 @@
       try {
         const [healthRes, statusRes] = await Promise.all([
           fetch('/health'),
-          fetch('/api/status')
+          apiFetch('/api/status')
         ]);
         const health = await healthRes.json();
         const status = await statusRes.json();

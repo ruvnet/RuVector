@@ -27,6 +27,21 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "storage")]
 use std::sync::{Arc, Weak};
 
+/// Upper bound on the bytes one stored record may claim while it is decoded.
+///
+/// Records come from a database file on disk, which may be corrupt or crafted.
+/// Without a limit, a length prefix of a few bytes makes the decoder reserve an
+/// arbitrarily large buffer and abort the process on allocation failure.
+#[cfg(feature = "storage")]
+pub const MAX_RECORD_DECODE_BYTES: usize = 64 * 1024 * 1024;
+
+#[cfg(feature = "storage")]
+fn decode_record<T: bincode::Decode<()>>(bytes: &[u8]) -> Result<T> {
+    let config = config::standard().with_limit::<MAX_RECORD_DECODE_BYTES>();
+    let (value, _): (T, usize) = bincode::decode_from_slice(bytes, config)?;
+    Ok(value)
+}
+
 #[cfg(feature = "storage")]
 // Table definitions
 const NODES_TABLE: TableDefinition<&str, &[u8]> = TableDefinition::new("nodes");
@@ -114,6 +129,17 @@ impl GraphStorage {
                 }
             }
         }
+
+        // The database may not exist yet, so canonicalize its existing parent
+        // before using the path as a pool key. This also resolves symlinked
+        // directories and redundant components to the same redb file.
+        let parent = path_buf
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Database path has no parent"))?;
+        let file_name = path_buf
+            .file_name()
+            .ok_or_else(|| anyhow::anyhow!("Database path has no file name"))?;
+        let path_buf = parent.canonicalize()?.join(file_name);
 
         // Claim this path's slot. Slot handles are only ever cloned while the
         // pool lock is held, which is what makes the reference-count check in
@@ -242,8 +268,7 @@ impl GraphStorage {
             return Ok(None);
         };
 
-        let (node, _): (Node, usize) =
-            bincode::decode_from_slice(node_data.value(), config::standard())?;
+        let node: Node = decode_record(node_data.value())?;
         Ok(Some(node))
     }
 
@@ -320,8 +345,7 @@ impl GraphStorage {
             return Ok(None);
         };
 
-        let (edge, _): (Edge, usize) =
-            bincode::decode_from_slice(edge_data.value(), config::standard())?;
+        let edge: Edge = decode_record(edge_data.value())?;
         Ok(Some(edge))
     }
 
@@ -414,8 +438,7 @@ impl GraphStorage {
             return Ok(None);
         };
 
-        let (hyperedge, _): (Hyperedge, usize) =
-            bincode::decode_from_slice(hyperedge_data.value(), config::standard())?;
+        let hyperedge: Hyperedge = decode_record(hyperedge_data.value())?;
         Ok(Some(hyperedge))
     }
 
@@ -529,6 +552,18 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
+    fn test_oversized_length_prefix_is_rejected() {
+        // bincode varint tag 253 = u64 length follows; claim ~1 TiB.
+        let mut bytes = vec![253u8];
+        bytes.extend_from_slice(&(1u64 << 40).to_le_bytes());
+        assert!(decode_record::<Vec<u64>>(&bytes).is_err());
+        assert!(decode_record::<String>(&bytes).is_err());
+        // A record within the limit still decodes.
+        let ok = bincode::encode_to_vec(vec![1u32, 2, 3], config::standard()).unwrap();
+        assert_eq!(decode_record::<Vec<u32>>(&ok).unwrap(), vec![1, 2, 3]);
+    }
+
+    #[test]
     fn test_node_storage() -> Result<()> {
         let dir = tempdir()?;
         let storage = GraphStorage::new(dir.path().join("test.db"))?;
@@ -583,6 +618,56 @@ mod tests {
         assert_eq!(storage.node_count()?, 2);
 
         Ok(())
+    }
+
+    #[test]
+    fn different_spellings_of_one_database_share_the_pool() -> Result<()> {
+        let dir = tempdir()?;
+        std::fs::create_dir(dir.path().join("sub"))?;
+        let db_path = dir.path().join("shared.db");
+        let alias = dir.path().join("sub/../shared.db");
+
+        let first = GraphStorage::new(&db_path)?;
+        let second = GraphStorage::new(&alias)?;
+        assert!(Arc::ptr_eq(
+            &first.pooled.as_ref().unwrap().db,
+            &second.pooled.as_ref().unwrap().db
+        ));
+        let node = NodeBuilder::new().label("Shared").build();
+        first.insert_node(&node)?;
+        assert!(second.get_node(&node.id)?.is_some());
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_directory_shares_the_pool() -> Result<()> {
+        use std::os::unix::fs::symlink;
+
+        let dir = tempdir()?;
+        let real = dir.path().join("real");
+        std::fs::create_dir(&real)?;
+        let alias = dir.path().join("alias");
+        symlink(&real, &alias)?;
+
+        let first = GraphStorage::new(real.join("shared.db"))?;
+        let second = GraphStorage::new(alias.join("shared.db"))?;
+        assert!(Arc::ptr_eq(
+            &first.pooled.as_ref().unwrap().db,
+            &second.pooled.as_ref().unwrap().db
+        ));
+        let node = NodeBuilder::new().label("Shared").build();
+        first.insert_node(&node)?;
+        assert!(second.get_node(&node.id)?.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn relative_parent_traversal_is_still_rejected() {
+        let error = GraphStorage::new("../escape.db")
+            .err()
+            .expect("traversal must be rejected");
+        assert_eq!(error.to_string(), "Path traversal attempt detected");
     }
 
     #[test]

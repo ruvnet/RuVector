@@ -11,8 +11,8 @@ const nativeImport = new Function(
 ) as (specifier: string) => Promise<Record<string, any>>;
 
 export const METAHARNESS_VERSIONS = Object.freeze({
-  metaharness: '0.4.7',
-  darwin: '0.9.2',
+  metaharness: '0.4.20',
+  darwin: '0.13.0',
   flywheel: '0.1.10',
   harness: '0.2.0',
   router: '0.4.0',
@@ -105,7 +105,35 @@ function assertFiniteVector(name: string, vector: number[]): void {
   }
 }
 
-export async function getMetaHarnessCapabilities(): Promise<MetaHarnessCapabilityStatus[]> {
+/**
+ * Capabilities whose entry module is too heavy to import just to report
+ * status. @metaharness/darwin >= 0.13 eagerly loads @babel/parser for its
+ * safety AST (~35 ms of its ~70 ms import); it only runs under an explicit
+ * `harness darwin --execute`, so `harness status` checks that it is installed
+ * and `harness doctor` (deep) imports it.
+ */
+const DEFERRED_CAPABILITIES: ReadonlySet<MetaHarnessCapabilityName> = new Set(['darwin']);
+
+/** Installed version of a package, found without importing it (null if absent). */
+function installedPackageVersion(packageName: string): string | null {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const fs = require('fs');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const path = require('path');
+  for (const dir of require.resolve.paths(packageName) || []) {
+    const manifest = path.join(dir, packageName, 'package.json');
+    try {
+      return JSON.parse(fs.readFileSync(manifest, 'utf8')).version || 'unknown';
+    } catch {
+      // not in this node_modules; keep walking up
+    }
+  }
+  return null;
+}
+
+export async function getMetaHarnessCapabilities(
+  options: { deep?: boolean } = {},
+): Promise<MetaHarnessCapabilityStatus[]> {
   const checks: Record<MetaHarnessCapabilityName, [string, string]> = {
     metaharness: ['scaffold', 'core scaffold and orchestration exports loaded'],
     darwin: ['evolve', 'statistical evolution engine loaded'],
@@ -120,6 +148,18 @@ export async function getMetaHarnessCapabilities(): Promise<MetaHarnessCapabilit
   return Promise.all((Object.keys(METAHARNESS_VERSIONS) as MetaHarnessCapabilityName[]).map(async (name) => {
     const packageName = PACKAGE_NAMES[name];
     const [symbol, detail] = checks[name];
+    if (!options.deep && DEFERRED_CAPABILITIES.has(name)) {
+      const installed = installedPackageVersion(packageName);
+      return {
+        name,
+        package: packageName,
+        version: installed || METAHARNESS_VERSIONS[name],
+        available: installed !== null,
+        detail: installed !== null
+          ? `${detail.replace(/ loaded$/, '')} installed (loaded on first use; \`harness doctor\` loads it)`
+          : `Optional MetaHarness package "${packageName}" is not installed. Run \`npm install ${packageName}\` to enable this capability.`,
+      };
+    }
     try {
       const loaded = await loadPackage(packageName);
       return {

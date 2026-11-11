@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/rvf-node.svg" alt="@ruvector/rvf-node: Native Node.js bindings for the RuVector Format (RVF) vector database, built with Rust via N-API." width="100%"></p>
+
 # @ruvector/rvf-node
 
 Native Node.js bindings for the [RuVector Format](https://github.com/ruvnet/ruvector/tree/main/crates/rvf) (RVF) vector database. Built with Rust via N-API for native speed with zero serialization overhead.
@@ -119,6 +121,7 @@ db.close();
 | `dimension` | `number` | required | Vector dimensionality |
 | `metric` | `string` | `"l2"` | `"l2"`, `"cosine"`, or `"inner_product"` |
 | `profile` | `number` | `0` | Hardware profile: 0=Generic, 1=Core, 2=Hot, 3=Full |
+| `compression` | `string` | `"None"` | `"None"`, `"Scalar"`, or `"Product"` |
 | `signing` | `boolean` | `false` | Enable segment signing |
 | `m` | `number` | `16` | HNSW M parameter (neighbor count) |
 | `efConstruction` | `number` | `200` | HNSW index build quality |
@@ -160,6 +163,8 @@ const results = db.query(
 | `efSearch` | `number` | `100` | HNSW search quality (higher = better recall, slower) |
 | `filter` | `string` | — | Filter expression as JSON string |
 | `timeoutMs` | `number` | `0` | Query timeout in ms (0 = no timeout) |
+| `rabitq` | `boolean` | `false` | Opt in to the RaBitQ two-stage path (1-bit scan + exact rescore) |
+| `forceExact` | `boolean` | `false` | Exact brute-force scan, no HNSW. Filtered queries are already exact when the filter is selective (<15%) or the graph measures below 0.95 recall@10 |
 
 ### Filter Expressions
 
@@ -253,6 +258,9 @@ db.lineageDepth();  // 0 for root files
 const child = db.derive('/tmp/child.rvf');
 child.lineageDepth(); // 1
 child.parentId();     // matches parent's fileId()
+
+// Copy-on-write branch: reads inherited vectors, persists only child edits
+const branch = db.branch('/tmp/branch.rvf');
 ```
 
 ### Kernel & eBPF Embedding
@@ -339,15 +347,30 @@ npm install
 npm run build
 ```
 
-## Related Packages
+## Related packages
 
-| Package | Description |
-|---------|-------------|
-| [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf) | Unified TypeScript SDK |
-| [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) | Browser WASM package |
-| [`@ruvector/rvf-mcp-server`](https://www.npmjs.com/package/@ruvector/rvf-mcp-server) | MCP server for AI agents |
-| [`rvf-runtime`](https://crates.io/crates/rvf-runtime) | Rust runtime (powers this package) |
+- [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf) — async TypeScript SDK that uses this addon as its `'node'` backend (string IDs, typed filters).
+- [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) — WASM build of RVF for browsers and edge runtimes.
+- [`@ruvector/rvf-mcp-server`](https://www.npmjs.com/package/@ruvector/rvf-mcp-server) — MCP server exposing RVF stores to AI agents.
+- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package and CLI (`npx ruvector`).
+
+The Rust crate powering this package is [`rvf-runtime`](https://crates.io/crates/rvf-runtime).
 
 ## License
 
-MIT OR Apache-2.0
+MIT
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for vector database, N-API, HNSW.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf), [`agentdb`](https://www.npmjs.com/package/agentdb), [`agenticow`](https://www.npmjs.com/package/agenticow)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

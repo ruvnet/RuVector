@@ -20,6 +20,7 @@ const {
   CallToolRequestSchema,
   ListToolsRequestSchema,
   ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
   ReadResourceRequestSchema,
 } = require('@modelcontextprotocol/sdk/types.js');
 const path = require('path');
@@ -27,6 +28,8 @@ const fs = require('fs');
 const { serializeStore, resolveIntelStorePath } = require('./intel-store');
 const memoryStore = require('./memory-store');
 const recordValidate = require('./record-validate');
+// weights_* tools; @ruvector/weight-space itself is loaded only inside a call
+const weightsTools = require('./weights');
 const { execFileSync } = require('child_process');
 
 // ADR-256: default-deny MCP tool-access policy (RUVECTOR_MCP_ALLOW/DENY/PROFILE)
@@ -208,6 +211,67 @@ function sanitizeShellArg(arg) {
 }
 
 /**
+ * Run one rvlite_* MCP query.
+ *
+ * rvlite exports the `RvLite` class (also its default export); there is no
+ * `Database` class. Its query methods are async and parse the text in-process
+ * (WASM), so the query is never handed to a shell: shell-metacharacter
+ * stripping would remove the parentheses, braces and quotes every SQL, Cypher
+ * and SPARQL statement needs. Only NUL bytes and oversize input are rejected.
+ *
+ * With `db_path` the RVF file is loaded (path-confined like every other RVF
+ * tool) but never written back: rvlite's RVF export only carries vector
+ * state, so saving after a query would silently drop SQL tables.
+ */
+const RVLITE_MAX_QUERY_LEN = 65536;
+async function runRvliteQuery(kind, args) {
+  let rvliteModule;
+  try {
+    rvliteModule = await import('rvlite');
+  } catch (_e) {
+    return {
+      success: false,
+      error: 'rvlite package not installed',
+      hint: 'Install with: npx ruvector add rvlite  (or: npm install rvlite)'
+    };
+  }
+  const RvLite = rvliteModule.RvLite
+    || (rvliteModule.default && rvliteModule.default.RvLite)
+    || rvliteModule.default;
+  if (typeof RvLite !== 'function') {
+    throw new Error('installed rvlite does not export the RvLite class');
+  }
+  const query = args.query;
+  if (typeof query !== 'string' || query.trim().length === 0) {
+    throw new Error('query must be a non-empty string');
+  }
+  if (query.includes('\0')) throw new Error('query contains null bytes');
+  if (query.length > RVLITE_MAX_QUERY_LEN) {
+    throw new Error(`query exceeds ${RVLITE_MAX_QUERY_LEN} characters`);
+  }
+  let db;
+  if (args.db_path) {
+    const rvfPath = validateRvfPath(args.db_path);
+    db = typeof RvLite.createWithRvf === 'function'
+      ? await RvLite.createWithRvf({ rvfPath })
+      : new RvLite({ rvfPath });
+  } else {
+    db = new RvLite({});
+  }
+  const results = await db[kind](query);
+  const rows = Array.isArray(results) ? results
+    : (results && Array.isArray(results.rows)) ? results.rows
+    : (results && Array.isArray(results.bindings)) ? results.bindings
+    : null;
+  return {
+    success: true,
+    query_type: kind,
+    results,
+    row_count: rows ? rows.length : 0
+  };
+}
+
+/**
  * Validate a numeric argument (returns integer or default).
  * Prevents injection via numeric-looking fields.
  */
@@ -241,6 +305,19 @@ function runNpxPackage(packageSpec, args, options = {}) {
     encoding: 'utf-8',
     ...options,
   });
+}
+
+/** Opt-in extras and their install state, for hooks_capabilities (lazy: loaded on call). */
+function listExtrasForMcp() {
+  const extras = require('./extras');
+  return extras.listExtras().map((e) => ({
+    key: e.key,
+    package: e.pkg,
+    why: e.why,
+    bundled: !!e.bundled,
+    installed: extras.isPackageInstalled(e.pkg),
+    install: e.bundled ? null : `npx ruvector add ${e.key}`,
+  }));
 }
 
 // MCP tool result returned when @ruvector/pi-brain is absent or unusable, so
@@ -1359,7 +1436,7 @@ const TOOLS = [
   // Learning Engine Tools (v2.1)
   {
     name: 'hooks_learning_config',
-    description: 'Configure learning algorithms for different tasks. Supports 9 algorithms: q-learning, sarsa, double-q, actor-critic, ppo, decision-transformer, monte-carlo, td-lambda, dqn',
+    description: 'Configure learning algorithms for different tasks. Supports 10 algorithms: q-learning, sarsa, double-q, actor-critic, ppo, decision-transformer, monte-carlo, td-lambda, dqn, neural-q (neural-q needs the optional ruv-fann package; it falls back to the tabular Q-table without it)',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1371,7 +1448,7 @@ const TOOLS = [
         algorithm: {
           type: 'string',
           description: 'Learning algorithm',
-          enum: ['q-learning', 'sarsa', 'double-q', 'actor-critic', 'ppo', 'decision-transformer', 'monte-carlo', 'td-lambda', 'dqn']
+          enum: ['q-learning', 'sarsa', 'double-q', 'actor-critic', 'ppo', 'decision-transformer', 'monte-carlo', 'td-lambda', 'dqn', 'neural-q']
         },
         learningRate: { type: 'number', description: 'Learning rate (0.0-1.0)' },
         discountFactor: { type: 'number', description: 'Discount factor gamma (0.0-1.0)' },
@@ -1755,6 +1832,78 @@ const TOOLS = [
       required: ['path']
     }
   },
+  // ── Quantum Tools (optional @ruvector/ruqu-wasm) ──────────────────────────
+  {
+    name: 'quantum_simulate',
+    description: 'Simulate a quantum circuit on the ruqu state-vector engine and return the most probable basis states plus optional seeded measurement counts. Caps: 20 qubits (2^n * 16 bytes of state), 10000 gates, 100000 shots. Bit order: qubit 0 = rightmost bit. Requires @ruvector/ruqu-wasm (npm i @ruvector/ruqu-wasm).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        circuit: {
+          type: ['object', 'string'],
+          description: 'Circuit: {qubits, gates}, or the CLI shorthand as a string: "bell", "ghz" / "ghz:N", text ops like "h 0; cx 0 1" (angle last: "rx 0 1.57"), or inline JSON. Same limits either way.',
+          properties: {
+            qubits: { type: 'number', description: 'Qubit count, 1..20' },
+            gates: {
+              type: 'array',
+              description: 'Gates in order, e.g. {gate:"h",qubits:[0]}, {gate:"cnot",qubits:[0,1]}, {gate:"rx",qubits:[0],angle:1.57}. Gates: h x y z s t rx ry rz cnot cx cz swap rzz barrier',
+              items: { type: 'object' }
+            }
+          },
+          required: ['qubits']
+        },
+        preset: { type: 'string', description: 'Instead of circuit: "bell" or "ghz" (uses qubits, default 3)' },
+        qubits: { type: 'number', description: 'Qubit count for the ghz preset' },
+        shots: { type: 'number', description: 'Measurements to sample from the final state (0..100000)', default: 0 },
+        seed: { type: 'number', description: 'Sampling seed (uint32) for reproducible counts' },
+        top: { type: 'number', description: 'Most probable states to return (1..256)', default: 16 }
+      }
+    }
+  },
+  {
+    name: 'quantum_info',
+    description: 'Report whether the ruqu quantum engine (@ruvector/ruqu-wasm) is installed, its version, limits, supported gates and state-vector memory per qubit count',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  // ── DiskANN Tools (optional @ruvector/diskann) ────────────────────────────
+  {
+    name: 'diskann_build',
+    description: 'Build a DiskANN (Vamana graph) ANN index from {id, vector} records and save it to a directory. Requires @ruvector/diskann (npx ruvector add diskann).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Index directory (created if missing; confined to the working directory)' },
+        vectors: {
+          type: 'array',
+          description: 'Records to index, all of one dimension',
+          items: {
+            type: 'object',
+            properties: { id: { type: 'string' }, vector: { type: 'array', items: { type: 'number' } } },
+            required: ['id', 'vector']
+          }
+        },
+        maxDegree: { type: 'number', description: 'Max graph out-degree', default: 64 },
+        alpha: { type: 'number', description: 'Vamana pruning alpha (>= 1)', default: 1.2 }
+      },
+      required: ['path', 'vectors']
+    }
+  },
+  {
+    name: 'diskann_search',
+    description: 'k nearest neighbours (L2 squared distance) from a saved DiskANN index',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Index directory written by diskann_build' },
+        vector: { type: 'array', description: 'Query vector', items: { type: 'number' } },
+        k: { type: 'number', description: 'Number of results', default: 10 }
+      },
+      required: ['path', 'vector']
+    }
+  },
+  // ── Weight registry Tools (optional @ruvector/weight-space) ──────────────
+  // weights_save, weights_nearest, weights_diff, weights_lineage
+  ...weightsTools.MCP_TOOLS,
   // ── RVF Vector Store Tools ────────────────────────────────────────────────
   {
     name: 'rvf_create',
@@ -2664,7 +2813,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 patternsLearned: stats.patternsLearned || stats.total_patterns,
                 microLoraUpdates: stats.microLoraUpdates || 0,
                 ewcConsolidations: stats.ewcConsolidations || 0,
-              }
+              },
+              // Read-only: installing an extra is a CLI action (`ruvector add`), never an MCP side effect.
+              extras: listExtrasForMcp(),
             }, null, 2)
           }]
         };
@@ -3410,6 +3561,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const engine = new LearningEngine();
         if (intel.data.learning) engine.import(intel.data.learning);
+        if (engine.usesNeural()) await engine.enableNeural();
 
         const experience = {
           state: args.state,
@@ -3443,6 +3595,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const engine = new LearningEngine();
         if (intel.data.learning) engine.import(intel.data.learning);
+        if (engine.usesNeural()) await engine.enableNeural();
 
         const task = args.task || 'agent-routing';
         let result = { success: true };
@@ -3596,6 +3749,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (intel.data.learning) {
           engine.import(intel.data.learning);
         }
+        if (engine.usesNeural()) await engine.enableNeural();
 
         const results = [];
         let totalReward = 0;
@@ -3987,6 +4141,84 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
       }
 
+      // ── Quantum Tool Handlers (optional @ruvector/ruqu-wasm) ──────────────
+      case 'quantum_simulate': {
+        try {
+          // Validation runs in the wrapper before the WASM engine is loaded.
+          const q = require('../dist/core/quantum-wrapper.js');
+          let spec = args.circuit;
+          // Same shorthand as `ruvector quantum simulate`: bell, ghz[:N],
+          // "h 0; cx 0 1" or inline JSON, parsed under the MCP limits.
+          if (typeof spec === 'string') spec = q.circuitFromString(spec, args.qubits, q.DEFAULT_LIMITS);
+          if (args.preset !== undefined) {
+            if (spec !== undefined) throw new Error('pass either circuit or preset, not both');
+            if (args.preset === 'bell') spec = q.ghzCircuit(2);
+            else if (args.preset === 'ghz') {
+              const n = args.qubits === undefined ? 3 : args.qubits;
+              q.validateCircuit({ qubits: n, gates: [] });
+              spec = q.ghzCircuit(n);
+            } else throw new Error(`unknown preset ${JSON.stringify(args.preset)} (bell, ghz)`);
+          }
+          if (spec === undefined) throw new Error('circuit (or preset) is required');
+          const result = await q.simulate(spec, { shots: args.shots, seed: args.seed, top: args.top });
+          return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
+        }
+      }
+
+      case 'quantum_info': {
+        try {
+          const q = require('../dist/core/quantum-wrapper.js');
+          const result = await q.info();
+          return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
+        }
+      }
+
+      // ── DiskANN Tool Handlers ─────────────────────────────────────────────
+      case 'diskann_build':
+      case 'diskann_search': {
+        try {
+          const wrapper = require('../dist/core/diskann-wrapper.js');
+          if (!wrapper.isDiskAnnAvailable()) {
+            throw new Error('@ruvector/diskann is not installed. Install with: npx ruvector add diskann');
+          }
+          const safePath = validateRvfPath(args.path);
+          let payload;
+          if (name === 'diskann_build') {
+            const records = recordValidate.validateEntries(args.vectors, undefined, 'vectors');
+            const options = {};
+            if (args.maxDegree !== undefined) {
+              if (!Number.isInteger(args.maxDegree) || args.maxDegree < 1) throw new Error('maxDegree must be a positive integer');
+              options.maxDegree = args.maxDegree;
+            }
+            if (args.alpha !== undefined) {
+              if (typeof args.alpha !== 'number' || !Number.isFinite(args.alpha) || args.alpha < 1) throw new Error('alpha must be a number >= 1');
+              options.alpha = args.alpha;
+            }
+            payload = { success: true, ...wrapper.buildDiskAnnIndex(safePath, records, options) };
+          } else {
+            const vector = Array.from(recordValidate.validateVector(args.vector));
+            const k = recordValidate.validateK(args.k);
+            payload = { success: true, results: wrapper.searchDiskAnnIndex(safePath, vector, k) };
+          }
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
+        }
+      }
+
+      // ── Weight registry Tool Handlers ───────────────────────────────────
+      // Registry and model paths go through validateRvfPath (working directory
+      // + RUVECTOR_MCP_ROOTS); a missing package returns ERR_WEIGHT_SPACE_MISSING.
+      case 'weights_save':
+      case 'weights_nearest':
+      case 'weights_diff':
+      case 'weights_lineage':
+        return await weightsTools.runMcpTool(name, args, validateRvfPath);
+
       // ── RVF Tool Handlers ─────────────────────────────────────────────────
       case 'rvf_create': {
         try {
@@ -3997,9 +4229,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           if (!Number.isInteger(dimensions) || dimensions <= 0) {
             throw new Error(`Missing or invalid dimension: expected a positive integer, got ${JSON.stringify(dimensions)}`);
           }
-          const { createRvfStore } = require('../dist/core/rvf-wrapper.js');
+          const { createRvfStore, rvfClose } = require('../dist/core/rvf-wrapper.js');
           const store = await createRvfStore(safePath, { dimensions, metric: args.metric || 'cosine' });
-          const status = store.status ? await store.status() : { dimensions };
+          // Close the new store: an open handle keeps the writer lock, and every
+          // later rvf_* call in this server process then fails with LockHeld.
+          let status;
+          try { status = store.status ? await store.status() : { dimensions }; } finally { await rvfClose(store); }
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, path: safePath, ...status }, null, 2) }] };
         } catch (e) {
           // Only suggest installing the package when it is actually missing (#641).
@@ -4072,8 +4307,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const safePath = validateRvfPath(args.path);
           const { openRvfStore, rvfStatus, rvfClose } = require('../dist/core/rvf-wrapper.js');
           const store = await openRvfStore(safePath);
-          const status = await rvfStatus(store);
-          await rvfClose(store);
+          let status;
+          try { status = await rvfStatus(store); } finally { await rvfClose(store); }
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...status }, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -4085,8 +4320,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const safePath = validateRvfPath(args.path);
           const { openRvfStore, rvfCompact, rvfClose } = require('../dist/core/rvf-wrapper.js');
           const store = await openRvfStore(safePath);
-          const result = await rvfCompact(store);
-          await rvfClose(store);
+          let result;
+          try { result = await rvfCompact(store); } finally { await rvfClose(store); }
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -4161,8 +4396,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const safePath = validateRvfPath(args.path);
           const { openRvfStore, rvfClose } = require('../dist/core/rvf-wrapper.js');
           const store = await openRvfStore(safePath);
-          const segs = await store.segments();
-          await rvfClose(store);
+          let segs;
+          try { segs = await store.segments(); } finally { await rvfClose(store); }
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, segments: segs }, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -4200,91 +4435,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       // ── rvlite Query Tool Handlers ──────────────────────────────────────
-      case 'rvlite_sql': {
-        try {
-          let rvliteModule;
-          try {
-            rvliteModule = await import('rvlite');
-          } catch (_e) {
-            return { content: [{ type: 'text', text: JSON.stringify({
-              success: false,
-              error: 'rvlite package not installed',
-              hint: 'Install with: npm install rvlite'
-            }, null, 2) }] };
-          }
-          const rvlite = rvliteModule.default || rvliteModule;
-          const safeQuery = sanitizeShellArg(args.query);
-          const dbOpts = args.db_path ? { path: validateRvfPath(args.db_path) } : {};
-          const db = new rvlite.Database(dbOpts);
-          const results = db.sql(safeQuery);
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: true,
-            query_type: 'sql',
-            results,
-            row_count: Array.isArray(results) ? results.length : 0
-          }, null, 2) }] };
-        } catch (e) {
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: false,
-            error: e.message
-          }, null, 2) }], isError: true };
-        }
-      }
-
-      case 'rvlite_cypher': {
-        try {
-          let rvliteModule;
-          try {
-            rvliteModule = await import('rvlite');
-          } catch (_e) {
-            return { content: [{ type: 'text', text: JSON.stringify({
-              success: false,
-              error: 'rvlite package not installed',
-              hint: 'Install with: npm install rvlite'
-            }, null, 2) }] };
-          }
-          const rvlite = rvliteModule.default || rvliteModule;
-          const safeQuery = sanitizeShellArg(args.query);
-          const dbOpts = args.db_path ? { path: validateRvfPath(args.db_path) } : {};
-          const db = new rvlite.Database(dbOpts);
-          const results = db.cypher(safeQuery);
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: true,
-            query_type: 'cypher',
-            results,
-            row_count: Array.isArray(results) ? results.length : 0
-          }, null, 2) }] };
-        } catch (e) {
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: false,
-            error: e.message
-          }, null, 2) }], isError: true };
-        }
-      }
-
+      case 'rvlite_sql':
+      case 'rvlite_cypher':
       case 'rvlite_sparql': {
+        const kind = name.slice('rvlite_'.length);
         try {
-          let rvliteModule;
-          try {
-            rvliteModule = await import('rvlite');
-          } catch (_e) {
-            return { content: [{ type: 'text', text: JSON.stringify({
-              success: false,
-              error: 'rvlite package not installed',
-              hint: 'Install with: npm install rvlite'
-            }, null, 2) }] };
-          }
-          const rvlite = rvliteModule.default || rvliteModule;
-          const safeQuery = sanitizeShellArg(args.query);
-          const dbOpts = args.db_path ? { path: validateRvfPath(args.db_path) } : {};
-          const db = new rvlite.Database(dbOpts);
-          const results = db.sparql(safeQuery);
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: true,
-            query_type: 'sparql',
-            results,
-            row_count: Array.isArray(results) ? results.length : 0
-          }, null, 2) }] };
+          const outcome = await runRvliteQuery(kind, args);
+          return { content: [{ type: 'text', text: JSON.stringify(outcome, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({
             success: false,
@@ -4768,6 +4925,13 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
       }
     ]
   };
+});
+
+// The server advertises the resources capability, so clients such as Continue
+// call resources/templates/list during setup and treat -32601 as fatal. There
+// are no parameterized resources, so the list is empty.
+server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
+  return { resourceTemplates: [] };
 });
 
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {

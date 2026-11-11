@@ -4,24 +4,28 @@
 # crates/rvf/rvf-wasm convention.
 [package]
 name = "emergent-time-wasm"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "WASM bindings for the agentic-time layer of the emergent-time crate: measure an AI agent's internal time and health from state deltas in the browser, on the edge, or in Node."
 license = "MIT"
 authors = ["Ruvector Team"]
 repository = "https://github.com/ruvnet/ruvector"
 homepage = "https://github.com/ruvnet/ruvector"
-readme = "README.md"
+# Shares the README of the npm package built from this crate (@ruvector/emergent-time).
+readme = "../../npm/packages/emergent-time/README.md"
 rust-version = "1.77"
 categories = ["wasm", "science", "simulation"]
 keywords = ["agentic-time", "wasm", "webassembly", "agents", "observability"]
+
+# Ship only sources; tests/ holds JS smoke tests that import the npm pkg/ build.
+include = ["src/**/*.rs", "Cargo.toml"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # The pure, dependency-free core. Only the agentic-time layer is wrapped.
-emergent-time = { path = "../emergent-time" }
+emergent-time = { version = "2.2.4", path = "../emergent-time" }
 # Pinned to match the installed `wasm-bindgen` CLI (0.2.118) so the generated JS
 # glue ABI matches exactly and there is no CLI/crate version-skew warning.
 wasm-bindgen = "=0.2.118"

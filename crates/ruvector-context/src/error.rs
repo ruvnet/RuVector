@@ -72,8 +72,9 @@ pub enum ContextIndexError {
     /// A root that other users can write is the precondition for every
     /// name-substitution attack this crate defends against, and a root they
     /// can read exposes every tenant's vectors without any attack at all.
-    /// Opening fails rather than running with that exposure. Unix only: no
-    /// mode enforcement is possible elsewhere.
+    /// Opening fails rather than running with that exposure. On macOS, any
+    /// extended root ACL is rejected because its grants bypass mode bits.
+    /// Unix only: no mode enforcement is possible elsewhere.
     #[error("context index root is not private to this user: {0}")]
     InsecureRoot(String),
     /// The root lock path is not a regular file, for example a symlink.

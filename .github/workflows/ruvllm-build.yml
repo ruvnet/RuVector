@@ -175,37 +175,39 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           # Publish darwin-arm64
           cd npm/packages/ruvllm/npm/darwin-arm64
-          npm publish --access public || true
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
           cd -
 
           # Publish darwin-x64
           cd npm/packages/ruvllm/npm/darwin-x64
-          npm publish --access public || true
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
           cd -
 
           # Publish linux-x64-gnu
           cd npm/packages/ruvllm/npm/linux-x64-gnu
-          npm publish --access public || true
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
           cd -
 
           # Publish linux-arm64-gnu
           cd npm/packages/ruvllm/npm/linux-arm64-gnu
-          npm publish --access public || true
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
           cd -
 
           # Publish win32-x64-msvc
           cd npm/packages/ruvllm/npm/win32-x64-msvc
-          npm publish --access public || true
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
           cd -
 
       - name: Publish main package
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           cd npm/packages/ruvllm
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
 
   publish-crates:
     name: Publish ruvllm to crates.io

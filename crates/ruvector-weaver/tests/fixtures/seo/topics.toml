@@ -1,0 +1,94 @@
+[meta]
+homepage = "https://ruv.io"
+measured_at = "2026-11-08"
+min_npm_kw_total = 50
+min_gh_topic_repos = 500
+hands_off_packages = ["held-pkg"]
+hands_off_repos = ["acme/held"]
+
+[[topic]]
+slug = "vector-database"
+phrase = "vector database"
+aliases = ["vector-db", "vectordb"]
+npm_kw_total = 571
+gh_topic_repos = 8802
+
+[[topic]]
+slug = "vector-search"
+phrase = "vector search"
+aliases = ["similarity-search"]
+npm_kw_total = 1214
+gh_topic_repos = 8055
+
+[[topic]]
+slug = "hnsw"
+phrase = "HNSW"
+npm_kw_total = 190
+gh_topic_repos = 681
+
+[[topic]]
+slug = "embeddings"
+phrase = "embeddings"
+aliases = ["embedding"]
+npm_kw_total = 2559
+gh_topic_repos = 11332
+
+[[topic]]
+slug = "rag"
+phrase = "RAG"
+aliases = ["retrieval-augmented-generation"]
+npm_kw_total = 4018
+gh_topic_repos = 63048
+
+[[topic]]
+slug = "agent-memory"
+phrase = "agent memory"
+aliases = ["ai-memory", "memory"]
+npm_kw_total = 1165
+gh_topic_repos = 5444
+
+[[topic]]
+slug = "mcp"
+phrase = "MCP"
+npm_kw_total = 87664
+gh_topic_repos = 114597
+
+[[topic]]
+slug = "rust"
+phrase = "Rust"
+npm_kw_total = 5687
+gh_topic_repos = 151587
+
+[[topic]]
+slug = "wasm"
+phrase = "WASM"
+npm_kw_total = 9202
+gh_topic_repos = 12186
+
+[[topic]]
+slug = "typescript"
+phrase = "TypeScript"
+npm_kw_total = 159880
+gh_topic_repos = 513177
+
+[[topic]]
+slug = "link-prediction"
+phrase = "link prediction"
+kind = "niche"
+npm_kw_total = 2
+gh_topic_repos = 411
+
+[[topic]]
+slug = "acme"
+phrase = "Acme"
+kind = "brand"
+
+[[package]]
+name = "@acme/vecdb"
+primary = ["vector-database", "hnsw", "embeddings"]
+description = "Embedded vector database with HNSW search for agents"
+flow = ["query vector", "HNSW index", "top-k results"]
+
+[[repo]]
+slug = "acme/stack"
+topics = ["vector-database", "vector-search", "hnsw", "embeddings", "rag", "rust", "wasm"]

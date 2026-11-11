@@ -1,7 +1,9 @@
 /**
  * Multi-Algorithm Learning Engine
- * Supports 9 RL algorithms for intelligent hooks optimization
+ * Supports 10 RL algorithms for intelligent hooks optimization
  */
+
+import { NeuralQ, loadFannRuntime, NeuralTaskState } from './neural-q';
 
 export type LearningAlgorithm =
   | 'q-learning'
@@ -12,7 +14,8 @@ export type LearningAlgorithm =
   | 'decision-transformer'
   | 'monte-carlo'
   | 'td-lambda'
-  | 'dqn';
+  | 'dqn'
+  | 'neural-q';
 
 export type TaskType =
   | 'agent-routing'
@@ -55,6 +58,13 @@ export interface AlgorithmStats {
   convergenceScore: number;
   lastUpdate: number;
 }
+
+/**
+ * State accepted by LearningEngine.import(). `neural` (added in 0.3.22 for 'neural-q') is
+ * optional so state exported by, or typed against, earlier versions still compiles and loads.
+ */
+export type LearningEngineImportState =
+  Omit<ReturnType<LearningEngine['export']>, 'neural'> & { neural?: Record<string, NeuralTaskState> };
 
 // Default configs for each task type
 const TASK_ALGORITHM_MAP: Record<TaskType, LearningConfig> = {
@@ -121,6 +131,7 @@ export class LearningEngine {
   private trajectories: LearningTrajectory[] = [];
   private stats: Map<LearningAlgorithm, AlgorithmStats> = new Map();
   private rewardHistory: number[] = [];
+  private neural = new NeuralQ();
 
   constructor() {
     // Initialize with default configs
@@ -131,7 +142,7 @@ export class LearningEngine {
     // Initialize stats for all algorithms
     const algorithms: LearningAlgorithm[] = [
       'q-learning', 'sarsa', 'double-q', 'actor-critic',
-      'ppo', 'decision-transformer', 'monte-carlo', 'td-lambda', 'dqn'
+      'ppo', 'decision-transformer', 'monte-carlo', 'td-lambda', 'dqn', 'neural-q'
     ];
     for (const alg of algorithms) {
       this.stats.set(alg, {
@@ -214,6 +225,9 @@ export class LearningEngine {
       case 'dqn':
         delta = this.dqnUpdate(experience, config);
         break;
+      case 'neural-q':
+        delta = this.neuralQUpdate(task, experience, config);
+        break;
       default:
         throw new Error(`Unknown learning algorithm: ${config.algorithm}`);
     }
@@ -232,8 +246,9 @@ export class LearningEngine {
     state: string,
     actions: string[],
     options: { explore?: boolean } = {}
-  ): { action: string; confidence: number; explored?: boolean } {
+  ): { action: string; confidence: number; explored?: boolean; backend?: 'ruv-fann' | 'tabular' } {
     const config = this.getConfig(task);
+    const neuralQ = config.algorithm === 'neural-q' ? this.neural.predict(task, state) : null;
 
     // Epsilon-greedy exploration (opt-in: recommendations shown to users are greedy)
     if (options.explore && Math.random() < config.epsilon) {
@@ -250,7 +265,9 @@ export class LearningEngine {
     const qTable2 = config.algorithm === 'double-q' ? this.getQTable2(state) : null;
 
     for (const action of actions) {
-      const value = (qTable.get(action) || 0) + (qTable2 ? qTable2.get(action) || 0 : 0);
+      const value = neuralQ?.has(action)
+        ? neuralQ.get(action) as number
+        : (qTable.get(action) || 0) + (qTable2 ? qTable2.get(action) || 0 : 0);
       values.push(value);
       if (value > bestValue) {
         bestValue = value;
@@ -261,7 +278,34 @@ export class LearningEngine {
     // Calculate confidence using softmax
     const confidence = this.softmaxConfidence(values, actions.indexOf(bestAction));
 
+    if (config.algorithm === 'neural-q') {
+      return { action: bestAction, confidence, backend: neuralQ ? 'ruv-fann' : 'tabular' };
+    }
     return { action: bestAction, confidence };
+  }
+
+  /**
+   * Load the optional `ruv-fann` runtime so 'neural-q' tasks use the neural Q-function.
+   * Resolves false (and 'neural-q' keeps using the tabular Q-table) when it is not installed.
+   */
+  async enableNeural(): Promise<boolean> {
+    return this.neural.attach(await loadFannRuntime());
+  }
+
+  /** True when any task is configured with 'neural-q'. */
+  usesNeural(): boolean {
+    for (const config of this.configs.values()) if (config.algorithm === 'neural-q') return true;
+    return false;
+  }
+
+  /** Neural backend status for a task ('neural-q' only). */
+  getNeuralInfo(task: TaskType): { backend: string | null; pairs: number; actions: number; trained: boolean; lastLoss: number | null } {
+    return { backend: this.neural.backend, ...this.neural.info(task) };
+  }
+
+  /** Fit the neural Q-function on the task's buffer now (no-op without ruv-fann). */
+  trainNeural(task: TaskType, rounds = 1): number | null {
+    return this.neural.train(task, rounds);
   }
 
   /**
@@ -552,6 +596,22 @@ export class LearningEngine {
     return this.qLearningUpdate(replayExp, config);
   }
 
+  /**
+   * Neural Q: the tabular Q-learning update (so behaviour without ruv-fann is exactly
+   * q-learning) plus an observation for the MLP Q-function, which generalises to unseen states.
+   */
+  private neuralQUpdate(task: TaskType, exp: Experience, config: LearningConfig): number {
+    const delta = this.qLearningUpdate(exp, config);
+    let target = exp.reward;
+    if (!exp.done) {
+      const next = this.neural.predict(task, exp.nextState);
+      const nextValues = next ? Array.from(next.values()) : Array.from(this.getQTable(exp.nextState).values());
+      target += config.discountFactor * Math.max(0, ...nextValues);
+    }
+    this.neural.observe(task, exp.state, exp.action, target);
+    return delta;
+  }
+
   // ============ Helper Methods ============
 
   private getQTable(state: string): Map<string, number> {
@@ -677,6 +737,7 @@ export class LearningEngine {
     stats: Record<string, AlgorithmStats>;
     configs: Record<string, LearningConfig>;
     rewardHistory: number[];
+    neural: Record<string, NeuralTaskState>;
   } {
     const qTables: Record<string, Record<string, number>> = {};
     for (const [state, actions] of this.qTables) {
@@ -719,13 +780,14 @@ export class LearningEngine {
       stats,
       configs,
       rewardHistory: this.rewardHistory.slice(-500),
+      neural: this.neural.export(),
     };
   }
 
   /**
    * Import state from persistence
    */
-  import(data: ReturnType<LearningEngine['export']>): void {
+  import(data: LearningEngineImportState): void {
     // Q-tables
     this.qTables.clear();
     for (const [state, actions] of Object.entries(data.qTables || {})) {
@@ -767,6 +829,9 @@ export class LearningEngine {
 
     // Reward history
     this.rewardHistory = data.rewardHistory || [];
+
+    // Neural Q buffers/models (absent in data exported before 'neural-q' existed)
+    this.neural.import((data as any).neural);
   }
 
   /**
@@ -780,6 +845,7 @@ export class LearningEngine {
     this.criticValues.clear();
     this.trajectories = [];
     this.rewardHistory = [];
+    this.neural.clear();
 
     // Reset stats
     for (const stats of this.stats.values()) {
@@ -803,6 +869,7 @@ export class LearningEngine {
       { algorithm: 'monte-carlo', description: 'Full episode learning', bestFor: 'Unbiased estimates' },
       { algorithm: 'td-lambda', description: 'Eligibility traces', bestFor: 'Credit assignment' },
       { algorithm: 'dqn', description: 'Experience replay', bestFor: 'High-dim states' },
+      { algorithm: 'neural-q', description: 'MLP Q-function over hashed state features (needs optional ruv-fann; tabular fallback)', bestFor: 'Unseen states' },
     ];
   }
 }

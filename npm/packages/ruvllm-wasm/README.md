@@ -18,6 +18,51 @@
 > `false`) instead of returning placeholder text. For GGUF inference today use
 > the Rust [`ruvllm`](https://crates.io/crates/ruvllm) crate (`candle` feature).
 
+## What `npm install` gives you today
+
+The published `@ruvector/ruvllm-wasm` is the wasm-pack build of
+`crates/ruvllm-wasm`, so its exports differ from the TypeScript facade
+documented further down (`checkWebGPU`, `getCapabilities`,
+`RuvLLMWasm.create`, `loadModel`, `generate` and `chat` are **not** in the npm
+package). What it does export, checked against 2.0.3:
+
+```javascript
+import init, {
+  ChatTemplateWasm,
+  ChatMessageWasm,
+  HnswRouterWasm,
+  healthCheck,
+  feature_summary,
+} from '@ruvector/ruvllm-wasm';
+
+// Browser: await init();
+// Node.js: pass the wasm bytes explicitly (readFile from 'node:fs/promises')
+//   await init({ module_or_path: await readFile(new URL(import.meta.resolve('@ruvector/ruvllm-wasm/ruvllm_wasm_bg.wasm'))) });
+await init();
+console.log(healthCheck()); // true
+
+// Chat templates: llama3(), mistral(), chatml(), phi(), gemma(), custom(), detectFromModelId()
+const prompt = ChatTemplateWasm.llama3().format([
+  ChatMessageWasm.system('You are a helpful assistant.'),
+  ChatMessageWasm.user('What is WebAssembly?'),
+]);
+
+// HNSW semantic router: (dimensions, maxPatterns); metadata is a JSON string
+const router = new HnswRouterWasm(384, 1000);
+router.addPattern(new Float32Array(384).fill(0.1), 'coder', JSON.stringify({ domain: 'code' }));
+const [best] = router.route(new Float32Array(384).fill(0.1), 1);
+console.log(best.name, best.score); // "coder" ~1.0
+
+// Capability probes: feature_summary() (JSON string), is_simd_available(),
+// is_shared_array_buffer_available(), detect_capability_level(), ...
+console.log(feature_summary());
+```
+
+It also exports `KvCacheWasm`, `MicroLoraWasm`, `SonaInstantWasm`,
+`BufferPoolWasm`, `InferenceArenaWasm`, `GenerateConfig`, `ParallelInference`
+and a `RuvLLMWasm` engine class (`new RuvLLMWasm()`, `initialize()`,
+`RuvLLMWasm.formatChat()`, `reset()`); see `ruvllm_wasm.d.ts` in the package.
+
 ## Planned features
 
 - **Browser-Native** - No server required, runs entirely client-side
@@ -36,6 +81,10 @@ npm install @ruvector/ruvllm-wasm
 ```
 
 ## Quick Start (planned API)
+
+The samples from here to the end of the API reference describe the TypeScript
+facade in this directory (`src/index.ts`), which is not what npm currently
+serves (see above).
 
 ```typescript
 import { RuvLLMWasm, checkWebGPU } from '@ruvector/ruvllm-wasm';
@@ -271,11 +320,11 @@ Small models suitable for browser inference:
 4. **Limit context** - Smaller context = faster inference
 5. **Stream tokens** - Better UX with progressive output
 
-## Related Packages
+## Related packages
 
-- [@ruvector/ruvllm](https://www.npmjs.com/package/@ruvector/ruvllm) - Node.js LLM library
-- [@ruvector/ruvllm-cli](https://www.npmjs.com/package/@ruvector/ruvllm-cli) - CLI tool
-- [ruvector](https://www.npmjs.com/package/ruvector) - Vector database
+- [`@ruvector/ruvllm`](https://www.npmjs.com/package/@ruvector/ruvllm) — the Node.js RuvLLM runtime (GGUF inference, KV cache, SONA).
+- [`@ruvector/ruvllm-cli`](https://www.npmjs.com/package/@ruvector/ruvllm-cli) — command-line interface for RuvLLM.
+- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package and CLI (`npx ruvector`).
 
 ## Documentation
 
@@ -290,3 +339,18 @@ MIT OR Apache-2.0
 ---
 
 **Part of the [RuVector](https://github.com/ruvnet/ruvector) ecosystem** - High-performance vector database with self-learning capabilities.
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for WASM, LLM, inference.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

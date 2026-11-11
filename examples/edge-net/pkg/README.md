@@ -1166,3 +1166,18 @@ Edge-net is a **research platform** for collective computing. The rUv units are:
 ## License
 
 MIT License
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for AI, AI agents, WASM.
+
+- **Works with** (its runtime dependencies): [`@ruvector/ruvllm`](https://www.npmjs.com/package/@ruvector/ruvllm)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

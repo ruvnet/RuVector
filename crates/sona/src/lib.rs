@@ -65,6 +65,9 @@ pub mod training;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
+#[cfg(any(feature = "napi", test))]
+mod inflight;
+
 #[cfg(feature = "napi")]
 pub mod napi_simple;
 

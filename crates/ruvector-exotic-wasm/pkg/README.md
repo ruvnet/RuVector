@@ -299,3 +299,12 @@ MIT
 ---
 
 **Keywords**: DAO, AI governance, emergent behavior, distributed AI, NAO, Neural Autonomous Organization, morphogenetic, developmental biology, time crystal, quantum physics, swarm intelligence, multi-agent systems, WebAssembly, WASM, coordination, consensus, oscillatory, synchronization
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for WASM, WebAssembly, swarm.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@claude-flow/plugin-quantum-optimizer`](https://www.npmjs.com/package/@claude-flow/plugin-quantum-optimizer) (optional)
+<!-- weaver:seo:links:end -->

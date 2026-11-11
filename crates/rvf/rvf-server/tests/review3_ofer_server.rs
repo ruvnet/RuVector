@@ -110,6 +110,10 @@ fn loopback_alias_probe_reports_unavailable_address() {
 /// F4-06 (fixed): addresses in one /24 share a prefix cap, so two source
 /// addresses cannot pin the pool; a client from another prefix still gets in.
 #[test]
+#[cfg_attr(
+    not(target_os = "linux"),
+    ignore = "binds 127.0.0.2/127.0.0.3, which only Linux routes to loopback by default"
+)]
 fn f4_06_two_addresses_cannot_pin_the_pool() {
     for src in ["127.0.0.2", "127.0.0.3", "127.1.0.9"] {
         if !can_bind_source(src) {

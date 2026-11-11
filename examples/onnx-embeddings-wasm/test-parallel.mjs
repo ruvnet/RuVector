@@ -3,8 +3,8 @@
  * Benchmark: Sequential vs Parallel ONNX Embeddings
  */
 import { cpus } from 'os';
-import { ParallelEmbedder } from './parallel-embedder.mjs';
-import { createEmbedder } from './loader.js';
+import { ParallelEmbedder } from './pkg/parallel-embedder.mjs';
+import { createEmbedder } from './pkg/loader.js';
 
 console.log('🧪 Parallel vs Sequential ONNX Embeddings Benchmark\n');
 console.log(`CPU Cores: ${cpus().length}`);

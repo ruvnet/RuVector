@@ -188,6 +188,11 @@ impl TrajectoryBuilder {
         self.steps.len()
     }
 
+    /// Get current context ID count
+    pub fn context_count(&self) -> usize {
+        self.context_ids.len()
+    }
+
     /// Get elapsed time
     pub fn elapsed(&self) -> std::time::Duration {
         self.start_time.elapsed()

@@ -1,16 +1,16 @@
-# RuVector Graph WASM
+# @ruvector/graph-wasm
 
-WebAssembly bindings for RuVector graph database with Neo4j-inspired API and Cypher support.
+[![npm](https://img.shields.io/npm/v/@ruvector/graph-wasm)](https://www.npmjs.com/package/@ruvector/graph-wasm)
+[![license](https://img.shields.io/npm/l/@ruvector/graph-wasm)](https://github.com/ruvnet/ruvector/blob/main/LICENSE)
+
+WebAssembly bindings for the RuVector graph database: a Neo4j-style property graph with basic Cypher support and embedding-backed hyperedges (n-ary relationships). Runs in browsers and Node.js.
 
 ## Features
 
-- **Neo4j-style API**: Familiar node, edge, and relationship operations
-- **Hypergraph Support**: N-ary relationships beyond binary edges
-- **Cypher Queries**: Basic Cypher query language support
-- **Browser & Node.js**: Works in both environments
-- **Web Workers**: Background query execution
-- **Async Operations**: Streaming results for large datasets
-- **Vector Embeddings**: First-class support for semantic relationships
+- **Property graph** — nodes with labels and properties, typed directed edges with properties
+- **Basic Cypher** — `MATCH` / `CREATE` patterns via `query()`, bulk `importCypher()`, full `exportCypher()`
+- **Hyperedges** — one relationship connecting any number of nodes, with an embedding and a confidence score
+- **Browser & Node.js** — a single ES module build (`--target web`), no native dependencies
 
 ## Installation
 
@@ -20,388 +20,176 @@ npm install @ruvector/graph-wasm
 
 ## Quick Start
 
-### Browser (ES Modules)
+### Browser (ES modules / bundlers)
 
 ```javascript
 import init, { GraphDB } from '@ruvector/graph-wasm';
 
-await init();
+await init(); // fetches ruvector_graph_wasm_bg.wasm next to the JS file
 
-// Create database
 const db = new GraphDB('cosine');
 
-// Create nodes
-const aliceId = db.createNode(
-  ['Person'],
-  { name: 'Alice', age: 30 }
-);
+const alice = db.createNode(['Person'], { name: 'Alice', age: 30 });
+const bob = db.createNode(['Person'], { name: 'Bob', age: 35 });
+db.createEdge(alice, bob, 'KNOWS', { since: 2020 });
 
-const bobId = db.createNode(
-  ['Person'],
-  { name: 'Bob', age: 35 }
-);
+const result = await db.query('MATCH (n:Person)-[r:KNOWS]->(m) RETURN n, r, m');
+console.log(result.count, result.nodes.length, result.edges.length); // 1 2 1
 
-// Create relationship
-const friendshipId = db.createEdge(
-  aliceId,
-  bobId,
-  'KNOWS',
-  { since: 2020 }
-);
-
-// Query (basic Cypher support)
-const results = await db.query('MATCH (n:Person) RETURN n');
-
-// Get statistics
 const stats = db.stats();
 console.log(`Nodes: ${stats.nodeCount}, Edges: ${stats.edgeCount}`);
 ```
 
 ### Node.js
 
+The package is an ES module built for the web target, so in Node.js load the `.wasm` bytes yourself and initialise synchronously:
+
 ```javascript
-const { GraphDB } = require('@ruvector/graph-wasm/node');
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { initSync, GraphDB } from '@ruvector/graph-wasm';
+
+const require = createRequire(import.meta.url);
+initSync({ module: readFileSync(require.resolve('@ruvector/graph-wasm/ruvector_graph_wasm_bg.wasm')) });
 
 const db = new GraphDB('cosine');
-// ... same API as browser
+// ... same API as in the browser
 ```
 
 ## API Reference
 
-### GraphDB
+### `new GraphDB(metric?: string)`
 
-Main class for graph database operations.
+`metric` is the distance metric for hyperedge embeddings: `'cosine'` (default), `'euclidean'`, `'dotproduct'` or `'manhattan'`. Any other value throws `Unknown metric`.
 
-#### Constructor
+### Nodes
 
-```javascript
-new GraphDB(metric?: string)
+```typescript
+createNode(labels: string[], properties: object): string   // returns the new node id (UUID)
+getNode(id: string): JsNode | undefined
+deleteNode(id: string): boolean                            // also removes its edges and hyperedges
 ```
 
-- `metric`: Distance metric for hypergraph embeddings
-  - `"cosine"` (default)
-  - `"euclidean"`
-  - `"dotproduct"`
-  - `"manhattan"`
+A numeric-array `embedding` property is also exposed as `JsNode.embedding` (`Float32Array`) and is required for the node to take part in a hyperedge.
 
-#### Methods
+### Edges
 
-##### Node Operations
-
-```javascript
-createNode(labels: string[], properties: object): string
-```
-Create a node with labels and properties. Returns node ID.
-
-```javascript
-getNode(id: string): JsNode | null
-```
-Retrieve a node by ID.
-
-```javascript
-deleteNode(id: string): boolean
-```
-Delete a node and its associated edges.
-
-##### Edge Operations
-
-```javascript
-createEdge(
-  from: string,
-  to: string,
-  type: string,
-  properties: object
-): string
-```
-Create a directed edge between two nodes.
-
-```javascript
-getEdge(id: string): JsEdge | null
-```
-Retrieve an edge by ID.
-
-```javascript
+```typescript
+createEdge(from: string, to: string, type: string, properties: object): string
+getEdge(id: string): JsEdge | undefined
 deleteEdge(id: string): boolean
 ```
-Delete an edge.
 
-##### Hyperedge Operations
+### Hyperedges
 
-```javascript
+```typescript
 createHyperedge(
   nodes: string[],
   description: string,
-  embedding?: number[],
-  confidence?: number
+  embedding?: Float32Array | null,  // null: derived from the member nodes' embeddings
+  confidence?: number | null
 ): string
+getHyperedge(id: string): JsHyperedge | undefined
 ```
-Create an n-ary relationship connecting multiple nodes.
 
-```javascript
-getHyperedge(id: string): JsHyperedge | null
+Every member node must have an `embedding` property, otherwise `createHyperedge` throws (`No embeddings found for nodes` / `Entity … not found in hypergraph`).
+
+### Queries
+
+```typescript
+query(cypher: string): Promise<QueryResult>
+importCypher(statements: string[]): Promise<number>  // number of statements executed
+exportCypher(): string                               // the whole graph as one CREATE statement
 ```
-Retrieve a hyperedge by ID.
 
-##### Query Operations
+Cypher support is basic: label and relationship patterns such as `MATCH (n:Person) RETURN n`, `MATCH (n)-[r:KNOWS]->(m) RETURN n, r, m`, and `CREATE (n:Person {name: "Alice"})`.
 
-```javascript
-async query(cypher: string): Promise<QueryResult>
-```
-Execute a Cypher query. Supports basic MATCH and CREATE statements.
+### `stats(): object`
 
-```javascript
-async importCypher(statements: string[]): Promise<number>
-```
-Import multiple Cypher CREATE statements.
+`{ nodeCount, edgeCount, hyperedgeCount, hypergraphEntities, hypergraphEdges, avgEntityDegree }`
 
-```javascript
-exportCypher(): string
-```
-Export the entire database as Cypher CREATE statements.
+### Module functions
 
-##### Statistics
-
-```javascript
-stats(): object
-```
-Get database statistics:
-- `nodeCount`: Total number of nodes
-- `edgeCount`: Total number of edges
-- `hyperedgeCount`: Total number of hyperedges
-- `hypergraphEntities`: Entities in hypergraph index
-- `hypergraphEdges`: Hyperedges in index
-- `avgEntityDegree`: Average entity degree
+- `init()` (default export) — async initialisation for browsers; `initSync({ module })` for synchronous initialisation from bytes
+- `version(): string`
 
 ### Types
 
-#### JsNode
-
 ```typescript
-interface JsNode {
-  id: string;
-  labels: string[];
-  properties: object;
-  embedding?: number[];
-
+class JsNode {
+  readonly id: string;
+  readonly labels: string[];
+  readonly properties: any;
+  readonly embedding: Float32Array | undefined;
   getProperty(key: string): any;
   hasLabel(label: string): boolean;
 }
-```
 
-#### JsEdge
-
-```typescript
-interface JsEdge {
-  id: string;
-  from: string;
-  to: string;
-  type: string;
-  properties: object;
-
+class JsEdge {
+  readonly id: string;
+  readonly from: string;
+  readonly to: string;
+  readonly type: string;
+  readonly properties: any;
   getProperty(key: string): any;
 }
-```
 
-#### JsHyperedge
-
-```typescript
-interface JsHyperedge {
-  id: string;
-  nodes: string[];
-  description: string;
-  embedding: number[];
-  confidence: number;
-  properties: object;
-  order: number; // Number of connected nodes
+class JsHyperedge {
+  readonly id: string;
+  readonly nodes: string[];
+  readonly description: string;
+  readonly embedding: Float32Array;
+  readonly confidence: number;
+  readonly properties: any;
+  readonly order: number; // number of connected nodes
 }
-```
 
-#### QueryResult
-
-```typescript
-interface QueryResult {
-  nodes: JsNode[];
-  edges: JsEdge[];
-  hyperedges: JsHyperedge[];
-  data: object[];
-  count: number;
+class QueryResult {
+  readonly nodes: JsNode[];
+  readonly edges: JsEdge[];
+  readonly hyperedges: JsHyperedge[];
+  readonly data: any;     // one row object per match, keyed by RETURN variable
+  readonly count: number;
   isEmpty(): boolean;
 }
 ```
 
-## Advanced Features
+Wasm-bindgen objects own WASM memory; call `.free()` on objects you no longer need in long-running processes.
 
-### Async Query Execution
+The module also exports `AsyncQueryExecutor`, `AsyncTransaction`, `BatchOperations` and `ResultStream`. In this release they are placeholders that are not connected to a `GraphDB` instance, so use `GraphDB.query()` / `importCypher()` instead.
 
-For large result sets, use async query execution with streaming:
-
-```javascript
-import { AsyncQueryExecutor } from '@ruvector/graph-wasm';
-
-const executor = new AsyncQueryExecutor(100); // Batch size
-const results = await executor.executeStreaming(
-  'MATCH (n:Person) RETURN n'
-);
-```
-
-### Web Worker Support
-
-Execute queries in the background:
+## Hypergraph example
 
 ```javascript
-const executor = new AsyncQueryExecutor();
-const promise = executor.executeInWorker(
-  'MATCH (n) RETURN count(n)'
-);
-```
+const doc1 = db.createNode(['Document'], { title: 'AI Research', embedding: [0.1, 0.2, 0.3] });
+const doc2 = db.createNode(['Document'], { title: 'ML Tutorial', embedding: [0.3, 0.2, 0.1] });
 
-### Batch Operations
-
-Optimize multiple operations:
-
-```javascript
-import { BatchOperations } from '@ruvector/graph-wasm';
-
-const batch = new BatchOperations(1000); // Max batch size
-await batch.executeBatch([
-  'CREATE (n:Person {name: "Alice"})',
-  'CREATE (n:Person {name: "Bob"})',
-  // ... more statements
-]);
-```
-
-### Transactions
-
-Atomic operation execution:
-
-```javascript
-import { AsyncTransaction } from '@ruvector/graph-wasm';
-
-const tx = new AsyncTransaction();
-tx.addOperation('CREATE (n:Person {name: "Alice"})');
-tx.addOperation('CREATE (n:Person {name: "Bob"})');
-
-try {
-  await tx.commit();
-} catch (error) {
-  tx.rollback();
-}
-```
-
-## Cypher Support
-
-Currently supports basic Cypher operations:
-
-### CREATE
-
-```cypher
-CREATE (n:Person {name: "Alice", age: 30})
-CREATE (n:Person)-[:KNOWS]->(m:Person)
-```
-
-### MATCH
-
-```cypher
-MATCH (n:Person) RETURN n
-MATCH (n:Person)-[r:KNOWS]->(m) RETURN n, r, m
-```
-
-**Note**: Full Cypher support is planned for future releases.
-
-## Hypergraph Examples
-
-### Creating Multi-Entity Relationships
-
-```javascript
-// Create nodes
-const doc1 = db.createNode(['Document'], {
-  title: 'AI Research',
-  embedding: [0.1, 0.2, 0.3, ...] // 384-dim vector
-});
-
-const doc2 = db.createNode(['Document'], {
-  title: 'ML Tutorial'
-});
-
-const author = db.createNode(['Person'], {
-  name: 'Dr. Smith'
-});
-
-// Create hyperedge connecting all three
-const hyperedgeId = db.createHyperedge(
-  [doc1, doc2, author],
-  'Documents authored by researcher on related topics',
-  null, // Auto-generate embedding from node embeddings
-  0.95  // High confidence
+const id = db.createHyperedge(
+  [doc1, doc2],
+  'Documents on related topics',
+  null, // embedding derived from the member nodes
+  0.95
 );
 
-const hyperedge = db.getHyperedge(hyperedgeId);
-console.log(`Hyperedge connects ${hyperedge.order} nodes`);
+const he = db.getHyperedge(id);
+console.log(`Hyperedge connects ${he.order} nodes`); // 2
 ```
 
-## Performance
+## Example: vector search + graph expansion
 
-- **Zero-copy transfers**: Uses WASM memory for efficient data transfer
-- **SIMD acceleration**: When available in WASM environment
-- **Lazy evaluation**: Streaming results for large queries
-- **Optimized indices**: Fast lookups by label, type, and properties
+[`examples/npm-vector-graph`](https://github.com/ruvnet/ruvector/tree/main/examples/npm-vector-graph) pairs this package with [`@ruvector/core`](https://www.npmjs.com/package/@ruvector/core): HNSW top-k search finds the closest notes, then the graph follows their relationships. It runs offline in Node.js.
 
-## Browser Compatibility
+## Building from source
 
-- Chrome 90+
-- Firefox 88+
-- Safari 15.4+
-- Edge 90+
+The Rust source lives in [`crates/ruvector-graph-wasm`](https://github.com/ruvnet/ruvector/tree/main/crates/ruvector-graph-wasm) and is built with `wasm-pack` (see its `build.sh`).
 
-## Building from Source
+## Related packages
 
-```bash
-# Install wasm-pack
-curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-# Build for web
-npm run build
-
-# Build for all targets
-npm run build:all
-
-# Run tests
-npm test
-```
-
-## Examples
-
-See the [examples directory](../../../examples/) for more usage examples:
-- Basic graph operations
-- Hypergraph relationships
-- Temporal queries
-- Vector similarity search
-
-## Roadmap
-
-- [ ] Full Cypher query parser
-- [ ] IndexedDB persistence
-- [ ] Graph algorithms (PageRank, community detection)
-- [ ] Schema validation
-- [ ] Transaction log
-- [ ] Multi-graph support
-- [ ] GraphQL integration
-
-## Contributing
-
-Contributions are welcome! Please see [CONTRIBUTING.md](../../../CONTRIBUTING.md).
+- [`@ruvector/core`](https://www.npmjs.com/package/@ruvector/core) — native HNSW vector database; pair it with this graph for graph-expanded retrieval.
+- [`@ruvector/graph-node`](https://www.npmjs.com/package/@ruvector/graph-node) — the same graph database as a native Node.js module.
+- [`rvlite`](https://www.npmjs.com/package/rvlite) — embedded vector database with SQL, SPARQL and Cypher in one package.
+- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package and CLI (`npx ruvector`).
 
 ## License
 
-MIT - See [LICENSE](../../../LICENSE) for details.
-
-## Support
-
-- GitHub Issues: https://github.com/ruvnet/ruvector/issues
-- Documentation: https://github.com/ruvnet/ruvector/wiki
-
-## Related Projects
-
-- [ruvector-core](../ruvector-core) - Core vector database
-- [ruvector-wasm](../ruvector-wasm) - Vector database WASM bindings
-- [ruvector-node](../ruvector-node) - Node.js native bindings
+MIT — see [LICENSE](https://github.com/ruvnet/ruvector/blob/main/LICENSE).

@@ -1706,7 +1706,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-cli"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "clap",
  "ctrlc",
@@ -1725,7 +1725,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-crypto"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "ed25519-dalek",
  "rand",
@@ -1784,8 +1784,9 @@ dependencies = [
 
 [[package]]
 name = "rvf-index"
-version = "0.2.1"
+version = "0.2.4"
 dependencies = [
+ "libm",
  "rand",
 ]
 
@@ -1853,13 +1854,14 @@ name = "rvf-quant"
 version = "0.2.1"
 dependencies = [
  "approx",
+ "libm",
  "rand",
  "rvf-types",
 ]
 
 [[package]]
 name = "rvf-runtime"
-version = "0.5.0"
+version = "0.5.5"
 dependencies = [
  "crc32fast",
  "ed25519-dalek",
@@ -1876,7 +1878,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "axum",
  "axum-test",
@@ -1892,6 +1894,7 @@ dependencies = [
  "rvf-wire",
  "serde",
  "serde_json",
+ "subtle",
  "tempfile",
  "tokio",
  "tower",
@@ -1912,7 +1915,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-types"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "ed25519-dalek",
  "rand_core",
@@ -1921,11 +1924,13 @@ dependencies = [
 
 [[package]]
 name = "rvf-wasm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "dlmalloc",
  "rvf-crypto",
+ "rvf-runtime",
  "rvf-types",
+ "tempfile",
 ]
 
 [[package]]

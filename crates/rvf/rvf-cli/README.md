@@ -255,6 +255,9 @@ cargo build -p rvf-cli --features serve
 rvf serve store.rvf --port 8080
 ```
 
+Binds `127.0.0.1` by default. `--host <addr>` with a non-loopback address
+requires a bearer token in `RVF_SERVER_TOKEN`.
+
 ### launch
 
 Boot an RVF file in a QEMU microVM (requires `launch` feature).

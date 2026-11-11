@@ -26,7 +26,7 @@ hailo = ["ruvector-hailo/hailo"]
 # worker (server). Mitigates ADR-172 §1a HIGH (cleartext gRPC). Off by
 # default — Tailscale already encrypts the wire; opt-in for defense-in-
 # depth or non-Tailscale deploys.
-tls = ["tonic/tls"]
+tls = ["tonic/tls-ring"]
 # Iter 134 — propagate ruvector-hailo's CPU fallback through the cluster
 # so the worker binary picks up `model.safetensors` + `tokenizer.json` +
 # `config.json` and runs real BERT-6 inference on host CPU when no HEF
@@ -48,7 +48,7 @@ ruvllm-engine = ["dep:ruvllm", "dep:anyhow"]
 
 [dependencies]
 thiserror          = "2"
-tonic              = { version = "0.12", default-features = false, features = ["codegen", "prost", "channel", "server"] }
+tonic              = { version = "0.13", default-features = false, features = ["codegen", "prost", "channel", "server", "router"] }
 prost              = "0.13"
 tokio              = { version = "1", default-features = false, features = ["rt-multi-thread", "macros", "net", "time", "signal", "sync"] }
 # ADR-172 §3b iter-104: per-peer leaky-bucket rate limiter. `dashmap`
@@ -133,7 +133,7 @@ name = "ruvllm-pi-worker"
 path = "src/bin/ruvllm-pi-worker.rs"
 
 [build-dependencies]
-tonic-build         = { version = "0.12", default-features = false, features = ["prost"] }
+tonic-build         = { version = "0.13", default-features = false, features = ["prost"] }
 protoc-bin-vendored = "3"
 
 [dev-dependencies]

@@ -16,7 +16,7 @@
     "ruvector_attention_wasm.d.ts"
   ],
   "main": "ruvector_attention_wasm.js",
-  "homepage": "https://ruv.io/ruvector",
+  "homepage": "https://ruv.io",
   "types": "ruvector_attention_wasm.d.ts",
   "keywords": [
     "wasm",
