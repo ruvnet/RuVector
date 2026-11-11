@@ -152,7 +152,11 @@ def execute(args, cwd, base, commands, kind=None, env=None, role=None):
     if result.returncode:
         print(output[-12000:], file=sys.stderr)
         raise RuntimeError(f'Command failed: {args}')
-    record.update(evidence(output, kind, summaries))
+    try:
+        record.update(evidence(output, kind, summaries))
+    except ValueError:
+        print(output[-12000:], file=sys.stderr)
+        raise
     print(json.dumps(record), flush=True)
     return output
 
@@ -305,7 +309,7 @@ def node20(source, base):
     installed = consumer / 'node_modules/@ruvector/e-means'
     shutil.copytree(base / 'harness/test', installed / 'test')
     selected = ['e-means', 'runtime', 'typed-bridge', 'quantization', 'ivf']
-    execute(['node', '--test', *[str(installed / f'test/{name}.test.mjs') for name in selected]], consumer, consumer, commands, 'node')
+    execute(['node', '--test', '--test-reporter=tap', *[str(installed / f'test/{name}.test.mjs') for name in selected]], consumer, consumer, commands, 'node')
 
 
 def select_and_download(source, base):
@@ -452,7 +456,7 @@ def verify_public(source, base):
                 if (installed / relative).read_bytes() != tar.extractfile(member).read():
                     raise ValueError('Installed npm payload differs from sealed public archive')
     shutil.copytree(candidate / 'harness/test', installed / 'test')
-    execute(['node', '--test', *[str(p) for p in sorted((installed / 'test').glob('*.test.mjs'))]], npm, fresh, commands, 'node')
+    execute(['node', '--test', '--test-reporter=tap', *[str(p) for p in sorted((installed / 'test').glob('*.test.mjs'))]], npm, fresh, commands, 'node')
     execute(['node', str(npm / 'node_modules/typescript/bin/tsc'), '--noEmit', '-p', str(installed / 'test/tsconfig.json')], npm, fresh, commands)
     execute(['node', str(installed / 'test/browser-consumer.mjs')], npm, fresh, commands, 'browser')
     report = {'schema': 'ruvector.e-means-public-consumers/1', 'sourceSha': source,

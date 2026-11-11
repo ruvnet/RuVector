@@ -148,7 +148,7 @@ def validate_public(base, source, candidate):
         (['cargo', 'run', '--manifest-path', manifest], None),
         (['cargo', 'metadata', '--quiet', '--locked', '--format-version', '1', '--manifest-path', manifest], None),
         (['npm', 'install', '--ignore-scripts', '--workspaces=false', '--no-audit', '--no-fund'], None),
-        (['node', '--test', *[str(installed / 'test' / p.name) for p in sorted((base / 'candidate/harness/test').glob('*.test.mjs'))]], 'node'),
+        (['node', '--test', '--test-reporter=tap', *[str(installed / 'test' / p.name) for p in sorted((base / 'candidate/harness/test').glob('*.test.mjs'))]], 'node'),
         (['node', str(fresh / 'npm/node_modules/typescript/bin/tsc'), '--noEmit', '-p', str(installed / 'test/tsconfig.json')], None),
         (['node', str(installed / 'test/browser-consumer.mjs')], 'browser'),
     ]
