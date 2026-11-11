@@ -5,6 +5,11 @@ Existing 0.1.0 artifacts are immutable and do not qualify this reviewed source.
 The protected lane publishes only the two shared archives; it never overwrites
 an earlier generation or publishes consumer packages. Dependent consumer
 publication and registry qualification follow verified shared publication.
+During this staging commit, the four RuVector npm facade manifests remain on
+public 0.1.0 so isolated installs do not request unpublished 0.1.1. The shared
+crate/npm source and native Rust path pins remain 0.1.1. Promote the facade
+pins only after the shared public bytes are verified, as described in the
+[consumer staging plan](./e-means-consumers.md).
 
 The release branch runs `e-means-preflight.yml` at an immutable source commit.
 Its 15 mandatory commands execute the shared native tests and strict Clippy,

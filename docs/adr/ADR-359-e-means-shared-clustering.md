@@ -99,7 +99,8 @@ runs. The Rust crate itself does not spawn threads or fetch datasets.
   each subspace with the shared implementation and retains u8 codes and the
   current codebook serialization. f64 encode comparisons preserve nearest
   ordering for large finite f32 coordinates.
-- The main `ruvector` npm package depends on exact `@ruvector/e-means` 0.1.1 and
+- The main `ruvector` npm package temporarily pins public `@ruvector/e-means`
+  0.1.0 while shared 0.1.1 is qualified and published, and
   ships `ruvector/clustering.mjs` with matching ESM declarations. This explicit
   subpath avoids eagerly initializing WASM or restricting legacy package
   subpaths with a new exports map.

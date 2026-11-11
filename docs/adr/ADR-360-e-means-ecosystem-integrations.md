@@ -61,12 +61,13 @@ records from the two APIs are interchangeable.
   subpaths. Existing WSP Cloudflare and neural MetaHarness entrypoints retain
   their own meanings.
 
-Each npm consumer depends on exact `@ruvector/e-means` 0.1.1. Static
+The four RuVector npm consumers temporarily pin public `@ruvector/e-means`
+0.1.0; promotion to 0.1.1 follows verified shared publication. Static
 clustering re-exports require it as a normal dependency, including in
 `@ruvector/core`; the package's Node 20 runtime requirement applies to these
 entrypoints. The new modules do not eagerly initialize WASM or import Darwin
-during ordinary SDK imports. These consumer changes are outside the leaf
-publication commit and are promoted after the shared registries are verified.
+during ordinary SDK imports. Facade pin promotion and consumer publication are
+separate from the shared two-archive lane and follow verified shared registries.
 
 Shared modules use f64 assignment arithmetic. Existing downstream ADC/scanning
 APIs retain their existing f32 precision and legacy validation behavior; this
