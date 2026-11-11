@@ -407,6 +407,7 @@ impl MinCutWrapper {
 
             let instance = self.instances[i].as_mut().unwrap();
             let last_time = self.last_update_time[i];
+            crate::profiling::record_instance_tried();
 
             if is_new_instance {
                 // New instance: apply ALL edges from the graph
