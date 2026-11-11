@@ -9539,6 +9539,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-e-means"
+version = "0.1.0"
+dependencies = [
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "ruvector-economy-wasm"
 version = "0.1.0"
 dependencies = [

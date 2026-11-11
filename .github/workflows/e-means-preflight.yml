@@ -1,0 +1,64 @@
+name: e-means-preflight
+on:
+  push:
+    branches: ['release/**']
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: e-means-preflight-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        with:
+          toolchain: '1.98.1'
+          targets: wasm32-unknown-unknown
+          components: clippy
+      - name: Install pinned MSRV and WASM binding tools
+        run: |
+          rustup toolchain install 1.81.0 --profile minimal
+          cargo install wasm-bindgen-cli --version '=0.2.125' --locked --root "$RUNNER_TEMP/e-means-tools"
+          cargo install cargo-audit --version '=0.22.2' --locked --root "$RUNNER_TEMP/e-means-tools"
+          echo "$RUNNER_TEMP/e-means-tools/bin" >> "$GITHUB_PATH"
+      - name: Install pinned real Chromium
+        run: |
+          npm install --prefix "$RUNNER_TEMP/browser-tools" --ignore-scripts --no-save playwright@1.62.1
+          "$RUNNER_TEMP/browser-tools/node_modules/.bin/playwright" install chromium
+          node -e 'const p=require(process.env.RUNNER_TEMP+"/browser-tools/node_modules/playwright"); console.log("E_MEANS_CHROMIUM="+p.chromium.executablePath())' >> "$GITHUB_ENV"
+      - name: Exercise release guards
+        run: python3 -m unittest discover -s scripts/e-means -p 'test_*.py' -v
+      - name: Build exact archives and execute native, installed, Worker and browser consumers
+        run: python3 scripts/e-means/release.py seal --expected-sha "$GITHUB_SHA" --directory "$RUNNER_TEMP/e-means-seal"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: e-means-candidate-${{ github.sha }}
+          path: ${{ runner.temp }}/e-means-seal
+          if-no-files-found: error
+          retention-days: 90
+  node20:
+    needs: qualify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20.0.0'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: e-means-candidate-${{ github.sha }}
+          path: ${{ runner.temp }}/e-means-node20
+      - name: Exercise sealed portable runtime and PQ/IVF on the advertised Node minimum
+        run: python3 scripts/e-means/release.py node20 --expected-sha "$GITHUB_SHA" --directory "$RUNNER_TEMP/e-means-node20"
