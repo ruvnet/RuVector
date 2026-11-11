@@ -173,12 +173,13 @@ const synth = new AgenticSynth({
   provider: 'gemini',
   apiKey: process.env.GEMINI_API_KEY,
   model: 'gemini-2.5-flash',
-  cache: { enabled: true, maxSize: 1000 }
+  cache: { enabled: true, maxSize: 1000 },
+  timeout: 120000 // LLM generation can take well over the 30 s default
 });
 
 // Generate time-series data (IoT sensors, financial data)
 const timeSeries = await synth.generateTimeSeries({
-  count: 100,
+  count: 24,
   interval: '1h',
   trend: 'upward',
   seasonality: true,
