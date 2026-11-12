@@ -105,7 +105,9 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
-          toolchain: stable
+          # Pinned, not `stable`: cargo 1.100 (stable since 2026-11-09) breaks
+          # ort-sys 2.0.0-rc.13 copy-dylibs (see the native regression step).
+          toolchain: 1.99.1
           targets: ${{ matrix.settings.target }}
 
       - name: Cache Rust
