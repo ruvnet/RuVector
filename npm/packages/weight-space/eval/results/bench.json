@@ -1,0 +1,189 @@
+{
+  "node": "v22.23.2",
+  "platform": "linux-x64",
+  "dims": 384,
+  "n": 10000,
+  "fannBackend": "wasm-simd",
+  "nearestStore": {
+    "before-naive-array-sort": {
+      "n": 200,
+      "p50": 5.37,
+      "p95": 6.9909,
+      "mean": 5.5656
+    },
+    "after-flat-f32-topk": {
+      "n": 1000,
+      "p50": 1.879,
+      "p95": 2.3841,
+      "mean": 1.9861
+    },
+    "ruvector-core-flat": {
+      "n": 1000,
+      "p50": 4.3712,
+      "p95": 5.166,
+      "mean": 4.4393,
+      "insertMsPerItem": 0.7198
+    },
+    "ruvector-core-hnsw": {
+      "n": 1000,
+      "p50": 0.1229,
+      "p95": 0.2019,
+      "mean": 0.1339,
+      "recallAt5VsExact": 0.42
+    }
+  },
+  "registry": {
+    "snapshots": 10000,
+    "model": [
+      16,
+      32,
+      4
+    ],
+    "save": {
+      "n": 10000,
+      "p50": 0.1599,
+      "p95": 0.2156,
+      "mean": 0.1806
+    },
+    "nearestK5": {
+      "n": 1000,
+      "p50": 1.8669,
+      "p95": 2.2761,
+      "mean": 1.9279
+    },
+    "heapDeltaMB": 198.9,
+    "rssDeltaMB": 237.9
+  },
+  "open": {
+    "flat n=1000": {
+      "n": 5,
+      "p50": 201.9663,
+      "p95": 217.3857,
+      "mean": 204.6485
+    },
+    "ruvector-core n=1000": {
+      "n": 5,
+      "p50": 200.2339,
+      "p95": 207.4885,
+      "mean": 201.9544
+    },
+    "flat n=10000": {
+      "n": 5,
+      "p50": 2172.5739,
+      "p95": 2199.3371,
+      "mean": 2164.1441
+    },
+    "ruvector-core n=10000": {
+      "n": 5,
+      "p50": 2150.7941,
+      "p95": 2187.8199,
+      "mean": 2139.2861
+    }
+  },
+  "predict": {
+    "16-32-4": {
+      "before-prepare-per-call": {
+        "n": 500,
+        "p50": 0.0901,
+        "p95": 0.1055,
+        "mean": 0.1009
+      },
+      "after-reused-predictInto": {
+        "n": 5000,
+        "p50": 0.0026,
+        "p95": 0.0032,
+        "mean": 0.0033
+      },
+      "batch256-predictInto": {
+        "n": 500,
+        "p50": 0.1269,
+        "p95": 0.1302,
+        "mean": 0.1273
+      }
+    },
+    "64-128-64": {
+      "before-prepare-per-call": {
+        "n": 500,
+        "p50": 2.1723,
+        "p95": 2.6548,
+        "mean": 2.2938
+      },
+      "after-reused-predictInto": {
+        "n": 5000,
+        "p50": 0.0136,
+        "p95": 0.0162,
+        "mean": 0.0146
+      },
+      "batch256-predictInto": {
+        "n": 500,
+        "p50": 1.1029,
+        "p95": 1.1874,
+        "mean": 1.1161
+      }
+    }
+  },
+  "reshape": {
+    "384-16-384": {
+      "before-prepare-per-call": {
+        "n": 300,
+        "p50": 0.9377,
+        "p95": 1.0681,
+        "mean": 0.9995
+      },
+      "after-reshape": {
+        "n": 3000,
+        "p50": 0.0134,
+        "p95": 0.0174,
+        "mean": 0.0147
+      },
+      "after-reshapeInto": {
+        "n": 3000,
+        "p50": 0.0129,
+        "p95": 0.0158,
+        "mean": 0.0133
+      }
+    },
+    "384-32-384": {
+      "before-prepare-per-call": {
+        "n": 300,
+        "p50": 1.8613,
+        "p95": 2.0611,
+        "mean": 1.9745
+      },
+      "after-reshape": {
+        "n": 3000,
+        "p50": 0.0199,
+        "p95": 0.0228,
+        "mean": 0.0205
+      },
+      "after-reshapeInto": {
+        "n": 3000,
+        "p50": 0.0194,
+        "p95": 0.0245,
+        "mean": 0.0208
+      }
+    }
+  },
+  "train": {
+    "16-32-4 rows=256 epochs=50": {
+      "before-one-call-per-epoch": {
+        "n": 20,
+        "p50": 66.0484,
+        "p95": 69.7005,
+        "mean": 66.3522
+      },
+      "after-trainWithinBudget": {
+        "n": 20,
+        "p50": 31.913,
+        "p95": 33.3333,
+        "mean": 31.8439
+      }
+    },
+    "384-16-384 rows=550 epochs=1 (mini-batched)": {
+      "n": 10,
+      "p50": 68.9215,
+      "p95": 71.3443,
+      "mean": 68.71
+    }
+  }
+}

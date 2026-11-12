@@ -8,7 +8,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Mutex, RwLock};
 
 use rvf_types::cow_map::{CowMapHeader, MapFormat, COWMAP_MAGIC};
 use rvf_types::dashboard::{DashboardHeader, DASHBOARD_MAGIC, DASHBOARD_MAX_SIZE};
@@ -27,12 +27,13 @@ use rvf_types::{
     SEGMENT_MAGIC,
 };
 
+use crate::compaction::{evaluate_triggers, CompactionDecision, CompactionThresholds};
 use crate::cow::{CowEngine, CowStats};
 use crate::cow_map::CowMap;
 use crate::deletion::DeletionBitmap;
 use crate::filter::{self, FilterExpr, MetadataStore};
 use crate::index_path::{
-    VectorIndex, INDEX_MAX_DELETED_FRACTION, INDEX_MIN_EF_SEARCH, INDEX_MIN_VECTORS,
+    min_ef_search, VectorIndex, INDEX_MAX_DELETED_FRACTION, INDEX_MIN_VECTORS,
 };
 use crate::locking::WriterLock;
 use crate::membership::MembershipFilter;
@@ -42,9 +43,22 @@ use crate::read_path::{self, VectorData};
 use crate::status::{CompactionState, StoreStatus};
 use crate::write_path::{self, SegmentWriter};
 
+mod custom_segments;
+mod dir_growth;
+mod filtered_query;
+#[cfg(test)]
+mod filtered_query_tests;
+mod lineage;
 mod policy_api;
 mod security;
 mod stream_support;
+
+pub use custom_segments::{
+    CustomRecord, CustomSegmentType, CUSTOM_SEGMENT_TYPE_MAX, CUSTOM_SEGMENT_TYPE_MIN,
+    MAX_CUSTOM_SEGMENT_KEY_LEN, MAX_CUSTOM_SEGMENT_VALUE_LEN,
+};
+use filtered_query::FilterScan;
+pub use lineage::{LINEAGE_SEG_TYPE, MAX_MERGE_PARENTS};
 pub use security::security_error_code;
 use security::SecurityState;
 
@@ -55,9 +69,6 @@ fn err(code: ErrorCode) -> RvfError {
 
 const COW_STATE_FIXED_SIZE: usize = 64 + 4 + 1 + 4 + 4 + 4;
 const MAX_COW_LINEAGE_DEPTH: u32 = 1024;
-/// Bound dense membership bitmaps so a sparse, attacker-controlled vector ID
-/// cannot turn branch creation into an unbounded allocation.
-const MAX_MEMBERSHIP_FILTER_BYTES: u64 = 64 * 1024 * 1024;
 /// Delta metadata generations written before the next full snapshot.
 ///
 /// ADR-280 §5 caps replay at [`rvf_types::metadata::MAX_META_DELTAS`] deltas;
@@ -193,7 +204,7 @@ pub struct RvfStore {
     /// In-memory HNSW index over the stored vectors (None until loaded
     /// from an INDEX_SEG or built on the first eligible query). Guarded by
     /// a Mutex so `query(&self)` can build/maintain it lazily.
-    index: Mutex<Option<VectorIndex>>,
+    index: RwLock<Option<VectorIndex>>,
     /// True while one query thread is (re)building the HNSW index OUTSIDE
     /// the `index` mutex. Other query threads fall back to the exact scan
     /// instead of blocking behind an O(N log N) build (audit finding 5:
@@ -295,7 +306,7 @@ impl RvfStore {
             membership_filter: None,
             parent_path: None,
             last_witness_hash: [0u8; 32],
-            index: Mutex::new(None),
+            index: RwLock::new(None),
             index_building: AtomicBool::new(false),
             rabitq: Mutex::new(None),
             rabitq_building: AtomicBool::new(false),
@@ -384,7 +395,7 @@ impl RvfStore {
             membership_filter: None,
             parent_path: None,
             last_witness_hash: [0u8; 32],
-            index: Mutex::new(None),
+            index: RwLock::new(None),
             index_building: AtomicBool::new(false),
             rabitq: Mutex::new(None),
             rabitq_building: AtomicBool::new(false),
@@ -471,7 +482,7 @@ impl RvfStore {
             membership_filter: None,
             parent_path: None,
             last_witness_hash: [0u8; 32],
-            index: Mutex::new(None),
+            index: RwLock::new(None),
             index_building: AtomicBool::new(false),
             rabitq: Mutex::new(None),
             rabitq_building: AtomicBool::new(false),
@@ -563,9 +574,55 @@ impl RvfStore {
         ) {
             return Err(err(ErrorCode::InvalidManifest));
         }
-        let unique_ids: HashSet<u64> = valid_ids.iter().copied().collect();
+        // A batch that names an id more than once keeps the last occurrence,
+        // as consecutive single-row ingests would (rvf:ingest-dup-id-invalid-
+        // manifest: it used to fail the whole batch with InvalidManifest).
+        // Superseded rows are not counted as accepted or rejected.
+        let mut unique_ids: HashSet<u64> = valid_ids.iter().copied().collect();
+        let deduped_legacy: Vec<MetadataEntry>;
+        let deduped_records: Vec<VectorMetadata>;
+        let mut metadata = metadata;
         if unique_ids.len() != valid_ids.len() {
-            return Err(err(ErrorCode::InvalidManifest));
+            // id -> (index of its last occurrence, occurrences)
+            let mut last: HashMap<u64, (usize, usize)> = HashMap::with_capacity(unique_ids.len());
+            for (i, &id) in valid_ids.iter().enumerate() {
+                let slot = last.entry(id).or_insert((i, 0));
+                *slot = (i, slot.1 + 1);
+            }
+            let keep: Vec<usize> = (0..valid_ids.len())
+                .filter(|&i| last[&valid_ids[i]].0 == i)
+                .collect();
+            match metadata {
+                IngestMetadata::Legacy(entries) if !entries.is_empty() => {
+                    let stride = entries.len() / valid_ids.len();
+                    deduped_legacy = keep
+                        .iter()
+                        .flat_map(|&i| entries[i * stride..(i + 1) * stride].iter().cloned())
+                        .collect();
+                    metadata = IngestMetadata::Legacy(&deduped_legacy);
+                }
+                IngestMetadata::Records(records) => {
+                    // Records for a repeated id follow the same rule; records
+                    // for ids named once keep their strict uniqueness check.
+                    let mut seen = HashSet::new();
+                    let mut kept: Vec<VectorMetadata> = Vec::with_capacity(records.len());
+                    for record in records.iter().rev() {
+                        let repeated = last.get(&record.vector_id).is_some_and(|&(_, n)| n > 1);
+                        if repeated && !seen.insert(record.vector_id) {
+                            continue;
+                        }
+                        kept.push(record.clone());
+                    }
+                    kept.reverse();
+                    deduped_records = kept;
+                    metadata = IngestMetadata::Records(&deduped_records);
+                }
+                _ => {}
+            }
+            valid_vectors = keep.iter().map(|&i| valid_vectors[i]).collect();
+            valid_ids = keep.iter().map(|&i| valid_ids[i]).collect();
+            accepted = valid_ids.len() as u64;
+            unique_ids = valid_ids.iter().copied().collect();
         }
 
         let old_vectors = self.vectors.clone();
@@ -574,7 +631,7 @@ impl RvfStore {
         let old_directory = self.segment_dir.clone();
         let old_epoch = self.epoch;
 
-        let candidate_metadata = self.build_ingest_metadata(&metadata, &valid_ids)?;
+        let candidate_metadata = self.build_ingest_metadata(&metadata, &valid_ids, &unique_ids)?;
         let has_metadata = !matches!(metadata, IngestMetadata::None);
 
         let writer = self
@@ -614,6 +671,14 @@ impl RvfStore {
             self.vectors.insert_slice(vec_id, vec_data);
         }
 
+        // Size-tiered merge of small VEC_SEGs keeps the directory, and every
+        // manifest, bounded under many small ingests (#1382).
+        if let Err(error) = self.merge_trailing_vec_segs((vec_seg_id, valid_ids.clone())) {
+            self.vectors = old_vectors;
+            self.segment_dir = old_directory;
+            return Err(error);
+        }
+
         // Re-inserting an id resurrects it. A deletion tombstones the payload that
         // was there, it does not retire the identifier, so the bit must not outlive
         // the vector it condemned. Left set, it hides the new vector from every
@@ -622,21 +687,24 @@ impl RvfStore {
 
         // Keep the in-memory HNSW index in sync with the new vectors.
         {
-            let mut guard = self.index.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.index.write().unwrap_or_else(|e| e.into_inner());
             if let Some(idx) = guard.as_mut() {
-                if valid_ids.iter().any(|&id| idx.contains(id)) {
-                    // An existing ID was overwritten: the graph's edges for
-                    // that node are stale. Drop the index (it is rebuilt
-                    // lazily) and unlink any persisted INDEX_SEG so a
-                    // reopen does not load the stale graph.
-                    *guard = None;
+                let (mut overwritten, mut new_ids): (Vec<u64>, Vec<u64>) =
+                    valid_ids.iter().copied().partition(|&id| idx.contains(id));
+                if !overwritten.is_empty() {
+                    // An existing ID was overwritten (upsert): re-link just
+                    // those nodes against their new vectors instead of
+                    // dropping the graph, which cost a full O(N log N)
+                    // rebuild on the next query (rvf:reingest-live-id-drops-hnsw).
+                    // The persisted INDEX_SEG holds the old edges, so unlink
+                    // it; the updated in-memory graph is persisted on close.
+                    overwritten.sort_unstable();
+                    idx.relink_ids(&overwritten, &self.vectors, self.options.metric);
                     self.segment_dir
                         .retain(|&(_, _, _, stype)| stype != SegmentType::Index as u8);
-                } else {
-                    let mut new_ids = valid_ids.clone();
-                    new_ids.sort_unstable();
-                    idx.insert_ids(&new_ids, &self.vectors, self.options.metric);
                 }
+                new_ids.sort_unstable();
+                idx.insert_ids(&new_ids, &self.vectors, self.options.metric);
             }
         }
 
@@ -658,7 +726,7 @@ impl RvfStore {
                 self.metadata_chain = old_chain;
                 self.vectors = old_vectors;
                 self.segment_dir = old_directory;
-                *self.index.lock().unwrap_or_else(|e| e.into_inner()) = None;
+                *self.index.write().unwrap_or_else(|e| e.into_inner()) = None;
                 *self.rabitq.lock().unwrap_or_else(|e| e.into_inner()) = None;
                 return Err(error);
             }
@@ -669,7 +737,7 @@ impl RvfStore {
             self.metadata = old_metadata;
             self.metadata_chain = old_chain;
             self.segment_dir = old_directory;
-            *self.index.lock().unwrap_or_else(|e| e.into_inner()) = None;
+            *self.index.write().unwrap_or_else(|e| e.into_inner()) = None;
             *self.rabitq.lock().unwrap_or_else(|e| e.into_inner()) = None;
             return Err(err(ErrorCode::FsyncFailed));
         }
@@ -685,7 +753,7 @@ impl RvfStore {
                 self.metadata_chain = old_chain;
                 self.segment_dir = old_directory;
                 self.epoch = old_epoch;
-                *self.index.lock().unwrap_or_else(|e| e.into_inner()) = None;
+                *self.index.write().unwrap_or_else(|e| e.into_inner()) = None;
                 *self.rabitq.lock().unwrap_or_else(|e| e.into_inner()) = None;
                 return Err(error);
             }
@@ -697,7 +765,7 @@ impl RvfStore {
             self.metadata_chain = old_chain;
             self.segment_dir = old_directory;
             self.epoch = old_epoch;
-            *self.index.lock().unwrap_or_else(|e| e.into_inner()) = None;
+            *self.index.write().unwrap_or_else(|e| e.into_inner()) = None;
             *self.rabitq.lock().unwrap_or_else(|e| e.into_inner()) = None;
             return Err(error);
         }
@@ -717,9 +785,12 @@ impl RvfStore {
     ///
     /// Routing: stores with at least `INDEX_MIN_VECTORS` vectors are served
     /// by the HNSW index (loaded from an INDEX_SEG at open time, or built
-    /// on the first eligible query and maintained incrementally). Smaller
-    /// stores, filtered queries, COW/membership stores, and stores with a
-    /// high soft-deleted fraction use the exact brute-force scan.
+    /// on the first eligible query and maintained incrementally). Filtered
+    /// queries go through a selectivity planner: the predicate-aware HNSW
+    /// traversal for selective-enough filters, the exact scan otherwise
+    /// (see `store/filtered_query.rs`). Smaller stores, non-COW membership
+    /// stores, and stores with a high soft-deleted fraction use the exact
+    /// brute-force scan.
     pub fn query(
         &self,
         vector: &[f32],
@@ -813,11 +884,25 @@ impl RvfStore {
             }
         }
 
-        Ok((self.query_exact(vector, k, options)?, false))
+        // Filtered queries: selectivity planner + predicate-aware HNSW
+        // traversal (see `store/filtered_query.rs`); anything it declines is
+        // answered by the exact scan, charged to the same filter budget.
+        let mut scan = FilterScan::new();
+        if let Some(ref filter_expr) = options.filter {
+            if self.filtered_index_eligible(options) {
+                if let Some(results) =
+                    self.query_via_filtered_index(vector, k, options, filter_expr, &mut scan)?
+                {
+                    return Ok((results, true));
+                }
+            }
+        }
+
+        Ok((self.query_exact_scan(vector, k, options, &mut scan)?, false))
     }
 
     /// Whether this query can be served by the opt-in RaBitQ two-stage
-    /// path. v1 supports the L2 metric; filtered queries and COW /
+    /// path (every metric; see `rabitq_path.rs`). Filtered queries and COW /
     /// membership stores use the default routing.
     fn rabitq_eligible(&self, options: &QueryOptions) -> bool {
         options.rabitq
@@ -825,7 +910,6 @@ impl RvfStore {
             && options.filter.is_none()
             && self.membership_filter.is_none()
             && self.cow_engine.is_none()
-            && self.options.metric == DistanceMetric::L2
     }
 
     /// Serve a query through the RaBitQ two-stage path, building the code
@@ -851,7 +935,7 @@ impl RvfStore {
                 return None;
             }
             let _clear = ClearOnDrop(&self.rabitq_building);
-            let built = RabitqState::build(&self.vectors);
+            let built = RabitqState::build(&self.vectors, self.options.metric);
             guard = self.rabitq.lock().unwrap_or_else(|e| e.into_inner());
             if guard.is_none() {
                 *guard = built;
@@ -875,13 +959,20 @@ impl RvfStore {
         let candidates =
             state.candidates(vector, k_fetch, |id| !self.deletion_bitmap.is_deleted(id));
 
-        // Stage 2: exact f32 rescore of the candidate set.
+        // Stage 2: exact f32 rescore of the candidate set in the true
+        // metric. Cosine needs the query norm (`compute_distance` treats a
+        // zero norm as "undefined" and returns 1.0 for every candidate).
+        let query_norm_sq = if self.options.metric == DistanceMetric::Cosine {
+            vector.iter().map(|x| x * x).sum()
+        } else {
+            0.0f32
+        };
         let mut results: Vec<SearchResult> = candidates
             .into_iter()
             .filter_map(|(id, _est)| {
                 self.vectors.get(id).map(|v| SearchResult {
                     id,
-                    distance: compute_distance(vector, v, &self.options.metric, 0.0),
+                    distance: compute_distance(vector, v, &self.options.metric, query_norm_sq),
                     retrieval_quality: rvf_types::quality::RetrievalQuality::Full,
                     metadata: None,
                 })
@@ -903,9 +994,10 @@ impl RvfStore {
 
     /// Whether this query can be served by the HNSW index path.
     ///
-    /// Filtered queries, COW/membership stores, small stores, and stores
-    /// with a high deleted fraction always use the exact scan (which is
-    /// both correct and faster in those regimes).
+    /// COW/membership stores, small stores, and stores with a high deleted
+    /// fraction use the exact scan (which is both correct and faster in
+    /// those regimes). Filtered queries are routed by
+    /// `filtered_index_eligible` instead.
     fn index_eligible(&self, options: &QueryOptions) -> bool {
         if options.force_exact || options.filter.is_some() {
             return false;
@@ -925,7 +1017,8 @@ impl RvfStore {
     ///
     /// Requires: COW child with parent path, no metadata filter, not forced exact.
     /// The fast dual-graph path is skipped for filtered and force-exact queries,
-    /// which fall through to `query_exact` (with parent read-through).
+    /// which go through `query_via_filtered_index` (child + parent filtered
+    /// traversal) or `query_exact_scan` (with parent read-through).
     fn cow_ann_eligible(&self, options: &QueryOptions) -> bool {
         self.cow_engine.is_some()
             && self.parent_path.is_some()
@@ -973,32 +1066,14 @@ impl RvfStore {
         // Build / reuse child HNSW for its own vectors.  Fall back to an
         // exact scan of the (small) child slab when below the HNSW floor.
         if self.vectors.len() >= INDEX_MIN_VECTORS {
-            let mut guard = self.index.lock().unwrap_or_else(|e| e.into_inner());
-            if guard.is_none() {
-                // Exactly one thread builds; others return None so the
-                // caller falls back to the exact scan (audit finding 5).
-                drop(guard);
-                if self.index_building.swap(true, Ordering::AcqRel) {
-                    return None;
-                }
-                let _clear = ClearOnDrop(&self.index_building);
-                let built = VectorIndex::build(
-                    &self.vectors,
-                    self.options.metric,
-                    (self.options.m.max(2)) as usize,
-                    (self.options.ef_construction.max(16)) as usize,
-                );
-                guard = self.index.lock().unwrap_or_else(|e| e.into_inner());
-                if guard.is_none() {
-                    *guard = Some(built);
-                }
-            }
-            let idx = guard.as_mut()?;
-            idx.sync_missing(&self.vectors, self.options.metric);
+            // Exactly one thread builds; others get None and the caller
+            // falls back to the exact scan (audit finding 5).
             let ef = (options.ef_search as usize)
                 .max(k_prime)
-                .max(INDEX_MIN_EF_SEARCH);
-            let hits = idx.search(vector, k_prime, ef, &self.vectors, self.options.metric);
+                .max(min_ef_search(self.options.dimension as usize));
+            let hits = self.with_index(|idx| {
+                idx.search(vector, k_prime, ef, &self.vectors, self.options.metric)
+            })?;
             for (id, dist) in hits {
                 if !self.deletion_bitmap.is_deleted(id) {
                     merged.insert(id, dist);
@@ -1091,25 +1166,32 @@ impl RvfStore {
         Some(results)
     }
 
-    /// Serve a query through the HNSW index, building it on first use.
+    /// Run `f` against the HNSW index under a shared read lock, so
+    /// concurrent queries traverse the graph in parallel.
     ///
-    /// Returns `None` when the index cannot supply `k` live results; the
-    /// caller then falls back to the exact scan.
-    fn query_via_index(
-        &self,
-        vector: &[f32],
-        k: usize,
-        options: &QueryOptions,
-    ) -> Option<Vec<SearchResult>> {
-        let mut guard = self.index.lock().unwrap_or_else(|e| e.into_inner());
-        if guard.is_none() {
-            // Audit finding 5: the O(N log N) build must not run under the
-            // query mutex (head-of-line blocking after an overwrite drops
-            // the index). Exactly one thread builds into a local index
-            // with NO lock held, then swaps it in; concurrent queries see
-            // `index_building` set and fall back to the exact scan, so
-            // queries keep serving throughout the rebuild.
-            drop(guard);
+    /// Builds the index on first use and inserts vectors ingested since it
+    /// was built/loaded. Audit finding 5: the O(N log N) build must not run
+    /// under the index lock (head-of-line blocking after an overwrite drops
+    /// the index). Exactly one thread builds into a local index with NO lock
+    /// held, then swaps it in; concurrent callers see `index_building` set
+    /// and get `None` (they fall back to the exact scan), so queries keep
+    /// serving throughout the rebuild. Incremental sync takes the write lock
+    /// briefly, then the search runs under a read lock.
+    pub(crate) fn with_index<R>(&self, f: impl FnOnce(&VectorIndex) -> R) -> Option<R> {
+        {
+            let guard = self.index.read().unwrap_or_else(|e| e.into_inner());
+            if let Some(idx) = guard.as_ref() {
+                if !idx.needs_sync(&self.vectors) {
+                    return Some(f(idx));
+                }
+            }
+        }
+        let resident = self
+            .index
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some();
+        if !resident {
             if self.index_building.swap(true, Ordering::AcqRel) {
                 return None;
             }
@@ -1120,27 +1202,45 @@ impl RvfStore {
                 (self.options.m.max(2)) as usize,
                 (self.options.ef_construction.max(16)) as usize,
             );
-            guard = self.index.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.index.write().unwrap_or_else(|e| e.into_inner());
             if guard.is_none() {
                 *guard = Some(built);
             }
         }
-        let idx = guard.as_mut()?;
-        // Insert vectors ingested since the index was built/loaded.
-        idx.sync_missing(&self.vectors, self.options.metric);
+        {
+            let mut guard = self.index.write().unwrap_or_else(|e| e.into_inner());
+            guard
+                .as_mut()?
+                .sync_missing(&self.vectors, self.options.metric);
+        }
+        let guard = self.index.read().unwrap_or_else(|e| e.into_inner());
+        guard.as_ref().map(f)
+    }
 
+    /// Serve a query through the HNSW index, building it on first use.
+    ///
+    /// Returns `None` when the index cannot supply `k` live results; the
+    /// caller then falls back to the exact scan.
+    fn query_via_index(
+        &self,
+        vector: &[f32],
+        k: usize,
+        options: &QueryOptions,
+    ) -> Option<Vec<SearchResult>> {
         // Oversample to compensate for soft-deleted entries that may
         // appear among the nearest graph hits.
         let deleted = self.deletion_bitmap.count();
         let live = self.vectors.len().saturating_sub(deleted);
         let k_fetch = k.saturating_add(deleted.min(2 * k + 16));
         // Floor ef_search so the index path meets the >=0.95 recall@10
-        // contract (see INDEX_MIN_EF_SEARCH); larger values are honored.
+        // contract (see `min_ef_search`); larger values are honored.
         let ef = (options.ef_search as usize)
             .max(k_fetch)
-            .max(INDEX_MIN_EF_SEARCH);
+            .max(min_ef_search(self.options.dimension as usize));
 
-        let hits = idx.search(vector, k_fetch, ef, &self.vectors, self.options.metric);
+        let hits = self.with_index(|idx| {
+            idx.search(vector, k_fetch, ef, &self.vectors, self.options.metric)
+        })?;
         let mut results: Vec<SearchResult> = hits
             .into_iter()
             .filter(|&(id, _)| !self.deletion_bitmap.is_deleted(id))
@@ -1168,11 +1268,16 @@ impl RvfStore {
     }
 
     /// Exact brute-force k-nearest-neighbor scan over all live vectors.
-    fn query_exact(
+    ///
+    /// Metadata-filter evaluations are charged to `scan`, so a filtered
+    /// query that falls back from the index path cannot spend more than one
+    /// filter budget in total.
+    fn query_exact_scan(
         &self,
         vector: &[f32],
         k: usize,
         options: &QueryOptions,
+        scan: &mut FilterScan,
     ) -> Result<Vec<SearchResult>, RvfError> {
         // Max-heap: peek() returns the largest (farthest) distance in our k set.
         // When a closer vector is found, evict the farthest.
@@ -1193,22 +1298,12 @@ impl RvfStore {
 
         // Scan the contiguous slab in ordinal order (cache-friendly: rows
         // are adjacent in memory, no per-vector pointer chase).
-        let filter_started = std::time::Instant::now();
-        let mut filter_records = 0u64;
-        let mut filter_bytes = 0u64;
         for (vec_id, stored_vec) in self.vectors.iter() {
             if self.deletion_bitmap.is_deleted(vec_id) {
                 continue;
             }
             if let Some(ref filter_expr) = options.filter {
-                self.check_metadata_filter_budget(
-                    vec_id,
-                    options,
-                    filter_started,
-                    &mut filter_records,
-                    &mut filter_bytes,
-                )?;
-                if !filter::evaluate(filter_expr, vec_id, &self.metadata) {
+                if !self.filter_passes(filter_expr, vec_id, options, scan)? {
                     continue;
                 }
             }
@@ -1227,19 +1322,10 @@ impl RvfStore {
 
         // COW parent read-through: for a COW child (created via `branch()`),
         // also scan parent vectors that are visible in the membership filter
-        // and not overridden by the child's own slab.  This makes `query_exact`
+        // and not overridden by the child's own slab.  This makes `query_exact_scan`
         // the correct ground-truth for recall comparison against the ANN path.
         if self.cow_engine.is_some() {
-            self.cow_exact_parent_scan(
-                vector,
-                query_norm_sq,
-                k,
-                options,
-                filter_started,
-                &mut filter_records,
-                &mut filter_bytes,
-                &mut heap,
-            )?;
+            self.cow_exact_parent_scan(vector, query_norm_sq, k, options, scan, &mut heap)?;
         }
 
         // Drain the max-heap into sorted results (closest first).
@@ -1261,10 +1347,10 @@ impl RvfStore {
         Ok(results)
     }
 
-    /// Extend the `query_exact` result heap with parent vectors visible in the
+    /// Extend the `query_exact_scan` result heap with parent vectors visible in the
     /// COW child's membership filter.
     ///
-    /// Called from [`query_exact`] when `self.cow_engine.is_some()`.  Iterates
+    /// Called from [`Self::query_exact_scan`] when `self.cow_engine.is_some()`.  Iterates
     /// the parent store's vector slab directly (O(parent_size) — the expected
     /// fallback when the ANN path returns `None` or is disabled).
     ///
@@ -1280,9 +1366,7 @@ impl RvfStore {
         query_norm_sq: f32,
         k: usize,
         options: &QueryOptions,
-        filter_started: std::time::Instant,
-        filter_records: &mut u64,
-        filter_bytes: &mut u64,
+        scan: &mut FilterScan,
         heap: &mut BinaryHeap<(OrderedFloat, u64)>,
     ) -> Result<(), RvfError> {
         let parent_path = match self.parent_path.as_ref() {
@@ -1323,14 +1407,7 @@ impl RvfStore {
                 continue;
             }
             if let Some(ref filter_expr) = options.filter {
-                self.check_metadata_filter_budget(
-                    vid,
-                    options,
-                    filter_started,
-                    filter_records,
-                    filter_bytes,
-                )?;
-                if !filter::evaluate(filter_expr, vid, &self.metadata) {
+                if !self.filter_passes(filter_expr, vid, options, scan)? {
                     continue;
                 }
             }
@@ -1679,7 +1756,54 @@ impl RvfStore {
         }
     }
 
+    /// Evaluate the documented compaction triggers against this store's live state.
+    ///
+    /// Spec 10 §7 defines when compaction *should* run — dead space > 20%, segment
+    /// count > 32, at least 60s since the last run, with an emergency path above 70%.
+    /// [`crate::compaction::evaluate_triggers`] implements exactly that and was unit
+    /// tested, but had no caller outside its own tests, so the policy could not affect
+    /// anything. Every input it needs was already tracked here: `dead_space_ratio` and
+    /// `total_segments` are computed by [`Self::status`], and `last_compaction_time` is
+    /// stamped at the end of [`Self::compact`].
+    ///
+    /// This is a read-only query — it never compacts. Use it to decide, or call
+    /// [`Self::compact_if_needed`] to decide and act in one step.
+    pub fn should_compact(&self) -> CompactionDecision {
+        self.should_compact_with(&CompactionThresholds::default())
+    }
+
+    /// [`Self::should_compact`] against caller-supplied thresholds.
+    pub fn should_compact_with(&self, thresholds: &CompactionThresholds) -> CompactionDecision {
+        let status = self.status();
+        // Saturating: a clock that moved backwards must not wrap into a huge interval
+        // and make an over-eager compaction look policy-approved.
+        let secs_since_last = now_secs().saturating_sub(self.last_compaction_time);
+        evaluate_triggers(
+            status.dead_space_ratio,
+            status.total_segments,
+            secs_since_last,
+            thresholds,
+        )
+    }
+
+    /// Compact only if [`Self::should_compact`] says the policy is met.
+    ///
+    /// Returns `Ok(None)` when no compaction was needed — distinct from
+    /// `Ok(Some(result))` with zero reclaimed, which means compaction ran and found
+    /// nothing. Callers that want to compact regardless should call [`Self::compact`]
+    /// directly; that remains unconditional, because an explicit request is not a
+    /// policy decision.
+    pub fn compact_if_needed(&mut self) -> Result<Option<CompactionResult>, RvfError> {
+        match self.should_compact() {
+            CompactionDecision::None => Ok(None),
+            CompactionDecision::Normal | CompactionDecision::Emergency => self.compact().map(Some),
+        }
+    }
+
     /// Run compaction to reclaim dead space.
+    ///
+    /// Unconditional by design: this is an explicit request, not a scheduling
+    /// decision. For the documented policy, see [`Self::compact_if_needed`].
     ///
     /// Preserves all non-Vec, non-Manifest, non-Journal segments byte-for-byte
     /// to maintain forward compatibility with segment types this version does
@@ -1711,7 +1835,7 @@ impl RvfStore {
         // invalidated (rebuilt lazily). Persisted INDEX_SEGs are likewise
         // dropped from the rewritten file below. The RaBitQ code book
         // references removed IDs too, so it is dropped alongside.
-        *self.index.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        *self.index.write().unwrap_or_else(|e| e.into_inner()) = None;
         *self.rabitq.lock().unwrap_or_else(|e| e.into_inner()) = None;
 
         let segments_compacted = deleted_ids.len() as u32;
@@ -1995,10 +2119,22 @@ impl RvfStore {
 
     /// Close the store, releasing the writer lock.
     ///
-    /// If the in-memory HNSW index changed since it was last persisted,
-    /// it is written out as an INDEX_SEG so the next open can load it
-    /// instead of rebuilding from vectors.
+    /// Build and persist an HNSW index for an eligible store, even if it has
+    /// only been ingested and never queried. This makes the first query after
+    /// a read-only reopen use the persisted INDEX_SEG rather than building a
+    /// graph on the query path. Building a large graph can make close slow.
     pub fn close(mut self) -> Result<(), RvfError> {
+        if !self.read_only && self.index_eligible(&QueryOptions::default()) {
+            let mut guard = self.index.write().unwrap_or_else(|e| e.into_inner());
+            if guard.is_none() {
+                *guard = Some(VectorIndex::build(
+                    &self.vectors,
+                    self.options.metric,
+                    self.options.m.max(2) as usize,
+                    self.options.ef_construction.max(16) as usize,
+                ));
+            }
+        }
         self.persist_index()?;
 
         // Windows cannot flush a handle opened without write access.
@@ -2020,7 +2156,7 @@ impl RvfStore {
     /// INDEX_SEG at open time or built by a previous query).
     pub fn index_ready(&self) -> bool {
         self.index
-            .lock()
+            .read()
             .unwrap_or_else(|e| e.into_inner())
             .is_some()
     }
@@ -2032,7 +2168,7 @@ impl RvfStore {
             return Ok(());
         }
         let payload = {
-            let mut guard = self.index.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.index.write().unwrap_or_else(|e| e.into_inner());
             match guard.as_mut() {
                 Some(idx) if idx.is_dirty() && idx.node_count() > 0 => {
                     let payload = idx.encode_payload();
@@ -2851,6 +2987,7 @@ impl RvfStore {
         &self,
         metadata: &IngestMetadata<'_>,
         batch_ids: &[u64],
+        batch_id_set: &HashSet<u64>,
     ) -> Result<MetadataStore, RvfError> {
         let mut candidate = self.metadata.clone();
         match metadata {
@@ -2874,7 +3011,6 @@ impl RvfStore {
             }
             IngestMetadata::Records(records) => {
                 let mut record_ids = HashSet::with_capacity(records.len());
-                let batch_ids: HashSet<u64> = batch_ids.iter().copied().collect();
                 for record in *records {
                     if !record_ids.insert(record.vector_id) {
                         return Err(err(ErrorCode::InvalidMetadata));
@@ -2885,7 +3021,10 @@ impl RvfStore {
                         .membership_filter
                         .as_ref()
                         .is_some_and(|membership| membership.contains(record.vector_id));
-                    if !batch_ids.contains(&record.vector_id) && !existing_live && !inherited_live {
+                    if !batch_id_set.contains(&record.vector_id)
+                        && !existing_live
+                        && !inherited_live
+                    {
                         return Err(err(ErrorCode::InvalidMetadata));
                     }
                     let mut field_ids = HashSet::with_capacity(record.fields.len());
@@ -2914,19 +3053,44 @@ impl RvfStore {
                 }
             }
         }
+        if !matches!(metadata, IngestMetadata::None) {
+            // Each META_SEG delta can encode its own schema, but a later full
+            // snapshot must represent every live record with one type per
+            // field ID. Reject the conflicting write before touching vectors
+            // or appending any segment bytes.
+            let mut types_by_field = BTreeMap::<u16, MetadataType>::new();
+            for vector_id in candidate.ids() {
+                if !batch_id_set.contains(&vector_id) && !self.metadata_id_is_committed(vector_id) {
+                    continue;
+                }
+                if let Some(fields) = candidate.fields(vector_id) {
+                    for (&field_id, value) in fields {
+                        let Some(value_type) = runtime_metadata_type(value) else {
+                            continue;
+                        };
+                        if types_by_field
+                            .insert(field_id, value_type)
+                            .is_some_and(|previous| previous != value_type)
+                        {
+                            return Err(err(ErrorCode::InvalidMetadata));
+                        }
+                    }
+                }
+            }
+        }
         Ok(candidate)
     }
 
     fn check_metadata_filter_budget(
         &self,
-        vector_id: u64,
+        record_bytes: u64,
         options: &QueryOptions,
-        started: std::time::Instant,
-        records: &mut u64,
-        bytes: &mut u64,
+        scan: &mut FilterScan,
     ) -> Result<(), RvfError> {
+        let started = scan.started;
+        let records = &mut scan.records;
+        let bytes = &mut scan.bytes;
         *records = records.saturating_add(1);
-        let record_bytes = self.metadata.decoded_size(vector_id) as u64;
         *bytes = bytes.saturating_add(record_bytes);
         self.metadata_filter_scanned_records
             .fetch_add(1, Ordering::Relaxed);
@@ -3035,9 +3199,10 @@ impl RvfStore {
         let total_vecs = self.vectors.len() as u64;
         // MembershipFilter is keyed by vector ID, not by slab ordinal. Sizing
         // it from `len()` silently drops ID == len (the normal Node string-ID
-        // case, which starts at 1) and every sparse ID. Size from the highest
-        // live ID instead, while bounding the dense bitmap to fail closed
-        // rather than risk an allocation DoS.
+        // case, which starts at 1) and every sparse ID. Size the ID range from
+        // the highest ID instead; `include_from_ids` then picks a flat bitmap
+        // or a chunked set from how densely the live IDs fill that range, so
+        // memory follows the number of vectors, not the largest ID.
         let membership_capacity = self
             .vectors
             .ids()
@@ -3050,13 +3215,6 @@ impl RvfStore {
             })
             .transpose()?
             .unwrap_or(0);
-        let membership_bytes = membership_capacity
-            .div_ceil(64)
-            .checked_mul(8)
-            .ok_or_else(|| err(ErrorCode::MembershipInvalid))?;
-        if membership_bytes > MAX_MEMBERSHIP_FILTER_BYTES {
-            return Err(err(ErrorCode::MembershipInvalid));
-        }
         let cluster_count = if vectors_per_cluster > 0 {
             total_vecs.div_ceil(vectors_per_cluster as u64) as u32
         } else {
@@ -3079,13 +3237,16 @@ impl RvfStore {
         ));
 
         // Initialize membership filter with all parent vectors visible
-        let mut filter = MembershipFilter::new_include(membership_capacity);
-        for &vid in self.vectors.ids() {
-            if !self.deletion_bitmap.is_deleted(vid) {
-                filter.add(vid);
-            }
-        }
-        child.membership_filter = Some(filter);
+        let visible: Vec<u64> = self
+            .vectors
+            .ids()
+            .copied()
+            .filter(|&vid| !self.deletion_bitmap.is_deleted(vid))
+            .collect();
+        child.membership_filter = Some(MembershipFilter::include_from_ids(
+            membership_capacity,
+            &visible,
+        ));
         // `derive` writes an initial lineage-only manifest. Commit a second
         // manifest after the COW state is initialized so a returned branch is
         // durable even if the caller immediately closes it.
@@ -3140,24 +3301,51 @@ impl RvfStore {
     /// Creates a new RVF file at `child_path` that records this store as its
     /// parent. The child gets a new file_id, inherits dimensions and options,
     /// and records the parent's manifest hash for provenance verification.
+    ///
+    /// `derivation_type` is recorded in the child: a lineage record segment
+    /// (readable with [`RvfStore::derivation_type`] and
+    /// [`RvfStore::lineage_records`]) plus a `WITNESS_DERIVATION` witness
+    /// entry whose action hash is the SHAKE-256 of that record (#1289).
+    /// Recording is all it does: the child starts empty for every type, as
+    /// before; [`RvfStore::branch`] is the copy-on-write path.
+    ///
+    /// `DerivationType::Merge` is accepted and recorded with this store as
+    /// its only parent (as before, nothing fails); to record several parents
+    /// use [`RvfStore::merge`].
     pub fn derive(
         &self,
         child_path: &Path,
-        _derivation_type: rvf_types::DerivationType,
+        derivation_type: rvf_types::DerivationType,
         child_options: Option<RvfOptions>,
     ) -> Result<Self, RvfError> {
-        let opts = child_options.unwrap_or_else(|| self.options.clone());
-
-        let child_file_id = generate_file_id(child_path);
-
-        // Compute parent manifest hash from the file on disk
         let parent_hash = self.compute_own_manifest_hash()?;
-
         let new_depth = self
             .file_identity
             .lineage_depth
             .checked_add(1)
             .ok_or_else(|| err(ErrorCode::LineageBroken))?;
+        let mut store = self.derive_child(child_path, parent_hash, new_depth, child_options)?;
+        store.record_lineage(
+            derivation_type,
+            &[(self.file_identity.file_id, parent_hash)],
+        )?;
+        store.write_manifest()?;
+        Ok(store)
+    }
+
+    /// Build an empty, unwritten child of this store whose `FileIdentity`
+    /// names this store as (first) parent. The caller records lineage and
+    /// writes the first manifest.
+    pub(super) fn derive_child(
+        &self,
+        child_path: &Path,
+        parent_hash: [u8; 32],
+        new_depth: u32,
+        child_options: Option<RvfOptions>,
+    ) -> Result<Self, RvfError> {
+        let opts = child_options.unwrap_or_else(|| self.options.clone());
+
+        let child_file_id = generate_file_id(child_path);
 
         let child_identity = FileIdentity {
             file_id: child_file_id,
@@ -3185,7 +3373,7 @@ impl RvfStore {
         let mut child_opts = opts;
         child_opts.domain_profile = domain_profile;
 
-        let mut store = Self {
+        let store = Self {
             path: child_path.to_path_buf(),
             options: child_opts,
             file,
@@ -3218,7 +3406,7 @@ impl RvfStore {
             membership_filter: None,
             parent_path: Some(self.path.clone()),
             last_witness_hash: [0u8; 32],
-            index: Mutex::new(None),
+            index: RwLock::new(None),
             index_building: AtomicBool::new(false),
             rabitq: Mutex::new(None),
             rabitq_building: AtomicBool::new(false),
@@ -3226,12 +3414,11 @@ impl RvfStore {
             security: SecurityState::permissive(),
         };
 
-        store.write_manifest()?;
         Ok(store)
     }
 
     /// Compute a hash of this file's content for use as parent_hash in derivation.
-    fn compute_own_manifest_hash(&self) -> Result<[u8; 32], RvfError> {
+    pub(super) fn compute_own_manifest_hash(&self) -> Result<[u8; 32], RvfError> {
         use std::io::Read;
         let file_len = self
             .file
@@ -3482,7 +3669,7 @@ impl RvfStore {
             };
             if let Some(payload) = payload {
                 if let Some(idx) = VectorIndex::decode_payload(&payload, &self.vectors) {
-                    *self.index.lock().unwrap_or_else(|e| e.into_inner()) = Some(idx);
+                    *self.index.write().unwrap_or_else(|e| e.into_inner()) = Some(idx);
                 }
             }
         }
@@ -3851,6 +4038,7 @@ impl RvfStore {
         if self.cow_engine.is_some() {
             self.write_cow_state_segments()?;
         }
+        self.prune_superseded_dir_entries();
         let writer = self
             .seg_writer
             .as_mut()
@@ -4445,6 +4633,18 @@ fn runtime_to_wire(value: &MetadataValue) -> WireMetadataValue {
     }
 }
 
+fn runtime_metadata_type(value: &MetadataValue) -> Option<MetadataType> {
+    Some(match value {
+        MetadataValue::Null | MetadataValue::DeleteField => return None,
+        MetadataValue::String(_) => MetadataType::String,
+        MetadataValue::Bytes(_) => MetadataType::Bytes,
+        MetadataValue::I64(_) => MetadataType::I64,
+        MetadataValue::U64(_) => MetadataType::U64,
+        MetadataValue::F64(_) => MetadataType::F64,
+        MetadataValue::Bool(_) => MetadataType::Bool,
+    })
+}
+
 fn wire_to_runtime(value: &WireMetadataValue) -> Result<MetadataValue, RvfError> {
     Ok(match value {
         WireMetadataValue::Null => MetadataValue::Null,
@@ -4663,6 +4863,69 @@ mod tests {
             v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
         }
         v
+    }
+
+    /// rvf:ingest-dup-id-invalid-manifest: a batch naming an id twice keeps
+    /// the last row (vector and metadata), for every metadata shape, and the
+    /// store keeps working and survives reopen.
+    #[test]
+    fn batch_with_repeated_id_keeps_last_write() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("dup_batch.rvf");
+        let opts = RvfOptions {
+            dimension: 4,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+        let mut store = RvfStore::create(&path, opts).unwrap();
+        let axis = |i: usize| {
+            let mut v = vec![0.0f32; 4];
+            v[i] = 1.0;
+            v
+        };
+        let tag = |s: &str| MetadataEntry {
+            field_id: 0,
+            value: MetadataValue::String(s.into()),
+        };
+        let (a0, a1, a2, a3) = (axis(0), axis(1), axis(2), axis(3));
+
+        // No metadata.
+        let r = store
+            .ingest_batch(&[&a0, &a1, &a2], &[7, 8, 7], None)
+            .unwrap();
+        assert_eq!((r.accepted, r.rejected), (2, 0));
+        // Legacy metadata, one entry per row.
+        let r = store
+            .ingest_batch(&[&a1, &a3], &[9, 9], Some(&[tag("first"), tag("last")]))
+            .unwrap();
+        assert_eq!(r.accepted, 1);
+        // Per-vector records, one per row (what the Node binding sends).
+        let rec = |id: u64, s: &str| VectorMetadata {
+            vector_id: id,
+            fields: vec![tag(s)],
+            delete_record: false,
+        };
+        let r = store
+            .ingest_batch_with_metadata(&[&a0, &a2], &[10, 10], &[rec(10, "old"), rec(10, "new")])
+            .unwrap();
+        assert_eq!(r.accepted, 1);
+
+        let check = |s: &RvfStore, n: u64| {
+            assert_eq!(s.status().total_vectors, n);
+            let hit = s.query(&a2, 1, &QueryOptions::default()).unwrap();
+            assert!(hit[0].id == 7 || hit[0].id == 10);
+            assert!(hit[0].distance < 1e-6);
+            let hit = s.query(&a3, 1, &QueryOptions::default()).unwrap();
+            assert_eq!(hit[0].id, 9);
+            assert_eq!(s.get_metadata(9), Some(vec![tag("last")]));
+            assert_eq!(s.get_metadata(10), Some(vec![tag("new")]));
+        };
+        check(&store, 4);
+        // The store still accepts ordinary writes.
+        store.ingest_batch(&[&a1], &[11], None).unwrap();
+        store.close().unwrap();
+        let reopened = RvfStore::open(&path).unwrap();
+        check(&reopened, 5);
     }
 
     #[test]
@@ -5703,8 +5966,135 @@ mod tests {
         store.close().unwrap();
     }
 
-    /// Overwriting an existing id must still invalidate stale index state
-    /// and produce correct nearest-neighbor results afterwards.
+    /// Regression (rvf:reingest-live-id-drops-hnsw): re-ingesting a live id
+    /// at 5k vectors used to discard the whole HNSW graph, so the next query
+    /// rebuilt it (seconds). It must now keep the graph, re-link the node,
+    /// and keep recall. Prints the measured upsert-then-query latency.
+    #[test]
+    fn upsert_of_live_id_keeps_hnsw_index() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("upsert_keeps_index.rvf");
+        let dim = 32;
+        let mut store = RvfStore::create(
+            &path,
+            RvfOptions {
+                dimension: dim as u16,
+                metric: DistanceMetric::L2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let n = 5000u64;
+        let vecs: Vec<Vec<f32>> = (0..n).map(|i| random_vector(dim, i)).collect();
+        let refs: Vec<&[f32]> = vecs.iter().map(|v| v.as_slice()).collect();
+        let ids: Vec<u64> = (0..n).collect();
+        store.ingest_batch(&refs, &ids, None).unwrap();
+        store
+            .query(&random_vector(dim, 1), 10, &QueryOptions::default())
+            .unwrap();
+        assert!(store.index_ready());
+        let nodes = |s: &RvfStore| s.index.read().unwrap().as_ref().map(|i| i.node_count());
+        assert_eq!(nodes(&store), Some(n as usize));
+
+        // One upsert of a live id, then a query: no rebuild.
+        let moved = random_vector(dim, 1_000_000);
+        let t0 = std::time::Instant::now();
+        store
+            .ingest_batch(&[moved.as_slice()], &[42], None)
+            .unwrap();
+        let hit = store.query(&moved, 1, &QueryOptions::default()).unwrap();
+        let upsert_then_query = t0.elapsed();
+        assert!(store.index_ready(), "upsert must not drop the index");
+        assert_eq!(nodes(&store), Some(n as usize));
+        assert_eq!(hit[0].id, 42);
+        assert!(hit[0].distance < 1e-4);
+        eprintln!(
+            "upsert_then_query_5k_ms={:.3}",
+            upsert_then_query.as_secs_f64() * 1e3
+        );
+
+        // 500 more upserts, then HNSW top-10 vs exact on 50 queries.
+        for j in 0..500u64 {
+            let id = (j * 7919) % n;
+            let v = random_vector(dim, 2_000_000 + j);
+            store.ingest_batch(&[v.as_slice()], &[id], None).unwrap();
+        }
+        assert!(store.index_ready());
+        let exact = QueryOptions {
+            force_exact: true,
+            ..Default::default()
+        };
+        let mut hits = 0usize;
+        for q in 0..50u64 {
+            let query = random_vector(dim, 3_000_000 + q);
+            let approx: HashSet<u64> = store
+                .query(&query, 10, &QueryOptions::default())
+                .unwrap()
+                .iter()
+                .map(|r| r.id)
+                .collect();
+            for r in store.query(&query, 10, &exact).unwrap() {
+                hits += approx.contains(&r.id) as usize;
+            }
+        }
+        let recall = hits as f64 / 500.0;
+        eprintln!("recall_at_10_after_500_upserts={recall:.3}");
+        assert!(recall >= 0.9, "recall@10 after upserts {recall}");
+        store.close().unwrap();
+    }
+
+    /// Bench for rvf:meta-snapshot-every-32-commits: 3000 single-record
+    /// commits, each carrying metadata. Prints file size and per-write cost.
+    /// `cargo test --release -p rvf-runtime --lib -- --ignored meta_single_commit_bench --nocapture`
+    #[test]
+    #[ignore]
+    fn meta_single_commit_bench() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("meta_bench.rvf");
+        let dim = 32;
+        let mut store = RvfStore::create(
+            &path,
+            RvfOptions {
+                dimension: dim as u16,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let total = 3000u64;
+        let mut first = std::time::Duration::ZERO;
+        let mut last = std::time::Duration::ZERO;
+        let t_all = std::time::Instant::now();
+        for i in 0..total {
+            let v = random_vector(dim, i);
+            let meta = [MetadataEntry {
+                field_id: 1,
+                value: MetadataValue::String(format!("doc-{i}-payload-text-of-moderate-length")),
+            }];
+            let t0 = std::time::Instant::now();
+            store
+                .ingest_batch(&[v.as_slice()], &[i], Some(&meta))
+                .unwrap();
+            let dt = t0.elapsed();
+            if i < 500 {
+                first += dt;
+            } else if i >= total - 500 {
+                last += dt;
+            }
+        }
+        let all = t_all.elapsed();
+        store.close().unwrap();
+        let bytes = std::fs::metadata(&path).unwrap().len();
+        eprintln!(
+            "meta_bench commits={total} file_mb={:.1} avg_us={:.0} first500_avg_us={:.0} last500_avg_us={:.0}",
+            bytes as f64 / 1048576.0,
+            all.as_secs_f64() * 1e6 / total as f64,
+            first.as_secs_f64() * 1e6 / 500.0,
+            last.as_secs_f64() * 1e6 / 500.0,
+        );
+    }
+
+    /// Overwriting an existing id must re-link the stale node (the index stays
+    /// built) and produce correct nearest-neighbor results afterwards.
     #[test]
     fn overwrite_returns_fresh_vector_via_index_path() {
         let dir = TempDir::new().unwrap();
@@ -5731,7 +6121,10 @@ mod tests {
         // Overwrite id 3 with a far-away vector.
         let far = vec![100.0f32; 8];
         store.ingest_batch(&[far.as_slice()], &[3], None).unwrap();
-        assert!(!store.index_ready(), "overwrite must drop the stale index");
+        assert!(
+            store.index_ready(),
+            "an upsert re-links the node instead of dropping the index"
+        );
 
         // Query at the new location must find the overwritten id first.
         let results = store.query(&far, 1, &QueryOptions::default()).unwrap();
@@ -6088,6 +6481,137 @@ mod tests {
             .is_empty());
     }
 
+    #[test]
+    fn conflicting_metadata_types_surface_at_ingest() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("metadata_type_conflict.rvf");
+        let mut store = RvfStore::create(
+            &path,
+            RvfOptions {
+                dimension: 2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        store
+            .ingest_batch_with_metadata(
+                &[&[1.0, 0.0]],
+                &[1],
+                &[VectorMetadata {
+                    vector_id: 1,
+                    fields: vec![MetadataEntry {
+                        field_id: 7,
+                        value: MetadataValue::String("first".into()),
+                    }],
+                    delete_record: false,
+                }],
+            )
+            .unwrap();
+
+        let epoch = store.status().current_epoch;
+        let file_size = std::fs::metadata(&path).unwrap().len();
+        let conflicting = store.ingest_batch_with_metadata(
+            &[&[0.0, 1.0]],
+            &[2],
+            &[VectorMetadata {
+                vector_id: 2,
+                fields: vec![MetadataEntry {
+                    field_id: 7,
+                    value: MetadataValue::U64(2),
+                }],
+                delete_record: false,
+            }],
+        );
+        assert!(matches!(
+            conflicting,
+            Err(RvfError::Code(ErrorCode::InvalidMetadata))
+        ));
+        assert_eq!(store.status().current_epoch, epoch);
+        assert_eq!(std::fs::metadata(&path).unwrap().len(), file_size);
+        assert_eq!(store.read_all_vectors().len(), 1);
+        assert!(store.get_metadata(2).is_none());
+        assert!(store.encode_metadata_generation(3, None).is_ok());
+    }
+
+    #[test]
+    fn metadata_type_replacement_is_allowed_when_no_live_record_conflicts() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("metadata_type_replacement.rvf");
+        let mut store = RvfStore::create(
+            &path,
+            RvfOptions {
+                dimension: 2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        for value in [MetadataValue::String("old".into()), MetadataValue::U64(42)] {
+            store
+                .ingest_batch_with_metadata(
+                    &[&[1.0, 0.0]],
+                    &[1],
+                    &[VectorMetadata {
+                        vector_id: 1,
+                        fields: vec![MetadataEntry { field_id: 7, value }],
+                        delete_record: false,
+                    }],
+                )
+                .unwrap();
+        }
+        store
+            .ingest_batch_with_metadata(
+                &[&[0.0, 1.0]],
+                &[2],
+                &[VectorMetadata {
+                    vector_id: 2,
+                    fields: vec![MetadataEntry {
+                        field_id: 7,
+                        value: MetadataValue::Null,
+                    }],
+                    delete_record: false,
+                }],
+            )
+            .unwrap();
+        assert!(store.encode_metadata_generation(4, None).is_ok());
+    }
+
+    #[test]
+    fn legacy_metadata_ingest_rejects_cross_record_type_conflicts() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("legacy_metadata_type_conflict.rvf");
+        let mut store = RvfStore::create(
+            &path,
+            RvfOptions {
+                dimension: 2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        store
+            .ingest_batch(
+                &[&[1.0, 0.0]],
+                &[1],
+                Some(&[MetadataEntry {
+                    field_id: 7,
+                    value: MetadataValue::String("first".into()),
+                }]),
+            )
+            .unwrap();
+        let result = store.ingest_batch(
+            &[&[0.0, 1.0]],
+            &[2],
+            Some(&[MetadataEntry {
+                field_id: 7,
+                value: MetadataValue::U64(2),
+            }]),
+        );
+        assert!(matches!(
+            result,
+            Err(RvfError::Code(ErrorCode::InvalidMetadata))
+        ));
+        assert_eq!(store.read_all_vectors().len(), 1);
+    }
+
     /// Criterion 2 (gap): bytes, signed-integer, and finite-float per-vector
     /// values round-trip through a full store close/reopen. The existing
     /// round-trip coverage exercised strings, nulls, and booleans only.
@@ -6267,5 +6791,75 @@ mod tests {
         drop(store);
         let reopened = RvfStore::open_readonly(&path).unwrap();
         assert_hits(&reopened);
+    }
+
+    #[test]
+    fn branch_with_ids_near_2_pow_40_keeps_memory_bounded() {
+        let dir = TempDir::new().unwrap();
+        let mut parent = RvfStore::create(
+            &dir.path().join("parent.rvf"),
+            RvfOptions {
+                dimension: 2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let high: u64 = 1 << 40;
+        let ids = [3u64, high - 1, high, high + 5];
+        let vectors: [&[f32]; 4] = [&[1.0, 0.0], &[0.0, 1.0], &[1.0, 1.0], &[2.0, 1.0]];
+        parent.ingest_batch(&vectors, &ids, None).unwrap();
+
+        // A dense bitmap for these IDs would need 128 GiB, so this used to be
+        // refused with MembershipInvalid.
+        let child_path = dir.path().join("child.rvf");
+        let mut child = parent.branch(&child_path).unwrap();
+        let filter = child.membership_filter().unwrap();
+        for id in ids {
+            assert!(filter.contains(id), "id {id}");
+        }
+        assert!(!filter.contains(4) && !filter.contains(high + 1));
+        assert!(filter.approx_heap_bytes() < 4096);
+
+        // Inherited vectors are visible through the child, and a delete of an
+        // inherited ID survives reopen.
+        let hits = child
+            .query(&[0.0, 1.0], 4, &QueryOptions::default())
+            .unwrap();
+        let hit_ids: HashSet<u64> = hits.iter().map(|h| h.id).collect();
+        assert_eq!(hit_ids, ids.into_iter().collect());
+        child.delete(&[high]).unwrap();
+        drop(child);
+
+        let reopened = RvfStore::open_readonly(&child_path).unwrap();
+        let filter = reopened.membership_filter().unwrap();
+        assert!(filter.contains(high - 1) && !filter.contains(high));
+        assert!(filter.approx_heap_bytes() < 4096);
+        let hits = reopened
+            .query(&[0.0, 1.0], 4, &QueryOptions::default())
+            .unwrap();
+        assert_eq!(hits.len(), 3);
+        assert!(hits.iter().all(|h| h.id != high));
+    }
+
+    #[test]
+    fn dense_cow_branch_still_reopens() {
+        let dir = TempDir::new().unwrap();
+        let mut parent = RvfStore::create(
+            &dir.path().join("parent.rvf"),
+            RvfOptions {
+                dimension: 2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        parent
+            .ingest_batch(&[&[1.0, 0.0], &[0.0, 1.0]], &[1, 2], None)
+            .unwrap();
+        let child_path = dir.path().join("child.rvf");
+        drop(parent.branch(&child_path).unwrap());
+        let reopened = RvfStore::open_readonly(&child_path).unwrap();
+        let filter = reopened.membership_filter().unwrap();
+        assert_eq!(filter.to_header().filter_type, 0);
+        assert!(filter.contains(1) && filter.contains(2) && !filter.contains(3));
     }
 }

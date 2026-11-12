@@ -301,3 +301,12 @@ MIT
 ---
 
 **Keywords**: CRDT, distributed systems, credits, P2P, peer-to-peer, blockchain alternative, reputation, stake, slash, economy, WebAssembly, WASM, edge computing, decentralized, conflict-free, eventual consistency, G-Counter, PN-Counter
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for WASM, distributed systems, WebAssembly.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->

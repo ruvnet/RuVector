@@ -4,6 +4,7 @@
 
 use crate::error::{AttentionError, AttentionResult};
 use crate::traits::Attention;
+use crate::utils::{axpy, dot_f32};
 
 /// Flash attention with block-wise computation
 ///
@@ -36,24 +37,23 @@ impl FlashAttention {
         }
     }
 
-    /// Compute attention scores for a block
-    fn compute_block_scores(&self, query: &[f32], keys: &[&[f32]], start_idx: usize) -> Vec<f32> {
-        keys.iter()
-            .enumerate()
-            .map(|(j, key)| {
-                if self.causal && start_idx + j > 0 {
-                    // Simplified causal: assuming query is at position 0
-                    f32::NEG_INFINITY
-                } else {
-                    query
-                        .iter()
-                        .zip(key.iter())
-                        .map(|(q, k)| q * k)
-                        .sum::<f32>()
-                        * self.scale
-                }
-            })
-            .collect()
+    /// Compute attention scores for a block into `scores` (cleared first).
+    fn compute_block_scores(
+        &self,
+        query: &[f32],
+        keys: &[&[f32]],
+        start_idx: usize,
+        scores: &mut Vec<f32>,
+    ) {
+        scores.clear();
+        scores.extend(keys.iter().enumerate().map(|(j, key)| {
+            if self.causal && start_idx + j > 0 {
+                // Simplified causal: assuming query is at position 0
+                f32::NEG_INFINITY
+            } else {
+                dot_f32(query, key) * self.scale
+            }
+        }));
     }
 }
 
@@ -80,21 +80,37 @@ impl Attention for FlashAttention {
             });
         }
 
+        if self.block_size == 0 {
+            return Err(AttentionError::InvalidConfig(
+                "Block size must be greater than zero".to_string(),
+            ));
+        }
         let n = keys.len();
         let value_dim = values[0].len();
+        if let Some(bad) = values.iter().find(|v| v.len() != value_dim) {
+            return Err(AttentionError::DimensionMismatch {
+                expected: value_dim,
+                actual: bad.len(),
+            });
+        }
 
         // Online softmax with tiled computation
         let mut output = vec![0.0f32; value_dim];
         let mut max_so_far = f32::NEG_INFINITY;
         let mut sum_exp = 0.0f32;
 
-        // Process in blocks
+        // Process in blocks; one score buffer is reused across blocks.
+        let mut block_scores = Vec::with_capacity(self.block_size.min(n));
         for block_start in (0..n).step_by(self.block_size) {
             let block_end = (block_start + self.block_size).min(n);
-            let block_keys: Vec<&[f32]> = keys[block_start..block_end].to_vec();
 
             // Compute attention scores for this block
-            let block_scores = self.compute_block_scores(query, &block_keys, block_start);
+            self.compute_block_scores(
+                query,
+                &keys[block_start..block_end],
+                block_start,
+                &mut block_scores,
+            );
 
             // Find block maximum
             let block_max = block_scores
@@ -123,10 +139,7 @@ impl Attention for FlashAttention {
                     let exp_score = (score - new_max).exp();
                     sum_exp += exp_score;
 
-                    let global_idx = block_start + local_idx;
-                    for (j, &vj) in values[global_idx].iter().enumerate() {
-                        output[j] += exp_score * vj;
-                    }
+                    axpy(&mut output, exp_score, values[block_start + local_idx]);
                 }
             }
 
@@ -149,6 +162,12 @@ impl Attention for FlashAttention {
         mask: Option<&[bool]>,
     ) -> AttentionResult<Vec<f32>> {
         if let Some(m) = mask {
+            if m.len() != keys.len() || keys.len() != values.len() {
+                return Err(AttentionError::InvalidMask {
+                    expected: format!("{} entries", keys.len()),
+                    actual: format!("{} entries", m.len()),
+                });
+            }
             let filtered: Vec<(usize, bool)> = m
                 .iter()
                 .copied()
@@ -172,6 +191,32 @@ impl Attention for FlashAttention {
 mod tests {
     use super::*;
     use crate::attention::ScaledDotProductAttention;
+
+    #[test]
+    fn test_zero_block_size_is_an_error() {
+        let attention = FlashAttention::new(4, 0);
+        let query = vec![1.0_f32; 4];
+        let key = vec![1.0_f32; 4];
+        assert!(attention
+            .compute(&query, &[key.as_slice()], &[key.as_slice()])
+            .is_err());
+    }
+
+    #[test]
+    fn test_ragged_values_are_an_error() {
+        let attention = FlashAttention::new(4, 2);
+        let query = vec![1.0_f32; 4];
+        let key = vec![1.0_f32; 4];
+        let short = vec![1.0_f32; 2];
+        let long = vec![1.0_f32; 8];
+        assert!(attention
+            .compute(
+                &query,
+                &[key.as_slice(), key.as_slice()],
+                &[short.as_slice(), long.as_slice()]
+            )
+            .is_err());
+    }
 
     #[test]
     fn test_flash_attention() {

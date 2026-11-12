@@ -3,7 +3,7 @@
 //! Accepts any number of inserts in O(1) amortised time. Searches are O(N·D)
 //! brute-force; this is acceptable when the memtable is bounded (≤ l0_max entries).
 
-use crate::{brute_force_knn, sq_dist};
+use crate::{brute_force_knn, distance_order, sq_dist};
 
 /// Flat, mutable write buffer (L0 tier of the LSM-ANN hierarchy).
 #[derive(Default, Clone, Debug)]
@@ -58,7 +58,7 @@ impl MemTable {
             .iter()
             .map(|(id, v)| (*id, sq_dist(v, query)))
             .collect();
-        results.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        results.sort_by(|a, b| distance_order(a.1, b.1));
         results.truncate(k);
         results
     }

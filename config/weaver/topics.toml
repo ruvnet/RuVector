@@ -1,0 +1,1845 @@
+# Canonical topic taxonomy for the ruvnet npm portfolio (ADR-356).
+#
+# Every [[topic]] (kind = topic) was admitted on MEASURED demand, recorded
+# below and in the weaver ledger (subject seo:topic:<slug>):
+#   npm_kw_total     registry.npmjs.org/-/v1/search?text=keywords:<slug> `total`
+#   npm_top5_monthly monthly downloads summed over that search's top 5 results
+#   gh_topic_repos   gh api search/repositories q=topic:<slug> `total_count`
+# A topic is kept only when npm_kw_total >= min_npm_kw_total OR
+# gh_topic_repos >= min_gh_topic_repos, AND ruvnet packages genuinely ship
+# the capability. Measured but rejected (below both floors): vector-db as a
+# topic (45 / 99; kept as an alias), approximate-nearest-neighbor (16 / 86),
+# quantum-simulation (4 / 415; alias of quantum-computing), swe-bench
+# (35 / 400), sparse-matrix (7 / 499), linear-solver (2 / 12; alias of solver),
+# graph-neural-network (18 / 486; alias of gnn), link-prediction (2 / 411) and
+# graph-embeddings (0 / 91). Kind = niche admits an exact-feature long-tail term
+# (a pilot theme such as link-prediction, or a real feature such as min-cut or
+# csi) as a legal keyword: measured and recorded, never primary. Aliases are spelling variants of an admitted topic and need no
+# demand of their own. kind = brand marks family names: legal keywords,
+# never primary topics, exempt from the floor.
+#
+# Refresh: `weaver seo demand --taxonomy --record`.
+
+[meta]
+homepage = "https://ruv.io"
+measured_at = "2026-11-08"
+keywords_min = 8
+keywords_max = 20
+keywords_target = 16
+repo_topics_max = 20
+description_max = 200
+stale_days = 180
+min_npm_kw_total = 50
+min_gh_topic_repos = 500
+# Another lane owns these manifests: `propose` only, `apply` refuses.
+hands_off_packages = ["ruvector", "@claude-flow/cli", "claude-flow", "ruflo", "agentdb", "agentic-flow"]
+hands_off_repos = ["ruvnet/ruflo", "ruvnet/claude-flow", "ruvnet/metaharness"]
+
+# ---- demand topics ----
+[[topic]]
+slug = "ai-agents"
+phrase = "AI agents"
+aliases = ["ai-agent", "agents", "agent", "ai-agents-framework"]
+npm_kw_total = 14994
+npm_top5_monthly = 48133044
+gh_topic_repos = 136491
+
+[[topic]]
+slug = "agentic-ai"
+phrase = "agentic AI"
+aliases = ["agentic"]
+npm_kw_total = 394
+npm_top5_monthly = 1331210
+gh_topic_repos = 28662
+
+[[topic]]
+slug = "multi-agent"
+phrase = "multi-agent"
+aliases = ["multi-agent-systems", "multiagent", "multi-agent-system"]
+npm_kw_total = 3785
+npm_top5_monthly = 1720015
+gh_topic_repos = 22523
+
+[[topic]]
+slug = "swarm"
+phrase = "swarm"
+aliases = ["swarm-intelligence", "agent-swarm", "swarms"]
+npm_kw_total = 675
+npm_top5_monthly = 2714082
+gh_topic_repos = 1356
+
+[[topic]]
+slug = "agent-orchestration"
+phrase = "agent orchestration"
+aliases = ["orchestration", "ai-orchestration", "agent-coordination"]
+npm_kw_total = 467
+npm_top5_monthly = 1677547
+gh_topic_repos = 4952
+
+[[topic]]
+slug = "autonomous-agents"
+phrase = "autonomous agents"
+aliases = ["autonomous-agent", "autonomous"]
+npm_kw_total = 411
+npm_top5_monthly = 951785
+gh_topic_repos = 6558
+
+[[topic]]
+slug = "agent-framework"
+phrase = "agent framework"
+aliases = ["agents-framework", "agentic-framework"]
+npm_kw_total = 286
+npm_top5_monthly = 7251538
+gh_topic_repos = 3547
+
+[[topic]]
+slug = "agent-memory"
+phrase = "agent memory"
+aliases = ["ai-memory", "long-term-memory", "memory", "persistent-memory", "agentic-memory"]
+npm_kw_total = 1165
+npm_top5_monthly = 947352
+gh_topic_repos = 5444
+
+[[topic]]
+slug = "mcp"
+phrase = "MCP"
+aliases = ["mcp-tools", "mcp-protocol"]
+npm_kw_total = 87664
+npm_top5_monthly = 656399133
+gh_topic_repos = 114597
+
+[[topic]]
+slug = "model-context-protocol"
+phrase = "Model Context Protocol"
+aliases = []
+npm_kw_total = 43790
+npm_top5_monthly = 37034297
+gh_topic_repos = 42847
+
+[[topic]]
+slug = "claude-code"
+phrase = "Claude Code"
+aliases = ["claude-code-plugin"]
+npm_kw_total = 27735
+npm_top5_monthly = 45833164
+gh_topic_repos = 114017
+
+[[topic]]
+slug = "claude"
+phrase = "Claude"
+aliases = ["claude-ai"]
+npm_kw_total = 43271
+npm_top5_monthly = 284124270
+gh_topic_repos = 66783
+
+[[topic]]
+slug = "anthropic"
+phrase = "Anthropic"
+aliases = []
+npm_kw_total = 11318
+npm_top5_monthly = 260450958
+gh_topic_repos = 29141
+
+[[topic]]
+slug = "openai"
+phrase = "OpenAI"
+aliases = []
+npm_kw_total = 12248
+npm_top5_monthly = 263854989
+gh_topic_repos = 51200
+
+[[topic]]
+slug = "llm"
+phrase = "LLM"
+aliases = ["llms", "large-language-model", "large-language-models"]
+npm_kw_total = 32422
+npm_top5_monthly = 270656269
+gh_topic_repos = 176536
+
+[[topic]]
+slug = "llm-routing"
+phrase = "LLM routing"
+aliases = ["llm-router", "model-routing", "model-router"]
+npm_kw_total = 52
+npm_top5_monthly = 803382
+gh_topic_repos = 653
+
+[[topic]]
+slug = "local-llm"
+phrase = "local LLM"
+aliases = ["llm-inference", "on-device-llm"]
+npm_kw_total = 554
+npm_top5_monthly = 893515
+gh_topic_repos = 10518
+
+[[topic]]
+slug = "coding-agent"
+phrase = "coding agent"
+aliases = ["ai-coding", "code-agent", "ai-coding-assistant"]
+npm_kw_total = 6330
+npm_top5_monthly = 25240207
+gh_topic_repos = 8191
+
+[[topic]]
+slug = "generative-ai"
+phrase = "generative AI"
+aliases = ["genai"]
+npm_kw_total = 452
+npm_top5_monthly = 18700979
+gh_topic_repos = 24837
+
+[[topic]]
+slug = "vector-database"
+phrase = "vector database"
+aliases = ["vector-db", "vectordb", "vector-store"]
+npm_kw_total = 571
+npm_top5_monthly = 2459021
+gh_topic_repos = 8802
+
+[[topic]]
+slug = "vector-search"
+phrase = "vector search"
+aliases = ["similarity-search", "ann", "nearest-neighbor", "approximate-nearest-neighbor", "vector", "knn"]
+npm_kw_total = 1214
+npm_top5_monthly = 2945475
+gh_topic_repos = 8055
+
+[[topic]]
+slug = "hnsw"
+phrase = "HNSW"
+aliases = []
+npm_kw_total = 190
+npm_top5_monthly = 2173670
+gh_topic_repos = 681
+
+[[topic]]
+slug = "embeddings"
+phrase = "embeddings"
+aliases = ["embedding", "vector-embeddings", "text-embeddings"]
+npm_kw_total = 2559
+npm_top5_monthly = 78050375
+gh_topic_repos = 11332
+
+[[topic]]
+slug = "rag"
+phrase = "RAG"
+aliases = ["retrieval-augmented-generation"]
+npm_kw_total = 4018
+npm_top5_monthly = 23983464
+gh_topic_repos = 63048
+
+[[topic]]
+slug = "semantic-search"
+phrase = "semantic search"
+aliases = []
+npm_kw_total = 1726
+npm_top5_monthly = 2695924
+gh_topic_repos = 10118
+
+[[topic]]
+slug = "knowledge-graph"
+phrase = "knowledge graph"
+aliases = ["knowledge-graphs", "kg"]
+npm_kw_total = 1820
+npm_top5_monthly = 1278366
+gh_topic_repos = 10834
+
+[[topic]]
+slug = "graph-database"
+phrase = "graph database"
+aliases = ["graph-db", "graphdb"]
+npm_kw_total = 192
+npm_top5_monthly = 1392126
+gh_topic_repos = 1784
+
+[[topic]]
+slug = "gnn"
+phrase = "graph neural network"
+aliases = ["graph-neural-network", "graph-neural-networks", "gnns", "gnn-model"]
+npm_kw_total = 29
+npm_top5_monthly = 1444934
+gh_topic_repos = 1305
+
+[[topic]]
+slug = "graph"
+phrase = "graph"
+aliases = ["graphs", "graph-algorithms"]
+npm_kw_total = 5811
+npm_top5_monthly = 485947377
+gh_topic_repos = 12413
+
+[[topic]]
+slug = "attention"
+phrase = "attention"
+aliases = ["attention-mechanism", "flash-attention"]
+npm_kw_total = 147
+npm_top5_monthly = 282428611
+gh_topic_repos = 2174
+
+[[topic]]
+slug = "transformer"
+phrase = "transformer"
+aliases = ["transformers"]
+npm_kw_total = 1097
+npm_top5_monthly = 632494886
+gh_topic_repos = 8920
+
+[[topic]]
+slug = "neural-network"
+phrase = "neural network"
+aliases = ["neural-networks", "neural", "ann-network"]
+npm_kw_total = 207
+npm_top5_monthly = 638942
+gh_topic_repos = 26150
+
+[[topic]]
+slug = "machine-learning"
+phrase = "machine learning"
+aliases = ["ml"]
+npm_kw_total = 1675
+npm_top5_monthly = 12101128
+gh_topic_repos = 265398
+
+[[topic]]
+slug = "reinforcement-learning"
+phrase = "reinforcement learning"
+aliases = ["rl"]
+npm_kw_total = 86
+npm_top5_monthly = 820559
+gh_topic_repos = 23077
+
+[[topic]]
+slug = "self-learning"
+phrase = "self-learning"
+aliases = ["continual-learning", "online-learning", "adaptive-learning", "self-improving", "self-improving-agents"]
+npm_kw_total = 110
+npm_top5_monthly = 1975916
+gh_topic_repos = 1276
+
+[[topic]]
+slug = "lora"
+phrase = "LoRA"
+aliases = ["microlora", "low-rank-adaptation"]
+npm_kw_total = 184
+npm_top5_monthly = 4490661
+gh_topic_repos = 7345
+
+[[topic]]
+slug = "onnx"
+phrase = "ONNX"
+aliases = ["onnxruntime"]
+npm_kw_total = 700
+npm_top5_monthly = 11988792
+gh_topic_repos = 5900
+
+[[topic]]
+slug = "federated-learning"
+phrase = "federated learning"
+aliases = []
+npm_kw_total = 26
+npm_top5_monthly = 481274
+gh_topic_repos = 2441
+
+[[topic]]
+slug = "cognitive-architecture"
+phrase = "cognitive architecture"
+aliases = ["cognitive"]
+npm_kw_total = 58
+npm_top5_monthly = 58757
+gh_topic_repos = 966
+
+[[topic]]
+slug = "wasm"
+phrase = "WASM"
+aliases = ["wasm32", "wasm-bindgen"]
+npm_kw_total = 9202
+npm_top5_monthly = 991919271
+gh_topic_repos = 12186
+
+[[topic]]
+slug = "webassembly"
+phrase = "WebAssembly"
+aliases = []
+npm_kw_total = 4021
+npm_top5_monthly = 1165680622
+gh_topic_repos = 11503
+
+[[topic]]
+slug = "rust"
+phrase = "Rust"
+aliases = ["rust-lang", "rustlang"]
+npm_kw_total = 5687
+npm_top5_monthly = 1647583983
+gh_topic_repos = 151587
+
+[[topic]]
+slug = "napi"
+phrase = "N-API"
+aliases = ["napi-rs", "node-addon", "native-addon"]
+npm_kw_total = 2765
+npm_top5_monthly = 693849347
+gh_topic_repos = 381
+
+[[topic]]
+slug = "typescript"
+phrase = "TypeScript"
+aliases = ["ts"]
+npm_kw_total = 159880
+npm_top5_monthly = 5594648696
+gh_topic_repos = 513177
+
+[[topic]]
+slug = "cli"
+phrase = "CLI"
+aliases = ["command-line", "command-line-tool"]
+npm_kw_total = 117333
+npm_top5_monthly = 11549057450
+gh_topic_repos = 159478
+
+[[topic]]
+slug = "sqlite"
+phrase = "SQLite"
+aliases = ["sqlite3"]
+npm_kw_total = 6685
+npm_top5_monthly = 1383091318
+gh_topic_repos = 64812
+
+[[topic]]
+slug = "pgvector"
+phrase = "pgvector"
+aliases = []
+npm_kw_total = 340
+npm_top5_monthly = 5068398
+gh_topic_repos = 6833
+
+[[topic]]
+slug = "quantum"
+phrase = "quantum"
+aliases = []
+npm_kw_total = 292
+npm_top5_monthly = 613884
+gh_topic_repos = 2545
+
+[[topic]]
+slug = "quantum-computing"
+phrase = "quantum computing"
+aliases = ["quantum-simulation", "quantum-simulator", "quantum-circuit", "quantum-circuits"]
+npm_kw_total = 58
+npm_top5_monthly = 3949
+gh_topic_repos = 6673
+
+[[topic]]
+slug = "trading"
+phrase = "trading"
+aliases = ["ai-trading", "trading-bot"]
+npm_kw_total = 3267
+npm_top5_monthly = 1647294
+gh_topic_repos = 11650
+
+[[topic]]
+slug = "algorithmic-trading"
+phrase = "algorithmic trading"
+aliases = ["algo-trading", "quant-trading", "quantitative-trading"]
+npm_kw_total = 110
+npm_top5_monthly = 7577719
+gh_topic_repos = 5664
+
+[[topic]]
+slug = "robotics"
+phrase = "robotics"
+aliases = ["robot", "robots"]
+npm_kw_total = 608
+npm_top5_monthly = 2485153
+gh_topic_repos = 27969
+
+[[topic]]
+slug = "ros2"
+phrase = "ROS 2"
+aliases = ["ros"]
+npm_kw_total = 124
+npm_top5_monthly = 1942673
+gh_topic_repos = 7602
+
+[[topic]]
+slug = "payments"
+phrase = "payments"
+aliases = ["payment", "agentic-payments"]
+npm_kw_total = 5975
+npm_top5_monthly = 12675849
+gh_topic_repos = 9264
+
+[[topic]]
+slug = "ai-safety"
+phrase = "AI safety"
+aliases = []
+npm_kw_total = 820
+npm_top5_monthly = 796195
+gh_topic_repos = 9439
+
+[[topic]]
+slug = "prompt-injection"
+phrase = "prompt injection"
+aliases = []
+npm_kw_total = 1257
+npm_top5_monthly = 1459492
+gh_topic_repos = 6565
+
+[[topic]]
+slug = "llm-security"
+phrase = "LLM security"
+aliases = ["ai-security"]
+npm_kw_total = 356
+npm_top5_monthly = 399960
+gh_topic_repos = 5376
+
+[[topic]]
+slug = "edge-ai"
+phrase = "edge AI"
+aliases = ["edge-computing", "on-device-ai"]
+npm_kw_total = 108
+npm_top5_monthly = 528994
+gh_topic_repos = 4520
+
+[[topic]]
+slug = "tinyml"
+phrase = "TinyML"
+aliases = []
+npm_kw_total = 9
+npm_top5_monthly = 21775
+gh_topic_repos = 1065
+
+[[topic]]
+slug = "esp32"
+phrase = "ESP32"
+aliases = []
+npm_kw_total = 276
+npm_top5_monthly = 32142
+gh_topic_repos = 28991
+
+[[topic]]
+slug = "time-series"
+phrase = "time series"
+aliases = ["timeseries"]
+npm_kw_total = 296
+npm_top5_monthly = 1107641
+gh_topic_repos = 15987
+
+[[topic]]
+slug = "benchmark"
+phrase = "benchmark"
+aliases = ["benchmarks", "benchmarking"]
+npm_kw_total = 1459
+npm_top5_monthly = 668999637
+gh_topic_repos = 16671
+
+[[topic]]
+slug = "solver"
+phrase = "solver"
+aliases = ["linear-solver", "sparse-solver", "solvers", "sparse-linear-solver"]
+npm_kw_total = 349
+npm_top5_monthly = 1359528
+gh_topic_repos = 1833
+
+[[topic]]
+slug = "mcp-server"
+phrase = "MCP server"
+aliases = ["mcp-servers"]
+npm_kw_total = 11214
+npm_top5_monthly = 5994768
+gh_topic_repos = 0
+
+[[topic]]
+slug = "github-actions"
+phrase = "GitHub Actions"
+aliases = []
+npm_kw_total = 1345
+npm_top5_monthly = 3343116
+gh_topic_repos = 52426
+
+[[topic]]
+slug = "agent-evaluation"
+phrase = "agent evaluation"
+aliases = []
+npm_kw_total = 67
+npm_top5_monthly = 53695
+gh_topic_repos = 1614
+
+[[topic]]
+slug = "llm-evaluation"
+phrase = "LLM evaluation"
+aliases = ["ai-evaluation"]
+npm_kw_total = 85
+npm_top5_monthly = 304842
+gh_topic_repos = 9717
+
+[[topic]]
+slug = "evals"
+phrase = "evals"
+aliases = ["evaluation"]
+npm_kw_total = 438
+npm_top5_monthly = 19058903
+gh_topic_repos = 3012
+
+[[topic]]
+slug = "post-quantum"
+phrase = "post-quantum"
+aliases = ["post-quantum-cryptography", "pqc", "quantum-resistant"]
+npm_kw_total = 751
+npm_top5_monthly = 16301827
+gh_topic_repos = 1112
+
+[[topic]]
+slug = "dag"
+phrase = "DAG"
+aliases = ["directed-acyclic-graph"]
+npm_kw_total = 690
+npm_top5_monthly = 39149654
+gh_topic_repos = 1662
+
+[[topic]]
+slug = "nodejs"
+phrase = "Node.js"
+aliases = ["node", "node-js"]
+npm_kw_total = 29186
+npm_top5_monthly = 3835052669
+gh_topic_repos = 361452
+
+[[topic]]
+slug = "llm-agents"
+phrase = "LLM agents"
+aliases = ["llm-agent"]
+npm_kw_total = 86
+npm_top5_monthly = 474502
+gh_topic_repos = 8832
+
+[[topic]]
+slug = "prompt-engineering"
+phrase = "prompt engineering"
+aliases = ["prompt-optimization"]
+npm_kw_total = 997
+npm_top5_monthly = 8393032
+gh_topic_repos = 23049
+
+[[topic]]
+slug = "code-generation"
+phrase = "code generation"
+aliases = ["codegen"]
+npm_kw_total = 1801
+npm_top5_monthly = 141275428
+gh_topic_repos = 7315
+
+[[topic]]
+slug = "genetic-algorithm"
+phrase = "genetic algorithm"
+aliases = ["evolutionary-algorithms", "evolutionary", "evolutionary-computation"]
+npm_kw_total = 41
+npm_top5_monthly = 5863
+gh_topic_repos = 7263
+
+[[topic]]
+slug = "quantization"
+phrase = "quantization"
+aliases = ["vector-quantization", "binary-quantization", "product-quantization"]
+npm_kw_total = 112
+npm_top5_monthly = 15946197
+gh_topic_repos = 3898
+
+[[topic]]
+slug = "iot"
+phrase = "IoT"
+aliases = ["internet-of-things"]
+npm_kw_total = 2913
+npm_top5_monthly = 5570988
+gh_topic_repos = 35574
+
+[[topic]]
+slug = "simulation"
+phrase = "simulation"
+aliases = ["simulator"]
+npm_kw_total = 1066
+npm_top5_monthly = 7605752
+gh_topic_repos = 31499
+
+[[topic]]
+slug = "deep-learning"
+phrase = "deep learning"
+aliases = []
+npm_kw_total = 199
+npm_top5_monthly = 651513
+gh_topic_repos = 113495
+
+[[topic]]
+slug = "ai"
+phrase = "AI"
+aliases = ["artificial-intelligence"]
+npm_kw_total = 75205
+npm_top5_monthly = 916968310
+gh_topic_repos = 192504
+
+[[topic]]
+slug = "nlp"
+phrase = "NLP"
+aliases = ["natural-language-processing"]
+npm_kw_total = 1955
+npm_top5_monthly = 61020115
+gh_topic_repos = 66399
+
+[[topic]]
+slug = "fine-tuning"
+phrase = "fine-tuning"
+aliases = ["finetuning"]
+npm_kw_total = 94
+npm_top5_monthly = 467121
+gh_topic_repos = 6422
+
+[[topic]]
+slug = "inference"
+phrase = "inference"
+aliases = []
+npm_kw_total = 2139
+npm_top5_monthly = 1700024932
+gh_topic_repos = 5206
+
+[[topic]]
+slug = "agentic-workflow"
+phrase = "agentic workflow"
+aliases = ["agentic-workflows"]
+npm_kw_total = 89
+npm_top5_monthly = 437673
+gh_topic_repos = 5002
+
+[[topic]]
+slug = "workflow-automation"
+phrase = "workflow automation"
+aliases = ["workflow"]
+npm_kw_total = 407
+npm_top5_monthly = 656529
+gh_topic_repos = 10138
+
+[[topic]]
+slug = "testing"
+phrase = "testing"
+aliases = ["test"]
+npm_kw_total = 17663
+npm_top5_monthly = 2246140693
+gh_topic_repos = 35016
+
+[[topic]]
+slug = "security"
+phrase = "security"
+aliases = []
+npm_kw_total = 20214
+npm_top5_monthly = 2760298777
+gh_topic_repos = 71295
+
+[[topic]]
+slug = "cryptography"
+phrase = "cryptography"
+aliases = ["crypto"]
+npm_kw_total = 2605
+npm_top5_monthly = 1175309833
+gh_topic_repos = 22966
+
+[[topic]]
+slug = "p2p"
+phrase = "P2P"
+aliases = ["peer-to-peer"]
+npm_kw_total = 2521
+npm_top5_monthly = 4486920
+gh_topic_repos = 6917
+
+[[topic]]
+slug = "distributed-systems"
+phrase = "distributed systems"
+aliases = ["distributed"]
+npm_kw_total = 295
+npm_top5_monthly = 689317
+gh_topic_repos = 16052
+
+[[topic]]
+slug = "consensus"
+phrase = "consensus"
+aliases = ["raft", "byzantine-fault-tolerance", "raft-consensus"]
+npm_kw_total = 306
+npm_top5_monthly = 560335
+gh_topic_repos = 1486
+
+[[topic]]
+slug = "signal-processing"
+phrase = "signal processing"
+aliases = ["dsp"]
+npm_kw_total = 58
+npm_top5_monthly = 70507
+gh_topic_repos = 7065
+
+[[topic]]
+slug = "computer-vision"
+phrase = "computer vision"
+aliases = []
+npm_kw_total = 315
+npm_top5_monthly = 609728
+gh_topic_repos = 74734
+
+[[topic]]
+slug = "finance"
+phrase = "finance"
+aliases = ["fintech"]
+npm_kw_total = 2515
+npm_top5_monthly = 7945001
+gh_topic_repos = 22417
+
+[[topic]]
+slug = "ai-tools"
+phrase = "AI tools"
+aliases = []
+npm_kw_total = 2646
+npm_top5_monthly = 1510457
+gh_topic_repos = 18066
+
+[[topic]]
+slug = "developer-tools"
+phrase = "developer tools"
+aliases = ["devtools"]
+npm_kw_total = 10931
+npm_top5_monthly = 11115498
+gh_topic_repos = 90388
+
+[[topic]]
+slug = "automation"
+phrase = "automation"
+aliases = []
+npm_kw_total = 20720
+npm_top5_monthly = 320998596
+gh_topic_repos = 116900
+
+[[topic]]
+slug = "chatbot"
+phrase = "chatbot"
+aliases = []
+npm_kw_total = 8750
+npm_top5_monthly = 187281617
+gh_topic_repos = 33926
+
+[[topic]]
+slug = "drone"
+phrase = "drone"
+aliases = ["drones", "uav"]
+npm_kw_total = 169
+npm_top5_monthly = 17292294
+gh_topic_repos = 4017
+
+[[topic]]
+slug = "agent-harness"
+phrase = "agent harness"
+aliases = ["harness"]
+npm_kw_total = 290
+npm_top5_monthly = 2012478
+gh_topic_repos = 1923
+
+[[topic]]
+slug = "wifi"
+phrase = "WiFi"
+aliases = ["wi-fi"]
+npm_kw_total = 540
+npm_top5_monthly = 88579077
+gh_topic_repos = 7247
+
+[[topic]]
+slug = "gaussian-splatting"
+phrase = "Gaussian splatting"
+aliases = []
+npm_kw_total = 76
+npm_top5_monthly = 1063032
+gh_topic_repos = 1113
+
+[[topic]]
+slug = "tensor"
+phrase = "tensor"
+aliases = ["tensors"]
+npm_kw_total = 212
+npm_top5_monthly = 13172026
+gh_topic_repos = 988
+
+[[topic]]
+slug = "gpu"
+phrase = "GPU"
+aliases = []
+npm_kw_total = 970
+npm_top5_monthly = 111417544
+gh_topic_repos = 11377
+
+[[topic]]
+slug = "cuda"
+phrase = "CUDA"
+aliases = []
+npm_kw_total = 114
+npm_top5_monthly = 1211119
+gh_topic_repos = 11882
+
+[[topic]]
+slug = "webgpu"
+phrase = "WebGPU"
+aliases = []
+npm_kw_total = 1695
+npm_top5_monthly = 123375211
+gh_topic_repos = 3690
+
+[[topic]]
+slug = "simd"
+phrase = "SIMD"
+aliases = []
+npm_kw_total = 214
+npm_top5_monthly = 1555840
+gh_topic_repos = 2419
+
+[[topic]]
+slug = "retrieval"
+phrase = "retrieval"
+aliases = []
+npm_kw_total = 677
+npm_top5_monthly = 4478905
+gh_topic_repos = 2754
+
+[[topic]]
+slug = "reasoning"
+phrase = "reasoning"
+aliases = []
+npm_kw_total = 652
+npm_top5_monthly = 8389241
+gh_topic_repos = 2268
+
+[[topic]]
+slug = "planning"
+phrase = "planning"
+aliases = []
+npm_kw_total = 782
+npm_top5_monthly = 592128
+gh_topic_repos = 2769
+
+[[topic]]
+slug = "react"
+phrase = "React"
+aliases = []
+npm_kw_total = 195652
+npm_top5_monthly = 4544845323
+gh_topic_repos = 579492
+
+[[topic]]
+slug = "codex"
+phrase = "Codex"
+aliases = ["openai-codex"]
+npm_kw_total = 16176
+npm_top5_monthly = 86718160
+gh_topic_repos = 49296
+
+[[topic]]
+slug = "gemini"
+phrase = "Gemini"
+aliases = []
+npm_kw_total = 7749
+npm_top5_monthly = 195554394
+gh_topic_repos = 31074
+
+[[topic]]
+slug = "openrouter"
+phrase = "OpenRouter"
+aliases = []
+npm_kw_total = 1699
+npm_top5_monthly = 6124232
+gh_topic_repos = 6397
+
+[[topic]]
+slug = "qwen"
+phrase = "Qwen"
+aliases = []
+npm_kw_total = 747
+npm_top5_monthly = 3255825
+gh_topic_repos = 6949
+
+[[topic]]
+slug = "mlx"
+phrase = "MLX"
+aliases = []
+npm_kw_total = 105
+npm_top5_monthly = 13976
+gh_topic_repos = 3508
+
+[[topic]]
+slug = "claude-agent-sdk"
+phrase = "Claude Agent SDK"
+aliases = []
+npm_kw_total = 183
+npm_top5_monthly = 884508
+gh_topic_repos = 670
+
+[[topic]]
+slug = "openclaw"
+phrase = "OpenClaw"
+aliases = []
+npm_kw_total = 5334
+npm_top5_monthly = 33900196
+gh_topic_repos = 10281
+
+[[topic]]
+slug = "hermes-agent"
+phrase = "Hermes agent"
+aliases = []
+npm_kw_total = 295
+npm_top5_monthly = 19627675
+gh_topic_repos = 5194
+
+[[topic]]
+slug = "home-assistant"
+phrase = "Home Assistant"
+aliases = []
+npm_kw_total = 250
+npm_top5_monthly = 338423
+gh_topic_repos = 29333
+
+[[topic]]
+slug = "home-automation"
+phrase = "home automation"
+aliases = []
+npm_kw_total = 326
+npm_top5_monthly = 71467
+gh_topic_repos = 9187
+
+[[topic]]
+slug = "firmware"
+phrase = "firmware"
+aliases = []
+npm_kw_total = 144
+npm_top5_monthly = 16251
+gh_topic_repos = 7562
+
+[[topic]]
+slug = "monitoring"
+phrase = "monitoring"
+aliases = []
+npm_kw_total = 5945
+npm_top5_monthly = 1541005067
+gh_topic_repos = 25448
+
+[[topic]]
+slug = "networking"
+phrase = "networking"
+aliases = []
+npm_kw_total = 816
+npm_top5_monthly = 81118083
+gh_topic_repos = 23605
+
+[[topic]]
+slug = "ocr"
+phrase = "OCR"
+aliases = ["ai-ocr"]
+npm_kw_total = 1780
+npm_top5_monthly = 24038534
+gh_topic_repos = 18929
+
+[[topic]]
+slug = "multimodal"
+phrase = "multimodal"
+aliases = []
+npm_kw_total = 577
+npm_top5_monthly = 13445116
+gh_topic_repos = 5263
+
+[[topic]]
+slug = "neo4j"
+phrase = "Neo4j"
+aliases = []
+npm_kw_total = 493
+npm_top5_monthly = 9167430
+gh_topic_repos = 5435
+
+[[topic]]
+slug = "plugins"
+phrase = "plugins"
+aliases = ["plugin"]
+npm_kw_total = 2472
+npm_top5_monthly = 158291079
+gh_topic_repos = 5745
+
+[[topic]]
+slug = "cron"
+phrase = "cron"
+aliases = []
+npm_kw_total = 2189
+npm_top5_monthly = 229631127
+gh_topic_repos = 5170
+
+[[topic]]
+slug = "scientific-computing"
+phrase = "scientific computing"
+aliases = ["numerical-linear-algebra"]
+npm_kw_total = 82
+npm_top5_monthly = 26987
+gh_topic_repos = 5646
+
+[[topic]]
+slug = "provenance"
+phrase = "provenance"
+aliases = ["ai-provenance"]
+npm_kw_total = 1324
+npm_top5_monthly = 1118904
+gh_topic_repos = 4152
+
+[[topic]]
+slug = "ai-governance"
+phrase = "AI governance"
+aliases = []
+npm_kw_total = 587
+npm_top5_monthly = 94135
+gh_topic_repos = 7093
+
+[[topic]]
+slug = "responsible-ai"
+phrase = "responsible AI"
+aliases = []
+npm_kw_total = 51
+npm_top5_monthly = 11759
+gh_topic_repos = 2561
+
+[[topic]]
+slug = "eu-ai-act"
+phrase = "EU AI Act"
+aliases = []
+npm_kw_total = 366
+npm_top5_monthly = 27913
+gh_topic_repos = 1737
+
+[[topic]]
+slug = "reproducible-research"
+phrase = "reproducible research"
+aliases = []
+npm_kw_total = 8
+npm_top5_monthly = 4894
+gh_topic_repos = 9653
+
+[[topic]]
+slug = "evidence-based"
+phrase = "evidence-based"
+aliases = []
+npm_kw_total = 15
+npm_top5_monthly = 1702
+gh_topic_repos = 563
+
+[[topic]]
+slug = "pose-estimation"
+phrase = "pose estimation"
+aliases = ["densepose"]
+npm_kw_total = 33
+npm_top5_monthly = 4777
+gh_topic_repos = 2827
+
+[[topic]]
+slug = "path-planning"
+phrase = "path planning"
+aliases = []
+npm_kw_total = 7
+npm_top5_monthly = 2817
+gh_topic_repos = 1912
+
+[[topic]]
+slug = "sensor-fusion"
+phrase = "sensor fusion"
+aliases = []
+npm_kw_total = 8
+npm_top5_monthly = 2551
+gh_topic_repos = 1836
+
+[[topic]]
+slug = "bare-metal"
+phrase = "bare metal"
+aliases = []
+npm_kw_total = 24
+npm_top5_monthly = 4397
+gh_topic_repos = 2335
+
+[[topic]]
+slug = "no-std"
+phrase = "no_std"
+aliases = []
+npm_kw_total = 2
+npm_top5_monthly = 41
+gh_topic_repos = 1637
+
+[[topic]]
+slug = "low-latency"
+phrase = "low latency"
+aliases = []
+npm_kw_total = 124
+npm_top5_monthly = 145415
+gh_topic_repos = 2290
+
+[[topic]]
+slug = "hypervisor"
+phrase = "hypervisor"
+aliases = ["microhypervisor"]
+npm_kw_total = 22
+npm_top5_monthly = 84449
+gh_topic_repos = 592
+
+[[topic]]
+slug = "sandboxing"
+phrase = "sandboxing"
+aliases = ["sandbox"]
+npm_kw_total = 22
+npm_top5_monthly = 3232
+gh_topic_repos = 706
+
+[[topic]]
+slug = "decompiler"
+phrase = "decompiler"
+aliases = []
+npm_kw_total = 126
+npm_top5_monthly = 1907064
+gh_topic_repos = 840
+
+[[topic]]
+slug = "wifi-security"
+phrase = "WiFi security"
+aliases = []
+npm_kw_total = 3
+npm_top5_monthly = 195
+gh_topic_repos = 806
+
+[[topic]]
+slug = "rollback"
+phrase = "rollback"
+aliases = []
+npm_kw_total = 430
+npm_top5_monthly = 292456
+gh_topic_repos = 777
+
+[[topic]]
+slug = "embedded-database"
+phrase = "embedded database"
+aliases = []
+npm_kw_total = 155
+npm_top5_monthly = 87863
+gh_topic_repos = 714
+
+[[topic]]
+slug = "checkpoint"
+phrase = "checkpoint"
+aliases = ["checkpointing"]
+npm_kw_total = 375
+npm_top5_monthly = 1404763
+gh_topic_repos = 508
+
+[[topic]]
+slug = "px4"
+phrase = "PX4"
+aliases = []
+npm_kw_total = 9
+npm_top5_monthly = 127469
+gh_topic_repos = 659
+
+[[topic]]
+slug = "mavlink"
+phrase = "MAVLink"
+aliases = []
+npm_kw_total = 32
+npm_top5_monthly = 78938
+gh_topic_repos = 626
+
+[[topic]]
+slug = "quantum-algorithms"
+phrase = "quantum algorithms"
+aliases = []
+npm_kw_total = 7
+npm_top5_monthly = 1548
+gh_topic_repos = 1137
+
+[[topic]]
+slug = "quantum-chemistry"
+phrase = "quantum chemistry"
+aliases = []
+npm_kw_total = 5
+npm_top5_monthly = 2539
+gh_topic_repos = 1083
+
+[[topic]]
+slug = "rf"
+phrase = "RF"
+aliases = ["radio-frequency"]
+npm_kw_total = 60
+npm_top5_monthly = 9439
+gh_topic_repos = 1028
+
+# ---- niche (exact-feature long tail; never primary) ----
+[[topic]]
+slug = "link-prediction"
+phrase = "link prediction"
+aliases = []
+kind = "niche"
+npm_kw_total = 2
+npm_top5_monthly = 78
+gh_topic_repos = 411
+
+[[topic]]
+slug = "graph-embeddings"
+phrase = "graph embeddings"
+aliases = ["knowledge-graph-embedding", "kge"]
+kind = "niche"
+npm_kw_total = 0
+npm_top5_monthly = 0
+gh_topic_repos = 91
+
+[[topic]]
+slug = "neuro-symbolic"
+phrase = "neuro-symbolic"
+aliases = ["symbolic-ai"]
+kind = "niche"
+npm_kw_total = 23
+npm_top5_monthly = 15534
+gh_topic_repos = 279
+
+[[topic]]
+slug = "dspy"
+phrase = "DSPy"
+aliases = []
+kind = "niche"
+npm_kw_total = 22
+npm_top5_monthly = 18565
+gh_topic_repos = 347
+
+[[topic]]
+slug = "watermarking"
+phrase = "watermarking"
+aliases = ["text-watermark", "ai-watermark"]
+kind = "niche"
+npm_kw_total = 16
+npm_top5_monthly = 5428
+gh_topic_repos = 444
+
+[[topic]]
+slug = "spiking-neural-network"
+phrase = "spiking neural network"
+aliases = ["snn"]
+kind = "niche"
+npm_kw_total = 9
+npm_top5_monthly = 1385
+gh_topic_repos = 219
+
+[[topic]]
+slug = "goap"
+phrase = "GOAP"
+aliases = []
+kind = "niche"
+npm_kw_total = 18
+npm_top5_monthly = 455267
+gh_topic_repos = 104
+
+[[topic]]
+slug = "sparc"
+phrase = "SPARC"
+aliases = []
+kind = "niche"
+npm_kw_total = 27
+npm_top5_monthly = 456067
+gh_topic_repos = 98
+
+[[topic]]
+slug = "world-model"
+phrase = "world model"
+aliases = []
+kind = "niche"
+npm_kw_total = 34
+npm_top5_monthly = 62500
+gh_topic_repos = 485
+
+[[topic]]
+slug = "min-cut"
+phrase = "min-cut"
+aliases = ["mincut"]
+kind = "niche"
+npm_kw_total = 2
+npm_top5_monthly = 49
+gh_topic_repos = 31
+
+[[topic]]
+slug = "csi"
+phrase = "CSI"
+aliases = ["channel-state-information", "wifi-sensing", "rf-sensing", "nexmon"]
+kind = "niche"
+npm_kw_total = 22
+npm_top5_monthly = 22035
+gh_topic_repos = 478
+
+[[topic]]
+slug = "copy-on-write"
+phrase = "copy-on-write"
+aliases = []
+kind = "niche"
+npm_kw_total = 66
+npm_top5_monthly = 316975860
+gh_topic_repos = 181
+
+[[topic]]
+slug = "quantum-error-correction"
+phrase = "quantum error correction"
+aliases = ["surface-code"]
+kind = "niche"
+npm_kw_total = 1
+npm_top5_monthly = 1242
+gh_topic_repos = 367
+
+[[topic]]
+slug = "qaoa"
+phrase = "QAOA"
+aliases = []
+kind = "niche"
+npm_kw_total = 11
+npm_top5_monthly = 2032
+gh_topic_repos = 265
+
+[[topic]]
+slug = "vqe"
+phrase = "VQE"
+aliases = []
+kind = "niche"
+npm_kw_total = 5
+npm_top5_monthly = 1580
+gh_topic_repos = 165
+
+[[topic]]
+slug = "grovers-algorithm"
+phrase = "Grover's algorithm"
+aliases = []
+kind = "niche"
+npm_kw_total = 0
+npm_top5_monthly = 0
+gh_topic_repos = 127
+
+[[topic]]
+slug = "state-vector"
+phrase = "state vector"
+aliases = []
+kind = "niche"
+npm_kw_total = 13
+npm_top5_monthly = 1805
+gh_topic_repos = 22
+
+[[topic]]
+slug = "safetensors"
+phrase = "safetensors"
+aliases = []
+kind = "niche"
+npm_kw_total = 43
+npm_top5_monthly = 48509
+gh_topic_repos = 347
+
+[[topic]]
+slug = "swarm-robotics"
+phrase = "swarm robotics"
+aliases = ["multi-robot-systems", "uav-swarm"]
+kind = "niche"
+npm_kw_total = 1
+npm_top5_monthly = 140
+gh_topic_repos = 305
+
+[[topic]]
+slug = "collision-avoidance"
+phrase = "collision avoidance"
+aliases = []
+kind = "niche"
+npm_kw_total = 5
+npm_top5_monthly = 6558
+gh_topic_repos = 310
+
+[[topic]]
+slug = "formation-control"
+phrase = "formation control"
+aliases = []
+kind = "niche"
+npm_kw_total = 1
+npm_top5_monthly = 33
+gh_topic_repos = 78
+
+[[topic]]
+slug = "search-and-rescue"
+phrase = "search and rescue"
+aliases = []
+kind = "niche"
+npm_kw_total = 0
+npm_top5_monthly = 0
+gh_topic_repos = 212
+
+[[topic]]
+slug = "presence-detection"
+phrase = "presence detection"
+aliases = []
+kind = "niche"
+npm_kw_total = 2
+npm_top5_monthly = 1279
+gh_topic_repos = 304
+
+[[topic]]
+slug = "colpali"
+phrase = "ColPali"
+aliases = []
+kind = "niche"
+npm_kw_total = 4
+npm_top5_monthly = 255
+gh_topic_repos = 78
+
+[[topic]]
+slug = "document-retrieval"
+phrase = "document retrieval"
+aliases = []
+kind = "niche"
+npm_kw_total = 11
+npm_top5_monthly = 3263
+gh_topic_repos = 212
+
+[[topic]]
+slug = "visual-rag"
+phrase = "visual RAG"
+aliases = ["pixelrag"]
+kind = "niche"
+npm_kw_total = 2
+npm_top5_monthly = 29
+gh_topic_repos = 15
+
+[[topic]]
+slug = "pagerank-algorithm"
+phrase = "PageRank"
+aliases = ["pagerank"]
+kind = "niche"
+npm_kw_total = 1
+npm_top5_monthly = 118
+gh_topic_repos = 197
+
+[[topic]]
+slug = "graph-laplacian"
+phrase = "graph Laplacian"
+aliases = []
+kind = "niche"
+npm_kw_total = 0
+npm_top5_monthly = 0
+gh_topic_repos = 42
+
+[[topic]]
+slug = "iterative-solvers"
+phrase = "iterative solvers"
+aliases = ["conjugate-gradient-method", "neumann-series"]
+kind = "niche"
+npm_kw_total = 0
+npm_top5_monthly = 0
+gh_topic_repos = 34
+
+[[topic]]
+slug = "clean-room"
+phrase = "clean-room"
+aliases = ["clean-room-reimplementation"]
+kind = "niche"
+npm_kw_total = 9
+npm_top5_monthly = 3777
+gh_topic_repos = 231
+
+[[topic]]
+slug = "model-editing"
+phrase = "model editing"
+aliases = []
+kind = "niche"
+npm_kw_total = 0
+npm_top5_monthly = 0
+gh_topic_repos = 109
+
+[[topic]]
+slug = "spatial-intelligence"
+phrase = "spatial intelligence"
+aliases = []
+kind = "niche"
+npm_kw_total = 4
+npm_top5_monthly = 28
+gh_topic_repos = 129
+
+[[topic]]
+slug = "content-credentials"
+phrase = "content credentials"
+aliases = ["synthid", "synthid-text"]
+kind = "niche"
+npm_kw_total = 57
+npm_top5_monthly = 16577
+gh_topic_repos = 167
+
+[[topic]]
+slug = "ai-content-detection"
+phrase = "AI content detection"
+aliases = []
+kind = "niche"
+npm_kw_total = 3
+npm_top5_monthly = 84
+gh_topic_repos = 34
+
+[[topic]]
+slug = "sublinear-algorithms"
+phrase = "sublinear algorithms"
+aliases = ["sublinear"]
+kind = "niche"
+npm_kw_total = 4
+npm_top5_monthly = 454135
+gh_topic_repos = 7
+
+# ---- brands (family names) ----
+[[topic]]
+slug = "ruvector"
+phrase = "RuVector"
+aliases = ["rvf"]
+kind = "brand"
+
+[[topic]]
+slug = "agentdb"
+phrase = "AgentDB"
+kind = "brand"
+
+[[topic]]
+slug = "agentic-flow"
+phrase = "agentic-flow"
+kind = "brand"
+
+[[topic]]
+slug = "claude-flow"
+phrase = "Claude Flow"
+aliases = ["ruflo"]
+kind = "brand"
+
+[[topic]]
+slug = "metaharness"
+phrase = "MetaHarness"
+kind = "brand"
+
+[[topic]]
+slug = "neural-trader"
+phrase = "Neural Trader"
+kind = "brand"
+
+[[topic]]
+slug = "ruvllm"
+phrase = "ruvLLM"
+kind = "brand"
+
+[[topic]]
+slug = "sona"
+phrase = "SONA"
+kind = "brand"
+
+[[topic]]
+slug = "ruvnet"
+phrase = "ruvnet"
+aliases = ["ruv"]
+kind = "brand"
+
+[[topic]]
+slug = "dream-machine"
+phrase = "Dream Machine"
+kind = "brand"
+
+[[topic]]
+slug = "autogenous"
+phrase = "Autogenous"
+kind = "brand"
+
+[[topic]]
+slug = "rvm"
+phrase = "RVM"
+kind = "brand"
+
+# ---- explicit package mappings (entry points, flagships, pilots) ----
+[[package]]
+name = "agentdb"
+primary = ["agent-memory", "vector-database", "ai-agents", "mcp", "self-learning", "rag"]
+description = "Agent memory and vector database for AI agents: single-file HNSW search, episodic memory, causal graph, reinforcement learning and MCP tools."
+flow = ["agent event", "episodic memory", "HNSW recall", "MCP tools"]
+
+[[package]]
+name = "agentic-flow"
+primary = ["ai-agents", "llm-routing", "agent-orchestration", "coding-agent", "self-learning", "mcp"]
+description = "AI agents runtime and meta-harness: routes each query to a cost-optimal model (LLM routing), evolves its own harness and orchestrates coding agents over MCP."
+flow = ["query", "LLM routing", "agent harness", "verified result"]
+
+[[package]]
+name = "ruvector"
+primary = ["vector-database", "vector-search", "embeddings", "hnsw", "mcp", "self-learning"]
+description = "Self-learning vector database for Node.js: native HNSW vector search, ONNX embeddings, GNN, attention, SONA routing and an MCP server for agents."
+flow = ["text or vector", "embeddings", "HNSW search", "ranked results"]
+
+[[package]]
+name = "@ruvector/rvf"
+primary = ["vector-database", "vector-search", "hnsw", "typescript", "wasm"]
+description = "RuVector Format (RVF): TypeScript SDK for a portable single-file vector database with HNSW vector search, native and WASM backends."
+flow = ["vectors", "RVF file", "HNSW search", "top-k results"]
+
+[[package]]
+name = "@ruvector/rvf-node"
+primary = ["vector-database", "napi", "hnsw", "rust", "nodejs"]
+description = "Native Node.js (N-API) bindings for the RuVector Format vector database, built in Rust: HNSW indexing and search over portable .rvf files."
+
+[[package]]
+name = "@ruvector/ruvllm"
+primary = ["local-llm", "llm", "self-learning", "lora", "inference", "llm-routing"]
+description = "Local LLM runtime for Node.js: GGUF inference, KV-cache compression, SONA self-learning with LoRA, speculative decoding and an HTTP serve command."
+flow = ["prompt", "router", "GGUF model", "tokens"]
+
+[[package]]
+name = "@ruvector/graph-node"
+primary = ["graph-database", "knowledge-graph", "napi", "rust", "rag"]
+description = "Native Node.js graph database bindings for RuVector: hypergraphs, Cypher queries, knowledge graph persistence, built in Rust."
+
+[[package]]
+name = "@ruvector/sona"
+primary = ["self-learning", "lora", "llm-routing", "machine-learning", "napi"]
+description = "SONA self-learning runtime: adaptive LoRA, EWC++ and ReasoningBank for LLM routing and AI systems, for Node.js and WASM."
+
+[[package]]
+name = "@ruvector/core"
+primary = ["vector-database", "vector-search", "hnsw", "embeddings", "rust", "napi"]
+description = "Vector database core with HNSW indexing, built in Rust with native Node.js bindings, for similarity search, semantic search and RAG."
+
+[[package]]
+name = "@ruvector/attention"
+primary = ["attention", "transformer", "machine-learning", "napi", "rust"]
+description = "Attention mechanisms for transformer models in Node.js: optimal transport, mixed curvature, topology, information geometry and diffusion variants, built in Rust."
+
+[[package]]
+name = "@ruvector/gnn"
+primary = ["gnn", "machine-learning", "vector-database", "napi", "rust"]
+description = "Graph neural network (GNN) layers for RuVector: native Node.js bindings for message passing and graph-aware vector search."
+
+[[package]]
+name = "@ruvector/kge"
+primary = ["knowledge-graph", "embeddings", "gnn", "machine-learning", "typescript"]
+description = "Knowledge graph embeddings and link prediction for Node.js: train on (head, relation, tail) triples and rank the most likely missing links."
+flow = ["triples", "embedding model", "link scores", "ranked tails"]
+
+[[package]]
+name = "@ruvector/rvf-mcp-server"
+primary = ["mcp-server", "vector-search", "mcp", "vector-database", "ai-agents"]
+description = "MCP server for local vector search: expose a portable RVF index (HNSW) to Claude Code and other MCP clients as search and ingest tools."
+flow = ["MCP client", "tools/call search", "RVF HNSW index", "ranked results"]
+
+# ---- repo topics (<= 20, replace on apply). Owner-chosen topics kept where
+# they are in the taxonomy; synonyms deduped to the highest-demand spelling. ----
+[[repo]]
+slug = "ruvnet/midstream"
+topics = ["ai", "security", "rust", "prompt-injection", "wasm", "webassembly", "agentic-ai"]
+
+[[repo]]
+slug = "ruvnet/sublinear-time-solver"
+topics = ["iterative-solvers", "graph-laplacian", "mcp", "model-context-protocol", "scientific-computing", "pagerank-algorithm", "solver", "sublinear-algorithms", "typescript", "rust", "wasm", "cli", "mcp-server", "low-latency", "ai-agents", "graph", "reasoning", "swarm"]
+
+[[repo]]
+slug = "ruvnet/ruvllm"
+topics = ["agentic-ai", "ai-governance", "benchmarks", "claude-code", "llm", "lora", "mlx", "model-editing", "model-routing", "qwen", "reproducible-research", "ruflo", "rust", "rvf", "safetensors", "ai", "gpu", "evals"]
+
+[[repo]]
+slug = "ruvnet/ruv-fann"
+topics = ["machine-learning", "webassembly", "ai", "rust", "wasm", "neural-network", "gpu", "cuda", "agent-orchestration", "swarm"]
+
+[[repo]]
+slug = "ruvnet/flow-nexus"
+topics = ["agentic", "agentic-workflow", "ai", "ai-agents", "neural-networks", "swarm", "mcp", "claude", "model-context-protocol", "anthropic"]
+
+[[repo]]
+slug = "ruvnet/neural-trader"
+topics = ["trading", "rust", "typescript", "neural-network", "mcp", "ai", "claude-code", "agentic-ai", "machine-learning", "swarm", "algorithmic-trading", "finance", "self-learning", "model-context-protocol", "automation", "ai-agents", "multi-agent", "napi", "autonomous-agents", "cli"]
+
+[[repo]]
+slug = "ruvnet/ruview"
+topics = ["claude", "pose-estimation", "esp32", "firmware", "home-assistant", "home-automation", "iot", "monitoring", "networking", "react", "rf", "self-learning", "spatial-intelligence", "typescript", "wifi", "wifi-security", "mcp", "claude-code", "webassembly"]
+
+[[repo]]
+slug = "ruvnet/qudag"
+topics = ["cryptography", "post-quantum", "dag", "quantum", "p2p", "distributed-systems", "mcp", "claude", "model-context-protocol", "rust", "mcp-server", "napi", "consensus"]
+
+[[repo]]
+slug = "ruvnet/open-claude-code"
+topics = ["claude-code", "clean-room", "decompiler", "cli", "ai", "claude", "agentic-ai"]
+
+[[repo]]
+slug = "ruvnet/dream-machine"
+topics = ["ai-agents", "autonomous-agents", "cli", "cron", "dream-machine", "evidence-based", "evolutionary-computation", "metaharness", "prompt-engineering", "rvf", "self-learning", "typescript", "wasm", "semantic-search", "provenance", "agent-memory"]
+
+[[repo]]
+slug = "ruvnet/rvm"
+topics = ["bare-metal", "edge-computing", "hypervisor", "no-std", "rust", "rvm", "wasm", "webassembly"]
+
+[[repo]]
+slug = "ruvnet/agentbbs"
+topics = ["mcp", "ai-agents", "wasm"]
+
+[[repo]]
+slug = "ruvnet/agentic-robotics"
+topics = ["robotics", "agentic-ai", "ai-agents", "ros2", "cli", "mcp", "ai", "model-context-protocol", "multi-agent", "napi", "swarm", "self-learning"]
+
+[[repo]]
+slug = "ruvnet/ruqu"
+topics = ["grovers-algorithm", "mincut", "qaoa", "quantum", "quantum-algorithms", "quantum-chemistry", "quantum-computing", "quantum-error-correction", "rust", "simd", "simulation", "state-vector", "vqe", "wasm", "webassembly", "cli", "ai-agents"]
+
+[[repo]]
+slug = "ruvnet/rvcsi"
+topics = ["csi", "edge-ai", "esp32", "presence-detection", "rust", "ruvector", "wifi", "nodejs", "napi", "rf"]
+
+[[repo]]
+slug = "ruvnet/readme-proof"
+topics = ["mcp"]
+
+[[repo]]
+slug = "ruvnet/dspy.ts"
+topics = ["react", "typescript", "llm", "ai-agents", "rag", "prompt-engineering"]
+
+[[repo]]
+slug = "ruvnet/autogenous"
+topics = ["autogenous", "rollback", "rust", "self-improving", "ai-agents", "p2p", "distributed-systems"]
+
+[[repo]]
+slug = "ruvnet/ai-text-watermark"
+topics = ["ai-content-detection", "provenance", "watermarking", "content-credentials", "eu-ai-act", "generative-ai", "llm", "responsible-ai", "rust", "typescript", "wasm", "webassembly", "ai", "nodejs", "gemini", "openrouter", "reasoning"]
+
+[[repo]]
+slug = "ruvnet/rucelium"
+topics = ["ruvnet", "sensor-fusion", "rust"]
+
+[[repo]]
+slug = "ruvnet/site-harness"
+topics = ["cli", "mcp", "agent-harness"]
+
+[[repo]]
+slug = "ruvnet/rulake"
+topics = ["mcp", "ai", "wasm", "agentic-ai", "vector-search", "agent-memory"]
+
+[[repo]]
+slug = "ruvnet/rash"
+topics = ["mcp", "rust", "wasm", "webassembly"]
+
+[[repo]]
+slug = "ruvnet/rupixel"
+topics = ["colpali", "document-retrieval", "embeddings", "hnsw", "metaharness", "multimodal", "visual-rag", "rag", "rust", "ruvector", "vector-search", "benchmark"]
+
+[[repo]]
+slug = "ruvnet/symbolic-scribe"
+topics = ["mcp", "claude-code", "ai-agents"]
+
+[[repo]]
+slug = "ruvnet/agenticow"
+topics = ["agent-memory", "ai-agents", "checkpoint", "copy-on-write", "embedded-database", "llm", "multi-agent", "vector-database", "vector-search", "rollback"]
+
+[[repo]]
+slug = "ruvnet/ruv-drone"
+topics = ["collision-avoidance", "drone", "edge-computing", "formation-control", "mavlink", "multi-agent-systems", "swarm-robotics", "path-planning", "px4", "raft-consensus", "reinforcement-learning", "robotics", "ros2", "rust", "search-and-rescue", "claude-code", "codex", "github-actions"]
+
+[[repo]]
+slug = "ruvnet/ruvector"
+topics = ["vector-database", "vector-search", "hnsw", "embeddings", "rag", "semantic-search", "knowledge-graph", "graph-neural-networks", "graph-embeddings", "link-prediction", "attention-mechanism", "llm-inference", "onnx", "mcp", "rust", "wasm", "napi", "self-learning", "ocr", "mincut"]
+
+[[repo]]
+slug = "ruvnet/agentdb"
+topics = ["agent-memory", "vector-database", "vector-search", "hnsw", "ai-agents", "mcp", "mcp-server", "rag", "self-learning", "reinforcement-learning", "embeddings", "knowledge-graph", "claude-code", "typescript", "agentic-ai", "semantic-search", "wasm", "llm", "multi-agent"]
+
+[[repo]]
+slug = "ruvnet/agentic-flow"
+topics = ["ai-agents", "agent-orchestration", "multi-agent", "model-routing", "coding-agent", "claude-code", "claude-agent-sdk", "claude", "mcp", "model-context-protocol", "openrouter", "gemini", "swarm-intelligence", "agentic-ai", "llm", "self-learning", "agent-harness", "typescript", "rust", "napi"]
+

@@ -79,8 +79,8 @@ by hand.
 
 | File | Bytes | SHA-256 | Writer | Reproducible |
 |---|---:|---|---|---|
-| `runtime_wire_dialect.rvf` | 1792 | `e4341aebdd4c645aaf84739008e1e8ae5de2eebbaddc0fee4e5b829c1e209136` | `RvfStore::create` (wire dialect: 64-byte padded segments, `checksum_algo` 1) | structurally |
-| `runtime_signed_wire.rvf` | 6912 | `238e2fb0d18d095031f14f1fcb927ef2e50a875f4164d2e9729f94767a268976` | `RvfStore::create_signed` (algo 2, per-segment hash trailer, signed `RVM0` page at EOF) | structurally |
+| `runtime_wire_dialect.rvf` | 1728 | `95b7d4abc861f6ac67179bfe73a9c6a85f1fa963ba97b65362e430e0802b6a8f` | `RvfStore::create` (wire dialect: 64-byte padded segments, `checksum_algo` 1) | structurally |
+| `runtime_signed_wire.rvf` | 6720 | `31ac0379febbb15ff9f33284584d49462b4f1a13e147b978b63908da6a1f9ba5` | `RvfStore::create_signed` (algo 2, per-segment hash trailer, signed `RVM0` page at EOF) | structurally |
 | `forge_signed_rvm0.rvf` | 4928 | `26c3c90cd5cfa4266c1def8ab3a64922201f77c08a736d2039d723bf2b27ce72` | `rvf-forge-core` `ContainerBuilder` (algo 2, signed segments, 4096-byte `RVM0` root page) | byte-exact |
 | `legacy/legacy_basic.rvf` | 1401 | `981c7718d62db8f4fa30d9468898f95ac787ba8df1085a5bbaac0d76f12348aa` | pre-ADR-354 `RvfStore` (algo 0 CRC-rotation, unpadded) | frozen |
 | `legacy/legacy_multi.rvf` | 6221 | `360cee29083e84e377d83ede88f949d6f1446b6e6c56ee0bd6ead30100d7a624` | pre-ADR-354 `RvfStore` | frozen |
@@ -98,6 +98,10 @@ Ed25519 secret key `[0x42; 32]`, then `delete(&[3])`, `close()` (19 live
 vectors). Trusted public key for `open_with_policy(.., Strict)`:
 `Ed25519 public of [0x42; 32]` (`rvf_types::ed25519::Ed25519Keypair::from_secret`).
 Generator: `gen_signed` in the same test.
+
+Both were regenerated (`OFER_REGEN_VECTORS=1`) when the writer stopped listing
+superseded manifests in the segment directory (#1382); the previous versions
+(1792 and 6912 bytes) still open with the current reader.
 
 **`forge_signed_rvm0.rvf`**: `ContainerBuilder::new()` with file id
 `b"ofer-forge-fixt\0"`, capability `Network`, a `Wasm` segment

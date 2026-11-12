@@ -1,6 +1,6 @@
 [package]
 name = "rvagent-cli"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "rvAgent CLI — terminal coding agent with TUI, session management, MCP tools"
 license = "MIT OR Apache-2.0"
@@ -30,8 +30,8 @@ clap = { workspace = true }
 console = { workspace = true }
 indicatif = { workspace = true }
 async-trait = "0.1"
-crossterm = "0.28"
-ratatui = "0.29"
+crossterm = "0.29"
+ratatui = "0.30"
 dirs = "5.0"
 aes-gcm = "0.10"
 rand = "0.8"

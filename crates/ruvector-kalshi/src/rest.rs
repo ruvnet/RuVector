@@ -184,11 +184,10 @@ mod tests {
     use super::*;
     use crate::auth::Signer;
     use rsa::pkcs1::EncodeRsaPrivateKey;
-    use rsa::RsaPrivateKey;
+    use rsa::PrivateKey as RsaPrivateKey;
 
     fn test_signer() -> Signer {
-        let mut rng = rand::thread_rng();
-        let key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+        let key = RsaPrivateKey::new(&mut getrandom::SysRng, 2048).unwrap();
         let pem = key
             .to_pkcs1_pem(rsa::pkcs1::LineEnding::LF)
             .unwrap()

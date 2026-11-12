@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - 'npm/packages/ruvector/**'
+      - 'npm/packages/weight-space/**'
       - '.github/workflows/ruvector-npm-ci.yml'
   pull_request:
     paths:
       - 'npm/packages/ruvector/**'
+      - 'npm/packages/weight-space/**'
       - '.github/workflows/ruvector-npm-ci.yml'
   workflow_dispatch:
 
@@ -29,7 +31,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   build:
     name: Build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
@@ -88,7 +90,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   unit-tests:
     name: Unit & CLI tests
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -115,6 +117,12 @@ jobs:
       - name: CLI commands test
         run: node test/cli-commands.js
 
+      - name: neural-q (ruv-fann real import, tabular fallback, CJS entry)
+        run: node test/neural-q.js
+
+      - name: LearningEngine.import() accepts pre-0.3.22 state (type-level)
+        run: node test/learning-import-types.js
+
       - name: SIGTERM cleanup test
         run: node test/sigterm-cleanup.js
 
@@ -131,12 +139,30 @@ jobs:
         # Glob form: Node 22 treats `--test <dir>` as a module path, not a scan.
         run: node --test tests/*.test.mjs
 
+      - name: weight-space absent — CLI/MCP install hint, require('ruvector') still loads
+        # @ruvector/weight-space is an optional peer and is not installed above;
+        # the test also hides it with a resolve shim, so it holds either way.
+        run: node test/weight-space-optional.js
+
+      - name: weight-space present — ruvector weights CLI + weights_* MCP (real import)
+        # @ruvector/weight-space is not on npm yet: build and pack the sibling
+        # package, then install the tarball without saving it to package.json.
+        # --save-dev only picks the edge type: the package is a declared peer, and
+        # --legacy-peer-deps skips peer edges, so a plain --no-save install is a
+        # silent no-op ("up to date"). --no-save still leaves package.json alone.
+        run: |
+          set -e
+          (cd ../weight-space && npm install --no-workspaces --no-audit --no-fund && npm run build && npm pack --pack-destination "$RUNNER_TEMP")
+          npm install --no-save --save-dev --no-workspaces --no-audit --no-fund --legacy-peer-deps "$RUNNER_TEMP"/ruvector-weight-space-0.1.0.tgz
+          node -e "require('@ruvector/weight-space')"
+          node test/weight-space-cli.js
+
   # ──────────────────────────────────────────────────────────────────────────
   # 3. FUNCTIONAL SMOKE — npx-style CLI works end-to-end
   # ──────────────────────────────────────────────────────────────────────────
   functional-smoke:
     name: Functional smoke (npx ruvector)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -236,7 +262,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   learning-check:
     name: Learning check (HNSW activates)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -354,7 +380,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   perf-benchmark:
     name: Performance benchmark (≥2× speedup at N=5000)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -465,7 +491,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   recall-quality:
     name: Recall quality (recall@10 ≥ 0.88 at N=10k)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -585,7 +611,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   tarball-integrity:
     name: Tarball integrity
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -666,7 +692,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   ci-pass:
     name: CI pass
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - build
       - unit-tests

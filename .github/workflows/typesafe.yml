@@ -37,7 +37,7 @@ env:
 jobs:
   rust:
     name: Rust (fmt · clippy · test)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Rust toolchain
@@ -69,7 +69,7 @@ jobs:
 
   wasm:
     name: WASM build + import audit
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Rust toolchain (wasm32)
@@ -94,7 +94,7 @@ jobs:
 
   node:
     name: Node (tsc · tests · security)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: npm/packages/typesafe
@@ -117,7 +117,7 @@ jobs:
 
   bench-slice:
     name: Bench slice (hash embedder, report-only gates)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Rust toolchain

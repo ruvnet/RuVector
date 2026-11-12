@@ -578,3 +578,18 @@ MIT
 ## Keywords
 
 ESP32 LLM, Tiny LLM, Embedded AI, Microcontroller AI, Edge AI, ESP32 Machine Learning, ESP32 Neural Network, INT8 Quantization, Binary Quantization, Product Quantization, HNSW Vector Search, RAG Embedded, Retrieval Augmented Generation ESP32, Semantic Memory, Anomaly Detection, Speculative Decoding, Multi-chip AI, Pipeline Parallelism, MicroLoRA, On-device Learning, IoT AI, ESP32-S3 SIMD, Xtensa AI, RISC-V AI, Offline AI, Privacy-preserving AI
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for ESP32, AI, LLM.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

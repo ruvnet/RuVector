@@ -82,13 +82,21 @@ pub fn sq_dist(a: &[f32], b: &[f32]) -> f32 {
     a.iter().zip(b.iter()).map(|(x, y)| (x - y) * (x - y)).sum()
 }
 
+/// Order valid distances first and give NaN/infinite distances a total order.
+/// This keeps the query and NSW heap comparators consistent for malformed input.
+pub(crate) fn distance_order(a: f32, b: f32) -> std::cmp::Ordering {
+    (!a.is_finite())
+        .cmp(&(!b.is_finite()))
+        .then_with(|| a.total_cmp(&b))
+}
+
 /// Brute-force k-nearest on a slice of (id, vector) pairs.
 pub fn brute_force_knn(haystack: &[(u64, Vec<f32>)], query: &[f32], k: usize) -> Vec<(u64, f32)> {
     let mut dists: Vec<(u64, f32)> = haystack
         .iter()
         .map(|(id, v)| (*id, sq_dist(v, query)))
         .collect();
-    dists.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    dists.sort_by(|a, b| distance_order(a.1, b.1));
     dists.truncate(k);
     dists
 }
@@ -101,7 +109,7 @@ pub fn merge_candidates(
 ) -> Vec<(u64, f32)> {
     a.append(&mut b);
     // de-duplicate by id (keep smallest distance)
-    a.sort_by(|x, y| x.0.cmp(&y.0).then(x.1.partial_cmp(&y.1).unwrap()));
+    a.sort_by(|x, y| x.0.cmp(&y.0).then_with(|| distance_order(x.1, y.1)));
     a.dedup_by(|newer, older| {
         if newer.0 == older.0 {
             if newer.1 < older.1 {
@@ -112,7 +120,7 @@ pub fn merge_candidates(
             false
         }
     });
-    a.sort_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
+    a.sort_by(|x, y| distance_order(x.1, y.1));
     a.truncate(k);
     a
 }
@@ -137,6 +145,64 @@ mod tests {
     use crate::lsm::{BaselineLsm, FullLsm, TwoTierLsm};
     use rand::SeedableRng;
     use rand_distr::{Distribution, Normal};
+
+    #[test]
+    fn brute_force_ranks_nonfinite_distance_after_finite_matches() {
+        let vectors = vec![
+            (0, vec![0.0, 0.0]),
+            (1, vec![f32::NAN, 0.0]),
+            (2, vec![1.0, 0.0]),
+        ];
+        let ids: Vec<_> = brute_force_knn(&vectors, &[0.0, 0.0], 3)
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
+        assert_eq!(ids, vec![0, 2, 1]);
+    }
+
+    #[test]
+    fn memtable_exact_search_ranks_nonfinite_distance_last() {
+        let mut memtable = MemTable::new();
+        memtable.insert(0, vec![0.0, 0.0]);
+        memtable.insert(1, vec![f32::NAN, 0.0]);
+        memtable.insert(2, vec![1.0, 0.0]);
+        let ids: Vec<_> = memtable
+            .exact_search(&[0.0, 0.0], 3)
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
+        assert_eq!(ids, vec![0, 2, 1]);
+    }
+
+    #[test]
+    fn merge_prefers_finite_duplicate_distance() {
+        let merged = merge_candidates(vec![(1, f32::NAN), (2, 2.0)], vec![(1, 1.0)], 2);
+        assert_eq!(merged, vec![(1, 1.0), (2, 2.0)]);
+    }
+
+    #[test]
+    fn all_tiers_handle_nonfinite_query() {
+        let mut config = cfg(2);
+        config.l0_max = 2;
+        let indexes: Vec<Box<dyn LsmIndex>> = vec![
+            Box::new(BaselineLsm::new(config.clone())),
+            Box::new(TwoTierLsm::new(config.clone())),
+            Box::new(FullLsm::new(config)),
+        ];
+        for mut index in indexes {
+            index.insert(0, vec![0.0, 0.0]);
+            index.insert(1, vec![1.0, 0.0]);
+            index.insert(2, vec![2.0, 0.0]);
+            index.compact();
+            let first = index.search(&[f32::NAN, 0.0], 3);
+            let repeated = index.search(&[f32::NAN, 0.0], 3);
+            assert_eq!(
+                first.iter().map(|(id, _)| *id).collect::<Vec<_>>(),
+                repeated.iter().map(|(id, _)| *id).collect::<Vec<_>>()
+            );
+            assert_eq!(first.len(), 3);
+        }
+    }
 
     fn make_vecs(n: usize, dims: usize, seed: u64) -> Vec<Vec<f32>> {
         let mut rng = rand::rngs::StdRng::seed_from_u64(seed);

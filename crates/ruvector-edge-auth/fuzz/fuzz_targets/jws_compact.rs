@@ -26,7 +26,7 @@ const RESOURCE: &str = "https://ruvector-edge-gateway.cognitum-consulting-mail.w
 const NOW: u64 = 1_790_000_000;
 
 fn key() -> SigningKey {
-    SigningKey::from_slice(&[7u8; 32]).expect("fixed scalar is a valid key")
+    SigningKey::from_bytes(&[7u8; 32].into()).expect("fixed scalar is a valid key")
 }
 
 fn pipeline(authorization: &str) {

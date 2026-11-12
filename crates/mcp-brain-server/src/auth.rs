@@ -16,9 +16,45 @@ pub struct AuthenticatedContributor {
     pub pseudonym: String,
     pub api_key_prefix: String,
     pub is_system: bool,
+    /// True when the caller presented a well-known placeholder key that
+    /// shipped clients send when no key is configured (see
+    /// [`SHARED_PLACEHOLDER_KEYS`]). Every such caller hashes to the same
+    /// pseudonym, so it must not be treated as an owning identity.
+    pub is_shared_identity: bool,
+}
+
+/// Placeholder keys sent by shipped clients when the user has not configured
+/// a key (`@ruvector/pi-brain` and `mcp-brain` default to `anonymous`; the MCP
+/// SSE transport historically defaulted to `mcp-sse-session`). They are public,
+/// so they identify nobody: callers using them may read, but may not create,
+/// modify or delete attributed content.
+pub const SHARED_PLACEHOLDER_KEYS: &[&str] = &["anonymous", "mcp-sse-session"];
+
+/// Whether `api_key` is one of the public placeholder keys (case-insensitive).
+pub fn is_shared_placeholder_key(api_key: &str) -> bool {
+    let k = api_key.trim();
+    SHARED_PLACEHOLDER_KEYS
+        .iter()
+        .any(|p| k.eq_ignore_ascii_case(p))
 }
 
 impl AuthenticatedContributor {
+    /// Reject callers whose identity is shared with every other keyless
+    /// caller. Use on any handler that attributes content to the caller or
+    /// changes content owned by someone else.
+    pub fn require_owned_identity(&self) -> Result<(), (StatusCode, String)> {
+        if self.is_shared_identity && !self.is_system {
+            return Err((
+                StatusCode::FORBIDDEN,
+                "This operation needs a private API key. The placeholder key is shared by \
+                 every keyless client and cannot own content. Generate a key and set \
+                 BRAIN_API_KEY (see /.well-known/agent-guide.md)."
+                    .into(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Derive pseudonym from API key using SHAKE-256
     pub fn from_api_key(api_key: &str) -> Self {
         let mut hasher = Shake256::default();
@@ -37,6 +73,7 @@ impl AuthenticatedContributor {
             pseudonym,
             api_key_prefix: prefix,
             is_system: false,
+            is_shared_identity: is_shared_placeholder_key(api_key),
         }
     }
 
@@ -45,6 +82,7 @@ impl AuthenticatedContributor {
             pseudonym: "ruvector-seed".to_string(),
             api_key_prefix: "system".to_string(),
             is_system: true,
+            is_shared_identity: false,
         }
     }
 }
@@ -91,6 +129,7 @@ where
                     pseudonym: "ruvector-seed".to_string(),
                     api_key_prefix: "system".to_string(),
                     is_system: true,
+                    is_shared_identity: false,
                 });
             }
         }

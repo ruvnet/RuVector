@@ -66,12 +66,22 @@ pub fn generate_memory_corpus(
 
 /// Ground-truth recall@k for a query against the store (cosine only).
 pub fn ground_truth_topk(query: &[f32], store: &MemoryStore, k: usize) -> Vec<MemoryId> {
+    if !valid_query(query, store) {
+        return Vec::new();
+    }
     let mut scored: Vec<(MemoryId, f32)> = store
         .records()
         .map(|r| (r.id, cosine_sim(query, &r.vec)))
+        .filter(|(_, score)| score.is_finite())
         .collect();
-    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    scored.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
     scored.into_iter().take(k).map(|(id, _)| id).collect()
+}
+
+/// Search APIs return no results for a malformed query instead of panicking
+/// in cosine scoring or ranking.
+pub(crate) fn valid_query(query: &[f32], store: &MemoryStore) -> bool {
+    query.len() == store.dims() && query.iter().all(|value| value.is_finite())
 }
 
 /// Fraction of `retrieved` ids that appear in `ground_truth`.
@@ -145,5 +155,19 @@ mod tests {
         let retrieved: Vec<MemoryId> = (0..5).collect();
         let truth: Vec<MemoryId> = (5..10).collect();
         assert!(recall_at_k(&retrieved, &truth).abs() < 1e-5);
+    }
+
+    #[test]
+    fn ground_truth_ignores_non_finite_scores() {
+        let mut store = MemoryStore::new(2);
+        let metadata = MemoryMetadata {
+            timestamp: 0,
+            source: "test".into(),
+            tags: vec![],
+        };
+        store.insert(vec![f32::NAN, 0.0], metadata.clone());
+        store.insert(vec![1.0, 0.0], metadata);
+        assert_eq!(ground_truth_topk(&[1.0, 0.0], &store, 2), vec![1]);
+        assert!(ground_truth_topk(&[f32::NAN, 0.0], &store, 2).is_empty());
     }
 }

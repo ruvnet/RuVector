@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/pi-brain",
-  "version": "0.1.2",
+  "version": "0.1.5",
   "description": "CLI and SDK for π — the RuVector shared brain. Share, search, and transfer learning across AI sessions.",
   "type": "module",
   "main": "dist/cjs/index.js",
@@ -36,21 +36,32 @@
     "build:cjs": "tsc -p tsconfig.cjs.json && node -e \"require('fs').writeFileSync('dist/cjs/package.json', JSON.stringify({type:'commonjs'}))\"",
     "build": "npm run build:esm && npm run build:cjs",
     "prepack": "npm run build",
+    "test": "npm run build && node --test test/*.test.mjs",
     "start": "node dist/cli.js",
     "dev": "tsc --watch"
   },
-  "keywords": ["pi", "brain", "ruvector", "mcp", "shared-learning", "claude", "ai"],
+  "keywords": [
+    "cli",
+    "mcp",
+    "claude",
+    "mcp-server",
+    "ai",
+    "ruvector",
+    "ruvnet",
+    "pi-brain"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector",
+    "url": "git+https://github.com/ruvnet/ruvector.git",
     "directory": "npm/packages/pi-brain"
+  },
+  "homepage": "https://ruv.io",
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
   },
   "engines": {
     "node": ">=18.0.0"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

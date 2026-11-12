@@ -1442,4 +1442,89 @@ mod tests {
         let result = ruvector_consciousness::pid::compute_pid(&tpm, &[a, b.clone()], &b).unwrap();
         assert!(result.total_mi.is_finite());
     }
+
+    // -----------------------------------------------------------------------
+    // Shared placeholder keys must not act as an owning identity
+    // -----------------------------------------------------------------------
+    #[test]
+    fn test_shared_placeholder_keys_are_flagged() {
+        use crate::auth::AuthenticatedContributor;
+
+        // Keys that shipped clients send when no key is configured. Every
+        // keyless caller hashes to the same pseudonym, so they are shared.
+        for key in ["anonymous", "Anonymous", "mcp-sse-session"] {
+            let c = AuthenticatedContributor::from_api_key(key);
+            assert!(c.is_shared_identity, "{key} must be flagged as shared");
+            let err = c
+                .require_owned_identity()
+                .expect_err("shared identity must not own content");
+            assert_eq!(err.0, axum::http::StatusCode::FORBIDDEN);
+        }
+
+        // A private key is an owning identity.
+        let own = AuthenticatedContributor::from_api_key("test-key-12345678");
+        assert!(!own.is_shared_identity);
+        assert!(own.require_owned_identity().is_ok());
+
+        // A per-session MCP key is distinct per session and owning.
+        let a = AuthenticatedContributor::from_api_key(&crate::routes::mcp_default_api_key(
+            "11111111-1111-4111-8111-111111111111",
+        ));
+        let b = AuthenticatedContributor::from_api_key(&crate::routes::mcp_default_api_key(
+            "22222222-2222-4222-8222-222222222222",
+        ));
+        assert!(!a.is_shared_identity && !b.is_shared_identity);
+        assert_ne!(
+            a.pseudonym, b.pseudonym,
+            "MCP sessions must not share an identity"
+        );
+
+        // The system seed is never a shared identity.
+        assert!(AuthenticatedContributor::system_seed()
+            .require_owned_identity()
+            .is_ok());
+    }
+
+    // -----------------------------------------------------------------------
+    // PII stripping covers code_snippet as well as title/content/tags
+    // -----------------------------------------------------------------------
+    #[test]
+    fn test_strip_memory_fields_covers_code_snippet() {
+        use crate::verify::Verifier;
+
+        let mut verifier = Verifier::new();
+        let tags = vec!["rust".to_string(), "config".to_string()];
+        let snippet =
+            "let cfg = load(\"/home/alice/.config/app.toml\"); // owner: alice@example.com";
+        let out = verifier.strip_memory_fields("Title", "Body text", &tags, Some(snippet));
+
+        let code = out
+            .code_snippet
+            .expect("snippet must be kept (redacted), not dropped");
+        assert!(
+            !code.contains("alice@example.com"),
+            "email must be redacted: {code}"
+        );
+        assert!(
+            !code.contains("/home/alice"),
+            "path must be redacted: {code}"
+        );
+        assert!(out.log.total_redactions >= 2);
+        assert_eq!(out.title, "Title");
+        assert_eq!(out.content, "Body text");
+        assert_eq!(
+            out.tags, tags,
+            "tags must stay aligned when a snippet is present"
+        );
+
+        // Snippet without PII survives byte-identical.
+        let clean = "fn add(a: i32, b: i32) -> i32 { a + b }";
+        let out = verifier.strip_memory_fields("T", "C", &tags, Some(clean));
+        assert_eq!(out.code_snippet.as_deref(), Some(clean));
+
+        // No snippet stays None, tags unchanged.
+        let out = verifier.strip_memory_fields("T", "C", &tags, None);
+        assert!(out.code_snippet.is_none());
+        assert_eq!(out.tags, tags);
+    }
 }

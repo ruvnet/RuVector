@@ -17,6 +17,20 @@ export * from './core';
 export * from './services';
 export * from './metaharness';
 
+/**
+ * Quantum circuit simulation (optional @ruvector/ruqu-wasm engine).
+ * A lazy accessor: the wrapper is required on first access, and the WASM
+ * engine only when a simulation runs. `require('ruvector').quantum.simulate(...)`.
+ */
+import type * as QuantumApi from './core/quantum-wrapper';
+export declare const quantum: typeof QuantumApi;
+let quantumApi: typeof QuantumApi | undefined;
+Object.defineProperty(exports, 'quantum', {
+  enumerable: true,
+  configurable: true,
+  get: () => (quantumApi ??= require('./core/quantum-wrapper')),
+});
+
 let implementation: any;
 let implementationType: 'native' | 'rvf' | 'wasm' = 'wasm';
 

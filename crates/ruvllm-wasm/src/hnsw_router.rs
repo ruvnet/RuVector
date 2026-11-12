@@ -318,18 +318,10 @@ impl HnswGraph {
             self.layers.push(HashMap::new());
         }
 
-        // CRITICAL: Push pattern FIRST so it exists when connect_node runs
-        // This fixes index out of bounds when entry_point is set to node_id
+        // Push pattern FIRST so patterns[node_id] exists when connect_node runs
         let embedding = pattern.embedding.clone();
         let was_empty = self.patterns.is_empty();
         self.patterns.push(pattern);
-
-        // Update max layer and entry point if needed
-        // Now safe because patterns[node_id] exists
-        if layer > self.max_layer {
-            self.max_layer = layer;
-            self.entry_point = Some(node_id);
-        }
 
         // Insert node at all layers from 0 to selected layer
         for l in 0..=layer {
@@ -341,31 +333,48 @@ impl HnswGraph {
             self.layers[l].insert(node_id, node);
         }
 
-        // Connect the new node to the graph
         if was_empty {
+            self.max_layer = layer;
             self.entry_point = Some(node_id);
-        } else {
-            self.connect_node(node_id, &embedding, layer);
+            return;
+        }
+
+        // Connect through the EXISTING entry point. Promoting the new node to
+        // entry point first made it search from itself and link only to itself,
+        // orphaning every earlier node from later searches.
+        self.connect_node(node_id, &embedding, layer);
+
+        if layer > self.max_layer {
+            self.max_layer = layer;
+            self.entry_point = Some(node_id);
         }
     }
 
     /// Connect a new node to existing nodes in the graph
     fn connect_node(&mut self, node_id: usize, embedding: &[f32], node_layer: usize) {
-        let entry_point = self.entry_point.unwrap();
+        let Some(mut curr) = self.entry_point else {
+            return;
+        };
 
         // Search for nearest neighbors from top to node layer
-        let mut curr = entry_point;
         for l in (node_layer + 1..=self.max_layer).rev() {
-            curr = self.search_layer(embedding, curr, 1, l)[0].0;
+            if let Some(&(id, _)) = self.search_layer(embedding, curr, 1, l).first() {
+                curr = id;
+            }
         }
 
-        // Insert connections from node_layer down to 0
-        for l in (0..=node_layer).rev() {
+        // Insert connections from the highest layer shared with the graph down to 0
+        for l in (0..=node_layer.min(self.max_layer)).rev() {
             let m = if l == 0 { self.m0 } else { self.m };
             let candidates = self.search_layer(embedding, curr, self.ef_construction, l);
 
-            // Select M nearest neighbors
-            let neighbors: Vec<usize> = candidates.iter().take(m).map(|(id, _)| *id).collect();
+            // Select M nearest neighbors (never the node itself)
+            let neighbors: Vec<usize> = candidates
+                .iter()
+                .map(|(id, _)| *id)
+                .filter(|&id| id != node_id)
+                .take(m)
+                .collect();
 
             // Add bidirectional connections
             if let Some(node) = self.layers[l].get_mut(&node_id) {
@@ -394,7 +403,9 @@ impl HnswGraph {
                 self.prune_connections(neighbor_id, &neighbor_emb, m, l);
             }
 
-            curr = candidates[0].0;
+            if let Some(&(id, _)) = candidates.first() {
+                curr = id;
+            }
         }
     }
 
@@ -410,7 +421,7 @@ impl HnswGraph {
                 })
                 .collect();
 
-            scored_neighbors.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+            scored_neighbors.sort_by(|a, b| b.1.total_cmp(&a.1));
             let pruned: Vec<usize> = scored_neighbors
                 .into_iter()
                 .take(m)
@@ -435,6 +446,11 @@ impl HnswGraph {
         if self.patterns.is_empty() || entry_point >= self.patterns.len() {
             return vec![];
         }
+        if layer >= self.layers.len() {
+            return vec![];
+        }
+        // ef == 0 would truncate `best` to empty and then unwrap its minimum
+        let ef = ef.max(1);
 
         let mut visited = vec![false; self.patterns.len()];
         let mut candidates = Vec::new();
@@ -446,16 +462,14 @@ impl HnswGraph {
         visited[entry_point] = true;
 
         while !candidates.is_empty() {
-            // Get candidate with highest similarity
-            candidates.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+            // Get candidate with highest similarity: sort ascending so pop()
+            // yields the best one (descending order popped the worst first)
+            candidates.sort_by(|a, b| a.1.total_cmp(&b.1));
             let (curr_id, curr_sim) = candidates.pop().unwrap();
 
             // If worse than worst in best set, stop
             if !best.is_empty() {
-                let worst_best = best
-                    .iter()
-                    .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
-                    .unwrap();
+                let worst_best = best.iter().min_by(|a, b| a.1.total_cmp(&b.1)).unwrap();
                 if curr_sim < worst_best.1 {
                     break;
                 }
@@ -474,18 +488,13 @@ impl HnswGraph {
                             Self::cosine_similarity(query, &self.patterns[neighbor_id].embedding);
 
                         if best.len() < ef
-                            || sim
-                                > best
-                                    .iter()
-                                    .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
-                                    .unwrap()
-                                    .1
+                            || sim > best.iter().min_by(|a, b| a.1.total_cmp(&b.1)).unwrap().1
                         {
                             candidates.push((neighbor_id, sim));
                             best.push((neighbor_id, sim));
 
                             if best.len() > ef {
-                                best.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+                                best.sort_by(|a, b| b.1.total_cmp(&a.1));
                                 best.truncate(ef);
                             }
                         }
@@ -494,8 +503,47 @@ impl HnswGraph {
             }
         }
 
-        best.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        best.sort_by(|a, b| b.1.total_cmp(&a.1));
         best
+    }
+
+    /// Check the structural invariants a deserialized graph must satisfy
+    /// before search/insert may index into it.
+    fn validate(&self, dimensions: usize) -> Result<(), String> {
+        let n = self.patterns.len();
+        if self.layers.is_empty() || self.max_layer >= self.layers.len() {
+            return Err(format!(
+                "max_layer {} needs {} layers, found {}",
+                self.max_layer,
+                self.max_layer + 1,
+                self.layers.len()
+            ));
+        }
+        match self.entry_point {
+            None if n > 0 => return Err("missing entry_point".into()),
+            Some(ep) if ep >= n => return Err(format!("entry_point {} >= {}", ep, n)),
+            _ => {}
+        }
+        if let Some(p) = self
+            .patterns
+            .iter()
+            .find(|p| p.embedding.len() != dimensions)
+        {
+            return Err(format!(
+                "pattern '{}' has {} dims, expected {}",
+                p.name,
+                p.embedding.len(),
+                dimensions
+            ));
+        }
+        for layer in &self.layers {
+            for (&id, node) in layer {
+                if id >= n || node.neighbors.iter().any(|&nb| nb >= n) {
+                    return Err(format!("node {} references a pattern >= {}", id, n));
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Search the graph for k nearest neighbors
@@ -713,6 +761,9 @@ impl HnswRouterWasm {
     pub fn from_json(json: &str) -> Result<HnswRouterWasm, JsValue> {
         let data: SerializableRouter = serde_json::from_str(json)
             .map_err(|e| JsValue::from_str(&format!("Deserialization failed: {}", e)))?;
+        data.graph
+            .validate(data.dimensions)
+            .map_err(|e| JsValue::from_str(&format!("Invalid router graph: {}", e)))?;
 
         Ok(Self {
             dimensions: data.dimensions,

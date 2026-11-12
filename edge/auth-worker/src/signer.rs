@@ -95,7 +95,7 @@ fn parse_jwk(jwk: &PrivateJwk) -> Result<(Option<SigningKey>, VerifyingKey), Key
     let verifying = match (&signing, x, y) {
         (Some(sk), _, _) => {
             let vk = *sk.verifying_key();
-            let point = vk.to_encoded_point(false);
+            let point = vk.to_sec1_point(false);
             let same = |given: Option<[u8; 32]>, derived: Option<&[u8]>| {
                 given.map_or(true, |g| derived == Some(&g[..]))
             };

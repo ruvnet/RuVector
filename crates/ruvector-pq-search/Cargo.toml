@@ -1,6 +1,6 @@
 [package]
 name = "ruvector-pq-search"
-version.workspace = true
+version = "2.3.1"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -8,6 +8,8 @@ authors.workspace = true
 repository.workspace = true
 description = "Product Quantization with Asymmetric Distance Computation (ADC) for compressed approximate nearest-neighbor search — Flat PQ, IVF+PQ, and Residual-corrected PQ variants in safe Rust"
 readme = "README.md"
+homepage = "https://ruv.io"
+documentation = "https://docs.rs/ruvector-pq-search"
 keywords = ["vector-search", "ann", "product-quantization", "compression", "approximate-search"]
 categories = ["algorithms", "data-structures", "science"]
 
@@ -16,6 +18,7 @@ name = "pq-benchmark"
 path = "src/main.rs"
 
 [dependencies]
+ruvector-e-means = { version = "=0.1.0", path = "../ruvector-e-means" }
 rand = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }

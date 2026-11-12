@@ -1,7 +1,7 @@
 {
   "name": "@ruvector/rvf-mcp-server",
-  "version": "0.1.4",
-  "description": "MCP server for RuVector Format (RVF) vector database — stdio and SSE transports",
+  "version": "0.2.5",
+  "description": "MCP server for local vector search over portable RVF files: Claude Code, Cursor and other MCP clients create, fill and query HNSW-indexed .rvf stores over stdio or SSE.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,29 +14,51 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/cli.js",
     "start:stdio": "node dist/cli.js --transport stdio",
     "start:sse": "node dist/cli.js --transport sse --port 3100",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "test": "tsc && node --test --test-force-exit test/server.test.mjs test/sse.test.mjs"
   },
   "keywords": [
-    "rvf",
-    "ruvector",
     "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "vector-search",
     "vector-database",
-    "model-context-protocol"
+    "embeddings",
+    "rag",
+    "ai-agents",
+    "claude-code",
+    "typescript",
+    "ruvector",
+    "rvf"
   ],
   "license": "MIT",
+  "homepage": "https://ruv.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "npm/packages/rvf-mcp-server"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
+  },
   "engines": {
     "node": ">=18.0.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "@ruvector/rvf": "^0.3.4",
-    "express": "^4.18.0",
-    "zod": "^3.22.0"
+    "@ruvector/rvf": "^0.4.8",
+    "express": "^4.22.3",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
