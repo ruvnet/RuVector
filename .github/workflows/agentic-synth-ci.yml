@@ -27,6 +27,10 @@ on:
         required: false
         default: 'false'
 
+defaults:
+  run:
+    shell: bash
+
 env:
   NODE_VERSION: '20.x'
   PACKAGE_PATH: npm/packages/agentic-synth
@@ -112,8 +116,8 @@ jobs:
         working-directory: ${{ env.PACKAGE_PATH }}
         run: |
           chmod +x bin/cli.js
-          ./bin/cli.js --help
-          ./bin/cli.js config show || echo "Config command ran"
+          node bin/cli.js --help
+          node bin/cli.js config show || echo "Config command ran"
 
       - name: Run unit tests
         if: github.event.inputs.run_tests != 'false'
