@@ -43,6 +43,37 @@ test('a repository root gets its own store even when ~/.ruvector exists', (t) =>
   assert.equal(fs.readFileSync(path.join(home, '.ruvector', 'intelligence.json'), 'utf8'), '{}', 'home store was written');
 });
 
+test('pretrain treats repository file and directory names as data, not object keys', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruvector-pretrain-keys-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const home = path.join(root, 'home');
+  const repo = path.join(root, 'repo');
+  fs.mkdirSync(home);
+  fs.mkdirSync(path.join(repo, '__proto__'), { recursive: true });
+  fs.mkdirSync(path.join(repo, 'constructor'));
+  const git = (...args) => execFileSync('git', ['-c', 'user.email=t@example.com', '-c', 'user.name=t', ...args], { cwd: repo, stdio: 'ignore' });
+  git('init', '-q');
+  // Repository-controlled names that collide with Object.prototype members.
+  for (let i = 0; i < 3; i++) {
+    fs.writeFileSync(path.join(repo, '__proto__', 'a.js'), `export const a = ${i};\n`);
+    fs.writeFileSync(path.join(repo, 'constructor', 'b.js'), `export const b = ${i};\n`);
+    fs.writeFileSync(path.join(repo, '__proto__.js'), `// ${i}\n`);
+    fs.writeFileSync(path.join(repo, '__defineGetter__'), `${i}\n`);
+    git('add', '-A');
+    git('commit', '-qm', `c${i}`);
+  }
+  const env = { ...process.env, HOME: home, USERPROFILE: home, NO_COLOR: '1', FORCE_COLOR: '0' };
+  const out = execFileSync(process.execPath, [CLI, 'hooks', 'pretrain'], { cwd: repo, env, encoding: 'utf8' });
+  assert.doesNotMatch(out, /File analysis skipped/, out);
+  assert.doesNotMatch(out, /Git analysis skipped/, out);
+  assert.match(out, /Analyzed 4 files/, out);
+  const data = JSON.parse(fs.readFileSync(path.join(repo, '.ruvector', 'intelligence.json'), 'utf8'));
+  for (const [key, p] of Object.entries(data.patterns)) {
+    assert.equal(typeof p.action, 'string', `pattern ${key} has a non-string action`);
+    assert.match(p.action, /^[a-z][a-z-]*$/, `pattern ${key} has action ${JSON.stringify(p.action)}`);
+  }
+});
+
 test('file_sequences keys from a project store cannot pollute Object.prototype', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruvector-store-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
