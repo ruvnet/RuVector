@@ -10963,11 +10963,11 @@ dependencies = [
 
 [[package]]
 name = "ruvector-temporal-tensor"
-version = "2.3.0"
+version = "2.3.1"
 
 [[package]]
 name = "ruvector-temporal-tensor-wasm"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "ruvector-temporal-tensor",
 ]
@@ -11517,7 +11517,7 @@ dependencies = [
 
 [[package]]
 name = "rvagent-a2a"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -11616,7 +11616,7 @@ dependencies = [
 
 [[package]]
 name = "rvagent-cli"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -11881,7 +11881,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-runtime"
-version = "0.5.5"
+version = "0.5.6"
 dependencies = [
  "crc32fast",
  "ed25519-dalek",

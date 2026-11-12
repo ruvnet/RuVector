@@ -1861,7 +1861,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-runtime"
-version = "0.5.5"
+version = "0.5.6"
 dependencies = [
  "crc32fast",
  "ed25519-dalek",
