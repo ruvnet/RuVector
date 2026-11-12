@@ -420,17 +420,26 @@ mod tests {
 
     #[test]
     fn test_reasoning_bank_creation() {
-        let config = ReasoningBankConfig {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut config = ReasoningBankConfig {
             storage_path: "/tmp/test_reasoning_bank".to_string(),
             ..Default::default()
         };
+        // Same shared-default-path lock race as `test_trajectory_recording`.
+        config.pattern_config.storage_path =
+            Some(tmp.path().join("pat").to_string_lossy().into_owned());
         let bank = ReasoningBank::new(config);
         assert!(bank.is_ok());
     }
 
     #[test]
     fn test_trajectory_recording() {
-        let config = ReasoningBankConfig::default();
+        // Own temp dir for the VectorDB, as in `test_stats_tracking`: the
+        // shared default path races under nextest ("Database already open").
+        let tmp = tempfile::tempdir().unwrap();
+        let mut config = ReasoningBankConfig::default();
+        config.pattern_config.storage_path =
+            Some(tmp.path().join("pat").to_string_lossy().into_owned());
         let bank = ReasoningBank::new(config).unwrap();
 
         let mut recorder = bank.start_trajectory(vec![0.1; 768]);

@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/rvf-mcp-server",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "MCP server for local vector search over portable RVF files: Claude Code, Cursor and other MCP clients create, fill and query HNSW-indexed .rvf stores over stdio or SSE.",
   "type": "module",
   "main": "dist/index.js",

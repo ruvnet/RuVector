@@ -200,12 +200,16 @@ test('add --list --json is machine readable', () => {
 
 test('add <extra> --dry-run prints the exact command and installs nothing', () => {
   const dir = tmpDir({ 'pnpm-lock.yaml': '', 'package.json': '{"name":"x","version":"1.0.0"}' });
-  // rvlite: neither a dev nor an optional dependency, so it is never
-  // pre-installed here (diskann is a devDependency for the diskann CLI tests)
-  const r = cli(['add', 'rvlite', '--dry-run'], dir);
+  // Use an extra that does not resolve here, with the CLI's own check. Which
+  // extras are pre-installed depends on dev/optional deps and on workspace
+  // hoisting (rvlite became a devDependency for the rvlite MCP tests), so a
+  // hard-coded name would hit the "already installed" path instead.
+  const extra = extras.listExtras().find((e) => !extras.isPackageInstalled(e.pkg, dir));
+  assert.ok(extra, 'every extra is pre-installed; no dry-run install path to test');
+  const r = cli(['add', extra.key, '--dry-run'], dir);
   assert.strictEqual(r.status, 0, r.stderr);
-  assert.ok(r.stdout.includes('pnpm add rvlite@^0.2.7'), r.stdout);
-  assert.ok(r.stdout.includes('SPARQL'), 'should explain why');
+  assert.ok(r.stdout.includes(`pnpm add ${extra.spec}`), r.stdout);
+  assert.ok(r.stdout.includes(extra.why), 'should explain why');
   assert.ok(!fs.existsSync(path.join(dir, 'node_modules')), 'dry run must not install');
 });
 

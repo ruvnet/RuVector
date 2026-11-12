@@ -495,8 +495,15 @@ impl<'a> ParsedSeed<'a> {
         };
 
         let signature = if header.is_signed() && header.sig_length > 0 {
-            let sig_start = header.total_seed_size as usize - header.sig_length as usize;
             let sig_end = header.total_seed_size as usize;
+            let sig_start = match sig_end.checked_sub(header.sig_length as usize) {
+                Some(s) if s >= SEED_HEADER_SIZE => s,
+                _ => {
+                    return Err(SeedError::MissingComponent(
+                        "signature longer than the seed",
+                    ))
+                }
+            };
             if sig_end > data.len() {
                 return Err(SeedError::MissingComponent(
                     "signature extends beyond payload",
@@ -1128,5 +1135,16 @@ mod tests {
         let parsed = ParsedSeed::parse(&payload).unwrap();
         let err = parsed.decompress_microkernel().unwrap_err();
         assert!(format!("{err}").contains("exceeds limit"), "{err}");
+    }
+
+    #[test]
+    fn sig_length_past_seed_size_is_rejected() {
+        let (mut payload, _) = SeedBuilder::new([0x01; 8], 8, 1)
+            .build_and_sign(b"key")
+            .unwrap();
+        // sig_length (0x32) larger than total_seed_size: the signature
+        // start would underflow.
+        payload[0x32..0x34].copy_from_slice(&u16::MAX.to_le_bytes());
+        assert!(ParsedSeed::parse(&payload).is_err());
     }
 }

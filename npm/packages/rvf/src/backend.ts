@@ -14,6 +14,7 @@ import type {
   RvfMetadataValue,
   BackendType,
   DistanceMetric,
+  DerivationType,
 } from './types';
 import { RvfError, RvfErrorCode } from './errors';
 import { FieldRegistry, FIELD_REGISTRY_KEY, NativeMetadataEntry } from './metadata-fields';
@@ -74,7 +75,9 @@ export interface RvfBackend {
   fileId(): Promise<string>;
   parentId(): Promise<string>;
   lineageDepth(): Promise<number>;
-  derive(childPath: string, options?: RvfOptions): Promise<RvfBackend>;
+  derive(childPath: string, options?: RvfOptions, derivationType?: DerivationType): Promise<RvfBackend>;
+  /** How this store was derived, or null for a root store or an older file. */
+  derivationType(): Promise<DerivationType | null>;
   branch(childPath: string): Promise<RvfBackend>;
   freeze(): Promise<number>;
   // Kernel / eBPF
@@ -457,12 +460,38 @@ export class NodeBackend implements RvfBackend {
     }
   }
 
-  async derive(childPath: string, options?: RvfOptions): Promise<RvfBackend> {
+  async derivationType(): Promise<DerivationType | null> {
     this.ensureHandle();
+    if (typeof this.handle.derivationType !== 'function') {
+      return null; // @ruvector/rvf-node < 0.4.7 records no derivation type
+    }
+    try {
+      return this.handle.derivationType();
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
+
+  async derive(
+    childPath: string,
+    options?: RvfOptions,
+    derivationType?: DerivationType,
+  ): Promise<RvfBackend> {
+    this.ensureHandle();
+    if (derivationType !== undefined && typeof this.handle.derivationType !== 'function') {
+      // An older addon would silently ignore the argument and record 'filter'.
+      throw new RvfError(
+        RvfErrorCode.InvalidArgument,
+        'derive(…, derivationType) needs @ruvector/rvf-node >= 0.4.7',
+      );
+    }
     let childHandle: any = null;
     try {
       const nativeOpts = options ? mapOptionsToNative(options) : undefined;
-      childHandle = this.handle.derive(childPath, nativeOpts);
+      childHandle =
+        derivationType === undefined
+          ? this.handle.derive(childPath, nativeOpts)
+          : this.handle.derive(childPath, nativeOpts ?? null, derivationType);
       const child = new NodeBackend();
       child.native = this.native;
       child.handle = childHandle;
@@ -1167,8 +1196,15 @@ export class WasmBackend implements RvfBackend {
   async lineageDepth(): Promise<number> {
     throw new RvfError(RvfErrorCode.BackendNotFound, 'lineageDepth not supported in WASM backend');
   }
-  async derive(_childPath: string, _options?: RvfOptions): Promise<RvfBackend> {
+  async derive(
+    _childPath: string,
+    _options?: RvfOptions,
+    _derivationType?: DerivationType,
+  ): Promise<RvfBackend> {
     throw new RvfError(RvfErrorCode.BackendNotFound, 'derive not supported in WASM backend');
+  }
+  async derivationType(): Promise<DerivationType | null> {
+    throw new RvfError(RvfErrorCode.BackendNotFound, 'derivationType not supported in WASM backend');
   }
   async branch(_childPath: string): Promise<RvfBackend> {
     throw new RvfError(RvfErrorCode.BackendNotFound, 'branch not supported in WASM backend');

@@ -1,0 +1,2 @@
+# Keep the isolated integration-test dependency graph reproducible.
+!package-lock.json

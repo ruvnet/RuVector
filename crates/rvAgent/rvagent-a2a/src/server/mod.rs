@@ -261,8 +261,12 @@ impl A2aServer {
             executor,
             budget,
             push_registry: push::PushNotificationRegistry::new(),
+            // Redirects are never followed: `push::validate_url` vets only
+            // the registered URL, so a redirect could steer the POST to an
+            // unvalidated host or scheme.
             push_client: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
+                .redirect(reqwest::redirect::Policy::none())
                 .build()
                 .unwrap_or_default(),
             #[cfg(feature = "ed25519-webhooks")]

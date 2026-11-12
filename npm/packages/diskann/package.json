@@ -40,21 +40,21 @@
     "access": "public"
   },
   "keywords": [
-    "vector-search",
-    "quantization",
-    "rust",
-    "napi",
-    "ruvector",
-    "ruvnet",
     "diskann",
+    "vamana",
+    "vector-search",
+    "approximate-nearest-neighbor",
+    "ann",
+    "product-quantization",
+    "quantization",
+    "ssd",
     "vector-database",
-    "hnsw",
     "embeddings",
     "rag",
     "semantic-search",
-    "knowledge-graph",
-    "gnn",
-    "graph-embeddings",
-    "link-prediction"
+    "rust",
+    "napi",
+    "ruvector",
+    "ruvnet"
   ]
 }

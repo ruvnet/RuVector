@@ -32,7 +32,7 @@ env:
 jobs:
   seal:
     name: Seal exact npm artifacts
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -72,6 +72,7 @@ jobs:
           test "$(find release-evidence/sealed -name '*.tgz' -type f | wc -l)" = 6
           (cd release-evidence/sealed && sha256sum ./*.tgz | sort > SHA256SUMS)
           cp npm/packages/core/test.js release-evidence/core.test.js
+          cp npm/packages/core/test-retrieval.js release-evidence/core.test-retrieval.js
           node -e '
             const fs = require("fs");
             const receipt = {
@@ -127,7 +128,7 @@ jobs:
   runtime-grader:
     name: Runtime grader (100 required)
     needs: seal
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -157,6 +158,9 @@ jobs:
               if (await db.len() !== 1 || result.length !== 1 || result[0].id !== id) process.exit(1);
             })().catch(error => { console.error(error); process.exit(1); });
           '
+          # Retrieval correctness (#1310 / #1313 / #1443) against the sealed install.
+          cp "$GITHUB_WORKSPACE/release-evidence/core.test-retrieval.js" node_modules/@ruvector/core/test-retrieval.js
+          node node_modules/@ruvector/core/test-retrieval.js
           npm install --global agentic-qe@3.13.10 --no-audit --no-fund
           cp "$GITHUB_WORKSPACE/release-evidence/core.test.js" node_modules/@ruvector/core/core.test.js
           AQE_LLM_PROVIDER=claude-code aqe test execute \
@@ -189,7 +193,7 @@ jobs:
   contract-grader:
     name: Package-contract grader (100 required)
     needs: seal
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -214,7 +218,7 @@ jobs:
   publish:
     name: Publish sealed npm artifacts
     needs: [seal, runtime-grader, contract-grader]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     environment: npm-production
     # Each registry visibility wait may take up to 40 min (NPM_VISIBLE_TIMEOUT).
     timeout-minutes: 120

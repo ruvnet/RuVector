@@ -1,12 +1,16 @@
 [package]
 name = "ruvector-graph"
-version = "2.3.4"
+version = "2.3.5"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+homepage = "https://ruv.io"
+documentation = "https://docs.rs/ruvector-graph"
 readme = "README.md"
+keywords = ["graph-database", "hypergraph", "cypher", "neo4j", "vector"]
+categories = ["database-implementations", "data-structures"]
 description = "Distributed Neo4j-compatible hypergraph database with SIMD optimization"
 
 [dependencies]

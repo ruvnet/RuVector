@@ -28,7 +28,7 @@ describe('DSPyTrainingSession', () => {
       models: [
         {
           provider: ModelProvider.GEMINI,
-          model: 'gemini-2.0-flash-exp',
+          model: 'gemini-2.5-flash',
           apiKey: 'test-key-gemini'
         },
         {
@@ -66,7 +66,7 @@ describe('DSPyTrainingSession', () => {
         models: [
           {
             provider: ModelProvider.GEMINI,
-            model: 'gemini-2.0-flash-exp',
+            model: 'gemini-2.5-flash',
             apiKey: 'test-key'
           }
         ]
@@ -277,7 +277,7 @@ describe('Model Agents', () => {
     it('should execute with correct provider', async () => {
       const config: ModelConfig = {
         provider: ModelProvider.GEMINI,
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.5-flash',
         apiKey: 'test-key'
       };
       const agent = new GeminiAgent(config);
@@ -736,7 +736,7 @@ describe('Quality Metrics Calculation', () => {
   it('should calculate quality scores correctly', async () => {
     const config: ModelConfig = {
       provider: ModelProvider.GEMINI,
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.5-flash',
       apiKey: 'test-key'
     };
     const agent = new GeminiAgent(config);
@@ -763,7 +763,7 @@ describe('Performance Metrics Calculation', () => {
   it('should track latency correctly', async () => {
     const config: ModelConfig = {
       provider: ModelProvider.GEMINI,
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.5-flash',
       apiKey: 'test-key'
     };
     const agent = new GeminiAgent(config);
@@ -782,7 +782,7 @@ describe('Performance Metrics Calculation', () => {
   it('should calculate cost correctly', async () => {
     const config: ModelConfig = {
       provider: ModelProvider.GEMINI,
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.5-flash',
       apiKey: 'test-key'
     };
     const agent = new GeminiAgent(config);
@@ -805,7 +805,7 @@ describe('Integration Tests', () => {
       models: [
         {
           provider: ModelProvider.GEMINI,
-          model: 'gemini-2.0-flash-exp',
+          model: 'gemini-2.5-flash',
           apiKey: 'test-key'
         }
       ],

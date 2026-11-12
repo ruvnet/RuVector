@@ -1286,6 +1286,49 @@ fn security_fix_unreachable_and_zero_caret_pins() {
 }
 
 #[test]
+fn fix_unreachable_ignores_ranges_that_start_past_the_fix() {
+    // Regression: a security fix shipped in @ruvector/attention@2.2.3 and a
+    // dependent declares "^2.3.0". The range excludes 2.2.3 itself, but every
+    // version it admits descends from the fix, so it must not be flagged.
+    let mut l = Ledger::default();
+    let mut e = entry(
+        "ruvnet/ruvector",
+        Some("@ruvector/attention"),
+        Some("advisory:GHSA-y"),
+        WorkKind::Security,
+        SignalKind::Security,
+        Outcome::Shipped,
+    );
+    e.version = Some("@ruvector/attention@2.2.3".into());
+    l.entries.push(e);
+    let patched = release::patched_versions(&l);
+    let mut g = graph_with(&[("ruvnet/ruvector", 10), ("ruvnet/ruflo", 10)]);
+    let set = |g: &mut Graph, name: &str, f: &dyn Fn(&mut Package)| {
+        f(g.packages.iter_mut().find(|p| p.name == name).unwrap())
+    };
+    set(&mut g, "ruvector", &|p| {
+        p.dep_ranges
+            .insert("@ruvector/attention".into(), "^2.3.0".into());
+    });
+    set(&mut g, "ruflo", &|p| {
+        p.dep_ranges
+            .insert("@ruvector/attention".into(), "^2.2.0 <2.2.3".into());
+    });
+    let s = release::range_signals(&g, &patched, &cfg().policy.npm);
+    let subj: BTreeSet<_> = s.iter().filter_map(|x| x.subject.clone()).collect();
+    assert!(
+        !subj
+            .iter()
+            .any(|x| x.contains("ruvector->@ruvector/attention")),
+        "^2.3.0 descends from the 2.2.3 fix: {subj:?}"
+    );
+    assert!(
+        subj.contains("release:fix_unreachable:ruflo->@ruvector/attention"),
+        "a range capped below the fix is still flagged: {subj:?}"
+    );
+}
+
+#[test]
 fn live_ledger_lives_outside_the_repo_and_is_seeded_once() {
     let dir = tempfile::tempdir().unwrap();
     let mut c = Config::embedded(dir.path().to_path_buf()).unwrap();

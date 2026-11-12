@@ -115,6 +115,11 @@ impl McpHandler {
             "tools/list" => self.handle_tools_list(request.id).await,
             "tools/call" => self.handle_tools_call(request.id, request.params).await,
             "resources/list" => self.handle_resources_list(request.id).await,
+            // Advertised via the resources capability, so clients (e.g. Continue)
+            // call it during setup and abort on METHOD_NOT_FOUND. No templates.
+            "resources/templates/list" => {
+                McpResponse::success(request.id, json!({ "resourceTemplates": [] }))
+            }
             "resources/read" => self.handle_resources_read(request.id, request.params).await,
             "prompts/list" => self.handle_prompts_list(request.id).await,
             "prompts/get" => self.handle_prompts_get(request.id, request.params).await,
@@ -912,6 +917,28 @@ mod tests {
             let result = handler.validate_path(path);
             assert!(result.is_err(), "Should block {}", path);
         }
+    }
+
+    #[test]
+    fn test_resources_templates_list_is_handled() {
+        let dir = tempdir().unwrap();
+        let handler = handler_with_data_dir(dir.path());
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let response = rt.block_on(handler.handle_request(McpRequest {
+            jsonrpc: "2.0".to_string(),
+            id: Some(json!(7)),
+            method: "resources/templates/list".to_string(),
+            params: None,
+        }));
+        assert!(
+            response.error.is_none(),
+            "unexpected error: {:?}",
+            response.error
+        );
+        assert_eq!(response.id, Some(json!(7)));
+        assert_eq!(response.result, Some(json!({ "resourceTemplates": [] })));
     }
 
     #[test]

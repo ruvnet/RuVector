@@ -37,6 +37,34 @@ fn baseline_stores_validate() {
     validate(&store_with_extra_first(meta), lim()).unwrap();
 }
 
+/// rvf-runtime 0.5.4 writes a lineage segment (type 0x24, not a
+/// `SegmentType` variant) into every derived or branched store (#1289).
+/// It is accepted as an opaque segment; application types stay refused.
+#[test]
+fn lineage_segment_is_accepted_and_application_types_are_not() {
+    let lineage = Seg {
+        seg_type: 0x24,
+        ..Seg::new(SegmentType::Meta, 9)
+    }
+    .build(&[0u8; 128], &[]);
+    validate(&store_with_extra_first(lineage), lim()).unwrap();
+
+    for app in [0xC0u8, 0xC1, 0xEF] {
+        let seg = Seg {
+            seg_type: app,
+            ..Seg::new(SegmentType::Meta, 9)
+        }
+        .build(b"\x01\x00kv", &[]);
+        assert_eq!(
+            err(&store_with_extra_first(seg)),
+            E::UnknownSegmentType {
+                offset: 0,
+                seg_type: app,
+            }
+        );
+    }
+}
+
 #[test]
 fn empty_and_every_truncation_are_refused() {
     assert_eq!(err(&[]), E::Empty);

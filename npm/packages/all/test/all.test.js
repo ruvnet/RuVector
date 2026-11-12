@@ -36,12 +36,13 @@ function freshRequireWithSpy() {
 
 test('package.json shape', () => {
   assert.equal(pkg.name, '@ruvector/all');
-  assert.deepEqual(pkg.files, ['index.js', 'index.d.ts', 'README.md']);
+  assert.deepEqual(pkg.files, ['index.js', 'index.d.ts', 'README.md', 'clustering.mjs', 'clustering.d.mts', 'clustering/']);
   assert.equal(pkg.optionalDependencies, undefined);
   for (const name of Object.keys(pkg.dependencies)) {
     // Platform binaries resolve via each member's optionalDependencies.
     assert.doesNotMatch(name, /-(linux|darwin|win32|android|freebsd)-/, `${name} is platform-suffixed`);
-    assert.match(pkg.dependencies[name], /^\^\d+\.\d+\.\d+$/, `${name} must use a caret range`);
+    // Caret ranges, or an exact pin for new 0.x edges (lane policy).
+    assert.match(pkg.dependencies[name], /^\^?\d+\.\d+\.\d+$/, `${name} must use a caret range or exact pin`);
   }
 });
 

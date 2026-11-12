@@ -362,12 +362,11 @@ fn execute_generate(
         KeyAlgorithm::Rsa => {
             #[cfg(feature = "rsa")]
             {
-                use rsa::{RsaPrivateKey, RsaPublicKey};
+                use rsa::{PrivateKey as RsaPrivateKey, PublicKey as RsaPublicKey};
                 use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey, LineEnding};
 
                 println!("  Generating RSA-{} keypair (this may take a moment)...", bits);
-                let mut rng = OsRng;
-                let private_key = RsaPrivateKey::new(&mut rng, bits as usize)
+                let private_key = RsaPrivateKey::new(&mut getrandom::SysRng, bits as usize)
                     .context("Failed to generate RSA key")?;
                 let public_key = RsaPublicKey::from(&private_key);
 
@@ -385,7 +384,7 @@ fn execute_generate(
 
                 println!("{} RSA keypair generated", "[3/3]".cyan());
                 println!();
-                println!("{} Generated RSA-{} keypair:", "SUCCESS".green().bold());
+                println!("{} Generated RSA-{} keypair:", "SUCCESS".green().bold(), bits);
                 println!("  Private: {}", priv_path.display().to_string().yellow());
                 println!("  Public:  {}", pub_path.display().to_string().yellow());
             }
