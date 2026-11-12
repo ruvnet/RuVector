@@ -12,6 +12,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const VERSION = '0.3.0';
+// Squaring smaller norms enters subnormal precision even if the product is normal.
+const MIN_NORMAL_NORM = Math.sqrt(2.2250738585072014e-308);
 
 const program = new Command();
 
@@ -35,16 +37,23 @@ const DEFAULT_DB_PATH = '.rvlite/db.json';
 
 // Load state from file
 function loadState(dbPath) {
-  if (fs.existsSync(dbPath)) {
-    // Do not fall back to an empty state on a parse error: the next
-    // saveState() would overwrite the user's file and lose every vector.
-    try {
-      state = JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
-    } catch (e) {
-      throw new Error(`Cannot read database ${dbPath}: ${e.message}`);
-    }
-    rebuildNormCache();
+  let raw;
+  try {
+    raw = fs.readFileSync(dbPath, 'utf-8');
+  } catch (error) {
+    // Only an absent database starts fresh. Existing unreadable files must
+    // not become an empty state that a mutating command can overwrite.
+    if (error.code === 'ENOENT') return;
+    throw error;
   }
+  // Do not fall back to an empty state on a parse error: the next
+  // saveState() would overwrite the user's file and lose every vector.
+  try {
+    state = JSON.parse(raw);
+  } catch (e) {
+    throw new Error(`Cannot read database ${dbPath}: ${e.message}`);
+  }
+  rebuildNormCache();
 }
 
 // Save state to file (optimized: no pretty print for large DBs)
@@ -73,8 +82,15 @@ function rebuildNormCache() {
 }
 
 // Generate unique ID
-function generateId() {
-  return `vec_${state.nextId++}`;
+function generateId(reservedIds) {
+  if (!Number.isSafeInteger(state.nextId) || state.nextId < 1) {
+    throw new Error('Cannot generate a unique vector ID: invalid or exhausted nextId');
+  }
+  while (Number.isSafeInteger(state.nextId)) {
+    const candidate = `vec_${state.nextId++}`;
+    if (!Object.hasOwn(state.vectors, candidate) && !reservedIds?.has(candidate)) return candidate;
+  }
+  throw new Error('Cannot generate a unique vector ID: counter exhausted');
 }
 
 // Compute vector norm (magnitude)
@@ -88,7 +104,6 @@ function computeNorm(vec) {
 
 // Optimized cosine similarity (using precomputed norms)
 function cosineSimilarity(a, b, normA, normB) {
-  if (normA === 0 || normB === 0) return 0;
   let dot = 0;
   // Unrolled loop for better performance
   const len = a.length;
@@ -99,7 +114,26 @@ function cosineSimilarity(a, b, normA, normB) {
   for (; i < len; i++) {
     dot += a[i] * b[i];
   }
-  return dot / (normA * normB);
+  const denominator = normA * normB;
+  if (normA >= MIN_NORMAL_NORM && normB >= MIN_NORMAL_NORM && Number.isFinite(denominator) && Number.isFinite(dot)) {
+    return dot / denominator;
+  }
+  // Scaling each side independently avoids overflow and underflow while
+  // preserving the ordinary cached-norm fast path.
+  let scaleA = 0, scaleB = 0;
+  for (let j = 0; j < len; j++) {
+    scaleA = Math.max(scaleA, Math.abs(a[j]));
+    scaleB = Math.max(scaleB, Math.abs(b[j]));
+  }
+  if (scaleA === 0 || scaleB === 0) return 0;
+  let scaledDot = 0, squaredA = 0, squaredB = 0;
+  for (let j = 0; j < len; j++) {
+    const x = a[j] / scaleA, y = b[j] / scaleB;
+    scaledDot += x * y;
+    squaredA += x * x;
+    squaredB += y * y;
+  }
+  return scaledDot / (Math.sqrt(squaredA) * Math.sqrt(squaredB));
 }
 
 // Euclidean distance (squared, for comparison only)
@@ -280,8 +314,20 @@ function hashEmbed(text, dimensions = 384) {
   return embedding;
 }
 
+// Keep malformed coordinates out of persisted state and distance arithmetic.
+function validateVector(vector) {
+  if (!Array.isArray(vector) || vector.length === 0 || !vector.every(v => typeof v === 'number' && Number.isFinite(v))) {
+    throw new Error('Vector must be a nonempty array of finite numbers');
+  }
+  const dimensions = state.config?.dimensions;
+  if (dimensions !== undefined && vector.length !== dimensions) {
+    throw new Error(`Vector dimensions (${vector.length}) must match database dimensions (${dimensions})`);
+  }
+}
+
 // Optimized search with precomputed norms and early termination
 function searchVectors(query, k, metric = 'cosine') {
+  validateVector(query);
   const entries = Object.entries(state.vectors);
   if (entries.length === 0) return [];
 
@@ -327,26 +373,35 @@ function searchVectors(query, k, metric = 'cosine') {
 }
 
 // Insert vector with precomputed norm
-function insertVector(vector, metadata, id) {
-  const vecId = id || generateId();
+function insertVector(vector, metadata, id, reservedIds) {
+  validateVector(vector);
+  const vecId = id || generateId(reservedIds);
   const norm = computeNorm(vector);
-  state.vectors[vecId] = { vector, metadata, norm };
+  // Define a literal own key: assignment to "__proto__" otherwise invokes
+  // Object.prototype's setter and loses the record during JSON persistence.
+  Object.defineProperty(state.vectors, vecId, {
+    value: { vector, metadata, norm },
+    enumerable: true, configurable: true, writable: true
+  });
   normCache.set(vecId, norm);
   return vecId;
 }
 
 // Batch insert for bulk loading
 function insertBatch(vectors) {
+  for (const { vector } of vectors) validateVector(vector);
+  // Reserve later explicit IDs before automatic allocation can claim them.
+  const reservedIds = new Set(vectors.filter(row => row.id).map(row => String(row.id)));
   const ids = [];
   for (const { vector, metadata, id } of vectors) {
-    ids.push(insertVector(vector, metadata, id));
+    ids.push(insertVector(vector, metadata, id, reservedIds));
   }
   return ids;
 }
 
 // Delete vector
 function deleteVector(id) {
-  if (state.vectors[id]) {
+  if (Object.hasOwn(state.vectors, id)) {
     delete state.vectors[id];
     normCache.delete(id);
     return true;
@@ -365,13 +420,17 @@ program
   .action(async (options) => {
     const spinner = ora('Initializing RvLite database...').start();
     try {
+      const dimensions = Number(options.dimensions);
+      if (!Number.isSafeInteger(dimensions) || dimensions < 1) {
+        throw new Error('Database dimensions must be a positive safe integer');
+      }
       state = {
         vectors: {},
         graph: { nodes: {}, edges: {} },
         triples: [],
         nextId: 1,
         config: {
-          dimensions: parseInt(options.dimensions),
+          dimensions,
           metric: options.metric
         }
       };
@@ -519,7 +578,7 @@ program
   .action(async (id, options) => {
     try {
       loadState(options.path);
-      const entry = state.vectors[id];
+      const entry = Object.hasOwn(state.vectors, id) ? state.vectors[id] : undefined;
       if (entry) {
         console.log(JSON.stringify({ vector: entry.vector, metadata: entry.metadata }, null, 2));
       } else {
@@ -882,7 +941,7 @@ program
             }
             break;
           case 'get':
-            if (args[0] && state.vectors[args[0]]) {
+            if (args[0] && Object.hasOwn(state.vectors, args[0])) {
               const entry = state.vectors[args[0]];
               console.log(JSON.stringify({ vector: entry.vector, metadata: entry.metadata }, null, 2));
             } else {

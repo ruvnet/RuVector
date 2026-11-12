@@ -28,6 +28,8 @@ const fs = require('fs');
 const { serializeStore, resolveIntelStorePath } = require('./intel-store');
 const memoryStore = require('./memory-store');
 const recordValidate = require('./record-validate');
+// weights_* tools; @ruvector/weight-space itself is loaded only inside a call
+const weightsTools = require('./weights');
 const { execFileSync } = require('child_process');
 
 // ADR-256: default-deny MCP tool-access policy (RUVECTOR_MCP_ALLOW/DENY/PROFILE)
@@ -1434,7 +1436,7 @@ const TOOLS = [
   // Learning Engine Tools (v2.1)
   {
     name: 'hooks_learning_config',
-    description: 'Configure learning algorithms for different tasks. Supports 9 algorithms: q-learning, sarsa, double-q, actor-critic, ppo, decision-transformer, monte-carlo, td-lambda, dqn',
+    description: 'Configure learning algorithms for different tasks. Supports 10 algorithms: q-learning, sarsa, double-q, actor-critic, ppo, decision-transformer, monte-carlo, td-lambda, dqn, neural-q (neural-q needs the optional ruv-fann package; it falls back to the tabular Q-table without it)',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1446,7 +1448,7 @@ const TOOLS = [
         algorithm: {
           type: 'string',
           description: 'Learning algorithm',
-          enum: ['q-learning', 'sarsa', 'double-q', 'actor-critic', 'ppo', 'decision-transformer', 'monte-carlo', 'td-lambda', 'dqn']
+          enum: ['q-learning', 'sarsa', 'double-q', 'actor-critic', 'ppo', 'decision-transformer', 'monte-carlo', 'td-lambda', 'dqn', 'neural-q']
         },
         learningRate: { type: 'number', description: 'Learning rate (0.0-1.0)' },
         discountFactor: { type: 'number', description: 'Discount factor gamma (0.0-1.0)' },
@@ -1899,6 +1901,9 @@ const TOOLS = [
       required: ['path', 'vector']
     }
   },
+  // ── Weight registry Tools (optional @ruvector/weight-space) ──────────────
+  // weights_save, weights_nearest, weights_diff, weights_lineage
+  ...weightsTools.MCP_TOOLS,
   // ── RVF Vector Store Tools ────────────────────────────────────────────────
   {
     name: 'rvf_create',
@@ -2699,7 +2704,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'hooks_build_agents': {
         const commandArgs = ['hooks', 'build-agents'];
-        if (args.focus) commandArgs.push('--focus', args.focus);
+        if (args.focus) {
+          // The focus string is written into .claude/agents/* and settings.json.
+          if (!BUILD_AGENT_FOCUS.includes(args.focus)) {
+            throw new Error(`focus must be one of: ${BUILD_AGENT_FOCUS.join(', ')}`);
+          }
+          commandArgs.push('--focus', args.focus);
+        }
         if (args.include_prompts) commandArgs.push('--include-prompts');
 
         try {
@@ -3556,6 +3567,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const engine = new LearningEngine();
         if (intel.data.learning) engine.import(intel.data.learning);
+        if (engine.usesNeural()) await engine.enableNeural();
 
         const experience = {
           state: args.state,
@@ -3589,6 +3601,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const engine = new LearningEngine();
         if (intel.data.learning) engine.import(intel.data.learning);
+        if (engine.usesNeural()) await engine.enableNeural();
 
         const task = args.task || 'agent-routing';
         let result = { success: true };
@@ -3742,6 +3755,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (intel.data.learning) {
           engine.import(intel.data.learning);
         }
+        if (engine.usesNeural()) await engine.enableNeural();
 
         const results = [];
         let totalReward = 0;
@@ -3892,7 +3906,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'workers_status': {
         try {
           const commandArgs = ['workers', 'status'];
-          if (args.workerId) commandArgs.push(String(args.workerId));
+          if (args.workerId) commandArgs.push(assertPositional(String(args.workerId), 'workerId'));
           const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', commandArgs, {
             timeout: 15000,
             stdio: ['pipe', 'pipe', 'pipe']
@@ -4019,7 +4033,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'workers_create': {
-        const name = String(args.name || '');
+        const name = assertPositional(String(args.name || ''), 'worker name');
         const preset = String(args.preset || 'quick-scan');
         const triggers = args.triggers == null ? null : String(args.triggers);
         try {
@@ -4047,8 +4061,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'workers_run': {
-        const name = String(args.name);
-        const targetPath = String(args.path || '.');
+        const name = assertPositional(String(args.name), 'worker name');
+        // Workers read and report on files under --path; confine it like every
+        // other MCP file argument.
+        const targetPath = validateRvfPath(String(args.path || '.'));
         try {
           const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', ['workers', 'run', name, '--path', targetPath], {
             timeout: 120000,
@@ -4111,7 +4127,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'workers_load_config': {
-        const configFile = String(args.file || 'workers.yaml');
+        const configFile = validateRvfPath(String(args.file || 'workers.yaml'));
         try {
           const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', ['workers', 'load-config', '--file', configFile], {
             timeout: 30000,
@@ -4199,6 +4215,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
         }
       }
+
+      // ── Weight registry Tool Handlers ───────────────────────────────────
+      // Registry and model paths go through validateRvfPath (working directory
+      // + RUVECTOR_MCP_ROOTS); a missing package returns ERR_WEIGHT_SPACE_MISSING.
+      case 'weights_save':
+      case 'weights_nearest':
+      case 'weights_diff':
+      case 'weights_lineage':
+        return await weightsTools.runMcpTool(name, args, validateRvfPath);
 
       // ── RVF Tool Handlers ─────────────────────────────────────────────────
       case 'rvf_create': {

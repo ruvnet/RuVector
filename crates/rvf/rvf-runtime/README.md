@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/ruvector/main/assets/ruvector/crates/rvf-runtime.svg" alt="rvf-runtime flow" width="100%"></p>
+
 # rvf-runtime
 
 RuVector Format runtime providing the RvfStore API, background compaction, and streaming I/O.
@@ -15,7 +17,45 @@ RuVector Format runtime providing the RvfStore API, background compaction, and s
 
 ```toml
 [dependencies]
-rvf-runtime = "0.4"
+rvf-runtime = "0.5"
+rvf-types = "0.3"
+```
+
+Create a store, query it, delete, and let the compaction policy decide when to
+compact (`should_compact` / `compact_if_needed`, spec 10 §7 thresholds):
+
+```rust
+use rvf_runtime::compaction::CompactionDecision;
+use rvf_runtime::{QueryOptions, RvfOptions, RvfStore};
+use rvf_types::RvfError;
+
+fn main() -> Result<(), RvfError> {
+    let path = std::env::temp_dir().join("quickstart.rvf");
+    let _ = std::fs::remove_file(&path);
+
+    // Create a 4-dimensional store and ingest three vectors
+    let mut store = RvfStore::create(&path, RvfOptions { dimension: 4, ..Default::default() })?;
+    let vectors = [[1.0f32, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]];
+    let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
+    store.ingest_batch(&refs, &[1, 2, 3], None)?;
+
+    // Nearest neighbours
+    let hits = store.query(&[0.9, 0.1, 0.0, 0.0], 2, &QueryOptions::default())?;
+    println!("top hit: id {} (distance {:.3})", hits[0].id, hits[0].distance);
+
+    // Delete, then let the compaction policy decide whether to compact
+    store.delete(&[2, 3])?;
+    match store.should_compact() {
+        CompactionDecision::None => println!("no compaction needed"),
+        decision => println!("compaction advised: {decision:?}"),
+    }
+    if let Some(result) = store.compact_if_needed()? {
+        println!("compacted: {result:?}");
+    }
+
+    store.close()?;
+    Ok(())
+}
 ```
 
 ## Features
@@ -193,3 +233,7 @@ The following methods are planned for `RvfStore`:
 ## License
 
 MIT OR Apache-2.0
+
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector/tree/main/crates/rvf/rvf-runtime)

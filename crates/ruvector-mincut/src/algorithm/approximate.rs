@@ -1,14 +1,15 @@
-//! Approximate Min-Cut for All Cut Sizes
+//! Sampled-graph minimum-cut candidate search
 //!
-//! Implementation based on "Approximate Min-Cut in All Cut Sizes"
-//! (SODA 2025, arXiv:2412.15069).
+//! Inspired by "Approximate Min-Cut in All Cut Sizes" (SODA 2025,
+//! arXiv:2412.15069), without implementing that paper's proved algorithm.
 //!
 //! # Key Innovation
 //!
-//! Uses spectral sparsification with edge sampling to achieve (1+ε)-approximate
-//! minimum cuts for ANY cut size, not just small cuts.
+//! Samples edges to propose a partition, then evaluates that partition on the
+//! original graph. The reported value is a real cut weight, but no `(1+ε)`
+//! guarantee is established for the heuristic sampling policy.
 //!
-//! # Time Complexity
+//! # Sampling Targets (Not Proven Bounds)
 //!
 //! - Preprocessing: O(m log² n / ε²)
 //! - Query: O(n polylog n / ε²)
@@ -26,7 +27,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 /// Configuration for approximate min-cut
 #[derive(Debug, Clone)]
 pub struct ApproxMinCutConfig {
-    /// Approximation parameter (0 < ε ≤ 1)
+    /// Sampling parameter (0 < ε ≤ 1); not a certified approximation ratio.
     pub epsilon: f64,
     /// Number of sparsifier samples (higher = more accurate)
     pub num_samples: usize,
@@ -70,8 +71,6 @@ struct SpectralSparsifier {
     edges: Vec<WeightedEdge>,
     /// Vertex set
     vertices: HashSet<VertexId>,
-    /// Adjacency map
-    adj: HashMap<VertexId, Vec<(VertexId, f64)>>,
 }
 
 impl SpectralSparsifier {
@@ -79,7 +78,6 @@ impl SpectralSparsifier {
         Self {
             edges: Vec::new(),
             vertices: HashSet::new(),
-            adj: HashMap::new(),
         }
     }
 
@@ -87,23 +85,13 @@ impl SpectralSparsifier {
         self.vertices.insert(u);
         self.vertices.insert(v);
         self.edges.push(WeightedEdge::new(u, v, weight));
-
-        self.adj.entry(u).or_default().push((v, weight));
-        self.adj.entry(v).or_default().push((u, weight));
-    }
-
-    fn vertex_count(&self) -> usize {
-        self.vertices.len()
-    }
-
-    fn edge_count(&self) -> usize {
-        self.edges.len()
     }
 }
 
-/// Approximate minimum cut for all cut sizes
+/// Sampled-graph cut search with original-graph value validation
 ///
-/// Achieves (1+ε)-approximation for any cut size using spectral sparsification.
+/// Returns a cut value and partition of the original graph. It does not carry
+/// a validated `(1+ε)` approximation guarantee.
 ///
 /// # Example
 ///
@@ -132,7 +120,7 @@ pub struct ApproxMinCut {
     config: ApproxMinCutConfig,
     /// Current minimum cut value
     cached_min_cut: Option<f64>,
-    /// Partition achieving `cached_min_cut`, kept in lockstep with it.
+    /// Partition producing the cached value on the original graph.
     cached_partition: Option<(Vec<VertexId>, Vec<VertexId>)>,
     /// Statistics
     stats: ApproxMinCutStats,
@@ -154,15 +142,15 @@ pub struct ApproxMinCutStats {
 /// Result of approximate min-cut query
 #[derive(Debug, Clone)]
 pub struct ApproxMinCutResult {
-    /// Approximate minimum cut value
+    /// Weight of a concrete partition in the original graph.
     pub value: f64,
-    /// Lower bound (value / (1+ε))
+    /// Trivial certified lower bound for nonnegative edge weights (zero).
     pub lower_bound: f64,
-    /// Upper bound (value * (1+ε))
+    /// Certified upper bound: the returned partition's original-edge weight.
     pub upper_bound: f64,
-    /// Partition achieving the cut
+    /// Partition whose original-edge crossing weight equals `value`.
     pub partition: Option<(Vec<VertexId>, Vec<VertexId>)>,
-    /// Approximation ratio used
+    /// Requested sampling tolerance; not a certified approximation ratio.
     pub epsilon: f64,
 }
 
@@ -191,6 +179,10 @@ impl ApproxMinCut {
 
     /// Insert an edge
     pub fn insert_edge(&mut self, u: VertexId, v: VertexId, weight: f64) {
+        assert!(
+            weight.is_finite() && weight >= 0.0,
+            "edge weight must be finite and nonnegative"
+        );
         self.stats.insertions += 1;
         self.cached_min_cut = None; // Invalidate cache
         self.cached_partition = None;
@@ -231,7 +223,7 @@ impl ApproxMinCut {
     pub fn min_cut(&mut self) -> ApproxMinCutResult {
         self.stats.queries += 1;
 
-        if self.edges.is_empty() {
+        if self.vertices.len() < 2 {
             return ApproxMinCutResult {
                 value: f64::INFINITY,
                 lower_bound: f64::INFINITY,
@@ -241,35 +233,28 @@ impl ApproxMinCut {
             };
         }
 
-        // Use cached value if available. `cached_partition` is invalidated in
-        // lockstep with `cached_min_cut` (see `insert_edge`/`delete_edge`), so
-        // it is always the partition that achieves this exact cached value.
+        // Use cached value if available
         if let Some(cached) = self.cached_min_cut {
-            let lower = cached / (1.0 + self.config.epsilon);
-            let upper = cached * (1.0 + self.config.epsilon);
             return ApproxMinCutResult {
                 value: cached,
-                lower_bound: lower,
-                upper_bound: upper,
+                lower_bound: 0.0,
+                upper_bound: cached,
                 partition: self.cached_partition.clone(),
                 epsilon: self.config.epsilon,
             };
         }
 
-        // Build sparsifier and compute min-cut. This also populates
-        // `cached_partition` with the partition that actually achieves the
-        // returned value (see `compute_min_cut_via_sparsifier`).
-        let value = self.compute_min_cut_via_sparsifier();
+        // Every candidate is a real partition of the original graph. Its
+        // original-edge weight is an upper bound on the true minimum cut.
+        let (value, partition) = self.compute_min_cut_via_sparsifier();
         self.cached_min_cut = Some(value);
-
-        let lower = value / (1.0 + self.config.epsilon);
-        let upper = value * (1.0 + self.config.epsilon);
+        self.cached_partition = Some(partition.clone());
 
         ApproxMinCutResult {
             value,
-            lower_bound: lower,
-            upper_bound: upper,
-            partition: self.cached_partition.clone(),
+            lower_bound: 0.0,
+            upper_bound: value,
+            partition: Some(partition),
             epsilon: self.config.epsilon,
         }
     }
@@ -285,7 +270,7 @@ impl ApproxMinCut {
             return true;
         }
 
-        let start = *self.vertices.iter().next().unwrap();
+        let start = *self.vertices.iter().min().unwrap();
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
 
@@ -321,76 +306,35 @@ impl ApproxMinCut {
         &self.stats
     }
 
-    /// Compute min-cut via spectral sparsification. Always leaves
-    /// `self.cached_partition` holding a partition that actually achieves
-    /// the returned value (fixes a prior bug where the public `partition`
-    /// field was an arbitrary BFS bisection unrelated to the computed cut —
-    /// see `docs/research/nightly/2026-10-29-approx-mincut-partition-fix`).
-    fn compute_min_cut_via_sparsifier(&mut self) -> f64 {
+    /// Compute min-cut via spectral sparsification
+    fn compute_min_cut_via_sparsifier(&mut self) -> (f64, (Vec<VertexId>, Vec<VertexId>)) {
         self.stats.rebuilds += 1;
 
-        if !self.is_connected() {
-            self.cached_partition = Some(self.disconnected_component_partition());
-            return 0.0;
-        }
-
-        // For small graphs, compute exactly.
-        if self.edges.len() <= 50 {
-            let (value, partition) = self.stoer_wagner_with_partition(&self.adj, &self.vertices);
-            self.cached_partition = Some(partition);
-            return value;
+        // The exact kernel detects disconnected graphs in linear time; keep
+        // their true zero cut instead of sampling a connected subgraph.
+        if self.edges.len() <= 50 || !self.is_connected() {
+            return self.original_weight_of_candidate(&self.edges);
         }
 
         // Compute effective resistances
         self.compute_effective_resistances();
 
-        // Build sparsifier(s) and take the median by value. The matching
-        // partition is recovered from the specific sparsifier that produced
-        // the median estimate, not recomputed on the full graph: the whole
-        // point of sparsification is that the full graph may be too large
-        // for a second exact pass.
-        let mut estimates: Vec<(f64, SpectralSparsifier)> =
-            Vec::with_capacity(self.config.num_samples);
+        // Select the lightest sampled partition after weighing it on the
+        // original graph. A median of sampled weights is not itself a cut.
+        let mut best = None;
         for i in 0..self.config.num_samples {
             let sparsifier = self.build_sparsifier(self.config.seed + i as u64);
-            let cut = self.compute_sparsifier_min_cut(&sparsifier);
-            estimates.push((cut, sparsifier));
-        }
-
-        estimates.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
-        let median = &estimates[estimates.len() / 2];
-        let (_, partition) = self.stoer_wagner_with_partition(&median.1.adj, &median.1.vertices);
-        self.cached_partition = Some(partition);
-        median.0
-    }
-
-    /// Partition for a disconnected graph: one connected component versus
-    /// everything else. This genuinely achieves the zero cut value
-    /// `compute_min_cut_via_sparsifier` returns for the disconnected case.
-    fn disconnected_component_partition(&self) -> (Vec<VertexId>, Vec<VertexId>) {
-        let Some(&start) = self.vertices.iter().next() else {
-            return (Vec::new(), Vec::new());
-        };
-        let mut visited = HashSet::new();
-        let mut queue = VecDeque::new();
-        queue.push_back(start);
-        visited.insert(start);
-        while let Some(current) = queue.pop_front() {
-            if let Some(neighbors) = self.adj.get(&current) {
-                for &(neighbor, _) in neighbors {
-                    if visited.insert(neighbor) {
-                        queue.push_back(neighbor);
-                    }
-                }
+            let candidate = self.original_weight_of_candidate(&sparsifier.edges);
+            if best
+                .as_ref()
+                .map_or(true, |(value, _)| candidate.0 < *value)
+            {
+                best = Some(candidate);
             }
         }
-        let rest: Vec<VertexId> = self
-            .vertices
-            .iter()
-            .filter(|v| !visited.contains(v))
-            .copied()
-            .collect();
-        (visited.into_iter().collect(), rest)
+
+        // A zero-sample configuration has no candidate; use the original graph.
+        best.unwrap_or_else(|| self.original_weight_of_candidate(&self.edges))
     }
 
     /// Compute effective resistances using BFS approximation
@@ -464,7 +408,7 @@ impl ApproxMinCut {
             return;
         }
 
-        let start = *self.vertices.iter().next().unwrap();
+        let start = *self.vertices.iter().min().unwrap();
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
 
@@ -488,274 +432,38 @@ impl ApproxMinCut {
         }
     }
 
-    /// Compute min-cut on sparsifier
-    fn compute_sparsifier_min_cut(&self, sparsifier: &SpectralSparsifier) -> f64 {
-        if sparsifier.vertex_count() <= 1 {
-            return f64::INFINITY;
-        }
-
-        // Use Stoer-Wagner on the small sparsifier
-        self.stoer_wagner(&sparsifier.adj, &sparsifier.vertices)
-    }
-
-    /// Optimized Stoer-Wagner minimum cut algorithm
-    /// Uses early termination and degree-based lower bound
-    fn stoer_wagner(
+    /// Solve a candidate graph, then weigh its partition on every original edge.
+    /// The returned value is therefore a real cut value (and an upper bound on
+    /// the original global min-cut), even if sampling distorted edge weights.
+    fn original_weight_of_candidate(
         &self,
-        adj: &HashMap<VertexId, Vec<(VertexId, f64)>>,
-        vertices: &HashSet<VertexId>,
-    ) -> f64 {
-        if vertices.len() <= 1 {
-            return f64::INFINITY;
-        }
-
-        // Quick lower bound: minimum weighted degree
-        let min_degree: f64 = adj
-            .iter()
-            .filter(|(v, _)| vertices.contains(v))
-            .map(|(_, neighbors)| neighbors.iter().map(|(_, w)| *w).sum::<f64>())
-            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .unwrap_or(f64::INFINITY);
-
-        // For very small graphs, use simpler algorithm
-        if vertices.len() <= 3 {
-            return min_degree;
-        }
-
-        // Build adjacency matrix
-        let verts: Vec<VertexId> = vertices.iter().copied().collect();
-        let n = verts.len();
-        let vert_to_idx: HashMap<_, _> = verts.iter().enumerate().map(|(i, &v)| (v, i)).collect();
-
-        let mut weights = vec![vec![0.0; n]; n];
-        for (&v, neighbors) in adj {
-            if let Some(&i) = vert_to_idx.get(&v) {
-                for &(neighbor, weight) in neighbors {
-                    if let Some(&j) = vert_to_idx.get(&neighbor) {
-                        weights[i][j] += weight;
-                    }
-                }
-            }
-        }
-
-        // Stoer-Wagner iterations with optimizations
-        let mut min_cut = f64::INFINITY;
-        let mut active: Vec<bool> = vec![true; n];
-
-        for phase in 0..n - 1 {
-            // Early termination if we found a zero cut
-            if min_cut == 0.0 {
-                break;
-            }
-
-            // Maximum adjacency search with optimized tracking
-            let mut in_a = vec![false; n];
-            let mut cut_of_phase = vec![0.0; n];
-
-            // Find first active vertex
-            let first = match (0..n).find(|&i| active[i]) {
-                Some(f) => f,
-                None => break,
-            };
-            in_a[first] = true;
-
-            let mut last = first;
-            let mut before_last = first;
-
-            let active_count = active.iter().filter(|&&a| a).count();
-            for _ in 1..active_count {
-                // Update cut values only for neighbors of last
-                for j in 0..n {
-                    if active[j] && !in_a[j] && weights[last][j] > 0.0 {
-                        cut_of_phase[j] += weights[last][j];
-                    }
-                }
-
-                // Find vertex with maximum cut value
-                before_last = last;
-                let mut max_val = f64::NEG_INFINITY;
-                for j in 0..n {
-                    if active[j] && !in_a[j] && cut_of_phase[j] > max_val {
-                        max_val = cut_of_phase[j];
-                        last = j;
-                    }
-                }
-
-                if max_val == f64::NEG_INFINITY {
-                    break;
-                }
-                in_a[last] = true;
-            }
-
-            // Update minimum cut
-            if cut_of_phase[last] > 0.0 || phase == 0 {
-                min_cut = min_cut.min(cut_of_phase[last]);
-            }
-
-            // Merge last two vertices
-            active[last] = false;
-            for j in 0..n {
-                weights[before_last][j] += weights[last][j];
-                weights[j][before_last] += weights[j][last];
-            }
-        }
-
-        min_cut
-    }
-
-    /// Stoer-Wagner minimum cut, also recovering a partition that actually
-    /// achieves the returned value.
-    ///
-    /// This is the fix for a prior bug: the old `compute_partition` ignored
-    /// the computed cut entirely and returned an arbitrary BFS-order
-    /// bisection (roughly half the vertices reachable from an arbitrary
-    /// start vertex), with no relationship to which edges the min-cut
-    /// algorithm actually selected. Any caller that used `partition` as a
-    /// structural "which vertices sit on the cut boundary" signal — e.g.
-    /// `ruvector-agent-memory`'s `MincutGatedForgetting` — would have been
-    /// silently acting on the wrong vertices on every sparsifier-path call.
-    /// See `docs/research/nightly/2026-10-29-approx-mincut-partition-fix`.
-    ///
-    /// For `n <= 3` vertices, isolating the minimum-weighted-degree vertex
-    /// is *exactly* the global minimum cut (the only candidate cuts on 2 or
-    /// 3 vertices are the `n` singleton-vs-rest cuts, whose values are
-    /// exactly each vertex's total degree), so the value and partition
-    /// below both stay exact in that regime, matching the pre-existing
-    /// `stoer_wagner`'s (value-only) behavior for the same case.
-    fn stoer_wagner_with_partition(
-        &self,
-        adj: &HashMap<VertexId, Vec<(VertexId, f64)>>,
-        vertices: &HashSet<VertexId>,
+        candidate_edges: &[WeightedEdge],
     ) -> (f64, (Vec<VertexId>, Vec<VertexId>)) {
-        if vertices.is_empty() {
-            return (f64::INFINITY, (Vec::new(), Vec::new()));
-        }
-        if vertices.len() == 1 {
-            return (
-                f64::INFINITY,
-                (vertices.iter().copied().collect(), Vec::new()),
-            );
-        }
-
-        let verts: Vec<VertexId> = vertices.iter().copied().collect();
-        let n = verts.len();
-
-        if n <= 3 {
-            let min_entry = adj
-                .iter()
-                .filter(|(v, _)| vertices.contains(v))
-                .map(|(&v, neighbors)| (v, neighbors.iter().map(|(_, w)| *w).sum::<f64>()))
-                .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
-            return match min_entry {
-                Some((min_vertex, min_degree)) => {
-                    let rest = verts.iter().copied().filter(|&v| v != min_vertex).collect();
-                    (min_degree, (vec![min_vertex], rest))
-                }
-                None => (f64::INFINITY, (verts, Vec::new())),
-            };
-        }
-
-        let vert_to_idx: HashMap<_, _> = verts.iter().enumerate().map(|(i, &v)| (v, i)).collect();
-
-        let mut weights = vec![vec![0.0; n]; n];
-        for (&v, neighbors) in adj {
-            if let Some(&i) = vert_to_idx.get(&v) {
-                for &(neighbor, weight) in neighbors {
-                    if let Some(&j) = vert_to_idx.get(&neighbor) {
-                        weights[i][j] += weight;
-                    }
-                }
-            }
-        }
-
-        let mut min_cut = f64::INFINITY;
-        let mut best_group: Vec<usize> = Vec::new();
-        let mut active: Vec<bool> = vec![true; n];
-        // group_members[i]: original vertex indices currently merged into
-        // supervertex i (standard Stoer-Wagner contraction bookkeeping,
-        // extended to track membership so the cut-of-the-phase partition
-        // can be recovered, not just its value).
-        let mut group_members: Vec<Vec<usize>> = (0..n).map(|i| vec![i]).collect();
-
-        for phase in 0..n - 1 {
-            if min_cut == 0.0 {
-                break;
-            }
-
-            let mut in_a = vec![false; n];
-            let mut cut_of_phase = vec![0.0; n];
-
-            let first = match (0..n).find(|&i| active[i]) {
-                Some(f) => f,
-                None => break,
-            };
-            in_a[first] = true;
-
-            let mut last = first;
-            let mut before_last = first;
-
-            let active_count = active.iter().filter(|&&a| a).count();
-            for _ in 1..active_count {
-                for j in 0..n {
-                    if active[j] && !in_a[j] && weights[last][j] > 0.0 {
-                        cut_of_phase[j] += weights[last][j];
-                    }
-                }
-
-                before_last = last;
-                let mut max_val = f64::NEG_INFINITY;
-                for j in 0..n {
-                    if active[j] && !in_a[j] && cut_of_phase[j] > max_val {
-                        max_val = cut_of_phase[j];
-                        last = j;
-                    }
-                }
-
-                if max_val == f64::NEG_INFINITY {
-                    break;
-                }
-                in_a[last] = true;
-            }
-
-            // Same update condition as `stoer_wagner`, strengthened with
-            // `candidate < min_cut` purely to decide *when to also capture
-            // the partition* — `min_cut.min(candidate)` already implies
-            // this, so the final `min_cut` value is unchanged from
-            // `stoer_wagner`'s.
-            let candidate = cut_of_phase[last];
-            if (candidate > 0.0 || phase == 0) && candidate < min_cut {
-                min_cut = candidate;
-                best_group = group_members[last].clone();
-            }
-
-            active[last] = false;
-            let absorbed = std::mem::take(&mut group_members[last]);
-            group_members[before_last].extend(absorbed);
-            for j in 0..n {
-                weights[before_last][j] += weights[last][j];
-                weights[j][before_last] += weights[j][last];
-            }
-        }
-
-        if best_group.is_empty() {
-            // Only reachable if every phase's cut was 0 (fully disconnected
-            // within this subgraph, which callers should have already ruled
-            // out via `is_connected`) — fall back to the final contraction's
-            // grouping so callers still get a valid 2-coloring.
-            best_group = (0..n)
-                .find(|&i| active[i])
-                .map(|i| group_members[i].clone())
-                .unwrap_or_default();
-        }
-
-        let side_a_set: HashSet<usize> = best_group.into_iter().collect();
-        let side_a: Vec<VertexId> = side_a_set.iter().map(|&i| verts[i]).collect();
-        let side_b: Vec<VertexId> = (0..n)
-            .filter(|i| !side_a_set.contains(i))
-            .map(|i| verts[i])
+        let mut vertices: Vec<_> = self.vertices.iter().copied().collect();
+        vertices.sort_unstable();
+        let indices: HashMap<_, _> = vertices.iter().enumerate().map(|(i, &v)| (v, i)).collect();
+        let sampled: Vec<_> = candidate_edges
+            .iter()
+            .map(|edge| (indices[&edge.u], indices[&edge.v], edge.weight))
             .collect();
-
-        (min_cut, (side_a, side_b))
+        let (_, side_indices) = super::exact::minimum_cut(vertices.len(), &sampled);
+        let side_indices: HashSet<_> = side_indices.into_iter().collect();
+        let mut side = Vec::new();
+        let mut other = Vec::new();
+        for (i, vertex) in vertices.into_iter().enumerate() {
+            if side_indices.contains(&i) {
+                side.push(vertex);
+            } else {
+                other.push(vertex);
+            }
+        }
+        let side_set: HashSet<_> = side.iter().copied().collect();
+        let value = self
+            .edges
+            .iter()
+            .filter(|edge| side_set.contains(&edge.u) != side_set.contains(&edge.v))
+            .fold(0.0, |sum, edge| sum + edge.weight);
+        (value, (side, other))
     }
 }
 
@@ -768,6 +476,64 @@ impl Default for ApproxMinCut {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sampled_result_is_a_cut_in_the_original_graph_and_survives_cache() {
+        let mut approx = ApproxMinCut::with_epsilon(0.5);
+        let mut edges = Vec::new();
+        for u in 0..60 {
+            for step in 1..=5 {
+                let v = (u + step) % 60;
+                let weight = 1.0 + (step % 3) as f64;
+                approx.insert_edge(u, v, weight);
+                edges.push((u as usize, v as usize, weight));
+            }
+        }
+        let (exact, _) = crate::algorithm::exact::minimum_cut(60, &edges);
+        for _ in 0..2 {
+            let result = approx.min_cut();
+            assert!(
+                result.value >= exact,
+                "a cut cannot be below the global minimum"
+            );
+            let (side, other) = result
+                .partition
+                .expect("every reported cut needs a partition");
+            let side: HashSet<_> = side.into_iter().collect();
+            let other: HashSet<_> = other.into_iter().collect();
+            assert_eq!(side.len() + other.len(), 60);
+            assert!(side.is_disjoint(&other));
+            assert!(result.lower_bound <= exact && exact <= result.upper_bound);
+            let weight: f64 = approx
+                .edges
+                .iter()
+                .filter(|e| side.contains(&e.u) != side.contains(&e.v))
+                .map(|e| e.weight)
+                .sum();
+            assert_eq!(result.value, weight, "reported value must match its cut");
+        }
+    }
+
+    #[test]
+    fn update_invalidates_the_cached_partition_and_value() {
+        let mut approx = ApproxMinCut::default();
+        for (u, v) in [(0, 1), (1, 2), (2, 0)] {
+            approx.insert_edge(u, v, 1.0);
+        }
+        let initial = approx.min_cut();
+        assert_eq!(initial.value, 2.0);
+
+        approx.insert_edge(0, 3, 5.0);
+        let inserted = approx.min_cut();
+        let (side, other) = inserted.partition.unwrap();
+        assert_eq!(side.len() + other.len(), 4);
+        assert_eq!(inserted.value, 2.0);
+
+        approx.delete_edge(0, 3);
+        let deleted = approx.min_cut();
+        assert_eq!(deleted.value, 0.0);
+        assert!(deleted.partition.is_some());
+    }
 
     #[test]
     fn test_basic_approx_min_cut() {
@@ -887,142 +653,5 @@ mod tests {
         let value = approx.min_cut_value();
         assert!(value >= 1.0); // At least 2.0 theoretically
         assert!(value <= 3.0);
-    }
-
-    /// Checks that `partition` is an actual 2-coloring of the cut the
-    /// algorithm computed, not an unrelated bisection: every edge strictly
-    /// inside one side must sum (with the cross-edges) to the full edge
-    /// weight, and the cross-edge weight must equal the reported value.
-    fn assert_partition_matches_value(
-        approx: &mut ApproxMinCut,
-        edges: &[(VertexId, VertexId, f64)],
-    ) {
-        let result = approx.min_cut();
-        let (side_a, side_b) = result
-            .partition
-            .clone()
-            .expect("connected graph with >=2 vertices must return a partition");
-        assert!(!side_a.is_empty(), "side A must not be empty");
-        assert!(!side_b.is_empty(), "side B must not be empty");
-        let side_a_set: HashSet<VertexId> = side_a.into_iter().collect();
-        let side_b_set: HashSet<VertexId> = side_b.into_iter().collect();
-        assert!(
-            side_a_set.is_disjoint(&side_b_set),
-            "partition sides must not overlap"
-        );
-
-        let cross_weight: f64 = edges
-            .iter()
-            .filter(|(u, v, _)| {
-                side_a_set.contains(u) != side_a_set.contains(v)
-                    || side_b_set.contains(u) != side_b_set.contains(v)
-            })
-            .map(|(_, _, w)| w)
-            .sum();
-
-        assert!(
-            (cross_weight - result.value).abs() < 1e-6,
-            "partition's actual cross-edge weight ({cross_weight}) must equal the reported cut value ({})",
-            result.value
-        );
-    }
-
-    #[test]
-    fn partition_matches_reported_value_on_triangle() {
-        let edges = [(0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0)];
-        let mut approx = ApproxMinCut::default();
-        for &(u, v, w) in &edges {
-            approx.insert_edge(u, v, w);
-        }
-        assert_partition_matches_value(&mut approx, &edges);
-    }
-
-    #[test]
-    fn partition_matches_reported_value_on_path() {
-        let edges = [(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0)];
-        let mut approx = ApproxMinCut::default();
-        for &(u, v, w) in &edges {
-            approx.insert_edge(u, v, w);
-        }
-        assert_partition_matches_value(&mut approx, &edges);
-    }
-
-    /// Two 6-cliques joined by a single weak bridge edge: regression test
-    /// for the fix. The old stub `compute_partition` returned an arbitrary
-    /// BFS-order bisection with no relation to the actual min cut, so it
-    /// would essentially never isolate exactly the bridge edge on a graph
-    /// this shape. The real minimum cut here is unambiguous: cutting the
-    /// lone bridge edge (weight 0.1) is far cheaper than cutting any clique
-    /// apart (every intra-clique vertex has total weighted degree >= 5.0).
-    #[test]
-    fn partition_isolates_the_weak_bridge() {
-        let mut edges: Vec<(VertexId, VertexId, f64)> = Vec::new();
-        for clique_base in [0u64, 100] {
-            for i in 0..6u64 {
-                for j in (i + 1)..6u64 {
-                    edges.push((clique_base + i, clique_base + j, 1.0));
-                }
-            }
-        }
-        edges.push((0, 100, 0.1)); // the weak bridge
-
-        let mut approx = ApproxMinCut::default();
-        for &(u, v, w) in &edges {
-            approx.insert_edge(u, v, w);
-        }
-
-        let result = approx.min_cut();
-        assert!(
-            (result.value - 0.1).abs() < 1e-6,
-            "expected the bridge's weight 0.1 as the global min cut, got {}",
-            result.value
-        );
-
-        let (side_a, side_b) = result.partition.expect("must return a partition");
-        let side_a_set: HashSet<VertexId> = side_a.into_iter().collect();
-        let side_b_set: HashSet<VertexId> = side_b.into_iter().collect();
-        // The two sides must exactly separate the two cliques (0 is in one
-        // side, 100 is in the other) for the cut to actually be the bridge.
-        assert_ne!(
-            side_a_set.contains(&0),
-            side_a_set.contains(&100),
-            "the two cliques must land on opposite sides of the partition"
-        );
-        assert_ne!(side_b_set.contains(&0), side_b_set.contains(&100),);
-        assert_partition_matches_value(&mut approx, &edges);
-    }
-
-    #[test]
-    fn repeated_min_cut_calls_keep_partition_in_sync_with_cached_value() {
-        let mut approx = ApproxMinCut::default();
-        approx.insert_edge(0, 1, 1.0);
-        approx.insert_edge(1, 2, 1.0);
-        approx.insert_edge(2, 0, 1.0);
-
-        let first = approx.min_cut();
-        // Second call hits the `cached_min_cut` fast path in `min_cut()`:
-        // this is the branch that used to unconditionally return
-        // `partition: None` even though a value was already cached.
-        let second = approx.min_cut();
-        assert_eq!(first.value, second.value);
-        assert_eq!(first.partition, second.partition);
-        assert!(second.partition.is_some());
-    }
-
-    #[test]
-    fn disconnected_graph_partition_matches_zero_cut() {
-        let mut approx = ApproxMinCut::default();
-        approx.insert_edge(0, 1, 1.0);
-        approx.insert_edge(2, 3, 1.0);
-
-        let result = approx.min_cut();
-        assert_eq!(result.value, 0.0);
-        let (side_a, side_b) = result
-            .partition
-            .expect("disconnected graph must still return a partition");
-        let side_a_set: HashSet<VertexId> = side_a.into_iter().collect();
-        let side_b_set: HashSet<VertexId> = side_b.into_iter().collect();
-        assert!(!side_a_set.is_empty() && !side_b_set.is_empty());
-        assert!(side_a_set.is_disjoint(&side_b_set));
     }
 }

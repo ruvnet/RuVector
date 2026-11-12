@@ -1372,6 +1372,78 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
+    // /v1/consciousness/compute: request size is bounded per algorithm and PID
+    // sources are element indices, so no request can pin a worker or abort the
+    // process on an impossible allocation.
+    // -----------------------------------------------------------------------
+    fn consciousness_req(n: usize, algorithm: &str) -> crate::types::ConsciousnessComputeRequest {
+        crate::types::ConsciousnessComputeRequest {
+            tpm: vec![1.0 / n as f64; n * n],
+            n,
+            state: 0,
+            algorithm: algorithm.into(),
+            phi_threshold: 1e-6,
+            partition_mask: None,
+        }
+    }
+
+    #[test]
+    fn consciousness_compute_rejects_oversized_systems_per_algorithm() {
+        use crate::routes::validate_consciousness_request as validate;
+        for (algo, too_big) in [
+            ("ces", 7),
+            ("iit4_phi", 9),
+            ("bounds", 9),
+            ("pid", 10),
+            ("phi_id", 12),
+            ("auto", 9),
+        ] {
+            let err = validate(&consciousness_req(1 << too_big, algo)).unwrap_err();
+            assert!(
+                err.contains("too large"),
+                "{algo} with {too_big} elements: {err}"
+            );
+        }
+        assert_eq!(
+            validate(&consciousness_req(1 << 6, "ces")).unwrap(),
+            (6, "ces".to_string())
+        );
+        assert_eq!(
+            validate(&consciousness_req(16, "auto")).unwrap(),
+            (4, "ces".to_string())
+        );
+        assert_eq!(
+            validate(&consciousness_req(1 << 8, "auto")).unwrap(),
+            (8, "iit4_phi".to_string())
+        );
+        assert!(validate(&consciousness_req(4, "nope"))
+            .unwrap_err()
+            .contains("unknown algorithm"));
+    }
+
+    #[test]
+    fn consciousness_pid_sources_are_element_indices() {
+        use crate::routes::pid_sources;
+        // 9 elements (512 states): sources must partition elements 0..9, not states 0..512.
+        let (a, b) = pid_sources(9, 0b1111);
+        assert_eq!(a, vec![0, 1, 2, 3]);
+        assert_eq!(b, vec![4, 5, 6, 7, 8]);
+        let (a, b) = pid_sources(3, u64::MAX);
+        assert_eq!((a.len(), b.len()), (3, 0));
+    }
+
+    #[test]
+    fn consciousness_pid_largest_allowed_system_completes() {
+        use ruvector_consciousness::types::TransitionMatrix;
+        let req = consciousness_req(1 << 9, "pid");
+        let (num_elements, _) = crate::routes::validate_consciousness_request(&req).unwrap();
+        let (a, b) = crate::routes::pid_sources(num_elements, (1u64 << (num_elements / 2)) - 1);
+        let tpm = TransitionMatrix::new(req.n, req.tpm.clone());
+        let result = ruvector_consciousness::pid::compute_pid(&tpm, &[a, b.clone()], &b).unwrap();
+        assert!(result.total_mi.is_finite());
+    }
+
+    // -----------------------------------------------------------------------
     // Shared placeholder keys must not act as an owning identity
     // -----------------------------------------------------------------------
     #[test]

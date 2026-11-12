@@ -26,6 +26,7 @@ const members = Object.freeze([
   { key: 'ruvllmWasm', pkg: '@ruvector/ruvllm-wasm', kind: 'esm', loader: 'loadRuvllmWasm' },
   { key: 'emergentTime', pkg: '@ruvector/emergent-time', kind: 'esm', loader: 'loadEmergentTime' },
   { key: 'rvfWasm', pkg: '@ruvector/rvf-wasm', kind: 'esm', loader: 'loadRvfWasm' },
+  { key: 'eMeans', pkg: '@ruvector/e-means', kind: 'esm', loader: 'loadEMeans' },
 ].map(Object.freeze));
 
 const byKey = new Map(members.map((m) => [m.key, m]));

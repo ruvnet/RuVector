@@ -211,7 +211,7 @@ Throughput (QPS)        50K+                25K+              100-1K
 const db = new VectorDB({
   dimensions: 384,                    // Required: Vector dimensions
   distanceMetric?: 'Cosine' | 'Euclidean' | 'DotProduct' | 'Manhattan',
-  storagePath?: string,               // Persistence path
+  storagePath?: string,               // Persistence path; omit for in-memory (from @ruvector/core 0.2.0)
   hnswConfig?: {
     m?: number,              // Connections per layer (16-64)
     efConstruction?: number, // Build quality (100-500)
@@ -225,7 +225,9 @@ const db = new VectorDB({
   }
 });
 
-// Option 2: Simple factory (recommended for getting started)
+// Option 2: Simple factory (recommended for getting started).
+// From @ruvector/core 0.2.0 this is in-memory: nothing is saved to disk.
+// Earlier versions persisted to ./ruvector.db; pass storagePath to persist.
 const db = VectorDB.withDimensions(384);
 ```
 

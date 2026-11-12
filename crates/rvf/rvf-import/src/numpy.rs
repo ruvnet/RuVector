@@ -26,6 +26,11 @@ struct NpyHeader {
     cols: usize,
 }
 
+/// Upper bound on the header dict length. NumPy itself refuses headers over
+/// 10 000 bytes by default; this keeps a v2/v3 `u32` length from forcing a
+/// multi-GiB allocation before any data is validated.
+const MAX_HEADER_LEN: usize = 1 << 20;
+
 /// Parse the `.npy` header from a reader, returning the shape and
 /// advancing the reader past the header.
 fn parse_npy_header<R: Read>(reader: &mut R) -> Result<NpyHeader, String> {
@@ -60,6 +65,10 @@ fn parse_npy_header<R: Read>(reader: &mut R) -> Result<NpyHeader, String> {
         u32::from_le_bytes(buf) as usize
     };
 
+    if header_len > MAX_HEADER_LEN {
+        return Err(format!("npy header too large ({header_len} bytes)"));
+    }
+
     // Read the header dict string
     let mut header_bytes = vec![0u8; header_len];
     reader
@@ -92,8 +101,9 @@ fn parse_shape(header: &str) -> Result<NpyHeader, String> {
     let paren_open = after_key
         .find('(')
         .ok_or_else(|| "no opening paren in shape".to_string())?;
-    let paren_close = after_key
+    let paren_close = after_key[paren_open..]
         .find(')')
+        .map(|i| paren_open + i)
         .ok_or_else(|| "no closing paren in shape".to_string())?;
 
     let shape_content = &after_key[paren_open + 1..paren_close];
@@ -131,12 +141,27 @@ fn parse_shape(header: &str) -> Result<NpyHeader, String> {
 pub fn parse_npy<R: Read>(mut reader: R, config: &NpyConfig) -> Result<Vec<VectorRecord>, String> {
     let header = parse_npy_header(&mut reader)?;
 
-    let total_floats = header.rows * header.cols;
-    let total_bytes = total_floats * 4;
-    let mut raw = vec![0u8; total_bytes];
+    if header.cols == 0 {
+        return Err("npy shape has zero columns".to_string());
+    }
+    let total_bytes = header
+        .rows
+        .checked_mul(header.cols)
+        .and_then(|n| n.checked_mul(4))
+        .ok_or_else(|| "npy shape too large".to_string())?;
+    // Read incrementally rather than pre-allocating from the header-claimed
+    // size, so a short file cannot force a huge allocation.
+    let mut raw = Vec::new();
     reader
-        .read_exact(&mut raw)
-        .map_err(|e| format!("failed to read npy data ({total_bytes} bytes expected): {e}"))?;
+        .take(total_bytes as u64)
+        .read_to_end(&mut raw)
+        .map_err(|e| format!("failed to read npy data: {e}"))?;
+    if raw.len() != total_bytes {
+        return Err(format!(
+            "failed to read npy data ({total_bytes} bytes expected, got {})",
+            raw.len()
+        ));
+    }
 
     let mut records = Vec::with_capacity(header.rows);
     for i in 0..header.rows {
@@ -247,5 +272,60 @@ mod tests {
         let h = parse_shape("{'descr': '<f4', 'shape': (50,), }").unwrap();
         assert_eq!(h.rows, 50);
         assert_eq!(h.cols, 1);
+    }
+
+    /// Build a v1 .npy whose header dict is `dict` verbatim, followed by `body`.
+    fn raw_npy(dict: &str, body: &[u8]) -> Vec<u8> {
+        let mut buf = vec![0x93];
+        buf.extend_from_slice(b"NUMPY");
+        buf.extend_from_slice(&[1, 0]);
+        buf.extend_from_slice(&(dict.len() as u16).to_le_bytes());
+        buf.extend_from_slice(dict.as_bytes());
+        buf.extend_from_slice(body);
+        buf
+    }
+
+    #[test]
+    fn overflowing_shape_is_rejected() {
+        // rows * cols * 4 overflows usize.
+        let npy = raw_npy(
+            "{'descr': '<f4', 'shape': (4611686018427387904, 4), }",
+            &[0u8; 16],
+        );
+        assert!(parse_npy(npy.as_slice(), &NpyConfig::default()).is_err());
+    }
+
+    #[test]
+    fn huge_shape_with_short_body_is_rejected() {
+        // Claims ~4 TiB of data but carries 16 bytes; must not pre-allocate.
+        let npy = raw_npy(
+            "{'descr': '<f4', 'shape': (1099511627776, 1), }",
+            &[0u8; 16],
+        );
+        let err = parse_npy(npy.as_slice(), &NpyConfig::default()).unwrap_err();
+        assert!(err.contains("npy data"), "{err}");
+    }
+
+    #[test]
+    fn zero_width_rows_are_rejected() {
+        let npy = raw_npy(
+            "{'descr': '<f4', 'shape': (18446744073709551615, 0), }",
+            &[],
+        );
+        assert!(parse_npy(npy.as_slice(), &NpyConfig::default()).is_err());
+    }
+
+    #[test]
+    fn malformed_shape_parens_are_rejected() {
+        assert!(parse_shape("{'descr': '<f4', 'shape': )(, }").is_err());
+    }
+
+    #[test]
+    fn oversized_v2_header_is_rejected_without_allocation() {
+        let mut buf = vec![0x93];
+        buf.extend_from_slice(b"NUMPY");
+        buf.extend_from_slice(&[2, 0]);
+        buf.extend_from_slice(&u32::MAX.to_le_bytes());
+        assert!(parse_npy(buf.as_slice(), &NpyConfig::default()).is_err());
     }
 }

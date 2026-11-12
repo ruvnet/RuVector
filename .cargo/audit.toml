@@ -7,19 +7,6 @@
 [advisories]
 ignore = [
     # ------------------------------------------------------------------
-    # Vulnerabilities (genuinely no upstream fix available)
-    # ------------------------------------------------------------------
-
-    # rsa 0.9.x — Marvin Attack (timing sidechannel on RSA decryption).
-    # No fixed upgrade is available from upstream `rsa`. We do not expose
-    # an RSA decryption oracle: TLS in this workspace runs on rustls with
-    # Ed25519/X25519 suites, and `rsa` is pulled only transitively (e.g.
-    # SQL drivers, JWT verification paths) where we never decrypt
-    # attacker-controlled ciphertexts under a long-lived RSA key.
-    # Re-evaluate when the `rsa` crate ships a constant-time implementation.
-    "RUSTSEC-2023-0071",
-
-    # ------------------------------------------------------------------
     # "Unmaintained" warnings (informational, not vulnerabilities)
     # ------------------------------------------------------------------
     # These are pulled transitively through deps we do not control. They
@@ -38,14 +25,6 @@ ignore = [
     "RUSTSEC-2024-0436",  # paste — transitive proc-macro, build-time only
     "RUSTSEC-2025-0119",  # number_prefix — transitive via indicatif rendering
     "RUSTSEC-2025-0124",  # rand_os — transitive, replaced by getrandom in modern code paths
-    # rustls-pemfile — unmaintained; the notice covers every version, 2.2.0
-    # included (an earlier comment here said 2.2.0 was unaffected; it is
-    # not). Only edge: tonic 0.12 (`tls` feature) <- ruvector-hailo-cluster.
-    # tonic 0.13 drops it for the rustls-pki-types PEM API; that migration
-    # (tonic + tonic-build 0.12 -> 0.13) is queued as
-    # security:rustls-pemfile-tonic-0.13. Added 2026-11-09, re-review by
-    # 2026-12-09.
-    "RUSTSEC-2025-0134",
     "RUSTSEC-2025-0141",  # bincode — unmaintained notice; we pin a known-good version
 
     # Added 2026-08-03. All four carry `patched = []` upstream — there is no
@@ -70,6 +49,8 @@ ignore = [
     # inferno only parses locally-generated profiling output produced by
     # our own bench runs; no untrusted/network-controlled XML ever reaches
     # this path. Re-evaluate when pprof bumps its inferno pin to 0.12+.
+    # Re-checked 2026-11-10: pprof 0.15.0 (latest) still requires inferno
+    # ^0.11, so quick-xml stays at 0.26 in the lock.
     "RUSTSEC-2026-0194",
     "RUSTSEC-2026-0195",
 

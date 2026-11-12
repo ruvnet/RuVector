@@ -892,6 +892,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2f6c7dbe95a6ed67ad9f18e57daf93a2f034c524b99fd2b76d18fdfeb6660aa"
 dependencies = [
  "hybrid-array",
+ "zeroize",
 ]
 
 [[package]]
@@ -1920,15 +1921,17 @@ checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
 
 [[package]]
 name = "crypto-bigint"
-version = "0.7.7"
+version = "0.7.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc907c45bb7e9ef8fc3778defd0f3cd8c81288f1b4e748eba064948f20c47122"
+checksum = "914c195c4d7fbc5ed7f88d14cbf85914d5c664967658d43404b263913a477e82"
 dependencies = [
  "cpubits",
  "ctutils",
+ "getrandom 0.4.3",
  "hybrid-array",
  "num-traits",
  "rand_core 0.10.1",
+ "serdect",
  "subtle",
  "zeroize",
 ]
@@ -1950,7 +1953,18 @@ version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce6e4c961d6cd6c9a86db418387425e8bdeaf05b3c8bc1411e6dca4c252f1453"
 dependencies = [
+ "getrandom 0.4.3",
  "hybrid-array",
+ "rand_core 0.10.1",
+]
+
+[[package]]
+name = "crypto-primes"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3633a51a39c69ebbaa4feaa694bd83d241e4093901c84a0963b19d9bb3f0cf8f"
+dependencies = [
+ "crypto-bigint",
  "rand_core 0.10.1",
 ]
 
@@ -2017,9 +2031,9 @@ dependencies = [
 
 [[package]]
 name = "ctutils"
-version = "0.4.5"
+version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38d28fb6aa7dd680b3ffd1a3e64e115c177bdba63c0ae7f9cd48129ff05c4fa0"
+checksum = "261af4dc7a06ea8a527a8717d8cbba3417530d6ea14e1edb3de6b67806be474f"
 dependencies = [
  "cmov",
  "subtle",
@@ -2264,18 +2278,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7c1832837b905bbfb5101e07cc24c8deddf52f93225eee6ead5f4d63d53ddcb"
 dependencies = [
  "const-oid 0.9.6",
- "pem-rfc7468 0.7.0",
  "zeroize",
 ]
 
 [[package]]
 name = "der"
-version = "0.8.0"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71fd89660b2dc699704064e59e9dba0147b903e85319429e131620d022be411b"
+checksum = "6a996a108feb8b427a6e12fcf6af4aa83409b79d72c15337d7741368131ee004"
 dependencies = [
  "const-oid 0.10.2",
- "pem-rfc7468 1.0.0",
+ "pem-rfc7468",
  "zeroize",
 ]
 
@@ -2381,7 +2394,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer 0.10.4",
- "const-oid 0.9.6",
  "crypto-common 0.1.7",
  "subtle",
 ]
@@ -2396,6 +2408,7 @@ dependencies = [
  "const-oid 0.10.2",
  "crypto-common 0.2.2",
  "ctutils",
+ "zeroize",
 ]
 
 [[package]]
@@ -2591,7 +2604,7 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0681a4fc24c767085329728d8dfba959af91228aa4610cca4f8ce317ba46ae0"
 dependencies = [
- "der 0.8.0",
+ "der 0.8.3",
  "digest 0.11.3",
  "elliptic-curve",
  "rfc6979",
@@ -2614,7 +2627,7 @@ version = "2.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "115531babc129696a58c64a4fef0a8bf9e9698629fb97e9e40767d235cfbcd53"
 dependencies = [
- "pkcs8",
+ "pkcs8 0.10.2",
  "serde",
  "signature 2.2.0",
 ]
@@ -4891,9 +4904,6 @@ name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
-dependencies = [
- "spin 0.9.8",
-]
 
 [[package]]
 name = "lean-agentic"
@@ -6061,22 +6071,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "num-bigint-dig"
-version = "0.8.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e661dda6640fad38e827a6d4a310ff4763082116fe217f279885c97f511bb0b7"
-dependencies = [
- "lazy_static",
- "libm",
- "num-integer",
- "num-iter",
- "num-traits",
- "rand 0.8.6",
- "smallvec",
- "zeroize",
-]
-
-[[package]]
 name = "num-complex"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6699,15 +6693,6 @@ dependencies = [
 
 [[package]]
 name = "pem-rfc7468"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88b39c9bfcfc231068454382784bb460aae594343fb030d46e9f50a645418412"
-dependencies = [
- "base64ct",
-]
-
-[[package]]
-name = "pem-rfc7468"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6305423e0e7738146434843d1694d621cce767262b2a86910beab705e4493d9"
@@ -6933,13 +6918,12 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "pkcs1"
-version = "0.7.5"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8ffb9f10fa047879315e6625af03c164b16962a5368d724ed16323b68ace47f"
+checksum = "6250dd7321adbe93d12b750aee0ced159fd13e77f625edcdf1cb6f83cd99f650"
 dependencies = [
- "der 0.7.10",
- "pkcs8",
- "spki",
+ "der 0.8.3",
+ "spki 0.8.1",
 ]
 
 [[package]]
@@ -6949,7 +6933,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f950b2377845cebe5cf8b5165cb3cc1a5e0fa5cfa3e1f7f55707d8fd82e0a7b7"
 dependencies = [
  "der 0.7.10",
- "spki",
+ "spki 0.7.3",
+]
+
+[[package]]
+name = "pkcs8"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "451913da69c775a56034ea8d9003d27ee8948e12443eae7c038ba100a4f21cb7"
+dependencies = [
+ "der 0.8.3",
+ "spki 0.8.1",
 ]
 
 [[package]]
@@ -8410,7 +8404,7 @@ dependencies = [
  "ndarray 0.16.1",
  "rand 0.8.6",
  "rand_distr 0.4.3",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -8597,22 +8591,22 @@ dependencies = [
 
 [[package]]
 name = "rsa"
-version = "0.9.10"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8573f03f5883dcaebdfcf4725caa1ecb9c15b2ef50c43a07b816e06799bb12d"
+checksum = "23e77fd77e0dea28b3011fd62d15445b7de7959333b0276d930e03be0f755699"
 dependencies = [
- "const-oid 0.9.6",
- "digest 0.10.7",
- "num-bigint-dig",
- "num-integer",
- "num-traits",
+ "const-oid 0.10.2",
+ "crypto-bigint",
+ "crypto-common 0.2.2",
+ "crypto-primes",
+ "digest 0.11.3",
+ "hmac 0.13.0",
  "pkcs1",
- "pkcs8",
- "rand_core 0.6.4",
- "sha2 0.10.9",
- "signature 2.2.0",
- "spki",
- "subtle",
+ "pkcs8 0.11.0",
+ "rand_core 0.10.1",
+ "sha2 0.11.0",
+ "signature 3.0.0",
+ "spki 0.8.1",
  "zeroize",
 ]
 
@@ -8718,15 +8712,6 @@ dependencies = [
  "rustls-webpki",
  "subtle",
  "zeroize",
-]
-
-[[package]]
-name = "rustls-pemfile"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dce314e5fee3f39953d46bb63bb8a46d40c2f8fb7cc5a3b6cab2bde9721d6e50"
-dependencies = [
- "rustls-pki-types",
 ]
 
 [[package]]
@@ -8940,7 +8925,7 @@ dependencies = [
  "rayon",
  "ruvector-cognitive-container",
  "ruvector-coherence",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "ruvector-mincut 2.3.1",
  "serde",
  "serde_json",
@@ -8970,7 +8955,7 @@ dependencies = [
  "rand_distr 0.4.3",
  "rayon",
  "reqwest",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "rvf-crypto",
  "rvf-types",
  "rvf-wire",
@@ -9035,7 +9020,7 @@ dependencies = [
  "predicates",
  "prettytable-rs",
  "rand 0.8.6",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "ruvector-gnn",
  "ruvector-graph",
  "serde",
@@ -9068,7 +9053,7 @@ dependencies = [
  "rand_distr 0.4.3",
  "rayon",
  "ruvector-attention",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "ruvector-gnn",
  "ruvector-graph",
  "serde",
@@ -9093,7 +9078,7 @@ dependencies = [
  "futures",
  "parking_lot 0.12.5",
  "rand 0.8.6",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -9172,7 +9157,7 @@ dependencies = [
  "criterion 0.5.1",
  "dashmap 6.2.1",
  "parking_lot 0.12.5",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -9223,7 +9208,7 @@ dependencies = [
  "fs4",
  "libc",
  "rustix",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -9256,7 +9241,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-core"
-version = "2.5.1"
+version = "2.5.2"
 dependencies = [
  "anyhow",
  "bincode 2.0.1",
@@ -9281,7 +9266,8 @@ dependencies = [
  "reqwest",
  "rkyv",
  "rustc_version",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
+ "ruvector-e-means",
  "ruvector-turboquant",
  "serde",
  "serde_json",
@@ -9324,7 +9310,7 @@ dependencies = [
  "pqcrypto-kyber",
  "proptest",
  "rand 0.8.6",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -9545,6 +9531,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-e-means"
+version = "0.1.0"
+dependencies = [
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "ruvector-economy-wasm"
 version = "0.1.0"
 dependencies = [
@@ -9738,7 +9735,7 @@ dependencies = [
  "chrono",
  "dashmap 6.2.1",
  "ordered-float",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -9800,7 +9797,7 @@ dependencies = [
  "rand 0.8.6",
  "rand_distr 0.4.3",
  "rayon",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "ruvector-diskann",
  "serde",
  "serde_json",
@@ -9898,7 +9895,7 @@ dependencies = [
  "rkyv",
  "roaring",
  "ruvector-cluster",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "ruvector-raft",
  "ruvector-replication",
  "serde",
@@ -9908,7 +9905,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tokio-test",
- "tonic",
+ "tonic 0.12.3",
  "tower 0.4.13",
  "tracing",
  "tracing-subscriber",
@@ -9951,7 +9948,7 @@ dependencies = [
  "napi",
  "napi-build",
  "napi-derive",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "ruvector-graph",
  "serde",
  "serde_json",
@@ -10012,7 +10009,7 @@ dependencies = [
  "js-sys",
  "parking_lot 0.12.5",
  "regex",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "ruvector-graph",
  "serde",
  "serde-wasm-bindgen",
@@ -10037,7 +10034,7 @@ dependencies = [
  "criterion 0.5.1",
  "hailort-sys",
  "proptest",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "serde_json",
  "sha2 0.10.9",
  "tempfile",
@@ -10058,7 +10055,7 @@ dependencies = [
  "prost 0.13.5",
  "protoc-bin-vendored",
  "rcgen",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "ruvector-hailo",
  "ruvector-mmwave",
  "ruvllm",
@@ -10068,7 +10065,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
- "tonic",
+ "tonic 0.13.1",
  "tonic-build",
  "tracing",
  "tracing-subscriber",
@@ -10097,16 +10094,15 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "futures-util",
+ "getrandom 0.4.3",
  "neural-trader-coherence",
  "neural-trader-core",
  "neural-trader-replay",
  "neural-trader-strategies",
- "rand 0.8.6",
  "reqwest",
  "rsa",
  "serde",
  "serde_json",
- "sha2 0.10.9",
  "thiserror 2.0.18",
  "tokio",
  "tokio-tungstenite",
@@ -10279,7 +10275,7 @@ dependencies = [
  "rand 0.8.6",
  "rayon",
  "roaring",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "ruvector-graph",
  "serde",
  "serde_json",
@@ -10390,7 +10386,7 @@ dependencies = [
  "napi-build",
  "napi-derive",
  "ruvector-collections",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "ruvector-filter",
  "ruvector-metrics",
  "serde",
@@ -10413,9 +10409,10 @@ dependencies = [
 
 [[package]]
 name = "ruvector-pq-search"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "rand 0.8.6",
+ "ruvector-e-means",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -10449,7 +10446,7 @@ dependencies = [
  "pyo3",
  "ruvector-attention",
  "ruvector-cluster-rag",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "ruvector-gnn",
  "ruvector-graph",
  "ruvector-rabitq",
@@ -10505,7 +10502,7 @@ dependencies = [
  "futures",
  "parking_lot 0.12.5",
  "rand 0.8.6",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -10516,10 +10513,11 @@ dependencies = [
 
 [[package]]
 name = "ruvector-rairs"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "criterion 0.5.1",
  "rand 0.8.6",
+ "ruvector-e-means",
  "serde",
 ]
 
@@ -10537,7 +10535,7 @@ dependencies = [
  "futures",
  "parking_lot 0.12.5",
  "rand 0.8.6",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -10747,7 +10745,7 @@ dependencies = [
  "axum 0.7.9",
  "dashmap 6.2.1",
  "parking_lot 0.12.5",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -10766,7 +10764,7 @@ dependencies = [
  "bincode 2.0.1",
  "chrono",
  "flate2",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -10858,7 +10856,7 @@ dependencies = [
  "rand_distr 0.4.3",
  "rayon",
  "reqwest",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "ruvector-diskann",
  "ruvector-hnsw-repair",
  "ruvector-hybrid",
@@ -10965,11 +10963,11 @@ dependencies = [
 
 [[package]]
 name = "ruvector-temporal-tensor"
-version = "2.3.0"
+version = "2.3.1"
 
 [[package]]
 name = "ruvector-temporal-tensor-wasm"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "ruvector-temporal-tensor",
 ]
@@ -11137,7 +11135,7 @@ dependencies = [
  "proptest",
  "ruvector-cognitive-container",
  "ruvector-coherence",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -11180,7 +11178,7 @@ dependencies = [
  "parking_lot 0.12.5",
  "rand 0.8.6",
  "ruvector-collections",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "ruvector-filter",
  "serde",
  "serde-wasm-bindgen",
@@ -11431,7 +11429,7 @@ dependencies = [
  "regex",
  "rustc_version",
  "ruvector-attention",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "ruvector-gnn",
  "ruvector-graph",
  "ruvector-sona",
@@ -11519,7 +11517,7 @@ dependencies = [
 
 [[package]]
 name = "rvagent-a2a"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -11618,7 +11616,7 @@ dependencies = [
 
 [[package]]
 name = "rvagent-cli"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -11883,7 +11881,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-runtime"
-version = "0.5.4"
+version = "0.5.6"
 dependencies = [
  "crc32fast",
  "ed25519-dalek",
@@ -11941,7 +11939,7 @@ dependencies = [
  "js-sys",
  "once_cell",
  "parking_lot 0.12.5",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "rvf-runtime",
  "rvf-types",
  "serde",
@@ -12022,7 +12020,7 @@ checksum = "d56d437c2f19203ce5f7122e507831de96f3d2d4d3be5af44a0b0a09d8a80e4d"
 dependencies = [
  "base16ct",
  "ctutils",
- "der 0.8.0",
+ "der 0.8.3",
  "hybrid-array",
  "subtle",
  "zeroize",
@@ -12201,6 +12199,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serdect"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66cf8fedced2fcf12406bcb34223dffb92eaf34908ede12fed414c82b7f00b3e"
+dependencies = [
+ "base16ct",
+ "serde",
+]
+
+[[package]]
 name = "seti-boundary-discovery"
 version = "0.1.0"
 dependencies = [
@@ -12249,6 +12257,7 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.2.17",
  "digest 0.10.7",
+ "sha2-asm",
 ]
 
 [[package]]
@@ -12260,6 +12269,15 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.3.0",
  "digest 0.11.3",
+]
+
+[[package]]
+name = "sha2-asm"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b845214d6175804686b2bd482bcffe96651bb2d1200742b712003504a2dac1ab"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
@@ -12345,7 +12363,6 @@ version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77549399552de45a898a580c1b41d445bf730df867cc44e6c0233bbc4b8329de"
 dependencies = [
- "digest 0.10.7",
  "rand_core 0.6.4",
 ]
 
@@ -12433,7 +12450,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "criterion 0.5.1",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "ruvector-graph",
  "serde",
  "serde_json",
@@ -12533,6 +12550,16 @@ checksum = "d91ed6c858b01f942cd56b37a94b3e0a1798290327d1236e4d9cf4eaca44d29d"
 dependencies = [
  "base64ct",
  "der 0.7.10",
+]
+
+[[package]]
+name = "spki"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ef958a98b9d5da290cfc78946e9f3e61e1e62a18db0d92cac0b83cc161491a9"
+dependencies = [
+ "base64ct",
+ "der 0.8.3",
 ]
 
 [[package]]
@@ -13476,10 +13503,8 @@ dependencies = [
  "percent-encoding",
  "pin-project",
  "prost 0.13.5",
- "rustls-pemfile",
  "socket2 0.5.10",
  "tokio",
- "tokio-rustls",
  "tokio-stream",
  "tower 0.4.13",
  "tower-layer",
@@ -13488,10 +13513,40 @@ dependencies = [
 ]
 
 [[package]]
-name = "tonic-build"
-version = "0.12.3"
+name = "tonic"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9557ce109ea773b399c9b9e5dca39294110b74f1f342cb347a80d1fce8c26a11"
+checksum = "7e581ba15a835f4d9ea06c55ab1bd4dce26fc53752c69a04aac00703bfb49ba9"
+dependencies = [
+ "async-trait",
+ "axum 0.8.9",
+ "base64 0.22.1",
+ "bytes",
+ "h2",
+ "http 1.4.2",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-timeout",
+ "hyper-util",
+ "percent-encoding",
+ "pin-project",
+ "prost 0.13.5",
+ "socket2 0.5.10",
+ "tokio",
+ "tokio-rustls",
+ "tokio-stream",
+ "tower 0.5.3",
+ "tower-layer",
+ "tower-service",
+ "tracing",
+]
+
+[[package]]
+name = "tonic-build"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eac6f67be712d12f0b41328db3137e0d0757645d8904b4cb7d51cd9c2279e847"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -13530,9 +13585,12 @@ checksum = "ebe5ef63511595f1344e2d5cfa636d973292adc0eec1f0ad45fae9f0851ab1d4"
 dependencies = [
  "futures-core",
  "futures-util",
+ "indexmap 2.12.1",
  "pin-project-lite",
+ "slab",
  "sync_wrapper",
  "tokio",
+ "tokio-util",
  "tower-layer",
  "tower-service",
  "tracing",
@@ -13860,7 +13918,7 @@ name = "train-discoveries"
 version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
- "ruvector-core 2.5.1",
+ "ruvector-core 2.5.2",
  "ruvector-solver",
  "serde",
  "serde_json",
@@ -14153,7 +14211,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dea7109cdcd5864d4eeb1b58a1648dc9bf520360d7af16ec26d0a9354bafcfc0"
 dependencies = [
  "base64 0.22.1",
- "der 0.8.0",
+ "der 0.8.3",
  "log",
  "native-tls",
  "percent-encoding",

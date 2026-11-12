@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/core",
-  "version": "0.1.38",
+  "version": "0.1.39",
   "description": "Vector database core with HNSW indexing, built in Rust with native Node.js bindings, for similarity search, semantic search and RAG.",
   "main": "index.js",
   "types": "index.d.ts",
@@ -21,7 +21,10 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "README.md"
+    "README.md",
+    "clustering.mjs",
+    "clustering.d.mts",
+    "clustering/"
   ],
   "scripts": {
     "build:napi": "napi build --platform --release --cargo-cwd ../../../crates/ruvector-node",
@@ -30,6 +33,9 @@
   },
   "devDependencies": {
     "@napi-rs/cli": "^2.18.0"
+  },
+  "dependencies": {
+    "@ruvector/e-means": "0.1.0"
   },
   "optionalDependencies": {
     "ruvector-core-linux-x64-gnu": "0.1.35",

@@ -278,14 +278,8 @@ export class NodeBackend implements RvfBackend {
       // Flatten individual vectors into a single contiguous Float32Array.
       const n = entries.length;
       if (n === 0) return { accepted: 0, rejected: 0, epoch: 0 };
-      const first = entries[0].vector;
-      const dim = first instanceof Float32Array ? first.length : first.length;
-      const flat = new Float32Array(n * dim);
-      for (let i = 0; i < n; i++) {
-        const v = entries[i].vector;
-        const f32 = v instanceof Float32Array ? v : new Float32Array(v);
-        flat.set(f32, i * dim);
-      }
+      // Reject a short or long row before flattening can pad it or overlap the next row.
+      const flat = flattenVectors(entries, Number(this.handle.dimension()));
       // Map string IDs to numeric labels for the N-API layer.
       // The native Rust HNSW expects i64 labels — non-numeric strings cause
       // silent data loss (NaN → dropped).  We maintain a bidirectional
@@ -904,7 +898,19 @@ export class NodeBackend implements RvfBackend {
     const mp = this.mappingsPath();
     if (!mp) return;
     const fs = await import('fs');
-    if (!fs.existsSync(mp)) return; // fresh store: no sidecar yet is legitimate
+    if (!fs.existsSync(mp)) {
+      const path = await import('path');
+      const prefix = `${path.basename(mp)}.corrupt-`;
+      const quarantines = fs.readdirSync(path.dirname(mp)).filter((name: string) => name.startsWith(prefix));
+      if (quarantines.length > 0) {
+        throw new RvfError(
+          RvfErrorCode.SidecarCorrupt,
+          `at ${mp}: a quarantined mapping remains (${quarantines.join(', ')}); ` +
+            'restore a valid sidecar or recreate the store before retrying',
+        );
+      }
+      return; // An ordinary fresh store without a quarantined mapping remains legitimate.
+    }
     let parsed: {
       idToLabel: Record<string, number>;
       labelToId: Record<string, string>;
@@ -1078,16 +1084,8 @@ export class WasmBackend implements RvfBackend {
       rejectUnsupportedMetadata(entries);
       const n = entries.length;
       if (n === 0) return { accepted: 0, rejected: 0, epoch: 0 };
-      const dim = this.dim || (entries[0].vector instanceof Float32Array
-        ? entries[0].vector.length : entries[0].vector.length);
-      const flat = new Float32Array(n * dim);
-      const ids = new BigUint64Array(n);
-      for (let i = 0; i < n; i++) {
-        const v = entries[i].vector;
-        const f32 = v instanceof Float32Array ? v : new Float32Array(v);
-        flat.set(f32, i * dim);
-        ids[i] = BigInt(entries[i].id);
-      }
+      const flat = flattenVectors(entries, this.dim);
+      const ids = new BigUint64Array(entries.map(entry => BigInt(entry.id)));
       // Allocate in WASM memory and call
       const vecsPtr = this.wasm.rvf_alloc(flat.byteLength);
       const idsPtr = this.wasm.rvf_alloc(ids.byteLength);
@@ -1114,7 +1112,8 @@ export class WasmBackend implements RvfBackend {
       // Each result = 8 bytes id + 4 bytes dist = 12 bytes
       const outSize = k * 12;
       const outPtr = this.wasm.rvf_alloc(outSize);
-      const count = this.wasm.rvf_store_query(this.handle, queryPtr, k, 0, outPtr);
+      // A negative override selects the metric recorded on the WASM store; zero forces L2.
+      const count = this.wasm.rvf_store_query(this.handle, queryPtr, k, -1, outPtr);
       const results: RvfSearchResult[] = [];
       const view = new DataView(this.wasm.memory.buffer);
       for (let i = 0; i < count; i++) {
@@ -1150,7 +1149,13 @@ export class WasmBackend implements RvfBackend {
   }
 
   async compact(): Promise<RvfCompactionResult> {
-    return { segmentsCompacted: 0, bytesReclaimed: 0, epoch: 0 };
+    // There is no compaction export in the WASM C-ABI: `crates/rvf/rvf-wasm/src/lib.rs`
+    // runs `rvf_store_create` .. `rvf_store_close` with no `rvf_store_compact`. Returning
+    // `{segmentsCompacted: 0, bytesReclaimed: 0}` made "not implemented here" indistinguishable
+    // from "ran, and there was nothing to reclaim" — and the WASM store DOES retain
+    // soft-deleted entries (`export()` filters them), so a caller has real reason to expect
+    // reclamation. Throwing matches how this class reports every other unsupported operation.
+    throw new RvfError(RvfErrorCode.BackendNotFound, 'compact not supported in WASM backend');
   }
 
   async status(): Promise<RvfStatus> {
@@ -1161,15 +1166,27 @@ export class WasmBackend implements RvfBackend {
       const view = new DataView(this.wasm.memory.buffer);
       const totalVectors = view.getUint32(outPtr, true);
       const dim = view.getUint32(outPtr + 4, true);
+      // Offsets 12 and 16 were being allocated, written by WASM, and then discarded.
+      // `crates/rvf/rvf-wasm/src/store.rs` writes the 20-byte buffer as:
+      //   0 live · 4 dimension · 8 metric · 12 total entries · 16 deleted entries
+      // `deleted / total` IS the dead-space ratio, so reporting a constant 0 here left every
+      // caller that gates on the documented policy (dead_space_ratio > 0.20) permanently
+      // inert — silently, because the field was present and plausible.
+      const totalEntries = view.getUint32(outPtr + 12, true);
+      const deletedEntries = view.getUint32(outPtr + 16, true);
       this.wasm.rvf_free(outPtr, 20);
       return {
         totalVectors,
+        // Still fixed: the status buffer carries no segment count, file size or epoch, and
+        // offset 12 is total VECTOR ENTRIES rather than segments. The in-memory WASM store
+        // exports as a single VEC_SEG, so 1 is the honest logical answer here; the other two
+        // remain limitations of this buffer, not values that could be derived from it.
         totalSegments: 1,
         fileSizeBytes: 0,
         epoch: 0,
         profileId: 0,
         compactionState: 'idle',
-        deadSpaceRatio: 0,
+        deadSpaceRatio: totalEntries > 0 ? deletedEntries / totalEntries : 0,
         readOnly: false,
       };
     } catch (err) {
@@ -1420,6 +1437,30 @@ function mapQueryOptionsToNative(
  * `RvfIngestEntry.metadata` loudly rather than silently dropping it (the
  * original issue #704 bug). The native backend stores it.
  */
+
+/** Validate original row lengths before flattening can pad or overlap vectors. */
+function flattenVectors(entries: RvfIngestEntry[], dimension: number): Float32Array {
+  if (!Number.isInteger(dimension) || dimension <= 0) {
+    throw new RvfError(
+      RvfErrorCode.InvalidArgument,
+      `store dimension ${dimension} is not a positive integer`,
+    );
+  }
+  for (let i = 0; i < entries.length; i++) {
+    if (entries[i].vector.length !== dimension) {
+      throw new RvfError(
+        RvfErrorCode.InvalidArgument,
+        `Vector ${i} has dimension ${entries[i].vector.length}; expected ${dimension}`,
+      );
+    }
+  }
+  const flat = new Float32Array(entries.length * dimension);
+  for (let i = 0; i < entries.length; i++) {
+    flat.set(entries[i].vector, i * dimension);
+  }
+  return flat;
+}
+
 function rejectUnsupportedMetadata(entries: RvfIngestEntry[]): void {
   const hasMetadata = entries.some(
     (e) => e.metadata && Object.keys(e.metadata).length > 0,

@@ -322,6 +322,8 @@ mod tests {
     #[test]
     fn test_builder() {
         let mut builder = TrajectoryBuilder::new(42, vec![0.1, 0.2, 0.3]);
+        // Exercise measured elapsed time without racing sub-microsecond execution.
+        builder.start_time = Instant::now() - std::time::Duration::from_micros(100);
 
         builder.add_step(vec![0.5], vec![0.4, 0.6], 0.7);
         builder.add_step(vec![0.6], vec![0.3, 0.7], 0.8);
@@ -336,7 +338,7 @@ mod tests {
         assert_eq!(trajectory.steps.len(), 2);
         assert_eq!(trajectory.final_quality, 0.85);
         assert_eq!(trajectory.model_route, Some("llama-7b".to_string()));
-        assert!(trajectory.latency_us > 0);
+        assert!(trajectory.latency_us >= 100);
     }
 
     #[test]

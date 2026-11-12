@@ -1,6 +1,6 @@
 [package]
 name = "ruvector-onnx-embeddings-wasm"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 authors = ["RuVector Team"]
 description = "WASM embedding generation with SIMD - runs in browsers, Cloudflare Workers, Deno, and edge runtimes"

@@ -1,5 +1,7 @@
 # ruvector-pq-search
 
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/ruvector-pq-search.svg" alt="ruvector-pq-search: product quantization with ADC search" width="100%"></p>
+
 **Product Quantization with Asymmetric Distance Computation (ADC) for compressed approximate nearest-neighbor search — 64× compression in safe Rust.**
 
 [![crates.io](https://img.shields.io/crates/v/ruvector-pq-search)](https://crates.io/crates/ruvector-pq-search)
@@ -19,34 +21,37 @@ a fraction of the storage and compute cost.
 
 | Variant | Description | Recall | Memory |
 |---------|-------------|--------|--------|
-| `FlatPq` | Flat scan over PQ codes with ADC | ≥0.85 | **64× less** |
-| `IvfPq` | IVF coarse quantizer + PQ codes | ≥0.80 | **64× less** |
-| `ResidualPq` | Residual-corrected PQ for higher recall | ≥0.90 | **64× less** |
+| `FlatPqIndex` | Flat scan over PQ codes with ADC | ≥0.85 | **64× less** |
+| `IvfPqIndex` | IVF coarse quantizer + PQ codes | ≥0.80 | **64× less** |
+| `ResidualPqIndex` | Residual-corrected PQ for higher recall | ≥0.90 | **64× less** |
 
 ## Quick start
 
 ```rust
-use ruvector_pq_search::{FlatPq, PqConfig, PqIndex};
+use ruvector_pq_search::{FlatPqIndex, PqCodebook, PqConfig, PqSearch};
 
-let cfg = PqConfig {
-    dims: 128,
-    m_subvecs: 8,      // 8 sub-vectors of 16 dims each
-    k_centroids: 256,  // 256 centroids per sub-vector (8-bit codes)
-    n_train: 50_000,   // training set size for k-means
-};
+let dim = 32;
+// 1,000 vectors of 32 dims, flat row-major (use your embeddings here).
+let data: Vec<f32> = (0..1_000 * dim).map(|i| ((i * 7919) % 1000) as f32 / 1000.0).collect();
 
-let mut idx = FlatPq::new(cfg);
+// 8 sub-spaces x 16 centroids per sub-space (one u8 code each), Lloyd training.
+let codebook = PqCodebook::train(PqConfig { m: 8, k: 16, iterations: 10, seed: 42 }, &data, dim);
 
-// Train on representative data
-let train_data: Vec<Vec<f32>> = /* ... */;
-idx.train(&train_data);
+// Or train the same codebook layout with e-means (ruvector-e-means):
+let options = ruvector_e_means::Config { clusters: 16, epochs: 3, seed: 42, ..Default::default() };
+let e_means_codebook = PqCodebook::train_e_means(8, &data, dim, &options).unwrap();
 
-// Insert (stored as 8-byte PQ codes)
-idx.insert(0, &[0.1_f32; 128]);
-
-// Search with ADC (query stays at full precision)
-let results: Vec<(u64, f32)> = idx.search(&[0.1_f32; 128], 10);
+let mut index = FlatPqIndex::new(codebook);
+for row in data.chunks_exact(dim) {
+    index.insert(row);
+}
+let hits = index.search(&data[..dim], 5); // ADC: the query stays full precision
+println!("{:?}", hits.iter().map(|h| h.id).collect::<Vec<_>>());
 ```
+
+`IvfPqIndex::new_e_means` trains the coarse lists with e-means too, and
+`try_insert` / `try_search` validate shape and finiteness first. Lloyd training
+stays the default.
 
 ## Compression tradeoffs
 

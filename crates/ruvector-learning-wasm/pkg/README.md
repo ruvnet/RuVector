@@ -1,8 +1,10 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/learning-wasm.svg" alt="@ruvector/learning-wasm: ultra-fast MicroLoRA adaptation in WebAssembly. An input passes through a rank-2 adapter and a reward signal updates it." width="100%"></p>
+
 # @ruvector/learning-wasm - Ultra-Fast MicroLoRA for WebAssembly
 
-[![npm version](https://img.shields.io/npm/v/ruvector-learning-wasm.svg)](https://www.npmjs.com/package/ruvector-learning-wasm)
+[![npm version](https://img.shields.io/npm/v/@ruvector/learning-wasm.svg)](https://www.npmjs.com/package/@ruvector/learning-wasm)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/ruvnet/ruvector)
-[![Bundle Size](https://img.shields.io/badge/bundle%20size-38KB%20gzip-green.svg)](https://www.npmjs.com/package/ruvector-learning-wasm)
+[![Bundle Size](https://img.shields.io/badge/bundle%20size-38KB%20gzip-green.svg)](https://www.npmjs.com/package/@ruvector/learning-wasm)
 [![WebAssembly](https://img.shields.io/badge/WebAssembly-654FF0?logo=webassembly&logoColor=white)](https://webassembly.org/)
 
 Ultra-fast **Low-Rank Adaptation (LoRA)** for WebAssembly with sub-100 microsecond adaptation latency. Designed for real-time per-operator-type learning in query optimization systems, edge AI, and browser-based machine learning applications.
@@ -19,40 +21,43 @@ Ultra-fast **Low-Rank Adaptation (LoRA)** for WebAssembly with sub-100 microseco
 ## Installation
 
 ```bash
-npm install ruvector-learning-wasm
+npm install @ruvector/learning-wasm
 # or
-yarn add ruvector-learning-wasm
+yarn add @ruvector/learning-wasm
 # or
-pnpm add ruvector-learning-wasm
+pnpm add @ruvector/learning-wasm
 ```
 
 ## Quick Start
 
-### TypeScript/JavaScript
+Runs in browsers and Node.js (tested on Node.js 22); WebAssembly, no native build. In a browser call `await init()`; in Node pass the `.wasm` bytes to `init()`:
 
-```typescript
-import init, { WasmMicroLoRA, WasmScopedLoRA, WasmTrajectoryBuffer } from 'ruvector-learning-wasm';
+```javascript
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import init, { WasmMicroLoRA } from '@ruvector/learning-wasm';
 
-// Initialize WASM module
-await init();
+const require = createRequire(import.meta.url);
+await init({ module_or_path: readFileSync(require.resolve('@ruvector/learning-wasm/ruvector_learning_wasm_bg.wasm')) });
 
-// Create a MicroLoRA engine (256-dim embeddings)
+// A MicroLoRA engine for 256-dim embeddings
 const lora = new WasmMicroLoRA(256, 0.1, 0.01);
-
-// Forward pass with typed arrays
 const input = new Float32Array(256).fill(0.1);
-const output = lora.forward_array(input);
+const before = lora.forward_array(input);
 
-// Adapt based on gradient
-const gradient = new Float32Array(256);
-gradient.fill(0.05);
-lora.adapt_array(gradient);
+lora.adapt_array(new Float32Array(256).fill(0.05)); // adapt from a gradient
+lora.adapt_with_reward(0.15);                        // or from a reward (15% improvement)
 
-// Or use reward-based adaptation
-lora.adapt_with_reward(0.15); // 15% improvement
+const after = lora.forward_array(input);
+console.log('adaptations:', Number(lora.adapt_count()));
+console.log('output changed:', before.some((v, i) => v !== after[i]));
+```
 
-console.log(`Adaptations: ${lora.adapt_count()}`);
-console.log(`Delta norm: ${lora.delta_norm()}`);
+Expected output:
+
+```text
+adaptations: 2
+output changed: true
 ```
 
 ### Zero-Allocation Forward Pass
@@ -78,7 +83,7 @@ const result = new Float32Array(wasmInstance.memory.buffer, outputPtr, 256);
 ### Per-Operator Scoped LoRA
 
 ```typescript
-import { WasmScopedLoRA } from 'ruvector-learning-wasm';
+import { WasmScopedLoRA } from '@ruvector/learning-wasm';
 
 const scopedLora = new WasmScopedLoRA(256, 0.1, 0.01);
 
@@ -103,7 +108,7 @@ console.log(`Total adaptations: ${scopedLora.total_adapt_count()}`);
 ### Trajectory Tracking
 
 ```typescript
-import { WasmTrajectoryBuffer } from 'ruvector-learning-wasm';
+import { WasmTrajectoryBuffer } from '@ruvector/learning-wasm';
 
 const buffer = new WasmTrajectoryBuffer(1000, 256);
 
@@ -213,9 +218,9 @@ Tested on Chrome 120+ / Node.js 20+ with WASM SIMD support.
 
 ## Related Packages
 
-- [ruvector-attention-unified-wasm](https://www.npmjs.com/package/ruvector-attention-unified-wasm) - 18+ attention mechanisms
-- [ruvector-nervous-system-wasm](https://www.npmjs.com/package/ruvector-nervous-system-wasm) - Bio-inspired neural components
-- [ruvector-economy-wasm](https://www.npmjs.com/package/ruvector-economy-wasm) - CRDT credit economy
+- [@ruvector/attention-unified-wasm](https://www.npmjs.com/package/@ruvector/attention-unified-wasm) - 18+ attention mechanisms
+- [@ruvector/nervous-system-wasm](https://www.npmjs.com/package/@ruvector/nervous-system-wasm) - Bio-inspired neural components
+- [@ruvector/economy-wasm](https://www.npmjs.com/package/@ruvector/economy-wasm) - CRDT credit economy
 
 ## License
 

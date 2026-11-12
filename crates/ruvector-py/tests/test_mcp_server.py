@@ -81,6 +81,37 @@ def test_insert_batch(server_module: ModuleType) -> None:
     assert r["count"] == 3
 
 
+@pytest.mark.parametrize("operation", ["vector_insert", "vector_insert_batch", "vector_delete"])
+def test_failed_save_does_not_leave_unacknowledged_cached_changes(
+    server_module: ModuleType, monkeypatch: pytest.MonkeyPatch, operation: str
+) -> None:
+    from ruvector.collection import Collection
+
+    m = server_module
+    _call(m, "vector_create_collection", name="durable", dim=2)
+    _call(m, "vector_insert", name="durable", vector=[1.0, 0.0], metadata={"state": "saved"})
+    path = m._safe_path("durable")
+    before = (path.read_bytes(), Collection.meta_path(path).read_bytes())
+    with monkeypatch.context() as patch:
+        def failed_save(self: Collection, path: Any) -> None:
+            raise OSError("test storage failure before writing")
+
+        patch.setattr(Collection, "save", failed_save)
+        arguments = {"vector": [0.0, 1.0]} if operation == "vector_insert" else (
+            {"vectors": [[0.0, 1.0]]} if operation == "vector_insert_batch" else {"id": 0}
+        )
+        with pytest.raises(Exception):
+            _call(m, operation, name="durable", **arguments)
+    assert (path.read_bytes(), Collection.meta_path(path).read_bytes()) == before
+    assert _call(m, "vector_stats", name="durable")["count"] == 1
+    hits = _call(m, "vector_search", name="durable", query=[1.0, 0.0], k=5)["hits"]
+    assert [hit["id"] for hit in hits] == [0]
+    assert hits[0]["metadata"] == {"state": "saved"}
+    _call(m, "vector_insert", name="durable", vector=[0.0, 1.0])
+    m._cache.clear()
+    assert _call(m, "vector_stats", name="durable")["count"] == 2
+
+
 def test_search_filter(server_module: ModuleType) -> None:
     m = server_module
     _call(m, "vector_create_collection", name="t3", dim=2)
@@ -603,3 +634,43 @@ def test_deleted_rows_count_until_vacuumed(capped: ModuleType, backend: str) -> 
     ids = _call(m, "vector_insert_batch", name=f"cap4{backend}", vectors=[[1.0, 0.0], [0.0, 1.0]])["ids"]
     _call(m, "vector_delete", name=f"cap4{backend}", id=ids[0], vacuum=True)
     _call(m, "vector_insert", name=f"cap4{backend}", vector=[1.0, 1.0])  # vacuumed -> room again
+
+
+@pytest.mark.parametrize("backend", ["hnsw", "rabitq"])
+def test_create_preserves_existing_index_without_sidecar(server_module: ModuleType, backend: str) -> None:
+    from ruvector.collection import Collection
+    import numpy as np
+
+    m = server_module
+    path = m._safe_path("restored")
+    collection = Collection.create(dim=2, backend=backend)
+    collection.insert(np.asarray([1.0, 0.0], dtype=np.float32), metadata={"record": "keep"})
+    collection.save(path)
+    Collection.meta_path(path).unlink()
+    original = path.read_bytes()
+    failure = None
+    try:
+        _call(m, "vector_create_collection", name="restored", dim=2, backend=backend)
+    except Exception as exc:
+        failure = exc
+    assert path.read_bytes() == original, "create overwrote an existing native index"
+    assert not Collection.meta_path(path).exists()
+    assert failure is not None
+    assert "restored" not in m._cache
+
+
+@pytest.mark.parametrize("backend", ["hnsw", "rabitq"])
+def test_list_discovers_empty_persisted_collections(server_module: ModuleType, backend: str) -> None:
+    m = server_module
+    _call(m, "vector_create_collection", name="empty", dim=2, backend=backend)
+    m._cache.clear()
+    assert "empty" in _call(m, "vector_list_collections")["collections"]
+    assert _call(m, "vector_stats", name="empty")["count"] == 0
+
+
+def test_list_excludes_incomplete_index_and_deduplicates_complete_pair(server_module: ModuleType) -> None:
+    m = server_module
+    _call(m, "vector_create_collection", name="complete", dim=2)
+    _call(m, "vector_insert", name="complete", vector=[1.0, 0.0])
+    m._safe_path("incomplete").write_bytes(b"not a complete collection")
+    assert _call(m, "vector_list_collections")["collections"] == ["complete"]

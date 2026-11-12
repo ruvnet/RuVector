@@ -37,7 +37,7 @@ from typing import Any, Dict
 
 from mcp.server.mcpserver import MCPServer
 
-from .mcp_server import _lock, _load, _save, server
+from .mcp_server import _check_capacity, _lock, _load, _save, server
 
 _ACTION_TOKEN_ENV = "RUVECTOR_SALESFORCE_ACTION_TOKEN"
 _FALLBACK_TOKEN_ENV = "RUVECTOR_MCP_TOKEN"
@@ -220,6 +220,7 @@ def _register_routes(srv: MCPServer, *, read_only: bool = False) -> None:
                 name = body.get("collection", "default")
                 with _lock:
                     coll = _load(name)
+                    _check_capacity(coll, 1)
                     result = action_upsert(coll, body["vector"], metadata=body.get("metadata"))
                     _save(name, coll)
                     return result

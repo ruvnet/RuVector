@@ -1,5 +1,7 @@
 # Ruvector Core
 
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/core.svg" alt="ruvector-core: HNSW vector database core" width="100%"></p>
+
 [![Crates.io](https://img.shields.io/crates/v/ruvector-core.svg)](https://crates.io/crates/ruvector-core)
 [![Documentation](https://docs.rs/ruvector-core/badge.svg)](https://docs.rs/ruvector-core)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)

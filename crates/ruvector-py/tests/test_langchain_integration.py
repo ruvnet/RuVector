@@ -92,6 +92,8 @@ def test_add_texts_rejects_duplicate_ids(store: RuVectorStore) -> None:
     store.add_texts(["apple"], ids=["dup"])
     with pytest.raises(ValueError):
         store.add_texts(["banana"], ids=["dup"])
+    assert len(store._collection) == 1
+    assert store.similarity_search("apple", k=1)[0].page_content == "apple"
 
 
 def test_delete_removes_from_search_results(store: RuVectorStore) -> None:
@@ -177,3 +179,32 @@ def test_import_error_has_install_hint_when_langchain_core_missing(monkeypatch: 
 
     with pytest.raises(ImportError, match=r"pip install 'ruvector\[langchain\]'"):
         importlib.import_module("ruvector.integrations.langchain")
+
+
+def test_duplicate_ids_within_batch_do_not_orphan_native_vectors(store: RuVectorStore) -> None:
+    with pytest.raises(ValueError, match="already exists"):
+        store.add_texts(["apple", "banana"], ids=["dup", "dup"])
+    assert len(store._collection) == 0
+    assert store.similarity_search("apple", k=2) == []
+    assert store.add_texts(["apple", "banana"], ids=["apple-id", "banana-id"]) == ["apple-id", "banana-id"]
+    assert len(store._collection) == 2
+    assert store.delete(["apple-id", "banana-id"]) is True
+    assert len(store._collection) == 0
+def test_rabitq_vacuum_preserves_document_ids_and_later_deletion(
+    embedding: FixedVocabEmbeddings,
+) -> None:
+    coll = Collection.create(dim=4, backend="rabitq")
+    store = RuVectorStore(coll, embedding)
+    store.add_texts(["apple", "banana", "car"], ids=["a", "b", "c"])
+    assert store.delete(["a"]) is True
+    assert coll.vacuum() == 1
+    banana = store.similarity_search("banana", k=1)[0]
+    assert banana.page_content == "banana"
+    assert banana.id == "b"
+    assert store.delete(["b"]) is True
+    assert len(coll) == 1
+    car = store.similarity_search("car", k=1)[0]
+    assert car.id == "c"
+    assert car.page_content == "car"
+    assert store.delete(["c"]) is True
+    assert len(coll) == 0
