@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/scipix",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "OCR client for scientific documents - extract LaTeX, MathML from equations, research papers, and technical diagrams",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -29,24 +29,30 @@
   },
   "keywords": [
     "ocr",
-    "latex",
-    "mathml",
     "scientific-computing",
-    "image-recognition",
-    "math-ocr",
-    "equation-recognition",
-    "document-processing",
+    "vector-database",
     "ruvector",
-    "pdf-extraction"
+    "ruvnet",
+    "vector-search",
+    "hnsw",
+    "embeddings",
+    "rag",
+    "semantic-search",
+    "knowledge-graph",
+    "gnn",
+    "graph-embeddings",
+    "link-prediction",
+    "attention",
+    "local-llm"
   ],
   "author": "rUv Team <team@ruv.io>",
   "license": "MIT OR Apache-2.0",
   "repository": {
+    "directory": "npm/packages/scipix",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
-    "directory": "npm/packages/scipix"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/examples/scipix",
+  "homepage": "https://ruv.io",
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },

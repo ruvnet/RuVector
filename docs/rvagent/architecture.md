@@ -1,6 +1,11 @@
 # rvAgent Architecture
 
-This document describes the internal architecture of the rvAgent crate family, covering the crate dependency graph, agent lifecycle, middleware pipeline, backend protocol hierarchy, security model, and performance characteristics.
+This document describes the internal architecture of the rvAgent crate family (10 crates, including `rvagent-mcp` and `rvagent-a2a`), covering the crate dependency graph, agent lifecycle, middleware pipeline, backend protocol hierarchy, security model, and performance characteristics.
+
+> Current gaps (tracked in `docs/research/rvagent-hermes-harness/03-roadmap.md`):
+> SSE streaming is not implemented (providers fall back to non-streaming
+> completion); subagent orchestration spawning is stubbed; the `hnsw`
+> middleware uses a hash-based embedding placeholder, not semantic search.
 
 ## Crate Dependency Graph
 
@@ -27,6 +32,14 @@ rvagent-acp
 |-- rvagent-middleware
 |-- rvagent-tools
 |-- rvagent-subagents
+|
+rvagent-mcp
+|-- rvagent-core
+|-- rvagent-middleware (skills bridge)
+|
+rvagent-a2a
+|-- rvagent-core
+|-- rvagent-middleware
 |
 rvagent-wasm
 |-- (standalone, no workspace deps except serde/wasm-bindgen)

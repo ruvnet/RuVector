@@ -72,22 +72,22 @@ jobs:
     runs-on: ${{ matrix.settings.host }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 20
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         if: ${{ !matrix.settings.docker }}
         with:
           targets: ${{ matrix.settings.target }}
 
       - name: Cache Cargo
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           key: ${{ matrix.settings.target }}
 
@@ -98,7 +98,7 @@ jobs:
 
       - name: Build (Docker)
         if: ${{ matrix.settings.docker }}
-        uses: addnab/docker-run-action@v3
+        uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185
         with:
           image: ${{ matrix.settings.docker }}
           options: --user 0:0 -v ${{ github.workspace }}:/workspace -w /workspace
@@ -115,7 +115,7 @@ jobs:
           fi
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: bindings-${{ matrix.settings.target }}
           path: npm/packages/ruvllm/npm/${{ matrix.settings.target }}/${{ matrix.settings.artifact_name }}
@@ -126,16 +126,16 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 20
           registry-url: 'https://registry.npmjs.org'
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           path: artifacts
 
@@ -175,37 +175,39 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           # Publish darwin-arm64
           cd npm/packages/ruvllm/npm/darwin-arm64
-          npm publish --access public || true
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
           cd -
 
           # Publish darwin-x64
           cd npm/packages/ruvllm/npm/darwin-x64
-          npm publish --access public || true
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
           cd -
 
           # Publish linux-x64-gnu
           cd npm/packages/ruvllm/npm/linux-x64-gnu
-          npm publish --access public || true
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
           cd -
 
           # Publish linux-arm64-gnu
           cd npm/packages/ruvllm/npm/linux-arm64-gnu
-          npm publish --access public || true
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
           cd -
 
           # Publish win32-x64-msvc
           cd npm/packages/ruvllm/npm/win32-x64-msvc
-          npm publish --access public || true
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
           cd -
 
       - name: Publish main package
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           cd npm/packages/ruvllm
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
 
   publish-crates:
     name: Publish ruvllm to crates.io
@@ -213,10 +215,10 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/ruvllm-v')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
 
       - name: Publish to crates.io
         env:
@@ -235,7 +237,7 @@ jobs:
 
     steps:
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ matrix.node }}
           registry-url: 'https://registry.npmjs.org'

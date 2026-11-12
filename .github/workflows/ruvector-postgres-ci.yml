@@ -53,10 +53,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
         with:
           toolchain: ${{ env.RUST_VERSION }}
           components: rustfmt, clippy
@@ -69,7 +69,7 @@ jobs:
           sudo apt-get install -y postgresql-17 postgresql-server-dev-17
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             ~/.cargo/registry
@@ -126,10 +126,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
         with:
           toolchain: ${{ env.RUST_VERSION }}
 
@@ -149,7 +149,7 @@ jobs:
           echo "/opt/homebrew/opt/postgresql@${{ matrix.pg_version }}/bin" >> $GITHUB_PATH
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             ~/.cargo/registry
@@ -199,10 +199,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
         with:
           toolchain: ${{ env.RUST_VERSION }}
 
@@ -214,7 +214,7 @@ jobs:
           sudo apt-get install -y postgresql-17 postgresql-server-dev-17
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             ~/.cargo/registry
@@ -256,13 +256,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
 
       - name: Build Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
         with:
           context: .
           file: crates/ruvector-postgres/docker/Dockerfile
@@ -344,10 +344,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
         with:
           toolchain: ${{ env.RUST_VERSION }}
 
@@ -359,7 +359,7 @@ jobs:
           sudo apt-get install -y postgresql-17 postgresql-server-dev-17
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             ~/.cargo/registry
@@ -376,23 +376,14 @@ jobs:
 
       - name: Run benchmarks
         run: |
-          cargo bench --features pg17 -- --output-format bencher | tee benchmark-results.txt
+          set -o pipefail
+          cargo bench --no-default-features --features pg17 \
+            --bench distance_bench \
+            -- --output-format bencher | tee benchmark-results.txt
         working-directory: crates/ruvector-postgres
 
-      - name: Store benchmark results
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: RuVector-Postgres Benchmarks
-          tool: 'cargo'
-          output-file-path: crates/ruvector-postgres/benchmark-results.txt
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: false
-          alert-threshold: '150%'
-          comment-on-alert: true
-          fail-on-alert: false
-
       - name: Upload benchmark artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: benchmark-results
           path: crates/ruvector-postgres/benchmark-results.txt
@@ -408,10 +399,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
 
       - name: Run cargo audit
         run: |
@@ -434,10 +425,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
         with:
           toolchain: ${{ env.RUST_VERSION }}
 
@@ -449,7 +440,7 @@ jobs:
           sudo apt-get install -y postgresql-${{ matrix.pg_version }} postgresql-server-dev-${{ matrix.pg_version }}
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             ~/.cargo/registry
@@ -469,7 +460,7 @@ jobs:
         working-directory: crates/ruvector-postgres
 
       - name: Upload package artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ruvector-postgres-pg${{ matrix.pg_version }}
           path: crates/ruvector-postgres/target/release/ruvector-pg${{ matrix.pg_version }}/

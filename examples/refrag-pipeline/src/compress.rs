@@ -4,6 +4,10 @@
 //! Unlike standard RAG which stores text, REFRAG stores pre-computed embeddings
 //! that can be directly injected into LLM context.
 
+// Lint suggests `as_chunks`, stable only since Rust 1.88 — past the declared
+// `rust-version = "1.77"`. `unknown_lints` keeps older toolchains quiet.
+#![allow(unknown_lints, clippy::chunks_exact_to_as_chunks)]
+
 use crate::types::RefragEntry;
 use ndarray::{Array1, Array2};
 use std::io::{Read, Write};

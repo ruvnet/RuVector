@@ -31,7 +31,7 @@ struct Cli {
     command: Option<Commands>,
 
     /// Model to use (provider:model format).
-    #[arg(short, long, default_value = "anthropic:claude-sonnet-4-20250514")]
+    #[arg(short, long, default_value = "anthropic:claude-sonnet-5")]
     model: String,
 
     /// Working directory.
@@ -152,7 +152,7 @@ mod tests {
     #[test]
     fn test_cli_parse_defaults() {
         let cli = Cli::parse_from(["rvagent"]);
-        assert_eq!(cli.model, "anthropic:claude-sonnet-4-20250514");
+        assert_eq!(cli.model, "anthropic:claude-sonnet-5");
         assert!(cli.directory.is_none());
         assert!(cli.resume.is_none());
         assert!(cli.prompt.is_none());

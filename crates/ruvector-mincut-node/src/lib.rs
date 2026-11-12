@@ -10,6 +10,8 @@
 //! - **LocalKCut**: Deterministic local k-cut discovery with 4-color coding
 //! - **MinCutWrapper**: Full API with connectivity curve analysis
 
+mod routing;
+
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ruvector_mincut::cluster::hierarchy::{HierarchyConfig, ThreeLevelHierarchy as RustHierarchy};
@@ -75,7 +77,11 @@ impl MinCut {
 
         if let Some(cfg) = config {
             if cfg.approximate.unwrap_or(false) {
-                builder = builder.approximate(cfg.epsilon.unwrap_or(0.1));
+                let epsilon = cfg.epsilon.unwrap_or(0.1);
+                if !epsilon.is_finite() || epsilon <= 0.0 || epsilon > 1.0 {
+                    return Err(Error::from_reason("epsilon must be in (0, 1]"));
+                }
+                builder = builder.approximate(epsilon);
             }
             if let Some(max_size) = cfg.max_exact_cut_size {
                 builder = builder.max_cut_size(max_size as usize);
@@ -98,7 +104,11 @@ impl MinCut {
 
         if let Some(cfg) = config {
             if cfg.approximate.unwrap_or(false) {
-                builder = builder.approximate(cfg.epsilon.unwrap_or(0.1));
+                let epsilon = cfg.epsilon.unwrap_or(0.1);
+                if !epsilon.is_finite() || epsilon <= 0.0 || epsilon > 1.0 {
+                    return Err(Error::from_reason("epsilon must be in (0, 1]"));
+                }
+                builder = builder.approximate(epsilon);
             }
             if let Some(max_size) = cfg.max_exact_cut_size {
                 builder = builder.max_cut_size(max_size as usize);
@@ -146,6 +156,61 @@ impl MinCut {
             .map_err(|e| Error::from_reason(format!("Failed to delete edge: {}", e)))
     }
 
+    /// One native call and at most one exact solve for a validated batch.
+    #[napi]
+    pub fn batch_insert_typed(&self, endpoints: Uint32Array, weights: Float64Array) -> Result<f64> {
+        if endpoints.len() % 2 != 0 || endpoints.len() / 2 != weights.len() {
+            return Err(Error::from_reason("Expected two endpoints per weight"));
+        }
+        let edges: Vec<_> = endpoints
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .zip(weights.iter())
+            .map(|(uv, &w)| (u64::from(uv[0]), u64::from(uv[1]), w))
+            .collect();
+        let mut mincut = self
+            .inner
+            .lock()
+            .map_err(|e| Error::from_reason(e.to_string()))?;
+        mincut
+            .insert_edges(&edges)
+            .map_err(|e| Error::from_reason(e.to_string()))
+    }
+
+    /// Delete endpoint pairs with one final solve. Invalid batches make no changes.
+    #[napi]
+    pub fn batch_delete_typed(&self, endpoints: Uint32Array) -> Result<f64> {
+        if endpoints.len() % 2 != 0 {
+            return Err(Error::from_reason("Expected endpoint pairs"));
+        }
+        let edges: Vec<_> = endpoints
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|uv| (u64::from(uv[0]), u64::from(uv[1])))
+            .collect();
+        let mut mincut = self
+            .inner
+            .lock()
+            .map_err(|e| Error::from_reason(e.to_string()))?;
+        mincut
+            .delete_edges(&edges)
+            .map_err(|e| Error::from_reason(e.to_string()))
+    }
+
+    /// Set an edge weight without deleting it first, or insert a missing edge.
+    #[napi]
+    pub fn update_edge(&self, u: u32, v: u32, weight: f64) -> Result<f64> {
+        let mut mincut = self
+            .inner
+            .lock()
+            .map_err(|e| Error::from_reason(e.to_string()))?;
+        mincut
+            .update_edge(u64::from(u), u64::from(v), weight)
+            .map_err(|e| Error::from_reason(e.to_string()))
+    }
+
     /// Get minimum cut value
     #[napi(getter)]
     pub fn min_cut_value(&self) -> f64 {
@@ -157,12 +222,15 @@ impl MinCut {
     #[napi]
     pub fn min_cut(&self) -> JsMinCutResult {
         let mincut = self.inner.lock().unwrap();
-        let result = mincut.min_cut();
-
+        let config = mincut.config();
         JsMinCutResult {
-            value: result.value,
-            is_exact: result.is_exact,
-            approximation_ratio: result.approximation_ratio,
+            value: mincut.min_cut_value(),
+            is_exact: !config.approximate,
+            approximation_ratio: if config.approximate {
+                1.0 + config.epsilon
+            } else {
+                1.0
+            },
         }
     }
 
@@ -232,6 +300,19 @@ impl MinCut {
             queries: stats.queries as u32,
             avg_update_time_us: stats.avg_update_time_us,
         }
+    }
+
+    /// Release graph storage and cached results while preserving configuration.
+    /// This also resets statistics and allows reuse without waiting for JS GC.
+    #[napi]
+    pub fn clear(&self) -> Result<()> {
+        let mut mincut = self
+            .inner
+            .lock()
+            .map_err(|e| Error::from_reason(e.to_string()))?;
+        let config = mincut.config().clone();
+        *mincut = DynamicMinCut::new(config);
+        Ok(())
     }
 
     /// Reset statistics

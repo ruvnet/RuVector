@@ -220,8 +220,15 @@ impl WitnessHandle {
     ///
     /// # Note
     ///
-    /// This method assumes vertices are numbered 0..max_vertex. For sparse
-    /// graphs, V \ U may contain vertex IDs that don't exist in the graph.
+    /// This method assumes vertices are numbered `0..=max(U)` — i.e. that the
+    /// cut side `U` itself contains the graph's highest-numbered vertex. For
+    /// sparse graphs this is frequently false (a cut side that happens not to
+    /// include the graph's max-ID vertex), and `V \ U` will silently come
+    /// back truncated or empty instead of containing the true complement.
+    /// Callers that need a correct complement over the *actual* graph should
+    /// not use this method; instead iterate the graph's real vertex list and
+    /// partition it with [`WitnessHandle::contains`], as
+    /// `RuVectorGraphAnalyzer::partition` does.
     ///
     /// # Examples
     ///

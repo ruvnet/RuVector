@@ -52,11 +52,22 @@
 //! }
 //! ```
 
+pub mod monitor;
+pub mod schema_cache;
 pub mod server;
 pub mod tools;
 pub mod types;
 
 // Re-export main types
+pub use monitor::{
+    EscalationLadder, HaltReason, InspectionSubject, Investigator, KeywordDetector, LadderRung,
+    MandatoryClass, MonitorConfig, MonitorError, MonitorOutcome, OverheadAccount, RiskSignal,
+    TinyDetector,
+};
+pub use schema_cache::{
+    canonicalize, canonicalize_bounded, ResourceId, SchemaCacheConfig, SchemaCacheError,
+    SchemaCacheStats, SchemaResourceCache,
+};
 pub use server::{McpGateConfig, McpGateServer, ServerCapabilities, ServerInfo};
 pub use tools::{McpError, McpGateTools};
 pub use types::*;

@@ -27,6 +27,7 @@ const COW_MAP_TYPE: u8 = 0x20;
 
 pub fn run(args: RebuildRefcountsArgs) -> Result<(), Box<dyn std::error::Error>> {
     let store = RvfStore::open_readonly(Path::new(&args.file)).map_err(map_rvf_err)?;
+    crate::cmd::warn_on_metadata_recovery(&store, &args.file);
 
     // Read the raw file to scan for COW map segments
     let file = std::fs::File::open(&args.file)?;

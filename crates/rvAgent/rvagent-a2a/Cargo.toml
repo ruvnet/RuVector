@@ -1,15 +1,18 @@
 [package]
 name = "rvagent-a2a"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "rvAgent A2A — Agent2Agent peer-to-peer protocol (ADR-159)"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/ruvnet/RuVector"
+repository = "https://github.com/ruvnet/ruvector"
+homepage = "https://ruv.io"
+readme = "README.md"
+keywords = ["a2a", "agent", "json-rpc", "ai", "ruvector"]
 
 [dependencies]
 # Intra-workspace rvAgent crates
-rvagent-core = { path = "../rvagent-core" }
-rvagent-middleware = { path = "../rvagent-middleware" }
+rvagent-core = { version = "0.1.0", path = "../rvagent-core" }
+rvagent-middleware = { version = "0.1.0", path = "../rvagent-middleware" }
 
 # Workspace deps
 serde = { workspace = true }

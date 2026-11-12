@@ -42,4 +42,22 @@ function loadNativeModule() {
   }
 }
 
-module.exports = loadNativeModule();
+const nativeModule = loadNativeModule();
+
+// Match index.d.ts and preserve the historical `VectorDB` spelling while
+// retaining the native NAPI-RS `VectorDb` export.
+if (nativeModule.VectorDb && !nativeModule.VectorDB) {
+  nativeModule.VectorDB = nativeModule.VectorDb;
+}
+
+// The native binding reports the Rust crate version (the workspace version,
+// e.g. "2.3.0"), not this package's. `version()` returns the @ruvector/core
+// version users installed; the engine version stays available as
+// `nativeVersion()`.
+const nativeVersion = typeof nativeModule.version === 'function' ? nativeModule.version : null;
+const packageVersion = require('./package.json').version;
+
+module.exports = Object.assign({}, nativeModule, {
+  version: () => packageVersion,
+  nativeVersion: () => (nativeVersion ? nativeVersion() : 'unknown'),
+});

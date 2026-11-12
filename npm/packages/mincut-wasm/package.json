@@ -1,0 +1,67 @@
+{
+  "name": "@ruvector/mincut-wasm",
+  "version": "2.3.1",
+  "description": "WASM: Weighted dynamic minimum cut with validated typed-array batches",
+  "homepage": "https://ruv.io",
+  "keywords": [
+    "wasm",
+    "vector-database",
+    "vector-search",
+    "ruvector",
+    "ruvnet",
+    "hnsw",
+    "embeddings",
+    "rag",
+    "semantic-search",
+    "knowledge-graph",
+    "gnn",
+    "graph-embeddings",
+    "link-prediction",
+    "attention",
+    "local-llm",
+    "onnx"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "main": "./node/ruvector_mincut_wasm.js",
+  "types": "./web/ruvector_mincut_wasm.d.ts",
+  "exports": {
+    ".": {
+      "node": {
+        "types": "./node/ruvector_mincut_wasm.d.ts",
+        "default": "./node/ruvector_mincut_wasm.js"
+      },
+      "default": "./web/ruvector_mincut_wasm.js"
+    },
+    "./web": {
+      "types": "./web/ruvector_mincut_wasm.d.ts",
+      "default": "./web/ruvector_mincut_wasm.js"
+    },
+    "./wasm": "./web/ruvector_mincut_wasm_bg.wasm",
+    "./routing": {
+      "types": "./routing/client.d.ts",
+      "default": "./routing/client.mjs"
+    }
+  },
+  "files": [
+    "node",
+    "web",
+    "scripts/check-package.cjs",
+    "routing"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.cjs",
+    "prepack": "node scripts/check-package.cjs"
+  },
+  "repository": {
+    "directory": "npm/packages/mincut-wasm",
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/ruvector.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
+  }
+}

@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn test_modify_request_with_system() {
         let mw = PromptCachingMiddleware::new();
-        let request = ModelRequest::new(vec![Message::user("hi")])
+        let request = ModelRequest::new(vec![Message::human("hi")])
             .with_system(Some("You are helpful.".into()));
 
         let modified = mw.modify_request(request);
@@ -84,7 +84,7 @@ mod tests {
     #[test]
     fn test_modify_request_without_system() {
         let mw = PromptCachingMiddleware::new();
-        let request = ModelRequest::new(vec![Message::user("hi")]);
+        let request = ModelRequest::new(vec![Message::human("hi")]);
 
         let modified = mw.modify_request(request);
         assert!(!modified.cache_control.contains_key("system"));
@@ -93,11 +93,11 @@ mod tests {
     #[test]
     fn test_modify_request_with_tools() {
         let mw = PromptCachingMiddleware::new();
-        let mut request = ModelRequest::new(vec![Message::user("hi")]);
+        let mut request = ModelRequest::new(vec![Message::human("hi")]);
         request.tools.push(crate::ToolDefinition {
             name: "test".into(),
             description: "test tool".into(),
-            parameters: serde_json::json!({}),
+            input_schema: serde_json::json!({}),
         });
 
         let modified = mw.modify_request(request);

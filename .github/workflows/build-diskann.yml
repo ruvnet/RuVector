@@ -11,6 +11,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - '.github/workflows/build-diskann.yml'
       - 'crates/ruvector-diskann/**'
       - 'crates/ruvector-diskann-node/**'
       - 'npm/packages/diskann/**'
@@ -31,16 +32,18 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: x86_64-unknown-linux-gnu
             platform: linux-x64-gnu
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
-          - host: macos-14
+          - host: macos-15
             target: x86_64-apple-darwin
             platform: darwin-x64
-          - host: macos-14
+          - host: macos-15
             target: aarch64-apple-darwin
             platform: darwin-arm64
           - host: windows-2022
@@ -49,22 +52,32 @@ jobs:
 
     name: Build DiskANN ${{ matrix.settings.platform }}
     runs-on: ${{ matrix.settings.host }}
+    container: ${{ matrix.settings.container }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Bootstrap ubuntu:22.04 build container (keeps the glibc floor)
+        if: ${{ matrix.settings.container != '' }}
+        shell: bash
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            sudo git curl wget ca-certificates build-essential pkg-config xz-utils unzip zip python3 jq file \
+            libssl-dev cmake clang libclang-dev
+          git config --global --add safe.directory '*'
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '18'
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           targets: ${{ matrix.settings.target }}
 
       - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           key: diskann-${{ matrix.settings.target }}
 
@@ -88,13 +101,50 @@ jobs:
         shell: bash
         run: |
           mkdir -p diskann-artifacts/${{ matrix.settings.platform }}
-          NODE_FILE=$(find npm/packages/diskann -name "*.node" -type f | head -1)
-          if [ -z "$NODE_FILE" ]; then
-            echo "ERROR: No .node file found"
+          # napi --platform writes exactly index.<platform>.node in the package
+          # dir. Do NOT `find -name "*.node" | head -1`: that matches any .node
+          # under npm/packages/diskann, node_modules included, which is how
+          # attention shipped an x86-64 file as linux-arm64-gnu (#1456).
+          NODE_FILE="npm/packages/diskann/index.${{ matrix.settings.platform }}.node"
+          if [ ! -f "$NODE_FILE" ]; then
+            echo "ERROR: expected napi output $NODE_FILE not found"
+            find npm/packages/diskann -name "*.node" -type f
             exit 1
           fi
           echo "Found: $NODE_FILE"
           cp -v "$NODE_FILE" "diskann-artifacts/${{ matrix.settings.platform }}/"
+
+      - name: Assert binary architecture matches the platform
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          F="diskann-artifacts/${{ matrix.settings.platform }}/index.${{ matrix.settings.platform }}.node"
+          desc=$(file -b "$F"); echo "$F: $desc"
+          case "${{ matrix.settings.platform }}" in
+            linux-x64-gnu)   want='ELF 64-bit.*x86-64' ;;
+            linux-arm64-gnu) want='ELF 64-bit.*(ARM aarch64|aarch64)' ;;
+            darwin-x64)      want='Mach-O 64-bit.*x86_64' ;;
+            darwin-arm64)    want='Mach-O 64-bit.*arm64' ;;
+          esac
+          echo "$desc" | grep -Eq "$want" || { echo "::error::$F is not a ${{ matrix.settings.platform }} binary: $desc"; exit 1; }
+
+      - name: Gate linux-arm64 binary (no LDAPR, GLIBC <= 2.34)
+        if: matrix.settings.platform == 'linux-arm64-gnu'
+        shell: bash
+        run: bash scripts/ci/check-arm64-node-binary.sh diskann-artifacts/linux-arm64-gnu/index.linux-arm64-gnu.node
+
+      - name: Run the test suite on a Cortex-A72 (Pi 4) under qemu
+        if: matrix.settings.platform == 'linux-arm64-gnu'
+        shell: bash
+        run: |
+          # ARMv8.0 CPU model: any LDAPR (ARMv8.3) or other post-v8.0 instruction
+          # dies with SIGILL here, as it does on a Pi 4 / Jetson.
+          sudo apt-get install -y --no-install-recommends qemu-user
+          curl -fsSL https://nodejs.org/dist/v20.18.1/node-v20.18.1-linux-arm64.tar.xz | tar xJ -C "$RUNNER_TEMP"
+          cd npm/packages/diskann
+          # index.js loads ./ruvector-diskann.linux-arm64-gnu.node first.
+          cp index.linux-arm64-gnu.node ruvector-diskann.linux-arm64-gnu.node
+          qemu-aarch64 -cpu cortex-a72 -L /usr/aarch64-linux-gnu "$RUNNER_TEMP/node-v20.18.1-linux-arm64/bin/node" test.js
 
       - name: Test native module (native platform only)
         if: |
@@ -106,7 +156,7 @@ jobs:
         run: npm test
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: diskann-${{ matrix.settings.platform }}
           path: diskann-artifacts/${{ matrix.settings.platform }}/*.node
@@ -114,21 +164,21 @@ jobs:
 
   publish:
     name: Publish DiskANN Platform Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     if: inputs.publish == true || startsWith(github.ref, 'refs/tags/v')
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '18'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           path: artifacts
 
@@ -168,21 +218,56 @@ jobs:
             ${LIBC}
             "main": "${NODE_NAME}",
             "files": ["${NODE_NAME}"],
-            "description": "DiskANN native bindings - ${platform}",
+            "description": "Prebuilt ${platform} native binary for @ruvector/diskann (DiskANN/Vamana approximate nearest neighbor search). Installed automatically by @ruvector/diskann.",
+            "keywords": ["ruvector", "diskann", "vamana", "vector-search", "approximate-nearest-neighbor", "napi", "native-addon", "prebuilt-binary", "${platform}"],
             "license": "MIT",
-            "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector"},
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/ruvector.git", "directory": "npm/packages/diskann"},
+            "bugs": {"url": "https://github.com/ruvnet/ruvector/issues"},
             "engines": {"node": ">= 18"},
             "publishConfig": {"access": "public"}
           }
           EOF
 
             cd "$PKG_DIR"
-            npm publish --access public || echo "Failed to publish @ruvector/diskann-${platform}"
+            # Skip only a version that is already on npm; any other failure
+            # must fail the job (it used to be swallowed by `|| echo`).
+            if npm view "@ruvector/diskann-${platform}@${VERSION}" version >/dev/null 2>&1; then
+              echo "@ruvector/diskann-${platform}@${VERSION} already published, skipping"
+            else
+              npm publish --access public
+            fi
             cd ../..
           done
+
+      - name: Lock platform optionalDependencies to package version
+        working-directory: npm/packages/diskann
+        run: |
+          # The platform packages above were just published at this version;
+          # without this the wrapper kept pointing at the previous release
+          # (gnn 0.1.27 shipped pinned to the 0.1.26 binaries).
+          node -e '
+            const fs = require("fs");
+            const p = require("./package.json");
+            const v = p.version;
+            const prefix = p.name + "-";
+            for (const k of Object.keys(p.optionalDependencies || {})) {
+              if (k.startsWith(prefix)) p.optionalDependencies[k] = v;
+            }
+            fs.writeFileSync("./package.json", JSON.stringify(p, null, 2) + "\n");
+            console.log("Locked platform optionalDependencies to " + v);
+          '
 
       - name: Publish main package
         working-directory: npm/packages/diskann
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public || echo "Package may already exist"
+        run: |
+          # `files` silently drops missing entries; refuse to ship without the loader.
+          test -f index.js && test -f index.d.ts
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "@ruvector/diskann@${VERSION}" version >/dev/null 2>&1; then
+            echo "@ruvector/diskann@${VERSION} already published, skipping"
+          else
+            npm publish --access public
+          fi

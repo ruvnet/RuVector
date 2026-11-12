@@ -1,0 +1,25 @@
+[package]
+name        = "ruvector-staged-workspace"
+version     = "0.1.1"
+edition     = "2021"
+description = "StagedWorkspace (arXiv:2608.18050) content-hash + revision-id state binding for RuV artifacts: stale views fail closed (ADR-318, PIR WP16)"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["content-hash", "provenance", "workspace", "agent", "ruvector"]
+categories  = ["data-structures"]
+
+[dependencies]
+serde = { workspace = true }
+# JSON transport for the subprocess adapter (state snapshots + the
+# stdin/stdout protocol consumed by WP15's TS acceptance harness).
+serde_json = { workspace = true }
+# The repo's existing RVF-layer SHA-256 (FIPS 180-4, NIST-vector verified,
+# no_std, zero deps). ADR-318 §Decision 1 reuses RVF's canonical-format
+# discipline; the program's canonical receipt contract (ruflo ADR-322C,
+# adopted via ADR-312) specifies SHA-256 — no new hash is introduced.
+rvf-types = { version = "0.3", path = "../rvf/rvf-types", default-features = false }
+
+[[bin]]
+name = "staged-workspace-adapter"
+path = "src/bin/staged-workspace-adapter.rs"

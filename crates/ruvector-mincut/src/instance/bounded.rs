@@ -229,15 +229,22 @@ impl BoundedInstance {
                 }
             }
 
-            // If we have boundary vertices, use them; otherwise fall back to all vertices
-            if boundary_vertices.is_empty() {
+            // If we have boundary vertices, use them; otherwise fall back to all vertices.
+            // Sorted for the same reason as `brute_force_min_cut`: `search_for_cuts`
+            // below returns on the *first* seed whose search succeeds, so an
+            // unstable (HashSet-derived) seed order changes which witness is found.
+            let mut seeds: Vec<VertexId> = if boundary_vertices.is_empty() {
                 self.vertices.iter().copied().collect()
             } else {
                 boundary_vertices.into_iter().collect()
-            }
+            };
+            seeds.sort_unstable();
+            seeds
         } else {
-            // No hierarchy - use all vertices
-            self.vertices.iter().copied().collect()
+            // No hierarchy - use all vertices, sorted (see comment above).
+            let mut seeds: Vec<VertexId> = self.vertices.iter().copied().collect();
+            seeds.sort_unstable();
+            seeds
         };
 
         // Try different budgets within our range
@@ -296,7 +303,15 @@ impl BoundedInstance {
             return None;
         }
 
-        let vertex_vec: Vec<_> = self.vertices.iter().copied().collect();
+        // Sorted, not raw HashSet iteration order: `HashSet<VertexId>` uses a
+        // randomly-seeded hasher per instance, so its iteration order is not
+        // stable across process runs even for identical insertions. The mask
+        // loop below assigns bit positions by index into this vector and
+        // keeps the *first* subset that matches `min_cut` on ties (line
+        // below: `boundary < min_cut`, strict), so an unstable vertex order
+        // silently changes which of several equal-value cuts gets returned.
+        let mut vertex_vec: Vec<_> = self.vertices.iter().copied().collect();
+        vertex_vec.sort_unstable();
         let n = vertex_vec.len();
 
         if n <= 1 {
@@ -334,7 +349,9 @@ impl BoundedInstance {
         }
 
         let membership: RoaringBitmap = best_set.iter().map(|&v| v as u32).collect();
-        let seed = *best_set.iter().next().unwrap();
+        // Deterministic seed choice (min, not `HashSet::iter().next()`) so the
+        // reported witness is reproducible for a fixed `best_set`.
+        let seed = *best_set.iter().min().unwrap();
         let witness = WitnessHandle::new(seed, membership, min_cut);
 
         Some((min_cut, witness))

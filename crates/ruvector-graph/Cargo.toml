@@ -1,12 +1,16 @@
 [package]
 name = "ruvector-graph"
-version = "2.3.1"
+version = "2.3.5"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+homepage = "https://ruv.io"
+documentation = "https://docs.rs/ruvector-graph"
 readme = "README.md"
+keywords = ["graph-database", "hypergraph", "cypher", "neo4j", "vector"]
+categories = ["database-implementations", "data-structures"]
 description = "Distributed Neo4j-compatible hypergraph database with SIMD optimization"
 
 [dependencies]
@@ -69,11 +73,11 @@ pest_derive = { version = "2.7", optional = true }
 lalrpop-util = { version = "0.21", optional = true }
 
 # Cache
-lru = "0.16"
+lru = "0.18"
 moka = { version = "0.12", features = ["future"], optional = true }
 
 # Compression (for storage optimization, optional for WASM)
-zstd = { version = "0.13", optional = true }
+zstd = { version = "0.14", optional = true }
 lz4 = { version = "1.24", optional = true }
 
 # Networking (for federation)

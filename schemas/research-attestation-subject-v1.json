@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ruvector.dev/schemas/research-attestation-subject-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "candidate_commit", "candidate_ref", "base_sha",
+    "base_gate_state", "override_sha256", "workflow_revision",
+    "manifest_sha256", "evaluator_version", "artifact_index_sha256",
+    "required_checks"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "candidate_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "candidate_ref": { "type": "string", "pattern": "^research/(candidate|nightly)/[A-Za-z0-9._/-]+$" },
+    "base_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "base_gate_state": { "enum": ["green", "authorized-red"] },
+    "override_sha256": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      ]
+    },
+    "workflow_revision": { "type": "string", "minLength": 1 },
+    "manifest_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "evaluator_version": { "type": "string", "minLength": 1 },
+    "artifact_index_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "required_checks": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "const": "success" }
+    }
+  }
+}

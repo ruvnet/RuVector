@@ -318,7 +318,7 @@ export async function shutdown(context) {
         } else {
           console.log(chalk.red('✗ Plugin manifest is invalid'));
           console.log(chalk.gray('\nErrors:'));
-          for (const error of result.error.errors) {
+          for (const error of result.error.issues) {
             console.log(chalk.red(`  • ${error.path.join('.')}: ${error.message}`));
           }
           process.exit(1);

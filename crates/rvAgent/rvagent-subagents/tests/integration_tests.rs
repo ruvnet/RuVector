@@ -1,13 +1,21 @@
 //! Integration tests for rvAgent subagents.
 
-use std::collections::HashMap;
-
+use rvagent_core::messages::Message;
+use rvagent_core::state::{FileData, TodoItem, TodoStatus};
 use rvagent_subagents::builder::compile_subagents;
 use rvagent_subagents::orchestrator::{spawn_parallel, SubAgentOrchestrator};
 use rvagent_subagents::{
     extract_result_message, merge_subagent_state, prepare_subagent_state, AgentState,
-    CompiledSubAgent, RvAgentConfig, SubAgentSpec, EXCLUDED_STATE_KEYS,
+    CompiledSubAgent, RvAgentConfig, SubAgentSpec,
 };
+
+fn file_data(content: &str) -> FileData {
+    FileData {
+        content: content.into(),
+        encoding: "utf-8".into(),
+        modified_at: None,
+    }
+}
 
 fn test_config() -> RvAgentConfig {
     RvAgentConfig {
@@ -28,24 +36,14 @@ fn mock_compiled(name: &str) -> CompiledSubAgent {
 }
 
 fn parent_state_with_data() -> AgentState {
-    let mut state = AgentState::new();
-    state.insert(
-        "messages".into(),
-        serde_json::json!([
-            {"type": "system", "content": "You are helpful."},
-            {"type": "human", "content": "Do something."},
-        ]),
-    );
-    state.insert("remaining_steps".into(), serde_json::json!(10));
-    state.insert(
-        "task_completion".into(),
-        serde_json::json!({"status": "in_progress"}),
-    );
-    state.insert(
-        "files".into(),
-        serde_json::json!({"main.rs": "fn main() {}"}),
-    );
-    state.insert("custom_data".into(), serde_json::json!("value"));
+    let mut state = AgentState::with_system_message("You are helpful.");
+    state.push_message(Message::human("Do something."));
+    state.push_todo(TodoItem {
+        content: "parent task".into(),
+        status: TodoStatus::InProgress,
+        active_form: String::new(),
+    });
+    state.set_file("main.rs", file_data("fn main() {}"));
     state
 }
 
@@ -73,39 +71,22 @@ fn test_state_isolation() {
     let parent = parent_state_with_data();
     let child = prepare_subagent_state(&parent, "Do a subtask");
 
-    // remaining_steps and task_completion should be excluded
-    assert!(
-        !child.contains_key("remaining_steps"),
-        "remaining_steps leaked"
-    );
-    assert!(
-        !child.contains_key("task_completion"),
-        "task_completion leaked"
-    );
+    // Parent todos should be excluded
+    assert!(child.todos.is_empty(), "todos leaked");
 
     // messages is re-created with the task description, not the parent's messages
-    let child_msgs = child.get("messages").unwrap().as_array().unwrap();
-    assert_eq!(child_msgs.len(), 1);
-    assert!(child_msgs[0]["content"]
-        .as_str()
-        .unwrap()
-        .contains("subtask"));
+    assert_eq!(child.message_count(), 1);
+    assert!(child.messages[0].content().contains("subtask"));
 
-    // Non-excluded keys should be present
-    assert!(child.contains_key("files"));
-    assert!(child.contains_key("custom_data"));
+    // Non-excluded state (files) should be present
+    assert!(child.files.contains_key("main.rs"));
 }
 
 #[test]
 fn test_extract_result_message() {
     let mut state = AgentState::new();
-    state.insert(
-        "messages".into(),
-        serde_json::json!([
-            {"type": "ai", "content": "Working..."},
-            {"type": "ai", "content": "Done! Here is the result."}
-        ]),
-    );
+    state.push_message(Message::ai("Working..."));
+    state.push_message(Message::ai("Done! Here is the result."));
 
     let result = extract_result_message(&state);
     assert!(result.is_some());
@@ -115,24 +96,18 @@ fn test_extract_result_message() {
 #[test]
 fn test_merge_preserves_parent_messages() {
     let mut parent = parent_state_with_data();
-    let parent_msgs = parent.get("messages").cloned();
+    let parent_msg_count = parent.message_count();
 
     let mut child_result = AgentState::new();
-    child_result.insert(
-        "messages".into(),
-        serde_json::json!([{"type": "ai", "content": "child"}]),
-    );
-    child_result.insert("new_key".into(), serde_json::json!("from child"));
+    child_result.push_message(Message::ai("child"));
+    child_result.set_file("child.rs", file_data("from child"));
 
     merge_subagent_state(&mut parent, &child_result);
 
     // Parent messages must not be overwritten
-    assert_eq!(parent.get("messages"), parent_msgs.as_ref());
-    // New keys from child should be merged
-    assert_eq!(
-        parent.get("new_key"),
-        Some(&serde_json::json!("from child"))
-    );
+    assert_eq!(parent.message_count(), parent_msg_count);
+    // New files from child should be merged
+    assert!(parent.files.contains_key("child.rs"));
 }
 
 #[test]
@@ -184,8 +159,4 @@ fn test_compilation_respects_capabilities() {
 fn test_extract_result_empty_messages() {
     let state = AgentState::new();
     assert!(extract_result_message(&state).is_none());
-
-    let mut state2 = AgentState::new();
-    state2.insert("messages".into(), serde_json::json!([]));
-    assert!(extract_result_message(&state2).is_none());
 }

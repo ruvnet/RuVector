@@ -5,6 +5,10 @@
 //! - Hamming similarity: <100ns via SIMD
 //! - 10^40 representational capacity
 
+// Lint suggests `as_chunks`, stable only since Rust 1.88 — past the declared
+// `rust-version = "1.77"`. `unknown_lints` keeps older toolchains quiet.
+#![allow(unknown_lints, clippy::chunks_exact_to_as_chunks)]
+
 use wasm_bindgen::prelude::*;
 
 /// Number of bits in a hypervector

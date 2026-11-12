@@ -1,0 +1,32 @@
+[package]
+name = "ruvector-kge"
+version = "2.4.0"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Holographic knowledge-graph embeddings (HolE / RotatE) for ruvector: scoring, training, evaluation, ANN candidate retrieval — one crate for native and wasm"
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = []
+# Score the positives of each 1-vs-all mini-batch on rayon's thread pool.
+# Results are identical with and without it (order-preserving, see
+# src/train/par.rs). Native builds only; ignored on wasm32.
+parallel = ["dep:rayon"]
+
+[dependencies]
+ruvector-router-core = { version = "2.0", path = "../ruvector-router-core" }
+ruvector-typesafe-core = { version = "2.0", path = "../ruvector-typesafe-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+# FFT backend for HolE circular correlation (ADR-002 §3). Pinned to the exact
+# version already resolved in the workspace lock (6.4.1) so no second copy is
+# pulled. Licence: MIT OR Apache-2.0 (deny.toml allow-list). Compiles and runs
+# on wasm32 — the ADR-002 hard gate — see the spike results in src/scorer/fft.rs.
+rustfft = "=6.4.1"
+# Optional data-parallel training (native only; never enabled for wasm32).
+rayon = { workspace = true, optional = true }

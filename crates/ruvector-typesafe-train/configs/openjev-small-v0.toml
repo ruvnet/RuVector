@@ -1,0 +1,37 @@
+# OpenJev v0 hyperparameters (docs/research/openjev/v0-plan.md, Step 3).
+# Sweep variants: encoder_lr in {3e-5, 5e-5} x mix.tickets in {0.20, 0.35},
+# plus the tickets-only ablation (set the three public weights to 0).
+max_seq_len = 64
+
+[train]
+max_steps = 3000
+eval_every = 250
+patience = 4             # early stop after 4 evals without val improvement
+warmup_steps = 180       # 6 %, then linear decay to 0
+encoder_lr = 3e-5
+head_lr = 1e-3
+weight_decay = 0.01      # none on biases / LayerNorm
+beta1 = 0.9
+beta2 = 0.999
+adam_eps = 1e-8
+grad_clip = 1.0          # global L2 norm
+label_smoothing = 0.1
+supcon_temperature = 0.05
+head_scale = 20.0        # logits = 20 * cos(e, w_c)
+oe_weight = 0.5          # CLINC150 oos_train -> uniform over the 150 heads
+ambiguous_primary = 0.75 # soft target 0.75 primary / 0.25 secondary
+eval_batch = 128
+val_limit = 0            # 0 = full validation slices
+
+[mix]
+tickets = 0.20
+banking77 = 0.25
+clinc150 = 0.30
+hwu64 = 0.25
+
+[batch]
+tickets_p = 8            # all 8 departments
+tickets_k = 4
+public_p = 32
+public_k = 2
+clinc_oos = 16           # extra oos_train rows on CLINC150 steps

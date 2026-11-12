@@ -50,6 +50,8 @@ impl From<RouterConfig> for CoreRouterConfig {
             circuit_breaker_threshold: config.circuit_breaker_threshold.unwrap_or(5),
             enable_quantization: config.enable_quantization.unwrap_or(true),
             database_path: config.database_path,
+            // VoI escalation gate (ADR-331) is not yet exposed over NAPI.
+            voi: None,
         }
     }
 }
@@ -323,13 +325,15 @@ pub struct TrainRouterResult {
 }
 
 /// Train a FastGRNN router from a DRACO dataset and write it to a
-/// `.safetensors` file consumable by `new Router({ modelPath })`.
+/// `.safetensors` file scored with `score()`. The model is trained on raw
+/// embeddings, so `new Router({ modelPath })` (5 engineered features) only
+/// accepts it when `inputDim` is 5.
 ///
 /// ```javascript
 /// const res = await trainRouter(rows, { haiku: 1, opus: 15 }, {
 ///   outputPath: './router.safetensors', inputDim: 8, epochs: 40,
 /// });
-/// const router = new Router({ modelPath: res.modelPath });
+/// const p = await score(res.modelPath, embedding); // embedding.length === 8
 /// ```
 #[napi]
 pub async fn train_router(

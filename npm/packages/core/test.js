@@ -1,4 +1,16 @@
-const { VectorDB } = require('./index.js');
+const { VectorDB, VectorDb, version, nativeVersion } = require('./index.js');
+
+if (VectorDB !== VectorDb) {
+  throw new Error('VectorDB compatibility alias does not match VectorDb');
+}
+
+const expectedVersion = require('./package.json').version;
+if (version() !== expectedVersion) {
+  throw new Error(`version() returned ${version()}, expected ${expectedVersion}`);
+}
+if (typeof nativeVersion() !== 'string') {
+  throw new Error('nativeVersion() must return a string');
+}
 
 async function test() {
   console.log('Testing native module...');

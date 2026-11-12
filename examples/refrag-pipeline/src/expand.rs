@@ -5,6 +5,10 @@
 //!
 //! For example, projecting 768-dim RoBERTa embeddings to 4096-dim LLaMA space.
 
+// Lint suggests `as_chunks`, stable only since Rust 1.88 — past the declared
+// `rust-version = "1.77"`. `unknown_lints` keeps older toolchains quiet.
+#![allow(unknown_lints, clippy::chunks_exact_to_as_chunks)]
+
 use ndarray::{Array1, Array2};
 use rand::Rng;
 use std::collections::HashMap;

@@ -63,6 +63,7 @@ serde_json          = { version = "1", optional = true }
 [dev-dependencies]
 anyhow    = "1"
 proptest  = "1"
+tempfile  = "3"
 criterion = { version = "0.5", default-features = false, features = ["plotters", "cargo_bench_support"] }
 
 [[bench]]

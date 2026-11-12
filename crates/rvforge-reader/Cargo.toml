@@ -1,0 +1,62 @@
+[package]
+name = "rvforge-reader"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT"
+authors = ["Ruvector Team"]
+repository = "https://github.com/ruvnet/ruvector"
+description = "RVForge Reader — desktop reader for signed .rvf agent packages (ADR-289)"
+publish = false
+
+# Standalone workspace. A Tauri app pulls a large, app-specific dependency
+# graph (webview bindings, bundler, plugin build scripts) with its own feature
+# unification needs; joining the ruvector root workspace makes every
+# `cargo build --workspace` pay for it. The repo root lists
+# `crates/rvforge-reader` in `workspace.exclude`.
+[workspace]
+
+[lib]
+name = "rvforge_reader"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rvforge-reader"
+path = "src/main.rs"
+required-features = ["desktop"]
+
+[features]
+# Core logic (inspection, capability card, runtime selection, state layout)
+# builds and tests with no Tauri dependency, so `cargo check` / `cargo test`
+# stay fast and work on hosts with no webview development packages.
+default = []
+desktop = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:tauri-build"]
+
+[dependencies]
+# The reader does not reimplement RVF reading or verification. `rvf-forge-core`
+# is a member of the root workspace; a path dependency across the workspace
+# boundary is fine because it inherits its own workspace's `version`/`lints`.
+rvf-forge-core = { path = "../rvf-forge-core" }
+# ADR-288 state sealing. ChaCha20-Poly1305 rather than AES-GCM: pure Rust with
+# no unsafe, and constant-time on targets without AES hardware, which the
+# reader's Windows/macOS/Linux ARM builds cannot assume.
+chacha20poly1305 = { version = "0.10", features = ["getrandom"] }
+# Per-capsule subkey derivation from the per-install key. HKDF rather than a
+# hand-rolled hash construction; both crates are already resolved in the root
+# workspace lock.
+hkdf = "0.12"
+sha2 = "0.10"
+zeroize = { version = "1", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tauri = { version = "2", optional = true }
+tauri-plugin-dialog = { version = "2", optional = true }
+
+[dev-dependencies]
+# Fixtures only. `rvf-forge-core::testkit` builds synthetic containers, and its
+# segment-construction helpers are typed on rvf-types' `SegmentType`. Nothing in
+# `src/` reaches into the format crates; the reader goes through Forge.
+rvf-types = { path = "../rvf/rvf-types", features = ["std", "ed25519"] }
+
+[build-dependencies]
+tauri-build = { version = "2", optional = true }

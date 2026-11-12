@@ -50,9 +50,9 @@ impl TrackIndexer {
         let options = DbOptions {
             dimensions: dim,
             distance_metric: DistanceMetric::Euclidean,
-            // Ignored by the in-memory backend (ruvector-core is built here
-            // without the `storage` feature); kept for API completeness.
-            storage_path: "sky-monitor-tracks.mem".to_string(),
+            // Select in-memory storage at runtime, even when Cargo feature
+            // unification compiles ruvector-core's persistent backend too.
+            storage_path: "memory://sky-monitor-tracks".to_string(),
             hnsw_config: None,
             quantization: None,
         };

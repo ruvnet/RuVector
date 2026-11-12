@@ -209,7 +209,7 @@ test('gate 3 corollary: a fresh store stamps provenance on first write and stays
 // ---------------------------------------------------------------------------
 // Gate 4 — mixed-provenance insert fails with a clear error (both stores)
 // ---------------------------------------------------------------------------
-test('gate 4: hooks store stamped onnx-minilm/384 refuses a hash write, naming both sides', (t) => {
+test('gate 4: hooks store stamped onnx-minilm/384 refuses an explicitly forced hash write, naming both sides', (t) => {
   const dir = makeProject({
     embeddingProvenance: { embedderKind: 'onnx-minilm', modelId: 'all-MiniLM-L6-v2', dimension: 384, normalize: true, prefixPolicy: 'none' },
     memories: [
@@ -219,7 +219,7 @@ test('gate 4: hooks store stamped onnx-minilm/384 refuses a hash write, naming b
   });
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
-  const r = cli(dir, ['hooks', 'remember', '-t', 'test', 'hash-embedded write']);
+  const r = cli(dir, ['hooks', 'remember', '-t', 'test', 'hash-embedded write'], { RUVECTOR_EMBEDDER: 'hash' });
   assert.notEqual(r.code, 0, 'mixed-provenance write must fail');
   const res = JSON.parse(r.stdout);
   assert.equal(res.success, false);
@@ -228,6 +228,34 @@ test('gate 4: hooks store stamped onnx-minilm/384 refuses a hash write, naming b
   assert.match(res.error, /hash/, 'names the active embedder');
   assert.match(res.error, /384/);
   assert.match(res.error, /dimension/);
+});
+
+test('issue #815: hooks remember/recall follow stamped MiniLM provenance by default', (t) => {
+  const dir = makeProject({
+    embeddingProvenance: { embedderKind: 'onnx-minilm', modelId: 'all-MiniLM-L6-v2', dimension: 384, normalize: true, prefixPolicy: 'none' },
+    memories: [],
+    stats: { total_memories: 0 },
+  });
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  // This assertion is independent of model/network availability: the write
+  // may honestly fail if auto cannot load MiniLM, but it must select the
+  // semantic path instead of silently attempting the old hash/64 path.
+  const remember = cli(dir, ['hooks', 'remember', '-t', 'test', 'store-aware embedding']);
+  const rememberBody = JSON.parse(remember.stdout);
+  assert.equal(rememberBody.semantic, true, remember.stdout + remember.stderr);
+
+  const recall = cli(dir, ['hooks', 'recall', 'store-aware embedding']);
+  assert.equal(recall.code, 0, recall.stdout + recall.stderr);
+  assert.equal(JSON.parse(recall.stdout).semantic, true);
+
+  // An explicit rollout override still wins over the store preference.
+  const forcedHash = cli(dir, ['hooks', 'remember', '-t', 'test', 'forced hash'], { RUVECTOR_EMBEDDER: 'hash' });
+  const forcedBody = JSON.parse(forcedHash.stdout);
+  assert.equal(forcedBody.semantic, false);
+  assert.notEqual(forcedHash.code, 0, 'forced hash must not write into a MiniLM store');
+  assert.match(forcedBody.error, /onnx-minilm/);
+  assert.match(forcedBody.error, /hash/);
 });
 
 test('gate 4: provenance-stamped .db sidecar refuses mismatched inserts (dimension + prefixPolicy)', (t) => {

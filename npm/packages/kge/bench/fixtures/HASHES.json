@@ -1,0 +1,8 @@
+{
+  "_comment": "sha256 of the raw bytes of each frozen bench fixture. The harness refuses to run on mismatch. Regenerate only on a deliberate re-freeze.",
+  "generated_by": "scripts/hash-fixtures.mjs",
+  "algorithm": "sha256",
+  "files": {
+    "fixtures/synthetic-kg.json": "9ac6a12583dab85966cfbfc2cae51467d0dc0ee74997703c6485bd57f44cfd74"
+  }
+}

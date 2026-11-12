@@ -6,7 +6,6 @@ use rvagent_subagents::{
     spawn_parallel, AgentState, CompiledSubAgent, SpawnError, SubAgentOrchestrator, SubAgentSpec,
     ValidationConfig, ValidationError,
 };
-use std::collections::HashMap;
 
 fn create_test_orchestrator() -> SubAgentOrchestrator {
     let spec = SubAgentSpec::new("test-agent", "Do the thing");
@@ -33,7 +32,7 @@ fn create_test_orchestrator_with_config(config: ValidationConfig) -> SubAgentOrc
 }
 
 fn create_empty_state() -> AgentState {
-    HashMap::new()
+    AgentState::new()
 }
 
 #[test]

@@ -119,11 +119,51 @@ fn bench_batch_inference(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_voi_decision(c: &mut Criterion) {
+    use ruvector_tiny_dancer_core::voi::{decide, Belief, EstimatorSpec, VoiConfig};
+
+    let belief = Belief::new(0.5, 0.3).unwrap();
+    let ladder = [
+        EstimatorSpec {
+            cost: 0.001,
+            latency_us: 200.0,
+            noise_std: 0.5,
+        },
+        EstimatorSpec {
+            cost: 0.01,
+            latency_us: 2_000.0,
+            noise_std: 0.1,
+        },
+        EstimatorSpec {
+            cost: 0.1,
+            latency_us: 20_000.0,
+            noise_std: 0.01,
+        },
+    ];
+    let config = VoiConfig {
+        value_of_success: 1.0,
+        latency_price: 1e-6,
+    };
+
+    c.bench_function("voi_decision_3_estimators", |b| {
+        b.iter(|| {
+            decide(
+                black_box(belief),
+                black_box(0.55),
+                black_box(&ladder),
+                black_box(&config),
+            )
+            .unwrap()
+        })
+    });
+}
+
 criterion_group!(
     benches,
     bench_routing_latency,
     bench_feature_extraction,
     bench_model_inference,
-    bench_batch_inference
+    bench_batch_inference,
+    bench_voi_decision
 );
 criterion_main!(benches);

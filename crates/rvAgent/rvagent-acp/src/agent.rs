@@ -13,7 +13,7 @@ use rvagent_core::config::RvAgentConfig;
 use rvagent_core::error::Result as CoreResult;
 use rvagent_core::graph::{AgentGraph, GraphConfig, ToolExecutor};
 use rvagent_core::messages::{Message, ToolCall};
-use rvagent_core::models::ChatModel;
+use rvagent_core::models::{ChatModel, ToolDefinition};
 use rvagent_core::state::AgentState;
 
 use crate::types::{
@@ -77,7 +77,11 @@ struct StubModel;
 
 #[async_trait]
 impl ChatModel for StubModel {
-    async fn complete(&self, messages: &[Message]) -> CoreResult<Message> {
+    async fn complete(
+        &self,
+        messages: &[Message],
+        _tools: &[ToolDefinition],
+    ) -> CoreResult<Message> {
         // Find the last human message and produce an intelligent echo.
         let user_text = messages
             .iter()
@@ -95,8 +99,12 @@ impl ChatModel for StubModel {
         Ok(Message::ai(response))
     }
 
-    async fn stream(&self, messages: &[Message]) -> CoreResult<Vec<Message>> {
-        let msg = self.complete(messages).await?;
+    async fn stream(
+        &self,
+        messages: &[Message],
+        tools: &[ToolDefinition],
+    ) -> CoreResult<Vec<Message>> {
+        let msg = self.complete(messages, tools).await?;
         Ok(vec![msg])
     }
 }
@@ -186,19 +194,47 @@ impl AcpAgent {
 
         let user_msg = Message::human(&user_text);
 
-        // Run the prompt through an AgentGraph with a stub model.
+        // Run the prompt through an AgentGraph with a stub model wrapped in
+        // the middleware pipeline (P0.3 wiring).
         //
         // In production, the model would be resolved from `self.config`
-        // and real tools/middleware would be wired in. The stub model
-        // allows the server to run without an API key.
+        // and real tools would be wired in. The stub model allows the
+        // server to run without an API key.
         let graph_config = GraphConfig {
             max_iterations: 10,
             parallel_tools: false,
+            ..GraphConfig::default()
         };
-        let graph = AgentGraph::with_config(StubModel, AcpToolExecutor, graph_config);
+
+        // Resolve the configured middleware names (an unknown name is an
+        // error); an empty configuration gets the default pipeline.
+        let pipeline_config = rvagent_middleware::PipelineConfig::default();
+        let pipeline = if self.config.middleware.is_empty() {
+            rvagent_middleware::build_default_pipeline(&pipeline_config)
+        } else {
+            let names: Vec<&str> = self
+                .config
+                .middleware
+                .iter()
+                .map(|m| m.name.as_str())
+                .collect();
+            rvagent_middleware::build_pipeline_from_names(&names, &pipeline_config)
+                .map_err(|e| e.to_string())?
+        };
+        let pipeline = Arc::new(pipeline);
 
         let mut agent_state = AgentState::new();
         agent_state.push_message(user_msg.clone());
+
+        // Run before_agent hooks over the initial state.
+        let mw_runtime = rvagent_middleware::Runtime::new();
+        let run_config = rvagent_middleware::RunnableConfig::default();
+        pipeline
+            .run_before_agent(&mut agent_state, &mw_runtime, &run_config)
+            .await;
+
+        let model = rvagent_middleware::PipelineModel::new(StubModel, Arc::clone(&pipeline));
+        let graph = AgentGraph::with_config(model, AcpToolExecutor, graph_config);
 
         let final_state = graph
             .run(agent_state)

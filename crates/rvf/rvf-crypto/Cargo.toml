@@ -1,6 +1,6 @@
 [package]
 name = "rvf-crypto"
-version = "0.2.0"
+version = "0.3.1"
 edition = "2021"
 description = "RuVector Format cryptographic primitives -- SHA-3 hashing and Ed25519 signing"
 license = "MIT OR Apache-2.0"
@@ -15,11 +15,15 @@ rust-version = "1.87"
 default = ["std", "ed25519"]
 std = ["sha3/std"]
 ed25519 = ["dep:ed25519-dalek"]
+# Hardware-accelerated SHA-256 (sha2 crate, runtime CPU detection) for the RVSD
+# streaming path; byte-identical to the portable rvf_types::sha256 fallback.
+fast-sha256 = ["dep:sha2"]
 
 [dependencies]
-rvf-types = { version = "0.2.0", path = "../rvf-types" }
+rvf-types = { version = "0.3.0", path = "../rvf-types" }
 sha3 = { version = "0.10", default-features = false }
 ed25519-dalek = { version = "2", features = ["rand_core"], optional = true }
+sha2 = { version = "0.10", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.8"

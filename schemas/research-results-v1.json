@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ruvector.dev/schemas/research-results-v1.json",
+  "title": "ADR-282 raw paired confirmation results",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "manifest_revision", "manifest_sha256",
+    "candidate_commit", "embedding_space_id", "phase", "runs"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "manifest_revision": { "type": "integer", "minimum": 1 },
+    "manifest_sha256": { "$ref": "#/$defs/sha256" },
+    "candidate_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "embedding_space_id": { "$ref": "#/$defs/sha256" },
+    "phase": { "const": "confirmation" },
+    "runs": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seed", "control", "treatment"],
+        "properties": {
+          "seed": { "type": "integer" },
+          "control": { "$ref": "#/$defs/arm" },
+          "treatment": { "$ref": "#/$defs/arm" },
+          "selection": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["configured_count", "selected_count", "deterministic_tie_breaker"],
+            "properties": {
+              "configured_count": { "type": "integer", "minimum": 0 },
+              "selected_count": { "type": "integer", "minimum": 0 },
+              "deterministic_tie_breaker": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "declared_summary": { "type": "object" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metrics", "resources", "memory"],
+      "properties": {
+        "metrics": { "type": "object", "additionalProperties": { "type": "number" } },
+        "resources": { "type": "object", "additionalProperties": { "type": "number", "minimum": 0 } },
+        "memory": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 },
+          "required": [
+            "encoded_payload_bytes", "index_graph_bytes", "codebooks_quantizer_bytes",
+            "container_bookkeeping_bytes", "allocator_overhead_bytes",
+            "temporary_build_bytes", "temporary_query_bytes", "process_peak_rss_bytes"
+          ]
+        }
+      }
+    }
+  }
+}

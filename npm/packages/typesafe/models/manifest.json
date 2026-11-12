@@ -1,0 +1,60 @@
+{
+  "models": [
+    {
+      "name": "bge-small-en-v1.5",
+      "file": "bge-small-en-v1.5/model.onnx",
+      "sha256": "828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35",
+      "dims": 384,
+      "license": "MIT",
+      "source_url": "https://huggingface.co/Xenova/bge-small-en-v1.5",
+      "added": "2026-09-21",
+      "review_by": "2027-03-21",
+      "pooling": "cls",
+      "tokenizer_file": "bge-small-en-v1.5/tokenizer.json",
+      "tokenizer_sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66",
+      "max_tokens": 256
+    },
+    {
+      "name": "bge-small-en-v1.5-int8",
+      "file": "bge-small-en-v1.5/model_quantized.onnx",
+      "sha256": "6c9c6101a956d62dfb5e7190c538226c0c5bb9cb27b651234b6df063ee7dbfe4",
+      "dims": 384,
+      "license": "MIT",
+      "source_url": "https://huggingface.co/Xenova/bge-small-en-v1.5",
+      "added": "2026-09-21",
+      "review_by": "2027-03-21",
+      "pooling": "cls",
+      "tokenizer_file": "bge-small-en-v1.5/tokenizer.json",
+      "tokenizer_sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66",
+      "max_tokens": 256
+    },
+    {
+      "name": "all-MiniLM-L6-v2",
+      "file": "all-MiniLM-L6-v2/model.onnx",
+      "sha256": "759c3cd2b7fe7e93933ad23c4c9181b7396442a2ed746ec7c1d46192c469c46e",
+      "dims": 384,
+      "license": "Apache-2.0",
+      "source_url": "https://huggingface.co/Xenova/all-MiniLM-L6-v2",
+      "added": "2026-09-21",
+      "review_by": "2027-03-21",
+      "pooling": "mean",
+      "tokenizer_file": "all-MiniLM-L6-v2/tokenizer.json",
+      "tokenizer_sha256": "da0e79933b9ed51798a3ae27893d3c5fa4a201126cef75586296df9b4d2c62a0",
+      "max_tokens": 256
+    },
+    {
+      "name": "all-MiniLM-L6-v2-int8",
+      "file": "all-MiniLM-L6-v2/model_quantized.onnx",
+      "sha256": "afdb6f1a0e45b715d0bb9b11772f032c399babd23bfc31fed1c170afc848bdb1",
+      "dims": 384,
+      "license": "Apache-2.0",
+      "source_url": "https://huggingface.co/Xenova/all-MiniLM-L6-v2",
+      "added": "2026-09-21",
+      "review_by": "2027-03-21",
+      "pooling": "mean",
+      "tokenizer_file": "all-MiniLM-L6-v2/tokenizer.json",
+      "tokenizer_sha256": "da0e79933b9ed51798a3ae27893d3c5fa4a201126cef75586296df9b4d2c62a0",
+      "max_tokens": 256
+    }
+  ]
+}

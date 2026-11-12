@@ -93,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // through the EmbeddingProvider trait method, not the
         // inherent method. NullTransport refuses by design — that's
         // what we expect.
-        match provider.embed("hello world") {
+        match provider.embed_query("hello world") {
             Ok(v) => panic!(
                 "NullTransport should refuse — got {} elements back",
                 v.len()
@@ -130,7 +130,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
     let mut vectors: Vec<Vec<f32>> = Vec::with_capacity(docs.len());
     for d in &docs {
-        let v = provider.embed(d)?;
+        let v = provider.embed_passage(d)?;
         vectors.push(v);
     }
     let elapsed = start.elapsed();
@@ -145,7 +145,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Tiny similarity sanity check: doc i should be most similar to
     // doc i (cosine ≈ 1.0). This proves the embeddings are coherent
     // through the trait boundary, not just wire-shaped right.
-    let q = provider.embed(&docs[0])?;
+    //
+    // The corpus above is embedded with embed_passage and probed here
+    // with embed_query. Those agree exactly only because the cluster
+    // provider declares a symmetric identity — no per-role prompt
+    // prefix. Against an asymmetric model the two roles encode the same
+    // text differently by design, so expect doc[0] to still rank first
+    // but at a cosine well below 1.0.
+    let q = provider.embed_query(&docs[0])?;
     let mut best_idx = 0usize;
     let mut best_score = -2.0f32;
     for (i, v) in vectors.iter().enumerate() {

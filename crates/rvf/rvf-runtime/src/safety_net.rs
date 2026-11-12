@@ -363,11 +363,13 @@ mod tests {
                 id: 0,
                 distance: 0.1,
                 retrieval_quality: rvf_types::quality::RetrievalQuality::Full,
+                metadata: None,
             },
             SearchResult {
                 id: 1,
                 distance: 0.2,
                 retrieval_quality: rvf_types::quality::RetrievalQuality::Full,
+                metadata: None,
             },
         ];
 

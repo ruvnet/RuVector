@@ -1,0 +1,21 @@
+# cargo-audit configuration for the standalone prime-radiant workspace.
+#
+# Added 2026-11-10 (RUSTSEC sweep). Re-review by 2027-01-10 or when the
+# tokio-postgres port of the `postgres` feature lands, whichever is first.
+#
+# Both entries below are lockfile-only: Cargo.lock is feature-independent,
+# so sqlx 0.8's optional sqlite and mysql drivers are recorded even though
+# prime-radiant enables only `postgres`. Neither crate is compiled under any
+# feature combination: `cargo tree --all-features --target all -i
+# libsqlite3-sys` (and `-i rsa`) prints nothing.
+#
+# The fix is the deferred port of the `postgres` feature from sqlx to
+# tokio-postgres, which drops sqlx-sqlite and sqlx-mysql from the lock.
+# Moving to sqlx 0.9 is not a fix: sqlx-sqlite 0.9 still caps
+# libsqlite3-sys below 0.38, under the patched 0.39.
+
+[advisories]
+ignore = [
+    "RUSTSEC-2026-0459",  # libsqlite3-sys 0.30.1, via sqlx-sqlite (never built)
+    "RUSTSEC-2023-0071",  # rsa 0.9.10, via sqlx-mysql (never built)
+]

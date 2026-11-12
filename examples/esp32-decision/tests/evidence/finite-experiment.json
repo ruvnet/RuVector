@@ -1,0 +1,21 @@
+{
+  "campaign": "esp32-overnight-20260926",
+  "run": "esp32-slot23-20260926T0301Z",
+  "parent": "6fdb5f12ac7fe16752eeb60405e52567081706db",
+  "seed": 719,
+  "candidate_budget": 1,
+  "thresholds": {
+    "pairs": 11,
+    "median_speedup": 1.1,
+    "bootstrap_lower": 1.0
+  },
+  "frozen": {
+    "tools/e2e.py": "30ff546678ccac0bcf8ba7408e00d2f38fa1766fa57901f3c02d0438c4007df0",
+    "tools/lab.py": "58a724d39712ab4598b822233399de155eafebaf088d938a3a4878588039a54f",
+    "tests/test_lab.py": "e74c246f59cf2c60704d5b98cb0f672912a94cac60fc20954c9993add7e38cf1",
+    "tests/test_kernel.c": "d507113848e26ad507df836e4830070eaa7f599f527f89f9ef4f3c3dc8cc687e",
+    "components/rvdecision/rvdecision.c": "b9d41b7589740df3cd442ac1bf02ba0c52f98bda4aca58f979316e353bdd4d40",
+    "main/model.h": "cbff965febe51fe384208fa97939f1fe2c2d6a713e7281066d8a13de2fbbad70",
+    "tools/energy_compare.py": "c74102159753d4aedf4b8a05293f48bc05a5c07f41947f54d4013b8e8d7afae4"
+  }
+}

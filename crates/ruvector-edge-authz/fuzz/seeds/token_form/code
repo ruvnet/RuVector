@@ -1,0 +1,1 @@
+grant_type=authorization_code&code=abc&redirect_uri=https%3A%2F%2Fclaude.ai%2Fapi%2Fmcp%2Fauth_callback&client_id=edc-client-1&code_verifier=dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk&resource=https%3A%2F%2Fruvector-edge-gateway.cognitum-consulting-mail.workers.dev%2Fv1%2Fmcp&unknown=ignored

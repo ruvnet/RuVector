@@ -11,8 +11,7 @@
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use ruvector_agent_memory::{
-    compact, recall_at_k, CoherencePolicy, CompactionPolicy, LfuPolicy,
-    LruPolicy, MemoryStore,
+    compact, recall_at_k, CoherencePolicy, CompactionPolicy, LfuPolicy, LruPolicy, MemoryStore,
 };
 use std::time::{Duration, Instant};
 
@@ -325,6 +324,119 @@ fn main() {
         println!("→ BENCHMARK FAILED");
         std::process::exit(1);
     }
+
+    run_arbitration_bench();
+}
+
+/// CAMA-pattern arbitration bench (ADR-330, PIR WP27): naive vote counting
+/// vs provenance-clustered arbitration over a synthetic 1 000-memory causal
+/// graph (100 independent origins, 900 derived memories). The correctness
+/// assertion — arbitration collapses the 1 000 memories to exactly the 100
+/// origin lineages, at a score no higher than the naive vote — is checked
+/// here as well as in the test suite.
+///
+/// Every derived memory here **declares** its parent, so this measures the
+/// clustering math on the mechanism's best case. It is not an adversarial
+/// benchmark: content-copying memories that declare no parent mint their own
+/// lineages by design (see `arbitration`'s "Known limitation" docs).
+fn run_arbitration_bench() {
+    use rand::rngs::OsRng;
+    use ruvector_agent_memory::{
+        arbitrate, ArbitrationConfig, AtomicObservation, CausalEpisodicGraph, NodeRef,
+        ObservationId, ObservationSource, ReliabilityModel, SourceKind, Tenant,
+    };
+    use rvf_types::Ed25519Keypair;
+
+    const N_ROOTS: usize = 100;
+    const N_DERIVED: usize = 900;
+
+    println!("\nArbitration bench (ADR-330): naive vote vs provenance-clustered arbitration");
+    let keypair = Ed25519Keypair::generate(&mut OsRng);
+    let mut rng = StdRng::seed_from_u64(330);
+    let mut graph = CausalEpisodicGraph::new(Tenant::new("bench"));
+
+    let sign = |payload: &[u8], t: u64, parents: Vec<ObservationId>, kp: &Ed25519Keypair| {
+        AtomicObservation::new_signed(
+            ObservationSource {
+                kind: SourceKind::AgentObservation,
+                id: "bench".to_string(),
+                public_key: [0u8; 32],
+            },
+            t,
+            0.9,
+            Tenant::new("bench"),
+            parents,
+            payload.to_vec(),
+            kp,
+        )
+        .unwrap()
+    };
+
+    let roots: Vec<ObservationId> = (0..N_ROOTS)
+        .map(|i| {
+            graph
+                .ingest(sign(&(i as u32).to_le_bytes(), 0, vec![], &keypair))
+                .unwrap()
+        })
+        .collect();
+    // Per-root latest descendant, so derivation chains deepen over time.
+    let mut latest: Vec<ObservationId> = roots.clone();
+    let mut memories: Vec<NodeRef> = Vec::with_capacity(N_DERIVED);
+    for i in 0..N_DERIVED {
+        let r = rng.gen_range(0..N_ROOTS);
+        let parent = latest[r];
+        let id = graph
+            .ingest(sign(
+                &(1_000_000 + i as u32).to_le_bytes(),
+                1 + i as u64,
+                vec![parent],
+                &keypair,
+            ))
+            .unwrap();
+        latest[r] = id;
+        memories.push(NodeRef::Observation(id));
+    }
+
+    let config = ArbitrationConfig {
+        now_ns: 1_000_000,
+        half_life_ns: u64::MAX,
+        sufficiency_threshold: 1,
+        reliability: ReliabilityModel::default(),
+    };
+
+    // Naive vote: sum of raw confidences (the correlation-blind baseline).
+    let t0 = Instant::now();
+    let naive: f64 = memories
+        .iter()
+        .map(|m| match m {
+            NodeRef::Observation(id) => graph.observation(*id).unwrap().confidence as f64,
+            NodeRef::Cluster(_) => unreachable!(),
+        })
+        .sum();
+    let naive_us = t0.elapsed().as_micros();
+
+    let t1 = Instant::now();
+    let outcome = arbitrate(&graph, &memories, &config).expect("arbitration succeeds");
+    let arb_us = t1.elapsed().as_micros();
+    let verdict = outcome.verdict();
+
+    println!(
+        "  Memories        : {} ({} origins, {} derived)",
+        N_DERIVED, N_ROOTS, N_DERIVED
+    );
+    println!("  Naive vote      : {naive:.1} supporting confidence ({naive_us} µs)");
+    println!(
+        "  Arbitrated      : {:.1} effective confidence across {} lineages ({} µs)",
+        verdict.arbitrated_confidence,
+        verdict.independent_lineages(),
+        arb_us
+    );
+    assert_eq!(verdict.independent_lineages(), N_ROOTS);
+    assert!(verdict.arbitrated_confidence <= verdict.naive_confidence + 1e-9);
+    println!(
+        "  → {N_DERIVED} declared-derivation memories collapse to {N_ROOTS} independent lineages"
+    );
+    println!("    (declared-parent chains — the mechanism's best case, not an adversarial test)");
 }
 
 fn rustc_version_string() -> String {

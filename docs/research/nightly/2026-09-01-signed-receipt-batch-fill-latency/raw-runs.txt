@@ -1,0 +1,66 @@
+=== RUN 1 ===
+=== ruvector-retrieval-receipt batch-fill latency simulation ===
+n=2000 dims=64 k=10 queries_per_regime=3000
+
+regime                       policy             queries   batches   mean_sz     lat_mean      lat_p50      lat_p95      lat_p99      lat_max    sign_amort_ns   verified
+target_load_1000qps          B1_baseline           3000      3000       1.0      0.020ms      0.020ms      0.025ms      0.039ms      0.096ms          20265.6       true
+target_load_1000qps          B32_fixed_only        3000        94      31.9     15.993ms     15.919ms     32.482ms     36.800ms     47.289ms            921.0       true
+target_load_1000qps          B32_hybrid_50ms       3000        94      31.9     15.993ms     15.919ms     32.482ms     36.798ms     47.287ms            911.1       true
+light_load_50qps             B1_baseline           3000      3000       1.0      0.020ms      0.019ms      0.024ms      0.037ms      0.366ms          20171.3       true
+light_load_50qps             B32_fixed_only        3000        94      31.9    308.446ms    296.465ms    651.056ms    756.153ms    944.343ms            982.9       true
+light_load_50qps             B32_hybrid_50ms       3000       854       3.5     32.098ms     35.071ms     50.021ms     50.032ms     50.055ms           5982.4       true
+bursty_on2000qps_off400ms    B1_baseline           3000      3000       1.0      0.021ms      0.020ms      0.027ms      0.041ms      1.200ms          20784.4       true
+bursty_on2000qps_off400ms    B32_fixed_only        3000        94      31.9     40.661ms      7.503ms    409.332ms    415.694ms    421.000ms            909.5       true
+bursty_on2000qps_off400ms    B32_hybrid_50ms       3000       102      29.4     10.363ms      8.101ms     42.652ms     49.302ms     50.032ms            951.5       true
+
+=== acceptance ===
+all closed batches verify (signature + inclusion), every regime/policy: true
+hybrid p99 latency bounded by 70.000ms: target=36.798ms light=50.032ms bursty=49.302ms -> true
+fixed-size-only p99 at light load exceeds 2x hybrid's p99 (demonstrates the unbounded-tail failure mode): fixed=756.153ms hybrid=50.032ms -> true
+hybrid amortized signing cost at target load within 2x of fixed-size-only: hybrid=911.1ns fixed=921.0ns -> true
+
+BATCH-FILL LATENCY ACCEPTANCE RESULT: ACCEPT
+=== RUN 2 ===
+=== ruvector-retrieval-receipt batch-fill latency simulation ===
+n=2000 dims=64 k=10 queries_per_regime=3000
+
+regime                       policy             queries   batches   mean_sz     lat_mean      lat_p50      lat_p95      lat_p99      lat_max    sign_amort_ns   verified
+target_load_1000qps          B1_baseline           3000      3000       1.0      0.022ms      0.020ms      0.031ms      0.046ms      0.126ms          21515.9       true
+target_load_1000qps          B32_fixed_only        3000        94      31.9     15.994ms     15.930ms     32.481ms     36.802ms     47.291ms            959.8       true
+target_load_1000qps          B32_hybrid_50ms       3000        94      31.9     15.994ms     15.920ms     32.483ms     36.818ms     47.380ms            944.3       true
+light_load_50qps             B1_baseline           3000      3000       1.0      0.020ms      0.020ms      0.024ms      0.040ms      0.360ms          20436.9       true
+light_load_50qps             B32_fixed_only        3000        94      31.9    308.444ms    296.466ms    651.057ms    756.118ms    944.343ms            910.2       true
+light_load_50qps             B32_hybrid_50ms       3000       854       3.5     32.098ms     35.075ms     50.021ms     50.025ms     50.070ms           5932.9       true
+bursty_on2000qps_off400ms    B1_baseline           3000      3000       1.0      0.020ms      0.020ms      0.022ms      0.031ms      0.055ms          19712.7       true
+bursty_on2000qps_off400ms    B32_fixed_only        3000        94      31.9     40.661ms      7.499ms    409.330ms    415.693ms    421.000ms            887.2       true
+bursty_on2000qps_off400ms    B32_hybrid_50ms       3000       102      29.4     10.363ms      8.101ms     42.652ms     49.302ms     50.033ms            945.9       true
+
+=== acceptance ===
+all closed batches verify (signature + inclusion), every regime/policy: true
+hybrid p99 latency bounded by 70.000ms: target=36.818ms light=50.025ms bursty=49.302ms -> true
+fixed-size-only p99 at light load exceeds 2x hybrid's p99 (demonstrates the unbounded-tail failure mode): fixed=756.118ms hybrid=50.025ms -> true
+hybrid amortized signing cost at target load within 2x of fixed-size-only: hybrid=944.3ns fixed=959.8ns -> true
+
+BATCH-FILL LATENCY ACCEPTANCE RESULT: ACCEPT
+=== RUN 3 ===
+=== ruvector-retrieval-receipt batch-fill latency simulation ===
+n=2000 dims=64 k=10 queries_per_regime=3000
+
+regime                       policy             queries   batches   mean_sz     lat_mean      lat_p50      lat_p95      lat_p99      lat_max    sign_amort_ns   verified
+target_load_1000qps          B1_baseline           3000      3000       1.0      0.022ms      0.020ms      0.033ms      0.047ms      1.665ms          22226.8       true
+target_load_1000qps          B32_fixed_only        3000        94      31.9     15.995ms     15.921ms     32.482ms     36.801ms     47.286ms            987.3       true
+target_load_1000qps          B32_hybrid_50ms       3000        94      31.9     15.992ms     15.920ms     32.480ms     36.799ms     47.288ms            901.7       true
+light_load_50qps             B1_baseline           3000      3000       1.0      0.021ms      0.020ms      0.030ms      0.042ms      0.115ms          20768.5       true
+light_load_50qps             B32_fixed_only        3000        94      31.9    308.444ms    296.465ms    651.056ms    756.118ms    944.343ms            912.4       true
+light_load_50qps             B32_hybrid_50ms       3000       854       3.5     32.099ms     35.073ms     50.022ms     50.032ms     50.063ms           6177.1       true
+bursty_on2000qps_off400ms    B1_baseline           3000      3000       1.0      0.021ms      0.020ms      0.026ms      0.038ms      0.318ms          20610.5       true
+bursty_on2000qps_off400ms    B32_fixed_only        3000        94      31.9     40.661ms      7.503ms    409.330ms    415.693ms    420.999ms            902.6       true
+bursty_on2000qps_off400ms    B32_hybrid_50ms       3000       102      29.4     10.364ms      8.101ms     42.652ms     49.301ms     50.031ms            970.5       true
+
+=== acceptance ===
+all closed batches verify (signature + inclusion), every regime/policy: true
+hybrid p99 latency bounded by 70.000ms: target=36.799ms light=50.032ms bursty=49.301ms -> true
+fixed-size-only p99 at light load exceeds 2x hybrid's p99 (demonstrates the unbounded-tail failure mode): fixed=756.118ms hybrid=50.032ms -> true
+hybrid amortized signing cost at target load within 2x of fixed-size-only: hybrid=901.7ns fixed=987.3ns -> true
+
+BATCH-FILL LATENCY ACCEPTANCE RESULT: ACCEPT

@@ -1,0 +1,28 @@
+# cargo-fuzz target for the rv-quant persist v2 snapshot decoder (`rbqx0002`,
+# ADR-351 G4c/M4). Run with nightly:
+#   cd crates/ruvector-edge-quant/fuzz
+#   env -u RUSTFLAGS cargo +nightly fuzz run rbqx_decode corpus/rbqx_decode seeds/rbqx_decode -- -max_total_time=600
+# `seeds/rbqx_decode` holds the checked-in `tests/fixtures/*.rbqx` snapshots
+# behind each mode byte; `corpus/` is ignored.
+[package]
+name = "ruvector-edge-quant-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ruvector-edge-quant = { path = ".." }
+
+# Prevent this from being discovered as a workspace member
+[workspace]
+
+[[bin]]
+name = "rbqx_decode"
+path = "fuzz_targets/rbqx_decode.rs"
+test = false
+doc = false
+bench = false

@@ -50,25 +50,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
 
       - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           # crates/sona is a root-workspace member, so napi's
           # --cargo-cwd build lands in the shared ./target dir.
           key: sona-drift
 
       - name: Cache npm
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: ~/.npm
           key: npm-sona-drift-${{ runner.os }}-${{ hashFiles('npm/packages/sona/package-lock.json', 'npm/packages/ruvllm/package.json') }}
@@ -130,7 +130,7 @@ jobs:
 
       - name: Upload parity report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: sona-drift-report
           path: sona-drift-report.json
@@ -152,7 +152,7 @@ jobs:
 
       - name: Upload current fingerprint (on drift)
         if: failure() && steps.fingerprint.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: sona-drift-current-fingerprint
           path: sona-drift-current.rvf

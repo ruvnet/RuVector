@@ -422,7 +422,12 @@ impl PagedKvCache {
             let offset = i * stride;
 
             // Check if we need a new block
-            if self.num_tokens % self.block_size == 0 {
+            if self
+                .num_tokens
+                .checked_rem(self.block_size)
+                .expect("attempt to calculate the remainder with a divisor of zero")
+                == 0
+            {
                 let block_idx = self.num_tokens / self.block_size;
                 // Only allocate if we've exhausted pre-allocated blocks
                 if block_idx >= self.key_blocks.len() {

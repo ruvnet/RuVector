@@ -1,0 +1,112 @@
+name: research-promote
+
+on:
+  workflow_run:
+    workflows: ["research-candidate"]
+    types: [completed]
+
+concurrency:
+  group: research-promote-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  promote:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      attestations: read
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: trusted
+          persist-credentials: false
+      - name: Use a pinned interpreter rather than the PEP 668 system python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned trusted gate dependencies
+        run: |
+          set -euo pipefail
+          # Fully hashed lock: a substituted or tampered artifact fails the
+          # install rather than silently changing what the trusted gate accepts.
+          python3 -m pip install --disable-pip-version-check --no-input \
+            --require-hashes -r trusted/scripts/research-gate/requirements.txt
+      - name: Download only the attested evidence artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir evidence
+          gh run download "$RUN_ID" --repo "$GH_REPO" \
+            --pattern 'research-evidence-attested-*' --dir evidence
+          subject_count="$(find evidence -name attestation-subject.json -type f | wc -l)"
+          test "$subject_count" = 1
+          subject_path="$(find evidence -name attestation-subject.json -type f)"
+          artifact_dir="$(dirname "$subject_path")"
+          mkdir evidence-flat
+          cp -R "$artifact_dir"/. evidence-flat/
+      - name: Verify GitHub provenance and all immutable bindings
+        id: verified
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh attestation verify evidence-flat/attestation-subject.json \
+            --repo "$GH_REPO" \
+            --signer-workflow "$GH_REPO/.github/workflows/research-candidate.yml@refs/heads/main"
+          python3 trusted/scripts/research-gate/verify_promotion.py \
+            --evidence evidence-flat --output promotion.env
+          cat promotion.env >> "$GITHUB_OUTPUT"
+      - name: Require branch head to remain the attested commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CANDIDATE_REF: ${{ steps.verified.outputs.candidate_ref }}
+          CANDIDATE_SHA: ${{ steps.verified.outputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          current_sha="$(
+            gh api "repos/$GH_REPO/git/ref/heads/$CANDIDATE_REF" --jq .object.sha
+          )"
+          test "$current_sha" = "$CANDIDATE_SHA"
+      - name: Open exactly one pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CANDIDATE_REF: ${{ steps.verified.outputs.candidate_ref }}
+          CANDIDATE_SHA: ${{ steps.verified.outputs.candidate_sha }}
+          WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          set -euo pipefail
+          existing="$(
+            gh pr list --repo "$GH_REPO" --head "$CANDIDATE_REF" \
+              --state all --json number --jq 'length'
+          )"
+          if [[ "$existing" != 0 ]]; then
+            echo "A PR already exists for $CANDIDATE_REF; refusing a duplicate."
+            exit 0
+          fi
+          claim="$(
+            python3 -c 'import json; print(json.load(open("evidence-flat/research-manifest.json"))["claim"])'
+          )"
+          {
+            echo "Automated research candidate validated under ADR-282."
+            echo
+            echo "- Attested commit: \`$CANDIDATE_SHA\`"
+            echo "- Workflow run: $WORKFLOW_RUN_URL"
+            echo "- Claim: $claim"
+            echo
+            echo "The immutable manifest, raw results, evaluation, report, and artifact index are attached to the attested workflow run."
+          } > pr-body.md
+          gh pr create --repo "$GH_REPO" --base main --head "$CANDIDATE_REF" \
+            --title "research: $claim" --body-file pr-body.md

@@ -48,6 +48,7 @@ pub fn run(args: IngestArgs) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut store = RvfStore::open(Path::new(&args.path)).map_err(map_rvf_err)?;
+    crate::cmd::warn_on_metadata_recovery(&store, &args.path);
 
     let batch_size = args.batch_size.max(1);
     let mut total_accepted = 0u64;
@@ -80,6 +81,12 @@ pub fn run(args: IngestArgs) -> Result<(), Box<dyn std::error::Error>> {
         crate::output::print_kv("Accepted:", &total_accepted.to_string());
         crate::output::print_kv("Rejected:", &total_rejected.to_string());
         crate::output::print_kv("Epoch:", &last_epoch.to_string());
+    }
+    if total_accepted == 0 && total_rejected > 0 {
+        return Err(format!(
+            "all {total_rejected} record(s) were rejected (expected dimension does not match); nothing was ingested"
+        )
+        .into());
     }
     Ok(())
 }

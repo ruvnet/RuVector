@@ -307,8 +307,9 @@ fn is_pid_alive(pid: u32) -> bool {
             return true;
         }
         // EPERM means the process exists but belongs to another user.
-        let errno = unsafe { *errno_location() };
-        errno == 1 // EPERM
+        // last_os_error reads errno through each platform's own accessor, so this
+        // works on every Unix rather than only those with a hand-declared symbol.
+        std::io::Error::last_os_error().raw_os_error() == Some(EPERM)
     }
     #[cfg(not(unix))]
     {
@@ -322,29 +323,13 @@ extern "C" {
     fn kill(pid: i32, sig: i32) -> i32;
 }
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
-extern "C" {
-    fn __errno_location() -> *mut i32;
-}
-
-#[cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd"))]
-extern "C" {
-    fn __error() -> *mut i32;
-}
+/// Permission denied errno -- process exists but belongs to another user.
+#[cfg(unix)]
+const EPERM: i32 = 1;
 
 #[cfg(unix)]
 unsafe fn libc_kill(pid: i32, sig: i32) -> i32 {
     unsafe { kill(pid, sig) }
-}
-
-#[cfg(any(target_os = "linux", target_os = "android"))]
-unsafe fn errno_location() -> *mut i32 {
-    unsafe { __errno_location() }
-}
-
-#[cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd"))]
-unsafe fn errno_location() -> *mut i32 {
-    unsafe { __error() }
 }
 
 #[cfg(test)]
@@ -371,6 +356,23 @@ mod tests {
 
     fn cleanup(dir: &Path) {
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn is_pid_alive_distinguishes_self_from_an_unused_pid() {
+        assert!(
+            is_pid_alive(std::process::id()),
+            "own process reads as dead"
+        );
+
+        // A PID far above every mainstream system's pid_max cannot be running.
+        // This is the arm that exercises the errno read: kill sets ESRCH, which
+        // must not be mistaken for EPERM and reported as alive.
+        assert!(
+            !is_pid_alive(999999999u32),
+            "an unused PID reads as alive, so stale leases would never be broken"
+        );
     }
 
     #[test]

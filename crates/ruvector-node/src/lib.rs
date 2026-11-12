@@ -69,6 +69,14 @@ impl From<JsQuantizationConfig> for QuantizationConfig {
                 k: config.k.unwrap_or(256) as usize,
             },
             "binary" => QuantizationConfig::Binary,
+            // Turbo4 (ADR-296): applied 4-bit quantization. Seed/multiplier
+            // use the core defaults; a full JS surface can extend this later.
+            "turbo4" => QuantizationConfig::Turbo4 {
+                rotation_seed: ruvector_core::types::default_turbo4_rotation_seed(),
+                rescore_multiplier: ruvector_core::types::default_turbo4_rescore_multiplier(),
+                policy: ruvector_core::types::SearchPolicy::default(),
+                search_quantization: ruvector_core::types::SearchQuantization::default(),
+            },
             _ => QuantizationConfig::Scalar,
         }
     }
@@ -143,12 +151,25 @@ pub struct JsVectorEntry {
     pub metadata: Option<String>,
 }
 
+/// Parse an optional JSON object without silently dropping invalid user input.
+///
+/// Malformed metadata must not turn into a metadata-free write, and malformed
+/// search filters must not accidentally turn a constrained query into an
+/// unconstrained one.
+fn parse_optional_json_object(
+    field: &str,
+    raw: Option<&str>,
+) -> Result<Option<std::collections::HashMap<String, serde_json::Value>>> {
+    raw.map(|s| {
+        serde_json::from_str::<std::collections::HashMap<String, serde_json::Value>>(s)
+            .map_err(|err| Error::from_reason(format!("Invalid {field} JSON object: {err}")))
+    })
+    .transpose()
+}
+
 impl JsVectorEntry {
     fn to_core(&self) -> Result<VectorEntry> {
-        // Parse JSON string to HashMap<String, serde_json::Value>
-        let metadata = self.metadata.as_ref().and_then(|s| {
-            serde_json::from_str::<std::collections::HashMap<String, serde_json::Value>>(s).ok()
-        });
+        let metadata = parse_optional_json_object("metadata", self.metadata.as_deref())?;
 
         Ok(VectorEntry {
             id: self.id.clone(),
@@ -173,10 +194,7 @@ pub struct JsSearchQuery {
 
 impl JsSearchQuery {
     fn to_core(&self) -> Result<SearchQuery> {
-        // Parse JSON string to HashMap<String, serde_json::Value>
-        let filter = self.filter.as_ref().and_then(|s| {
-            serde_json::from_str::<std::collections::HashMap<String, serde_json::Value>>(s).ok()
-        });
+        let filter = parse_optional_json_object("filter", self.filter.as_deref())?;
 
         Ok(SearchQuery {
             vector: self.vector.to_vec(),
@@ -775,5 +793,91 @@ pub fn get_health() -> JsHealthResponse {
         },
         version: health.version,
         uptime_seconds: health.uptime_seconds as i64,
+    }
+}
+
+#[cfg(test)]
+mod strict_json_boundary_tests {
+    use super::*;
+
+    #[test]
+    fn valid_optional_metadata_and_filter_objects_parse() {
+        assert!(parse_optional_json_object("filter", None)
+            .unwrap()
+            .is_none());
+        let parsed = parse_optional_json_object("filter", Some(r#"{"tenant":"A"}"#))
+            .unwrap()
+            .unwrap();
+        assert_eq!(parsed.get("tenant"), Some(&serde_json::json!("A")));
+        let empty = parse_optional_json_object("metadata", Some("{}"))
+            .unwrap()
+            .unwrap();
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn malformed_or_nonobject_json_is_not_silently_ignored() {
+        for field in ["metadata", "filter"] {
+            for raw in ["{broken", "null", "[]", "42", r#""string""#] {
+                let err = parse_optional_json_object(field, Some(raw)).unwrap_err();
+                assert!(
+                    err.to_string().contains("Invalid"),
+                    "invalid {field} input must have a useful error: {err}"
+                );
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod filter_end_to_end_tests {
+    use super::*;
+
+    fn entry(id: &str, v: [f32; 2], metadata: Option<&str>) -> JsVectorEntry {
+        JsVectorEntry {
+            id: Some(id.to_string()),
+            vector: Float32Array::new(v.to_vec()),
+            metadata: metadata.map(str::to_string),
+        }
+    }
+
+    fn search(filter: Option<&str>) -> JsSearchQuery {
+        JsSearchQuery {
+            vector: Float32Array::new(vec![0.0, 0.0]),
+            k: 10,
+            ef_search: None,
+            filter: filter.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn a_rejected_filter_never_returns_the_unfiltered_set() {
+        let db = CoreVectorDB::new(DbOptions {
+            dimensions: 2,
+            distance_metric: DistanceMetric::Euclidean,
+            storage_path: "memory://".to_string(),
+            hnsw_config: Some(HnswConfig::default()),
+            quantization: None,
+        })
+        .unwrap();
+        for (i, cat) in ["A", "B", "B", "B"].iter().enumerate() {
+            let md = format!(r#"{{"category": "{cat}"}}"#);
+            db.insert(
+                entry(&format!("v{i}"), [i as f32, 0.0], Some(&md))
+                    .to_core()
+                    .unwrap(),
+            )
+            .unwrap();
+        }
+        let hits = db
+            .search(search(Some(r#"{"category": "A"}"#)).to_core().unwrap())
+            .unwrap();
+        assert_eq!(
+            hits.iter().map(|h| h.id.as_str()).collect::<Vec<_>>(),
+            vec!["v0"]
+        );
+        // Before #1310 this parsed to `None` and searched unfiltered, returning all four vectors.
+        assert!(search(Some(r#"{"category": "A""#)).to_core().is_err());
+        assert!(entry("x", [0.0, 0.0], Some("[1]")).to_core().is_err());
     }
 }

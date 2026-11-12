@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "campaign": "esp32-overnight-20260926",
+  "run": "esp32-slot00-20260926T0402Z",
+  "physical_hardware": false,
+  "parent": {"sha": "21fd8753ea1d54473ef797e9c6ebaaa62c7749bf", "tamper_cases": 7, "tamper_cases_rejected": 0, "valid_case_passed": true},
+  "candidate": {"tamper_cases": 7, "tamper_cases_rejected": 7, "valid_case_passed": true, "test_methods": 6},
+  "tamper_classes": ["cross round pair", "duplicate round reuse", "kernel mismatch", "target mismatch", "image mismatch", "decision count mismatch", "scope mismatch"],
+  "valid_retention_result_equal": true,
+  "focused_tests": {"methods": 15, "failures": 0, "suites": ["test_energy_provenance", "test_finite_benchmark"]},
+  "integrated_lab": {"software_acceptance": "pass", "rust_tests": 57, "python_tests": 42, "exact_native_pairs": 11, "built_targets": [], "physical_acceptance": "not performed", "coverage_candidate_retained": false},
+  "environment_recovery": {"source_changed": false, "rustc": "1.85.1", "cargo": "1.85.1", "cmake": "3.28.3", "asan_detect_leaks": 0},
+  "limitations": ["Synthetic provenance fixtures do not authenticate an actor who rewrites every linked artifact together.", "No ESP32 build was required because firmware and target flags did not change.", "No physical boards or power traces were available."]
+}

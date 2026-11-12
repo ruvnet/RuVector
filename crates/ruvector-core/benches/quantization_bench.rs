@@ -4,7 +4,7 @@ use ruvector_core::quantization::*;
 fn bench_scalar_quantization(c: &mut Criterion) {
     let mut group = c.benchmark_group("scalar_quantization");
 
-    for size in [128, 384, 768, 1536].iter() {
+    for size in [128, 384, 512, 768, 1536].iter() {
         let vector: Vec<f32> = (0..*size).map(|i| i as f32 * 0.1).collect();
 
         group.bench_with_input(BenchmarkId::new("encode", size), size, |bench, _| {
@@ -28,7 +28,7 @@ fn bench_scalar_quantization(c: &mut Criterion) {
 fn bench_binary_quantization(c: &mut Criterion) {
     let mut group = c.benchmark_group("binary_quantization");
 
-    for size in [128, 384, 768, 1536].iter() {
+    for size in [128, 384, 512, 768, 1536].iter() {
         let vector: Vec<f32> = (0..*size)
             .map(|i| if i % 2 == 0 { 1.0 } else { -1.0 })
             .collect();

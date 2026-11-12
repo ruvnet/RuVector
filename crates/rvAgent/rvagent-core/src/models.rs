@@ -131,17 +131,36 @@ pub fn resolve_model(model_str: &str) -> ModelConfig {
     }
 }
 
+/// A tool made available to the model for a completion request.
+///
+/// Providers translate this into their wire format (Anthropic `tools`,
+/// Gemini `functionDeclarations`, OpenAI `functions`). Without advertising
+/// these schemas the model can never emit a tool call, so every completion
+/// on the agent loop passes the active tool set.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ToolDefinition {
+    /// Tool name — must match `ToolCall::name` on the way back.
+    pub name: String,
+    /// Human-readable description shown to the model.
+    pub description: String,
+    /// JSON Schema for the tool's arguments.
+    pub input_schema: serde_json::Value,
+}
+
 /// Async trait for chat model implementations.
 ///
 /// Provider-specific crates implement this trait (e.g. `rvagent-anthropic`).
 #[async_trait]
 pub trait ChatModel: Send + Sync {
-    /// Send messages and receive a complete response.
-    async fn complete(&self, messages: &[Message]) -> Result<Message>;
+    /// Send messages and the active tool set, receive a complete response.
+    ///
+    /// `tools` may be empty for pure-chat completions; providers must omit
+    /// the tools field from the request in that case.
+    async fn complete(&self, messages: &[Message], tools: &[ToolDefinition]) -> Result<Message>;
 
     /// Stream a response token-by-token. Returns a vector of incremental messages.
     /// The final element is the complete assembled message.
-    async fn stream(&self, messages: &[Message]) -> Result<Vec<Message>>;
+    async fn stream(&self, messages: &[Message], tools: &[ToolDefinition]) -> Result<Vec<Message>>;
 }
 
 /// Extended trait for models that support chunk-based streaming.
@@ -152,7 +171,11 @@ pub trait ChatModel: Send + Sync {
 #[async_trait]
 pub trait StreamingChatModel: ChatModel {
     /// Stream response chunks incrementally.
-    async fn stream_chunks(&self, messages: &[Message]) -> Result<Vec<StreamChunk>>;
+    async fn stream_chunks(
+        &self,
+        messages: &[Message],
+        tools: &[ToolDefinition],
+    ) -> Result<Vec<StreamChunk>>;
 }
 
 #[cfg(test)]

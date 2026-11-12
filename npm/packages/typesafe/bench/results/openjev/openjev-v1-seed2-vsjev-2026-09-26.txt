@@ -1,0 +1,33 @@
+
+## vs Jev — full slice (n=150, lexical id order, α=0.05, λ=0.5)
+| question | reference | local | jev | tier | fwd maxW (W/L) | rev maxW (W/L) |
+|---|---|---|---|---|---|---|
+| department | baseline | 93.3% | 85.3% | **non-inferior** | 14.05 (20/8) | 1.00 (8/20) |
+| department | champion | 93.3% | 90.0% | **non-inferior** | 2.59 (12/7) | 1.00 (7/12) |
+| urgent | baseline | 92.7% | 61.3% | **superior** | 20068.37 (56/9) | 1.00 (9/56) |
+| urgent | champion | 92.7% | 60.0% | **superior** | 31356.83 (58/9) | 1.00 (9/58) |
+| frustration | baseline | 86.0% | 67.3% | **superior** | 337.07 (48/20) | 1.00 (20/48) |
+| frustration | champion | 86.0% | 67.3% | **superior** | 337.07 (48/20) | 1.00 (20/48) |
+primary (superior to Jev baseline, all three): not met · secondary (non-inferior to Jev champion, all three): HOLDS
+
+## vs Jev — novel slice (n=119, lexical id order, α=0.05, λ=0.5)
+| question | reference | local | jev | tier | fwd maxW (W/L) | rev maxW (W/L) |
+|---|---|---|---|---|---|---|
+| department | baseline | 91.6% | 83.2% | **non-inferior** | 8.99 (18/8) | 1.00 (8/18) |
+| department | champion | 91.6% | 88.2% | **non-inferior** | 2.29 (11/7) | 1.00 (7/11) |
+| urgent | baseline | 92.4% | 61.3% | **superior** | 2451.71 (44/7) | 1.00 (7/44) |
+| urgent | champion | 92.4% | 59.7% | **superior** | 3830.80 (46/7) | 1.00 (7/46) |
+| frustration | baseline | 82.4% | 68.9% | **superior** | 23.16 (36/20) | 1.00 (20/36) |
+| frustration | champion | 82.4% | 68.9% | **superior** | 23.16 (36/20) | 1.00 (20/36) |
+primary (superior to Jev baseline, all three): not met · secondary (non-inferior to Jev champion, all three): HOLDS
+
+## vs Jev — template slice (n=31, lexical id order, α=0.05, λ=0.5)
+| question | reference | local | jev | tier | fwd maxW (W/L) | rev maxW (W/L) |
+|---|---|---|---|---|---|---|
+| department | baseline | 100.0% | 93.5% | **non-inferior** | 1.56 (2/0) | 1.00 (0/2) |
+| department | champion | 100.0% | 96.8% | **non-inferior** | 1.25 (1/0) | 1.00 (0/1) |
+| urgent | baseline | 93.5% | 61.3% | **non-inferior** | 9.31 (12/2) | 1.00 (2/12) |
+| urgent | champion | 93.5% | 61.3% | **non-inferior** | 9.31 (12/2) | 1.00 (2/12) |
+| frustration | baseline | 100.0% | 61.3% | **non-inferior** | 14.55 (12/0) | 1.00 (0/12) |
+| frustration | champion | 100.0% | 61.3% | **non-inferior** | 14.55 (12/0) | 1.00 (0/12) |
+primary (superior to Jev baseline, all three): not met · secondary (non-inferior to Jev champion, all three): HOLDS

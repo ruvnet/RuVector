@@ -438,6 +438,10 @@ impl MicroVm {
                 id: r.id,
                 distance: r.distance,
                 retrieval_quality: rvf_types::quality::RetrievalQuality::Full,
+                // The VM query endpoint returns identifiers and distance only;
+                // metadata is opt-in and not carried over this wire form
+                // (ADR-280 §6).
+                metadata: None,
             })
             .collect())
     }

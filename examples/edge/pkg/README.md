@@ -1313,3 +1313,18 @@ MIT License - Free for commercial and personal use.
 **Stop paying for cloud AI. Start running free edge swarms.**
 
 [GitHub](https://github.com/ruvnet/ruvector) | [npm](https://www.npmjs.com/package/@ruvector/edge) | [Issues](https://github.com/ruvnet/ruvector/issues)
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for consensus, AI, cryptography.
+
+- **Works with** (its runtime dependencies): [`@ruvector/edge-full`](https://www.npmjs.com/package/@ruvector/edge-full) (optional), [`@ruvector/edge-full`](https://www.npmjs.com/package/@ruvector/edge-full) (optional)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

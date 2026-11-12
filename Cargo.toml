@@ -1,5 +1,5 @@
 [workspace]
-exclude = ["external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf", "crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/ruvector-hyperbolic-hnsw-wasm", "examples/ruvLLM/esp32", "examples/ruvLLM/esp32-flash", "examples/edge-net", "examples/data", "examples/ruvLLM", "examples/delta-behavior", "crates/rvf", "crates/rvf/*", "crates/rvf/*/*", "examples/rvf-desktop", "crates/mcp-brain-server",
+exclude = ["crates/prime-radiant", "patches/candle-core-0.8.4", "patches/candle-core-0.9.2", "external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf", "crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/ruvector-hyperbolic-hnsw-wasm", "examples/ruvLLM/esp32", "examples/ruvLLM/esp32-flash", "examples/edge-net", "examples/data", "examples/ruvLLM", "examples/delta-behavior", "crates/rvf", "crates/rvf/*", "crates/rvf/*/*", "examples/rvf-desktop", "crates/mcp-brain-server",
     # emergent-time-wasm: standalone cdylib with own opt-level=z, panic=abort
     "crates/emergent-time-wasm",
     # sonic-ct crates: self-contained detached workspaces
@@ -20,8 +20,53 @@ exclude = ["external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf",
     # ruos-thermal: Pi 5 thermal supervisor skeleton (ADR-174). Standalone
     # for now; joins workspace once daemon mode + Unix socket protocol
     # land in iters 92-97.
-    "crates/ruos-thermal"]
+    "crates/ruos-thermal",
+    # rvforge-reader: Tauri v2 desktop app (ADR-289). Standalone workspace —
+    # the webview/bundler dependency graph and its feature unification are
+    # app-specific and would be paid for by every `cargo build --workspace`.
+    "crates/rvforge-reader",
+    # agentic-robotics family: excluded: does not build — see #859. The six
+    # crates were authored against a different workspace root: they inherit
+    # workspace.package keys this root does not define (description, homepage,
+    # documentation, keywords, categories), reference workspace deps this root
+    # does not declare (zenoh, rustdds, cdr, hdrhistogram), and pin internal
+    # path deps at 0.1.x while version.workspace would make them 2.3.0 —
+    # cargo metadata fails at manifest parse before any code is compiled.
+    "crates/agentic-robotics-core",
+    "crates/agentic-robotics-rt",
+    "crates/agentic-robotics-embedded",
+    "crates/agentic-robotics-mcp",
+    "crates/agentic-robotics-node",
+    "crates/agentic-robotics-benchmarks",
+    # excluded: does not build — see #859. 51 compile errors: API drift
+    # against ruvector-attention 2.x plus a missing bincode dependency.
+    "crates/ruvector-attention-cli",
+    # excluded: does not build — see #859. 11 compile errors: API drift
+    # against ruvector-sparse-inference (SparseModel is now an enum without
+    # forward_embedding/sparsity_statistics/encode; serde derives were
+    # dropped from InferenceConfig/ModelMetadata).
+    "crates/ruvector-sparse-inference-wasm",
+    # ruvector edge Workers (ADR-351): a separate cargo workspace of workers-rs
+    # cdylibs with its own Cargo.lock, so its wasm-bindgen/worker pins never
+    # unify with this workspace. The pure cores it wraps are members below.
+    "edge", "edge/*"]
 members = [
+    # Shared EMA clustering core and portable npm WASM engine (ADR-359).
+    "crates/ruvector-e-means",
+    # ruvector Python SDK (ADR-352): PyO3 + maturin bindings. Salvaged from
+    # the stale feature/python-sdk-m1 branch (M1 RaBitQ scope) and extended.
+    "crates/ruvector-py",
+    # ruvector edge pure-Rust cores (ADR-351): resource-server auth, tenancy,
+    # and the edge OAuth authorization server. wasm32-unknown-unknown clean.
+    "crates/ruvector-edge-auth",
+    "crates/ruvector-edge-tenancy",
+    "crates/ruvector-edge-authz",
+    "crates/ruvector-edge-store",
+    "crates/ruvector-edge-index",
+    "crates/ruvector-edge-registry",
+    "crates/ruvector-edge-snapshot",
+    "crates/ruvector-edge-analytics",
+    "crates/ruvector-edge-quant",
     "crates/ruvector-bounded-rag",
     "crates/ruvector-temporal-coherence",
     "crates/ruvector-acorn",
@@ -30,8 +75,10 @@ members = [
     "crates/ruvector-rabitq",
     "crates/ruvector-rabitq-wasm",
     "crates/ruvector-turbovec",
+    "crates/ruvector-turboquant",
     "crates/ruvector-rulake",
     "crates/ruvector-core",
+    "crates/ruvector-context",
     "crates/ruvector-node",
     "crates/ruvector-wasm",
     "crates/ruvector-cli",
@@ -42,9 +89,17 @@ members = [
     "crates/ruvector-router-cli",
     "crates/ruvector-router-ffi",
     "crates/ruvector-router-wasm",
+    "crates/ruvector-typesafe-core",
+    "crates/ruvector-typesafe-ffi",
+    "crates/ruvector-typesafe-wasm",
+    "crates/ruvector-embed-core",
+    "crates/ruvector-kge",
+    "crates/ruvector-kge-ffi",
+    "crates/ruvector-kge-wasm",
     "crates/ruvector-server",
     "crates/ruvector-snapshot",
     "crates/ruvector-tiny-dancer-core",
+    "crates/ruvector-voi",
     "crates/ruvector-tiny-dancer-wasm",
     "crates/ruvector-tiny-dancer-node",
     "crates/ruvector-collections",
@@ -56,6 +111,22 @@ members = [
     "crates/ruvector-graph-wasm",
     "crates/ruvector-gnn",
     "crates/ruvector-proof-gate",
+    # Agent-memory compaction (ADR-252-agent-memory-compaction) + TARL
+    # transactional ledger (ADR-307, PIR WP4). Previously dangling: neither
+    # in members nor exclude, so `cargo test -p ruvector-agent-memory`
+    # could not run at all.
+    "crates/ruvector-agent-memory",
+    # StagedWorkspace (arXiv:2608.18050) content-hash state binding
+    # (ADR-318, PIR WP16 ruvnet/RuVector#863).
+    "crates/ruvector-staged-workspace",
+    # ruvector-weaver (ADR-355): ecosystem cross-integration harness that
+    # turns graph/scan/gate/ledger into a ranked work queue for /loop lanes.
+    "crates/ruvector-weaver",
+    # vast.ai GPU job runner with hard budget caps + auto-destroy (openjev).
+    "crates/ruvector-gpu-runner",
+    # OpenJev v0 trainer (ADR-008): candle fine-tune + ONNX transplant (openjev).
+    "crates/ruvector-typesafe-train",
+    "crates/ruvector-retrieval-receipt",
     "crates/ruvector-gnn-rerank",
     "crates/ruvector-gnn-node",
     "crates/ruvector-gnn-wasm",
@@ -102,12 +173,15 @@ members = [
     "crates/cognitum-gate-kernel",
     "crates/cognitum-gate-tilezero",
     "crates/mcp-gate",
+    "crates/rvf-forge-core",
+    # RVForge file-backed release registry: content-addressed objects, publish
+    # rules, trust ladder, revocation, Merkle transparency log (ADR-294).
+    "crates/rvforge-registry",
     "crates/mcp-brain",
     "crates/mcp-brain-server",
     "crates/ruvllm",
     "crates/ruvllm-cli",
     "crates/ruvllm-wasm",
-    "crates/prime-radiant",
     "crates/ruvector-delta-core",
     "crates/ruvector-delta-wasm",
     "crates/ruvector-delta-index",
@@ -170,6 +244,9 @@ members = [
     "crates/rvAgent/rvagent-mcp",
     "crates/rvAgent/rvagent-wasm",
     "crates/rvAgent/rvagent-a2a",
+    # PIR WP23 / ADR-326 — DeAR-pattern decentralized capability-grounded
+    # reasoning. First latentmesh-* crate; extended by ADR-309 WP5 transport.
+    "crates/rvAgent/latentmesh-thoughtmap",
     # ADR-159 a2a-swarm demo
     "examples/a2a-swarm",
     # ETL pipeline example
@@ -282,6 +359,26 @@ members = [
     "crates/ruvector-timesfm",
     # Speculative ANN search: draft-verify with adaptive candidate multiplier (ADR-272)
     "crates/ruvector-speculative-ann",
+    # Hierarchical cluster-summary retrieval for agent-memory RAG (ADR-300)
+    "crates/ruvector-cluster-rag",
+    # S-T mincut namespace routing for multi-namespace search (ADR-299)
+    "crates/ruvector-namespace-merge",
+    "crates/ruvector-memory-admission",
+    # Semantic query-result reuse for repeated agent-memory queries (ADR-301)
+    "crates/ruvector-query-cache",
+    # Reservoir-sampled adaptive product quantization under drift (ADR-302)
+    "crates/ruvector-streaming-qng",
+    # Entropy-adaptive ANN beam search: live Shannon entropy gates beam width (ADR-303)
+    "crates/ruvector-entropy-ann",
+    # PIR #859 workspace-membership sweep: these crates were dangling —
+    # present under crates/ but neither in members nor exclude, so their
+    # tests and lints never ran in CI.
+    "crates/ruvector-bet4-ivf-bench",
+    "crates/ruvector-hnsw-repair",
+    "crates/ruvector-temporal-tensor-wasm",
+    # NOTE: ruvector-agent-memory is listed once, mid-list next to
+    # ruvector-proof-gate (TARL ledger, PR #858); the duplicate entry the
+    # #859 sweep added here as a merge hedge was dropped on merge.
 ]
 resolver = "2"
 
@@ -291,7 +388,7 @@ unused_unit = "allow"
 [workspace.package]
 version = "2.3.0"
 edition = "2021"
-rust-version = "1.77"
+rust-version = "1.88"
 license = "MIT"
 authors = ["Ruvector Team"]
 repository = "https://github.com/ruvnet/ruvector"
@@ -312,7 +409,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 # Node.js bindings
-napi = { version = "2.16", default-features = false, features = ["napi9", "async", "tokio_rt"] }
+napi = { version = "2.16", default-features = false, features = ["napi9", "async", "tokio_rt", "dyn-symbols"] }
 napi-derive = "2.16"
 
 # WASM
@@ -377,7 +474,23 @@ debug = true
 
 [profile.test]
 
+# ruvector-edge-index recall/persistence tests run 10k x 384 HNSW builds; at
+# opt-level 0 they take minutes. Optimise just this crate in dev/test builds.
+[profile.dev.package.ruvector-edge-index]
+opt-level = 3
+
+# ruvector-mincut's subpolynomial tests and two ruvector-exotic-wasm doctests are
+# compute-bound and set the Workspace CI critical path at opt-level 0. Same fix as above.
+[profile.dev.package.ruvector-mincut]
+opt-level = 3
+
+[profile.dev.package.ruvector-exotic-wasm]
+opt-level = 3
+
 # Patch hnsw_rs to use rand 0.8 instead of 0.9 for WASM compatibility
 # This resolves the getrandom version conflict (0.2 vs 0.3)
 [patch.crates-io]
 hnsw_rs = { path = "./patches/hnsw_rs" }
+
+candle-core-084 = { package = "candle-core", path = "patches/candle-core-0.8.4" }
+candle-core-092 = { package = "candle-core", path = "patches/candle-core-0.9.2" }

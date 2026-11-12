@@ -143,14 +143,14 @@ impl MythosConfig {
     /// Validate structural invariants. Weight-sharing compatibility of a source
     /// checkpoint is enforced separately by [`validate_mythos_metadata`].
     pub fn validate(&self) -> Result<()> {
-        if self.dim == 0 || self.n_heads == 0 || self.dim % self.n_heads != 0 {
+        if self.dim == 0 || self.n_heads == 0 || !self.dim.is_multiple_of(self.n_heads) {
             return Err(RuvLLMError::Config(
                 "OpenMythos: dim must be a non-zero multiple of n_heads".into(),
             ));
         }
         match self.attn_type {
             AttnType::Gqa => {
-                if self.n_kv_heads == 0 || self.n_heads % self.n_kv_heads != 0 {
+                if self.n_kv_heads == 0 || !self.n_heads.is_multiple_of(self.n_kv_heads) {
                     return Err(RuvLLMError::Config(
                         "OpenMythos: n_heads must be a multiple of n_kv_heads".into(),
                     ));
@@ -163,7 +163,7 @@ impl MythosConfig {
                             .into(),
                     ));
                 }
-                if self.qk_rope_head_dim % 2 != 0 {
+                if !self.qk_rope_head_dim.is_multiple_of(2) {
                     return Err(RuvLLMError::Config(
                         "OpenMythos(MLA): qk_rope_head_dim must be even".into(),
                     ));
@@ -180,7 +180,7 @@ impl MythosConfig {
                 "OpenMythos: n_experts_per_tok must be <= n_experts".into(),
             ));
         }
-        if self.loop_dim > self.dim || self.loop_dim % 2 != 0 {
+        if self.loop_dim > self.dim || !self.loop_dim.is_multiple_of(2) {
             return Err(RuvLLMError::Config(
                 "OpenMythos: loop_dim must be even and <= dim".into(),
             ));

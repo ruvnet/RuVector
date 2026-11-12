@@ -33,6 +33,15 @@ pub enum VectorDbError {
         actual: usize,
     },
 
+    /// Inserting would exceed an enforced `max_elements` bound (#1099)
+    #[error("Capacity exceeded: maxElements is {max_elements}, but this insert would hold {attempted} vectors")]
+    CapacityExceeded {
+        /// The enforced bound
+        max_elements: usize,
+        /// Number of distinct ids the database would hold after the insert
+        attempted: usize,
+    },
+
     /// Vector not found
     #[error("Vector not found: {0}")]
     NotFound(String),

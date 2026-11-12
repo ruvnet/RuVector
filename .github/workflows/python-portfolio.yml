@@ -1,0 +1,151 @@
+name: Python portfolio
+on:
+  pull_request:
+    paths: ['python/portfolio/**', 'crates/ruvector-py/**', 'crates/ruvector-graph/**', 'crates/ruvector-attention/**', 'crates/ruvector-cluster-rag/**', 'Cargo.lock', '.github/workflows/python-portfolio.yml']
+  push:
+    branches: [main]
+    paths: ['python/portfolio/**', '.github/workflows/python-portfolio.yml']
+    tags: ['python-portfolio-v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: python-portfolio-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  test-build:
+    outputs:
+      release: ${{ steps.release.outputs.release }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+      - name: Validate release identity
+        run: |
+          python python/portfolio/validate_release.py
+          if [[ "$GITHUB_REF" == refs/tags/python-portfolio-v* ]]; then
+            git merge-base --is-ancestor HEAD origin/main
+          fi
+      - name: Select versioned release
+        id: release
+        run: python python/portfolio/release_requested.py
+      - name: Install build tools
+        run: python -m pip install pip==26.2.1 build==1.6.1 maturin==1.15.0 pytest==9.1.1 twine==7.0.0 pip-audit==2.10.1
+      - name: Test native Rust bindings
+        run: cargo test --locked -p ruvector-py
+      - name: Build native runtime
+        run: |
+          maturin build --locked --manifest-path crates/ruvector-py/Cargo.toml --out /tmp/native
+          python -m pip install /tmp/native/*.whl
+      - name: Build portfolio artifacts
+        run: |
+          mkdir -p dist
+          for package in python/portfolio/ruvector-*; do
+            python -m build "$package" --outdir dist
+          done
+          python -m twine check --strict dist/*
+          python python/portfolio/validate_release.py dist
+      - name: Test installed wheels and native contracts
+        run: |
+          python -m pip install dist/*.whl
+          python -m pytest python/portfolio/tests crates/ruvector-py/tests/test_graph.py crates/ruvector-py/tests/test_cluster.py crates/ruvector-py/tests/test_gnn.py -q
+      - name: Execute installed package README quickstarts
+        run: python python/portfolio/check_examples.py
+      - name: Rebuild source distributions and test in clean environment
+        run: |
+          python -m venv /tmp/sdist-test
+          /tmp/sdist-test/bin/pip install /tmp/native/*.whl dist/*.tar.gz pytest==9.1.1
+          /tmp/sdist-test/bin/python -m pytest python/portfolio/tests -q
+      - name: Verify actual released runtime compatibility
+        run: |
+          python -m venv /tmp/published-test
+          /tmp/published-test/bin/pip install pip==26.2.1
+          /tmp/published-test/bin/pip install --only-binary=:all: dist/*.whl pytest==9.1.1
+          /tmp/published-test/bin/python -m pytest python/portfolio/tests -q
+          /tmp/published-test/bin/pip freeze > /tmp/runtime-requirements.txt
+          python -m pip_audit --path /tmp/published-test/lib/python3.12/site-packages
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: portfolio-dist
+          path: dist/*
+          if-no-files-found: error
+  native-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+      - run: cargo install cargo-audit --version 0.22.2 --locked
+      - run: python python/portfolio/audit_native.py /tmp/portfolio-native.lock
+  publish:
+    concurrency:
+      group: python-portfolio-pypi
+      cancel-in-progress: false
+    needs: [test-build, native-audit]
+    if: needs.test-build.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    environment: pypi
+    env:
+      HAS_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN != '' }}
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: portfolio-dist
+          path: dist
+      - name: Publish using Trusted Publishing
+        if: env.HAS_PYPI_TOKEN != 'true'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+        with:
+          packages-dir: dist/
+          attestations: true
+      - name: Publish using configured PyPI token
+        if: env.HAS_PYPI_TOKEN == 'true'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+        with:
+          packages-dir: dist/
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          attestations: false
+  verify-published:
+    needs: publish
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+      - name: Install exact published versions and test examples
+        shell: bash
+        run: |
+          python -m venv verify-env
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            PY=verify-env/Scripts/python.exe
+          else
+            PY=verify-env/bin/python
+          fi
+          python -c 'import json,pathlib; m=json.loads(pathlib.Path("python/portfolio/manifest.json").read_text()); pathlib.Path("release-requirements.txt").write_text("\n".join(p+"=="+m["version"] for p in m["packages"])+"\n")'
+          "$PY" -m pip install --index-url https://pypi.org/simple --only-binary=:all: --no-cache-dir -r release-requirements.txt pytest==9.1.1
+          "$PY" -m pytest python/portfolio/tests -q
+          "$PY" python/portfolio/check_examples.py

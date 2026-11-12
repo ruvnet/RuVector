@@ -19,20 +19,25 @@
 
 pub mod agi_container;
 pub mod arena;
+pub mod bootstrap;
 pub mod budget;
 pub mod config;
 pub mod cow_state;
 pub mod error;
 pub mod graph;
+pub mod invariants;
+pub mod masking;
 pub mod messages;
 pub mod metrics;
 pub mod models;
 pub mod parallel;
+pub mod policy;
 pub mod prompt;
 pub mod rvf_bridge;
 pub mod session_crypto;
 pub mod state;
 pub mod string_pool;
+pub mod subagent;
 
 // Re-export key types at crate root for convenience.
 pub use agi_container::{
@@ -40,7 +45,7 @@ pub use agi_container::{
     OrchestratorConfig, ParsedContainer, SegmentType, SkillDefinition, ToolDefinition,
 };
 pub use budget::{BudgetEnforcer, BudgetError, BudgetUtilization};
-pub use config::{BackendConfig, ResourceBudget, RvAgentConfig, SecurityPolicy};
+pub use config::{BackendConfig, ResourceBudget, RunnableConfig, RvAgentConfig, SecurityPolicy};
 pub use cow_state::CowStateBackend;
 pub use error::{Result, RvAgentError};
 pub use graph::{AgentGraph, AgentNode, GraphConfig, ToolExecutor};

@@ -232,6 +232,49 @@ LIMIT 5;
 
 \echo '=== Test 9: Query Plan Analysis ==='
 
+-- A partial HNSW index must not be considered for a plain predicate scan.
+-- HNSW's executor only produces tuples for ORDER BY distance (k-NN) scans;
+-- choosing it here would silently return zero rows (regression test for #813).
+CREATE TABLE test_hnsw_non_knn (
+    id SERIAL PRIMARY KEY,
+    is_active BOOLEAN NOT NULL,
+    embedding real[] NOT NULL
+);
+
+INSERT INTO test_hnsw_non_knn (is_active, embedding)
+SELECT i % 100 = 0, ARRAY[i::real, 0.0, 0.0]::real[]
+FROM generate_series(1, 1000) AS i;
+
+CREATE INDEX test_hnsw_non_knn_idx ON test_hnsw_non_knn
+    USING ruhnsw (embedding hnsw_l2_ops)
+    WHERE is_active;
+
+ANALYZE test_hnsw_non_knn;
+
+DO $$
+DECLARE
+    plan_line RECORD;
+    matching_rows BIGINT;
+BEGIN
+    FOR plan_line IN EXECUTE
+        'EXPLAIN (COSTS OFF) SELECT id FROM test_hnsw_non_knn WHERE is_active'
+    LOOP
+        IF plan_line."QUERY PLAN" LIKE '%test_hnsw_non_knn_idx%' THEN
+            RAISE EXCEPTION 'non-kNN query incorrectly planned with HNSW index: %',
+                plan_line."QUERY PLAN";
+        END IF;
+    END LOOP;
+
+    SELECT COUNT(*) INTO matching_rows
+    FROM test_hnsw_non_knn
+    WHERE is_active;
+
+    IF matching_rows <> 10 THEN
+        RAISE EXCEPTION 'non-kNN query returned % rows, expected 10', matching_rows;
+    END IF;
+END
+$$;
+
 -- Explain query plan for HNSW index scan
 EXPLAIN (ANALYZE, BUFFERS)
 SELECT id, embedding <-> ARRAY[0.5, 0.5, 0.5]::real[] AS distance
@@ -451,6 +494,7 @@ DROP TABLE IF EXISTS test_vectors_opts CASCADE;
 DROP TABLE IF EXISTS test_vectors_cosine CASCADE;
 DROP TABLE IF EXISTS test_vectors_ip CASCADE;
 DROP TABLE IF EXISTS test_vectors_high_dim CASCADE;
+DROP TABLE IF EXISTS test_hnsw_non_knn CASCADE;
 DROP TABLE IF EXISTS test_single_vector CASCADE;
 DROP TABLE IF EXISTS test_ruvector_param CASCADE;
 DROP TABLE IF EXISTS test_ruvector_384 CASCADE;

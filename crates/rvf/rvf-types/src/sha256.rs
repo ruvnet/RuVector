@@ -26,11 +26,18 @@ const H_INIT: [u32; 8] = [
 ];
 
 /// Streaming SHA-256 hasher.
+#[derive(Clone)]
 pub struct Sha256 {
     state: [u32; 8],
     buffer: [u8; 64],
     buffer_len: usize,
     total_len: u64,
+}
+
+impl Default for Sha256 {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Sha256 {

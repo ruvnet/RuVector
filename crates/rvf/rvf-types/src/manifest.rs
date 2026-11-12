@@ -104,7 +104,7 @@ pub struct PrefetchMapPtr {
 ///
 /// | Offset | Size | Field |
 /// |--------|------|-------|
-/// | 0x000  | 4    | magic (0x52564D30 "RVM0") |
+/// | 0x000  | 4    | magic (0x52564D30, mnemonic "RVM0", wire bytes `30 4D 56 52`) |
 /// | 0x004  | 2    | version |
 /// | 0x006  | 2    | flags |
 /// | 0x008  | 8    | l1_manifest_offset |
@@ -132,7 +132,8 @@ pub struct PrefetchMapPtr {
 #[repr(C)]
 pub struct Level0Root {
     // ---- Basic header (0x000 - 0x037) ----
-    /// Magic number: must be `0x52564D30` ("RVM0").
+    /// Magic number: must be `0x52564D30` (mnemonic "RVM0"). Serialized
+    /// little-endian, so the wire bytes are `30 4D 56 52`.
     pub magic: u32,
     /// Root manifest version.
     pub version: u16,

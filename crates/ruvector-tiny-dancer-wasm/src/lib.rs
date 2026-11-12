@@ -69,6 +69,8 @@ impl From<RouterConfig> for CoreRouterConfig {
             circuit_breaker_threshold: config.circuit_breaker_threshold,
             enable_quantization: config.enable_quantization,
             database_path: None,
+            // VoI escalation gate (ADR-331) is not yet exposed over wasm.
+            voi: None,
         }
     }
 }

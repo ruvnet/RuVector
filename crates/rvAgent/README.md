@@ -50,8 +50,7 @@ let subagent_state = state.clone(); // No deep copy!
 | Feature | What It Does | Why It Matters |
 |---------|--------------|----------------|
 | **O(1) State Cloning** | Clone agent state instantly via Arc | Spawn subagents without copying gigabytes of context |
-| **Parallel Tool Execution** | Run multiple tools simultaneously | 5-10x faster than sequential execution |
-| **HNSW Semantic Search** | O(log n) memory retrieval | Find relevant context in millions of entries |
+| **Parallel Tool Execution** | Bounded-concurrency JoinSet execution | Wall clock = slowest tool, not the sum; failures isolated per call |
 | **Single-Allocation Formatting** | Pre-calculated output buffers | No memory fragmentation under load |
 
 ### 🔒 Security
@@ -120,17 +119,19 @@ How does rvAgent compare to other agent frameworks?
 
 ## Architecture
 
-rvAgent is organized as 8 crates within the RuVector workspace:
+rvAgent is organized as 10 crates within the RuVector workspace:
 
 ```
 rvAgent/
-  rvagent-core        Core types, COW state, AGI containers, session encryption
-  rvagent-backends    Backend protocol trait + sandbox security contracts
-  rvagent-middleware  Middleware trait + 14 middleware implementations (incl. SONA, HNSW)
-  rvagent-tools       Tool trait + 8 built-in tools (enum dispatch)
+  rvagent-core        Core types, agent graph, COW state, AGI containers, session encryption
+  rvagent-backends    Backend protocol trait + sandbox security + Anthropic/Gemini clients
+  rvagent-middleware  Middleware trait + async pipeline + 14 middleware implementations
+  rvagent-tools       Tool trait + 9 built-in tools (enum dispatch)
   rvagent-subagents   SubAgent spec, CRDT merge, result validation, orchestration
   rvagent-cli         Terminal coding agent (ratatui TUI)
   rvagent-acp         Agent Communication Protocol server (axum) with auth
+  rvagent-mcp         MCP server/client (JSON-RPC 2.0, stdio + SSE transports)
+  rvagent-a2a         Agent2Agent peer protocol (signed cards, budgets, routing)
   rvagent-wasm        WASM bindings for browser/Node.js
 ```
 
@@ -273,8 +274,7 @@ rvAgent solves these with Rust's zero-cost abstractions.
 |-----------|---------|-------------------|---------|
 | State cloning | <1μs (O(1)) | ~10ms (deep copy) | 10,000x |
 | Tool dispatch | No overhead (enum) | ~1ms (vtable lookup) | Direct |
-| Parallel tools | True multi-threaded | Async (still serial) | Linear scaling |
-| Memory search | O(log n) via HNSW | O(n) linear scan | 100-1000x on large sets |
+| Parallel tools | Spawned tasks, bounded concurrency | Async (still serial) | Wall clock = slowest tool |
 
 ### Key Optimizations
 
@@ -297,11 +297,11 @@ tools: ["read_file", "grep", "execute", "read_file", "glob"]
 let formatted = format_content_with_line_numbers(content);
 ```
 
-**HNSW Semantic Search** — Find relevant memories in massive datasets
-```rust
-// O(log n) retrieval instead of scanning everything
-let relevant = hnsw.search("authentication bug", top_k=5);
-```
+**Memory retrieval (experimental)** — The `hnsw` middleware ships a simplified
+in-process index with a hash-based embedding placeholder. It is NOT semantic
+search yet: integration with real RuVector embeddings is tracked in the
+Hermes-class harness roadmap (`docs/research/rvagent-hermes-harness/`), and
+no retrieval performance claims are made until it lands.
 
 ## Advanced Features
 

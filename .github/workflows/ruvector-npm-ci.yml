@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - 'npm/packages/ruvector/**'
+      - 'npm/packages/weight-space/**'
       - '.github/workflows/ruvector-npm-ci.yml'
   pull_request:
     paths:
       - 'npm/packages/ruvector/**'
+      - 'npm/packages/weight-space/**'
       - '.github/workflows/ruvector-npm-ci.yml'
   workflow_dispatch:
 
@@ -29,11 +31,11 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   build:
     name: Build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
 
@@ -77,7 +79,7 @@ jobs:
         run: npm run verify-dist
 
       - name: Upload dist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ruvector-dist
           path: npm/packages/ruvector/dist/
@@ -88,12 +90,12 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   unit-tests:
     name: Unit & CLI tests
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
 
@@ -104,7 +106,7 @@ jobs:
         run: node -e "require('ruvector-core-linux-x64-gnu')"
 
       - name: Download dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: ruvector-dist
           path: npm/packages/ruvector/dist/
@@ -114,6 +116,12 @@ jobs:
 
       - name: CLI commands test
         run: node test/cli-commands.js
+
+      - name: neural-q (ruv-fann real import, tabular fallback, CJS entry)
+        run: node test/neural-q.js
+
+      - name: LearningEngine.import() accepts pre-0.3.22 state (type-level)
+        run: node test/learning-import-types.js
 
       - name: SIGTERM cleanup test
         run: node test/sigterm-cleanup.js
@@ -131,17 +139,35 @@ jobs:
         # Glob form: Node 22 treats `--test <dir>` as a module path, not a scan.
         run: node --test tests/*.test.mjs
 
+      - name: weight-space absent — CLI/MCP install hint, require('ruvector') still loads
+        # @ruvector/weight-space is an optional peer and is not installed above;
+        # the test also hides it with a resolve shim, so it holds either way.
+        run: node test/weight-space-optional.js
+
+      - name: weight-space present — ruvector weights CLI + weights_* MCP (real import)
+        # @ruvector/weight-space is not on npm yet: build and pack the sibling
+        # package, then install the tarball without saving it to package.json.
+        # --save-dev only picks the edge type: the package is a declared peer, and
+        # --legacy-peer-deps skips peer edges, so a plain --no-save install is a
+        # silent no-op ("up to date"). --no-save still leaves package.json alone.
+        run: |
+          set -e
+          (cd ../weight-space && npm install --no-workspaces --no-audit --no-fund && npm run build && npm pack --pack-destination "$RUNNER_TEMP")
+          npm install --no-save --save-dev --no-workspaces --no-audit --no-fund --legacy-peer-deps "$RUNNER_TEMP"/ruvector-weight-space-0.1.0.tgz
+          node -e "require('@ruvector/weight-space')"
+          node test/weight-space-cli.js
+
   # ──────────────────────────────────────────────────────────────────────────
   # 3. FUNCTIONAL SMOKE — npx-style CLI works end-to-end
   # ──────────────────────────────────────────────────────────────────────────
   functional-smoke:
     name: Functional smoke (npx ruvector)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
 
@@ -152,7 +178,7 @@ jobs:
         run: node -e "require('ruvector-core-linux-x64-gnu')"
 
       - name: Download dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: ruvector-dist
           path: npm/packages/ruvector/dist/
@@ -236,12 +262,12 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   learning-check:
     name: Learning check (HNSW activates)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
 
@@ -252,7 +278,7 @@ jobs:
         run: node -e "require('ruvector-core-linux-x64-gnu')"
 
       - name: Download dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: ruvector-dist
           path: npm/packages/ruvector/dist/
@@ -354,12 +380,12 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   perf-benchmark:
     name: Performance benchmark (≥2× speedup at N=5000)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
 
@@ -370,7 +396,7 @@ jobs:
         run: node -e "require('ruvector-core-linux-x64-gnu')"
 
       - name: Download dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: ruvector-dist
           path: npm/packages/ruvector/dist/
@@ -465,12 +491,12 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   recall-quality:
     name: Recall quality (recall@10 ≥ 0.88 at N=10k)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
 
@@ -481,7 +507,7 @@ jobs:
         run: node -e "require('ruvector-core-linux-x64-gnu')"
 
       - name: Download dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: ruvector-dist
           path: npm/packages/ruvector/dist/
@@ -585,12 +611,12 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   tarball-integrity:
     name: Tarball integrity
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
 
@@ -598,7 +624,7 @@ jobs:
         run: npm install --no-audit --no-fund --legacy-peer-deps --no-workspaces --no-optional
 
       - name: Download dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: ruvector-dist
           path: npm/packages/ruvector/dist/
@@ -666,7 +692,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   ci-pass:
     name: CI pass
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - build
       - unit-tests
@@ -677,7 +703,7 @@ jobs:
       - tarball-integrity
     if: always()
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Check all jobs passed
         run: |

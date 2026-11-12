@@ -298,8 +298,12 @@ impl Middleware for WitnessMiddleware {
         "witness"
     }
 
-    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
-        let response = handler.call(request);
+    async fn wrap_model_call(
+        &self,
+        request: ModelRequest,
+        handler: &dyn ModelHandler,
+    ) -> ModelResponse {
+        let response = handler.call(request).await;
 
         // Log each tool call to the witness chain
         if !response.tool_calls.is_empty() {
@@ -318,11 +322,15 @@ mod tests {
     use super::*;
     use crate::{Message, ToolCall};
 
+    use async_trait::async_trait;
+
     struct ToolCallHandler {
         tool_calls: Vec<ToolCall>,
     }
+
+    #[async_trait]
     impl ModelHandler for ToolCallHandler {
-        fn call(&self, _request: ModelRequest) -> ModelResponse {
+        async fn call(&self, _request: ModelRequest) -> ModelResponse {
             let mut response = ModelResponse::text("done");
             response.tool_calls = self.tool_calls.clone();
             response
@@ -362,8 +370,8 @@ mod tests {
         assert_eq!(builder.entries()[1].sequence, 1);
     }
 
-    #[test]
-    fn test_wrap_model_call_records_tool_calls() {
+    #[tokio::test]
+    async fn test_wrap_model_call_records_tool_calls() {
         let mw = WitnessMiddleware::new();
         let handler = ToolCallHandler {
             tool_calls: vec![
@@ -380,8 +388,8 @@ mod tests {
             ],
         };
 
-        let request = ModelRequest::new(vec![Message::user("test")]);
-        let _response = mw.wrap_model_call(request, &handler);
+        let request = ModelRequest::new(vec![Message::human("test")]);
+        let _response = mw.wrap_model_call(request, &handler).await;
 
         let builder = mw.builder().lock().unwrap();
         assert_eq!(builder.len(), 2);
@@ -389,20 +397,20 @@ mod tests {
         assert_eq!(builder.entries()[1].tool_name, "execute");
     }
 
-    #[test]
-    fn test_wrap_model_call_no_tool_calls() {
+    #[tokio::test]
+    async fn test_wrap_model_call_no_tool_calls() {
         let mw = WitnessMiddleware::new();
         let handler = ToolCallHandler { tool_calls: vec![] };
 
         let request = ModelRequest::new(vec![]);
-        let _response = mw.wrap_model_call(request, &handler);
+        let _response = mw.wrap_model_call(request, &handler).await;
 
         let builder = mw.builder().lock().unwrap();
         assert!(builder.is_empty());
     }
 
-    #[test]
-    fn test_thread_safety() {
+    #[tokio::test]
+    async fn test_thread_safety() {
         let builder = Arc::new(Mutex::new(WitnessBuilder::new()));
         let mw1 = WitnessMiddleware::with_builder(builder.clone());
         let mw2 = WitnessMiddleware::with_builder(builder.clone());
@@ -424,8 +432,8 @@ mod tests {
 
         let req1 = ModelRequest::new(vec![]);
         let req2 = ModelRequest::new(vec![]);
-        mw1.wrap_model_call(req1, &handler1);
-        mw2.wrap_model_call(req2, &handler2);
+        mw1.wrap_model_call(req1, &handler1).await;
+        mw2.wrap_model_call(req2, &handler2).await;
 
         let builder = builder.lock().unwrap();
         assert_eq!(builder.len(), 2);

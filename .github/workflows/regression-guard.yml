@@ -18,9 +18,9 @@ jobs:
   # Issue #437: parking_lot::RwLock is non-reentrant. Two .write() (or .read())
   # in the same expression deadlocks. Forbid the exact textual pattern.
   reentrant-rwlock-double-write:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Forbid reentrant parking_lot lock acquisition in a single statement
         run: |
           set -e
@@ -45,9 +45,9 @@ jobs:
   # Issue #458: Windows clones break on case-only collisions because NTFS is
   # case-insensitive. Fail CI if any two paths in the tree differ only by case.
   case-insensitive-collisions:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Detect case-only filename collisions
         run: |
           set -e
@@ -61,10 +61,10 @@ jobs:
   # Issue #438: AVX-512 intrinsics must be gated. ruvector-core must build on
   # stable Rust 1.77+ without the simd-avx512 feature.
   ruvector-core-no-avx512-builds-on-stable:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           toolchain: '1.89.0'
       - name: cargo check ruvector-core without simd-avx512
@@ -75,14 +75,43 @@ jobs:
       - name: cargo check ruvector-core with simd-avx512 (default)
         run: cargo check -p ruvector-core
 
+  # Issues #1310 / #1313: filtered top-k is full at 1% and 10% selectivity
+  # (10k vectors), duplicate-id inserts are upserts with no ghost nodes, and
+  # NaN/Inf vectors are rejected before storage.
+  ruvector-core-retrieval-correctness:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: '1.89.0'
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: retrieval correctness contract
+        run: cargo test -p ruvector-core --release --test retrieval_correctness --test filtered_search
+
+  # Issue #1239: ruvector-delta-core must build without std (no parking_lot,
+  # bincode or other std-only dependencies on the no_std path).
+  ruvector-delta-core-no-std:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: '1.89.0'
+          targets: thumbv7em-none-eabihf
+      - name: cargo build ruvector-delta-core for a bare-metal target
+        run: |
+          cargo build -p ruvector-delta-core --no-default-features --target thumbv7em-none-eabihf
+          cargo build -p ruvector-delta-core --no-default-features --features serde --target thumbv7em-none-eabihf
+
   # Issue #430: HNSW recall@1 must stay above 95% on the regression test that
   # historically exposed the result-heap inversion.
   hnsw-recall-at-1:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
       - name: ruvector-router-core unit tests (release)
         run: |
           # cargo test only accepts one TESTNAME filter per invocation —
@@ -102,9 +131,9 @@ jobs:
   # by default (m=16) and collapses recall at scale. This guard textually
   # forbids the regression.
   hnsw-insert-beam-no-m2-clamp:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Forbid ef_construction.min(m * 2) clamp in HNSW insert beam
         run: |
           set -e
@@ -121,9 +150,9 @@ jobs:
   # that complements the behavioural `test_pruning_keeps_closest_not_newest`
   # test below.
   hnsw-distance-based-neighbor-pruning:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Require calculate_distance() inside HNSW overflow gate
         run: |
           set -e
@@ -144,9 +173,9 @@ jobs:
   # persisted storage. The historical bug was that a fresh empty HnswIndex
   # was created on every open, so search returned 0 results after restart.
   vector-db-rebuilds-index-on-open:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Require storage.get_all_ids() rebuild path in VectorDB::new
         run: |
           set -e
@@ -159,7 +188,7 @@ jobs:
   # (which now triggers our prepack hooks) and assert the entry points exist
   # inside the resulting tarball.
   npm-publish-pipeline:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -168,8 +197,8 @@ jobs:
           - npm/packages/ruvector
           - npm/packages/rvf-wasm
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
       - name: copy ${{ matrix.pkg }} to isolated dir + npm install + pack
@@ -223,9 +252,9 @@ jobs:
   # to subprocess-only commands (security-scan, git-churn, verify) and are
   # tracked separately — this guard locks the #463 regression shut.
   no-npx-execSync-in-route-enhanced:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Forbid execSync('npx ruvector …') inside hooks_route_enhanced case
         run: |
           set -e
@@ -249,9 +278,9 @@ jobs:
   # drowning in false positives, we only flag template literals that include
   # `${args.…}` and don't wrap it in sanitizeShellArg(...).
   shell-injection-in-mcp-server:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Forbid unsanitized ${args.X} in exec*/spawn* calls
         run: |
           set -e
@@ -265,9 +294,9 @@ jobs:
   # wasm32-unknown-unknown and can't use std::time::SystemTime / Instant —
   # they panic at runtime.
   no-systemtime-in-wasm-crates:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Reject SystemTime/Instant in wasm32-targeted crates
         run: |
           set -e
@@ -299,9 +328,9 @@ jobs:
   # configured per-developer (not committed-by-default). Markdown docs and
   # JS example/test files are excluded — they're illustrative.
   no-hardcoded-workspaces-paths:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Forbid hardcoded devcontainer path in checked-in config
         run: |
           set -e
@@ -324,9 +353,9 @@ jobs:
   # If a future refactor removes the log lines, we lose the diagnostic when
   # we need it most. Assert all four "Hydrate <collection>:" log lines stay.
   brain-hydration-counters-present:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Assert hydration counter log lines exist
         run: |
           set -e
@@ -349,10 +378,10 @@ jobs:
   # against the live npm registry and fail if any are missing. Soft-skip on
   # network errors so transient registry hiccups don't false-fail.
   optional-deps-resolvable-on-npm:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
       - name: Resolve every optionalDependency@version on npm
@@ -379,6 +408,26 @@ jobs:
               ver=$(echo "$line" | awk '{print $2}' | tr -d '" ')
               # Skip workspace: protocol and other non-semver specs.
               case "$ver" in workspace:*|file:*|*://*) continue ;; esac
+              # @ruvector/core and its ruvector-core-* platform packages are
+              # sealed and published together by protected-release.yml
+              # (platforms first). A core pin that equals the exact version of
+              # the in-tree platform manifest is part of that same release, so
+              # it cannot be on npm before the merge that the release is cut
+              # from. Any other unpublished pin still fails.
+              if [ "$pkgjson" = "npm/packages/core/package.json" ]; then
+                coreleased=$(node -e "
+                  const fs = require('fs');
+                  const dir = '${PWD}/npm/core/platforms';
+                  const hit = fs.readdirSync(dir).some((d) => {
+                    try { const p = require(dir + '/' + d + '/package.json'); return p.name === '${name}' && p.version === '${ver}'; } catch { return false; }
+                  });
+                  console.log(hit ? 'yes' : 'no');
+                ")
+                if [ "$coreleased" = "yes" ]; then
+                  echo "::notice file=$pkgjson::${name}@${ver} is co-released with @ruvector/core by protected-release.yml"
+                  continue
+                fi
+              fi
               out=$(npm view "${name}@${ver}" version 2>&1) || true
               if echo "$out" | grep -qE '^npm (error|ERR!)' || [ -z "$out" ]; then
                 # Distinguish "not in registry" from transient network error.
@@ -397,11 +446,11 @@ jobs:
   # `cargo check --workspace` builds them — but no job runs their unit tests,
   # integration tests, or benches, so they can silently rot. Run them explicitly.
   graph-condense-perception-tests:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
       - name: cargo test graph-condense + perception
         run: |
           set -e
@@ -416,9 +465,9 @@ jobs:
   # downstream to the stale published mincut 2.0.6 and could ship a crate that
   # fails to compile for crates.io consumers. Forbid regressing the pin to 2.0.x.
   mincut-pin-tracks-workspace-version:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: ruvector-mincut pin must not regress to 2.0.x
         run: |
           set -e

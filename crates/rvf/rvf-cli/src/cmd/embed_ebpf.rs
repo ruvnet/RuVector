@@ -38,6 +38,7 @@ pub fn run(args: EmbedEbpfArgs) -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|e| format!("Failed to read eBPF program '{}': {}", args.program, e))?;
 
     let mut store = RvfStore::open(Path::new(&args.file)).map_err(map_rvf_err)?;
+    crate::cmd::warn_on_metadata_recovery(&store, &args.file);
 
     let seg_id = store
         .embed_ebpf(

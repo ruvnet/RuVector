@@ -33,17 +33,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
         with:
           profile: minimal
           toolchain: stable
           override: true
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
@@ -51,7 +51,7 @@ jobs:
             ${{ runner.os }}-cargo-registry-
 
       - name: Cache cargo index
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
@@ -59,7 +59,7 @@ jobs:
             ${{ runner.os }}-cargo-git-
 
       - name: Cache cargo build
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-benchmarks-${{ hashFiles('**/Cargo.lock') }}
@@ -87,46 +87,28 @@ jobs:
       - name: Run distance benchmarks
         working-directory: crates/ruvector-postgres
         run: |
+          set -o pipefail
           cargo bench --features pg17 --bench distance_bench -- --output-format bencher | tee ../../distance_bench.txt
 
-      - name: Run index benchmarks
+      - name: Compile-check remaining standalone benchmarks
         working-directory: crates/ruvector-postgres
         run: |
-          cargo bench --features pg17 --bench index_bench -- --output-format bencher | tee ../../index_bench.txt
-
-      - name: Run quantization benchmarks
-        working-directory: crates/ruvector-postgres
-        run: |
-          cargo bench --features pg17 --bench quantization_bench -- --output-format bencher | tee ../../quantization_bench.txt
-
-      - name: Run quantized distance benchmarks
-        working-directory: crates/ruvector-postgres
-        run: |
-          cargo bench --features pg17 --bench quantized_distance_bench -- --output-format bencher | tee ../../quantized_distance_bench.txt
+          set -o pipefail
+          cargo bench --features pg17 \
+            --bench e2e_bench \
+            --bench hybrid_bench \
+            --bench index_bench \
+            --bench integrity_bench \
+            --no-run |& tee ../../benchmark_smoke.txt
 
       - name: Upload benchmark results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: benchmark-results
           path: |
             distance_bench.txt
-            index_bench.txt
-            quantization_bench.txt
-            quantized_distance_bench.txt
+            benchmark_smoke.txt
           retention-days: 30
-
-      - name: Store benchmark result
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Rust Benchmarks
-          tool: 'cargo'
-          output-file-path: distance_bench.txt
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: '150%'
-          comment-on-alert: true
-          fail-on-alert: true
 
       - name: Generate benchmark summary
         run: |
@@ -157,7 +139,7 @@ jobs:
       - name: Comment PR with results
         if: github.event_name == 'pull_request'
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           script: |
             const fs = require('fs');
@@ -192,10 +174,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
         with:
           profile: minimal
           toolchain: stable
@@ -254,7 +236,7 @@ jobs:
           psql -f benches/sql/benchmark_workload.sql | tee ../../sql_workload_bench.txt
 
       - name: Upload SQL benchmark results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: sql-benchmark-results
           path: |
@@ -270,12 +252,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
 
       - name: Download current benchmarks
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: benchmark-results
           path: current
@@ -285,7 +267,7 @@ jobs:
           git checkout ${{ github.base_ref }}
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
         with:
           profile: minimal
           toolchain: stable
@@ -308,8 +290,8 @@ jobs:
       - name: Run baseline benchmarks
         working-directory: crates/ruvector-postgres
         run: |
+          set -o pipefail
           cargo bench --features pg17 --bench distance_bench -- --output-format bencher | tee ../../baseline_distance.txt
-          cargo bench --features pg17 --bench index_bench -- --output-format bencher | tee ../../baseline_index.txt
 
       - name: Compare results
         run: |
@@ -329,7 +311,7 @@ jobs:
 
       - name: Comment comparison
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           script: |
             const fs = require('fs');

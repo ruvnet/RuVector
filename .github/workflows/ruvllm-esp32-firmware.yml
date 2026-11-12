@@ -29,8 +29,8 @@ jobs:
     name: host-test smoke (G1–G3)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
       - name: build host-test
         working-directory: examples/ruvLLM/esp32-flash
         run: cargo build --no-default-features --features host-test --target x86_64-unknown-linux-gnu
@@ -79,7 +79,7 @@ jobs:
             chip: esp32c6
             toolchain: nightly
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: install rust nightly + rust-src (RISC-V)
         if: matrix.toolchain == 'nightly'
@@ -127,7 +127,7 @@ jobs:
             ruvllm-esp32-${{ matrix.target }}.bin
 
       - name: upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ruvllm-esp32-${{ matrix.target }}
           path: examples/ruvLLM/esp32-flash/ruvllm-esp32-${{ matrix.target }}.bin
@@ -140,7 +140,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     steps:
       - name: download all firmware
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           path: dist
           merge-multiple: true
@@ -149,7 +149,7 @@ jobs:
         run: ls -lah dist/
 
       - name: upload to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           tag_name: ${{ github.event.inputs.release_tag || github.ref_name }}
           files: dist/ruvllm-esp32-*.bin

@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RVForge Reader</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="chrome">
+      <h1>RVForge Reader</h1>
+      <nav class="steps" aria-label="Progress">
+        <button class="step" data-goto="open" aria-current="true">1 · Open</button>
+        <button class="step" data-goto="capability" disabled>2 · Capabilities</button>
+        <button class="step" data-goto="runtime" disabled>3 · Runtime</button>
+        <button class="step" data-goto="library">4 · Library</button>
+        <button class="step" data-goto="dock">5 · Dock</button>
+        <button class="step" data-goto="witness">6 · Witness</button>
+      </nav>
+    </header>
+
+    <main>
+      <!-- Screen 1: open and verify -->
+      <section id="screen-open" class="screen active" aria-labelledby="open-title">
+        <h2 id="open-title">Open a package</h2>
+        <p class="lede">
+          Nothing is loaded or executed by opening a package. The reader reads
+          identity and signature status first.
+        </p>
+
+        <div class="row">
+          <button id="pick" class="primary">Choose .rvf file…</button>
+          <input id="path" type="text" spellcheck="false"
+                 placeholder="…or type a path to an .rvf file" />
+          <button id="inspect">Inspect</button>
+        </div>
+
+        <div id="open-result" class="panel" hidden>
+          <dl class="facts">
+            <dt>File</dt><dd id="f-name">—</dd>
+            <dt>Size</dt><dd id="f-size">—</dd>
+            <dt>Identity</dt><dd id="f-identity">—</dd>
+            <dt>Publisher</dt><dd id="f-publisher">—</dd>
+            <dt>Signature</dt><dd id="f-signature">—</dd>
+            <dt>Verification</dt><dd id="f-verification">—</dd>
+            <dt>Segments</dt><dd id="f-segments">—</dd>
+            <dt>Declares</dt><dd id="f-capabilities">—</dd>
+          </dl>
+          <ul id="f-notes" class="notes"></ul>
+          <div class="row end">
+            <button id="verify" class="primary">Verify</button>
+            <button id="to-capability" disabled
+                    title="Verify the package before reviewing what it may do.">
+              Review capabilities
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 2: the P6 capability contract -->
+      <section id="screen-capability" class="screen" aria-labelledby="cap-title">
+        <h2 id="cap-title">Capability contract</h2>
+        <p class="lede">
+          This is the exact contract for <span id="cap-subject" class="mono">—</span>.
+          Anything not listed under “requests” is denied.
+        </p>
+
+        <div class="contract">
+          <div class="card requests">
+            <h3>This agent requests</h3>
+            <p class="hint">
+              Clear a box to install without that capability. You cannot add
+              one the package did not declare — the install refuses it.
+            </p>
+            <ul id="cap-requests"><li class="empty">Nothing is granted.</li></ul>
+          </div>
+          <div class="card denials">
+            <h3>This agent cannot</h3>
+            <ul id="cap-cannot"></ul>
+          </div>
+        </div>
+
+        <ul id="cap-notes" class="notes"></ul>
+
+        <div class="row">
+          <input id="install-name" type="text" placeholder="Name this agent in your library" />
+          <label class="inline">
+            <input id="install-rollback-unsafe" type="checkbox" />
+            This release declares rollback unsafe
+          </label>
+        </div>
+
+        <div class="row end">
+          <button id="cancel-install">Cancel</button>
+          <button id="install" class="primary">Install</button>
+        </div>
+      </section>
+
+      <!-- Screen 4: the installed-agent library (requirements P7) -->
+      <section id="screen-library" class="screen" aria-labelledby="lib-title">
+        <h2 id="lib-title">Library</h2>
+        <p class="lede">
+          Every installed agent, its state, and the operations P7 lists.
+          Uninstalling keeps your state unless you ask for it to go.
+        </p>
+
+        <div class="row">
+          <button id="lib-refresh" class="primary">Refresh</button>
+          <span id="lib-count" class="hint">—</span>
+        </div>
+
+        <table class="eval">
+          <thead>
+            <tr>
+              <th>Agent</th><th>State</th><th>Base identity</th>
+              <th>Granted</th><th>State held</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="lib-rows"></tbody>
+        </table>
+
+        <div id="lib-detail" class="panel" hidden>
+          <h3>Update <span id="upd-subject" class="mono">—</span></h3>
+          <p class="hint">
+            An update is a new base RVF. It is refused unless it declares the
+            installed release as its predecessor.
+          </p>
+          <div class="row">
+            <input id="upd-path" type="text" spellcheck="false"
+                   placeholder="Path to the new .rvf" />
+            <input id="upd-version" type="text" class="narrow" placeholder="Version" />
+            <button id="upd-plan">Compute difference</button>
+          </div>
+          <div class="row">
+            <label class="inline">
+              <input id="upd-rollback-unsafe" type="checkbox" />
+              The new release declares rollback unsafe
+            </label>
+            <input id="upd-schema" type="text" class="narrow" placeholder="State schema" />
+          </div>
+
+          <div id="upd-diff-box" hidden>
+            <h4>Version changes</h4>
+            <ul id="upd-diff" class="notes"></ul>
+            <p id="upd-approval" class="hint">—</p>
+            <div class="row end">
+              <button id="upd-apply" class="primary">Approve and update</button>
+              <button id="upd-rollback">Roll back</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 3: runtime status and emergency controls -->
+      <section id="screen-runtime" class="screen" aria-labelledby="rt-title">
+        <h2 id="rt-title">Runtime</h2>
+        <p class="lede">
+          The reader picks the strongest compatible runtime. The order comes
+          from the signed compatibility matrix and cannot be changed here.
+        </p>
+
+        <dl class="facts">
+          <dt>Selected runtime</dt><dd id="rt-profile">—</dd>
+          <dt>Isolation class</dt><dd id="rt-isolation">—</dd>
+          <dt>Mechanisms engaged</dt><dd id="rt-mechanisms">—</dd>
+          <dt>Selection order</dt><dd id="rt-order" class="mono">—</dd>
+          <dt>Order source</dt><dd id="rt-policy">—</dd>
+          <dt>Witness status</dt><dd id="rt-witness">—</dd>
+        </dl>
+
+        <h3>Why this runtime</h3>
+        <table class="eval">
+          <thead><tr><th>Profile</th><th>Eligible</th><th>Reason</th></tr></thead>
+          <tbody id="rt-eval"></tbody>
+        </table>
+
+        <h3>Emergency controls</h3>
+        <p class="hint">
+          Disabled until an agent is actually running under
+          <code>rvm-ffi</code> (ADR-289 §4).
+        </p>
+        <div class="row controls">
+          <button disabled>Pause</button>
+          <button disabled>Terminate</button>
+          <button disabled>Disconnect network</button>
+          <button disabled>Revoke capabilities</button>
+          <button disabled>Rollback state</button>
+        </div>
+      </section>
+      <!-- Screen 5: the agent dock (ADR-295) -->
+      <section id="screen-dock" class="screen" aria-labelledby="dock-title">
+        <h2 id="dock-title">Agent dock</h2>
+        <p class="lede">
+          Everything with a security meaning here — state, trust badge, network
+          indicator, permissions, witness status, cost — is drawn by RVForge
+          from RVForge’s own state. Agents supply only the text and the
+          percentage inside the marked “agent-reported” regions.
+        </p>
+
+        <!-- Collapsed bar. System chrome: solid surface, square edges,
+             system font. Agent content is confined to .agent-region. -->
+        <div class="dock-bar" role="group" aria-label="Agent dock">
+          <div id="dock-empty" class="dock-empty">No agent is running.</div>
+
+          <div id="dock-pill" class="pill" hidden>
+            <span class="pill-icon" id="pill-icon" aria-hidden="true">◆</span>
+            <span class="pill-name" id="pill-name">—</span>
+
+            <span class="agent-region" id="pill-task-region">
+              <span class="agent-label" id="pill-task-label">Agent-reported</span>
+              <span class="agent-text" id="pill-task">—</span>
+            </span>
+
+            <span class="pill-progress">
+              <progress id="pill-progress-bar" max="100" value="0"></progress>
+              <span id="pill-progress-text" class="mono">0%</span>
+            </span>
+
+            <span class="state-chip" id="pill-state">
+              <span class="state-glyph" id="pill-state-glyph" aria-hidden="true"></span>
+              <span id="pill-state-label">—</span>
+            </span>
+
+            <button class="ctl" id="pill-pause">Pause</button>
+            <button class="ctl stop" id="pill-stop">Stop</button>
+            <button class="ctl" id="pill-expand" aria-expanded="false">Expand</button>
+          </div>
+
+          <div class="pill-secondary" id="dock-secondary" aria-label="Other agents"></div>
+          <button class="overflow" id="dock-overflow" hidden>+0 more</button>
+
+          <div class="dock-aggregate">
+            <span title="Aggregate CPU across every agent, hidden ones included"
+                  id="agg-cpu" class="mono">0 mCPU</span>
+            <span title="Aggregate memory across every agent" id="agg-mem" class="mono">0 B</span>
+            <span title="Estimated cost across every agent" id="agg-cost" class="mono">$0.00</span>
+            <span id="agg-approvals" class="approvals">0 approvals</span>
+          </div>
+        </div>
+
+        <!-- Expanded panel: the ten ADR-295 §2 elements + the §8 card. -->
+        <div id="dock-expanded" class="panel" hidden>
+          <div class="expanded-grid">
+            <div>
+              <h3>Objective</h3>
+              <p class="agent-region block">
+                <span class="agent-label">Agent-reported</span>
+                <span class="agent-text" id="exp-objective">—</span>
+              </p>
+
+              <h3>Recent actions</h3>
+              <ul id="exp-actions" class="actions"></ul>
+
+              <h3>Pending approvals</h3>
+              <ul id="exp-approvals" class="notes"></ul>
+
+              <h3>Instruction</h3>
+              <div class="row">
+                <input id="exp-instruction" type="text"
+                       placeholder="Send an instruction to this agent" />
+                <button id="exp-send">Send</button>
+              </div>
+            </div>
+
+            <div>
+              <h3>Measured by RVForge</h3>
+              <dl class="facts compact">
+                <dt>Model</dt><dd id="exp-model">—</dd>
+                <dt>Tokens</dt><dd id="exp-tokens">—</dd>
+                <dt>CPU</dt><dd id="exp-cpu">—</dd>
+                <dt>Memory</dt><dd id="exp-mem">—</dd>
+                <dt>Network</dt><dd id="exp-network">—</dd>
+                <dt>Witness</dt><dd id="exp-witness">—</dd>
+                <dt>Estimated cost</dt><dd id="exp-cost">—</dd>
+              </dl>
+
+              <h3>Capability grants</h3>
+              <ul id="exp-grants" class="notes"></ul>
+
+              <h3>Key capability card</h3>
+              <ul id="exp-card" class="capcard"></ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <button id="dock-sync" class="primary">Sync from library</button>
+          <span class="hint">
+            Rebuilds the roster from installed agents. Chrome is re-derived
+            from the install records; agent-reported text is dropped until the
+            agent reports again.
+          </span>
+        </div>
+
+        <h3>Development harness</h3>
+        <p class="hint">
+          No runtime is attached, so a registered agent reports its unknown
+          values: unverified publisher, no confinement engaged, no witness
+          chain. The agent channel below carries the only two values an agent
+          can supply.
+        </p>
+        <div class="row">
+          <input id="dock-new-name" type="text" placeholder="Agent name" />
+          <button id="dock-add">Register agent</button>
+        </div>
+        <div class="row">
+          <input id="dock-agent-task" type="text"
+                 placeholder="Agent-supplied task text (sanitized on arrival)" />
+          <input id="dock-agent-progress" type="text" class="narrow" placeholder="0–100" />
+          <button id="dock-agent-send">Report as agent</button>
+        </div>
+      </section>
+      <!-- Screen 6: the witness viewer (requirements P15.11) -->
+      <section id="screen-witness" class="screen" aria-labelledby="wit-title">
+        <h2 id="wit-title">Witness chain</h2>
+        <p class="lede">
+          Every receipt below was re-hashed here and every link re-checked here.
+          Nothing on this screen is a status a file reported about itself.
+        </p>
+
+        <div class="row">
+          <input id="wit-path" type="text" spellcheck="false"
+                 placeholder="…or a path to a receipts.jsonl written by the CLI" />
+          <button id="wit-load" class="primary">Load chain</button>
+          <button id="wit-load-local">Use this reader’s log</button>
+        </div>
+
+        <div id="wit-banner" class="wit-banner" hidden>
+          <span id="wit-label" class="wit-chip">—</span>
+          <span id="wit-summary">—</span>
+        </div>
+        <p class="hint mono" id="wit-source" hidden>—</p>
+
+        <div id="wit-subjects"></div>
+
+        <div id="wit-malformed-box" hidden>
+          <h3>Unreadable records</h3>
+          <p class="hint">
+            A line nobody can read is a gap in the evidence, so it is listed
+            rather than skipped, and the chain does not report as valid.
+          </p>
+          <ul id="wit-malformed" class="notes"></ul>
+        </div>
+      </section>
+    </main>
+
+    <p id="error" class="error" role="alert" hidden></p>
+
+    <footer class="chrome">
+      <span id="stub-banner" class="banner">
+        Inspection, verification, installation, and updates run through
+        rvf-forge-core and the reader's own library. No package is executed, and
+        every result — including every refusal — is written to the local logs.
+      </span>
+    </footer>
+
+    <script src="main.js"></script>
+    <script src="library.js"></script>
+    <script src="dock.js"></script>
+    <script src="witness.js"></script>
+  </body>
+</html>

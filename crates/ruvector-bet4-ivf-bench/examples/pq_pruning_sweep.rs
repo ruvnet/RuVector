@@ -53,8 +53,7 @@ fn main() {
 
     // Track, per nclusters, the verdict per scale to find the crossover and the gate.
     // (nclusters, [(N, full_win, best_ratio)]).
-    let mut win_at: Vec<PerNcVerdicts> =
-        NCLUSTERS.iter().map(|&nc| (nc, Vec::new())).collect();
+    let mut win_at: Vec<PerNcVerdicts> = NCLUSTERS.iter().map(|&nc| (nc, Vec::new())).collect();
 
     for &n_req in &scales {
         let corpus = match load_feat_csv(&data, n_req) {
@@ -72,7 +71,10 @@ fn main() {
             .iter()
             .map(|&q| brute_force_topk(&corpus, &corpus[q], K))
             .collect();
-        println!("════════ N={n} dim={dim}  (truth in {:?}) ════════", t_truth.elapsed());
+        println!(
+            "════════ N={n} dim={dim}  (truth in {:?}) ════════",
+            t_truth.elapsed()
+        );
 
         for (nc_i, &nc) in NCLUSTERS.iter().enumerate() {
             let t_b = Instant::now();
@@ -205,12 +207,10 @@ fn main() {
     let scales_ge_50k: Vec<usize> = scales.iter().copied().filter(|&n| n >= 50_000).collect();
     let mut any_full_win = false;
     for &n in &scales_ge_50k {
-        let all_nc_win = NCLUSTERS.iter().enumerate().all(|(i, _)| {
-            win_at[i]
-                .1
-                .iter()
-                .any(|&(nn, win, _)| nn == n && win)
-        });
+        let all_nc_win = NCLUSTERS
+            .iter()
+            .enumerate()
+            .all(|(i, _)| win_at[i].1.iter().any(|&(nn, win, _)| nn == n && win));
         if all_nc_win {
             any_full_win = true;
             println!("  N={n}: WIN at ALL nclusters → gate WIN condition met");
@@ -232,7 +232,9 @@ fn main() {
 
 /// Geometric-ish nprobe grid up to `nc`, dense at the low end where the tuned optimum lives.
 fn nprobe_grid(nc: usize) -> Vec<usize> {
-    let mut g = vec![1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768];
+    let mut g = vec![
+        1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768,
+    ];
     g.push(nc);
     g.retain(|&x| x <= nc);
     g.sort_unstable();

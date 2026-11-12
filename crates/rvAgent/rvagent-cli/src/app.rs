@@ -10,10 +10,11 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use tracing::{info, warn};
 
+use rvagent_core::bootstrap::EnvironmentSnapshot;
 use rvagent_core::config::{BackendConfig, MiddlewareConfig, RvAgentConfig, SecurityPolicy};
 use rvagent_core::graph::{AgentGraph, ToolExecutor};
 use rvagent_core::messages::{Message, ToolCall as CoreToolCall};
-use rvagent_core::models::{resolve_model, ChatModel};
+use rvagent_core::models::{resolve_model, ChatModel, ToolDefinition};
 use rvagent_core::prompt::BASE_AGENT_PROMPT;
 use rvagent_core::state::AgentState;
 
@@ -36,7 +37,9 @@ const DEFAULT_MIDDLEWARE: &[&str] = &[
     "skills",
     "filesystem",
     "subagent",
-    "summarization",
+    // "summarization" removed (ADR-274): observation masking in the agent loop
+    // is the default compaction strategy. Still available opt-in via
+    // PipelineConfig::enable_summarization.
     "prompt_caching",
     "patch_tool_calls",
     "witness",
@@ -66,7 +69,11 @@ impl StubModel {
 
 #[async_trait]
 impl ChatModel for StubModel {
-    async fn complete(&self, _messages: &[Message]) -> rvagent_core::error::Result<Message> {
+    async fn complete(
+        &self,
+        _messages: &[Message],
+        _tools: &[ToolDefinition],
+    ) -> rvagent_core::error::Result<Message> {
         Ok(Message::ai(format!(
             "No API key configured for model '{}'. \
              Set the appropriate environment variable (e.g. ANTHROPIC_API_KEY) \
@@ -75,8 +82,12 @@ impl ChatModel for StubModel {
         )))
     }
 
-    async fn stream(&self, messages: &[Message]) -> rvagent_core::error::Result<Vec<Message>> {
-        let msg = self.complete(messages).await?;
+    async fn stream(
+        &self,
+        messages: &[Message],
+        tools: &[ToolDefinition],
+    ) -> rvagent_core::error::Result<Vec<Message>> {
+        let msg = self.complete(messages, tools).await?;
         Ok(vec![msg])
     }
 }
@@ -95,19 +106,27 @@ enum CliModel {
 
 #[async_trait]
 impl ChatModel for CliModel {
-    async fn complete(&self, messages: &[Message]) -> rvagent_core::error::Result<Message> {
+    async fn complete(
+        &self,
+        messages: &[Message],
+        tools: &[ToolDefinition],
+    ) -> rvagent_core::error::Result<Message> {
         match self {
-            CliModel::Stub(m) => m.complete(messages).await,
-            CliModel::Anthropic(m) => m.complete(messages).await,
-            CliModel::Gemini(m) => m.complete(messages).await,
+            CliModel::Stub(m) => m.complete(messages, tools).await,
+            CliModel::Anthropic(m) => m.complete(messages, tools).await,
+            CliModel::Gemini(m) => m.complete(messages, tools).await,
         }
     }
 
-    async fn stream(&self, messages: &[Message]) -> rvagent_core::error::Result<Vec<Message>> {
+    async fn stream(
+        &self,
+        messages: &[Message],
+        tools: &[ToolDefinition],
+    ) -> rvagent_core::error::Result<Vec<Message>> {
         match self {
-            CliModel::Stub(m) => m.stream(messages).await,
-            CliModel::Anthropic(m) => m.stream(messages).await,
-            CliModel::Gemini(m) => m.stream(messages).await,
+            CliModel::Stub(m) => m.stream(messages, tools).await,
+            CliModel::Anthropic(m) => m.stream(messages, tools).await,
+            CliModel::Gemini(m) => m.stream(messages, tools).await,
         }
     }
 }
@@ -125,9 +144,8 @@ struct CliToolExecutor {
 
 impl CliToolExecutor {
     fn new(cwd: &Path) -> Self {
-        let backend: rvagent_tools::BackendRef = Arc::new(LocalFsBackend {
-            cwd: cwd.to_path_buf(),
-        });
+        // Confined to `cwd`: tool-supplied paths cannot escape the workspace.
+        let backend: rvagent_tools::BackendRef = Arc::new(rvagent_tools::LocalFsBackend::new(cwd));
         Self {
             tools: rvagent_tools::builtin_tools(),
             backend,
@@ -151,342 +169,17 @@ impl ToolExecutor for CliToolExecutor {
             None => Ok(format!("Error: tool '{}' not found", call.name)),
         }
     }
-}
 
-// ---------------------------------------------------------------------------
-// LocalFsBackend — adapts the local filesystem for rvagent_tools::Backend
-// ---------------------------------------------------------------------------
-
-/// A minimal filesystem backend implementing `rvagent_tools::Backend` for CLI use.
-///
-/// Provides real filesystem and shell operations rooted at a working directory.
-struct LocalFsBackend {
-    cwd: PathBuf,
-}
-
-impl rvagent_tools::Backend for LocalFsBackend {
-    fn ls_info(&self, path: &str) -> std::result::Result<Vec<rvagent_tools::FileInfo>, String> {
-        let target = if path.is_empty() || path == "." {
-            self.cwd.clone()
-        } else {
-            PathBuf::from(path)
-        };
-        let entries = std::fs::read_dir(&target)
-            .map_err(|e| format!("ls failed on '{}': {}", target.display(), e))?;
-        let mut infos = Vec::new();
-        for entry in entries {
-            let entry = entry.map_err(|e| format!("read_dir entry error: {}", e))?;
-            let meta = entry
-                .metadata()
-                .map_err(|e| format!("metadata error: {}", e))?;
-            let file_type = if meta.is_dir() {
-                "directory"
-            } else if meta.is_symlink() {
-                "symlink"
-            } else {
-                "file"
-            };
-            infos.push(rvagent_tools::FileInfo {
-                name: entry.file_name().to_string_lossy().into_owned(),
-                file_type: file_type.to_string(),
-                permissions: String::new(),
-                size: meta.len(),
-            });
-        }
-        infos.sort_by(|a, b| a.name.cmp(&b.name));
-        Ok(infos)
+    fn definitions(&self) -> Vec<ToolDefinition> {
+        self.tools
+            .iter()
+            .map(|t| ToolDefinition {
+                name: t.name().to_string(),
+                description: t.description().to_string(),
+                input_schema: t.parameters_schema(),
+            })
+            .collect()
     }
-
-    fn read(&self, path: &str, offset: usize, limit: usize) -> std::result::Result<String, String> {
-        let content =
-            std::fs::read_to_string(path).map_err(|e| format!("read '{}': {}", path, e))?;
-        let lines: Vec<&str> = content.lines().collect();
-        if offset >= lines.len() {
-            return Ok(String::new());
-        }
-        let end = (offset + limit).min(lines.len());
-        Ok(lines[offset..end].join("\n"))
-    }
-
-    fn write(&self, path: &str, content: &str) -> rvagent_tools::WriteResult {
-        if std::path::Path::new(path).exists() {
-            return rvagent_tools::WriteResult {
-                error: Some(format!(
-                    "Error: file {} already exists. Use force flag to overwrite.",
-                    path
-                )),
-                ..Default::default()
-            };
-        }
-        if let Some(parent) = std::path::Path::new(path).parent() {
-            if let Err(e) = std::fs::create_dir_all(parent) {
-                return rvagent_tools::WriteResult {
-                    error: Some(format!("mkdir failed: {}", e)),
-                    ..Default::default()
-                };
-            }
-        }
-        match std::fs::write(path, content) {
-            Ok(_) => rvagent_tools::WriteResult::default(),
-            Err(e) => rvagent_tools::WriteResult {
-                error: Some(format!("write '{}': {}", path, e)),
-                ..Default::default()
-            },
-        }
-    }
-
-    fn edit(
-        &self,
-        path: &str,
-        old_string: &str,
-        new_string: &str,
-        replace_all: bool,
-    ) -> rvagent_tools::WriteResult {
-        let content = match std::fs::read_to_string(path) {
-            Ok(c) => c,
-            Err(e) => {
-                return rvagent_tools::WriteResult {
-                    error: Some(format!("read '{}': {}", path, e)),
-                    ..Default::default()
-                }
-            }
-        };
-        let count = content.matches(old_string).count();
-        if count == 0 {
-            return rvagent_tools::WriteResult {
-                error: Some(format!("Error: old_string not found in {}", path)),
-                ..Default::default()
-            };
-        }
-        if count > 1 && !replace_all {
-            return rvagent_tools::WriteResult {
-                error: Some(format!(
-                    "Error: old_string is not unique in {} ({} occurrences). Use replace_all=true.",
-                    path, count
-                )),
-                ..Default::default()
-            };
-        }
-        let new_content = if replace_all {
-            content.replace(old_string, new_string)
-        } else {
-            content.replacen(old_string, new_string, 1)
-        };
-        match std::fs::write(path, &new_content) {
-            Ok(_) => rvagent_tools::WriteResult {
-                error: None,
-                occurrences: Some(if replace_all { count } else { 1 }),
-                ..Default::default()
-            },
-            Err(e) => rvagent_tools::WriteResult {
-                error: Some(format!("write '{}': {}", path, e)),
-                ..Default::default()
-            },
-        }
-    }
-
-    fn glob_info(&self, pattern: &str, path: &str) -> std::result::Result<Vec<String>, String> {
-        let base = if path.is_empty() || path == "." {
-            self.cwd.clone()
-        } else {
-            PathBuf::from(path)
-        };
-        // Simple glob: walk directory and match by extension or name suffix.
-        // This handles common patterns like "*.rs", "**/*.toml" without
-        // requiring the `glob` crate.
-        let suffix = pattern
-            .trim_start_matches('*')
-            .trim_start_matches('/')
-            .trim_start_matches('*');
-        let mut results = Vec::new();
-        collect_glob_matches(&base, suffix, &mut results);
-        results.sort();
-        Ok(results)
-    }
-
-    fn grep_raw(
-        &self,
-        pattern: &str,
-        path: Option<&str>,
-        _include: Option<&str>,
-    ) -> std::result::Result<Vec<rvagent_tools::GrepMatch>, String> {
-        // Simple in-process grep implementation.
-        let search_dir = match path {
-            Some(p) if !p.is_empty() => PathBuf::from(p),
-            _ => self.cwd.clone(),
-        };
-        let mut matches = Vec::new();
-        if search_dir.is_file() {
-            grep_file(&search_dir, pattern, &mut matches)?;
-        } else if search_dir.is_dir() {
-            grep_dir(&search_dir, pattern, &mut matches)?;
-        }
-        Ok(matches)
-    }
-
-    fn execute(
-        &self,
-        command: &str,
-        timeout_secs: u32,
-    ) -> std::result::Result<rvagent_tools::ExecuteResponse, String> {
-        use std::process::{Command, Stdio};
-        use std::time::Duration;
-
-        // Security: environment sanitization — strip sensitive variables (SEC-005 / ADR-103 C2).
-        // Only pass through a safe allowlist of environment variables.
-        const SAFE_ENV_VARS: &[&str] = &[
-            "PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TMPDIR", "TZ",
-        ];
-        // Patterns that identify sensitive env vars that must never reach child processes.
-        const SENSITIVE_PATTERNS: &[&str] = &[
-            "SECRET",
-            "KEY",
-            "TOKEN",
-            "PASSWORD",
-            "CREDENTIAL",
-            "AWS_",
-            "AZURE_",
-            "GCP_",
-            "DATABASE_URL",
-            "PRIVATE",
-            "API_KEY",
-            "AUTH",
-            "BEARER",
-            "JWT",
-            "SESSION",
-        ];
-
-        let mut cmd = Command::new("sh");
-        cmd.arg("-c").arg(command).current_dir(&self.cwd);
-        cmd.env_clear();
-        for var in SAFE_ENV_VARS {
-            if let Ok(val) = std::env::var(var) {
-                let upper = var.to_uppercase();
-                let sensitive = SENSITIVE_PATTERNS.iter().any(|pat| upper.contains(pat));
-                if !sensitive {
-                    cmd.env(var, val);
-                }
-            }
-        }
-        cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
-
-        let timeout = if timeout_secs == 0 { 30 } else { timeout_secs };
-        let deadline = std::time::Instant::now() + Duration::from_secs(timeout as u64);
-
-        let mut child = cmd.spawn().map_err(|e| format!("execute failed: {}", e))?;
-
-        // Poll for completion with a deadline to enforce the timeout.
-        loop {
-            match child
-                .try_wait()
-                .map_err(|e| format!("wait failed: {}", e))?
-            {
-                Some(_) => break,
-                None => {
-                    if std::time::Instant::now() >= deadline {
-                        let _ = child.kill();
-                        return Ok(rvagent_tools::ExecuteResponse {
-                            output: format!("Command timed out after {} seconds", timeout),
-                            exit_code: -1,
-                        });
-                    }
-                    std::thread::sleep(Duration::from_millis(50));
-                }
-            }
-        }
-
-        let output = child
-            .wait_with_output()
-            .map_err(|e| format!("output collection failed: {}", e))?;
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let mut combined = if stderr.is_empty() {
-            stdout.into_owned()
-        } else {
-            format!("{}\n{}", stdout, stderr)
-        };
-
-        // Security: cap output size to 1 MB to prevent memory exhaustion.
-        const MAX_OUTPUT_BYTES: usize = 1024 * 1024;
-        if combined.len() > MAX_OUTPUT_BYTES {
-            combined.truncate(MAX_OUTPUT_BYTES);
-            combined.push_str("\n... [output truncated at 1 MB]");
-        }
-
-        Ok(rvagent_tools::ExecuteResponse {
-            output: combined,
-            exit_code: output.status.code().unwrap_or(-1),
-        })
-    }
-}
-
-/// Recursively collect files matching a name suffix (simple glob substitute).
-fn collect_glob_matches(dir: &Path, suffix: &str, results: &mut Vec<String>) {
-    let entries = match std::fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => return,
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let name = path
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_default();
-        if path.is_file() && name.ends_with(suffix) {
-            results.push(path.to_string_lossy().into_owned());
-        } else if path.is_dir() && !name.starts_with('.') {
-            collect_glob_matches(&path, suffix, results);
-        }
-    }
-}
-
-/// Grep a single file for a pattern.
-fn grep_file(
-    path: &Path,
-    pattern: &str,
-    matches: &mut Vec<rvagent_tools::GrepMatch>,
-) -> std::result::Result<(), String> {
-    let content = match std::fs::read_to_string(path) {
-        Ok(c) => c,
-        Err(_) => return Ok(()), // skip binary / unreadable files
-    };
-    for (i, line) in content.lines().enumerate() {
-        if line.contains(pattern) {
-            matches.push(rvagent_tools::GrepMatch {
-                file: path.to_string_lossy().into_owned(),
-                line_number: i + 1,
-                text: line.to_string(),
-            });
-        }
-    }
-    Ok(())
-}
-
-/// Recursively grep a directory (limited depth).
-fn grep_dir(
-    dir: &Path,
-    pattern: &str,
-    matches: &mut Vec<rvagent_tools::GrepMatch>,
-) -> std::result::Result<(), String> {
-    let entries = std::fs::read_dir(dir).map_err(|e| format!("read_dir: {}", e))?;
-    for entry in entries {
-        let entry = entry.map_err(|e| format!("entry: {}", e))?;
-        let path = entry.path();
-        if path.is_file() {
-            grep_file(&path, pattern, matches)?;
-        } else if path.is_dir() {
-            // Skip hidden directories.
-            let name = path
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_default();
-            if !name.starts_with('.') {
-                grep_dir(&path, pattern, matches)?;
-            }
-        }
-    }
-    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -556,11 +249,18 @@ impl App {
             None => Session::new(model),
         };
 
+        // Environment bootstrap (ADR-273 §3.5): hand the agent the workspace
+        // facts up front so it does not spend its first turns discovering
+        // them. Filesystem-only, so this costs nothing measurable.
+        let snapshot =
+            EnvironmentSnapshot::collect(cwd, &rvagent_core::bootstrap::BootstrapConfig::default());
+        let system_prompt = snapshot.augment_prompt(BASE_AGENT_PROMPT);
+
         Ok(Self {
             config,
             session,
             cwd: cwd.to_path_buf(),
-            system_prompt: BASE_AGENT_PROMPT.to_string(),
+            system_prompt,
             mcp_registry: McpRegistry::new(),
         })
     }
@@ -638,7 +338,8 @@ impl App {
     /// Invoke the agent pipeline with the given state.
     ///
     /// Creates the appropriate model (real Anthropic client or stub) and
-    /// tool executor, builds an `AgentGraph`, and runs it to completion.
+    /// tool executor, wraps the model in the configured middleware pipeline
+    /// (`PipelineModel`), builds an `AgentGraph`, and runs it to completion.
     /// Returns the final AI message from the completed state.
     async fn invoke_agent(&self, initial_state: &AgentState) -> Result<Message> {
         info!(
@@ -707,9 +408,57 @@ impl App {
             CliModel::Stub(StubModel::new(&self.config.model))
         };
 
+        // Wire the middleware pipeline (P0.3): resolve the configured
+        // middleware names (DEFAULT_MIDDLEWARE) into instances — an unknown
+        // name is fatal — and run all model calls through it.
+        //
+        // The pipeline config carries the settings the middleware need to be
+        // built correctly; leaving `interrupt_on` unset gives HITL its
+        // conservative built-in gate rather than an empty (approve-everything)
+        // pattern list. The CLI has no interactive approval prompt yet, so
+        // gated calls fail closed; RVAGENT_AUTO_APPROVE=1 is the explicit,
+        // logged opt-out for unattended use.
+        let middleware_names: Vec<&str> = self
+            .config
+            .middleware
+            .iter()
+            .map(|m| m.name.as_str())
+            .collect();
+        let mut pipeline_config = rvagent_middleware::PipelineConfig::default();
+        if matches!(
+            std::env::var("RVAGENT_AUTO_APPROVE").as_deref(),
+            Ok("1") | Ok("true") | Ok("yes")
+        ) {
+            // Straight to stderr, not just tracing: the TUI installs no
+            // subscriber and the non-TUI default is ERROR-only, so a `warn!`
+            // here is invisible in exactly the modes people run. A security
+            // downgrade the operator cannot see is one they cannot revoke.
+            eprintln!(
+                "warning: RVAGENT_AUTO_APPROVE set — HITL approval gate disabled; \
+                 all tool calls (including shell execution and file writes) run unattended"
+            );
+            warn!("RVAGENT_AUTO_APPROVE set: HITL approval gate disabled; all tool calls run unattended");
+            pipeline_config.interrupt_on = Some(Vec::new());
+        }
+        let pipeline = Arc::new(
+            rvagent_middleware::build_pipeline_from_names(&middleware_names, &pipeline_config)
+                .context("failed to build middleware pipeline")?,
+        );
+        info!(middlewares = ?pipeline.names(), "middleware pipeline wired");
+
+        // Run before_agent hooks (state patching, context injection).
+        let mut state = initial_state.clone();
+        let mw_runtime = rvagent_middleware::Runtime::new();
+        let run_config = rvagent_middleware::RunnableConfig::default();
+        pipeline
+            .run_before_agent(&mut state, &mw_runtime, &run_config)
+            .await;
+
+        let model = rvagent_middleware::PipelineModel::new(model, Arc::clone(&pipeline));
+
         let graph = AgentGraph::new(model, tool_executor);
         let completed_state = graph
-            .run(initial_state.clone())
+            .run(state)
             .await
             .map_err(|e| anyhow::anyhow!("agent graph error: {}", e))?;
 
@@ -767,7 +516,18 @@ mod tests {
 
     #[test]
     fn test_default_middleware_count() {
-        assert_eq!(DEFAULT_MIDDLEWARE.len(), 11);
+        // 10 since ADR-274 demoted summarization to opt-in.
+        assert_eq!(DEFAULT_MIDDLEWARE.len(), 10);
+    }
+
+    #[test]
+    fn test_summarization_is_not_on_the_default_path() {
+        // The shipped default must match the decided strategy: masking in the
+        // agent loop, not LLM summarization.
+        assert!(
+            !DEFAULT_MIDDLEWARE.contains(&"summarization"),
+            "summarization is on the default path but ADR-274 decided against it"
+        );
     }
 
     #[test]

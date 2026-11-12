@@ -1,0 +1,12 @@
+[package]
+name = "ruvector-edge-index"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "ruvector edge in-memory vector index (ADR-351 §6.1 M2a/M2b): versioned int8 scalar quantizer, quantized flat scan with batched f32 rerank, HNSW traversing u8 codes with fixed-stride u32 adjacency, checksummed <= 1 MiB index_chunks persistence and memory accounting. Pure Rust, wasm32 clean (no getrandom, threads or clock)."
+
+[dependencies]
+sha2 = "0.10"

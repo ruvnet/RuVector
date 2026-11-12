@@ -15,6 +15,8 @@ const {
   EwcManager,
 } = require('../dist/cjs/index.js');
 
+// Session and streaming tests exercise the plumbing, not a model: with no
+// model loaded they opt in to the labelled placeholder text.
 describe('SessionManager', () => {
   test('should create session', () => {
     const llm = new RuvLLM();
@@ -28,7 +30,7 @@ describe('SessionManager', () => {
   });
 
   test('should chat with context', () => {
-    const llm = new RuvLLM();
+    const llm = new RuvLLM({ allowPlaceholder: true });
     const sessions = new SessionManager(llm);
 
     const session = sessions.create();
@@ -41,7 +43,7 @@ describe('SessionManager', () => {
   });
 
   test('should get history', () => {
-    const llm = new RuvLLM();
+    const llm = new RuvLLM({ allowPlaceholder: true });
     const sessions = new SessionManager(llm);
 
     const session = sessions.create();
@@ -56,7 +58,7 @@ describe('SessionManager', () => {
   });
 
   test('should export and import session', () => {
-    const llm = new RuvLLM();
+    const llm = new RuvLLM({ allowPlaceholder: true });
     const sessions = new SessionManager(llm);
 
     const session = sessions.create({ key: 'value' });
@@ -84,7 +86,7 @@ describe('SessionManager', () => {
 
 describe('StreamingGenerator', () => {
   test('should stream response', async () => {
-    const llm = new RuvLLM();
+    const llm = new RuvLLM({ allowPlaceholder: true });
     const streamer = new StreamingGenerator(llm);
 
     const chunks = [];
@@ -97,7 +99,7 @@ describe('StreamingGenerator', () => {
   });
 
   test('should collect stream', async () => {
-    const llm = new RuvLLM();
+    const llm = new RuvLLM({ allowPlaceholder: true });
     const streamer = new StreamingGenerator(llm);
 
     const result = await streamer.collect('Test prompt');
@@ -105,7 +107,7 @@ describe('StreamingGenerator', () => {
   });
 
   test('should use callbacks', async () => {
-    const llm = new RuvLLM();
+    const llm = new RuvLLM({ allowPlaceholder: true });
     const streamer = new StreamingGenerator(llm);
 
     let chunkCount = 0;

@@ -101,11 +101,14 @@ they never conflict.
 
 ```
 1. Open file (read-only, no lock required)
-2. Read Level 0 root manifest (last 4096 bytes)
+2. Discover the current manifest: read the Level 0 root manifest from the last
+   4096 bytes if the file has one, else scan backward for the newest
+   MANIFEST_SEG (see 02-manifest-system.md; the root manifest is optional and
+   absent from every runtime-written container)
 3. Parse hotset pointers and Level 1 offset
 4. This manifest snapshot defines the reader's view of the file
 5. All queries within this session use the snapshot
-6. To see new data: re-read Level 0 (explicit refresh)
+6. To see new data: repeat step 2 (explicit refresh)
 ```
 
 ### Writer Protocol

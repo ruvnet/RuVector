@@ -7,8 +7,8 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/ruvnet/RuVector"
 
 [dependencies]
-rvagent-core = { path = "../rvagent-core" }
-rvagent-backends = { path = "../rvagent-backends" }
+rvagent-core = { version = "0.1.0", path = "../rvagent-core" }
+rvagent-backends = { version = "0.1.0", path = "../rvagent-backends" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
@@ -19,6 +19,11 @@ uuid = { workspace = true }
 async-trait = "0.1"
 glob = "0.3"
 walkdir = "2.5"
+
+# Killing a timed-out command's whole process group needs kill(2) on a
+# negative pid, which std does not expose.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [dev-dependencies]
 criterion = { workspace = true }

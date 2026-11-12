@@ -10,7 +10,7 @@ use rvagent_core::config::RvAgentConfig;
 use rvagent_core::error::{Result, RvAgentError};
 use rvagent_core::graph::{AgentGraph, GraphConfig, ToolExecutor};
 use rvagent_core::messages::{Message, ToolCall};
-use rvagent_core::models::{ChatModel, Provider};
+use rvagent_core::models::{ChatModel, Provider, ToolDefinition};
 use rvagent_core::state::AgentState;
 
 // ---------------------------------------------------------------------------
@@ -32,7 +32,7 @@ impl MockModel {
 
 #[async_trait]
 impl ChatModel for MockModel {
-    async fn complete(&self, _messages: &[Message]) -> Result<Message> {
+    async fn complete(&self, _messages: &[Message], _tools: &[ToolDefinition]) -> Result<Message> {
         let mut resps = self.responses.lock().unwrap();
         if resps.is_empty() {
             Ok(Message::ai("(no more responses)"))
@@ -41,8 +41,8 @@ impl ChatModel for MockModel {
         }
     }
 
-    async fn stream(&self, messages: &[Message]) -> Result<Vec<Message>> {
-        let msg = self.complete(messages).await?;
+    async fn stream(&self, messages: &[Message], tools: &[ToolDefinition]) -> Result<Vec<Message>> {
+        let msg = self.complete(messages, tools).await?;
         Ok(vec![msg])
     }
 }
@@ -183,6 +183,7 @@ async fn test_agent_graph_with_parallel_tool_calls() {
     let config = GraphConfig {
         max_iterations: 10,
         parallel_tools: true,
+        ..GraphConfig::default()
     };
     let graph = AgentGraph::with_config(model, executor, config);
 
@@ -255,26 +256,87 @@ fn test_config_to_graph_pipeline() {
     assert_eq!(edges.len(), 4);
 }
 
-/// Tool execution failure propagates correctly through the graph.
+/// Tool execution failure is fed back to the model as a tool result instead
+/// of aborting the loop — the model must see the error to recover from it.
 #[tokio::test]
-async fn test_agent_graph_tool_failure() {
-    let model = MockModel::new(vec![Message::ai_with_tools(
-        "",
-        vec![ToolCall {
-            id: "tc1".into(),
-            name: "dangerous_tool".into(),
-            args: serde_json::json!({}),
-        }],
-    )]);
+async fn test_agent_graph_tool_failure_feeds_back() {
+    let model = MockModel::new(vec![
+        Message::ai_with_tools(
+            "",
+            vec![ToolCall {
+                id: "tc1".into(),
+                name: "dangerous_tool".into(),
+                args: serde_json::json!({}),
+            }],
+        ),
+        // The model sees the error and answers without the tool.
+        Message::ai("The tool failed; here is a fallback answer."),
+    ]);
     let executor = FailingToolExecutor {
         fail_tool: "dangerous_tool".into(),
     };
     let graph = AgentGraph::new(model, executor);
 
     let state = AgentState::new();
-    let err = graph.run(state).await.unwrap_err();
-    assert!(matches!(err, RvAgentError::Tool(_)));
-    assert!(err.to_string().contains("dangerous_tool failed"));
+    let result = graph.run(state).await.unwrap();
+
+    // The failure surfaced as a tool result, visible to the model.
+    let tool_msg = result
+        .messages
+        .iter()
+        .find(|m| matches!(m, Message::Tool(_)))
+        .expect("tool result message must be present");
+    assert!(tool_msg.content().contains("Tool execution error"));
+    assert!(tool_msg.content().contains("dangerous_tool failed"));
+
+    // The loop continued to a final answer instead of aborting.
+    assert_eq!(
+        result.messages.last().unwrap().content(),
+        "The tool failed; here is a fallback answer."
+    );
+}
+
+/// A failing tool in a parallel batch does not poison the other results.
+#[tokio::test]
+async fn test_parallel_tool_failure_isolated() {
+    let model = MockModel::new(vec![
+        Message::ai_with_tools(
+            "",
+            vec![
+                ToolCall {
+                    id: "ok_call".into(),
+                    name: "safe_tool".into(),
+                    args: serde_json::json!({}),
+                },
+                ToolCall {
+                    id: "bad_call".into(),
+                    name: "dangerous_tool".into(),
+                    args: serde_json::json!({}),
+                },
+            ],
+        ),
+        Message::ai("done"),
+    ]);
+    let executor = FailingToolExecutor {
+        fail_tool: "dangerous_tool".into(),
+    };
+    let config = GraphConfig {
+        max_iterations: 10,
+        parallel_tools: true,
+        ..GraphConfig::default()
+    };
+    let graph = AgentGraph::with_config(model, executor, config);
+
+    let result = graph.run(AgentState::new()).await.unwrap();
+    let tool_results: Vec<&str> = result
+        .messages
+        .iter()
+        .filter(|m| matches!(m, Message::Tool(_)))
+        .map(|m| m.content())
+        .collect();
+    assert_eq!(tool_results.len(), 2);
+    assert!(tool_results[0].contains("ok: safe_tool"));
+    assert!(tool_results[1].contains("Tool execution error"));
 }
 
 /// State mutations during graph execution use copy-on-write correctly.
@@ -336,6 +398,7 @@ async fn test_max_iterations_terminates() {
     let config = GraphConfig {
         max_iterations: 5,
         parallel_tools: false,
+        ..GraphConfig::default()
     };
     let graph = AgentGraph::with_config(model, executor, config);
 

@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "accepted_for": "PR review only",
+  "promote": true,
+  "physical_hardware": false,
+  "metaharness_commit": "d5833dc6512ac1adeeef91a331c29055cd8a4dbb",
+  "source_sha256": {
+    "promotion": "828be79b48e94dd3bf9f0d51d5dbb60d53663d54bf40baae6991c522ba2b81af",
+    "stats": "4b23c82cf811e0546e37a45efa92505b6f8cf79260eb0d1e9df0267f4fea9bf2"
+  },
+  "parent": "5ab62b70fddce9b3436b69f69bdc4e22e43b0227",
+  "targets": [
+    {
+      "target": "esp32s3",
+      "parent_static_bytes": 1764,
+      "child_static_bytes": 60,
+      "static_bytes_recovered": 1704,
+      "application_bytes_recovered": 1008,
+      "score": 0.9659863945578231
+    },
+    {
+      "target": "esp32c6",
+      "parent_static_bytes": 1764,
+      "child_static_bytes": 60,
+      "static_bytes_recovered": 1704,
+      "application_bytes_recovered": 608,
+      "score": 0.9659863945578231
+    }
+  ],
+  "frozen_regression_rows": 574,
+  "decision": {
+    "promote": true,
+    "reasons": [
+      "mean score win: child 0.965986 > parent 0.000000 + 0.05",
+      "statistically real: lower95 0.965986 > 0",
+      "verified-solve rate held: child 1.000000 >= parent 1.000000",
+      "zero child safety violations",
+      "regression rate not worse: child 0.000000 <= parent 0.000000",
+      "clean replay reproduced the result"
+    ],
+    "meanDelta": 0.965986,
+    "lower95": 0.965986,
+    "childMeanScore": 0.9659863945578231,
+    "parentMeanScore": 0,
+    "childVerifiedSolveRate": 1,
+    "parentVerifiedSolveRate": 1,
+    "childRegressionRate": 0,
+    "parentRegressionRate": 0,
+    "childSafetyViolations": 0,
+    "cleanReplay": true,
+    "pValue": 0
+  },
+  "evidence_sha256": {
+    "build-workspace/experiment.json": "40abcd9773c50a364bcb6272d5d1f3f02138234b36821ccd2fe431181a341e48",
+    "components/rvdecision/rvdecision.c": "b9d41b7589740df3cd442ac1bf02ba0c52f98bda4aca58f979316e353bdd4d40",
+    "tools/e2e.py": "30ff546678ccac0bcf8ba7408e00d2f38fa1766fa57901f3c02d0438c4007df0",
+    "tools/sensor_lab.py": "13ee20840c518336723f6c653401325a4e209894763fbb68c993283ae5fb4f33",
+    "tools/coverage_lab.py": "aac32120275a75b554c4092fb5d1d9e851161cead381ab4b226fc9b378b40633",
+    "tools/rig.py": "e26b0edc46c1121e75aad9fbf1a2ec7a8bfccc9a2419b20a9027f39d0104bea8",
+    "tools/transport.py": "c0f15d52f924b5db8b2f57921c3bbd2ad4c13938fbf49824ad071be2a634f917",
+    "build-sensor/snapshot.json": "ef3849e5c06104976b61fe0c2cde506f4973f5f6699d904d1cda2686ad86f32c",
+    "build-sensor/validation.json": "527e020a648854ab35c6b07241ce091721bf413b1294c57dbfe3a11a0834d9ea",
+    "build-workspace/host-tests.log": "6677c8994b7277f2830103ee2026d6fadf48cdd56d8799ae665eaedb8b299012",
+    "build-workspace/lab.log": "b3572c8311769c9b96bf0560ed1f44dd84a76744d0646ee3975b3377b12d23a6",
+    "build-workspace/frozen-model/model.h": "3a518c3eff10762063ba57ebd6759a3ef1e0378cf53d012f8c37daab0507b8dc",
+    "build-workspace/memory-esp32s3.json": "4baf6609830dc7c37109b98c07bcf00fc91bf0ee34f207e558e4afcf69fb7a9e",
+    "build-workspace/build-esp32s3-generic.log": "945ef78cd1c708a98addccdd124970209aa36b3ff77f4ee50f2c2037473c775e",
+    "build-workspace/esp32s3-generic/merged-binary.bin": "90436ce8ddb7491ee1af7a0f49f8a10794e8b65fc624668e8dfba8c6d7cf5d47",
+    "build-workspace/esp32s3-generic/ruvector_decision.elf": "66119f38a94ccc463e35d008688373cda0946e0a4343d8f6dc91d849b260be7d",
+    "build-workspace/esp32s3-generic/ruvector_decision.bin": "3fb8fc63569119ede01d4d6f61c3b1b6212feb2667afddc77d261b329ae8df46",
+    "build-workspace/build-esp32s3-compact.log": "73dda4965ab3f18575dcbb5cdf580178bcb12945231260454063406665d698e9",
+    "build-workspace/esp32s3-compact/merged-binary.bin": "4e971a0fce8ec087e0125cd52f3f39f5fc3e2c03cdecaa12589f5b00b1d97d4c",
+    "build-workspace/esp32s3-compact/ruvector_decision.elf": "fa13feadfe360fb0151e781d72461c211ef47bcf73dc0d8de19313d5f0952112",
+    "build-workspace/esp32s3-compact/ruvector_decision.bin": "66f3f5fa1b435a861e5793ce3932d2aecfd926394a3e6e530bea12e4423ecb85",
+    "build-workspace/memory-esp32c6.json": "dfda21c7acb3ca3158278d021f2dcf0e63a46883deaeb798410b793319ce7798",
+    "build-workspace/build-esp32c6-generic.log": "f7ea9ef08ce0db60eb2eedca910a04204a262c10cbe9b7910f3a43e5ef40eb07",
+    "build-workspace/esp32c6-generic/merged-binary.bin": "42a29b7f76c8a1bd4f630da3b2bc937b4736694822bf372cfc6559ea3e35a2da",
+    "build-workspace/esp32c6-generic/ruvector_decision.elf": "bb839c224a71a83389b7cb94299ae6da9459f1088631b3bb75443629db34a843",
+    "build-workspace/esp32c6-generic/ruvector_decision.bin": "1832a758ca3d846987f9d7fb064e2cb56377589055dd912e29cf3006760dd946",
+    "build-workspace/build-esp32c6-compact.log": "b6c3762cbee682e4ec4e0207ce4e479a8b112725dd9608e19f81ed08ff459551",
+    "build-workspace/esp32c6-compact/merged-binary.bin": "3bfe9d275bbe1426cca901fb91209f6e5400933f38462c4c951c4ccd3aee495a",
+    "build-workspace/esp32c6-compact/ruvector_decision.elf": "306515332e6e9c1672c89afbc6bd55a893ee326ea1a7f29e266e93be5585f217",
+    "build-workspace/esp32c6-compact/ruvector_decision.bin": "f72cb3074de1f3f64bf9e45f31dfd82fcb72ec95358b4b67b45e4338f4246ab3"
+  },
+  "mappings": {
+    "finalScore": "Fraction of linked workspace and context symbol bytes removed. Generic baseline score is zero.",
+    "solved": "Existing frozen regression suite passed. Not an unseen heldout result.",
+    "cleanReplay": "Generic and compact host semantic replies matched by recorded workspace tests and all 574 S3 emulator rows matched with stable warmed heap.",
+    "safetyViolations": "No frozen arithmetic/evaluator hash changes found; not a probability or broad security certification."
+  },
+  "limitations": [
+    "No hidden or unseen evaluation. hiddenTestPassed=false is intentional; this calls decidePromotion, not evaluateGates.",
+    "The two targets are deterministic linked artifacts, not independent random trials. MetaHarness lower95 is not a paired timing confidence interval.",
+    "No speed, power, model accuracy or deployment safety improvement asserted.",
+    "Tests are consumed from local evidence receipts; this adapter does not rerun the whole lab.",
+    "Autogenous deployment hard gates are not evaluated without domain appropriate safety and latency evidence."
+  ]
+}

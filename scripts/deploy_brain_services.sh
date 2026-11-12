@@ -33,8 +33,11 @@ deploy_sse() {
         --concurrency=500 --max-instances=10 --min-instances=0 \
         --timeout=3600 --session-affinity \
         --allow-unauthenticated \
-        --set-env-vars="BRAIN_API_URL=https://ruvbrain-HASH.us-central1.run.app,RUST_LOG=info"
+        --set-env-vars="BRAIN_API_URL=https://ruvbrain-HASH.us-central1.run.app,RUST_LOG=info" \
+        --set-secrets=BRAIN_SYSTEM_KEY=BRAIN_SYSTEM_KEY:latest
     # Note: BRAIN_API_URL needs the actual Cloud Run URL of ruvbrain-api
+    # BRAIN_SYSTEM_KEY is required (ADR-349): the API gates /internal/* on it.
+    # Without it the SSE stream connects but never delivers MCP responses.
 }
 
 deploy_worker() {

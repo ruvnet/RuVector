@@ -9,7 +9,7 @@ readme = "README.md"
 description = "High-performance REST API server for Ruvector vector databases"
 
 [dependencies]
-ruvector-core = {path = "../ruvector-core" }
+ruvector-core = { version = "2.3.0",path = "../ruvector-core" }
 axum = { version = "0.7", features = ["json", "multipart"] }
 tokio = { workspace = true, features = ["full"] }
 tower = "0.5"

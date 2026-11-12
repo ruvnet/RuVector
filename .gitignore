@@ -23,10 +23,20 @@ target
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# Python bytecode and test caches from scripts/ (e.g. the ADR-282 research gate)
+scripts/**/__pycache__/
+scripts/**/*.py[cod]
+scripts/**/.pytest_cache/
+
 # Node.js
 **/node_modules/
 package-lock.json
 !npm/package-lock.json
+!crates/ruvector-sota-bench/harness/package-lock.json
+crates/ruvector-sota-bench/harness/dist/
+crates/ruvector-sota-bench/harness/metaharness-sbom.cdx.json
+.metaharness/
+**/.metaharness/
 
 # UI build artifacts
 ui/**/build/
@@ -41,10 +51,29 @@ index.d.ts
 # (v3 emits no v2-style loader), which published an empty 0.1.6 (#516)
 !npm/packages/sona/index.js
 !npm/packages/sona/index.d.ts
+# @ruvector/gnn likewise: build-gnn.yml's publish job never runs napi build,
+# so the loader must be committed or the tarball ships without it
+!crates/ruvector-gnn-node/index.js
+!crates/ruvector-gnn-node/index.d.ts
+# @ruvector/attention likewise: publish-all.yml copies the committed napi loader
+# and full typings instead of writing a hand-made 4-function index.d.ts
+!crates/ruvector-attention-node/index.js
+!crates/ruvector-attention-node/index.d.ts
 # ruvector optimizer is a hand-written module (not a napi artifact); the bare
 # `index.js` rule above wrongly ignored it, so it was never committed and CI's
 # optimizer test could not resolve it.
 !npm/packages/ruvector/src/optimizer/index.js
+
+# @ruvector/typesafe ships a hand-written platform loader + binding types (not
+# napi CLI output); package.json `files` lists them, so they must be committed.
+!npm/packages/typesafe/index.js
+!npm/packages/typesafe/index.d.ts
+!npm/packages/kge/index.js
+!npm/packages/kge/index.d.ts
+# @ruvector/diskann: hand-written loader + types; the CI publish job runs in a
+# fresh checkout without `napi build`, so uncommitted copies shipped nothing.
+!npm/packages/diskann/index.js
+!npm/packages/diskann/index.d.ts
 
 # Environment variables and secrets
 .env
@@ -112,6 +141,14 @@ hive-mind-prompt-*.txt
 # Benchmark generated files
 logs/
 data/
+# ...but `data/` is unanchored, so it also swallows any SOURCE directory named
+# data — it hid crates/ruvector-kge/src/data/{rng,tests}.rs, which built fine
+# locally and failed CI with "failed to resolve mod `rng`". Rust and TS source
+# trees are never generated output:
+!crates/*/src/**/data/
+!crates/*/src/**/data/**
+!npm/packages/*/src/**/data/
+!npm/packages/*/src/**/data/**
 
 # PhotonLayer MNIST cache (public dataset, fetched at bench time, never committed)
 crates/photonlayer-bench/data/
@@ -149,6 +186,7 @@ examples/real-eeg-analysis/data/*.edf
 examples/real-eeg-multi-seizure/data/*.edf
 agentdb.rvf
 agentdb.rvf.lock
+agentdb.rvf.idmap.json
 .kalshi
 bench_data/
 
@@ -157,6 +195,19 @@ bench_data/
 # transient so any tree they land in should ignore them.
 acceleras.log
 hailo_sdk.client.log
+
+# Python virtualenvs for the Hailo SDK/DFC toolchains (recreate with
+# python -m venv; never committed)
+venv-hailo/
+venv-hailo-dfc/
+venv*/
+.venv/
+
+# RuvNet Brain per-tree scratch state
+**/.ruvnet-brain/
+
+# Test coverage output
+**/coverage/
 
 # Iter 228 — per-crate Cargo.lock files for the hailo workspace members
 # (post iter-219 workspace rejoin). The parent workspace's Cargo.lock
@@ -167,3 +218,7 @@ crates/ruvector-hailo-cluster/Cargo.lock
 crates/hailort-sys/Cargo.lock
 crates/ruvector-mmwave/Cargo.lock
 node_modules
+
+# OpenJev trainer working dir (data, caches, checkpoints; never committed)
+/runs/
+/target-cuda/

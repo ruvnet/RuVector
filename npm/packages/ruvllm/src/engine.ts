@@ -8,11 +8,17 @@ import {
   QueryResponse,
   RoutingDecision,
   MemoryResult,
+  MemoryId,
   RuvLLMStats,
   Feedback,
   Embedding,
   BatchQueryRequest,
   BatchQueryResponse,
+  ChatMessage,
+  FinishReason,
+  GenerationResult,
+  LoadModelOptions,
+  LoadedModelInfo,
 } from './types';
 
 import {
@@ -20,6 +26,8 @@ import {
   NativeEngine,
   NativeConfig,
   NativeGenConfig,
+  NativeGenerationResult,
+  NativeModelInfo,
 } from './native';
 
 /**
@@ -46,38 +54,125 @@ function toNativeConfig(config?: RuvLLMConfig): NativeConfig | undefined {
 function toNativeGenConfig(config?: GenerationConfig): NativeGenConfig | undefined {
   if (!config) return undefined;
 
+  // camelCase: napi-rs ignores snake_case keys on `#[napi(object)]` inputs.
   return {
-    max_tokens: config.maxTokens,
+    maxTokens: config.maxTokens,
     temperature: config.temperature,
-    top_p: config.topP,
-    top_k: config.topK,
-    repetition_penalty: config.repetitionPenalty,
+    topP: config.topP,
+    topK: config.topK,
+    repetitionPenalty: config.repetitionPenalty,
+    stopSequences: config.stopSequences,
+    seed: config.seed,
   };
 }
+
+function toGenerationResult(r: NativeGenerationResult): GenerationResult {
+  return {
+    text: r.text,
+    promptTokens: r.promptTokens,
+    completionTokens: r.completionTokens,
+    finishReason: r.finishReason as FinishReason,
+  };
+}
+
+function toModelInfo(i: NativeModelInfo): LoadedModelInfo {
+  return {
+    name: i.name,
+    architecture: i.architecture,
+    numParameters: i.numParameters,
+    vocabSize: i.vocabSize,
+    hiddenSize: i.hiddenSize,
+    numLayers: i.numLayers,
+    maxContextLength: i.maxContextLength,
+    quantization: i.quantization ?? null,
+    memoryUsageBytes: i.memoryUsageBytes,
+    chatTemplate: i.chatTemplate ?? null,
+  };
+}
+
+const warned = new Set<string>();
+
+/** Warn once per process (or throw when `strict`). */
+function notice(code: string, message: string, strict: boolean | undefined): void {
+  if (strict) throw codedError(code, message);
+  if (warned.has(code)) return;
+  warned.add(code);
+  const g = globalThis as unknown as {
+    process?: { emitWarning?: (m: string, o?: { code?: string }) => void };
+    console?: { warn?: (m: string) => void };
+  };
+  if (typeof g.process?.emitWarning === 'function') g.process.emitWarning(message, { code });
+  else g.console?.warn?.(`${code}: ${message}`);
+}
+
+/** An Error whose message starts with, and whose `code` is, `code`. */
+function codedError(code: string, message: string): Error & { code: string } {
+  const err = new Error(`${code}: ${message}`) as Error & { code: string };
+  err.code = code;
+  return err;
+}
+
+/**
+ * Call into the native engine, giving its errors the same `code` as the
+ * wrapper's own: native messages start with `RUVLLM_<CODE>:`, but napi-rs
+ * sets `code` to a generic status such as `GenericFailure`.
+ */
+function callNative<T>(f: () => T): T {
+  try {
+    return f();
+  } catch (e) {
+    const match = /^(RUVLLM_[A-Z_]+):/.exec(e instanceof Error ? e.message : '');
+    if (match) (e as { code?: string }).code = match[1];
+    throw e;
+  }
+}
+
+function platformKey(): string {
+  const p = (globalThis as { process?: { platform?: string; arch?: string } }).process;
+  return `${p?.platform ?? 'unknown'}-${p?.arch ?? 'unknown'}`;
+}
+
+function envAllowsPlaceholder(): boolean {
+  const p = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+  return p?.env?.RUVLLM_ALLOW_MOCK === '1';
+}
+
+/** Returned by generate()/query() only with `allowPlaceholder` / `RUVLLM_ALLOW_MOCK=1`. */
+export const PLACEHOLDER_TEXT =
+  '[RuvLLM placeholder: no language model is loaded; this text is not model output]';
 
 /**
  * RuvLLM - Self-learning LLM orchestrator
  *
- * Combines SONA adaptive learning with HNSW memory,
- * FastGRNN routing, and SIMD-optimized inference.
+ * Combines SONA adaptive learning with HNSW memory, FastGRNN routing, and
+ * GGUF inference through the native candle backend.
+ *
+ * Text comes only from a model loaded with `loadModel()` (or the `modelPath`
+ * option). Without one, `generate()`, `query()`, `chat()` and
+ * `generateDetailed()` throw `RUVLLM_NO_LANGUAGE_MODEL`.
  *
  * @example
  * ```typescript
  * import { RuvLLM } from '@ruvector/ruvllm';
  *
- * const llm = new RuvLLM({ embeddingDim: 768 });
+ * const llm = new RuvLLM();
+ * llm.loadModel('./qwen2.5-0.5b-instruct-q4_k_m.gguf');
  *
- * // Query with automatic routing
- * const response = await llm.query('What is machine learning?');
- * console.log(response.text);
+ * const out = llm.chat([{ role: 'user', content: 'What is machine learning?' }], {
+ *   maxTokens: 128,
+ * });
+ * console.log(out.text, out.finishReason, out.completionTokens);
  *
- * // Provide feedback for learning
+ * // Routed query, answered by the loaded model
+ * const response = llm.query('What is machine learning?');
  * llm.feedback({ requestId: response.requestId, rating: 5 });
  * ```
  */
 export class RuvLLM {
   private native: NativeEngine | null = null;
+  private nativeVersion: string | null = null;
   private config: RuvLLMConfig;
+  private allowPlaceholder: boolean;
 
   // Fallback state for when native module is not available
   private fallbackState = {
@@ -91,74 +186,231 @@ export class RuvLLM {
    */
   constructor(config?: RuvLLMConfig) {
     this.config = config ?? {};
+    this.allowPlaceholder = this.config.allowPlaceholder === true || envAllowsPlaceholder();
+    const extra = this.config as Record<string, unknown>;
+    if (extra.backend !== undefined) {
+      notice(
+        'RUVLLM_UNSUPPORTED_OPTION',
+        '`backend` is not supported by @ruvector/ruvllm and is ignored: models loaded with ' +
+          'loadModel() run on the built-in candle backend.',
+        this.config.strict,
+      );
+    }
 
     const mod = getNativeModule();
     if (mod) {
       try {
         this.native = new mod.RuvLLMEngine(toNativeConfig(config));
+        this.nativeVersion = mod.version();
       } catch {
         // Silently fall back to JS implementation
       }
     }
+
+    if (this.config.modelPath !== undefined) {
+      this.loadModel(this.config.modelPath, this.config.modelOptions);
+    }
   }
 
   /**
-   * Query the LLM with automatic routing
+   * Whether the native binary can load and run a language model. False
+   * without a native binary, for binaries that predate `loadModel` (the 2.0.x
+   * `@ruvector/ruvllm-<platform>` packages), and for binaries built without
+   * the `candle` inference backend.
+   */
+  supportsModelLoading(): boolean {
+    const native = this.native;
+    if (typeof native?.loadModel !== 'function') return false;
+    // Builds that predate this probe all had the backend (they were local
+    // `npm run build:native` builds, which enable `candle`).
+    return typeof native.supportsModelLoading === 'function' ? native.supportsModelLoading() : true;
+  }
+
+  /** Error for a binary that has `loadModel` but no inference backend. */
+  private noBackendError(): Error {
+    return codedError(
+      'RUVLLM_NO_INFERENCE_BACKEND',
+      `the installed native binary (version ${this.nativeVersion ?? 'unknown'}) was built ` +
+        'without the `candle` inference backend and cannot load models. Rebuild it with ' +
+        '`npm run build:native` (which enables `candle`) and set RUVLLM_NATIVE_PATH to it, ' +
+        'or use the ruvllm CLI (`ruvllm serve <model>`).',
+    );
+  }
+
+  /**
+   * Load a GGUF model (or a directory holding one) for `generate()`,
+   * `chat()` and `query()`. Supported GGUF architectures: llama, mistral,
+   * qwen2, qwen3; others fail with an error naming the architecture. The
+   * tokenizer comes from a `tokenizer.json` beside the file, else from the
+   * GGUF itself. Replaces any loaded model; if loading fails, no model is
+   * loaded. Synchronous: blocks the event loop while the weights load.
+   *
+   * @throws `RUVLLM_NATIVE_UNAVAILABLE` without a native binary,
+   *   `RUVLLM_NATIVE_TOO_OLD` when the binary predates model loading,
+   *   `RUVLLM_NO_INFERENCE_BACKEND` when it was built without `candle`,
+   *   `RUVLLM_MODEL_NOT_FOUND` / `RUVLLM_MODEL_LOAD_FAILED` from the backend.
+   */
+  loadModel(path: string, options?: LoadModelOptions): LoadedModelInfo {
+    if (typeof path !== 'string' || path.length === 0) {
+      throw new TypeError('loadModel: path must be a non-empty string');
+    }
+    if (!this.native) {
+      throw codedError(
+        'RUVLLM_NATIVE_UNAVAILABLE',
+        `no native RuvLLM binary could be loaded for ${platformKey()}, so models cannot be ` +
+          'loaded. Install the matching @ruvector/ruvllm-<platform> package, or build one ' +
+          '(`npm run build:native`) and set RUVLLM_NATIVE_PATH to it.',
+      );
+    }
+    if (typeof this.native.loadModel !== 'function') {
+      throw codedError(
+        'RUVLLM_NATIVE_TOO_OLD',
+        `the installed native binary (version ${this.nativeVersion ?? 'unknown'}) cannot load ` +
+          'models: it predates loadModel(). The @ruvector/ruvllm-<platform> 2.0.x packages are ' +
+          'such builds. Install the 2.1+ platform package (@ruvector/ruvllm >= 4.2.0), or build the binary from source ' +
+          '(`npm run build:native`, which enables the `candle` feature) and set ' +
+          'RUVLLM_NATIVE_PATH to it, or use the ruvllm CLI (`ruvllm serve <model>`).',
+      );
+    }
+    if (!this.supportsModelLoading()) throw this.noBackendError();
+    const native = this.native;
+    return toModelInfo(callNative(() => native.loadModel!(path, options)));
+  }
+
+  /**
+   * Unload the language model and free its memory
+   */
+  unloadModel(): void {
+    this.native?.unloadModel?.();
+  }
+
+  /**
+   * Whether a language model is loaded
+   */
+  isModelLoaded(): boolean {
+    return this.native?.isModelLoaded?.() ?? false;
+  }
+
+  /**
+   * The loaded language model, or null
+   */
+  modelInfo(): LoadedModelInfo | null {
+    const info = this.native?.modelInfo?.();
+    return info ? toModelInfo(info) : null;
+  }
+
+  /**
+   * Route `text`, then answer it with the loaded model (as one user message
+   * under the model's chat template).
+   *
+   * @throws `RUVLLM_NO_LANGUAGE_MODEL` when no model is loaded, unless
+   *   `allowPlaceholder` is set (then `text` is `PLACEHOLDER_TEXT`).
    */
   query(text: string, config?: GenerationConfig): QueryResponse {
-    if (this.native) {
-      const result = this.native.query(text, toNativeGenConfig(config));
+    if (!this.isModelLoaded()) {
+      const placeholder = this.placeholderOrThrow();
+      this.fallbackState.queryCount++;
+      const route = this.route(text);
       return {
-        text: result.text,
-        confidence: result.confidence,
-        model: result.model,
-        contextSize: result.context_size,
-        latencyMs: result.latency_ms,
-        requestId: result.request_id,
+        text: placeholder,
+        confidence: route.confidence,
+        model: route.model,
+        contextSize: route.contextSize,
+        latencyMs: 0,
+        requestId: `placeholder-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       };
     }
 
-    // Fallback implementation
-    this.fallbackState.queryCount++;
+    const native = this.native!;
+    const result = callNative(() => native.query(text, toNativeGenConfig(config)));
     return {
-      text: `[Fallback] Response to: ${text.slice(0, 50)}...`,
-      confidence: 0.5,
-      model: 'fallback',
-      contextSize: 512,
-      latencyMs: 1.0,
-      requestId: `fb-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      text: result.text,
+      confidence: result.confidence,
+      model: result.model,
+      contextSize: result.contextSize,
+      latencyMs: result.latencyMs,
+      requestId: result.requestId,
+      promptTokens: result.promptTokens,
+      completionTokens: result.completionTokens,
+      finishReason: result.finishReason as FinishReason | undefined,
     };
   }
 
   /**
-   * Generate text with SIMD-optimized inference
+   * Continue `prompt` verbatim with the loaded model (no chat template; use
+   * `chat()` for instruction-tuned models). Returns the generated text.
    *
-   * Note: If no trained model is loaded (demo mode), returns an informational
-   * message instead of garbled output.
+   * @throws `RUVLLM_NO_LANGUAGE_MODEL` when no model is loaded, unless
+   *   `allowPlaceholder` is set (then it returns `PLACEHOLDER_TEXT`).
    */
   generate(prompt: string, config?: GenerationConfig): string {
-    if (this.native) {
-      return this.native.generate(prompt, toNativeGenConfig(config));
+    if (!this.isModelLoaded()) return this.placeholderOrThrow();
+    return this.generateDetailed(prompt, config).text;
+  }
+
+  /**
+   * Like `generate()`, with token counts (from the model's tokenizer) and
+   * the finish reason. Always throws `RUVLLM_NO_LANGUAGE_MODEL` without a
+   * loaded model.
+   */
+  generateDetailed(prompt: string, config?: GenerationConfig): GenerationResult {
+    const native = this.requireModel();
+    return toGenerationResult(
+      callNative(() => native.generate(prompt, toNativeGenConfig(config))) as NativeGenerationResult,
+    );
+  }
+
+  /**
+   * Run the loaded model on a conversation, formatted with the model's chat
+   * template (ChatML for Qwen, Llama 3 / Mistral formats for those models).
+   * Always throws `RUVLLM_NO_LANGUAGE_MODEL` without a loaded model.
+   */
+  chat(messages: ChatMessage[], config?: GenerationConfig): GenerationResult {
+    const native = this.requireModel();
+    return toGenerationResult(callNative(() => native.chat!(messages, toNativeGenConfig(config))));
+  }
+
+  private requireModel(): NativeEngine {
+    if (!this.isModelLoaded()) throw this.noModelError();
+    return this.native!;
+  }
+
+  private noModelError(): Error {
+    let fix: string;
+    if (!this.native) {
+      fix =
+        `no native RuvLLM binary is available for ${platformKey()}, so no model can be loaded ` +
+        '(see RUVLLM_NATIVE_UNAVAILABLE in the README)';
+    } else if (typeof this.native.loadModel !== 'function') {
+      fix =
+        `the installed native binary (version ${this.nativeVersion ?? 'unknown'}) cannot load ` +
+        'models (see RUVLLM_NATIVE_TOO_OLD in the README)';
+    } else if (!this.supportsModelLoading()) {
+      fix =
+        `the installed native binary (version ${this.nativeVersion ?? 'unknown'}) was built ` +
+        'without the candle inference backend, so it cannot load models (see ' +
+        'RUVLLM_NO_INFERENCE_BACKEND in the README)';
+    } else {
+      fix = 'call loadModel(<path to a GGUF file>) first';
     }
+    return codedError(
+      'RUVLLM_NO_LANGUAGE_MODEL',
+      `no language model is loaded, so there is no model output to return: ${fix}. Routing, ` +
+        'memory and embeddings work without a model. For an HTTP server use the ruvllm CLI ' +
+        '(`ruvllm serve <model>`).',
+    );
+  }
 
-    // Fallback - provide helpful message instead of garbled output
-    const maxTokens = config?.maxTokens ?? 256;
-    const temp = config?.temperature ?? 0.7;
-    const topP = config?.topP ?? 0.9;
-
-    return `[RuvLLM JavaScript Fallback Mode]
-No native SIMD module loaded. Running in JavaScript fallback mode.
-
-Your prompt: "${prompt.slice(0, 100)}${prompt.length > 100 ? '...' : ''}"
-
-To enable native SIMD inference:
-1. Install the native bindings: npm install @ruvector/ruvllm-${process.platform}-${process.arch}
-2. Or load a GGUF model file
-3. Or connect to an external LLM API
-
-Config: temp=${temp.toFixed(2)}, top_p=${topP.toFixed(2)}, max_tokens=${maxTokens}
-
-This fallback provides routing, memory, and embedding features but not full text generation.`;
+  /** Throw `RUVLLM_NO_LANGUAGE_MODEL`, or return the labelled placeholder when opted in. */
+  private placeholderOrThrow(): string {
+    if (!this.allowPlaceholder) throw this.noModelError();
+    notice(
+      'RUVLLM_PLACEHOLDER_TEXT',
+      'no language model is loaded: generate()/query() are returning a labelled placeholder, ' +
+        'not model output, because allowPlaceholder (or RUVLLM_ALLOW_MOCK=1) is set.',
+      false,
+    );
+    return PLACEHOLDER_TEXT;
   }
 
   /**
@@ -169,9 +421,9 @@ This fallback provides routing, memory, and embedding features but not full text
       const result = this.native.route(text);
       return {
         model: result.model as any,
-        contextSize: result.context_size,
+        contextSize: result.contextSize ?? result.context_size,
         temperature: result.temperature,
-        topP: result.top_p,
+        topP: result.topP ?? result.top_p,
         confidence: result.confidence,
       };
     }
@@ -192,12 +444,25 @@ This fallback provides routing, memory, and embedding features but not full text
   searchMemory(text: string, k = 10): MemoryResult[] {
     if (this.native) {
       const results = this.native.searchMemory(text, k);
-      return results.map(r => ({
-        id: r.id,
-        score: r.score,
-        content: r.content,
-        metadata: JSON.parse(r.metadata || '{}'),
-      }));
+      return results.map(r => {
+        // The native side reports `distance` (smaller is closer). MemoryResult
+        // documents `score` as a similarity, so convert rather than passing a
+        // distance through under a similarity's name. Older builds that already
+        // emit `score` are used as-is.
+        const anyR = r as any;
+        const score =
+          typeof anyR.score === 'number'
+            ? anyR.score
+            : typeof anyR.distance === 'number'
+              ? 1 / (1 + Math.max(0, anyR.distance))
+              : 0;
+        return {
+          id: r.id,
+          score,
+          content: r.content,
+          metadata: JSON.parse(r.metadata || '{}'),
+        };
+      });
     }
 
     // Fallback - simple search
@@ -214,7 +479,7 @@ This fallback provides routing, memory, and embedding features but not full text
   /**
    * Add content to memory
    */
-  addMemory(content: string, metadata?: Record<string, unknown>): number {
+  addMemory(content: string, metadata?: Record<string, unknown>): MemoryId {
     if (this.native) {
       return this.native.addMemory(content, metadata ? JSON.stringify(metadata) : undefined);
     }
@@ -248,12 +513,16 @@ This fallback provides routing, memory, and embedding features but not full text
       // Map native stats (snake_case) to TypeScript interface (camelCase)
       // Handle both old and new field names for backward compatibility
       return {
-        totalQueries: s.total_queries ?? 0,
-        memoryNodes: s.memory_nodes ?? 0,
-        patternsLearned: s.patterns_learned ?? (s as any).training_steps ?? 0,
-        avgLatencyMs: s.avg_latency_ms ?? 0,
-        cacheHitRate: s.cache_hit_rate ?? 0,
-        routerAccuracy: s.router_accuracy ?? 0.5,
+        totalQueries: (s as any).totalQueries ?? s.total_queries ?? 0,
+        memoryNodes: (s as any).memoryNodes ?? s.memory_nodes ?? 0,
+        patternsLearned:
+          (s as any).trainingSteps ??
+          s.patterns_learned ??
+          (s as any).training_steps ??
+          0,
+        avgLatencyMs: (s as any).avgLatencyMs ?? s.avg_latency_ms ?? 0,
+        cacheHitRate: (s as any).cacheHitRate ?? s.cache_hit_rate ?? 0,
+        routerAccuracy: (s as any).routerAccuracy ?? s.router_accuracy ?? 0.5,
       };
     }
 
@@ -305,7 +574,11 @@ This fallback provides routing, memory, and embedding features but not full text
    */
   similarity(text1: string, text2: string): number {
     if (this.native) {
-      return this.native.similarity(text1, text2);
+      // f32 accumulation can land just outside the mathematical range — an
+      // identical pair measures 1.0000001 — which turns Math.acos(sim) into
+      // NaN downstream. Cosine similarity is defined on [-1, 1], so clamp.
+      const raw = this.native.similarity(text1, text2);
+      return Math.min(1, Math.max(-1, raw));
     }
 
     // Fallback - cosine similarity

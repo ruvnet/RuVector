@@ -22,6 +22,7 @@ const REFCOUNT_MAGIC: u32 = 0x5256_5243;
 
 pub fn run(args: FreezeArgs) -> Result<(), Box<dyn std::error::Error>> {
     let store = RvfStore::open(Path::new(&args.file)).map_err(map_rvf_err)?;
+    crate::cmd::warn_on_metadata_recovery(&store, &args.file);
     let status = store.status();
     let snapshot_epoch = status.current_epoch + 1;
 

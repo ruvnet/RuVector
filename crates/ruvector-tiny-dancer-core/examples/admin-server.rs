@@ -33,6 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         circuit_breaker_threshold: 5,
         enable_quantization: true,
         database_path: None,
+        voi: None,
     };
 
     println!("Creating router with config:");

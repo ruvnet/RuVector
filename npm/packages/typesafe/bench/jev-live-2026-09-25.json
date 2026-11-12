@@ -1,0 +1,5862 @@
+{
+ "system": "jev",
+ "model_reported": "jev-1.13.0",
+ "endpoint": "POST https://api.typesafe.ai/v1/systemone (model: jev-latest)",
+ "protocol": "Independent live re-run on the frozen tickets test split with the gen-0 questions (fixtures/tickets-decisions.json gen0_questions), concurrency 4, 25 Sep 2026. Rows keep Jev's continuous outputs in `scores` (urgent = noul, frustration = score) so AUROC can be computed; `pred.urgent` is noul >= 0.5 as in the 2026-09-21 capture.",
+ "source": "https://github.com/mondweep/typesafe-lab (experiments/jev-bench.mjs, receipts/jev-live.json)",
+ "generated_at": "2026-09-25T17:11:22.750Z",
+ "test_rows": {
+  "live": [
+   {
+    "id": "t451",
+    "ok": true,
+    "latencyMs": 332,
+    "pred": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0.74
+    },
+    "confidence": 0.89,
+    "probabilities": {
+     "billing": 0,
+     "shipping": 0.05,
+     "legal": 0,
+     "technical": 0,
+     "account": 0,
+     "sales": 0,
+     "feedback": 0.04,
+     "returns": 0.91
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.41,
+     "frustration": 0.74
+    },
+    "tokens": {
+     "input_tokens": 547,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t408",
+    "ok": true,
+    "latencyMs": 240,
+    "pred": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 1,
+    "probabilities": {
+     "legal": 0,
+     "feedback": 0,
+     "billing": 1,
+     "shipping": 0,
+     "returns": 0,
+     "account": 0,
+     "sales": 0,
+     "technical": 0
+    },
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.83,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 549,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t289",
+    "ok": true,
+    "latencyMs": 328,
+    "pred": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0.41
+    },
+    "confidence": 1,
+    "probabilities": {
+     "technical": 1,
+     "account": 0,
+     "legal": 0,
+     "feedback": 0,
+     "returns": 0,
+     "billing": 0,
+     "sales": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.45,
+     "frustration": 0.41
+    },
+    "tokens": {
+     "input_tokens": 545,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t47",
+    "ok": true,
+    "latencyMs": 325,
+    "pred": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0.99
+    },
+    "confidence": 0.98,
+    "probabilities": {
+     "technical": 0.01,
+     "account": 0,
+     "shipping": 0,
+     "billing": 0,
+     "feedback": 0.99,
+     "returns": 0,
+     "sales": 0,
+     "legal": 0
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.39,
+     "frustration": 0.99
+    },
+    "tokens": {
+     "input_tokens": 538,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t302",
+    "ok": true,
+    "latencyMs": 242,
+    "pred": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 0.81,
+    "probabilities": {
+     "sales": 0,
+     "returns": 0,
+     "feedback": 0,
+     "technical": 0,
+     "legal": 0.84,
+     "shipping": 0,
+     "billing": 0.16,
+     "account": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.65,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 556,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t260",
+    "ok": true,
+    "latencyMs": 101,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0.67
+    },
+    "confidence": 0.51,
+    "probabilities": {
+     "returns": 0,
+     "billing": 0,
+     "legal": 0,
+     "technical": 0.58,
+     "sales": 0,
+     "account": 0.42,
+     "feedback": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": false,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.54,
+     "frustration": 0.67
+    },
+    "tokens": {
+     "input_tokens": 540,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t343",
+    "ok": true,
+    "latencyMs": 127,
+    "pred": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0.86
+    },
+    "confidence": 0.63,
+    "probabilities": {
+     "technical": 0.3,
+     "legal": 0,
+     "account": 0,
+     "feedback": 0.68,
+     "returns": 0,
+     "billing": 0,
+     "sales": 0,
+     "shipping": 0.02
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.24,
+     "frustration": 0.86
+    },
+    "tokens": {
+     "input_tokens": 545,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t263",
+    "ok": true,
+    "latencyMs": 107,
+    "pred": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "confidence": 0.97,
+    "probabilities": {
+     "technical": 0,
+     "sales": 0,
+     "feedback": 0.03,
+     "legal": 0.97,
+     "shipping": 0,
+     "billing": 0,
+     "returns": 0,
+     "account": 0
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.26,
+     "frustration": 0
+    },
+    "tokens": {
+     "input_tokens": 544,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t175",
+    "ok": true,
+    "latencyMs": 108,
+    "pred": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 0.97,
+    "probabilities": {
+     "returns": 0,
+     "account": 0,
+     "shipping": 0,
+     "billing": 0,
+     "legal": 0,
+     "technical": 0.03,
+     "feedback": 0.97,
+     "sales": 0
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.79,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 547,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t390",
+    "ok": true,
+    "latencyMs": 125,
+    "pred": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0.99
+    },
+    "confidence": 1,
+    "probabilities": {
+     "shipping": 0,
+     "account": 0,
+     "returns": 0,
+     "feedback": 0,
+     "legal": 1,
+     "sales": 0,
+     "billing": 0,
+     "technical": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.4,
+     "frustration": 0.99
+    },
+    "tokens": {
+     "input_tokens": 548,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t180",
+    "ok": true,
+    "latencyMs": 121,
+    "pred": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 1.01
+    },
+    "confidence": 0.53,
+    "probabilities": {
+     "feedback": 0,
+     "shipping": 0,
+     "returns": 0,
+     "billing": 0,
+     "account": 0.6,
+     "sales": 0,
+     "technical": 0.31,
+     "legal": 0.09
+    },
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.96,
+     "frustration": 1.01
+    },
+    "tokens": {
+     "input_tokens": 559,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t467",
+    "ok": true,
+    "latencyMs": 114,
+    "pred": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0.02
+    },
+    "confidence": 0.81,
+    "probabilities": {
+     "shipping": 0,
+     "legal": 0.14,
+     "technical": 0,
+     "billing": 0,
+     "feedback": 0,
+     "returns": 0.85,
+     "sales": 0.01,
+     "account": 0
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.33,
+     "frustration": 0.02
+    },
+    "tokens": {
+     "input_tokens": 546,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t277",
+    "ok": true,
+    "latencyMs": 148,
+    "pred": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 0.43,
+    "probabilities": {
+     "feedback": 0,
+     "account": 0,
+     "technical": 0.48,
+     "legal": 0,
+     "sales": 0.5,
+     "billing": 0.02,
+     "shipping": 0,
+     "returns": 0
+    },
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.96,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 558,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t200",
+    "ok": true,
+    "latencyMs": 130,
+    "pred": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 1,
+    "probabilities": {
+     "account": 0,
+     "shipping": 0,
+     "billing": 1,
+     "feedback": 0,
+     "sales": 0,
+     "returns": 0,
+     "legal": 0,
+     "technical": 0
+    },
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.59,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 550,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t35",
+    "ok": true,
+    "latencyMs": 110,
+    "pred": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "confidence": 0.99,
+    "probabilities": {
+     "shipping": 0,
+     "billing": 0,
+     "sales": 0,
+     "technical": 0,
+     "account": 0,
+     "legal": 0,
+     "feedback": 0,
+     "returns": 1
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.12,
+     "frustration": 0
+    },
+    "tokens": {
+     "input_tokens": 543,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t291",
+    "ok": true,
+    "latencyMs": 81,
+    "pred": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 0.53,
+    "probabilities": {
+     "shipping": 0.02,
+     "technical": 0,
+     "returns": 0.36,
+     "legal": 0,
+     "feedback": 0,
+     "account": 0,
+     "billing": 0.02,
+     "sales": 0.6
+    },
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.98,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 548,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t187",
+    "ok": true,
+    "latencyMs": 127,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 1.08
+    },
+    "confidence": 0.84,
+    "probabilities": {
+     "returns": 0.1,
+     "account": 0,
+     "billing": 0.04,
+     "legal": 0,
+     "sales": 0,
+     "shipping": 0.86,
+     "technical": 0,
+     "feedback": 0
+    },
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.84,
+     "frustration": 1.08
+    },
+    "tokens": {
+     "input_tokens": 562,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t485",
+    "ok": true,
+    "latencyMs": 117,
+    "pred": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 1.01
+    },
+    "confidence": 0.66,
+    "probabilities": {
+     "returns": 0,
+     "technical": 0.21,
+     "billing": 0.08,
+     "account": 0,
+     "sales": 0.71,
+     "legal": 0,
+     "feedback": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.98,
+     "frustration": 1.01
+    },
+    "tokens": {
+     "input_tokens": 549,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t242",
+    "ok": true,
+    "latencyMs": 81,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 0.99
+    },
+    "confidence": 0.57,
+    "probabilities": {
+     "technical": 0.07,
+     "account": 0.01,
+     "legal": 0,
+     "returns": 0.01,
+     "feedback": 0.01,
+     "billing": 0.28,
+     "sales": 0,
+     "shipping": 0.62
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.5,
+     "frustration": 0.99
+    },
+    "tokens": {
+     "input_tokens": 555,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t458",
+    "ok": true,
+    "latencyMs": 88,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 2
+    },
+    "confidence": 1,
+    "probabilities": {
+     "sales": 0,
+     "feedback": 0,
+     "returns": 0,
+     "technical": 0,
+     "billing": 0,
+     "legal": 0,
+     "account": 0,
+     "shipping": 1
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 2
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.97,
+     "frustration": 2
+    },
+    "tokens": {
+     "input_tokens": 555,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t17",
+    "ok": true,
+    "latencyMs": 132,
+    "pred": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0.86
+    },
+    "confidence": 1,
+    "probabilities": {
+     "legal": 0,
+     "account": 0,
+     "shipping": 0,
+     "technical": 1,
+     "feedback": 0,
+     "billing": 0,
+     "sales": 0,
+     "returns": 0
+    },
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.36,
+     "frustration": 0.86
+    },
+    "tokens": {
+     "input_tokens": 543,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t44",
+    "ok": true,
+    "latencyMs": 97,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 0.97
+    },
+    "confidence": 0.33,
+    "probabilities": {
+     "shipping": 0.42,
+     "legal": 0,
+     "returns": 0,
+     "technical": 0.31,
+     "feedback": 0,
+     "account": 0.27,
+     "billing": 0,
+     "sales": 0
+    },
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": false,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.76,
+     "frustration": 0.97
+    },
+    "tokens": {
+     "input_tokens": 546,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t459",
+    "ok": true,
+    "latencyMs": 86,
+    "pred": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0.16
+    },
+    "confidence": 0.36,
+    "probabilities": {
+     "technical": 0.45,
+     "account": 0.03,
+     "legal": 0.08,
+     "returns": 0.33,
+     "feedback": 0.11,
+     "billing": 0,
+     "sales": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.25,
+     "frustration": 0.16
+    },
+    "tokens": {
+     "input_tokens": 542,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t223",
+    "ok": true,
+    "latencyMs": 109,
+    "pred": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 1,
+    "probabilities": {
+     "legal": 0,
+     "feedback": 0,
+     "billing": 1,
+     "returns": 0,
+     "shipping": 0,
+     "account": 0,
+     "sales": 0,
+     "technical": 0
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": false,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.54,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 553,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t418",
+    "ok": true,
+    "latencyMs": 104,
+    "pred": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0.47
+    },
+    "confidence": 0.52,
+    "probabilities": {
+     "feedback": 0.14,
+     "billing": 0,
+     "returns": 0.01,
+     "shipping": 0.58,
+     "account": 0.02,
+     "legal": 0,
+     "technical": 0.25,
+     "sales": 0
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.38,
+     "frustration": 0.47
+    },
+    "tokens": {
+     "input_tokens": 544,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t306",
+    "ok": true,
+    "latencyMs": 117,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 0.94,
+    "probabilities": {
+     "feedback": 0.03,
+     "technical": 0.02,
+     "sales": 0,
+     "billing": 0,
+     "legal": 0,
+     "account": 0,
+     "shipping": 0.95,
+     "returns": 0
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.79,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 547,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t374",
+    "ok": true,
+    "latencyMs": 101,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0.94
+    },
+    "confidence": 0.9,
+    "probabilities": {
+     "returns": 0,
+     "account": 0,
+     "billing": 0,
+     "shipping": 0,
+     "legal": 0.08,
+     "technical": 0.92,
+     "feedback": 0,
+     "sales": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.9,
+     "frustration": 0.94
+    },
+    "tokens": {
+     "input_tokens": 559,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t74",
+    "ok": true,
+    "latencyMs": 114,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 0.5
+    },
+    "confidence": 0.92,
+    "probabilities": {
+     "sales": 0,
+     "account": 0,
+     "billing": 0,
+     "shipping": 0.93,
+     "returns": 0,
+     "technical": 0.01,
+     "feedback": 0.06,
+     "legal": 0
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.55,
+     "frustration": 0.5
+    },
+    "tokens": {
+     "input_tokens": 552,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t78",
+    "ok": true,
+    "latencyMs": 102,
+    "pred": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1.01
+    },
+    "confidence": 0.96,
+    "probabilities": {
+     "account": 0,
+     "shipping": 0,
+     "billing": 0,
+     "feedback": 0.03,
+     "sales": 0,
+     "technical": 0,
+     "legal": 0.97,
+     "returns": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.46,
+     "frustration": 1.01
+    },
+    "tokens": {
+     "input_tokens": 547,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t107",
+    "ok": true,
+    "latencyMs": 101,
+    "pred": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0.72
+    },
+    "confidence": 0.86,
+    "probabilities": {
+     "technical": 0.01,
+     "returns": 0.88,
+     "legal": 0,
+     "sales": 0.08,
+     "feedback": 0.03,
+     "billing": 0,
+     "shipping": 0,
+     "account": 0
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.4,
+     "frustration": 0.72
+    },
+    "tokens": {
+     "input_tokens": 533,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t454",
+    "ok": true,
+    "latencyMs": 147,
+    "pred": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "confidence": 1,
+    "probabilities": {
+     "shipping": 0,
+     "sales": 0,
+     "feedback": 0,
+     "returns": 0,
+     "account": 0,
+     "billing": 0,
+     "legal": 1,
+     "technical": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.06,
+     "frustration": 0
+    },
+    "tokens": {
+     "input_tokens": 536,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t75",
+    "ok": true,
+    "latencyMs": 92,
+    "pred": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 0.91,
+    "probabilities": {
+     "shipping": 0,
+     "technical": 0,
+     "returns": 0.92,
+     "legal": 0,
+     "feedback": 0,
+     "account": 0,
+     "billing": 0.08,
+     "sales": 0
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.68,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 543,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t320",
+    "ok": true,
+    "latencyMs": 108,
+    "pred": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0.97
+    },
+    "confidence": 0.93,
+    "probabilities": {
+     "technical": 0.06,
+     "legal": 0,
+     "returns": 0,
+     "billing": 0.94,
+     "feedback": 0,
+     "sales": 0,
+     "account": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.97,
+     "frustration": 0.97
+    },
+    "tokens": {
+     "input_tokens": 548,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t101",
+    "ok": true,
+    "latencyMs": 86,
+    "pred": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0.99
+    },
+    "confidence": 0.99,
+    "probabilities": {
+     "returns": 0,
+     "technical": 0,
+     "feedback": 0,
+     "sales": 0.99,
+     "legal": 0,
+     "account": 0,
+     "shipping": 0,
+     "billing": 0.01
+    },
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.53,
+     "frustration": 0.99
+    },
+    "tokens": {
+     "input_tokens": 541,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t72",
+    "ok": true,
+    "latencyMs": 110,
+    "pred": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0.69
+    },
+    "confidence": 0.96,
+    "probabilities": {
+     "technical": 0,
+     "returns": 0,
+     "sales": 0.01,
+     "feedback": 0,
+     "legal": 0.02,
+     "billing": 0.97,
+     "account": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.48,
+     "frustration": 0.69
+    },
+    "tokens": {
+     "input_tokens": 538,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t45",
+    "ok": true,
+    "latencyMs": 96,
+    "pred": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 1.98
+    },
+    "confidence": 0.65,
+    "probabilities": {
+     "technical": 0.27,
+     "returns": 0,
+     "legal": 0,
+     "sales": 0.7,
+     "feedback": 0,
+     "billing": 0.03,
+     "shipping": 0,
+     "account": 0
+    },
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 2
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.77,
+     "frustration": 1.98
+    },
+    "tokens": {
+     "input_tokens": 549,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t326",
+    "ok": true,
+    "latencyMs": 95,
+    "pred": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 2
+    },
+    "confidence": 1,
+    "probabilities": {
+     "sales": 0,
+     "shipping": 0,
+     "legal": 1,
+     "technical": 0,
+     "account": 0,
+     "billing": 0,
+     "feedback": 0,
+     "returns": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 2
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.89,
+     "frustration": 2
+    },
+    "tokens": {
+     "input_tokens": 549,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t138",
+    "ok": true,
+    "latencyMs": 107,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 0.96
+    },
+    "confidence": 1,
+    "probabilities": {
+     "technical": 0,
+     "sales": 0,
+     "feedback": 0,
+     "billing": 0,
+     "legal": 0,
+     "account": 0,
+     "shipping": 1,
+     "returns": 0
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.97,
+     "frustration": 0.96
+    },
+    "tokens": {
+     "input_tokens": 550,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t443",
+    "ok": true,
+    "latencyMs": 113,
+    "pred": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0.52
+    },
+    "confidence": 1,
+    "probabilities": {
+     "technical": 0,
+     "returns": 1,
+     "sales": 0,
+     "feedback": 0,
+     "legal": 0,
+     "billing": 0,
+     "account": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.37,
+     "frustration": 0.52
+    },
+    "tokens": {
+     "input_tokens": 548,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t250",
+    "ok": true,
+    "latencyMs": 97,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 2
+    },
+    "confidence": 0.89,
+    "probabilities": {
+     "billing": 0,
+     "feedback": 0,
+     "technical": 0.09,
+     "account": 0,
+     "sales": 0,
+     "shipping": 0.91,
+     "legal": 0,
+     "returns": 0
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 2
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.96,
+     "frustration": 2
+    },
+    "tokens": {
+     "input_tokens": 552,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t470",
+    "ok": true,
+    "latencyMs": 98,
+    "pred": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0.96
+    },
+    "confidence": 0.89,
+    "probabilities": {
+     "account": 0,
+     "sales": 0,
+     "feedback": 0,
+     "shipping": 0,
+     "technical": 0.01,
+     "legal": 0.09,
+     "billing": 0,
+     "returns": 0.9
+    },
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.74,
+     "frustration": 0.96
+    },
+    "tokens": {
+     "input_tokens": 559,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t397",
+    "ok": true,
+    "latencyMs": 138,
+    "pred": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 1.02
+    },
+    "confidence": 0.96,
+    "probabilities": {
+     "technical": 0,
+     "shipping": 0,
+     "feedback": 0,
+     "sales": 0.97,
+     "account": 0,
+     "returns": 0,
+     "billing": 0.03,
+     "legal": 0
+    },
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.52,
+     "frustration": 1.02
+    },
+    "tokens": {
+     "input_tokens": 546,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t60",
+    "ok": true,
+    "latencyMs": 110,
+    "pred": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 1.01
+    },
+    "confidence": 0.95,
+    "probabilities": {
+     "returns": 0,
+     "feedback": 0,
+     "technical": 0,
+     "account": 0.96,
+     "sales": 0,
+     "shipping": 0,
+     "legal": 0.04,
+     "billing": 0
+    },
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.96,
+     "frustration": 1.01
+    },
+    "tokens": {
+     "input_tokens": 546,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t234",
+    "ok": true,
+    "latencyMs": 116,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 0.79
+    },
+    "confidence": 0.47,
+    "probabilities": {
+     "shipping": 0.53,
+     "account": 0.01,
+     "technical": 0.01,
+     "billing": 0,
+     "feedback": 0,
+     "returns": 0,
+     "sales": 0,
+     "legal": 0.45
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.56,
+     "frustration": 0.79
+    },
+    "tokens": {
+     "input_tokens": 552,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t318",
+    "ok": true,
+    "latencyMs": 118,
+    "pred": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0.86
+    },
+    "confidence": 1,
+    "probabilities": {
+     "returns": 0,
+     "billing": 0,
+     "legal": 1,
+     "technical": 0,
+     "sales": 0,
+     "account": 0,
+     "feedback": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.41,
+     "frustration": 0.86
+    },
+    "tokens": {
+     "input_tokens": 535,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t427",
+    "ok": true,
+    "latencyMs": 122,
+    "pred": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1.09
+    },
+    "confidence": 0.67,
+    "probabilities": {
+     "technical": 0,
+     "returns": 0.71,
+     "sales": 0.03,
+     "feedback": 0.01,
+     "legal": 0,
+     "billing": 0.25,
+     "account": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.97,
+     "frustration": 1.09
+    },
+    "tokens": {
+     "input_tokens": 549,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t37",
+    "ok": true,
+    "latencyMs": 91,
+    "pred": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 1.98
+    },
+    "confidence": 0.99,
+    "probabilities": {
+     "shipping": 0,
+     "feedback": 0,
+     "legal": 0,
+     "billing": 0.01,
+     "returns": 0,
+     "sales": 0.99,
+     "technical": 0,
+     "account": 0
+    },
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 2
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.95,
+     "frustration": 1.98
+    },
+    "tokens": {
+     "input_tokens": 549,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t229",
+    "ok": true,
+    "latencyMs": 110,
+    "pred": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0.27
+    },
+    "confidence": 1,
+    "probabilities": {
+     "shipping": 0,
+     "legal": 0,
+     "returns": 0,
+     "technical": 0,
+     "feedback": 0,
+     "account": 0,
+     "billing": 0,
+     "sales": 1
+    },
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.57,
+     "frustration": 0.27
+    },
+    "tokens": {
+     "input_tokens": 538,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t477",
+    "ok": true,
+    "latencyMs": 111,
+    "pred": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 1.99
+    },
+    "confidence": 1,
+    "probabilities": {
+     "feedback": 0,
+     "account": 0,
+     "technical": 0,
+     "legal": 0,
+     "sales": 1,
+     "billing": 0,
+     "shipping": 0,
+     "returns": 0
+    },
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 2
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.64,
+     "frustration": 1.99
+    },
+    "tokens": {
+     "input_tokens": 547,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t2",
+    "ok": true,
+    "latencyMs": 118,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 0.8,
+    "probabilities": {
+     "billing": 0,
+     "account": 0,
+     "legal": 0,
+     "technical": 0.17,
+     "shipping": 0.83,
+     "feedback": 0,
+     "returns": 0,
+     "sales": 0
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.51,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 544,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t193",
+    "ok": true,
+    "latencyMs": 143,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0.99
+    },
+    "confidence": 1,
+    "probabilities": {
+     "billing": 0,
+     "feedback": 0,
+     "technical": 1,
+     "account": 0,
+     "legal": 0,
+     "shipping": 0,
+     "sales": 0,
+     "returns": 0
+    },
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.98,
+     "frustration": 0.99
+    },
+    "tokens": {
+     "input_tokens": 549,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t249",
+    "ok": true,
+    "latencyMs": 122,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 1,
+    "probabilities": {
+     "sales": 0,
+     "feedback": 0,
+     "technical": 1,
+     "billing": 0,
+     "legal": 0,
+     "account": 0,
+     "shipping": 0,
+     "returns": 0
+    },
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.67,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 547,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t167",
+    "ok": true,
+    "latencyMs": 97,
+    "pred": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 0.61
+    },
+    "confidence": 0.93,
+    "probabilities": {
+     "technical": 0.06,
+     "returns": 0,
+     "legal": 0,
+     "sales": 0,
+     "feedback": 0.94,
+     "billing": 0,
+     "shipping": 0,
+     "account": 0
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.68,
+     "frustration": 0.61
+    },
+    "tokens": {
+     "input_tokens": 546,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t192",
+    "ok": true,
+    "latencyMs": 98,
+    "pred": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 1,
+    "probabilities": {
+     "sales": 0,
+     "feedback": 0,
+     "returns": 0,
+     "technical": 0,
+     "billing": 1,
+     "legal": 0,
+     "account": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.98,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 561,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t145",
+    "ok": true,
+    "latencyMs": 126,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0.75
+    },
+    "confidence": 1,
+    "probabilities": {
+     "account": 0,
+     "shipping": 0,
+     "billing": 0,
+     "sales": 0,
+     "feedback": 0,
+     "returns": 0,
+     "legal": 0,
+     "technical": 1
+    },
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.74,
+     "frustration": 0.75
+    },
+    "tokens": {
+     "input_tokens": 535,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t92",
+    "ok": true,
+    "latencyMs": 94,
+    "pred": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "confidence": 0.96,
+    "probabilities": {
+     "shipping": 0,
+     "feedback": 0.01,
+     "sales": 0,
+     "legal": 0,
+     "returns": 0,
+     "technical": 0.02,
+     "account": 0.97,
+     "billing": 0
+    },
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.38,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 542,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t482",
+    "ok": true,
+    "latencyMs": 99,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 1.99
+    },
+    "confidence": 0.59,
+    "probabilities": {
+     "technical": 0,
+     "feedback": 0,
+     "sales": 0,
+     "billing": 0,
+     "legal": 0,
+     "account": 0,
+     "shipping": 0.65,
+     "returns": 0.35
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 2
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.84,
+     "frustration": 1.99
+    },
+    "tokens": {
+     "input_tokens": 558,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t251",
+    "ok": true,
+    "latencyMs": 119,
+    "pred": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0.02
+    },
+    "confidence": 1,
+    "probabilities": {
+     "returns": 1,
+     "billing": 0,
+     "legal": 0,
+     "technical": 0,
+     "sales": 0,
+     "account": 0,
+     "feedback": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.41,
+     "frustration": 0.02
+    },
+    "tokens": {
+     "input_tokens": 543,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t40",
+    "ok": true,
+    "latencyMs": 156,
+    "pred": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 1,
+    "probabilities": {
+     "shipping": 0,
+     "legal": 0,
+     "returns": 0,
+     "technical": 0,
+     "feedback": 0,
+     "account": 0,
+     "billing": 1,
+     "sales": 0
+    },
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.69,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 547,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t400",
+    "ok": true,
+    "latencyMs": 88,
+    "pred": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 1,
+    "probabilities": {
+     "shipping": 0,
+     "returns": 0,
+     "feedback": 0,
+     "technical": 0,
+     "account": 0,
+     "billing": 1,
+     "sales": 0,
+     "legal": 0
+    },
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.62,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 543,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t218",
+    "ok": true,
+    "latencyMs": 126,
+    "pred": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "confidence": 0.49,
+    "probabilities": {
+     "sales": 0,
+     "account": 0.01,
+     "billing": 0,
+     "shipping": 0.56,
+     "returns": 0.01,
+     "technical": 0.27,
+     "feedback": 0.15,
+     "legal": 0
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.44,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 542,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t409",
+    "ok": true,
+    "latencyMs": 108,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1.11
+    },
+    "confidence": 0.97,
+    "probabilities": {
+     "returns": 0,
+     "billing": 0.03,
+     "legal": 0,
+     "technical": 0.97,
+     "sales": 0,
+     "account": 0,
+     "feedback": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.87,
+     "frustration": 1.11
+    },
+    "tokens": {
+     "input_tokens": 555,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t327",
+    "ok": true,
+    "latencyMs": 112,
+    "pred": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 1.97
+    },
+    "confidence": 0.5,
+    "probabilities": {
+     "account": 0,
+     "technical": 0.44,
+     "shipping": 0,
+     "billing": 0,
+     "feedback": 0.56,
+     "returns": 0,
+     "sales": 0,
+     "legal": 0
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 2
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.6,
+     "frustration": 1.97
+    },
+    "tokens": {
+     "input_tokens": 543,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t493",
+    "ok": true,
+    "latencyMs": 101,
+    "pred": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "confidence": 0.93,
+    "probabilities": {
+     "returns": 0,
+     "technical": 0.05,
+     "account": 0,
+     "billing": 0.01,
+     "sales": 0.94,
+     "legal": 0,
+     "feedback": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.47,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 548,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t64",
+    "ok": true,
+    "latencyMs": 98,
+    "pred": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 0.74,
+    "probabilities": {
+     "returns": 0,
+     "shipping": 0,
+     "technical": 0.22,
+     "sales": 0,
+     "billing": 0.78,
+     "account": 0,
+     "legal": 0,
+     "feedback": 0
+    },
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.6,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 541,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t67",
+    "ok": true,
+    "latencyMs": 103,
+    "pred": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 0.75
+    },
+    "confidence": 0.43,
+    "probabilities": {
+     "feedback": 0.5,
+     "account": 0,
+     "technical": 0.04,
+     "legal": 0,
+     "sales": 0,
+     "billing": 0,
+     "returns": 0.44,
+     "shipping": 0.02
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": false,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.57,
+     "frustration": 0.75
+    },
+    "tokens": {
+     "input_tokens": 554,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t50",
+    "ok": true,
+    "latencyMs": 95,
+    "pred": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0.14
+    },
+    "confidence": 1,
+    "probabilities": {
+     "technical": 0,
+     "returns": 0,
+     "legal": 0,
+     "sales": 0,
+     "feedback": 0,
+     "billing": 0,
+     "shipping": 1,
+     "account": 0
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.1,
+     "frustration": 0.14
+    },
+    "tokens": {
+     "input_tokens": 540,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t128",
+    "ok": true,
+    "latencyMs": 172,
+    "pred": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0.69
+    },
+    "confidence": 0.99,
+    "probabilities": {
+     "feedback": 0,
+     "shipping": 0,
+     "returns": 0,
+     "billing": 0.99,
+     "account": 0,
+     "sales": 0,
+     "technical": 0.01,
+     "legal": 0
+    },
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.08,
+     "frustration": 0.69
+    },
+    "tokens": {
+     "input_tokens": 547,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t315",
+    "ok": true,
+    "latencyMs": 160,
+    "pred": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "confidence": 1,
+    "probabilities": {
+     "returns": 1,
+     "sales": 0,
+     "account": 0,
+     "feedback": 0,
+     "legal": 0,
+     "technical": 0,
+     "shipping": 0,
+     "billing": 0
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.04,
+     "frustration": 0
+    },
+    "tokens": {
+     "input_tokens": 537,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t21",
+    "ok": true,
+    "latencyMs": 83,
+    "pred": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 1.99
+    },
+    "confidence": 0.77,
+    "probabilities": {
+     "legal": 0,
+     "feedback": 0,
+     "sales": 0.81,
+     "technical": 0,
+     "shipping": 0,
+     "billing": 0.19,
+     "returns": 0,
+     "account": 0
+    },
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 2
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.84,
+     "frustration": 1.99
+    },
+    "tokens": {
+     "input_tokens": 548,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t356",
+    "ok": true,
+    "latencyMs": 147,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0.87
+    },
+    "confidence": 0.52,
+    "probabilities": {
+     "legal": 0,
+     "feedback": 0,
+     "returns": 0,
+     "sales": 0,
+     "technical": 0.58,
+     "shipping": 0.09,
+     "billing": 0,
+     "account": 0.33
+    },
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": false,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.75,
+     "frustration": 0.87
+    },
+    "tokens": {
+     "input_tokens": 539,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t496",
+    "ok": true,
+    "latencyMs": 104,
+    "pred": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0.94
+    },
+    "confidence": 0.67,
+    "probabilities": {
+     "shipping": 0,
+     "legal": 0.72,
+     "technical": 0,
+     "billing": 0.28,
+     "feedback": 0,
+     "returns": 0,
+     "sales": 0,
+     "account": 0
+    },
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.47,
+     "frustration": 0.94
+    },
+    "tokens": {
+     "input_tokens": 547,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t115",
+    "ok": true,
+    "latencyMs": 107,
+    "pred": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1.03
+    },
+    "confidence": 0.97,
+    "probabilities": {
+     "feedback": 0,
+     "returns": 0.97,
+     "shipping": 0,
+     "billing": 0,
+     "sales": 0,
+     "account": 0,
+     "legal": 0,
+     "technical": 0.03
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.76,
+     "frustration": 1.03
+    },
+    "tokens": {
+     "input_tokens": 541,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t406",
+    "ok": true,
+    "latencyMs": 99,
+    "pred": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0.8
+    },
+    "confidence": 1,
+    "probabilities": {
+     "account": 0,
+     "shipping": 0,
+     "billing": 0,
+     "feedback": 0,
+     "sales": 0,
+     "returns": 0,
+     "legal": 1,
+     "technical": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.76,
+     "frustration": 0.8
+    },
+    "tokens": {
+     "input_tokens": 555,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t278",
+    "ok": true,
+    "latencyMs": 119,
+    "pred": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 1.99
+    },
+    "confidence": 1,
+    "probabilities": {
+     "billing": 0,
+     "feedback": 0,
+     "technical": 0,
+     "account": 0,
+     "legal": 1,
+     "shipping": 0,
+     "sales": 0,
+     "returns": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 2
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.81,
+     "frustration": 1.99
+    },
+    "tokens": {
+     "input_tokens": 552,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t108",
+    "ok": true,
+    "latencyMs": 99,
+    "pred": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 2
+    },
+    "confidence": 0.49,
+    "probabilities": {
+     "returns": 0,
+     "technical": 0.45,
+     "billing": 0,
+     "account": 0.55,
+     "sales": 0,
+     "shipping": 0,
+     "feedback": 0,
+     "legal": 0
+    },
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 2
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.9,
+     "frustration": 2
+    },
+    "tokens": {
+     "input_tokens": 541,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t215",
+    "ok": true,
+    "latencyMs": 103,
+    "pred": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 1.99
+    },
+    "confidence": 0.93,
+    "probabilities": {
+     "feedback": 0.94,
+     "billing": 0,
+     "returns": 0,
+     "shipping": 0,
+     "account": 0,
+     "sales": 0,
+     "legal": 0,
+     "technical": 0.06
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 2
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.65,
+     "frustration": 1.99
+    },
+    "tokens": {
+     "input_tokens": 549,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t350",
+    "ok": true,
+    "latencyMs": 82,
+    "pred": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0.78
+    },
+    "confidence": 0.95,
+    "probabilities": {
+     "feedback": 0,
+     "returns": 0,
+     "shipping": 0,
+     "billing": 0,
+     "sales": 0,
+     "account": 0,
+     "legal": 0.96,
+     "technical": 0.04
+    },
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.79,
+     "frustration": 0.78
+    },
+    "tokens": {
+     "input_tokens": 543,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t361",
+    "ok": true,
+    "latencyMs": 93,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1.01
+    },
+    "confidence": 1,
+    "probabilities": {
+     "technical": 1,
+     "returns": 0,
+     "legal": 0,
+     "feedback": 0,
+     "sales": 0,
+     "billing": 0,
+     "shipping": 0,
+     "account": 0
+    },
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.98,
+     "frustration": 1.01
+    },
+    "tokens": {
+     "input_tokens": 551,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t355",
+    "ok": true,
+    "latencyMs": 135,
+    "pred": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 1
+    },
+    "confidence": 0.36,
+    "probabilities": {
+     "returns": 0.44,
+     "technical": 0.03,
+     "account": 0,
+     "feedback": 0.43,
+     "legal": 0,
+     "sales": 0.09,
+     "shipping": 0.01,
+     "billing": 0
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.39,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 544,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t392",
+    "ok": true,
+    "latencyMs": 104,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0.69
+    },
+    "confidence": 0.45,
+    "probabilities": {
+     "technical": 0.52,
+     "sales": 0,
+     "legal": 0,
+     "feedback": 0,
+     "shipping": 0,
+     "billing": 0.48,
+     "returns": 0,
+     "account": 0
+    },
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": false,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.57,
+     "frustration": 0.69
+    },
+    "tokens": {
+     "input_tokens": 552,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t13",
+    "ok": true,
+    "latencyMs": 111,
+    "pred": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0.98
+    },
+    "confidence": 0.89,
+    "probabilities": {
+     "legal": 0,
+     "feedback": 0,
+     "returns": 0,
+     "sales": 0.91,
+     "technical": 0,
+     "shipping": 0,
+     "billing": 0,
+     "account": 0.09
+    },
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.43,
+     "frustration": 0.98
+    },
+    "tokens": {
+     "input_tokens": 547,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t151",
+    "ok": true,
+    "latencyMs": 100,
+    "pred": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0.04
+    },
+    "confidence": 0.96,
+    "probabilities": {
+     "feedback": 0.97,
+     "returns": 0,
+     "shipping": 0,
+     "billing": 0,
+     "sales": 0,
+     "account": 0,
+     "legal": 0,
+     "technical": 0.03
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.17,
+     "frustration": 0.04
+    },
+    "tokens": {
+     "input_tokens": 542,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t161",
+    "ok": true,
+    "latencyMs": 139,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0.4
+    },
+    "confidence": 1,
+    "probabilities": {
+     "shipping": 0,
+     "account": 0,
+     "technical": 1,
+     "billing": 0,
+     "feedback": 0,
+     "returns": 0,
+     "sales": 0,
+     "legal": 0
+    },
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.69,
+     "frustration": 0.4
+    },
+    "tokens": {
+     "input_tokens": 539,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t155",
+    "ok": true,
+    "latencyMs": 99,
+    "pred": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1.2
+    },
+    "confidence": 0.94,
+    "probabilities": {
+     "technical": 0.05,
+     "account": 0,
+     "shipping": 0,
+     "billing": 0,
+     "feedback": 0,
+     "returns": 0.95,
+     "sales": 0,
+     "legal": 0
+    },
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.86,
+     "frustration": 1.2
+    },
+    "tokens": {
+     "input_tokens": 550,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t159",
+    "ok": true,
+    "latencyMs": 121,
+    "pred": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 1.04
+    },
+    "confidence": 0.94,
+    "probabilities": {
+     "returns": 0,
+     "feedback": 0,
+     "technical": 0.02,
+     "account": 0.03,
+     "sales": 0,
+     "shipping": 0,
+     "legal": 0,
+     "billing": 0.95
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.96,
+     "frustration": 1.04
+    },
+    "tokens": {
+     "input_tokens": 554,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t393",
+    "ok": true,
+    "latencyMs": 100,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0.79
+    },
+    "confidence": 1,
+    "probabilities": {
+     "returns": 0,
+     "sales": 0,
+     "feedback": 0,
+     "account": 0,
+     "legal": 0,
+     "technical": 1,
+     "shipping": 0,
+     "billing": 0
+    },
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.94,
+     "frustration": 0.79
+    },
+    "tokens": {
+     "input_tokens": 545,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t478",
+    "ok": true,
+    "latencyMs": 139,
+    "pred": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 1.05
+    },
+    "confidence": 1,
+    "probabilities": {
+     "returns": 0,
+     "account": 0,
+     "shipping": 0,
+     "legal": 1,
+     "feedback": 0,
+     "billing": 0,
+     "sales": 0,
+     "technical": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.98,
+     "frustration": 1.05
+    },
+    "tokens": {
+     "input_tokens": 550,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t25",
+    "ok": true,
+    "latencyMs": 132,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 1,
+    "probabilities": {
+     "billing": 0,
+     "shipping": 0,
+     "legal": 0,
+     "technical": 1,
+     "account": 0,
+     "sales": 0,
+     "feedback": 0,
+     "returns": 0
+    },
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.86,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 544,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t43",
+    "ok": true,
+    "latencyMs": 94,
+    "pred": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 0.99,
+    "probabilities": {
+     "legal": 0,
+     "feedback": 0,
+     "returns": 1,
+     "sales": 0,
+     "technical": 0,
+     "shipping": 0,
+     "billing": 0,
+     "account": 0
+    },
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.98,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 553,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t424",
+    "ok": true,
+    "latencyMs": 114,
+    "pred": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0.59
+    },
+    "confidence": 1,
+    "probabilities": {
+     "feedback": 0,
+     "returns": 0,
+     "shipping": 0,
+     "billing": 1,
+     "sales": 0,
+     "account": 0,
+     "legal": 0,
+     "technical": 0
+    },
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.99,
+     "frustration": 0.59
+    },
+    "tokens": {
+     "input_tokens": 550,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t391",
+    "ok": true,
+    "latencyMs": 116,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0.97
+    },
+    "confidence": 0.98,
+    "probabilities": {
+     "billing": 0,
+     "feedback": 0.01,
+     "technical": 0.99,
+     "account": 0,
+     "sales": 0,
+     "shipping": 0,
+     "legal": 0,
+     "returns": 0
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.94,
+     "frustration": 0.97
+    },
+    "tokens": {
+     "input_tokens": 544,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t359",
+    "ok": true,
+    "latencyMs": 109,
+    "pred": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 1.98
+    },
+    "confidence": 0.44,
+    "probabilities": {
+     "technical": 0.29,
+     "returns": 0,
+     "sales": 0,
+     "feedback": 0.19,
+     "legal": 0.52,
+     "billing": 0,
+     "account": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 2
+    },
+    "correct": {
+     "department": false,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.75,
+     "frustration": 1.98
+    },
+    "tokens": {
+     "input_tokens": 546,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t22",
+    "ok": true,
+    "latencyMs": 117,
+    "pred": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1.01
+    },
+    "confidence": 0.6,
+    "probabilities": {
+     "shipping": 0,
+     "legal": 0.35,
+     "technical": 0,
+     "billing": 0,
+     "feedback": 0,
+     "returns": 0.65,
+     "sales": 0,
+     "account": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": false,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.56,
+     "frustration": 1.01
+    },
+    "tokens": {
+     "input_tokens": 552,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t430",
+    "ok": true,
+    "latencyMs": 104,
+    "pred": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "confidence": 1,
+    "probabilities": {
+     "shipping": 0,
+     "legal": 1,
+     "sales": 0,
+     "account": 0,
+     "technical": 0,
+     "returns": 0,
+     "feedback": 0,
+     "billing": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.03,
+     "frustration": 0
+    },
+    "tokens": {
+     "input_tokens": 533,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t407",
+    "ok": true,
+    "latencyMs": 118,
+    "pred": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 0.74,
+    "probabilities": {
+     "sales": 0,
+     "feedback": 0.78,
+     "legal": 0,
+     "technical": 0.01,
+     "shipping": 0.21,
+     "account": 0,
+     "billing": 0,
+     "returns": 0
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.59,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 542,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t336",
+    "ok": true,
+    "latencyMs": 133,
+    "pred": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0.82
+    },
+    "confidence": 1,
+    "probabilities": {
+     "technical": 0,
+     "returns": 0,
+     "legal": 0,
+     "feedback": 0,
+     "sales": 0,
+     "billing": 1,
+     "shipping": 0,
+     "account": 0
+    },
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.6,
+     "frustration": 0.82
+    },
+    "tokens": {
+     "input_tokens": 544,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t381",
+    "ok": true,
+    "latencyMs": 113,
+    "pred": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0.29
+    },
+    "confidence": 0.98,
+    "probabilities": {
+     "feedback": 0,
+     "billing": 0,
+     "returns": 0,
+     "shipping": 0,
+     "account": 0,
+     "sales": 0,
+     "technical": 0.02,
+     "legal": 0.98
+    },
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.49,
+     "frustration": 0.29
+    },
+    "tokens": {
+     "input_tokens": 549,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t139",
+    "ok": true,
+    "latencyMs": 125,
+    "pred": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1.02
+    },
+    "confidence": 0.98,
+    "probabilities": {
+     "billing": 0,
+     "feedback": 0,
+     "technical": 0,
+     "account": 0,
+     "sales": 0,
+     "shipping": 0.01,
+     "legal": 0,
+     "returns": 0.99
+    },
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.98,
+     "frustration": 1.02
+    },
+    "tokens": {
+     "input_tokens": 558,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t449",
+    "ok": true,
+    "latencyMs": 124,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1.06
+    },
+    "confidence": 0.6,
+    "probabilities": {
+     "returns": 0.34,
+     "sales": 0,
+     "technical": 0.66,
+     "legal": 0,
+     "feedback": 0,
+     "account": 0,
+     "billing": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.68,
+     "frustration": 1.06
+    },
+    "tokens": {
+     "input_tokens": 552,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t413",
+    "ok": true,
+    "latencyMs": 85,
+    "pred": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 1.85
+    },
+    "confidence": 0.94,
+    "probabilities": {
+     "shipping": 0,
+     "legal": 0,
+     "returns": 0,
+     "technical": 0,
+     "feedback": 0,
+     "account": 0,
+     "billing": 0.05,
+     "sales": 0.95
+    },
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 2
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.89,
+     "frustration": 1.85
+    },
+    "tokens": {
+     "input_tokens": 548,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t105",
+    "ok": true,
+    "latencyMs": 107,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0.64
+    },
+    "confidence": 1,
+    "probabilities": {
+     "sales": 0,
+     "returns": 0,
+     "feedback": 0,
+     "legal": 0,
+     "technical": 1,
+     "account": 0,
+     "billing": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.64,
+     "frustration": 0.64
+    },
+    "tokens": {
+     "input_tokens": 560,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t338",
+    "ok": true,
+    "latencyMs": 109,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 0.93,
+    "probabilities": {
+     "billing": 0,
+     "legal": 0,
+     "sales": 0,
+     "account": 0,
+     "technical": 0,
+     "feedback": 0.06,
+     "returns": 0,
+     "shipping": 0.94
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.54,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 550,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t80",
+    "ok": true,
+    "latencyMs": 113,
+    "pred": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "confidence": 1,
+    "probabilities": {
+     "billing": 1,
+     "account": 0,
+     "legal": 0,
+     "technical": 0,
+     "shipping": 0,
+     "feedback": 0,
+     "returns": 0,
+     "sales": 0
+    },
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.39,
+     "frustration": 0
+    },
+    "tokens": {
+     "input_tokens": 534,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t329",
+    "ok": true,
+    "latencyMs": 129,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1.12
+    },
+    "confidence": 1,
+    "probabilities": {
+     "billing": 0,
+     "shipping": 0,
+     "legal": 0,
+     "technical": 1,
+     "account": 0,
+     "sales": 0,
+     "feedback": 0,
+     "returns": 0
+    },
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.97,
+     "frustration": 1.12
+    },
+    "tokens": {
+     "input_tokens": 544,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t367",
+    "ok": true,
+    "latencyMs": 140,
+    "pred": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0.12
+    },
+    "confidence": 0.73,
+    "probabilities": {
+     "legal": 0.2,
+     "account": 0,
+     "billing": 0,
+     "technical": 0.01,
+     "shipping": 0.02,
+     "feedback": 0.77,
+     "returns": 0,
+     "sales": 0
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.05,
+     "frustration": 0.12
+    },
+    "tokens": {
+     "input_tokens": 550,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t324",
+    "ok": true,
+    "latencyMs": 118,
+    "pred": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 0.99
+    },
+    "confidence": 0.81,
+    "probabilities": {
+     "shipping": 0,
+     "legal": 0.14,
+     "returns": 0,
+     "technical": 0.02,
+     "feedback": 0,
+     "account": 0.84,
+     "billing": 0,
+     "sales": 0
+    },
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.78,
+     "frustration": 0.99
+    },
+    "tokens": {
+     "input_tokens": 556,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t6",
+    "ok": true,
+    "latencyMs": 92,
+    "pred": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0.11
+    },
+    "confidence": 1,
+    "probabilities": {
+     "technical": 0,
+     "legal": 1,
+     "account": 0,
+     "feedback": 0,
+     "returns": 0,
+     "billing": 0,
+     "sales": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.29,
+     "frustration": 0.11
+    },
+    "tokens": {
+     "input_tokens": 546,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t99",
+    "ok": true,
+    "latencyMs": 143,
+    "pred": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 0.85,
+    "probabilities": {
+     "technical": 0.01,
+     "returns": 0.86,
+     "legal": 0,
+     "sales": 0.06,
+     "feedback": 0.06,
+     "billing": 0,
+     "shipping": 0.01,
+     "account": 0
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.55,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 539,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t33",
+    "ok": true,
+    "latencyMs": 127,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0.83
+    },
+    "confidence": 1,
+    "probabilities": {
+     "returns": 0,
+     "billing": 0,
+     "account": 0,
+     "legal": 0,
+     "sales": 0,
+     "shipping": 0,
+     "feedback": 0,
+     "technical": 1
+    },
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.77,
+     "frustration": 0.83
+    },
+    "tokens": {
+     "input_tokens": 542,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t258",
+    "ok": true,
+    "latencyMs": 112,
+    "pred": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0.13
+    },
+    "confidence": 1,
+    "probabilities": {
+     "technical": 0,
+     "returns": 0,
+     "shipping": 1,
+     "billing": 0,
+     "sales": 0,
+     "account": 0,
+     "legal": 0,
+     "feedback": 0
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.07,
+     "frustration": 0.13
+    },
+    "tokens": {
+     "input_tokens": 543,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t119",
+    "ok": true,
+    "latencyMs": 99,
+    "pred": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0.96
+    },
+    "confidence": 0.65,
+    "probabilities": {
+     "shipping": 0,
+     "sales": 0,
+     "feedback": 0.7,
+     "returns": 0,
+     "account": 0,
+     "billing": 0,
+     "legal": 0,
+     "technical": 0.3
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.33,
+     "frustration": 0.96
+    },
+    "tokens": {
+     "input_tokens": 544,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t468",
+    "ok": true,
+    "latencyMs": 128,
+    "pred": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 1.03
+    },
+    "confidence": 0.55,
+    "probabilities": {
+     "sales": 0,
+     "shipping": 0,
+     "legal": 0,
+     "technical": 0.39,
+     "account": 0.61,
+     "returns": 0,
+     "feedback": 0,
+     "billing": 0
+    },
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.76,
+     "frustration": 1.03
+    },
+    "tokens": {
+     "input_tokens": 536,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t471",
+    "ok": true,
+    "latencyMs": 132,
+    "pred": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0.92
+    },
+    "confidence": 0.54,
+    "probabilities": {
+     "shipping": 0.02,
+     "feedback": 0.61,
+     "returns": 0,
+     "technical": 0.37,
+     "account": 0,
+     "billing": 0,
+     "sales": 0,
+     "legal": 0
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.34,
+     "frustration": 0.92
+    },
+    "tokens": {
+     "input_tokens": 537,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t11",
+    "ok": true,
+    "latencyMs": 206,
+    "pred": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 1,
+    "probabilities": {
+     "billing": 0,
+     "shipping": 0,
+     "technical": 0,
+     "sales": 0,
+     "returns": 1,
+     "account": 0,
+     "feedback": 0,
+     "legal": 0
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.57,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 560,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t86",
+    "ok": true,
+    "latencyMs": 84,
+    "pred": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 0.73,
+    "probabilities": {
+     "technical": 0,
+     "account": 0,
+     "shipping": 0,
+     "billing": 0,
+     "feedback": 0.01,
+     "returns": 0,
+     "sales": 0.77,
+     "legal": 0.22
+    },
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": false,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.61,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 548,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t358",
+    "ok": true,
+    "latencyMs": 94,
+    "pred": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 2
+    },
+    "confidence": 1,
+    "probabilities": {
+     "feedback": 0,
+     "legal": 1,
+     "sales": 0,
+     "account": 0,
+     "technical": 0,
+     "returns": 0,
+     "shipping": 0,
+     "billing": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 2
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.89,
+     "frustration": 2
+    },
+    "tokens": {
+     "input_tokens": 541,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t264",
+    "ok": true,
+    "latencyMs": 87,
+    "pred": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0.17
+    },
+    "confidence": 1,
+    "probabilities": {
+     "returns": 0,
+     "feedback": 0,
+     "technical": 0,
+     "account": 0,
+     "sales": 0,
+     "shipping": 0,
+     "legal": 0,
+     "billing": 1
+    },
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.78,
+     "frustration": 0.17
+    },
+    "tokens": {
+     "input_tokens": 545,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t36",
+    "ok": true,
+    "latencyMs": 129,
+    "pred": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 1,
+    "probabilities": {
+     "shipping": 0,
+     "account": 1,
+     "technical": 0,
+     "billing": 0,
+     "feedback": 0,
+     "returns": 0,
+     "sales": 0,
+     "legal": 0
+    },
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.77,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 545,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t450",
+    "ok": true,
+    "latencyMs": 104,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 1,
+    "probabilities": {
+     "billing": 0,
+     "legal": 0,
+     "sales": 0,
+     "account": 0,
+     "technical": 0,
+     "shipping": 1,
+     "feedback": 0,
+     "returns": 0
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.6,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 537,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t364",
+    "ok": true,
+    "latencyMs": 98,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0.85
+    },
+    "confidence": 0.47,
+    "probabilities": {
+     "technical": 0.55,
+     "returns": 0,
+     "legal": 0,
+     "account": 0.45,
+     "feedback": 0,
+     "billing": 0,
+     "sales": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": false,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.66,
+     "frustration": 0.85
+    },
+    "tokens": {
+     "input_tokens": 535,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t91",
+    "ok": true,
+    "latencyMs": 101,
+    "pred": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0.29
+    },
+    "confidence": 0.96,
+    "probabilities": {
+     "shipping": 0,
+     "legal": 0,
+     "feedback": 0,
+     "account": 0,
+     "returns": 0.96,
+     "billing": 0,
+     "sales": 0,
+     "technical": 0.04
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.06,
+     "frustration": 0.29
+    },
+    "tokens": {
+     "input_tokens": 544,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t456",
+    "ok": true,
+    "latencyMs": 117,
+    "pred": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 1.07
+    },
+    "confidence": 0.92,
+    "probabilities": {
+     "account": 0.03,
+     "returns": 0,
+     "feedback": 0,
+     "shipping": 0,
+     "technical": 0,
+     "legal": 0,
+     "billing": 0.9400000000000001,
+     "sales": 0.03
+    },
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.98,
+     "frustration": 1.07
+    },
+    "tokens": {
+     "input_tokens": 555,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t190",
+    "ok": true,
+    "latencyMs": 109,
+    "pred": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0.01
+    },
+    "confidence": 1,
+    "probabilities": {
+     "shipping": 0,
+     "returns": 0,
+     "feedback": 0,
+     "technical": 0,
+     "account": 0,
+     "billing": 0,
+     "sales": 0,
+     "legal": 1
+    },
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.04,
+     "frustration": 0.01
+    },
+    "tokens": {
+     "input_tokens": 537,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t316",
+    "ok": true,
+    "latencyMs": 121,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1.03
+    },
+    "confidence": 0.55,
+    "probabilities": {
+     "sales": 0,
+     "feedback": 0,
+     "returns": 0,
+     "technical": 0.61,
+     "legal": 0,
+     "billing": 0,
+     "account": 0.39,
+     "shipping": 0
+    },
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": false,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.86,
+     "frustration": 1.03
+    },
+    "tokens": {
+     "input_tokens": 541,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t422",
+    "ok": true,
+    "latencyMs": 93,
+    "pred": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0.91
+    },
+    "confidence": 1,
+    "probabilities": {
+     "returns": 0,
+     "technical": 0,
+     "account": 0,
+     "billing": 0,
+     "sales": 0,
+     "legal": 1,
+     "feedback": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.95,
+     "frustration": 0.91
+    },
+    "tokens": {
+     "input_tokens": 550,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t257",
+    "ok": true,
+    "latencyMs": 94,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0.99
+    },
+    "confidence": 1,
+    "probabilities": {
+     "sales": 0,
+     "returns": 0,
+     "feedback": 0,
+     "technical": 1,
+     "legal": 0,
+     "shipping": 0,
+     "billing": 0,
+     "account": 0
+    },
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.61,
+     "frustration": 0.99
+    },
+    "tokens": {
+     "input_tokens": 541,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t314",
+    "ok": true,
+    "latencyMs": 112,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 1.99
+    },
+    "confidence": 1,
+    "probabilities": {
+     "legal": 0,
+     "account": 0,
+     "billing": 0,
+     "technical": 0,
+     "shipping": 1,
+     "feedback": 0,
+     "returns": 0,
+     "sales": 0
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 2
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.85,
+     "frustration": 1.99
+    },
+    "tokens": {
+     "input_tokens": 540,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t54",
+    "ok": true,
+    "latencyMs": 113,
+    "pred": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0.95
+    },
+    "confidence": 0.99,
+    "probabilities": {
+     "shipping": 0,
+     "legal": 0.99,
+     "technical": 0,
+     "billing": 0,
+     "feedback": 0,
+     "returns": 0,
+     "sales": 0.01,
+     "account": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.98,
+     "frustration": 0.95
+    },
+    "tokens": {
+     "input_tokens": 546,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t475",
+    "ok": true,
+    "latencyMs": 90,
+    "pred": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0.21
+    },
+    "confidence": 1,
+    "probabilities": {
+     "shipping": 0,
+     "legal": 0,
+     "returns": 1,
+     "technical": 0,
+     "feedback": 0,
+     "account": 0,
+     "billing": 0,
+     "sales": 0
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.89,
+     "frustration": 0.21
+    },
+    "tokens": {
+     "input_tokens": 543,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t49",
+    "ok": true,
+    "latencyMs": 123,
+    "pred": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0.07
+    },
+    "confidence": 1,
+    "probabilities": {
+     "returns": 0,
+     "sales": 0,
+     "feedback": 0,
+     "technical": 1,
+     "legal": 0,
+     "account": 0,
+     "shipping": 0,
+     "billing": 0
+    },
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.38,
+     "frustration": 0.07
+    },
+    "tokens": {
+     "input_tokens": 540,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t372",
+    "ok": true,
+    "latencyMs": 85,
+    "pred": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 0.99
+    },
+    "confidence": 0.68,
+    "probabilities": {
+     "account": 0.72,
+     "technical": 0.28,
+     "shipping": 0,
+     "billing": 0,
+     "feedback": 0,
+     "returns": 0,
+     "sales": 0,
+     "legal": 0
+    },
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.74,
+     "frustration": 0.99
+    },
+    "tokens": {
+     "input_tokens": 543,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t110",
+    "ok": true,
+    "latencyMs": 104,
+    "pred": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 1,
+    "probabilities": {
+     "shipping": 0,
+     "billing": 0,
+     "sales": 0,
+     "technical": 0,
+     "account": 0,
+     "legal": 1,
+     "feedback": 0,
+     "returns": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.74,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 547,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t84",
+    "ok": true,
+    "latencyMs": 103,
+    "pred": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 1.02
+    },
+    "confidence": 0.69,
+    "probabilities": {
+     "returns": 0,
+     "sales": 0,
+     "feedback": 0,
+     "legal": 0,
+     "technical": 0.27,
+     "account": 0.73,
+     "billing": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.96,
+     "frustration": 1.02
+    },
+    "tokens": {
+     "input_tokens": 545,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t254",
+    "ok": true,
+    "latencyMs": 115,
+    "pred": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 1.2
+    },
+    "confidence": 0.99,
+    "probabilities": {
+     "technical": 0.01,
+     "feedback": 0,
+     "sales": 0,
+     "legal": 0.99,
+     "shipping": 0,
+     "billing": 0,
+     "returns": 0,
+     "account": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.97,
+     "frustration": 1.2
+    },
+    "tokens": {
+     "input_tokens": 549,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t369",
+    "ok": true,
+    "latencyMs": 133,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0.06
+    },
+    "confidence": 1,
+    "probabilities": {
+     "billing": 0,
+     "feedback": 0,
+     "technical": 1,
+     "account": 0,
+     "sales": 0,
+     "shipping": 0,
+     "legal": 0,
+     "returns": 0
+    },
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.58,
+     "frustration": 0.06
+    },
+    "tokens": {
+     "input_tokens": 530,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t221",
+    "ok": true,
+    "latencyMs": 125,
+    "pred": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0.99
+    },
+    "confidence": 0.96,
+    "probabilities": {
+     "account": 0,
+     "shipping": 0,
+     "billing": 0,
+     "feedback": 0,
+     "sales": 0,
+     "returns": 0,
+     "legal": 0.97,
+     "technical": 0.03
+    },
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": false,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.43,
+     "frustration": 0.99
+    },
+    "tokens": {
+     "input_tokens": 551,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t246",
+    "ok": true,
+    "latencyMs": 119,
+    "pred": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0.67
+    },
+    "confidence": 0.99,
+    "probabilities": {
+     "legal": 1,
+     "sales": 0,
+     "feedback": 0,
+     "shipping": 0,
+     "technical": 0,
+     "account": 0,
+     "billing": 0,
+     "returns": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.98,
+     "frustration": 0.67
+    },
+    "tokens": {
+     "input_tokens": 540,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t330",
+    "ok": true,
+    "latencyMs": 124,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 1,
+    "probabilities": {
+     "shipping": 1,
+     "sales": 0,
+     "feedback": 0,
+     "returns": 0,
+     "account": 0,
+     "billing": 0,
+     "legal": 0,
+     "technical": 0
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.58,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 547,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t59",
+    "ok": true,
+    "latencyMs": 104,
+    "pred": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 1
+    },
+    "confidence": 0.87,
+    "probabilities": {
+     "sales": 0,
+     "returns": 0.89,
+     "feedback": 0.08,
+     "legal": 0,
+     "technical": 0,
+     "account": 0,
+     "billing": 0,
+     "shipping": 0.03
+    },
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.45,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 542,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t5",
+    "ok": true,
+    "latencyMs": 101,
+    "pred": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0.67
+    },
+    "confidence": 0.5,
+    "probabilities": {
+     "sales": 0.56,
+     "feedback": 0,
+     "returns": 0,
+     "technical": 0.01,
+     "legal": 0,
+     "billing": 0.31,
+     "account": 0.11,
+     "shipping": 0
+    },
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.63,
+     "frustration": 0.67
+    },
+    "tokens": {
+     "input_tokens": 556,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t375",
+    "ok": true,
+    "latencyMs": 128,
+    "pred": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0.01
+    },
+    "confidence": 1,
+    "probabilities": {
+     "technical": 0,
+     "account": 0,
+     "legal": 0,
+     "returns": 0,
+     "feedback": 1,
+     "billing": 0,
+     "sales": 0,
+     "shipping": 0
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.03,
+     "frustration": 0.01
+    },
+    "tokens": {
+     "input_tokens": 544,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t38",
+    "ok": true,
+    "latencyMs": 106,
+    "pred": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "confidence": 0.56,
+    "probabilities": {
+     "returns": 0.36,
+     "account": 0,
+     "feedback": 0,
+     "shipping": 0,
+     "legal": 0.63,
+     "billing": 0,
+     "sales": 0.01,
+     "technical": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.04,
+     "frustration": 0
+    },
+    "tokens": {
+     "input_tokens": 550,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t10",
+    "ok": true,
+    "latencyMs": 160,
+    "pred": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "confidence": 0.88,
+    "probabilities": {
+     "shipping": 0.9,
+     "billing": 0,
+     "sales": 0,
+     "technical": 0.01,
+     "account": 0,
+     "legal": 0,
+     "feedback": 0.09,
+     "returns": 0
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.38,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 536,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t199",
+    "ok": true,
+    "latencyMs": 100,
+    "pred": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0.01
+    },
+    "confidence": 1,
+    "probabilities": {
+     "shipping": 0,
+     "account": 0,
+     "technical": 0,
+     "billing": 0,
+     "feedback": 1,
+     "returns": 0,
+     "sales": 0,
+     "legal": 0
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.06,
+     "frustration": 0.01
+    },
+    "tokens": {
+     "input_tokens": 536,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t71",
+    "ok": true,
+    "latencyMs": 129,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 0.38,
+    "probabilities": {
+     "shipping": 0.46,
+     "technical": 0.34,
+     "returns": 0,
+     "legal": 0,
+     "feedback": 0.01,
+     "account": 0.08,
+     "billing": 0.03,
+     "sales": 0.08
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 1
+    },
+    "correct": {
+     "department": false,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.94,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 552,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t335",
+    "ok": true,
+    "latencyMs": 145,
+    "pred": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0.44
+    },
+    "confidence": 0.91,
+    "probabilities": {
+     "shipping": 0,
+     "feedback": 0.92,
+     "returns": 0,
+     "technical": 0.08,
+     "account": 0,
+     "billing": 0,
+     "sales": 0,
+     "legal": 0
+    },
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.2,
+     "frustration": 0.44
+    },
+    "tokens": {
+     "input_tokens": 539,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t26",
+    "ok": true,
+    "latencyMs": 122,
+    "pred": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 0.54
+    },
+    "confidence": 0.99,
+    "probabilities": {
+     "technical": 0,
+     "returns": 0,
+     "sales": 0,
+     "feedback": 0,
+     "legal": 0,
+     "billing": 0,
+     "account": 0,
+     "shipping": 1
+    },
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": false,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.53,
+     "frustration": 0.54
+    },
+    "tokens": {
+     "input_tokens": 536,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t286",
+    "ok": true,
+    "latencyMs": 123,
+    "pred": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0.92
+    },
+    "confidence": 0.99,
+    "probabilities": {
+     "feedback": 0.01,
+     "billing": 0,
+     "returns": 0,
+     "shipping": 0,
+     "account": 0,
+     "legal": 0.99,
+     "sales": 0,
+     "technical": 0
+    },
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": false
+    },
+    "scores": {
+     "urgent": 0.49,
+     "frustration": 0.92
+    },
+    "tokens": {
+     "input_tokens": 540,
+     "output_tokens": 105
+    }
+   },
+   {
+    "id": "t177",
+    "ok": true,
+    "latencyMs": 101,
+    "pred": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "confidence": 0.99,
+    "probabilities": {
+     "billing": 0,
+     "feedback": 0,
+     "returns": 0,
+     "sales": 0,
+     "technical": 1,
+     "shipping": 0,
+     "legal": 0,
+     "account": 0
+    },
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "correct": {
+     "department": true,
+     "urgent": true,
+     "frustration": true
+    },
+    "scores": {
+     "urgent": 0.97,
+     "frustration": 1
+    },
+    "tokens": {
+     "input_tokens": 551,
+     "output_tokens": 105
+    }
+   }
+  ]
+ }
+}

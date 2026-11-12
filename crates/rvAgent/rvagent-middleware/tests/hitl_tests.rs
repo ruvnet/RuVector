@@ -1,5 +1,6 @@
 //! Integration tests for the Human-in-the-Loop (HITL) middleware.
 
+use async_trait::async_trait;
 use rvagent_middleware::hitl::{ApprovalDecision, HumanInTheLoopMiddleware};
 use rvagent_middleware::{
     Message, Middleware, ModelHandler, ModelRequest, ModelResponse, ToolCall,
@@ -33,8 +34,9 @@ impl ToolCallHandler {
     }
 }
 
+#[async_trait]
 impl ModelHandler for ToolCallHandler {
-    fn call(&self, _request: ModelRequest) -> ModelResponse {
+    async fn call(&self, _request: ModelRequest) -> ModelResponse {
         let mut response = ModelResponse::text("model response");
         response.tool_calls = self.tool_calls.clone();
         response
@@ -131,13 +133,13 @@ fn test_empty_patterns_interrupts_nothing() {
 // Tests: wrap_model_call
 // ---------------------------------------------------------------------------
 
-#[test]
-fn test_wrap_filters_matching_tool_calls() {
+#[tokio::test]
+async fn test_wrap_filters_matching_tool_calls() {
     let mw = HumanInTheLoopMiddleware::new(vec!["execute".into()]);
     let handler = ToolCallHandler::with_names(&["execute", "read_file"]);
-    let request = ModelRequest::new(vec![Message::user("do something")]);
+    let request = ModelRequest::new(vec![Message::human("do something")]);
 
-    let response = mw.wrap_model_call(request, &handler);
+    let response = mw.wrap_model_call(request, &handler).await;
 
     // Only read_file should remain
     assert_eq!(response.tool_calls.len(), 1);
@@ -145,90 +147,92 @@ fn test_wrap_filters_matching_tool_calls() {
 
     // HITL message should be appended
     assert!(
-        response.message.content.contains("[HITL]"),
+        response.content().contains("[HITL]"),
         "should contain HITL marker"
     );
     assert!(
-        response.message.content.contains("execute"),
+        response.content().contains("execute"),
         "should mention the interrupted tool"
     );
 }
 
-#[test]
-fn test_wrap_no_matching_tools_passes_all_through() {
+#[tokio::test]
+async fn test_wrap_no_matching_tools_passes_all_through() {
     let mw = HumanInTheLoopMiddleware::new(vec!["dangerous_tool".into()]);
     let handler = ToolCallHandler::with_names(&["read_file", "ls", "glob"]);
-    let request = ModelRequest::new(vec![Message::user("safe operation")]);
+    let request = ModelRequest::new(vec![Message::human("safe operation")]);
 
-    let response = mw.wrap_model_call(request, &handler);
+    let response = mw.wrap_model_call(request, &handler).await;
 
     assert_eq!(response.tool_calls.len(), 3);
     assert!(
-        !response.message.content.contains("[HITL]"),
+        !response.content().contains("[HITL]"),
         "should not contain HITL marker when nothing is interrupted"
     );
 }
 
-#[test]
-fn test_wrap_all_tools_interrupted() {
+#[tokio::test]
+async fn test_wrap_all_tools_interrupted() {
     let mw = HumanInTheLoopMiddleware::new(vec!["*".into()]);
     let handler = ToolCallHandler::with_names(&["execute", "write_file"]);
-    let request = ModelRequest::new(vec![Message::user("do things")]);
+    let request = ModelRequest::new(vec![Message::human("do things")]);
 
-    let response = mw.wrap_model_call(request, &handler);
+    let response = mw.wrap_model_call(request, &handler).await;
 
     assert!(
         response.tool_calls.is_empty(),
         "all tool calls should be intercepted"
     );
-    assert!(response.message.content.contains("[HITL]"));
-    assert!(response.message.content.contains("execute"));
-    assert!(response.message.content.contains("write_file"));
+    assert!(response.content().contains("[HITL]"));
+    assert!(response.content().contains("execute"));
+    assert!(response.content().contains("write_file"));
 }
 
-#[test]
-fn test_wrap_no_tool_calls_from_handler() {
+#[tokio::test]
+async fn test_wrap_no_tool_calls_from_handler() {
     let mw = HumanInTheLoopMiddleware::new(vec!["execute".into()]);
 
     struct NoToolHandler;
+
+    #[async_trait]
     impl ModelHandler for NoToolHandler {
-        fn call(&self, _request: ModelRequest) -> ModelResponse {
+        async fn call(&self, _request: ModelRequest) -> ModelResponse {
             ModelResponse::text("just text, no tools")
         }
     }
 
-    let request = ModelRequest::new(vec![Message::user("question")]);
-    let response = mw.wrap_model_call(request, &NoToolHandler);
+    let request = ModelRequest::new(vec![Message::human("question")]);
+    let response = mw.wrap_model_call(request, &NoToolHandler).await;
 
     assert!(response.tool_calls.is_empty());
     assert!(
-        !response.message.content.contains("[HITL]"),
+        !response.content().contains("[HITL]"),
         "should not add HITL marker when no tool calls"
     );
 }
 
-#[test]
-fn test_wrap_preserves_original_response_content() {
+#[tokio::test]
+async fn test_wrap_preserves_original_response_content() {
     let mw = HumanInTheLoopMiddleware::new(vec!["dangerous".into()]);
     let handler = ToolCallHandler::with_names(&["read_file"]);
-    let request = ModelRequest::new(vec![Message::user("hi")]);
+    let request = ModelRequest::new(vec![Message::human("hi")]);
 
-    let response = mw.wrap_model_call(request, &handler);
+    let response = mw.wrap_model_call(request, &handler).await;
 
     assert!(
-        response.message.content.contains("model response"),
+        response.content().contains("model response"),
         "should preserve original model response content"
     );
 }
 
-#[test]
-fn test_wrap_prefix_pattern_filters_correctly() {
+#[tokio::test]
+async fn test_wrap_prefix_pattern_filters_correctly() {
     let mw = HumanInTheLoopMiddleware::new(vec!["write_*".into()]);
     let handler =
         ToolCallHandler::with_names(&["write_file", "write_todos", "read_file", "execute"]);
-    let request = ModelRequest::new(vec![Message::user("do writes")]);
+    let request = ModelRequest::new(vec![Message::human("do writes")]);
 
-    let response = mw.wrap_model_call(request, &handler);
+    let response = mw.wrap_model_call(request, &handler).await;
 
     assert_eq!(
         response.tool_calls.len(),

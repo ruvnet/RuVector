@@ -2,6 +2,10 @@ name: SONA NAPI Build & Publish
 
 on:
   push:
+    # `paths` is ignored for tag pushes, so without `branches` this workflow
+    # only ran on sona-v* tags and never built on main. Main pushes build and
+    # gate only; publishing still requires a sona-v* tag or workflow_dispatch.
+    branches: [main]
     tags:
       - 'sona-v*'
     paths:
@@ -10,6 +14,7 @@ on:
       - '.github/workflows/sona-napi.yml'
   pull_request:
     paths:
+      - '.github/workflows/sona-napi.yml'
       - 'crates/sona/**'
       - 'npm/packages/sona/**'
   workflow_dispatch:
@@ -36,17 +41,18 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             node-file: sona.linux-x64-musl.node
-          # Linux ARM64
-          - os: ubuntu-latest
+          # Linux ARM64 — 22.04 so the gcc cross-link needs glibc 2.35, not 24.04's 2.39
+          - os: ubuntu-24.04
+            container: ubuntu:22.04
             target: aarch64-unknown-linux-gnu
             node-file: sona.linux-arm64-gnu.node
           # macOS x64 — cross-compiled on Apple Silicon (macos-13 Intel runners are retired;
           # jobs requesting that label queue forever)
-          - os: macos-14
+          - os: macos-15
             target: x86_64-apple-darwin
             node-file: sona.darwin-x64.node
           # macOS ARM64
-          - os: macos-14
+          - os: macos-15
             target: aarch64-apple-darwin
             node-file: sona.darwin-arm64.node
           # Windows x64
@@ -59,19 +65,30 @@ jobs:
             node-file: sona.win32-arm64-msvc.node
 
     runs-on: ${{ matrix.os }}
+
+    container: ${{ matrix.container }}
     name: Build ${{ matrix.target }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Bootstrap ubuntu:22.04 build container (keeps the glibc floor)
+        if: ${{ matrix.container != '' }}
+        shell: bash
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            sudo git curl wget ca-certificates build-essential pkg-config xz-utils unzip zip python3 jq file \
+            libssl-dev cmake clang libclang-dev
+          git config --global --add safe.directory '*'
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           targets: ${{ matrix.target }}
 
@@ -81,14 +98,25 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y musl-tools
 
-      - name: Install napi-rs CLI
-        run: npm install -g @napi-rs/cli
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
+      - name: Install napi-rs CLI
+        run: npm install -g @napi-rs/cli@3.7.3
+
+      # Plain gcc cross-linker, same as build-diskann.yml. `--use-napi-cross`
+      # now fails in CI ("Failed to set up the --use-napi-cross toolchain ...
+      # Cannot find native binding") with both @napi-rs/cli 3.10.x and 3.7.3.
       - name: Build native module (cross-compile)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         working-directory: npm/packages/sona
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         run: |
-          npx napi build --platform --release -p ruvector-sona --manifest-path ../../../crates/sona/Cargo.toml --output-dir . -F napi --target ${{ matrix.target }} --use-napi-cross
+          npx napi build --platform --release -p ruvector-sona --manifest-path ../../../crates/sona/Cargo.toml --output-dir . -F napi --target ${{ matrix.target }}
 
       - name: Build native module (macOS)
         if: startsWith(matrix.target, 'x86_64-apple-darwin') || startsWith(matrix.target, 'aarch64-apple-darwin')
@@ -112,8 +140,13 @@ jobs:
         shell: bash
         run: ls -la *.node || echo "No .node files"
 
+      - name: Gate linux-arm64 binary (no LDAPR, GLIBC <= 2.34)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        shell: bash
+        run: bash scripts/ci/check-arm64-node-binary.sh npm/packages/sona/${{ matrix.node-file }}
+
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: bindings-${{ matrix.target }}
           path: npm/packages/sona/${{ matrix.node-file }}
@@ -121,21 +154,21 @@ jobs:
 
   # Build universal macOS binary
   universal-macos:
-    runs-on: macos-14
+    runs-on: macos-15
     name: Universal macOS
     needs: build
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Download x64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: bindings-x86_64-apple-darwin
           path: artifacts/x64
 
       - name: Download ARM64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: bindings-aarch64-apple-darwin
           path: artifacts/arm64
@@ -149,7 +182,7 @@ jobs:
             -output artifacts/universal/sona.darwin-universal.node
 
       - name: Upload universal artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: bindings-darwin-universal
           path: artifacts/universal/sona.darwin-universal.node
@@ -162,19 +195,19 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/sona-v') || github.event.inputs.publish == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install napi-rs CLI
-        run: npm install -g @napi-rs/cli
+        run: npm install -g @napi-rs/cli@3.7.3  # pinned: 3.10.x breaks --use-napi-cross (aarch64 "Cannot find native binding"); 3.7.3 was the last green run, 2026-07-17
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           path: artifacts
 
@@ -210,6 +243,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           VERSION=$(node -p "require('./package.json').version")
           echo "Publishing version: $VERSION"
           mkdir -p npm
@@ -225,13 +259,13 @@ jobs:
               mkdir -p "npm/$dir_name"
               cp "$node_file" "npm/$dir_name/"
               if [ -n "$libc_val" ]; then
-                node -e "require('fs').writeFileSync('npm/$dir_name/package.json', JSON.stringify({name:'$name',version:'$VERSION',os:['$os_val'],cpu:['$cpu_val'],libc:['$libc_val'],main:'$node_file',files:['$node_file'],license:'MIT OR Apache-2.0',repository:{type:'git',url:'https://github.com/ruvnet/ruvector.git'}},null,2))"
+                node -e "require('fs').writeFileSync('npm/$dir_name/package.json', JSON.stringify({name:'$name',version:'$VERSION',os:['$os_val'],cpu:['$cpu_val'],libc:['$libc_val'],main:'$node_file',files:['$node_file'],homepage:'https://ruv.io',license:'MIT OR Apache-2.0',repository:{type:'git',url:'git+https://github.com/ruvnet/RuVector.git',directory:'npm/packages/sona/npm/$dir_name'},bugs:{url:'https://github.com/ruvnet/RuVector/issues'}},null,2))"
               else
-                node -e "require('fs').writeFileSync('npm/$dir_name/package.json', JSON.stringify({name:'$name',version:'$VERSION',os:['$os_val'],cpu:['$cpu_val'],main:'$node_file',files:['$node_file'],license:'MIT OR Apache-2.0',repository:{type:'git',url:'https://github.com/ruvnet/ruvector.git'}},null,2))"
+                node -e "require('fs').writeFileSync('npm/$dir_name/package.json', JSON.stringify({name:'$name',version:'$VERSION',os:['$os_val'],cpu:['$cpu_val'],main:'$node_file',files:['$node_file'],homepage:'https://ruv.io',license:'MIT OR Apache-2.0',repository:{type:'git',url:'git+https://github.com/ruvnet/RuVector.git',directory:'npm/packages/sona/npm/$dir_name'},bugs:{url:'https://github.com/ruvnet/RuVector/issues'}},null,2))"
               fi
               echo "Publishing $name..."
               cd "npm/$dir_name"
-              npm publish --access public || echo "Warning: $name may already exist"
+              bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
               cd ../..
             else
               echo "ERROR: expected platform binary $node_file is missing"; exit 1
@@ -275,6 +309,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           # Rename bundled binaries to the index.<target>.node names the
           # committed loader (index.js) checks for. Must happen AFTER the
           # platform packages are created from the sona.<target>.node names.
@@ -286,7 +321,7 @@ jobs:
           ls -la
 
           # Publish main package
-          npm publish --access public
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
 
   # Test installation on all platforms
   test-install:
@@ -296,11 +331,11 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/sona-v')
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-14, windows-latest]
+        os: [ubuntu-latest, macos-15, windows-latest]
 
     steps:
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
 

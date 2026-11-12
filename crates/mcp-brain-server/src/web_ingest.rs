@@ -15,6 +15,7 @@
 use crate::embeddings::{EmbeddingEngine, EMBED_DIM};
 use crate::graph::{cosine_similarity, KnowledgeGraph};
 use crate::quantization::PiQQuantizer;
+use crate::text::truncate_at_char_boundary;
 use crate::types::{BetaParams, BrainCategory, BrainMemory};
 use crate::web_memory::*;
 use chrono::Utc;
@@ -304,15 +305,11 @@ pub fn extract_domain(url: &str) -> String {
 }
 
 /// Truncate a string to a maximum byte length, preserving UTF-8 boundaries.
+///
+/// Delegates to the crate-wide helper so there is exactly one implementation
+/// of this rule (see `crate::text`).
 fn truncate(s: &str, max_bytes: usize) -> String {
-    if s.len() <= max_bytes {
-        return s.to_string();
-    }
-    let mut end = max_bytes;
-    while end > 0 && !s.is_char_boundary(end) {
-        end -= 1;
-    }
-    s[..end].to_string()
+    truncate_at_char_boundary(s, max_bytes).to_string()
 }
 
 // ── Midstream Integration ───────────────────────────────────────────────

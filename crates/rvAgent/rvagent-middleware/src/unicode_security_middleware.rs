@@ -3,7 +3,7 @@
 //! Automatically checks tool inputs and outputs for Unicode-based security threats.
 
 use crate::unicode_security::{UnicodeIssue, UnicodeSecurityChecker, UnicodeSecurityConfig};
-use crate::{AgentState, AgentStateUpdate, Message, Middleware, Role, RunnableConfig, Runtime};
+use crate::{AgentState, AgentStateUpdate, Message, Middleware, RunnableConfig, Runtime};
 use async_trait::async_trait;
 use tracing::{debug, warn};
 
@@ -69,11 +69,6 @@ impl UnicodeSecurityMiddleware {
         self
     }
 
-    /// Check a message for Unicode security issues.
-    fn check_message(&self, msg: &Message) -> Vec<UnicodeIssue> {
-        self.checker.check(&msg.content)
-    }
-
     /// Log detected issues.
     fn log_issues(&self, issues: &[UnicodeIssue], context: &str) {
         if !issues.is_empty() {
@@ -95,7 +90,7 @@ impl Middleware for UnicodeSecurityMiddleware {
         "unicode_security"
     }
 
-    async fn abefore_agent(
+    async fn before_agent(
         &self,
         state: &AgentState,
         _runtime: &Runtime,
@@ -104,37 +99,37 @@ impl Middleware for UnicodeSecurityMiddleware {
         let mut modified = false;
         let mut new_messages = Vec::new();
 
-        for msg in &state.messages {
+        for msg in state.messages.iter() {
             let mut msg_copy = msg.clone();
 
-            match msg.role {
-                Role::User if self.check_user_input => {
-                    let issues = self.check_message(msg);
+            match msg {
+                Message::Human(h) if self.check_user_input => {
+                    let issues = self.checker.check(&h.content);
                     if !issues.is_empty() {
                         self.log_issues(&issues, "user message");
 
                         // Sanitize if configured
                         if self.sanitize_inputs {
-                            msg_copy.content = self.checker.sanitize(&msg.content);
+                            *msg_copy.content_mut() = self.checker.sanitize(&h.content);
                             modified = true;
                             debug!("Sanitized user message");
                         }
                     }
                 }
-                Role::Tool => {
-                    let issues = self.check_message(msg);
+                Message::Tool(t) => {
+                    let issues = self.checker.check(&t.content);
                     if !issues.is_empty() {
                         self.log_issues(
                             &issues,
                             &format!(
                                 "tool result: {}",
-                                msg.tool_name.as_deref().unwrap_or("unknown")
+                                t.tool_name.as_deref().unwrap_or("unknown")
                             ),
                         );
 
                         // Sanitize if configured
                         if self.sanitize_outputs {
-                            msg_copy.content = self.checker.sanitize(&msg.content);
+                            *msg_copy.content_mut() = self.checker.sanitize(&t.content);
                             modified = true;
                             debug!("Sanitized tool output");
                         }
@@ -148,8 +143,8 @@ impl Middleware for UnicodeSecurityMiddleware {
             new_messages.push(msg_copy);
 
             // Check tool call arguments (in assistant messages)
-            if msg.role == Role::Assistant {
-                for tool_call in &msg.tool_calls {
+            if let Message::Ai(ai) = msg {
+                for tool_call in &ai.tool_calls {
                     if let Some(args_str) = tool_call.args.as_str() {
                         let issues = self.checker.check(args_str);
                         if !issues.is_empty() {
@@ -189,6 +184,13 @@ impl Middleware for UnicodeSecurityMiddleware {
 mod tests {
     use super::*;
     use crate::{Message, ToolCall};
+    use std::sync::Arc;
+
+    fn state_with_messages(messages: Vec<Message>) -> AgentState {
+        let mut state = AgentState::new();
+        state.messages = Arc::new(messages);
+        state
+    }
 
     #[tokio::test]
     async fn test_strict_middleware() {
@@ -200,30 +202,26 @@ mod tests {
     async fn test_detect_bidi_in_tool_result() {
         let mw = UnicodeSecurityMiddleware::strict();
 
-        let state = AgentState {
-            messages: vec![Message::tool(
-                "evil\u{202E}txt.exe", // BiDi override
-                "tc-1",
-                "filesystem",
-            )],
-            todos: vec![],
-            extensions: Default::default(),
-        };
+        let state = state_with_messages(vec![Message::tool_with_name(
+            "tc-1",
+            "evil\u{202E}txt.exe", // BiDi override
+            "filesystem",
+        )]);
 
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
 
         // Should detect but not modify (sanitize_outputs = false by default)
-        let update = mw.abefore_agent(&state, &runtime, &config).await;
+        let update = mw.before_agent(&state, &runtime, &config).await;
         assert!(update.is_none());
 
         // Enable sanitization
         let mw2 = UnicodeSecurityMiddleware::strict().with_output_sanitization(true);
-        let update2 = mw2.abefore_agent(&state, &runtime, &config).await;
+        let update2 = mw2.before_agent(&state, &runtime, &config).await;
         assert!(update2.is_some());
 
         let new_msgs = update2.unwrap().messages.unwrap();
-        assert_eq!(new_msgs[0].content, "eviltxt.exe"); // BiDi stripped
+        assert_eq!(new_msgs[0].content(), "eviltxt.exe"); // BiDi stripped
     }
 
     #[tokio::test]
@@ -232,48 +230,39 @@ mod tests {
             .with_user_input_check(true)
             .with_input_sanitization(true);
 
-        let state = AgentState {
-            messages: vec![Message::user("Hello\u{200B}world")],
-            todos: vec![],
-            extensions: Default::default(),
-        };
+        let state = state_with_messages(vec![Message::human("Hello\u{200B}world")]);
 
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
 
-        let update = mw.abefore_agent(&state, &runtime, &config).await;
+        let update = mw.before_agent(&state, &runtime, &config).await;
         assert!(update.is_some());
 
         let new_msgs = update.unwrap().messages.unwrap();
-        assert_eq!(new_msgs[0].content, "Helloworld");
+        assert_eq!(new_msgs[0].content(), "Helloworld");
     }
 
     #[tokio::test]
     async fn test_check_tool_call_arguments() {
         let mw = UnicodeSecurityMiddleware::strict();
 
-        let state = AgentState {
-            messages: vec![{
-                let mut msg = Message::assistant("");
-                msg.tool_calls = vec![ToolCall {
-                    id: "tc-1".to_string(),
-                    name: "write_file".to_string(),
-                    args: serde_json::json!({
-                        "path": "test.txt",
-                        "content": "evil\u{202E}txt.exe"
-                    }),
-                }];
-                msg
+        let state = state_with_messages(vec![Message::ai_with_tools(
+            "",
+            vec![ToolCall {
+                id: "tc-1".to_string(),
+                name: "write_file".to_string(),
+                args: serde_json::json!({
+                    "path": "test.txt",
+                    "content": "evil\u{202E}txt.exe"
+                }),
             }],
-            todos: vec![],
-            extensions: Default::default(),
-        };
+        )]);
 
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
 
         // Should detect (logs warning) but not modify
-        let update = mw.abefore_agent(&state, &runtime, &config).await;
+        let update = mw.before_agent(&state, &runtime, &config).await;
         assert!(update.is_none());
     }
 
@@ -282,16 +271,16 @@ mod tests {
         // Without output sanitization, should only log warnings
         let mw = UnicodeSecurityMiddleware::strict().with_output_sanitization(false);
 
-        let state = AgentState {
-            messages: vec![Message::tool("pаypal.com", "tc-1", "browser")], // Cyrillic 'а'
-            todos: vec![],
-            extensions: Default::default(),
-        };
+        let state = state_with_messages(vec![Message::tool_with_name(
+            "tc-1",
+            "pаypal.com", // Cyrillic 'а'
+            "browser",
+        )]);
 
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
 
-        let update = mw.abefore_agent(&state, &runtime, &config).await;
+        let update = mw.before_agent(&state, &runtime, &config).await;
         // Should detect confusable and log, but not modify (sanitize_outputs = false)
         assert!(update.is_none());
     }
@@ -302,19 +291,15 @@ mod tests {
             .with_user_input_check(true)
             .with_input_sanitization(true);
 
-        let state = AgentState {
-            messages: vec![
-                Message::user("Hello world"),
-                Message::tool("OK", "tc-1", "test"),
-            ],
-            todos: vec![],
-            extensions: Default::default(),
-        };
+        let state = state_with_messages(vec![
+            Message::human("Hello world"),
+            Message::tool_with_name("tc-1", "OK", "test"),
+        ]);
 
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
 
-        let update = mw.abefore_agent(&state, &runtime, &config).await;
+        let update = mw.before_agent(&state, &runtime, &config).await;
         assert!(update.is_none()); // No modification needed
     }
 
@@ -324,16 +309,12 @@ mod tests {
             .with_user_input_check(true)
             .with_input_sanitization(true);
 
-        let state = AgentState {
-            messages: vec![Message::system("System\u{202E}message")],
-            todos: vec![],
-            extensions: Default::default(),
-        };
+        let state = state_with_messages(vec![Message::system("System\u{202E}message")]);
 
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
 
-        let update = mw.abefore_agent(&state, &runtime, &config).await;
+        let update = mw.before_agent(&state, &runtime, &config).await;
         assert!(update.is_none()); // System messages are never modified
     }
 
@@ -342,26 +323,22 @@ mod tests {
         let mw = UnicodeSecurityMiddleware::new(UnicodeSecurityConfig::permissive())
             .with_output_sanitization(true);
 
-        let state = AgentState {
-            messages: vec![
-                Message::tool("pаypal.com", "tc-1", "test"), // Confusable (should pass)
-                Message::tool("evil\u{202E}txt.exe", "tc-2", "test"), // BiDi (should be caught)
-            ],
-            todos: vec![],
-            extensions: Default::default(),
-        };
+        let state = state_with_messages(vec![
+            Message::tool_with_name("tc-1", "pаypal.com", "test"), // Confusable (should pass)
+            Message::tool_with_name("tc-2", "evil\u{202E}txt.exe", "test"), // BiDi (should be caught)
+        ]);
 
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
 
-        let update = mw.abefore_agent(&state, &runtime, &config).await;
+        let update = mw.before_agent(&state, &runtime, &config).await;
         assert!(update.is_some());
 
         let new_msgs = update.unwrap().messages.unwrap();
         // First message unchanged (confusables not checked in permissive mode)
-        assert_eq!(new_msgs[0].content, "pаypal.com");
+        assert_eq!(new_msgs[0].content(), "pаypal.com");
         // Second message sanitized (BiDi always checked)
-        assert_eq!(new_msgs[1].content, "eviltxt.exe");
+        assert_eq!(new_msgs[1].content(), "eviltxt.exe");
     }
 
     #[tokio::test]
@@ -371,26 +348,22 @@ mod tests {
             .with_input_sanitization(true)
             .with_output_sanitization(true);
 
-        let state = AgentState {
-            messages: vec![
-                Message::user("Hello\u{200B}world"),
-                Message::assistant("Response"),
-                Message::tool("evil\u{202E}txt.exe", "tc-1", "filesystem"),
-            ],
-            todos: vec![],
-            extensions: Default::default(),
-        };
+        let state = state_with_messages(vec![
+            Message::human("Hello\u{200B}world"),
+            Message::ai("Response"),
+            Message::tool_with_name("tc-1", "evil\u{202E}txt.exe", "filesystem"),
+        ]);
 
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
 
-        let update = mw.abefore_agent(&state, &runtime, &config).await;
+        let update = mw.before_agent(&state, &runtime, &config).await;
         assert!(update.is_some());
 
         let new_msgs = update.unwrap().messages.unwrap();
         assert_eq!(new_msgs.len(), 3);
-        assert_eq!(new_msgs[0].content, "Helloworld"); // User message sanitized
-        assert_eq!(new_msgs[1].content, "Response"); // Assistant unchanged
-        assert_eq!(new_msgs[2].content, "eviltxt.exe"); // Tool result sanitized
+        assert_eq!(new_msgs[0].content(), "Helloworld"); // User message sanitized
+        assert_eq!(new_msgs[1].content(), "Response"); // Assistant unchanged
+        assert_eq!(new_msgs[2].content(), "eviltxt.exe"); // Tool result sanitized
     }
 }

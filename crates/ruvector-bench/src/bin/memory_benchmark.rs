@@ -198,6 +198,15 @@ fn bench_quantization_memory(args: &Args) -> Result<Vec<BenchmarkResult>> {
         ("none", QuantizationConfig::None),
         ("scalar", QuantizationConfig::Scalar),
         ("binary", QuantizationConfig::Binary),
+        (
+            "turbo4",
+            QuantizationConfig::Turbo4 {
+                rotation_seed: ruvector_core::types::default_turbo4_rotation_seed(),
+                rescore_multiplier: ruvector_core::types::default_turbo4_rescore_multiplier(),
+                policy: Default::default(),
+                search_quantization: Default::default(),
+            },
+        ),
     ];
 
     let num_vectors = 50_000;

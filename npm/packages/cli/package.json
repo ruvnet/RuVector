@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/cli",
-  "version": "0.1.28",
+  "version": "0.1.30",
   "description": "Command-line interface for RuVector vector database with self-learning hooks",
   "main": "dist/cli.js",
   "types": "dist/cli.d.ts",
@@ -10,7 +10,8 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist *.tsbuildinfo",
-    "test": "echo \"Tests not yet implemented\"",
+    "prepack": "npm run build",
+    "test": "npm run build && node --test tests/cli.test.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts"
   },

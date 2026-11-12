@@ -217,17 +217,19 @@ impl ReplicaSet {
 
     /// Promote a secondary to primary
     pub fn promote_to_primary(&mut self, id: &str) -> Result<()> {
-        // Get the replica and verify it exists
-        let mut replica = self
+        // Release the shard guard before accessing the old primary: both
+        // keys can share a shard and nested access would deadlock.
+        let role = self
             .replicas
-            .get_mut(id)
-            .ok_or_else(|| ReplicationError::ReplicaNotFound(id.to_string()))?;
+            .get(id)
+            .ok_or_else(|| ReplicationError::ReplicaNotFound(id.to_string()))?
+            .role;
 
-        if replica.role == ReplicaRole::Primary {
+        if role == ReplicaRole::Primary {
             return Ok(());
         }
 
-        if replica.role == ReplicaRole::Witness {
+        if role == ReplicaRole::Witness {
             return Err(ReplicationError::InvalidState(
                 "Cannot promote witness to primary".to_string(),
             ));
@@ -245,8 +247,11 @@ impl ReplicaSet {
             }
         }
 
-        // Promote new primary
-        replica.role = ReplicaRole::Primary;
+        // Exclusive &mut self prevents membership changes during promotion.
+        self.replicas
+            .get_mut(id)
+            .expect("validated replica remains in the set")
+            .role = ReplicaRole::Primary;
         let mut primary = self.primary_id.write();
         *primary = Some(id.to_string());
 
@@ -360,6 +365,48 @@ mod tests {
         let primary = set.get_primary().unwrap();
         assert_eq!(primary.id, "r2");
         assert_eq!(primary.role, ReplicaRole::Primary);
+    }
+
+    #[test]
+    fn test_promotion_same_shard_completes() {
+        // Find a real collision without depending on DashMap's random seed.
+        let mut set = ReplicaSet::new("collision");
+        set.replicas = Arc::new(DashMap::with_shard_amount(2));
+        for i in 0..3 {
+            set.add_replica(format!("r{i}"), "127.0.0.1:0", ReplicaRole::Secondary)
+                .unwrap();
+        }
+        let mut pair = None;
+        for i in 0..3 {
+            let id = format!("r{i}");
+            let guard = set.replicas.get_mut(&id).unwrap();
+            for j in (i + 1)..3 {
+                let candidate = format!("r{j}");
+                if matches!(
+                    set.replicas.try_get_mut(&candidate),
+                    dashmap::try_result::TryResult::Locked
+                ) {
+                    pair = Some((id.clone(), candidate));
+                    break;
+                }
+            }
+            drop(guard);
+            if pair.is_some() {
+                break;
+            }
+        }
+        let (old, new) = pair.expect("three keys in two shards must collide");
+        set.promote_to_primary(&old).unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            set.promote_to_primary(&new).unwrap();
+            assert_eq!(set.get_primary().unwrap().id, new);
+            assert_eq!(set.get_replica(&old).unwrap().role, ReplicaRole::Secondary);
+            set.promote_to_primary(&new).unwrap(); // idempotent
+            tx.send(()).unwrap();
+        });
+        rx.recv_timeout(Duration::from_secs(5))
+            .expect("promotion must not deadlock on colliding shard keys");
     }
 
     #[test]

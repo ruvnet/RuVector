@@ -47,7 +47,7 @@ RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
     -H "x-api-key: $ANTHROPIC_API_KEY" \
     -H "anthropic-version: 2023-06-01" \
     -d "{
-        \"model\": \"claude-sonnet-4-20250514\",
+        \"model\": \"claude-sonnet-5\",
         \"max_tokens\": 1024,
         \"system\": \"You are rvagent-security, a security auditor. Analyze code for vulnerabilities (OWASP Top 10, injection, etc). Be concise.\",
         \"messages\": [

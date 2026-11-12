@@ -1,0 +1,17 @@
+[package]
+name = "ruvector-entropy-ann"
+version = "0.1.0"
+edition = "2021"
+description = "Entropy-adaptive beam search for ANN: live Shannon entropy of the candidate-heap distance distribution controls beam width during graph traversal"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/ruvector"
+keywords = ["ann", "hnsw", "entropy", "vector-search", "adaptive"]
+categories = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"

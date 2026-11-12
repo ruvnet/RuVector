@@ -1568,6 +1568,20 @@ unsafe extern "C" fn hnsw_costestimate(
     index_correlation: *mut f64,
     index_pages: *mut f64,
 ) {
+    // HNSW only supports ORDER BY <distance_op> scans. If the planner is
+    // considering this index for a non-kNN scan (for example COUNT(*) or a
+    // predicate matching a partial index), make the path prohibitively
+    // expensive. The executor cannot fall back to a sequential scan after
+    // hnsw_rescan rejects a scan without ORDER BY keys. Fixes #813.
+    if (*path).indexorderbys.is_null() {
+        *index_startup_cost = 1.0e10;
+        *index_total_cost = 1.0e10;
+        *index_selectivity = 1.0;
+        *index_correlation = 0.0;
+        *index_pages = 0.0;
+        return;
+    }
+
     // Get index size info
     let tuples = if let Some(info) = (*path).indexinfo.as_ref() {
         (*info).tuples.max(1.0)

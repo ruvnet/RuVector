@@ -4,7 +4,21 @@
 use async_trait::async_trait;
 use uuid::Uuid;
 
-use crate::{Message, Middleware, ModelHandler, ModelRequest, ModelResponse, Role};
+use crate::{Message, Middleware, ModelHandler, ModelRequest, ModelResponse};
+
+/// Bytes of each user message kept in a compaction summary preview.
+const PREVIEW_BYTES: usize = 100;
+
+/// Largest index `<= max` that starts a character, so slicing there can never
+/// split a multi-byte sequence. Conversation content is arbitrary user text,
+/// so a byte-index slice is a panic waiting for the first non-ASCII message.
+fn floor_char_boundary(s: &str, max: usize) -> usize {
+    let mut n = max.min(s.len());
+    while n > 0 && !s.is_char_boundary(n) {
+        n -= 1;
+    }
+    n
+}
 
 /// Trigger configuration for auto-compaction.
 pub enum TriggerConfig {
@@ -44,7 +58,7 @@ impl SummarizationMiddleware {
     fn estimate_tokens(messages: &[Message]) -> u64 {
         messages
             .iter()
-            .map(|m| (m.content.len() as u64) / 4 + 1)
+            .map(|m| (m.content().len() as u64) / 4 + 1)
             .sum()
     }
 
@@ -69,11 +83,14 @@ impl SummarizationMiddleware {
         ));
 
         for msg in messages {
-            if msg.role == Role::User {
-                let preview = if msg.content.len() > 100 {
-                    format!("{}...", &msg.content[..100])
+            if let Message::Human(h) = msg {
+                let preview = if h.content.len() > PREVIEW_BYTES {
+                    format!(
+                        "{}...",
+                        &h.content[..floor_char_boundary(&h.content, PREVIEW_BYTES)]
+                    )
                 } else {
-                    msg.content.clone()
+                    h.content.clone()
                 };
                 summary.push_str(&format!("- User: {}\n", preview));
             }
@@ -91,13 +108,13 @@ impl SummarizationMiddleware {
     fn format_for_offload(messages: &[Message]) -> String {
         let mut out = String::new();
         for msg in messages {
-            let role = match msg.role {
-                Role::System => "system",
-                Role::User => "user",
-                Role::Assistant => "assistant",
-                Role::Tool => "tool",
+            let role = match msg {
+                Message::System(_) => "system",
+                Message::Human(_) => "user",
+                Message::Ai(_) => "assistant",
+                Message::Tool(_) => "tool",
             };
-            out.push_str(&format!("## {}\n\n{}\n\n---\n\n", role, msg.content));
+            out.push_str(&format!("## {}\n\n{}\n\n---\n\n", role, msg.content()));
         }
         out
     }
@@ -109,7 +126,11 @@ impl Middleware for SummarizationMiddleware {
         "summarization"
     }
 
-    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
+    async fn wrap_model_call(
+        &self,
+        request: ModelRequest,
+        handler: &dyn ModelHandler,
+    ) -> ModelResponse {
         let token_count = Self::estimate_tokens(&request.messages);
         let threshold = self.threshold();
 
@@ -129,9 +150,9 @@ impl Middleware for SummarizationMiddleware {
             let mut compacted = vec![summary];
             compacted.extend_from_slice(to_keep);
 
-            handler.call(request.with_messages(compacted))
+            handler.call(request.with_messages(compacted)).await
         } else {
-            handler.call(request)
+            handler.call(request).await
         }
     }
 }
@@ -140,9 +161,13 @@ impl Middleware for SummarizationMiddleware {
 mod tests {
     use super::*;
 
+    use async_trait::async_trait;
+
     struct PassthroughHandler;
+
+    #[async_trait]
     impl ModelHandler for PassthroughHandler {
-        fn call(&self, request: ModelRequest) -> ModelResponse {
+        async fn call(&self, request: ModelRequest) -> ModelResponse {
             ModelResponse::text(format!("messages: {}", request.messages.len()))
         }
     }
@@ -162,7 +187,7 @@ mod tests {
 
     #[test]
     fn test_estimate_tokens() {
-        let messages = vec![Message::user("hello world")];
+        let messages = vec![Message::human("hello world")];
         let tokens = SummarizationMiddleware::estimate_tokens(&messages);
         assert!(tokens > 0);
     }
@@ -180,31 +205,30 @@ mod tests {
         assert_eq!(mw.keep_count(1), 1);
     }
 
-    #[test]
-    fn test_no_compaction_below_threshold() {
+    #[tokio::test]
+    async fn test_no_compaction_below_threshold() {
         let mw = SummarizationMiddleware::new(100_000, 0.85, 0.10);
-        let request = ModelRequest::new(vec![Message::user("short")]);
+        let request = ModelRequest::new(vec![Message::human("short")]);
         let handler = PassthroughHandler;
-        let response = mw.wrap_model_call(request, &handler);
-        assert!(response.message.content.contains("messages: 1"));
+        let response = mw.wrap_model_call(request, &handler).await;
+        assert!(response.content().contains("messages: 1"));
     }
 
-    #[test]
-    fn test_compaction_above_threshold() {
+    #[tokio::test]
+    async fn test_compaction_above_threshold() {
         let mw = SummarizationMiddleware::new(10, 0.5, 0.5);
         let mut messages = Vec::new();
         for i in 0..20 {
-            messages.push(Message::user(format!(
+            messages.push(Message::human(format!(
                 "message {} with enough content to trigger compaction when counted",
                 i
             )));
         }
         let request = ModelRequest::new(messages);
         let handler = PassthroughHandler;
-        let response = mw.wrap_model_call(request, &handler);
+        let response = mw.wrap_model_call(request, &handler).await;
         let count: usize = response
-            .message
-            .content
+            .content()
             .strip_prefix("messages: ")
             .unwrap()
             .parse()
@@ -224,18 +248,42 @@ mod tests {
     #[test]
     fn test_summarize() {
         let messages = vec![
-            Message::user("What is Rust?"),
-            Message::assistant("Rust is a systems programming language."),
+            Message::human("What is Rust?"),
+            Message::ai("Rust is a systems programming language."),
         ];
         let summary = SummarizationMiddleware::summarize(&messages);
-        assert_eq!(summary.role, Role::System);
-        assert!(summary.content.contains("2 messages"));
-        assert!(summary.content.contains("What is Rust?"));
+        assert!(matches!(summary, Message::System(_)));
+        assert!(summary.content().contains("2 messages"));
+        assert!(summary.content().contains("What is Rust?"));
+    }
+
+    #[test]
+    fn test_summarize_does_not_split_multibyte_chars() {
+        // Byte 100 lands mid-character for a 3-byte-per-char message, which a
+        // plain `&content[..100]` would panic on.
+        let content = "日".repeat(200);
+        let messages = vec![Message::human(content.clone())];
+        let summary = SummarizationMiddleware::summarize(&messages);
+        let text = summary.content().to_string();
+        assert!(text.contains("..."));
+        // 100 / 3 = 33 whole characters fit.
+        assert!(text.contains(&"日".repeat(33)));
+        assert!(!text.contains(&"日".repeat(34)));
+    }
+
+    #[test]
+    fn test_summarize_preview_boundary_cases() {
+        for len in [98usize, 99, 100, 101, 150] {
+            let messages = vec![Message::human("é".repeat(len))];
+            // The assertion is that this does not panic and stays valid UTF-8.
+            let summary = SummarizationMiddleware::summarize(&messages);
+            assert!(summary.content().contains("User:"));
+        }
     }
 
     #[test]
     fn test_format_for_offload() {
-        let messages = vec![Message::user("test content")];
+        let messages = vec![Message::human("test content")];
         let offloaded = SummarizationMiddleware::format_for_offload(&messages);
         assert!(offloaded.contains("## user"));
         assert!(offloaded.contains("test content"));

@@ -27,14 +27,41 @@ pub enum ParseError {
 
 type ParseResult<T> = Result<T, ParseError>;
 
+/// Nesting budget for one query. Building, evaluating and dropping the AST all
+/// recurse once per level, so an untrusted query nested thousands deep overflows
+/// the stack (1 MiB on wasm32, where the overflow corrupts memory instead of
+/// aborting). Every nested construct, and every link of an operator, property or
+/// relationship chain, spends one unit. A nested expression spends
+/// `EXPRESSION_COST`, because parsing it recurses through every precedence level.
+pub const MAX_NESTING_DEPTH: usize = 1000;
+const EXPRESSION_COST: usize = 4;
+
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
+    depth: usize,
 }
 
 impl Parser {
     fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens, current: 0 }
+        Self {
+            tokens,
+            current: 0,
+            depth: 0,
+        }
+    }
+
+    /// Spends `cost` units of the nesting budget. Callers restore `self.depth`
+    /// when the nested construct ends. On error the whole parse is abandoned.
+    fn descend(&mut self, cost: usize) -> ParseResult<()> {
+        self.depth += cost;
+        if self.depth > MAX_NESTING_DEPTH {
+            return Err(ParseError::InvalidSyntax(format!(
+                "Query nesting exceeds the limit of {} levels",
+                MAX_NESTING_DEPTH
+            )));
+        }
+        Ok(())
     }
 
     fn is_at_end(&self) -> bool {
@@ -171,9 +198,13 @@ impl Parser {
             if self.tokens.get(self.current + 1).map(|t| &t.kind) == Some(&TokenKind::Equal) {
                 self.advance(); // consume identifier
                 self.advance(); // consume =
+                let saved = self.depth;
+                self.descend(1)?;
+                let pattern = Box::new(self.parse_pattern()?);
+                self.depth = saved;
                 return Ok(Pattern::Path(PathPattern {
                     variable: var,
-                    pattern: Box::new(self.parse_pattern()?),
+                    pattern,
                 }));
             }
         }
@@ -290,7 +321,10 @@ impl Parser {
             // Check if there's a chained pattern (another relationship starting from target)
             if self.check(&TokenKind::Dash) || self.check(&TokenKind::LeftArrow) {
                 // There's a chained pattern - recursively parse from the target node
+                let saved = self.depth;
+                self.descend(1)?;
                 let chained = self.parse_chained_pattern(target_node)?;
+                self.depth = saved;
 
                 // Create the first relationship pattern with the chained pattern as target
                 Ok(Pattern::Relationship(RelationshipPattern {
@@ -390,7 +424,10 @@ impl Parser {
 
             // Check for another chained pattern
             if self.check(&TokenKind::Dash) || self.check(&TokenKind::LeftArrow) {
+                let saved = self.depth;
+                self.descend(1)?;
                 let chained = self.parse_chained_pattern(target_node)?;
+                self.depth = saved;
 
                 Ok(Pattern::Relationship(RelationshipPattern {
                     variable,
@@ -786,13 +823,19 @@ impl Parser {
     }
 
     fn parse_expression(&mut self) -> ParseResult<Expression> {
-        self.parse_or()
+        let saved = self.depth;
+        self.descend(EXPRESSION_COST)?;
+        let expr = self.parse_or()?;
+        self.depth = saved;
+        Ok(expr)
     }
 
     fn parse_or(&mut self) -> ParseResult<Expression> {
+        let saved = self.depth;
         let mut expr = self.parse_xor()?;
 
         while self.match_token(&[TokenKind::Or]) {
+            self.descend(1)?;
             let right = self.parse_xor()?;
             expr = Expression::BinaryOp {
                 left: Box::new(expr),
@@ -801,13 +844,16 @@ impl Parser {
             };
         }
 
+        self.depth = saved;
         Ok(expr)
     }
 
     fn parse_xor(&mut self) -> ParseResult<Expression> {
+        let saved = self.depth;
         let mut expr = self.parse_and()?;
 
         while self.match_token(&[TokenKind::Xor]) {
+            self.descend(1)?;
             let right = self.parse_and()?;
             expr = Expression::BinaryOp {
                 left: Box::new(expr),
@@ -816,14 +862,17 @@ impl Parser {
             };
         }
 
+        self.depth = saved;
         Ok(expr)
     }
 
     fn parse_and(&mut self) -> ParseResult<Expression> {
-        let mut expr = self.parse_comparison()?;
+        let saved = self.depth;
+        let mut expr = self.parse_not()?;
 
         while self.match_token(&[TokenKind::And]) {
-            let right = self.parse_comparison()?;
+            self.descend(1)?;
+            let right = self.parse_not()?;
             expr = Expression::BinaryOp {
                 left: Box::new(expr),
                 op: BinaryOperator::And,
@@ -831,7 +880,23 @@ impl Parser {
             };
         }
 
+        self.depth = saved;
         Ok(expr)
+    }
+
+    fn parse_not(&mut self) -> ParseResult<Expression> {
+        if self.match_token(&[TokenKind::Not]) {
+            let saved = self.depth;
+            self.descend(1)?;
+            let operand = self.parse_not()?;
+            self.depth = saved;
+            return Ok(Expression::UnaryOp {
+                op: UnaryOperator::Not,
+                operand: Box::new(operand),
+            });
+        }
+
+        self.parse_comparison()
     }
 
     fn parse_comparison(&mut self) -> ParseResult<Expression> {
@@ -844,9 +909,64 @@ impl Parser {
                 op,
                 right: Box::new(right),
             };
+        } else if self.match_token(&[TokenKind::Is]) {
+            // IS NULL and IS NOT NULL
+            let negated = self.match_token(&[TokenKind::Not]);
+            self.consume(TokenKind::Null, "NULL")?;
+            let op = if negated {
+                UnaryOperator::IsNotNull
+            } else {
+                UnaryOperator::IsNull
+            };
+            expr = Expression::UnaryOp {
+                op,
+                operand: Box::new(expr),
+            };
+        } else if self.match_token(&[TokenKind::In]) {
+            let right = self.parse_additive()?;
+            expr = Expression::BinaryOp {
+                left: Box::new(expr),
+                op: BinaryOperator::In,
+                right: Box::new(right),
+            };
+        } else if let Some(op) = self.parse_string_predicate_op() {
+            let right = self.parse_additive()?;
+            expr = Expression::BinaryOp {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+            };
         }
 
         Ok(expr)
+    }
+
+    /// CONTAINS, STARTS WITH and ENDS WITH. These are not keywords in the lexer,
+    /// so they are matched as identifiers.
+    fn parse_string_predicate_op(&mut self) -> Option<BinaryOperator> {
+        let word = match &self.peek().kind {
+            TokenKind::Identifier(name) => name.to_ascii_uppercase(),
+            _ => return None,
+        };
+        match word.as_str() {
+            "CONTAINS" => {
+                self.advance();
+                Some(BinaryOperator::Contains)
+            }
+            "STARTS" | "ENDS" => {
+                if self.tokens.get(self.current + 1).map(|t| &t.kind) != Some(&TokenKind::With) {
+                    return None;
+                }
+                self.advance();
+                self.advance();
+                Some(if word == "STARTS" {
+                    BinaryOperator::StartsWith
+                } else {
+                    BinaryOperator::EndsWith
+                })
+            }
+            _ => None,
+        }
     }
 
     fn parse_comparison_op(&mut self) -> Option<BinaryOperator> {
@@ -868,9 +988,11 @@ impl Parser {
     }
 
     fn parse_additive(&mut self) -> ParseResult<Expression> {
+        let saved = self.depth;
         let mut expr = self.parse_multiplicative()?;
 
         while let Some(op) = self.parse_additive_op() {
+            self.descend(1)?;
             let right = self.parse_multiplicative()?;
             expr = Expression::BinaryOp {
                 left: Box::new(expr),
@@ -879,6 +1001,7 @@ impl Parser {
             };
         }
 
+        self.depth = saved;
         Ok(expr)
     }
 
@@ -893,9 +1016,11 @@ impl Parser {
     }
 
     fn parse_multiplicative(&mut self) -> ParseResult<Expression> {
+        let saved = self.depth;
         let mut expr = self.parse_unary()?;
 
         while let Some(op) = self.parse_multiplicative_op() {
+            self.descend(1)?;
             let right = self.parse_unary()?;
             expr = Expression::BinaryOp {
                 left: Box::new(expr),
@@ -904,6 +1029,7 @@ impl Parser {
             };
         }
 
+        self.depth = saved;
         Ok(expr)
     }
 
@@ -922,16 +1048,11 @@ impl Parser {
     }
 
     fn parse_unary(&mut self) -> ParseResult<Expression> {
-        if self.match_token(&[TokenKind::Not]) {
-            let operand = self.parse_unary()?;
-            return Ok(Expression::UnaryOp {
-                op: UnaryOperator::Not,
-                operand: Box::new(operand),
-            });
-        }
-
         if self.match_token(&[TokenKind::Minus]) {
+            let saved = self.depth;
+            self.descend(1)?;
             let operand = self.parse_unary()?;
+            self.depth = saved;
             return Ok(Expression::UnaryOp {
                 op: UnaryOperator::Minus,
                 operand: Box::new(operand),
@@ -942,6 +1063,7 @@ impl Parser {
     }
 
     fn parse_postfix(&mut self) -> ParseResult<Expression> {
+        let saved = self.depth;
         let mut expr = self.parse_primary()?;
 
         loop {
@@ -949,6 +1071,7 @@ impl Parser {
                 if let TokenKind::Identifier(prop) = &self.peek().kind {
                     let prop = prop.clone();
                     self.advance();
+                    self.descend(1)?;
                     expr = Expression::Property {
                         object: Box::new(expr),
                         property: prop,
@@ -961,6 +1084,7 @@ impl Parser {
             }
         }
 
+        self.depth = saved;
         Ok(expr)
     }
 
@@ -1003,6 +1127,38 @@ impl Parser {
                 } else {
                     Ok(Expression::Variable(name))
                 }
+            }
+            TokenKind::Case => {
+                self.advance();
+                // Simple form: CASE subject WHEN value THEN ... ; searched form: CASE WHEN cond THEN ...
+                let expression = if self.check(&TokenKind::When) {
+                    None
+                } else {
+                    Some(Box::new(self.parse_expression()?))
+                };
+                let mut alternatives = Vec::new();
+                while self.match_token(&[TokenKind::When]) {
+                    let condition = self.parse_expression()?;
+                    self.consume(TokenKind::Then, "THEN")?;
+                    let result = self.parse_expression()?;
+                    alternatives.push((condition, result));
+                }
+                if alternatives.is_empty() {
+                    return Err(ParseError::InvalidSyntax(
+                        "CASE requires at least one WHEN branch".to_string(),
+                    ));
+                }
+                let default = if self.match_token(&[TokenKind::Else]) {
+                    Some(Box::new(self.parse_expression()?))
+                } else {
+                    None
+                };
+                self.consume(TokenKind::End, "END")?;
+                Ok(Expression::Case {
+                    expression,
+                    alternatives,
+                    default,
+                })
             }
             TokenKind::LeftParen => {
                 self.advance();
@@ -1083,6 +1239,16 @@ impl Parser {
     }
 
     fn parse_function_call(&mut self, name: String) -> ParseResult<Expression> {
+        // count(*) counts rows. It is encoded as count over the marker variable `*`.
+        if name.eq_ignore_ascii_case("count") && self.match_token(&[TokenKind::Star]) {
+            self.consume(TokenKind::RightParen, ")")?;
+            return Ok(Expression::Aggregation {
+                function: AggregationFunction::Count,
+                expression: Box::new(Expression::Variable("*".to_string())),
+                distinct: false,
+            });
+        }
+
         let mut args = vec![];
 
         if !self.check(&TokenKind::RightParen) {
@@ -1155,6 +1321,75 @@ mod tests {
         let query = "MATCH (n:Person) WHERE n.age > 30 RETURN n.name";
         let result = parse_cypher(query);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_not_binds_looser_than_comparison() {
+        let ast = parse_cypher("MATCH (n) WHERE NOT n.age = 30 RETURN n").unwrap();
+
+        let Statement::Match(match_clause) = &ast.statements[0] else {
+            panic!("expected MATCH statement");
+        };
+        let condition = &match_clause.where_clause.as_ref().unwrap().condition;
+        let Expression::UnaryOp {
+            op: UnaryOperator::Not,
+            operand,
+        } = condition
+        else {
+            panic!("expected NOT at the root, got {condition:?}");
+        };
+        let Expression::BinaryOp {
+            left,
+            op: BinaryOperator::Equal,
+            right,
+        } = operand.as_ref()
+        else {
+            panic!("expected comparison inside NOT, got {operand:?}");
+        };
+
+        assert!(matches!(
+            left.as_ref(),
+            Expression::Property { object, property }
+                if matches!(object.as_ref(), Expression::Variable(name) if name == "n")
+                    && property == "age"
+        ));
+        assert_eq!(right.as_ref(), &Expression::Integer(30));
+    }
+
+    #[test]
+    fn test_not_binds_tighter_than_and() {
+        let ast = parse_cypher("MATCH (n) WHERE NOT n.age = 30 AND n.active RETURN n").unwrap();
+
+        let Statement::Match(match_clause) = &ast.statements[0] else {
+            panic!("expected MATCH statement");
+        };
+        let condition = &match_clause.where_clause.as_ref().unwrap().condition;
+        let Expression::BinaryOp {
+            left,
+            op: BinaryOperator::And,
+            right,
+        } = condition
+        else {
+            panic!("expected AND at the root, got {condition:?}");
+        };
+
+        assert!(matches!(
+            left.as_ref(),
+            Expression::UnaryOp {
+                op: UnaryOperator::Not,
+                operand
+            } if matches!(
+                operand.as_ref(),
+                Expression::BinaryOp {
+                    op: BinaryOperator::Equal,
+                    ..
+                }
+            )
+        ));
+        assert!(matches!(
+            right.as_ref(),
+            Expression::Property { property, .. } if property == "active"
+        ));
     }
 
     #[test]
@@ -1291,5 +1526,56 @@ mod tests {
         let query = "MATCH (a)-[r]->(b)-[s]->(c)-[t]->(d) RETURN a, d";
         let result = parse_cypher(query);
         assert!(result.is_ok());
+    }
+
+    fn assert_too_deep(query: &str) {
+        match parse_cypher(query) {
+            Err(ParseError::InvalidSyntax(msg)) => assert!(msg.contains("nesting"), "{}", msg),
+            other => panic!("expected a nesting error, got {:?}", other.map(|_| ())),
+        }
+    }
+
+    #[test]
+    fn test_deep_nesting_is_rejected_not_overflowed() {
+        // Each of these overflowed the stack before the depth limit existed.
+        let n = 20_000;
+        assert_too_deep(&format!("RETURN {}1{}", "(".repeat(n), ")".repeat(n)));
+        assert_too_deep(&format!("RETURN {}{}", "[".repeat(n), "]".repeat(n)));
+        assert_too_deep(&format!("RETURN {}1{}", "{a:".repeat(n), "}".repeat(n)));
+        assert_too_deep(&format!("RETURN {}true", "NOT ".repeat(n)));
+        assert_too_deep(&format!("RETURN {}", vec!["1"; n].join(" + ")));
+        assert_too_deep(&format!("RETURN n{}", ".a".repeat(n)));
+        assert_too_deep(&format!("MATCH (a){} RETURN a", "-[:R]->()".repeat(n)));
+        assert_too_deep(&format!("MATCH {}(a) RETURN a", "p = ".repeat(n)));
+    }
+
+    #[test]
+    fn test_pathological_nesting_returns_an_error() {
+        // 5k nested parentheses and a 200k-long NOT chain: both must come back
+        // as a parse error, not a stack overflow.
+        let n = 5_000;
+        assert_too_deep(&format!("RETURN {}1{}", "(".repeat(n), ")".repeat(n)));
+        assert_too_deep(&format!(
+            "MATCH (n) WHERE {}n.x = 1 RETURN n",
+            "(".repeat(n)
+        ));
+        assert_too_deep(&format!("RETURN {}true", "NOT ".repeat(200_000)));
+        assert_too_deep(&format!(
+            "MATCH (n) WHERE {}n.x RETURN n",
+            "NOT ".repeat(200_000)
+        ));
+    }
+
+    #[test]
+    fn test_realistic_nesting_still_parses() {
+        let parens = format!("RETURN {}1{} AS x", "(".repeat(200), ")".repeat(200));
+        assert!(parse_cypher(&parens).is_ok());
+        let ors = (0..500)
+            .map(|i| format!("n.v = {}", i))
+            .collect::<Vec<_>>()
+            .join(" OR ");
+        assert!(parse_cypher(&format!("MATCH (n) WHERE {} RETURN n", ors)).is_ok());
+        let hops = format!("MATCH (a){} RETURN a", "-[:R]->()".repeat(500));
+        assert!(parse_cypher(&hops).is_ok());
     }
 }

@@ -10,6 +10,24 @@ pub trait VectorStore {
 
     /// The dimensionality of all vectors in this store.
     fn dimension(&self) -> usize;
+
+    /// Call `f(id, vector)` for every present id in `start..end`.
+    ///
+    /// The default walks the numeric range, which is right for dense id
+    /// spaces. Stores that can enumerate their ids override this so the cost
+    /// is bounded by the entries present, not by the width of the range.
+    fn for_each_in_range(&self, start: u64, end: u64, f: &mut dyn FnMut(u64, &[f32])) {
+        let mut id = start;
+        while id < end {
+            if let Some(v) = self.get_vector(id) {
+                f(id, v);
+            }
+            id = match id.checked_add(1) {
+                Some(n) => n,
+                None => break,
+            };
+        }
+    }
 }
 
 /// Simple in-memory vector store backed by a `Vec<Vec<f32>>`.

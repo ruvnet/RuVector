@@ -4,7 +4,7 @@
 
 use async_trait::async_trait;
 
-use crate::{Middleware, ModelHandler, ModelRequest, ModelResponse, Role};
+use crate::{Message, Middleware, ModelHandler, ModelRequest, ModelResponse};
 
 /// Middleware that sanitizes tool results by wrapping them in XML-like delimiters.
 ///
@@ -51,37 +51,38 @@ impl Middleware for ToolResultSanitizerMiddleware {
         "tool_result_sanitizer"
     }
 
-    fn wrap_model_call(
+    async fn wrap_model_call(
         &self,
         mut request: ModelRequest,
         handler: &dyn ModelHandler,
     ) -> ModelResponse {
         // Sanitize all tool messages in the request
         for msg in &mut request.messages {
-            if msg.role == Role::Tool {
-                let tool_name = msg.tool_name.as_deref().unwrap_or("unknown");
-                let tool_call_id = msg.tool_call_id.as_deref().unwrap_or("unknown");
-                msg.content = Self::sanitize_tool_result(tool_name, tool_call_id, &msg.content);
+            if let Message::Tool(t) = msg {
+                let tool_name = t.tool_name.as_deref().unwrap_or("unknown");
+                t.content = Self::sanitize_tool_result(tool_name, &t.tool_call_id, &t.content);
             }
         }
 
-        handler.call(request)
+        handler.call(request).await
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Message;
+    use async_trait::async_trait;
 
     struct CaptureHandler;
+
+    #[async_trait]
     impl ModelHandler for CaptureHandler {
-        fn call(&self, request: ModelRequest) -> ModelResponse {
+        async fn call(&self, request: ModelRequest) -> ModelResponse {
             let tool_content = request
                 .messages
                 .iter()
-                .find(|m| m.role == Role::Tool)
-                .map(|m| m.content.clone())
+                .find(|m| matches!(m, Message::Tool(_)))
+                .map(|m| m.content().to_string())
                 .unwrap_or_default();
             ModelResponse::text(tool_content)
         }
@@ -130,39 +131,41 @@ mod tests {
         assert!(result.contains("id=\"id&quot;val\""));
     }
 
-    #[test]
-    fn test_wrap_model_call_sanitizes_tool_messages() {
+    #[tokio::test]
+    async fn test_wrap_model_call_sanitizes_tool_messages() {
         let mw = ToolResultSanitizerMiddleware::new();
         let request = ModelRequest::new(vec![
-            Message::user("help"),
-            Message::tool("raw tool output", "call-1", "read_file"),
+            Message::human("help"),
+            Message::tool_with_name("call-1", "raw tool output", "read_file"),
         ]);
         let handler = CaptureHandler;
-        let response = mw.wrap_model_call(request, &handler);
+        let response = mw.wrap_model_call(request, &handler).await;
 
-        assert!(response.message.content.contains("<tool_output"));
-        assert!(response.message.content.contains("raw tool output"));
-        assert!(response.message.content.contains("</tool_output>"));
+        assert!(response.content().contains("<tool_output"));
+        assert!(response.content().contains("raw tool output"));
+        assert!(response.content().contains("</tool_output>"));
     }
 
-    #[test]
-    fn test_wrap_model_call_skips_non_tool_messages() {
+    #[tokio::test]
+    async fn test_wrap_model_call_skips_non_tool_messages() {
         let mw = ToolResultSanitizerMiddleware::new();
         let request = ModelRequest::new(vec![
-            Message::user("not a tool message"),
-            Message::assistant("also not a tool"),
+            Message::human("not a tool message"),
+            Message::ai("also not a tool"),
         ]);
 
         struct VerifyHandler;
+
+        #[async_trait]
         impl ModelHandler for VerifyHandler {
-            fn call(&self, request: ModelRequest) -> ModelResponse {
-                assert_eq!(request.messages[0].content, "not a tool message");
-                assert_eq!(request.messages[1].content, "also not a tool");
+            async fn call(&self, request: ModelRequest) -> ModelResponse {
+                assert_eq!(request.messages[0].content(), "not a tool message");
+                assert_eq!(request.messages[1].content(), "also not a tool");
                 ModelResponse::text("ok")
             }
         }
 
-        mw.wrap_model_call(request, &VerifyHandler);
+        mw.wrap_model_call(request, &VerifyHandler).await;
     }
 
     #[test]

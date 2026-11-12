@@ -9,7 +9,7 @@ import {
     cosineSimilarity,
     normalizeL2,
     WasmEmbedderConfig
-} from './pkg/ruvector_onnx_embeddings_wasm.js';
+} from './pkg/ruvector_onnx_embeddings_wasm.node.mjs';
 
 console.log('🧪 RuVector ONNX Embeddings WASM - Validation Test\n');
 

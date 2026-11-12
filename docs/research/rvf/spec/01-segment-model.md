@@ -33,7 +33,8 @@ to match SIMD register width.
 ```
 Offset  Size  Field              Description
 ------  ----  -----              -----------
-0x00    4     magic              0x52564653 ("RVFS" in ASCII)
+0x00    4     magic              0x52564653 (mnemonic "RVFS";
+                                 LE wire bytes 53 46 56 52)
 0x04    1     version            Segment format version (currently 1)
 0x05    1     seg_type           Segment type enum (see below)
 0x06    2     flags              Bitfield: compressed, encrypted, signed, sealed, etc.

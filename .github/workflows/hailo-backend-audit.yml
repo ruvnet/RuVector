@@ -36,32 +36,22 @@ jobs:
     name: cargo-audit (cluster)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Install cargo-audit
         run: cargo install --locked cargo-audit
       - name: Run cargo audit
-        # Iter 228 — run from the workspace root since iter-219's
-        # workspace rejoin moved Cargo.lock there. cargo-audit doesn't
-        # walk up to find a workspace lock from a sub-crate directory;
-        # it errors with "Couldn't load Cargo.lock". The audit's job is
-        # workspace-wide anyway (it's the lock that defines the dep
-        # tree, not the cluster crate's manifest).
-        run: |
-          cargo audit --deny warnings \
-              --ignore RUSTSEC-2024-0436 `# paste — unmaintained, transitive via candle` \
-              --ignore RUSTSEC-2025-0134 `# rustls-pemfile — transitive via tonic-tls` \
-              --ignore RUSTSEC-2025-0141 `# bincode 1.x — workspace-wide pin via rkyv etc.` \
-              --ignore RUSTSEC-2026-0115 `# imageproc 0.25 — unsound, transitive via ruvector-scipix; outside hailo scope` \
-              --ignore RUSTSEC-2026-0116 `# imageproc 0.25 — unsound, transitive via ruvector-scipix; outside hailo scope` \
-              --ignore RUSTSEC-2026-0117 `# imageproc 0.25 — unsound, transitive via ruvector-scipix; outside hailo scope`
+        # Run from the workspace root so cargo-audit finds Cargo.lock and
+        # .cargo/audit.toml. Match supply-chain.yml's vulnerability policy;
+        # warning-level advisories remain visible without failing CI.
+        run: cargo audit
 
   deny:
     name: cargo-deny (license + bans + sources)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Install cargo-deny
@@ -87,11 +77,11 @@ jobs:
     name: clippy --all-targets -D warnings (cluster)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             ~/.cargo/registry
@@ -112,11 +102,11 @@ jobs:
     name: test (cluster — lib + integration + cli + doctest)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             ~/.cargo/registry
@@ -184,7 +174,7 @@ jobs:
     name: cross-build aarch64 (all bridges)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Install protoc + aarch64 cross-toolchain
         run: |
           sudo apt-get update
@@ -213,7 +203,7 @@ jobs:
     name: missing-docs check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Build docs with -D missing-docs

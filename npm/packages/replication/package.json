@@ -1,7 +1,7 @@
 {
   "name": "@ruvector/replication",
-  "version": "0.1.0",
-  "description": "Data replication and synchronization - multi-node replicas, conflict resolution with vector clocks, change data capture, and automatic failover",
+  "version": "0.1.2",
+  "description": "Distributed systems: Data replication and synchronization - multi-node replicas, conflict resolution with vector clocks, change data capture, and automatic failover",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -31,25 +31,31 @@
     "eventemitter3": "^5.0.4"
   },
   "keywords": [
-    "replication",
-    "synchronization",
     "distributed-systems",
-    "conflict-resolution",
-    "vector-clock",
-    "crdt",
-    "change-data-capture",
-    "failover",
-    "high-availability",
-    "ruvector"
+    "nodejs",
+    "vector-search",
+    "ruvector",
+    "ruvnet",
+    "replication",
+    "vector-database",
+    "hnsw",
+    "embeddings",
+    "rag",
+    "semantic-search",
+    "knowledge-graph",
+    "gnn",
+    "graph-embeddings",
+    "link-prediction",
+    "attention"
   ],
   "author": "rUv Team <team@ruv.io>",
   "license": "MIT OR Apache-2.0",
   "repository": {
+    "directory": "npm/packages/replication",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
-    "directory": "npm/packages/replication"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/crates/ruvector-replication",
+  "homepage": "https://ruv.io",
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },

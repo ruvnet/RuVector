@@ -1,0 +1,3 @@
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_120=y
+# ESP32-C2 (ESP8684) modules commonly ship with 2 MB flash; the image fits.
+CONFIG_ESPTOOLPY_FLASHSIZE_2MB=y

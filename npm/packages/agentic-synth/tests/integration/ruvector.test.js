@@ -305,8 +305,9 @@ describe('Ruvector Integration', () => {
     it('should rank similar vectors correctly', async () => {
       const baseVector = new Array(128).fill(0.5);
 
-      // Create slightly different vectors
-      const similar = baseVector.map(v => v + 0.01);
+      // Create slightly different vectors (not a scalar multiple of base:
+      // under cosine similarity that would tie with base exactly)
+      const similar = baseVector.map((v, i) => v + (i % 2 ? 0.01 : -0.01));
       const different = new Array(128).fill(0).map(() => Math.random());
 
       await adapter.insert([

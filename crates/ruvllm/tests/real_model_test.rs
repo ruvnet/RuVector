@@ -515,39 +515,194 @@ fn test_qwen_load() {
     );
 }
 
-/// Test text generation with Qwen
+/// Real generation with a Qwen2/Qwen2.5/Qwen3 GGUF through the candle
+/// backend, using the tokenizer embedded in the file. Run in release:
+///
+/// ```bash
+/// TEST_MODEL_PATH=/path/qwen2.5-0.5b-instruct-q4_k_m.gguf \
+///   cargo test --release -p ruvllm --test real_model_test test_qwen_generation -- --ignored --nocapture
+/// ```
+#[cfg(feature = "candle")]
 #[test]
 #[ignore = "Requires Qwen model file"]
 fn test_qwen_generation() {
+    use ruvllm::tokenizer::ChatMessage;
+    use ruvllm::{
+        CandleBackend, DeviceType, FinishReason, GenerateParams, LlmBackend, ModelArchitecture,
+        ModelConfig,
+    };
+
     let model_path = match skip_if_no_model(QWEN_PATTERNS, "Qwen") {
         Some(p) => p,
         None => return,
     };
+    let config = ModelConfig {
+        device: DeviceType::Cpu,
+        ..Default::default()
+    };
+    let mut backend = CandleBackend::with_device(DeviceType::Cpu).unwrap();
+    backend
+        .load_model(model_path.to_str().unwrap(), config)
+        .expect("Qwen GGUF should load");
+    let info = backend.model_info().unwrap();
+    assert_eq!(info.architecture, ModelArchitecture::Qwen);
+    println!(
+        "Loaded {} ({} layers, vocab {})",
+        info.name, info.num_layers, info.vocab_size
+    );
 
-    println!("Testing generation with Qwen: {}", model_path.display());
-    println!("Qwen generation test placeholder - implement with actual backend");
+    // Qwen3 thinks first unless told not to; it still emits an empty
+    // <think></think> pair, which counts against max_tokens.
+    let is_qwen3 = model_path.file_name().map_or(false, |n| {
+        n.to_string_lossy().to_lowercase().contains("qwen3")
+    });
+    let mut question = "What is the capital of France? Answer in one word.".to_string();
+    if is_qwen3 {
+        question.push_str(" /no_think");
+    }
+    let prompt = backend
+        .apply_chat_template(&[ChatMessage::user(question)])
+        .expect("Qwen GGUF should get a chat template");
+    assert!(prompt.starts_with("<|im_start|>user\n"), "{prompt:?}");
+
+    let params = GenerateParams::default()
+        .with_max_tokens(if is_qwen3 { 64 } else { 32 })
+        .with_temperature(0.0)
+        .with_seed(0);
+    let mut streamed = String::new();
+    let start = std::time::Instant::now();
+    let out = backend
+        .generate_detailed(&prompt, params.clone(), &mut |t| {
+            streamed.push_str(&t.text);
+            true
+        })
+        .expect("generation should succeed");
+    println!("prompt:   {prompt:?}");
+    println!("output:   {out:?}");
+    println!("elapsed:  {:?}", start.elapsed());
+
+    assert_eq!(
+        streamed, out.text,
+        "streamed deltas must add up to the text"
+    );
+    assert!(
+        out.text.contains("Paris"),
+        "expected Paris, got {:?}",
+        out.text
+    );
+    assert_eq!(out.finish_reason, FinishReason::EndOfSequence);
+    let tokenizer = backend.tokenizer().unwrap();
+    assert_eq!(out.prompt_tokens, tokenizer.encode(&prompt).unwrap().len());
+    assert!(out.completion_tokens >= 2 && out.completion_tokens < params.max_tokens);
+    assert!(!out.text.contains("<|im_end|>") && !out.text.contains("user"));
+
+    // A second request on the same backend must not see the first one's KV cache.
+    let again = backend.generate(&prompt, params).unwrap();
+    assert_eq!(again, out.text);
 }
 
-/// Test Qwen multilingual capability
+/// The tokenizer built from GGUF metadata must produce the same ids as the
+/// model's `tokenizer.json` (here Qwen2.5's, whose pre-tokenizer differs from
+/// GPT-2's on digits, whitespace runs and Unicode).
+///
+/// ```bash
+/// TEST_MODEL_PATH=/path/qwen2.5-0.5b-instruct-q4_k_m.gguf \
+/// TEST_TOKENIZER_JSON=~/.cache/huggingface/hub/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/<rev>/tokenizer.json \
+///   cargo test --release -p ruvllm --test real_model_test test_qwen_embedded_tokenizer -- --ignored --nocapture
+/// ```
+#[cfg(feature = "candle")]
+#[test]
+#[ignore = "Requires a Qwen GGUF and its tokenizer.json"]
+fn test_qwen_embedded_tokenizer_matches_tokenizer_json() {
+    use ruvllm::{CandleBackend, DeviceType, LlmBackend, ModelConfig};
+
+    let (Some(model_path), Ok(json)) = (
+        skip_if_no_model(QWEN_PATTERNS, "Qwen"),
+        env::var("TEST_TOKENIZER_JSON"),
+    ) else {
+        println!("SKIPPED: set TEST_MODEL_PATH and TEST_TOKENIZER_JSON");
+        return;
+    };
+    let mut backend = CandleBackend::with_device(DeviceType::Cpu).unwrap();
+    let config = ModelConfig {
+        device: DeviceType::Cpu,
+        ..Default::default()
+    };
+    backend
+        .load_model(model_path.to_str().unwrap(), config)
+        .unwrap();
+    let embedded = backend.tokenizer().unwrap();
+    let reference = tokenizers::Tokenizer::from_file(&json).unwrap();
+
+    let samples = [
+        "In 2024, (hello) 12345\n\nworld",
+        "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\nWhat is the capital of France? Answer in one word.<|im_end|>\n<|im_start|>assistant\n",
+        "Hello world! How's it going? I'M fine, they'll see.",
+        "  leading spaces\ttabs\r\nand   runs    of  spaces  \n\n\n",
+        "Cafe\u{301} naïve 日本語のテキスト 😀 Ünïcödé",
+        "fn main() { println!(\"{}\", 3.14159 * 2); }",
+        "<tool_call>{\"name\": \"get_weather\"}</tool_call>",
+    ];
+    for s in samples {
+        let ours = embedded.encode(s).unwrap();
+        let theirs = reference.encode(s, false).unwrap().get_ids().to_vec();
+        println!("{} tokens: {s:?}", ours.len());
+        assert_eq!(ours, theirs, "token ids differ for {s:?}");
+    }
+}
+
+/// Multilingual output streams whole characters: CJK characters span
+/// several byte-level tokens, so deltas must never carry a partial UTF-8
+/// sequence (U+FFFD) and must add up to the final text.
+#[cfg(feature = "candle")]
 #[test]
 #[ignore = "Requires Qwen model file"]
 fn test_qwen_multilingual() {
+    use ruvllm::tokenizer::ChatMessage;
+    use ruvllm::{CandleBackend, DeviceType, GenerateParams, LlmBackend, ModelConfig};
+
     let model_path = match skip_if_no_model(QWEN_PATTERNS, "Qwen") {
         Some(p) => p,
         None => return,
     };
+    let mut backend = CandleBackend::with_device(DeviceType::Cpu).unwrap();
+    let config = ModelConfig {
+        device: DeviceType::Cpu,
+        ..Default::default()
+    };
+    backend
+        .load_model(model_path.to_str().unwrap(), config)
+        .unwrap();
 
-    println!("Testing multilingual with Qwen: {}", model_path.display());
-
-    // Qwen is known for good multilingual support
-    let _prompts = [
-        "Hello, how are you today?",      // English
-        "Bonjour, comment allez-vous?",   // French
-        "Hallo, wie geht es Ihnen?",      // German
-        "Translate 'hello' to Chinese: ", // Translation task
-    ];
-
-    println!("Qwen multilingual test placeholder - implement with actual backend");
+    let prompt = backend
+        .apply_chat_template(&[ChatMessage::user(
+            "Translate 'good morning, my friend' into Chinese. Reply with the translation only. /no_think",
+        )])
+        .unwrap();
+    let mut deltas = Vec::new();
+    let out = backend
+        .generate_detailed(
+            &prompt,
+            GenerateParams::default()
+                .with_max_tokens(48)
+                .with_temperature(0.0),
+            &mut |t| {
+                deltas.push(t.text.clone());
+                true
+            },
+        )
+        .unwrap();
+    println!("output: {out:?}");
+    println!("deltas: {deltas:?}");
+    assert_eq!(deltas.concat(), out.text);
+    assert!(deltas.iter().all(|d| !d.contains('\u{FFFD}')), "{deltas:?}");
+    assert!(
+        out.text
+            .chars()
+            .any(|c| ('\u{4E00}'..='\u{9FFF}').contains(&c)),
+        "expected CJK output, got {:?}",
+        out.text
+    );
 }
 
 // ============================================================================

@@ -65,6 +65,7 @@ ruvector-hnsw-repair = { path = "../ruvector-hnsw-repair", optional = true }
 hdf5 = { version = "0.8", optional = true }           # ANN-Benchmarks HDF5 format
 reqwest = { version = "0.12", features = ["blocking", "json"], optional = true }
 flate2 = { version = "1.0", optional = true }           # .gz dataset downloads
+ndarray = { version = "0.15", optional = true }
 
 # Benchmark infrastructure
 clap = { version = "4", features = ["derive"] }
@@ -86,7 +87,7 @@ default = ["synthetic-only"]
 synthetic-only = []
 
 # Download + load real ANN-Benchmarks datasets (SIFT-128, GloVe-25/100, Deep96)
-real-datasets = ["dep:hdf5", "dep:reqwest", "dep:flate2"]
+real-datasets = ["dep:hdf5", "dep:reqwest", "dep:flate2", "dep:ndarray"]
 
 # Enable all research index crates
 all-indexes = [

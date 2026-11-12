@@ -1,22 +1,25 @@
 [package]
 name = "rvagent-cli"
-version = "0.1.0"
+version = "0.1.2"
 edition = "2021"
 description = "rvAgent CLI — terminal coding agent with TUI, session management, MCP tools"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/ruvnet/RuVector"
+repository = "https://github.com/ruvnet/ruvector"
+homepage = "https://ruv.io"
+readme = "README.md"
+keywords = ["agent", "cli", "coding-agent", "mcp", "ruvector"]
 
 [[bin]]
 name = "rvagent"
 path = "src/main.rs"
 
 [dependencies]
-rvagent-core = { path = "../rvagent-core" }
-rvagent-backends = { path = "../rvagent-backends" }
-rvagent-middleware = { path = "../rvagent-middleware" }
-rvagent-tools = { path = "../rvagent-tools" }
-rvagent-subagents = { path = "../rvagent-subagents" }
-rvagent-a2a = { path = "../rvagent-a2a" }
+rvagent-core = { version = "0.1.0", path = "../rvagent-core" }
+rvagent-backends = { version = "0.1.0", path = "../rvagent-backends" }
+rvagent-middleware = { version = "0.1.0", path = "../rvagent-middleware" }
+rvagent-tools = { version = "0.1.0", path = "../rvagent-tools" }
+rvagent-subagents = { version = "0.1.0", path = "../rvagent-subagents" }
+rvagent-a2a = { version = "0.1.1", path = "../rvagent-a2a" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["signal", "process", "time", "io-util", "io-std", "fs", "net"] }
@@ -30,8 +33,8 @@ clap = { workspace = true }
 console = { workspace = true }
 indicatif = { workspace = true }
 async-trait = "0.1"
-crossterm = "0.28"
-ratatui = "0.29"
+crossterm = "0.29"
+ratatui = "0.30"
 dirs = "5.0"
 aes-gcm = "0.10"
 rand = "0.8"

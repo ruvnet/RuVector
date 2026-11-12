@@ -1,0 +1,29 @@
+{
+  "application_code_auto_promotable": false,
+  "authority": "governed",
+  "autogenous_commit": "905aa6cbe213392f8b3cab5d4f17bc3a48e0a509",
+  "candidate_fitness_evaluated": false,
+  "deployment_gate_pass": false,
+  "limitations": [
+    "Synthetic fitness vectors only establish hard AND semantics.",
+    "No physical safety or latency fitness was invented."
+  ],
+  "mutation_admissible": true,
+  "negative_admission_gates": {
+    "authority_expansion": "AuthorityExpansion { requested: Constitutional, ceiling: Governed }",
+    "authority_insufficient": "AuthorityInsufficient { requested: AutoReversible, required: Governed }",
+    "expired": "Expired",
+    "invariant_regressed": "InvariantRegressed(\"sequential query replies unchanged\")",
+    "no_rollback": "NoRollback",
+    "parent_mismatch": "ParentMismatch"
+  },
+  "schema": 1,
+  "synthetic_hard_gate_negatives": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ]
+}

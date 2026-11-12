@@ -1,0 +1,99 @@
+{
+  "date": "2026-09-21",
+  "fixtures": 100,
+  "int8_tract_0_23": [
+    {
+      "model": "bge-small-en-v1.5",
+      "outcome": "FailedOptimize: Failed analyse for node #563 \"/Unsqueeze\" AddDims"
+    },
+    {
+      "model": "all-MiniLM-L6-v2",
+      "outcome": "FailedOptimize: Failed analyse for node #293 \"/Unsqueeze\" AddDims"
+    }
+  ],
+  "ort_version": "2.0.0-rc.13",
+  "parity": [
+    {
+      "min_cosine_ort_vs_tract": 0.9999991059303284,
+      "model": "bge-small-en-v1.5",
+      "precision": "fp32",
+      "texts": 50
+    },
+    {
+      "min_cosine_ort_vs_tract": 0.9999992847442627,
+      "model": "all-MiniLM-L6-v2",
+      "precision": "fp32",
+      "texts": 50
+    }
+  ],
+  "parity_texts": 50,
+  "results": [
+    {
+      "backend": "ort",
+      "batch1_ms_per_embed": 6.491861709999999,
+      "batch32_ms_per_embed": 5.80822536,
+      "model": "bge-small-en-v1.5",
+      "note": null,
+      "precision": "fp32"
+    },
+    {
+      "backend": "tract",
+      "batch1_ms_per_embed": 6.063670630000001,
+      "batch32_ms_per_embed": 7.76072895,
+      "model": "bge-small-en-v1.5",
+      "note": null,
+      "precision": "fp32"
+    },
+    {
+      "backend": "ort",
+      "batch1_ms_per_embed": 2.4184939799999996,
+      "batch32_ms_per_embed": 2.59159601,
+      "model": "bge-small-en-v1.5",
+      "note": null,
+      "precision": "int8"
+    },
+    {
+      "backend": "tract",
+      "batch1_ms_per_embed": null,
+      "batch32_ms_per_embed": null,
+      "model": "bge-small-en-v1.5",
+      "note": "FailedOptimize: Failed analyse for node #563 \"/Unsqueeze\" AddDims",
+      "precision": "int8"
+    },
+    {
+      "backend": "ort",
+      "batch1_ms_per_embed": 14.00436494,
+      "batch32_ms_per_embed": 14.19681806,
+      "model": "all-MiniLM-L6-v2",
+      "note": null,
+      "precision": "fp32"
+    },
+    {
+      "backend": "tract",
+      "batch1_ms_per_embed": 14.82992681,
+      "batch32_ms_per_embed": 15.095434939999997,
+      "model": "all-MiniLM-L6-v2",
+      "note": null,
+      "precision": "fp32"
+    },
+    {
+      "backend": "ort",
+      "batch1_ms_per_embed": 6.36241533,
+      "batch32_ms_per_embed": 7.4475725399999995,
+      "model": "all-MiniLM-L6-v2",
+      "note": null,
+      "precision": "int8"
+    },
+    {
+      "backend": "tract",
+      "batch1_ms_per_embed": null,
+      "batch32_ms_per_embed": null,
+      "model": "all-MiniLM-L6-v2",
+      "note": "FailedOptimize: Failed analyse for node #293 \"/Unsqueeze\" AddDims",
+      "precision": "int8"
+    }
+  ],
+  "single_thread": true,
+  "spike": "ruvector-embed-core ort/tract embedder (ADR-002)",
+  "tract_version": "0.23"
+}

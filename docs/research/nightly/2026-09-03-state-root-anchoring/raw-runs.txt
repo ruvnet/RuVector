@@ -1,0 +1,200 @@
+Raw output, 3 repeated process runs, unedited apart from stripping cargo's
+own build-progress lines (workspace member profile warnings and the
+"Compiling"/"Finished"/"Running" lines cargo prints before the program's
+own stdout). Command for each run:
+
+  cargo run --release -p ruvector-retrieval-receipt --bin benchmark -- 5000 128 10 200
+
+Hardware: 4 logical CPUs, rustc 1.94.1 (e408947bf 2026-03-25), cargo
+1.94.1 (29ea6fb6a 2026-03-24), release profile. Same hardware/toolchain as
+the 2026-08-31 nightly run this one extends.
+
+===== RUN 1 =====
+=== ruvector-retrieval-receipt benchmark ===
+n=5000 dims=128 k=10 queries=200 tamper_trials_per_kind=50
+hardware: 4 logical CPUs (see `nproc`), rustc build profile: release-required for meaningful numbers
+ingest: 5000 vectors in 6.550 ms (763.4 writes/ms), index_state_root non-zero: true
+
+baseline brute-force search: mean=645023ns p95=749551ns over 200 queries
+
+variant               gen_mean_ns     gen_p95_ns  verify_worst_ns    proof_bytes   total_bytes_mean    tamper_detect
+NoReceipt                      73             92                0              0                0.0              n/a
+PerResultReceipt             3972           4139             1710            320              640.0          200/200
+MerkleReceipt                4630           5022              837            160              352.0          200/200
+
+=== acceptance ===
+tamper detection 100% across all kinds: true
+merkle worst-case proof bytes (160) < per-result worst-case proof bytes (320): true
+generation overhead < 15% of baseline search: merkle=0.7% per_result=0.6% -> true
+
+ACCEPTANCE RESULT: ACCEPT
+
+=== signed anchoring benchmark (Ed25519 over MerkleReceipt roots) ===
+
+batch_size        sign_amort_ns    verify_naive_ns   verify_cached_ns sig_verify_once_ns    proof_bytes    tamper_detect
+1                       22035.1              50460                273              47438            170          100/100
+8                        3351.1              50456                677              51936            266          150/150
+32                       1094.4              50456                883              46169            330          150/150
+128                       522.5              46325               1180              43040            394          150/150
+
+=== signed anchoring acceptance ===
+tamper detection 100% across all kinds and batch sizes: true
+amortized signing cost drops below 10% of per-query cost by batch=128: 2.4% -> true
+naive (uncached) per-query verify cost stays flat across batch sizes (batching does not help an uncaching verifier): true
+
+SIGNED ANCHORING ACCEPTANCE RESULT: ACCEPT
+
+=== state-anchor benchmark (periodic index_state_root anchoring, decoupled from any query) ===
+n=5000 writes, scope=index_root, tamper_trials_per_kind=40 (2 kinds)
+
+interval_writes   anchors_taken         expected      sign_amort_ns      max_stale     anchor_verify_ns    tamper_detect
+1                          5000             5000            17445.5              0                46575            80/80
+8                           625              625             2126.8              7                45317            80/80
+32                          156              156              562.5             31                45953            80/80
+128                          39               39              141.1            127                43996            80/80
+512                           9                9               32.7            511                46756            80/80
+
+=== state-anchor acceptance ===
+anchor count matches n/interval_writes exactly at every interval: true
+max staleness equals interval_writes-1 exactly at every interval: true
+tamper detection 100% across all kinds and intervals: true
+O(1) anchor-verify cost stays within 2x across intervals (independent of n or W): true
+amortized signing cost drops below 10% of per-write (interval=1) cost by interval=512: 0.2% -> true
+
+STATE-ANCHOR ACCEPTANCE RESULT: ACCEPT
+
+=== full write-chain re-derivation cost (verify_integrity), descriptive only, not gated ===
+         n verify_integrity_ns
+       625              87024
+      1250             173557
+      2500             342138
+      5000             653336
+     10000            1423028
+
+scaling: 16x more writes (625 -> 10000) costs 16.4x more verify_integrity time (87024ns -> 1423028ns); O(1) anchor verify above stays ~45719ns regardless of n or W
+===== RUN 2 =====
+=== ruvector-retrieval-receipt benchmark ===
+n=5000 dims=128 k=10 queries=200 tamper_trials_per_kind=50
+hardware: 4 logical CPUs (see `nproc`), rustc build profile: release-required for meaningful numbers
+ingest: 5000 vectors in 6.629 ms (754.3 writes/ms), index_state_root non-zero: true
+
+baseline brute-force search: mean=661403ns p95=832138ns over 200 queries
+
+variant               gen_mean_ns     gen_p95_ns  verify_worst_ns    proof_bytes   total_bytes_mean    tamper_detect
+NoReceipt                      81            134                0              0                0.0              n/a
+PerResultReceipt             4000           4729             1616            320              640.0          200/200
+MerkleReceipt                5306           5414              854            160              352.0          200/200
+
+=== acceptance ===
+tamper detection 100% across all kinds: true
+merkle worst-case proof bytes (160) < per-result worst-case proof bytes (320): true
+generation overhead < 15% of baseline search: merkle=0.8% per_result=0.6% -> true
+
+ACCEPTANCE RESULT: ACCEPT
+
+=== signed anchoring benchmark (Ed25519 over MerkleReceipt roots) ===
+
+batch_size        sign_amort_ns    verify_naive_ns   verify_cached_ns sig_verify_once_ns    proof_bytes    tamper_detect
+1                       23750.0              54163                355              50905            170          100/100
+8                        2799.0              49270                705              49862            266          150/150
+32                       1280.5              49613                905              45655            330          150/150
+128                       521.8              49143               1165              52945            394          150/150
+
+=== signed anchoring acceptance ===
+tamper detection 100% across all kinds and batch sizes: true
+amortized signing cost drops below 10% of per-query cost by batch=128: 2.2% -> true
+naive (uncached) per-query verify cost stays flat across batch sizes (batching does not help an uncaching verifier): true
+
+SIGNED ANCHORING ACCEPTANCE RESULT: ACCEPT
+
+=== state-anchor benchmark (periodic index_state_root anchoring, decoupled from any query) ===
+n=5000 writes, scope=index_root, tamper_trials_per_kind=40 (2 kinds)
+
+interval_writes   anchors_taken         expected      sign_amort_ns      max_stale     anchor_verify_ns    tamper_detect
+1                          5000             5000            18260.7              0                49766            80/80
+8                           625              625             2312.4              7                51213            80/80
+32                          156              156              582.7             31                50249            80/80
+128                          39               39              176.9            127                49798            80/80
+512                           9                9               35.5            511                47846            80/80
+
+=== state-anchor acceptance ===
+anchor count matches n/interval_writes exactly at every interval: true
+max staleness equals interval_writes-1 exactly at every interval: true
+tamper detection 100% across all kinds and intervals: true
+O(1) anchor-verify cost stays within 2x across intervals (independent of n or W): true
+amortized signing cost drops below 10% of per-write (interval=1) cost by interval=512: 0.2% -> true
+
+STATE-ANCHOR ACCEPTANCE RESULT: ACCEPT
+
+=== full write-chain re-derivation cost (verify_integrity), descriptive only, not gated ===
+         n verify_integrity_ns
+       625             116903
+      1250             186361
+      2500             364209
+      5000             707374
+     10000            1405335
+
+scaling: 16x more writes (625 -> 10000) costs 12.0x more verify_integrity time (116903ns -> 1405335ns); O(1) anchor verify above stays ~49774ns regardless of n or W
+===== RUN 3 =====
+=== ruvector-retrieval-receipt benchmark ===
+n=5000 dims=128 k=10 queries=200 tamper_trials_per_kind=50
+hardware: 4 logical CPUs (see `nproc`), rustc build profile: release-required for meaningful numbers
+ingest: 5000 vectors in 6.331 ms (789.7 writes/ms), index_state_root non-zero: true
+
+baseline brute-force search: mean=641410ns p95=716037ns over 200 queries
+
+variant               gen_mean_ns     gen_p95_ns  verify_worst_ns    proof_bytes   total_bytes_mean    tamper_detect
+NoReceipt                      73             92                0              0                0.0              n/a
+PerResultReceipt             4527           4440             1694            320              640.0          200/200
+MerkleReceipt                4862           5826              902            160              352.0          200/200
+
+=== acceptance ===
+tamper detection 100% across all kinds: true
+merkle worst-case proof bytes (160) < per-result worst-case proof bytes (320): true
+generation overhead < 15% of baseline search: merkle=0.8% per_result=0.7% -> true
+
+ACCEPTANCE RESULT: ACCEPT
+
+=== signed anchoring benchmark (Ed25519 over MerkleReceipt roots) ===
+
+batch_size        sign_amort_ns    verify_naive_ns   verify_cached_ns sig_verify_once_ns    proof_bytes    tamper_detect
+1                       21232.5              53031                198              51683            170          100/100
+8                        3130.5              50377                570              49116            266          150/150
+32                       1048.8              53802                888              52470            330          150/150
+128                       548.9              50910               1126              48280            394          150/150
+
+=== signed anchoring acceptance ===
+tamper detection 100% across all kinds and batch sizes: true
+amortized signing cost drops below 10% of per-query cost by batch=128: 2.6% -> true
+naive (uncached) per-query verify cost stays flat across batch sizes (batching does not help an uncaching verifier): true
+
+SIGNED ANCHORING ACCEPTANCE RESULT: ACCEPT
+
+=== state-anchor benchmark (periodic index_state_root anchoring, decoupled from any query) ===
+n=5000 writes, scope=index_root, tamper_trials_per_kind=40 (2 kinds)
+
+interval_writes   anchors_taken         expected      sign_amort_ns      max_stale     anchor_verify_ns    tamper_detect
+1                          5000             5000            18012.6              0                48966            80/80
+8                           625              625             2216.9              7                47046            80/80
+32                          156              156              582.6             31                47498            80/80
+128                          39               39              143.1            127                47615            80/80
+512                           9                9               32.0            511                47997            80/80
+
+=== state-anchor acceptance ===
+anchor count matches n/interval_writes exactly at every interval: true
+max staleness equals interval_writes-1 exactly at every interval: true
+tamper detection 100% across all kinds and intervals: true
+O(1) anchor-verify cost stays within 2x across intervals (independent of n or W): true
+amortized signing cost drops below 10% of per-write (interval=1) cost by interval=512: 0.2% -> true
+
+STATE-ANCHOR ACCEPTANCE RESULT: ACCEPT
+
+=== full write-chain re-derivation cost (verify_integrity), descriptive only, not gated ===
+         n verify_integrity_ns
+       625              92653
+      1250             175662
+      2500             332684
+      5000             696892
+     10000            1391529
+
+scaling: 16x more writes (625 -> 10000) costs 15.0x more verify_integrity time (92653ns -> 1391529ns); O(1) anchor verify above stays ~47824ns regardless of n or W

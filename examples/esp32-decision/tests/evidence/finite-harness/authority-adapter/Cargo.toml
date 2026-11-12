@@ -1,0 +1,9 @@
+[package]
+name = "esp32-retention-authority"
+version = "0.1.0"
+edition = "2021"
+[dependencies]
+agl-types = { path = "../../../../build-finite/autogenous/crates/agl-types" }
+serde_json = "1"
+
+[workspace]

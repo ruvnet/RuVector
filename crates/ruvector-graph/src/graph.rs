@@ -8,7 +8,7 @@ use crate::node::Node;
 #[cfg(feature = "storage")]
 use crate::storage::GraphStorage;
 use crate::types::{EdgeId, NodeId, PropertyValue};
-use dashmap::DashMap;
+use dashmap::{mapref::entry::Entry, DashMap};
 #[cfg(feature = "storage")]
 use std::path::Path;
 use std::sync::Arc;
@@ -107,17 +107,28 @@ impl GraphDB {
     pub fn create_node(&self, node: Node) -> Result<NodeId> {
         let id = node.id.clone();
 
-        // Update indexes
-        self.label_index.add_node(&node);
-        self.property_index.add_node(&node);
+        // Serialize replacement of one ID, preserving its existing upsert behavior.
+        let entry = self.nodes.entry(id.clone());
 
-        // Insert into memory
-        self.nodes.insert(id.clone(), node.clone());
-
-        // Persist to storage if available
+        // A storage error must not change live objects or their index memberships.
         #[cfg(feature = "storage")]
         if let Some(storage) = &self.storage {
             storage.insert_node(&node)?;
+        }
+
+        if let Entry::Occupied(ref occupied) = entry {
+            self.label_index.remove_node(occupied.get());
+            self.property_index.remove_node(occupied.get());
+        }
+        self.label_index.add_node(&node);
+        self.property_index.add_node(&node);
+        match entry {
+            Entry::Occupied(mut occupied) => {
+                occupied.insert(node);
+            }
+            Entry::Vacant(vacant) => {
+                vacant.insert(node);
+            }
         }
 
         Ok(id)
@@ -274,6 +285,22 @@ impl GraphDB {
             .collect()
     }
 
+    /// Get every node in the graph.
+    ///
+    /// This is a full scan of the node map — it backs the label-less Cypher
+    /// pattern `MATCH (n)`, which has no index to consult by definition.
+    pub fn all_nodes(&self) -> Vec<Node> {
+        self.nodes.iter().map(|e| e.value().clone()).collect()
+    }
+
+    /// Get every edge in the graph.
+    ///
+    /// Full scan, for the same reason as [`GraphDB::all_nodes`]: a relationship
+    /// pattern with no type filter (`-[r]->`) cannot use the edge-type index.
+    pub fn all_edges(&self) -> Vec<Edge> {
+        self.edges.iter().map(|e| e.value().clone()).collect()
+    }
+
     /// Get nodes by property
     pub fn get_nodes_by_property(&self, key: &str, value: &PropertyValue) -> Vec<Node> {
         self.property_index
@@ -296,17 +323,28 @@ impl GraphDB {
             ));
         }
 
-        // Update indexes
-        self.edge_type_index.add_edge(&edge);
-        self.adjacency_index.add_edge(&edge);
+        // Serialize replacement of one ID, preserving its existing upsert behavior.
+        let entry = self.edges.entry(id.clone());
 
-        // Insert into memory
-        self.edges.insert(id.clone(), edge.clone());
-
-        // Persist to storage if available
+        // A storage error must not change live objects or their index memberships.
         #[cfg(feature = "storage")]
         if let Some(storage) = &self.storage {
             storage.insert_edge(&edge)?;
+        }
+
+        if let Entry::Occupied(ref occupied) = entry {
+            self.edge_type_index.remove_edge(occupied.get());
+            self.adjacency_index.remove_edge(occupied.get());
+        }
+        self.edge_type_index.add_edge(&edge);
+        self.adjacency_index.add_edge(&edge);
+        match entry {
+            Entry::Occupied(mut occupied) => {
+                occupied.insert(edge);
+            }
+            Entry::Vacant(vacant) => {
+                vacant.insert(edge);
+            }
         }
 
         Ok(id)
@@ -317,47 +355,51 @@ impl GraphDB {
         self.edges.get(id.as_ref()).map(|entry| entry.clone())
     }
 
-    /// Delete an edge
+    /// Delete an edge.
+    ///
+    /// Disk-first: the deletion is persisted before memory and indexes change,
+    /// so a storage failure returns `Err` and leaves the graph coherent. The
+    /// entry stays locked across the storage call, as in `create_edge`, so a
+    /// concurrent replacement of the same ID cannot desynchronize the indexes.
     pub fn delete_edge(&self, id: impl AsRef<str>) -> Result<bool> {
-        if let Some((_, edge)) = self.edges.remove(id.as_ref()) {
-            // Update indexes
-            self.edge_type_index.remove_edge(&edge);
-            self.adjacency_index.remove_edge(&edge);
+        let key = id.as_ref();
+        let Entry::Occupied(occupied) = self.edges.entry(key.to_string()) else {
+            return Ok(false);
+        };
 
-            // Delete from storage if available
-            #[cfg(feature = "storage")]
-            if let Some(storage) = &self.storage {
-                storage.delete_edge(id.as_ref())?;
-            }
-
-            Ok(true)
-        } else {
-            Ok(false)
+        #[cfg(feature = "storage")]
+        if let Some(storage) = &self.storage {
+            storage.delete_edge(key)?;
         }
+
+        let edge = occupied.remove();
+        self.edge_type_index.remove_edge(&edge);
+        self.adjacency_index.remove_edge(&edge);
+
+        Ok(true)
     }
 
-    /// Delete multiple edges (batch)
+    /// Delete multiple edges (batch).
+    ///
+    /// Disk-first: persists the deletion before mutating in-memory state so a
+    /// storage failure leaves memory and indexes untouched (caller sees an
+    /// `Err` and the graph is still coherent).
     pub fn delete_edges_batch(&self, ids: &[impl AsRef<str>]) -> Result<usize> {
-        let mut deleted = 0;
-        let mut edges_to_update = Vec::with_capacity(ids.len());
-
-        for id in ids {
-            let key: &str = id.as_ref();
-            if let Some((_, edge)) = self.edges.remove(key) {
-                edges_to_update.push(edge);
-                deleted += 1;
-            }
-        }
-
-        for edge in &edges_to_update {
-            self.edge_type_index.remove_edge(edge);
-            self.adjacency_index.remove_edge(edge);
-        }
-
         #[cfg(feature = "storage")]
         if let Some(storage) = &self.storage {
             let str_ids = ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>();
             storage.delete_edges_batch(&str_ids)?;
+        }
+
+        // Persist succeeded: remove from memory, then drop exactly the removed
+        // values from the indexes.
+        let mut deleted = 0;
+        for id in ids {
+            if let Some((_, edge)) = self.edges.remove(id.as_ref()) {
+                self.edge_type_index.remove_edge(&edge);
+                self.adjacency_index.remove_edge(&edge);
+                deleted += 1;
+            }
         }
 
         Ok(deleted)
@@ -435,16 +477,26 @@ impl GraphDB {
             }
         }
 
-        // Update index
-        self.hyperedge_node_index.add_hyperedge(&hyperedge);
+        // Serialize replacement of one ID, preserving its existing upsert behavior.
+        let entry = self.hyperedges.entry(id.clone());
 
-        // Insert into memory
-        self.hyperedges.insert(id.clone(), hyperedge.clone());
-
-        // Persist to storage if available
+        // A storage error must not change live objects or their index memberships.
         #[cfg(feature = "storage")]
         if let Some(storage) = &self.storage {
             storage.insert_hyperedge(&hyperedge)?;
+        }
+
+        if let Entry::Occupied(ref occupied) = entry {
+            self.hyperedge_node_index.remove_hyperedge(occupied.get());
+        }
+        self.hyperedge_node_index.add_hyperedge(&hyperedge);
+        match entry {
+            Entry::Occupied(mut occupied) => {
+                occupied.insert(hyperedge);
+            }
+            Entry::Vacant(vacant) => {
+                vacant.insert(hyperedge);
+            }
         }
 
         Ok(id)

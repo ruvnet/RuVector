@@ -1,5 +1,9 @@
 //! DiskANN index — ties together Vamana graph, PQ, and mmap persistence
 
+// Lint suggests `as_chunks`, stable only since Rust 1.88 — past the declared
+// `rust-version = "1.77"`. `unknown_lints` keeps older toolchains quiet.
+#![allow(unknown_lints, clippy::chunks_exact_to_as_chunks)]
+
 use crate::distance::{l2_squared, FlatVectors, VisitedSet};
 use crate::error::{DiskAnnError, Result};
 use crate::graph::VamanaGraph;
@@ -392,6 +396,9 @@ impl DiskAnnIndex {
                     f.write_all(&n.to_le_bytes())?;
                 }
             }
+        } else {
+            // Unbuilt: still write a well-formed, empty header (medoid 0, 0 nodes).
+            f.write_all(&[0u8; 16])?;
         }
         f.flush()?;
 
@@ -472,12 +479,24 @@ impl DiskAnnIndex {
             serde_json::from_str(&fs::read_to_string(dir.join("config.json"))?)
                 .map_err(|e| DiskAnnError::Serialization(e.to_string()))?;
 
-        let dim = config_json["dim"].as_u64().unwrap() as usize;
-        let max_degree = config_json["max_degree"].as_u64().unwrap() as usize;
-        let build_beam = config_json["build_beam"].as_u64().unwrap() as usize;
-        let search_beam = config_json["search_beam"].as_u64().unwrap() as usize;
-        let alpha = config_json["alpha"].as_f64().unwrap() as f32;
+        let field = |name: &str| {
+            config_json[name]
+                .as_u64()
+                .map(|v| v as usize)
+                .ok_or_else(|| {
+                    DiskAnnError::Serialization(format!("config.json: missing or invalid `{name}`"))
+                })
+        };
+        let dim = field("dim")?;
+        let max_degree = field("max_degree")?;
+        let build_beam = field("build_beam")?;
+        let search_beam = field("search_beam")?;
+        let alpha = config_json["alpha"].as_f64().ok_or_else(|| {
+            DiskAnnError::Serialization("config.json: missing or invalid `alpha`".to_string())
+        })? as f32;
         let pq_subspaces = config_json["pq_subspaces"].as_u64().unwrap_or(0) as usize;
+        // Releases before this field existed only saved built indexes.
+        let built = config_json["built"].as_bool().unwrap_or(true);
 
         let config = DiskAnnConfig {
             dim,
@@ -619,47 +638,47 @@ impl DiskAnnIndex {
         }
 
         // Load graph
-        let graph_bytes = fs::read(dir.join("graph.bin"))?;
-        let medoid = u64::from_le_bytes(graph_bytes[0..8].try_into().unwrap()) as u32;
-        let graph_n = u64::from_le_bytes(graph_bytes[8..16].try_into().unwrap()) as usize;
-
-        let mut neighbors = Vec::with_capacity(graph_n);
-        let mut offset = 16;
-        for _ in 0..graph_n {
-            let deg =
-                u32::from_le_bytes(graph_bytes[offset..offset + 4].try_into().unwrap()) as usize;
-            offset += 4;
-            let mut nbrs = Vec::with_capacity(deg);
-            for _ in 0..deg {
-                let nbr = u32::from_le_bytes(graph_bytes[offset..offset + 4].try_into().unwrap());
-                offset += 4;
-                nbrs.push(nbr);
-            }
-            neighbors.push(nbrs);
-        }
-
-        let graph = VamanaGraph {
-            neighbors,
-            medoid,
-            max_degree,
-            build_beam,
-            alpha,
+        // An index saved before build() has no usable graph; load it unbuilt so
+        // the caller can build() it, rather than trusting a stale adjacency.
+        let graph = if built {
+            let graph_bytes = fs::read(dir.join("graph.bin"))?;
+            Some(VamanaGraph::from_bytes(
+                &graph_bytes,
+                n,
+                max_degree,
+                build_beam,
+                alpha,
+            )?)
+        } else {
+            None
         };
 
         // Load PQ if present
         let pq_path = dir.join("pq.bin");
         let (pq, pq_codes) = if pq_path.exists() {
             let pq_bytes = fs::read(&pq_path)?;
+            // Bound bincode's up-front container allocations: without a limit a
+            // crafted length prefix requests petabytes and aborts the process.
+            let pq_config = bincode::config::standard().with_limit::<{ 1 << 30 }>();
             let (pq, _): (ProductQuantizer, usize) =
-                bincode::decode_from_slice(&pq_bytes, bincode::config::standard())
+                bincode::decode_from_slice(&pq_bytes, pq_config)
                     .map_err(|e| DiskAnnError::Serialization(e.to_string()))?;
+            let m = pq.m;
+            if m == 0 || pq.dim != dim || m.checked_mul(pq.dsub) != Some(dim) {
+                return Err(DiskAnnError::Serialization(format!(
+                    "pq.bin: m={m}, dsub={}, dim={} inconsistent with index dim {dim}",
+                    pq.dsub, pq.dim
+                )));
+            }
 
             let codes_bytes = fs::read(dir.join("pq_codes.bin"))?;
-            let m = pq.m;
-            let mut codes = Vec::with_capacity(n);
-            for i in 0..n {
-                codes.push(codes_bytes[i * m..(i + 1) * m].to_vec());
+            if n.checked_mul(m) != Some(codes_bytes.len()) {
+                return Err(DiskAnnError::Serialization(format!(
+                    "pq_codes.bin has {} bytes; expected {n} x {m}",
+                    codes_bytes.len()
+                )));
             }
+            let codes = codes_bytes.chunks_exact(m).map(<[u8]>::to_vec).collect();
             (Some(pq), codes)
         } else {
             (None, Vec::new())
@@ -672,10 +691,10 @@ impl DiskAnnIndex {
             id_reverse,
             tombstones,
             deleted_count,
-            graph: Some(graph),
+            graph,
             pq,
             pq_codes,
-            built: true,
+            built,
             visited_pool: Mutex::new(vec![VisitedSet::new(n)]),
         })
     }

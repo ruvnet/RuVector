@@ -1,5 +1,6 @@
 //! Core types for Tiny Dancer routing system
 
+use crate::voi::EstimatorSpec;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -105,6 +106,41 @@ impl Default for RoutingMetrics {
     }
 }
 
+/// Optional value-of-information gate for the escalation decision
+/// (PIR WP28, ADR-331; arXiv:2608.20316). When set, the lightweight-vs-
+/// powerful choice consults [`crate::voi::decide`]: the powerful model is
+/// modeled as a purchasable estimator, and it is invoked when the expected
+/// quality gain (priced by `value_of_success`) exceeds its cost. The gate is
+/// **escalate-only** — when no purchase is worth making it falls back to the
+/// `confidence_threshold` / `max_uncertainty` rule, so it can add
+/// escalations but never rescue a below-threshold candidate into the cheap
+/// model.
+///
+/// # Calibration hazard
+///
+/// VoI is bounded above by `s·φ(0) ≈ 0.399·σ`, and in this router `σ` is a
+/// conformal uncertainty on a `[0, 1]` score — typically `σ ≈ 0.05`, so the
+/// most any escalation can be worth is `value_of_success × ~0.02`. With
+/// `value_of_success = 1.0` **no escalation costing more than about $0.02 is
+/// ever purchasable at any score**, and the gate silently degenerates into a
+/// permanent never-escalate switch that still looks configured and healthy.
+/// `value_of_success` must therefore be set to the currency value of a
+/// *correct route* (what a good answer is worth, e.g. dollars of avoided
+/// rework), not left at a nominal 1.0. Sanity-check a candidate
+/// configuration with [`crate::voi::voi_upper_bound`]: if
+/// `value_of_success × voi_upper_bound(σ, τ)` is below `escalation.cost`,
+/// this gate will never fire.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct VoiGateConfig {
+    /// Currency value of one unit of routing utility. See the calibration
+    /// hazard above — this is the value of a correct route, not a nominal 1.
+    pub value_of_success: f64,
+    /// Currency price per microsecond of added latency.
+    pub latency_price: f64,
+    /// Cost/latency/noise model of escalating to the powerful model.
+    pub escalation: EstimatorSpec,
+}
+
 /// Configuration for the router
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RouterConfig {
@@ -122,6 +158,10 @@ pub struct RouterConfig {
     pub enable_quantization: bool,
     /// Database path for AgentDB
     pub database_path: Option<String>,
+    /// Optional VoI escalation gate (off by default; absent in older
+    /// serialized configs, hence `serde(default)`).
+    #[serde(default)]
+    pub voi: Option<VoiGateConfig>,
 }
 
 impl Default for RouterConfig {
@@ -134,6 +174,7 @@ impl Default for RouterConfig {
             circuit_breaker_threshold: 5,
             enable_quantization: true,
             database_path: None,
+            voi: None,
         }
     }
 }

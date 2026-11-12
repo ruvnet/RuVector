@@ -33,6 +33,17 @@ use uuid::Uuid;
 // State
 // ---------------------------------------------------------------------------
 
+/// Attach the shared system key to an `/internal/*` request, if configured.
+fn with_system_key(
+    req: reqwest::RequestBuilder,
+    system_key: Option<&str>,
+) -> reqwest::RequestBuilder {
+    match system_key {
+        Some(k) => req.header("authorization", format!("Bearer {k}")),
+        None => req,
+    }
+}
+
 /// Shared application state for the SSE proxy.
 #[derive(Clone)]
 struct AppState {
@@ -40,6 +51,12 @@ struct AppState {
     client: reqwest::Client,
     /// Base URL of the brain API (e.g. http://localhost:8080).
     brain_api_url: String,
+    /// Shared secret sent on `/internal/*` calls to the brain API.
+    ///
+    /// Read from `BRAIN_SYSTEM_KEY`. The brain API gates `/internal/*` on
+    /// this value; if it is set there and not here, the SSE transport stops
+    /// working, so the two services must be configured together.
+    system_key: Option<String>,
     /// Number of active SSE connections.
     active_connections: Arc<AtomicUsize>,
     /// Maximum allowed concurrent SSE connections.
@@ -117,12 +134,15 @@ async fn sse_handler(
 
     // Register session with the brain API
     let create_url = format!("{}/internal/session/create", state.brain_api_url);
-    if let Err(e) = state
-        .client
-        .post(&create_url)
-        .json(&serde_json::json!({ "session_id": &session_id }))
-        .send()
-        .await
+    if let Err(e) = with_system_key(
+        state
+            .client
+            .post(&create_url)
+            .json(&serde_json::json!({ "session_id": &session_id })),
+        state.system_key.as_deref(),
+    )
+    .send()
+    .await
     {
         tracing::error!(error = %e, "failed to create session on brain API");
         state.active_connections.fetch_sub(1, Ordering::SeqCst);
@@ -136,6 +156,8 @@ async fn sse_handler(
     let sid_for_cleanup = session_id.clone();
     let client_for_cleanup = state.client.clone();
     let api_for_cleanup = state.brain_api_url.clone();
+    let key_for_stream = state.system_key.clone();
+    let key_for_cleanup = state.system_key.clone();
 
     let stream = async_stream::stream! {
         // MCP protocol: first event is `endpoint` with the messages URL
@@ -164,7 +186,13 @@ async fn sse_handler(
             }
 
             // Poll the API drain endpoint for queued responses.
-            let resp = match client.get(&drain_url).send().await {
+            let resp = match with_system_key(
+                client.get(&drain_url),
+                key_for_stream.as_deref(),
+            )
+            .send()
+            .await
+            {
                 Ok(r) => r,
                 Err(e) => {
                     tracing::warn!(error = %e, "drain poll failed");
@@ -209,7 +237,12 @@ async fn sse_handler(
 
         // Clean up session on brain API
         let delete_url = format!("{}/internal/session/{}", api_for_cleanup, sid_for_cleanup);
-        let _ = client_for_cleanup.delete(&delete_url).send().await;
+        let _ = with_system_key(
+            client_for_cleanup.delete(&delete_url),
+            key_for_cleanup.as_deref(),
+        )
+        .send()
+        .await;
     };
 
     Sse::new(stream)
@@ -306,6 +339,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .pool_max_idle_per_host(20)
             .build()?,
         brain_api_url: brain_api_url.clone(),
+        system_key: std::env::var("BRAIN_SYSTEM_KEY")
+            .ok()
+            .filter(|k| !k.is_empty()),
         active_connections: Arc::new(AtomicUsize::new(0)),
         max_connections,
         shutdown_tx: shutdown_tx.clone(),

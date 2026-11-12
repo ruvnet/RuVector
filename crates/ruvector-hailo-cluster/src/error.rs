@@ -16,6 +16,10 @@ pub enum ClusterError {
     #[error("HailoClusterEmbedder requires at least one worker")]
     NoWorkers,
 
+    /// Complete ADR-281 embedding-space identity was absent or invalid.
+    #[error("embedding-space provenance error: {0}")]
+    EmbeddingProvenance(String),
+
     /// Iteration N hasn't landed for this code path.
     #[error("not yet implemented: {0}")]
     NotYetImplemented(
@@ -95,6 +99,7 @@ impl ClusterError {
                     || reason.contains("status: ResourceExhausted")
             }
             ClusterError::NoWorkers
+            | ClusterError::EmbeddingProvenance(_)
             | ClusterError::NotYetImplemented(_)
             | ClusterError::AllWorkersFailed(_) => false,
         }

@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ruvector.dev/schemas/optimization-manifest-v1.json",
+  "title": "ADR-335 repository optimization manifest",
+  "description": "A per-repository declaration of what is being optimized, what may be varied, what must not regress, and what it may cost. A per-experiment ADR-282 research manifest is derived from this document; this one is written once per repository, not once per run.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "repository", "objective", "benchmark", "levers",
+    "protected_invariants", "budget", "promotion"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "repository": { "type": "string", "minLength": 1 },
+    "objective": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "direction", "metric", "computed_by", "minimum_meaningful_effect"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "direction": { "enum": ["maximize", "minimize"] },
+        "metric": { "type": "string", "minLength": 1 },
+        "computed_by": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Where the metric is computed, so a reader can audit the objective rather than trust its name."
+        },
+        "minimum_meaningful_effect": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "benchmark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binary", "runner_sets", "isolated"],
+      "properties": {
+        "binary": { "type": "string", "minLength": 1 },
+        "runner_sets": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["core", "core-lsm", "all"] }
+        },
+        "isolated": {
+          "const": true,
+          "description": "Research artifacts require the isolated native runner; an injected benchmark adapter cannot emit them."
+        }
+      }
+    },
+    "levers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Tunable variables. Every name must also be accepted by the native runner's closed lever set, which the loader checks against benchmark.ts rather than trusting this enum alone.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": { "$ref": "#/$defs/lever_name" },
+          "values": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "bounds": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["minimum", "maximum"],
+            "properties": {
+              "minimum": { "type": "integer" },
+              "maximum": { "type": "integer" }
+            }
+          }
+        }
+      }
+    },
+    "protected_invariants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_veto_providers", "hard_regressions"],
+      "properties": {
+        "required_veto_providers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Veto providers that must be composed for a run to count. Vetoes are conjunctive: any provider can block promotion, none can rescue it."
+        },
+        "hard_regressions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Named regressions that block promotion outright, mirroring ruvectorPromotionRule's reason strings."
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cost_ceiling_factor", "max_generations", "wall_clock_seconds"],
+      "properties": {
+        "cost_ceiling_factor": { "type": "number", "exclusiveMinimum": 1 },
+        "max_generations": { "type": "integer", "minimum": 1 },
+        "wall_clock_seconds": { "type": "integer", "minimum": 1 },
+        "risk_budget_total": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "promotion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["comparison", "alpha", "outcome_rules", "pareto"],
+      "properties": {
+        "comparison": { "const": "paired" },
+        "alpha": { "const": 0.05 },
+        "outcome_rules": {
+          "const": {
+            "pass": "ci_lower_at_or_above_minimum_meaningful_effect",
+            "fail": "ci_upper_at_or_below_zero",
+            "inconclusive": "otherwise"
+          }
+        },
+        "pareto": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["objectives", "require_non_dominated"],
+          "properties": {
+            "objectives": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "direction"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 1 },
+                  "direction": { "enum": ["maximize", "minimize"] }
+                }
+              }
+            },
+            "require_non_dominated": {
+              "const": true,
+              "description": "A candidate dominated by the current frontier cannot be promoted. Expressed as a constant because a manifest must not be able to switch the frontier gate off."
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "lever_name": {
+      "enum": ["ef_search", "m", "ef_construction", "k", "runner_set"],
+      "description": "Kept in step with benchmark.ts POLICY_LEVERS by a drift test; the loader is the enforcing check."
+    }
+  }
+}

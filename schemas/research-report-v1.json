@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ruvector.dev/schemas/research-report-v1.json",
+  "title": "ADR-282 candidate research report",
+  "description": "Candidate-authored report. It is hashed into the attested artifact index, so its headline values are cross-checked against the trusted evaluation rather than trusted as written.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "candidate_commit", "manifest_revision", "manifest_sha256",
+    "results_sha256", "claim", "primary_metric", "outcome", "headline",
+    "per_seed_effects", "evidence_sections", "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "candidate_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "manifest_revision": { "type": "integer", "minimum": 1 },
+    "manifest_sha256": { "$ref": "#/$defs/sha256" },
+    "results_sha256": { "$ref": "#/$defs/sha256" },
+    "claim": { "type": "string", "minLength": 1 },
+    "primary_metric": { "type": "string", "minLength": 1 },
+    "outcome": { "enum": ["pass", "fail", "inconclusive"] },
+    "headline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "paired_effect_mean", "paired_effect_standard_deviation",
+        "confidence_interval_95", "minimum_meaningful_effect",
+        "worst_seed_effect", "seed_count", "maximum_primary_budget_delta"
+      ],
+      "properties": {
+        "paired_effect_mean": { "type": "number" },
+        "paired_effect_standard_deviation": { "type": "number", "minimum": 0 },
+        "confidence_interval_95": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "number" }
+        },
+        "minimum_meaningful_effect": { "type": "number", "exclusiveMinimum": 0 },
+        "worst_seed_effect": { "type": "number" },
+        "seed_count": { "type": "integer", "minimum": 5 },
+        "maximum_primary_budget_delta": { "type": "number", "minimum": 0 }
+      }
+    },
+    "per_seed_effects": {
+      "type": "array",
+      "minItems": 5,
+      "items": { "type": "number" }
+    },
+    "evidence_sections": {
+      "description": "ADR-282 §11 requires reports to separate measured results from inferences, hypotheses, and roadmap items.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measured", "inferred", "hypotheses", "roadmap"],
+      "properties": {
+        "measured": { "$ref": "#/$defs/statements" },
+        "inferred": { "$ref": "#/$defs/statements" },
+        "hypotheses": { "$ref": "#/$defs/statements" },
+        "roadmap": { "$ref": "#/$defs/statements" }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "failed_experiments": { "$ref": "#/$defs/statements" },
+    "exploratory_selection_history": { "$ref": "#/$defs/statements" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "statements": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

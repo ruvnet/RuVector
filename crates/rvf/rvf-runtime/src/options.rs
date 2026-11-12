@@ -6,6 +6,7 @@ use rvf_types::quality::{
     SearchEvidenceSummary,
 };
 use rvf_types::security::SecurityPolicy;
+use std::sync::{atomic::AtomicBool, Arc};
 
 /// Distance metric used for vector similarity search.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -85,6 +86,17 @@ impl Default for WitnessConfig {
     }
 }
 
+/// How a signature-checking open decides whether the signed state is fresh.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Freshness {
+    /// The caller accepts any validly signed state, including an older one
+    /// (authenticity only; rollback to an earlier signed state is undetected).
+    Unchecked,
+    /// Refuse a signed state whose manifest epoch is below this value
+    /// (`StreamStaleEpoch`).
+    MinEpoch(u32),
+}
+
 /// Options for creating a new RVF store.
 #[derive(Clone, Debug)]
 pub struct RvfOptions {
@@ -108,6 +120,25 @@ pub struct RvfOptions {
     pub witness: WitnessConfig,
     /// Security policy for manifest signature verification (ADR-033 §4).
     pub security_policy: SecurityPolicy,
+    /// Ed25519 public keys the open path trusts for Level-0 root signatures
+    /// (ADR-033 section 4). Consulted by `open_with_policy`/`open_with_options`/
+    /// `open_signed`; with an empty list every signature-checking policy
+    /// refuses signed files as `UnknownSigner`.
+    pub trusted_signers: Vec<[u8; 32]>,
+    /// Freshness choice (F3-02, F4-04). REQUIRED for every signature-checking
+    /// open (`Strict`/`Paranoid`): `None` is refused with
+    /// `ErrorCode::FreshnessRequired`. A signed page proves authenticity, not
+    /// freshness; only `Freshness::MinEpoch` (or an external pin) detects
+    /// rollback to an older validly signed state.
+    pub freshness: Option<Freshness>,
+    /// Serve the signed state even though a newer parseable manifest exists
+    /// beyond the signed page (an unsigned tail: an interrupted commit, a
+    /// planted manifest, or a rollback by page swap). ANY bytes between the signed
+    /// manifest and the page count, parseable or not (a damaged newer manifest
+    /// must not hide itself).
+    /// opens and reports the ignored manifest through
+    /// `RvfStore::newer_manifest_ignored`.
+    pub serve_signed_prefix: bool,
 }
 
 impl Default for RvfOptions {
@@ -123,6 +154,9 @@ impl Default for RvfOptions {
             ef_construction: 200,
             witness: WitnessConfig::default(),
             security_policy: SecurityPolicy::Strict,
+            trusted_signers: Vec::new(),
+            freshness: None,
+            serve_signed_prefix: false,
         }
     }
 }
@@ -133,6 +167,15 @@ pub struct QueryOptions {
     /// HNSW ef_search parameter (beam width during search).
     pub ef_search: u16,
     /// Optional metadata filter expression.
+    ///
+    /// When the filter matches a large share of the store, a filtered query
+    /// runs a predicate-aware HNSW walk, but only if the graph itself
+    /// measures at least 0.95 recall@10 at the query's `ef` (a one-off
+    /// calibration against the exact scan, cached on the index). Graphs
+    /// that measure lower (e.g. high intrinsic-dimension data) and small
+    /// match sets are scanned exactly. `QualityPreference::PreferLatency` /
+    /// `AcceptDegraded` skip the calibration gate and always take the walk.
+    /// Set [`QueryOptions::force_exact`] to always get exact results.
     pub filter: Option<FilterExpr>,
     /// Query timeout in milliseconds (0 = no timeout).
     pub timeout_ms: u32,
@@ -147,8 +190,8 @@ pub struct QueryOptions {
     /// Opt in to the RaBitQ two-stage path: a 1-bit-code candidate scan
     /// (~32x smaller than f32) followed by an exact f32 rescore of the
     /// oversampled candidates. Default `false` (full-precision HNSW /
-    /// exact scan). v1 serves the L2 metric only; other metrics and
-    /// filtered/COW queries fall back to the default routing.
+    /// exact scan). Serves L2, cosine and inner product; filtered/COW
+    /// queries fall back to the default routing.
     pub rabitq: bool,
     /// Candidate oversampling factor for the RaBitQ first stage: the
     /// binary scan collects `rabitq_oversample * k` candidates (floored
@@ -156,6 +199,19 @@ pub struct QueryOptions {
     /// the 10k x 128 benchmark) before the exact rescore. Values below 1
     /// are treated as 1.
     pub rabitq_oversample: u16,
+    /// Maximum records evaluated by linear metadata fallback.
+    pub metadata_filter_max_records: u64,
+    /// Maximum estimated decoded metadata bytes evaluated by fallback.
+    pub metadata_filter_max_bytes: u64,
+    /// Cooperative cancellation flag checked between metadata records.
+    pub metadata_filter_cancel: Option<Arc<AtomicBool>>,
+    /// Return each hit's committed metadata in [`SearchResult::metadata`]
+    /// (ADR-280 §6). Default `false`: search returns identifiers and
+    /// distance only, avoiding metadata decode and allocation. When `true`,
+    /// the metadata is resolved from the same committed snapshot that
+    /// produced the hit list, so COW field overrides and record tombstones
+    /// are reflected exactly as [`RvfStore::get_metadata`] would report them.
+    pub include_metadata: bool,
 }
 
 impl Default for QueryOptions {
@@ -169,6 +225,10 @@ impl Default for QueryOptions {
             force_exact: false,
             rabitq: false,
             rabitq_oversample: 4,
+            metadata_filter_max_records: 1_000_000,
+            metadata_filter_max_bytes: 256 * 1024 * 1024,
+            metadata_filter_cancel: None,
+            include_metadata: false,
         }
     }
 }
@@ -182,6 +242,12 @@ pub struct SearchResult {
     pub distance: f32,
     /// Per-candidate retrieval quality (ADR-033).
     pub retrieval_quality: rvf_types::quality::RetrievalQuality,
+    /// Committed metadata for this hit, populated only when the query set
+    /// [`QueryOptions::include_metadata`] (ADR-280 §6). `None` when metadata
+    /// was not requested; `Some(vec![])` for a hit that has a present but
+    /// empty metadata record. Otherwise `None` also means the hit has no
+    /// metadata record at all.
+    pub metadata: Option<Vec<MetadataEntry>>,
 }
 
 /// The mandatory outer return type for all query APIs (ADR-033 §2.4).
@@ -235,7 +301,7 @@ pub struct CompactionResult {
 }
 
 /// A single metadata entry for a vector.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MetadataEntry {
     /// Metadata field identifier.
     pub field_id: u16,
@@ -244,11 +310,87 @@ pub struct MetadataEntry {
 }
 
 /// Metadata value types matching the spec.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MetadataValue {
+    Null,
     U64(u64),
     I64(i64),
     F64(f64),
     String(String),
     Bytes(Vec<u8>),
+    Bool(bool),
+    /// Delta-only marker that removes an inherited field.
+    DeleteField,
+}
+
+/// Metadata associated with one vector. Unlike the legacy flattened
+/// `ingest_batch` argument this supports unequal field counts.
+#[derive(Clone, Debug, PartialEq)]
+pub struct VectorMetadata {
+    pub vector_id: u64,
+    pub fields: Vec<MetadataEntry>,
+    pub delete_record: bool,
+}
+
+/// Compatibility state derived from the artifact's embedding-space identity.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EmbeddingCompatibility {
+    /// No expected identity was supplied by the caller.
+    Unchecked,
+    /// The expected identity matches the artifact.
+    Compatible,
+    /// Vector-only reads remain available; corpus mutation is disabled.
+    VectorReadOnly,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MetadataFilterStats {
+    pub scanned_records: u64,
+    pub scanned_bytes: u64,
+    pub aborted_scans: u64,
+}
+
+/// Outcome of replaying the committed `META_SEG` chain at open (ADR-280 §5).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MetadataRecovery {
+    /// Newest metadata generation the served snapshot reflects.
+    pub generation: u64,
+    /// Generations that could not be replayed and were dropped. Non-zero means
+    /// the artifact is damaged and later generations were discarded.
+    pub dropped_generations: u64,
+    /// Records the truncated replay resurrected -- their vectors are deleted or
+    /// absent in the committed vector state, because a dropped generation
+    /// carried the deletion. They are excluded from the served metadata.
+    pub dropped_records: u64,
+}
+
+/// What follows the manifest `open` selected (crash-recovery evidence).
+///
+/// Open serves the newest valid manifest and ignores later bytes: that is the
+/// ADR-280 crash rule, so a torn append recovers to the prior snapshot. The
+/// same bytes also result from a file cut short in transit, which then looks
+/// like an older -- possibly empty -- generation (#1276). The library cannot
+/// tell the two apart, so it reports what it ignored; strict callers use
+/// [`crate::RvfStore::open_readonly_strict`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TailRecovery {
+    /// Offset of a segment cut off by end-of-file (a header whose payload runs
+    /// past EOF, or a partial header), if any. A healthy file never has one.
+    pub torn_at: Option<u64>,
+    /// Complete non-manifest segments after the selected manifest that no
+    /// manifest commits (e.g. data whose commit record was lost). May also be
+    /// non-zero in a healthy file (an unsigned audit-query witness).
+    pub uncommitted_segments: u32,
+    /// Bytes from the end of the selected manifest to the end of the file.
+    pub bytes_after_manifest: u64,
+    /// A writable open cut the torn tail off (at `torn_at`) before appending,
+    /// so the file is clean again. Read-only opens never modify the file.
+    pub repaired: bool,
+}
+
+impl TailRecovery {
+    /// True when the file ends inside a segment: a torn write or truncation.
+    pub fn is_torn(&self) -> bool {
+        self.torn_at.is_some()
+    }
 }

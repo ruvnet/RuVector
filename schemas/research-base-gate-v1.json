@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ruvector.dev/schemas/research-base-gate-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "base_sha", "head_sha", "state",
+    "failed_checks", "override_sha256"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "base_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "head_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "state": { "enum": ["green", "authorized-red"] },
+    "failed_checks": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^base/" }
+    },
+    "override_sha256": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "state": { "const": "green" } } },
+      "then": {
+        "properties": {
+          "failed_checks": { "maxItems": 0 },
+          "override_sha256": { "type": "null" }
+        }
+      },
+      "else": {
+        "properties": {
+          "failed_checks": { "minItems": 1 },
+          "override_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    }
+  ]
+}

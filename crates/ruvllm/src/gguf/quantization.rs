@@ -433,7 +433,7 @@ fn dequantize_bitnet_t158_block_wrapper(data: &[u8], output: &mut [f32]) {
 // ============================================================================
 
 fn dequantize_f32(data: &[u8], output: &mut [f32]) {
-    for (i, chunk) in data.chunks_exact(4).enumerate() {
+    for (i, chunk) in data.as_chunks::<4>().0.iter().enumerate() {
         if i >= output.len() {
             break;
         }
@@ -442,7 +442,7 @@ fn dequantize_f32(data: &[u8], output: &mut [f32]) {
 }
 
 fn dequantize_f16(data: &[u8], output: &mut [f32]) {
-    for (i, chunk) in data.chunks_exact(2).enumerate() {
+    for (i, chunk) in data.as_chunks::<2>().0.iter().enumerate() {
         if i >= output.len() {
             break;
         }
@@ -452,7 +452,7 @@ fn dequantize_f16(data: &[u8], output: &mut [f32]) {
 }
 
 fn dequantize_bf16(data: &[u8], output: &mut [f32]) {
-    for (i, chunk) in data.chunks_exact(2).enumerate() {
+    for (i, chunk) in data.as_chunks::<2>().0.iter().enumerate() {
         if i >= output.len() {
             break;
         }

@@ -14,7 +14,7 @@ categories = ["wasm", "development-tools"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-ruvector-decompiler = { path = "../ruvector-decompiler", default-features = false, features = ["wasm"] }
+ruvector-decompiler = { version = "2.3.0", path = "../ruvector-decompiler", default-features = false, features = ["wasm"] }
 wasm-bindgen = { workspace = true }
 serde-wasm-bindgen = "0.6"
 serde_json = { workspace = true }

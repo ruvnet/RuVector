@@ -1,4 +1,5 @@
 const { GraphDatabase, version, hello } = require('./index.js');
+const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -69,11 +70,46 @@ console.log('3. Creating nodes:');
     console.log('   Created hyperedge:', hyperedgeId);
     console.log('   ✓ Hyperedge created\n');
 
-    // Test 6: Query
+    // Test 6: Query (regression cover for #879 — these shapes returned [] in 2.0.4)
     console.log('6. Querying graph:');
-    const results = await db.query('MATCH (n) RETURN n');
-    console.log('   Query results:', JSON.stringify(results, null, 2));
-    console.log('   ✓ Query executed\n');
+
+    // 6a. Label-less MATCH must see every node, not zero.
+    const all = await db.query('MATCH (n) RETURN n');
+    console.log('   MATCH (n) ->', all.nodes.length, 'nodes');
+    assert.strictEqual(all.nodes.length, 3, 'MATCH (n) must return all 3 nodes');
+
+    // 6b. Label-scoped MATCH still narrows.
+    const people = await db.query('MATCH (n:Person) RETURN n');
+    assert.strictEqual(people.nodes.length, 2, 'MATCH (n:Person) must return 2 nodes');
+
+    // 6c. WHERE actually filters — the point-lookup shape from #879.
+    const one = await db.query("MATCH (n) WHERE n.id = 'alice' RETURN n");
+    assert.strictEqual(one.nodes.length, 1, 'point lookup must return exactly 1 node');
+    assert.strictEqual(one.nodes[0].id, 'alice');
+    assert.ok(one.nodes[0].labels.includes('Person'), 'labels must round-trip');
+    assert.strictEqual(one.nodes[0].properties.name, 'Alice', 'properties render as plain values');
+    assert.ok(
+      !('__embedding' in one.nodes[0].properties),
+      'internal __-prefixed properties must not leak into results'
+    );
+
+    // 6d. Relationship patterns populate `edges`, which was always [].
+    const rels = await db.query('MATCH (a)-[r]->(b) RETURN a, r, b');
+    assert.ok(rels.edges.length >= 1, 'a relationship pattern must return edges');
+    assert.ok(rels.edges[0].from && rels.edges[0].to, 'edge endpoints must be populated');
+
+    // 6e. querySync used to ignore its argument entirely.
+    const sync = db.querySync("MATCH (n) WHERE n.id = 'bob' RETURN n");
+    assert.strictEqual(sync.nodes.length, 1, 'querySync must execute its argument');
+    assert.strictEqual(sync.nodes[0].id, 'bob');
+
+    // 6f. Unsupported constructs error instead of returning an empty result.
+    await assert.rejects(
+      () => db.query("CREATE (n:Person {name: 'x'})"),
+      /Unsupported Cypher/,
+      'writes through query() must be refused, not silently dropped'
+    );
+    console.log('   ✓ Query returns real rows for MATCH/WHERE/relationships\n');
 
     // Test 7: Search hyperedges
     console.log('7. Searching hyperedges:');
@@ -149,11 +185,32 @@ console.log('3. Creating nodes:');
 
     const persistentStats = await persistentDb.stats();
     console.log('    Persistent DB stats:', persistentStats);
+    assert.strictEqual(persistentStats.totalNodes, 1, 'the write must be visible on its own handle');
 
-    // Test opening existing database
+    // Test opening existing database. This is the #879 headline: a second
+    // handle used to report zero for everything the first handle had written.
     console.log('    Opening existing database with GraphDatabase.open()...');
     const reopenedDb = GraphDatabase.open(dbPath);
-    console.log('    Reopened isPersistent():', reopenedDb.isPersistent());
+    assert.strictEqual(reopenedDb.isPersistent(), true);
+    const reopenedStats = await reopenedDb.stats();
+    console.log('    Reopened DB stats:', reopenedStats);
+    assert.strictEqual(
+      reopenedStats.totalNodes,
+      persistentStats.totalNodes,
+      'a reopened handle must see the persisted nodes'
+    );
+    const reopenedRows = await reopenedDb.query('MATCH (n) RETURN n');
+    assert.strictEqual(reopenedRows.nodes.length, 1, 'and must be able to query them back');
+    assert.strictEqual(reopenedRows.nodes[0].id, 'persistent_node_1');
+
+    // A second handle in the *same* process must agree too.
+    const secondHandle = new GraphDatabase({
+      distanceMetric: 'Cosine',
+      dimensions: 3,
+      storagePath: dbPath
+    });
+    const secondStats = await secondHandle.stats();
+    assert.strictEqual(secondStats.totalNodes, 1, 'a same-process second handle must see the data');
 
     // Cleanup
     try {

@@ -3,10 +3,90 @@
 //! This module defines the error hierarchy for the RuvLLM crate,
 //! providing detailed error information for debugging and handling.
 
+use std::path::PathBuf;
 use thiserror::Error;
 
 /// Result type alias for RuvLLM operations
 pub type Result<T> = std::result::Result<T, RuvLLMError>;
+
+/// Failures while managing an adapter applied to model generation.
+#[derive(Error, Debug)]
+#[non_exhaustive]
+pub enum ModelAdapterError {
+    /// The selected backend does not implement this adapter operation.
+    #[error("Model adapter operation {operation} is unsupported by this backend")]
+    UnsupportedBackend {
+        /// Name of the requested adapter operation.
+        operation: &'static str,
+    },
+
+    /// An adapter operation requires a loaded base model.
+    #[error("No base model is loaded for adapter management")]
+    ModelNotLoaded,
+
+    /// A required adapter file or directory is absent.
+    #[error("Model adapter path was not found: {path:?}")]
+    NotFound {
+        /// Missing file or directory.
+        path: PathBuf,
+    },
+
+    /// The adapter data or configuration is invalid or unsupported.
+    #[error("Invalid model adapter format: {message}")]
+    InvalidFormat {
+        /// Description of the format problem.
+        message: String,
+    },
+
+    /// An adapter tensor does not match the target projection dimensions.
+    #[error("Model adapter tensor {tensor} has shape {actual:?}, expected {expected:?}")]
+    ShapeMismatch {
+        /// Tensor whose dimensions do not match.
+        tensor: String,
+        /// Dimensions required by the base model and adapter rank.
+        expected: Vec<usize>,
+        /// Dimensions present in the adapter file.
+        actual: Vec<usize>,
+    },
+
+    /// Adapter ranks are invalid or disagree across configuration and tensors.
+    #[error("Model adapter rank mismatch: {message}")]
+    RankMismatch {
+        /// Description of the incompatible rank.
+        message: String,
+    },
+
+    /// A requested layer or projection is unsupported by the backend.
+    #[error("Unsupported model adapter target: {target}")]
+    UnsupportedTarget {
+        /// Unsupported target name.
+        target: String,
+    },
+
+    /// The caller's multiplier cannot be applied safely.
+    #[error("Invalid model adapter scale: {scale}")]
+    InvalidScale {
+        /// Rejected caller multiplier.
+        scale: f32,
+    },
+
+    /// The inference backend could not complete an adapter operation.
+    #[error("Model adapter backend failure: {message}")]
+    Backend {
+        /// Description of the backend failure.
+        message: String,
+    },
+
+    /// An adapter file could not be read.
+    #[error("Model adapter I/O failure at {path:?}: {source}")]
+    Io {
+        /// File or directory involved in the failure.
+        path: PathBuf,
+        /// Underlying filesystem error.
+        #[source]
+        source: std::io::Error,
+    },
+}
 
 /// Main error type for RuvLLM
 #[derive(Error, Debug)]

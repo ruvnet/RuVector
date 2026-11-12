@@ -106,7 +106,11 @@ pub fn read_hot_header(data: &[u8]) -> Result<(HotHeader, usize), &'static str> 
 pub fn read_hot_entries(data: &[u8], header: &HotHeader) -> Result<Vec<HotEntry>, &'static str> {
     let elem_size = dtype_element_size(header.dtype);
     let vector_byte_len = header.dim as usize * elem_size;
-    let mut entries = Vec::with_capacity(header.vector_count as usize);
+    // Bound the reservation by the payload: each entry needs at least an ID,
+    // its vector bytes, and a neighbor count before any alignment or neighbors.
+    let min_entry_size = 8 + vector_byte_len + 2;
+    let mut entries =
+        Vec::with_capacity((header.vector_count as usize).min(data.len() / min_entry_size));
     let mut pos = 0;
 
     for _ in 0..header.vector_count {

@@ -13,6 +13,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - '.github/workflows/build-graph-transformer.yml'
       - 'crates/ruvector-graph-transformer/**'
       - 'crates/ruvector-graph-transformer-node/**'
       - 'crates/ruvector-graph-transformer-wasm/**'
@@ -33,22 +34,26 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: x86_64-unknown-linux-gnu
             platform: linux-x64-gnu
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: x86_64-unknown-linux-musl
             platform: linux-x64-musl
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: aarch64-unknown-linux-musl
             platform: linux-arm64-musl
-          - host: macos-14
+          - host: macos-15
             target: x86_64-apple-darwin
             platform: darwin-x64
-          - host: macos-14
+          - host: macos-15
             target: aarch64-apple-darwin
             platform: darwin-arm64
           - host: windows-2022
@@ -57,23 +62,33 @@ jobs:
 
     name: Build ${{ matrix.settings.platform }}
     runs-on: ${{ matrix.settings.host }}
+    container: ${{ matrix.settings.container }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Bootstrap ubuntu:22.04 build container (keeps the glibc floor)
+        if: ${{ matrix.settings.container != '' }}
+        shell: bash
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            sudo git curl wget ca-certificates build-essential pkg-config xz-utils unzip zip python3 jq file \
+            libssl-dev cmake clang libclang-dev
+          git config --global --add safe.directory '*'
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           toolchain: stable
           targets: ${{ matrix.settings.target }}
 
       - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           key: graph-transformer-${{ matrix.settings.target }}
 
@@ -130,7 +145,7 @@ jobs:
           cp -v "$NODE_FILE" "gt-artifacts/${{ matrix.settings.platform }}/"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: gt-bindings-${{ matrix.settings.platform }}
           path: gt-artifacts/${{ matrix.settings.platform }}/*.node
@@ -138,19 +153,19 @@ jobs:
 
   build-wasm:
     name: Build WASM
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           toolchain: stable
           targets: wasm32-unknown-unknown
 
       - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           key: graph-transformer-wasm
 
@@ -163,7 +178,7 @@ jobs:
           cargo build -p ruvector-graph-transformer-wasm --target wasm32-unknown-unknown --release
 
       - name: Upload WASM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: graph-transformer-wasm
           path: crates/ruvector-graph-transformer-wasm/pkg/
@@ -171,19 +186,19 @@ jobs:
 
   commit-binaries:
     name: Commit Built Binaries
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [build, build-wasm]
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           path: artifacts
 
@@ -238,23 +253,23 @@ jobs:
 
   publish:
     name: Publish Platform Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [build, commit-binaries]
     if: |
       inputs.publish == true ||
       startsWith(github.ref, 'refs/tags/v')
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           path: artifacts
 
@@ -262,6 +277,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           VERSION=$(node -p "require('./crates/ruvector-graph-transformer-node/package.json').version")
           echo "Publishing version: $VERSION"
 
@@ -325,7 +341,9 @@ jobs:
             "keywords": ["ruvector", "graph-transformer", "napi-rs"],
             "author": "Ruvector Team",
             "license": "MIT",
-            "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector"},
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "crates/ruvector-graph-transformer-node/npm/${platform}"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"},
             "engines": {"node": ">= 10"},
             "publishConfig": {"registry": "https://registry.npmjs.org/", "access": "public"}
           }
@@ -340,7 +358,7 @@ jobs:
             echo "Binary size: $(wc -c < "$PKG_DIR/$NODE_NAME") bytes"
 
             cd "$PKG_DIR"
-            npm publish --access public || echo "Failed to publish @ruvector/graph-transformer-${platform}"
+            bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
             cd ../..
           done
 
@@ -349,5 +367,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         working-directory: crates/ruvector-graph-transformer-node
         run: |
+          set -euo pipefail
           npm install --ignore-scripts --omit=optional --force
-          npm publish --access public --ignore-scripts || echo "Failed to publish @ruvector/graph-transformer"
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public --ignore-scripts

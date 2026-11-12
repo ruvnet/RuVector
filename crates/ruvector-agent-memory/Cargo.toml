@@ -1,6 +1,6 @@
 [package]
 name        = "ruvector-agent-memory"
-version     = "0.1.0"
+version     = "0.1.1"
 edition     = "2021"
 description = "Coherence-weighted agent memory compaction for ruvector: retain important memories using recency, frequency, and semantic coherence"
 authors     = ["ruvnet", "claude-flow"]
@@ -15,5 +15,45 @@ path = "src/main.rs"
 
 [dependencies]
 rand = "0.8"
+serde = { workspace = true }
+# ADR-320 (PIR WP18): reuse the repo's SHA-256 (content addressing) and
+# RFC 8032 Ed25519 (per-observation signatures) for AtomicObservation — no new
+# hash or signature scheme (ADR-320 Security Gates). `ed25519` feature pulls in
+# ed25519-dalek + rand_core; the always-compiled `sha256` module needs no
+# feature.
+rvf-types = { version = "0.3", path = "../rvf/rvf-types", features = ["ed25519"] }
+# ADR-347: hold an `ed25519_dalek::SigningKey` directly in `SignedWitnessSink`
+# (no per-signature secret copies) and use `verify_strict`. Same crate and
+# spec rvf-types already pulls in (2.2.x) — no new crate in the tree.
+ed25519-dalek = { version = "2", default-features = false, features = ["alloc"] }
+# Existing ADR-194/047 proof-gated write machinery; adapts to the ledger's
+# ProofGate trait behind the `proof-gate` feature (see src/ledger.rs).
+ruvector-proof-gate = { version = "0.1.0", path = "../ruvector-proof-gate", optional = true }
+# ADR-345 (PIR nightly 2026-09-05): reuse the crate's own subpolynomial
+# dynamic min-cut / vector-graph integration layer (`RuVectorGraphAnalyzer`)
+# for the `graph_forget` mincut-gated forgetting policy, instead of
+# reimplementing graph partitioning here.
+ruvector-mincut = { version = "2.3.0", path = "../ruvector-mincut", optional = true }
+
+[features]
+default = []
+proof-gate = ["dep:ruvector-proof-gate"]
+mincut-forget = ["dep:ruvector-mincut"]
+
+[[example]]
+name = "mincut_gated_forgetting_bench"
+path = "examples/mincut_gated_forgetting_bench.rs"
+required-features = ["mincut-forget"]
+
+[[example]]
+name = "mincut_determinism_probe"
+path = "examples/mincut_determinism_probe.rs"
+required-features = ["mincut-forget"]
+
+[[example]]
+name = "mincut_scaling_probe"
+path = "examples/mincut_scaling_probe.rs"
+required-features = ["mincut-forget"]
 
 [dev-dependencies]
+serde_json = { workspace = true }

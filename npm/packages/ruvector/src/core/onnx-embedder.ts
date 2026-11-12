@@ -20,11 +20,17 @@ import { pathToFileURL } from 'url';
 import { createRequire } from 'module';
 import {
   EmbeddingProvenance,
+  EmbeddingSpaceIdentity,
   EmbedTextKind,
+  assertEmbeddingSpaceIdentity,
   embedderKindForModel,
+  embeddingSpaceId,
   getModelPrefixSpec,
   prefixText,
+  promptTemplateHash,
+  requireModelPrefixSpec,
 } from './embedding-provenance';
+import { createHash } from 'crypto';
 
 // Extend globalThis type for ESM require compatibility
 declare global {
@@ -69,6 +75,8 @@ export interface OnnxEmbedderConfig {
   numWorkers?: number;
   /** Minimum batch size to use parallel processing (default: 4) */
   parallelThreshold?: number;
+  /** Required override for a custom pinned artifact revision. */
+  embeddingSpaceIdentity?: EmbeddingSpaceIdentity;
 }
 
 // Capability detection
@@ -107,9 +115,44 @@ let bundledPool: any = null;
 // embedding-provenance record (D0).
 let loadedModelId: string | null = null;
 let loadedNormalize = true;
+let loadedEmbeddingSpaceIdentity: EmbeddingSpaceIdentity | null = null;
 
 // Default model
 const DEFAULT_MODEL = 'all-MiniLM-L6-v2';
+
+export function deriveOnnxEmbeddingSpaceIdentity(
+  modelId: string,
+  modelBytes: Uint8Array,
+  tokenizerJson: string,
+  maxLength: number,
+  normalize: boolean,
+  dimension: number,
+): EmbeddingSpaceIdentity {
+  const modelSha = createHash('sha256').update(modelBytes).digest('hex');
+  const tokenizerSha = createHash('sha256').update(tokenizerJson, 'utf8').digest('hex');
+  const prefixSpec = requireModelPrefixSpec(modelId);
+  const identity: EmbeddingSpaceIdentity = {
+    schema_version: 1,
+    provider: 'ruvector-onnx-wasm',
+    model_id: modelId,
+    model_artifact_sha256: modelSha,
+    model_graph_sha256: modelSha,
+    tokenizer_sha256: tokenizerSha,
+    prompt_template_sha256: promptTemplateHash(prefixSpec),
+    pooling_strategy: 'mean',
+    normalize,
+    truncation_tokens: maxLength,
+    output_dimension: dimension,
+    output_dtype: 'f32',
+    runtime_revision: 'ruvector-onnx-wasm-v1',
+    distance_metric: 'cosine',
+    role_policy: prefixSpec.queryPrefix === prefixSpec.passagePrefix ? 'symmetric' : 'asymmetric',
+    prefix_policy: prefixSpec.prefixPolicy,
+    prefix_policy_version: 1,
+  };
+  assertEmbeddingSpaceIdentity(identity);
+  return identity;
+}
 
 /**
  * Check if the ONNX embedder is *available* — i.e. the bundled WASM files are
@@ -278,6 +321,32 @@ export async function initOnnxEmbedder(config: OnnxEmbedderConfig = {}): Promise
 
       embedder = wasmModule.WasmEmbedder.withConfig(modelBytes, tokenizerJson, embedderConfig);
 
+      const derivedIdentity = deriveOnnxEmbeddingSpaceIdentity(
+        modelId,
+        modelBytes,
+        tokenizerJson,
+        loadedMaxLength,
+        config.normalize !== false,
+        embedder.dimension(),
+      );
+      const supplied = config.embeddingSpaceIdentity;
+      if (supplied) {
+        assertEmbeddingSpaceIdentity(supplied);
+        for (const key of [
+          'model_id', 'model_artifact_sha256', 'model_graph_sha256', 'tokenizer_sha256',
+          'prompt_template_sha256', 'normalize', 'truncation_tokens', 'output_dimension',
+          'pooling_strategy', 'role_policy', 'prefix_policy',
+        ] as const) {
+          if (JSON.stringify(supplied[key]) !== JSON.stringify(derivedIdentity[key])) {
+            throw new Error(`embeddingSpaceIdentity disagrees with loaded ONNX field: ${key}`);
+          }
+        }
+        loadedEmbeddingSpaceIdentity = supplied;
+      } else {
+        assertEmbeddingSpaceIdentity(derivedIdentity);
+        loadedEmbeddingSpaceIdentity = derivedIdentity;
+      }
+
       // Detect SIMD capability
       detectSimd();
       console.error(`ONNX embedder ready: ${embedder.dimension()}d, SIMD: ${simdAvailable}`);
@@ -360,11 +429,29 @@ export async function embedPassage(text: string): Promise<EmbeddingResult> {
   return embedKind('passage', text);
 }
 
+export async function embedFor(role: EmbedTextKind, text: string): Promise<EmbeddingResult> {
+  if (role !== 'query' && role !== 'passage') throw new TypeError(`unknown embedding role: ${role}`);
+  return embedKind(role, text);
+}
+
 /**
  * Generate embeddings for multiple texts
  * Uses parallel workers automatically for batches >= parallelThreshold
  */
 export async function embedBatch(texts: string[]): Promise<EmbeddingResult[]> {
+  return embedBatchFor('passage', texts);
+}
+
+export async function embedQueryBatch(texts: string[]): Promise<EmbeddingResult[]> {
+  return embedBatchFor('query', texts);
+}
+
+export async function embedPassageBatch(texts: string[]): Promise<EmbeddingResult[]> {
+  return embedBatchFor('passage', texts);
+}
+
+export async function embedBatchFor(kind: EmbedTextKind, texts: string[]): Promise<EmbeddingResult[]> {
+  if (kind !== 'query' && kind !== 'passage') throw new TypeError(`unknown embedding role: ${kind}`);
   if (!isInitialized) {
     await initOnnxEmbedder();
   }
@@ -373,7 +460,7 @@ export async function embedBatch(texts: string[]): Promise<EmbeddingResult[]> {
   }
 
   // ADR-210 D4: batch embedding is the passage path (embed() === embedPassage()).
-  const prepared = texts.map(t => prefixText(loadedModelId ?? DEFAULT_MODEL, 'passage', t));
+  const prepared = texts.map(t => prefixText(loadedModelId ?? DEFAULT_MODEL, kind, t));
 
   const start = performance.now();
 
@@ -498,6 +585,17 @@ export function getEmbedderProvenance(): EmbeddingProvenance | null {
     normalize: loadedNormalize,
     prefixPolicy: getModelPrefixSpec(modelId).prefixPolicy,
   };
+}
+
+/** Complete immutable ADR-274 identity, or null before model initialization. */
+export function getEmbeddingSpaceIdentity(): EmbeddingSpaceIdentity | null {
+  return loadedEmbeddingSpaceIdentity ? { ...loadedEmbeddingSpaceIdentity } : null;
+}
+
+export function getEmbeddingSpaceId(): string | null {
+  return loadedEmbeddingSpaceIdentity
+    ? embeddingSpaceId(loadedEmbeddingSpaceIdentity)
+    : null;
 }
 
 /**
@@ -666,9 +764,27 @@ export class OnnxEmbedder {
     return result.embedding;
   }
 
+  async embedFor(role: EmbedTextKind, text: string): Promise<number[]> {
+    const result = await embedFor(role, text);
+    return result.embedding;
+  }
+
   async embedBatch(texts: string[]): Promise<number[][]> {
     const results = await embedBatch(texts);
     return results.map(r => r.embedding);
+  }
+
+  async embedBatchFor(role: EmbedTextKind, texts: string[]): Promise<number[][]> {
+    const results = await embedBatchFor(role, texts);
+    return results.map(r => r.embedding);
+  }
+
+  async embedQueryBatch(texts: string[]): Promise<number[][]> {
+    return this.embedBatchFor('query', texts);
+  }
+
+  async embedPassageBatch(texts: string[]): Promise<number[][]> {
+    return this.embedBatchFor('passage', texts);
   }
 
   async similarity(text1: string, text2: string): Promise<number> {

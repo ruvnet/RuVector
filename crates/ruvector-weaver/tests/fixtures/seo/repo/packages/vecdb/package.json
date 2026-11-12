@@ -1,0 +1,18 @@
+{
+  "name": "@acme/vecdb",
+  "version": "1.2.3",
+  "description": "Fast thing that is 100x faster",
+  "main": "index.js",
+  "keywords": [
+    "vector",
+    "vectordb",
+    "blazing",
+    "hnsw"
+  ],
+  "homepage": "https://github.com/acme/stack#readme",
+  "license": "MIT",
+  "dependencies": {
+    "@acme/core": "^1.0.0",
+    "left-pad": "^1.3.0"
+  }
+}

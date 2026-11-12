@@ -4,7 +4,7 @@
 
 # Build stage
 # Using nightly Rust to support edition2024 crates in the registry
-FROM rustlang/rust:nightly-bookworm-slim AS builder
+FROM rustlang/rust:nightly-trixie-slim AS builder
 
 # Install build dependencies including PostgreSQL 17 from PGDG
 RUN apt-get update && apt-get install -y \
@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y \
 
 # Add PostgreSQL official apt repository
 RUN curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/postgresql-keyring.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/postgresql-keyring.gpg] http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+    && echo "deb [signed-by=/usr/share/keyrings/postgresql-keyring.gpg] http://apt.postgresql.org/pub/repos/apt trixie-pgdg main" > /etc/apt/sources.list.d/pgdg.list
 
 # Install PostgreSQL 17 development packages
 RUN apt-get update && apt-get install -y \
@@ -128,7 +128,7 @@ RUN cargo build --release --bin download-models --features "embeddings"
 # FASTEMBED_CACHE_DIR is the correct env var for fastembed-rs
 ENV FASTEMBED_CACHE_DIR=/opt/ruvector/models
 RUN mkdir -p /opt/ruvector/models && \
-    ./target/release/download-models && \
+    /workspace/target/release/download-models && \
     echo "Model cache size: $(du -sh /opt/ruvector/models)" && \
     ls -la /opt/ruvector/models/
 
@@ -146,7 +146,7 @@ RUN ls -la /workspace/target/release/ruvector-pg17/usr/share/postgresql/17/exten
     cat /workspace/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector.control
 
 # Runtime stage
-FROM postgres:17-bookworm
+FROM postgres:17-trixie
 
 # Labels
 LABEL maintainer="ruvector team <info@ruv.io>"

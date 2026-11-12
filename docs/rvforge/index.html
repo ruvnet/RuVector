@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Sandbox Is Not the Boundary — an RVForge walkthrough</title>
+<meta name="description" content="A plain-language introduction to agent authority boundaries, followed by an illustrated eight-command walkthrough from authoring a signed agent artifact to running it under a capability gate.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%90%3C/text%3E%3C/svg%3E">
+<meta property="og:type" content="article">
+<meta property="og:title" content="The Sandbox Is Not the Boundary — an RVForge walkthrough">
+<meta property="og:description" content="A plain-language introduction to agent authority boundaries, followed by an illustrated eight-command walkthrough from authoring a signed agent artifact to running it under a capability gate.">
+<meta property="og:url" content="https://ruvnet.github.io/RuVector/rvforge/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Sandbox Is Not the Boundary — an RVForge walkthrough">
+<meta name="twitter:description" content="A plain-language introduction to agent authority boundaries, followed by an illustrated eight-command walkthrough from authoring a signed agent artifact to running it under a capability gate.">
+<style>*,*::before,*::after{box-sizing:border-box}body{margin:0}img{max-width:100%}</style>
+</head>
+<body>
+<style>
+  :root {
+    --bg:       #eef1ee;
+    --bg-panel: #ffffff;
+    --bg-sink:  #e4e9e6;
+    --fg:       #0b1a2b;
+    --fg-mute:  #56697a;
+    --fg-faint: #8a9aa8;
+    --rule:     #c4cfca;
+    --accent:   #226c92;
+    --accent-2: #2e93b8;
+    --accent-w: rgba(34,108,146,0.14);
+    --rust:     #b8483d;
+    --rust-w:   rgba(184,72,61,0.13);
+    --brass:    #9a7620;
+    --brass-w:  rgba(154,118,32,0.16);
+    --mute-w:   rgba(86,105,122,0.12);
+    --term-bg:  #0b1a2b;
+    --term-bg2: #05121f;
+    --term-fg:  #cfe0ea;
+    --grid:     rgba(34,108,146,0.09);
+    --shadow:   rgba(11,26,43,0.07);
+
+    --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans:  ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono:  ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --measure: 64ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #08161f; --bg-panel: #10262f; --bg-sink: #0c1d26; --fg: #e4edf1;
+      --fg-mute: #93a9b5; --fg-faint: #64808f; --rule: #1f3d4c;
+      --accent: #4fb3d6; --accent-2: #7ccbe4; --accent-w: rgba(79,179,214,0.16);
+      --rust: #e08278; --rust-w: rgba(224,130,120,0.15);
+      --brass: #cda94f; --brass-w: rgba(205,169,79,0.16);
+      --mute-w: rgba(147,169,181,0.14);
+      --term-bg: #05121f; --term-bg2: #020b13; --grid: rgba(79,179,214,0.09);
+      --shadow: rgba(0,0,0,0.3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #08161f; --bg-panel: #10262f; --bg-sink: #0c1d26; --fg: #e4edf1;
+    --fg-mute: #93a9b5; --fg-faint: #64808f; --rule: #1f3d4c;
+    --accent: #4fb3d6; --accent-2: #7ccbe4; --accent-w: rgba(79,179,214,0.16);
+    --rust: #e08278; --rust-w: rgba(224,130,120,0.15);
+    --brass: #cda94f; --brass-w: rgba(205,169,79,0.16);
+    --mute-w: rgba(147,169,181,0.14);
+    --term-bg: #05121f; --term-bg2: #020b13; --grid: rgba(79,179,214,0.09);
+    --shadow: rgba(0,0,0,0.3);
+  }
+  :root[data-theme="light"] {
+    --bg: #eef1ee; --bg-panel: #ffffff; --bg-sink: #e4e9e6; --fg: #0b1a2b;
+    --fg-mute: #56697a; --fg-faint: #8a9aa8; --rule: #c4cfca;
+    --accent: #226c92; --accent-2: #2e93b8; --accent-w: rgba(34,108,146,0.14);
+    --rust: #b8483d; --rust-w: rgba(184,72,61,0.13);
+    --brass: #9a7620; --brass-w: rgba(154,118,32,0.16);
+    --mute-w: rgba(86,105,122,0.12);
+    --term-bg: #0b1a2b; --term-bg2: #05121f; --grid: rgba(34,108,146,0.09);
+    --shadow: rgba(11,26,43,0.07);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: var(--sans); font-size: 17px; line-height: 1.66;
+    -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  /* ---------- parallax backdrop ---------- */
+  .backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .grid-layer {
+    position: absolute; top: -25%; left: -10%; right: -10%; bottom: -25%;
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px),
+                      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 48px 48px; will-change: transform;
+  }
+  .digit-layer {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    opacity: 0.028; white-space: pre; line-height: 2.4; padding: 2rem; will-change: transform;
+  }
+
+  .wrap { position: relative; z-index: 1; }
+  .rail { max-width: 1180px; margin: 0 auto; padding: 0 clamp(1rem, 4vw, 2.5rem); }
+  .narrow { max-width: var(--measure); }
+
+  /* ---------- scroll reveal ---------- */
+  .js-on [data-anim] { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.3,1); }
+  .js-on [data-anim].in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .js-on [data-anim] { opacity: 1; transform: none; transition: none; }
+  }
+
+  /* ---------- hero ---------- */
+  header.hero { min-height: 90vh; display: flex; flex-direction: column; justify-content: center; padding: 6rem 0 4.5rem; }
+  .eyebrow { font-family: var(--mono); font-size: 0.73rem; letter-spacing: 0.17em; text-transform: uppercase; color: var(--accent); margin: 0 0 1.4rem; }
+  h1 { font-family: var(--serif); font-weight: 500; font-size: clamp(2.5rem, 7vw, 5rem); line-height: 1.03; letter-spacing: -0.021em; margin: 0 0 1.5rem; text-wrap: balance; max-width: 17ch; }
+  h1 em { font-style: italic; color: var(--accent); }
+  .lede { font-size: clamp(1.04rem, 2vw, 1.24rem); color: var(--fg-mute); max-width: var(--measure); margin: 0 0 2.2rem; }
+  .lede strong { color: var(--fg); font-weight: 600; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 0.5rem 1.6rem; font-family: var(--mono); font-size: 0.79rem; color: var(--fg-mute); }
+  .meta-row span { display: inline-flex; align-items: center; gap: 0.5rem; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; display: inline-block; }
+
+  /* ---------- generic section ---------- */
+  .sect { padding: 5rem 0; border-top: 1px solid var(--rule); }
+  .sect-label { font-family: var(--mono); font-size: 0.73rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); margin: 0 0 0.9rem; }
+  h2 { font-family: var(--serif); font-size: clamp(1.75rem, 4vw, 2.7rem); font-weight: 500; margin: 0 0 1.1rem; letter-spacing: -0.015em; text-wrap: balance; max-width: 20ch; }
+  .sect p { color: var(--fg-mute); max-width: var(--measure); margin: 0 0 1.2rem; }
+  .sect p strong { color: var(--fg); font-weight: 600; }
+  .sect p:last-child { margin-bottom: 0; }
+  .pull { font-family: var(--serif); font-size: clamp(1.25rem, 2.7vw, 1.7rem); line-height: 1.42; color: var(--fg); max-width: 30ch; border-left: 2px solid var(--accent); padding-left: 1.3rem; margin: 2rem 0; }
+
+  /* ---------- figures ---------- */
+  figure { margin: 2.4rem 0; }
+  .fig-frame { background: var(--bg-panel); border: 1px solid var(--rule); border-radius: 3px; padding: 1.4rem 1.2rem 1rem; overflow-x: auto; box-shadow: 0 1px 2px var(--shadow); }
+  .fig-frame svg { display: block; width: 100%; height: auto; min-width: 460px; }
+  figcaption { font-family: var(--mono); font-size: 0.73rem; letter-spacing: 0.03em; color: var(--fg-mute); margin-top: 0.85rem; max-width: var(--measure); line-height: 1.6; }
+  figcaption b { color: var(--fg); font-weight: 600; }
+
+  svg text { font-family: var(--mono); fill: var(--fg); }
+  .s-lbl   { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; fill: var(--fg-mute); }
+  .s-name  { font-size: 12.5px; fill: var(--fg); }
+  .s-small { font-size: 10px; fill: var(--fg-faint); }
+  .s-acc   { fill: var(--accent); }
+  .s-bad   { fill: var(--rust); }
+  .s-box   { fill: var(--bg-sink); stroke: var(--rule); stroke-width: 1; }
+  .s-box-a { fill: var(--accent-w); stroke: var(--accent); stroke-width: 1; }
+  .s-box-r { fill: var(--rust-w); stroke: var(--rust); stroke-width: 1; }
+  .s-line  { stroke: var(--rule); stroke-width: 1; fill: none; }
+  .s-line-a{ stroke: var(--accent); stroke-width: 1.5; fill: none; }
+  .s-dash  { stroke: var(--fg-faint); stroke-width: 1.2; fill: none; stroke-dasharray: 4 4; }
+
+  .js-on .draw { stroke-dasharray: var(--len, 900); stroke-dashoffset: var(--len, 900); }
+  .js-on [data-anim].in .draw { animation: drawin 1.5s cubic-bezier(.4,0,.2,1) forwards; }
+  @keyframes drawin { to { stroke-dashoffset: 0; } }
+  .js-on .pop { opacity: 0; }
+  .js-on [data-anim].in .pop { animation: popin .55s ease forwards; }
+  @keyframes popin { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .js-on [data-anim].in .d1 { animation-delay: .10s; }
+  .js-on [data-anim].in .d2 { animation-delay: .22s; }
+  .js-on [data-anim].in .d3 { animation-delay: .34s; }
+  .js-on [data-anim].in .d4 { animation-delay: .46s; }
+  .js-on [data-anim].in .d5 { animation-delay: .58s; }
+  .js-on [data-anim].in .d6 { animation-delay: .70s; }
+  .js-on [data-anim].in .d7 { animation-delay: .82s; }
+  .js-on [data-anim].in .d8 { animation-delay: .94s; }
+  .js-on [data-anim].in .glide { animation: glide 5s ease-in-out 1s infinite; }
+  @keyframes glide { 0%,6% { transform: translateX(0); } 30%,36% { transform: translateX(196px); } 60%,66% { transform: translateX(392px); } 90%,100% { transform: translateX(588px); } }
+  .js-on [data-anim].in .pulse { animation: pulse 2.4s ease-in-out 1.2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) {
+    .js-on .draw { stroke-dashoffset: 0; animation: none !important; }
+    .js-on .pop { opacity: 1; animation: none !important; }
+    .js-on .glide, .js-on .pulse { animation: none !important; }
+  }
+
+  /* ---------- layer cards ---------- */
+  .layers { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.6rem; margin-top: 2.4rem; }
+  .layer { background: var(--bg-panel); border: 1px solid var(--rule); border-top: 2px solid var(--accent); border-radius: 3px; padding: 1.3rem 1.3rem 1.5rem; }
+  .layer h3 { font-family: var(--mono); font-size: 0.79rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--accent); margin: 0 0 0.2rem; }
+  .layer .role { font-family: var(--serif); font-size: 1.18rem; margin: 0 0 0.6rem; }
+  .layer p { font-size: 0.92rem; color: var(--fg-mute); margin: 0; }
+
+  /* ---------- scrolly ---------- */
+  .scrolly { display: grid; grid-template-columns: 340px 1fr; gap: clamp(2rem, 5vw, 4.5rem); padding: 1rem 0 3rem; align-items: start; }
+  .panel { position: sticky; top: 3rem; display: grid; gap: 1rem; }
+  .card { background: var(--bg-panel); border: 1px solid var(--rule); border-radius: 3px; padding: 1.3rem; box-shadow: 0 1px 2px var(--shadow); }
+  .card-title { font-family: var(--mono); font-size: 0.71rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--fg-mute); margin: 0 0 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--rule); }
+
+  .track { display: grid; gap: 0; }
+  .tnode { display: grid; grid-template-columns: 22px 1fr; gap: 0.7rem; align-items: center; padding: 0.26rem 0; position: relative; }
+  .tnode .pip { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid var(--rule); background: var(--bg-panel); margin-left: 5px; transition: background .3s, border-color .3s, box-shadow .3s; }
+  .tnode .tname { font-family: var(--mono); font-size: 0.76rem; color: var(--fg-faint); transition: color .3s; }
+  .tnode::before { content: ""; position: absolute; left: 10px; top: -50%; height: 100%; width: 1px; background: var(--rule); }
+  .tnode:first-child::before { display: none; }
+  .tnode.done .pip { background: var(--accent); border-color: var(--accent); }
+  .tnode.done .tname { color: var(--fg-mute); }
+  .tnode.now .pip { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-w); }
+  .tnode.now .tname { color: var(--fg); }
+  .tnode.broke .pip { background: var(--rust); border-color: var(--rust); box-shadow: 0 0 0 4px var(--rust-w); }
+  .tnode.broke .tname { color: var(--rust); }
+
+  .field { padding: 0.58rem 0; border-bottom: 1px dotted var(--rule); }
+  .field:last-of-type { border-bottom: 0; }
+  .field-k { display: block; font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.11em; text-transform: uppercase; color: var(--fg-faint); }
+  .field-v { display: block; font-family: var(--mono); font-size: 0.81rem; word-break: break-all; color: var(--fg); font-variant-numeric: tabular-nums; transition: color .3s; }
+  .field.pending .field-v { color: var(--fg-faint); }
+  .field.lit .field-v { color: var(--accent); }
+  .field.fail .field-v { color: var(--rust); }
+  .seal { margin-top: 1.1rem; padding-top: 0.95rem; border-top: 1px solid var(--rule); display: flex; align-items: center; gap: 0.65rem; font-family: var(--mono); font-size: 0.75rem; color: var(--fg-mute); }
+  .seal-mark { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--brass); color: var(--brass); display: flex; align-items: center; justify-content: center; font-size: 0.72rem; flex: none; transition: all .3s; }
+
+  /* ---------- steps ---------- */
+  .step { padding: 3.2rem 0 4.2rem; border-bottom: 1px solid var(--rule); }
+  .step:last-child { border-bottom: 0; }
+  .js-on .step { opacity: 0.48; transition: opacity .5s ease; }
+  .js-on .step.active { opacity: 1; }
+  .step-n { font-family: var(--mono); font-size: 0.73rem; letter-spacing: 0.15em; color: var(--accent); margin: 0 0 0.6rem; }
+  .step h3 { font-family: var(--serif); font-size: clamp(1.4rem, 3vw, 1.95rem); font-weight: 500; margin: 0 0 0.85rem; letter-spacing: -0.012em; text-wrap: balance; }
+  .step p { max-width: var(--measure); color: var(--fg-mute); margin: 0 0 1.25rem; }
+  .step p strong { color: var(--fg); font-weight: 600; }
+  .plain { background: var(--bg-sink); border-radius: 3px; padding: 0.85rem 1rem; margin: 0 0 1.3rem; max-width: var(--measure); font-size: 0.93rem; color: var(--fg-mute); }
+  .plain b { color: var(--fg); font-weight: 600; }
+
+  .cmd { font-family: var(--mono); font-size: 0.86rem; background: var(--term-bg); color: var(--term-fg); padding: 0.8rem 1rem; border-radius: 3px 3px 0 0; overflow-x: auto; }
+  .cmd + .cmd { border-radius: 0; border-top: 1px solid rgba(255,255,255,0.09); }
+  .cmd .p { color: var(--accent-2); }
+  .out { font-family: var(--mono); font-size: 0.81rem; background: var(--term-bg2); color: var(--term-fg); padding: 0.9rem 1rem 1.1rem; margin: 0 0 1.3rem; border-radius: 0 0 3px 3px; overflow-x: auto; white-space: pre; line-height: 1.62; }
+  .out .k { color: #8fb8cc; }
+  .out .g { color: #7fc9a3; }
+  .out .r { color: #e08b82; }
+  .out .y { color: #d8b45f; }
+
+  .note { border-left: 2px solid var(--brass); padding: 0.8rem 0 0.8rem 1.1rem; margin: 0 0 1.3rem; max-width: var(--measure); font-size: 0.92rem; color: var(--fg-mute); }
+  .note.warn { border-left-color: var(--rust); }
+  .note b { color: var(--fg); }
+  .note code { font-family: var(--mono); font-size: 0.86em; }
+  .proves { display: grid; gap: 0.5rem; max-width: var(--measure); font-size: 0.9rem; }
+  .proves div { display: grid; grid-template-columns: 5.5rem 1fr; gap: 0.8rem; align-items: baseline; }
+  .proves .lbl { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.11em; text-transform: uppercase; }
+  .proves .yes .lbl { color: var(--accent); }
+  .proves .no .lbl { color: var(--fg-faint); }
+
+  /* ---------- reference ---------- */
+  .tscroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.89rem; min-width: 540px; }
+  th, td { text-align: left; padding: 0.68rem 0.9rem 0.68rem 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-family: var(--mono); font-size: 0.69rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-mute); font-weight: 400; }
+  td code { font-family: var(--mono); font-size: 0.84rem; }
+
+  .kicker { border-top: 1px solid var(--rule); padding: 4.5rem 0 6rem; }
+  .kicker p { font-family: var(--serif); font-size: clamp(1.5rem, 4vw, 2.4rem); line-height: 1.3; margin: 0; max-width: 22ch; letter-spacing: -0.012em; }
+  .kicker p em { font-style: italic; color: var(--accent); }
+  footer { border-top: 1px solid var(--rule); padding: 2rem 0 3.5rem; }
+  .foot-row { display: flex; flex-wrap: wrap; gap: 0.6rem 1.6rem; font-family: var(--mono); font-size: 0.77rem; color: var(--fg-mute); }
+
+  @media (max-width: 900px) {
+    .scrolly { grid-template-columns: 1fr; }
+    .panel { position: static; margin-bottom: 1.5rem; }
+  }
+</style>
+
+<div class="backdrop" aria-hidden="true">
+  <div class="grid-layer" id="gridLayer"></div>
+  <div class="digit-layer" id="digitLayer"></div>
+</div>
+
+<div class="wrap">
+
+  <!-- ============ HERO ============ -->
+  <header class="hero">
+    <div class="rail">
+      <p class="eyebrow">A walkthrough &middot; @ruvector/rvforge</p>
+      <h1>The sandbox is not the <em>boundary</em>.</h1>
+      <p class="lede">A sandbox limits what a running process can touch. It does not govern the <strong>whole agent</strong> &mdash; who made it, what model it carries, what it remembers, what it is allowed to do, or what it has already done. This page explains the difference in plain language, then walks eight commands that put a boundary around all of it.</p>
+      <div class="meta-row">
+        <span><i class="dot"></i>Plain-language intro</span>
+        <span><i class="dot"></i>Author to execution in eight commands</span>
+        <span><i class="dot"></i>Ends by breaking it on purpose</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ THE PROBLEM ============ -->
+  <section class="sect">
+    <div class="rail">
+      <p class="sect-label" data-anim>Start here</p>
+      <h2 data-anim>What a sandbox actually covers</h2>
+      <div class="narrow" data-anim>
+        <p>Imagine hiring a contractor and locking every room in your house except the kitchen. That is a sandbox: it constrains <strong>where they can go while they are working</strong>.</p>
+        <p>It does not tell you who they are, whether their tools were swapped out on the way over, what they wrote down about your house, who else gave them instructions, or what they did on their last three visits.</p>
+        <p>An agent is not just a running process. It is a bundle: code, a model, memory, tools, a policy about what it may do, and a history. A sandbox covers exactly one piece of that bundle &mdash; the part executing right now.</p>
+      </div>
+
+      <figure data-anim>
+        <div class="fig-frame">
+          <svg viewBox="0 0 720 276" role="img" aria-label="Diagram: a sandbox ring covers only the running-process part of an agent, while model, memory, tools, policy, history and persistent state sit outside it.">
+            <text class="s-lbl" x="0" y="14">The complete agent</text>
+            <rect class="s-dash draw" style="--len:1800" x="1" y="28" width="718" height="180" rx="6"/>
+
+            <g class="pop d1"><rect class="s-box" x="26" y="60" width="118" height="52" rx="3"/><text class="s-name" x="85" y="83" text-anchor="middle">Code</text><text class="s-small" x="85" y="99" text-anchor="middle">what it runs</text></g>
+            <g class="pop d2"><rect class="s-box" x="160" y="60" width="118" height="52" rx="3"/><text class="s-name" x="219" y="83" text-anchor="middle">Model</text><text class="s-small" x="219" y="99" text-anchor="middle">how it thinks</text></g>
+            <g class="pop d3"><rect class="s-box" x="294" y="60" width="118" height="52" rx="3"/><text class="s-name" x="353" y="83" text-anchor="middle">Memory</text><text class="s-small" x="353" y="99" text-anchor="middle">what it kept</text></g>
+            <g class="pop d4"><rect class="s-box" x="428" y="60" width="118" height="52" rx="3"/><text class="s-name" x="487" y="83" text-anchor="middle">Tools</text><text class="s-small" x="487" y="99" text-anchor="middle">what it can call</text></g>
+            <g class="pop d5"><rect class="s-box" x="562" y="60" width="132" height="52" rx="3"/><text class="s-name" x="628" y="83" text-anchor="middle">Policy</text><text class="s-small" x="628" y="99" text-anchor="middle">what it may do</text></g>
+            <g class="pop d6"><rect class="s-box" x="26" y="132" width="252" height="52" rx="3"/><text class="s-name" x="152" y="155" text-anchor="middle">History &amp; provenance</text><text class="s-small" x="152" y="171" text-anchor="middle">who signed it, what it already did</text></g>
+            <g class="pop d7"><rect class="s-box" x="294" y="132" width="252" height="52" rx="3"/><text class="s-name" x="420" y="155" text-anchor="middle">Persistent state</text><text class="s-small" x="420" y="171" text-anchor="middle">what survives a restart</text></g>
+
+            <g class="pop d8">
+              <rect class="s-box-a" x="14" y="48" width="142" height="76" rx="4" fill="none" stroke-width="2"/>
+              <text class="s-lbl s-acc" x="0" y="252">Sandbox covers only this</text>
+              <path class="s-line-a" d="M18 240 L18 130" stroke-dasharray="3 3"/>
+              <path class="s-line-a" d="M12 136 L18 128 L24 136"/>
+            </g>
+            <text class="s-lbl" x="300" y="240">&hellip; and says nothing about any of the rest</text>
+          </svg>
+        </div>
+        <figcaption><b>The gap.</b> Every box here can change how the agent behaves. Process isolation only ever wraps the leftmost one.</figcaption>
+      </figure>
+
+      <div class="narrow" data-anim>
+        <p>This barely mattered when agents were throwaway chat sessions. It matters a great deal once an agent is downloaded from somewhere, keeps state, and runs for days.</p>
+      </div>
+      <p class="pull" data-anim>The useful question is not &ldquo;what may this command touch?&rdquo; It is: may <em>this exact agent</em>, carrying this exact state and history, do this exact thing &mdash; and can we prove afterwards what happened?</p>
+    </div>
+  </section>
+
+  <!-- ============ THREE LAYERS ============ -->
+  <section class="sect">
+    <div class="rail">
+      <p class="sect-label" data-anim>The shape of the answer</p>
+      <h2 data-anim>Three layers, one identity</h2>
+      <div class="narrow" data-anim>
+        <p>Rather than one large security feature, the work splits into three jobs happening at three different times: <strong>packaging</strong> the agent, <strong>governing it before it runs</strong>, and <strong>governing it while it runs</strong>.</p>
+        <p>The thread running through all three is a single number &mdash; the SHA-256 digest of the packaged bytes. It is recomputed at every checkpoint, and it either matches or it does not.</p>
+      </div>
+
+      <figure data-anim>
+        <div class="fig-frame">
+          <svg viewBox="0 0 720 210" role="img" aria-label="Diagram: an agent artifact travels from author through publication and installation to execution, carrying the same digest at every checkpoint.">
+            <path class="s-line draw" style="--len:660" d="M40 96 L680 96"/>
+
+            <g class="pop d1"><circle class="s-box-a" cx="60" cy="96" r="9"/><text class="s-lbl" x="60" y="130" text-anchor="middle">Author</text><text class="s-small" x="60" y="146" text-anchor="middle">builds it</text></g>
+            <g class="pop d3"><circle class="s-box-a" cx="256" cy="96" r="9"/><text class="s-lbl" x="256" y="130" text-anchor="middle">Publish</text><text class="s-small" x="256" y="146" text-anchor="middle">signed &amp; logged</text></g>
+            <g class="pop d5"><circle class="s-box-a" cx="452" cy="96" r="9"/><text class="s-lbl" x="452" y="130" text-anchor="middle">Install</text><text class="s-small" x="452" y="146" text-anchor="middle">re-verified</text></g>
+            <g class="pop d7"><circle class="s-box-a" cx="648" cy="96" r="9"/><text class="s-lbl" x="648" y="130" text-anchor="middle">Run</text><text class="s-small" x="648" y="146" text-anchor="middle">gated</text></g>
+
+            <g class="pop d2"><rect class="s-box" x="88" y="26" width="196" height="34" rx="3"/><text class="s-lbl s-acc" x="186" y="47" text-anchor="middle">RVForge governs here</text></g>
+            <path class="s-dash pop d2" d="M186 60 L186 88"/>
+            <g class="pop d6"><rect class="s-box" x="452" y="26" width="196" height="34" rx="3"/><text class="s-lbl s-acc" x="550" y="47" text-anchor="middle">RVM governs here</text></g>
+            <path class="s-dash pop d6" d="M550 60 L550 88"/>
+
+            <g class="glide">
+              <rect class="s-box-a pop d2" x="42" y="160" width="36" height="26" rx="2"/>
+              <text class="s-small s-acc pop d2" x="60" y="177" text-anchor="middle">.rvf</text>
+            </g>
+            <text class="s-small" x="120" y="200">the same bytes and the same digest <tspan class="s-acc">93efb9ae&hellip;</tspan> at every checkpoint</text>
+          </svg>
+        </div>
+        <figcaption><b>One artifact, four checkpoints.</b> Nothing is trusted because it was trusted a step earlier &mdash; each gate recomputes the digest from the bytes in front of it.</figcaption>
+      </figure>
+
+      <div class="layers">
+        <div class="layer" data-anim>
+          <h3>RVF</h3>
+          <p class="role">The package</p>
+          <p>A signed container. Code, model, memory, tools, policies, checkpoints and history travel together under one cryptographic identity, instead of as loose files that drift apart.</p>
+        </div>
+        <div class="layer" data-anim>
+          <h3>RVForge</h3>
+          <p class="role">Before it runs</p>
+          <p>Authors and validates the container <em>without executing it</em>, checks signatures, applies default-deny capability policy, builds signed installers, records provenance, and chains a receipt across every step.</p>
+        </div>
+        <div class="layer" data-anim>
+          <h3>RVM</h3>
+          <p class="role">While it runs</p>
+          <p>Verifies the artifact, creates an isolated partition, grants only explicit revocable capabilities, and makes every privileged action pass a capability, policy, proof and quota check.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TUTORIAL ============ -->
+  <section class="sect">
+    <div class="rail">
+      <p class="sect-label" data-anim>The walkthrough</p>
+      <h2 data-anim>Eight commands, author to broken</h2>
+      <p class="narrow" data-anim style="margin-bottom:0">Follow the panel on the left. It fills in as the artifact acquires its identity, tracks that identity through packaging and execution, and turns red in the final step when we destroy it deliberately.</p>
+    </div>
+  </section>
+
+  <div class="rail scrolly">
+
+    <aside class="panel" aria-label="Live artifact state">
+      <div class="card">
+        <p class="card-title">Progress</p>
+        <div class="track">
+          <div class="tnode" data-node="1"><span class="pip"></span><span class="tname">init</span></div>
+          <div class="tnode" data-node="2"><span class="pip"></span><span class="tname">create</span></div>
+          <div class="tnode" data-node="3"><span class="pip"></span><span class="tname">validate</span></div>
+          <div class="tnode" data-node="4"><span class="pip"></span><span class="tname">test</span></div>
+          <div class="tnode" data-node="5"><span class="pip"></span><span class="tname">build</span></div>
+          <div class="tnode" data-node="6"><span class="pip"></span><span class="tname">verify</span></div>
+          <div class="tnode" data-node="7"><span class="pip"></span><span class="tname">run</span></div>
+          <div class="tnode" data-node="8"><span class="pip"></span><span class="tname">tamper</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <p class="card-title">agent.rvf</p>
+        <div class="field pending" data-f="format"><span class="field-k">Format</span><span class="field-v" id="f-format">&mdash;</span></div>
+        <div class="field pending" data-f="segs"><span class="field-k">Segments</span><span class="field-v" id="f-segs">&mdash;</span></div>
+        <div class="field pending" data-f="id"><span class="field-k">Identity (sha256)</span><span class="field-v" id="f-id">&mdash;</span></div>
+        <div class="field pending" data-f="caps"><span class="field-k">Capabilities</span><span class="field-v" id="f-caps">&mdash;</span></div>
+        <div class="field pending" data-f="installers"><span class="field-k">Installers</span><span class="field-v" id="f-installers">&mdash;</span></div>
+        <div class="field pending" data-f="witness"><span class="field-k">Witness chain</span><span class="field-v" id="f-witness">&mdash;</span></div>
+        <div class="seal">
+          <span class="seal-mark" id="seal">&#10003;</span>
+          <span id="sealText">no artifact yet</span>
+        </div>
+      </div>
+    </aside>
+
+    <div class="steps">
+
+      <!-- STEP 1 -->
+      <section class="step" data-step="1">
+        <p class="step-n">STEP 01 &mdash; IDENTITY</p>
+        <h3>Create a publisher identity</h3>
+        <div class="plain"><b>In plain terms:</b> before you can vouch for anything, you need a way to sign it. This makes a signing key, and starts your permission list at zero.</div>
+        <p>Every release must be attributable to someone. This generates an Ed25519 signing key and a capability policy that is <strong>default-deny</strong> &mdash; nothing is permitted until you write it down explicitly.</p>
+        <div class="cmd"><span class="p">$</span> npx @ruvector/rvforge init --keygen</div>
+        <div class="out">Wrote forge.config.json
+Wrote rvforge.json
+Wrote rvforge-publisher.key <span class="k">(mode 600)</span>
+  key id <span class="k">ed25519:852d63dce7ff6b2d&hellip;dd6dc98d99f4</span>
+<span class="y">Capability policy is default-deny: add explicit grants before building.</span>
+Next: rvforge create agent.rvf</div>
+
+        <figure data-anim>
+          <div class="fig-frame">
+            <svg viewBox="0 0 720 150" role="img" aria-label="Diagram: fifteen capability classes, every one locked by default until explicitly declared.">
+              <text class="s-lbl" x="0" y="12">15 capability classes &mdash; every one denied until declared</text>
+              <g class="pop d1"><rect class="s-box" x="0" y="26" width="132" height="30" rx="3"/><text class="s-name" x="12" y="46">&#128274; Filesystem</text></g>
+              <g class="pop d1"><rect class="s-box" x="144" y="26" width="132" height="30" rx="3"/><text class="s-name" x="156" y="46">&#128274; Network</text></g>
+              <g class="pop d2"><rect class="s-box" x="288" y="26" width="132" height="30" rx="3"/><text class="s-name" x="300" y="46">&#128274; Process</text></g>
+              <g class="pop d2"><rect class="s-box" x="432" y="26" width="132" height="30" rx="3"/><text class="s-name" x="444" y="46">&#128274; Model</text></g>
+              <g class="pop d3"><rect class="s-box" x="576" y="26" width="132" height="30" rx="3"/><text class="s-name" x="588" y="46">&#128274; MCP</text></g>
+              <g class="pop d3"><rect class="s-box" x="0" y="64" width="132" height="30" rx="3"/><text class="s-name" x="12" y="84">&#128274; Memory</text></g>
+              <g class="pop d4"><rect class="s-box" x="144" y="64" width="132" height="30" rx="3"/><text class="s-name" x="156" y="84">&#128274; GPU</text></g>
+              <g class="pop d4"><rect class="s-box" x="288" y="64" width="132" height="30" rx="3"/><text class="s-name" x="300" y="84">&#128274; Sensor</text></g>
+              <g class="pop d5"><rect class="s-box" x="432" y="64" width="132" height="30" rx="3"/><text class="s-name" x="444" y="84">&#128274; Display</text></g>
+              <g class="pop d5"><rect class="s-box" x="576" y="64" width="132" height="30" rx="3"/><text class="s-name" x="588" y="84">&#128274; Clipboard</text></g>
+              <g class="pop d6"><rect class="s-box" x="0" y="102" width="132" height="30" rx="3"/><text class="s-name" x="12" y="122">&#128274; Audio</text></g>
+              <g class="pop d6"><rect class="s-box" x="144" y="102" width="132" height="30" rx="3"/><text class="s-name" x="156" y="122">&#128274; Clock</text></g>
+              <g class="pop d7"><rect class="s-box" x="288" y="102" width="132" height="30" rx="3"/><text class="s-name" x="300" y="122">&#128274; Randomness</text></g>
+              <g class="pop d7"><rect class="s-box" x="432" y="102" width="132" height="30" rx="3"/><text class="s-name" x="444" y="122">&#128274; State</text></g>
+              <g class="pop d8"><rect class="s-box" x="576" y="102" width="132" height="30" rx="3"/><text class="s-name" x="588" y="122">&#128274; Agent msg</text></g>
+            </svg>
+          </div>
+          <figcaption><b>Absence is a denial, not a question.</b> A capability that is simply not mentioned is refused &mdash; it is never left for the host to decide at runtime.</figcaption>
+        </figure>
+      </section>
+
+      <!-- STEP 2 -->
+      <section class="step" data-step="2">
+        <p class="step-n">STEP 02 &mdash; AUTHORING</p>
+        <h3>Package the agent into one artifact</h3>
+        <div class="plain"><b>In plain terms:</b> take the loose pieces &mdash; the code, the model, the starting memory, the permission list &mdash; and seal them into a single signed file.</div>
+        <p>This is the step that turns a directory into an agent. Each piece becomes a <strong>segment</strong> with its own hash; the segment table becomes a root manifest; the manifest is signed with the key from step 01. From here on, the artifact has an identity that travels with it.</p>
+        <div class="cmd"><span class="p">$</span> npx @ruvector/rvforge create agent.rvf \</div>
+        <div class="cmd">    --code ./dist --model ./model.gguf \</div>
+        <div class="cmd">    --grant fs:read:./data --grant net:https://api.example.com</div>
+        <div class="out">Sealed 3 segments
+  code       <span class="k">2.1 KB   sha256 4f2a91c3&hellip;</span>
+  model      <span class="k">1.8 KB   sha256 88b1d05e&hellip;</span>
+  policy     <span class="k">0.5 KB   sha256 a03c4496&hellip;</span>
+Signed root manifest with <span class="k">ed25519:852d63dc&hellip;</span>
+  capabilities <span class="g">2 granted, 13 denied</span>
+<span class="g">Wrote agent.rvf</span> (4.4 KB)
+  identity   <span class="k">93efb9ae948d8ed3&hellip;b6d2b67e59899837</span></div>
+        <div class="note"><b>Two grants, thirteen refusals.</b> The policy is written into the artifact and covered by the signature, so the permissions a user sees at install time are the ones the publisher actually signed &mdash; not a claim the installer makes on its behalf.</div>
+      </section>
+
+      <!-- STEP 3 -->
+      <section class="step" data-step="3">
+        <p class="step-n">STEP 03 &mdash; INSPECTION</p>
+        <h3>Validate without executing</h3>
+        <div class="plain"><b>In plain terms:</b> read the package the way you would read a sealed envelope's postmark &mdash; you learn a great deal, and you never open it.</div>
+        <p>This walks the container's segment table and recomputes digests, and at <strong>no point</strong> runs anything inside it. That property is what makes pointing this at a hostile artifact safe by construction rather than safe by luck.</p>
+        <div class="cmd"><span class="p">$</span> npx @ruvector/rvforge validate agent.rvf --deep</div>
+        <div class="out">agent.rvf: <span class="g">valid RVF</span> (format v1, 4.4 KB)
+  file id     <span class="k">0123456789abcdef0123456789abcdef</span>
+  segments    <span class="k">3, all hashes match</span>
+  signature   <span class="g">verified (ed25519:852d63dc…)</span>
+  sha256      <span class="k">93efb9ae948d8ed3&hellip;b6d2b67e59899837</span>
+  checked in  3 ms</div>
+
+        <figure data-anim>
+          <div class="fig-frame">
+            <svg viewBox="0 0 720 200" role="img" aria-label="Diagram: the structure of an RVF file — a root manifest listing three segments, each with its own hash, plus one whole-file digest.">
+              <text class="s-lbl" x="0" y="12">Inside the container</text>
+              <g class="pop d1">
+                <rect class="s-box-a" x="0" y="26" width="230" height="46" rx="3"/>
+                <text class="s-name s-acc" x="14" y="46">Root manifest</text>
+                <text class="s-small" x="14" y="62">segment table + CRC32C + signature</text>
+              </g>
+              <path class="s-line-a draw" style="--len:420" d="M115 72 L115 90 L400 90 M400 90 L400 106 M115 90 L115 106 M258 90 L258 106"/>
+              <g class="pop d3"><rect class="s-box" x="60" y="106" width="110" height="44" rx="3"/><text class="s-name" x="115" y="126" text-anchor="middle">code</text><text class="s-small" x="115" y="141" text-anchor="middle">sha256 &#8226; ok</text></g>
+              <g class="pop d4"><rect class="s-box" x="203" y="106" width="110" height="44" rx="3"/><text class="s-name" x="258" y="126" text-anchor="middle">model</text><text class="s-small" x="258" y="141" text-anchor="middle">sha256 &#8226; ok</text></g>
+              <g class="pop d5"><rect class="s-box" x="345" y="106" width="110" height="44" rx="3"/><text class="s-name" x="400" y="126" text-anchor="middle">policy</text><text class="s-small" x="400" y="141" text-anchor="middle">sha256 &#8226; ok</text></g>
+              <g class="pop d6">
+                <rect class="s-box-a" x="490" y="60" width="228" height="66" rx="3"/>
+                <text class="s-lbl s-acc" x="504" y="82">Whole-file identity</text>
+                <text class="s-name s-acc" x="504" y="102">93efb9ae948d8ed3&hellip;</text>
+                <text class="s-small" x="504" y="117">recomputed, never stored as a label</text>
+              </g>
+              <path class="s-dash pop d6" d="M462 128 L490 100"/>
+              <text class="s-small" x="0" y="180">Root-manifest validity is <tspan class="s-bad">not</tspan> transitive trust &mdash; each segment is verified on its own before anything loads it.</text>
+            </svg>
+          </div>
+          <figcaption><b>Verified bottom-up.</b> A valid outer manifest never vouches for the segments inside it; every segment carries and must match its own hash.</figcaption>
+        </figure>
+
+        <div class="proves">
+          <div class="yes"><span class="lbl">Proves</span><span>The bytes are a well-formed, correctly signed RVF, and its identity is fixed.</span></div>
+          <div class="no"><span class="lbl">Not yet</span><span>How the agent behaves &mdash; nothing has run.</span></div>
+        </div>
+      </section>
+
+      <!-- STEP 4 -->
+      <section class="step" data-step="4">
+        <p class="step-n">STEP 04 &mdash; EVIDENCE</p>
+        <h3>Test it in quarantine</h3>
+        <div class="plain"><b>In plain terms:</b> ten questions. Five are answered by looking at the file. Five are answered by running it inside a disposable, monitored partition.</div>
+        <p>The second five are where behaviour becomes observable: install it cleanly, run the same input twice and compare, watch what it dials, starve it of resources, and confirm the receipts it emits match what it actually did.</p>
+        <div class="cmd"><span class="p">$</span> npx @ruvector/rvforge test agent.rvf</div>
+        <div class="out"><span class="g">10 passed</span>   0 failed
+
+<span class="k">by inspection</span>
+  <span class="g">&#10003;</span> container well-formed        <span class="g">&#10003;</span> signature verifies
+  <span class="g">&#10003;</span> segment hashes match         <span class="g">&#10003;</span> capabilities declared
+  <span class="g">&#10003;</span> runtime profile supported
+
+<span class="k">in quarantine</span>
+  <span class="g">&#10003;</span> clean installation           <span class="g">&#10003;</span> deterministic evaluations
+  <span class="g">&#10003;</span> network monitoring           <span class="g">&#10003;</span> resource exhaustion
+  <span class="g">&#10003;</span> witness verification
+
+  runtime  rvm 1.0 &#8226; profile os-isolation+wasm &#8226; 812 ms</div>
+
+        <figure data-anim>
+          <div class="fig-frame">
+            <svg viewBox="0 0 720 180" role="img" aria-label="Diagram: five checks answered by inspection and five answered inside a quarantined runtime.">
+              <text class="s-lbl s-acc" x="0" y="12">Answered by inspection</text>
+              <g class="pop d1"><rect class="s-box-a" x="0" y="24" width="300" height="26" rx="3"/><text class="s-name" x="12" y="42">&#10003;  container is well-formed</text></g>
+              <g class="pop d2"><rect class="s-box-a" x="0" y="54" width="300" height="26" rx="3"/><text class="s-name" x="12" y="72">&#10003;  signature verifies</text></g>
+              <g class="pop d3"><rect class="s-box-a" x="0" y="84" width="300" height="26" rx="3"/><text class="s-name" x="12" y="102">&#10003;  segment hashes match</text></g>
+              <g class="pop d4"><rect class="s-box-a" x="0" y="114" width="300" height="26" rx="3"/><text class="s-name" x="12" y="132">&#10003;  capabilities declared</text></g>
+              <g class="pop d5"><rect class="s-box-a" x="0" y="144" width="300" height="26" rx="3"/><text class="s-name" x="12" y="162">&#10003;  runtime profile supported</text></g>
+
+              <path class="s-dash draw" style="--len:170" d="M360 16 L360 172"/>
+              <text class="s-small" x="360" y="10" text-anchor="middle">never executed &nbsp;|&nbsp; executed, contained</text>
+
+              <text class="s-lbl s-acc" x="420" y="12">Answered in quarantine</text>
+              <g class="pop d4"><rect class="s-box-a" x="420" y="24" width="300" height="26" rx="3"/><text class="s-name" x="432" y="42">&#10003;  clean installation</text></g>
+              <g class="pop d5"><rect class="s-box-a" x="420" y="54" width="300" height="26" rx="3"/><text class="s-name" x="432" y="72">&#10003;  deterministic evaluations</text></g>
+              <g class="pop d6"><rect class="s-box-a" x="420" y="84" width="300" height="26" rx="3"/><text class="s-name" x="432" y="102">&#10003;  network monitoring</text></g>
+              <g class="pop d7"><rect class="s-box-a" x="420" y="114" width="300" height="26" rx="3"/><text class="s-name" x="432" y="132">&#10003;  resource exhaustion</text></g>
+              <g class="pop d8"><rect class="s-box-a" x="420" y="144" width="300" height="26" rx="3"/><text class="s-name" x="432" y="162">&#10003;  witness verification</text></g>
+            </svg>
+          </div>
+          <figcaption><b>Two different kinds of answer.</b> The left column is arithmetic on bytes. The right column is observed behaviour inside a partition that is destroyed afterwards.</figcaption>
+        </figure>
+      </section>
+
+      <!-- STEP 5 -->
+      <section class="step" data-step="5">
+        <p class="step-n">STEP 05 &mdash; PACKAGING</p>
+        <h3>Build a signed installer per platform</h3>
+        <div class="plain"><b>In plain terms:</b> produce the file a normal person double-clicks &mdash; one per operating system &mdash; and prove the copies are byte-identical rather than merely similar.</div>
+        <p><strong>Embedded mode</strong> stages the same RVF bytes into every target and re-hashes each copy; if any diverged, the build fails rather than shipping. <strong>Thin mode</strong> ships a small signed pointer bound to the same canonical identity, so the download is small but the artifact is unchanged.</p>
+        <div class="cmd"><span class="p">$</span> npx @ruvector/rvforge build agent.rvf --mode embedded</div>
+        <div class="out">Built in ./forge-out
+  rvf identity   <span class="k">93efb9ae948d8ed3&hellip;b6d2b67e59899837</span>
+  manifest hash  <span class="k">dbf5d61fd1ce7f5d&hellip;699644242cabf19</span>
+  packaging      embedded &#8226; re-hashed per target, <span class="g">all identical</span>
+
+  <span class="g">&#10003;</span> Agent-1.0.0-x86_64.deb        <span class="k">signed</span>
+  <span class="g">&#10003;</span> Agent-1.0.0-universal.dmg     <span class="k">signed + notarized</span>
+  <span class="g">&#10003;</span> Agent-1.0.0-x64.msi           <span class="k">signed</span>
+
+  inventory      <span class="k">software bill of materials, 8 files</span>
+  witness        <span class="k">sha256:0b448323e465&hellip;290cbcddd48198</span></div>
+
+        <figure data-anim>
+          <div class="fig-frame">
+            <svg viewBox="0 0 720 210" role="img" aria-label="Diagram comparing embedded mode, where each platform installer contains identical RVF bytes, with thin mode, where each contains a signed locator pointing at one shared artifact.">
+              <text class="s-lbl s-acc" x="0" y="12">Embedded &mdash; identical bytes in each</text>
+              <g class="pop d1"><rect class="s-box" x="0" y="24" width="100" height="72" rx="3"/><text class="s-small" x="50" y="42" text-anchor="middle">.deb</text><rect class="s-box-a" x="12" y="52" width="76" height="32" rx="2"/><text class="s-small s-acc" x="50" y="72" text-anchor="middle">93efb9ae</text></g>
+              <g class="pop d2"><rect class="s-box" x="110" y="24" width="100" height="72" rx="3"/><text class="s-small" x="160" y="42" text-anchor="middle">.dmg</text><rect class="s-box-a" x="122" y="52" width="76" height="32" rx="2"/><text class="s-small s-acc" x="160" y="72" text-anchor="middle">93efb9ae</text></g>
+              <g class="pop d3"><rect class="s-box" x="220" y="24" width="100" height="72" rx="3"/><text class="s-small" x="270" y="42" text-anchor="middle">.msi</text><rect class="s-box-a" x="232" y="52" width="76" height="32" rx="2"/><text class="s-small s-acc" x="270" y="72" text-anchor="middle">93efb9ae</text></g>
+              <text class="s-small pop d4" x="0" y="118">re-hashed after staging &mdash; any divergence fails the build</text>
+
+              <path class="s-dash draw" style="--len:180" d="M360 16 L360 190"/>
+
+              <text class="s-lbl" x="420" y="12">Thin &mdash; a signed pointer in each</text>
+              <g class="pop d5"><rect class="s-box" x="420" y="24" width="88" height="48" rx="3"/><text class="s-small" x="464" y="52" text-anchor="middle">.deb</text></g>
+              <g class="pop d6"><rect class="s-box" x="516" y="24" width="88" height="48" rx="3"/><text class="s-small" x="560" y="52" text-anchor="middle">.dmg</text></g>
+              <g class="pop d7"><rect class="s-box" x="612" y="24" width="88" height="48" rx="3"/><text class="s-small" x="656" y="52" text-anchor="middle">.msi</text></g>
+              <path class="s-line-a draw" style="--len:400" d="M464 72 L464 96 L560 96 M560 72 L560 120 M656 72 L656 96 L560 96"/>
+              <g class="pop d8"><rect class="s-box-a" x="484" y="120" width="152" height="40" rx="3"/><text class="s-small s-acc" x="560" y="137" text-anchor="middle">one canonical .rvf</text><text class="s-small s-acc" x="560" y="152" text-anchor="middle">93efb9ae&hellip;</text></g>
+              <text class="s-small pop d8" x="420" y="182">smaller download, same identity</text>
+            </svg>
+          </div>
+          <figcaption><b>Two shapes, one identity.</b> The mode changes how the bytes are delivered; it never changes which artifact the user ends up running.</figcaption>
+        </figure>
+      </section>
+
+      <!-- STEP 6 -->
+      <section class="step" data-step="6">
+        <p class="step-n">STEP 06 &mdash; CUSTODY</p>
+        <h3>Verify a build you did not make</h3>
+        <div class="plain"><b>In plain terms:</b> the step a reviewer runs on someone else's output. Re-check every file, and confirm the chain of receipts has no gaps.</div>
+        <p>Each authoring, build, verification and publication appends a receipt containing the hash of the one before it. Removing or editing any link breaks every link after it, so the chain either reconstructs cleanly or it visibly does not.</p>
+        <div class="cmd"><span class="p">$</span> npx @ruvector/rvforge verify forge-out</div>
+        <div class="out">Verified against ./forge-out/provenance.json
+  rvf identity   <span class="k">93efb9ae948d8ed3&hellip;b6d2b67e59899837</span>
+  manifest hash  <span class="k">dbf5d61fd1ce7f5d&hellip;699644242cabf19</span>
+  files checked  <span class="g">8, all matching</span>
+  installers     <span class="g">3, signatures valid</span>
+  witness chain  <span class="g">4 receipts, intact back to genesis</span>
+  publisher      <span class="g">ed25519:852d63dc… &#8226; trust level 3 (registry-attested)</span></div>
+
+        <figure data-anim>
+          <div class="fig-frame">
+            <svg viewBox="0 0 720 130" role="img" aria-label="Diagram: hash-chained receipts, each embedding the hash of the previous one.">
+              <text class="s-lbl" x="0" y="12">Each receipt carries the hash of the one before it</text>
+              <g class="pop d1"><rect class="s-box-a" x="0" y="26" width="196" height="58" rx="3"/><text class="s-name s-acc" x="14" y="46">create</text><text class="s-small" x="14" y="62">prev: &mdash; (genesis)</text><text class="s-small" x="14" y="76">self: 0b448323&hellip;</text></g>
+              <path class="s-line-a draw" style="--len:60" d="M196 55 L244 55 M236 49 L244 55 L236 61"/>
+              <g class="pop d3"><rect class="s-box-a" x="248" y="26" width="196" height="58" rx="3"/><text class="s-name s-acc" x="262" y="46">build</text><text class="s-small" x="262" y="62">prev: 0b448323&hellip;</text><text class="s-small" x="262" y="76">self: 1fda3bf5&hellip;</text></g>
+              <path class="s-line-a draw" style="--len:60" d="M444 55 L492 55 M484 49 L492 55 L484 61"/>
+              <g class="pop d5"><rect class="s-box-a" x="496" y="26" width="196" height="58" rx="3"/><text class="s-name s-acc" x="510" y="46">publish</text><text class="s-small" x="510" y="62">prev: 1fda3bf5&hellip;</text><text class="s-small" x="510" y="76">self: 7c02ea41&hellip;</text></g>
+              <text class="s-small pop d6" x="0" y="110">Edit or delete any receipt and every downstream link stops reconstructing &mdash; gaps are detectable, not silent.</text>
+            </svg>
+          </div>
+          <figcaption><b>History you cannot quietly rewrite.</b> The chain is what turns &ldquo;we think this is the right build&rdquo; into something a third party can check for themselves.</figcaption>
+        </figure>
+      </section>
+
+      <!-- STEP 7 -->
+      <section class="step" data-step="7">
+        <p class="step-n">STEP 07 &mdash; EXECUTION</p>
+        <h3>Run it under the capability gate</h3>
+        <div class="plain"><b>In plain terms:</b> the agent finally runs &mdash; inside its own partition, allowed to do exactly the two things it declared, and writing a receipt for each attempt including the refused ones.</div>
+        <p>Every privileged action passes four checks in order: is the capability held, does policy allow it here, does the proof verify, is it within quota. A refusal is not a silent no-op &mdash; it is recorded, so a compromised agent's attempts are visible afterwards rather than inferred.</p>
+        <div class="cmd"><span class="p">$</span> rvm run agent.rvf</div>
+        <div class="out">Verified before load <span class="k">93efb9ae…59899837</span>
+Partition <span class="k">p-4a19</span> created &#8226; profile os-isolation+wasm
+
+  <span class="g">grant</span>  fs:read ./data                 <span class="k">witness a91c…</span>
+  <span class="g">grant</span>  net:https://api.example.com    <span class="k">witness b03f…</span>
+  <span class="r">deny</span>   fs:write /etc/hosts            <span class="k">witness c7d2… (not declared)</span>
+  <span class="r">deny</span>   process:spawn                  <span class="k">witness d41a… (not declared)</span>
+
+Agent exited 0 &#8226; 4 receipts appended &#8226; partition destroyed</div>
+
+        <figure data-anim>
+          <div class="fig-frame">
+            <svg viewBox="0 0 720 190" role="img" aria-label="Diagram: a privileged action passing through capability, policy, proof and quota checks before reaching the host, with a witness record written either way.">
+              <text class="s-lbl" x="0" y="12">Every privileged action, every time</text>
+              <g class="pop d1"><rect class="s-box" x="0" y="30" width="104" height="44" rx="3"/><text class="s-name" x="52" y="50" text-anchor="middle">agent</text><text class="s-small" x="52" y="65" text-anchor="middle">asks</text></g>
+              <path class="s-line-a draw" style="--len:520" d="M104 52 L134 52 M126 46 L134 52 L126 58"/>
+              <g class="pop d2"><rect class="s-box-a" x="138" y="30" width="112" height="44" rx="3"/><text class="s-name s-acc" x="194" y="50" text-anchor="middle">capability</text><text class="s-small" x="194" y="65" text-anchor="middle">is it held?</text></g>
+              <path class="s-line-a draw" style="--len:40" d="M250 52 L280 52 M272 46 L280 52 L272 58"/>
+              <g class="pop d3"><rect class="s-box-a" x="284" y="30" width="112" height="44" rx="3"/><text class="s-name s-acc" x="340" y="50" text-anchor="middle">policy</text><text class="s-small" x="340" y="65" text-anchor="middle">allowed here?</text></g>
+              <path class="s-line-a draw" style="--len:40" d="M396 52 L426 52 M418 46 L426 52 L418 58"/>
+              <g class="pop d4"><rect class="s-box-a" x="430" y="30" width="112" height="44" rx="3"/><text class="s-name s-acc" x="486" y="50" text-anchor="middle">proof</text><text class="s-small" x="486" y="65" text-anchor="middle">verifies?</text></g>
+              <path class="s-line-a draw" style="--len:40" d="M542 52 L572 52 M564 46 L572 52 L564 58"/>
+              <g class="pop d5"><rect class="s-box-a" x="576" y="30" width="112" height="44" rx="3"/><text class="s-name s-acc" x="632" y="50" text-anchor="middle">quota</text><text class="s-small" x="632" y="65" text-anchor="middle">within budget?</text></g>
+
+              <path class="s-line-a draw" style="--len:120" d="M194 74 L194 118 M340 74 L340 118 M486 74 L486 118 M632 74 L632 118"/>
+              <g class="pop d6 pulse"><rect class="s-box" x="138" y="118" width="550" height="34" rx="3"/><text class="s-name" x="413" y="139" text-anchor="middle">witness record written &mdash; pass or refuse, both are recorded</text></g>
+              <text class="s-small" x="0" y="176">A refusal is evidence. It is never a silent no-op, so a compromised agent's attempts remain visible after the fact.</text>
+            </svg>
+          </div>
+          <figcaption><b>Four gates, then the host.</b> Nothing reaches the operating system without clearing all four &mdash; and the attempt is written down either way.</figcaption>
+        </figure>
+      </section>
+
+      <!-- STEP 8 -->
+      <section class="step" data-step="8">
+        <p class="step-n">STEP 08 &mdash; THE POINT</p>
+        <h3>Now break it on purpose</h3>
+        <div class="plain"><b>In plain terms:</b> change one single byte in the middle of the file, then ask the validator again.</div>
+        <p>This is the whole idea compressed into one command. Identity is not a label attached to a file &mdash; it is a value <strong>recomputed from the bytes every single time</strong>. There is no check to bypass and no policy to argue with; the number simply no longer matches what was signed.</p>
+        <div class="cmd"><span class="p">$</span> printf 'X' | dd of=agent.rvf bs=1 seek=2000 conv=notrunc</div>
+        <div class="cmd"><span class="p">$</span> npx @ruvector/rvforge validate agent.rvf --deep</div>
+        <div class="out"><span class="r">error: Root manifest CRC32C mismatch &mdash; the file is corrupt
+       or has been modified.</span>
+<span class="r">code:  FORGE_E_INVALID_RVF</span></div>
+
+        <figure data-anim>
+          <div class="fig-frame">
+            <svg viewBox="0 0 720 165" role="img" aria-label="Diagram: a row of bytes with one altered cell, causing the recomputed digest to differ entirely from the signed digest.">
+              <text class="s-lbl" x="0" y="12">4.4 KB of bytes &mdash; one of them changed</text>
+              <g class="pop d1">
+                <rect class="s-box" x="0" y="24" width="440" height="40" rx="3"/>
+                <text class="s-small" x="14" y="49">4f 2a 91 c3 &hellip; 88 1d 05 e2 7b &hellip; a0 3c 44 96 &hellip; 12 ff 6e</text>
+                <rect class="s-box-r" x="238" y="30" width="20" height="28" rx="2"/>
+                <text class="s-small s-bad" x="248" y="49" text-anchor="middle">58</text>
+                <text class="s-small s-bad" x="248" y="78" text-anchor="middle">&uarr; byte 2000</text>
+              </g>
+              <g class="pop d4">
+                <text class="s-lbl" x="0" y="112">Signed digest</text>
+                <text class="s-name s-acc" x="0" y="132">93efb9ae948d8ed3 &hellip; b6d2b67e59899837</text>
+              </g>
+              <g class="pop d6">
+                <text class="s-lbl" x="380" y="112">Recomputed now</text>
+                <text class="s-name s-bad" x="380" y="132">c71a04f8e2bb5d90 &hellip; 4e8a11d6033fc2be</text>
+                <text class="s-small s-bad" x="380" y="150">no relation to the signed value &mdash; refused before load</text>
+              </g>
+              <path class="s-line-a draw" style="--len:140" d="M248 62 L248 92 L340 92 L340 104" stroke-dasharray="3 3"/>
+            </svg>
+          </div>
+          <figcaption><b>One byte in four thousand.</b> A digest does not degrade gracefully &mdash; the smallest change produces a completely unrelated value, which is exactly the property that makes it useful.</figcaption>
+        </figure>
+
+        <div class="note warn"><b>That is the boundary doing its job.</b> Not a heuristic, not a scan for known-bad patterns &mdash; an arithmetic fact about the bytes in front of you. The same check runs at publish, at install, and again before every load.</div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- ============ REFERENCE ============ -->
+  <section class="sect">
+    <div class="rail">
+      <p class="sect-label" data-anim>Reference</p>
+      <h2 data-anim>The commands, in order</h2>
+      <p class="narrow" data-anim>Each one appends to the same witness chain, so the sequence itself is reconstructable from the artifact afterwards.</p>
+      <div class="tscroll" data-anim>
+        <table>
+          <thead><tr><th>Command</th><th>What it does</th><th>Executes the agent?</th></tr></thead>
+          <tbody>
+            <tr><td><code>init --keygen</code></td><td>Publisher identity and a default-deny policy</td><td>no</td></tr>
+            <tr><td><code>create</code></td><td>Seals code, model and policy into one signed artifact</td><td>no</td></tr>
+            <tr><td><code>validate --deep</code></td><td>Structure, segment hashes, signature</td><td>no</td></tr>
+            <tr><td><code>test</code></td><td>Five checks by inspection, five in a disposable partition</td><td>in quarantine only</td></tr>
+            <tr><td><code>build</code></td><td>Signed installer per platform, inventory, provenance</td><td>no</td></tr>
+            <tr><td><code>verify</code></td><td>Re-checks a build and its receipt chain from the outside</td><td>no</td></tr>
+            <tr><td><code>submit</code></td><td>Publishes to the registry and the transparency log</td><td>no</td></tr>
+            <tr><td><code>rvm run</code></td><td>Verifies, partitions, grants, gates and witnesses</td><td>yes &mdash; gated</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="kicker">
+    <div class="rail">
+      <p data-anim>The model can remain probabilistic.<br>The <em>authority boundary</em> cannot.</p>
+    </div>
+  </section>
+
+  <footer>
+    <div class="rail">
+      <div class="foot-row">
+        <span>npm: @ruvector/rvforge</span>
+        <span>github.com/ruvnet/RuVector</span>
+        <span>github.com/ruvnet/rvm</span>
+      </div>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  try {
+    document.body.classList.add("js-on");
+
+    var reduce = false;
+    try { reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
+
+    /* --- backdrop digits --- */
+    var digits = document.getElementById("digitLayer");
+    if (digits) {
+      var hex = "0123456789abcdef", blob = "", r, c, line;
+      for (r = 0; r < 70; r++) {
+        line = "";
+        for (c = 0; c < 200; c++) line += hex[(r * 31 + c * 17) % 16];
+        blob += line + "\n";
+      }
+      digits.textContent = blob;
+    }
+
+    /* --- parallax --- */
+    var grid = document.getElementById("gridLayer");
+    var ticking = false;
+    function onScroll() {
+      if (reduce || ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(function () {
+        var y = window.pageYOffset || 0;
+        if (grid) grid.style.transform = "translate3d(0," + (y * -0.05).toFixed(2) + "px,0)";
+        if (digits) digits.style.transform = "translate3d(0," + (y * -0.14).toFixed(2) + "px,0)";
+        ticking = false;
+      });
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+
+    /* --- reveal on scroll --- */
+    var reveals = [].slice.call(document.querySelectorAll("[data-anim]"));
+    if (window.IntersectionObserver && reveals.length) {
+      var ro = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) { e.target.classList.add("in"); ro.unobserve(e.target); }
+        });
+      }, { rootMargin: "0px 0px -12% 0px", threshold: 0.12 });
+      reveals.forEach(function (el) { ro.observe(el); });
+    } else {
+      reveals.forEach(function (el) { el.classList.add("in"); });
+    }
+
+    /* --- artifact panel state machine --- */
+    var STATE = {
+      1: { seal: "publisher key ready", fields: {} },
+      2: { seal: "sealed & signed", fields: { format: "v1 · 4.4 KB", segs: "3 · code, model, policy", id: "93efb9ae…59899837", caps: "2 granted · 13 denied" } },
+      3: { seal: "signature verified", fields: {} },
+      4: { seal: "10 of 10 passed", fields: {} },
+      5: { seal: "installers signed", fields: { installers: "deb · dmg · msi" } },
+      6: { seal: "custody intact", fields: { witness: "4 receipts · to genesis" } },
+      7: { seal: "ran under gate", fields: { witness: "8 receipts · 2 refusals" } },
+      8: { seal: "IDENTITY BROKEN", fail: true, fields: { id: "c71a04f8… mismatch" } }
+    };
+    var KEYS = ["format", "segs", "id", "caps", "installers", "witness"];
+    var sealEl = document.getElementById("seal");
+    var sealText = document.getElementById("sealText");
+    var nodes = [].slice.call(document.querySelectorAll(".tnode"));
+
+    function apply(n) {
+      var failing = n >= 8;
+      KEYS.forEach(function (k) {
+        var txt = null, i;
+        for (i = 1; i <= n; i++) {
+          if (STATE[i] && STATE[i].fields[k] !== undefined) txt = STATE[i].fields[k];
+        }
+        var box = document.querySelector('.field[data-f="' + k + '"]');
+        var val = document.getElementById("f-" + k);
+        if (!box || !val) return;
+        if (txt === null) {
+          val.innerHTML = "&mdash;";
+          box.className = "field pending";
+        } else {
+          val.textContent = txt;
+          box.className = "field" + (failing && k === "id" ? " fail" : " lit");
+        }
+      });
+      nodes.forEach(function (nd) {
+        var i = parseInt(nd.getAttribute("data-node"), 10);
+        nd.className = "tnode" + (i < n ? " done" : i === n ? (failing ? " broke" : " now") : "");
+      });
+      var cur = STATE[n] || STATE[1];
+      if (sealText) {
+        sealText.textContent = cur.seal;
+        sealText.style.color = cur.fail ? "var(--rust)" : "";
+      }
+      if (sealEl) {
+        sealEl.innerHTML = cur.fail ? "&#10007;" : "&#10003;";
+        sealEl.style.borderColor = cur.fail ? "var(--rust)" : "var(--brass)";
+        sealEl.style.color = cur.fail ? "var(--rust)" : "var(--brass)";
+        sealEl.style.opacity = n >= 2 ? "1" : "0.45";
+      }
+    }
+
+    var steps = [].slice.call(document.querySelectorAll(".step"));
+    if (window.IntersectionObserver && steps.length) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (!e.isIntersecting) return;
+          steps.forEach(function (s) { s.classList.remove("active"); });
+          e.target.classList.add("active");
+          apply(parseInt(e.target.getAttribute("data-step"), 10) || 1);
+        });
+      }, { rootMargin: "-40% 0px -40% 0px", threshold: 0 });
+      steps.forEach(function (s) { io.observe(s); });
+    } else {
+      steps.forEach(function (s) { s.classList.add("active"); });
+    }
+    apply(1);
+  } catch (err) {
+    document.body.classList.remove("js-on");
+  }
+})();
+</script>
+
+</body>
+</html>

@@ -155,6 +155,8 @@ pub struct HailoClusterEmbedder {
     /// to workers reporting a different model fingerprint, preventing
     /// silent vector-space drift across a heterogeneous fleet.
     expected_model_fingerprint: String,
+    identity: ruvector_core::EmbeddingSpaceIdentity,
+    embedding_space_id: String,
     /// Optional in-process LRU cache. Capacity 0 ≡ disabled; check is
     /// O(1) lock + lookup, so leaving a small cache on always is cheap.
     /// `Arc` so the background health-checker (spawned via
@@ -168,20 +170,61 @@ impl HailoClusterEmbedder {
     /// transport. The transport is what actually talks to the workers
     /// (gRPC / HTTP / in-memory mock) — the coordinator stays
     /// transport-agnostic.
+    ///
+    /// # Embedding-space identity
+    /// The coordinator never loads model artifacts — the workers do — so this
+    /// path derives a symmetric identity scoped to
+    /// `expected_model_fingerprint` and `dim` (ADR-281 §2). That is enough to
+    /// keep two fleets running different models out of each other's caches and
+    /// corpora: the fingerprint is already the fleet's model-compatibility
+    /// marker, so changing it changes the embedding-space id. It is not
+    /// artifact provenance; callers that have the workers' attested identity
+    /// pass it to [`new_with_identity`](Self::new_with_identity) instead.
     pub fn new(
         workers: Vec<WorkerEndpoint>,
         transport: Arc<dyn EmbeddingTransport + Send + Sync>,
         dim: usize,
         expected_model_fingerprint: impl Into<String>,
     ) -> Result<Self, ClusterError> {
+        let fingerprint = expected_model_fingerprint.into();
+        let identity = ruvector_core::embeddings::default_space_identity(
+            "ruvector-hailo-cluster",
+            &format!("fleet:{fingerprint}"),
+            dim,
+        );
+        Self::new_with_identity(workers, transport, dim, fingerprint, identity)
+    }
+
+    /// Build a cluster only with explicit, complete vector-space provenance.
+    pub fn new_with_identity(
+        workers: Vec<WorkerEndpoint>,
+        transport: Arc<dyn EmbeddingTransport + Send + Sync>,
+        dim: usize,
+        expected_model_fingerprint: impl Into<String>,
+        identity: ruvector_core::EmbeddingSpaceIdentity,
+    ) -> Result<Self, ClusterError> {
         if workers.is_empty() {
             return Err(ClusterError::NoWorkers);
         }
+        identity
+            .validate()
+            .map_err(|e| ClusterError::EmbeddingProvenance(e.to_string()))?;
+        if identity.output_dimension as usize != dim {
+            return Err(ClusterError::EmbeddingProvenance(format!(
+                "identity dimension {} does not match cluster dimension {dim}",
+                identity.output_dimension
+            )));
+        }
+        let embedding_space_id = identity
+            .embedding_space_id()
+            .map_err(|e| ClusterError::EmbeddingProvenance(e.to_string()))?;
         Ok(Self {
             pool: Arc::new(P2cPool::new(workers)),
             transport,
             dim,
             expected_model_fingerprint: expected_model_fingerprint.into(),
+            identity,
+            embedding_space_id,
             cache: Arc::new(cache::EmbeddingCache::new(0)),
         })
     }
@@ -505,7 +548,7 @@ impl HailoClusterEmbedder {
         let mut miss_indices: Vec<usize> = Vec::new();
         let mut miss_texts: Vec<String> = Vec::new();
         for (i, t) in texts.iter().enumerate() {
-            match self.cache.get(&self.expected_model_fingerprint, t) {
+            match self.cache.get(&self.embedding_space_id, t) {
                 Some(v) => output[i] = Some(v),
                 None => {
                     miss_indices.push(i);
@@ -577,7 +620,7 @@ impl HailoClusterEmbedder {
         // the cache for next time.
         for (it, &orig_idx) in items.iter().zip(miss_indices.iter()) {
             self.cache.insert(
-                &self.expected_model_fingerprint,
+                &self.embedding_space_id,
                 &miss_texts[it.index as usize],
                 it.vector.clone(),
             );
@@ -801,7 +844,7 @@ impl HailoClusterEmbedder {
         // Fast path: cache hit returns without touching the pool or wire.
         // Disabled cache (cap=0) is a single branch + lock-free atomic
         // capacity check, so this is ~ns-scale when off.
-        if let Some(v) = self.cache.get(&self.expected_model_fingerprint, text) {
+        if let Some(v) = self.cache.get(&self.embedding_space_id, text) {
             return Ok(v);
         }
 
@@ -841,7 +884,7 @@ impl HailoClusterEmbedder {
                         .record_latency(&endpoint.name, start.elapsed(), EWMA_ALPHA);
                     // Populate the cache on success. No-op if cap=0.
                     self.cache
-                        .insert(&self.expected_model_fingerprint, text, vec.clone());
+                        .insert(&self.embedding_space_id, text, vec.clone());
                     return Ok(vec);
                 }
                 Err(e) => {
@@ -895,9 +938,25 @@ impl HailoClusterEmbedder {
 /// `HailoClusterEmbedder` without code changes — the contract
 /// ADR-167 §8.4 promised end-to-end.
 impl ruvector_core::embeddings::EmbeddingProvider for HailoClusterEmbedder {
-    fn embed(&self, text: &str) -> ruvector_core::Result<Vec<f32>> {
+    fn embed_for(
+        &self,
+        role: ruvector_core::EmbeddingRole,
+        text: &str,
+    ) -> ruvector_core::Result<Vec<f32>> {
+        if self.identity.role_policy == ruvector_core::EmbeddingRolePolicy::Asymmetric {
+            return Err(ruvector_core::RuvectorError::EmbeddingRoleUnsupported(
+                format!(
+                    "Hailo cluster transport does not carry {:?} role; deploy a role-aware worker protocol",
+                    role
+                ),
+            ));
+        }
         HailoClusterEmbedder::embed_one_blocking(self, text)
             .map_err(|e| ruvector_core::RuvectorError::ModelInferenceError(e.to_string()))
+    }
+
+    fn embedding_space(&self) -> &ruvector_core::EmbeddingSpaceIdentity {
+        &self.identity
     }
 
     fn dimensions(&self) -> usize {
@@ -919,10 +978,77 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use transport::HealthReport;
 
+    fn test_identity(dim: usize) -> ruvector_core::EmbeddingSpaceIdentity {
+        ruvector_core::EmbeddingSpaceIdentity {
+            schema_version: 1,
+            provider: "hailo-cluster-test".into(),
+            model_id: "test-model@1".into(),
+            model_artifact_sha256: "11".repeat(32),
+            model_graph_sha256: "22".repeat(32),
+            tokenizer_sha256: "33".repeat(32),
+            prompt_template_sha256: "44".repeat(32),
+            pooling_strategy: ruvector_core::PoolingStrategy::Named(
+                ruvector_core::PoolingStrategyName::Mean,
+            ),
+            normalize: true,
+            truncation_tokens: 512,
+            output_dimension: dim as u32,
+            output_dtype: ruvector_core::OutputDtype::F32,
+            runtime_revision: "test@1".into(),
+            distance_metric: ruvector_core::EmbeddingDistanceMetric::Cosine,
+            role_policy: ruvector_core::EmbeddingRolePolicy::Symmetric,
+            prefix_policy: ruvector_core::PrefixPolicy::None,
+            prefix_policy_version: 1,
+        }
+    }
+
+    fn test_cluster(
+        workers: Vec<WorkerEndpoint>,
+        transport: Arc<dyn EmbeddingTransport + Send + Sync>,
+        dim: usize,
+        fingerprint: impl Into<String>,
+    ) -> Result<HailoClusterEmbedder, ClusterError> {
+        HailoClusterEmbedder::new_with_identity(
+            workers,
+            transport,
+            dim,
+            fingerprint,
+            test_identity(dim),
+        )
+    }
+
+    /// Smoke test for the identity-free constructor: it must build a working
+    /// coordinator, and the derived identity must be scoped to the fleet's
+    /// model fingerprint so two fleets never share an embedding space.
+    #[test]
+    fn legacy_constructor_derives_a_fingerprint_scoped_identity() {
+        let build = |fingerprint: &str| {
+            HailoClusterEmbedder::new(
+                vec![WorkerEndpoint::new("pi-a", "127.0.0.1:1")],
+                transport::null_transport(),
+                384,
+                fingerprint,
+            )
+            .expect("legacy constructor must build a coordinator")
+        };
+
+        let a = build("fingerprint:test");
+        assert_eq!(a.dim(), 384);
+        assert_eq!(
+            ruvector_core::EmbeddingProvider::embedding_space(&a).output_dimension,
+            384
+        );
+
+        let b = build("fingerprint:other");
+        assert_ne!(
+            a.embedding_space_id, b.embedding_space_id,
+            "a different model fingerprint must be a different embedding space"
+        );
+    }
+
     #[test]
     fn empty_worker_list_rejected() {
-        let r =
-            HailoClusterEmbedder::new(vec![], transport::null_transport(), 384, "fingerprint:test");
+        let r = test_cluster(vec![], transport::null_transport(), 384, "fingerprint:test");
         assert!(matches!(r, Err(ClusterError::NoWorkers)));
     }
 
@@ -932,8 +1058,8 @@ mod tests {
             WorkerEndpoint::new("pi-a", "100.77.59.83:50051"),
             WorkerEndpoint::new("pi-b", "100.77.59.84:50051"),
         ];
-        let c = HailoClusterEmbedder::new(workers, transport::null_transport(), 384, "fp:abc")
-            .expect("two workers");
+        let c =
+            test_cluster(workers, transport::null_transport(), 384, "fp:abc").expect("two workers");
         assert_eq!(c.dim(), 384);
         assert_eq!(c.worker_count(), 2);
     }
@@ -1018,8 +1144,7 @@ mod tests {
     #[test]
     fn dispatch_succeeds_on_first_try_returns_vector() {
         let transport = Arc::new(FakeTransport::always_ok(vec![1.0, 2.0, 3.0]));
-        let c =
-            HailoClusterEmbedder::new(workers(2), transport.clone(), 3, "fp:test").expect("init");
+        let c = test_cluster(workers(2), transport.clone(), 3, "fp:test").expect("init");
         let v = c.embed_one_blocking("hello").expect("embed should succeed");
         assert_eq!(v, vec![1.0, 2.0, 3.0]);
         assert_eq!(transport.calls.load(Ordering::SeqCst), 1);
@@ -1031,8 +1156,7 @@ mod tests {
         // budget is 3 attempts (initial + MAX_DISPATCH_RETRIES=2) so it
         // should reach the 3rd call.
         let transport = Arc::new(FakeTransport::fail_then_ok(2, vec![1.0, 2.0]));
-        let c =
-            HailoClusterEmbedder::new(workers(3), transport.clone(), 2, "fp:test").expect("init");
+        let c = test_cluster(workers(3), transport.clone(), 2, "fp:test").expect("init");
         let v = c.embed_one_blocking("hello").expect("retry should land");
         assert_eq!(v, vec![1.0, 2.0]);
         assert_eq!(transport.calls.load(Ordering::SeqCst), 3);
@@ -1042,8 +1166,7 @@ mod tests {
     fn dispatch_returns_all_workers_failed_after_budget_exhausted() {
         // Fake fails 99 times — coordinator gives up after MAX+1 attempts.
         let transport = Arc::new(FakeTransport::fail_then_ok(99, vec![]));
-        let c =
-            HailoClusterEmbedder::new(workers(3), transport.clone(), 384, "fp:test").expect("init");
+        let c = test_cluster(workers(3), transport.clone(), 384, "fp:test").expect("init");
         let r = c.embed_one_blocking("hello");
         assert!(matches!(r, Err(ClusterError::AllWorkersFailed(_))));
     }
@@ -1052,8 +1175,7 @@ mod tests {
     fn dispatch_rejects_dim_mismatch_immediately() {
         // Worker returns 7-dim vector but coordinator expects 384.
         let transport = Arc::new(FakeTransport::always_wrong_dim(7));
-        let c =
-            HailoClusterEmbedder::new(workers(2), transport.clone(), 384, "fp:test").expect("init");
+        let c = test_cluster(workers(2), transport.clone(), 384, "fp:test").expect("init");
         match c.embed_one_blocking("hello") {
             Err(ClusterError::DimMismatch {
                 expected, actual, ..
@@ -1070,9 +1192,13 @@ mod tests {
     #[test]
     fn cache_hits_skip_transport_after_first_call() {
         let transport = Arc::new(FakeTransport::always_ok(vec![0.1, 0.2, 0.3]));
-        let c = HailoClusterEmbedder::new(workers(2), transport.clone(), 3, "fp:cache")
+        // Capacity 32 → per-shard capacity 2 (32/16 shards), so the two
+        // distinct texts below cannot evict each other even if their keys
+        // hash to the same shard. At capacity 16 the per-shard cap is 1
+        // and this test becomes sensitive to the cache-key hash layout.
+        let c = test_cluster(workers(2), transport.clone(), 3, "fp:cache")
             .expect("init")
-            .with_cache(16);
+            .with_cache(32);
 
         // First call → miss → transport hit (count = 1)
         let v1 = c.embed_one_blocking("warm me up").expect("first embed");
@@ -1097,7 +1223,7 @@ mod tests {
         assert_eq!(s.hits, 1);
         assert_eq!(s.misses, 2);
         assert_eq!(s.evictions, 0);
-        assert_eq!(s.capacity, 16);
+        assert_eq!(s.capacity, 32);
     }
 
     /// Test transport whose health() output varies per-worker based on a
@@ -1164,7 +1290,7 @@ mod tests {
             WorkerEndpoint::new("pi-0", "10.0.0.0:1"),
             WorkerEndpoint::new("pi-1", "10.0.0.1:1"),
         ];
-        let c = HailoClusterEmbedder::new(workers, transport, 4, "fp:abc").expect("init");
+        let c = test_cluster(workers, transport, 4, "fp:abc").expect("init");
         let report = c.validate_fleet().expect("should pass");
         assert_eq!(report.healthy.len(), 2);
         assert_eq!(report.fingerprint_mismatched.len(), 0);
@@ -1194,8 +1320,7 @@ mod tests {
             WorkerEndpoint::new("pi-0", "10.0.0.0:1"),
             WorkerEndpoint::new("pi-1", "10.0.0.1:1"),
         ];
-        let c =
-            HailoClusterEmbedder::new(workers, transport.clone(), 4, "fp:current").expect("init");
+        let c = test_cluster(workers, transport.clone(), 4, "fp:current").expect("init");
         let report = c.validate_fleet().expect("at least one healthy → ok");
         assert_eq!(report.healthy, vec!["pi-0"]);
         assert_eq!(report.fingerprint_mismatched.len(), 1);
@@ -1231,7 +1356,7 @@ mod tests {
             WorkerEndpoint::new("pi-0", "10.0.0.0:1"),
             WorkerEndpoint::new("pi-1", "10.0.0.1:1"),
         ];
-        let c = HailoClusterEmbedder::new(workers, transport, 4, "fp:current").expect("init");
+        let c = test_cluster(workers, transport, 4, "fp:current").expect("init");
         match c.validate_fleet() {
             Err(ClusterError::AllWorkersFailed(msg)) => {
                 assert!(msg.contains("0 healthy"));
@@ -1263,7 +1388,7 @@ mod tests {
             WorkerEndpoint::new("pi-0", "10.0.0.0:1"),
             WorkerEndpoint::new("pi-1", "10.0.0.1:1"),
         ];
-        let c = HailoClusterEmbedder::new(workers, transport, 4, "").expect("init");
+        let c = test_cluster(workers, transport, 4, "").expect("init");
         let fp = c.discover_fingerprint().expect("first worker reachable");
         // First worker in pool order = pi-0 → returns fp:discovered.
         // We don't enforce homogeneity here; that's validate_fleet's job.
@@ -1286,7 +1411,7 @@ mod tests {
             WorkerEndpoint::new("pi-0", "10.0.0.0:1"),
             WorkerEndpoint::new("pi-1", "10.0.0.1:1"),
         ];
-        let c = HailoClusterEmbedder::new(workers, transport, 4, "").expect("init");
+        let c = test_cluster(workers, transport, 4, "").expect("init");
         let fp = c.discover_fingerprint().expect("pi-1 reachable");
         assert_eq!(
             fp, "fp:second",
@@ -1305,7 +1430,7 @@ mod tests {
             WorkerEndpoint::new("pi-0", "10.0.0.0:1"),
             WorkerEndpoint::new("pi-1", "10.0.0.1:1"),
         ];
-        let c = HailoClusterEmbedder::new(workers, transport, 4, "").expect("init");
+        let c = test_cluster(workers, transport, 4, "").expect("init");
         match c.discover_fingerprint() {
             Err(ClusterError::AllWorkersFailed(msg)) => {
                 assert!(msg.contains("discover_fingerprint"));
@@ -1348,7 +1473,7 @@ mod tests {
             WorkerEndpoint::new("pi-1", "10.0.0.1:1"),
             WorkerEndpoint::new("pi-2", "10.0.0.2:1"),
         ];
-        let c = HailoClusterEmbedder::new(workers, transport, 4, "").expect("init");
+        let c = test_cluster(workers, transport, 4, "").expect("init");
         let fp = c.discover_fingerprint_with_quorum(2).expect("majority hit");
         assert_eq!(fp, "fp:A");
     }
@@ -1381,7 +1506,7 @@ mod tests {
             WorkerEndpoint::new("pi-1", "10.0.0.1:1"),
             WorkerEndpoint::new("pi-2", "10.0.0.2:1"),
         ];
-        let c = HailoClusterEmbedder::new(workers, transport, 4, "").expect("init");
+        let c = test_cluster(workers, transport, 4, "").expect("init");
         match c.discover_fingerprint_with_quorum(2) {
             Err(ClusterError::AllWorkersFailed(msg)) => {
                 assert!(msg.contains("need 2"), "expected quorum=2 message: {}", msg);
@@ -1407,7 +1532,7 @@ mod tests {
         );
         let transport = Arc::new(PerWorkerHealth { outcomes });
         let workers = vec![WorkerEndpoint::new("pi-0", "10.0.0.0:1")];
-        let c = HailoClusterEmbedder::new(workers, transport, 4, "").expect("init");
+        let c = test_cluster(workers, transport, 4, "").expect("init");
         let fp = c.discover_fingerprint_with_quorum(1).expect("solo worker");
         assert_eq!(fp, "fp:solo");
     }
@@ -1442,7 +1567,7 @@ mod tests {
             WorkerEndpoint::new("pi-1", "10.0.0.1:1"),
             WorkerEndpoint::new("pi-2", "10.0.0.2:1"),
         ];
-        let c = HailoClusterEmbedder::new(workers, transport, 4, "").expect("init");
+        let c = test_cluster(workers, transport, 4, "").expect("init");
         match c.discover_fingerprint_with_quorum(1) {
             Err(ClusterError::AllWorkersFailed(msg)) => {
                 assert!(
@@ -1468,7 +1593,7 @@ mod tests {
             WorkerEndpoint::new("pi-0", "10.0.0.0:1"),
             WorkerEndpoint::new("pi-1", "10.0.0.1:1"),
         ];
-        let c = HailoClusterEmbedder::new(workers, transport, 4, "").expect("init");
+        let c = test_cluster(workers, transport, 4, "").expect("init");
         match c.discover_fingerprint_with_quorum(2) {
             Err(ClusterError::AllWorkersFailed(msg)) => {
                 assert!(msg.contains("pi-0"), "expected per-worker err: {}", msg);
@@ -1505,7 +1630,7 @@ mod tests {
             WorkerEndpoint::new("pi-0", "10.0.0.0:1"),
             WorkerEndpoint::new("pi-1", "10.0.0.1:1"),
         ];
-        let c = HailoClusterEmbedder::new(workers, transport, 4, "").expect("init");
+        let c = test_cluster(workers, transport, 4, "").expect("init");
         let report = c.validate_fleet().expect("empty fp → no check");
         assert_eq!(report.healthy.len(), 2, "both should pass without fp check");
     }
@@ -1513,7 +1638,7 @@ mod tests {
     #[test]
     fn invalidate_cache_drops_all_cached_entries() {
         let transport = Arc::new(FakeTransport::always_ok(vec![0.5, 0.5, 0.5]));
-        let c = HailoClusterEmbedder::new(workers(2), transport.clone(), 3, "fp:invalidate")
+        let c = test_cluster(workers(2), transport.clone(), 3, "fp:invalidate")
             .expect("init")
             .with_cache(16);
 
@@ -1542,8 +1667,7 @@ mod tests {
     #[test]
     fn cache_disabled_by_default() {
         let transport = Arc::new(FakeTransport::always_ok(vec![1.0; 3]));
-        let c = HailoClusterEmbedder::new(workers(2), transport.clone(), 3, "fp:nocache")
-            .expect("init");
+        let c = test_cluster(workers(2), transport.clone(), 3, "fp:nocache").expect("init");
 
         // No `.with_cache(...)` — capacity 0, every call hits the transport.
         for _ in 0..5 {

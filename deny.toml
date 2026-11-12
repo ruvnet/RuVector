@@ -41,18 +41,6 @@ yanked = "warn"
 ignore = [
     # ── Real vulnerabilities (need active migration path) ────────────
 
-    # rsa 0.9.x — Marvin Attack timing sidechannel (RUSTSEC-2023-0071).
-    # No patched version exists; the RustCrypto/RSA team is rewriting
-    # to constant-time. Used by `ruvector-kalshi` for Kalshi exchange
-    # API signing (RSA-PSS-SHA256, mandated by the exchange). Mitigation
-    # per the advisory: "local use on a non-compromised computer is
-    # fine" — we sign locally and an attacker would need to observe
-    # sub-ms timing across many requests through the network response
-    # timing to recover the key. Risk is acceptable for trading-bot
-    # use; re-review on 2026-08-01 or when `rsa 0.10` ships with the
-    # constant-time fix (track: https://github.com/RustCrypto/RSA/issues/626).
-    "RUSTSEC-2023-0071",
-
     # NOTE: quick-xml 0.26.0's two DoS advisories (RUSTSEC-2026-0194,
     # RUSTSEC-2026-0195, transitive via inferno <- pprof's optional
     # `profiling` feature) are ignored in `.cargo/audit.toml` instead of
@@ -108,10 +96,13 @@ ignore = [
     # legacy rand internals; modern paths use getrandom directly.
     "RUSTSEC-2025-0124",
 
-    # rustls-pemfile 1.x — unmaintained, replaced by rustls-pki-types'
-    # builtin PEM parser. Transitive via reqwest / tokio-tungstenite.
-    # Migration is a transitive bump; Dependabot tracking.
-    "RUSTSEC-2025-0134",
+    # NOTE: RUSTSEC-2025-0134 (rustls-pemfile 1.x, unmaintained) was
+    # removed from this list once the last rustls-pemfile 1.0.4 edge
+    # left the graph — it came in via reqwest 0.11 -> hyper 0.14, and
+    # that whole chain went away with the h2 RUSTSEC-2026-0258 fix.
+    # The 2.2.0 edge (tonic 0.12 `tls` <- ruvector-hailo-cluster) went
+    # away with the tonic/tonic-build 0.13 bump, so rustls-pemfile is no
+    # longer in the graph at all.
 
     # ttf-parser — unmaintained (RUSTSEC-2026-0192), "no safe upgrade
     # available" per the advisory itself. Pulled via three unrelated

@@ -373,7 +373,12 @@ mod tests {
     fn test_timer_reset() {
         let mut timer = Timer::new();
 
+        // Span a measurable interval rather than start/stop back to back: on
+        // aarch64 `elapsed_cycles` reads `cntvct_el0`, which ticks at ~24 MHz
+        // on Apple Silicon, so an empty interval legitimately reads zero and
+        // a `> 0` assertion fails deterministically there.
         timer.start();
+        std::thread::sleep(core::time::Duration::from_millis(1));
         timer.stop();
         let first = timer.elapsed_cycles();
 
@@ -381,6 +386,7 @@ mod tests {
         assert_eq!(timer.elapsed_cycles(), 0);
 
         timer.start();
+        std::thread::sleep(core::time::Duration::from_millis(1));
         timer.stop();
         let second = timer.elapsed_cycles();
 

@@ -342,3 +342,45 @@ fn parse_npy_file(path: &str) -> Result<Vec<VectorEntry>> {
 
     Ok(entries)
 }
+
+#[cfg(test)]
+mod npy_feature_tests {
+    use super::parse_npy_file;
+    use ndarray::array;
+    use ndarray_npy::WriteNpyExt;
+
+    fn path(label: &str) -> std::path::PathBuf {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "ruvector-npy-{label}-{}-{nonce}.npy",
+            std::process::id()
+        ))
+    }
+
+    #[test]
+    fn loads_npy_vectors_without_npz_feature() {
+        let path = path("roundtrip");
+        array![[1.25f32, 2.5], [3.75, -4.0]]
+            .write_npy(std::fs::File::create(&path).unwrap())
+            .unwrap();
+        let result = parse_npy_file(path.to_str().unwrap());
+        std::fs::remove_file(&path).unwrap();
+        let entries = result.unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].id.as_deref(), Some("vec_0"));
+        assert_eq!(entries[0].vector, vec![1.25, 2.5]);
+        assert_eq!(entries[1].vector, vec![3.75, -4.0]);
+    }
+
+    #[test]
+    fn rejects_invalid_npy_without_npz_feature() {
+        let path = path("invalid");
+        std::fs::write(&path, b"not an NPY array").unwrap();
+        let result = parse_npy_file(path.to_str().unwrap());
+        std::fs::remove_file(&path).unwrap();
+        assert!(result.is_err());
+    }
+}

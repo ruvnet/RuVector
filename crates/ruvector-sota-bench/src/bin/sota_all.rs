@@ -9,10 +9,12 @@
 //!   cargo run --release -p ruvector-sota-bench --bin sota-all -- --smoke
 //!   cargo run --release -p ruvector-sota-bench --bin sota-all -- --json results/sota.json
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 use ruvector_sota_bench::{
-    datasets::{ann_benchmark_synthetic, ci_smoke},
+    datasets::{
+        ann_benchmark_synthetic_with_seed, ci_smoke_with_seed, load_ann_dataset, ANN_DATASETS,
+    },
     report::BenchReport,
     runners::{
         run_core_hnsw, run_hybrid_suite, run_lsm_ann, run_matryoshka_suite, run_rabitq_suite,
@@ -30,6 +32,37 @@ struct Args {
     /// Quick smoke-test datasets only (CI-safe, < 30s)
     #[arg(long)]
     smoke: bool,
+
+    /// Load the named ANN-Benchmarks HDF5 dataset instead of a synthetic
+    /// distribution. Requires the `real-datasets` feature and --dataset.
+    #[arg(long, requires = "dataset")]
+    real: bool,
+
+    /// Cache for real ANN-Benchmarks datasets.
+    #[arg(long, default_value = "data/ann-benchmarks")]
+    dataset_cache: PathBuf,
+
+    /// Corpus cap for real dataset runs.
+    #[arg(long, default_value = "100000")]
+    max_corpus: usize,
+
+    /// Query cap for real dataset runs.
+    #[arg(long, default_value = "1000")]
+    max_queries: usize,
+
+    /// Idle window used by the external harness to sample process baseline RSS
+    /// before dataset allocation begins.
+    #[arg(long, default_value = "0")]
+    measurement_start_delay_ms: u64,
+
+    /// Deterministic dataset seed. Confirmation and frozen-anchor suites must
+    /// use disjoint seed sets.
+    #[arg(long, default_value = "0")]
+    seed: u64,
+
+    /// Run one named dataset instead of the complete selected dataset family.
+    #[arg(long)]
+    dataset: Option<String>,
 
     /// HNSW ef_search values to sweep
     #[arg(long, default_value = "50,100,200,400")]
@@ -70,12 +103,40 @@ struct Args {
 
 fn main() -> Result<()> {
     let args = Args::parse();
+    if args.measurement_start_delay_ms > 0 {
+        std::thread::sleep(std::time::Duration::from_millis(
+            args.measurement_start_delay_ms,
+        ));
+    }
 
-    let datasets = if args.smoke {
-        ci_smoke()
+    let mut datasets = if args.real {
+        let name = args.dataset.as_deref().expect("clap requires dataset");
+        let Some(spec) = ANN_DATASETS.iter().find(|spec| spec.name == name) else {
+            bail!("unknown real ANN-Benchmarks dataset {name:?}");
+        };
+        let mut dataset =
+            load_ann_dataset(spec, &args.dataset_cache, args.max_corpus, args.max_queries)?;
+        // Seeded query rotation creates paired, reproducible query samples
+        // without changing the immutable real corpus or its ground truth.
+        if !dataset.queries.is_empty() {
+            let offset = args.seed as usize % dataset.queries.len();
+            dataset.queries.rotate_left(offset);
+            dataset.ground_truth.rotate_left(offset);
+        }
+        vec![dataset]
+    } else if args.smoke {
+        ci_smoke_with_seed(args.seed)
     } else {
-        ann_benchmark_synthetic()
+        ann_benchmark_synthetic_with_seed(args.seed)
     };
+    if !args.real {
+        if let Some(name) = &args.dataset {
+            datasets.retain(|dataset| dataset.name == *name);
+            if datasets.is_empty() {
+                bail!("unknown dataset {name:?} for the selected benchmark mode");
+            }
+        }
+    }
     let ef_values: Vec<usize> = args
         .ef_search
         .split(',')
@@ -85,7 +146,9 @@ fn main() -> Result<()> {
     println!("RuVector SOTA Benchmark");
     println!(
         "  Mode:      {}",
-        if args.smoke {
+        if args.real {
+            "real ANN-Benchmarks"
+        } else if args.smoke {
             "smoke (synthetic, fast)"
         } else {
             "full (synthetic ANN-Benchmarks scale)"
@@ -100,6 +163,7 @@ fn main() -> Result<()> {
             .join(", ")
     );
     println!("  ef_search: {:?}", ef_values);
+    println!("  Seed:      {}", args.seed);
     println!();
 
     let mut scores: Vec<BenchScore> = Vec::new();

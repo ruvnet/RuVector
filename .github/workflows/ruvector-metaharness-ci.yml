@@ -1,0 +1,73 @@
+name: RuVector MetaHarness
+
+on:
+  pull_request:
+    paths:
+      - "crates/ruvector-sota-bench/harness/**"
+      - "crates/ruvector-sota-bench/src/**"
+      - "crates/ruvector-sota-bench/Cargo.toml"
+      - "crates/ruvector-sota-bench/README.md"
+      - ".github/workflows/ruvector-metaharness-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "crates/ruvector-sota-bench/harness/**"
+      - "crates/ruvector-sota-bench/src/**"
+      - "crates/ruvector-sota-bench/Cargo.toml"
+      - "crates/ruvector-sota-bench/README.md"
+      - ".github/workflows/ruvector-metaharness-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: crates/ruvector-sota-bench/harness/package-lock.json
+
+      - name: Install pinned MetaHarness stack
+        working-directory: crates/ruvector-sota-bench/harness
+        run: npm ci --ignore-scripts
+
+      # research.test.ts shells out to scripts/research-gate/research_gate.py,
+      # which schema-validates its inputs and so needs the gate's pinned
+      # dependencies (jsonschema, referencing). Same interpreter and lock the
+      # research-* workflows use.
+      - name: Set up Python for the research gate
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned trusted gate dependencies
+        run: |
+          python3 -m pip install --disable-pip-version-check --no-input \
+            --require-hashes -r scripts/research-gate/requirements.txt
+
+      - name: Typecheck, test, and probe capabilities
+        working-directory: crates/ruvector-sota-bench/harness
+        run: |
+          npm run check
+          npm test
+          npm run doctor
+
+      - name: Check seeded native benchmark adapter
+        run: cargo check -p ruvector-sota-bench --bin sota-all
+
+      - name: Generate dependency SBOM
+        working-directory: crates/ruvector-sota-bench/harness
+        run: npm sbom --sbom-format cyclonedx > metaharness-sbom.cdx.json
+
+      - name: Upload dependency SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ruvector-metaharness-sbom
+          path: crates/ruvector-sota-bench/harness/metaharness-sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 30

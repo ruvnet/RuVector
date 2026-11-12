@@ -1,6 +1,6 @@
 # ADR-259: ruvllm as Local Mutator Backend for Darwin Mode
 
-**Status:** Implemented (code + unit tests + CLI; live-serve e2e blocked by a ruvllm download bug — see Implementation status)  
+**Status:** Implemented (code + unit tests + CLI; the download-path bugs that blocked the live-serve e2e are fixed — see Implementation status)  
 
 ## Implementation status (2026-06-18)
 
@@ -11,11 +11,16 @@ Implemented in `agent-harness-generator` (`@metaharness/darwin`):
 - `__tests__/ruvllm-mutator.test.ts` — 4 tests vs a real `node:http` mock (success, fence-strip,
   unreachable→no-op, malformed→no-op). Full darwin suite **354/354** green.
 
-**Honest gap:** the live-serve e2e (evolve against a real local model) is **blocked by a ruvllm
-2.1.0 download bug** — `ruvllm download phi` fails on `tokenizer_config.json` (the file is served
-via an HTTP 307 redirect that ruvllm does not follow; `curl -L` fetches it fine). So the HTTP
-*contract* is verified by unit tests, but an end-to-end run against a served model is pending a
-ruvllm fix (or manual model placement). Recommend fixing the redirect-follow in `ruvllm download`.
+**Honest gap (updated):** the live-serve e2e (evolve against a real local model) was blocked by
+two `ruvllm download` bugs, both now fixed:
+1. **HTTP 307 redirect on aux files** (`tokenizer_config.json` etc.) — **fixed 2026-06-18** in
+   commit `946275a61` (PR #590) via a redirect-following `curl -L` fallback.
+2. **GGUF weight downloads** — the remaining gap after PR #590: `get_files_to_download()` sent an
+   unexpanded glob (`*Q4_K_M.gguf`) literally (404), and the GGUF alias resolved to the
+   safetensors repo. Fixed (PIR WP0b, issue #846) by expanding the pattern against the real
+   HuggingFace file listing (`/api/models/<id>/tree/<rev>`, multi-part GGUF included) and by
+   routing quantized requests to a registry-defined GGUF twin repo.
+With both fixed, an end-to-end run against a served model is unblocked.
 
 **Value note (ADR-087):** the mutator is not the quality lever — deterministic and frontier-LLM
 mutators both hit the 0.985 scorer ceiling. RuvllmMutator's benefit is *operational* (fully local,

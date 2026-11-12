@@ -316,6 +316,11 @@ export class OptimizedOnnxEmbedder {
     return this.embedKind('passage', text);
   }
 
+  async embedFor(role: EmbedTextKind, text: string): Promise<Float32Array> {
+    if (role !== 'query' && role !== 'passage') throw new TypeError(`unknown embedding role: ${role}`);
+    return this.embedKind(role, text);
+  }
+
   private async embedKind(kind: EmbedTextKind, text: string): Promise<Float32Array> {
     // ADR-210 D4: prefix before tokenization (and before the cache key, so
     // query and passage embeds of the same text never collide for E5/BGE).
@@ -359,6 +364,19 @@ export class OptimizedOnnxEmbedder {
    * Embed multiple texts with batching and caching
    */
   async embedBatch(texts: string[]): Promise<Float32Array[]> {
+    return this.embedBatchFor('passage', texts);
+  }
+
+  async embedQueryBatch(texts: string[]): Promise<Float32Array[]> {
+    return this.embedBatchFor('query', texts);
+  }
+
+  async embedPassageBatch(texts: string[]): Promise<Float32Array[]> {
+    return this.embedBatchFor('passage', texts);
+  }
+
+  async embedBatchFor(kind: EmbedTextKind, texts: string[]): Promise<Float32Array[]> {
+    if (kind !== 'query' && kind !== 'passage') throw new TypeError(`unknown embedding role: ${kind}`);
     if (this.config.lazyInit && !this.initialized) {
       await this.init();
     }
@@ -367,7 +385,7 @@ export class OptimizedOnnxEmbedder {
     }
 
     // ADR-210 D4: batch embedding is the passage path (embed() === embedPassage()).
-    const prepared = texts.map(t => prefixText(this.config.modelId, 'passage', t));
+    const prepared = texts.map(t => prefixText(this.config.modelId, kind, t));
 
     const results: Float32Array[] = new Array(prepared.length);
     const uncached: { index: number; text: string }[] = [];

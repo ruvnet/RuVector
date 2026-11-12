@@ -5,6 +5,12 @@
 //! - Token-bucket rate limiting per IP address
 //! - Request body size enforcement
 
+// Every middleware here returns `Result<Response, Response>`, which is the
+// signature `axum::middleware::from_fn` requires; the 128-byte `Err` variant
+// is `axum::http::Response<Body>` itself. Boxing it would no longer satisfy
+// the `from_fn` bound, so the lint's suggestion is not available to us.
+#![allow(clippy::result_large_err)]
+
 use axum::{
     extract::{ConnectInfo, Request},
     http::{header, StatusCode},

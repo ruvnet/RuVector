@@ -5,9 +5,13 @@
 
 /// Wire-format error code (u16). The high byte is the category, the low byte is
 /// the specific error within that category.
+///
+/// This enum is `#[non_exhaustive]`: new codes may be added in minor releases,
+/// so downstream `match`es must include a wildcard arm (fail closed).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u16)]
+#[non_exhaustive]
 pub enum ErrorCode {
     // ---- Category 0x00: Success ----
     /// Operation succeeded.
@@ -34,6 +38,12 @@ pub enum ErrorCode {
     UnknownSegmentType = 0x0107,
     /// Data not at expected 64-byte boundary.
     AlignmentError = 0x0108,
+    /// Authoritative metadata payload or resulting vector binding is invalid.
+    InvalidMetadata = 0x0109,
+    /// Metadata replay exceeded the normal-open delta or byte ceiling.
+    MetadataReplayLimitExceeded = 0x010A,
+    /// Metadata base generations are missing, cyclic, or non-monotonic.
+    MetadataAncestryInvalid = 0x010B,
 
     // ---- Category 0x02: Query Errors ----
     /// Query vector dimension != index dimension.
@@ -48,6 +58,11 @@ pub enum ErrorCode {
     KTooLarge = 0x0204,
     /// Query exceeded time budget.
     Timeout = 0x0205,
+    /// Linear metadata filtering exceeded an explicit resource budget.
+    FilterBudgetExceeded = 0x0206,
+    /// Query vector contains NaN or an infinity, or its distances overflow to
+    /// a non-finite value (invalid input).
+    NonFiniteQuery = 0x0207,
 
     // ---- Category 0x03: Write Errors ----
     /// Another writer holds the lock.
@@ -114,6 +129,51 @@ pub enum ErrorCode {
     EpochDriftExceeded = 0x0803,
     /// Level 1 manifest signature invalid (Paranoid mode).
     Level1InvalidSignature = 0x0804,
+    /// RVSD descriptor is shorter or longer than its fixed layout requires.
+    StreamDescriptorTruncated = 0x0805,
+    /// RVSD descriptor magic mismatch.
+    StreamBadMagic = 0x0806,
+    /// RVSD descriptor version is not supported.
+    StreamUnsupportedVersion = 0x0807,
+    /// RVSD descriptor has unknown flags, algorithms, chunk size or non-zero reserved bytes.
+    StreamBadFlags = 0x0808,
+    /// RVSD descriptor exceeds a receiver policy limit.
+    StreamLimitExceeded = 0x0809,
+    /// RVSD segment table violates an invariant (order, contiguity, uniqueness, sizes).
+    StreamTableInvalid = 0x080A,
+    /// RVSD descriptor signature does not verify.
+    StreamBadSignature = 0x080B,
+    /// RVSD descriptor epoch is lower than the pinned epoch (replay).
+    StreamStaleEpoch = 0x080C,
+    /// RVSD descriptor has the pinned epoch but different content.
+    StreamEpochConflict = 0x080D,
+    /// RVSD descriptor has expired.
+    StreamExpired = 0x080E,
+    /// RVSD descriptor policy hash differs from the expected policy hash.
+    StreamPolicyMismatch = 0x080F,
+    /// Stream chunk does not match its committed leaf hash.
+    StreamChunkHashMismatch = 0x0810,
+    /// Stream chunk table does not match the committed chunk table hash.
+    StreamTableHashMismatch = 0x0811,
+    /// Stream frame is a duplicate, out of order, unknown or malformed.
+    StreamUnexpectedFrame = 0x0812,
+    /// Stream frame declares a size that contradicts the signed descriptor.
+    StreamFrameSizeLie = 0x0813,
+    /// Chunk arrived before the stages named in its requires_mask were verified.
+    StreamRequirementsUnmet = 0x0814,
+    /// SHA-256 of the verified body differs from the signed rvf_identity.
+    StreamIdentityMismatch = 0x0815,
+    /// Executable or index segment uses a non-cryptographic checksum algorithm.
+    StreamWeakChecksum = 0x0816,
+    /// Stream is poisoned; no further frames are accepted.
+    StreamPoisoned = 0x0817,
+    // 0x0818 is reserved (never assigned).
+    /// Frame pushed in a state that cannot accept it.
+    StreamBadState = 0x0819,
+    /// Too many idempotent duplicate frames (retransmit flood).
+    StreamDuplicateFlood = 0x081A,
+    /// A signature-checking open was requested without an explicit freshness choice.
+    FreshnessRequired = 0x081B,
 
     // ---- Category 0x09: Quality Errors (ADR-033) ----
     /// Query result quality is below threshold and AcceptDegraded not set.
@@ -193,6 +253,9 @@ impl TryFrom<u16> for ErrorCode {
             0x0106 => Ok(Self::ManifestNotFound),
             0x0107 => Ok(Self::UnknownSegmentType),
             0x0108 => Ok(Self::AlignmentError),
+            0x0109 => Ok(Self::InvalidMetadata),
+            0x010A => Ok(Self::MetadataReplayLimitExceeded),
+            0x010B => Ok(Self::MetadataAncestryInvalid),
 
             0x0200 => Ok(Self::DimensionMismatch),
             0x0201 => Ok(Self::EmptyIndex),
@@ -200,6 +263,8 @@ impl TryFrom<u16> for ErrorCode {
             0x0203 => Ok(Self::FilterParseError),
             0x0204 => Ok(Self::KTooLarge),
             0x0205 => Ok(Self::Timeout),
+            0x0206 => Ok(Self::FilterBudgetExceeded),
+            0x0207 => Ok(Self::NonFiniteQuery),
 
             0x0300 => Ok(Self::LockHeld),
             0x0301 => Ok(Self::LockStale),
@@ -233,6 +298,28 @@ impl TryFrom<u16> for ErrorCode {
             0x0802 => Ok(Self::UnknownSigner),
             0x0803 => Ok(Self::EpochDriftExceeded),
             0x0804 => Ok(Self::Level1InvalidSignature),
+            0x0805 => Ok(Self::StreamDescriptorTruncated),
+            0x0806 => Ok(Self::StreamBadMagic),
+            0x0807 => Ok(Self::StreamUnsupportedVersion),
+            0x0808 => Ok(Self::StreamBadFlags),
+            0x0809 => Ok(Self::StreamLimitExceeded),
+            0x080A => Ok(Self::StreamTableInvalid),
+            0x080B => Ok(Self::StreamBadSignature),
+            0x080C => Ok(Self::StreamStaleEpoch),
+            0x080D => Ok(Self::StreamEpochConflict),
+            0x080E => Ok(Self::StreamExpired),
+            0x080F => Ok(Self::StreamPolicyMismatch),
+            0x0810 => Ok(Self::StreamChunkHashMismatch),
+            0x0811 => Ok(Self::StreamTableHashMismatch),
+            0x0812 => Ok(Self::StreamUnexpectedFrame),
+            0x0813 => Ok(Self::StreamFrameSizeLie),
+            0x0814 => Ok(Self::StreamRequirementsUnmet),
+            0x0815 => Ok(Self::StreamIdentityMismatch),
+            0x0816 => Ok(Self::StreamWeakChecksum),
+            0x0817 => Ok(Self::StreamPoisoned),
+            0x0819 => Ok(Self::StreamBadState),
+            0x081A => Ok(Self::StreamDuplicateFlood),
+            0x081B => Ok(Self::FreshnessRequired),
 
             0x0900 => Ok(Self::QualityBelowThreshold),
             0x0901 => Ok(Self::BudgetTokensExhausted),
@@ -256,6 +343,7 @@ impl TryFrom<u16> for ErrorCode {
 /// Rust-idiomatic error type wrapping format-level failures.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub enum RvfError {
     /// A wire-level error code was returned.
     Code(ErrorCode),
@@ -280,7 +368,7 @@ pub enum RvfError {
 impl core::fmt::Display for RvfError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::Code(c) => write!(f, "RVF error code 0x{:04X}", *c as u16),
+            Self::Code(c) => write!(f, "RVF error code 0x{:04X} ({:?})", *c as u16, c),
             Self::UnknownCode(v) => write!(f, "unknown RVF error code 0x{v:04X}"),
             Self::BadMagic { expected, got } => {
                 write!(f, "bad magic: expected 0x{expected:08X}, got 0x{got:08X}")
@@ -304,6 +392,15 @@ mod tests {
     use super::*;
     use alloc::format;
 
+    /// #1276 item 5: errors must name the code, not just print the number.
+    #[test]
+    fn display_names_the_error_code() {
+        let s = format!("{}", RvfError::Code(ErrorCode::InvalidManifest));
+        assert!(s.contains("0x0105") && s.contains("InvalidManifest"), "{s}");
+        let s = format!("{}", RvfError::Code(ErrorCode::DimensionMismatch));
+        assert!(s.contains("DimensionMismatch"), "{s}");
+    }
+
     #[test]
     fn error_code_round_trip_all() {
         let codes: &[(u16, ErrorCode)] = &[
@@ -324,6 +421,8 @@ mod tests {
             (0x0203, ErrorCode::FilterParseError),
             (0x0204, ErrorCode::KTooLarge),
             (0x0205, ErrorCode::Timeout),
+            (0x0206, ErrorCode::FilterBudgetExceeded),
+            (0x0207, ErrorCode::NonFiniteQuery),
             (0x0300, ErrorCode::LockHeld),
             (0x0301, ErrorCode::LockStale),
             (0x0302, ErrorCode::DiskFull),
@@ -352,6 +451,28 @@ mod tests {
             (0x0802, ErrorCode::UnknownSigner),
             (0x0803, ErrorCode::EpochDriftExceeded),
             (0x0804, ErrorCode::Level1InvalidSignature),
+            (0x0805, ErrorCode::StreamDescriptorTruncated),
+            (0x0806, ErrorCode::StreamBadMagic),
+            (0x0807, ErrorCode::StreamUnsupportedVersion),
+            (0x0808, ErrorCode::StreamBadFlags),
+            (0x0809, ErrorCode::StreamLimitExceeded),
+            (0x080A, ErrorCode::StreamTableInvalid),
+            (0x080B, ErrorCode::StreamBadSignature),
+            (0x080C, ErrorCode::StreamStaleEpoch),
+            (0x080D, ErrorCode::StreamEpochConflict),
+            (0x080E, ErrorCode::StreamExpired),
+            (0x080F, ErrorCode::StreamPolicyMismatch),
+            (0x0810, ErrorCode::StreamChunkHashMismatch),
+            (0x0811, ErrorCode::StreamTableHashMismatch),
+            (0x0812, ErrorCode::StreamUnexpectedFrame),
+            (0x0813, ErrorCode::StreamFrameSizeLie),
+            (0x0814, ErrorCode::StreamRequirementsUnmet),
+            (0x0815, ErrorCode::StreamIdentityMismatch),
+            (0x0816, ErrorCode::StreamWeakChecksum),
+            (0x0817, ErrorCode::StreamPoisoned),
+            (0x0819, ErrorCode::StreamBadState),
+            (0x081A, ErrorCode::StreamDuplicateFlood),
+            (0x081B, ErrorCode::FreshnessRequired),
             (0x0900, ErrorCode::QualityBelowThreshold),
             (0x0901, ErrorCode::BudgetTokensExhausted),
             (0x0902, ErrorCode::QueryBlacklisted),

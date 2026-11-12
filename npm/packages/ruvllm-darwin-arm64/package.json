@@ -1,29 +1,41 @@
 {
   "name": "@ruvector/ruvllm-darwin-arm64",
-  "version": "2.0.0",
-  "os": ["darwin"],
-  "cpu": ["arm64"],
+  "version": "2.1.1",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
   "main": "ruvllm.darwin-arm64.node",
-  "files": ["ruvllm.darwin-arm64.node"],
-  "description": "RuvLLM native SIMD acceleration - darwin-arm64 (Apple Silicon) platform",
+  "files": [
+    "ruvllm.darwin-arm64.node"
+  ],
+  "description": "Prebuilt macOS arm64 (Apple Silicon) native binary for @ruvector/ruvllm: SIMD vector ops and candle GGUF inference. Installed automatically by @ruvector/ruvllm.",
+  "homepage": "https://ruv.io",
   "keywords": [
     "ruvllm",
+    "ruvector",
     "llm",
+    "local-llm",
+    "gguf",
+    "inference",
     "simd",
-    "neon",
-    "apple-silicon",
-    "m1",
-    "m2",
-    "m3",
-    "vector-database",
-    "napi-rs"
+    "napi",
+    "native-addon",
+    "prebuilt-binary",
+    "darwin-arm64",
+    "apple-silicon"
   ],
   "author": "rUv Team <team@ruv.io>",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
     "directory": "npm/packages/ruvllm-darwin-arm64"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
   },
   "engines": {
     "node": ">= 18"

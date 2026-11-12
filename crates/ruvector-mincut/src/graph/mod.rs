@@ -152,6 +152,13 @@ impl DynamicGraph {
             return Err(MinCutError::InvalidEdge(u, v));
         }
 
+        // Reject invalid capacities before creating vertices or consuming IDs.
+        if !weight.is_finite() || weight < 0.0 {
+            return Err(MinCutError::InvalidParameter(
+                "edge weight must be finite and nonnegative".to_owned(),
+            ));
+        }
+
         // Ensure both vertices exist
         self.add_vertex(u);
         self.add_vertex(v);
@@ -251,11 +258,24 @@ impl DynamicGraph {
     }
 
     /// Get all vertices
+    ///
+    /// Returned in ascending `VertexId` order. `DashMap`'s default hasher is
+    /// randomly seeded per instance, so its iteration order is *not* stable
+    /// across process runs even for byte-identical insertion sequences; every
+    /// caller that uses this list to drive an algorithm with order-dependent
+    /// tie-breaking (seed selection, bitmask-to-vertex assignment, etc.) needs
+    /// a canonical order to be reproducible. Sorting here, once, at the graph
+    /// boundary is cheaper than auditing every downstream consumer.
     pub fn vertices(&self) -> Vec<VertexId> {
-        self.adjacency.iter().map(|entry| *entry.key()).collect()
+        let mut vertices: Vec<VertexId> = self.adjacency.iter().map(|entry| *entry.key()).collect();
+        vertices.sort_unstable();
+        vertices
     }
 
     /// Get all edges
+    ///
+    /// Order is unspecified (`DashMap` iteration). Deliberately left unsorted;
+    /// determinism of `partition()` comes from [`Self::vertices`] ordering.
     pub fn edges(&self) -> Vec<Edge> {
         self.edges.iter().map(|entry| *entry.value()).collect()
     }
@@ -405,6 +425,11 @@ impl DynamicGraph {
 
     /// Update the weight of an existing edge
     pub fn update_edge_weight(&self, u: VertexId, v: VertexId, new_weight: Weight) -> Result<()> {
+        if !new_weight.is_finite() || new_weight < 0.0 {
+            return Err(MinCutError::InvalidParameter(
+                "edge weight must be finite and nonnegative".to_owned(),
+            ));
+        }
         let key = Self::canonical_key(u, v);
 
         let edge_id = self

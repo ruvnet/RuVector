@@ -1,0 +1,23 @@
+[package]
+name = "ruvector-edge-tenancy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "ruvector edge tenancy (ADR-351 §4): TenantContext from verified claims only, tenant_key and Durable Object name derivation, input validators, quota types, RFC 9457 problems. Pure Rust, wasm32 clean."
+
+[dependencies]
+ruvector-edge-auth = { path = "../ruvector-edge-auth" }
+sha2 = "0.10"
+data-encoding = "2"
+hex = "0.4"
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+ruvector-edge-auth = { path = "../ruvector-edge-auth", features = ["test-util"] }
+proptest = { workspace = true }
+mockall = { workspace = true }

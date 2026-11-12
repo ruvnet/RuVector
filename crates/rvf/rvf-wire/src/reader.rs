@@ -15,7 +15,8 @@ use rvf_types::{
 ///
 /// # Errors
 ///
-/// - `InvalidMagic` if the magic number does not match `RVFS`.
+/// - `InvalidMagic` if the magic number does not match `SEGMENT_MAGIC`
+///   (mnemonic "RVFS", wire bytes `53 46 56 52`).
 /// - `InvalidVersion` if the version is not supported.
 /// - `TruncatedSegment` if `data` is shorter than 64 bytes.
 pub fn read_segment_header(data: &[u8]) -> Result<SegmentHeader, RvfError> {

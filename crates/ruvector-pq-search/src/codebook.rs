@@ -1,8 +1,19 @@
-//! PQ codebook: M sub-spaces, K centroids each, trained with Lloyd's k-means.
+//! PQ codebook: M sub-spaces, K centroids, with Lloyd and explicit e-means training.
 
 use crate::l2_sq;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+
+/// Validation or shared-optimizer failure in the checked e-means PQ APIs.
+#[derive(Debug, thiserror::Error)]
+pub enum EmeansPqError {
+    /// Malformed codebook, vector, or probe configuration.
+    #[error("invalid e-means PQ input: {0}")]
+    InvalidInput(&'static str),
+    /// Validation failure from the shared clustering implementation.
+    #[error(transparent)]
+    Clustering(#[from] ruvector_e_means::Error),
+}
 
 /// Configuration for product quantization.
 #[derive(Debug, Clone)]
@@ -11,7 +22,7 @@ pub struct PqConfig {
     pub m: usize,
     /// Number of centroids per sub-space (must be ≤ 256 for u8 codes).
     pub k: usize,
-    /// Number of Lloyd's iterations.
+    /// Training budget: Lloyd iterations, or epochs for explicit e-means training.
     pub iterations: usize,
     /// RNG seed (deterministic builds).
     pub seed: u64,
@@ -30,7 +41,13 @@ impl PqConfig {
 
     /// Dimension of each sub-vector given total dimension `dim`.
     pub fn sub_dim(&self, dim: usize) -> usize {
-        assert!(dim % self.m == 0, "dim must be divisible by m");
+        assert!(
+            (dim)
+                .checked_rem(self.m)
+                .expect("attempt to calculate the remainder with a divisor of zero")
+                == 0,
+            "dim must be divisible by m"
+        );
         dim / self.m
     }
 }
@@ -48,6 +65,44 @@ pub struct PqCodebook {
 }
 
 impl PqCodebook {
+    /// Train checked e-means subspace codebooks in the existing flat PQ layout.
+    /// `options.clusters` is the number of u8 centroids per subspace. The same
+    /// configuration is used for every subspace; Lloyd defaults are unchanged.
+    pub fn train_e_means(
+        subspaces: usize,
+        vectors: &[f32],
+        dim: usize,
+        options: &ruvector_e_means::Config,
+    ) -> Result<Self, EmeansPqError> {
+        let quantizer = ruvector_e_means::ProductQuantizer::fit(vectors, dim, subspaces, options)?;
+        Ok(Self {
+            config: PqConfig {
+                m: subspaces,
+                k: options.clusters,
+                iterations: options.epochs,
+                seed: options.seed,
+            },
+            sub_dim: quantizer.subspace_dimensions(),
+            dim,
+            centroids: quantizer.into_centroids(),
+        })
+    }
+
+    pub(crate) fn validate_e_means_layout(&self) -> Result<(), EmeansPqError> {
+        ruvector_e_means::ProductQuantizer::validate_parts(
+            self.dim,
+            self.config.m,
+            self.config.k,
+            &self.centroids,
+        )?;
+        if self.sub_dim != self.dim / self.config.m {
+            return Err(EmeansPqError::InvalidInput(
+                "codebook sub_dim disagrees with its shape",
+            ));
+        }
+        Ok(())
+    }
+
     /// Train a PQ codebook from a slice of flat row-major vectors.
     /// `vectors`: n × dim flat layout.
     pub fn train(config: PqConfig, vectors: &[f32], dim: usize) -> Self {

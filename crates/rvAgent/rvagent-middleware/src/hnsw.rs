@@ -12,12 +12,14 @@
 //!
 //! # Performance
 //!
-//! - 150x-12,500x faster than brute-force search
+//! - EXPERIMENTAL: uses a hash-based embedding placeholder (not semantic);
+//!   no retrieval performance claims until real embeddings are integrated
 //! - O(log n) search complexity
 //! - Sub-millisecond latency for 10k vectors
 
 use crate::{
-    AgentState, AgentStateUpdate, Middleware, ModelRequest, RunnableConfig, Runtime, ToolDefinition,
+    AgentState, AgentStateUpdate, Message, Middleware, ModelRequest, RunnableConfig, Runtime,
+    ToolDefinition,
 };
 use async_trait::async_trait;
 use parking_lot::RwLock;
@@ -722,7 +724,7 @@ impl HnswMiddleware {
                 Some(ToolDefinition {
                     name,
                     description,
-                    parameters,
+                    input_schema: parameters,
                 })
             })
             .collect()
@@ -735,7 +737,7 @@ impl Middleware for HnswMiddleware {
         "hnsw"
     }
 
-    fn before_agent(
+    async fn before_agent(
         &self,
         state: &AgentState,
         _runtime: &Runtime,
@@ -750,11 +752,11 @@ impl Middleware for HnswMiddleware {
             .messages
             .iter()
             .rev()
-            .find(|m| matches!(m.role, crate::Role::User))?;
+            .find(|m| matches!(m, Message::Human(_)))?;
 
         // Search for relevant memory
         let memory_results = self.search_memory(
-            &last_user.content,
+            last_user.content(),
             self.state.read().config.memory_retrieval_k,
         );
 
@@ -794,8 +796,8 @@ impl Middleware for HnswMiddleware {
             .messages
             .iter()
             .rev()
-            .find(|m| matches!(m.role, crate::Role::User))
-            .map(|m| m.content.clone());
+            .find(|m| matches!(m, Message::Human(_)))
+            .map(|m| m.content().to_string());
 
         if let Some(query) = query {
             // Retrieve relevant skills as tools

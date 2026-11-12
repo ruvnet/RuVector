@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ILLUSTRATIVE, NOT VALIDATED against a real org or the current Salesforce
+  Metadata API schema — see ../README.md.
+
+  invocationTargetType below is a LITERAL, UNCONFIRMED PLACEHOLDER
+  ("UNCONFIRMED_PLACEHOLDER"), not a real value. Real research this
+  checkpoint (WebFetch against Gearset's GenAiFunction deployment guide,
+  plus a web search of Salesforce's own metadata reference) confirmed
+  `flow` and `slack` as two real, valid values for this field, but neither
+  source enumerates the full value set or states what value an
+  External-Service-backed action resolves to -- which is this file's
+  actual case. No source checked this session says how that value gets
+  set for an External-Service action (developer-chosen or
+  Salesforce-assigned) -- left unstated here rather than guessed, which
+  is exactly why ../README.md's step 4 says to register through the Setup
+  UI rather than hand-author this file for a real deploy. DO NOT
+  substitute `flow` or `slack` here -- this integration's target is
+  neither, and guessing a third, unconfirmed value would be worse than
+  leaving an honest placeholder.
+
+  Retrieve the real value from an org that already has this action
+  registered via the UI with, e.g.:
+    sf project retrieve start -m GenAiFunction -o <your-org-alias>
+  (API version >= 60 required for this metadata type.)
+-->
+<GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Search a ruvector collection for the k nearest neighbours of a query vector.</description>
+    <developerName>RuVector_Search</developerName>
+    <invocationTarget>RuVectorActions.search</invocationTarget>
+    <invocationTargetType>UNCONFIRMED_PLACEHOLDER</invocationTargetType>
+    <isConfirmationRequired>false</isConfirmationRequired>
+    <masterLabel>RuVector Search</masterLabel>
+</GenAiFunction>

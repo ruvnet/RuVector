@@ -7,14 +7,15 @@ on:
       - develop
       - 'claude/**'
     paths:
-      - 'packages/agentic-synth/**'
+      - 'npm/packages/agentic-synth/**'
       - '.github/workflows/agentic-synth-ci.yml'
   pull_request:
     branches:
       - main
       - develop
     paths:
-      - 'packages/agentic-synth/**'
+      - 'npm/packages/agentic-synth/**'
+      - '.github/workflows/agentic-synth-ci.yml'
   workflow_dispatch:
     inputs:
       run_tests:
@@ -26,9 +27,13 @@ on:
         required: false
         default: 'false'
 
+defaults:
+  run:
+    shell: bash
+
 env:
-  NODE_VERSION: '18.x'
-  PACKAGE_PATH: packages/agentic-synth
+  NODE_VERSION: '20.x'
+  PACKAGE_PATH: npm/packages/agentic-synth
 
 jobs:
   # Job 1: Code Quality Checks
@@ -38,12 +43,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -51,7 +56,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ env.PACKAGE_PATH }}
-        run: npm install
+        run: npm install --legacy-peer-deps --no-workspaces --ignore-scripts
 
       - name: Run TypeScript type checking
         working-directory: ${{ env.PACKAGE_PATH }}
@@ -77,14 +82,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        node-version: ['18.x', '20.x', '22.x']
+        node-version: ['20.x', '22.x']
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
@@ -92,7 +97,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ env.PACKAGE_PATH }}
-        run: npm install
+        run: npm install --legacy-peer-deps --no-workspaces --ignore-scripts
 
       - name: Build package (ESM + CJS)
         working-directory: ${{ env.PACKAGE_PATH }}
@@ -111,8 +116,8 @@ jobs:
         working-directory: ${{ env.PACKAGE_PATH }}
         run: |
           chmod +x bin/cli.js
-          ./bin/cli.js --help
-          ./bin/cli.js config show || echo "Config command ran"
+          node bin/cli.js --help
+          node bin/cli.js config show || echo "Config command ran"
 
       - name: Run unit tests
         if: github.event.inputs.run_tests != 'false'
@@ -131,7 +136,7 @@ jobs:
 
       - name: Upload build artifacts
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '20.x'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: build-artifacts
           path: |
@@ -147,10 +152,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -158,14 +163,14 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ env.PACKAGE_PATH }}
-        run: npm install
+        run: npm install --legacy-peer-deps --no-workspaces --ignore-scripts
 
       - name: Run tests with coverage
         working-directory: ${{ env.PACKAGE_PATH }}
         run: npm run test:coverage || echo "Coverage generation completed with warnings"
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238
         with:
           files: ${{ env.PACKAGE_PATH }}/coverage/coverage-final.json
           flags: agentic-synth
@@ -191,10 +196,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -202,7 +207,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ env.PACKAGE_PATH }}
-        run: npm install
+        run: npm install --legacy-peer-deps --no-workspaces --ignore-scripts
 
       - name: Build package
         working-directory: ${{ env.PACKAGE_PATH }}
@@ -213,7 +218,7 @@ jobs:
         run: npm run benchmark || echo "Benchmarks completed"
 
       - name: Upload benchmark results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: benchmark-results
           path: ${{ env.PACKAGE_PATH }}/benchmarks/results/
@@ -227,10 +232,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -252,10 +257,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -263,7 +268,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ env.PACKAGE_PATH }}
-        run: npm install
+        run: npm install --legacy-peer-deps --no-workspaces --ignore-scripts
 
       - name: Build package
         working-directory: ${{ env.PACKAGE_PATH }}
@@ -303,7 +308,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Check required documentation
         working-directory: ${{ env.PACKAGE_PATH }}

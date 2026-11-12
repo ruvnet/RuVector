@@ -130,6 +130,8 @@ pub mod hub;
 pub mod intelligence;
 pub mod kernels;
 pub mod kv_cache;
+#[cfg(feature = "kv-migration")]
+pub mod kv_migration;
 pub mod lora;
 pub mod memory_pool;
 #[cfg(all(target_os = "macos", feature = "metal-compute"))]
@@ -149,6 +151,8 @@ pub mod ruvector_integration;
 pub mod serving;
 pub mod session;
 pub mod session_index;
+#[cfg(feature = "shard-placement")]
+pub mod shard_placement;
 pub mod sona;
 pub mod speculative;
 pub mod tokenizer;
@@ -171,12 +175,14 @@ pub use backends::CandleBackend;
 #[cfg(all(feature = "lattice", target_os = "macos"))]
 pub use backends::LatticeBackend;
 pub use backends::{
-    create_backend, DType, DeviceType, GenerateParams, GeneratedToken, LlmBackend,
-    ModelArchitecture, ModelConfig, ModelInfo, Quantization, SharedBackend, SpecialTokens,
-    StreamEvent, TokenStream, Tokenizer,
+    create_backend, DType, DeviceType, GenerateParams, GeneratedToken, GenerationOutput,
+    LlmBackend, ModelArchitecture, ModelConfig, ModelInfo, Quantization, SharedBackend,
+    SpecialTokens, StreamEvent, TokenStream, Tokenizer,
 };
 #[cfg(feature = "async-runtime")]
 pub use backends::{AsyncTokenStream, LlmBackendAsync};
+#[cfg(feature = "async-runtime")]
+pub use claude_flow::ResponseStreamer;
 pub use claude_flow::{
     AgentContext,
     AgentCoordinator,
@@ -233,7 +239,6 @@ pub use claude_flow::{
     PreTaskResult,
     QualityAssessment,
     QualityMonitor,
-    ResponseStreamer,
     RoutingDecision as AgentRoutingDecision,
     SelectionCriteria,
     SelectorStats,

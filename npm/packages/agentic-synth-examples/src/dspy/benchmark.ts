@@ -2,42 +2,64 @@
  * DSPy.ts Multi-Model Benchmarking System v1.0.0
  *
  * Comprehensive benchmarking suite comparing multiple models across:
- * - Quality metrics (f1Score, exactMatch, bleuScore, rougeScore)
+ * - Quality metrics (heuristic quality score, exact-match estimate)
  * - Optimization strategies (BootstrapFewShot, MIPROv2)
  * - Cost-effectiveness analysis
  * - Performance characteristics
  *
- * Real-world implementation using actual dspy.ts v2.1.1 features:
+ * Implementation using dspy.ts features (optional peer, tested with dspy.ts 2.3.1):
  * - ChainOfThought for reasoning
  * - ReAct for iterative improvement
  * - MultiChainComparison for ensemble decisions
  * - BootstrapFewShot & MIPROv2 optimizers
  *
- * @requires dspy.ts@2.1.1
+ * @requires dspy.ts@2.3.1 (optional peer; without it, importing this module still works,
+ *   but constructing the benchmark throws an install hint)
  * @requires Environment: OPENAI_API_KEY, ANTHROPIC_API_KEY
  */
 
 import { performance } from 'perf_hooks';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { createRequire } from 'module';
 
-// Import real dspy.ts components from dist/src
-// Note: dspy.ts package main entry needs dist/src prefix
-const dspy = require('dspy.ts/dist/src/index');
-const {
-  configureLM,
-  getLM,
-  PredictModule,
-  ChainOfThought,
-  ReAct,
-  BootstrapFewShot,
-  MIPROv2,
-  exactMatch,
-  f1Score,
-  bleuScore,
-  rougeL: rougeScore,
-  evaluate
-} = dspy;
+// dspy.ts is an optional peer. Load it lazily so that importing this package
+// (ESM or CJS) never fails when it is absent; the benchmark classes throw an
+// install hint instead.
+export const DSPY_TS_VERSION = '2.3.1';
+
+function loadDspy(): any | null {
+  try {
+    // import.meta.url is shimmed in the CJS build (tsup shims: true).
+    const req = createRequire(import.meta.url);
+    return req('dspy.ts');
+  } catch {
+    return null;
+  }
+}
+
+const dspy = loadDspy();
+
+/** True when the optional dspy.ts peer could be loaded. */
+export const dspyAvailable: boolean = dspy !== null;
+
+function dspyMissing(): never {
+  throw new Error(
+    `dspy.ts is not installed. The DSPy benchmark needs it: npm install dspy.ts@${DSPY_TS_VERSION}`
+  );
+}
+
+class MissingDspyModule {
+  constructor(..._args: unknown[]) {
+    dspyMissing();
+  }
+}
+
+const configureLM: (lm: unknown) => void = dspy?.configureLM ?? dspyMissing;
+const PredictModule: any = dspy?.PredictModule ?? MissingDspyModule;
+const ChainOfThought: any = dspy?.ChainOfThought ?? MissingDspyModule;
+const BootstrapFewShot: any = dspy?.BootstrapFewShot ?? MissingDspyModule;
+const MIPROv2: any = dspy?.MIPROv2 ?? MissingDspyModule;
 
 // ============================================================================
 // Types & Interfaces
@@ -954,7 +976,7 @@ async function main() {
 }
 
 // Run if executed directly
-if (require.main === module || (typeof process !== 'undefined' && process.argv[1]?.includes('dspy-multi-model-benchmark'))) {
+if ((typeof require === 'function' && typeof module !== 'undefined' && require.main === module) || (typeof process !== 'undefined' && process.argv[1]?.includes('dspy-multi-model-benchmark'))) {
   main().catch(console.error);
 }
 

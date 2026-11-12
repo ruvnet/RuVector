@@ -3,8 +3,8 @@
  * RuvLLM CLI - Self-learning LLM orchestration
  *
  * Usage:
- *   ruvllm query "What is machine learning?"
- *   ruvllm generate "Write a haiku about AI"
+ *   ruvllm query "What is machine learning?" --model ./model.gguf
+ *   ruvllm generate "Write a haiku about AI" --model ./model.gguf
  *   ruvllm memory add "Important context"
  *   ruvllm memory search "context"
  *   ruvllm models list
@@ -12,6 +12,13 @@
  *   ruvllm stats
  *   ruvllm benchmark
  */
+
+// `ruvllm gpu ...` delegates to @ruvector/ruvllm-gpu-loop before dist/ (and the
+// native binding) is loaded, so it works even where the runtime cannot load.
+if (process.argv[2] === 'gpu') {
+  require('./gpu-delegate.js').runGpuCommand(process.argv.slice(3));
+  return;
+}
 
 const { RuvLLM, SimdOps, version, hasSimdSupport, ModelDownloader, listModels, getModelInfo, RUVLTRA_MODELS, getDefaultModelsDir, runRoutingBenchmark, formatRoutingResults, baselineKeywordRouter, runEmbeddingBenchmark, formatEmbeddingResults, runFullBenchmark, formatFullResults, ROUTING_TEST_CASES, runFullComparison, formatComparisonResults, ContrastiveTrainer, AGENT_TRAINING_DATA, generateTrainingDataset, generateContrastivePairs, getDatasetStats, tripletLoss, cosineSimilarity } = require('../dist/cjs/index.js');
 
@@ -54,33 +61,46 @@ function formatTable(data) {
 }
 
 // Commands
-async function runQuery(llm, text, flags) {
+function generationConfig(flags) {
   const config = {};
   if (flags.temperature) config.temperature = parseFloat(flags.temperature);
   if (flags['max-tokens']) config.maxTokens = parseInt(flags['max-tokens']);
   if (flags['top-p']) config.topP = parseFloat(flags['top-p']);
   if (flags['top-k']) config.topK = parseInt(flags['top-k']);
+  return config;
+}
 
-  const response = llm.query(text, config);
+// query/generate need a model: without --model they fail with
+// RUVLLM_NO_LANGUAGE_MODEL (and the CLI exits 1).
+function loadModelFromFlags(llm, flags) {
+  if (!flags.model || flags.model === true) return;
+  const options = {};
+  if (flags['max-context']) options.maxContext = parseInt(flags['max-context']);
+  const info = llm.loadModel(flags.model, options);
+  if (!flags.json) console.error(`Loaded ${info.name} (${info.architecture}, ${info.quantization ?? 'quantization unknown'})`);
+}
+
+async function runQuery(llm, text, flags) {
+  loadModelFromFlags(llm, flags);
+  const response = llm.query(text, generationConfig(flags));
 
   if (flags.json) {
     console.log(formatJson(response));
   } else {
     console.log('\n' + response.text);
-    console.log(`\n--- Model: ${response.model} | Confidence: ${(response.confidence * 100).toFixed(1)}% | Latency: ${response.latencyMs.toFixed(2)}ms ---`);
+    console.log(`\n--- Route: ${response.model} | Confidence: ${(response.confidence * 100).toFixed(1)}% | Tokens: ${response.promptTokens}+${response.completionTokens} (${response.finishReason}) | Latency: ${response.latencyMs.toFixed(2)}ms ---`);
   }
 }
 
 async function runGenerate(llm, prompt, flags) {
-  console.error('Warning: Built-in SIMD inference is experimental. For production use, configure an external LLM provider (Ollama, OpenAI, etc.).');
+  loadModelFromFlags(llm, flags);
+  const config = generationConfig(flags);
 
-  const config = {};
-  if (flags.temperature) config.temperature = parseFloat(flags.temperature);
-  if (flags['max-tokens']) config.maxTokens = parseInt(flags['max-tokens']);
-  if (flags['top-p']) config.topP = parseFloat(flags['top-p']);
-
-  const text = llm.generate(prompt, config);
-  console.log(text);
+  if (flags.json) {
+    console.log(formatJson(llm.generateDetailed(prompt, config)));
+  } else {
+    console.log(llm.generate(prompt, config));
+  }
 }
 
 async function runMemoryAdd(llm, content, flags) {
@@ -780,8 +800,9 @@ RuvLLM - Self-learning LLM Orchestration
 Usage: ruvllm <command> [options]
 
 Commands:
-  query <text>              Query the LLM with automatic routing
-  generate <prompt>         Generate text with SIMD inference
+  query <text> --model <gguf>     Route, then answer with the model (chat template)
+  generate <prompt> --model <gguf>
+                            Continue a raw prompt with the model
   route <text>              Get routing decision for query
   memory add <content>      Add content to memory
   memory search <query>     Search memory for similar content
@@ -790,7 +811,19 @@ Commands:
   stats                     Show engine statistics
   benchmark                 Run SIMD performance benchmark
   info                      Show system information
+  serve <gguf>              HTTP server: /health, /query, /v1/chat/completions
+                            (--host 127.0.0.1 --port 3000; needs a loadable model)
   help                      Show this help message
+
+GPU job loop (via @ruvector/ruvllm-gpu-loop, Node 22+):
+  gpu run --config <abs> --plan <abs>
+                            Bounded weight-edit experiment (4.0.x "ruvllm run")
+  gpu fixture --dir <abs> --binary <abs>
+                            CPU fixture experiment (4.0.x "ruvllm fixture")
+  gpu loop status|tick|run --config <abs>
+                            Scheduled GPU job loop (same as ruvllm-gpu-loop)
+  gpu adapters export|training-plan|select
+                            Adapter archives (same as ruvllm-adapters)
 
 Model Management:
   models list               List available RuvLTRA models
@@ -813,7 +846,10 @@ Training & Fine-tuning:
 
 Options:
   --json                    Output as JSON
-  --temperature <float>     Sampling temperature (0.0-2.0)
+  --model <path>            GGUF file to load for query/generate (required for them;
+                            needs a native binary with model support, see README)
+  --max-context <int>       Context window for --model (default: 4096)
+  --temperature <float>     Sampling temperature (0 = greedy)
   --max-tokens <int>        Maximum tokens to generate
   --top-p <float>           Nucleus sampling (0.0-1.0)
   --top-k <int>             Top-k sampling
@@ -835,12 +871,14 @@ Available Models (from https://huggingface.co/ruv/ruvltra):
   medium                    RuvLTRA Medium (669MB) - General purpose
 
 Examples:
-  ruvllm query "What is machine learning?"
-  ruvllm generate "Write a poem about AI" --temperature 0.9
+  ruvllm query "What is machine learning?" --model ./qwen2.5-0.5b-instruct-q4_k_m.gguf
+  ruvllm generate "Once upon a time" --model ./model.gguf --max-tokens 64 --json
   ruvllm memory add "Important context" --metadata '{"type":"note"}'
   ruvllm memory search "context" --k 5
   ruvllm similarity "hello world" "hi there"
   ruvllm benchmark --dims 1024 --iterations 5000
+  ruvllm serve ./qwen2.5-0.5b-instruct-q4_k_m.gguf --port 3000
+  ruvllm gpu loop status --config /abs/private/gpu-loop.json
 
   # Model management
   ruvllm models list
@@ -969,6 +1007,11 @@ async function main() {
         await runInfo(flags);
         break;
 
+      case 'serve':
+        // Keeps running until SIGINT/SIGTERM; exits 1 if no model can be loaded.
+        require('./serve.js').runServe({ RuvLLM, version: require('../package.json').version }, positional, flags);
+        return;
+
       case 'models':
         const modelsSubcmd = positional[0];
         if (!modelsSubcmd || modelsSubcmd === 'list') {
@@ -1007,6 +1050,9 @@ async function main() {
     }
   } catch (error) {
     console.error('Error:', error.message);
+    if (error.code === 'RUVLLM_NO_LANGUAGE_MODEL') {
+      console.error('Hint: pass --model <path to a GGUF file>');
+    }
     if (flags.verbose) {
       console.error(error.stack);
     }

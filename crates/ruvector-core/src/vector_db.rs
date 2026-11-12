@@ -11,17 +11,105 @@ use crate::types::*;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
-// Import appropriate storage backend based on features
+use crate::storage_memory::MemoryStorage;
+
+mod filtered;
+mod metadata_index;
+pub use filtered::FilterPlan;
+use metadata_index::MetadataIndex;
+
+/// Reject vectors with NaN or ±Inf components: they poison distance ordering and cannot be ranked.
+fn ensure_finite(vector: &[f32], what: &str) -> Result<()> {
+    match vector.iter().position(|x| !x.is_finite()) {
+        None => Ok(()),
+        Some(i) => Err(crate::error::RuvectorError::InvalidInput(format!(
+            "{what} component {i} is not finite ({})",
+            vector[i]
+        ))),
+    }
+}
+
 #[cfg(feature = "storage")]
-use crate::storage::VectorStorage;
+enum StorageBackend {
+    Persistent(crate::storage::VectorStorage),
+    Memory(MemoryStorage),
+}
 
 #[cfg(not(feature = "storage"))]
-use crate::storage_memory::MemoryStorage as VectorStorage;
+type StorageBackend = MemoryStorage;
+
+#[cfg(feature = "storage")]
+impl StorageBackend {
+    fn insert(&self, entry: &VectorEntry) -> Result<VectorId> {
+        match self {
+            Self::Persistent(storage) => storage.insert(entry),
+            Self::Memory(storage) => storage.insert(entry),
+        }
+    }
+
+    fn insert_batch(&self, entries: &[VectorEntry]) -> Result<Vec<VectorId>> {
+        match self {
+            Self::Persistent(storage) => storage.insert_batch(entries),
+            Self::Memory(storage) => storage.insert_batch(entries),
+        }
+    }
+
+    fn get(&self, id: &str) -> Result<Option<VectorEntry>> {
+        match self {
+            Self::Persistent(storage) => storage.get(id),
+            Self::Memory(storage) => storage.get(id),
+        }
+    }
+
+    fn delete(&self, id: &str) -> Result<bool> {
+        match self {
+            Self::Persistent(storage) => storage.delete(id),
+            Self::Memory(storage) => storage.delete(id),
+        }
+    }
+
+    fn len(&self) -> Result<usize> {
+        match self {
+            Self::Persistent(storage) => storage.len(),
+            Self::Memory(storage) => storage.len(),
+        }
+    }
+
+    fn is_empty(&self) -> Result<bool> {
+        match self {
+            Self::Persistent(storage) => storage.is_empty(),
+            Self::Memory(storage) => storage.is_empty(),
+        }
+    }
+
+    fn all_ids(&self) -> Result<Vec<VectorId>> {
+        match self {
+            Self::Persistent(storage) => storage.all_ids(),
+            Self::Memory(storage) => storage.all_ids(),
+        }
+    }
+
+    fn save_config_value(&self, key: &str, value: &str) -> Result<()> {
+        match self {
+            Self::Persistent(storage) => storage.save_config_value(key, value),
+            Self::Memory(storage) => storage.save_config_value(key, value),
+        }
+    }
+
+    fn load_config_value(&self, key: &str) -> Result<Option<String>> {
+        match self {
+            Self::Persistent(storage) => storage.load_config_value(key),
+            Self::Memory(storage) => storage.load_config_value(key),
+        }
+    }
+}
 
 /// Main vector database
 pub struct VectorDB {
-    storage: Arc<VectorStorage>,
+    storage: Arc<StorageBackend>,
     index: Arc<RwLock<Box<dyn VectorIndex>>>,
+    /// Inverted metadata view for filtered search. Lock order: `index` before `metadata`.
+    metadata: RwLock<MetadataIndex>,
     options: DbOptions,
 }
 
@@ -36,56 +124,101 @@ impl VectorDB {
     pub fn new(mut options: DbOptions) -> Result<Self> {
         #[cfg(feature = "storage")]
         let storage = {
-            // First, try to load existing configuration from the database
-            // We create a temporary storage to check for config
-            let temp_storage = VectorStorage::new(&options.storage_path, options.dimensions)?;
-
-            let stored_config = temp_storage.load_config()?;
-
-            if let Some(config) = stored_config {
-                // Existing database - use stored configuration
-                tracing::info!(
-                    "Loading existing database with {} dimensions",
-                    config.dimensions
-                );
-                options = DbOptions {
-                    // Keep the provided storage path (may have changed)
-                    storage_path: options.storage_path.clone(),
-                    // Use stored configuration for everything else
-                    dimensions: config.dimensions,
-                    distance_metric: config.distance_metric,
-                    hnsw_config: config.hnsw_config,
-                    quantization: config.quantization,
-                };
-                // Recreate storage with correct dimensions
-                Arc::new(VectorStorage::new(
-                    &options.storage_path,
+            if options.storage_path.starts_with("memory://") {
+                Arc::new(StorageBackend::Memory(MemoryStorage::new(
                     options.dimensions,
-                )?)
+                )?))
             } else {
-                // New database - save the configuration
-                tracing::info!(
-                    "Creating new database with {} dimensions",
-                    options.dimensions
-                );
-                temp_storage.save_config(&options)?;
-                Arc::new(temp_storage)
+                // First, try to load existing configuration from the database
+                // We create a temporary storage to check for config
+                let temp_storage =
+                    crate::storage::VectorStorage::new(&options.storage_path, options.dimensions)?;
+
+                let stored_config = temp_storage.load_config()?;
+
+                if let Some(config) = stored_config {
+                    // Existing database - use stored configuration
+                    tracing::info!(
+                        "Loading existing database with {} dimensions",
+                        config.dimensions
+                    );
+                    options = DbOptions {
+                        // Keep the provided storage path (may have changed)
+                        storage_path: options.storage_path.clone(),
+                        // Use stored configuration for everything else
+                        dimensions: config.dimensions,
+                        distance_metric: config.distance_metric,
+                        hnsw_config: config.hnsw_config,
+                        quantization: config.quantization,
+                    };
+                    // Recreate storage with correct dimensions
+                    Arc::new(StorageBackend::Persistent(
+                        crate::storage::VectorStorage::new(
+                            &options.storage_path,
+                            options.dimensions,
+                        )?,
+                    ))
+                } else {
+                    // New database - save the configuration
+                    tracing::info!(
+                        "Creating new database with {} dimensions",
+                        options.dimensions
+                    );
+                    temp_storage.save_config(&options)?;
+                    Arc::new(StorageBackend::Persistent(temp_storage))
+                }
             }
         };
 
         #[cfg(not(feature = "storage"))]
-        let storage = Arc::new(VectorStorage::new(options.dimensions)?);
+        let storage = Arc::new(MemoryStorage::new(options.dimensions)?);
 
-        // Choose index based on configuration and available features
+        // Choose index based on configuration and available features.
+        // Turbo4 quantization (ADR-296) is applied here: with an HNSW config
+        // it swaps the f32 index for one that stores only packed 4-bit codes.
+        let turbo4_params = match &options.quantization {
+            Some(crate::types::QuantizationConfig::Turbo4 {
+                rotation_seed,
+                rescore_multiplier,
+                policy,
+                search_quantization,
+            }) => Some((
+                *rotation_seed,
+                *rescore_multiplier,
+                *policy,
+                *search_quantization,
+            )),
+            _ => None,
+        };
+
         #[allow(unused_mut)] // `index` is mutated only when feature = "storage"
         let mut index: Box<dyn VectorIndex> = if let Some(hnsw_config) = &options.hnsw_config {
             #[cfg(feature = "hnsw")]
             {
-                Box::new(HnswIndex::new(
-                    options.dimensions,
-                    options.distance_metric,
-                    hnsw_config.clone(),
-                )?)
+                if let Some((rotation_seed, rescore_multiplier, policy, search_quantization)) =
+                    turbo4_params
+                {
+                    tracing::info!(
+                        "Turbo4 quantization active ({policy:?} policy): {} bytes/vector instead of {}",
+                        options.dimensions / 2 + 8,
+                        options.dimensions * 4
+                    );
+                    Box::new(crate::index::turbo4::Turbo4HnswIndex::new(
+                        options.dimensions,
+                        options.distance_metric,
+                        hnsw_config.clone(),
+                        rotation_seed,
+                        rescore_multiplier,
+                        policy,
+                        search_quantization,
+                    )?) as Box<dyn VectorIndex>
+                } else {
+                    Box::new(HnswIndex::new(
+                        options.dimensions,
+                        options.distance_metric,
+                        hnsw_config.clone(),
+                    )?) as Box<dyn VectorIndex>
+                }
             }
             #[cfg(not(feature = "hnsw"))]
             {
@@ -97,21 +230,86 @@ impl VectorDB {
             Box::new(FlatIndex::new(options.dimensions, options.distance_metric))
         };
 
-        // `DbOptions.quantization` is persisted/restored but not yet applied to
-        // the index or storage representation (issue #563). Warn loudly rather
-        // than silently ignoring a requested quantization so callers don't
-        // assume a memory reduction that isn't happening.
-        if !matches!(
-            options.quantization,
-            None | Some(crate::types::QuantizationConfig::None)
-        ) {
-            tracing::warn!(
-                "DbOptions.quantization = {:?} is set but not yet applied — the \
-                 index is stored unquantized (no compression / memory reduction). \
-                 See issue #563.",
-                options.quantization
-            );
+        // The legacy variants of `DbOptions.quantization` are persisted and
+        // restored but not applied to the index or storage representation
+        // (issue #563). Warn loudly rather than silently ignoring a requested
+        // quantization so callers don't assume a memory reduction that isn't
+        // happening. `Turbo4` (ADR-296) IS applied — but only on the HNSW
+        // path, so warn if it was requested without one.
+        match &options.quantization {
+            None | Some(crate::types::QuantizationConfig::None) => {}
+            Some(crate::types::QuantizationConfig::Turbo4 { .. }) => {
+                if options.hnsw_config.is_none() || cfg!(not(feature = "hnsw")) {
+                    tracing::warn!(
+                        "QuantizationConfig::Turbo4 requires an HNSW index (hnsw_config set \
+                         and the `hnsw` feature enabled); falling back to an unquantized \
+                         flat index — no compression is happening."
+                    );
+                }
+            }
+            other => {
+                tracing::warn!(
+                    "DbOptions.quantization = {:?} is set but not yet applied — the \
+                     index is stored unquantized (no compression / memory reduction). \
+                     See issue #563. Use QuantizationConfig::Turbo4 for applied \
+                     quantization (ADR-296).",
+                    other
+                );
+            }
         }
+
+        // ADR-297 §7: persist the collection-level provenance record and
+        // validate the codec contract on reopen. Codes encoded under one
+        // rotation seed are meaningless under another, and a codec_version
+        // bump means tables/layout changed — refuse to open rather than
+        // silently serve wrong results (a migration re-encodes; ADR-297
+        // phase D wires that path).
+        #[cfg(feature = "storage")]
+        if let Some((rotation_seed, _, _, _)) = turbo4_params {
+            use crate::encoding::{CodecKind, VectorProvenance, CODEC_VERSION};
+            const PROVENANCE_KEY: &str = "turbo4_provenance";
+            let current = VectorProvenance {
+                model_id: None,
+                codec: CodecKind::Turbo4,
+                codec_version: CODEC_VERSION,
+                rotation_seed: Some(rotation_seed),
+                dim: options.dimensions,
+                metric: options.distance_metric,
+                source_hash: None,
+                lineage: Vec::new(),
+            };
+            match storage.load_config_value(PROVENANCE_KEY)? {
+                Some(stored_json) => {
+                    let stored: VectorProvenance =
+                        serde_json::from_str(&stored_json).map_err(|e| {
+                            crate::error::RuvectorError::SerializationError(format!(
+                                "corrupt turbo4 provenance record: {e}"
+                            ))
+                        })?;
+                    if stored.rotation_seed != current.rotation_seed
+                        || stored.dim != current.dim
+                        || stored.metric != current.metric
+                        || stored.codec_version != current.codec_version
+                    {
+                        return Err(crate::error::RuvectorError::InvalidParameter(format!(
+                            "Turbo4 provenance mismatch: stored {stored:?} vs requested \
+                             {current:?}. Codes are bound to (rotation_seed, dim, metric, \
+                             codec_version); migrate the collection instead of changing \
+                             them in place."
+                        )));
+                    }
+                }
+                None => {
+                    let json = serde_json::to_string(&current).map_err(|e| {
+                        crate::error::RuvectorError::SerializationError(e.to_string())
+                    })?;
+                    storage.save_config_value(PROVENANCE_KEY, &json)?;
+                }
+            }
+        }
+
+        #[allow(unused_mut)] // filled only when feature = "storage"
+        let mut metadata = MetadataIndex::default();
 
         // Rebuild index from persisted vectors if storage is not empty
         // This fixes the bug where search() returns empty results after restart
@@ -128,6 +326,7 @@ impl VectorDB {
                 let mut entries = Vec::with_capacity(stored_ids.len());
                 for id in stored_ids {
                     if let Some(entry) = storage.get(&id)? {
+                        metadata.upsert(&id, entry.metadata.as_ref());
                         entries.push((id, entry.vector));
                     }
                 }
@@ -142,6 +341,7 @@ impl VectorDB {
         Ok(Self {
             storage,
             index: Arc::new(RwLock::new(index)),
+            metadata: RwLock::new(metadata),
             options,
         })
     }
@@ -155,13 +355,17 @@ impl VectorDB {
         Self::new(options)
     }
 
-    /// Insert a vector entry
+    /// Insert a vector entry. Re-inserting an existing id replaces it (upsert).
+    ///
+    /// A vector containing NaN or ±Inf is rejected before anything is stored.
     pub fn insert(&self, entry: VectorEntry) -> Result<VectorId> {
+        ensure_finite(&entry.vector, "vector")?;
         let id = self.storage.insert(&entry)?;
 
         // Add to index
         let mut index = self.index.write();
         index.add(id.clone(), entry.vector)?;
+        self.metadata.write().upsert(&id, entry.metadata.as_ref());
 
         Ok(id)
     }
@@ -169,6 +373,10 @@ impl VectorDB {
     /// Insert multiple vectors in a batch
     pub fn insert_batch(&self, entries: impl AsRef<[VectorEntry]>) -> Result<Vec<VectorId>> {
         let entries = entries.as_ref();
+        // Validate the whole batch first so a bad row leaves storage untouched.
+        for entry in entries {
+            ensure_finite(&entry.vector, "vector")?;
+        }
         let ids = self.storage.insert_batch(entries)?;
 
         // Add to index
@@ -180,37 +388,84 @@ impl VectorDB {
             .collect();
 
         index.add_batch(index_entries)?;
+        let mut metadata = self.metadata.write();
+        for (id, entry) in ids.iter().zip(entries) {
+            metadata.upsert(id, entry.metadata.as_ref());
+        }
 
         Ok(ids)
     }
 
-    /// Search for similar vectors
+    /// Search for similar vectors.
+    ///
+    /// A metadata `filter` (exact match on every key) is applied while searching, not after: the result holds
+    /// `min(k, #matching)` vectors (see [`FilterPlan`] for how the plan is chosen).
     pub fn search(&self, query: SearchQuery) -> Result<Vec<SearchResult>> {
-        let index = self.index.read();
-        let mut results = index.search(&query.vector, query.k)?;
+        self.search_with_plan(query, FilterPlan::Auto)
+    }
 
-        // Enrich results with full data if needed
-        for result in &mut results {
+    /// [`search`](Self::search) with an explicit plan for filtered queries (unfiltered queries ignore it).
+    pub fn search_with_plan(
+        &self,
+        query: SearchQuery,
+        plan: FilterPlan,
+    ) -> Result<Vec<SearchResult>> {
+        ensure_finite(&query.vector, "query vector")?;
+        if let Some(filter) = query.filter.as_ref().filter(|f| !f.is_empty()) {
+            return self.search_filtered(&query, filter, plan);
+        }
+        let index = self.index.read();
+        // Verification tier (ADR-297 §2): with Turbo4 quantization, over-fetch
+        // 2k candidates and re-rank them against the stored f32 vectors.
+        // Ablation (20k×768-D clustered): this recovers the precision-bound
+        // tail ranks that wider quantized traversal cannot — recall@10 went
+        // from −7 pp vs the f32 index to +1.4 pp, at ~f32 latency — and it is
+        // nearly free here because result enrichment fetches the stored
+        // vectors anyway.
+        let verify = self.turbo4_verify();
+        let fetch_k = if verify {
+            query.k.saturating_mul(2)
+        } else {
+            query.k
+        };
+        let mut results = index.search_ef(&query.vector, fetch_k, query.ef_search)?;
+        self.enrich(&mut results);
+        if verify {
+            self.rerank(&query.vector, &mut results);
+            results.truncate(query.k);
+        }
+        Ok(results)
+    }
+
+    fn turbo4_verify(&self) -> bool {
+        matches!(
+            self.options.quantization,
+            Some(crate::types::QuantizationConfig::Turbo4 { .. })
+        )
+    }
+
+    /// Attach the stored vector and metadata to each result.
+    fn enrich(&self, results: &mut [SearchResult]) {
+        for result in results {
             if let Ok(Some(entry)) = self.storage.get(&result.id) {
                 result.vector = Some(entry.vector);
                 result.metadata = entry.metadata;
             }
         }
+    }
 
-        // Apply metadata filters if specified
-        if let Some(filter) = &query.filter {
-            results.retain(|r| {
-                if let Some(metadata) = &r.metadata {
-                    filter
-                        .iter()
-                        .all(|(key, value)| metadata.get(key).is_some_and(|v| v == value))
-                } else {
-                    false
-                }
-            });
+    /// Re-score enriched results against their stored f32 vectors and sort ascending.
+    fn rerank(&self, query: &[f32], results: &mut [SearchResult]) {
+        for r in results.iter_mut() {
+            if let Some(v) = &r.vector {
+                r.score = crate::encoding::metric_distance(self.options.distance_metric, query, v);
+            }
         }
-
-        Ok(results)
+        results.sort_unstable_by(|a, b| {
+            a.score
+                .partial_cmp(&b.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
     }
 
     /// Delete a vector by ID
@@ -220,6 +475,7 @@ impl VectorDB {
         if deleted_storage {
             let mut index = self.index.write();
             let _ = index.remove(&id.to_string())?;
+            self.metadata.write().remove(id);
         }
 
         Ok(deleted_storage)
@@ -245,6 +501,19 @@ impl VectorDB {
         &self.options
     }
 
+    /// Persist a provenance value in the vector store itself, so it cannot be
+    /// removed without removing the vectors it describes.
+    #[cfg(feature = "storage")]
+    pub fn save_config_value(&self, key: &str, value: &str) -> Result<()> {
+        self.storage.save_config_value(key, value)
+    }
+
+    /// Read a value written by [`save_config_value`](Self::save_config_value).
+    #[cfg(feature = "storage")]
+    pub fn load_config_value(&self, key: &str) -> Result<Option<String>> {
+        self.storage.load_config_value(key)
+    }
+
     /// Get all vector IDs (for iteration/serialization)
     pub fn keys(&self) -> Result<Vec<String>> {
         self.storage.all_ids()
@@ -254,6 +523,27 @@ impl VectorDB {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "storage")]
+    #[test]
+    fn memory_url_selects_memory_backend_when_storage_is_compiled() {
+        let options = DbOptions {
+            dimensions: 3,
+            distance_metric: DistanceMetric::Euclidean,
+            storage_path: "memory://feature-unification-regression".to_string(),
+            hnsw_config: None,
+            quantization: None,
+        };
+        let db = VectorDB::new(options).unwrap();
+        db.insert(VectorEntry {
+            id: Some("one".to_string()),
+            vector: vec![1.0, 2.0, 3.0],
+            metadata: None,
+        })
+        .unwrap();
+        assert_eq!(db.len().unwrap(), 1);
+        assert!(!std::path::Path::new("memory:").exists());
+    }
     use std::path::Path;
     use tempfile::tempdir;
 
@@ -315,6 +605,136 @@ mod tests {
             "Exact match should have ~0 distance"
         );
 
+        Ok(())
+    }
+
+    /// Turbo4 quantization end-to-end: insert, search, restart-rebuild (ADR-296).
+    #[test]
+    #[cfg(all(feature = "hnsw", feature = "storage"))]
+    fn test_turbo4_quantized_db() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("turbo4.db").to_string_lossy().to_string();
+        let dim = 64usize;
+
+        let mk_options = || {
+            let mut options = DbOptions::default();
+            options.storage_path = db_path.clone();
+            options.dimensions = dim;
+            options.distance_metric = DistanceMetric::Euclidean;
+            options.quantization = Some(QuantizationConfig::Turbo4 {
+                rotation_seed: 42,
+                rescore_multiplier: 4,
+                policy: SearchPolicy::Balanced,
+                search_quantization: SearchQuantization::default(),
+            });
+            options
+        };
+
+        // Deterministic, pairwise-distinct pseudo-random vectors (SplitMix64
+        // hash of (i, j) — a modular pattern here can silently produce
+        // identical vectors, making "self is nearest" ambiguous).
+        let vectors: Vec<Vec<f32>> = (0..80u64)
+            .map(|i| {
+                (0..dim as u64)
+                    .map(|j| {
+                        let mut z = (i << 32 | j).wrapping_add(0x9E3779B97F4A7C15);
+                        z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+                        z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+                        ((z >> 40) as f32 / (1u64 << 24) as f32) * 2.0 - 1.0
+                    })
+                    .collect()
+            })
+            .collect();
+
+        {
+            let db = VectorDB::new(mk_options())?;
+            for (i, v) in vectors.iter().enumerate() {
+                db.insert(VectorEntry {
+                    id: Some(format!("v{i}")),
+                    vector: v.clone(),
+                    metadata: None,
+                })?;
+            }
+            let results = db.search(SearchQuery {
+                vector: vectors[5].clone(),
+                k: 3,
+                filter: None,
+                ef_search: None,
+            })?;
+            assert_eq!(results[0].id, "v5", "self-query must return itself first");
+        }
+
+        // Restart: config (incl. quantization) restored from storage, index
+        // rebuilt by re-encoding persisted vectors.
+        {
+            let db = VectorDB::new(mk_options())?;
+            assert!(matches!(
+                db.options().quantization,
+                Some(QuantizationConfig::Turbo4 {
+                    rotation_seed: 42,
+                    ..
+                })
+            ));
+            let results = db.search(SearchQuery {
+                vector: vectors[12].clone(),
+                k: 3,
+                filter: None,
+                ef_search: None,
+            })?;
+            assert_eq!(results[0].id, "v12", "self-query after restart");
+        }
+        Ok(())
+    }
+
+    /// Provenance record (ADR-297 §7): written on create, readable, and a
+    /// tampered rotation seed refuses to open.
+    #[test]
+    #[cfg(all(feature = "hnsw", feature = "storage"))]
+    fn test_turbo4_provenance_guard() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("prov.db").to_string_lossy().to_string();
+        let mk_options = || {
+            let mut options = DbOptions::default();
+            options.storage_path = db_path.clone();
+            options.dimensions = 64;
+            options.distance_metric = DistanceMetric::Euclidean;
+            options.quantization = Some(QuantizationConfig::Turbo4 {
+                rotation_seed: 42,
+                rescore_multiplier: 4,
+                policy: SearchPolicy::Balanced,
+                search_quantization: SearchQuantization::default(),
+            });
+            options
+        };
+
+        {
+            let db = VectorDB::new(mk_options())?;
+            let json = db
+                .load_config_value("turbo4_provenance")?
+                .expect("provenance record must be written when Turbo4 is active");
+            let prov: crate::encoding::VectorProvenance = serde_json::from_str(&json).unwrap();
+            assert_eq!(prov.rotation_seed, Some(42));
+            assert_eq!(prov.dim, 64);
+            assert_eq!(prov.codec_version, crate::encoding::CODEC_VERSION);
+        }
+
+        // Clean reopen with the same parameters succeeds.
+        {
+            let db = VectorDB::new(mk_options())?;
+            // Tamper: claim the codes were made with a different seed.
+            let mut prov: crate::encoding::VectorProvenance =
+                serde_json::from_str(&db.load_config_value("turbo4_provenance")?.unwrap()).unwrap();
+            prov.rotation_seed = Some(7);
+            db.save_config_value("turbo4_provenance", &serde_json::to_string(&prov).unwrap())?;
+        }
+
+        // Reopen must now refuse: stored contract disagrees with the seed
+        // the (restored) config asks for.
+        let err = VectorDB::new(mk_options());
+        assert!(
+            err.is_err(),
+            "reopen with mismatched provenance must fail, got Ok"
+        );
         Ok(())
     }
 

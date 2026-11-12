@@ -40,7 +40,10 @@ fn main() {
     let t = Instant::now();
     let corpus8 = project_topm(&corpus, 8, 60);
     println!("# PCA done in {:?}\n", t.elapsed());
-    run_regime("PCA-8 (low-dim control — bound should be TIGHT, B&B should WIN)", &corpus8);
+    run_regime(
+        "PCA-8 (low-dim control — bound should be TIGHT, B&B should WIN)",
+        &corpus8,
+    );
 }
 
 fn run_regime(label: &str, corpus: &[Vec<f32>]) {
@@ -87,15 +90,21 @@ fn run_regime(label: &str, corpus: &[Vec<f32>]) {
         let eval_ratio = plain.evals / bnb_skip.evals.max(1.0);
         let wall_ratio = plain.wall_ns as f64 / bnb_skip.wall_ns.max(1) as f64;
 
-        println!("\n## nclusters={nc_eff}  (build {build:?})  exact-regime prune={:.1}%", prune_frac * 100.0);
+        println!(
+            "\n## nclusters={nc_eff}  (build {build:?})  exact-regime prune={:.1}%",
+            prune_frac * 100.0
+        );
         print_row("plain nprobe   (incumbent)", &plain);
         print_row("B&B  LB-order  (BET-2 kernel)", &bnb_lb);
         print_row("B&B  steelman  (cdist+LB-skip)", &bnb_skip);
-        println!(
-            "   steelman vs incumbent: eval {eval_ratio:.2}x   wall {wall_ratio:.2}x"
-        );
+        println!("   steelman vs incumbent: eval {eval_ratio:.2}x   wall {wall_ratio:.2}x");
 
-        cells.push(Cell { nc: nc_eff, eval_ratio, wall_ratio, prune_frac });
+        cells.push(Cell {
+            nc: nc_eff,
+            eval_ratio,
+            wall_ratio,
+            prune_frac,
+        });
     }
 
     verdict(label, &cells);
@@ -137,7 +146,12 @@ fn matched<F>(
 where
     F: Fn(&[f32], usize) -> (Vec<usize>, usize),
 {
-    let mut last = Matched { knob: 0, recall: 0.0, evals: 0.0, wall_ns: 0 };
+    let mut last = Matched {
+        knob: 0,
+        recall: 0.0,
+        evals: 0.0,
+        wall_ns: 0,
+    };
     for &knob in grid {
         let t = Instant::now();
         let mut rec = 0.0;
@@ -178,8 +192,12 @@ fn ids(res: &[SearchResult]) -> Vec<usize> {
 }
 
 fn verdict(label: &str, cells: &[Cell]) {
-    let all_win = cells.iter().all(|c| c.eval_ratio >= 2.0 && c.wall_ratio > 1.0);
-    let any_kill = cells.iter().any(|c| c.eval_ratio < 1.5 || c.wall_ratio < 1.0);
+    let all_win = cells
+        .iter()
+        .all(|c| c.eval_ratio >= 2.0 && c.wall_ratio > 1.0);
+    let any_kill = cells
+        .iter()
+        .any(|c| c.eval_ratio < 1.5 || c.wall_ratio < 1.0);
     let v = if all_win {
         "WIN (≥2× evals AND wall-clock win across all nclusters)"
     } else if any_kill {
@@ -191,7 +209,10 @@ fn verdict(label: &str, cells: &[Cell]) {
     for c in cells {
         println!(
             "      nclusters={:<5} steelman eval={:.2}x wall={:.2}x  exact-prune={:.1}%",
-            c.nc, c.eval_ratio, c.wall_ratio, c.prune_frac * 100.0
+            c.nc,
+            c.eval_ratio,
+            c.wall_ratio,
+            c.prune_frac * 100.0
         );
     }
     println!("      => {v}");

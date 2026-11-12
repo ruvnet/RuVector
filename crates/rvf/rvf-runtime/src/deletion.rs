@@ -16,6 +16,7 @@ use std::collections::HashSet;
 /// Tracks soft-deleted vector IDs. In a production implementation this
 /// would use a Roaring bitmap for space efficiency; here we use a HashSet
 /// for correctness and clarity.
+#[derive(Clone)]
 pub(crate) struct DeletionBitmap {
     deleted: HashSet<u64>,
 }

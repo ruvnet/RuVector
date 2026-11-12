@@ -243,8 +243,8 @@ impl WasmBatchOps {
     pub fn execute_batch(&mut self) -> Vec<BatchResult> {
         let _start = PortableInstant::now();
 
-        // Drain pending operations to avoid borrow conflict
-        let pending_ops: Vec<_> = self.pending.drain(..).collect();
+        // Take pending operations to avoid borrow conflict
+        let pending_ops = std::mem::take(&mut self.pending);
         let mut results = Vec::with_capacity(pending_ops.len());
 
         for op in pending_ops {

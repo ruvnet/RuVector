@@ -20,6 +20,7 @@
 use crate::distance::FlatVectors;
 use crate::error::Result;
 use crate::graph::VamanaGraph;
+use rand::{rngs::StdRng, SeedableRng};
 
 /// When to spend a full [`VamanaGraph`] rebuild as the metric drifts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,6 +71,7 @@ pub struct DriftingIndex {
     // Telemetry.
     step: usize,
     rebuilds: usize,
+    build_seed: Option<u64>,
 }
 
 impl DriftingIndex {
@@ -84,8 +86,32 @@ impl DriftingIndex {
         build_beam: usize,
         alpha: f32,
     ) -> Result<Self> {
+        Self::build_inner(vectors, policy, max_degree, build_beam, alpha, None)
+    }
+
+    /// Build with deterministic graph construction, for reproducible tests and
+    /// benchmarks. Rebuilds use the same seed and inputs, yielding the same topology.
+    pub fn build_seeded(
+        vectors: &FlatVectors,
+        policy: RebuildPolicy,
+        max_degree: usize,
+        build_beam: usize,
+        alpha: f32,
+        seed: u64,
+    ) -> Result<Self> {
+        Self::build_inner(vectors, policy, max_degree, build_beam, alpha, Some(seed))
+    }
+
+    fn build_inner(
+        vectors: &FlatVectors,
+        policy: RebuildPolicy,
+        max_degree: usize,
+        build_beam: usize,
+        alpha: f32,
+        build_seed: Option<u64>,
+    ) -> Result<Self> {
         let n = vectors.len();
-        let graph = build_graph(vectors, n, max_degree, build_beam, alpha)?;
+        let graph = build_graph(vectors, n, max_degree, build_beam, alpha, build_seed)?;
         Ok(Self {
             graph,
             policy,
@@ -95,6 +121,7 @@ impl DriftingIndex {
             alpha,
             step: 0,
             rebuilds: 0,
+            build_seed,
         })
     }
 
@@ -124,6 +151,7 @@ impl DriftingIndex {
             self.max_degree,
             self.build_beam,
             self.alpha,
+            self.build_seed,
         )?;
         self.rebuilds += 1;
         Ok(true)
@@ -155,6 +183,7 @@ impl DriftingIndex {
             self.max_degree,
             self.build_beam,
             self.alpha,
+            self.build_seed,
         )?;
         self.rebuilds += 1;
         Ok(())
@@ -187,9 +216,14 @@ fn build_graph(
     max_degree: usize,
     build_beam: usize,
     alpha: f32,
+    seed: Option<u64>,
 ) -> Result<VamanaGraph> {
     let mut graph = VamanaGraph::new(n, max_degree, build_beam, alpha);
-    graph.build(vectors)?;
+    if let Some(seed) = seed {
+        graph.build_with_rng(vectors, &mut StdRng::seed_from_u64(seed))?;
+    } else {
+        graph.build(vectors)?;
+    }
     Ok(graph)
 }
 
@@ -245,6 +279,36 @@ impl RecallTrigger {
             max_degree,
             build_beam,
             alpha,
+        )?;
+        Ok(Self {
+            index,
+            probe_queries,
+            k,
+            floor,
+            search_beam,
+        })
+    }
+
+    /// Build a trigger with deterministic graph construction.
+    #[allow(clippy::too_many_arguments)]
+    pub fn build_seeded(
+        vectors: &FlatVectors,
+        probe_queries: Vec<u32>,
+        k: usize,
+        floor: f32,
+        search_beam: usize,
+        max_degree: usize,
+        build_beam: usize,
+        alpha: f32,
+        seed: u64,
+    ) -> Result<Self> {
+        let index = DriftingIndex::build_seeded(
+            vectors,
+            RebuildPolicy::ReweightOnly,
+            max_degree,
+            build_beam,
+            alpha,
+            seed,
         )?;
         Ok(Self {
             index,
@@ -407,7 +471,7 @@ mod tests {
     fn recall_trigger_holds_under_no_drift() {
         let v = fixture(128, 8);
         let probes: Vec<u32> = (0..16).collect();
-        let mut t = RecallTrigger::build(&v, probes, 5, 0.9, 32, 16, 32, 1.2).unwrap();
+        let mut t = RecallTrigger::build_seeded(&v, probes, 5, 0.9, 32, 16, 32, 1.2, 42).unwrap();
         // same vectors → the index searches what it was built on → recall ~1.0 → no rebuild
         assert!(t.probe_recall(&v) >= 0.9);
         assert!(!t.on_metric_update(&v).unwrap());
@@ -418,7 +482,7 @@ mod tests {
     fn recall_trigger_fires_then_recovers_under_drift() {
         let v = fixture(128, 8);
         let probes: Vec<u32> = (0..16).collect();
-        let mut t = RecallTrigger::build(&v, probes, 5, 0.9, 32, 16, 32, 1.2).unwrap();
+        let mut t = RecallTrigger::build_seeded(&v, probes, 5, 0.9, 32, 16, 32, 1.2, 42).unwrap();
         // swap in a geometrically different vector set: recall collapses → trigger fires
         let vb = fixture_b(128, 8);
         assert!(

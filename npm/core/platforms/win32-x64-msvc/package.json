@@ -1,7 +1,8 @@
 {
   "name": "ruvector-core-win32-x64-msvc",
-  "version": "0.1.25",
+  "version": "0.1.35",
   "description": "Windows x64 MSVC native binding for ruvector-core - High-performance vector database with HNSW indexing built in Rust",
+  "homepage": "https://ruv.io",
   "main": "index.js",
   "type": "commonjs",
   "os": [
@@ -11,7 +12,6 @@
     "x64"
   ],
   "author": "ruv.io Team <info@ruv.io> (https://ruv.io)",
-  "homepage": "https://ruv.io",
   "engines": {
     "node": ">= 18"
   },
@@ -45,11 +45,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
     "directory": "npm/core/platforms/win32-x64-msvc"
   },
   "bugs": {
-    "url": "https://github.com/ruvnet/ruvector/issues"
+    "url": "https://github.com/ruvnet/RuVector/issues"
   },
   "publishConfig": {
     "access": "public"

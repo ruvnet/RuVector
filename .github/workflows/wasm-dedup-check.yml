@@ -7,10 +7,12 @@ on:
   workflow_dispatch:
 jobs:
   check-wasm-dedup:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Check npm platform manifests (homepage, repository, bugs)
+        run: bash scripts/ci/check-platform-manifests.sh
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 20
       - run: npm install --ignore-scripts --omit=optional 2>&1 || true

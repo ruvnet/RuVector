@@ -6,10 +6,7 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    AgentState, AgentStateUpdate, Middleware, ModelHandler, ModelRequest, ModelResponse,
-    RunnableConfig, Runtime,
-};
+use crate::{AgentState, AgentStateUpdate, Middleware, ModelRequest, RunnableConfig, Runtime};
 
 /// MCP tool call origin tracking.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,7 +78,7 @@ impl Middleware for McpBridgeMiddleware {
         "mcp_bridge"
     }
 
-    fn before_agent(
+    async fn before_agent(
         &self,
         _state: &AgentState,
         _runtime: &Runtime,
@@ -109,10 +106,6 @@ impl Middleware for McpBridgeMiddleware {
         request
     }
 
-    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
-        handler.call(request)
-    }
-
     fn tools(&self) -> Vec<Box<dyn crate::Tool>> {
         if !self.config.enabled {
             return vec![];
@@ -128,6 +121,7 @@ struct McpStatusTool {
     config: McpBridgeConfig,
 }
 
+#[async_trait]
 impl crate::Tool for McpStatusTool {
     fn name(&self) -> &str {
         "mcp_bridge_status"
@@ -137,7 +131,7 @@ impl crate::Tool for McpStatusTool {
         "Returns the current MCP bridge configuration and status"
     }
 
-    fn parameters_schema(&self) -> serde_json::Value {
+    fn input_schema(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "object",
             "properties": {},
@@ -145,7 +139,7 @@ impl crate::Tool for McpStatusTool {
         })
     }
 
-    fn invoke(&self, _args: serde_json::Value) -> Result<String, String> {
+    async fn invoke(&self, _args: serde_json::Value) -> Result<String, String> {
         Ok(serde_json::json!({
             "enabled": self.config.enabled,
             "max_concurrent": self.config.max_concurrent,
@@ -195,8 +189,8 @@ mod tests {
         assert!(!mw.is_transport_allowed("websocket"));
     }
 
-    #[test]
-    fn test_mcp_bridge_disabled() {
+    #[tokio::test]
+    async fn test_mcp_bridge_disabled() {
         let config = McpBridgeConfig {
             enabled: false,
             ..Default::default()
@@ -207,17 +201,18 @@ mod tests {
         let runnable_config = RunnableConfig::default();
         assert!(mw
             .before_agent(&state, &runtime, &runnable_config)
+            .await
             .is_none());
         assert!(mw.tools().is_empty());
     }
 
-    #[test]
-    fn test_mcp_bridge_enabled_injects_config() {
+    #[tokio::test]
+    async fn test_mcp_bridge_enabled_injects_config() {
         let mw = McpBridgeMiddleware::new();
         let state = AgentState::default();
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
-        let update = mw.before_agent(&state, &runtime, &config);
+        let update = mw.before_agent(&state, &runtime, &config).await;
         assert!(update.is_some());
         assert!(update.unwrap().extensions.contains_key("mcp_bridge_config"));
     }
@@ -230,13 +225,13 @@ mod tests {
         assert_eq!(tools[0].name(), "mcp_bridge_status");
     }
 
-    #[test]
-    fn test_mcp_status_tool_invoke() {
+    #[tokio::test]
+    async fn test_mcp_status_tool_invoke() {
         use crate::Tool;
         let tool = McpStatusTool {
             config: McpBridgeConfig::default(),
         };
-        let result = tool.invoke(serde_json::json!({}));
+        let result = tool.invoke(serde_json::json!({})).await;
         assert!(result.is_ok());
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         assert_eq!(json["enabled"], true);

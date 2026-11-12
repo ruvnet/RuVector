@@ -244,3 +244,12 @@ Total               ~105KB gzipped
 [Documentation](https://docs.rs/ruvector-tiny-dancer-wasm) | [npm](https://www.npmjs.com/package/@ruvector/tiny-dancer) | [GitHub](https://github.com/ruvnet/ruvector)
 
 </div>
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for WASM, WebAssembly, neural network.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->

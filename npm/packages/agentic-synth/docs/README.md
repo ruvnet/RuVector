@@ -68,7 +68,7 @@ OPENROUTER_API_KEY=your_openrouter_api_key
 ```json
 {
   "provider": "gemini",
-  "model": "gemini-2.0-flash-exp",
+  "model": "gemini-2.5-flash",
   "cacheStrategy": "memory",
   "cacheTTL": 3600,
   "maxRetries": 3,
@@ -181,7 +181,7 @@ const synth = createSynth({
 // Or specify model directly
 const result = await synth.generate('timeseries', {
   ...options,
-  model: 'gemini-1.5-pro'
+  model: 'gemini-2.5-pro'
 });
 ```
 

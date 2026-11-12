@@ -1,0 +1,4 @@
+# ADR-282 trusted research-gate surfaces.
+/.github/workflows/research-*.yml @ruvnet/research-gate
+/scripts/research-gate/ @ruvnet/research-gate
+/schemas/research-*.json @ruvnet/research-gate

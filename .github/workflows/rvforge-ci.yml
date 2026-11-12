@@ -1,0 +1,214 @@
+name: RVForge CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/rvf-forge'
+    paths:
+      - 'npm/packages/forge/**'
+      - 'npm/packages/rvforge/**'
+      - 'crates/rvf-forge-core/**'
+      - 'crates/rvforge-registry/**'
+      - 'crates/rvforge-reader/**'
+      - 'scripts/rvforge-parity-check.sh'
+      - 'scripts/rvforge-parity-fixture.cjs'
+      - '.github/workflows/rvforge-ci.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'npm/packages/forge/**'
+      - 'npm/packages/rvforge/**'
+      - 'crates/rvf-forge-core/**'
+      - 'crates/rvforge-registry/**'
+      - 'crates/rvforge-reader/**'
+      - 'scripts/rvforge-parity-check.sh'
+      - 'scripts/rvforge-parity-fixture.cjs'
+      - '.github/workflows/rvforge-ci.yml'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20.x'
+  CARGO_TERM_COLOR: always
+
+jobs:
+  cli:
+    name: rvforge CLI (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Locate CLI package
+        id: pkg
+        shell: bash
+        run: |
+          if [ -f npm/packages/rvforge/package.json ]; then
+            echo "dir=npm/packages/rvforge" >> "$GITHUB_OUTPUT"
+          elif [ -f npm/packages/forge/package.json ]; then
+            echo "dir=npm/packages/forge" >> "$GITHUB_OUTPUT"
+          else
+            echo "dir=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.pkg.outputs.dir != ''
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install
+        if: steps.pkg.outputs.dir != ''
+        shell: bash
+        working-directory: ${{ steps.pkg.outputs.dir }}
+        # --workspaces=false: the package sits inside the npm/ workspace root;
+        # a plain install resolves the whole workspace and fails EBADPLATFORM
+        # on platform-pinned sibling packages (e.g. router-darwin-arm64).
+        run: npm install --workspaces=false
+
+      - name: Typecheck + build
+        if: steps.pkg.outputs.dir != ''
+        shell: bash
+        working-directory: ${{ steps.pkg.outputs.dir }}
+        run: npm run build
+
+      - name: Test
+        if: steps.pkg.outputs.dir != ''
+        shell: bash
+        working-directory: ${{ steps.pkg.outputs.dir }}
+        run: npm test
+
+  core:
+    name: rvf-forge-core (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check crate exists
+        id: crate
+        shell: bash
+        run: |
+          if [ -f crates/rvf-forge-core/Cargo.toml ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.crate.outputs.present == 'true'
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        if: steps.crate.outputs.present == 'true'
+        with:
+          workspaces: '. -> target'
+
+      - name: Test rvf-forge-core
+        if: steps.crate.outputs.present == 'true'
+        run: cargo test -p rvf-forge-core
+
+      - name: Clippy rvf-forge-core
+        if: steps.crate.outputs.present == 'true'
+        run: cargo clippy -p rvf-forge-core -- -D warnings
+
+      - name: Format check rvf-forge-core
+        if: steps.crate.outputs.present == 'true'
+        shell: bash
+        run: cargo fmt -p rvf-forge-core -- --check
+
+      - name: Test rvforge-registry
+        if: steps.crate.outputs.present == 'true'
+        shell: bash
+        run: |
+          if [ -f crates/rvforge-registry/Cargo.toml ]; then
+            cargo test -p rvforge-registry
+            cargo clippy -p rvforge-registry -- -D warnings
+            cargo fmt -p rvforge-registry -- --check
+          fi
+
+  parity:
+    name: CLI ↔ registry parity
+    # Ubuntu only: the check is about wire-format agreement between two
+    # implementations, which is platform-independent — the per-OS matrices in
+    # the `cli` and `core` jobs already cover platform behaviour.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check both halves exist
+        id: halves
+        shell: bash
+        run: |
+          if [ -f npm/packages/rvforge/package.json ] \
+            && [ -f crates/rvforge-registry/Cargo.toml ] \
+            && [ -f scripts/rvforge-parity-check.sh ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.halves.outputs.present == 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.halves.outputs.present == 'true'
+
+      - uses: Swatinem/rust-cache@v2
+        if: steps.halves.outputs.present == 'true'
+        with:
+          workspaces: '. -> target'
+
+      # Publishes through the real CLI, then reads the registry it wrote with
+      # the Rust crate. A divergence in canonical JSON, content addressing, the
+      # Merkle log, the release index, or the witness chain fails here.
+      - name: Publish with the CLI, read with the Rust registry
+        if: steps.halves.outputs.present == 'true'
+        shell: bash
+        run: bash scripts/rvforge-parity-check.sh
+
+  reader:
+    name: rvforge-reader (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check crate exists
+        id: reader
+        shell: bash
+        run: |
+          if [ -f crates/rvforge-reader/Cargo.toml ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.reader.outputs.present == 'true'
+
+      - uses: Swatinem/rust-cache@v2
+        if: steps.reader.outputs.present == 'true'
+        with:
+          workspaces: 'crates/rvforge-reader -> crates/rvforge-reader/target'
+
+      # Standalone workspace: run inside the crate dir, not via -p from root
+      - name: Test rvforge-reader
+        if: steps.reader.outputs.present == 'true'
+        shell: bash
+        working-directory: crates/rvforge-reader
+        run: |
+          cargo test
+          cargo check

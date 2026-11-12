@@ -1,0 +1,40 @@
+{
+  "name": "@ruvector/kge",
+  "version": "0.2.1",
+  "description": "Knowledge graph embeddings (HolE / RotatE) for link prediction in Node.js: train on (head, relation, tail) triples and rank missing tails. Rust native addon with a WASM fallback; no network.",
+  "license": "MIT",
+  "homepage": "https://ruv.io",
+  "repository": { "type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "npm/packages/kge" },
+  "bugs": { "url": "https://github.com/ruvnet/RuVector/issues" },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": { "kge": "bin/cli.js" },
+  "files": ["dist", "bin", "index.js", "index.d.ts", "README.md", "docs/adr", "wasm", "native"],
+  "engines": { "node": ">=18.0.0" },
+  "keywords": [
+    "knowledge-graph",
+    "graph-embeddings",
+    "link-prediction",
+    "embeddings",
+    "machine-learning",
+    "kge",
+    "hole",
+    "rotate",
+    "hnsw",
+    "typescript",
+    "wasm",
+    "rust",
+    "ruvector",
+    "local-first"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:napi": "napi build --platform --release --cargo-cwd ../../../crates/ruvector-kge-ffi",
+    "typecheck": "tsc --noEmit -p tsconfig.typetest.json",
+    "test": "node --test test/*.test.mjs",
+    "test:all": "tsc -p tsconfig.json && tsc --noEmit -p tsconfig.typetest.json && node --test test/*.test.mjs",
+    "prepublishOnly": "tsc -p tsconfig.json",
+    "bench": "node bench/run.mjs"
+  },
+  "devDependencies": { "@napi-rs/cli": "^2.18.0", "typescript": "^5.9.3" }
+}

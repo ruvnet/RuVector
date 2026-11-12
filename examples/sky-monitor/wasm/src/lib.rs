@@ -22,6 +22,10 @@
 //! * [`parse_dump1090_json`] — the core dump1090 `aircraft.json` parser, for
 //!   live feeds proxied into the browser.
 
+// Lint suggests `as_chunks`, stable only since Rust 1.88 — past the declared
+// `rust-version = "1.77"`. `unknown_lints` keeps older toolchains quiet.
+#![allow(unknown_lints, clippy::chunks_exact_to_as_chunks)]
+
 use sky_monitor::anomaly::{score_summary, BaselineStats, Interpretation, TrackSummary};
 use sky_monitor::config::AnomalyConfig;
 use sky_monitor::coords::observer_frame;

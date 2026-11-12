@@ -55,7 +55,11 @@ fn pq_full_rerank_is_exact() {
         let (res, cost) = pq.search_adc_rerank(&corpus[q], k, nc, n);
         let got: Vec<usize> = res.iter().map(|r| r.id).collect();
         acc += recall_at_k(&truth, &got, k);
-        assert_eq!(cost.rerank, cost.adc_members.min(n), "full pool must re-rank all scanned");
+        assert_eq!(
+            cost.rerank,
+            cost.adc_members.min(n),
+            "full pool must re-rank all scanned"
+        );
     }
     let recall = acc / nq as f64;
     assert!(
@@ -96,5 +100,8 @@ fn early_abandon_matches_full_l2() {
     );
     // Early abandonment can never touch more than every dim of every scanned member.
     let dim = corpus[0].len();
-    assert!(dims_ab <= members * dim, "abandon cannot exceed a full scan");
+    assert!(
+        dims_ab <= members * dim,
+        "abandon cannot exceed a full scan"
+    );
 }

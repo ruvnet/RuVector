@@ -1,0 +1,170 @@
+{
+  "date": "2026-09-26",
+  "idf": "5.4.4",
+  "compiler": "Espressif GCC 14.2.0",
+  "physical_hardware": false,
+  "source_parent": "5ede6f70e23fa148c3aa9a5b272bef3b60d37857",
+  "kernel_unchanged": true,
+  "quantized_model_unchanged": true,
+  "builds": [
+    {
+      "target": "esp32s3",
+      "variant": "synthetic",
+      "images": {
+        "merged-binary.bin": {
+          "bytes": 254432,
+          "sha256": "b8569bf477127d28f3b06db424950c1c6da27966120d839f32e511731ad15a56"
+        },
+        "ruvector_decision.bin": {
+          "bytes": 188896,
+          "sha256": "f6f5c0bfd04eb4d956c025a977e1d958f0e2f2c5f588e70af260787f2ba33447"
+        }
+      }
+    },
+    {
+      "target": "esp32s3",
+      "variant": "occupancy-baseline",
+      "images": {
+        "merged-binary.bin": {
+          "bytes": 253232,
+          "sha256": "7cfe3719abf26acae51725fb555ea642b3a84443642c4e2453507bd54ec9faf4"
+        },
+        "ruvector_decision.bin": {
+          "bytes": 187696,
+          "sha256": "1c2e9d17388ffb226205e4c7818e304b2c1a03bda7ee6be662f4d5b3e34ec493"
+        }
+      }
+    },
+    {
+      "target": "esp32s3",
+      "variant": "occupancy-candidate",
+      "images": {
+        "merged-binary.bin": {
+          "bytes": 253392,
+          "sha256": "960ea39ea9626dbb6e43490de1b8c3a0076a00909ccae3f13e6f77d1fd3000f0"
+        },
+        "ruvector_decision.bin": {
+          "bytes": 187856,
+          "sha256": "c690a5347a909fa5467cce0bf8d09a9dda33d7c70e9ac69acd9136e5c0120a67"
+        }
+      }
+    },
+    {
+      "target": "esp32s3",
+      "variant": "occupancy-production",
+      "images": {
+        "merged-binary.bin": {
+          "bytes": 252384,
+          "sha256": "9526a7c092e00fb462738b2974ea46d9731c468766bcea905ef4bd3558abb767"
+        },
+        "ruvector_decision.bin": {
+          "bytes": 186848,
+          "sha256": "7c071b671890a3d50458dff5557783edaddb345078b71e101c95fa2ff2dab720"
+        }
+      }
+    },
+    {
+      "target": "esp32c6",
+      "variant": "synthetic",
+      "images": {
+        "merged-binary.bin": {
+          "bytes": 223680,
+          "sha256": "604f891368f0287138db95058b3bededcaad857cdd98595a222103c2ec459e71"
+        },
+        "ruvector_decision.bin": {
+          "bytes": 158144,
+          "sha256": "22fb099322f30bb6ec3d2fc17344db20e8a9fc4211c6e04bea3d0565d431851f"
+        }
+      }
+    },
+    {
+      "target": "esp32c6",
+      "variant": "occupancy-baseline",
+      "images": {
+        "merged-binary.bin": {
+          "bytes": 222784,
+          "sha256": "e72f44640aaabbb82e77059d518b4feb301933ea65069a0de650fe986dfd5e17"
+        },
+        "ruvector_decision.bin": {
+          "bytes": 157248,
+          "sha256": "0565dbe33424bcf11d945a416497fa684e70edc563b4d4984a7dabe45e7f8828"
+        }
+      }
+    },
+    {
+      "target": "esp32c6",
+      "variant": "occupancy-candidate",
+      "images": {
+        "merged-binary.bin": {
+          "bytes": 222864,
+          "sha256": "9308eaa3e2198d7643534608e7f75da9cc72bac8b3504a6d38afc84ebac633df"
+        },
+        "ruvector_decision.bin": {
+          "bytes": 157328,
+          "sha256": "c17c37fe24ff2347d5273f1b5ce8718a44d61b808c06fdcef2c267c3f8b02183"
+        }
+      }
+    },
+    {
+      "target": "esp32c6",
+      "variant": "occupancy-production",
+      "images": {
+        "merged-binary.bin": {
+          "bytes": 221824,
+          "sha256": "c40cedd6acb49ebc49e9e0b76bc62cf36d2d6f40187d2c157343ad8dd0b13b30"
+        },
+        "ruvector_decision.bin": {
+          "bytes": 156288,
+          "sha256": "a7f2aea359dd85a0545aa1ab26b124b1d36dbbdc3996f15c61892f4d660e106a"
+        }
+      }
+    }
+  ],
+  "source_sha256": {
+    "examples/esp32-decision/sdkconfig.production": "d817c9c012663a6ec3f964d9441378d1083d343bbc92d90acab874a43ff9537a",
+    "examples/esp32-decision/tests/test_improvements.py": "b9666e3f552aad772ee58ecf11b4fda788a5c96af2bae08e3907da2937aa9b75",
+    "examples/esp32-decision/tools/coverage_lab.py": "aac32120275a75b554c4092fb5d1d9e851161cead381ab4b226fc9b378b40633",
+    "examples/esp32-decision/tools/production_check.py": "c21268f5f5a40559379fe857dad22db570e0c13a56a047ad1d591636f68075ff",
+    "examples/esp32-decision/.gitignore": "16f3f637f39f833a779d8aebb99b8a90f8269165900ead89437c5f6bbd6f9e17",
+    "examples/esp32-decision/CMakeLists.txt": "25725864e43866e77e8abf9b2be1470e1663ad1290014a7096ac28ae3fb9975a",
+    "examples/esp32-decision/components/rvdecision/CMakeLists.txt": "c3a58692b49fc07fcc5200a37f785fded973bae487c53aea9b904fcf36c202ce",
+    "examples/esp32-decision/components/rvdecision/include/rvdecision.h": "4af86350b589ce250b16e11bdf0b32a6784c382b9c3847810410e46fc947111f",
+    "examples/esp32-decision/components/rvdecision/rvdecision.c": "b9d41b7589740df3cd442ac1bf02ba0c52f98bda4aca58f979316e353bdd4d40",
+    "examples/esp32-decision/main/CMakeLists.txt": "03475cf854b81feba8ee7186e647ddfe8ef872e56f2a08eefc93a2670c54a2ed",
+    "examples/esp32-decision/main/Kconfig.projbuild": "f9c90a92f2a35010d5b285296d411dc428c3c26862c8caac8bc9de9992e37856",
+    "examples/esp32-decision/main/app.c": "37eb3eb378c209ce99d1ed5180d39ccd8998e29d505d0cca1db6738a5320b8eb",
+    "examples/esp32-decision/main/app.h": "cac26ada519649f4e5cb3d600bf3c3de3a1429e7a567d568407ae169283bdaed",
+    "examples/esp32-decision/main/main.c": "bbee055e6fe7146def77859117052cae216995138287b440aedfab46c0ae3fab",
+    "examples/esp32-decision/main/model.h": "fb4331b7e1eedbd74ae1c17875439d26a40ef15dfd1a5ff6a8dbefa9b2196a65",
+    "examples/esp32-decision/main/profile.c": "76ed06756ba3299d2b5cd4ce04d52522d85b3d03e2cafd8ee7db0f1bd792b52d",
+    "examples/esp32-decision/main/profile.h": "7c5e73eb1d8f42159e003d977e3ecc04c9dd47f2bdb402178f177099ab0407c5",
+    "examples/esp32-decision/main/sensor.c": "9f9f6622fb03f4ec8e3382b01cbf615c1792a2e578536e83d3315c79aea26752",
+    "examples/esp32-decision/sdkconfig.defaults": "a6a7aa22d8fb029e9c541692068aecf695383471fc9a3aae42931505a024503a",
+    "examples/esp32-decision/sdkconfig.defaults.esp32c6": "8a4f1c599d395762f1e09fa546446288930d994a2e553842a5ac77e0d03c0118",
+    "examples/esp32-decision/sdkconfig.defaults.esp32s3": "46a9cf3fe8e04a3611d9ff1175ce1aa40e52460154b2bdec1a747078dfc37496",
+    "examples/esp32-decision/tests/benchmark.c": "f9a7de9f351eb4344683d8287da0a67d13aba215c6dde9285ba774511e66dfa0",
+    "examples/esp32-decision/tests/benchmark_model.c": "a234d8f8d53e17dc11dc8b2fd8a6e49a0632ff88c05e76c8c1d27ff9846a09a4",
+    "examples/esp32-decision/tests/differential.c": "fa4da9c7b07e932eb265716d9013be89ea07ca19dbe119e8b9b4eced3d002c96",
+    "examples/esp32-decision/tests/host_main.c": "0e446523a015afef7786b3c605d742bbc6f62323057c0683f199718712867619",
+    "examples/esp32-decision/tests/reference/Cargo.lock": "5f296ed370e82b0844916021a0d84f29ade5c7baff9f8c8598a9d62b82cf663a",
+    "examples/esp32-decision/tests/reference/Cargo.toml": "802c13f6d4b109924c89315c62920203ffc0213684bac62e6266926ba3c89bfc",
+    "examples/esp32-decision/tests/reference/main.rs": "1be054e9c911baaf0eb507058f4d09a6f684c3ca48915fb445804a1e0ae725b9",
+    "examples/esp32-decision/tests/reference/sensor.rs": "99d4e3a413a61adc38ac1fc194815737a6bddf023d17c46d6b12cd96bceccedd",
+    "examples/esp32-decision/tests/test_export.py": "5dc45d28317a9cd0a797d4577bc911becee46c7e1ec09d2440826789ce4a36ad",
+    "examples/esp32-decision/tests/test_kernel.c": "d507113848e26ad507df836e4830070eaa7f599f527f89f9ef4f3c3dc8cc687e",
+    "examples/esp32-decision/tests/test_lab.py": "e74c246f59cf2c60704d5b98cb0f672912a94cac60fc20954c9993add7e38cf1",
+    "examples/esp32-decision/tools/benchmark.py": "b9c158d388cd11e26f2362434d173ce9f625a6c101e9ea4f80b620e0e8e0fff2",
+    "examples/esp32-decision/tools/benchmark_qemu.py": "9fb461b4781d1bf298fc63aa8a6f501dae11711c3b8f387f78e65f19fbabc8f6",
+    "examples/esp32-decision/tools/e2e.py": "30ff546678ccac0bcf8ba7408e00d2f38fa1766fa57901f3c02d0438c4007df0",
+    "examples/esp32-decision/tools/energy.py": "46e942e15c83415a14000c4b8f9acef94558a67f5feafa36c84c1a6ed81b0172",
+    "examples/esp32-decision/tools/energy_compare.py": "c74102159753d4aedf4b8a05293f48bc05a5c07f41947f54d4013b8e8d7afae4",
+    "examples/esp32-decision/tools/lab.py": "58a724d39712ab4598b822233399de155eafebaf088d938a3a4878588039a54f",
+    "examples/esp32-decision/tools/prepare_pair.py": "fce9dac53810e4824c9fcaa49cdb73a808409d64185771bd7b450fba5699534d",
+    "examples/esp32-decision/tools/qemu_e2e.py": "b4995c757b4c873ace8d9cf5a89fa9b0a5cc7b048d3dbfb1fb0e7a5e528eb4d5",
+    "examples/esp32-decision/tools/quantize.py": "0d87460cdb68d6daf99b900c036244f300a626b25ae6e36f01143358a7f918cd",
+    "examples/esp32-decision/tools/rig.py": "e26b0edc46c1121e75aad9fbf1a2ec7a8bfccc9a2419b20a9027f39d0104bea8",
+    "examples/esp32-decision/tools/sensor_data.py": "9946ef9a883c9251ca8dd4d2de04b01ee7ce96a6fe7140dd919c32d575b83a04",
+    "examples/esp32-decision/tools/sensor_lab.py": "13ee20840c518336723f6c653401325a4e209894763fbb68c993283ae5fb4f33",
+    "examples/esp32-decision/tools/transport.py": "c0f15d52f924b5db8b2f57921c3bbd2ad4c13938fbf49824ad071be2a634f917"
+  }
+}

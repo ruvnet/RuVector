@@ -1,5 +1,6 @@
 //! Integration tests for the MCP bridge middleware.
 
+use async_trait::async_trait;
 use rvagent_middleware::mcp_bridge::{McpBridgeConfig, McpBridgeMiddleware};
 use rvagent_middleware::{
     AgentState, Message, Middleware, ModelHandler, ModelRequest, ModelResponse, RunnableConfig,
@@ -12,8 +13,9 @@ use rvagent_middleware::{
 
 struct PassthroughHandler;
 
+#[async_trait]
 impl ModelHandler for PassthroughHandler {
-    fn call(&self, request: ModelRequest) -> ModelResponse {
+    async fn call(&self, request: ModelRequest) -> ModelResponse {
         ModelResponse::text(format!("handled:{}", request.messages.len()))
     }
 }
@@ -109,14 +111,14 @@ fn test_middleware_name() {
     assert_eq!(mw.name(), "mcp_bridge");
 }
 
-#[test]
-fn test_before_agent_when_enabled_injects_config() {
+#[tokio::test]
+async fn test_before_agent_when_enabled_injects_config() {
     let mw = McpBridgeMiddleware::new();
     let state = AgentState::default();
     let runtime = Runtime::new();
     let config = RunnableConfig::default();
 
-    let update = mw.before_agent(&state, &runtime, &config);
+    let update = mw.before_agent(&state, &runtime, &config).await;
     assert!(
         update.is_some(),
         "enabled bridge should produce state update"
@@ -129,8 +131,8 @@ fn test_before_agent_when_enabled_injects_config() {
     );
 }
 
-#[test]
-fn test_before_agent_when_disabled_returns_none() {
+#[tokio::test]
+async fn test_before_agent_when_disabled_returns_none() {
     let config = McpBridgeConfig {
         enabled: false,
         ..Default::default()
@@ -140,7 +142,7 @@ fn test_before_agent_when_disabled_returns_none() {
     let runtime = Runtime::new();
     let runnable_config = RunnableConfig::default();
 
-    let update = mw.before_agent(&state, &runtime, &runnable_config);
+    let update = mw.before_agent(&state, &runtime, &runnable_config).await;
     assert!(
         update.is_none(),
         "disabled bridge should not produce update"
@@ -150,7 +152,7 @@ fn test_before_agent_when_disabled_returns_none() {
 #[test]
 fn test_modify_request_when_enabled_sets_flag() {
     let mw = McpBridgeMiddleware::new();
-    let request = ModelRequest::new(vec![Message::user("hello")]);
+    let request = ModelRequest::new(vec![Message::human("hello")]);
     let modified = mw.modify_request(request);
 
     assert_eq!(
@@ -167,7 +169,7 @@ fn test_modify_request_when_disabled_does_not_set_flag() {
         ..Default::default()
     };
     let mw = McpBridgeMiddleware::with_config(config);
-    let request = ModelRequest::new(vec![Message::user("hello")]);
+    let request = ModelRequest::new(vec![Message::human("hello")]);
     let modified = mw.modify_request(request);
 
     assert!(
@@ -176,14 +178,14 @@ fn test_modify_request_when_disabled_does_not_set_flag() {
     );
 }
 
-#[test]
-fn test_wrap_model_call_passes_through() {
+#[tokio::test]
+async fn test_wrap_model_call_passes_through() {
     let mw = McpBridgeMiddleware::new();
-    let request = ModelRequest::new(vec![Message::user("hi")]);
-    let response = mw.wrap_model_call(request, &PassthroughHandler);
+    let request = ModelRequest::new(vec![Message::human("hi")]);
+    let response = mw.wrap_model_call(request, &PassthroughHandler).await;
 
     assert!(
-        response.message.content.contains("handled:1"),
+        response.content().contains("handled:1"),
         "wrap_model_call should pass through to handler"
     );
 }
@@ -211,13 +213,13 @@ fn test_tools_when_disabled_provides_no_tools() {
     assert!(tools.is_empty());
 }
 
-#[test]
-fn test_status_tool_returns_config_values() {
+#[tokio::test]
+async fn test_status_tool_returns_config_values() {
     let mw = McpBridgeMiddleware::new();
     let tools = mw.tools();
     let status_tool = &tools[0];
 
-    let result = status_tool.invoke(serde_json::json!({}));
+    let result = status_tool.invoke(serde_json::json!({})).await;
     assert!(result.is_ok());
 
     let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
@@ -230,7 +232,7 @@ fn test_status_tool_returns_config_values() {
 fn test_status_tool_schema() {
     let mw = McpBridgeMiddleware::new();
     let tools = mw.tools();
-    let schema = tools[0].parameters_schema();
+    let schema = tools[0].input_schema();
     assert!(schema.is_object());
     assert!(schema["properties"].is_object());
 }

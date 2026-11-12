@@ -678,11 +678,15 @@ fn test_attention_benchmark_short_sequence() {
     let duration = start.elapsed();
 
     let avg_us = duration.as_micros() as f64 / iterations as f64;
-    assert!(
-        avg_us < 1000.0,
-        "Short sequence attention should be fast: {}us",
-        avg_us
-    );
+    // cargo-llvm-cov instruments every branch (the Test Coverage job measured
+    // 1099us); a wall-clock bound is only meaningful uninstrumented.
+    if std::env::var_os("LLVM_PROFILE_FILE").is_none() {
+        assert!(
+            avg_us < 1000.0,
+            "Short sequence attention should be fast: {}us",
+            avg_us
+        );
+    }
 }
 
 #[test]

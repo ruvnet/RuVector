@@ -1,0 +1,278 @@
+// Benchmark arms (ADR-006 §protocol 1-2). Each arm scores the *identical*
+// request JSON per item and emits normalised per-item records that metrics.mjs
+// consumes uniformly.
+//
+//   arm 'jev'   — replays the frozen 2026-09-21 baseline JSON. NO NETWORK: the
+//                 answers were measured once, at a paid call, and committed.
+//                 Only the `test` split has per-item rows; other splits carry
+//                 aggregate accuracy only.
+//   arm 'local' — the ruvector binding. Builds one request per item, times the
+//                 wall-clock at decideJson, and supports SetFit-style few-shot
+//                 (train on the train split, N examples/class) and zero-shot.
+
+import { createHash } from 'node:crypto';
+import { buildQuestions } from './fixture.mjs';
+
+const sha256hex = (s) => createHash('sha256').update(String(s)).digest('hex');
+const numberOrNull = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
+
+/**
+ * Normalised per-item scoring record. `choice`/`probabilities`/`confidence`
+ * describe the `department` choice question (the recomputed parity metric).
+ * `urgent`/`frustration` carry pred/label/correct for the secondary questions.
+ */
+function record({ id, choice, probabilities, trueChoice, confidence, abstain, oos, latencyMs, tokens, urgent, frustration }) {
+  return {
+    id,
+    choice,
+    probabilities: probabilities ?? {},
+    trueChoice,
+    confidence: confidence ?? 0,
+    // abstain mass (ADR-003). Falls back to 1-confidence when the arm does not
+    // report it explicitly (the Jev replay). Used for the OOS AUROC gate.
+    abstain: typeof abstain === 'number' ? abstain : 1 - (confidence ?? 0),
+    oos: typeof oos === 'boolean' ? oos : undefined,
+    correctChoice: choice === trueChoice,
+    latencyMs: latencyMs ?? 0,
+    tokens: tokens ?? null,
+    urgent: urgent ?? null,
+    frustration: frustration ?? null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// jev arm — replay the frozen baseline
+// ---------------------------------------------------------------------------
+
+/**
+ * Replay Jev's frozen per-item answers for the tickets `test` split.
+ * @param jevBaseline parsed jev-baseline-2026-09-21.json (or any capture of the
+ *                    same shape, e.g. jev-live-2026-09-25.json with arm 'live')
+ * @param testItems   the fixture items assigned to the `test` split
+ * @param opts.arm    'baseline' (gen-0, apples-to-apples with our gen-0
+ *                    criteria) or 'champion' (mutated criteria — informational).
+ * @param opts.limit  restrict to the first N ids (kept identical across arms).
+ */
+export function replayJev(jevBaseline, testItems, { arm = 'baseline', limit } = {}) {
+  const rows = jevBaseline.test_rows?.[arm];
+  if (!Array.isArray(rows)) {
+    return { available: false, reason: `no test_rows.${arm} in baseline`, records: [] };
+  }
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  let items = testItems;
+  if (typeof limit === 'number') items = items.slice(0, limit);
+
+  const records = [];
+  const missing = [];
+  for (const it of items) {
+    const r = byId.get(it.id);
+    if (!r || !r.ok) {
+      missing.push(it.id);
+      continue;
+    }
+    records.push(
+      record({
+        id: it.id,
+        choice: r.pred.department,
+        probabilities: r.probabilities,
+        trueChoice: r.label.department,
+        confidence: r.confidence,
+        latencyMs: r.latencyMs,
+        tokens: r.tokens,
+        // Jev returns a continuous noul (urgent) and score (frustration). The
+        // 2026-09-21 capture kept only booleans/correctness, so `score` is
+        // null there; captures that keep `scores` (jev-live-2026-09-25.json)
+        // replay them so urgent AUROC can be reported for Jev too.
+        urgent: {
+          pred: r.pred.urgent,
+          label: r.label.urgent,
+          correct: r.correct.urgent,
+          score: numberOrNull(r.scores?.urgent),
+        },
+        frustration: {
+          pred: r.pred.frustration,
+          label: r.label.frustration,
+          correct: r.correct.frustration,
+          score: numberOrNull(r.scores?.frustration),
+        },
+      }),
+    );
+  }
+  return {
+    available: true,
+    network: false,
+    arm,
+    note: `replayed frozen jev-baseline (${arm}); no network call`,
+    idsMissing: missing,
+    records,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// local arm — the ruvector binding
+// ---------------------------------------------------------------------------
+
+/**
+ * Pick N examples/class deterministically (sorted by sha256(id)) from the
+ * train items for a choice question keyed by `labelKey`. Records the effective
+ * shot count per class (a class may hold < N).
+ */
+export function fewShotExamples(trainItems, labelKey, shots, { labelMap } = {}) {
+  const byClass = new Map();
+  for (const it of trainItems) {
+    const lab = it.label[labelKey];
+    if (lab === undefined || lab === null) {
+      throw new Error(`missing ${labelKey} label on train item ${it.id}`);
+    }
+    if (!byClass.has(lab)) byClass.set(lab, []);
+    byClass.get(lab).push(it);
+  }
+  const examples = [];
+  const effective = {};
+  for (const [lab, items] of [...byClass.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0])))) {
+    const picked = [...items].sort((a, b) => sha256hex(a.id).localeCompare(sha256hex(b.id))).slice(0, shots);
+    effective[lab] = picked.length;
+    const mapped = labelMap ? labelMap[String(lab)] : String(lab);
+    if (typeof mapped !== 'string' || !mapped.length) {
+      throw new Error(`no training label for ${labelKey}=${String(lab)}`);
+    }
+    for (const it of picked) examples.push({ text: it.text, label: mapped });
+  }
+  return { examples, effective };
+}
+
+/**
+ * Train the engine for the few-shot regime, if it exposes trainJson. Trains the
+ * named question on the train split. Returns training metadata
+ * (never throws for a missing trainJson — zero-shot engines simply skip).
+ */
+export function trainFewShot(engine, trainItems, { shots = 8, question = 'department', labelKey = 'department', labelMap, calibrationItems } = {}) {
+  if (typeof engine.trainJson !== 'function') {
+    return { trained: false, reason: 'engine has no trainJson' };
+  }
+  const { examples, effective } = fewShotExamples(trainItems, labelKey, shots, { labelMap });
+  // ADR-008 §4: an explicit held-out calibration slice (every row, no shot cap).
+  // Absent → the engine carves its calibration slice from `examples` (default).
+  const calibration = calibrationItems?.length
+    ? fewShotExamples(calibrationItems, labelKey, Infinity, { labelMap }).examples
+    : undefined;
+  let out;
+  try {
+    out = engine.trainJson(JSON.stringify(calibration ? { question, examples, calibration } : { question, examples }));
+  } catch (e) {
+    return { trained: false, error: String(e && e.message ? e.message : e) };
+  }
+  let parsed = null;
+  try {
+    parsed = typeof out === 'string' ? JSON.parse(out) : out;
+  } catch {
+    /* trainJson may return a non-JSON status string */
+  }
+  if (parsed && parsed.error) return { trained: false, error: parsed.error };
+  return { trained: true, shots, shotsEffective: effective, examplesUsed: examples.length, calibrationUsed: calibration?.length ?? 0 };
+}
+
+/** Train every frozen tickets question from the same train-only pool. The
+ * per-class shot cap applies independently to each head; score labels must be
+ * the actual legend strings, while noul needs positive/negative labels. */
+export function trainTicketQuestions(engine, trainItems, questionDefs, { shots = 8, calibrationItems } = {}) {
+  const legend = questionDefs.frustration?.criteria;
+  if (questionDefs.department?.type !== 'choice' ||
+      questionDefs.urgent?.type !== 'noul' ||
+      questionDefs.frustration?.type !== 'score' ||
+      !Array.isArray(legend) || legend.some((s) => typeof s !== 'string' || !s.length)) {
+    throw new Error('tickets fixture is missing a choice, noul, or score definition');
+  }
+  const questions = {
+    department: trainFewShot(engine, trainItems, { shots, question: 'department', labelKey: 'department', calibrationItems }),
+    urgent: trainFewShot(engine, trainItems, {
+      shots, question: 'urgent', labelKey: 'urgent', labelMap: { true: 'yes', false: 'no' }, calibrationItems,
+    }),
+    frustration: trainFewShot(engine, trainItems, {
+      shots, question: 'frustration', labelKey: 'frustration', calibrationItems,
+      labelMap: Object.fromEntries(legend.map((label, index) => [String(index), label])),
+    }),
+  };
+  return {
+    trained: Object.values(questions).every((q) => q.trained),
+    shots,
+    examplesUsed: Object.values(questions).reduce((sum, q) => sum + (q.examplesUsed ?? 0), 0),
+    questions,
+  };
+}
+
+/**
+ * Score items with the local binding. Builds one request per item and times
+ * decideJson. Returns { available:false, error } when the engine reports the
+ * "not implemented yet" error on the FIRST item (the harness then reports
+ * "engine unavailable" for the arm rather than crashing).
+ */
+export function runLocal(engine, items, questionDefs, { labelKey = 'department' } = {}) {
+  const wireQuestions = buildQuestions(questionDefs);
+  const records = [];
+  const wallStart = performance.now();
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    const req = JSON.stringify({ state: it.text, questions: wireQuestions });
+    let raw;
+    const t0 = performance.now();
+    try {
+      raw = engine.decideJson(req);
+    } catch (e) {
+      return { available: false, error: `decideJson threw: ${e && e.message ? e.message : e}` };
+    }
+    const latencyMs = performance.now() - t0;
+    let resp;
+    try {
+      resp = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (e) {
+      return { available: false, error: `decideJson returned non-JSON: ${String(raw).slice(0, 120)}` };
+    }
+    if (resp && resp.error) {
+      // Engine unavailable / not implemented: report on the first item.
+      if (i === 0) return { available: false, error: resp.error.message ?? JSON.stringify(resp.error), errorKind: resp.error.kind };
+      // A mid-run per-item error: record as an incorrect abstention, keep going.
+      records.push(record({ id: it.id, choice: null, trueChoice: it.label[labelKey], confidence: 0, latencyMs }));
+      continue;
+    }
+    records.push(normalizeLocal(it, resp, latencyMs, labelKey));
+  }
+  const wallMs = performance.now() - wallStart;
+  return { available: true, network: false, records, wallMs, embedCount: items.length };
+}
+
+/** Convert a DecisionResponse into a normalised record. */
+function normalizeLocal(item, resp, latencyMs, labelKey) {
+  const answers = resp.answers ?? {};
+  const dept = answers[labelKey] ?? answers.department ?? {};
+  const urgentA = answers.urgent;
+  const frA = answers.frustration;
+  let urgent = null;
+  if (urgentA && typeof urgentA.noul === 'number') {
+    const pred = urgentA.noul >= 0.5;
+    urgent = { pred, score: urgentA.noul, label: item.label.urgent, correct: pred === item.label.urgent };
+  }
+  let frustration = null;
+  if (frA && typeof frA.score === 'number') {
+    frustration = {
+      pred: frA.score,
+      score: frA.score,
+      label: item.label.frustration,
+      correct: frA.score === item.label.frustration,
+    };
+  }
+  const confidence = typeof dept.confidence === 'number' ? dept.confidence : dept.meta?.confidence ?? 0;
+  const abstain = typeof dept.abstain === 'number' ? dept.abstain : dept.meta?.abstain;
+  return record({
+    id: item.id,
+    choice: dept.choice ?? null,
+    probabilities: dept.probabilities ?? {},
+    trueChoice: item.label[labelKey],
+    confidence,
+    abstain,
+    oos: typeof item.oos === 'boolean' ? item.oos : undefined,
+    latencyMs,
+    urgent,
+    frustration,
+  });
+}

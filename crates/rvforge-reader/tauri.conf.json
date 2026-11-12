@@ -1,0 +1,64 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "RVForge Reader",
+  "version": "0.1.0",
+  "identifier": "io.ruv.rvforge.reader",
+  "build": {
+    "frontendDist": "ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "RVForge Reader",
+        "width": 1080,
+        "height": 760,
+        "minWidth": 860,
+        "minHeight": 600,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost; form-action 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'; frame-ancestors 'none'",
+      "dangerousDisableAssetCspModification": false,
+      "freezePrototype": true,
+      "assetProtocol": {
+        "enable": false,
+        "scope": []
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi", "dmg", "deb", "rpm", "appimage"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png"],
+    "category": "DeveloperTool",
+    "shortDescription": "Open, verify, and run signed RVF agent packages",
+    "longDescription": "RVForge Reader opens signed .rvf agent packages. It shows the package's identity and signature status before anything loads, presents the exact capability contract before installation, and reports which runtime and isolation class an agent is actually running under.",
+    "publisher": "RuVector",
+    "copyright": "MIT",
+    "fileAssociations": [
+      {
+        "ext": ["rvf"],
+        "name": "RVForge Agent Package",
+        "description": "Signed RVForge agent package",
+        "mimeType": "application/vnd.ruv.rvf",
+        "role": "Viewer"
+      }
+    ],
+    "linux": {
+      "deb": {
+        "depends": []
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "13.0"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
+}

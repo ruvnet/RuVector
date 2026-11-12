@@ -22,6 +22,7 @@ export * from './ast-parser';
 export * from './diff-embeddings';
 export * from './coverage-router';
 export * from './graph-algorithms';
+export * from './mincut-wasm-wrapper';
 export * from './tensor-compress';
 export * from './learning-engine';
 export * from './adaptive-embedder';
@@ -29,6 +30,7 @@ export * from './neural-embeddings';
 export * from './neural-perf';
 export * from './rvf-wrapper';
 export * from './diskann-wrapper';
+export * from './rabitq-wrapper';
 
 // Analysis module (consolidated security, complexity, patterns)
 export * from '../analysis';
@@ -57,3 +59,4 @@ export { default as LearningEngine } from './learning-engine';
 export { default as AdaptiveEmbedder } from './adaptive-embedder';
 export { default as NeuralSubstrate } from './neural-embeddings';
 export { default as DiskAnnIndex } from './diskann-wrapper';
+export { default as RabitqIndex } from './rabitq-wrapper';

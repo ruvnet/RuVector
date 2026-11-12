@@ -30,6 +30,9 @@
 #[cfg(feature = "kernel-pack")]
 pub mod kernel;
 
+mod portable;
+use portable::PortableDB as CoreVectorDB;
+
 use js_sys::{Array, Float32Array, Object, Promise, Reflect, Uint8Array};
 use parking_lot::Mutex;
 #[cfg(feature = "collections")]
@@ -39,7 +42,6 @@ use ruvector_collections::{
 use ruvector_core::{
     error::RuvectorError,
     types::{DbOptions, DistanceMetric, HnswConfig, SearchQuery, SearchResult, VectorEntry},
-    vector_db::VectorDB as CoreVectorDB,
 };
 #[cfg(feature = "collections")]
 use ruvector_filter::FilterExpression as CoreFilterExpression;
@@ -119,7 +121,7 @@ impl JsVectorEntry {
 
         let vector_data: Vec<f32> = vector.to_vec();
 
-        let metadata = if let Some(meta) = metadata {
+        let metadata = if let Some(meta) = metadata.filter(|v| !v.is_null() && !v.is_undefined()) {
             Some(
                 from_value(meta)
                     .map_err(|e| JsValue::from_str(&format!("Invalid metadata: {}", e)))?,
@@ -149,7 +151,10 @@ impl JsVectorEntry {
 
     #[wasm_bindgen(getter)]
     pub fn metadata(&self) -> Option<JsValue> {
-        self.inner.metadata.as_ref().map(|m| to_value(m).unwrap())
+        self.inner.metadata.as_ref().map(|m| {
+            m.serialize(&serde_wasm_bindgen::Serializer::json_compatible())
+                .unwrap()
+        })
     }
 }
 
@@ -181,7 +186,10 @@ impl JsSearchResult {
 
     #[wasm_bindgen(getter)]
     pub fn metadata(&self) -> Option<JsValue> {
-        self.inner.metadata.as_ref().map(|m| to_value(m).unwrap())
+        self.inner.metadata.as_ref().map(|m| {
+            m.serialize(&serde_wasm_bindgen::Serializer::json_compatible())
+                .unwrap()
+        })
     }
 }
 
@@ -257,7 +265,7 @@ impl VectorDB {
     ) -> Result<String, JsValue> {
         let entry = JsVectorEntry::new(vector, id, metadata)?;
 
-        let db = self.db.lock();
+        let mut db = self.db.lock();
         let vector_id = db
             .insert(entry.inner)
             .map_err(|e| JsValue::from(WasmError::from(e)))?;
@@ -290,7 +298,7 @@ impl VectorDB {
             vector_entries.push(entry.inner);
         }
 
-        let db = self.db.lock();
+        let mut db = self.db.lock();
         let ids = db
             .insert_batch(vector_entries)
             .map_err(|e| JsValue::from(WasmError::from(e)))?;
@@ -324,7 +332,8 @@ impl VectorDB {
             )));
         }
 
-        let metadata_filter = if let Some(f) = filter {
+        let metadata_filter = if let Some(f) = filter.filter(|v| !v.is_null() && !v.is_undefined())
+        {
             Some(from_value(f).map_err(|e| JsValue::from_str(&format!("Invalid filter: {}", e)))?)
         } else {
             None
@@ -357,7 +366,7 @@ impl VectorDB {
     /// True if deleted, false if not found
     #[wasm_bindgen]
     pub fn delete(&self, id: &str) -> Result<bool, JsValue> {
-        let db = self.db.lock();
+        let mut db = self.db.lock();
         db.delete(id).map_err(|e| JsValue::from(WasmError::from(e)))
     }
 
@@ -390,6 +399,12 @@ impl VectorDB {
         db.is_empty().map_err(|e| JsValue::from(WasmError::from(e)))
     }
 
+    /// Actual backend selected for this instance.
+    #[wasm_bindgen(getter, js_name = indexType)]
+    pub fn index_type(&self) -> String {
+        self.db.lock().index_type().into()
+    }
+
     /// Get database dimensions
     #[wasm_bindgen(getter)]
     pub fn dimensions(&self) -> usize {
@@ -419,6 +434,12 @@ impl VectorDB {
         // Return rejected promise for now (not implemented)
         Ok(Promise::reject(&JsValue::from_str("Not yet implemented")))
     }
+}
+
+/// Whether this binary implements the portable HNSW backend.
+#[wasm_bindgen(js_name = hnswAvailable)]
+pub fn hnsw_available() -> bool {
+    true
 }
 
 /// Detect SIMD support in the current environment

@@ -1,65 +1,99 @@
 {
   "name": "@ruvector/wasm-unified",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Unified TypeScript API surface for RuVector WASM - attention, learning, economy, and exotic features",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
     },
     "./attention": {
-      "import": "./dist/attention.mjs",
-      "require": "./dist/attention.js",
-      "types": "./dist/attention.d.ts"
+      "import": {
+        "types": "./dist/attention.d.mts",
+        "default": "./dist/attention.mjs"
+      },
+      "require": {
+        "types": "./dist/attention.d.ts",
+        "default": "./dist/attention.js"
+      }
     },
     "./learning": {
-      "import": "./dist/learning.mjs",
-      "require": "./dist/learning.js",
-      "types": "./dist/learning.d.ts"
+      "import": {
+        "types": "./dist/learning.d.mts",
+        "default": "./dist/learning.mjs"
+      },
+      "require": {
+        "types": "./dist/learning.d.ts",
+        "default": "./dist/learning.js"
+      }
     },
     "./nervous": {
-      "import": "./dist/nervous.mjs",
-      "require": "./dist/nervous.js",
-      "types": "./dist/nervous.d.ts"
+      "import": {
+        "types": "./dist/nervous.d.mts",
+        "default": "./dist/nervous.mjs"
+      },
+      "require": {
+        "types": "./dist/nervous.d.ts",
+        "default": "./dist/nervous.js"
+      }
     },
     "./economy": {
-      "import": "./dist/economy.mjs",
-      "require": "./dist/economy.js",
-      "types": "./dist/economy.d.ts"
+      "import": {
+        "types": "./dist/economy.d.mts",
+        "default": "./dist/economy.mjs"
+      },
+      "require": {
+        "types": "./dist/economy.d.ts",
+        "default": "./dist/economy.js"
+      }
     },
     "./exotic": {
-      "import": "./dist/exotic.mjs",
-      "require": "./dist/exotic.js",
-      "types": "./dist/exotic.d.ts"
-    }
+      "import": {
+        "types": "./dist/exotic.d.mts",
+        "default": "./dist/exotic.mjs"
+      },
+      "require": {
+        "types": "./dist/exotic.d.ts",
+        "default": "./dist/exotic.js"
+      }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
-    "src",
     "README.md"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
-    "build:watch": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "build": "tsup src/index.ts src/attention.ts src/learning.ts src/nervous.ts src/economy.ts src/exotic.ts --format cjs,esm --dts --clean --splitting --shims --external @ruvector/ruqu-wasm",
+    "build:watch": "tsup src/index.ts src/attention.ts src/learning.ts src/nervous.ts src/economy.ts src/exotic.ts --format cjs,esm --dts --splitting --shims --external @ruvector/ruqu-wasm --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "lint": "eslint src --ext .ts",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "test:pack": "node tests/pack-smoke.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "eslint": "^8.55.0",
     "tsup": "^8.0.1",
     "typescript": "^5.3.3",
-    "vitest": "^3.2.6"
+    "vitest": "^4.1.11"
   },
   "peerDependencies": {
     "typescript": ">=5.0.0"
+  },
+  "optionalDependencies": {
+    "@ruvector/ruqu-wasm": "^2.1.0"
   },
   "engines": {
     "node": ">=18.0.0"

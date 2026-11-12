@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/rudag.svg" alt="@ruvector/rudag: Fast DAG library in Rust/WASM — topological sort, critical path and task scheduling." width="100%"></p>
+
 # @ruvector/rudag
 
 [![npm version](https://img.shields.io/npm/v/@ruvector/rudag.svg)](https://www.npmjs.com/package/@ruvector/rudag)
@@ -755,3 +757,18 @@ interface RuDagOptions {
 ## License
 
 MIT OR Apache-2.0
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for DAG, Node.js, machine learning.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`agentic-flow`](https://www.npmjs.com/package/agentic-flow) (optional)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

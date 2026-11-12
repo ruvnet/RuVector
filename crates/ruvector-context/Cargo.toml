@@ -1,0 +1,42 @@
+[package]
+name = "ruvector-context"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Physically scope-sharded vector retrieval for governed context systems"
+keywords = ["vector", "context", "multitenancy", "security"]
+categories = ["database", "data-structures"]
+
+[dependencies]
+fs4 = { version = "1.1", default-features = false, features = ["sync"] }
+ruvector-core = { version = "2.3.1", path = "../ruvector-core", default-features = false, features = ["storage", "hnsw"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = "0.10"
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.13"
+
+[lib]
+crate-type = ["rlib"]
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+
+[lints.clippy]
+all = "deny"
+
+[target."cfg(unix)".dependencies]
+libc = "0.2"
+# geteuid without unsafe (this crate forbids unsafe_code, so libc::geteuid()
+# is out). Already in Cargo.lock transitively via fs4, so this adds no new
+# transitive dependency — see #908.
+rustix = { version = "1.1", default-features = false, features = ["process"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+exacl = "0.12"

@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "campaign": "esp32-overnight-20260926",
+  "run": "esp32-slot01-20260926T0500Z",
+  "parent_sha": "b65e0c7cad47e5ad97ad64a55091797694967cff",
+  "hypothesis": "Rejecting CR or LF before a transport write prevents LF split-command stale replies and CR command normalization.",
+  "declared_authority": "Governed pull request proposal only; no merge, flash or deployment authority.",
+  "seed": 20260926,
+  "genome": {
+    "hash": "b65e0c7cad47e5ad97ad64a55091797694967cff",
+    "identity": "repo/ruvnet/RuVector/esp32-decision",
+    "constitution": "bb8ad0c7c0861dc353d2bc8e493872f5f2f44a5f53ac0380883e29f41bb9ed1d",
+    "capability_ceiling": "governed",
+    "hard_invariants": [
+      {"name": "valid single line commands unchanged", "holds": true},
+      {"name": "frozen firmware arithmetic and default model", "holds": true},
+      {"name": "fixed acceptance gates", "holds": true},
+      {"name": "integrated software acceptance", "holds": true},
+      {"name": "no physical or deployment claim", "holds": true}
+    ],
+    "lineage": ["b65e0c7cad47e5ad97ad64a55091797694967cff"]
+  },
+  "mutation": {
+    "id": "host-transport-single-line-contract",
+    "parent_genome_hash": "b65e0c7cad47e5ad97ad64a55091797694967cff",
+    "scope": "application_code",
+    "requested_authority": "governed",
+    "applicability": {
+      "workloads": ["ESP32 host and UART benchmark transport"],
+      "environments": ["Python host benchmark lab"],
+      "jurisdictions": []
+    },
+    "preserved_invariants": [
+      {"name": "valid single line commands unchanged", "holds": true},
+      {"name": "frozen firmware arithmetic and default model", "holds": true},
+      {"name": "fixed acceptance gates", "holds": true},
+      {"name": "integrated software acceptance", "holds": true},
+      {"name": "no physical or deployment claim", "holds": true}
+    ],
+    "rollback_target": "b65e0c7cad47e5ad97ad64a55091797694967cff",
+    "expires_at": 1790402656,
+    "signature": null
+  },
+  "scope": ["examples/esp32-decision/tools/transport.py"],
+  "supporting_scope": [
+    "examples/esp32-decision/tests/test_transport_boundary.py",
+    "examples/esp32-decision/tools/transport_gate.mjs",
+    "examples/esp32-decision/tests/evidence/",
+    "npm/packages/typesafe/docs/adr/ADR-007-esp32-measured-sensor-decisions.md"
+  ],
+  "input_hashes": {
+    "evaluator_sha256": "94741317f642a4aba29e5d724225e9b217cddf37e9328d88f80ab73ce432c82f",
+    "parent_transport_sha256": "c0f15d52f924b5db8b2f57921c3bbd2ad4c13938fbf49824ad071be2a634f917",
+    "candidate_transport_sha256": "dc9ce59bba35793427b2dba3b7e7bf58334742a2a8ed579bdc272f7d8713eb5f",
+    "metaharness_commit": "d5833dc6512ac1adeeef91a331c29055cd8a4dbb",
+    "autogenous_commit": "905aa6cbe213392f8b3cab5d4f17bc3a48e0a509"
+  },
+  "tool_versions": {
+    "python": "3.12.14",
+    "node": "24.19.0",
+    "rustc": "1.85.1",
+    "autogenous": "905aa6cbe213392f8b3cab5d4f17bc3a48e0a509"
+  },
+  "test_artifacts": [
+    "tests/evidence/transport-framing.json",
+    "tests/evidence/transport-validation.json",
+    "tests/evidence/transport-metaharness-gate.json",
+    "tests/evidence/transport-autogenous-authority.json"
+  ],
+  "failure_boundary": "Any forbidden framing input written, stale followup, CR normalization, valid command regression, software lab failure, expired authority or missing rollback vetoes retention.",
+  "rollback": "Restore tools/transport.py from parent b65e0c7 and retain the frozen evaluator as regression evidence.",
+  "fitness_vector": null,
+  "deployment_promoted": false
+}

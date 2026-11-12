@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.so
+*.pyd
+.pytest_cache/
+*.egg-info/
+build/
+target/
+dist/
+# Written by `npx @claude-flow/cli@latest security scan` when run from this
+# directory (ADR-352) — a local tool-run cache, not project source.
+.claude/

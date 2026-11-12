@@ -122,12 +122,8 @@ impl MambaState {
 
     /// Reset state to zeros
     pub fn reset(&mut self) {
-        for x in &mut self.h {
-            *x = 0.0;
-        }
-        for x in &mut self.conv_state {
-            *x = 0.0;
-        }
+        self.h.fill(0.0);
+        self.conv_state.fill(0.0);
     }
 }
 

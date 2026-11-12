@@ -70,9 +70,7 @@ impl DistanceArray {
 
     /// Reset all distances to infinity
     pub fn reset(&mut self) {
-        for d in &mut self.data {
-            *d = f64::INFINITY;
-        }
+        self.data.fill(f64::INFINITY);
     }
 
     /// Get raw slice

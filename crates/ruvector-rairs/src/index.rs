@@ -1,5 +1,9 @@
 //! Shared ANN index trait and search result type.
 
+// Lint suggests `as_chunks`, stable only since Rust 1.88 — past the declared
+// `rust-version = "1.77"`. `unknown_lints` keeps older toolchains quiet.
+#![allow(unknown_lints, clippy::chunks_exact_to_as_chunks)]
+
 use crate::error::RairsError;
 
 /// A nearest-neighbor result from any index variant.

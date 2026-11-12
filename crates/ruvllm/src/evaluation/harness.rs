@@ -537,6 +537,7 @@ mod tests {
         assert_eq!(config.ablation_modes.len(), 5);
     }
 
+    #[cfg(feature = "async-runtime")]
     #[tokio::test]
     async fn test_harness_creation() {
         let config = EvalConfig {

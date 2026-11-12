@@ -29,28 +29,28 @@ jobs:
   # Job 1: Validate code quality and run tests
   validate:
     name: Validate Code Quality
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     if: ${{ !inputs.skip_tests }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           toolchain: stable
           components: rustfmt, clippy
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '18'
           cache: 'npm'
           cache-dependency-path: npm/package-lock.json
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           prefix-key: 'v1-rust'
           shared-key: 'validate'
@@ -62,7 +62,17 @@ jobs:
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
       - name: Run Rust tests
-        run: cargo test --workspace --all-features
+        # ruvector-py excluded: its pyo3 dependency does not enable the
+        # `extension-module` Cargo feature (required so `cargo test -p
+        # ruvector-py` can link against libpython at all — see the
+        # comment on that crate's Cargo.toml `pyo3 = {...}` line, ADR-352).
+        # This bare ubuntu-24.04 runner has no Python dev headers/shared
+        # lib set up, so linking its test binary here is unverified and
+        # not worth risking breaking this shared validation job over.
+        # ruvector-py's Rust tests (49, added alongside the pytest suite)
+        # run in .github/workflows/python-wheels.yml's "rust-tests" job
+        # instead, which does set up Python via actions/setup-python.
+        run: cargo test --workspace --all-features --exclude ruvector-py
         env:
           RUST_TEST_THREADS: 2
 
@@ -87,30 +97,36 @@ jobs:
   # Job 2: Build and test Rust crates
   build-crates:
     name: Build Rust Crates
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: validate
     if: always() && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           toolchain: stable
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           prefix-key: 'v1-rust'
           shared-key: 'build-crates'
 
       - name: Build all crates
-        run: cargo build --workspace --release
+        # ruvector-py excluded here too: building its cdylib without the
+        # `extension-module` pyo3 feature links against libpython (see
+        # the "Run Rust tests" comment in the validate job above for the
+        # full rationale) — this bare runner has no Python dev headers
+        # set up, unlike python-wheels.yml, which builds it correctly via
+        # maturin (the tool meant for this, not bare `cargo build`).
+        run: cargo build --workspace --release --exclude ruvector-py
 
       - name: Run crate tests
-        run: cargo test --workspace --release
+        run: cargo test --workspace --release --exclude ruvector-py
         env:
           RUST_TEST_THREADS: 2
 
@@ -124,22 +140,22 @@ jobs:
   # Job 3: Build WASM packages
   build-wasm:
     name: Build WASM Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: validate
     if: always() && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           toolchain: stable
           targets: wasm32-unknown-unknown
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '18'
           cache: 'npm'
@@ -149,13 +165,13 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           prefix-key: 'v1-rust'
           shared-key: 'wasm'
 
       - name: Cache wasm-pack
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             ~/.cargo/.crates.toml
@@ -180,7 +196,7 @@ jobs:
         run: wasm-pack build --target nodejs --release
 
       - name: Upload WASM artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: wasm-packages
           path: |
@@ -214,7 +230,7 @@ jobs:
   # Job 5: Publish crates to crates.io
   publish-crates:
     name: Publish Rust Crates
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [validate, build-crates]
     if: |
       always() &&
@@ -228,15 +244,15 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           toolchain: stable
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           prefix-key: 'v1-rust'
           shared-key: 'publish'
@@ -257,6 +273,7 @@ jobs:
 
           # Define publishing order (dependencies first)
           CRATES=(
+            "ruvector-turboquant"
             "ruvector-core"
             "ruvector-metrics"
             "ruvector-filter"
@@ -321,7 +338,7 @@ jobs:
   # NOTE: Automatic npm publishing disabled - packages are published manually
   prepare-npm:
     name: Prepare npm Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [validate, build-native, build-wasm]
     if: |
       always() &&
@@ -332,21 +349,21 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '18'
 
       - name: Download native binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           pattern: bindings-*
           path: artifacts
 
       - name: Download WASM packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: wasm-packages
           path: wasm-artifacts
@@ -410,7 +427,7 @@ jobs:
           echo "\`\`\`" >> npm-publish-ready/README.md
 
       - name: Upload npm-ready artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: npm-publish-ready
           path: npm-publish-ready/
@@ -434,7 +451,7 @@ jobs:
   # Job 7: Create GitHub release
   create-release:
     name: Create GitHub Release
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [build-crates, build-native, build-wasm, publish-crates, prepare-npm]
     if: |
       always() &&
@@ -447,18 +464,18 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
 
       - name: Download native binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           pattern: bindings-*
           path: release-artifacts
 
       - name: Download WASM packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: wasm-packages
           path: release-artifacts/wasm
@@ -499,6 +516,7 @@ jobs:
           ## 📦 Packages Published
 
           ### Rust Crates (crates.io)
+          - \`ruvector-turboquant\` - Turbo4 packed-vector codec used by the core
           - \`ruvector-core\` - Core vector database functionality
           - \`ruvector-graph\` - Graph database capabilities
           - \`ruvector-gnn\` - Graph neural networks
@@ -561,7 +579,7 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
         with:
           tag_name: ${{ steps.release_notes.outputs.version }}
           name: RuVector ${{ steps.release_notes.outputs.version }}
@@ -587,7 +605,7 @@ jobs:
   # Summary job to report overall status
   release-summary:
     name: Release Summary
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [validate, build-crates, build-native, build-wasm, publish-crates, prepare-npm, create-release]
     if: always()
 

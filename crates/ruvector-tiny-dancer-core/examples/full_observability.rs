@@ -24,6 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         circuit_breaker_threshold: 3,
         enable_quantization: true,
         database_path: None,
+        voi: None,
     };
 
     let router = Router::new(config)?;

@@ -5,6 +5,10 @@
 //! equation-of-equinoxes ignored); ECEF → geodetic uses Bowring's closed-form
 //! method. Display-grade accuracy (dots on a dome), not ephemeris-grade.
 
+// Lint suggests `as_chunks`, stable only since Rust 1.88 — past the declared
+// `rust-version = "1.77"`. `unknown_lints` keeps older toolchains quiet.
+#![allow(unknown_lints, clippy::chunks_exact_to_as_chunks)]
+
 use sky_monitor::coords::{geodetic_to_ecef, observer_frame};
 use wasm_bindgen::prelude::*;
 

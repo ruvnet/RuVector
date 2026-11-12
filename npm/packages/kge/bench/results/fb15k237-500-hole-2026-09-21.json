@@ -1,0 +1,239 @@
+{
+  "schema": "ruvector-kge-bench/receipt@1",
+  "generated_at": "2026-09-21T17:21:46.348Z",
+  "suite": "fb15k237",
+  "scorer": "hole",
+  "config": {
+    "scorer": "hole",
+    "dims": 64,
+    "seed": 42,
+    "epochs": 15
+  },
+  "tie_break": "random",
+  "binding": {
+    "version": "2.3.0",
+    "backend": "native"
+  },
+  "binding_source": "/home/ruvultra/projects/ruvector-worktrees/feat-kge/npm/packages/kge/index.js",
+  "dataset": {
+    "hashes": {
+      "train": "61099230e4439f90885ca9767739e31e8e32f54736fa1c35952b27997bc7c08a",
+      "valid": "749cbe9d923bac7b9354da5614ecfed2e0220256d442c3e04a6b303db1f273d9",
+      "test": "e2e35e8e6113de220140b6f44dc71a5207b0fc6872d575e874aefe13259b655b"
+    },
+    "splits_hash": "57cd8b03f4fcf72076f27538b30627997bd7d7ed2b61ec8ef0dc899ee3eb0071",
+    "counts": {
+      "train": 9749,
+      "valid": 266,
+      "test": 483,
+      "entities": 493,
+      "relations": 162,
+      "transfer": 124
+    }
+  },
+  "metrics": {
+    "valid": {
+      "mrr": 0.5199286937713623,
+      "mr": 10.52255630493164,
+      "hits": {
+        "1": 0.37593984603881836,
+        "3": 0.5883458852767944,
+        "10": 0.8101503849029541
+      },
+      "perSide": {
+        "head": {
+          "mrr": 0.4921799302101135,
+          "mr": 12.398496627807617,
+          "hits": {
+            "1": 0.34962406754493713,
+            "3": 0.5601503849029541,
+            "10": 0.7781955003738403
+          }
+        },
+        "tail": {
+          "mrr": 0.5476774573326111,
+          "mr": 8.64661693572998,
+          "hits": {
+            "1": 0.4022556245326996,
+            "3": 0.61654132604599,
+            "10": 0.8421052694320679
+          }
+        }
+      },
+      "splitSource": "per-triple",
+      "filtered": true
+    },
+    "test": {
+      "mrr": 0.49954620003700256,
+      "mr": 13.345755577087402,
+      "hits": {
+        "1": 0.359213262796402,
+        "3": 0.5559006333351135,
+        "10": 0.7950310707092285
+      },
+      "perSide": {
+        "head": {
+          "mrr": 0.46492499113082886,
+          "mr": 14.850932121276855,
+          "hits": {
+            "1": 0.32712215185165405,
+            "3": 0.5258799195289612,
+            "10": 0.7681159377098083
+          }
+        },
+        "tail": {
+          "mrr": 0.5341674089431763,
+          "mr": 11.840579986572266,
+          "hits": {
+            "1": 0.3913043439388275,
+            "3": 0.5859213471412659,
+            "10": 0.8219461441040039
+          }
+        }
+      },
+      "splitSource": "per-triple",
+      "filtered": true
+    },
+    "transfer": {
+      "mrr": 0.5327074527740479,
+      "mr": 11.028225898742676,
+      "hits": {
+        "1": 0.41129031777381897,
+        "3": 0.5766128897666931,
+        "10": 0.7903226017951965
+      },
+      "perSide": {
+        "head": {
+          "mrr": 0.49972036480903625,
+          "mr": 12.620967864990234,
+          "hits": {
+            "1": 0.3790322542190552,
+            "3": 0.5564516186714172,
+            "10": 0.7580645084381104
+          }
+        },
+        "tail": {
+          "mrr": 0.5656945705413818,
+          "mr": 9.435483932495117,
+          "hits": {
+            "1": 0.44354838132858276,
+            "3": 0.5967742204666138,
+            "10": 0.8225806355476379
+          }
+        }
+      },
+      "splitSource": "per-triple",
+      "filtered": true
+    }
+  },
+  "ann": {
+    "recall_at_10": 0.9879917184265007,
+    "queries": 483,
+    "latency_ms": {
+      "n": 483,
+      "p50": 0.07884000000194646,
+      "p95": 0.09681599999166793,
+      "mean": 0.07831377225620581
+    }
+  },
+  "adversarial": null,
+  "hard_negatives": null,
+  "tie_check": null,
+  "latency_ms": {
+    "n": 483,
+    "p50": 0.07884000000194646,
+    "p95": 0.09681599999166793,
+    "mean": 0.07831377225620581
+  },
+  "training": {
+    "epochs": 15,
+    "triplesPerSec": 130.68691630567227,
+    "loss": 5.246593475341797,
+    "n3Penalty": 0.009099388495087624,
+    "batches": 39
+  },
+  "gates": {
+    "report_only": true,
+    "rows": [
+      {
+        "name": "link_prediction_fb15k237",
+        "status": "SKIP",
+        "detail": "subgraph slice (--limit 500): informational, not comparable to the full-graph baseline",
+        "source": "LibKGE README ComplEx FB15k-237 filtered MRR 0.348 − 3pp margin (ADR-006); RANDOM tie-break"
+      },
+      {
+        "name": "link_prediction_wn18rr",
+        "status": "SKIP",
+        "detail": "suite is fb15k237, not wn18rr",
+        "source": "LibKGE README ComplEx WN18RR filtered MRR 0.475 − 3pp margin (ADR-006); RANDOM tie-break"
+      },
+      {
+        "name": "tie_break_random",
+        "status": "SKIP",
+        "detail": "no --tie-check run (or binding lacks a constant scorer)",
+        "source": "Sun et al. 2020 arXiv:1911.03903; ADR-003 §5 / ADR-006 §protocol 2"
+      },
+      {
+        "name": "hole_complex_equiv",
+        "status": "SKIP",
+        "detail": "asserted by the ruvector-kge-core Rust unit test (both forms agree on random params to fp tolerance); it is a precondition for trusting the HolE gate number and is not JS-measurable here",
+        "source": "ADR-002 §HolE≡ComplEx unit test"
+      },
+      {
+        "name": "ann_recall10",
+        "status": "PASS",
+        "detail": "0.988 >= 0.9",
+        "source": "ADR-006 §Release gates ANN recall floor (derived Q5 claim, measured); Budgeted MIPS arXiv:1610.03317"
+      },
+      {
+        "name": "adversarial_confidence_drop",
+        "status": "SKIP",
+        "detail": "no --adversarial run",
+        "source": "ADR-006 §protocol 5; Bhardwaj et al. 2021 arXiv:2111.06345"
+      },
+      {
+        "name": "loop_safety_transfer",
+        "status": "SKIP",
+        "detail": "no --baseline-receipt",
+        "source": "ADR-004 gate 3 (no transfer-split regression beyond 1 point)"
+      },
+      {
+        "name": "latency_predict_p95",
+        "status": "PASS",
+        "detail": "p95=0.0968ms <= 50ms (native)",
+        "source": "ADR-006 §protocol 7; thresholds set from bench/fft-spike-2026-09-21.json (native batch score+build ≈2.3ms at d=512/2000 entities; 50ms p95 leaves headroom to FB15k-237 scale). wasm32 is compile-only in the spike, so its threshold stays pending."
+      }
+    ],
+    "pass": true,
+    "anyFail": false,
+    "skipped": 6
+  },
+  "stats_json": {
+    "dims": 64,
+    "entities": 494,
+    "indexed": true,
+    "relations": 163,
+    "scorer": "hole",
+    "seed": 42,
+    "splits": {
+      "test": 483,
+      "train": 9749,
+      "transfer": 124,
+      "unlabelled": 0,
+      "valid": 266
+    },
+    "triples": 10622
+  },
+  "host": {
+    "node": "v22.23.2",
+    "platform": "linux",
+    "arch": "x64",
+    "cpus": 32,
+    "cpu_model": "AMD Ryzen 9 9950X 16-Core Processor",
+    "os_release": "6.17.0-20-generic",
+    "total_mem_mb": 126425
+  },
+  "extra": {
+    "licence": "Freebase-derived; follows source, not redistributed"
+  }
+}

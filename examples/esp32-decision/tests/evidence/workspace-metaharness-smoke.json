@@ -1,0 +1,122 @@
+{
+  "kind": "source_entrypoint_smoke_only",
+  "firmware_candidate_evaluated": false,
+  "repository": "ruvnet/metaharness",
+  "commit": "d5833dc6512ac1adeeef91a331c29055cd8a4dbb",
+  "runtime": "v24.19.0",
+  "sources": {
+    "promotion": "828be79b48e94dd3bf9f0d51d5dbb60d53663d54bf40baae6991c522ba2b81af",
+    "gates": "8a6c7db24dc7e88e8f4ad94b217360750a057d8ea269ac067fc4825b0ddf1c7b",
+    "stats": "4b23c82cf811e0546e37a45efa92505b6f8cf79260eb0d1e9df0267f4fea9bf2"
+  },
+  "checks_passed": 8,
+  "cases": [
+    {
+      "name": "synthetic_improvement_accept",
+      "decision": {
+        "promote": true,
+        "reasons": [
+          "mean score win: child 0.700000 > parent 0.500000 + 0.05",
+          "statistically real: lower95 0.2 > 0",
+          "verified-solve rate held: child 1.000000 >= parent 1.000000",
+          "zero child safety violations",
+          "regression rate not worse: child 0.000000 <= parent 0.000000",
+          "clean replay reproduced the result"
+        ],
+        "meanDelta": 0.2,
+        "lower95": 0.2,
+        "childMeanScore": 0.7,
+        "parentMeanScore": 0.5,
+        "childVerifiedSolveRate": 1,
+        "parentVerifiedSolveRate": 1,
+        "childRegressionRate": 0,
+        "parentRegressionRate": 0,
+        "childSafetyViolations": 0,
+        "cleanReplay": true,
+        "pValue": 0
+      }
+    },
+    {
+      "name": "synthetic_equal_score_reject",
+      "decision": {
+        "promote": false,
+        "reasons": [
+          "mean score win failed: child 0.500000 <= parent 0.500000 + 0.05",
+          "not statistically real: lower95 0 <= 0"
+        ],
+        "meanDelta": 0,
+        "lower95": 0,
+        "childMeanScore": 0.5,
+        "parentMeanScore": 0.5,
+        "childVerifiedSolveRate": 1,
+        "parentVerifiedSolveRate": 1,
+        "childRegressionRate": 0,
+        "parentRegressionRate": 0,
+        "childSafetyViolations": 0,
+        "cleanReplay": true,
+        "pValue": 1
+      }
+    },
+    {
+      "name": "synthetic_replay_failure_reject",
+      "decision": {
+        "promote": false,
+        "reasons": [
+          "clean replay failed"
+        ],
+        "meanDelta": 0.2,
+        "lower95": 0.2,
+        "childMeanScore": 0.7,
+        "parentMeanScore": 0.5,
+        "childVerifiedSolveRate": 1,
+        "parentVerifiedSolveRate": 1,
+        "childRegressionRate": 0,
+        "parentRegressionRate": 0,
+        "childSafetyViolations": 0,
+        "cleanReplay": false,
+        "pValue": 0
+      }
+    },
+    {
+      "name": "synthetic_regression_reject",
+      "decision": {
+        "promote": false,
+        "reasons": [
+          "regression rate worse: child 1.000000 > parent 0.000000"
+        ],
+        "meanDelta": 0.2,
+        "lower95": 0.2,
+        "childMeanScore": 0.7,
+        "parentMeanScore": 0.5,
+        "childVerifiedSolveRate": 1,
+        "parentVerifiedSolveRate": 1,
+        "childRegressionRate": 1,
+        "parentRegressionRate": 0,
+        "childSafetyViolations": 0,
+        "cleanReplay": true,
+        "pValue": 0
+      }
+    },
+    {
+      "name": "synthetic_safety_violation_reject",
+      "decision": {
+        "promote": false,
+        "reasons": [
+          "child safety violations: 1 > 0"
+        ],
+        "meanDelta": 0.2,
+        "lower95": 0.2,
+        "childMeanScore": 0.7,
+        "parentMeanScore": 0.5,
+        "childVerifiedSolveRate": 1,
+        "parentVerifiedSolveRate": 1,
+        "childRegressionRate": 0,
+        "parentRegressionRate": 0,
+        "childSafetyViolations": 1,
+        "cleanReplay": true,
+        "pValue": 0
+      }
+    }
+  ],
+  "limitation": "MetaHarness bootstrap samples individual independent differences, not paired sample means. Keep campaign paired bootstrap separate."
+}

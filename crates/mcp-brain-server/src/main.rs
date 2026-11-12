@@ -29,8 +29,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let tick_interval = std::time::Duration::from_secs(60); // 60s: lightweight cognitive tick
         let mut tick_count = 0u64;
 
-        // Wait 30s before first cycle (let startup finish, data load)
+        // Wait 30s before first cycle (let startup finish), then until the
+        // background Firestore hydration has finished. Previously this was a
+        // fixed 30s sleep, so the forced full bootstrap always ran on an empty
+        // or partial corpus ("processing all 0 memories") and then stamped
+        // last_full_retrain_at = now -- which made the incremental filter
+        // (created_at > cutoff) skip every hydrated memory until the next 24h
+        // periodic full retrain.
         tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+        let hydrate_deadline = std::time::Instant::now() + std::time::Duration::from_secs(90 * 60);
+        let mut waited_polls = 0u64;
+        while !train_state.store.is_hydrated() {
+            if std::time::Instant::now() >= hydrate_deadline {
+                tracing::warn!(
+                    "Cognitive bootstrap: Firestore hydration still running after 90 min ({} memories loaded); starting anyway",
+                    train_state.store.memory_count()
+                );
+                break;
+            }
+            waited_polls += 1;
+            if waited_polls % 12 == 0 {
+                tracing::info!(
+                    "Cognitive bootstrap waiting for Firestore hydration ({} memories so far)",
+                    train_state.store.memory_count()
+                );
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        }
 
         // Run an initial enhanced cycle on startup to bootstrap cognitive state (full retrain).
         // spawn_blocking avoids starving HTTP handlers during the CPU-intensive bootstrap.
@@ -148,36 +173,70 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // ── Background sparsifier build for large graphs ──
-    // Deferred from startup to avoid blocking the health probe.
-    // For very large graphs (>5M edges), skip the sparsifier entirely — it
-    // holds a write lock that blocks all readers and pegs the CPU, causing
-    // Cloud Run to 504 every request while it runs.
+    //
+    // Deferred from startup to avoid blocking the health probe, and now built
+    // with NO lock held.
+    //
+    // The previous version wrapped `graph.write().rebuild_sparsifier()` in
+    // `spawn_blocking`. That fixes runtime starvation — the build no longer
+    // occupies one of the two tokio workers — but it does NOT fix lock
+    // contention: the write guard was taken inside the blocking closure and
+    // held for the entire build, so every reader still stalled behind it. The
+    // live graph (~1.2M edges) sits inside the 100k..5M band, so this ran on
+    // every cold start and is one of the three independent 504 mechanisms.
+    //
+    // Now: snapshot under a read lock, build off-lock, install under a brief
+    // write lock. `install_sparsifier` replays edges added during the build
+    // and refuses the install outright if the graph shrank underneath it.
     let spar_state = state.clone();
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(60)).await;
         let edge_count = spar_state.graph.read().edge_count();
         if edge_count > 5_000_000 {
+            // The >5M skip predates the off-lock build; the reason given for
+            // it (a write lock held across the whole build) no longer applies.
+            // Left in place deliberately — CPU cost at that size has not been
+            // measured, so widening it would be a guess.
             tracing::info!(
                 "Skipping sparsifier build: graph too large ({edge_count} edges, >5M threshold)"
             );
         } else if edge_count > 100_000 && spar_state.graph.read().sparsifier_stats().is_none() {
             tracing::info!("Background sparsifier build starting ({edge_count} edges)");
-            // Run in spawn_blocking to avoid starving the tokio runtime
-            let graph = spar_state.graph.clone();
-            tokio::task::spawn_blocking(move || {
-                graph.write().rebuild_sparsifier();
+
+            let snapshot = spar_state.graph.read().sparsifier_snapshot();
+            let Some((entries, snap_nodes, snap_edges, snap_gen)) = snapshot else {
+                tracing::info!("Sparsifier build skipped: empty graph snapshot");
+                return;
+            };
+
+            // Build with no lock held at all — only the tokio runtime is
+            // protected here, which is what spawn_blocking is actually for.
+            let built = tokio::task::spawn_blocking(move || {
+                mcp_brain_server::graph::KnowledgeGraph::build_sparsifier_from(&entries, snap_nodes)
             })
             .await
-            .ok();
-            let stats = spar_state.graph.read().sparsifier_stats();
-            if let Some(s) = stats {
+            .ok()
+            .flatten();
+
+            match built {
+                Some(spar) => {
+                    let installed = spar_state
+                        .graph
+                        .write()
+                        .install_sparsifier(spar, snap_nodes, snap_edges, snap_gen);
+                    if !installed {
+                        tracing::warn!("Sparsifier build discarded (graph changed during build)");
+                    }
+                }
+                None => tracing::warn!("Sparsifier build returned no sparsifier"),
+            }
+
+            if let Some(s) = spar_state.graph.read().sparsifier_stats() {
                 tracing::info!(
                     "Sparsifier built: {} edges, {:.1}x compression",
                     s.sparsified_edges,
                     s.compression_ratio
                 );
-            } else {
-                tracing::warn!("Sparsifier build returned no stats");
             }
         }
     });

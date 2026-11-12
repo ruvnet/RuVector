@@ -40,12 +40,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout monorepo
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 1
 
       - name: Checkout RuLake mirror
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: ruvnet/RuLake
           token: ${{ secrets.RULAKE_MIRROR_PAT }}

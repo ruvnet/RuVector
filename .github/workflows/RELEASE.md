@@ -55,8 +55,8 @@ Options:
 - Run crate-specific tests
 - Generate build summary with all crate versions
 
-**Crates built** (26 total):
-- Core: `ruvector-core`, `ruvector-metrics`, `ruvector-filter`
+**Crates built** (27 total):
+- Core: `ruvector-turboquant`, `ruvector-core`, `ruvector-metrics`, `ruvector-filter`
 - Graph: `ruvector-graph`, `ruvector-gnn`
 - Distributed: `ruvector-cluster`, `ruvector-raft`, `ruvector-replication`
 - Bindings: `ruvector-node`, `ruvector-wasm`
@@ -89,7 +89,7 @@ Options:
 - Linux x64 (GNU) - `ubuntu-22.04`
 - Linux ARM64 (GNU) - `ubuntu-22.04` with cross-compilation
 - macOS x64 (Intel) - `macos-13`
-- macOS ARM64 (Apple Silicon) - `macos-14`
+- macOS ARM64 (Apple Silicon) - `macos-15`
 - Windows x64 (MSVC) - `windows-2022`
 
 **Build matrix details**:
@@ -97,7 +97,7 @@ Options:
 - host: ubuntu-22.04, target: x86_64-unknown-linux-gnu
 - host: ubuntu-22.04, target: aarch64-unknown-linux-gnu
 - host: macos-13, target: x86_64-apple-darwin
-- host: macos-14, target: aarch64-apple-darwin
+- host: macos-15, target: aarch64-apple-darwin
 - host: windows-2022, target: x86_64-pc-windows-msvc
 ```
 
@@ -117,18 +117,19 @@ Options:
 **Publishing order** (respects dependencies):
 
 ```
-1. ruvector-core (foundation)
-2. ruvector-metrics, ruvector-filter, ruvector-snapshot
-3. ruvector-collections, ruvector-router-core
-4. ruvector-raft, ruvector-cluster, ruvector-replication
-5. ruvector-gnn, ruvector-graph
-6. ruvector-server, ruvector-tiny-dancer-core
-7. ruvector-router-cli, ruvector-router-ffi, ruvector-router-wasm
-8. ruvector-cli, ruvector-bench
-9. ruvector-wasm, ruvector-node
-10. ruvector-gnn-wasm, ruvector-gnn-node
-11. ruvector-graph-wasm, ruvector-graph-node
-12. ruvector-tiny-dancer-wasm, ruvector-tiny-dancer-node
+1. ruvector-turboquant (foundation for ruvector-core Turbo4 support)
+2. ruvector-core
+3. ruvector-metrics, ruvector-filter, ruvector-snapshot
+4. ruvector-collections, ruvector-router-core
+5. ruvector-raft, ruvector-cluster, ruvector-replication
+6. ruvector-gnn, ruvector-graph
+7. ruvector-server, ruvector-tiny-dancer-core
+8. ruvector-router-cli, ruvector-router-ffi, ruvector-router-wasm
+9. ruvector-cli, ruvector-bench
+10. ruvector-wasm, ruvector-node
+11. ruvector-gnn-wasm, ruvector-gnn-node
+12. ruvector-graph-wasm, ruvector-graph-node
+13. ruvector-tiny-dancer-wasm, ruvector-tiny-dancer-node
 ```
 
 **Rate limiting**: 10 second delay between publishes to avoid crates.io rate limits
@@ -264,7 +265,7 @@ The workflow uses GitHub Environments for additional security:
 
 ### Rust Cache
 ```yaml
-uses: Swatinem/rust-cache@v2
+uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
 with:
   prefix-key: 'v1-rust'
   shared-key: 'validate|build-crates|wasm'
@@ -279,7 +280,7 @@ with:
 
 ### Node.js Cache
 ```yaml
-uses: actions/setup-node@v4
+uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
 with:
   cache: 'npm'
   cache-dependency-path: npm/package-lock.json
@@ -296,7 +297,7 @@ The native build job uses a strategic matrix to cover all platforms:
 | Linux x64 | ubuntu-22.04 | x86_64-unknown-linux-gnu | linux-x64-gnu | No |
 | Linux ARM64 | ubuntu-22.04 | aarch64-unknown-linux-gnu | linux-arm64-gnu | Yes (gcc-aarch64) |
 | macOS Intel | macos-13 | x86_64-apple-darwin | darwin-x64 | No |
-| macOS ARM | macos-14 | aarch64-apple-darwin | darwin-arm64 | No |
+| macOS ARM | macos-15 | aarch64-apple-darwin | darwin-arm64 | No |
 | Windows | windows-2022 | x86_64-pc-windows-msvc | win32-x64-msvc | No |
 
 ## Artifact Retention
@@ -500,7 +501,7 @@ Add webhook to workflow:
 ```yaml
 - name: Notify Slack
   if: failure()
-  uses: slackapi/slack-github-action@v1
+  uses: slackapi/slack-github-action@fcfb566f8b0aab22203f066d80ca1d7e4b5d05b3
   with:
     webhook-url: ${{ secrets.SLACK_WEBHOOK }}
     payload: |

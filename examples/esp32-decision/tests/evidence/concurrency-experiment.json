@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "campaign": "esp32-overnight-20260926",
+  "run": "esp32-slot02-20260926T0602Z",
+  "parent_sha": "47b042815052be2263498d0ca9ae2ae1f31cd7e1",
+  "candidate_budget": 1,
+  "seed": 20260926,
+  "hypothesis": "Serializing each Device.query write and response transaction prevents concurrent callers from exchanging firmware replies.",
+  "expected_user_value": "Concurrent benchmark and sensor callers cannot silently attach another caller's decision to the wrong request.",
+  "target_metric": "controlled concurrent request pairs with response misassociation",
+  "result": {
+    "baseline_misassociated": 8,
+    "baseline_total": 8,
+    "candidate_misassociated": 0,
+    "candidate_total": 8,
+    "sequential_regression": "pass",
+    "framing_regression": "pass",
+    "decision": "retain"
+  },
+  "constraints": [
+    "one candidate",
+    "host transport only",
+    "frozen evaluator and hard AND gates",
+    "no firmware, model, quantization or compiler flag change",
+    "no physical timing, energy or deployment claim"
+  ],
+  "rollback_target": "47b042815052be2263498d0ca9ae2ae1f31cd7e1",
+  "frozen_evaluator_sha256": "3496a962085d6183b4823dd7642f14054af1e7eb81d4b6091ad10d22c3fb07f5"
+}

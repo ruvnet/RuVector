@@ -24,17 +24,17 @@ env:
 jobs:
   sota-smoke:
     name: SOTA Smoke (Tier 1)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
 
       - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           key: sota-bench-v1
 
@@ -78,7 +78,7 @@ jobs:
 
       - name: Upload benchmark report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: sota-smoke-report
           path: /tmp/sota-smoke-report.json
@@ -86,21 +86,21 @@ jobs:
 
   sota-full:
     name: SOTA Full Run (Tier 2, on demand)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.full_run == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
 
       - name: Install HDF5 (for real datasets)
         run: sudo apt-get install -y libhdf5-dev
 
       - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           key: sota-bench-full-v1
 
@@ -115,7 +115,7 @@ jobs:
           RUST_LOG: warn
 
       - name: Upload full report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: sota-full-report
           path: /tmp/sota-full-report.json

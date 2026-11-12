@@ -1,47 +1,12 @@
 /**
- * RuvectorWasmAdapter — a correct, ergonomic wrapper around the generated
- * `@ruvector/wasm` `VectorDB`.
- *
- * It exists to paper over three behaviours of the current WASM build that bite
- * callers who take the raw bindings (and the generated `.d.ts`) at face value:
- *
- *  1. **HNSW is not active in the WASM build.** The Rust crate compiles the
- *     `wasm32` target *without* the `hnsw` feature, so `VectorDB` silently falls
- *     back to a brute-force flat index (`vector_db.rs`:
- *     `"HNSW requested but not available (WASM build), using flat index"`).
- *     Results are still correct, but search is O(n), not O(log n). The win is
- *     latent until the upstream WASM HNSW lands. This adapter surfaces that fact
- *     via {@link RuvectorWasmAdapter#indexType} / {@link WASM_HNSW_AVAILABLE}
- *     instead of letting callers assume a logarithmic index.
- *
- *  2. **`result.score` is a cosine *distance*, not a similarity.** Lower is
- *     better and the ordering is correct (a, b before c), but that contradicts
- *     the generated `.d.ts` which advertises a "higher is better" score. This
- *     adapter exposes both the raw `distance` and a `similarity = 1 - distance`
- *     (generalised per metric) so "higher is better" actually holds.
- *
- *  3. **Metadata does not round-trip.** Inserted metadata comes back as `{}`
- *     (or `undefined`) from the WASM `search`/`get` getters. This adapter keeps
- *     an in-process **metadata sidecar** keyed by vector id and re-attaches it
- *     on the way out, so what you put in is what you get back.
- *
- * The adapter is dependency-injectable: pass a pre-constructed `VectorDB` (real
- * or a test double), or use {@link RuvectorWasmAdapter.create} to load and init
- * the WASM module for you.
- *
+ * Normalizes raw WASM distances into similarity and supports legacy metadata getters.
+ * Backend identity comes from the running VectorDB, never from the requested option.
+ * HNSW is approximate; useHnsw:false selects exact flat search.
  * @module @ruvector/wasm/adapter
  */
 
-/**
- * Whether the published WASM build ships an active HNSW index.
- *
- * The crate is compiled for `wasm32` without the `hnsw` cargo feature, so this
- * is `false` today: the WASM `VectorDB` uses a flat (brute-force) index. Flip
- * to `true` once the WASM build enables HNSW.
- *
- * @type {boolean}
- */
-export const WASM_HNSW_AVAILABLE = false;
+/** This release implements portable HNSW. Inspect instance.indexType for its active backend. */
+export const WASM_HNSW_AVAILABLE = true;
 
 /**
  * Convert a raw distance score (lower is better) into a similarity where
@@ -94,8 +59,8 @@ export class RuvectorWasmAdapter {
    * @param {number} [options.dimensions] - Vector dimensions (informational).
    * @param {string} [options.metric='cosine'] - Distance metric the `db` was
    *   created with; controls the similarity conversion.
-   * @param {boolean} [options.usesHnsw] - Override the index-type report. Defaults
-   *   to {@link WASM_HNSW_AVAILABLE}.
+   * @param {boolean} [options.usesHnsw] - Deprecated index-type override;
+   *   ignored: the running database is authoritative.
    */
   constructor(db, options = {}) {
     if (!db) {
@@ -104,7 +69,7 @@ export class RuvectorWasmAdapter {
     this._db = db;
     this._metric = (options.metric || 'cosine').toLowerCase();
     this._dimensions = options.dimensions;
-    this._usesHnsw = options.usesHnsw ?? WASM_HNSW_AVAILABLE;
+    this._usesHnsw = db.indexType === 'hnsw';
 
     /**
      * Metadata sidecar: id -> metadata. Works around the WASM build not
@@ -121,7 +86,7 @@ export class RuvectorWasmAdapter {
    * @param {number} options.dimensions - Vector dimensions (required).
    * @param {string} [options.metric='cosine'] - Distance metric.
    * @param {boolean} [options.useHnsw=true] - Requested at the WASM layer; note
-   *   the WASM build falls back to flat regardless (see {@link WASM_HNSW_AVAILABLE}).
+   *   false selects an exact flat index.
    * @param {any} [options.module] - Pre-imported WASM module (exposing `default`
    *   init and `VectorDB`). If omitted, `@ruvector/wasm` is imported dynamically.
    * @returns {Promise<RuvectorWasmAdapter>}
@@ -149,8 +114,7 @@ export class RuvectorWasmAdapter {
   }
 
   /**
-   * Whether this index is backed by HNSW. `false` for the current WASM build —
-   * search is O(n) flat scan until upstream WASM HNSW lands.
+   * Whether the running database reports an active HNSW backend.
    * @returns {boolean}
    */
   get usesHnsw() {
@@ -181,6 +145,8 @@ export class RuvectorWasmAdapter {
     const id = this._db.insert(vector, entry.id, entry.metadata);
     if (entry.metadata !== undefined) {
       this._metadata.set(id, entry.metadata);
+    } else {
+      this._metadata.delete(id);
     }
     return id;
   }
@@ -202,6 +168,8 @@ export class RuvectorWasmAdapter {
       const meta = entries[i] && entries[i].metadata;
       if (meta !== undefined) {
         this._metadata.set(ids[i], meta);
+      } else {
+        this._metadata.delete(ids[i]);
       }
     }
     return ids;
@@ -224,27 +192,35 @@ export class RuvectorWasmAdapter {
    */
   search(query) {
     const k = query.k;
+    if (!Number.isSafeInteger(k) || k < 0) throw new Error('k must be a nonnegative safe integer');
+    if (k === 0) return [];
     const vector = toFloat32(query.vector);
     const hasFilter = query.filter && Object.keys(query.filter).length > 0;
 
-    // Over-fetch when filtering so post-filter results can still reach k.
-    const fetch = hasFilter ? Math.max(k * 4, k) : k;
+    // Legacy modules may not filter correctly. Fetch all rows for complete filtering.
+    const fetch = hasFilter ? Math.max(this.len(), k) : k;
     const raw = this._db.search(vector, fetch, undefined) || [];
 
     let mapped = raw.map((r) => {
-      const distance = r.score;
-      const metadata = this._metadata.has(r.id)
-        ? this._metadata.get(r.id)
-        : r.metadata;
-      const similarity = distanceToSimilarity(this._metric, distance);
-      return {
-        id: r.id,
-        similarity,
-        score: similarity,
-        distance,
-        vector: r.vector,
-        metadata,
-      };
+      try {
+        const id = r.id;
+        const distance = r.score;
+        const metadata = this._metadata.has(id)
+          ? this._metadata.get(id)
+          : r.metadata;
+        const similarity = distanceToSimilarity(this._metric, distance);
+        // WASM getters return owned copies, so these remain valid after free().
+        return {
+          id,
+          similarity,
+          score: similarity,
+          distance,
+          vector: r.vector,
+          metadata,
+        };
+      } finally {
+        if (typeof r.free === 'function') r.free();
+      }
     });
 
     if (hasFilter) {
@@ -252,11 +228,11 @@ export class RuvectorWasmAdapter {
       mapped = mapped.filter((r) => {
         const md = r.metadata;
         if (!md) return false;
-        return entries.every(([key, value]) => md[key] === value);
+        return entries.every(([key, value]) => metadataEqual(md[key], value));
       });
     }
 
-    // The flat index already orders by ascending distance, but sort defensively
+    // The index orders by ascending distance, but sort defensively
     // so a, b come before c regardless of the underlying index's guarantees.
     mapped.sort((a, b) => b.similarity - a.similarity);
 
@@ -272,11 +248,15 @@ export class RuvectorWasmAdapter {
   get(id) {
     const entry = this._db.get(id);
     if (!entry) return null;
-    return {
-      id: entry.id ?? id,
-      vector: entry.vector,
-      metadata: this._metadata.has(id) ? this._metadata.get(id) : entry.metadata,
-    };
+    try {
+      return {
+        id: entry.id ?? id,
+        vector: entry.vector,
+        metadata: this._metadata.has(id) ? this._metadata.get(id) : entry.metadata,
+      };
+    } finally {
+      if (typeof entry.free === 'function') entry.free();
+    }
   }
 
   /**
@@ -328,3 +308,13 @@ function toFloat32(v) {
 }
 
 export default RuvectorWasmAdapter;
+
+// Match the native JSON metadata equality, including nested objects and arrays.
+function metadataEqual(a, b) {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((key) =>
+    Object.prototype.hasOwnProperty.call(b, key) && metadataEqual(a[key], b[key]));
+}

@@ -37,7 +37,7 @@ fn bench_search(c: &mut Criterion) {
             b.iter(|| {
                 for q in &queries {
                     black_box(
-                        idx.search(q, K, &|id: u32| id % 10 == 0)
+                        idx.search(q, K, &|id: u32| id.is_multiple_of(10))
                             .unwrap_or_default(),
                     );
                 }

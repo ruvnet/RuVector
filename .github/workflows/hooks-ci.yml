@@ -23,13 +23,13 @@ jobs:
     name: Rust CLI Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             ~/.cargo/bin/
@@ -66,20 +66,21 @@ jobs:
     name: npm CLI Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
 
       - name: Install dependencies
         run: |
           # Copy CLI package to temp location to avoid workspace interference
+          workspace="$PWD"
           cp -r npm/packages/cli /tmp/cli
           cd /tmp/cli
           npm install --ignore-scripts
-          cp -r node_modules $GITHUB_WORKSPACE/npm/packages/cli/
+          cp -r node_modules "$workspace/npm/packages/cli/"
 
       - name: Build CLI
         working-directory: npm/packages/cli
@@ -125,7 +126,7 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install PostgreSQL client
         run: sudo apt-get install -y postgresql-client
@@ -179,13 +180,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: [rust-cli-tests, npm-cli-tests]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
 
@@ -193,10 +194,11 @@ jobs:
         run: |
           cargo build -p ruvector-cli --release
           # Install CLI deps in temp to avoid workspace interference
+          workspace="$PWD"
           cp -r npm/packages/cli /tmp/cli
           cd /tmp/cli && npm install --ignore-scripts && npm run build
-          cp -r /tmp/cli/node_modules npm/packages/cli/
-          cp -r /tmp/cli/dist npm/packages/cli/
+          cp -r /tmp/cli/node_modules "$workspace/npm/packages/cli/"
+          cp -r /tmp/cli/dist "$workspace/npm/packages/cli/"
 
       - name: Compare command counts
         run: |

@@ -45,10 +45,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
         with:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
@@ -69,7 +69,7 @@ jobs:
           echo "/opt/homebrew/opt/postgresql@${{ matrix.pg_version }}/bin" >> $GITHUB_PATH
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
@@ -77,7 +77,7 @@ jobs:
             ${{ runner.os }}-cargo-registry-
 
       - name: Cache cargo index
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
@@ -85,7 +85,7 @@ jobs:
             ${{ runner.os }}-cargo-index-
 
       - name: Cache cargo build
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ matrix.pg_version }}-${{ hashFiles('**/Cargo.lock') }}
@@ -132,10 +132,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
         with:
           toolchain: stable
 
@@ -172,10 +172,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
         with:
           toolchain: stable
 
@@ -202,36 +202,36 @@ jobs:
           set -o pipefail
           cargo bench --no-default-features --features pg17 \
             --bench distance_bench \
-            --bench e2e_bench \
-            --bench hybrid_bench \
-            --bench index_bench \
-            --bench integrity_bench \
             -- --output-format bencher | tee benchmark-output.txt
         working-directory: crates/ruvector-postgres
 
-      - name: Store benchmark result
-        uses: benchmark-action/github-action-benchmark@v1
+      - name: Upload benchmark result
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: Rust Benchmark
-          tool: 'cargo'
-          output-file-path: crates/ruvector-postgres/benchmark-output.txt
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: false
+          name: postgres-extension-benchmark
+          path: crates/ruvector-postgres/benchmark-output.txt
+          retention-days: 30
 
   # Security audit
   security:
     name: Security Audit
     runs-on: ubuntu-latest
+    # rustsec/audit-check reports through the Checks API. On pull_request it
+    # falls back to annotations, but on push to main it creates a check run,
+    # which the workflow-level token (contents: read) cannot do.
+    permissions:
+      contents: read
+      checks: write
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
 
       - name: Run cargo audit
-        uses: rustsec/audit-check@v2
+        uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           working-directory: crates/ruvector-postgres
@@ -249,10 +249,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
 
       - name: Install PostgreSQL
         run: |
@@ -273,7 +273,7 @@ jobs:
         working-directory: crates/ruvector-postgres
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ruvector-postgres-pg${{ matrix.pg_version }}
           path: target/release/ruvector-postgres-pg${{ matrix.pg_version }}/
@@ -286,17 +286,18 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
 
       - name: Build Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
         with:
           context: .
           file: crates/ruvector-postgres/Dockerfile
           push: false
+          load: true
           tags: ruvector-postgres:test
           cache-from: type=gha
           cache-to: type=gha,mode=max

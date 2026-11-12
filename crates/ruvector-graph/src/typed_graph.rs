@@ -343,9 +343,19 @@ impl TypedGraph {
         let metric = vs.metric;
         let property = vs.property.as_str();
         let query_norm = metric.query_norm(query);
+        let ids = self.graph.node_ids_by_label(&vs.label);
+
+        // For small collections an exact serial scan is both cheap and stable.
+        // HNSW construction uses randomized layer assignment, so approximate
+        // search can occasionally miss even a well-separated winner on these
+        // shallow indexes. Exact rescoring cannot recover a vector that was not
+        // returned as an ANN candidate. Keep the push-down optimization for the
+        // larger collections where it pays for itself.
         Ok(match self.indexes.get(&vs.name) {
-            Some(index) => self.rank_via_index(index, property, query, query_norm, metric, k)?,
-            None => self.rank_via_scan(&vs.label, property, query, query_norm, metric, k),
+            Some(index) if ids.len() >= PARALLEL_SCAN_THRESHOLD => {
+                self.rank_via_index(index, property, query, query_norm, metric, k)?
+            }
+            _ => self.rank_via_scan_ids(&ids, property, query, query_norm, metric, k),
         })
     }
 
@@ -482,18 +492,18 @@ impl TypedGraph {
         Ok(scored)
     }
 
-    /// Brute-force bounded-top-k scan over the bound label, returning seeds in
-    /// descending score order. Rayon-parallel above the threshold.
-    fn rank_via_scan(
+    /// Brute-force bounded-top-k scan over the supplied label-scoped IDs,
+    /// returning seeds in descending score order. Rayon-parallel above the
+    /// threshold.
+    fn rank_via_scan_ids(
         &self,
-        label: &str,
+        ids: &[NodeId],
         property: &str,
         query: &[f32],
         query_norm: f32,
         metric: DistanceMetric,
         k: usize,
     ) -> Vec<(f32, NodeId)> {
-        let ids = self.graph.node_ids_by_label(label);
         // Capture `graph` (not `self`) so the parallel closure stays Send+Sync
         // regardless of the ANN index's thread-safety bounds.
         let graph = &self.graph;
@@ -525,7 +535,7 @@ impl TypedGraph {
                 })
         } else {
             let mut h = ScoredHeap::new();
-            for id in &ids {
+            for id in ids {
                 if let Some(score) = score_one(id) {
                     consider(&mut h, k, score, id);
                 }
@@ -769,8 +779,10 @@ mod tests {
 
     #[test]
     fn indexed_path_finds_top_result_and_traverses() {
-        // HNSW push-down: build an ANN index and confirm it returns the exact
-        // winner (over-fetch + exact rescore) with traversal still applied.
+        // Build an ANN index and confirm the indexed route returns the exact
+        // winner with traversal still applied. This collection deliberately
+        // exercises the exact small-index guard: randomized shallow HNSW
+        // graphs were the source of the cross-platform recall regression.
         let mut tg = TypedGraph::new(GraphDB::new(), schema()).unwrap();
         // Data on an arc of the unit circle so the nearest neighbour is on the
         // manifold (the realistic, HNSW-friendly case). `winner` sits at angle 0,

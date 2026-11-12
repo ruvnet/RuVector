@@ -42,22 +42,44 @@ export interface SearchResult {
  * Database configuration options
  */
 export interface DbOptions {
-  /** Vector dimension size */
-  dimension: number;
-  /** Distance metric to use */
-  metric?: 'cosine' | 'euclidean' | 'dot';
-  /** Path to persist database */
+  /**
+   * Vector dimension size. `dimensions` is the canonical (native) name;
+   * the singular `dimension` is accepted as an alias.
+   */
+  dimensions?: number;
+  /** @deprecated Alias of `dimensions`. */
+  dimension?: number;
+  /** Distance metric to use (`distanceMetric` is accepted as an alias). */
+  metric?: 'cosine' | 'euclidean' | 'dot' | 'manhattan';
+  /** @deprecated Alias of `metric`. */
+  distanceMetric?: string;
+  /** Path to persist the database (`storagePath` is the canonical native name). */
+  storagePath?: string;
+  /** @deprecated Alias of `storagePath`. */
   path?: string;
-  /** Enable auto-persistence */
-  autoPersist?: boolean;
-  /** HNSW index parameters */
-  hnsw?: {
+  /**
+   * HNSW index parameters — the canonical (native) name. Omit for the
+   * defaults `{ m: 32, efConstruction: 200, efSearch: 100, maxElements: 1e7 }`.
+   */
+  hnswConfig?: {
     /** Maximum number of connections per layer */
     m?: number;
-    /** Size of the dynamic candidate list */
+    /** Size of the dynamic candidate list during construction */
     efConstruction?: number;
     /** Size of the dynamic candidate list for search */
     efSearch?: number;
+    /** Capacity hint for the index */
+    maxElements?: number;
+  };
+  /**
+   * @deprecated Alias of `hnswConfig`. Merged over the defaults, so a partial
+   * object such as `{ efSearch: 200 }` changes only that setting.
+   */
+  hnsw?: {
+    m?: number;
+    efConstruction?: number;
+    efSearch?: number;
+    maxElements?: number;
   };
 }
 

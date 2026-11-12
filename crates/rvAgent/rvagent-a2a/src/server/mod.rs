@@ -261,8 +261,12 @@ impl A2aServer {
             executor,
             budget,
             push_registry: push::PushNotificationRegistry::new(),
+            // Redirects are never followed: `push::validate_url` vets only
+            // the registered URL, so a redirect could steer the POST to an
+            // unvalidated host or scheme.
             push_client: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
+                .redirect(reqwest::redirect::Policy::none())
                 .build()
                 .unwrap_or_default(),
             #[cfg(feature = "ed25519-webhooks")]
@@ -576,20 +580,31 @@ pub(crate) async fn record_status_event(state: &A2aState, ev: &TaskStatusUpdateE
     }
 }
 
+/// The task has no live broadcast channel, so [`emit_status_event`] had
+/// nobody to deliver to. Not an error condition for the caller — the event
+/// is still recorded into the replay history either way — which is why it
+/// carries no payload.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("task has no live broadcast channel")]
+pub struct NoLiveChannel;
+
 /// Record + broadcast a status event atomically. Preferred over raw
 /// `tx.send(TaskEvent::Status(..))` from custom `TaskRunner`s because
 /// it keeps the `resubscribe` replay history in sync — a subscriber
 /// that reconnects after missing events still sees them on replay.
 ///
-/// Returns `Ok(receiver_count)` on successful broadcast. `Err(())`
-/// means the task has no live channel (nothing was broadcast, but the
-/// event was still recorded into the replay history).
-pub async fn emit_status_event(state: &A2aState, ev: TaskStatusUpdateEvent) -> Result<usize, ()> {
+/// Returns `Ok(receiver_count)` on successful broadcast.
+/// [`NoLiveChannel`] means the task has no live channel (nothing was
+/// broadcast, but the event was still recorded into the replay history).
+pub async fn emit_status_event(
+    state: &A2aState,
+    ev: TaskStatusUpdateEvent,
+) -> Result<usize, NoLiveChannel> {
     record_status_event(state, &ev).await;
     let tx = state.streams.read().await.get(&ev.id).cloned();
     match tx {
-        Some(tx) => tx.send(TaskEvent::Status(ev)).map_err(|_| ()),
-        None => Err(()),
+        Some(tx) => tx.send(TaskEvent::Status(ev)).map_err(|_| NoLiveChannel),
+        None => Err(NoLiveChannel),
     }
 }
 

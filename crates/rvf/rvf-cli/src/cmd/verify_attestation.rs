@@ -84,6 +84,7 @@ fn find_attestation_witness_payloads(raw: &[u8]) -> Vec<Vec<u8>> {
 
 pub fn run(args: VerifyAttestationArgs) -> Result<(), Box<dyn std::error::Error>> {
     let store = RvfStore::open_readonly(Path::new(&args.file)).map_err(map_rvf_err)?;
+    crate::cmd::warn_on_metadata_recovery(&store, &args.file);
 
     let kernel_data = store.extract_kernel().map_err(map_rvf_err)?;
 

@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "repository": "ruvnet/ruvector",
+  "objective": {
+    "name": "ann_quality_per_resource",
+    "direction": "maximize",
+    "metric": "primary",
+    "computed_by": "crates/ruvector-sota-bench/harness/src/metrics.ts darwinScore, aggregated by aggregateReports",
+    "minimum_meaningful_effect": 0.005
+  },
+  "benchmark": {
+    "binary": "target/release/sota-all",
+    "runner_sets": [
+      "core",
+      "core-lsm",
+      "all"
+    ],
+    "isolated": true
+  },
+  "levers": [
+    {
+      "name": "ef_search",
+      "bounds": {
+        "minimum": 1,
+        "maximum": 4096
+      }
+    },
+    {
+      "name": "m",
+      "bounds": {
+        "minimum": 2,
+        "maximum": 128
+      }
+    },
+    {
+      "name": "ef_construction",
+      "bounds": {
+        "minimum": 4,
+        "maximum": 4096
+      }
+    },
+    {
+      "name": "runner_set",
+      "values": [
+        "core",
+        "core-lsm",
+        "all"
+      ]
+    }
+  ],
+  "protected_invariants": {
+    "required_veto_providers": [
+      "capabilityVetoProvider",
+      "dreamMachineVetoProvider",
+      "harnessRiskVetoProvider"
+    ],
+    "hard_regressions": [
+      "recall_regressed",
+      "resource_cost_worsened",
+      "hard_regression",
+      "anchor_regressed"
+    ]
+  },
+  "budget": {
+    "cost_ceiling_factor": 1.05,
+    "max_generations": 4,
+    "wall_clock_seconds": 1800,
+    "risk_budget_total": 8
+  },
+  "promotion": {
+    "comparison": "paired",
+    "alpha": 0.05,
+    "outcome_rules": {
+      "pass": "ci_lower_at_or_above_minimum_meaningful_effect",
+      "fail": "ci_upper_at_or_below_zero",
+      "inconclusive": "otherwise"
+    },
+    "pareto": {
+      "objectives": [
+        {
+          "name": "primary",
+          "direction": "maximize"
+        },
+        {
+          "name": "costPerWin",
+          "direction": "minimize"
+        }
+      ],
+      "require_non_dominated": true
+    }
+  }
+}

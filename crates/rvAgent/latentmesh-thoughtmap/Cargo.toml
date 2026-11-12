@@ -1,0 +1,19 @@
+[package]
+name = "latentmesh-thoughtmap"
+version = "0.1.0"
+edition = "2021"
+description = "DeAR-pattern decentralized capability-grounded reasoning over a shared thought map (PIR WP23, ADR-326). First latentmesh-* crate; extended by ADR-309 WP5 transport crates."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/RuVector"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+# Research-tier greenfield crate (PIR WP23). Correctness + suspicious lints
+# stay denied; doc/style churn deferred, matching sibling rvAgent crates.
+[lints.rust]
+missing_docs = "allow"

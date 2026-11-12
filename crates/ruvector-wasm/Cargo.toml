@@ -13,9 +13,9 @@ description = "WASM bindings for Ruvector including kernel pack system (ADR-005)
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-ruvector-core = { path = "../ruvector-core", default-features = false, features = ["memory-only", "uuid-support"] }
-ruvector-collections = { path = "../ruvector-collections", optional = true }
-ruvector-filter = { path = "../ruvector-filter", optional = true }
+ruvector-core = { version = "2.3.0", path = "../ruvector-core", default-features = false, features = ["memory-only", "uuid-support"] }
+ruvector-collections = { version = "2.3.0", path = "../ruvector-collections", optional = true }
+ruvector-filter = { version = "2.3.0", path = "../ruvector-filter", optional = true }
 parking_lot = { workspace = true }
 getrandom = { workspace = true }
 

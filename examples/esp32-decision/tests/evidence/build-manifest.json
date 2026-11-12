@@ -1,0 +1,65 @@
+{
+  "idf_version": "v5.4.4",
+  "idf_commit": "296b6eab9445fd720e71aecab961e2d3fbca9944",
+  "targets": {
+    "esp32s3": {
+      "files": {
+        "ruvector_decision.bin": {
+          "bytes": 186320,
+          "sha256": "612e99f99d7994530a4aa001640c66e0cec2690d167426785de8dcf8f5d83ffd"
+        },
+        "merged-binary.bin": {
+          "bytes": 251856,
+          "sha256": "0a6d72028aab322385cb0654c21eaf9f2a4aeb940eed5a85e0b95c5d9fa91669"
+        },
+        "bootloader/bootloader.bin": {
+          "bytes": 18800,
+          "sha256": "6c687e27164eeeda73e596d6037f744b1ab41b341f3dfdda2ab0aff664e15024"
+        },
+        "partition_table/partition-table.bin": {
+          "bytes": 3072,
+          "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820"
+        }
+      },
+      "kernel_defines": [
+        "RD_PAIR_DOT",
+        "RD_LIBM_ROUND"
+      ]
+    },
+    "esp32c6": {
+      "files": {
+        "ruvector_decision.bin": {
+          "bytes": 154448,
+          "sha256": "11cdeb8c37075969874ef1937d2ca1096b9e3946fe5130ae62d6941075ad884c"
+        },
+        "merged-binary.bin": {
+          "bytes": 219984,
+          "sha256": "7c0961457e449e790a5cb0d73ab4840c51f4eff494ba3ddec768ddb18723608c"
+        },
+        "bootloader/bootloader.bin": {
+          "bytes": 19648,
+          "sha256": "2e89578766894be8b2c0dd491331050b366e6d2bff3a396a58884b411c29d946"
+        },
+        "partition_table/partition-table.bin": {
+          "bytes": 3072,
+          "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820"
+        }
+      },
+      "kernel_defines": [
+        "RD_PAIR_DOT"
+      ]
+    }
+  },
+  "physical_hardware_tested": false,
+  "model": "synthetic numeric fixture, 32 features, 3 classes",
+  "quantization_bits": 16,
+  "parameters_bytes": 492,
+  "fp32_parameters_bytes": 1036,
+  "inference_workspace_bytes": 1732,
+  "default_flash_bytes": 4194304,
+  "requires_psram": false,
+  "console": "UART0 115200 baud",
+  "static_app_buffers_bytes": 2692,
+  "baseline_commit": "739a5621043f9b0f0ffc263c46d1d2f7aeb9495f",
+  "kernel_sha256": "b9d41b7589740df3cd442ac1bf02ba0c52f98bda4aca58f979316e353bdd4d40"
+}

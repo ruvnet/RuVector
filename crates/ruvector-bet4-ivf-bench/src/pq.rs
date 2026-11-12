@@ -128,7 +128,13 @@ impl PqIvf {
         max_iter: usize,
         seed: u64,
     ) -> Self {
-        Self::from_parts(&build_ivf(corpus, nclusters, max_iter, seed), corpus, m, max_iter, seed)
+        Self::from_parts(
+            &build_ivf(corpus, nclusters, max_iter, seed),
+            corpus,
+            m,
+            max_iter,
+            seed,
+        )
     }
 
     /// Construct from a pre-built shared [`IvfParts`] (skips re-clustering) and train the `m`-sub
@@ -159,7 +165,8 @@ impl PqIvf {
             let hi = lo + sub;
             let subvecs: Vec<Vec<f32>> = corpus.iter().map(|v| v[lo..hi].to_vec()).collect();
             let kc_pq = PQ_CENTROIDS.min(n).max(1);
-            let (subcentroids, subassign) = kmeans::train(&subvecs, kc_pq, max_iter, seed + 1 + j as u64);
+            let (subcentroids, subassign) =
+                kmeans::train(&subvecs, kc_pq, max_iter, seed + 1 + j as u64);
             for (code_row, &c) in codes.iter_mut().zip(subassign.iter()) {
                 code_row[j] = c as u8;
             }

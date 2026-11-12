@@ -1,0 +1,20 @@
+# cargo-nextest configuration.
+#
+# Without a terminate-after bound, a test that hangs rather than fails runs
+# until the GitHub Actions job timeout — `ruvector-delta-index`'s
+# test_insert_and_search burned 3h52m of a 240-minute budget this way (see
+# issue #825). Report a test as SLOW after each 120s period and kill it after
+# 5 periods (10 minutes), surfacing it as a normal test failure.
+[profile.default]
+slow-timeout = { period = "120s", terminate-after = 5 }
+
+# The heavy CI shards (ml-research-heavy, core-and-rest-heavy) host tests that
+# can exceed the 10-minute default (ruvector-mincut determinism_tests,
+# ruvector-nervous-system::pattern_separation_collision_rate). They get a
+# 30-minute per-test bound. This was 90 minutes, which let the
+# ruvector-mincut::subpolynomial tests run 40+ minutes each on a redundant
+# LocalKCut loop (fixed) without ever failing; none needs more than ~10
+# minutes now (ledger ci:tests-shard-hang).
+[[profile.default.overrides]]
+filter = 'package(ruvector-attention) | package(ruvector-mincut) | package(ruvector-fpga-transformer) | package(ruvector-graph-transformer) | package(ruvllm) | package(ruvllm-cli) | package(ruvector-dag) | package(ruvector-nervous-system) | package(ruvector-math) | package(ruvector-consciousness) | package(mcp-brain) | package(ruvector-decompiler)'
+slow-timeout = { period = "300s", terminate-after = 6 }

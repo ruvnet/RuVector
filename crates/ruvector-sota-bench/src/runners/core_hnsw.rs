@@ -73,8 +73,11 @@ pub fn run_core_hnsw(
     let total_s = latencies.iter().sum::<u128>() as f64 / 1e9;
     let qps = n_q / total_s;
 
-    // Rough memory: raw floats × 1.5 for HNSW graph overhead
-    let memory_mb = (dataset.corpus.len() * dataset.dims * 4) as f64 / (1024.0 * 1024.0) * 1.5;
+    // Account raw payload separately from the estimated HNSW graph overhead.
+    let encoded_payload_bytes = dataset.corpus.len() * dataset.dims * 4;
+    let memory_mb = encoded_payload_bytes as f64 / (1024.0 * 1024.0) * 1.5;
+    let estimated_total_bytes = (memory_mb * 1024.0 * 1024.0) as usize;
+    let index_graph_bytes = estimated_total_bytes.saturating_sub(encoded_payload_bytes);
 
     let score = darwin_score(
         mr10,
@@ -104,6 +107,18 @@ pub fn run_core_hnsw(
             ("m".to_string(), m.to_string()),
             ("ef_construction".to_string(), ef_construction.to_string()),
             ("ef_search".to_string(), ef_search.to_string()),
+            (
+                "encoded_payload_bytes".to_string(),
+                encoded_payload_bytes.to_string(),
+            ),
+            (
+                "index_graph_bytes".to_string(),
+                index_graph_bytes.to_string(),
+            ),
+            (
+                "memory_accounting_kind".to_string(),
+                "estimated".to_string(),
+            ),
         ]
         .into(),
     })

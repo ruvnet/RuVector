@@ -7,6 +7,7 @@
 //! "Technology should be benevolent — built not for extraction,
 //!  but for the enrichment of human understanding." — rUv
 
+use crate::text::truncate_at_char_boundary;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -799,7 +800,7 @@ impl BrainTrainer {
                             .unwrap_or(0);
 
                         if cited > 50 {
-                            let truncated = &title[..title.len().min(80)];
+                            let truncated = truncate_at_char_boundary(title, 80);
                             discoveries.push(Discovery {
                                 id: Uuid::new_v4(),
                                 domain: DiscoveryDomain::AcademicResearch,

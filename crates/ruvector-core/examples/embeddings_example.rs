@@ -22,7 +22,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (db, provider_name) = if use_api {
         println!("Using OpenAI API embeddings (real semantic search)");
         let api_key = std::env::var("OPENAI_API_KEY")?;
-        let provider = Arc::new(ApiEmbedding::openai(&api_key, "text-embedding-3-small"));
+        let identity_json = std::env::var("RUVECTOR_EMBEDDING_SPACE_IDENTITY").map_err(|_| {
+            "RUVECTOR_EMBEDDING_SPACE_IDENTITY must contain the pinned ADR-281 identity JSON"
+        })?;
+        let identity = serde_json::from_str(&identity_json)?;
+        let provider = Arc::new(ApiEmbedding::openai(
+            &api_key,
+            "text-embedding-3-small",
+            identity,
+        )?);
 
         let mut options = DbOptions::default();
         options.dimensions = 1536; // OpenAI text-embedding-3-small

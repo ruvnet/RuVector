@@ -90,6 +90,36 @@ Baselines (HNSWlib on SIFT-128, single thread): QPS=500, memory=200MB, p99=5ms.
 
 The Darwin score ranks `rabitq-flat-f32` highest (darwin=0.997) — correct, exact search is the target the evolution should approach. `rabitq-plus` at darwin=0.983 with QPS 6,800+ is a near-SOTA candidate for the evolutionary selection pressure.
 
+## MetaHarness control plane
+
+The TypeScript adapter under [`harness/`](harness/) is pinned to the current
+MetaHarness, Darwin, Flywheel, Algorithmic Harness, Router, Workspace Probe,
+Red/Blue, and Weight-EFT releases. It provides:
+
+- shell-free benchmark execution with strict policy validation;
+- aggregate scoring that avoids selecting only the best benchmark row;
+- Darwin Pareto evolution with hash-pinned suites, bootstrap promotion, FDR,
+  a cumulative risk budget, crossover, epistasis, and curriculum;
+- direct Darwin GEPA search over constrained ANN parameters with a per-instance
+  Pareto frontier;
+- a signed Flywheel lineage with frozen-gate fingerprints, checkpoints, resume
+  state, anchor evaluation, and external replay verification; and
+- a capability doctor for routing, workspace evidence, control-plane,
+  adversarial testing, and reward-hack detection.
+
+```bash
+cd crates/ruvector-sota-bench/harness
+npm ci --ignore-scripts
+npm test
+npm run doctor
+```
+
+Holdout and frozen-anchor suites use disjoint pinned dataset/seed identities.
+Real datasets are hashed before execution; paired bootstrap results that are
+inconclusive cannot promote. Flywheel output is evidence only. It explicitly
+cannot authorize or create a PR; candidate promotion remains subject to
+ADR-282's isolated confirmation and trusted PR-creation workflows.
+
 ---
 
 ## SOTA Claims vs Public Leaderboards
@@ -142,7 +172,9 @@ ruvector-sota-bench/
 │       ├── sota_ann.rs     — ANN-Benchmarks sweep (recall vs QPS CSV)
 │       └── sota_streaming.rs — BigANN streaming track
 └── harness/
-    └── scorePolicy.ts      — Darwin Mode fitness score (reads JSON report)
+    ├── scorePolicy.ts      — Darwin-compatible fail-closed score surface
+    ├── src/                — benchmark, Darwin, Flywheel, capability adapters
+    └── test/               — policy, metrics, routing, replay acceptance tests
 ```
 
 ---

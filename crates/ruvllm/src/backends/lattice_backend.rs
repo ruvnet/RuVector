@@ -17,8 +17,9 @@
 //! `lattice_serve.rs` (lattice's own OpenAI-compatible server binary) already
 //! uses for the identical problem, just riding plain `std::sync::mpsc`
 //! instead of tokio's, since ruvllm's [`TokenStream`](super::TokenStream) is
-//! std-mpsc-backed. [`LatticeBackend`] holds only a `Sender<Job>`; the
-//! `!Send` state never crosses a thread boundary.
+//! std-mpsc-backed. [`LatticeBackend`] holds the command sender and worker
+//! handle; the `!Send` state never crosses a thread boundary. Unload and
+//! drop join the worker after closing the command channel.
 //!
 //! ## Lattice Backend Example
 //!
@@ -39,15 +40,16 @@
 //! ```
 
 use super::{
-    GenerateParams, GeneratedToken, LlmBackend, ModelArchitecture, ModelConfig, ModelInfo,
-    Quantization, SpecialTokens, StreamEvent, TokenStream, Tokenizer,
+    AdapterInfo, GenerateParams, GeneratedToken, LlmBackend, ModelArchitecture, ModelConfig,
+    ModelInfo, Quantization, SpecialTokens, StreamEvent, TokenStream, Tokenizer,
 };
-use crate::error::{Result, RuvLLMError};
+use crate::error::{ModelAdapterError, Result, RuvLLMError};
 
 use lattice_inference::forward::metal_qwen35::MetalQwen35State;
 use lattice_inference::model::qwen35::Qwen35Model;
-use lattice_inference::model::qwen35_config::{GenerateConfig, Qwen35Config};
+use lattice_inference::model::qwen35_config::Qwen35Config;
 use lattice_inference::tokenizer::bpe::BpeTokenizer;
+use lattice_inference::GenerateConfig;
 // Brought into scope for method-resolution only (`.tokenize()`/`.decode()` on
 // `BpeTokenizer` are trait-provided, not inherent), aliased because ruvllm
 // already has its own `Tokenizer` trait (`super::Tokenizer`) in this file.
@@ -59,6 +61,12 @@ use std::sync::mpsc;
 use std::sync::Arc;
 use std::time::Instant;
 
+mod adapter;
+#[cfg(test)]
+mod adapter_tests;
+
+type AdapterResult<T> = std::result::Result<T, ModelAdapterError>;
+
 /// How a `generate`/`generate_stream_v2` job wants its result delivered.
 enum Reply {
     /// `generate`: block for the whole accumulated string.
@@ -67,16 +75,39 @@ enum Reply {
     Stream(mpsc::Sender<StreamEvent>),
 }
 
-/// A generation request handed to the dedicated Metal worker thread.
+/// Operations serialized on the thread that owns the Metal state.
 ///
 /// Mirrors `lattice_serve.rs`'s `Job`/`spawn_worker`/worker-loop shape (the
 /// existing, working answer to `MetalQwen35State` being `!Send`), but rides
 /// plain `std::sync::mpsc` instead of tokio's mpsc, because `TokenStream` is
 /// std-mpsc-backed.
-struct Job {
-    prompt: String,
-    params: GenerateParams,
-    reply: Reply,
+enum Job {
+    Generate {
+        prompt: String,
+        params: GenerateParams,
+        reply: Reply,
+    },
+    LoadAdapter {
+        path: PathBuf,
+        scale: f32,
+        reply: mpsc::Sender<AdapterResult<()>>,
+    },
+    UnloadAdapter {
+        reply: mpsc::Sender<AdapterResult<()>>,
+    },
+    ActiveAdapter {
+        reply: mpsc::Sender<AdapterResult<Option<AdapterInfo>>>,
+    },
+    #[cfg(test)]
+    AdapterLogits {
+        tokens: Vec<u32>,
+        reply: mpsc::Sender<AdapterResult<Vec<f32>>>,
+    },
+    #[cfg(test)]
+    FailNextAdapterInstalls {
+        count: usize,
+        reply: mpsc::Sender<AdapterResult<()>>,
+    },
 }
 
 /// Everything the backend needs once the worker thread has finished loading,
@@ -93,20 +124,20 @@ struct WorkerReady {
 /// are rejected up front in `generate`/`generate_stream_v2` rather than
 /// silently ignored here; see [`reject_unsupported_params`].
 ///
-/// `stop_strings` is mapped for forward compatibility, but lattice's Metal
-/// generation loops only honor EOS/`stop_token_ids` today, so the backend
-/// additionally enforces string stops itself via [`StopScan`].
+/// String stops are passed to Lattice and the existing local scanner also
+/// protects the backend's streamed-text boundary.
 fn to_generate_config(params: &GenerateParams) -> GenerateConfig {
-    GenerateConfig {
-        max_new_tokens: params.max_tokens,
-        temperature: params.temperature,
-        top_k: params.top_k,
-        top_p: params.top_p,
-        repetition_penalty: params.repetition_penalty,
-        seed: params.seed,
-        stop_strings: params.stop_sequences.clone(),
-        ..GenerateConfig::default()
-    }
+    // `GenerateConfig` is `#[non_exhaustive]`, so it is built from its default
+    // and the mapped fields are assigned one by one.
+    let mut cfg = GenerateConfig::default();
+    cfg.max_new_tokens = params.max_tokens;
+    cfg.temperature = params.temperature;
+    cfg.top_k = params.top_k;
+    cfg.top_p = params.top_p;
+    cfg.repetition_penalty = params.repetition_penalty;
+    cfg.seed = params.seed;
+    cfg.stop_strings = params.stop_sequences.clone();
+    cfg
 }
 
 /// Reject `GenerateParams` values this backend cannot honor, instead of
@@ -126,14 +157,12 @@ fn reject_unsupported_params(params: &GenerateParams) -> Result<()> {
 
 /// Incremental stop-string scanner over streamed deltas.
 ///
-/// lattice's Metal generation loops stop on EOS/`stop_token_ids` but do not
-/// read `GenerateConfig::stop_strings` today (the field is honored on the CPU
-/// path only), so the backend enforces string stops here: scan the
+/// The backend retains its own streamed-text boundary check: scan the
 /// accumulated text, hold back the longest possible stop-string prefix so a
 /// partial match never leaks to the caller, and cut generation through the
 /// token callback's `false` return as soon as a stop matches. The matched
 /// stop string itself is excluded from the output, matching
-/// `GenerateConfig::stop_strings`' documented CPU-path semantics.
+/// `GenerateConfig::stop_strings` semantics.
 struct StopScan {
     stops: Vec<String>,
     /// Bytes to hold back: the longest stop is `hold + 1` bytes long, so any
@@ -307,6 +336,35 @@ fn load_worker_state(
     Ok((metal, tokenizer, info))
 }
 
+fn adapter_backend_error(message: impl Into<String>) -> ModelAdapterError {
+    ModelAdapterError::Backend {
+        message: message.into(),
+    }
+}
+
+#[derive(Default)]
+struct AdapterInstaller {
+    #[cfg(test)]
+    failures_remaining: usize,
+}
+
+impl AdapterInstaller {
+    fn install(
+        &mut self,
+        state: &mut MetalQwen35State,
+        prepared: &adapter::PreparedAdapter,
+    ) -> AdapterResult<()> {
+        #[cfg(test)]
+        if self.failures_remaining > 0 {
+            self.failures_remaining -= 1;
+            return Err(adapter_backend_error(
+                "injected adapter installation failure",
+            ));
+        }
+        prepared.install(state)
+    }
+}
+
 /// Spawn the dedicated thread that owns the `!Send` `MetalQwen35State` for
 /// the lifetime of the loaded model. Reuses `lattice_serve.rs`'s worker shape
 /// (module doc :29-32, `spawn_worker` :244, `run_worker_loop` :289): the
@@ -320,9 +378,11 @@ fn spawn_worker(
     is_q4: bool,
     max_seq_len_hint: usize,
     ready: mpsc::Sender<std::result::Result<WorkerReady, String>>,
-) -> mpsc::Sender<Job> {
+) -> (mpsc::Sender<Job>, std::thread::JoinHandle<()>) {
     let (job_tx, job_rx) = mpsc::channel::<Job>();
-    std::thread::spawn(move || {
+    let worker = std::thread::spawn(move || {
+        let model_context =
+            adapter::ModelContext::read(&model_dir).map_err(|error| error.to_string());
         let loaded = load_worker_state(
             &model_dir,
             &tokenizer_path,
@@ -337,6 +397,8 @@ fn spawn_worker(
                 return;
             }
         };
+        let mut active_adapter: Option<adapter::PreparedAdapter> = None;
+        let mut installer = AdapterInstaller::default();
 
         let special = probe_special_tokens(&tokenizer);
         let special_ids: HashSet<u32> = [
@@ -362,13 +424,98 @@ fn spawn_worker(
         }
 
         for job in job_rx {
-            let cfg = to_generate_config(&job.params);
-            match job.reply {
+            let (prompt, params, reply) = match job {
+                Job::Generate {
+                    prompt,
+                    params,
+                    reply,
+                } => (prompt, params, reply),
+                Job::LoadAdapter { path, scale, reply } => {
+                    let result = (|| {
+                        let prepared = adapter::prepare_captured(&model_context, &path, scale)?;
+                        metal.unload_lora_adapter();
+                        metal.reset_state();
+                        if let Err(install_error) = installer.install(&mut metal, &prepared) {
+                            metal.unload_lora_adapter();
+                            metal.reset_state();
+                            if let Some(previous) = active_adapter.as_ref() {
+                                if let Err(restore_error) = installer.install(&mut metal, previous)
+                                {
+                                    metal.unload_lora_adapter();
+                                    metal.reset_state();
+                                    active_adapter = None;
+                                    return Err(adapter_backend_error(format!(
+                                        "adapter installation failed: {install_error}; \
+                                         previous adapter restoration also failed: {restore_error}; \
+                                         no active adapter; base-model generation is active"
+                                    )));
+                                }
+                                metal.reset_state();
+                                return Err(adapter_backend_error(format!(
+                                    "adapter installation failed: {install_error}; \
+                                     previous adapter restored"
+                                )));
+                            }
+                            return Err(adapter_backend_error(format!(
+                                "adapter installation failed: {install_error}; \
+                                 no active adapter; base-model generation is active"
+                            )));
+                        }
+                        metal.reset_state();
+                        active_adapter = Some(prepared);
+                        Ok(())
+                    })();
+                    let _ = reply.send(result);
+                    continue;
+                }
+                Job::UnloadAdapter { reply } => {
+                    metal.unload_lora_adapter();
+                    metal.reset_state();
+                    active_adapter = None;
+                    let _ = reply.send(Ok(()));
+                    continue;
+                }
+                Job::ActiveAdapter { reply } => {
+                    let _ = reply.send(Ok(active_adapter
+                        .as_ref()
+                        .map(|adapter| adapter.info.clone())));
+                    continue;
+                }
+                #[cfg(test)]
+                Job::FailNextAdapterInstalls { count, reply } => {
+                    installer.failures_remaining = count;
+                    let _ = reply.send(Ok(()));
+                    continue;
+                }
+                #[cfg(test)]
+                Job::AdapterLogits { tokens, reply } => {
+                    metal.reset_state();
+                    let result = (|| {
+                        if tokens.is_empty() {
+                            return Err(adapter_backend_error("logit probe requires tokens"));
+                        }
+                        let mut logits = Vec::new();
+                        for (position, token) in tokens.into_iter().enumerate() {
+                            logits = metal.try_forward_step(token, position).map_err(|error| {
+                                adapter_backend_error(format!(
+                                    "adapter logit probe failed: {error}"
+                                ))
+                            })?;
+                        }
+                        Ok(logits)
+                    })();
+                    metal.reset_state();
+                    let _ = reply.send(result);
+                    continue;
+                }
+            };
+            let cfg = to_generate_config(&params);
+            match reply {
                 Reply::Once(tx) => {
                     let result = match StopScan::new(&cfg.stop_strings) {
                         // No stop strings: the plain accumulate-everything path.
                         None => metal
-                            .generate(&job.prompt, &tokenizer, &cfg)
+                            .generate(&prompt, &tokenizer, &cfg)
                             .map(|out| out.text),
                         // Stop strings requested: drive the streaming loop so a
                         // match actually HALTS generation (StopScan doc above),
@@ -377,7 +524,7 @@ fn spawn_worker(
                             let mut text = String::new();
                             metal
                                 .generate_streaming_with_cancel(
-                                    &job.prompt,
+                                    &prompt,
                                     &tokenizer,
                                     &cfg,
                                     |delta, _id| {
@@ -407,7 +554,7 @@ fn spawn_worker(
                     // monotone); the flushed tail reuses the last seen id.
                     let mut last_id = 0u32;
                     let result = metal.generate_streaming_with_cancel(
-                        &job.prompt,
+                        &prompt,
                         &tokenizer,
                         &cfg,
                         |delta, id| {
@@ -468,7 +615,7 @@ fn spawn_worker(
             }
         }
     });
-    job_tx
+    (job_tx, worker)
 }
 
 /// Wraps a lattice `BpeTokenizer` (cheaply `Clone`, `Arc`-backed internally)
@@ -508,6 +655,7 @@ pub struct LatticeBackend {
     /// though the `!Send` `MetalQwen35State` it feeds jobs to is not; the
     /// state itself never leaves the dedicated worker thread.
     jobs: Option<mpsc::Sender<Job>>,
+    worker: Option<std::thread::JoinHandle<()>>,
     info: Option<ModelInfo>,
     /// Cloneable snapshot for `tokenizer()`.
     tok: Option<Arc<LatticeTok>>,
@@ -518,6 +666,7 @@ impl Default for LatticeBackend {
     fn default() -> Self {
         Self {
             jobs: None,
+            worker: None,
             info: None,
             tok: None,
             model_id: String::new(),
@@ -535,6 +684,38 @@ impl LatticeBackend {
     pub fn new() -> Result<Self> {
         Ok(Self::default())
     }
+
+    fn adapter_request<T>(
+        &self,
+        command: impl FnOnce(mpsc::Sender<AdapterResult<T>>) -> Job,
+    ) -> AdapterResult<T> {
+        let jobs = self
+            .jobs
+            .as_ref()
+            .ok_or(ModelAdapterError::ModelNotLoaded)?;
+        let (reply, response) = mpsc::channel();
+        jobs.send(command(reply))
+            .map_err(|_| adapter_backend_error("lattice worker thread has exited"))?;
+        response.recv().map_err(|_| {
+            adapter_backend_error("lattice worker thread dropped the adapter reply channel")
+        })?
+    }
+
+    #[cfg(test)]
+    fn adapter_logits(&self, tokens: Vec<u32>) -> AdapterResult<Vec<f32>> {
+        self.adapter_request(|reply| Job::AdapterLogits { tokens, reply })
+    }
+
+    #[cfg(test)]
+    fn adapter_fail_next_installs(&self, count: usize) -> AdapterResult<()> {
+        self.adapter_request(|reply| Job::FailNextAdapterInstalls { count, reply })
+    }
+}
+
+impl Drop for LatticeBackend {
+    fn drop(&mut self) {
+        self.unload_model();
+    }
 }
 
 impl LlmBackend for LatticeBackend {
@@ -545,6 +726,10 @@ impl LlmBackend for LatticeBackend {
                 "lattice backend requires a local model directory; '{model_id}' is not a directory"
             )));
         }
+        let model_dir = std::fs::canonicalize(path).map_err(|error| {
+            RuvLLMError::Model(format!("cannot resolve base model directory: {error}"))
+        })?;
+        let path = model_dir.as_path();
         let tokenizer_path = path.join("tokenizer.json");
         if !tokenizer_path.exists() {
             return Err(RuvLLMError::NotFound(format!(
@@ -583,7 +768,7 @@ impl LlmBackend for LatticeBackend {
         }
 
         let (ready_tx, ready_rx) = mpsc::channel();
-        let job_tx = spawn_worker(
+        let (job_tx, worker) = spawn_worker(
             path.to_path_buf(),
             tokenizer_path,
             config_path,
@@ -592,22 +777,55 @@ impl LlmBackend for LatticeBackend {
             ready_tx,
         );
 
-        let ready = ready_rx.recv().map_err(|_| {
-            RuvLLMError::Backend(
-                "lattice worker thread exited before signaling readiness".to_string(),
-            )
-        })?;
-        let worker_ready = ready.map_err(RuvLLMError::Model)?;
+        let mut worker_ready = match ready_rx.recv() {
+            Ok(Ok(ready)) => ready,
+            failed => {
+                drop(job_tx);
+                let _ = worker.join();
+                return Err(match failed {
+                    Ok(Err(error)) => RuvLLMError::Model(error),
+                    _ => RuvLLMError::Backend(
+                        "lattice worker thread exited before signaling readiness".to_string(),
+                    ),
+                });
+            }
+        };
 
+        worker_ready.info.name = model_id.to_owned();
         let special = probe_special_tokens(&worker_ready.tokenizer);
+        self.unload_model();
         self.tok = Some(Arc::new(LatticeTok {
             inner: worker_ready.tokenizer,
             special,
         }));
         self.info = Some(worker_ready.info);
         self.jobs = Some(job_tx);
-        self.model_id = model_id.to_string();
+        self.worker = Some(worker);
+        self.model_id = path.display().to_string();
         Ok(())
+    }
+
+    fn load_lora_adapter(
+        &mut self,
+        path: &Path,
+        scale: f32,
+    ) -> std::result::Result<(), ModelAdapterError> {
+        if self.jobs.is_none() {
+            return Err(ModelAdapterError::ModelNotLoaded);
+        }
+        if !scale.is_finite() {
+            return Err(ModelAdapterError::InvalidScale { scale });
+        }
+        let path = path.to_path_buf();
+        self.adapter_request(|reply| Job::LoadAdapter { path, scale, reply })
+    }
+
+    fn unload_lora_adapter(&mut self) -> std::result::Result<(), ModelAdapterError> {
+        self.adapter_request(|reply| Job::UnloadAdapter { reply })
+    }
+
+    fn active_lora_adapter(&self) -> std::result::Result<Option<AdapterInfo>, ModelAdapterError> {
+        self.adapter_request(|reply| Job::ActiveAdapter { reply })
     }
 
     fn generate(&self, prompt: &str, params: GenerateParams) -> Result<String> {
@@ -617,7 +835,7 @@ impl LlmBackend for LatticeBackend {
             .as_ref()
             .ok_or_else(|| RuvLLMError::InvalidOperation("No model loaded".to_string()))?;
         let (tx, rx) = mpsc::channel();
-        jobs.send(Job {
+        jobs.send(Job::Generate {
             prompt: prompt.to_string(),
             params,
             reply: Reply::Once(tx),
@@ -651,7 +869,7 @@ impl LlmBackend for LatticeBackend {
             .as_ref()
             .ok_or_else(|| RuvLLMError::InvalidOperation("No model loaded".to_string()))?;
         let (tx, stream) = TokenStream::channel();
-        jobs.send(Job {
+        jobs.send(Job::Generate {
             prompt: prompt.to_string(),
             params,
             reply: Reply::Stream(tx),
@@ -686,10 +904,12 @@ impl LlmBackend for LatticeBackend {
     }
 
     fn unload_model(&mut self) {
-        // Dropping the job `Sender` closes the worker's channel; its `for job
-        // in job_rx` loop ends and the thread exits, dropping the `!Send`
-        // `MetalQwen35State` on the thread that owns it.
+        // Join after closing the channel so model destruction finishes before
+        // the caller releases resources that protect Metal access.
         self.jobs = None;
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
         self.info = None;
         self.tok = None;
         self.model_id.clear();

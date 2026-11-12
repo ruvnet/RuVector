@@ -21,6 +21,7 @@
 use std::collections::HashMap;
 
 /// In-memory vector storage: contiguous row-major slab + id mapping.
+#[derive(Clone)]
 pub(crate) struct VectorData {
     /// Fixed dimension of every row.
     pub dimension: u16,

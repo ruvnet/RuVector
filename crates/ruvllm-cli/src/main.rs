@@ -11,7 +11,7 @@
 //! - `ruvllm serve <model>` - Start inference server
 //! - `ruvllm chat <model>` - Interactive chat mode
 //! - `ruvllm benchmark <model>` - Run performance benchmarks
-//! - `ruvllm quantize <model>` - Quantize model to GGUF format
+//! - `ruvllm quantize <model>` - Quantize model to GGUF format (not yet implemented; fails closed, #968)
 
 use clap::{Parser, Subcommand};
 use colored::Colorize;
@@ -109,6 +109,30 @@ enum Commands {
         /// Quantization format
         #[arg(short, long, default_value = "q4k")]
         quantization: String,
+
+        /// If the model fails to load, serve labeled placeholder responses
+        /// instead of exiting (client development only). Every placeholder
+        /// response carries `x-ruvllm-mode: mock` and
+        /// `system_fingerprint: "ruvllm-mock"`.
+        #[arg(
+            long = "allow-mock",
+            alias = "mock",
+            env = "RUVLLM_ALLOW_MOCK",
+            action = clap::ArgAction::SetTrue,
+            value_parser = clap::builder::FalseyValueParser::new()
+        )]
+        allow_mock: bool,
+
+        /// Deprecated: exiting when the model fails to load is now the
+        /// default. Accepted for compatibility; conflicts with --allow-mock.
+        #[arg(
+            long,
+            hide = true,
+            env = "RUVLLM_STRICT",
+            action = clap::ArgAction::SetTrue,
+            value_parser = clap::builder::FalseyValueParser::new()
+        )]
+        strict: bool,
     },
 
     /// Interactive chat mode
@@ -144,6 +168,17 @@ enum Commands {
         /// Number of speculative tokens to generate ahead (2-8)
         #[arg(long, default_value = "4")]
         speculative_lookahead: usize,
+
+        /// If the model fails to load, reply with labelled placeholder text
+        /// instead of exiting (development only).
+        #[arg(
+            long = "allow-mock",
+            alias = "mock",
+            env = "RUVLLM_ALLOW_MOCK",
+            action = clap::ArgAction::SetTrue,
+            value_parser = clap::builder::FalseyValueParser::new()
+        )]
+        allow_mock: bool,
     },
 
     /// Run performance benchmarks
@@ -177,14 +212,11 @@ enum Commands {
         format: String,
     },
 
-    /// Quantize a model to GGUF format
+    /// Quantize a model to GGUF format (NOT YET IMPLEMENTED)
     ///
-    /// Supports Q4_K_M (4-bit), Q5_K_M (5-bit), and Q8_0 (8-bit) quantization.
-    /// Optimized for Apple Neural Engine (ANE) inference on M4 Pro.
-    ///
-    /// Examples:
-    ///   ruvllm quantize --model qwen-0.5b --output ruvltra-small-q4.gguf --quant q4_k_m
-    ///   ruvllm quantize --model ./model.safetensors --quant q8_0 --ane-optimize
+    /// The GGUF tensor writer is not implemented yet: this command validates
+    /// its arguments and exits with an error without writing any output (#968).
+    /// Use llama.cpp's convert_hf_to_gguf.py + llama-quantize meanwhile.
     #[command(alias = "quant")]
     Quantize {
         /// Model to quantize (path or HuggingFace ID)
@@ -279,6 +311,8 @@ async fn main() -> anyhow::Result<()> {
             max_concurrent,
             max_context,
             quantization,
+            allow_mock,
+            strict,
         } => {
             serve::run(
                 &model,
@@ -288,6 +322,8 @@ async fn main() -> anyhow::Result<()> {
                 max_context,
                 &quantization,
                 &cache_dir,
+                allow_mock,
+                strict,
             )
             .await
         }
@@ -300,6 +336,7 @@ async fn main() -> anyhow::Result<()> {
             quantization,
             speculative,
             speculative_lookahead,
+            allow_mock,
         } => {
             chat::run(
                 &model,
@@ -310,6 +347,7 @@ async fn main() -> anyhow::Result<()> {
                 &cache_dir,
                 speculative.as_deref(),
                 speculative_lookahead,
+                allow_mock,
             )
             .await
         }

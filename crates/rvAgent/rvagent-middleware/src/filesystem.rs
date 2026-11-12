@@ -39,7 +39,7 @@ impl Middleware for FilesystemMiddleware {
         "filesystem"
     }
 
-    fn before_agent(
+    async fn before_agent(
         &self,
         _state: &AgentState,
         _runtime: &Runtime,
@@ -77,6 +77,7 @@ impl Middleware for FilesystemMiddleware {
 macro_rules! fs_tool {
     ($name:ident, $tool_name:expr, $desc:expr, $schema:expr) => {
         struct $name;
+        #[async_trait]
         impl Tool for $name {
             fn name(&self) -> &str {
                 $tool_name
@@ -84,10 +85,10 @@ macro_rules! fs_tool {
             fn description(&self) -> &str {
                 $desc
             }
-            fn parameters_schema(&self) -> serde_json::Value {
+            fn input_schema(&self) -> serde_json::Value {
                 $schema
             }
-            fn invoke(&self, _args: serde_json::Value) -> Result<String, String> {
+            async fn invoke(&self, _args: serde_json::Value) -> Result<String, String> {
                 Err("filesystem tool must be invoked through the agent runtime".into())
             }
         }
@@ -225,22 +226,22 @@ mod tests {
         assert!(names.contains(&"execute"));
     }
 
-    #[test]
-    fn test_before_agent_no_cwd() {
+    #[tokio::test]
+    async fn test_before_agent_no_cwd() {
         let mw = FilesystemMiddleware::new();
         let state = AgentState::default();
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
-        assert!(mw.before_agent(&state, &runtime, &config).is_none());
+        assert!(mw.before_agent(&state, &runtime, &config).await.is_none());
     }
 
-    #[test]
-    fn test_before_agent_with_cwd() {
+    #[tokio::test]
+    async fn test_before_agent_with_cwd() {
         let mw = FilesystemMiddleware::with_cwd("/tmp/test");
         let state = AgentState::default();
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
-        let update = mw.before_agent(&state, &runtime, &config);
+        let update = mw.before_agent(&state, &runtime, &config).await;
         assert!(update.is_some());
         let ext = &update.unwrap().extensions;
         assert_eq!(
@@ -249,11 +250,11 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_tools_return_error_without_runtime() {
+    #[tokio::test]
+    async fn test_tools_return_error_without_runtime() {
         let mw = FilesystemMiddleware::new();
         for tool in mw.tools() {
-            let result = tool.invoke(serde_json::json!({}));
+            let result = tool.invoke(serde_json::json!({})).await;
             assert!(result.is_err());
         }
     }
@@ -262,7 +263,7 @@ mod tests {
     fn test_tool_schemas_are_objects() {
         let mw = FilesystemMiddleware::new();
         for tool in mw.tools() {
-            let schema = tool.parameters_schema();
+            let schema = tool.input_schema();
             assert_eq!(schema["type"], "object");
         }
     }

@@ -38,7 +38,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// WASM agent configuration, parsed from JSON provided by the host.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WasmAgentConfig {
-    /// Model identifier (e.g. "anthropic:claude-sonnet-4-20250514").
+    /// Model identifier (e.g. "anthropic:claude-sonnet-5").
     #[serde(default = "default_model")]
     pub model: String,
 
@@ -56,7 +56,7 @@ pub struct WasmAgentConfig {
 }
 
 fn default_model() -> String {
-    "anthropic:claude-sonnet-4-20250514".to_string()
+    "anthropic:claude-sonnet-5".to_string()
 }
 
 fn default_instructions() -> String {
@@ -125,7 +125,7 @@ impl WasmAgent {
     ///
     /// # Example (JavaScript)
     /// ```js
-    /// const agent = new WasmAgent('{"model": "anthropic:claude-sonnet-4-20250514"}');
+    /// const agent = new WasmAgent('{"model": "anthropic:claude-sonnet-5"}');
     /// ```
     #[wasm_bindgen(constructor)]
     pub fn new(config_json: &str) -> Result<WasmAgent, JsValue> {
@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn test_config_defaults() {
         let cfg = WasmAgentConfig::default();
-        assert_eq!(cfg.model, "anthropic:claude-sonnet-4-20250514");
+        assert_eq!(cfg.model, "anthropic:claude-sonnet-5");
         assert!(cfg.name.is_none());
         assert_eq!(cfg.max_turns, 50);
         assert!(!cfg.instructions.is_empty());

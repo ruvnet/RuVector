@@ -5,14 +5,16 @@
 
 use crate::error::{Result, RuvectorError};
 use crate::types::{VectorEntry, VectorId};
-use dashmap::DashMap;
+use dashmap::{mapref::entry::Entry, DashMap};
 use serde_json::Value as JsonValue;
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// In-memory storage backend using DashMap for thread-safe concurrent access
 pub struct MemoryStorage {
     vectors: DashMap<String, Vec<f32>>,
     metadata: DashMap<String, JsonValue>,
+    config: DashMap<String, String>,
     dimensions: usize,
     counter: AtomicU64,
 }
@@ -23,15 +25,41 @@ impl MemoryStorage {
         Ok(Self {
             vectors: DashMap::new(),
             metadata: DashMap::new(),
+            config: DashMap::new(),
             dimensions,
             counter: AtomicU64::new(0),
         })
     }
 
-    /// Generate a new unique ID
-    fn generate_id(&self) -> String {
-        let id = self.counter.fetch_add(1, Ordering::SeqCst);
-        format!("vec_{}", id)
+    /// Generate a candidate without wrapping into previously allocated IDs.
+    fn generate_id(&self) -> Result<String> {
+        let id = self
+            .counter
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |id| id.checked_add(1))
+            .map_err(|_| {
+                RuvectorError::StorageError("Generated vector ID space exhausted".into())
+            })?;
+        Ok(format!("vec_{}", id))
+    }
+
+    fn insert_vector(&self, entry: &VectorEntry, reserved: &HashSet<&str>) -> Result<VectorId> {
+        if let Some(id) = &entry.id {
+            // Caller-selected IDs retain their intentional upsert semantics.
+            self.vectors.insert(id.clone(), entry.vector.clone());
+            return Ok(id.clone());
+        }
+        loop {
+            let id = self.generate_id()?;
+            if reserved.contains(id.as_str()) {
+                continue;
+            }
+            // Claim the vector slot atomically, rather than checking then
+            // overwriting a caller ID inserted by a concurrent operation.
+            if let Entry::Vacant(slot) = self.vectors.entry(id.clone()) {
+                slot.insert(entry.vector.clone());
+                return Ok(id);
+            }
+        }
     }
 
     /// Insert a vector entry
@@ -43,10 +71,7 @@ impl MemoryStorage {
             });
         }
 
-        let id = entry.id.clone().unwrap_or_else(|| self.generate_id());
-
-        // Insert vector
-        self.vectors.insert(id.clone(), entry.vector.clone());
+        let id = self.insert_vector(entry, &HashSet::new())?;
 
         // Insert metadata if present
         if let Some(metadata) = &entry.metadata {
@@ -66,8 +91,8 @@ impl MemoryStorage {
 
     /// Insert multiple vectors in a batch
     pub fn insert_batch(&self, entries: &[VectorEntry]) -> Result<Vec<VectorId>> {
-        let mut ids = Vec::with_capacity(entries.len());
-
+        // Reject the entire batch before allocating IDs or changing stored rows.
+        // VectorDB updates its search index only after this method succeeds.
         for entry in entries {
             if entry.vector.len() != self.dimensions {
                 return Err(RuvectorError::DimensionMismatch {
@@ -75,10 +100,16 @@ impl MemoryStorage {
                     actual: entry.vector.len(),
                 });
             }
+        }
 
-            let id = entry.id.clone().unwrap_or_else(|| self.generate_id());
+        let mut ids = Vec::with_capacity(entries.len());
+        let reserved: HashSet<&str> = entries
+            .iter()
+            .filter_map(|entry| entry.id.as_deref())
+            .collect();
 
-            self.vectors.insert(id.clone(), entry.vector.clone());
+        for entry in entries {
+            let id = self.insert_vector(entry, &reserved)?;
 
             if let Some(metadata) = &entry.metadata {
                 self.metadata.insert(
@@ -156,12 +187,51 @@ impl MemoryStorage {
         self.metadata.clear();
         Ok(())
     }
+
+    /// Store an arbitrary configuration value for this in-memory database instance.
+    pub fn save_config_value(&self, key: &str, value: &str) -> Result<()> {
+        self.config.insert(key.to_string(), value.to_string());
+        Ok(())
+    }
+
+    /// Load a configuration value stored on this in-memory database instance.
+    pub fn load_config_value(&self, key: &str) -> Result<Option<String>> {
+        Ok(self.config.get(key).map(|value| value.clone()))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use std::collections::HashMap;
+
+    #[test]
+    fn exhausted_generated_ids_do_not_wrap_or_replace_existing_rows() {
+        let storage = MemoryStorage::new(2).unwrap();
+        let existing = VectorEntry {
+            id: Some("vec_0".into()),
+            vector: vec![1.0, 0.0],
+            metadata: None,
+        };
+        storage.insert(&existing).unwrap();
+        storage.counter.store(u64::MAX, Ordering::SeqCst);
+        let generated = VectorEntry {
+            id: None,
+            vector: vec![2.0, 0.0],
+            metadata: None,
+        };
+        assert!(matches!(
+            storage.insert(&generated),
+            Err(RuvectorError::StorageError(_))
+        ));
+        assert_eq!(storage.counter.load(Ordering::SeqCst), u64::MAX);
+        assert_eq!(storage.len().unwrap(), 1);
+        assert_eq!(
+            storage.get("vec_0").unwrap().unwrap().vector,
+            existing.vector
+        );
+        assert_eq!(storage.insert(&existing).unwrap(), "vec_0");
+    }
 
     #[test]
     fn test_insert_and_get() {
@@ -170,7 +240,10 @@ mod tests {
         let entry = VectorEntry {
             id: Some("test_1".to_string()),
             vector: vec![0.1; 128],
-            metadata: Some(json!({"key": "value"})),
+            metadata: Some(HashMap::from([(
+                "key".to_string(),
+                serde_json::Value::String("value".to_string()),
+            )])),
         };
 
         let id = storage.insert(&entry).unwrap();

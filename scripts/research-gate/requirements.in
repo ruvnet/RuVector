@@ -1,0 +1,12 @@
+# Direct dependencies of the trusted ADR-282 research gate.
+#
+# research_gate.py imports jsonschema; schema_validate.py additionally imports
+# `referencing` directly to build the offline schema registry, so it is declared
+# here rather than relied on as a transitive dependency of jsonschema.
+#
+# requirements.txt is the compiled, fully hashed lock generated from this file:
+#   uv pip compile scripts/research-gate/requirements.in \
+#     --generate-hashes --universal --python-version 3.12 \
+#     -o scripts/research-gate/requirements.txt
+jsonschema==4.23.0
+referencing

@@ -8,7 +8,8 @@
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(C)]
 pub struct SegmentHeader {
-    /// Magic number: must be `0x52564653` ("RVFS").
+    /// Magic number: must be `0x52564653` (mnemonic "RVFS"). Serialized
+    /// little-endian, so the wire bytes are `53 46 56 52`.
     pub magic: u32,
     /// Segment format version (currently 1).
     pub version: u8,

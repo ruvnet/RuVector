@@ -130,7 +130,7 @@ use router_core::{VectorDB, DistanceMetric, QuantizationType};
 
 let db = VectorDB::builder()
     .dimensions(768)                          // Larger embeddings
-    .max_elements(10_000_000)                 // 10M vectors
+    .max_elements(10_000_000)                 // capacity hint: 10M vectors
     .distance_metric(DistanceMetric::Cosine)  // Cosine similarity
     .hnsw_m(64)                               // More connections = higher recall
     .hnsw_ef_construction(400)                // Higher accuracy during build
@@ -556,7 +556,8 @@ let db = VectorDB::builder()
 ```rust
 let db = VectorDB::builder()
     .dimensions(256)             // Smaller embeddings
-    .max_elements(100_000)       // Limit dataset size
+    .max_elements(100_000)       // Capacity hint (not a limit on its own)
+    .enforce_max_elements(true)  // ...now inserts beyond 100k fail
     .hnsw_m(16)                  // Fewer connections
     .quantization(QuantizationType::Binary)  // 32x compression
     .mmap_vectors(true)          // Use disk instead of RAM

@@ -155,7 +155,18 @@ pub fn aggregate_tiles_simd(tile_e_values: &[f64]) -> f64 {
     // Use 8 parallel lanes for 256-bit SIMD (AVX2)
     let mut log_lanes = [0.0f64; 8];
 
-    // Process in chunks of 8
+    // Process in chunks of 8.
+    //
+    // Rust 1.98's clippy suggests `as_chunks::<8>()` here. Do not take it:
+    // `slice::as_chunks` stabilised long after this workspace's declared
+    // `rust-version = "1.77"`, so the suggestion would break the MSRV job
+    // while satisfying the lint job.
+    //
+    // `unknown_lints` is allowed alongside it because the lint does not exist
+    // before 1.98, and naming an unknown lint is itself denied under
+    // `-D warnings` — allowing only the clippy lint would trade a failure on
+    // new toolchains for a failure on older ones.
+    #[allow(unknown_lints, clippy::chunks_exact_to_as_chunks)]
     let chunks = tile_e_values.chunks_exact(8);
     let remainder = chunks.remainder();
 

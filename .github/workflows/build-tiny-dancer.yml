@@ -13,6 +13,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - '.github/workflows/build-tiny-dancer.yml'
       - 'crates/ruvector-tiny-dancer-core/**'
       - 'crates/ruvector-tiny-dancer-node/**'
       - 'npm/packages/tiny-dancer/**'
@@ -33,27 +34,31 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: x86_64-unknown-linux-gnu
             platform: linux-x64-gnu
             extraFlags: ""
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: x86_64-unknown-linux-musl
             platform: linux-x64-musl
             extraFlags: "--zig"
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
             extraFlags: ""
-          - host: ubuntu-22.04
+          - host: ubuntu-24.04
+            container: ubuntu:22.04
             target: aarch64-unknown-linux-musl
             platform: linux-arm64-musl
             extraFlags: "--zig"
-          - host: macos-14
+          - host: macos-15
             target: x86_64-apple-darwin
             platform: darwin-x64
             extraFlags: ""
-          - host: macos-14
+          - host: macos-15
             target: aarch64-apple-darwin
             platform: darwin-arm64
             extraFlags: ""
@@ -68,23 +73,43 @@ jobs:
 
     name: Build Tiny Dancer ${{ matrix.settings.platform }}
     runs-on: ${{ matrix.settings.host }}
+    container: ${{ matrix.settings.container }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Bootstrap ubuntu:22.04 build container (keeps the glibc floor)
+        if: ${{ matrix.settings.container != '' }}
+        shell: bash
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            sudo git curl wget ca-certificates build-essential pkg-config xz-utils unzip zip python3 jq file \
+            libssl-dev cmake clang libclang-dev
+          git config --global --add safe.directory '*'
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '18'
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
-          toolchain: stable
+          # Pinned, not `stable` (#900): both sides of the zig cross-compile
+          # must move together. Stable 1.98.0 (2026-08-18) began emitting the
+          # Cortex-A53 erratum flag `--fix-cortex-a53-843419` for
+          # aarch64-unknown-linux-musl, which zig's linker rejects as an
+          # unsupported linker arg — verified against zig 0.13.0 through
+          # 0.16.0, so bumping zig instead is not an option today. 1.97.0 is
+          # the newest stable whose target spec predates the flag (verified by
+          # reproducing the failed link with 1.98.0 and re-linking cleanly
+          # with 1.97.0 against the same zig 0.13.0). When bumping this pin,
+          # re-check the aarch64-musl `--zig` job first.
+          toolchain: "1.97.0"
           targets: ${{ matrix.settings.target }}
 
       - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           key: tiny-dancer-${{ matrix.settings.target }}
 
@@ -100,7 +125,7 @@ jobs:
 
       - name: Setup Zig (musl cross-compile)
         if: contains(matrix.settings.extraFlags, '--zig')
-        uses: goto-bus-stop/setup-zig@v2
+        uses: goto-bus-stop/setup-zig@abea47f85e598557f500fa1fd2ab7464fcb39406
         with:
           version: 0.13.0
 
@@ -148,7 +173,7 @@ jobs:
         run: npm test
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: tiny-dancer-${{ matrix.settings.platform }}
           path: tiny-dancer-artifacts/${{ matrix.settings.platform }}/*.node
@@ -156,21 +181,21 @@ jobs:
 
   publish:
     name: Publish Tiny Dancer Platform Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     if: inputs.publish == true || startsWith(github.ref, 'refs/tags/v')
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '18'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           path: artifacts
 
@@ -178,6 +203,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           VERSION=$(node -p "require('./npm/packages/tiny-dancer/package.json').version")
           echo "Publishing version: $VERSION"
 
@@ -249,7 +275,9 @@ jobs:
             "keywords": ["ruvector", "tiny-dancer", "neural-router", "napi-rs"],
             "author": "ruv.io Team <info@ruv.io>",
             "license": "MIT",
-            "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector"},
+            "homepage": "https://ruv.io",
+            "repository": {"type": "git", "url": "git+https://github.com/ruvnet/RuVector.git", "directory": "npm/packages/tiny-dancer-${platform}"},
+            "bugs": {"url": "https://github.com/ruvnet/RuVector/issues"},
             "engines": {"node": ">= 18"},
             "publishConfig": {"registry": "https://registry.npmjs.org/", "access": "public"}
           }
@@ -257,7 +285,7 @@ jobs:
 
             # Publish
             cd "$PKG_DIR"
-            npm publish --access public || echo "Failed to publish @ruvector/tiny-dancer-${platform}"
+            bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
             cd ../..
           done
 
@@ -290,4 +318,6 @@ jobs:
         working-directory: npm/packages/tiny-dancer
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public || echo "Package may already exist"
+        run: |
+          set -euo pipefail
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public

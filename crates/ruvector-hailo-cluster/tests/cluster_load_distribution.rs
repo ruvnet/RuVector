@@ -19,7 +19,9 @@ use ruvector_hailo_cluster::proto::{
     HealthResponse, StatsRequest, StatsResponse,
 };
 use ruvector_hailo_cluster::transport::WorkerEndpoint;
-use ruvector_hailo_cluster::{GrpcTransport, HailoClusterEmbedder};
+use ruvector_hailo_cluster::{
+    transport::EmbeddingTransport, ClusterError, GrpcTransport, HailoClusterEmbedder,
+};
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -27,6 +29,45 @@ use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio::runtime::Runtime;
 use tonic::{transport::Server, Request, Response, Status};
+
+fn test_identity(dim: usize) -> ruvector_core::EmbeddingSpaceIdentity {
+    ruvector_core::EmbeddingSpaceIdentity {
+        schema_version: 1,
+        provider: "hailo-cluster-integration-test".into(),
+        model_id: "test-model@1".into(),
+        model_artifact_sha256: "11".repeat(32),
+        model_graph_sha256: "22".repeat(32),
+        tokenizer_sha256: "33".repeat(32),
+        prompt_template_sha256: "44".repeat(32),
+        pooling_strategy: ruvector_core::PoolingStrategy::Named(
+            ruvector_core::PoolingStrategyName::Mean,
+        ),
+        normalize: true,
+        truncation_tokens: 512,
+        output_dimension: dim as u32,
+        output_dtype: ruvector_core::OutputDtype::F32,
+        runtime_revision: "test@1".into(),
+        distance_metric: ruvector_core::EmbeddingDistanceMetric::Cosine,
+        role_policy: ruvector_core::EmbeddingRolePolicy::Symmetric,
+        prefix_policy: ruvector_core::PrefixPolicy::None,
+        prefix_policy_version: 1,
+    }
+}
+
+fn test_cluster(
+    workers: Vec<WorkerEndpoint>,
+    transport: Arc<dyn EmbeddingTransport + Send + Sync>,
+    dim: usize,
+    fingerprint: impl Into<String>,
+) -> Result<HailoClusterEmbedder, ClusterError> {
+    HailoClusterEmbedder::new_with_identity(
+        workers,
+        transport,
+        dim,
+        fingerprint,
+        test_identity(dim),
+    )
+}
 
 /// Mock worker. Delays each `embed` call by `delay_ms` to simulate a slow
 /// vs fast NPU. Counts calls per worker so the test can verify load
@@ -193,8 +234,7 @@ fn p2c_ewma_biases_toward_fast_worker_under_load() {
     ];
 
     let transport = Arc::new(GrpcTransport::new().unwrap());
-    let cluster =
-        HailoClusterEmbedder::new(workers, transport, 4, "fp:test").expect("init cluster");
+    let cluster = test_cluster(workers, transport, 4, "fp:test").expect("init cluster");
 
     // Iter 196 — warmup phase so the EWMA has steady-state samples
     // before the ratio assertion. Without this, the first ~10 calls
@@ -262,8 +302,7 @@ fn embed_batch_streaming_returns_ordered_results() {
 
     let workers = vec![WorkerEndpoint::new("alpha", a_addr.to_string())];
     let transport = Arc::new(GrpcTransport::new().unwrap());
-    let cluster =
-        HailoClusterEmbedder::new(workers, transport, 4, "fp:test").expect("init cluster");
+    let cluster = test_cluster(workers, transport, 4, "fp:test").expect("init cluster");
 
     let texts = vec![
         "alpha".to_string(),
@@ -306,7 +345,7 @@ fn batch_cache_reuses_results_across_calls() {
 
     let workers = vec![WorkerEndpoint::new("alpha", a_addr.to_string())];
     let transport = Arc::new(GrpcTransport::new().unwrap());
-    let cluster = HailoClusterEmbedder::new(workers, transport, 4, "fp:cache-batch")
+    let cluster = test_cluster(workers, transport, 4, "fp:cache-batch")
         .expect("init cluster")
         .with_cache(64);
 
@@ -356,7 +395,7 @@ fn batch_all_cached_skips_rpc_entirely() {
 
     let workers = vec![WorkerEndpoint::new("alpha", a_addr.to_string())];
     let transport = Arc::new(GrpcTransport::new().unwrap());
-    let cluster = HailoClusterEmbedder::new(workers, transport, 4, "fp:warm")
+    let cluster = test_cluster(workers, transport, 4, "fp:warm")
         .expect("init cluster")
         .with_cache(8);
 
@@ -398,9 +437,7 @@ fn embed_batch_async_succeeds_inside_tokio_runtime() {
 
     let workers = vec![WorkerEndpoint::new("alpha", a_addr.to_string())];
     let transport = Arc::new(GrpcTransport::new().unwrap());
-    let cluster = Arc::new(
-        HailoClusterEmbedder::new(workers, transport, 4, "fp:test").expect("init cluster"),
-    );
+    let cluster = Arc::new(test_cluster(workers, transport, 4, "fp:test").expect("init cluster"));
 
     // A separate runtime simulates a tokio app calling `cluster.embed_batch(...).await`.
     let app_rt = tokio::runtime::Builder::new_multi_thread()
@@ -431,8 +468,7 @@ fn async_embed_one_succeeds_inside_tokio_runtime() {
 
     let workers = vec![WorkerEndpoint::new("alpha", addr.to_string())];
     let transport = Arc::new(GrpcTransport::new().unwrap());
-    let cluster =
-        Arc::new(HailoClusterEmbedder::new(workers, transport, 4, "fp:test").expect("init"));
+    let cluster = Arc::new(test_cluster(workers, transport, 4, "fp:test").expect("init"));
 
     // Caller-side runtime — exercise the async path the way a tokio
     // application would.
@@ -463,7 +499,7 @@ fn fleet_stats_returns_one_entry_per_worker() {
     ];
 
     let transport = Arc::new(GrpcTransport::new().unwrap());
-    let cluster = HailoClusterEmbedder::new(workers, transport, 4, "fp:test").expect("init");
+    let cluster = test_cluster(workers, transport, 4, "fp:test").expect("init");
 
     // Drive a few embeds first so each worker has some counter activity
     // (the DelayWorker mock doesn't actually track stats — its get_stats
@@ -518,8 +554,7 @@ fn dispatch_continues_when_one_worker_dies() {
         GrpcTransport::with_timeouts(Duration::from_millis(200), Duration::from_millis(200))
             .unwrap(),
     );
-    let cluster =
-        HailoClusterEmbedder::new(workers, transport, 4, "fp:test").expect("init cluster");
+    let cluster = test_cluster(workers, transport, 4, "fp:test").expect("init cluster");
 
     let mut ok = 0usize;
     let mut err = 0usize;
@@ -562,8 +597,7 @@ fn caller_supplied_request_id_propagates_to_worker() {
 
     let workers = vec![WorkerEndpoint::new("alpha", addr.to_string())];
     let transport = Arc::new(GrpcTransport::new().unwrap());
-    let cluster =
-        HailoClusterEmbedder::new(workers, transport, 4, "fp:trace-test").expect("init cluster");
+    let cluster = test_cluster(workers, transport, 4, "fp:trace-test").expect("init cluster");
 
     let _ = cluster
         .embed_one_blocking_with_request_id("hello", "trace-12345")
@@ -603,8 +637,7 @@ fn caller_supplied_request_id_propagates_through_batch() {
 
     let workers = vec![WorkerEndpoint::new("alpha", addr.to_string())];
     let transport = Arc::new(GrpcTransport::new().unwrap());
-    let cluster =
-        HailoClusterEmbedder::new(workers, transport, 4, "fp:trace-batch").expect("init cluster");
+    let cluster = test_cluster(workers, transport, 4, "fp:trace-batch").expect("init cluster");
 
     let _ = cluster
         .embed_batch_blocking_with_request_id(
@@ -642,9 +675,8 @@ fn async_embed_one_with_request_id_propagates() {
 
     let workers = vec![WorkerEndpoint::new("alpha", addr.to_string())];
     let transport = Arc::new(GrpcTransport::new().unwrap());
-    let cluster = Arc::new(
-        HailoClusterEmbedder::new(workers, transport, 4, "fp:async-trace").expect("init cluster"),
-    );
+    let cluster =
+        Arc::new(test_cluster(workers, transport, 4, "fp:async-trace").expect("init cluster"));
 
     let app_rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
@@ -676,8 +708,7 @@ fn async_embed_batch_with_request_id_propagates() {
     let workers = vec![WorkerEndpoint::new("alpha", addr.to_string())];
     let transport = Arc::new(GrpcTransport::new().unwrap());
     let cluster = Arc::new(
-        HailoClusterEmbedder::new(workers, transport, 4, "fp:async-batch-trace")
-            .expect("init cluster"),
+        test_cluster(workers, transport, 4, "fp:async-batch-trace").expect("init cluster"),
     );
 
     let app_rt = tokio::runtime::Builder::new_multi_thread()

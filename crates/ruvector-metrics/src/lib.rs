@@ -75,6 +75,12 @@ lazy_static! {
 
 /// Gather all metrics in Prometheus text format
 pub fn gather_metrics() -> String {
+    // The metrics are lazy statics, registered on first use. Initialize the
+    // unlabeled ones so a fresh process exports them (at zero) instead of an
+    // empty page until something happens to touch them.
+    lazy_static::initialize(&COLLECTIONS_TOTAL);
+    lazy_static::initialize(&MEMORY_USAGE_BYTES);
+    lazy_static::initialize(&UPTIME_SECONDS);
     let encoder = TextEncoder::new();
     let metric_families = prometheus::gather();
     let mut buffer = Vec::new();
@@ -88,8 +94,15 @@ mod tests {
 
     #[test]
     fn test_gather_metrics() {
+        // The metrics are `lazy_static`, so they register with the default
+        // Prometheus registry on first use. Touch one here rather than relying
+        // on another test in the same process having done it: each test gets
+        // its own process under a per-test runner, and this assertion then has
+        // an empty registry to read.
+        COLLECTIONS_TOTAL.set(0.0);
+
         let metrics = gather_metrics();
-        assert!(metrics.contains("ruvector"));
+        assert!(metrics.contains("ruvector_collections_total"));
     }
 
     #[test]

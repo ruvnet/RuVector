@@ -1,0 +1,2 @@
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+# PSRAM is intentionally not required by the shared S3/C6 runtime.
