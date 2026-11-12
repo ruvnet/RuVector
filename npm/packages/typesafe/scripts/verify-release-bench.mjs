@@ -75,7 +75,9 @@ function main(receiptPath, advisory = false) {
     'release benchmark must use the full frozen few-shot test');
   insist(receipt.binding?.backend === 'native' && receipt.binding?.unavailable !== true,
     'the shipped native binary was not loaded');
-  insist(receipt.stats_json?.embedderId === `${MODEL_NAME}@${MODEL_SHA.slice(0, 12)}` &&
+  // The ORT embedder identity carries the singleton-tensor suffix, so heads
+  // frozen on batched features cannot match a binary that embeds one text per tensor.
+  insist(receipt.stats_json?.embedderId === `${MODEL_NAME}@${MODEL_SHA.slice(0, 12)}#ort-singleton-v1` &&
     receipt.stats_json?.dims === model.dims, 'the shipped binary did not load the pinned ONNX model');
   insist(receipt.vocab_guard?.ok === true && receipt.training?.trained === true,
     'vocabulary guard or training did not complete');
