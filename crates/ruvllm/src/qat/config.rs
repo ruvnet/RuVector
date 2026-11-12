@@ -80,9 +80,9 @@ impl QuantGranularity {
 /// | Variant | Formula | Use Case |
 /// |---------|---------|----------|
 /// | Standard | dw = dq | Default, works well for most cases |
-/// | Clipped | dw = dq * 1{|w| <= c} | Prevents gradient explosion |
+/// | Clipped | dw = dq * 1{\|w\| <= c} | Prevents gradient explosion |
 /// | LearnedStepSize | dw = dq, ds/dalpha computed | LSQ-style adaptive step |
-/// | Ewgs | dw = dq * (1 + lambda * |w-q|) | Better convergence for outliers |
+/// | Ewgs | dw = dq * (1 + lambda * \|w-q\|) | Better convergence for outliers |
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum SteVariant {
     /// Standard STE: gradient passes through unchanged

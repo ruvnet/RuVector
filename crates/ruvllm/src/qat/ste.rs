@@ -14,9 +14,9 @@
 //! | Variant | Backward Formula | Use Case |
 //! |---------|------------------|----------|
 //! | Standard | grad_out | Default, identity pass-through |
-//! | Clipped | grad_out if |w| <= c, else 0 | Prevents gradient explosion |
+//! | Clipped | grad_out if \|w\| <= c, else 0 | Prevents gradient explosion |
 //! | LearnedStepSize | grad_out (scale grad separate) | Adaptive step learning |
-//! | EWGS | grad_out * (1 + lambda * |w-q|) | Better convergence |
+//! | EWGS | grad_out * (1 + lambda * \|w-q\|) | Better convergence |
 //!
 //! ## References
 //!
