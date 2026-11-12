@@ -44,7 +44,7 @@ console.log(`Nodes: ${stats.nodeCount}, Edges: ${stats.edgeCount}`);
 
 ### Node.js
 
-The package is an ES module built for the web target, so in Node.js load the `.wasm` bytes yourself and initialise synchronously:
+The package is an ES module built for the web target, so in Node.js (tested on Node.js 22) load the `.wasm` bytes yourself and initialise synchronously:
 
 ```javascript
 import { readFileSync } from 'node:fs';
@@ -55,7 +55,21 @@ const require = createRequire(import.meta.url);
 initSync({ module: readFileSync(require.resolve('@ruvector/graph-wasm/ruvector_graph_wasm_bg.wasm')) });
 
 const db = new GraphDB('cosine');
-// ... same API as in the browser
+const alice = db.createNode(['Person'], { name: 'Alice', age: 30 });
+const bob = db.createNode(['Person'], { name: 'Bob', age: 35 });
+db.createEdge(alice, bob, 'KNOWS', { since: 2020 });
+
+const result = await db.query('MATCH (n:Person)-[r:KNOWS]->(m) RETURN n, r, m');
+console.log(result.count, result.nodes.length, result.edges.length);
+const stats = db.stats();
+console.log(`Nodes: ${stats.nodeCount}, Edges: ${stats.edgeCount}`);
+```
+
+Expected output:
+
+```text
+1 2 1
+Nodes: 2, Edges: 1
 ```
 
 ## API Reference
