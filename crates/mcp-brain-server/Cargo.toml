@@ -31,7 +31,7 @@ path = "src/bin/embedder.rs"
 
 [dependencies]
 # Web framework
-axum = { version = "0.7", features = ["json", "query"] }
+axum = { version = "0.7", features = ["json", "query", "form"] }
 tokio = { version = "1.41", features = ["full"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "trace", "limit", "set-header", "compression-gzip"] }
