@@ -1,6 +1,6 @@
 /** Configuration for solver training. */
 export interface TrainOptions {
-  /** Number of puzzles to generate and solve. */
+  /** Number of puzzles to generate and solve (integer >= 1). */
   count: number;
   /** Minimum puzzle difficulty (1-10). Default: 1. */
   minDifficulty?: number;
@@ -28,9 +28,9 @@ export interface AcceptanceOptions {
   holdoutSize?: number;
   /** Number of training puzzles per cycle. Default: 200. */
   trainingPerCycle?: number;
-  /** Number of train/test cycles. Default: 5. */
+  /** Number of train/test cycles (>= 1). Default: 5. */
   cycles?: number;
-  /** Maximum steps per puzzle. Default: 500. */
+  /** Maximum steps per puzzle (>= 1). Default: 500. */
   stepBudget?: number;
   /** RNG seed (BigInt or number). Default: random. */
   seed?: bigint | number;
@@ -41,13 +41,23 @@ export interface CycleMetrics {
   cycle: number;
   accuracy: number;
   costPerSolve: number;
+  /** Holdout accuracy with noise injected into the constraints. */
+  noiseAccuracy: number;
+  violations: number;
+  patternsLearned: number;
 }
 
 /** Result of a single acceptance mode (A, B, or C). */
 export interface AcceptanceModeResult {
   passed: boolean;
+  /** Accuracy on the final holdout cycle. */
   finalAccuracy: number;
   cycles: CycleMetrics[];
+  accuracyMaintained: boolean;
+  costImproved: boolean;
+  robustnessImproved: boolean;
+  zeroViolations: boolean;
+  dimensionsImproved: number;
 }
 
 /** Full acceptance test manifest. */

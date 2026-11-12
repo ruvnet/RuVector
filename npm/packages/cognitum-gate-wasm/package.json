@@ -1,26 +1,32 @@
 {
   "name": "@cognitum/gate",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Browser and Node.js coherence gate for AI agent safety - real-time permit/defer/deny decisions in microseconds",
   "keywords": [
     "ai",
-    "agent",
-    "safety",
-    "coherence",
+    "ai-agents",
+    "llm",
+    "claude",
     "wasm",
     "webassembly",
-    "permission",
-    "audit",
-    "claude",
-    "llm"
+    "nodejs",
+    "vector-database",
+    "vector-search",
+    "hnsw",
+    "embeddings",
+    "rag",
+    "semantic-search",
+    "knowledge-graph",
+    "gnn",
+    "graph-embeddings"
   ],
   "author": "RuVector <hello@ruv.io>",
   "license": "(MIT OR Apache-2.0)",
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/packages/cognitum-gate-wasm",
+  "homepage": "https://ruv.io",
   "repository": {
+    "directory": "npm/packages/cognitum-gate-wasm",
     "type": "git",
-    "url": "git+https://github.com/ruvnet/ruvector.git",
-    "directory": "packages/cognitum-gate-wasm"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"

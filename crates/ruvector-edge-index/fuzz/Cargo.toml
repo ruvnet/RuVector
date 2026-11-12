@@ -1,0 +1,29 @@
+# cargo-fuzz target for the persisted ANN index chunks the edge store loads
+# from `index_chunks` rows (ADR-351 §6.1, M2b "chunk-decoding fuzz target").
+# Run with nightly:
+#   cd crates/ruvector-edge-index/fuzz
+#   env -u RUSTFLAGS cargo +nightly fuzz run index_chunks corpus/index_chunks seeds/index_chunks -- -max_total_time=600
+# `seeds/index_chunks` holds chunk sets encoded from small flat and HNSW
+# indexes (the shapes `tests/decode_fuzz.rs` builds); `corpus/` is ignored.
+[package]
+name = "ruvector-edge-index-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ruvector-edge-index = { path = ".." }
+
+# Prevent this from being discovered as a workspace member
+[workspace]
+
+[[bin]]
+name = "index_chunks"
+path = "fuzz_targets/index_chunks.rs"
+test = false
+doc = false
+bench = false

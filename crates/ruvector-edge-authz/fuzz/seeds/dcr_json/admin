@@ -1,0 +1,1 @@
+{"redirect_uris":["https://x.example/cb"],"scope":"ruvector:read ruvector:admin ruvector:publish","grant_types":["authorization_code"],"client_name":"MCP Inspector"}

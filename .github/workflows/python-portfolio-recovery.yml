@@ -1,0 +1,220 @@
+name: Python portfolio recovery
+on:
+  pull_request:
+    paths:
+      - '.gitattributes'
+      - '.github/workflows/python-portfolio-recovery.yml'
+      - 'python/portfolio/resume_release.py'
+      - 'python/portfolio/frozen-release-0.2.0.json'
+      - 'python/portfolio/tests/test_resume_release.py'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Resume missing original 0.2.0 files after owner review; stop on any failure'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: python-portfolio-recovery-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest==9.1.1
+      - run: python -m pytest python/portfolio/tests/test_resume_release.py -q
+  prepare:
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    needs: contract
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: fccf36e9a76d35bce6750dfd3b25802cae3d683b
+          path: frozen-source
+          persist-credentials: false
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+      - name: Check original source, artifact and successful build gates
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          def api(path):
+              return json.loads(subprocess.check_output(['gh', 'api', 'repos/ruvnet/RuVector/' + path]))
+          r = api('actions/runs/38169271248')
+          a = api('actions/artifacts/11713787141')
+          assert r['head_sha'] == 'fccf36e9a76d35bce6750dfd3b25802cae3d683b'
+          assert r['event'] == 'push' and r['path'] == '.github/workflows/python-portfolio.yml'
+          assert r['status'] == 'completed'
+          assert a['name'] == 'portfolio-dist' and not a['expired']
+          assert a['workflow_run']['id'] == r['id'] and a['workflow_run']['head_sha'] == r['head_sha']
+          assert a['digest'] == 'sha256:b4c92cae86c753305abef7aad395fdd9d91c7e84c3c887342defa7a3e4607241'
+          jobs = api('actions/runs/38169271248/jobs?per_page=100')
+          assert jobs['total_count'] == len(jobs['jobs'])
+          for name in ('test-build', 'native-audit'):
+              selected = [j for j in jobs['jobs'] if j['name'] == name]
+              assert len(selected) == 1 and selected[0]['conclusion'] == 'success'
+          print('Original artifact identity and build gates verified')
+          PY
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          artifact-ids: '11713787141'
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          run-id: '38169271248'
+          repository: ruvnet/RuVector
+          path: original-dist
+      - name: Compare all exact files before selecting missing originals
+        run: python python/portfolio/resume_release.py --dist original-dist --inventory python/portfolio/frozen-release-0.2.0.json --missing-dir missing-dist --receipt preflight.json
+      - name: Install original wheels and run frozen contracts and README examples
+        shell: bash
+        run: |
+          python -m venv consumer
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            PY=consumer/Scripts/python.exe
+          else
+            PY=consumer/bin/python
+          fi
+          "$PY" -m pip install --upgrade pip==26.2.1
+          "$PY" -m pip install --index-url https://pypi.org/simple --only-binary=:all: original-dist/*.whl pytest==9.1.1 pip-audit==2.10.1
+          "$PY" -c 'import importlib.metadata as m; assert m.version("ruvector") == "0.1.3"'
+          "$PY" -m pytest frozen-source/python/portfolio/tests -q
+          "$PY" frozen-source/python/portfolio/check_examples.py
+          "$PY" -m pip_audit --local
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: recovery-preflight-${{ matrix.os }}
+          path: preflight.json
+          if-no-files-found: ignore
+  frozen-native-audit:
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    needs: contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: fccf36e9a76d35bce6750dfd3b25802cae3d683b
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+      - run: cargo install cargo-audit --version 0.22.2 --locked
+      - run: python python/portfolio/audit_native.py /tmp/frozen-native.lock
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish
+    needs: [prepare, frozen-native-audit]
+    runs-on: ubuntu-latest
+    environment: pypi
+    concurrency:
+      group: python-portfolio-pypi
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    env:
+      HAS_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          artifact-ids: '11713787141'
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          run-id: '38169271248'
+          repository: ruvnet/RuVector
+          path: original-dist
+      - name: Reconcile registry again under the publication lock
+        id: select
+        run: |
+          python python/portfolio/resume_release.py --dist original-dist --inventory python/portfolio/frozen-release-0.2.0.json --missing-dir missing-dist --receipt preflight.json
+          python - <<'PY'
+          import json, os
+          d = json.load(open('preflight.json'))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write('missing=' + str(len(d['missing'])) + '\n')
+          PY
+      - name: Publish missing originals using Trusted Publishing
+        if: steps.select.outputs.missing != '0' && env.HAS_PYPI_TOKEN != 'true'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+        with:
+          packages-dir: missing-dist/
+          attestations: true
+      - name: Publish missing originals using the configured token
+        if: steps.select.outputs.missing != '0' && env.HAS_PYPI_TOKEN == 'true'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+        with:
+          packages-dir: missing-dist/
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          attestations: false
+      - name: Verify every expected file after upload
+        run: python python/portfolio/resume_release.py --dist original-dist --inventory python/portfolio/frozen-release-0.2.0.json --verify-only --receipt published.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: recovery-publication-receipts
+          path: |
+            preflight.json
+            published.json
+          if-no-files-found: ignore
+  verify-published:
+    needs: publish
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: fccf36e9a76d35bce6750dfd3b25802cae3d683b
+          persist-credentials: false
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+      - name: Fresh PyPI-only installation and frozen acceptance
+        shell: bash
+        run: |
+          python -m venv consumer
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            PY=consumer/Scripts/python.exe
+          else
+            PY=consumer/bin/python
+          fi
+          python -c 'import json,pathlib; m=json.loads(pathlib.Path("python/portfolio/manifest.json").read_text()); pathlib.Path("requirements.txt").write_text("\n".join(p+"=="+m["version"] for p in m["packages"])+"\n")'
+          "$PY" -m pip install --index-url https://pypi.org/simple --only-binary=:all: --no-cache-dir -r requirements.txt pytest==9.1.1
+          "$PY" -c 'import importlib.metadata as m; assert m.version("ruvector") == "0.1.3"'
+          "$PY" -m pytest python/portfolio/tests -q
+          "$PY" python/portfolio/check_examples.py

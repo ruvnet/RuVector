@@ -40,7 +40,7 @@ async function basicTrainingExample() {
       },
       {
         provider: ModelProvider.GEMINI,
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.5-flash',
         apiKey: process.env.GEMINI_API_KEY || 'test-key',
         temperature: 0.7,
         maxTokens: 1000
@@ -180,7 +180,7 @@ async function advancedTrainingExample() {
       },
       {
         provider: ModelProvider.GEMINI,
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.5-flash',
         apiKey: process.env.GEMINI_API_KEY || 'test-key'
       }
     ],
@@ -260,7 +260,7 @@ async function costOptimizedTrainingExample() {
     models: [
       {
         provider: ModelProvider.GEMINI,
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.5-flash',
         apiKey: process.env.GEMINI_API_KEY || 'test-key'
       },
       {
@@ -422,7 +422,7 @@ async function benchmarkComparisonExample() {
       },
       {
         provider: ModelProvider.GEMINI,
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.5-flash',
         apiKey: process.env.GEMINI_API_KEY || 'test-key'
       },
       {

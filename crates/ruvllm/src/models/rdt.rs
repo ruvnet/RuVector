@@ -118,13 +118,13 @@ impl RdtConfig {
                 "RDT: hidden_size and num_heads must be non-zero".into(),
             ));
         }
-        if self.hidden_size % self.num_heads != 0 {
+        if !self.hidden_size.is_multiple_of(self.num_heads) {
             return Err(RuvLLMError::Config(format!(
                 "RDT: hidden_size ({}) must be divisible by num_heads ({})",
                 self.hidden_size, self.num_heads
             )));
         }
-        if self.num_kv_heads == 0 || self.num_heads % self.num_kv_heads != 0 {
+        if self.num_kv_heads == 0 || !self.num_heads.is_multiple_of(self.num_kv_heads) {
             return Err(RuvLLMError::Config(format!(
                 "RDT: num_heads ({}) must be divisible by num_kv_heads ({})",
                 self.num_heads, self.num_kv_heads

@@ -4,7 +4,7 @@
  * Automatically loads the correct native binary for the current platform.
  */
 
-import { join } from 'path';
+import { join, resolve } from 'path';
 
 // Try to load the native module
 let nativeModule: NativeRuvLLM | null = null;
@@ -39,7 +39,24 @@ interface NativeConfig {
 
 interface NativeEngine {
   query(text: string, config?: NativeGenConfig): NativeQueryResponse;
-  generate(prompt: string, config?: NativeGenConfig): string;
+  /**
+   * Builds with `loadModel` return a generation result and throw while no
+   * model is loaded; older builds (the 2.0.x platform packages) return a
+   * string that is not model output, so the wrapper never calls them.
+   */
+  generate(prompt: string, config?: NativeGenConfig): NativeGenerationResult | string;
+  /**
+   * Present on builds since model loading was added. Those built without the
+   * `candle` feature throw `RUVLLM_NO_INFERENCE_BACKEND`; see
+   * `supportsModelLoading`.
+   */
+  loadModel?(path: string, options?: NativeLoadModelOptions): NativeModelInfo;
+  /** Whether the binary was built with the `candle` feature (absent on older builds). */
+  supportsModelLoading?(): boolean;
+  unloadModel?(): void;
+  isModelLoaded?(): boolean;
+  modelInfo?(): NativeModelInfo | null;
+  chat?(messages: NativeChatMessage[], config?: NativeGenConfig): NativeGenerationResult;
   route(text: string): NativeRoutingDecision;
   searchMemory(text: string, k?: number): NativeMemoryResult[];
   /** Current native builds return a UUID string; older ones returned a number. */
@@ -53,12 +70,45 @@ interface NativeEngine {
   simdCapabilities(): string[];
 }
 
+// napi-rs reads `#[napi(object)]` fields by their camelCase names; snake_case
+// keys are silently ignored (which is how `maxTokens` used to be dropped).
 interface NativeGenConfig {
-  max_tokens?: number;
+  maxTokens?: number;
   temperature?: number;
-  top_p?: number;
-  top_k?: number;
-  repetition_penalty?: number;
+  topP?: number;
+  topK?: number;
+  repetitionPenalty?: number;
+  stopSequences?: string[];
+  seed?: number;
+}
+
+interface NativeLoadModelOptions {
+  maxContext?: number;
+}
+
+interface NativeChatMessage {
+  role: string;
+  content: string;
+}
+
+interface NativeGenerationResult {
+  text: string;
+  promptTokens: number;
+  completionTokens: number;
+  finishReason: string;
+}
+
+interface NativeModelInfo {
+  name: string;
+  architecture: string;
+  numParameters: number;
+  vocabSize: number;
+  hiddenSize: number;
+  numLayers: number;
+  maxContextLength: number;
+  quantization?: string | null;
+  memoryUsageBytes: number;
+  chatTemplate?: string | null;
 }
 
 // napi-rs camelCases Rust struct fields when it builds the JS object, so the
@@ -73,6 +123,10 @@ interface NativeQueryResponse {
   contextSize: number;
   latencyMs: number;
   requestId: string;
+  /** Builds with `loadModel` also report token usage. */
+  promptTokens?: number;
+  completionTokens?: number;
+  finishReason?: string;
   context_size?: number;
   latency_ms?: number;
   request_id?: string;
@@ -135,6 +189,23 @@ function loadNativeModule(): NativeRuvLLM | null {
     return nativeModule;
   }
 
+  // An explicit binary (e.g. one built locally with `npm run build:native`)
+  // wins over the installed platform package. Failing to load it is an
+  // error, not a silent fallback to a different binary.
+  const override = process.env.RUVLLM_NATIVE_PATH;
+  if (override) {
+    try {
+      // resolve(): a relative path means relative to the working directory,
+      // not to this file.
+      nativeModule = normalize(require(resolve(override)) as RawNativeModule);
+      return nativeModule;
+    } catch (e) {
+      throw new Error(
+        `RUVLLM_NATIVE_PATH=${override} could not be loaded: ${(e as Error).message}`,
+      );
+    }
+  }
+
   const platformKey = getPlatformKey();
   const packageName = PLATFORM_PACKAGES[platformKey];
 
@@ -142,6 +213,8 @@ function loadNativeModule(): NativeRuvLLM | null {
     // Silently fail - JS fallback will be used
     return null;
   }
+  // `napi build --platform` names its output ruvllm.<platform>.node
+  const platformFile = `ruvllm.${packageName.replace('@ruvector/ruvllm-', '')}.node`;
 
   // Try loading from optional dependencies
   const attempts = [
@@ -151,18 +224,13 @@ function loadNativeModule(): NativeRuvLLM | null {
     () => require(join(__dirname, '..', '..', 'ruvllm.node')),
     // Try loading from local .node file (root)
     () => require(join(__dirname, '..', 'ruvllm.node')),
+    // Output of `npm run build:native` in the package root
+    () => require(join(__dirname, '..', '..', platformFile)),
   ];
 
   for (const attempt of attempts) {
     try {
-      const raw = attempt() as RawNativeModule;
-      // Normalize: native exports RuvLlmEngine, we expose as RuvLLMEngine
-      nativeModule = {
-        RuvLLMEngine: raw.RuvLLMEngine ?? raw.RuvLlmEngine!,
-        SimdOperations: raw.SimdOperations,
-        version: raw.version,
-        hasSimdSupport: raw.hasSimdSupport,
-      };
+      nativeModule = normalize(attempt() as RawNativeModule);
       return nativeModule;
     } catch {
       // Continue to next attempt
@@ -171,6 +239,16 @@ function loadNativeModule(): NativeRuvLLM | null {
 
   // Silently fall back to JS implementation
   return null;
+}
+
+// Normalize: native exports RuvLlmEngine, we expose as RuvLLMEngine
+function normalize(raw: RawNativeModule): NativeRuvLLM {
+  return {
+    RuvLLMEngine: raw.RuvLLMEngine ?? raw.RuvLlmEngine!,
+    SimdOperations: raw.SimdOperations,
+    version: raw.version,
+    hasSimdSupport: raw.hasSimdSupport,
+  };
 }
 
 // Export functions to get native bindings
@@ -194,6 +272,10 @@ export type {
   NativeConfig,
   NativeEngine,
   NativeGenConfig,
+  NativeLoadModelOptions,
+  NativeChatMessage,
+  NativeGenerationResult,
+  NativeModelInfo,
   NativeQueryResponse,
   NativeRoutingDecision,
   NativeMemoryResult,

@@ -1,5 +1,12 @@
 # ruvector Python SDK — Planning Index
 
+**Update (2026-10-01):** this is no longer greenfield. `crates/ruvector-py/` now exists and
+implements this plan's M1 (RaBitQ) plus an M1.5 `Collection`/CLI/MCP-server layer that extends
+the scope below — see
+[`docs/adr/ADR-352-ruvector-python-sdk-cli-mcp.md`](../adr/ADR-352-ruvector-python-sdk-cli-mcp.md)
+for what changed and why, and [`LOOP-STATE.md`](./LOOP-STATE.md) for the current resume point.
+The binding strategy in `02-strategy.md` below is still the one in effect, unchanged.
+
 This directory contains the design review for a first-party Python SDK over the
 ruvector workspace. It is a planning artifact, not source code. No `pyproject.toml`,
 `*-py` crate, or PyO3 dependency exists in the workspace today (verified

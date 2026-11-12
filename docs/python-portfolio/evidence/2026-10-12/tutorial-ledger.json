@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-12",
+  "package": "ruvector-attention",
+  "version": "0.2.0",
+  "native": "ruvector==0.1.3",
+  "numpy": "2.2.6",
+  "gist_url": "https://gist.github.com/ruvnet/2491c7631bf3e186e815196f52fd8954",
+  "gist_id": "2491c7631bf3e186e815196f52fd8954",
+  "gist_revision": "7c09fe56274683c0b838ed0a2b176abdd86ff079",
+  "script_sha256": "0d9961c2c93a1cec8debcd744aeacc141c662042042e7646e1f8a1a14a61ad0f",
+  "status": "published package tutorial; tested on Linux; broader portfolio incomplete",
+  "source_sha": "fccf36e9a76d35bce6750dfd3b25802cae3d683b",
+  "recovery_pr": "https://github.com/ruvnet/RuVector/pull/1205",
+  "acceptance": {
+    "platform": "Linuxx86_64",
+    "python": "3.10.22",
+    "result": "PASS native attention matches independent reference and invalidinputs rejected"
+  }
+}

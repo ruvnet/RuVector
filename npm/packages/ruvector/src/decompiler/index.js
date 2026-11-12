@@ -109,18 +109,15 @@ function beautify(source) {
  */
 function tryRustDecompiler(filePath, outputDir) {
   try {
-    const { execSync } = require('child_process');
+    const { execFileSync } = require('child_process');
     // Try to find the Rust binary
     const candidates = [
-      'cargo run --release -p ruvector-decompiler --example run_on_cli --',
-      path.join(__dirname, '../../../../target/release/examples/run_on_cli'),
+      ['cargo', ['run', '--release', '-p', 'ruvector-decompiler', '--example', 'run_on_cli', '--']],
+      [path.join(__dirname, '../../../../target/release/examples/run_on_cli'), []],
     ];
-    for (const bin of candidates) {
+    for (const [bin, prefix] of candidates) {
       try {
-        const cmd = bin.includes('cargo')
-          ? `${bin} "${filePath}" --output-dir "${outputDir}"`
-          : `"${bin}" "${filePath}" --output-dir "${outputDir}"`;
-        const result = execSync(cmd, {
+        const result = execFileSync(bin, [...prefix, String(filePath), '--output-dir', String(outputDir)], {
           timeout: 120000,
           stdio: ['pipe', 'pipe', 'pipe'],
           cwd: path.join(__dirname, '../../../..'),
@@ -359,13 +356,99 @@ function decompileFile(filePath, options = {}) {
  * @param {object} [options]
  * @returns {Promise<{modules: object[], metrics: object, witness: object|null, url: string, source: string}>}
  */
+const MAX_FETCH_BYTES = 50 * 1024 * 1024;
+const MAX_REDIRECTS = 5;
+
+/** True for loopback, link-local (incl. cloud metadata), private, CGNAT, ULA and unspecified addresses. */
+function isPrivateAddress(ip) {
+  const net = require('net');
+  if (net.isIPv4(ip)) {
+    const [a, b] = ip.split('.').map(Number);
+    return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
+      (a === 100 && b >= 64 && b <= 127) || a >= 224;
+  }
+  const h = expandIPv6(ip);
+  if (!h) return true; // unparseable: fail closed
+  // IPv4 embedded in IPv6: mapped (::ffff:0:0/96), compatible (::/96) and
+  // NAT64 (64:ff9b::/96). URL parsing rewrites ::ffff:127.0.0.1 to
+  // ::ffff:7f00:1, so the embedded address is checked from the hextets.
+  const embedded = `${h[6] >> 8}.${h[6] & 255}.${h[7] >> 8}.${h[7] & 255}`;
+  const zero5 = h.slice(0, 5).every(x => x === 0);
+  if ((zero5 && (h[5] === 0xffff || h[5] === 0)) ||
+      (h[0] === 0x64 && h[1] === 0xff9b && h.slice(2, 6).every(x => x === 0))) {
+    return isPrivateAddress(embedded);
+  }
+  return (h[0] & 0xfe00) === 0xfc00 || (h[0] & 0xffc0) === 0xfe80 || h[0] >= 0xff00;
+}
+
+/** Expand an IPv6 literal (optionally with a dotted IPv4 tail) to 8 hextets, or null. */
+function expandIPv6(ip) {
+  let v = ip.toLowerCase().replace(/%.*$/, '');
+  const tail = v.match(/^(.*:)(\d+\.\d+\.\d+\.\d+)$/);
+  if (tail) {
+    const o = tail[2].split('.').map(Number);
+    if (o.some(n => n > 255)) return null;
+    v = `${tail[1]}${((o[0] << 8) | o[1]).toString(16)}:${((o[2] << 8) | o[3]).toString(16)}`;
+  }
+  const halves = v.split('::');
+  if (halves.length > 2) return null;
+  const parse = s => (s ? s.split(':') : []);
+  const head = parse(halves[0]);
+  const rest = halves.length === 2 ? parse(halves[1]) : [];
+  const fill = 8 - head.length - rest.length;
+  if (halves.length === 1 ? fill !== 0 : fill < 1) return null;
+  const parts = [...head, ...Array(halves.length === 2 ? fill : 0).fill('0'), ...rest];
+  if (!parts.every(p => /^[0-9a-f]{1,4}$/.test(p))) return null;
+  return parts.map(p => parseInt(p, 16));
+}
+
+/**
+ * Refuse URLs that resolve to internal networks (SSRF). Set
+ * RUVECTOR_ALLOW_PRIVATE_FETCH=1 to decompile from localhost/intranet hosts.
+ */
+async function assertPublicUrl(rawUrl) {
+  const u = new URL(rawUrl);
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    throw new Error(`Unsupported URL protocol: ${u.protocol}`);
+  }
+  if (process.env.RUVECTOR_ALLOW_PRIVATE_FETCH === '1') return u;
+  const host = u.hostname.replace(/^\[|\]$/g, '');
+  const addrs = await require('dns').promises.lookup(host, { all: true, verbatim: true });
+  for (const { address } of addrs) {
+    if (isPrivateAddress(address)) {
+      throw new Error(`Refusing to fetch ${u.host}: resolves to private address ${address} ` +
+        '(set RUVECTOR_ALLOW_PRIVATE_FETCH=1 to allow)');
+    }
+  }
+  return u;
+}
+
 async function decompileUrl(url, options = {}) {
-  const resp = await fetch(url, { redirect: 'follow' });
+  let current = url;
+  let resp;
+  for (let hop = 0; ; hop++) {
+    await assertPublicUrl(current);
+    resp = await fetch(current, { redirect: 'manual' });
+    if (resp.status >= 300 && resp.status < 400 && resp.headers.get('location')) {
+      if (hop >= MAX_REDIRECTS) throw new Error(`Too many redirects fetching ${url}`);
+      current = new URL(resp.headers.get('location'), current).toString();
+      continue;
+    }
+    break;
+  }
   if (!resp.ok) {
     throw new Error(`Failed to fetch ${url} (HTTP ${resp.status})`);
   }
+  const declared = Number(resp.headers.get('content-length'));
+  if (declared > MAX_FETCH_BYTES) {
+    throw new Error(`Response too large (${declared} bytes, limit ${MAX_FETCH_BYTES})`);
+  }
 
   const source = await resp.text();
+  if (source.length > MAX_FETCH_BYTES) {
+    throw new Error(`Response too large (limit ${MAX_FETCH_BYTES} bytes)`);
+  }
   const result = decompileSource(source, options);
 
   return {
@@ -448,6 +531,7 @@ function writeOutput(result, outputDir, format = 'modules') {
 }
 
 module.exports = {
+  isPrivateAddress,
   decompilePackage,
   decompileFile,
   decompileUrl,

@@ -32,6 +32,8 @@
 
 extern crate alloc;
 
+#[cfg(test)]
+mod abi_tests;
 mod alloc_setup;
 pub mod engine;
 pub mod policy;
@@ -49,6 +51,27 @@ use rvf_crypto::{create_witness_chain, WitnessEntry};
 // ═════════════════════════════════════════════════════════════════════
 
 const MAX_INSTANCES: usize = 8;
+
+/// Return code for arguments outside the accepted range.
+const ERR_INVALID_ARGS: i32 = -2;
+
+/// Documented puzzle difficulty range.
+const MIN_DIFFICULTY: i32 = 1;
+const MAX_DIFFICULTY: i32 = 10;
+
+/// Map a 1-based handle to a slot index; anything that is not a valid
+/// handle (including 0, negatives and `i32::MIN`) maps out of range.
+fn slot_index(handle: i32) -> usize {
+    if handle < 1 {
+        usize::MAX
+    } else {
+        (handle - 1) as usize
+    }
+}
+
+fn clamp_difficulty(d: i32) -> u8 {
+    d.clamp(MIN_DIFFICULTY, MAX_DIFFICULTY) as u8
+}
 
 struct SolverInstance {
     solver: AdaptiveSolver,
@@ -84,7 +107,7 @@ impl Registry {
     }
 
     fn get(&self, handle: i32) -> Option<&SolverInstance> {
-        let idx = (handle - 1) as usize;
+        let idx = slot_index(handle);
         if idx < MAX_INSTANCES {
             self.slots[idx].as_ref()
         } else {
@@ -93,7 +116,7 @@ impl Registry {
     }
 
     fn get_mut(&mut self, handle: i32) -> Option<&mut SolverInstance> {
-        let idx = (handle - 1) as usize;
+        let idx = slot_index(handle);
         if idx < MAX_INSTANCES {
             self.slots[idx].as_mut()
         } else {
@@ -102,7 +125,7 @@ impl Registry {
     }
 
     fn destroy(&mut self, handle: i32) -> i32 {
-        let idx = (handle - 1) as usize;
+        let idx = slot_index(handle);
         if idx < MAX_INSTANCES && self.slots[idx].is_some() {
             self.slots[idx] = None;
             0
@@ -143,13 +166,14 @@ pub extern "C" fn rvf_solver_destroy(handle: i32) -> i32 {
 /// Train the solver on `count` generated puzzles.
 ///
 /// Uses the three-loop architecture: fast (solve), medium (PolicyKernel),
-/// slow (KnowledgeCompiler). Returns number of puzzles solved correctly.
+/// slow (KnowledgeCompiler). Returns number of puzzles solved correctly,
+/// -1 for an invalid handle, -2 if `count < 1`.
 ///
 /// Parameters:
 /// - handle: solver instance
 /// - count: number of puzzles to generate and solve
 /// - min_diff: minimum puzzle difficulty (1-10)
-/// - max_diff: maximum puzzle difficulty (1-10)
+/// - max_diff: maximum puzzle difficulty (1-10; both are clamped to this range)
 /// - seed_lo: lower 32 bits of RNG seed
 /// - seed_hi: upper 32 bits of RNG seed
 #[no_mangle]
@@ -165,17 +189,23 @@ pub extern "C" fn rvf_solver_train(
         Some(i) => i,
         None => return -1,
     };
+    if count < 1 {
+        return ERR_INVALID_ARGS;
+    }
 
     let seed = ((seed_hi as u64) << 32) | (seed_lo as u64 & 0xFFFFFFFF);
-    let mut gen = PuzzleGenerator::new(seed, min_diff as u8, max_diff as u8);
-    let puzzles = gen.generate_batch(count as usize);
+    let mut gen =
+        PuzzleGenerator::new(seed, clamp_difficulty(min_diff), clamp_difficulty(max_diff));
 
     inst.solver.compiler_enabled = true;
     inst.solver.router_enabled = true;
 
+    // Generate and solve one puzzle at a time so memory does not grow with
+    // `count` (same puzzle sequence as `generate_batch`).
     let mut correct = 0i32;
-    for puzzle in &puzzles {
-        let result = inst.solver.solve(puzzle);
+    for _ in 0..count {
+        let puzzle = gen.generate();
+        let result = inst.solver.solve(&puzzle);
         if result.correct {
             correct += 1;
         }
@@ -213,7 +243,8 @@ struct AcceptanceSummary {
 /// Run the full acceptance test with training/holdout cycles.
 ///
 /// Runs all three ablation modes (A/B/C) and produces a manifest.
-/// Returns: 1 = passed, 0 = failed, -1 = error.
+/// Returns: 1 = passed, 0 = failed, -1 = invalid handle, -2 = invalid
+/// arguments (`holdout < 1`, `training < 0`, `cycles < 1` or `budget < 1`).
 ///
 /// After this call, use `rvf_solver_result_len` / `rvf_solver_result_read`
 /// to retrieve the full manifest JSON.
@@ -231,6 +262,9 @@ pub extern "C" fn rvf_solver_acceptance(
         Some(i) => i,
         None => return -1,
     };
+    if holdout < 1 || training < 0 || cycles < 1 || budget < 1 {
+        return ERR_INVALID_ARGS;
+    }
 
     let seed = ((seed_hi as u64) << 32) | (seed_lo as u64 & 0xFFFFFFFF);
     let config = AcceptanceConfig {

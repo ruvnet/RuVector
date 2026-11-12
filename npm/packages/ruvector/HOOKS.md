@@ -41,7 +41,7 @@ npx ruvector hooks init --pretrain --build-agents security
 npx ruvector hooks init --minimal
 
 # Options
---force           # Overwrite existing settings
+--force           # Replace .claude/settings.json instead of merging into it
 --minimal         # Basic hooks only
 --pretrain        # Run pretrain after init
 --build-agents    # Generate optimized agents (quality|speed|security|testing|fullstack)
@@ -134,12 +134,14 @@ npx ruvector hooks route "implement user login"
 
 ## Hook Events
 
+`hooks init` merges into an existing `.claude/settings.json`: it replaces only ruvector's own entries (any `ruvector hooks …` command) and keeps every other tool's hooks, so it is safe to re-run. Generated commands read the tool input Claude Code sends as JSON on stdin (`--stdin`), run from `$CLAUDE_PROJECT_DIR`, and use timeouts in seconds (15 s for tool hooks, 30 s for session hooks). It does not change `enabledMcpjsonServers`.
+
 | Event | Trigger | RuVector Action |
 |-------|---------|-----------------|
 | **PreToolUse** | Before Edit/Write/Bash | Agent routing, file analysis, command risk |
 | **PostToolUse** | After Edit/Write/Bash | Q-learning update, pattern recording |
 | **SessionStart** | Conversation begins | Load intelligence, display stats |
-| **Stop** | Conversation ends | Save learning data |
+| **SessionEnd** | Session ends | Close the session trajectory, save learning data |
 | **UserPromptSubmit** | User sends message | Context suggestions |
 | **PreCompact** | Before context compaction | Preserve important context |
 | **Notification** | Any notification | Track events for learning |

@@ -4,6 +4,14 @@ on:
   push:
     tags:
       - 'ruvllm-v*'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/ruvllm-native.yml'
+      - 'examples/ruvLLM/src/**'
+      - 'examples/ruvLLM/Cargo.toml'
+      - 'examples/ruvLLM/Cargo.lock'
+      - '.cargo/config.toml'
   workflow_dispatch:
     inputs:
       publish:
@@ -22,11 +30,13 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-24.04
+            container: ubuntu:22.04
             node_file: ruvllm.linux-x64-gnu.node
             npm_package: ruvllm-linux-x64-gnu
           - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-24.04
+            container: ubuntu:22.04
             node_file: ruvllm.linux-arm64-gnu.node
             npm_package: ruvllm-linux-arm64-gnu
           - target: x86_64-apple-darwin
@@ -34,7 +44,7 @@ jobs:
             node_file: ruvllm.darwin-x64.node
             npm_package: ruvllm-darwin-x64
           - target: aarch64-apple-darwin
-            os: macos-14
+            os: macos-15
             node_file: ruvllm.darwin-arm64.node
             npm_package: ruvllm-darwin-arm64
           - target: x86_64-pc-windows-msvc
@@ -43,9 +53,19 @@ jobs:
             npm_package: ruvllm-win32-x64-msvc
 
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
     name: Build ${{ matrix.target }}
 
     steps:
+      - name: Bootstrap ubuntu:22.04 build container (keeps the glibc floor)
+        if: ${{ matrix.container != '' }}
+        shell: bash
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            sudo git curl wget ca-certificates build-essential pkg-config xz-utils unzip zip python3 jq file \
+            libssl-dev cmake clang libclang-dev
+          git config --global --add safe.directory '*'
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node.js
@@ -79,36 +99,75 @@ jobs:
         shell: bash
         run: |
           cd examples/ruvLLM
-          # Use cargo directly with --lib to avoid building binaries
-          cargo build --release --lib --features napi --target ${{ matrix.target }}
-          # napi artifacts command to copy the output
-          napi artifacts --build-output-dir ../../target/${{ matrix.target }}/release || true
+          # examples/ruvLLM is outside the root workspace, so cargo writes to
+          # examples/ruvLLM/target/<triple>/release. Use cargo directly with --lib
+          # to avoid building binaries. `candle` is
+          # the inference backend: without it loadModel() cannot load a model.
+          cargo build --release --lib --features napi,candle --target ${{ matrix.target }}
 
       - name: Copy artifact (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           mkdir -p npm/packages/${{ matrix.npm_package }}
-          # Try napi output first, then cargo output
-          if ls examples/ruvLLM/*.node 1>/dev/null 2>&1; then
-            cp examples/ruvLLM/*.node npm/packages/${{ matrix.npm_package }}/${{ matrix.node_file }}
-          elif [ "${{ matrix.target }}" = "x86_64-unknown-linux-gnu" ] || [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
-            cp target/${{ matrix.target }}/release/libruvllm.so npm/packages/${{ matrix.npm_package }}/${{ matrix.node_file }}
-          else
-            cp target/${{ matrix.target }}/release/libruvllm.dylib npm/packages/${{ matrix.npm_package }}/${{ matrix.node_file }}
-          fi
+          # Copy the exact cargo output for this target. No `*.node` glob: any
+          # stray .node file there would be shipped instead (see #1456, where a
+          # find | head -1 published an x86-64 binary as linux-arm64-gnu).
+          case "${{ matrix.target }}" in
+            *-linux-gnu)    SRC="examples/ruvLLM/target/${{ matrix.target }}/release/libruvllm.so" ;;
+            *-apple-darwin) SRC="examples/ruvLLM/target/${{ matrix.target }}/release/libruvllm.dylib" ;;
+          esac
+          test -f "$SRC" || { echo "::error::expected cargo output $SRC not found"; exit 1; }
+          cp -v "$SRC" npm/packages/${{ matrix.npm_package }}/${{ matrix.node_file }}
 
       - name: Copy artifact (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path npm/packages/${{ matrix.npm_package }}
-          # Try napi output first, then cargo output
-          if (Test-Path examples/ruvLLM/*.node) {
-            Copy-Item examples/ruvLLM/*.node npm/packages/${{ matrix.npm_package }}/${{ matrix.node_file }}
-          } else {
-            Copy-Item target/${{ matrix.target }}/release/ruvllm.dll npm/packages/${{ matrix.npm_package }}/${{ matrix.node_file }}
-          }
+          # Exact cargo output only (no *.node glob, see the Unix step).
+          Copy-Item -ErrorAction Stop examples/ruvLLM/target/${{ matrix.target }}/release/ruvllm.dll npm/packages/${{ matrix.npm_package }}/${{ matrix.node_file }}
+
+      - name: Assert binary architecture matches the platform
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          F="npm/packages/${{ matrix.npm_package }}/${{ matrix.node_file }}"
+          desc=$(file -b "$F"); echo "$F: $desc"
+          case "${{ matrix.target }}" in
+            x86_64-unknown-linux-gnu)  want='ELF 64-bit.*x86-64' ;;
+            aarch64-unknown-linux-gnu) want='ELF 64-bit.*(ARM aarch64|aarch64)' ;;
+            x86_64-apple-darwin)       want='Mach-O 64-bit.*x86_64' ;;
+            aarch64-apple-darwin)      want='Mach-O 64-bit.*arm64' ;;
+          esac
+          echo "$desc" | grep -Eq "$want" || { echo "::error::$F is not a ${{ matrix.target }} binary: $desc"; exit 1; }
+
+      - name: Gate linux-arm64 binary (no LDAPR, GLIBC <= 2.34)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        shell: bash
+        run: bash scripts/ci/check-arm64-node-binary.sh npm/packages/ruvllm-linux-arm64-gnu/ruvllm.linux-arm64-gnu.node
+
+      - name: Smoke-test the arm64 binary on a Cortex-A72 (Pi 4) under qemu
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        shell: bash
+        run: |
+          # ARMv8.0 CPU model: any LDAPR (ARMv8.3) or other post-v8.0 instruction
+          # dies with SIGILL here, as it does on a Pi 4 / Jetson.
+          sudo apt-get install -y --no-install-recommends qemu-user
+          curl -fsSL https://nodejs.org/dist/v20.18.1/node-v20.18.1-linux-arm64.tar.xz | tar xJ -C "$RUNNER_TEMP"
+          cat > "$RUNNER_TEMP/ruvllm-smoke.js" <<'JS'
+          const m = require(process.argv[2]);
+          const s = new m.SimdOperations();
+          const dot = s.dotProduct([1, 2, 3], [4, 5, 6]);
+          const cos = s.cosineSimilarity([1, 2, 3], [1, 2, 3]);
+          const sm = s.softmax([1, 2, 3]).reduce((a, b) => a + b, 0);
+          if (dot !== 32 || Math.abs(cos - 1) > 1e-5 || Math.abs(sm - 1) > 1e-9) throw new Error('SIMD ops returned wrong values');
+          const r = new m.RuvLlmEngine().route('what is a vector database');
+          if (!r || typeof r.confidence !== 'number') throw new Error('route() failed');
+          console.log('ruvllm arm64 on cortex-a72: dot', dot, 'route', r.model, r.confidence.toFixed(3));
+          JS
+          qemu-aarch64 -cpu cortex-a72 -L /usr/aarch64-linux-gnu "$RUNNER_TEMP/node-v20.18.1-linux-arm64/bin/node" \
+            "$RUNNER_TEMP/ruvllm-smoke.js" "$PWD/npm/packages/ruvllm-linux-arm64-gnu/ruvllm.linux-arm64-gnu.node"
 
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -147,17 +206,45 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           for pkg in ruvllm-linux-x64-gnu ruvllm-linux-arm64-gnu ruvllm-darwin-x64 ruvllm-darwin-arm64 ruvllm-win32-x64-msvc; do
             cd npm/packages/$pkg
-            npm publish --access public || true
+            bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public
             cd ../../..
           done
+
+      - name: Lock the wrapper's platform optionalDependencies to the published version
+        # The committed wrapper keeps pins that resolve on npm (the
+        # optional-deps-resolvable-on-npm guard); at publish time they move to
+        # the platform version just published, so installs get the new binaries.
+        run: |
+          set -euo pipefail
+          node -e '
+            const fs = require("fs");
+            const plats = ["linux-x64-gnu", "linux-arm64-gnu", "darwin-x64", "darwin-arm64", "win32-x64-msvc"];
+            const v = require("./npm/packages/ruvllm-linux-x64-gnu/package.json").version;
+            for (const p of plats) {
+              const pv = require(`./npm/packages/ruvllm-${p}/package.json`).version;
+              if (pv !== v) throw new Error(`ruvllm-${p} is ${pv}, expected ${v}`);
+            }
+            const file = "./npm/packages/ruvllm/package.json";
+            const pkg = JSON.parse(fs.readFileSync(file, "utf8"));
+            for (const p of plats) pkg.optionalDependencies[`@ruvector/ruvllm-${p}`] = v;
+            fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + "\n");
+            console.log("locked platform optionalDependencies to " + v);
+          '
 
       - name: Build and publish main package
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           cd npm/packages/ruvllm
-          npm install
+          # Only the TypeScript build is needed here. --no-workspaces avoids the
+          # root workspace's darwin-only optional deps (EBADPLATFORM);
+          # --omit=optional skips the platform packages published a moment ago,
+          # which can still be staged on the registry.
+          npm install --no-workspaces --omit=optional --no-audit --no-fund
           npm run build
-          npm publish --access public || true
+          npm test
+          bash "$GITHUB_WORKSPACE/scripts/ci/npm-publish-if-missing.sh" --access public

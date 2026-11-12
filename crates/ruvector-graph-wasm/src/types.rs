@@ -2,7 +2,7 @@
 
 use js_sys::{Array, Object, Reflect};
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen::{from_value, to_value};
+use serde_wasm_bindgen::{from_value, Serializer};
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
@@ -39,7 +39,7 @@ impl JsNode {
 
     #[wasm_bindgen(getter)]
     pub fn properties(&self) -> JsValue {
-        to_value(&self.properties).unwrap_or(JsValue::NULL)
+        to_js_object(&self.properties)
     }
 
     #[wasm_bindgen(getter)]
@@ -52,7 +52,7 @@ impl JsNode {
     pub fn get_property(&self, key: &str) -> JsValue {
         self.properties
             .get(key)
-            .map(|v| to_value(v).unwrap())
+            .map(|v| to_js_object(v))
             .unwrap_or(JsValue::NULL)
     }
 
@@ -98,14 +98,14 @@ impl JsEdge {
 
     #[wasm_bindgen(getter)]
     pub fn properties(&self) -> JsValue {
-        to_value(&self.properties).unwrap_or(JsValue::NULL)
+        to_js_object(&self.properties)
     }
 
     #[wasm_bindgen(js_name = getProperty)]
     pub fn get_property(&self, key: &str) -> JsValue {
         self.properties
             .get(key)
-            .map(|v| to_value(v).unwrap())
+            .map(|v| to_js_object(v))
             .unwrap_or(JsValue::NULL)
     }
 }
@@ -151,7 +151,7 @@ impl JsHyperedge {
 
     #[wasm_bindgen(getter)]
     pub fn properties(&self) -> JsValue {
-        to_value(&self.properties).unwrap_or(JsValue::NULL)
+        to_js_object(&self.properties)
     }
 
     #[wasm_bindgen(getter)]
@@ -188,11 +188,16 @@ impl QueryResult {
 
     #[wasm_bindgen(getter)]
     pub fn data(&self) -> JsValue {
-        to_value(&self.data).unwrap_or(JsValue::NULL)
+        to_js_object(&self.data)
     }
 
+    /// Number of rows when the query returned rows, otherwise the number of graph
+    /// elements (nodes, edges and hyperedges) returned.
     #[wasm_bindgen(getter)]
     pub fn count(&self) -> usize {
+        if !self.data.is_empty() {
+            return self.data.len();
+        }
         self.nodes.len() + self.edges.len() + self.hyperedges.len()
     }
 
@@ -201,6 +206,14 @@ impl QueryResult {
     pub fn is_empty(&self) -> bool {
         self.count() == 0
     }
+}
+
+/// Serializes Rust maps as plain JS objects rather than ES `Map`s, so results can be
+/// read with `.name` and round-tripped through `JSON.stringify`.
+pub(crate) fn to_js_object<T: Serialize + ?Sized>(value: &T) -> JsValue {
+    value
+        .serialize(&Serializer::json_compatible())
+        .unwrap_or(JsValue::NULL)
 }
 
 /// WASM-specific error type
@@ -301,5 +314,45 @@ impl Hyperedge {
 pub(crate) fn js_object_to_hashmap(
     obj: JsValue,
 ) -> Result<HashMap<String, serde_json::Value>, String> {
+    check_property_shape(&obj)?;
     from_value(obj).map_err(|e| format!("Failed to convert JS object: {}", e))
+}
+
+/// Deepest nesting accepted in a property object. Converting a JS value recurses
+/// once per level, and a few thousand levels overflow the 1 MiB wasm stack.
+const MAX_PROPERTY_DEPTH: usize = 64;
+/// Most values visited in one property object. Bounds objects that share children.
+const MAX_PROPERTY_VALUES: usize = 1 << 20;
+
+/// Walks `root` the way serde-wasm-bindgen will (arrays and plain
+/// objects), without recursion, and rejects it if it is too deep or too large. A
+/// cyclic object is rejected as too deep.
+fn check_property_shape(root: &JsValue) -> Result<(), String> {
+    let mut stack = vec![(root.clone(), 0usize)];
+    let mut visited = 0usize;
+    while let Some((value, depth)) = stack.pop() {
+        visited += 1;
+        if visited > MAX_PROPERTY_VALUES {
+            return Err(format!(
+                "Properties hold more than {} values",
+                MAX_PROPERTY_VALUES
+            ));
+        }
+        if !value.is_object() {
+            continue;
+        }
+        if depth >= MAX_PROPERTY_DEPTH {
+            return Err(format!(
+                "Properties nest deeper than {} levels (or contain a cycle)",
+                MAX_PROPERTY_DEPTH
+            ));
+        }
+        let children: Vec<JsValue> = if Array::is_array(&value) {
+            Array::from(&value).to_vec()
+        } else {
+            Object::values(value.unchecked_ref()).to_vec()
+        };
+        stack.extend(children.into_iter().map(|c| (c, depth + 1)));
+    }
+    Ok(())
 }

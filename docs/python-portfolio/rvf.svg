@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="300" viewBox="0 0 1000 300" role="img" aria-labelledby="title desc">
+<title id="title">RuVector RVF: persistent vector files for Python</title>
+<desc id="desc">Vectors pass through validation into a Rust RVF file, then return as exact L2 query results.</desc>
+<style>text{font-family:system-ui,sans-serif;fill:#e7edf8}.label{font-size:18px}.small{font-size:14px;fill:#a5b8cc}.flow{stroke:#3ad9ba;stroke-width:3;stroke-dasharray:8 8;animation:travel 2s linear infinite}@keyframes travel{to{stroke-dashoffset:-32}}@media(prefers-reduced-motion:reduce){.flow{animation:none}}</style>
+<rect width="1000" height="300" rx="18" fill="#101b2a"/>
+<text x="40" y="55" font-size="30" font-weight="700">RuVector RVF</text><text x="40" y="85" class="small">Python · Rust storage · Persistent local vectors</text>
+<path d="M240 171H335M555 171H650" class="flow" fill="none"/>
+<g fill="#1a3042" stroke="#3ad9ba"><rect x="40" y="123" width="200" height="96" rx="12"/><rect x="335" y="123" width="220" height="96" rx="12"/><rect x="650" y="123" width="300" height="96" rx="12"/></g>
+<text x="66" y="163" class="label">Validate vectors</text><text x="66" y="189" class="small">Finite · Bounded · IDs</text><text x="365" y="163" class="label">Native RVF file</text><text x="365" y="189" class="small">Create · Ingest · Close</text><text x="678" y="163" class="label">Reopen and search</text><text x="678" y="189" class="small">Exact L2 · Durable records</text>
+<text x="40" y="265" class="small">Trusted local files. Focused Python API over the real Rust runtime.</text></svg>

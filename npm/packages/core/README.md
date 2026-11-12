@@ -1,33 +1,34 @@
-# ruvector-core
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/core.svg" alt="@ruvector/core: High-performance vector database core with HNSW indexing, built in Rust for similarity search." width="100%"></p>
 
-[![npm version](https://badge.fury.io/js/ruvector-core.svg)](https://www.npmjs.com/package/ruvector-core)
+# @ruvector/core
+
+[![npm version](https://img.shields.io/npm/v/@ruvector/core)](https://www.npmjs.com/package/@ruvector/core)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node Version](https://img.shields.io/node/v/ruvector-core)](https://nodejs.org)
-[![Downloads](https://img.shields.io/npm/dm/ruvector-core)](https://www.npmjs.com/package/ruvector-core)
+[![Node Version](https://img.shields.io/node/v/@ruvector/core)](https://nodejs.org)
+[![Downloads](https://img.shields.io/npm/dm/@ruvector/core)](https://www.npmjs.com/package/@ruvector/core)
 
 **High-performance vector database with HNSW indexing, built in Rust with Node.js bindings**
 
-Ruvector is a blazingly fast, memory-efficient vector database designed for AI/ML applications, semantic search, and similarity matching. Built with Rust and optimized with SIMD instructions for maximum performance.
+Ruvector is a fast vector database for AI/ML applications, semantic search, and similarity matching. Built in Rust with SIMD-optimized distance functions and exposed to Node.js through N-API.
 
 🌐 **[Visit ruv.io](https://ruv.io)** for more AI infrastructure tools
 
 ## Features
 
-- 🚀 **Ultra-Fast Performance** - 50,000+ inserts/sec, 10,000+ searches/sec
-- 🎯 **HNSW Indexing** - State-of-the-art approximate nearest neighbor search
-- ⚡ **SIMD Optimized** - Hardware-accelerated vector operations
-- 🧵 **Multi-threaded** - Async operations with Tokio runtime
-- 💾 **Memory Efficient** - ~50 bytes per vector with optional quantization
-- 🔒 **Type-Safe** - Full TypeScript definitions included
+- 🚀 **Fast** - native Rust core, async API that runs work off the JS thread
+- 🎯 **HNSW Indexing** - approximate nearest neighbor search (enable it with `hnswConfig`, see below)
+- ⚡ **SIMD Optimized** - hardware-accelerated distance computations
+- 💾 **Persistent** - vectors are stored on disk at `storagePath`
+- 🔒 **Type-Safe** - TypeScript definitions included
 - 🌍 **Cross-Platform** - Linux, macOS (Intel & Apple Silicon), Windows
-- 🦀 **Rust Core** - Memory safety with zero-cost abstractions
+- 🦀 **Rust Core** - memory safety with zero-cost abstractions
 
 ## Quick Start
 
 ### Installation
 
 ```bash
-npm install ruvector-core
+npm install @ruvector/core
 ```
 
 The correct platform-specific native module is automatically installed.
@@ -35,32 +36,31 @@ The correct platform-specific native module is automatically installed.
 ### Basic Usage
 
 ```javascript
-const { VectorDb } = require('ruvector-core');
+const { VectorDb } = require('@ruvector/core');
 
 async function example() {
-  // Create database with 128 dimensions
+  // Create a 128-dimensional database with an HNSW index
   const db = new VectorDb({
     dimensions: 128,
-    maxElements: 10000,
-    storagePath: './vectors.db'
+    distanceMetric: 'Cosine',
+    storagePath: './vectors.db',
+    hnswConfig: { m: 16, efConstruction: 200, efSearch: 100 }
   });
 
-  // Insert a vector
+  // Insert a vector (vectors must be Float32Array; metadata is a JSON string)
   const vector = new Float32Array(128).map(() => Math.random());
   const id = await db.insert({
     id: 'doc_1',
-    vector: vector,
-    metadata: { title: 'Example Document' }
+    vector,
+    metadata: JSON.stringify({ title: 'Example Document' })
   });
 
   // Search for similar vectors
-  const results = await db.search({
-    vector: vector,
-    k: 10
-  });
+  const results = await db.search({ vector, k: 10 });
 
   console.log('Top 10 similar vectors:', results);
-  // Output: [{ id: 'doc_1', score: 1.0, metadata: {...} }, ...]
+  // [{ id: 'doc_1', score: 0, vector: Float32Array(128), metadata: '{"title":"Example Document"}' }, ...]
+  // With the Cosine metric, score is a distance: lower is closer, 0 is an exact match.
 }
 
 example();
@@ -68,23 +68,16 @@ example();
 
 ### TypeScript
 
-Full TypeScript support with complete type definitions:
-
 ```typescript
-import { VectorDb, VectorEntry, SearchQuery, SearchResult } from 'ruvector-core';
+import { VectorDb, VectorEntry, SearchResult } from '@ruvector/core';
 
-const db = new VectorDb({
-  dimensions: 128,
-  maxElements: 10000,
-  storagePath: './vectors.db'
-});
+const db = new VectorDb({ dimensions: 128, storagePath: './vectors.db' });
 
-// Fully typed operations
 const entry: VectorEntry = {
   id: 'doc_1',
-  vector: new Float32Array(128),
-  metadata: { title: 'Example' }
+  vector: new Float32Array(128)
 };
+await db.insert(entry);
 
 const results: SearchResult[] = await db.search({
   vector: new Float32Array(128),
@@ -98,25 +91,43 @@ const results: SearchResult[] = await db.search({
 
 ```typescript
 new VectorDb(options: {
-  dimensions: number;        // Vector dimensionality (required)
-  maxElements?: number;      // Max vectors (default: 10000)
-  storagePath?: string;      // Persistent storage path
-  ef_construction?: number;  // HNSW construction parameter (default: 200)
-  m?: number;               // HNSW M parameter (default: 16)
+  dimensions: number;      // Vector dimensionality (required)
+  distanceMetric?: 'Cosine' | 'Euclidean' | 'DotProduct' | 'Manhattan'; // default 'Cosine'
+  storagePath?: string;    // default './ruvector.db'
+  hnswConfig?: {           // omit for an exact (brute-force) flat index
+    m?: number;              // default 32
+    efConstruction?: number; // default 200
+    efSearch?: number;       // default 100
+    maxElements?: number;    // default 10,000,000
+  };
 })
+
+VectorDb.withDimensions(dimensions: number) // factory with default options
 ```
+
+Notes:
+
+- `distanceMetric` values are case-sensitive PascalCase; `'cosine'` or `'dot'` are rejected.
+- Without `hnswConfig` the database uses an exact flat index, which is correct but scans every vector on each search. Pass `hnswConfig` (even `{}`) for HNSW.
+- Omitting `storagePath` does **not** give an in-memory database: data is written to `./ruvector.db` in the current working directory.
 
 ### Methods
 
-- `insert(entry: VectorEntry): Promise<string>` - Insert a vector
-- `search(query: SearchQuery): Promise<SearchResult[]>` - Find similar vectors
-- `delete(id: string): Promise<boolean>` - Remove a vector
-- `len(): Promise<number>` - Count total vectors
-- `get(id: string): Promise<VectorEntry | null>` - Retrieve vector by ID
+All methods are async.
+
+- `insert(entry: { id?: string; vector: Float32Array; metadata?: string }): Promise<string>` - insert a vector; returns its id (generated if not provided)
+- `insertBatch(entries): Promise<string[]>` - insert many vectors
+- `search(query: { vector: Float32Array; k: number; efSearch?: number }): Promise<SearchResult[]>` - nearest neighbors; each result has `id`, `score`, and when stored, `vector` and `metadata`
+- `get(id: string): Promise<VectorEntry | null>` - retrieve a vector by id
+- `delete(id: string): Promise<boolean>` - remove a vector
+- `len(): Promise<number>` - count stored vectors
+- `isEmpty(): Promise<boolean>`
+
+`vector` must be a `Float32Array`; a plain `number[]` throws `Get TypedArray info failed`. `metadata` is stored and returned as a string — use `JSON.stringify` / `JSON.parse`.
 
 ## Performance Benchmarks
 
-Tested on AMD Ryzen 9 5950X, 128-dimensional vectors:
+Tested on AMD Ryzen 9 5950X, 128-dimensional vectors (figures from the original authors, not re-measured for this README):
 
 | Operation | Throughput | Latency (p50) | Latency (p99) |
 |-----------|------------|---------------|---------------|
@@ -125,18 +136,7 @@ Tested on AMD Ryzen 9 5950X, 128-dimensional vectors:
 | Search (k=100) | 8,932 ops/sec | 0.112 ms | 0.203 ms |
 | Delete    | 45,678 ops/sec | 0.022 ms | 0.051 ms |
 
-**Memory Usage**: ~50 bytes per 128-dim vector (including index)
-
-### Comparison with Alternatives
-
-| Database | Insert (ops/sec) | Search (ops/sec) | Memory per Vector |
-|----------|------------------|------------------|-------------------|
-| **Ruvector** | **52,341** | **11,234** | **50 bytes** |
-| Faiss (HNSW) | 38,200 | 9,800 | 68 bytes |
-| Hnswlib | 41,500 | 10,200 | 62 bytes |
-| Milvus | 28,900 | 7,600 | 95 bytes |
-
-*Benchmarks measured with 100K vectors, 128 dimensions, k=10*
+*Benchmarks measured with 100K vectors, 128 dimensions, k=10. Results depend on hardware and HNSW parameters.*
 
 ## Platform Support
 
@@ -155,11 +155,17 @@ Node.js 18+ required.
 ```javascript
 const db = new VectorDb({
   dimensions: 384,
-  maxElements: 1000000,
-  ef_construction: 200,  // Higher = better recall, slower build
-  m: 16,                 // Higher = better recall, more memory
-  storagePath: './large-db.db'
+  storagePath: './large-db.db',
+  hnswConfig: {
+    m: 16,               // Higher = better recall, more memory
+    efConstruction: 200, // Higher = better recall, slower build
+    efSearch: 100,       // Higher = better recall, slower search
+    maxElements: 1000000
+  }
 });
+
+// efSearch can also be set per query
+const results = await db.search({ vector: queryVector, k: 10, efSearch: 200 });
 ```
 
 ### Distance Metrics
@@ -167,25 +173,21 @@ const db = new VectorDb({
 ```javascript
 const db = new VectorDb({
   dimensions: 128,
-  distanceMetric: 'cosine' // 'cosine', 'euclidean', or 'dot'
+  distanceMetric: 'Euclidean' // 'Cosine' (default), 'Euclidean', 'DotProduct', or 'Manhattan'
 });
 ```
 
 ### Persistence
 
 ```javascript
-// Auto-save to disk
+// Stored at ./persistent.db
 const db = new VectorDb({
   dimensions: 128,
   storagePath: './persistent.db'
 });
-
-// In-memory only
-const db = new VectorDb({
-  dimensions: 128
-  // No storagePath = in-memory
-});
 ```
+
+For throwaway data, point `storagePath` at a temporary directory and delete it when done.
 
 ## Building from Source
 
@@ -209,67 +211,47 @@ Requires:
 - **Recommendation Engines** - Content and product recommendations
 - **Duplicate Detection** - Find similar items in large datasets
 - **Anomaly Detection** - Identify outliers in vector space
-- **Image Similarity** - Visual search and image matching
 
 ## Examples
 
 ### Semantic Text Search
 
-```javascript
-const { VectorDb } = require('ruvector-core');
-const openai = require('openai');
+Any embedding model works; this one uses the OpenAI SDK (requires an API key).
 
-const db = new VectorDb({ dimensions: 1536 }); // OpenAI ada-002
+```javascript
+const { VectorDb } = require('@ruvector/core');
+const OpenAI = require('openai');
+
+const openai = new OpenAI();
+const db = new VectorDb({ dimensions: 1536, storagePath: './docs.db', hnswConfig: {} });
+
+async function embed(text) {
+  const res = await openai.embeddings.create({ model: 'text-embedding-3-small', input: text });
+  return new Float32Array(res.data[0].embedding);
+}
 
 async function indexDocuments(texts) {
-  for (const text of texts) {
-    const embedding = await openai.embeddings.create({
-      model: 'text-embedding-ada-002',
-      input: text
-    });
-
-    await db.insert({
-      id: text.slice(0, 20),
-      vector: new Float32Array(embedding.data[0].embedding),
-      metadata: { text }
-    });
+  for (const [i, text] of texts.entries()) {
+    await db.insert({ id: `doc-${i}`, vector: await embed(text), metadata: JSON.stringify({ text }) });
   }
 }
 
 async function search(query) {
-  const embedding = await openai.embeddings.create({
-    model: 'text-embedding-ada-002',
-    input: query
-  });
-
-  return await db.search({
-    vector: new Float32Array(embedding.data[0].embedding),
-    k: 5
-  });
+  const results = await db.search({ vector: await embed(query), k: 5 });
+  return results.map((r) => ({ id: r.id, distance: r.score, ...JSON.parse(r.metadata ?? '{}') }));
 }
 ```
 
-### Image Similarity Search
+### Vector search + graph expansion (offline)
 
-```javascript
-const { VectorDb } = require('ruvector-core');
-const clip = require('@xenova/transformers');
+[`examples/npm-vector-graph`](https://github.com/ruvnet/ruvector/tree/main/examples/npm-vector-graph) is a runnable script that pairs `@ruvector/core` (top-k search) with [`@ruvector/graph-wasm`](https://www.npmjs.com/package/@ruvector/graph-wasm) (follow relationships from each hit). No API keys required.
 
-const db = new VectorDb({ dimensions: 512 }); // CLIP embedding size
+## Related packages
 
-async function indexImages(imagePaths) {
-  const model = await clip.CLIPModel.from_pretrained('openai/clip-vit-base-patch32');
-
-  for (const path of imagePaths) {
-    const embedding = await model.encode_image(path);
-    await db.insert({
-      id: path,
-      vector: new Float32Array(embedding),
-      metadata: { path }
-    });
-  }
-}
-```
+- [`@ruvector/graph-wasm`](https://www.npmjs.com/package/@ruvector/graph-wasm) — property graph + Cypher in WebAssembly; pair it with core for graph-expanded retrieval (see the example above).
+- [`@ruvector/router`](https://www.npmjs.com/package/@ruvector/router) — semantic intent routing on its own native HNSW index, for matching queries to handlers.
+- [`@ruvector/rabitq-wasm`](https://www.npmjs.com/package/@ruvector/rabitq-wasm) — 1-bit quantized ANN index in WebAssembly for browsers and edge runtimes.
+- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package and CLI (`npx ruvector`).
 
 ## Resources
 
@@ -290,3 +272,12 @@ MIT License - see [LICENSE](https://github.com/ruvnet/ruvector/blob/main/LICENSE
 ---
 
 Built with ❤️ by the [ruv.io](https://ruv.io) team
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for vector database, vector search, HNSW.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@claude-flow/embeddings`](https://www.npmjs.com/package/@claude-flow/embeddings) (peer), [`@ruvector/node`](https://www.npmjs.com/package/@ruvector/node), [`claude-flow`](https://www.npmjs.com/package/claude-flow) (optional), [`ruvector`](https://www.npmjs.com/package/ruvector)
+<!-- weaver:seo:links:end -->

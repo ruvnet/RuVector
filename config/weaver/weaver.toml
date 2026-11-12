@@ -1,0 +1,54 @@
+# ruvector-weaver loop policy (ADR-355). Read by `weaver`; every value here
+# is a guard rail the binary enforces, not a hint for the agents.
+
+[loop]
+# Concurrent lanes dispatched per tick. Still ONE active lane per repo:
+# two agents in one repo collide on versions and lockfiles.
+max_lanes = 8
+# A lane may batch several independent items (distinct candidates, no
+# shared evidence file) for its repo into one PR / release.
+max_batch_per_lane = 6
+# Autopilot new-package creation (user decisions 2026-11-05): new names are
+# limited only by the quality gates. These knobs stay available but are
+# unset (= unlimited) by default; set an integer to cap.
+# max_new_packages_per_tick = 10
+# max_new_packages_per_day = 30
+# A pair that failed this many times is no longer re-proposed.
+max_failures = 2
+
+[npm]
+maintainer = "ruvnet"
+# Scopes / name prefixes that mark an import as "ecosystem" (probe it).
+ecosystem_scopes = ["@ruvector", "@ruvnet", "@claude-flow", "@agentic-flow", "@cognitum"]
+ecosystem_prefixes = ["ruvector", "agentic-", "agentdb", "claude-flow", "ruv-", "rvlite", "sublinear", "strange-loops", "goalie", "aidefence", "agent-booster", "midstream"]
+
+[crates]
+user_id = 339999
+
+[gate]
+# A candidate must have published within this many days.
+max_age_days = 365
+# Tarball file-list patterns that must never ship (regex, matched per path).
+leak_patterns = [
+  '(^|/)\.claude(/|$|-flow/|\.json$|\.md$)',
+  '(^|/)\.claude-flow/',
+  '(^|/)\.swarm/',
+  '\.db$',
+  '\.sqlite3?$',
+  '(^|/)\.env(\..*)?$',
+  '(^|/)\.npmrc$',
+  '\.pem$',
+  '(^|/)id_(rsa|ed25519)$',
+]
+smoke_timeout_secs = 300
+
+[scan]
+max_file_bytes = 1_000_000
+skip_dirs = ["node_modules", ".git", "dist", "build", "target", "vendor", "coverage", ".next", "out", ".turbo", ".cache", "fixtures", "__fixtures__"]
+security_timeout_secs = 180
+
+# Paths a package ships ON PURPOSE (regex per package). Leak paths that the
+# previous published version already carried are reported as "carried over"
+# and do not fail the gate; only NEW leak paths do.
+[gate.leak_allow]
+"agentic-flow" = ['(^|/)\.claude/']

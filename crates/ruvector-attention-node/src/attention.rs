@@ -8,7 +8,13 @@
 //! - Linear attention
 //! - Local-global attention
 //! - Mixture of Experts attention
+//!
+//! Every constructor validates its configuration and every `compute` validates
+//! the lengths of its inputs (see [`crate::validate`]). Sync bindings are also
+//! marked `catch_unwind`, so a Rust panic surfaces as a JavaScript `Error`
+//! instead of aborting the process.
 
+use crate::validate::{self, F32Rows};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ruvector_attention::{
@@ -21,6 +27,82 @@ use ruvector_attention::{
     },
     traits::Attention,
 };
+
+/// Validates `query`/`keys`/`values` against `dim` and runs `attention`.
+pub(crate) fn run<A: Attention>(
+    attention: &A,
+    dim: usize,
+    value_dim: Option<usize>,
+    query: Float32Array,
+    keys: F32Rows,
+    values: F32Rows,
+) -> Result<Float32Array> {
+    run_slices(
+        attention,
+        dim,
+        value_dim,
+        query.as_ref(),
+        &keys.slices(),
+        &values.slices(),
+    )
+}
+
+/// Flat-input variant of [`run`]: `keys` is `n * dim` floats row-major and
+/// `values` is `n * value_dim` floats (`value_dim` defaults to
+/// `values.length / n`). Three typed arrays cross the boundary instead of
+/// `2n + 1`, and nothing is copied.
+pub(crate) fn run_flat<A: Attention>(
+    attention: &A,
+    dim: usize,
+    value_dim: Option<usize>,
+    query: Float32Array,
+    keys: Float32Array,
+    values: Float32Array,
+) -> Result<Float32Array> {
+    let (k, v) = flat_kv(dim, value_dim, keys.as_ref(), values.as_ref())?;
+    run_slices(attention, dim, value_dim, query.as_ref(), &k, &v)
+}
+
+/// Splits flat keys/values into row slices (see [`run_flat`]).
+pub(crate) fn flat_kv<'a>(
+    dim: usize,
+    value_dim: Option<usize>,
+    keys: &'a [f32],
+    values: &'a [f32],
+) -> Result<(Vec<&'a [f32]>, Vec<&'a [f32]>)> {
+    let k = validate::flat_rows("keys", keys, dim)?;
+    let n = k.len();
+    let vd = match value_dim {
+        Some(d) => d,
+        None if values.len() % n == 0 => values.len() / n,
+        None => {
+            return Err(Error::new(
+                Status::InvalidArg,
+                format!(
+                    "values length {} is not a multiple of the key count {n}",
+                    values.len()
+                ),
+            ))
+        }
+    };
+    let v = validate::flat_rows("values", values, vd)?;
+    Ok((k, v))
+}
+
+fn run_slices<A: Attention>(
+    attention: &A,
+    dim: usize,
+    value_dim: Option<usize>,
+    query: &[f32],
+    keys: &[&[f32]],
+    values: &[&[f32]],
+) -> Result<Float32Array> {
+    validate::qkv(dim, query, keys, values, value_dim)?;
+    let result = attention
+        .compute(query, keys, values)
+        .map_err(|e| Error::from_reason(e.to_string()))?;
+    Ok(Float32Array::new(result))
+}
 
 /// Attention configuration object
 #[napi(object)]
@@ -36,6 +118,7 @@ pub struct AttentionConfig {
 #[napi]
 pub struct DotProductAttention {
     inner: ScaledDotProductAttention,
+    dim_value: usize,
 }
 
 #[napi]
@@ -44,10 +127,12 @@ impl DotProductAttention {
     ///
     /// # Arguments
     /// * `dim` - Embedding dimension
-    #[napi(constructor)]
+    #[napi(constructor, catch_unwind)]
     pub fn new(dim: u32) -> Result<Self> {
+        let d = validate::dim("dim", dim)?;
         Ok(Self {
-            inner: ScaledDotProductAttention::new(dim as usize),
+            inner: ScaledDotProductAttention::new(d),
+            dim_value: d,
         })
     }
 
@@ -57,25 +142,27 @@ impl DotProductAttention {
     /// * `query` - Query vector
     /// * `keys` - Array of key vectors
     /// * `values` - Array of value vectors
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
-        let query_slice = query.as_ref();
-        let keys_vec: Vec<Vec<f32>> = keys.into_iter().map(|k| k.to_vec()).collect();
-        let values_vec: Vec<Vec<f32>> = values.into_iter().map(|v| v.to_vec()).collect();
-        let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
-        let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
+        run(&self.inner, self.dim_value, None, query, keys, values)
+    }
 
-        let result = self
-            .inner
-            .compute(query_slice, &keys_refs, &values_refs)
-            .map_err(|e| Error::from_reason(e.to_string()))?;
-
-        Ok(Float32Array::new(result))
+    /// Same as `compute`, with keys and values passed as flat row-major
+    /// `Float32Array`s (`n * dim` floats each). Faster for many keys: no
+    /// per-key typed arrays cross the native boundary.
+    #[napi(catch_unwind)]
+    pub fn compute_flat(
+        &self,
+        query: Float32Array,
+        keys: Float32Array,
+        values: Float32Array,
+    ) -> Result<Float32Array> {
+        run_flat(&self.inner, self.dim_value, None, query, keys, values)
     }
 
     /// Compute attention with mask
@@ -85,23 +172,36 @@ impl DotProductAttention {
     /// * `keys` - Array of key vectors
     /// * `values` - Array of value vectors
     /// * `mask` - Boolean mask array (true = attend, false = mask)
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn compute_with_mask(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
         mask: Vec<bool>,
     ) -> Result<Float32Array> {
-        let query_slice = query.as_ref();
-        let keys_vec: Vec<Vec<f32>> = keys.into_iter().map(|k| k.to_vec()).collect();
-        let values_vec: Vec<Vec<f32>> = values.into_iter().map(|v| v.to_vec()).collect();
-        let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
-        let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
+        let keys_vec = keys.slices();
+        let values_vec = values.slices();
+        validate::qkv(self.dim_value, query.as_ref(), &keys_vec, &values_vec, None)?;
+        if mask.len() != keys_vec.len() {
+            return Err(Error::new(
+                Status::InvalidArg,
+                format!(
+                    "mask must have one entry per key ({}), got {}",
+                    keys_vec.len(),
+                    mask.len()
+                ),
+            ));
+        }
 
         let result = self
             .inner
-            .compute_with_mask(query_slice, &keys_refs, &values_refs, Some(mask.as_slice()))
+            .compute_with_mask(
+                query.as_ref(),
+                &keys_vec,
+                &values_vec,
+                Some(mask.as_slice()),
+            )
             .map_err(|e| Error::from_reason(e.to_string()))?;
 
         Ok(Float32Array::new(result))
@@ -129,45 +229,43 @@ impl MultiHeadAttention {
     /// # Arguments
     /// * `dim` - Embedding dimension (must be divisible by num_heads)
     /// * `num_heads` - Number of attention heads
-    #[napi(constructor)]
+    #[napi(constructor, catch_unwind)]
     pub fn new(dim: u32, num_heads: u32) -> Result<Self> {
-        let d = dim as usize;
-        let h = num_heads as usize;
-
-        if d % h != 0 {
-            return Err(Error::from_reason(format!(
-                "Dimension {} must be divisible by number of heads {}",
-                d, h
-            )));
-        }
+        let d = validate::dim("dim", dim)?;
+        let h = validate::heads(d, num_heads)?;
+        let inner = RustMultiHead::try_new(d, h).map_err(|e| Error::from_reason(e.to_string()))?;
 
         Ok(Self {
-            inner: RustMultiHead::new(d, h),
+            inner,
             dim_value: d,
             num_heads_value: h,
         })
     }
 
     /// Compute multi-head attention
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
-        let query_slice = query.as_ref();
-        let keys_vec: Vec<Vec<f32>> = keys.into_iter().map(|k| k.to_vec()).collect();
-        let values_vec: Vec<Vec<f32>> = values.into_iter().map(|v| v.to_vec()).collect();
-        let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
-        let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
+        let d = self.dim_value;
+        run(&self.inner, d, Some(d), query, keys, values)
+    }
 
-        let result = self
-            .inner
-            .compute(query_slice, &keys_refs, &values_refs)
-            .map_err(|e| Error::from_reason(e.to_string()))?;
-
-        Ok(Float32Array::new(result))
+    /// Same as `compute`, with keys and values passed as flat row-major
+    /// `Float32Array`s (`n * dim` floats each). Faster for many keys: no
+    /// per-key typed arrays cross the native boundary.
+    #[napi(catch_unwind)]
+    pub fn compute_flat(
+        &self,
+        query: Float32Array,
+        keys: Float32Array,
+        values: Float32Array,
+    ) -> Result<Float32Array> {
+        let d = self.dim_value;
+        run_flat(&self.inner, d, Some(d), query, keys, values)
     }
 
     /// Get the number of heads
@@ -204,18 +302,20 @@ impl HyperbolicAttention {
     /// # Arguments
     /// * `dim` - Embedding dimension
     /// * `curvature` - Hyperbolic curvature (typically 1.0)
-    #[napi(constructor)]
-    pub fn new(dim: u32, curvature: f64) -> Self {
+    #[napi(constructor, catch_unwind)]
+    pub fn new(dim: u32, curvature: f64) -> Result<Self> {
+        let d = validate::dim("dim", dim)?;
+        let c = validate::finite("curvature", curvature, false)?;
         let config = HyperbolicAttentionConfig {
-            dim: dim as usize,
-            curvature: curvature as f32,
+            dim: d,
+            curvature: c,
             ..Default::default()
         };
-        Self {
+        Ok(Self {
             inner: RustHyperbolic::new(config),
-            curvature_value: curvature as f32,
-            dim_value: dim as usize,
-        }
+            curvature_value: c,
+            dim_value: d,
+        })
     }
 
     /// Create with full configuration
@@ -225,48 +325,53 @@ impl HyperbolicAttention {
     /// * `curvature` - Hyperbolic curvature
     /// * `adaptive_curvature` - Whether to use adaptive curvature
     /// * `temperature` - Temperature for softmax
-    #[napi(factory)]
+    #[napi(factory, catch_unwind)]
     pub fn with_config(
         dim: u32,
         curvature: f64,
         adaptive_curvature: bool,
         temperature: f64,
-    ) -> Self {
+    ) -> Result<Self> {
+        let d = validate::dim("dim", dim)?;
+        let c = validate::finite("curvature", curvature, false)?;
+        let t = validate::finite("temperature", temperature, true)?;
         let config = HyperbolicAttentionConfig {
-            dim: dim as usize,
-            curvature: curvature as f32,
+            dim: d,
+            curvature: c,
             adaptive_curvature,
-            temperature: temperature as f32,
+            temperature: t,
             frechet_max_iter: 100,
             frechet_tol: 1e-6,
         };
-        Self {
+        Ok(Self {
             inner: RustHyperbolic::new(config),
-            curvature_value: curvature as f32,
-            dim_value: dim as usize,
-        }
+            curvature_value: c,
+            dim_value: d,
+        })
     }
 
     /// Compute hyperbolic attention
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
-        let query_slice = query.as_ref();
-        let keys_vec: Vec<Vec<f32>> = keys.into_iter().map(|k| k.to_vec()).collect();
-        let values_vec: Vec<Vec<f32>> = values.into_iter().map(|v| v.to_vec()).collect();
-        let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
-        let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
+        run(&self.inner, self.dim_value, None, query, keys, values)
+    }
 
-        let result = self
-            .inner
-            .compute(query_slice, &keys_refs, &values_refs)
-            .map_err(|e| Error::from_reason(e.to_string()))?;
-
-        Ok(Float32Array::new(result))
+    /// Same as `compute`, with keys and values passed as flat row-major
+    /// `Float32Array`s (`n * dim` floats each). Faster for many keys: no
+    /// per-key typed arrays cross the native boundary.
+    #[napi(catch_unwind)]
+    pub fn compute_flat(
+        &self,
+        query: Float32Array,
+        keys: Float32Array,
+        values: Float32Array,
+    ) -> Result<Float32Array> {
+        run_flat(&self.inner, self.dim_value, None, query, keys, values)
     }
 
     /// Get the curvature
@@ -297,35 +402,39 @@ impl FlashAttention {
     /// # Arguments
     /// * `dim` - Embedding dimension
     /// * `block_size` - Block size for tiled computation
-    #[napi(constructor)]
-    pub fn new(dim: u32, block_size: u32) -> Self {
-        Self {
-            inner: RustFlash::new(dim as usize, block_size as usize),
-            dim_value: dim as usize,
-            block_size_value: block_size as usize,
-        }
+    #[napi(constructor, catch_unwind)]
+    pub fn new(dim: u32, block_size: u32) -> Result<Self> {
+        let d = validate::dim("dim", dim)?;
+        let b = validate::count("blockSize", block_size)?;
+        Ok(Self {
+            inner: RustFlash::new(d, b),
+            dim_value: d,
+            block_size_value: b,
+        })
     }
 
     /// Compute flash attention
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
-        let query_slice = query.as_ref();
-        let keys_vec: Vec<Vec<f32>> = keys.into_iter().map(|k| k.to_vec()).collect();
-        let values_vec: Vec<Vec<f32>> = values.into_iter().map(|v| v.to_vec()).collect();
-        let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
-        let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
+        run(&self.inner, self.dim_value, None, query, keys, values)
+    }
 
-        let result = self
-            .inner
-            .compute(query_slice, &keys_refs, &values_refs)
-            .map_err(|e| Error::from_reason(e.to_string()))?;
-
-        Ok(Float32Array::new(result))
+    /// Same as `compute`, with keys and values passed as flat row-major
+    /// `Float32Array`s (`n * dim` floats each). Faster for many keys: no
+    /// per-key typed arrays cross the native boundary.
+    #[napi(catch_unwind)]
+    pub fn compute_flat(
+        &self,
+        query: Float32Array,
+        keys: Float32Array,
+        values: Float32Array,
+    ) -> Result<Float32Array> {
+        run_flat(&self.inner, self.dim_value, None, query, keys, values)
     }
 
     /// Get the dimension
@@ -356,35 +465,53 @@ impl LinearAttention {
     /// # Arguments
     /// * `dim` - Embedding dimension
     /// * `num_features` - Number of random features
-    #[napi(constructor)]
-    pub fn new(dim: u32, num_features: u32) -> Self {
-        Self {
-            inner: RustLinear::new(dim as usize, num_features as usize),
-            dim_value: dim as usize,
-            num_features_value: num_features as usize,
-        }
+    #[napi(constructor, catch_unwind)]
+    pub fn new(dim: u32, num_features: u32) -> Result<Self> {
+        let d = validate::dim("dim", dim)?;
+        let f = validate::count("numFeatures", num_features)?;
+        validate::elements("LinearAttention feature matrix", &[d, f])?;
+        Ok(Self {
+            inner: RustLinear::new(d, f),
+            dim_value: d,
+            num_features_value: f,
+        })
     }
 
     /// Compute linear attention
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
-        let query_slice = query.as_ref();
-        let keys_vec: Vec<Vec<f32>> = keys.into_iter().map(|k| k.to_vec()).collect();
-        let values_vec: Vec<Vec<f32>> = values.into_iter().map(|v| v.to_vec()).collect();
-        let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
-        let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
+        if let Some(v) = values.first_len() {
+            validate::elements(
+                "LinearAttention key-value summary",
+                &[self.num_features_value, v],
+            )?;
+        }
+        run(&self.inner, self.dim_value, None, query, keys, values)
+    }
 
-        let result = self
-            .inner
-            .compute(query_slice, &keys_refs, &values_refs)
-            .map_err(|e| Error::from_reason(e.to_string()))?;
-
-        Ok(Float32Array::new(result))
+    /// Same as `compute`, with keys and values passed as flat row-major
+    /// `Float32Array`s (`n * dim` floats each). Faster for many keys: no
+    /// per-key typed arrays cross the native boundary.
+    #[napi(catch_unwind)]
+    pub fn compute_flat(
+        &self,
+        query: Float32Array,
+        keys: Float32Array,
+        values: Float32Array,
+    ) -> Result<Float32Array> {
+        let n = keys.len() / self.dim_value;
+        if n > 0 {
+            validate::elements(
+                "LinearAttention key-value summary",
+                &[self.num_features_value, values.len() / n],
+            )?;
+        }
+        run_flat(&self.inner, self.dim_value, None, query, keys, values)
     }
 
     /// Get the dimension
@@ -417,40 +544,50 @@ impl LocalGlobalAttention {
     /// * `dim` - Embedding dimension
     /// * `local_window` - Size of local attention window
     /// * `global_tokens` - Number of global attention tokens
-    #[napi(constructor)]
-    pub fn new(dim: u32, local_window: u32, global_tokens: u32) -> Self {
-        Self {
-            inner: RustLocalGlobal::new(
-                dim as usize,
-                local_window as usize,
-                global_tokens as usize,
-            ),
-            dim_value: dim as usize,
-            local_window_value: local_window as usize,
-            global_tokens_value: global_tokens as usize,
+    #[napi(constructor, catch_unwind)]
+    pub fn new(dim: u32, local_window: u32, global_tokens: u32) -> Result<Self> {
+        let d = validate::dim("dim", dim)?;
+        let w = validate::count("localWindow", local_window)?;
+        if global_tokens > validate::MAX_COUNT {
+            return Err(Error::new(
+                Status::InvalidArg,
+                format!(
+                    "globalTokens must be at most {}, got {global_tokens}",
+                    validate::MAX_COUNT
+                ),
+            ));
         }
+        let g = global_tokens as usize;
+        Ok(Self {
+            inner: RustLocalGlobal::new(d, w, g),
+            dim_value: d,
+            local_window_value: w,
+            global_tokens_value: g,
+        })
     }
 
     /// Compute local-global attention
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
-        let query_slice = query.as_ref();
-        let keys_vec: Vec<Vec<f32>> = keys.into_iter().map(|k| k.to_vec()).collect();
-        let values_vec: Vec<Vec<f32>> = values.into_iter().map(|v| v.to_vec()).collect();
-        let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
-        let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
+        run(&self.inner, self.dim_value, None, query, keys, values)
+    }
 
-        let result = self
-            .inner
-            .compute(query_slice, &keys_refs, &values_refs)
-            .map_err(|e| Error::from_reason(e.to_string()))?;
-
-        Ok(Float32Array::new(result))
+    /// Same as `compute`, with keys and values passed as flat row-major
+    /// `Float32Array`s (`n * dim` floats each). Faster for many keys: no
+    /// per-key typed arrays cross the native boundary.
+    #[napi(catch_unwind)]
+    pub fn compute_flat(
+        &self,
+        query: Float32Array,
+        keys: Float32Array,
+        values: Float32Array,
+    ) -> Result<Float32Array> {
+        run_flat(&self.inner, self.dim_value, None, query, keys, values)
     }
 
     /// Get the dimension
@@ -481,6 +618,9 @@ pub struct MoEConfig {
     pub expert_capacity: Option<f64>,
 }
 
+/// Largest accepted expert count.
+const MAX_EXPERTS: u32 = 1024;
+
 /// Mixture of Experts attention
 #[napi]
 pub struct MoEAttention {
@@ -494,19 +634,49 @@ impl MoEAttention {
     ///
     /// # Arguments
     /// * `config` - MoE configuration object
-    #[napi(constructor)]
-    pub fn new(config: MoEConfig) -> Self {
+    #[napi(constructor, catch_unwind)]
+    pub fn new(config: MoEConfig) -> Result<Self> {
+        let d = validate::dim("dim", config.dim)?;
+        if config.num_experts == 0 || config.num_experts > MAX_EXPERTS {
+            return Err(Error::new(
+                Status::InvalidArg,
+                format!(
+                    "numExperts must be between 1 and {MAX_EXPERTS}, got {}",
+                    config.num_experts
+                ),
+            ));
+        }
+        if config.top_k == 0 || config.top_k > config.num_experts {
+            return Err(Error::new(
+                Status::InvalidArg,
+                format!(
+                    "topK must be between 1 and numExperts ({}), got {}",
+                    config.num_experts, config.top_k
+                ),
+            ));
+        }
+        let e = config.num_experts as usize;
+        // Router gate is [num_experts x dim]; each linear expert holds a
+        // [dim/4 x dim] feature matrix.
+        validate::elements("MoE router", &[e, d])?;
+        validate::elements("MoE experts", &[e, d, d.div_ceil(4)])?;
+        let capacity = validate::finite(
+            "expertCapacity",
+            config.expert_capacity.unwrap_or(1.25),
+            true,
+        )?;
+
         let rust_config = RustMoEConfig::builder()
-            .dim(config.dim as usize)
-            .num_experts(config.num_experts as usize)
+            .dim(d)
+            .num_experts(e)
             .top_k(config.top_k as usize)
-            .expert_capacity(config.expert_capacity.unwrap_or(1.25) as f32)
+            .expert_capacity(capacity)
             .build();
 
-        Self {
+        Ok(Self {
             inner: RustMoE::new(rust_config),
             config,
-        }
+        })
     }
 
     /// Create with simple parameters
@@ -515,8 +685,8 @@ impl MoEAttention {
     /// * `dim` - Embedding dimension
     /// * `num_experts` - Number of expert networks
     /// * `top_k` - Number of experts to route to
-    #[napi(factory)]
-    pub fn simple(dim: u32, num_experts: u32, top_k: u32) -> Self {
+    #[napi(factory, catch_unwind)]
+    pub fn simple(dim: u32, num_experts: u32, top_k: u32) -> Result<Self> {
         let config = MoEConfig {
             dim,
             num_experts,
@@ -527,25 +697,29 @@ impl MoEAttention {
     }
 
     /// Compute MoE attention
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn compute(
         &self,
         query: Float32Array,
-        keys: Vec<Float32Array>,
-        values: Vec<Float32Array>,
+        #[napi(ts_arg_type = "Float32Array[]")] keys: F32Rows,
+        #[napi(ts_arg_type = "Float32Array[]")] values: F32Rows,
     ) -> Result<Float32Array> {
-        let query_slice = query.as_ref();
-        let keys_vec: Vec<Vec<f32>> = keys.into_iter().map(|k| k.to_vec()).collect();
-        let values_vec: Vec<Vec<f32>> = values.into_iter().map(|v| v.to_vec()).collect();
-        let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
-        let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
+        let d = self.config.dim as usize;
+        run(&self.inner, d, None, query, keys, values)
+    }
 
-        let result = self
-            .inner
-            .compute(query_slice, &keys_refs, &values_refs)
-            .map_err(|e| Error::from_reason(e.to_string()))?;
-
-        Ok(Float32Array::new(result))
+    /// Same as `compute`, with keys and values passed as flat row-major
+    /// `Float32Array`s (`n * dim` floats each). Faster for many keys: no
+    /// per-key typed arrays cross the native boundary.
+    #[napi(catch_unwind)]
+    pub fn compute_flat(
+        &self,
+        query: Float32Array,
+        keys: Float32Array,
+        values: Float32Array,
+    ) -> Result<Float32Array> {
+        let d = self.config.dim as usize;
+        run_flat(&self.inner, d, None, query, keys, values)
     }
 
     /// Get the dimension
@@ -569,46 +743,60 @@ impl MoEAttention {
 
 // Utility functions
 
+fn same_len(a: &[f32], b: &[f32]) -> Result<()> {
+    if a.len() != b.len() {
+        return Err(Error::new(
+            Status::InvalidArg,
+            format!(
+                "vectors must have the same length, got {} and {}",
+                a.len(),
+                b.len()
+            ),
+        ));
+    }
+    Ok(())
+}
+
 /// Project a vector into the Poincaré ball
-#[napi]
-pub fn project_to_poincare_ball(vector: Float32Array, curvature: f64) -> Float32Array {
+#[napi(catch_unwind)]
+pub fn project_to_poincare_ball(vector: Float32Array, curvature: f64) -> Result<Float32Array> {
+    let c = validate::finite("curvature", curvature, false)?;
     let v = vector.to_vec();
-    let projected = ruvector_attention::hyperbolic::project_to_ball(&v, curvature as f32, 1e-5);
-    Float32Array::new(projected)
+    let projected = ruvector_attention::hyperbolic::project_to_ball(&v, c, 1e-5);
+    Ok(Float32Array::new(projected))
 }
 
 /// Compute hyperbolic (Poincaré) distance between two points
-#[napi]
-pub fn poincare_distance(a: Float32Array, b: Float32Array, curvature: f64) -> f64 {
-    let a_slice = a.as_ref();
-    let b_slice = b.as_ref();
-    ruvector_attention::hyperbolic::poincare_distance(a_slice, b_slice, curvature as f32) as f64
+#[napi(catch_unwind)]
+pub fn poincare_distance(a: Float32Array, b: Float32Array, curvature: f64) -> Result<f64> {
+    let c = validate::finite("curvature", curvature, false)?;
+    same_len(a.as_ref(), b.as_ref())?;
+    Ok(ruvector_attention::hyperbolic::poincare_distance(a.as_ref(), b.as_ref(), c) as f64)
 }
 
 /// Möbius addition in hyperbolic space
-#[napi]
-pub fn mobius_addition(a: Float32Array, b: Float32Array, curvature: f64) -> Float32Array {
-    let a_slice = a.as_ref();
-    let b_slice = b.as_ref();
-    let result = ruvector_attention::hyperbolic::mobius_add(a_slice, b_slice, curvature as f32);
-    Float32Array::new(result)
+#[napi(catch_unwind)]
+pub fn mobius_addition(a: Float32Array, b: Float32Array, curvature: f64) -> Result<Float32Array> {
+    let c = validate::finite("curvature", curvature, false)?;
+    same_len(a.as_ref(), b.as_ref())?;
+    let result = ruvector_attention::hyperbolic::mobius_add(a.as_ref(), b.as_ref(), c);
+    Ok(Float32Array::new(result))
 }
 
 /// Exponential map from tangent space to hyperbolic space
-#[napi]
-pub fn exp_map(base: Float32Array, tangent: Float32Array, curvature: f64) -> Float32Array {
-    let base_slice = base.as_ref();
-    let tangent_slice = tangent.as_ref();
-    let result =
-        ruvector_attention::hyperbolic::exp_map(base_slice, tangent_slice, curvature as f32);
-    Float32Array::new(result)
+#[napi(catch_unwind)]
+pub fn exp_map(base: Float32Array, tangent: Float32Array, curvature: f64) -> Result<Float32Array> {
+    let c = validate::finite("curvature", curvature, false)?;
+    same_len(base.as_ref(), tangent.as_ref())?;
+    let result = ruvector_attention::hyperbolic::exp_map(base.as_ref(), tangent.as_ref(), c);
+    Ok(Float32Array::new(result))
 }
 
 /// Logarithmic map from hyperbolic space to tangent space
-#[napi]
-pub fn log_map(base: Float32Array, point: Float32Array, curvature: f64) -> Float32Array {
-    let base_slice = base.as_ref();
-    let point_slice = point.as_ref();
-    let result = ruvector_attention::hyperbolic::log_map(base_slice, point_slice, curvature as f32);
-    Float32Array::new(result)
+#[napi(catch_unwind)]
+pub fn log_map(base: Float32Array, point: Float32Array, curvature: f64) -> Result<Float32Array> {
+    let c = validate::finite("curvature", curvature, false)?;
+    same_len(base.as_ref(), point.as_ref())?;
+    let result = ruvector_attention::hyperbolic::log_map(base.as_ref(), point.as_ref(), c);
+    Ok(Float32Array::new(result))
 }

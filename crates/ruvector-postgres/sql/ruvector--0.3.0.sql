@@ -1067,9 +1067,38 @@ COMMENT ON FUNCTION graph_bipartite_score(real[], real[], real) IS 'Compute bipa
 -- ============================================================================
 -- Embedding Generation Functions
 -- ============================================================================
--- Note: Embedding functions require the 'embeddings' feature flag to be enabled
--- during compilation. These functions are not available in the default build.
--- To enable, build with: cargo pgrx package --features embeddings
+-- Requires the 'embeddings' feature at compile time (the Docker image builds
+-- with it: cargo pgrx package --features "... embeddings ..."). Registered in
+-- a guarded block like the other optional features, so CREATE EXTENSION still
+-- succeeds on builds without it. Declarations mirror the #[pg_extern]
+-- signatures in src/embeddings/functions.rs.
+DO $$ BEGIN
+  EXECUTE $SQL$
+    CREATE OR REPLACE FUNCTION ruvector_embed(text text, model_name text DEFAULT 'all-MiniLM-L6-v2')
+    RETURNS real[] AS 'MODULE_PATHNAME', 'ruvector_embed_wrapper' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+    CREATE OR REPLACE FUNCTION ruvector_embed_batch(texts text[], model_name text DEFAULT 'all-MiniLM-L6-v2')
+    RETURNS real[][] AS 'MODULE_PATHNAME', 'ruvector_embed_batch_wrapper' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+    CREATE OR REPLACE FUNCTION ruvector_embedding_models()
+    RETURNS TABLE(name text, dimensions int, description text, speed int, quality int, memory_mb int, loaded boolean)
+    AS 'MODULE_PATHNAME', 'ruvector_embedding_models_wrapper' LANGUAGE C;
+    CREATE OR REPLACE FUNCTION ruvector_load_model(model_name text)
+    RETURNS boolean AS 'MODULE_PATHNAME', 'ruvector_load_model_wrapper' LANGUAGE C STRICT;
+    CREATE OR REPLACE FUNCTION ruvector_unload_model(model_name text)
+    RETURNS boolean AS 'MODULE_PATHNAME', 'ruvector_unload_model_wrapper' LANGUAGE C STRICT;
+    CREATE OR REPLACE FUNCTION ruvector_model_info(model_name text)
+    RETURNS jsonb AS 'MODULE_PATHNAME', 'ruvector_model_info_wrapper' LANGUAGE C STRICT;
+    CREATE OR REPLACE FUNCTION ruvector_set_default_model(model_name text)
+    RETURNS boolean AS 'MODULE_PATHNAME', 'ruvector_set_default_model_wrapper' LANGUAGE C STRICT;
+    CREATE OR REPLACE FUNCTION ruvector_default_model()
+    RETURNS text AS 'MODULE_PATHNAME', 'ruvector_default_model_wrapper' LANGUAGE C;
+    CREATE OR REPLACE FUNCTION ruvector_embedding_stats()
+    RETURNS jsonb AS 'MODULE_PATHNAME', 'ruvector_embedding_stats_wrapper' LANGUAGE C;
+    CREATE OR REPLACE FUNCTION ruvector_embedding_dims(model_name text)
+    RETURNS int AS 'MODULE_PATHNAME', 'ruvector_embedding_dims_wrapper' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+  $SQL$;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'ruvector: embeddings feature not compiled — skipping embedding functions (%)' , SQLERRM;
+END $$;
 
 -- ============================================================================
 -- HNSW Access Method

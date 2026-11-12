@@ -20,6 +20,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.12] - 2026-11-12
+
+### Fixed
+- Default Gemini model is now `gemini-2.5-flash`. The previous default `gemini-2.0-flash-exp` (and the `gemini-1.5-*` routes) are retired and return 404, so calls relying on the default failed. Verified with a live call.
+
+### Changed
+- Optional `ruvector` peer dependency pinned to `0.3.26` (was `0.3.24`); verified `VectorDB` insert and search against it.
+
+---
+
+## [0.1.11] - 2026-11-11
+
+### Changed
+- `@google/generative-ai` is pinned to exactly `0.24.1`. The optional `ruvector` peer is pinned to exactly `0.3.24`.
+- Package metadata: homepage https://ruv.io, repository and bugs URLs, keywords.
+
+### Removed
+- The optional peers `midstreamer@^1.0.0` and `agentic-robotics@^1.0.0`. No 1.x of either package exists, so the ranges could never resolve, and nothing in the package imports them. The README no longer presents them as built-in integrations.
+
+## [0.1.8] - 2026-11-04
+
+### Security
+- CLI `config` no longer prints the full API key; `doctor --verbose` no longer prints key prefixes or config-file keys.
+- A key passed as `apiKey` is only sent to the provider it was configured for. Switching provider via `configure()` no longer carries the previous provider's key over.
+
+### Fixed
+- A `model` not in the built-in route table is now used as given, instead of being silently replaced by a different (often more expensive) model.
+- `apiKey` is honoured for `provider: 'openrouter'` (previously only `OPENROUTER_API_KEY` worked).
+- `timeout` is now applied to Gemini and OpenRouter requests; a stalled request no longer hangs forever.
+- JSON extraction from model output no longer fails when prose with brackets follows the array.
+- JSON Schema `integer` fields validate; time-series timestamps are normalised to ISO 8601 as documented.
+- `generateStream()` now yields items (it yielded nothing before).
+- `EventGenerator.generateLocal({ distribution: 'poisson' })` no longer throws for roughly 40% of calls.
+- `generateBatch(..., 0)` no longer loops forever; `count` must be a positive integer.
+- `doctor` removes its temporary probe file.
+
+---
+
 ## [0.1.0] - 2025-11-22
 
 ### 🎉 Initial Release

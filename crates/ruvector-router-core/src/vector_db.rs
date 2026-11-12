@@ -4,7 +4,7 @@ use crate::error::{Result, VectorDbError};
 use crate::index::{HnswConfig, HnswIndex};
 use crate::storage::Storage;
 use crate::types::*;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
@@ -15,6 +15,9 @@ pub struct VectorDB {
     storage: Arc<Storage>,
     index: Arc<HnswIndex>,
     stats: Arc<RwLock<VectorDbStats>>,
+    /// Serializes check-then-insert while `enforce_max_elements` is on, so two
+    /// concurrent inserts cannot both pass the capacity check (#1099).
+    capacity_guard: Mutex<()>,
 }
 
 impl VectorDB {
@@ -61,6 +64,7 @@ impl VectorDB {
             storage,
             index,
             stats,
+            capacity_guard: Mutex::new(()),
         })
     }
 
@@ -69,7 +73,31 @@ impl VectorDB {
         VectorDbBuilder::default()
     }
 
+    /// Fail with `CapacityExceeded` if adding `ids` would exceed an enforced
+    /// `max_elements`. Ids already present (or repeated within `ids`) replace
+    /// rather than grow the database, so they don't count.
+    fn check_capacity<'a>(&self, ids: impl Iterator<Item = &'a str>) -> Result<()> {
+        if !self.config.enforce_max_elements {
+            return Ok(());
+        }
+        let mut seen = std::collections::HashSet::new();
+        let new_ids = ids
+            .filter(|id| !self.index.contains(id) && seen.insert(*id))
+            .count();
+        let attempted = self.index.len() + new_ids;
+        if attempted > self.config.max_elements {
+            return Err(VectorDbError::CapacityExceeded {
+                max_elements: self.config.max_elements,
+                attempted,
+            });
+        }
+        Ok(())
+    }
+
     /// Insert a vector entry
+    ///
+    /// Fails with [`VectorDbError::CapacityExceeded`] when
+    /// `enforce_max_elements` is set and the insert would exceed `max_elements`.
     pub fn insert(&self, entry: VectorEntry) -> Result<String> {
         // Validate dimensions
         if entry.vector.len() != self.config.dimensions {
@@ -78,6 +106,12 @@ impl VectorDB {
                 actual: entry.vector.len(),
             });
         }
+
+        let _guard = self
+            .config
+            .enforce_max_elements
+            .then(|| self.capacity_guard.lock());
+        self.check_capacity(std::iter::once(entry.id.as_str()))?;
 
         // Store in storage layer
         self.storage.insert(&entry)?;
@@ -102,6 +136,13 @@ impl VectorDB {
                 });
             }
         }
+
+        // The whole batch is rejected before anything is written.
+        let _guard = self
+            .config
+            .enforce_max_elements
+            .then(|| self.capacity_guard.lock());
+        self.check_capacity(entries.iter().map(|e| e.id.as_str()))?;
 
         // Store in storage layer
         self.storage.insert_batch(&entries)?;
@@ -218,9 +259,17 @@ impl VectorDbBuilder {
         self
     }
 
-    /// Set maximum number of elements
+    /// Set the capacity hint. Not a hard limit unless
+    /// [`VectorDbBuilder::enforce_max_elements`] is also set (#1099).
     pub fn max_elements(mut self, max_elements: usize) -> Self {
         self.config.max_elements = max_elements;
+        self
+    }
+
+    /// Enforce `max_elements` as a hard bound: inserts that would exceed it
+    /// fail with `VectorDbError::CapacityExceeded`.
+    pub fn enforce_max_elements(mut self, enforce: bool) -> Self {
+        self.config.enforce_max_elements = enforce;
         self
     }
 
@@ -276,6 +325,132 @@ impl VectorDbBuilder {
 mod tests {
     use super::*;
     use tempfile::tempdir;
+
+    fn entry(id: &str) -> VectorEntry {
+        VectorEntry {
+            id: id.to_string(),
+            vector: vec![1.0, 0.0, 0.0],
+            metadata: std::collections::HashMap::new(),
+            timestamp: 0,
+        }
+    }
+
+    /// #1099: `max_elements` alone is a capacity hint, not a limit. This pins
+    /// the documented default so it can't silently change for existing users.
+    #[test]
+    fn max_elements_without_enforcement_is_only_a_hint() {
+        let dir = tempdir().unwrap();
+        let db = VectorDB::builder()
+            .dimensions(3)
+            .max_elements(5)
+            .storage_path(dir.path().join("hint.db"))
+            .build()
+            .unwrap();
+        for i in 0..12 {
+            db.insert(entry(&format!("v{i}"))).unwrap();
+        }
+        assert_eq!(db.count().unwrap(), 12);
+    }
+
+    /// #1099: with `enforce_max_elements`, the bound is real and typed.
+    #[test]
+    fn enforced_max_elements_rejects_the_insert_that_would_exceed_it() {
+        let dir = tempdir().unwrap();
+        let db = VectorDB::builder()
+            .dimensions(3)
+            .max_elements(5)
+            .enforce_max_elements(true)
+            .storage_path(dir.path().join("strict.db"))
+            .build()
+            .unwrap();
+        for i in 0..5 {
+            db.insert(entry(&format!("v{i}"))).unwrap();
+        }
+        let err = db.insert(entry("v5")).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                VectorDbError::CapacityExceeded {
+                    max_elements: 5,
+                    attempted: 6
+                }
+            ),
+            "got {err:?}"
+        );
+        assert_eq!(db.count().unwrap(), 5, "rejected insert must not be stored");
+
+        // Replacing an existing id at capacity does not grow the database.
+        db.insert(entry("v2")).unwrap();
+        assert_eq!(db.count().unwrap(), 5);
+
+        // Deleting frees a slot.
+        assert!(db.delete("v0").unwrap());
+        db.insert(entry("v5")).unwrap();
+        assert_eq!(db.count().unwrap(), 5);
+    }
+
+    /// #1099: concurrent inserts cannot both pass the capacity check.
+    #[test]
+    fn enforced_max_elements_holds_under_concurrent_inserts() {
+        let dir = tempdir().unwrap();
+        let db = std::sync::Arc::new(
+            VectorDB::builder()
+                .dimensions(3)
+                .max_elements(5)
+                .enforce_max_elements(true)
+                .storage_path(dir.path().join("race.db"))
+                .build()
+                .unwrap(),
+        );
+        let handles: Vec<_> = (0..8)
+            .map(|t| {
+                let db = db.clone();
+                std::thread::spawn(move || {
+                    (0..5)
+                        .filter(|i| db.insert(entry(&format!("t{t}-{i}"))).is_ok())
+                        .count()
+                })
+            })
+            .collect();
+        let accepted: usize = handles.into_iter().map(|h| h.join().unwrap()).sum();
+        assert_eq!(accepted, 5);
+        assert_eq!(db.count().unwrap(), 5);
+    }
+
+    /// #1099: a batch that would exceed the bound is rejected as a whole,
+    /// before anything is written; duplicate ids inside the batch count once.
+    #[test]
+    fn enforced_max_elements_rejects_an_over_limit_batch_atomically() {
+        let dir = tempdir().unwrap();
+        let db = VectorDB::builder()
+            .dimensions(3)
+            .max_elements(3)
+            .enforce_max_elements(true)
+            .storage_path(dir.path().join("batch.db"))
+            .build()
+            .unwrap();
+        db.insert(entry("a")).unwrap();
+        let err = db
+            .insert_batch(vec![entry("b"), entry("c"), entry("d")])
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            VectorDbError::CapacityExceeded {
+                max_elements: 3,
+                attempted: 4
+            }
+        ));
+        assert_eq!(
+            db.count().unwrap(),
+            1,
+            "nothing from a rejected batch is stored"
+        );
+
+        // "a" already exists and "b" repeats: only b and c are new -> 3, allowed.
+        db.insert_batch(vec![entry("a"), entry("b"), entry("b"), entry("c")])
+            .unwrap();
+        assert_eq!(db.count().unwrap(), 3);
+    }
 
     #[test]
     fn test_vector_db_basic_operations() {

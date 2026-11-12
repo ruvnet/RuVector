@@ -30,8 +30,10 @@ impl MultiHeadAttention {
     ///
     /// # Panics
     ///
-    /// Panics if `dim` is not divisible by `num_heads`.
+    /// Panics if `num_heads` is zero or `dim` is not divisible by `num_heads`.
+    /// Use [`MultiHeadAttention::try_new`] for untrusted configuration.
     pub fn new(dim: usize, num_heads: usize) -> Self {
+        assert!(num_heads > 0, "Number of heads must be greater than zero");
         assert!(
             dim % num_heads == 0,
             "Dimension {} must be divisible by number of heads {}",
@@ -46,20 +48,18 @@ impl MultiHeadAttention {
         }
     }
 
-    /// Splits input into multiple heads.
-    fn split_heads(&self, input: &[f32]) -> Vec<Vec<f32>> {
-        (0..self.num_heads)
-            .map(|h| {
-                let start = h * self.head_dim;
-                let end = start + self.head_dim;
-                input[start..end].to_vec()
-            })
-            .collect()
-    }
-
-    /// Concatenates outputs from multiple heads.
-    fn concat_heads(&self, heads: Vec<Vec<f32>>) -> Vec<f32> {
-        heads.into_iter().flatten().collect()
+    /// Creates a new multi-head attention mechanism, returning an error instead
+    /// of panicking when the configuration is invalid.
+    pub fn try_new(dim: usize, num_heads: usize) -> AttentionResult<Self> {
+        if dim == 0 {
+            return Err(AttentionError::InvalidConfig(
+                "Dimension must be greater than zero".to_string(),
+            ));
+        }
+        if num_heads == 0 || dim % num_heads != 0 {
+            return Err(AttentionError::InvalidHeadCount { dim, num_heads });
+        }
+        Ok(Self::new(dim, num_heads))
     }
 }
 
@@ -76,30 +76,37 @@ impl Attention for MultiHeadAttention {
                 actual: query.len(),
             });
         }
-
-        // Split query into heads
-        let query_heads = self.split_heads(query);
-
-        // Split keys and values
-        let key_heads: Vec<Vec<Vec<f32>>> = keys.iter().map(|k| self.split_heads(k)).collect();
-
-        let value_heads: Vec<Vec<Vec<f32>>> = values.iter().map(|v| self.split_heads(v)).collect();
-
-        // Compute attention for each head
-        let mut head_outputs = Vec::new();
-        for h in 0..self.num_heads {
-            let head_attn = ScaledDotProductAttention::new(self.head_dim);
-
-            let head_keys: Vec<&[f32]> = key_heads.iter().map(|kh| kh[h].as_slice()).collect();
-
-            let head_values: Vec<&[f32]> = value_heads.iter().map(|vh| vh[h].as_slice()).collect();
-
-            let head_out = head_attn.compute(&query_heads[h], &head_keys, &head_values)?;
-            head_outputs.push(head_out);
+        if keys.len() != values.len() {
+            return Err(AttentionError::DimensionMismatch {
+                expected: keys.len(),
+                actual: values.len(),
+            });
+        }
+        for vector in keys.iter().chain(values.iter()) {
+            if vector.len() != self.dim {
+                return Err(AttentionError::DimensionMismatch {
+                    expected: self.dim,
+                    actual: vector.len(),
+                });
+            }
         }
 
-        // Concatenate head outputs
-        Ok(self.concat_heads(head_outputs))
+        // Run each head on borrowed sub-slices: no per-key copies.
+        let hd = self.head_dim;
+        let head_attn = ScaledDotProductAttention::new(hd);
+        let mut output = Vec::with_capacity(self.dim);
+        let mut head_keys: Vec<&[f32]> = Vec::with_capacity(keys.len());
+        let mut head_values: Vec<&[f32]> = Vec::with_capacity(values.len());
+        for h in 0..self.num_heads {
+            let range = h * hd..(h + 1) * hd;
+            head_keys.clear();
+            head_keys.extend(keys.iter().map(|k| &k[range.clone()]));
+            head_values.clear();
+            head_values.extend(values.iter().map(|v| &v[range.clone()]));
+            let head_out = head_attn.compute(&query[range], &head_keys, &head_values)?;
+            output.extend_from_slice(&head_out);
+        }
+        Ok(output)
     }
 
     fn compute_with_mask(
@@ -139,6 +146,35 @@ mod tests {
 
         let result = attn.compute(&query, &keys, &values).unwrap();
         assert_eq!(result.len(), 8);
+    }
+
+    #[test]
+    fn test_short_keys_or_values_are_rejected() {
+        let attn = MultiHeadAttention::new(8, 2);
+        let query = vec![1.0_f32; 8];
+        let full = vec![0.5_f32; 8];
+        let short = vec![0.5_f32; 3];
+        assert!(attn
+            .compute(&query, &[short.as_slice()], &[full.as_slice()])
+            .is_err());
+        assert!(attn
+            .compute(&query, &[full.as_slice()], &[short.as_slice()])
+            .is_err());
+        assert!(attn
+            .compute(
+                &query,
+                &[full.as_slice(), full.as_slice()],
+                &[full.as_slice()]
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn test_try_new_rejects_bad_heads() {
+        assert!(MultiHeadAttention::try_new(8, 0).is_err());
+        assert!(MultiHeadAttention::try_new(10, 3).is_err());
+        assert!(MultiHeadAttention::try_new(0, 1).is_err());
+        assert!(MultiHeadAttention::try_new(8, 2).is_ok());
     }
 
     #[test]

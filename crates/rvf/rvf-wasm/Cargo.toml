@@ -1,6 +1,6 @@
 [package]
 name = "rvf-wasm"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "RuVector Format WASM microkernel for browser and edge vector operations"
 license = "MIT OR Apache-2.0"
@@ -11,13 +11,20 @@ categories = ["wasm", "database-implementations"]
 keywords = ["vector", "wasm", "webassembly", "embedding", "rvf"]
 rust-version = "1.87"
 
+include = ["src/**/*.rs", "Cargo.toml", "README.md"]
+
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-rvf-types = { version = "0.2.0", path = "../rvf-types", default-features = false }
-rvf-crypto = { version = "0.2.0", path = "../rvf-crypto", default-features = false }
+rvf-types = { version = "0.3.0", path = "../rvf-types", default-features = false }
+rvf-crypto = { version = "0.3.0", path = "../rvf-crypto", default-features = false }
 dlmalloc = { version = "0.2", features = ["global"] }
+
+[dev-dependencies]
+# Native-only: tests that the reader opens files the native writer produces.
+rvf-runtime = { path = "../rvf-runtime" }
+tempfile = "3"
 
 [profile.release]
 opt-level = "z"

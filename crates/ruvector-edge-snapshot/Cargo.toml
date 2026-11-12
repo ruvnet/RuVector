@@ -1,0 +1,23 @@
+[package]
+name = "ruvector-edge-snapshot"
+version.workspace = true
+edition.workspace = true
+# rvf-wire (a path dependency) already requires 1.87, so that is the effective MSRV.
+rust-version = "1.87"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "ruvector edge durability core (ADR-351 §3 rv-snapshot/rv-embed/rv-ingest, §6.3, §15 M3): chunked RVF snapshots with sha256 manifests, per-tenant witness chain, restore validation, streamed RVF import/export, resumable bulk-import jobs and an embedding batcher. Pure Rust, wasm32 clean."
+
+[dependencies]
+rvf-wire = { path = "../rvf/rvf-wire" }
+rvf-types = { path = "../rvf/rvf-types" }
+sha2 = "0.10"
+crc32fast = "1.4"
+hex = "0.4"
+data-encoding = "2"
+thiserror = { workspace = true }
+ed25519-dalek = { version = "2", default-features = false }
+
+[dev-dependencies]
+ed25519-dalek = { version = "2", default-features = false }

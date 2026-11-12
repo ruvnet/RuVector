@@ -180,6 +180,63 @@ pub fn resolve_weights_repo(identifier: &str, quant: QuantPreset) -> String {
     base
 }
 
+/// What to pass to `LlmBackend::load_model` for `model_id` at `quant`.
+///
+/// `download` stores every quantization of a repo in one directory,
+/// `<cache_dir>/models/<model_id>`. When that directory holds several GGUF
+/// files, this returns the one matching `quant` (the first part of a split
+/// file, which the backend then rejects by name), and none matching is an
+/// error listing them rather than a load of another one. A lone GGUF is
+/// returned whatever its name; with no GGUF (safetensors) the directory; when
+/// nothing is cached, `model_id` itself.
+pub fn local_model_source(
+    cache_dir: &str,
+    model_id: &str,
+    quant: QuantPreset,
+) -> anyhow::Result<String> {
+    let dir = std::path::PathBuf::from(cache_dir)
+        .join("models")
+        .join(model_id);
+    if !dir.is_dir() {
+        return Ok(if dir.exists() {
+            dir.display().to_string()
+        } else {
+            model_id.to_string()
+        });
+    }
+    let mut ggufs: Vec<String> = std::fs::read_dir(&dir)?
+        .flatten()
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| name.to_ascii_lowercase().ends_with(".gguf"))
+        .collect();
+    if ggufs.is_empty() {
+        return Ok(dir.display().to_string());
+    }
+    ggufs.sort();
+    let selected = crate::commands::download::select_gguf_files(model_id, quant, &ggufs);
+    // A lone GGUF is loaded whatever its name says (e.g. `model.gguf`), as
+    // before; quantization only chooses between several.
+    if let [only] = ggufs.as_slice() {
+        if selected.is_err() {
+            tracing::warn!(
+                "{} is the only GGUF in {}; loading it although the requested quantization is {}",
+                only,
+                dir.display(),
+                quant
+            );
+        }
+        return Ok(dir.join(only).display().to_string());
+    }
+    let selected = selected.map_err(|e| {
+        anyhow::anyhow!(
+            "{e}\n(in the download cache {}; pass -q/--quantization for one of them, or \
+                 the path of a .gguf file)",
+            dir.display()
+        )
+    })?;
+    Ok(dir.join(&selected[0]).display().to_string())
+}
+
 /// Get model aliases map
 pub fn get_aliases() -> HashMap<String, String> {
     get_recommended_models()
@@ -324,5 +381,41 @@ mod tests {
     fn test_gguf_tags_cover_repo_spelling_variants() {
         assert!(QuantPreset::F16.gguf_tags().contains(&"fp16"));
         assert_eq!(QuantPreset::Q4K.gguf_tags(), &["q4_k_m"]);
+    }
+
+    #[test]
+    fn test_local_model_source_honors_the_quantization() {
+        let cache = tempfile::tempdir().unwrap();
+        let cache_dir = cache.path().to_str().unwrap();
+        let repo = "Qwen/Qwen3-0.6B-GGUF";
+        let source = |q| local_model_source(cache_dir, repo, q);
+        assert_eq!(source(QuantPreset::Q8).unwrap(), repo, "nothing cached");
+
+        let dir = cache.path().join("models").join(repo);
+        std::fs::create_dir_all(&dir).unwrap();
+        assert_eq!(source(QuantPreset::Q8).unwrap(), dir.display().to_string());
+
+        // A lone GGUF loads whatever its name says, as before.
+        let q8 = dir.join("Qwen3-0.6B-Q8_0.gguf").display().to_string();
+        std::fs::write(&q8, b"").unwrap();
+        assert_eq!(source(QuantPreset::Q4K).unwrap(), q8);
+        let renamed = dir.join("model.gguf");
+        std::fs::rename(&q8, &renamed).unwrap();
+        assert_eq!(
+            source(QuantPreset::F16).unwrap(),
+            renamed.display().to_string()
+        );
+        std::fs::remove_file(&renamed).unwrap();
+
+        // With several, the quantization chooses, and no match is an error.
+        for name in ["Qwen3-0.6B-Q4_K_M.gguf", "Qwen3-0.6B-Q8_0.gguf"] {
+            std::fs::write(dir.join(name), b"").unwrap();
+        }
+        let q4 = dir.join("Qwen3-0.6B-Q4_K_M.gguf").display().to_string();
+        assert_eq!(source(QuantPreset::Q8).unwrap(), q8);
+        assert_eq!(source(QuantPreset::Q4K).unwrap(), q4);
+        let err = format!("{:#}", source(QuantPreset::F16).unwrap_err());
+        assert!(err.contains("Qwen3-0.6B-Q8_0.gguf"), "{err}");
+        assert!(err.contains("-q/--quantization"), "{err}");
     }
 }

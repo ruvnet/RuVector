@@ -397,74 +397,103 @@ fn test_concurrent_send_recv_single_producer_single_consumer() {
 
 #[test]
 fn test_concurrent_multiple_producers() {
+    exercise_concurrent_producers(false);
+}
+
+#[test]
+fn test_concurrent_producers_start_after_consumer_waits() {
+    exercise_concurrent_producers(true);
+}
+
+fn exercise_concurrent_producers(delay_producers: bool) {
+    use std::collections::BTreeSet;
+    use std::sync::{mpsc, Barrier, Condvar, Mutex};
+
     let config = QueueConfig::new(128, 256);
-    let (queue, buffer) = KernelQueue::new_heap(config).expect("Failed to create queue");
-
-    let queue = Arc::new(std::sync::Mutex::new(queue));
-    let _buffer = Arc::new(buffer);
-
+    let (queue, _buffer) = KernelQueue::new_heap(config).expect("Failed to create queue");
+    // Keep the backing buffer alive until every thread has joined.
+    let shared = Arc::new((Mutex::new((queue, 0usize)), Condvar::new()));
     let producer_count = 4;
     let messages_per_producer = 25;
-    let total_messages = producer_count * messages_per_producer;
-    let received_count = Arc::new(AtomicUsize::new(0));
-
+    let start = delay_producers.then(|| Arc::new(Barrier::new(producer_count + 1)));
+    let (waiting_tx, waiting_rx) = mpsc::channel();
     let mut producers = Vec::new();
 
-    // Spawn producer threads
     for producer_id in 0..producer_count {
-        let queue_clone = Arc::clone(&queue);
-        let handle = thread::spawn(move || {
+        let shared = Arc::clone(&shared);
+        let start = start.clone();
+        producers.push(thread::spawn(move || {
+            if let Some(start) = start {
+                start.wait();
+            }
+            let (state, changed) = &*shared;
             for i in 0..messages_per_producer {
                 let msg = format!("P{}-M{}", producer_id, i);
                 loop {
-                    let mut q = queue_clone.lock().unwrap();
-                    match q.send(msg.as_bytes(), MsgPriority::Normal) {
-                        Ok(()) => break,
+                    let mut guard = state.lock().unwrap();
+                    match guard.0.send(msg.as_bytes(), MsgPriority::Normal) {
+                        Ok(()) => {
+                            changed.notify_one();
+                            break;
+                        }
                         Err(KernelError::QueueFull) => {
-                            drop(q);
+                            drop(guard);
                             thread::yield_now();
-                            continue;
                         }
                         Err(e) => panic!("Unexpected error: {:?}", e),
                     }
                 }
             }
-        });
-        producers.push(handle);
+            let mut guard = state.lock().unwrap();
+            guard.1 += 1;
+            changed.notify_one();
+        }));
     }
 
-    // Consumer thread
-    let queue_consumer = Arc::clone(&queue);
-    let received_clone = Arc::clone(&received_count);
+    let consumer_shared = Arc::clone(&shared);
     let consumer = thread::spawn(move || {
+        let (state, changed) = &*consumer_shared;
+        let mut waiting_tx = Some(waiting_tx);
+        let mut messages = BTreeSet::new();
         let mut buf = [0u8; 256];
-        let mut received = 0;
-        let max_attempts = total_messages * 100;
-        let mut attempts = 0;
-
-        while received < total_messages && attempts < max_attempts {
-            let mut q = queue_consumer.lock().unwrap();
-            match q.recv(&mut buf) {
-                Ok(_len) => {
-                    received += 1;
-                    received_clone.fetch_add(1, Ordering::SeqCst);
+        loop {
+            let mut guard = state.lock().unwrap();
+            match guard.0.recv(&mut buf) {
+                Ok(len) => {
+                    let msg = std::str::from_utf8(&buf[..len]).unwrap().to_owned();
+                    assert!(messages.insert(msg), "duplicate message received");
                 }
+                Err(KernelError::QueueEmpty) if guard.1 == producer_count => break,
                 Err(KernelError::QueueEmpty) => {
-                    attempts += 1;
-                    drop(q);
-                    thread::yield_now();
+                    if let Some(waiting_tx) = waiting_tx.take() {
+                        waiting_tx.send(()).unwrap();
+                    }
+                    // QueueEmpty says nothing about producers that have not run.
+                    // Wait atomically with the mutex; retry after each notification
+                    // or spurious wakeup, then drain after all producers complete.
+                    drop(changed.wait(guard).unwrap());
                 }
                 Err(e) => panic!("Unexpected error: {:?}", e),
             }
         }
+        messages
     });
 
+    if let Some(start) = start {
+        // Force an empty consumer observation before any producer can send.
+        waiting_rx.recv().unwrap();
+        start.wait();
+    }
     for producer in producers {
         producer.join().expect("Producer panicked");
     }
-    consumer.join().expect("Consumer panicked");
-
-    assert_eq!(received_count.load(Ordering::SeqCst), total_messages);
+    let received = consumer.join().expect("Consumer panicked");
+    let expected: BTreeSet<_> = (0..producer_count)
+        .flat_map(|producer| {
+            (0..messages_per_producer).map(move |message| format!("P{}-M{}", producer, message))
+        })
+        .collect();
+    assert_eq!(received, expected);
 }
 
 #[test]

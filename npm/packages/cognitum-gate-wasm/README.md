@@ -1266,3 +1266,12 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 **Created by [ruv.io](https://ruv.io) and [RuVector](https://github.com/ruvnet/ruvector)**
 
 *Attention becomes a permission system, not a popularity contest.*
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for AI, AI agents, LLM.
+
+- **Works with** (its runtime dependencies): [`claude-flow`](https://www.npmjs.com/package/claude-flow) (peer)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->

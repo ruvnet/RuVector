@@ -1,0 +1,128 @@
+# ruvector-edge-auth: the edge OAuth 2.1 authorization server. Federates login
+# to auth.cognitum.one and mints ES256 access tokens with aud = the resource.
+# workers.dev only: no routes, no custom domains. Deploys are gated; this file
+# is not deployed by the scaffold workflow.
+name = "ruvector-edge-auth"
+main = "build/worker/shim.mjs"
+compatibility_date = "2026-09-01"
+account_id = "501c77f558c68152352b8ddfade9b854"
+workers_dev = true
+
+[build]
+# Pinned: worker-build must match the worker crate (=0.8.5); an unpinned
+# install pulls the latest release.
+# `env -u RUSTFLAGS`: a host-wide RUSTFLAGS (e.g. `-C link-arg=-fuse-ld=mold`)
+# breaks the wasm32 link.
+command = "cargo install -q worker-build --version 0.8.5 --locked && env -u RUSTFLAGS worker-build --release"
+
+[[durable_objects.bindings]]
+name = "AUTH_STORE"
+class_name = "AuthStore"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AuthStore"]
+
+# Per-IP throttles consulted by the Worker front BEFORE the single global
+# AuthStore DO (ADR-351 §5.6). Keyed on a salted hash of CF-Connecting-IP.
+# `namespace_id` is an operator-chosen integer unique within the account
+# (Workers Rate Limiting); nothing is provisioned ahead of deploy. The ids
+# below (35101-35102) are used only by this script; the gateway uses
+# 35201-35208. Optional at runtime: when a binding is
+# absent or errors, the front skips it and the DO still enforces the durable
+# DCR_RATE_PER_HOUR window, so a rate-limit issue never blocks deploy or login.
+[[ratelimits]]
+name = "DCR_RATE_LIMITER"
+namespace_id = "35101"
+simple = { limit = 5, period = 60 }
+
+[[ratelimits]]
+name = "AUTHZ_RATE_LIMITER"
+namespace_id = "35102"
+simple = { limit = 60, period = 60 }
+
+[vars]
+ISSUER = "https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev"
+# Resources tokens may be minted for, each with its own scope table
+# (ADR-351 §5.3 grant rule: requested ∩ client ceiling ∩ resource scopes).
+# Comma-separated entries `<exact canonical URL> <scope> <scope> ...`; the
+# FIRST scope of an entry (plus offline_access, if listed) is the grant of
+# an /authorize request without `scope`. Each entry draws on ONE vocabulary
+# family plus offline_access (§5.3): ruvector:read/write/admin/publish for
+# the gateway resources, team:read/write/run for the team.ruv.io adapter;
+# unknown or mixed scopes fail the load. The URL -> family binding is
+# COMPILED (authz resource::RESOURCE_VOCABULARIES) and enforced at load: an
+# uncompiled URL, ruvector:* for team.ruv.io or team:* for /v1 fails it, so
+# this var can narrow scopes but never add a resource or change a family.
+# `ruvector:admin` exists only for /v1 (never /v1/mcp). The team.ruv.io entry
+# is the RuFlo AI Team adapter resource (§16.1); the gateway never accepts
+# that audience, and a scope of one family requested for a resource of the
+# other is dropped (never minted; nothing left is invalid_scope). A DCR
+# registration without `scope` gets `ruvector:read ruvector:write
+# offline_access` (compiled); team:* must be registered explicitly.
+# scopes_supported (RFC 8414 + DCR) is derived as the union of these scopes.
+RESOURCE_ALLOWLIST = "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1 ruvector:read ruvector:write ruvector:admin offline_access, https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1/mcp ruvector:read ruvector:write offline_access, https://team.ruv.io/mcp team:read team:write team:run offline_access"
+UPSTREAM_ISSUER = "https://auth.cognitum.one"
+UPSTREAM_AUTHORIZATION_ENDPOINT = "https://auth.cognitum.one/oauth/authorize"
+UPSTREAM_TOKEN_ENDPOINT = "https://auth.cognitum.one/oauth/token"
+UPSTREAM_JWKS_URL = "https://auth.cognitum.one/.well-known/jwks.json"
+# The edge AS's own client id at auth.cognitum.one. Registration is gate G1
+# (cognitum-one/console#605), an operator-run step; EMPTY until then, and
+# /authorize answers 503 temporarily_unavailable ("sign-in is not available
+# yet: ... registration is pending") while it or ACCEPTED_UPSTREAM_KIDS is empty.
+# G1 closed 2026-09-29: cognitum-one/console#605 (98e1615f8) allowlists exactly
+# <ISSUER>/callback; registered by public DCR (token_endpoint_auth_method none,
+# PKCE S256, scope "openid profile email") at 2026-09-29T13:58Z.
+UPSTREAM_CLIENT_ID = "dcr-0d64c5e883c74a3db49cbbb41e8dcaf0"
+# Identity scopes only (enforced at load): never mcp:*, which api.cognitum.one
+# would honour. The upstream refresh token is revoked right after login.
+UPSTREAM_SCOPES = "openid profile email"
+# RFC 7638 thumbprints (`kid`) of the upstream signing keys accepted at the
+# callback (comma-separated). Pinned, so upstream key rotation needs a
+# redeploy. Empty until the operator records them with UPSTREAM_CLIENT_ID
+# (gate G1); federation answers temporarily_unavailable until then.
+# _jQ62WD8… = the single ES256 key in auth.cognitum.one JWKS on 2026-09-29
+# (kid verified equal to its RFC 7638 thumbprint).
+ACCEPTED_UPSTREAM_KIDS = "_jQ62WD8cCiIGkKNQB8Hg4El2TNU5rHIITV4h_ba4YM"
+# Operator-registered CONFIDENTIAL clients (ADR-351 §5.6, §16.1): the only
+# clients of the RFC 8693 token-exchange grant at /token
+# (grant_type=urn:ietf:params:oauth:grant-type:token-exchange), authenticated
+# with private_key_jwt (RFC 7523, ES256, aud = <ISSUER>/token, exp <= 5 min,
+# one-time jti). Never created by public DCR. A reviewed deploy-config change
+# is the ONLY way to add one. Empty = none registered (today). Value: a JSON
+# array (use a TOML literal string '...' so the JSON quotes survive):
+#   [{"client_id":"team-ruv-io",
+#     "jwk":{"kty":"EC","crv":"P-256","x":"<b64url>","y":"<b64url>","kid":"<RFC 7638 thumbprint>"},
+#     "subject_audiences":["https://team.ruv.io/mcp"],
+#     "scope":"ruvector:read ruvector:write"}]
+# Validated whole at load (any error fails every endpoint closed): public
+# P-256 JWK only (no "d"), kid = thumbprint; client_id [A-Za-z0-9._-]{1,128},
+# unique, never the DCR "edc-" prefix; subject_audiences allowlisted,
+# compiled, never the exchange target .../v1; scope = ruvector:* ceiling. The
+# exchanged token: aud = .../v1, same sub/upstream_iss/org_id/workspace_id/
+# family_id, act = {sub: client_id}, exp <= the subject token's, scope =
+# exchange map (team:read->ruvector:read, team:write->ruvector:write,
+# ruvector:* identity) of the subject scopes ∩ requested ∩ this ceiling ∩ the
+# .../v1 scopes, no refresh token.
+# 2026-09-29: ruflo-ai-team (RuFlo AI Team adapter, ruvnet/ruflo#3553). Public JWK
+# posted in #swarm by the ChatGPT coordinator; validated here: P-256, no "d",
+# kid = RFC 7638 thumbprint. Private key lives only in GCP Secret Manager
+# (cognitum-20260110/ruflo-ai-team-edge-private-jwk).
+CONFIDENTIAL_CLIENTS = '[{"client_id":"ruflo-ai-team","jwk":{"kty":"EC","crv":"P-256","x":"62SPhyB0cKylZiz0IwZArr9_xCKtczYAfk-asenZXHs","y":"ruT_45ienTMrwe2k4Fbh1PpUauRPtbrUlVT1_iOICJE","kid":"MItTXyaR29uQzUZB9ETuLl8-9uQ_YwmmXQZfPO5kHiE"},"subject_audiences":["https://team.ruv.io/mcp"],"scope":"ruvector:read ruvector:write"}]'
+
+# Optional cap on dynamically registered clients (default 10000).
+# MAX_CLIENTS = "10000"
+# Optional durable per-IP registration limit per hour (default 10).
+# DCR_RATE_PER_HOUR = "10"
+
+# SECRET (never a var, never committed): EDGE_AUTH_SIGNING_JWK
+#   The ES256 signing key as a private EC P-256 JWK:
+#     {"kty":"EC","crv":"P-256","d":"<b64url 32B>","x":"..","y":".."}
+#   or, during rotation, a JWK Set {"keys":[<active private>, <previous>...]}
+#   whose first key signs and whose other keys (public or private) are only
+#   published in /.well-known/jwks.json. x/y/kid, if present, must match d
+#   (kid = RFC 7638 thumbprint). Without it the JWKS answers 503 and /token
+#   fails closed with server_error.
+#   Set with: wrangler secret put EDGE_AUTH_SIGNING_JWK
+#
+# SECRET (optional): IP_HASH_SALT — salts the per-IP rate-limit bucket hash.

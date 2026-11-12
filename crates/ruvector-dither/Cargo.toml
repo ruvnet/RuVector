@@ -15,10 +15,10 @@ readme = "README.md"
 [features]
 default = []
 # Enable no_std mode (requires an allocator)
-no_std = []
+no_std = ["dep:libm"]
 
 [dependencies]
-# No runtime deps — fully no_std compatible
+libm = { version = "0.2", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

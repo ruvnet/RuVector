@@ -2,7 +2,7 @@
 name = "mcp-brain-server"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.77"
+rust-version = "1.89"
 license = "MIT"
 description = "Cloud Run backend for RuVector Shared Brain — axum REST API with Firestore + GCS"
 repository = "https://github.com/ruvnet/ruvector"
@@ -101,7 +101,7 @@ strange-loop = "0.3"
 ndarray = "0.15"
 
 # Local-only: SQLite storage backend
-rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+rusqlite = { version = "0.41", features = ["bundled", "fallible_uint"], optional = true }
 
 # DiskANN-style graph index
 ordered-float = "4"

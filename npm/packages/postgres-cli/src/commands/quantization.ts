@@ -51,6 +51,7 @@ export class QuantizationCommands {
     } catch (err) {
       spinner.fail(chalk.red('Binary quantization failed'));
       console.error(chalk.red((err as Error).message));
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -89,6 +90,7 @@ export class QuantizationCommands {
     } catch (err) {
       spinner.fail(chalk.red('Scalar quantization failed'));
       console.error(chalk.red((err as Error).message));
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -131,6 +133,7 @@ export class QuantizationCommands {
     } catch (err) {
       spinner.fail(chalk.red('Failed to get stats'));
       console.error(chalk.red((err as Error).message));
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -183,6 +186,7 @@ export class QuantizationCommands {
     } catch (err) {
       spinner.fail(chalk.red('Comparison failed'));
       console.error(chalk.red((err as Error).message));
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }

@@ -172,3 +172,66 @@ test('Tick background learning', () => {
   const result = engine.tick();
   assert.ok(result === null || typeof result === 'string');
 });
+
+// A Rust panic aborts the whole Node process, so bad input must throw instead.
+test('applyMicroLora rejects wrong-length input', () => {
+  const engine = new SonaEngine(64);
+  assert.throws(() => engine.applyMicroLora([1, 2, 3]), /hiddenDim/);
+});
+
+test('applyBaseLora rejects wrong-length input', () => {
+  const engine = new SonaEngine(8);
+  assert.throws(() => engine.applyBaseLora(0, new Array(20).fill(1)), /hiddenDim/);
+});
+
+test('withConfig rejects microLoraRank outside 1-2', () => {
+  assert.throws(() => SonaEngine.withConfig({ hiddenDim: 64, microLoraRank: 3 }), /microLoraRank/);
+  assert.throws(() => SonaEngine.withConfig({ hiddenDim: 64, microLoraRank: 0 }), /microLoraRank/);
+});
+
+test('trajectory ids belong to the engine that issued them', () => {
+  const a = new SonaEngine(8);
+  const b = new SonaEngine(8);
+  const id = a.beginTrajectory(new Array(8).fill(0.5));
+  b.endTrajectory(id, 0.9);
+  assert.strictEqual(JSON.parse(b.getStats()).trajectories_buffered, 0);
+  a.endTrajectory(id, 0.9);
+  assert.strictEqual(JSON.parse(a.getStats()).trajectories_buffered, 1);
+});
+
+test('NaN feedback does not poison LoRA output', () => {
+  const engine = new SonaEngine(8);
+  const id = engine.beginTrajectory(new Array(8).fill(0.5));
+  engine.addTrajectoryStep(id, new Array(8).fill(NaN), [], NaN);
+  engine.endTrajectory(id, NaN);
+  engine.flush();
+  engine.forceLearn();
+  const input = new Array(8).fill(1);
+  assert.ok(engine.applyMicroLora(input).every(Number.isFinite));
+  assert.ok(engine.applyBaseLora(0, input).every(Number.isFinite));
+});
+
+test('unfinished trajectories are capped and ids stay unique', () => {
+  const engine = new SonaEngine(8);
+  const emb = new Array(8).fill(0.5);
+  const ids = new Set();
+  for (let i = 0; i < 10001; i++) ids.add(engine.beginTrajectory(emb));
+  assert.strictEqual(ids.size, 10001);
+  // The first trajectory was evicted, so ending it submits nothing.
+  engine.endTrajectory(0, 0.9);
+  assert.strictEqual(JSON.parse(engine.getStats()).trajectories_buffered, 0);
+  engine.endTrajectory(10000, 0.9);
+  assert.strictEqual(JSON.parse(engine.getStats()).trajectories_buffered, 1);
+});
+
+test('forceLearnAsync resolves off the event loop', async () => {
+  const engine = new SonaEngine(8);
+  const id = engine.beginTrajectory(new Array(8).fill(0.5));
+  engine.endTrajectory(id, 0.9);
+  const pending = engine.forceLearnAsync();
+  assert.throws(() => engine.setEnabled(false), /forceLearnAsync/);
+  const status = await pending;
+  assert.match(status, /Forced learning/);
+  engine.setEnabled(false);
+  assert.strictEqual(engine.isEnabled(), false);
+});

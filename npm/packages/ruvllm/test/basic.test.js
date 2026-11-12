@@ -23,8 +23,14 @@ describe('RuvLLM', () => {
     assert.ok(llm);
   });
 
-  test('should query and get response', () => {
+  // Real generation is covered by real-model.test.js (needs a GGUF file).
+  test('query refuses to answer without a loaded model', () => {
     const llm = new RuvLLM();
+    assert.throws(() => llm.query('test query'), { code: 'RUVLLM_NO_LANGUAGE_MODEL' });
+  });
+
+  test('query with allowPlaceholder still routes', () => {
+    const llm = new RuvLLM({ allowPlaceholder: true });
     const response = llm.query('test query');
 
     assert.ok(response.text);
@@ -33,12 +39,9 @@ describe('RuvLLM', () => {
     assert.ok(response.requestId);
   });
 
-  test('should generate text', () => {
+  test('generate refuses to answer without a loaded model', () => {
     const llm = new RuvLLM();
-    const text = llm.generate('test prompt');
-
-    assert.ok(typeof text === 'string');
-    assert.ok(text.length > 0);
+    assert.throws(() => llm.generate('test prompt'), { code: 'RUVLLM_NO_LANGUAGE_MODEL' });
   });
 
   test('should route queries', () => {
@@ -89,7 +92,7 @@ describe('RuvLLM', () => {
   });
 
   test('should handle batch queries', () => {
-    const llm = new RuvLLM();
+    const llm = new RuvLLM({ allowPlaceholder: true });
     const response = llm.batchQuery({
       queries: ['query 1', 'query 2', 'query 3'],
     });

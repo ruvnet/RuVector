@@ -579,8 +579,8 @@ fn bench_pi_quantize_3bit(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("size", size), &weights, |b, w| {
             b.iter(|| {
                 let mut blocks = Vec::with_capacity(num_blocks);
-                for chunk in w.chunks_exact(8) {
-                    let arr: [f32; 8] = chunk.try_into().unwrap();
+                for chunk in w.as_chunks::<8>().0 {
+                    let arr: [f32; 8] = *chunk;
                     blocks.push(black_box(quantizer.quantize_block_3bit(&arr)));
                 }
                 blocks
@@ -1193,8 +1193,8 @@ fn bench_pi_quantize_2bit(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("size", size), &weights, |b, w| {
             b.iter(|| {
                 let mut blocks = Vec::with_capacity(num_blocks);
-                for chunk in w.chunks_exact(4) {
-                    let arr: [f32; 4] = chunk.try_into().unwrap();
+                for chunk in w.as_chunks::<4>().0 {
+                    let arr: [f32; 4] = *chunk;
                     blocks.push(black_box(quantizer.quantize_block_2bit(&arr)));
                 }
                 blocks

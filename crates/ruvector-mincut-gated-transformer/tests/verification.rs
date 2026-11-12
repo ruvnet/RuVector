@@ -144,7 +144,7 @@ fn test_gemm_numerical_accuracy() {
 }
 
 #[test]
-fn test_gemm_simd_speedup() {
+fn test_gemm_dispatch_matches_scalar_at_benchmark_shape() {
     let m = 256;
     let n = 256;
     let k = 256;
@@ -152,43 +152,31 @@ fn test_gemm_simd_speedup() {
     let a: Vec<i8> = (0..m * k).map(|i| (i as i16 % 256 - 128) as i8).collect();
     let b: Vec<i8> = (0..n * k).map(|i| (i as i16 % 256 - 128) as i8).collect();
     let b_scales: Vec<f32> = vec![1.0 / 128.0; n];
+    let mut scalar = vec![0i32; m * n];
+    let mut dispatched = vec![0i32; m * n];
 
-    // Warm up
-    let mut c = vec![0i32; m * n];
-    qgemm_i8(m, n, k, &a, 1.0 / 128.0, &b, &b_scales, None, &mut c);
-    qgemm_i8_simd(m, n, k, &a, 1.0 / 128.0, &b, &b_scales, None, &mut c);
-
-    // Benchmark scalar
-    let start = Instant::now();
-    for _ in 0..10 {
-        qgemm_i8(m, n, k, &a, 1.0 / 128.0, &b, &b_scales, None, &mut c);
-    }
-    let scalar_time = start.elapsed();
-
-    // Benchmark SIMD
-    let start = Instant::now();
-    for _ in 0..10 {
-        qgemm_i8_simd(m, n, k, &a, 1.0 / 128.0, &b, &b_scales, None, &mut c);
-    }
-    let simd_time = start.elapsed();
-
-    let speedup = scalar_time.as_nanos() as f64 / simd_time.as_nanos() as f64;
-    let gflops = (2.0 * m as f64 * n as f64 * k as f64 * 10.0) / simd_time.as_secs_f64() / 1e9;
-
-    println!(
-        "GEMM 256x256x256: scalar={:?}, simd={:?}, speedup={:.2}x, GFLOPS={:.2}",
-        scalar_time / 10,
-        simd_time / 10,
-        speedup,
-        gflops
+    qgemm_i8(m, n, k, &a, 1.0 / 128.0, &b, &b_scales, None, &mut scalar);
+    qgemm_i8_simd(
+        m,
+        n,
+        k,
+        &a,
+        1.0 / 128.0,
+        &b,
+        &b_scales,
+        None,
+        &mut dispatched,
     );
 
-    // In virtualized environments without AVX2, SIMD may not be faster
-    // Just verify it's not significantly slower (within 20% is acceptable)
-    assert!(
-        speedup >= 0.8,
-        "SIMD much slower than scalar: {:.2}x",
-        speedup
+    // Generic x86 builds dispatch to the same scalar kernel. A wall-clock
+    // ratio under concurrent debug tests measures scheduling, not SIMD speed.
+    // Keep the numerical oracle here. Performance comparisons already live in
+    // `RUSTFLAGS="-C target-feature=+avx2" cargo bench
+    // -p ruvector-mincut-gated-transformer --features simd --bench kernel -- qgemm_i8`.
+    // Run on a controlled AVX2-capable host and record its CPU/toolchain.
+    assert_eq!(
+        dispatched, scalar,
+        "GEMM dispatcher changed integer results"
     );
 }
 

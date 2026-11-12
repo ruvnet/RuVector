@@ -1370,4 +1370,161 @@ mod tests {
             );
         }
     }
+
+    // -----------------------------------------------------------------------
+    // /v1/consciousness/compute: request size is bounded per algorithm and PID
+    // sources are element indices, so no request can pin a worker or abort the
+    // process on an impossible allocation.
+    // -----------------------------------------------------------------------
+    fn consciousness_req(n: usize, algorithm: &str) -> crate::types::ConsciousnessComputeRequest {
+        crate::types::ConsciousnessComputeRequest {
+            tpm: vec![1.0 / n as f64; n * n],
+            n,
+            state: 0,
+            algorithm: algorithm.into(),
+            phi_threshold: 1e-6,
+            partition_mask: None,
+        }
+    }
+
+    #[test]
+    fn consciousness_compute_rejects_oversized_systems_per_algorithm() {
+        use crate::routes::validate_consciousness_request as validate;
+        for (algo, too_big) in [
+            ("ces", 7),
+            ("iit4_phi", 9),
+            ("bounds", 9),
+            ("pid", 10),
+            ("phi_id", 12),
+            ("auto", 9),
+        ] {
+            let err = validate(&consciousness_req(1 << too_big, algo)).unwrap_err();
+            assert!(
+                err.contains("too large"),
+                "{algo} with {too_big} elements: {err}"
+            );
+        }
+        assert_eq!(
+            validate(&consciousness_req(1 << 6, "ces")).unwrap(),
+            (6, "ces".to_string())
+        );
+        assert_eq!(
+            validate(&consciousness_req(16, "auto")).unwrap(),
+            (4, "ces".to_string())
+        );
+        assert_eq!(
+            validate(&consciousness_req(1 << 8, "auto")).unwrap(),
+            (8, "iit4_phi".to_string())
+        );
+        assert!(validate(&consciousness_req(4, "nope"))
+            .unwrap_err()
+            .contains("unknown algorithm"));
+    }
+
+    #[test]
+    fn consciousness_pid_sources_are_element_indices() {
+        use crate::routes::pid_sources;
+        // 9 elements (512 states): sources must partition elements 0..9, not states 0..512.
+        let (a, b) = pid_sources(9, 0b1111);
+        assert_eq!(a, vec![0, 1, 2, 3]);
+        assert_eq!(b, vec![4, 5, 6, 7, 8]);
+        let (a, b) = pid_sources(3, u64::MAX);
+        assert_eq!((a.len(), b.len()), (3, 0));
+    }
+
+    #[test]
+    fn consciousness_pid_largest_allowed_system_completes() {
+        use ruvector_consciousness::types::TransitionMatrix;
+        let req = consciousness_req(1 << 9, "pid");
+        let (num_elements, _) = crate::routes::validate_consciousness_request(&req).unwrap();
+        let (a, b) = crate::routes::pid_sources(num_elements, (1u64 << (num_elements / 2)) - 1);
+        let tpm = TransitionMatrix::new(req.n, req.tpm.clone());
+        let result = ruvector_consciousness::pid::compute_pid(&tpm, &[a, b.clone()], &b).unwrap();
+        assert!(result.total_mi.is_finite());
+    }
+
+    // -----------------------------------------------------------------------
+    // Shared placeholder keys must not act as an owning identity
+    // -----------------------------------------------------------------------
+    #[test]
+    fn test_shared_placeholder_keys_are_flagged() {
+        use crate::auth::AuthenticatedContributor;
+
+        // Keys that shipped clients send when no key is configured. Every
+        // keyless caller hashes to the same pseudonym, so they are shared.
+        for key in ["anonymous", "Anonymous", "mcp-sse-session"] {
+            let c = AuthenticatedContributor::from_api_key(key);
+            assert!(c.is_shared_identity, "{key} must be flagged as shared");
+            let err = c
+                .require_owned_identity()
+                .expect_err("shared identity must not own content");
+            assert_eq!(err.0, axum::http::StatusCode::FORBIDDEN);
+        }
+
+        // A private key is an owning identity.
+        let own = AuthenticatedContributor::from_api_key("test-key-12345678");
+        assert!(!own.is_shared_identity);
+        assert!(own.require_owned_identity().is_ok());
+
+        // A per-session MCP key is distinct per session and owning.
+        let a = AuthenticatedContributor::from_api_key(&crate::routes::mcp_default_api_key(
+            "11111111-1111-4111-8111-111111111111",
+        ));
+        let b = AuthenticatedContributor::from_api_key(&crate::routes::mcp_default_api_key(
+            "22222222-2222-4222-8222-222222222222",
+        ));
+        assert!(!a.is_shared_identity && !b.is_shared_identity);
+        assert_ne!(
+            a.pseudonym, b.pseudonym,
+            "MCP sessions must not share an identity"
+        );
+
+        // The system seed is never a shared identity.
+        assert!(AuthenticatedContributor::system_seed()
+            .require_owned_identity()
+            .is_ok());
+    }
+
+    // -----------------------------------------------------------------------
+    // PII stripping covers code_snippet as well as title/content/tags
+    // -----------------------------------------------------------------------
+    #[test]
+    fn test_strip_memory_fields_covers_code_snippet() {
+        use crate::verify::Verifier;
+
+        let mut verifier = Verifier::new();
+        let tags = vec!["rust".to_string(), "config".to_string()];
+        let snippet =
+            "let cfg = load(\"/home/alice/.config/app.toml\"); // owner: alice@example.com";
+        let out = verifier.strip_memory_fields("Title", "Body text", &tags, Some(snippet));
+
+        let code = out
+            .code_snippet
+            .expect("snippet must be kept (redacted), not dropped");
+        assert!(
+            !code.contains("alice@example.com"),
+            "email must be redacted: {code}"
+        );
+        assert!(
+            !code.contains("/home/alice"),
+            "path must be redacted: {code}"
+        );
+        assert!(out.log.total_redactions >= 2);
+        assert_eq!(out.title, "Title");
+        assert_eq!(out.content, "Body text");
+        assert_eq!(
+            out.tags, tags,
+            "tags must stay aligned when a snippet is present"
+        );
+
+        // Snippet without PII survives byte-identical.
+        let clean = "fn add(a: i32, b: i32) -> i32 { a + b }";
+        let out = verifier.strip_memory_fields("T", "C", &tags, Some(clean));
+        assert_eq!(out.code_snippet.as_deref(), Some(clean));
+
+        // No snippet stays None, tags unchanged.
+        let out = verifier.strip_memory_fields("T", "C", &tags, None);
+        assert!(out.code_snippet.is_none());
+        assert_eq!(out.tags, tags);
+    }
 }

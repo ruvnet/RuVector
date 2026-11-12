@@ -2,6 +2,7 @@
 name = "rvagent-middleware"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.89"
 description = "rvAgent middleware — pipeline, todolist, filesystem, subagents, summarization, memory, skills, prompt caching, HITL, witness, tool sanitizer"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ruvnet/RuVector"
@@ -16,7 +17,7 @@ rvagent-core = { version = "0.1.0", path = "../rvagent-core" }
 rvagent-backends = { version = "0.1.0", path = "../rvagent-backends" }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_yaml = "0.9"
+serde-saphyr = { version = "=1.3.0", default-features = false, features = ["deserialize"] }
 tokio = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }

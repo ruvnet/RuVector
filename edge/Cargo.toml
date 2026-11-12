@@ -1,0 +1,81 @@
+# ruvector edge Workers (ADR-351 §8). A standalone cargo workspace, excluded
+# from the root workspace, with its own Cargo.lock so the workers-rs /
+# wasm-bindgen pins never unify with the root graph. The pure-Rust cores live
+# in the root workspace and are consumed here by path.
+#
+# Check:  cd edge && CARGO_TARGET_DIR=/data/scratch/ruvector-edge-target/edge \
+#           cargo check --target wasm32-unknown-unknown
+[workspace]
+resolver = "2"
+members = ["gateway", "auth-worker"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT"
+authors = ["Ruvector Team"]
+repository = "https://github.com/ruvnet/ruvector"
+publish = false
+
+[workspace.dependencies]
+# worker 0.8.5 requires wasm-bindgen ^0.2.125, the version the root workspace
+# lockfile pins; the exact pin keeps js-sys/web-sys at 0.3.102 as well.
+worker = { version = "=0.8.5" }
+wasm-bindgen = "=0.2.125"
+console_error_panic_hook = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+# `raw_value`: job-sized min-cut edge lists pass through as raw text.
+serde_json = { version = "1.0", features = ["raw_value"] }
+url = "2.5"
+sha2 = "0.10"
+base64ct = { version = "1", features = ["alloc"] }
+p256 = { version = "0.14", default-features = false, features = ["ecdsa"] }
+# Only if a transitive dependency pulls getrandom 0.2 into the wasm graph.
+getrandom = { version = "0.2", features = ["js"] }
+zeroize = "1"
+# Native-only test double for the Durable Object SQLite port.
+rusqlite = { version = "=0.41.1", features = ["bundled", "fallible_uint"] }
+
+ruvector-edge-auth = { path = "../crates/ruvector-edge-auth" }
+ruvector-edge-tenancy = { path = "../crates/ruvector-edge-tenancy" }
+ruvector-edge-authz = { path = "../crates/ruvector-edge-authz" }
+ruvector-edge-quant = { path = "../crates/ruvector-edge-quant" }
+ruvector-edge-analytics = { path = "../crates/ruvector-edge-analytics" }
+# Pure-Rust Cypher engine (ADR-351 M4 rv-graph); `browser` off = no
+# wasm-bindgen/IndexedDB glue of its own (PR #1084).
+rvlite = { git = "https://github.com/ruvnet/RuVector", rev = "c6ece785bd6e544c89c8327b0c840c2df61b8dd8", default-features = false }
+
+# ADR §8 release profile for Worker cdylibs.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+# Not `true`: stripping symbols also drops the wasm `target_features` section,
+# and wasm-bindgen then cannot see reference-types ("externref table required
+# for catch wrappers" with worker-build 0.8.5). wasm-bindgen strips names.
+strip = "debuginfo"
+panic = "abort"
+
+# Native tests build and query 5k x 384 HNSW / flat indexes (M2 e2e); at
+# opt-level 0 that takes minutes. Optimise only the index crate in dev/test.
+[profile.dev.package.ruvector-edge-index]
+opt-level = 3
+# M4 (ADR-351 §15): 50k × 384 rabitq shards, 50k-edge min-cut and the
+# rvlite Cypher engine are measured natively; optimise the cores.
+[profile.dev.package.ruvector-edge-quant]
+opt-level = 3
+[profile.dev.package.ruvector-rabitq]
+opt-level = 3
+[profile.dev.package.ruvector-edge-analytics]
+opt-level = 3
+[profile.dev.package.ruvector-mincut]
+opt-level = 3
+[profile.dev.package.ruvector-edge-store]
+opt-level = 3
+[profile.dev.package.rvlite]
+opt-level = 3
+[profile.dev.package.serde_json]
+opt-level = 3
+[profile.dev.package.libsqlite3-sys]
+opt-level = 3

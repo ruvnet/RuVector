@@ -2,47 +2,18 @@
 
 use crate::distance::distance;
 use crate::error::{Result, RuvectorError};
-use crate::index::VectorIndex;
+use crate::index::flat_graph::FlatGraph;
+use crate::index::{FilteredResults, FilteredSearch, VectorIndex};
 use crate::types::{DistanceMetric, HnswConfig, SearchResult, VectorId};
 use bincode::{Decode, Encode};
 use dashmap::DashMap;
-use hnsw_rs::prelude::*;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
-/// Distance function wrapper for hnsw_rs
-struct DistanceFn {
-    metric: DistanceMetric,
-}
-
-impl DistanceFn {
-    fn new(metric: DistanceMetric) -> Self {
-        Self { metric }
-    }
-}
-
-impl Distance<f32> for DistanceFn {
-    #[inline(always)]
-    fn eval(&self, a: &[f32], b: &[f32]) -> f32 {
-        // Bypass the simsimd/Result-overhead path and call our hand-written
-        // SIMD kernels directly.  hnsw_rs asserts dist >= 0 in its search
-        // loop, so clamp any floating-point rounding below zero.
-        use crate::simd_intrinsics;
-        match self.metric {
-            DistanceMetric::Euclidean => simd_intrinsics::euclidean_distance_simd(a, b),
-            DistanceMetric::Cosine => {
-                // cosine_similarity_simd returns dot/(|a||b|); HNSW needs
-                // cosine DISTANCE = 1 - sim, clamped to 0.
-                (1.0_f32 - simd_intrinsics::cosine_similarity_simd(a, b)).max(0.0)
-            }
-            DistanceMetric::DotProduct => {
-                // Negate for minimization; clamp per hnsw_rs assertion.
-                (-simd_intrinsics::dot_product_simd(a, b)).max(0.0)
-            }
-            DistanceMetric::Manhattan => simd_intrinsics::manhattan_distance_simd(a, b),
-        }
-    }
-}
+/// At or below this many live vectors, HNSW's approximation is not worth its
+/// blind spots (ruvnet/RuVector#1298): a graph this small is scanned exactly,
+/// which also skips tombstones left behind by deletes.
+const EXACT_SEARCH_MAX_ELEMENTS: usize = 1_024;
 
 /// HNSW index wrapper
 pub struct HnswIndex {
@@ -53,7 +24,7 @@ pub struct HnswIndex {
 }
 
 struct HnswInner {
-    hnsw: Hnsw<'static, f32, DistanceFn>,
+    hnsw: FlatGraph,
     vectors: DashMap<VectorId, Vec<f32>>,
     id_to_idx: DashMap<VectorId, usize>,
     idx_to_id: DashMap<usize, VectorId>,
@@ -113,16 +84,7 @@ impl From<SerializableDistanceMetric> for DistanceMetric {
 impl HnswIndex {
     /// Create a new HNSW index
     pub fn new(dimensions: usize, metric: DistanceMetric, config: HnswConfig) -> Result<Self> {
-        let distance_fn = DistanceFn::new(metric);
-
-        // Create HNSW with configured parameters
-        let hnsw = Hnsw::<f32, DistanceFn>::new(
-            config.m,
-            config.max_elements,
-            dimensions,
-            config.ef_construction,
-            distance_fn,
-        );
+        let hnsw = FlatGraph::new(dimensions, metric, config.m, config.ef_construction);
 
         Ok(Self {
             inner: Arc::new(RwLock::new(HnswInner {
@@ -226,14 +188,7 @@ impl HnswIndex {
         let dimensions = state.dimensions;
         let metric: DistanceMetric = state.metric.into();
 
-        let distance_fn = DistanceFn::new(metric);
-        let mut hnsw = Hnsw::<'static, f32, DistanceFn>::new(
-            config.m,
-            config.max_elements,
-            dimensions,
-            config.ef_construction,
-            distance_fn,
-        );
+        let mut hnsw = FlatGraph::new(dimensions, metric, config.m, config.ef_construction);
 
         // Rebuild the index by inserting all vectors.
         // Build a HashMap first to avoid O(n^2) linear search in the loop below.
@@ -244,7 +199,16 @@ impl HnswIndex {
             .collect();
 
         let id_to_idx: DashMap<VectorId, usize> = state.id_to_idx.into_iter().collect();
-        let idx_to_id: DashMap<usize, VectorId> = state.idx_to_id.into_iter().collect();
+        // Older snapshots retained reverse mappings for replaced versions.
+        // Reconstruct only each live ID's canonical current graph position.
+        let idx_to_id: DashMap<usize, VectorId> = state
+            .idx_to_id
+            .into_iter()
+            .filter(|(idx, id)| {
+                vectors_lookup.contains_key(id.as_str())
+                    && id_to_idx.get(id).is_some_and(|current| *current == *idx)
+            })
+            .collect();
 
         // Insert vectors into HNSW in index order for deterministic reconstruction.
         let mut sorted_entries: Vec<_> = idx_to_id
@@ -255,7 +219,7 @@ impl HnswIndex {
 
         for (idx, id) in &sorted_entries {
             if let Some(vector) = vectors_lookup.get(id.as_str()) {
-                hnsw.insert_data(vector, *idx);
+                hnsw.insert(vector, *idx);
             }
         }
 
@@ -307,30 +271,61 @@ impl HnswIndex {
             return Ok(vec![]);
         }
 
-        // ef_search < k causes hnsw_rs to return fewer than k candidates; clamp.
-        let effective_ef = ef_search.max(k);
+        // On tiny indexes, scan the live vectors exactly. HNSW can return
+        // fewer than the stored rows (ruvnet/RuVector#1298), and a deleted
+        // node still occupies a graph slot, so a top-k cut made before
+        // filtering tombstones also drops live neighbours.
+        if inner.vectors.len() <= EXACT_SEARCH_MAX_ELEMENTS {
+            let mut results: Vec<SearchResult> = inner
+                .vectors
+                .iter()
+                .map(|entry| SearchResult {
+                    id: entry.key().clone(),
+                    score: distance(query, entry.value(), self.metric).unwrap_or(f32::MAX),
+                    vector: None,
+                    metadata: None,
+                })
+                .collect();
+            results.sort_unstable_by(|a, b| {
+                a.score
+                    .partial_cmp(&b.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            results.truncate(k);
+            return Ok(results);
+        }
 
-        // Use HNSW search with custom ef parameter (knbn)
-        let neighbors = inner.hnsw.search(query, k, effective_ef);
+        // ef_search < k causes the graph to return fewer than k candidates;
+        // clamp. Tombstoned nodes still have graph slots, so over-fetch enough
+        // candidates to fill k after they are filtered out.
+        let tombstones = inner.hnsw.len().saturating_sub(inner.vectors.len());
+        let wanted = k.saturating_add(tombstones);
+        let effective_ef = ef_search.max(wanted);
 
+        let neighbors = inner.hnsw.search(query, wanted, effective_ef);
+
+        // Only an id's live node answers for it (snapshots from older versions can still map superseded nodes).
         let mut results: Vec<SearchResult> = neighbors
             .into_iter()
-            .filter_map(|neighbor| {
-                inner.idx_to_id.get(&neighbor.d_id).map(|id| SearchResult {
+            .filter_map(|(idx, distance)| {
+                let id = inner.idx_to_id.get(&idx)?;
+                let live = inner.id_to_idx.get(id.as_str()).is_some_and(|i| *i == idx);
+                live.then(|| SearchResult {
                     id: id.clone(),
-                    score: neighbor.distance,
+                    score: distance,
                     vector: None,
                     metadata: None,
                 })
             })
             .collect();
 
-        // hnsw_rs does not guarantee sort order — ensure ascending distance.
+        // The graph does not guarantee sort order — ensure ascending distance.
         results.sort_unstable_by(|a, b| {
             a.score
                 .partial_cmp(&b.score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
+        results.truncate(k);
 
         Ok(results)
     }
@@ -349,12 +344,13 @@ impl VectorIndex for HnswIndex {
         let idx = inner.next_idx;
         inner.next_idx += 1;
 
-        // Insert into HNSW graph using insert_data
-        inner.hnsw.insert_data(&vector, idx);
+        inner.hnsw.insert(&vector, idx);
 
-        // Store mappings
+        // Store mappings. Re-adding an id is an upsert: the old graph node becomes a tombstone.
         inner.vectors.insert(id.clone(), vector);
-        inner.id_to_idx.insert(id.clone(), idx);
+        if let Some(old) = inner.id_to_idx.insert(id.clone(), idx) {
+            inner.idx_to_id.remove(&old);
+        }
         inner.idx_to_id.insert(idx, id);
 
         Ok(())
@@ -373,45 +369,25 @@ impl VectorIndex for HnswIndex {
 
         let mut inner = self.inner.write();
 
-        // Prepare batch data for insertion
-        // First, assign indices and collect vector data
+        // Assign indices, then insert in order. (The graph has one writer; batches are not split across threads.)
         let data_with_ids: Vec<_> = entries
-            .iter()
+            .into_iter()
             .enumerate()
-            .map(|(i, (id, vector))| {
-                let idx = inner.next_idx + i;
-                (id.clone(), idx, vector.clone())
-            })
+            .map(|(i, (id, vector))| (id, inner.next_idx + i, vector))
             .collect();
+        inner.next_idx += data_with_ids.len();
+        let items: Vec<(&[f32], usize)> = data_with_ids
+            .iter()
+            .map(|(_, idx, v)| (v.as_slice(), *idx))
+            .collect();
+        inner.hnsw.insert_batch(&items);
 
-        // Update next_idx
-        inner.next_idx += entries.len();
-
-        // For large batches (>=PARALLEL_THRESHOLD), use hnsw_rs parallel
-        // insert (rayon-based) to cut build time.  Below this threshold,
-        // sequential insert maintains better graph connectivity — parallel
-        // workers can miss each other's in-flight inserts, producing fewer
-        // optimal neighbors and increasing search latency on small indexes.
-        //
-        // Rule of thumb from hnsw_rs: parallel is efficient only when
-        // n_inserts >= 1000 * num_threads.  We conservatively gate at 10 K.
-        const PARALLEL_THRESHOLD: usize = 10_000;
-        if data_with_ids.len() >= PARALLEL_THRESHOLD {
-            let datas: Vec<(&[f32], usize)> = data_with_ids
-                .iter()
-                .map(|(_id, idx, vector)| (vector.as_slice(), *idx))
-                .collect();
-            inner.hnsw.parallel_insert_slice(&datas);
-        } else {
-            for (_id, idx, vector) in &data_with_ids {
-                inner.hnsw.insert_data(vector, *idx);
-            }
-        }
-
-        // Store mappings
+        // Store mappings; an id seen earlier (in the index or this batch) keeps only its newest node.
         for (id, idx, vector) in data_with_ids {
             inner.vectors.insert(id.clone(), vector);
-            inner.id_to_idx.insert(id.clone(), idx);
+            if let Some(old) = inner.id_to_idx.insert(id.clone(), idx) {
+                inner.idx_to_id.remove(&old);
+            }
             inner.idx_to_id.insert(idx, id);
         }
 
@@ -421,6 +397,93 @@ impl VectorIndex for HnswIndex {
     fn search(&self, query: &[f32], k: usize) -> Result<Vec<SearchResult>> {
         // Use configured ef_search
         self.search_with_ef(query, k, self.config.ef_search)
+    }
+
+    fn search_ef(
+        &self,
+        query: &[f32],
+        k: usize,
+        ef_search: Option<usize>,
+    ) -> Result<Vec<SearchResult>> {
+        self.search_with_ef(query, k, ef_search.unwrap_or(self.config.ef_search))
+    }
+
+    fn search_ef_filtered(
+        &self,
+        query: &[f32],
+        k: usize,
+        ef_search: Option<usize>,
+        filter: &FilteredSearch<'_>,
+    ) -> Result<FilteredResults> {
+        if query.len() != self.dimensions {
+            return Err(RuvectorError::DimensionMismatch {
+                expected: self.dimensions,
+                actual: query.len(),
+            });
+        }
+        let inner = self.inner.read();
+        if k == 0 || inner.vectors.is_empty() {
+            return Ok(FilteredResults::complete(vec![]));
+        }
+        let ef = ef_search.unwrap_or(self.config.ef_search).max(k);
+        // A graph node passes only while it is the live node for its id: removed ids have no `idx_to_id` entry, and
+        // a re-added id leaves its old node mapped to the id but no longer `id_to_idx`'s choice.
+        let live = |idx: usize| {
+            inner.idx_to_id.get(&idx).is_some_and(|id| {
+                (filter.predicate)(&id)
+                    && inner.id_to_idx.get(id.as_str()).is_some_and(|i| *i == idx)
+            })
+        };
+        let to_results = |hits: Vec<(usize, f32)>| -> Vec<SearchResult> {
+            hits.into_iter()
+                .filter_map(|(idx, score)| {
+                    inner.idx_to_id.get(&idx).map(|id| SearchResult {
+                        id: id.clone(),
+                        score,
+                        vector: None,
+                        metadata: None,
+                    })
+                })
+                .collect()
+        };
+        // A filter that passes much of the index is cheapest as a modestly widened plain search, post-filtered: the
+        // predicate then runs on `fetch` nodes instead of on every node the walk admits. If the passing vectors are
+        // not where the query's neighbours are, too few survive and the walk below takes over.
+        if let Some(fetch) = filter.graph_overfetch(k, ef) {
+            let hits: Vec<(usize, f32)> = inner
+                .hnsw
+                .search(query, fetch, ef.max(fetch))
+                .into_iter()
+                .filter(|(idx, _)| live(*idx))
+                .take(k)
+                .collect();
+            if hits.len() >= k {
+                return Ok(FilteredResults::complete(to_results(hits)));
+            }
+        }
+        let found =
+            inner
+                .hnsw
+                .search_filtered(query, k, ef, filter.budget.unwrap_or(usize::MAX), live);
+        Ok(FilteredResults {
+            complete: !found.budget_exhausted,
+            results: to_results(found.hits),
+        })
+    }
+
+    fn exact_distances(&self, query: &[f32], ids: &[&str]) -> Option<Result<Vec<(usize, f32)>>> {
+        let inner = self.inner.read();
+        Some(
+            ids.iter()
+                .enumerate()
+                .filter_map(|(pos, id)| {
+                    inner
+                        .vectors
+                        .get(*id)
+                        .map(|v| distance(query, &v, self.metric).map(|d| (pos, d)))
+                })
+                .collect(),
+        )
     }
 
     fn remove(&mut self, id: &VectorId) -> Result<bool> {
@@ -465,6 +528,67 @@ mod tests {
         } else {
             v.to_vec()
         }
+    }
+
+    #[test]
+    fn test_search_ef_overrides_the_configured_value() -> Result<()> {
+        let (n, dim, k) = (1500usize, 16usize, 10usize);
+        let base = generate_random_vectors(n, dim);
+        let queries = generate_random_vectors(60, dim);
+        let config = HnswConfig {
+            m: 16,
+            ef_construction: 200,
+            ef_search: k,
+            max_elements: n + 10,
+        };
+        let mut index = HnswIndex::new(dim, DistanceMetric::Euclidean, config)?;
+        for (i, v) in base.iter().enumerate() {
+            index.add(i.to_string(), v.clone())?;
+        }
+        let truth = |q: &[f32]| -> Vec<String> {
+            let mut d: Vec<(f32, usize)> = base
+                .iter()
+                .enumerate()
+                .map(|(i, v)| {
+                    (
+                        v.iter().zip(q).map(|(a, b)| (a - b) * (a - b)).sum::<f32>(),
+                        i,
+                    )
+                })
+                .collect();
+            d.sort_by(|a, b| a.0.total_cmp(&b.0));
+            d.into_iter().take(k).map(|x| x.1.to_string()).collect()
+        };
+        let (mut low, mut high) = (0usize, 0usize);
+        for q in &queries {
+            let t = truth(q);
+            let count = |r: Vec<SearchResult>| r.iter().filter(|x| t.contains(&x.id)).count();
+            assert_eq!(
+                index
+                    .search_ef(q, k, None)?
+                    .iter()
+                    .map(|r| r.id.clone())
+                    .collect::<Vec<_>>(),
+                index
+                    .search(q, k)?
+                    .iter()
+                    .map(|r| r.id.clone())
+                    .collect::<Vec<_>>(),
+                "None means the configured value"
+            );
+            low += count(index.search_ef(q, k, Some(k))?);
+            high += count(index.search_ef(q, k, Some(300))?);
+        }
+        let (low, high) = (
+            low as f64 / (queries.len() * k) as f64,
+            high as f64 / (queries.len() * k) as f64,
+        );
+        assert!(
+            high >= low,
+            "a larger ef must not lower recall: {low} -> {high}"
+        );
+        assert!(high > 0.97, "ef=300 recall {high}");
+        Ok(())
     }
 
     #[test]
@@ -555,6 +679,56 @@ mod tests {
 
         assert!(!results.is_empty());
 
+        Ok(())
+    }
+
+    #[test]
+    fn filtered_search_skips_removed_and_superseded_nodes() -> Result<()> {
+        let (n, dim) = (2000usize, 8usize);
+        let base = generate_random_vectors(n, dim);
+        let mut index = HnswIndex::new(dim, DistanceMetric::Euclidean, HnswConfig::default())?;
+        for (i, v) in base.iter().enumerate() {
+            index.add(i.to_string(), v.clone())?;
+        }
+        for i in (0..n).step_by(4) {
+            index.remove(&i.to_string())?;
+        }
+        // Re-add id "1" elsewhere: its first node must not resurface with the old vector.
+        let far = vec![100.0f32; dim];
+        index.add("1".to_string(), far.clone())?;
+        let even = |id: &str| id.parse::<usize>().is_ok_and(|i| i % 2 == 0);
+        let odd = |id: &str| id.parse::<usize>().is_ok_and(|i| i % 2 == 1);
+        for selectivity in [None, Some(0.25)] {
+            let spec = FilteredSearch {
+                predicate: &even,
+                selectivity,
+                budget: None,
+            };
+            let r = index
+                .search_ef_filtered(&base[0], 50, Some(64), &spec)?
+                .results;
+            assert_eq!(r.len(), 50);
+            for hit in &r {
+                let i: usize = hit.id.parse().unwrap();
+                assert!(
+                    i % 2 == 0 && i % 4 != 0,
+                    "{} is filtered out or removed",
+                    hit.id
+                );
+            }
+            let spec = FilteredSearch {
+                predicate: &odd,
+                selectivity,
+                budget: None,
+            };
+            let r = index
+                .search_ef_filtered(&base[1], 5, Some(64), &spec)?
+                .results;
+            assert!(r.iter().all(|h| h.id != "1"), "stale node for id 1");
+            let r = index.search_ef_filtered(&far, 1, Some(64), &spec)?.results;
+            assert_eq!(r[0].id, "1");
+            assert!(r[0].score < 1e-3);
+        }
         Ok(())
     }
 

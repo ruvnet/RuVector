@@ -11,7 +11,7 @@
 
 use std::collections::BinaryHeap;
 
-use crate::sq_dist;
+use crate::{distance_order, sq_dist};
 
 /// An immutable NSW graph over a frozen set of vectors.
 pub struct FrozenSegment {
@@ -48,7 +48,7 @@ impl FrozenSegment {
             // Find m exact nearest among already-inserted nodes 0..i-1.
             let mut dists: Vec<(usize, f32)> =
                 (0..i).map(|j| (j, sq_dist(vi, &data[j].1))).collect();
-            dists.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+            dists.sort_by(|a, b| distance_order(a.1, b.1));
             let m_actual = m.min(dists.len());
             let neighbours = &dists[..m_actual];
 
@@ -62,7 +62,7 @@ impl FrozenSegment {
                         .iter()
                         .map(|&k| (k, sq_dist(vj, &data[k].1)))
                         .collect();
-                    adj.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+                    adj.sort_by(|a, b| distance_order(a.1, b.1));
                     adj.truncate(m);
                     graph[j] = adj.into_iter().map(|(k, _)| k).collect();
                 }
@@ -119,10 +119,15 @@ impl FrozenSegment {
 // ---------------------------------------------------------------------------
 
 /// Min-heap entry: smallest distance pops first (for the exploration frontier).
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 struct ClosestFirst {
     neg_dist: f32, // negated so BinaryHeap (max-heap) pops closest
     idx: usize,
+}
+impl PartialEq for ClosestFirst {
+    fn eq(&self, other: &Self) -> bool {
+        self.neg_dist.to_bits() == other.neg_dist.to_bits() && self.idx == other.idx
+    }
 }
 impl Eq for ClosestFirst {}
 impl PartialOrd for ClosestFirst {
@@ -132,18 +137,21 @@ impl PartialOrd for ClosestFirst {
 }
 impl Ord for ClosestFirst {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        // larger neg_dist = smaller actual dist → front of max-heap = closest node
-        self.neg_dist
-            .partial_cmp(&other.neg_dist)
-            .unwrap_or(std::cmp::Ordering::Equal)
+        // Closest finite distance wins; non-finite candidates come last.
+        distance_order(-other.neg_dist, -self.neg_dist).then_with(|| self.idx.cmp(&other.idx))
     }
 }
 
 /// Max-heap entry: largest distance pops first (for the result set eviction).
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 struct FarthestFirst {
     dist: f32,
     idx: usize,
+}
+impl PartialEq for FarthestFirst {
+    fn eq(&self, other: &Self) -> bool {
+        self.dist.to_bits() == other.dist.to_bits() && self.idx == other.idx
+    }
 }
 impl Eq for FarthestFirst {}
 impl PartialOrd for FarthestFirst {
@@ -153,10 +161,8 @@ impl PartialOrd for FarthestFirst {
 }
 impl Ord for FarthestFirst {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        // larger dist → front of max-heap = farthest node, correct for eviction
-        self.dist
-            .partial_cmp(&other.dist)
-            .unwrap_or(std::cmp::Ordering::Equal)
+        // Farthest distance, including non-finite candidates, is evicted first.
+        distance_order(self.dist, other.dist).then_with(|| self.idx.cmp(&other.idx))
     }
 }
 
@@ -199,7 +205,7 @@ fn greedy_search_internal(
         let curr_dist = -curr.neg_dist;
         // Terminate early: current frontier node is farther than the worst in best.
         let worst_best_dist = best.peek().map(|e| e.dist).unwrap_or(f32::MAX);
-        if curr_dist > worst_best_dist && best.len() >= ef {
+        if distance_order(curr_dist, worst_best_dist).is_gt() && best.len() >= ef {
             break;
         }
 
@@ -212,7 +218,7 @@ fn greedy_search_internal(
             let d = sq_dist(&vectors[neighbour].1, query);
             let worst = best.peek().map(|e| e.dist).unwrap_or(f32::MAX);
 
-            if d < worst || best.len() < ef {
+            if distance_order(d, worst).is_lt() || best.len() < ef {
                 frontier.push(ClosestFirst {
                     neg_dist: -d,
                     idx: neighbour,
@@ -229,6 +235,48 @@ fn greedy_search_internal(
     }
 
     let mut results: Vec<(usize, f32)> = best.into_iter().map(|e| (e.idx, e.dist)).collect();
-    results.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    results.sort_by(|a, b| distance_order(a.1, b.1));
     results
+}
+
+#[cfg(test)]
+mod nonfinite_order_tests {
+    use super::*;
+
+    #[test]
+    fn frozen_segment_build_and_search_handle_nonfinite_vectors() {
+        let data = vec![
+            (0, vec![0.0, 0.0]),
+            (1, vec![f32::NAN, 0.0]),
+            (2, vec![1.0, 0.0]),
+        ];
+        // m=1 forces adjacency pruning, including a NaN distance.
+        let segment = FrozenSegment::build(data, 1, 4, 4);
+        let results = segment.search(&[0.0, 0.0], 3);
+        assert_eq!(results[0].0, 0);
+        assert!(results.iter().all(|(_, d)| d.is_finite() || d.is_nan()));
+        assert!(!segment.search(&[f32::NAN, 0.0], 2).is_empty());
+    }
+
+    #[test]
+    fn heap_order_agrees_with_equality_for_nan() {
+        let finite = ClosestFirst {
+            neg_dist: -1.0,
+            idx: 0,
+        };
+        let nan = ClosestFirst {
+            neg_dist: f32::NAN,
+            idx: 1,
+        };
+        assert!(nan == nan.clone());
+        assert_ne!(finite.cmp(&nan), std::cmp::Ordering::Equal);
+
+        let finite = FarthestFirst { dist: 1.0, idx: 0 };
+        let nan = FarthestFirst {
+            dist: f32::NAN,
+            idx: 1,
+        };
+        assert!(nan == nan.clone());
+        assert_ne!(finite.cmp(&nan), std::cmp::Ordering::Equal);
+    }
 }

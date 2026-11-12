@@ -106,6 +106,25 @@ fn hnsw_recall_at_10_meets_095_on_10k_128d() {
 // ── 2. Persistence round-trip ───────────────────────────────────────
 
 #[test]
+fn ingest_only_store_loads_index_on_readonly_reopen() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("ingest_only.rvf");
+    let query = random_vector(8, 42);
+
+    let store = make_store(&dir, "ingest_only.rvf", 8, 1200);
+    assert!(!store.index_ready(), "ingest must not require a query");
+    store.close().unwrap();
+
+    let reopened = RvfStore::open_readonly(&path).unwrap();
+    assert!(
+        reopened.index_ready(),
+        "close must persist an index for an ingest-only store"
+    );
+    let results = reopened.query(&query, 1, &QueryOptions::default()).unwrap();
+    assert_eq!(results[0].id, 42);
+}
+
+#[test]
 fn index_persists_on_close_and_loads_on_reopen() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("persist.rvf");
@@ -363,10 +382,10 @@ fn compaction_invalidates_index_and_queries_stay_correct() {
     store.close().unwrap();
 }
 
-// ── 6. Stale persisted index is discarded on reopen ─────────────────
+// ── 6. An overwrite re-links the node; the stale INDEX_SEG is not reused ──
 
 #[test]
-fn overwriting_an_id_drops_the_stale_index() {
+fn overwriting_an_id_relinks_and_persists_the_index() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("overwrite.rvf");
 
@@ -382,16 +401,26 @@ fn overwriting_an_id_drops_the_stale_index() {
         let mut store = RvfStore::open(&path).unwrap();
         assert!(store.index_ready());
 
-        // Re-ingest an existing ID with different data: graph edges for
-        // that node are stale, so the index must be dropped.
+        // Re-ingest an existing ID with different data: the node is
+        // re-linked against its new vector and the graph stays built.
         let v = random_vector(8, 987_654);
         store.ingest_batch(&[v.as_slice()], &[5], None).unwrap();
-        assert!(!store.index_ready());
+        assert!(store.index_ready());
 
-        // Queries still reflect the overwritten vector.
+        // Queries reflect the overwritten vector.
         let results = store.query(&v, 1, &QueryOptions::default()).unwrap();
         assert_eq!(results[0].id, 5);
         assert!(results[0].distance < f32::EPSILON);
-        store.close().unwrap();
+        store.close().unwrap(); // persists the re-linked graph
+    }
+
+    {
+        // The reopened store serves the re-linked graph, not the stale one.
+        let store = RvfStore::open(&path).unwrap();
+        assert!(store.index_ready());
+        let v = random_vector(8, 987_654);
+        let results = store.query(&v, 1, &QueryOptions::default()).unwrap();
+        assert_eq!(results[0].id, 5);
+        assert!(results[0].distance < f32::EPSILON);
     }
 }

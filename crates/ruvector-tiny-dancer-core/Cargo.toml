@@ -1,17 +1,21 @@
 [package]
 name = "ruvector-tiny-dancer-core"
-version.workspace = true
+version = "2.3.2"
 edition.workspace = true
+# rusqlite 0.41 (RUSTSEC-2026-0459 fix) needs Rust 1.89.
+rust-version = "1.89"
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
 readme = "README.md"
 description = "Production-grade AI agent routing system with FastGRNN neural inference"
+homepage = "https://ruv.io"
 
 [lib]
 crate-type = ["lib", "staticlib"]
 
 [dependencies]
+ruvector-voi = { version = "2.3.0", path = "../ruvector-voi", features = ["serde"] }
 # Workspace dependencies
 redb = { workspace = true }
 memmap2 = { workspace = true }
@@ -36,7 +40,7 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 
 # Database
-rusqlite = { version = "0.32", features = ["bundled", "modern_sqlite"] }
+rusqlite = { version = "0.41", features = ["bundled", "modern_sqlite", "fallible_uint"] }
 
 # Performance monitoring
 once_cell = { workspace = true }

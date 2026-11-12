@@ -1,10 +1,24 @@
 {
   "name": "@ruvector/sona-linux-x64-musl",
-  "version": "0.1.5",
-  "os": ["linux"],
-  "cpu": ["x64"],
+  "version": "0.1.11",
+  "homepage": "https://ruv.io",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "main": "sona.linux-x64-musl.node",
-  "files": ["sona.linux-x64-musl.node"],
+  "files": [
+    "sona.linux-x64-musl.node"
+  ],
   "license": "MIT",
-  "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector.git"}
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "npm/packages/sona/npm/linux-x64-musl"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
+  }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/router",
-  "version": "0.1.31",
+  "version": "0.1.34",
   "description": "Semantic router for AI agents - vector-based intent matching with HNSW indexing and SIMD acceleration",
   "main": "index.js",
   "types": "index.d.ts",
@@ -8,7 +8,7 @@
   "homepage": "https://ruv.io",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
+    "url": "git+https://github.com/ruvnet/ruvector.git",
     "directory": "npm/packages/router"
   },
   "bugs": {
@@ -25,39 +25,33 @@
   ],
   "scripts": {
     "build:napi": "napi build --platform --release --cargo-cwd ../../../crates/ruvector-router-ffi",
-    "test": "node test.js",
+    "test": "node test.js && node test-max-elements.js",
     "publish:platforms": "node scripts/publish-platforms.js"
   },
   "devDependencies": {
     "@napi-rs/cli": "^2.18.0"
   },
   "optionalDependencies": {
-    "@ruvector/router-linux-x64-gnu": "0.1.31",
-    "@ruvector/router-linux-arm64-gnu": "0.1.31",
-    "@ruvector/router-darwin-x64": "0.1.31",
-    "@ruvector/router-darwin-arm64": "0.1.31",
-    "@ruvector/router-win32-x64-msvc": "0.1.31"
+    "@ruvector/router-linux-x64-gnu": "0.1.32",
+    "@ruvector/router-linux-arm64-gnu": "0.1.32",
+    "@ruvector/router-darwin-x64": "0.1.32",
+    "@ruvector/router-darwin-arm64": "0.1.32",
+    "@ruvector/router-win32-x64-msvc": "0.1.32"
   },
   "publishConfig": {
     "access": "public"
   },
   "keywords": [
-    "semantic-router",
-    "intent-matching",
-    "ai-routing",
-    "agent-routing",
     "vector-search",
-    "hnsw",
-    "similarity-search",
-    "embeddings",
-    "llm",
-    "native",
-    "napi",
-    "rust",
     "simd",
-    "fast",
-    "performance",
-    "ruv",
-    "ruvector"
+    "hnsw",
+    "llm",
+    "rust",
+    "embeddings",
+    "ruvector",
+    "ruvnet",
+    "napi",
+    "ai",
+    "ai-agents"
   ]
 }

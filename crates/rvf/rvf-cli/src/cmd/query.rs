@@ -1,10 +1,9 @@
 //! `rvf query` -- Query nearest neighbors.
 
 use clap::Args;
-use std::path::Path;
 
 use rvf_runtime::filter::FilterExpr;
-use rvf_runtime::{QueryOptions, RvfStore};
+use rvf_runtime::QueryOptions;
 
 use super::map_rvf_err;
 
@@ -24,6 +23,9 @@ pub struct QueryArgs {
     /// Output as JSON
     #[arg(long)]
     json: bool,
+    /// Open the last committed snapshot even if the file ends inside a segment
+    #[arg(long)]
+    recover: bool,
 }
 
 pub fn run(args: QueryArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -36,6 +38,13 @@ pub fn run(args: QueryArgs) -> Result<(), Box<dyn std::error::Error>> {
                 .map_err(|e| format!("Invalid vector component '{s}': {e}"))
         })
         .collect::<Result<Vec<_>, _>>()?;
+    if let Some(i) = vector.iter().position(|x| !x.is_finite()) {
+        return Err(format!(
+            "invalid query vector: component {i} is not finite (NaN or infinity) [{:?}]",
+            rvf_types::ErrorCode::NonFiniteQuery
+        )
+        .into());
+    }
 
     let filter = match &args.filter {
         Some(f) => Some(parse_filter_json(f)?),
@@ -47,7 +56,7 @@ pub fn run(args: QueryArgs) -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
 
-    let store = RvfStore::open_readonly(Path::new(&args.path)).map_err(map_rvf_err)?;
+    let store = crate::cmd::open_readonly_checked(&args.path, args.recover)?;
     crate::cmd::warn_on_metadata_recovery(&store, &args.path);
     let results = store
         .query(&vector, args.k, &query_opts)

@@ -226,9 +226,17 @@ export interface EconomyMetrics {
 
 /** Quantum-inspired state */
 export interface QuantumState {
+  /** Basis-state magnitudes sqrt(P(i)); qubit 0 is the least significant bit. */
   amplitudes: Float32Array;
+  /** Zero-filled: the ruqu backend exposes probabilities, not complex phases. */
   phases: Float32Array;
   entanglementMap: Map<number, number[]>;
+  /** Qubit count (set by quantumInit). */
+  numQubits?: number;
+  /** Gates applied since quantumInit, replayed by the ruqu backend. */
+  gates?: ReadonlyArray<{ type: string; targets: number[]; parameter?: number }>;
+  /** True for the collapsed state returned by quantumMeasure. */
+  measured?: boolean;
 }
 
 /** Hyperbolic embedding */
