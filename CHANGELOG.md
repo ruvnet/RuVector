@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RvLite: acquire browser writer leases in a committed atomic IndexedDB transaction and prevent expired holders from overwriting or releasing successor leases.
 - RvLite CLI refuses corrupt or unreadable existing databases instead of reporting empty data or overwriting recoverable bytes.
 - Memory-backed Rust batches validate all vector dimensions before storing any
+- `rvf_store_open` refuses a malformed or dimensionless `.rvf` buffer instead of skipping the bad segment and allocating a dimension-1 store.
 - Count undirected edge weights once when scoring modularity in the npm
   graph helpers and returned minimum-cut partitions. Single-edge and
   disconnected-component scores now use the correct total edge weight.
