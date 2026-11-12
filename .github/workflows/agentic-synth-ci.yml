@@ -7,14 +7,15 @@ on:
       - develop
       - 'claude/**'
     paths:
-      - 'packages/agentic-synth/**'
+      - 'npm/packages/agentic-synth/**'
       - '.github/workflows/agentic-synth-ci.yml'
   pull_request:
     branches:
       - main
       - develop
     paths:
-      - 'packages/agentic-synth/**'
+      - 'npm/packages/agentic-synth/**'
+      - '.github/workflows/agentic-synth-ci.yml'
   workflow_dispatch:
     inputs:
       run_tests:
@@ -27,8 +28,8 @@ on:
         default: 'false'
 
 env:
-  NODE_VERSION: '18.x'
-  PACKAGE_PATH: packages/agentic-synth
+  NODE_VERSION: '20.x'
+  PACKAGE_PATH: npm/packages/agentic-synth
 
 jobs:
   # Job 1: Code Quality Checks
@@ -51,7 +52,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ env.PACKAGE_PATH }}
-        run: npm install
+        run: npm install --legacy-peer-deps --no-workspaces --ignore-scripts
 
       - name: Run TypeScript type checking
         working-directory: ${{ env.PACKAGE_PATH }}
@@ -77,7 +78,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        node-version: ['18.x', '20.x', '22.x']
+        node-version: ['20.x', '22.x']
 
     steps:
       - name: Checkout repository
@@ -92,7 +93,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ env.PACKAGE_PATH }}
-        run: npm install
+        run: npm install --legacy-peer-deps --no-workspaces --ignore-scripts
 
       - name: Build package (ESM + CJS)
         working-directory: ${{ env.PACKAGE_PATH }}
@@ -158,7 +159,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ env.PACKAGE_PATH }}
-        run: npm install
+        run: npm install --legacy-peer-deps --no-workspaces --ignore-scripts
 
       - name: Run tests with coverage
         working-directory: ${{ env.PACKAGE_PATH }}
@@ -202,7 +203,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ env.PACKAGE_PATH }}
-        run: npm install
+        run: npm install --legacy-peer-deps --no-workspaces --ignore-scripts
 
       - name: Build package
         working-directory: ${{ env.PACKAGE_PATH }}
@@ -263,7 +264,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ env.PACKAGE_PATH }}
-        run: npm install
+        run: npm install --legacy-peer-deps --no-workspaces --ignore-scripts
 
       - name: Build package
         working-directory: ${{ env.PACKAGE_PATH }}

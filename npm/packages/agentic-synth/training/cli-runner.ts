@@ -257,7 +257,7 @@ function buildModelConfig(provider: ModelProvider, options: any): ModelConfig | 
     case ModelProvider.GEMINI:
       return {
         ...baseConfig,
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.5-flash',
         apiKey: process.env.GEMINI_API_KEY || ''
       };
 
