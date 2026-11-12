@@ -88,6 +88,10 @@ impl Codebook {
 
     /// Encode a single vector into M u8 codes (one code per subspace).
     pub fn encode(&self, v: &[f32]) -> Vec<u8> {
+        assert!(
+            v.iter().all(|value| value.is_finite()),
+            "all vector coordinates must be finite"
+        );
         (0..self.m)
             .map(|sub| {
                 let start = sub * self.ds;
