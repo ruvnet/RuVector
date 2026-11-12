@@ -439,7 +439,8 @@ impl<'p> StreamIngest<'p> {
             // Whole-segment buffering is bounded by an ingest-level budget on
             // top of the signed table's per-segment sizes.
             if self.buffered + bytes.len() as u64 > self.buffer_budget {
-                self.verifier.poison_consumer(ErrorCode::StreamLimitExceeded);
+                self.verifier
+                    .poison_consumer(ErrorCode::StreamLimitExceeded);
                 return;
             }
             self.buffered += bytes.len() as u64;
@@ -520,7 +521,8 @@ impl<'p> StreamIngest<'p> {
             self.witness(StreamWitness::LayerPublished(b'A'));
         } else if self.index.layer_a.is_none() {
             // B or C before A: nothing may be searched before its entry points.
-            self.verifier.poison_consumer(ErrorCode::StreamRequirementsUnmet);
+            self.verifier
+                .poison_consumer(ErrorCode::StreamRequirementsUnmet);
         } else if p.len() >= 4 && p[..4] == MAGIC_B {
             match decode_b(p) {
                 Some(b) => {
