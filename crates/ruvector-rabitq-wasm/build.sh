@@ -20,6 +20,15 @@ wasm-pack build --target nodejs --out-dir ../../npm/packages/rabitq-wasm/node
 echo "Building for bundler target..."
 wasm-pack build --target bundler --out-dir ../../npm/packages/rabitq-wasm/bundler
 
+# wasm-pack writes a `.gitignore` containing `*` into every out-dir. In the
+# nested node/ and bundler/ dirs npm honours it and silently drops them from
+# the tarball (0.1.0 shipped without the node/ and bundler/ entry points the
+# README documents). At the package root it clobbers the committed ignore
+# file. Remove the nested ones and restore the root one.
+rm -f ../../npm/packages/rabitq-wasm/node/.gitignore \
+      ../../npm/packages/rabitq-wasm/bundler/.gitignore
+git checkout -- ../../npm/packages/rabitq-wasm/.gitignore 2>/dev/null || true
+
 echo "Build complete!"
 echo "Web:     npm/packages/rabitq-wasm/"
 echo "Node.js: npm/packages/rabitq-wasm/node/"

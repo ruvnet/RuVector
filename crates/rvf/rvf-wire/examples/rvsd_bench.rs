@@ -35,20 +35,23 @@ fn body(segments: usize, seg_bytes: usize) -> Vec<u8> {
     b
 }
 
-fn status_kb(field: &str) -> u64 {
-    let s = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+/// `field` from /proc/self/status in KiB, or "n/a" where /proc is unavailable.
+fn status_kb(field: &str) -> String {
+    let Ok(s) = std::fs::read_to_string("/proc/self/status") else {
+        return "n/a".to_string();
+    };
     s.lines()
         .find(|l| l.starts_with(field))
         .and_then(|l| l.split_whitespace().nth(1))
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(0)
+        .and_then(|v| v.parse::<u64>().ok())
+        .map_or_else(|| "n/a".to_string(), |v| v.to_string())
 }
 
 fn loadavg() -> String {
-    std::fs::read_to_string("/proc/loadavg")
-        .unwrap_or_default()
-        .trim()
-        .to_string()
+    match std::fs::read_to_string("/proc/loadavg") {
+        Ok(s) => s.trim().to_string(),
+        Err(_) => "n/a".to_string(),
+    }
 }
 
 fn gbps(bytes: usize, secs: f64) -> f64 {

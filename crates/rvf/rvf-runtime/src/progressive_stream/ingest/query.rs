@@ -20,6 +20,7 @@ use std::time::{Duration, Instant};
 
 /// Which engine answers a query.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum QueryMode {
     /// Scan the arrived vectors while that fits the latency bound and Layer C
     /// is absent; otherwise layers.

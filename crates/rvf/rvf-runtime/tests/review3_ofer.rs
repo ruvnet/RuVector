@@ -9,6 +9,8 @@ use rvf_wire::writer::write_segment_with_algo;
 use std::time::Instant;
 /// Serialises tests that measure process-wide RSS or wall time.
 static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
+#[path = "support/rss.rs"]
+mod rss;
 #[path = "support/signed.rs"]
 #[allow(dead_code)]
 mod signed;
@@ -208,7 +210,15 @@ fn f3_03_identical_concurrent_session_gets_spurious_conflict() {
 /// segments are small on the wire (12 B per entry) and each is released after
 /// parsing, so the set grows with every journal segment in the stream.
 #[test]
+#[cfg_attr(
+    not(target_os = "linux"),
+    ignore = "reads /proc/self/statm (Linux only)"
+)]
 fn f3_04_tombstone_set_growth_is_unbudgeted() {
+    if rss::rss_kb().is_none() {
+        eprintln!("SKIPPED f3_04: no RSS measure (no /proc, no getrusage) on this platform");
+        return;
+    }
     let _g = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let mut body = Vec::new();
     let nseg = 40u64;
@@ -240,16 +250,7 @@ fn f3_04_tombstone_set_growth_is_unbudgeted() {
         .build(&body)
         .unwrap();
     let keys = [pk];
-    let rss = || {
-        std::fs::read_to_string("/proc/self/statm")
-            .unwrap()
-            .split_whitespace()
-            .nth(1)
-            .unwrap()
-            .parse::<u64>()
-            .unwrap()
-            * 4
-    };
+    let rss = || rss::rss_kb().expect("RSS measure");
     let before = rss();
     let mut ing = StreamIngest::new(StreamPolicy::new(&keys));
     let mut wire = 0u64;
@@ -257,7 +258,7 @@ fn f3_04_tombstone_set_growth_is_unbudgeted() {
         wire += f.len() as u64;
         assert!(ing.feed(&f).refused.is_none());
     }
-    let grown = (rss() - before) * 1024;
+    let grown = rss().saturating_sub(before) * 1024;
     eprintln!(
         "journal wire {} KB -> resident +{} KB ({:.1}x)",
         wire / 1024,

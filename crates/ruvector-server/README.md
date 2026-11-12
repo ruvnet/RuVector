@@ -9,6 +9,14 @@
 
 `ruvector-server` provides a production-ready HTTP API built on Axum with CORS support, compression, and OpenAPI documentation. Exposes full Ruvector functionality via RESTful endpoints. Part of the [Ruvector](https://github.com/ruvnet/ruvector) ecosystem.
 
+<!-- weaver:seo:install:start -->
+## Install
+
+```bash
+npm install @ruvector/server
+```
+<!-- weaver:seo:install:end -->
+
 ## Why Ruvector Server?
 
 - **Fast**: Built on Axum and Tokio for high throughput
@@ -227,3 +235,12 @@ docker run -p 8080:8080 ruvector-server
 [Documentation](https://docs.rs/ruvector-server) | [Crates.io](https://crates.io/crates/ruvector-server) | [GitHub](https://github.com/ruvnet/ruvector)
 
 </div>
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for vector database, vector search, HNSW.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->

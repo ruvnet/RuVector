@@ -1,6 +1,6 @@
 [package]
 name = "ruvector-robotics"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 description = "Cognitive robotics platform: bridge types, perception pipeline, cognitive architecture, and MCP tools"
@@ -20,8 +20,8 @@ serde_json = "1.0"
 thiserror = "2.0"
 ruvector-domain-expansion = { version = "2.0.4", path = "../ruvector-domain-expansion", optional = true }
 rand = { version = "0.8", optional = true }
-rvf-runtime = { version = "0.4", path = "../rvf/rvf-runtime", optional = true }
-rvf-types = { version = "0.2", path = "../rvf/rvf-types", features = ["std"], optional = true }
+rvf-runtime = { version = "0.5", path = "../rvf/rvf-runtime", optional = true }
+rvf-types = { version = "0.3", path = "../rvf/rvf-types", features = ["std"], optional = true }
 tempfile = { version = "3", optional = true }
 
 [dev-dependencies]

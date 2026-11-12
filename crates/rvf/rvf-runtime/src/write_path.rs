@@ -507,11 +507,17 @@ impl SegmentWriter {
         Ok((seg_id, offset))
     }
 
-    /// Write a WITNESS_SEG containing a serialized witness entry.
+    /// Write a WITNESS_SEG containing ONE chain entry.
     ///
-    /// Payload layout:
-    ///   `witness_type` (u8) + `timestamp_ns` (u64 LE) +
-    ///   `action_len` (u32 LE) + `action` (bytes) + `prev_hash` (32 bytes)
+    /// Payload layout: the fixed 73-byte entry of `rvf_crypto::witness`
+    /// (`prev_hash[32] | SHAKE-256(action)[32] | timestamp_ns u64 | type u8`),
+    /// so `rvf verify-witness` / `verify_witness_chain` can verify it. The
+    /// action text itself is not stored, only its hash. The caller passes the
+    /// hash of the previous entry (zero for the first) and advances its head
+    /// with `rvf_crypto::chain_entry_hash` over `encode_chain_entry(..)` of the
+    /// same arguments.
+    /// (Before 0.5.0 this wrote a variable-length record that no verifier
+    /// accepted.)
     ///
     /// Returns the segment ID and byte offset where it was written.
     pub(crate) fn write_witness_seg<W: Write + Seek>(
@@ -524,17 +530,25 @@ impl SegmentWriter {
     ) -> io::Result<(u64, u64)> {
         let seg_id = self.alloc_seg_id();
 
-        let action_len = action.len() as u32;
-        let payload_size = 1 + 8 + 4 + action.len() + 32;
-        let mut payload = Vec::with_capacity(payload_size);
-
-        payload.push(witness_type);
-        payload.extend_from_slice(&timestamp_ns.to_le_bytes());
-        payload.extend_from_slice(&action_len.to_le_bytes());
-        payload.extend_from_slice(action);
-        payload.extend_from_slice(prev_hash);
+        let payload = rvf_crypto::encode_chain_entry(prev_hash, action, timestamp_ns, witness_type);
 
         let offset = self.write_segment(writer, SegmentType::Witness as u8, seg_id, &payload)?;
+        Ok((seg_id, offset))
+    }
+
+    /// Write one segment whose type byte is not a [`SegmentType`] variant:
+    /// the lineage record segment and application (custom) segments. Same
+    /// header, checksum and committed-hash bookkeeping as every other writer.
+    ///
+    /// Returns the segment ID and byte offset where it was written.
+    pub(crate) fn write_typed_seg<W: Write + Seek>(
+        &mut self,
+        writer: &mut W,
+        seg_type: u8,
+        payload: &[u8],
+    ) -> io::Result<(u64, u64)> {
+        let seg_id = self.alloc_seg_id();
+        let offset = self.write_segment(writer, seg_type, seg_id, payload)?;
         Ok((seg_id, offset))
     }
 
@@ -736,31 +750,24 @@ mod tests {
         // Check seg_type == Witness (0x0A).
         assert_eq!(data[5], SegmentType::Witness as u8);
 
-        // Verify payload starts with witness_type byte.
+        // The payload is exactly one fixed 73-byte chain entry (#1275):
+        // prev_hash | SHAKE-256(action) | timestamp_ns | witness_type.
         let payload_start = SEGMENT_HEADER_SIZE;
-        assert_eq!(data[payload_start], witness_type);
-
-        // Verify timestamp.
-        let ts_bytes: [u8; 8] = data[payload_start + 1..payload_start + 9]
-            .try_into()
-            .unwrap();
-        assert_eq!(u64::from_le_bytes(ts_bytes), timestamp_ns);
-
-        // Verify action length.
-        let action_len_bytes: [u8; 4] = data[payload_start + 9..payload_start + 13]
-            .try_into()
-            .unwrap();
-        assert_eq!(u32::from_le_bytes(action_len_bytes), action.len() as u32);
-
-        // Verify action bytes.
-        let action_start = payload_start + 13;
-        let action_end = action_start + action.len();
-        assert_eq!(&data[action_start..action_end], action);
-
-        // Verify prev_hash (32 zero bytes).
-        let hash_start = action_end;
-        let hash_end = hash_start + 32;
-        assert_eq!(&data[hash_start..hash_end], &[0u8; 32]);
+        let p = &data[payload_start..payload_start + rvf_crypto::WITNESS_ENTRY_SIZE];
+        assert_eq!(&p[0..32], &prev_hash);
+        assert_eq!(
+            &p[32..64],
+            &rvf_crypto::encode_chain_entry(&prev_hash, action, timestamp_ns, witness_type)[32..64]
+        );
+        assert_eq!(
+            u64::from_le_bytes(p[64..72].try_into().unwrap()),
+            timestamp_ns
+        );
+        assert_eq!(p[72], witness_type);
+        let header_payload_len = u64::from_le_bytes(data[0x10..0x18].try_into().unwrap());
+        assert_eq!(header_payload_len, 73);
+        let chain = rvf_crypto::verify_witness_chain(p).expect("runtime record is a valid chain");
+        assert_eq!(chain.len(), 1);
     }
 
     #[test]

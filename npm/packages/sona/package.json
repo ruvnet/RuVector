@@ -1,7 +1,7 @@
 {
   "name": "@ruvector/sona",
-  "version": "0.1.8",
-  "description": "Self-Optimizing Neural Architecture (SONA) - Runtime-adaptive learning with LoRA, EWC++, and ReasoningBank for LLM routers and AI systems. Sub-millisecond learning overhead, WASM and Node.js support.",
+  "version": "0.1.13",
+  "description": "SONA self-learning runtime: adaptive LoRA, EWC++ and ReasoningBank for LLM routing and AI systems, for Node.js and WASM.",
   "main": "index.js",
   "types": "index.d.ts",
   "napi": {
@@ -29,32 +29,28 @@
     "@napi-rs/cli": "^2.18.0"
   },
   "keywords": [
-    "sona",
-    "neural-network",
-    "adaptive-learning",
+    "self-learning",
     "lora",
-    "low-rank-adaptation",
-    "ewc",
-    "elastic-weight-consolidation",
-    "reasoningbank",
-    "llm",
-    "llm-router",
+    "llm-routing",
     "machine-learning",
-    "ai",
-    "deep-learning",
-    "continual-learning",
     "napi",
-    "rust",
-    "ruvector"
+    "ruvector",
+    "sona",
+    "ruvnet",
+    "ai",
+    "nodejs",
+    "llm",
+    "wasm",
+    "neural-network"
   ],
   "author": "rUv Team <team@ruv.io>",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
+    "url": "git+https://github.com/ruvnet/ruvector.git",
     "directory": "npm/packages/sona"
   },
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/crates/sona",
+  "homepage": "https://ruv.io",
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },
@@ -72,12 +68,12 @@
     "*.node"
   ],
   "optionalDependencies": {
-    "@ruvector/sona-linux-x64-gnu": "0.1.5",
-    "@ruvector/sona-linux-x64-musl": "0.1.5",
-    "@ruvector/sona-linux-arm64-gnu": "0.1.5",
-    "@ruvector/sona-darwin-x64": "0.1.5",
-    "@ruvector/sona-darwin-arm64": "0.1.5",
-    "@ruvector/sona-win32-x64-msvc": "0.1.5",
-    "@ruvector/sona-win32-arm64-msvc": "0.1.5"
+    "@ruvector/sona-linux-x64-gnu": "0.1.11",
+    "@ruvector/sona-linux-x64-musl": "0.1.11",
+    "@ruvector/sona-linux-arm64-gnu": "0.1.11",
+    "@ruvector/sona-darwin-x64": "0.1.11",
+    "@ruvector/sona-darwin-arm64": "0.1.11",
+    "@ruvector/sona-win32-x64-msvc": "0.1.11",
+    "@ruvector/sona-win32-arm64-msvc": "0.1.11"
   }
 }

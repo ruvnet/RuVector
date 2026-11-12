@@ -144,20 +144,7 @@ fn write_canonical(
         serde_json::Value::Null => out.push_str("null"),
         serde_json::Value::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
         serde_json::Value::Number(n) => out.push_str(&n.to_string()),
-        serde_json::Value::String(s) => {
-            // A single string atom can be arbitrarily large: refuse from its
-            // raw length before rendering the (at-least-as-large) quoted form.
-            if out.len().saturating_add(s.len()) > ceiling {
-                return Err(SchemaCacheError::SchemaTooLarge {
-                    actual: out.len().saturating_add(s.len()),
-                    ceiling,
-                });
-            }
-            // serde_json string escaping is deterministic.
-            let quoted = serde_json::to_string(s)
-                .map_err(|e| SchemaCacheError::NotSerializable(e.to_string()))?;
-            out.push_str(&quoted);
-        }
+        serde_json::Value::String(s) => write_quoted(s, out, ceiling)?,
         serde_json::Value::Array(items) => {
             out.push('[');
             for (i, item) in items.iter().enumerate() {
@@ -179,15 +166,7 @@ fn write_canonical(
                 if i > 0 {
                     out.push(',');
                 }
-                if out.len().saturating_add(key.len()) > ceiling {
-                    return Err(SchemaCacheError::SchemaTooLarge {
-                        actual: out.len().saturating_add(key.len()),
-                        ceiling,
-                    });
-                }
-                let quoted = serde_json::to_string(key)
-                    .map_err(|e| SchemaCacheError::NotSerializable(e.to_string()))?;
-                out.push_str(&quoted);
+                write_quoted(key, out, ceiling)?;
                 out.push(':');
                 write_canonical(&map[key.as_str()], out, depth + 1, ceiling)?;
             }
@@ -197,10 +176,34 @@ fn write_canonical(
     Ok(())
 }
 
-/// Canonicalize a JSON value with no size ceiling (the cache applies its
-/// configured ceiling on insert via [`canonicalize_bounded`]).
+fn write_quoted(s: &str, out: &mut String, ceiling: usize) -> Result<(), SchemaCacheError> {
+    // A single string atom can be arbitrarily large: refuse from its raw
+    // length before rendering the (at-least-as-large) quoted form.
+    if out.len().saturating_add(s.len()) > ceiling {
+        return Err(SchemaCacheError::SchemaTooLarge {
+            actual: out.len().saturating_add(s.len()),
+            ceiling,
+        });
+    }
+    // serde_json string escaping is deterministic. A control character
+    // expands to six bytes, so the raw-length check above can undercount.
+    let quoted =
+        serde_json::to_string(s).map_err(|e| SchemaCacheError::NotSerializable(e.to_string()))?;
+    if out.len().saturating_add(quoted.len()) > ceiling {
+        return Err(SchemaCacheError::SchemaTooLarge {
+            actual: out.len().saturating_add(quoted.len()),
+            ceiling,
+        });
+    }
+    out.push_str(&quoted);
+    Ok(())
+}
+
+/// Canonicalize a JSON value under the default per-schema ceiling,
+/// [`DEFAULT_MAX_SCHEMA_BYTES`]. Use [`canonicalize_bounded`] to pick a
+/// different ceiling.
 pub fn canonicalize(value: &serde_json::Value) -> Result<String, SchemaCacheError> {
-    canonicalize_bounded(value, usize::MAX)
+    canonicalize_bounded(value, DEFAULT_MAX_SCHEMA_BYTES)
 }
 
 /// Canonicalize with a streaming size ceiling: encoding bails as soon as the
@@ -234,11 +237,23 @@ fn compile_block(canonical: &str) -> String {
 
 /// Compile an ordered set of schemas from scratch, with no cache involved.
 /// This is the reference the cache's assembly must match byte-for-byte, and
-/// the cold baseline in the benchmark.
-pub fn compile_fresh(values: &[&serde_json::Value]) -> Result<String, SchemaCacheError> {
+/// the cold baseline in the benchmark. Applies the same `max_schema_bytes`
+/// and `max_assembled_bytes` ceilings as a cache built from `config`.
+pub fn compile_fresh(
+    values: &[&serde_json::Value],
+    config: &SchemaCacheConfig,
+) -> Result<String, SchemaCacheError> {
     let mut out = String::new();
     for value in values {
-        out.push_str(&compile_block(&canonicalize(value)?));
+        let block = compile_block(&canonicalize_bounded(value, config.max_schema_bytes)?);
+        let total = out.len().saturating_add(block.len());
+        if total > config.max_assembled_bytes {
+            return Err(SchemaCacheError::AssemblyTooLarge {
+                actual: total,
+                ceiling: config.max_assembled_bytes,
+            });
+        }
+        out.push_str(&block);
     }
     Ok(out)
 }
@@ -349,10 +364,10 @@ impl SchemaResourceCache {
 
     /// Assemble a context from resident blocks in the given order. The
     /// result is byte-identical to [`compile_fresh`] over the same ordered
-    /// schemas. Errors (rather than silently recompiling) if any identity is
-    /// not resident, and refuses assemblies whose total size would exceed
-    /// `max_assembled_bytes` (a long order repeating large identities would
-    /// otherwise amplify memory linearly with its length).
+    /// schemas and configuration. Errors (rather than silently recompiling)
+    /// if any identity is not resident, and refuses assemblies whose total
+    /// size would exceed `max_assembled_bytes` (a long order repeating large
+    /// identities would otherwise amplify memory linearly with its length).
     pub fn assemble(&mut self, order: &[ResourceId]) -> Result<String, SchemaCacheError> {
         // Validate residency and total size first so a partial or oversized
         // assembly is never observable.
@@ -472,7 +487,7 @@ mod tests {
         let permuted_ids: Vec<ResourceId> = order.iter().map(|&i| ids[i]).collect();
         let permuted_refs: Vec<&serde_json::Value> = order.iter().map(|&i| &schemas[i]).collect();
         let assembled = cache.assemble(&permuted_ids).unwrap();
-        let fresh = compile_fresh(&permuted_refs).unwrap();
+        let fresh = compile_fresh(&permuted_refs, &SchemaCacheConfig::default()).unwrap();
         assert_eq!(assembled, fresh);
     }
 
@@ -524,7 +539,7 @@ mod tests {
                 .map(|i| serde_json::json!({ "name": format!("field_{i}"), "blob": "y".repeat(256) }))
                 .collect::<Vec<_>>()
         });
-        let full_len = canonicalize(&huge).unwrap().len();
+        let full_len = canonicalize_bounded(&huge, usize::MAX).unwrap().len();
         assert!(full_len > 1_000_000, "fixture should dwarf the ceiling");
 
         match canonicalize_bounded(&huge, ceiling) {
@@ -572,6 +587,52 @@ mod tests {
                 assert_eq!(ceiling, 4096);
             }
             other => panic!("expected AssemblyTooLarge, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn compile_fresh_applies_cache_ceilings() {
+        let config = SchemaCacheConfig {
+            max_schema_bytes: 64,
+            max_assembled_bytes: 4096,
+            ..SchemaCacheConfig::default()
+        };
+        let big = serde_json::json!({ "blob": "x".repeat(128) });
+        assert!(matches!(
+            compile_fresh(&[&big], &config),
+            Err(SchemaCacheError::SchemaTooLarge { ceiling: 64, .. })
+        ));
+        let small = serde_json::json!({ "blob": "z".repeat(32) });
+        let amplified = vec![&small; 512];
+        match compile_fresh(&amplified, &config) {
+            Err(SchemaCacheError::AssemblyTooLarge { actual, ceiling }) => {
+                assert_eq!(ceiling, 4096);
+                // Refused at the first block that crosses the ceiling.
+                assert!(actual <= ceiling + 64);
+            }
+            other => panic!("expected AssemblyTooLarge, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn canonicalize_applies_default_ceiling() {
+        let big = serde_json::json!("x".repeat(DEFAULT_MAX_SCHEMA_BYTES + 1));
+        assert!(matches!(
+            canonicalize(&big),
+            Err(SchemaCacheError::SchemaTooLarge { .. })
+        ));
+    }
+
+    #[test]
+    fn escaped_string_is_refused_before_append() {
+        // 100 raw bytes pass the raw-length check but escape to 602 bytes.
+        let ctrl = serde_json::json!(["\u{1}".repeat(100)]);
+        match canonicalize_bounded(&ctrl, 128) {
+            Err(SchemaCacheError::SchemaTooLarge { actual, ceiling }) => {
+                assert_eq!(ceiling, 128);
+                assert_eq!(actual, 1 + 602);
+            }
+            other => panic!("expected SchemaTooLarge, got {other:?}"),
         }
     }
 

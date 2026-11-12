@@ -787,13 +787,17 @@ impl KvCacheWasm {
             }
         }
 
-        // Evict from store if exceeds max tokens
-        let total = tail_keys.len() + self.store_keys.borrow().len();
-        if total > self.config.max_tokens {
-            let excess = total - self.config.max_tokens;
-            for _ in 0..excess {
-                self.store_keys.borrow_mut().pop_front();
-                self.store_values.borrow_mut().pop_front();
+        // Evict oldest tokens (store first, then tail) if over max tokens.
+        // Popping only the store let the tail exceed max_tokens whenever
+        // tail_length > max_tokens.
+        let mut store_keys = self.store_keys.borrow_mut();
+        let mut store_values = self.store_values.borrow_mut();
+        while tail_keys.len() + store_keys.len() > self.config.max_tokens {
+            if store_keys.pop_front().is_some() {
+                store_values.pop_front();
+            } else {
+                tail_keys.pop_front();
+                tail_values.pop_front();
             }
         }
 
@@ -1161,7 +1165,7 @@ impl RuvLLMWasm {
     /// Get version information.
     #[wasm_bindgen(js_name = version)]
     pub fn version() -> String {
-        "2.0.0".to_string()
+        env!("CARGO_PKG_VERSION").to_string()
     }
 
     /// Format a chat conversation using a template.
@@ -1185,7 +1189,7 @@ impl Default for RuvLLMWasm {
 /// Get the WASM module version.
 #[wasm_bindgen(js_name = getVersion)]
 pub fn get_version() -> String {
-    "2.0.0".to_string()
+    env!("CARGO_PKG_VERSION").to_string()
 }
 
 /// Check if the WASM module is ready.

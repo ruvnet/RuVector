@@ -1,6 +1,8 @@
 //! Round 2 review: StreamIngest / StreamClient / layer decoders.
 #[path = "support/stream_fixture.rs"]
 mod fx;
+#[path = "support/rss.rs"]
+mod rss;
 use fx::*;
 use rvf_runtime::progressive_stream::client::{
     recover, ClientConfig, MemTransport, RunEnd, StreamClient,
@@ -124,14 +126,7 @@ fn f2_oracle_hostile_logs() {
 }
 
 fn rss_kb() -> u64 {
-    std::fs::read_to_string("/proc/self/statm")
-        .unwrap()
-        .split_whitespace()
-        .nth(1)
-        .unwrap()
-        .parse::<u64>()
-        .unwrap()
-        * 4
+    rss::rss_kb().expect("no portable RSS measure on this platform")
 }
 
 /// F2-01: allocation sized from signer-controlled counts. The count checks
@@ -139,7 +134,15 @@ fn rss_kb() -> u64 {
 /// 24+ byte struct. Measures resident growth for a Layer A payload that is
 /// 40 MB of empty top layers, and a Layer B of 12-byte empty adjacency rows.
 #[test]
+#[cfg_attr(
+    not(target_os = "linux"),
+    ignore = "reads /proc/self/statm (Linux only)"
+)]
 fn f2_01_layer_decode_memory_amplification() {
+    if rss::rss_kb().is_none() {
+        eprintln!("SKIPPED f2_01: no RSS measure (no /proc, no getrusage) on this platform");
+        return;
+    }
     let n = 10_000_000u32;
     let mut a = Vec::new();
     a.extend_from_slice(b"RVPA");

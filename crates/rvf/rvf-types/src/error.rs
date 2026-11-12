@@ -5,9 +5,13 @@
 
 /// Wire-format error code (u16). The high byte is the category, the low byte is
 /// the specific error within that category.
+///
+/// This enum is `#[non_exhaustive]`: new codes may be added in minor releases,
+/// so downstream `match`es must include a wildcard arm (fail closed).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u16)]
+#[non_exhaustive]
 pub enum ErrorCode {
     // ---- Category 0x00: Success ----
     /// Operation succeeded.
@@ -56,6 +60,9 @@ pub enum ErrorCode {
     Timeout = 0x0205,
     /// Linear metadata filtering exceeded an explicit resource budget.
     FilterBudgetExceeded = 0x0206,
+    /// Query vector contains NaN or an infinity, or its distances overflow to
+    /// a non-finite value (invalid input).
+    NonFiniteQuery = 0x0207,
 
     // ---- Category 0x03: Write Errors ----
     /// Another writer holds the lock.
@@ -257,6 +264,7 @@ impl TryFrom<u16> for ErrorCode {
             0x0204 => Ok(Self::KTooLarge),
             0x0205 => Ok(Self::Timeout),
             0x0206 => Ok(Self::FilterBudgetExceeded),
+            0x0207 => Ok(Self::NonFiniteQuery),
 
             0x0300 => Ok(Self::LockHeld),
             0x0301 => Ok(Self::LockStale),
@@ -335,6 +343,7 @@ impl TryFrom<u16> for ErrorCode {
 /// Rust-idiomatic error type wrapping format-level failures.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub enum RvfError {
     /// A wire-level error code was returned.
     Code(ErrorCode),
@@ -359,7 +368,7 @@ pub enum RvfError {
 impl core::fmt::Display for RvfError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::Code(c) => write!(f, "RVF error code 0x{:04X}", *c as u16),
+            Self::Code(c) => write!(f, "RVF error code 0x{:04X} ({:?})", *c as u16, c),
             Self::UnknownCode(v) => write!(f, "unknown RVF error code 0x{v:04X}"),
             Self::BadMagic { expected, got } => {
                 write!(f, "bad magic: expected 0x{expected:08X}, got 0x{got:08X}")
@@ -383,6 +392,15 @@ mod tests {
     use super::*;
     use alloc::format;
 
+    /// #1276 item 5: errors must name the code, not just print the number.
+    #[test]
+    fn display_names_the_error_code() {
+        let s = format!("{}", RvfError::Code(ErrorCode::InvalidManifest));
+        assert!(s.contains("0x0105") && s.contains("InvalidManifest"), "{s}");
+        let s = format!("{}", RvfError::Code(ErrorCode::DimensionMismatch));
+        assert!(s.contains("DimensionMismatch"), "{s}");
+    }
+
     #[test]
     fn error_code_round_trip_all() {
         let codes: &[(u16, ErrorCode)] = &[
@@ -403,6 +421,8 @@ mod tests {
             (0x0203, ErrorCode::FilterParseError),
             (0x0204, ErrorCode::KTooLarge),
             (0x0205, ErrorCode::Timeout),
+            (0x0206, ErrorCode::FilterBudgetExceeded),
+            (0x0207, ErrorCode::NonFiniteQuery),
             (0x0300, ErrorCode::LockHeld),
             (0x0301, ErrorCode::LockStale),
             (0x0302, ErrorCode::DiskFull),

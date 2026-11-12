@@ -9,6 +9,14 @@
 
 `ruvector-cluster` provides horizontal scaling capabilities with consistent hashing, shard management, and cluster coordination. Enables Ruvector to scale to billions of vectors across multiple nodes. Part of the [Ruvector](https://github.com/ruvnet/ruvector) ecosystem.
 
+<!-- weaver:seo:install:start -->
+## Install
+
+```bash
+npm install @ruvector/cluster
+```
+<!-- weaver:seo:install:end -->
+
 ## Why Ruvector Cluster?
 
 - **Horizontal Scaling**: Distribute data across multiple nodes
@@ -215,3 +223,12 @@ impl Cluster {
 [Documentation](https://docs.rs/ruvector-cluster) | [Crates.io](https://crates.io/crates/ruvector-cluster) | [GitHub](https://github.com/ruvnet/ruvector)
 
 </div>
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for consensus, distributed systems, vector database.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->

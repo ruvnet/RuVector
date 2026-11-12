@@ -13,6 +13,7 @@
 
 /// Compression errors.
 #[derive(Debug, PartialEq)]
+#[non_exhaustive]
 pub enum CompressError {
     /// Compressed data too short to contain header.
     TooShort,
@@ -22,6 +23,8 @@ pub enum CompressError {
     InvalidOffset,
     /// Decompressed size doesn't match header.
     SizeMismatch { expected: usize, got: usize },
+    /// Header claims more output than the caller's limit allows.
+    TooLarge { size: usize, limit: usize },
 }
 
 impl core::fmt::Display for CompressError {
@@ -32,6 +35,9 @@ impl core::fmt::Display for CompressError {
             CompressError::InvalidOffset => write!(f, "invalid back-reference offset"),
             CompressError::SizeMismatch { expected, got } => {
                 write!(f, "size mismatch: expected {expected}, got {got}")
+            }
+            CompressError::TooLarge { size, limit } => {
+                write!(f, "decompressed size {size} exceeds limit {limit}")
             }
         }
     }
@@ -130,16 +136,41 @@ pub fn compress(input: &[u8]) -> Vec<u8> {
     output
 }
 
-/// Decompress SCF-1 data back to original bytes.
+/// Largest output [`decompress`] accepts.
+pub const DEFAULT_MAX_DECOMPRESSED: usize = 16 * 1024 * 1024;
+
+/// Largest decompressed microkernel a QR seed may carry.
+pub const SEED_MAX_DECOMPRESSED: usize = 64 * 1024;
+
+/// Each 2-byte back-reference emits at most 10 bytes, so a token stream can
+/// never expand more than 5x.
+const MAX_EXPANSION: usize = 5;
+
+/// Decompress SCF-1 data back to original bytes, accepting at most
+/// [`DEFAULT_MAX_DECOMPRESSED`] bytes of output.
 pub fn decompress(compressed: &[u8]) -> Result<Vec<u8>, CompressError> {
+    decompress_with_limit(compressed, DEFAULT_MAX_DECOMPRESSED)
+}
+
+/// Decompress SCF-1 data, refusing a header that claims more than `limit`
+/// bytes. The header is untrusted, so the output buffer grows with the data
+/// actually decoded instead of being preallocated from it.
+pub fn decompress_with_limit(compressed: &[u8], limit: usize) -> Result<Vec<u8>, CompressError> {
     if compressed.len() < 4 {
         return Err(CompressError::TooShort);
     }
 
     let original_size =
         u32::from_le_bytes([compressed[0], compressed[1], compressed[2], compressed[3]]) as usize;
+    if original_size > limit {
+        return Err(CompressError::TooLarge {
+            size: original_size,
+            limit,
+        });
+    }
 
-    let mut output = Vec::with_capacity(original_size);
+    let reachable = (compressed.len() - 4).saturating_mul(MAX_EXPANSION);
+    let mut output = Vec::with_capacity(original_size.min(reachable));
     let mut pos = 4;
 
     while output.len() < original_size && pos < compressed.len() {
@@ -304,5 +335,39 @@ mod tests {
         let compressed = compress(&input);
         let decompressed = decompress(&compressed).unwrap();
         assert_eq!(decompressed, input);
+    }
+
+    #[test]
+    fn header_claiming_4_gib_is_refused() {
+        let data = [0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x41];
+        assert_eq!(
+            decompress(&data),
+            Err(CompressError::TooLarge {
+                size: u32::MAX as usize,
+                limit: DEFAULT_MAX_DECOMPRESSED,
+            })
+        );
+    }
+
+    #[test]
+    fn caller_limit_is_enforced() {
+        let input = vec![0u8; SEED_MAX_DECOMPRESSED + 1];
+        let compressed = compress(&input);
+        assert!(matches!(
+            decompress_with_limit(&compressed, SEED_MAX_DECOMPRESSED),
+            Err(CompressError::TooLarge { .. })
+        ));
+        assert_eq!(decompress(&compressed).unwrap(), input);
+    }
+
+    #[test]
+    fn untrusted_size_does_not_drive_preallocation() {
+        // Claims the full default limit but holds one literal byte.
+        let mut data = (DEFAULT_MAX_DECOMPRESSED as u32).to_le_bytes().to_vec();
+        data.extend_from_slice(&[0x00, 0x41]);
+        assert!(matches!(
+            decompress(&data),
+            Err(CompressError::SizeMismatch { got: 1, .. })
+        ));
     }
 }

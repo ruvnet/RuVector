@@ -21,6 +21,7 @@ use std::time::{Duration, Instant};
 
 /// How a fetch ended.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum FetchEnd {
     /// The server finished the response.
     Eof,
@@ -68,6 +69,7 @@ pub struct ClientStats {
 
 /// Why `run` returned.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum RunEnd {
     /// Every segment verified and the body identity confirmed.
     Complete,

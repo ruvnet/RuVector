@@ -67,6 +67,11 @@ impl FastGRNN {
     /// Create a new FastGRNN model with the given configuration
     pub fn new(config: FastGRNNConfig) -> Result<Self> {
         use rand::Rng;
+        if config.output_dim == 0 {
+            return Err(TinyDancerError::InvalidInput(
+                "output_dim must be >= 1".to_string(),
+            ));
+        }
         let mut rng = rand::thread_rng();
 
         // Xavier initialization
@@ -126,30 +131,50 @@ impl FastGRNN {
             })?;
         let config: FastGRNNConfig = serde_json::from_str(config_json)
             .map_err(|e| TinyDancerError::SerializationError(format!("config decode: {e}")))?;
+        // forward() reads output[0]; a zero output dim would panic there.
+        if config.output_dim == 0 {
+            return Err(TinyDancerError::SerializationError(
+                "model config output_dim must be >= 1".into(),
+            ));
+        }
 
         let st = SafeTensors::deserialize(&buffer)
             .map_err(|e| TinyDancerError::SerializationError(format!("safetensors body: {e}")))?;
 
-        let read2 = |name: &str, rows: usize, cols: usize| -> Result<Array2<f32>> {
+        // Decode a tensor as little-endian f32 with exactly `len` elements.
+        // Model files are untrusted input: the dtype and byte length are
+        // checked and decoding is alignment-independent, so a malformed file
+        // is an error instead of a bytemuck panic (which aborts Node when it
+        // happens inside the sync `new Router()` constructor).
+        let read_f32 = |name: &str, len: usize| -> Result<Vec<f32>> {
             let t = st
                 .tensor(name)
                 .map_err(|e| TinyDancerError::SerializationError(format!("tensor {name}: {e}")))?;
-            let data: &[f32] = bytemuck::cast_slice(t.data());
-            Array2::from_shape_vec((rows, cols), data.to_vec())
+            if t.dtype() != safetensors::Dtype::F32 {
+                return Err(TinyDancerError::SerializationError(format!(
+                    "tensor {name}: expected F32, got {:?}",
+                    t.dtype()
+                )));
+            }
+            let bytes = t.data();
+            if Some(bytes.len()) != len.checked_mul(4) {
+                return Err(TinyDancerError::SerializationError(format!(
+                    "tensor {name}: expected {len} elems, got {} bytes",
+                    bytes.len()
+                )));
+            }
+            let (words, _) = bytes.as_chunks::<4>();
+            Ok(words.iter().map(|w| f32::from_le_bytes(*w)).collect())
+        };
+        let read2 = |name: &str, rows: usize, cols: usize| -> Result<Array2<f32>> {
+            let len = rows.checked_mul(cols).ok_or_else(|| {
+                TinyDancerError::SerializationError(format!("shape {name}: overflow"))
+            })?;
+            Array2::from_shape_vec((rows, cols), read_f32(name, len)?)
                 .map_err(|e| TinyDancerError::SerializationError(format!("shape {name}: {e}")))
         };
         let read1 = |name: &str, len: usize| -> Result<Array1<f32>> {
-            let t = st
-                .tensor(name)
-                .map_err(|e| TinyDancerError::SerializationError(format!("tensor {name}: {e}")))?;
-            let data: &[f32] = bytemuck::cast_slice(t.data());
-            if data.len() != len {
-                return Err(TinyDancerError::SerializationError(format!(
-                    "tensor {name}: expected {len} elems, got {}",
-                    data.len()
-                )));
-            }
-            Ok(Array1::from_vec(data.to_vec()))
+            Ok(Array1::from_vec(read_f32(name, len)?))
         };
 
         let (h, i, o) = (config.hidden_dim, config.input_dim, config.output_dim);
@@ -268,6 +293,8 @@ impl FastGRNN {
             )));
         }
 
+        check_hidden(initial_hidden, self.config.hidden_dim)?;
+
         let x = Array1::from_vec(input.to_vec());
         let mut h = if let Some(hidden) = initial_hidden {
             Array1::from_vec(hidden.to_vec())
@@ -322,6 +349,8 @@ impl FastGRNN {
                 input.len()
             )));
         }
+
+        check_hidden(initial_hidden, self.config.hidden_dim)?;
 
         let x = Array1::from_vec(input.to_vec());
         let h0 = match initial_hidden {
@@ -549,6 +578,18 @@ impl FastGRNNGradients {
 }
 
 /// Outer product `a ⊗ b` → matrix of shape `(a.len(), b.len())`.
+/// Reject an initial hidden state whose length differs from `hidden_dim`
+/// (ndarray would panic on the element-wise products otherwise).
+fn check_hidden(initial_hidden: Option<&[f32]>, hidden_dim: usize) -> Result<()> {
+    match initial_hidden {
+        Some(h) if h.len() != hidden_dim => Err(TinyDancerError::InvalidInput(format!(
+            "Expected hidden state dimension {hidden_dim}, got {}",
+            h.len()
+        ))),
+        _ => Ok(()),
+    }
+}
+
 fn outer(a: &Array1<f32>, b: &Array1<f32>) -> Array2<f32> {
     let mut m = Array2::<f32>::zeros((a.len(), b.len()));
     for i in 0..a.len() {

@@ -61,10 +61,10 @@ Most AI systems stop learning the moment they leave training. When a user gives 
 
 ```toml
 [dependencies]
-ruvector-sona = "0.1.1"
+ruvector-sona = "0.2"
 
 # With all features
-ruvector-sona = { version = "0.1.1", features = ["serde-support"] }
+ruvector-sona = { version = "0.2", features = ["serde-support"] }
 ```
 
 ### Node.js (npm)
@@ -96,29 +96,32 @@ cp -r pkg/ your-project/sona/
 ### 30-Second Example (Rust)
 
 ```rust
-use ruvector_sona::{SonaEngine, SonaConfig};
+use ruvector_sona::SonaEngine;
 
 fn main() {
-    // 1. Create engine
-    let engine = SonaEngine::builder()
-        .hidden_dim(256)
-        .build();
+    // 1. Create engine (hidden dimension 256)
+    let engine = SonaEngine::new(256);
 
     // 2. Record a user interaction
     let query_embedding = vec![0.1f32; 256];
-    let traj_id = engine.begin_trajectory(query_embedding);
+    let mut trajectory = engine.begin_trajectory(query_embedding);
 
-    // 3. Record what happened (model selection, confidence, latency)
-    engine.add_step(traj_id, vec![0.5; 256], vec![0.8; 64], 0.9);
+    // 3. Record what happened (activations, attention weights, reward)
+    trajectory.add_step(vec![0.5; 256], vec![0.8; 64], 0.9);
 
     // 4. Record outcome quality (0.0 = bad, 1.0 = perfect)
-    engine.end_trajectory(traj_id, 0.85);
+    engine.end_trajectory(trajectory, 0.85);
 
     // 5. Apply learned optimizations to future queries
     let new_query = vec![0.2f32; 256];
-    let optimized = engine.apply_micro_lora(&new_query);
+    let mut optimized = vec![0.0f32; 256];
+    engine.apply_micro_lora(&new_query, &mut optimized);
 
-    println!("SONA is learning! Stats: {}", engine.get_stats());
+    // 6. Run a learning cycle and look up similar learned patterns
+    engine.force_learn();
+    let patterns = engine.find_patterns(&new_query, 3);
+
+    println!("SONA is learning! {} patterns, stats: {:?}", patterns.len(), engine.stats());
 }
 ```
 

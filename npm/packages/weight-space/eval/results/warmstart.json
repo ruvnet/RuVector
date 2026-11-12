@@ -1,0 +1,132 @@
+{
+  "task": "synthetic: y = c*sin(a*x0+b) + d*x1",
+  "model": [
+    2,
+    16,
+    1
+  ],
+  "library": 40,
+  "newTasksPerSeed": 20,
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "targetTrainMse": 0.01,
+  "maxEpochs": 600,
+  "learningRate": 0.1,
+  "optimizer": "sgd",
+  "summary": {
+    "random-init": {
+      "tasks": 60,
+      "reachedTarget": 44,
+      "medianEpochsToTarget": 410,
+      "meanTestMse": {
+        "0": 0.48716437315877426,
+        "25": 0.055528364968940654,
+        "50": 0.05422189469939199,
+        "100": 0.050962930929414584
+      }
+    },
+    "nearest": {
+      "tasks": 60,
+      "reachedTarget": 59,
+      "medianEpochsToTarget": 105,
+      "meanTestMse": {
+        "0": 0.06004155464121184,
+        "25": 0.03232183710033863,
+        "50": 0.02967215223741596,
+        "100": 0.025070680118987256
+      }
+    },
+    "random-snapshot": {
+      "tasks": 60,
+      "reachedTarget": 58,
+      "medianEpochsToTarget": 142.5,
+      "meanTestMse": {
+        "0": 0.22297464262209366,
+        "25": 0.05403259060532329,
+        "50": 0.04817867310154027,
+        "100": 0.039461494774310844
+      }
+    }
+  },
+  "nearestFasterThanRandomInit": "55/60",
+  "paired": {
+    "nearest-vs-random-init": {
+      "wins": 55,
+      "losses": 1,
+      "ties": 4
+    },
+    "nearest-vs-random-snapshot": {
+      "wins": 37,
+      "losses": 14,
+      "ties": 9
+    }
+  },
+  "perSeed": [
+    {
+      "seed": 1,
+      "random-init": {
+        "reached": 17,
+        "medianEpochs": 172.5,
+        "testMse0": 0.5072630751366898,
+        "testMse50": 0.033312410870634385
+      },
+      "nearest": {
+        "reached": 20,
+        "medianEpochs": 5,
+        "testMse0": 0.049202104559536844,
+        "testMse50": 0.013051366823712395
+      },
+      "random-snapshot": {
+        "reached": 20,
+        "medianEpochs": 47.5,
+        "testMse0": 0.18815812735779433,
+        "testMse50": 0.03041358661310231
+      }
+    },
+    {
+      "seed": 2,
+      "random-init": {
+        "reached": 14,
+        "medianEpochs": 462.5,
+        "testMse0": 0.40935224563094746,
+        "testMse50": 0.07813762256262638
+      },
+      "nearest": {
+        "reached": 19,
+        "medianEpochs": 167.5,
+        "testMse0": 0.07032507585471115,
+        "testMse50": 0.04246568426010986
+      },
+      "random-snapshot": {
+        "reached": 18,
+        "medianEpochs": 282.5,
+        "testMse0": 0.23287578760051458,
+        "testMse50": 0.06347460519919335
+      }
+    },
+    {
+      "seed": 3,
+      "random-init": {
+        "reached": 13,
+        "medianEpochs": 402.5,
+        "testMse0": 0.5448777987086861,
+        "testMse50": 0.05121565066491511
+      },
+      "nearest": {
+        "reached": 20,
+        "medianEpochs": 105,
+        "testMse0": 0.06059748350938745,
+        "testMse50": 0.03349940562842561
+      },
+      "random-snapshot": {
+        "reached": 20,
+        "medianEpochs": 92.5,
+        "testMse0": 0.2478900129079721,
+        "testMse50": 0.050647827492325145
+      }
+    }
+  ]
+}

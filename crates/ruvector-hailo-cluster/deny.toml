@@ -23,7 +23,6 @@ yanked = "deny"
 # so cargo-deny advisories pass cleanly.
 ignore = [
     "RUSTSEC-2024-0436", # paste — transitive via candle (cpu-fallback feature)
-    "RUSTSEC-2025-0134", # rustls-pemfile — transitive via tonic-tls
     # Iter 219 — surfaced by workspace re-inclusion (closes ADR-178
     # Gap E). These advisories existed in the wider workspace dep
     # tree all along; per-crate cargo-deny had a narrower lock that
@@ -50,6 +49,9 @@ allow = [
     "MPL-2.0",
     "CC0-1.0",
     "0BSD",
+    # webpki-roots (Mozilla CA bundle data) via reqwest -> ruvector-core;
+    # also allowed in the workspace deny.toml.
+    "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.93
 

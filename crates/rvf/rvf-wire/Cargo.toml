@@ -1,6 +1,6 @@
 [package]
 name = "rvf-wire"
-version = "0.1.2"
+version = "0.2.0"
 edition = "2021"
 description = "RuVector Format wire format reader/writer -- zero-copy segment serialization"
 license = "MIT OR Apache-2.0"
@@ -16,12 +16,12 @@ default = ["std"]
 std = ["rvf-types/std"]
 
 [dependencies]
-rvf-types = { version = "0.2.3", path = "../rvf-types" }
+rvf-types = { version = "0.3.0", path = "../rvf-types" }
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 crc32c = "0.6"
 sha3 = "0.10"
 subtle = "2.6"
-rvf-crypto = { version = "0.2.1", path = "../rvf-crypto", default-features = false, features = ["ed25519", "fast-sha256"] }
+rvf-crypto = { version = "0.3.0", path = "../rvf-crypto", default-features = false, features = ["ed25519", "fast-sha256"] }
 ed25519-dalek = "2"
 
 [dev-dependencies]

@@ -1,13 +1,13 @@
 [package]
 name = "ruvector-sona"
-version = "0.2.1"
+version = "0.2.5"
 edition = "2021"
 rust-version = "1.70"
 authors = ["RuVector Team <team@ruvector.dev>"]
 description = "Self-Optimizing Neural Architecture - Runtime-adaptive learning for LLM routers with two-tier LoRA, EWC++, and ReasoningBank"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ruvnet/ruvector"
-homepage = "https://github.com/ruvnet/ruvector/tree/main/crates/sona"
+homepage = "https://ruv.io"
 documentation = "https://docs.rs/ruvector-sona"
 readme = "README.md"
 keywords = ["neural", "learning", "lora", "llm", "adaptive"]

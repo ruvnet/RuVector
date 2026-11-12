@@ -23,6 +23,35 @@ describe('RuDag', () => {
     assert.strictEqual(dag.edgeCount, 0);
   });
 
+  test('criticalPath of an empty DAG is empty and leaves the DAG usable', () => {
+    // 0.1.2 trapped with "unreachable", and every later call on the DAG then
+    // failed with "recursive use of an object".
+    assert.deepStrictEqual(dag.criticalPath(), { path: [], cost: 0 });
+    const a = dag.addNode(DagOperator.SCAN, 1.0);
+    const b = dag.addNode(DagOperator.FILTER, 2.0);
+    dag.addEdge(a, b);
+    assert.deepStrictEqual(dag.criticalPath(), { path: [a, b], cost: 3 });
+  });
+
+  test('re-adding an edge is idempotent', () => {
+    const a = dag.addNode(DagOperator.SCAN, 1.0);
+    const b = dag.addNode(DagOperator.FILTER, 2.0);
+    assert.strictEqual(dag.addEdge(a, b), true);
+    assert.strictEqual(dag.addEdge(a, b), true);
+    assert.strictEqual(dag.edgeCount, 1);
+    assert.deepStrictEqual(dag.criticalPath(), { path: [a, b], cost: 3 });
+  });
+
+  test('topoSort is cached until the DAG changes', () => {
+    const a = dag.addNode(DagOperator.SCAN, 1.0);
+    const b = dag.addNode(DagOperator.FILTER, 2.0);
+    dag.addEdge(a, b);
+    assert.deepStrictEqual(dag.topoSort(), [a, b]);
+    const c = dag.addNode(DagOperator.SORT, 1.0);
+    dag.addEdge(b, c);
+    assert.deepStrictEqual(dag.topoSort(), [a, b, c]);
+  });
+
   test('should add nodes', () => {
     const id1 = dag.addNode(DagOperator.SCAN, 10.0);
     const id2 = dag.addNode(DagOperator.FILTER, 2.0);

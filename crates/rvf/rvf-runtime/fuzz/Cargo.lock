@@ -808,7 +808,7 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
 name = "rvf-crypto"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ed25519-dalek",
  "rvf-types",
@@ -818,22 +818,23 @@ dependencies = [
 
 [[package]]
 name = "rvf-index"
-version = "0.2.0"
+version = "0.2.3"
 
 [[package]]
 name = "rvf-quant"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "rvf-types",
 ]
 
 [[package]]
 name = "rvf-runtime"
-version = "0.4.0"
+version = "0.5.2"
 dependencies = [
  "crc32fast",
  "ed25519-dalek",
  "log",
+ "rvf-crypto",
  "rvf-index",
  "rvf-quant",
  "rvf-types",
@@ -858,7 +859,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-server"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "axum",
  "bytes",
@@ -872,13 +873,14 @@ dependencies = [
  "rvf-wire",
  "serde",
  "serde_json",
+ "subtle",
  "tokio",
  "tower-http",
 ]
 
 [[package]]
 name = "rvf-types"
-version = "0.2.2"
+version = "0.3.1"
 dependencies = [
  "ed25519-dalek",
  "rand_core",
@@ -886,7 +888,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-wire"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "crc32c",
  "ed25519-dalek",

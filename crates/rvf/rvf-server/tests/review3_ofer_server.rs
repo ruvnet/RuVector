@@ -87,10 +87,43 @@ fn f3_05_per_client_cap() {
     );
 }
 
+/// Can this host bind a client socket to `src`? `Ok(false)` only for
+/// `AddrNotAvailable` (e.g. macOS has only 127.0.0.1 on lo0); any other error
+/// is a real failure and panics so it cannot be silently skipped.
+fn can_bind_source(src: &str) -> bool {
+    match std::net::TcpListener::bind(format!("{src}:0")) {
+        Ok(_) => true,
+        Err(e) if e.kind() == std::io::ErrorKind::AddrNotAvailable => false,
+        Err(e) => panic!("unexpected error binding {src}: {e}"),
+    }
+}
+
+/// Regression (#1277): the probe reports unavailable addresses instead of
+/// letting the test panic with `AddrNotAvailable`. 192.0.2.0/24 (TEST-NET-1)
+/// is never assigned to a local interface.
+#[test]
+fn loopback_alias_probe_reports_unavailable_address() {
+    assert!(can_bind_source("127.0.0.1"));
+    assert!(!can_bind_source("192.0.2.77"));
+}
+
 /// F4-06 (fixed): addresses in one /24 share a prefix cap, so two source
 /// addresses cannot pin the pool; a client from another prefix still gets in.
 #[test]
+#[cfg_attr(
+    not(target_os = "linux"),
+    ignore = "binds 127.0.0.2/127.0.0.3, which only Linux routes to loopback by default"
+)]
 fn f4_06_two_addresses_cannot_pin_the_pool() {
+    for src in ["127.0.0.2", "127.0.0.3", "127.1.0.9"] {
+        if !can_bind_source(src) {
+            eprintln!(
+                "SKIPPED f4_06_two_addresses_cannot_pin_the_pool: cannot bind {src} \
+                 (AddrNotAvailable); on macOS run `sudo ifconfig lo0 alias {src}` to enable"
+            );
+            return;
+        }
+    }
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpSocket;
     let f = fixture(60000, 32, 16, 5);

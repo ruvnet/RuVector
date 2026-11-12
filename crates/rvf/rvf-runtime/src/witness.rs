@@ -13,6 +13,7 @@ use crate::seed_crypto;
 
 /// Errors specific to witness operations.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum WitnessError {
     /// Header parse or validation failure.
     InvalidHeader(rvf_types::RvfError),

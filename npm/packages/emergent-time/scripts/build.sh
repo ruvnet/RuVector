@@ -14,14 +14,22 @@ PKG_DIR="$HERE/../pkg"
 CRATE_DIR="$HERE/../../../../crates/emergent-time-wasm"
 CRATE_DIR="$(cd "$CRATE_DIR" && pwd)"
 
-# The 1.89 toolchain ships wasm32-unknown-unknown std; the default 1.91 does not.
-export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.89-x86_64-pc-windows-msvc}"
+# Use the caller's toolchain (it must have the wasm32-unknown-unknown target).
+# Set RUSTUP_TOOLCHAIN to override; the old default was a Windows-only triple.
+RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-}"
+[ -n "$RUSTUP_TOOLCHAIN" ] && export RUSTUP_TOOLCHAIN
+# Host linker flags (e.g. -fuse-ld=mold) do not apply to wasm32.
+export RUSTFLAGS="${WASM_RUSTFLAGS:-}"
+
+# Prefer a wasm-opt on PATH; otherwise fetch binaryen's through npx.
+if command -v wasm-opt >/dev/null 2>&1; then WASM_OPT=(wasm-opt); else
+  WASM_OPT=(npx -y -p binaryen wasm-opt); fi
 
 WASM_FEATURES="--enable-bulk-memory --enable-bulk-memory-opt \
   --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals \
   --enable-multivalue --enable-reference-types"
 
-echo "[1/3] cargo build (RUSTUP_TOOLCHAIN=$RUSTUP_TOOLCHAIN)"
+echo "[1/3] cargo build (RUSTUP_TOOLCHAIN=${RUSTUP_TOOLCHAIN:-default})"
 cargo build --release --target wasm32-unknown-unknown \
   --manifest-path "$CRATE_DIR/Cargo.toml"
 
@@ -38,7 +46,7 @@ wasm-bindgen --target web --out-dir "$PKG_DIR" "$RAW_WASM"
 echo "[3/3] wasm-opt -Oz"
 RAW_BYTES=$(stat -c%s "$PKG_DIR/emergent_time_wasm_bg.wasm")
 # shellcheck disable=SC2086
-wasm-opt -Oz $WASM_FEATURES \
+"${WASM_OPT[@]}" -Oz $WASM_FEATURES \
   "$PKG_DIR/emergent_time_wasm_bg.wasm" \
   -o "$PKG_DIR/emergent_time_wasm_bg.opt.wasm"
 mv "$PKG_DIR/emergent_time_wasm_bg.opt.wasm" "$PKG_DIR/emergent_time_wasm_bg.wasm"

@@ -21,6 +21,7 @@ extern crate alloc;
 
 /// Receiver state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum StreamState {
     /// Waiting for the descriptor frame.
     AwaitDescriptor,
@@ -44,6 +45,7 @@ pub enum StreamState {
 
 /// Outcome of the whole-body identity check at completion.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum IdentityStatus {
     /// SHA-256 over the verified bytes in file order equals `rvf_identity`.
     Verified,
@@ -68,6 +70,7 @@ pub struct VerifiedChunk<'a> {
 
 /// Result of accepting one frame.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Event<'a> {
     /// Descriptor accepted.
     DescriptorVerified {

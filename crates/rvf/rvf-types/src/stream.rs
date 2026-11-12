@@ -47,6 +47,7 @@ pub const STREAM_MAX_STAGES: u8 = 32;
 
 /// Segment class used by the per-class size limits (ADR-353 section 2.4).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum StreamClass {
     /// Wasm, Kernel, eBPF.
     Executable = 0,

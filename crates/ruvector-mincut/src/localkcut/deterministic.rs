@@ -88,6 +88,17 @@ pub fn generate_coloring_family(a: usize, b: usize, num_edges: usize) -> Vec<Edg
     family
 }
 
+/// The colorings of a family that differ from every earlier one, in order.
+fn distinct_colorings(family: &[EdgeColoring]) -> Vec<&EdgeColoring> {
+    let mut out: Vec<&EdgeColoring> = Vec::new();
+    for c in family {
+        if !out.iter().any(|d| d.colors == c.colors) {
+            out.push(c);
+        }
+    }
+    out
+}
+
 /// Greedy forest packing structure
 #[derive(Debug, Clone)]
 pub struct GreedyForestPacking {
@@ -327,23 +338,28 @@ impl DeterministicLocalKCut {
         let mut results = Vec::new();
         let mut seen_cuts: HashSet<Vec<VertexId>> = HashSet::new();
 
-        // For each (forest, red-blue coloring, green-yellow coloring) triple
-        for forest_id in 0..self.forests.num_forests {
-            for rb_coloring in &self.red_blue_colorings {
-                for gy_coloring in &self.green_yellow_colorings {
-                    // Execute color-coded DFS
-                    if let Some(cut) = self.color_coded_dfs(v, forest_id, rb_coloring, gy_coloring)
-                    {
-                        // Deduplicate cuts
-                        let mut sorted_vertices: Vec<_> = cut.vertices.iter().copied().collect();
-                        sorted_vertices.sort();
+        // The DFS reads tree membership from the whole packing
+        // (`is_tree_edge`), not from one forest, so every forest_id yields
+        // the same cut, and two equal colorings yield the same cut too. The
+        // old forest x red-blue x green-yellow triple loop therefore repeated
+        // one search up to 6*lambda_max*100*100 times (60M DFS per query
+        // vertex at the default lambda_max=1000: ~30 s release, 40+ min
+        // debug, for a 3-vertex graph). Visit each distinct coloring pair
+        // once; the deduplicated result list, and its order, are unchanged.
+        let rb_distinct = distinct_colorings(&self.red_blue_colorings);
+        let gy_distinct = distinct_colorings(&self.green_yellow_colorings);
+        for rb_coloring in &rb_distinct {
+            for gy_coloring in &gy_distinct {
+                if let Some(cut) = self.color_coded_dfs(v, 0, rb_coloring, gy_coloring) {
+                    // Deduplicate cuts
+                    let mut sorted_vertices: Vec<_> = cut.vertices.iter().copied().collect();
+                    sorted_vertices.sort();
 
-                        if !seen_cuts.contains(&sorted_vertices)
-                            && cut.cut_value <= self.lambda_max as f64
-                        {
-                            seen_cuts.insert(sorted_vertices);
-                            results.push(cut);
-                        }
+                    if !seen_cuts.contains(&sorted_vertices)
+                        && cut.cut_value <= self.lambda_max as f64
+                    {
+                        seen_cuts.insert(sorted_vertices);
+                        results.push(cut);
                     }
                 }
             }
@@ -510,5 +526,32 @@ mod tests {
 
         // Edge should be gone
         assert!(!lkc.forests.is_tree_edge(1, 2));
+    }
+
+    /// Regression (ledger ci:tests-shard-hang): with the default
+    /// lambda_max = 1000 a query repeated one DFS 6000 x 100 x 100 times,
+    /// ~3 s per query in release and minutes in debug, even on a triangle.
+    /// The deduplicated cut set must be unchanged and the query fast.
+    #[test]
+    fn query_with_default_lambda_max_is_fast_and_unchanged() {
+        let mut lkc = DeterministicLocalKCut::new(1000, 30, 2);
+        lkc.insert_edge(1, 2, 1.0);
+        lkc.insert_edge(2, 3, 1.0);
+        lkc.insert_edge(3, 1, 1.0);
+        let t = std::time::Instant::now();
+        let cuts = lkc.query(1);
+        let took = t.elapsed();
+        assert!(!cuts.is_empty());
+        for c in &cuts {
+            assert!(c.vertices.contains(&1));
+            assert!(c.cut_value <= 1000.0);
+        }
+        // Old cost: 60M DFS calls (~3 s release, 40+ min debug in CI).
+        assert!(
+            took < std::time::Duration::from_secs(5),
+            "query took {took:?}"
+        );
+        assert_eq!(distinct_colorings(&lkc.red_blue_colorings).len(), 1);
+        assert_eq!(distinct_colorings(&lkc.green_yellow_colorings).len(), 1);
     }
 }

@@ -42,6 +42,7 @@ const DEFAULT_BUFFER_BUDGET: u64 = 256 << 20;
 
 /// Audit record of a state change (the RVM witness chain consumes these).
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum StreamWitness {
     /// Descriptor accepted.
     DescriptorVerified([u8; 32]),
@@ -105,6 +106,7 @@ pub struct StreamAnswer {
 
 /// How a query was answered.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum QueryPath {
     /// Nothing to search yet.
     Empty,
@@ -327,7 +329,10 @@ impl<'p> StreamIngest<'p> {
                 Ok(ev) => {
                     out.frames += 1;
                     self.pos += total as u64;
-                    self.apply(ev);
+                    if let Some(code) = self.apply(ev) {
+                        out.refused = Some(code);
+                        break;
+                    }
                 }
                 Err(code) => {
                     out.refused = Some(code);
@@ -374,7 +379,9 @@ impl<'p> StreamIngest<'p> {
         self.deleted.clear();
     }
 
-    fn apply(&mut self, ev: Event<'_>) {
+    /// Apply one verified event. `Some(code)` means the event could not be
+    /// applied and the stream must be refused (fail closed).
+    fn apply(&mut self, ev: Event<'_>) -> Option<ErrorCode> {
         match ev {
             Event::DescriptorVerified {
                 descriptor_hash, ..
@@ -409,7 +416,19 @@ impl<'p> StreamIngest<'p> {
                     self.witness(StreamWitness::Complete(st));
                 }
             }
+            // `Event` is `#[non_exhaustive]`: an event this build does not know how
+            // to apply must not be skipped silently. Fail closed.
+            _ => return Some(self.fail_unknown_event()),
         }
+        None
+    }
+
+    /// `Event` is `#[non_exhaustive]`: an event this build cannot apply is
+    /// never skipped. Poison the stream (a no-op once `Complete`) and report
+    /// the refusal to the caller, who sets `FeedOutcome::refused` either way.
+    fn fail_unknown_event(&mut self) -> ErrorCode {
+        self.verifier.poison(ErrorCode::StreamUnexpectedFrame);
+        ErrorCode::StreamUnexpectedFrame
     }
 
     fn on_bytes(&mut self, seg_id: u64, bytes: &[u8], done: bool) {
@@ -532,4 +551,26 @@ impl<'p> StreamIngest<'p> {
 fn payload_of(seg: &[u8]) -> Option<&[u8]> {
     let len = u64::from_le_bytes(seg.get(0x10..0x18)?.try_into().ok()?) as usize;
     seg.get(64..64usize.checked_add(len)?)
+}
+
+#[cfg(test)]
+mod unknown_event_tests {
+    use super::*;
+
+    /// `Event` is `#[non_exhaustive]` and cannot be constructed with an unknown
+    /// variant from here, so exercise the fail-closed path directly.
+    #[test]
+    fn unknown_event_poisons_and_is_reported() {
+        let keys = [[0u8; 32]];
+        let mut ing = StreamIngest::new(StreamPolicy::new(&keys));
+        let code = ing.fail_unknown_event();
+        assert_eq!(code, ErrorCode::StreamUnexpectedFrame);
+        assert_eq!(
+            ing.verifier.state(),
+            StreamState::Poisoned(ErrorCode::StreamUnexpectedFrame)
+        );
+        // A poisoned ingest refuses all further input.
+        let out = ing.feed(&[0u8; 8]);
+        assert_eq!(out.refused, Some(ErrorCode::StreamPoisoned));
+    }
 }

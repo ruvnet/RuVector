@@ -247,6 +247,97 @@ pub(crate) fn find_latest_manifest<R: Read + Seek>(
     Ok(None)
 }
 
+/// Classify the bytes after the manifest that open selected (bounded walk).
+///
+/// See [`crate::options::TailRecovery`]: open ignores them (ADR-280 crash
+/// rule) but reports what it ignored.
+pub(crate) fn inspect_tail<R: Read + Seek>(
+    reader: &mut R,
+    located: &LocatedManifest,
+) -> io::Result<(crate::options::TailRecovery, Vec<u64>)> {
+    let file_size = reader.seek(SeekFrom::End(0))?;
+    let end = body_end(reader, file_size)?;
+    let step = |off: u64, h: &SegmentHeader| {
+        let unpadded = off
+            .saturating_add(SEGMENT_HEADER_SIZE as u64)
+            .saturating_add(h.payload_length);
+        if located.mode == ScanMode::ByteGranular {
+            unpadded
+        } else {
+            align_up(unpadded)
+        }
+    };
+    let manifest_end = step(located.offset, &located.header).min(end);
+    let mut info = crate::options::TailRecovery {
+        bytes_after_manifest: end - manifest_end,
+        ..Default::default()
+    };
+    let mut pos = manifest_end;
+    let mut tail_witnesses: Vec<u64> = Vec::new();
+    // Zero bytes are alignment padding; anything else that is not a whole
+    // segment is a cut-off or garbage tail (checks the first 4 KiB only).
+    let residual_nonzero = |reader: &mut R, from: u64| -> io::Result<bool> {
+        let n = (end - from).min(4096) as usize;
+        let mut buf = vec![0u8; n];
+        reader.seek(SeekFrom::Start(from))?;
+        reader.read_exact(&mut buf)?;
+        Ok(buf.iter().any(|&b| b != 0))
+    };
+    // Bound the walk: a hostile tail of tiny segments must not cost O(file).
+    for _ in 0..4096 {
+        if pos >= end {
+            break;
+        }
+        let avail = end - pos;
+        if avail < SEGMENT_HEADER_SIZE as u64 {
+            // Fewer bytes than a header: non-zero residue is a cut-off write.
+            if residual_nonzero(reader, pos)? {
+                info.torn_at = Some(pos);
+            }
+            break;
+        }
+        let Some(h) = header_at(reader, pos, end)? else {
+            if residual_nonzero(reader, pos)? {
+                info.torn_at = Some(pos);
+            }
+            break;
+        };
+        let payload_end = pos
+            .saturating_add(SEGMENT_HEADER_SIZE as u64)
+            .saturating_add(h.payload_length);
+        if payload_end > end {
+            info.torn_at = Some(pos);
+            break;
+        }
+        if h.seg_type != rvf_types::SegmentType::Manifest as u8 {
+            info.uncommitted_segments += 1;
+        }
+        if h.seg_type == rvf_types::SegmentType::Witness as u8 {
+            tail_witnesses.push(pos);
+        }
+        pos = step(pos, &h);
+    }
+    Ok((info, tail_witnesses))
+}
+
+/// If the file starts with a segment header carrying our magic but a segment
+/// version this reader does not support, return that version byte. Used to
+/// report "unsupported / newer format" instead of a generic missing-manifest
+/// or checksum failure (#1276 item 2).
+pub(crate) fn unsupported_version_at_start<R: Read + Seek>(
+    reader: &mut R,
+) -> io::Result<Option<u8>> {
+    let len = reader.seek(SeekFrom::End(0))?;
+    if len < SEGMENT_HEADER_SIZE as u64 {
+        return Ok(None);
+    }
+    reader.seek(SeekFrom::Start(0))?;
+    let mut b = [0u8; 8];
+    reader.read_exact(&mut b)?;
+    let magic = u32::from_le_bytes([b[0], b[1], b[2], b[3]]);
+    Ok((magic == SEGMENT_MAGIC && b[4] != rvf_types::SEGMENT_VERSION).then_some(b[4]))
+}
+
 /// Read and parse the manifest segment at exactly `offset`, or `None`.
 fn manifest_at<R: Read + Seek>(
     reader: &mut R,

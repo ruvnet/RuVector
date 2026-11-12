@@ -48,6 +48,7 @@ impl SecurityPolicy {
 /// without exposing internal state that could aid an attacker.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub enum SecurityError {
     /// Level 0 manifest has no signature (sig_algo = 0).
     UnsignedManifest {

@@ -12,7 +12,7 @@ permissions:
   contents: read
 jobs:
   kernel:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -29,7 +29,7 @@ jobs:
           rustfmt --edition=2021 --config skip_children=true crates/ruvector-mincut/src/algorithm/exact.rs crates/ruvector-mincut/src/algorithm/mod.rs crates/ruvector-mincut/src/routing/mod.rs crates/ruvector-mincut/src/routing/rufield.rs crates/ruvector-mincut/src/routing/spatial.rs crates/ruvector-mincut/src/graph/mod.rs crates/ruvector-mincut/src/canonical/dynamic/mod.rs crates/ruvector-mincut/src/canonical/dynamic/tests.rs crates/ruvector-mincut/tests/exact_kernel.rs crates/ruvector-mincut/tests/exact_regression.rs crates/ruvector-mincut/examples/dynamic_bench.rs crates/ruvector-mincut-node/src/lib.rs crates/ruvector-mincut-wasm/src/lib.rs
           git diff --exit-code -- crates/ruvector-mincut crates/ruvector-mincut-node crates/ruvector-mincut-wasm
   public-api:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -64,7 +64,7 @@ jobs:
           git show "$BASE_SHA:crates/ruvector-mincut/src/algorithm/mod.rs" > crates/ruvector-mincut/src/algorithm/mod.rs
           cargo run -p ruvector-mincut --release --example dynamic_bench
   javascript:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -105,6 +105,44 @@ jobs:
           npm install /tmp/ruvector-mincut-wasm-*.tgz --ignore-scripts
           cp "$GITHUB_WORKSPACE/npm/packages/mincut-wasm/test/"*.test.cjs .
           node --test *.test.cjs
+      # The DIMACS 9th challenge files are gone from diag.uniroma1.it (404).
+      # Fetch them once into the Actions cache from the original host or the
+      # Internet Archive copies, verified against the hashes prepare_roads.py
+      # pins; prepare_roads.py skips downloading files already present and
+      # re-checks the same hashes.
+      - name: Restore DIMACS road sources
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: /tmp/roads/USA-road-d.*.gz
+          key: dimacs-usa-road-d-ny-bay-7b2446c7-02547a62-630c4a96-67330855
+      - name: Fetch DIMACS road sources (sha256-pinned)
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/roads
+          cd /tmp/roads
+          cat > SHA256SUMS <<'EOF'
+          7b2446c7ffe6179efbc42af6812448e8cb782f12968ca2bb1d50d979343056d4  USA-road-d.NY.gr.gz
+          02547a628742164e02bd73f59e33a65d23dfac8fc54c09275c8b9169c38eafdf  USA-road-d.NY.co.gz
+          630c4a96869b3ecdd631ceb0f63923fb954ee4c7c26d983863612e2c4442462e  USA-road-d.BAY.gr.gz
+          67330855e3082dae03609f5b3012fe13ad2d982139d79c3040e77dad55ffd338  USA-road-d.BAY.co.gz
+          EOF
+          sed -i 's/^ *//' SHA256SUMS
+          while read -r sum name; do
+            if [ -f "$name" ] && echo "$sum  $name" | sha256sum -c --status; then continue; fi
+            rm -f "$name"
+            for base in \
+              https://www.diag.uniroma1.it/challenge9/data/USA-road-d \
+              https://web.archive.org/web/2024id_/https://www.diag.uniroma1.it/challenge9/data/USA-road-d \
+              https://web.archive.org/web/2019id_/http://www.dis.uniroma1.it/challenge9/data/USA-road-d; do
+              if curl -fsSL --retry 3 --retry-delay 5 --max-time 300 -o "$name.part" "$base/$name" \
+                 && echo "$sum  $name.part" | sha256sum -c --status; then
+                mv "$name.part" "$name"; echo "fetched $name from $base"; break
+              fi
+              rm -f "$name.part"
+            done
+            [ -f "$name" ] || { echo "no source with the pinned sha256 for $name" >&2; exit 1; }
+          done < SHA256SUMS
+          sha256sum -c SHA256SUMS
       - name: Complete native, WASM and worker road benchmarks
         run: |
           set -euo pipefail

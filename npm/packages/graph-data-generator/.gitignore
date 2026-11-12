@@ -40,3 +40,9 @@ Thumbs.db
 # Temporary files
 *.tmp
 .cache/
+
+# tsc output must never land next to sources (0.1.1 shipped broken because tsup resolved ./x.js to stale CommonJS here)
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map

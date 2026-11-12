@@ -9,10 +9,10 @@ use std::time::Instant;
 pub const KEY: [u8; 32] = [0xA7; 32];
 
 pub fn loadavg() -> String {
-    std::fs::read_to_string("/proc/loadavg")
-        .unwrap_or_default()
-        .trim()
-        .to_string()
+    match std::fs::read_to_string("/proc/loadavg") {
+        Ok(s) => s.trim().to_string(),
+        Err(_) => "n/a".to_string(),
+    }
 }
 
 pub fn arg(name: &str, default: &str) -> String {

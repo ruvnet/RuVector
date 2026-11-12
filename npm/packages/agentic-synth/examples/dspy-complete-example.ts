@@ -99,7 +99,7 @@ const CONFIG = {
   TRAINING_EXAMPLES: 5, // Examples for DSPy optimization
 
   // Model configuration
-  BASELINE_MODEL: 'gemini-2.0-flash-exp',
+  BASELINE_MODEL: 'gemini-2.5-flash',
   OPTIMIZED_MODEL: 'gpt-3.5-turbo',
 
   // E-commerce categories

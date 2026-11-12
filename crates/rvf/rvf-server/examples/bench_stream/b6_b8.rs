@@ -97,9 +97,10 @@ pub fn hash_backends() {
     println!("\n== SHA-256 backend throughput (64 MiB, 7 runs) ==");
     println!(
         "cpu sha_ni flag: {}",
-        std::fs::read_to_string("/proc/cpuinfo")
-            .unwrap_or_default()
-            .contains(" sha_ni")
+        match std::fs::read_to_string("/proc/cpuinfo") {
+            Ok(s) => s.contains(" sha_ni").to_string(),
+            Err(_) => "n/a".to_string(),
+        }
     );
     let (m, lo, hi) = median_spread(7, || {
         std::hint::black_box(rvf_crypto::stream_sha256(std::hint::black_box(&data)));

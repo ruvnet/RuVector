@@ -173,6 +173,9 @@ pub fn security_error_code(e: &SecurityError) -> ErrorCode {
         SecurityError::ContentHashMismatch { .. } => ErrorCode::ContentHashMismatch,
         SecurityError::EpochDriftExceeded { .. } => ErrorCode::EpochDriftExceeded,
         SecurityError::Level1InvalidSignature { .. } => ErrorCode::Level1InvalidSignature,
+        // `SecurityError` is `#[non_exhaustive]`: an unknown future failure is
+        // still a refusal, mapped to the generic signature failure.
+        _ => ErrorCode::InvalidSignature,
     }
 }
 

@@ -11,6 +11,11 @@ use rvf_server::ServerConfig;
     about = "RuVector Format TCP/HTTP streaming server"
 )]
 struct Cli {
+    /// HTTP listen address. Anything but loopback requires a bearer token in
+    /// the RVF_SERVER_TOKEN environment variable.
+    #[arg(long, default_value = "127.0.0.1")]
+    host: std::net::IpAddr,
+
     /// HTTP listen port
     #[arg(long, default_value_t = 8080)]
     port: u16,
@@ -70,6 +75,8 @@ async fn main() {
         tcp_port: cli.tcp_port,
         data_path: cli.data_dir,
         dimension: cli.dimension,
+        host: cli.host,
+        token: rvf_server::auth::AuthToken::from_env(),
     };
 
     let stream = match (cli.stream_body, cli.stream_key) {

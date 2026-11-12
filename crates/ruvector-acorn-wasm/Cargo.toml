@@ -5,6 +5,7 @@ edition = "2021"
 description = "WASM bindings for ruvector-acorn — predicate-agnostic filtered HNSW for browsers and edge runtimes"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ruvnet/ruvector"
+homepage = "https://ruv.io"
 keywords = ["acorn", "vector-search", "filtered-search", "hnsw", "wasm"]
 categories = ["wasm", "science", "algorithms"]
 

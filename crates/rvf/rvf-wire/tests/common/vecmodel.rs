@@ -245,6 +245,7 @@ pub fn run(p: &Pol, frames: &[Vec<u8>]) -> Out {
                     ("code", s(format!("0x{:04x}", e as u16))),
                 ])
             }
+            Ok(other) => panic!("test model has no mapping for event {other:?}"),
         };
         o.events.push(ev);
     }

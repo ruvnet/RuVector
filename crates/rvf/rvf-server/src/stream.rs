@@ -201,6 +201,7 @@ pub struct StreamSlot {
 
 /// Per-client policy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ClientCap {
     /// Enforce the per-address, per-prefix and reserve rules. A request whose
     /// peer address is unknown (the router was mounted without
@@ -379,6 +380,7 @@ impl Drop for SlowToken {
 
 /// Why a stream slot was not granted.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum StreamRefusal {
     /// Pool, per-address, per-prefix or reserve limit.
     Busy,

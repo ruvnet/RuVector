@@ -1,6 +1,6 @@
 [package]
 name = "rvf-server"
-version = "0.2.0"
+version = "0.4.0"
 edition = "2021"
 description = "RuVector Format TCP/HTTP streaming server with REST API"
 license = "MIT OR Apache-2.0"
@@ -16,10 +16,10 @@ name = "rvf-server"
 path = "src/main.rs"
 
 [dependencies]
-rvf-runtime = { version = "0.4.0", path = "../rvf-runtime" }
-rvf-types = { version = "0.2.3", path = "../rvf-types" }
-rvf-wire = { version = "0.1.2", path = "../rvf-wire" }
-rvf-crypto = { version = "0.2.1", path = "../rvf-crypto", default-features = false, features = ["ed25519", "fast-sha256"] }
+rvf-runtime = { version = "0.5.1", path = "../rvf-runtime" }
+rvf-types = { version = "0.3.0", path = "../rvf-types" }
+rvf-wire = { version = "0.2.0", path = "../rvf-wire" }
+rvf-crypto = { version = "0.3.0", path = "../rvf-crypto", default-features = false, features = ["ed25519", "fast-sha256"] }
 ed25519-dalek = "2"
 bytes = "1"
 futures-util = { version = "0.3", default-features = false }
@@ -30,6 +30,7 @@ serde_json = "1"
 clap = { version = "4", features = ["derive"] }
 tower-http = { version = "0.6", features = ["cors"] }
 mime_guess = "2"
+subtle = "2.6"
 
 [dev-dependencies]
 axum-test = "16"

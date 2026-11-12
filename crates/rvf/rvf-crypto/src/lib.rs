@@ -19,8 +19,9 @@ pub mod witness;
 pub use attestation::{
     attestation_witness_entry, build_attestation_witness_payload, decode_attestation_header,
     decode_attestation_record, decode_tee_bound_key, encode_attestation_header,
-    encode_attestation_record, encode_tee_bound_key, verify_attestation_witness_payload,
-    verify_key_binding, QuoteVerifier, TeeBoundKeyRecord, VerifiedAttestationEntry,
+    encode_attestation_record, encode_tee_bound_key, is_valid_attestation_witness,
+    verify_attestation_witness_payload, verify_key_binding, QuoteVerifier, TeeBoundKeyRecord,
+    VerifiedAttestationEntry,
 };
 pub use footer::{decode_signature_footer, encode_signature_footer};
 pub use hash::{shake256_128, shake256_256, shake256_hash};
@@ -36,4 +37,8 @@ pub use stream::{
 };
 #[cfg(feature = "ed25519")]
 pub use stream::{sign_descriptor, verify_descriptor};
-pub use witness::{create_witness_chain, verify_witness_chain, WitnessEntry};
+pub use witness::{
+    chain_entry_hash, classify_witness_payload, create_witness_chain, encode_chain_entry,
+    parse_legacy_witness_record, verify_witness_chain, verify_witness_chain_from,
+    LegacyWitnessRecord, WitnessEntry, WitnessPayloadKind, WITNESS_ENTRY_SIZE,
+};

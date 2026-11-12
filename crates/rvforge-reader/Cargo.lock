@@ -2651,16 +2651,17 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
 name = "rvf-crypto"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ed25519-dalek",
  "rvf-types",
+ "sha2",
  "sha3",
 ]
 
 [[package]]
 name = "rvf-forge-core"
-version = "2.3.0"
+version = "2.4.0"
 dependencies = [
  "ed25519-dalek",
  "rvf-crypto",
@@ -2673,7 +2674,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-types"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "ed25519-dalek",
  "rand_core",
@@ -2681,9 +2682,11 @@ dependencies = [
 
 [[package]]
 name = "rvf-wire"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "crc32c",
+ "ed25519-dalek",
+ "rvf-crypto",
  "rvf-types",
  "sha3",
  "subtle",

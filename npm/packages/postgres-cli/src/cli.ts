@@ -530,6 +530,7 @@ graph
       console.log(chalk.green(`Graph '${name}' created successfully`));
     } catch (err) {
       console.error(chalk.red('Error:'), (err as Error).message);
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -558,6 +559,7 @@ graph
       console.log(chalk.green(`Node created with ID: ${nodeId}`));
     } catch (err) {
       console.error(chalk.red('Error:'), (err as Error).message);
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -585,6 +587,7 @@ graph
       console.log(chalk.green(`Edge created with ID: ${edgeId}`));
     } catch (err) {
       console.error(chalk.red('Error:'), (err as Error).message);
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -612,6 +615,7 @@ graph
       console.log(`  ${chalk.green('Nodes:')} ${path.nodes.join(' -> ')}`);
     } catch (err) {
       console.error(chalk.red('Error:'), (err as Error).message);
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -633,6 +637,7 @@ graph
       console.log(`  ${chalk.green('Edge Types:')} ${stats.edge_types.join(', ') || 'none'}`);
     } catch (err) {
       console.error(chalk.red('Error:'), (err as Error).message);
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -654,6 +659,7 @@ graph
       }
     } catch (err) {
       console.error(chalk.red('Error:'), (err as Error).message);
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -670,6 +676,7 @@ graph
       console.log(chalk.green(`Graph '${graphName}' deleted`));
     } catch (err) {
       console.error(chalk.red('Error:'), (err as Error).message);
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -709,6 +716,7 @@ learning
       console.log(chalk.green(result));
     } catch (err) {
       console.error(chalk.red('Error:'), (err as Error).message);
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -737,6 +745,7 @@ learning
       console.log(`  ${chalk.green('Total Usage:')} ${stats.patterns.total_usage}`);
     } catch (err) {
       console.error(chalk.red('Error:'), (err as Error).message);
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -755,6 +764,7 @@ learning
       console.log(JSON.stringify(result, null, 2));
     } catch (err) {
       console.error(chalk.red('Error:'), (err as Error).message);
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -772,6 +782,7 @@ learning
       console.log(chalk.green(result));
     } catch (err) {
       console.error(chalk.red('Error:'), (err as Error).message);
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -793,6 +804,7 @@ learning
       console.log(`  ${chalk.green('confidence:')} ${(params.confidence * 100).toFixed(1)}%`);
     } catch (err) {
       console.error(chalk.red('Error:'), (err as Error).message);
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -809,6 +821,7 @@ learning
       console.log(chalk.green(result));
     } catch (err) {
       console.error(chalk.red('Error:'), (err as Error).message);
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -898,6 +911,7 @@ program
       console.log();
     } catch (err) {
       console.error(chalk.red('Error:'), (err as Error).message);
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -915,6 +929,7 @@ program
       console.log(chalk.green('RuVector extension installed successfully!'));
     } catch (err) {
       console.error(chalk.red('Error:'), (err as Error).message);
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }
@@ -937,6 +952,7 @@ program
       console.log(`  ${chalk.bold.green('Total:')}              ${stats.total_extension_mb.toFixed(2)} MB`);
     } catch (err) {
       console.error(chalk.red('Error:'), (err as Error).message);
+      process.exitCode = 1;
     } finally {
       await client.disconnect();
     }

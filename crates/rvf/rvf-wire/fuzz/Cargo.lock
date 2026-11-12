@@ -294,7 +294,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-crypto"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ed25519-dalek",
  "rvf-types",
@@ -304,11 +304,11 @@ dependencies = [
 
 [[package]]
 name = "rvf-types"
-version = "0.2.2"
+version = "0.3.0"
 
 [[package]]
 name = "rvf-wire"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "crc32c",
  "ed25519-dalek",

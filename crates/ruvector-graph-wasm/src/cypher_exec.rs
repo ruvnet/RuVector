@@ -29,7 +29,7 @@ use ruvector_graph::cypher::parse_cypher;
 use serde_json::{json, Number, Value as Json};
 use uuid::Uuid;
 
-use crate::types::{Edge, EdgeId, Node, NodeId};
+use crate::types::{Edge, EdgeId, Hyperedge, HyperedgeId, Node, NodeId};
 
 /// Every lock the graph needs, held together for the duration of one query.
 ///
@@ -43,6 +43,7 @@ pub(crate) struct Store<'a> {
     pub node_edges_out: MutexGuard<'a, HashMap<NodeId, Vec<EdgeId>>>,
     pub node_edges_in: MutexGuard<'a, HashMap<NodeId, Vec<EdgeId>>>,
     pub hypergraph: MutexGuard<'a, HypergraphIndex>,
+    pub hyperedges: MutexGuard<'a, HashMap<HyperedgeId, Hyperedge>>,
 }
 
 impl Store<'_> {
@@ -204,12 +205,24 @@ fn from_json(j: &Json) -> Val {
     }
 }
 
+/// An integer as JSON that JavaScript can receive. Outside +-(2^53 - 1) it becomes
+/// the nearest float, as `JSON.parse` would produce; serde-wasm-bindgen rejects
+/// such an i64 and the whole result would arrive as null.
+fn int_json(i: i64) -> Json {
+    const MAX_SAFE: i64 = (1 << 53) - 1;
+    if (-MAX_SAFE..=MAX_SAFE).contains(&i) {
+        Json::from(i)
+    } else {
+        Number::from_f64(i as f64).map_or(Json::Null, Json::Number)
+    }
+}
+
 /// Converts a value for return to JavaScript. Nodes and edges become objects.
 fn to_json(st: &Store, v: &Val) -> Json {
     match v {
         Val::Null => Json::Null,
         Val::Bool(b) => Json::Bool(*b),
-        Val::Int(i) => Json::from(*i),
+        Val::Int(i) => int_json(*i),
         Val::Float(f) => Number::from_f64(*f).map_or(Json::Null, Json::Number),
         Val::Str(s) => Json::String(s.clone()),
         Val::List(items) => Json::Array(items.iter().map(|x| to_json(st, x)).collect()),
@@ -240,7 +253,7 @@ fn to_property(v: &Val) -> Result<Json, String> {
     Ok(match v {
         Val::Null => Json::Null,
         Val::Bool(b) => Json::Bool(*b),
-        Val::Int(i) => Json::from(*i),
+        Val::Int(i) => int_json(*i),
         Val::Float(f) => Number::from_f64(*f).map_or(Json::Null, Json::Number),
         Val::Str(s) => Json::String(s.clone()),
         Val::List(items) => Json::Array(
@@ -317,13 +330,21 @@ fn type_rank(v: &Val) -> u8 {
     }
 }
 
-/// Total order for ORDER BY. Nulls sort last ascending, as in Cypher.
+/// Total order for ORDER BY. Nulls sort last ascending, as in Cypher, and NaN
+/// sorts after every other number. Without that NaN compared Equal to all
+/// numbers, which is not a total order, and the rows around it came back unsorted.
 fn sort_cmp(a: &Val, b: &Val) -> Ordering {
+    let is_nan = |v: &Val| matches!(v, Val::Float(f) if f.is_nan());
     match (matches!(a, Val::Null), matches!(b, Val::Null)) {
         (true, true) => Ordering::Equal,
         (true, false) => Ordering::Greater,
         (false, true) => Ordering::Less,
-        _ => compare(a, b).unwrap_or_else(|| type_rank(a).cmp(&type_rank(b))),
+        _ => match (is_nan(a), is_nan(b)) {
+            (true, true) => Ordering::Equal,
+            (true, false) if type_rank(b) == type_rank(a) => Ordering::Greater,
+            (false, true) if type_rank(a) == type_rank(b) => Ordering::Less,
+            _ => compare(a, b).unwrap_or_else(|| type_rank(a).cmp(&type_rank(b))),
+        },
     }
 }
 
@@ -523,7 +544,10 @@ fn binary(op: BinaryOperator, l: Val, r: Val) -> Result<Val, String> {
         BinaryOperator::Multiply => arith(&l, &r, i64::checked_mul, |a, b| a * b)?,
         BinaryOperator::Divide => match (&l, &r) {
             (Val::Int(_), Val::Int(0)) => return Err("Division by zero".to_string()),
-            (Val::Int(a), Val::Int(b)) => Val::Int(a.wrapping_div(*b)),
+            // Overflow (i64::MIN / -1) widens to float, as the other operators do.
+            (Val::Int(a), Val::Int(b)) => a
+                .checked_div(*b)
+                .map_or(Val::Float(*a as f64 / *b as f64), Val::Int),
             _ => arith(&l, &r, |_, _| None, |a, b| a / b)?,
         },
         BinaryOperator::Modulo => match (&l, &r) {
@@ -1746,5 +1770,60 @@ mod tests {
             .err()
             .unwrap();
         assert!(err.contains("Variable-length"), "{}", err);
+    }
+
+    #[test]
+    fn integers_beyond_js_safe_range_leave_as_floats() {
+        // serde-wasm-bindgen refuses an i64 outside +-(2^53 - 1), which turned the
+        // whole `data` array (or a node's `properties`) into null in JavaScript.
+        let db = GraphDB::new(None).unwrap();
+        let rows = run(
+            &db,
+            "RETURN 9007199254740993 AS big, 9007199254740991 AS max",
+        );
+        assert!(rows[0]["big"].is_f64(), "{:?}", rows);
+        assert!(rows[0]["max"].is_i64(), "{:?}", rows);
+        run(&db, "CREATE (n:Big {x: -9007199254740993})");
+        let st = db.lock_store();
+        let stored = &st.nodes.values().next().unwrap().properties["x"];
+        assert!(stored.is_f64(), "{:?}", stored);
+    }
+
+    #[test]
+    fn order_by_puts_nan_after_numbers() {
+        // NaN compared Equal to every number, which is not a total order, so the
+        // numbers around it came back unsorted.
+        let db = GraphDB::new(None).unwrap();
+        {
+            let mut st = db.lock_store();
+            for i in 0..200i64 {
+                let v = (i * 37) % 200;
+                st.insert_node(vec!["N".into()], [("v".to_string(), json!(v))].into());
+            }
+        }
+        let rows = run(
+            &db,
+            "MATCH (n:N) RETURN n.v AS v ORDER BY CASE WHEN n.v % 3 = 0 THEN 0.0 / 0.0 ELSE n.v END",
+        );
+        let keys: Vec<i64> = col(&rows, "v")
+            .iter()
+            .map(|v| v.as_i64().unwrap())
+            .collect();
+        let (numbers, nans): (Vec<i64>, Vec<i64>) = keys.iter().partition(|v| *v % 3 != 0);
+        assert!(numbers.windows(2).all(|w| w[0] < w[1]), "{:?}", numbers);
+        assert_eq!(
+            keys[..numbers.len()],
+            numbers[..],
+            "NaN keys must sort last"
+        );
+        assert_eq!(nans.len(), 67);
+    }
+
+    #[test]
+    fn integer_division_overflow_widens_to_float() {
+        // i64::MIN / -1 does not fit in i64. It used to wrap back to i64::MIN.
+        let db = GraphDB::new(None).unwrap();
+        let rows = run(&db, "RETURN -9223372036854775808 / -1 AS x");
+        assert_eq!(rows[0]["x"], json!(9223372036854775808.0_f64));
     }
 }

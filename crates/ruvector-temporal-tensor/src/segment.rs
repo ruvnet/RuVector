@@ -332,4 +332,53 @@ mod tests {
         decode(&seg, &mut decoded);
         assert_eq!(decoded.len(), tensor_len * 2);
     }
+
+    /// Decode `seg` on a worker thread and fail if it hangs or panics.
+    fn decode_bounded(seg: Vec<u8>) -> Vec<f32> {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut out = Vec::new();
+            decode(&seg, &mut out);
+            let _ = tx.send(out);
+        });
+        rx.recv_timeout(std::time::Duration::from_secs(10))
+            .expect("decode of a malformed segment must return promptly without panicking")
+    }
+
+    #[test]
+    fn test_decode_zero_group_len_terminates() {
+        let mut seg = Vec::new();
+        encode(8, 0, 16, 1, &[0x3C00], &[127u8; 16], &mut seg);
+        assert!(decode_bounded(seg).is_empty());
+    }
+
+    #[test]
+    fn test_decode_truncated_group_data_terminates() {
+        // Three 1-value groups need 3 bytes at 3 bits; only 2 are present.
+        let mut seg = Vec::new();
+        encode(3, 1, 3, 1, &[0x3C00; 3], &[0u8; 2], &mut seg);
+        let out = decode_bounded(seg);
+        assert!(out.len() <= 3);
+    }
+
+    #[test]
+    fn test_decode_oversized_header_counts_rejected() {
+        let mut seg = Vec::new();
+        encode(8, 64, u32::MAX, u32::MAX, &[0x3C00], &[0u8; 8], &mut seg);
+        assert!(decode_bounded(seg).is_empty());
+    }
+
+    #[test]
+    fn test_decode_single_frame_zero_group_len_terminates() {
+        let mut seg = Vec::new();
+        encode(8, 0, 16, 1, &[0x3C00], &[127u8; 16], &mut seg);
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(decode_single_frame(&seg, 0));
+        });
+        let r = rx
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .expect("decode_single_frame must return promptly");
+        assert!(r.map_or(true, |v| v.is_empty()));
+    }
 }

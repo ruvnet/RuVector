@@ -2000,3 +2000,17 @@ Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE) at your o
 <p align="center">
   <sub>Built with Rust. Not a database &mdash; a portable cognitive runtime.</sub>
 </p>
+
+## Witness chain: what `rvf verify-witness` can and cannot tell you
+
+The runtime writes each witness as one fixed 73-byte hash-chain entry, and
+`rvf verify-witness` checks all witness segments as a single SHAKE-256 chain
+plus each segment's content hash. Exit codes: `0` verified, `1` failure,
+`2` only legacy (rvf-runtime <= 0.4.0) records that carry no verifiable hash
+(`--allow-legacy` turns this into `0`). Attestation witness segments are
+accepted only if they fully verify as attestation payloads.
+
+The chain is unkeyed and unsigned, so it does **not** detect: removal or
+replacement of the newest entries, stripping every witness segment (use
+`--require-witness` to fail when none are present; it still cannot prove one
+ever existed), or an attacker who recomputes the hashes of the tail.

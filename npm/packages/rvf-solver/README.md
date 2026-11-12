@@ -1,10 +1,14 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/rvf-solver.svg" alt="@ruvector/rvf-solver: Self-learning temporal solver — Thompson Sampling, PolicyKernel and ReasoningBank." width="100%"></p>
+
 # @ruvector/rvf-solver
 
 [![npm](https://img.shields.io/npm/v/@ruvector/rvf-solver)](https://www.npmjs.com/package/@ruvector/rvf-solver)
 [![license](https://img.shields.io/npm/l/@ruvector/rvf-solver)](https://github.com/ruvnet/ruvector/blob/main/LICENSE)
-![platforms](https://img.shields.io/badge/platforms-Node.js%20%7C%20Browser%20%7C%20Edge-blue)
+![platforms](https://img.shields.io/badge/platforms-Node.js-blue)
 
-Self-learning temporal solver with Thompson Sampling, PolicyKernel, ReasoningBank, and SHAKE-256 tamper-evident witness chains. Runs in the browser, Node.js, and edge runtimes via WebAssembly.
+Self-learning temporal solver with Thompson Sampling, PolicyKernel, ReasoningBank, and SHAKE-256 tamper-evident witness chains, compiled to WebAssembly.
+
+> **Runtime note:** `RvfSolver.create()` loads `pkg/rvf_solver_bg.wasm` from disk with `node:fs`, so the `RvfSolver` class runs in Node.js. In a browser or edge runtime `create()` currently throws, because it has no way to receive the WASM bytes.
 
 ## Install
 
@@ -12,7 +16,7 @@ Self-learning temporal solver with Thompson Sampling, PolicyKernel, ReasoningBan
 npm install @ruvector/rvf-solver
 ```
 
-Or via the unified SDK:
+Or via the unified SDK, which lists this package as an optional dependency and re-exports `RvfSolver`:
 
 ```bash
 npm install @ruvector/rvf
@@ -27,7 +31,7 @@ npm install @ruvector/rvf
 - **Three-loop adaptive solver** — fast: constraint propagation solve, medium: PolicyKernel skip-mode selection, slow: KnowledgeCompiler pattern distillation
 - **SHAKE-256 tamper-evident witness chain** — 73 bytes per entry, cryptographically linked proof of all operations
 - **Full acceptance test with A/B/C ablation modes** — validates learned policy outperforms fixed and compiler baselines
-- **~160 KB WASM binary, `no_std`** — runs anywhere WebAssembly does (browsers, Node.js, Deno, Cloudflare Workers, edge runtimes)
+- **~130 KB WASM binary, `no_std`** — the module has no imports; the bundled `RvfSolver` loader targets Node.js (see the runtime note above)
 
 ## Quick Start
 
@@ -66,7 +70,7 @@ solver.destroy();
 
 ### `RvfSolver.create(): Promise<RvfSolver>`
 
-Creates a new solver instance. Initializes the WASM module on the first call; subsequent calls reuse the loaded module. Up to 7 concurrent instances are supported.
+Creates a new solver instance. Initializes the WASM module on the first call; subsequent calls reuse the loaded module. Up to 8 concurrent instances are supported; `create()` throws once all 8 slots are in use (call `destroy()` to free one).
 
 ```typescript
 const solver = await RvfSolver.create();
@@ -234,21 +238,35 @@ console.log(`Accuracy: ${(result.accuracy * 100).toFixed(1)}%`);
 solver.destroy();
 ```
 
-## Related Packages
+## Related packages
 
-| Package | Description |
-|---------|-------------|
-| [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf) | Unified TypeScript SDK |
-| [`@ruvector/rvf-node`](https://www.npmjs.com/package/@ruvector/rvf-node) | Native N-API bindings for Node.js |
-| [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) | Browser WASM package |
-| [`@ruvector/rvf-mcp-server`](https://www.npmjs.com/package/@ruvector/rvf-mcp-server) | MCP server for AI agents |
+- [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf) — unified RVF SDK; re-exports `RvfSolver` from this package.
+- [`@ruvector/rvf-node`](https://www.npmjs.com/package/@ruvector/rvf-node) — native N-API bindings for RVF vector stores.
+- [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) — RVF format in WebAssembly for browsers.
+- [`@ruvector/rvf-mcp-server`](https://www.npmjs.com/package/@ruvector/rvf-mcp-server) — MCP server exposing RVF stores to AI agents.
+- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package and CLI (`npx ruvector`).
 
 ## License
 
-MIT OR Apache-2.0
+MIT (see [`package.json`](https://github.com/ruvnet/ruvector/blob/main/npm/packages/rvf-solver/package.json)); the underlying `rvf-solver-wasm` Rust crate is dual-licensed MIT OR Apache-2.0.
 
 ## Links
 
 - [GitHub Repository](https://github.com/ruvnet/ruvector)
 - [RVF Format Specification](https://github.com/ruvnet/ruvector/tree/main/crates/rvf)
 - [npm Package](https://www.npmjs.com/package/@ruvector/rvf-solver)
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for solver, self-learning, WASM.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@ruvector/all`](https://www.npmjs.com/package/@ruvector/all), [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf), [`agentdb`](https://www.npmjs.com/package/agentdb)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->
