@@ -165,7 +165,8 @@ new VectorDB(options: DbOptions)
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `dimensions` | `number` | Yes | - | Vector dimensionality |
-| `maxElements` | `number` | No | 1,000,000 | Maximum number of vectors |
+| `maxElements` | `number` | No | 1,000,000 | Capacity hint. **Not a hard limit** unless `enforceMaxElements` is `true` |
+| `enforceMaxElements` | `boolean` | No | `false` | Make `maxElements` a hard bound: inserts beyond it throw `ERR_CAPACITY_EXCEEDED:` (replacing an existing id doesn't count) |
 | `distanceMetric` | `DistanceMetric` | No | `Cosine` | Distance metric |
 | `hnswM` | `number` | No | 32 | HNSW connections per node |
 | `hnswEfConstruction` | `number` | No | 200 | HNSW construction quality |
@@ -623,7 +624,7 @@ db.insert('doc2', new Float32Array(768)); // Error!
 
 **High memory usage**
 
-1. Reduce `maxElements` if you don't need it
+1. `maxElements` is a capacity hint; it doesn't reserve or cap memory unless `enforceMaxElements` is set
 2. Enable quantization (requires router-core configuration)
 3. Use smaller `hnswM` value (trades accuracy for memory)
 

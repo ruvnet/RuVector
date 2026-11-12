@@ -75,6 +75,8 @@ impl DitherSource for PiDither {
 mod tests {
     use super::*;
     use crate::DitherSource;
+    #[cfg(feature = "no_std")]
+    use alloc::vec::Vec;
 
     #[test]
     fn output_is_in_range() {

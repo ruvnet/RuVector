@@ -1,0 +1,89 @@
+{
+  "name": "@ruvector/weight-space",
+  "version": "0.1.0",
+  "description": "Versioned weight registry for ruv-fann neural networks: store models by task embedding, warm-start from the nearest past task, edit weights safely and fine-tune from outcomes.",
+  "type": "module",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    },
+    "./experimental": {
+      "import": {
+        "types": "./dist/esm/reshape.d.ts",
+        "default": "./dist/esm/reshape.js"
+      },
+      "require": {
+        "types": "./dist/cjs/reshape.d.ts",
+        "default": "./dist/cjs/reshape.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc -p tsconfig.json && tsc -p tsconfig.cjs.json && node scripts/write-cjs-package.cjs",
+    "test": "node --test test/*.test.mjs test/*.test.cjs",
+    "bench": "node bench/bench.mjs",
+    "eval:warmstart": "node eval/warmstart.mjs",
+    "eval:reshape": "node eval/reshape.mjs",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "weight-space",
+    "neural-network",
+    "model-editing",
+    "fine-tuning",
+    "machine-learning",
+    "self-learning",
+    "embeddings",
+    "vector-database",
+    "vector-search",
+    "wasm",
+    "webassembly",
+    "typescript",
+    "nodejs",
+    "ai",
+    "ruvector",
+    "ruvnet"
+  ],
+  "author": "ruv.io Team <info@ruv.io> (https://ruv.io)",
+  "homepage": "https://ruv.io",
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/ruvector.git",
+    "directory": "npm/packages/weight-space"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "ruv-fann": "0.1.0"
+  },
+  "devDependencies": {
+    "@ruvector/core": "0.1.38",
+    "@types/node": "20.19.25",
+    "typescript": "5.9.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

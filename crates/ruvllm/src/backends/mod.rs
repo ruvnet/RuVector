@@ -71,6 +71,9 @@
 mod candle_backend;
 
 #[cfg(feature = "candle")]
+mod gguf_arch;
+
+#[cfg(feature = "candle")]
 pub mod gguf_tokenizer;
 
 #[cfg(feature = "candle")]
@@ -123,8 +126,9 @@ pub use mistral_backend::{
     PagedAttentionConfigExt, XLoraConfig, XLoraManager, XLoraManagerStats, XLoraMixingMode,
 };
 
-use crate::error::{Result, RuvLLMError};
+use crate::error::{ModelAdapterError, Result, RuvLLMError};
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 
@@ -560,6 +564,22 @@ pub enum StreamEvent {
     Error(String),
 }
 
+/// Result of [`LlmBackend::generate_detailed`]: the completion plus the token
+/// accounting and stop reason an OpenAI-compatible server reports.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GenerationOutput {
+    /// Generated text (excluding the prompt and any stop sequence)
+    pub text: String,
+    /// Tokens in the prompt as given (after any chat template was applied)
+    pub prompt_tokens: usize,
+    /// Tokens sampled, including an end-of-sequence token that ended generation
+    pub completion_tokens: usize,
+    /// Why generation ended: `Length` (max tokens or context full), `Stop`
+    /// (stop sequence), `EndOfSequence` (EOS / end-of-turn token) or
+    /// `Cancelled` (the token callback returned `false`)
+    pub finish_reason: crate::serving::FinishReason,
+}
+
 /// Streaming token iterator.
 ///
 /// Provides an iterator interface over generated tokens, allowing
@@ -785,6 +805,45 @@ pub trait LlmBackend: Send + Sync {
     /// Returns an error if the model cannot be loaded (not found, invalid format, etc.)
     fn load_model(&mut self, model_id: &str, config: ModelConfig) -> Result<()>;
 
+    /// Load and activate a PEFT adapter from a SafeTensors file or directory.
+    ///
+    /// `scale` multiplies the adapter's configured `alpha / rank` factor.
+    /// A successful load replaces the active adapter for subsequent generation.
+    /// Validation failures leave the previously active adapter unchanged. Backends
+    /// that restore after an installation failure report restoration failures
+    /// explicitly; query `active_lora_adapter` to inspect the resulting state.
+    ///
+    /// The default implementation returns [`ModelAdapterError::UnsupportedBackend`].
+    fn load_lora_adapter(
+        &mut self,
+        _path: &Path,
+        _scale: f32,
+    ) -> std::result::Result<(), ModelAdapterError> {
+        Err(ModelAdapterError::UnsupportedBackend {
+            operation: "load_lora_adapter",
+        })
+    }
+
+    /// Remove the active model adapter and restore base-model generation.
+    ///
+    /// Supported backends leave an already inactive loaded model unchanged.
+    /// The default implementation returns [`ModelAdapterError::UnsupportedBackend`].
+    fn unload_lora_adapter(&mut self) -> std::result::Result<(), ModelAdapterError> {
+        Err(ModelAdapterError::UnsupportedBackend {
+            operation: "unload_lora_adapter",
+        })
+    }
+
+    /// Return the active model adapter, or `None` when none is active.
+    ///
+    /// The default implementation returns [`ModelAdapterError::UnsupportedBackend`],
+    /// distinguishing an unsupported backend from one with no active adapter.
+    fn active_lora_adapter(&self) -> std::result::Result<Option<AdapterInfo>, ModelAdapterError> {
+        Err(ModelAdapterError::UnsupportedBackend {
+            operation: "active_lora_adapter",
+        })
+    }
+
     /// Generate text from a prompt
     ///
     /// # Arguments
@@ -827,6 +886,60 @@ pub trait LlmBackend: Send + Sync {
     ///
     /// A TokenStream that yields StreamEvents as tokens are generated
     fn generate_stream_v2(&self, prompt: &str, params: GenerateParams) -> Result<TokenStream>;
+
+    /// Generate text, reporting token counts and the finish reason.
+    ///
+    /// `on_token` receives text deltas as they become final; returning `false`
+    /// stops generation with [`FinishReason::Cancelled`](crate::serving::FinishReason).
+    /// Concatenating every delta yields `GenerationOutput::text`.
+    ///
+    /// The default implementation wraps [`generate`](Self::generate): it sends
+    /// the whole text in one callback, counts tokens by re-encoding prompt and
+    /// output with [`tokenizer`](Self::tokenizer) (0 without one), and reports
+    /// `Length` when that count reaches `max_tokens`, else `Stop`. Those numbers
+    /// are approximate; backends that run their own decode loop override this.
+    fn generate_detailed(
+        &self,
+        prompt: &str,
+        params: GenerateParams,
+        on_token: &mut dyn FnMut(&GeneratedToken) -> bool,
+    ) -> Result<GenerationOutput> {
+        let max_tokens = params.max_tokens;
+        let text = self.generate(prompt, params)?;
+        let count = |s: &str| {
+            self.tokenizer()
+                .and_then(|t| t.encode(s).ok())
+                .map_or(0, |ids| ids.len())
+        };
+        let prompt_tokens = count(prompt);
+        let completion_tokens = count(&text);
+        if !text.is_empty() {
+            on_token(&GeneratedToken {
+                id: 0,
+                text: text.clone(),
+                logprob: None,
+                is_special: false,
+            });
+        }
+        let finish_reason = if completion_tokens >= max_tokens {
+            crate::serving::FinishReason::Length
+        } else {
+            crate::serving::FinishReason::Stop
+        };
+        Ok(GenerationOutput {
+            text,
+            prompt_tokens,
+            completion_tokens,
+            finish_reason,
+        })
+    }
+
+    /// Chat template for the loaded model, when the backend knows it (e.g.
+    /// from the model file); `None` lets callers fall back to
+    /// [`ChatTemplate::detect_from_model_id`](crate::tokenizer::ChatTemplate::detect_from_model_id).
+    fn chat_template(&self) -> Option<crate::tokenizer::ChatTemplate> {
+        None
+    }
 
     /// Extract embeddings from text
     ///
@@ -880,6 +993,26 @@ pub struct SpecialTokens {
     pub pad_token_id: Option<u32>,
     /// Unknown token
     pub unk_token_id: Option<u32>,
+}
+
+/// Information about an adapter currently applied to model generation.
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub struct AdapterInfo {
+    /// Path of the loaded adapter SafeTensors file.
+    pub path: PathBuf,
+    /// Caller multiplier applied in addition to the configured `alpha / rank`.
+    pub scale: f32,
+    /// Rank of each low-rank adapter pair.
+    pub rank: usize,
+    /// PEFT alpha from the adapter configuration.
+    pub alpha: f32,
+    /// Projection module names targeted by the adapter.
+    pub target_modules: Vec<String>,
+    /// Base model name or path declared by the adapter, without an identity check.
+    pub declared_base_model: Option<String>,
+    /// Revision declared by the adapter, without an identity check.
+    pub declared_revision: Option<String>,
 }
 
 /// Information about a loaded model
@@ -1050,6 +1183,9 @@ pub mod async_stream {
     }
 
     /// Async trait for LLM backends with streaming support
+    // `async_trait` adds a bare `#[must_use]` to methods whose boxed-future return type is
+    // already `#[must_use]`; clippy 1.99 flags that as `double_must_use`.
+    #[allow(clippy::double_must_use)]
     #[async_trait::async_trait]
     pub trait LlmBackendAsync: Send + Sync {
         /// Generate text with async streaming output
@@ -1069,7 +1205,12 @@ pub mod async_stream {
         ) -> Result<AsyncTokenStream>;
     }
 
-    /// Blanket implementation for any LlmBackend
+    /// Blanket implementation for any LlmBackend.
+    ///
+    /// This calls the synchronous [`LlmBackend::generate_stream_v2`] inline.
+    /// For `CandleBackend` that runs the whole generation before the stream
+    /// is returned, blocking the calling (async worker) thread throughout; in
+    /// async code, call `generate_detailed` inside `spawn_blocking` instead.
     #[async_trait::async_trait]
     impl<T: LlmBackend + ?Sized> LlmBackendAsync for T {
         async fn generate_stream_async(
@@ -1090,6 +1231,56 @@ pub use async_stream::{AsyncTokenStream, LlmBackendAsync};
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn adapter_trait_methods_return_model_adapter_error() {
+        let mut backend = NoopBackend;
+        let backend: &mut dyn LlmBackend = &mut backend;
+        let load: std::result::Result<(), ModelAdapterError> =
+            backend.load_lora_adapter(Path::new("missing-adapter.safetensors"), 1.0);
+        let unload: std::result::Result<(), ModelAdapterError> = backend.unload_lora_adapter();
+        let active: std::result::Result<Option<AdapterInfo>, ModelAdapterError> =
+            backend.active_lora_adapter();
+        assert!(load.is_err());
+        assert!(unload.is_err());
+        assert!(active.is_err());
+    }
+
+    #[test]
+    fn default_adapter_load_returns_typed_unsupported() {
+        let mut backend = NoopBackend;
+        let backend: &mut dyn LlmBackend = &mut backend;
+        let result = backend.load_lora_adapter(Path::new("missing-adapter.safetensors"), 1.0);
+        assert!(matches!(
+            result,
+            Err(ModelAdapterError::UnsupportedBackend {
+                operation: "load_lora_adapter"
+            })
+        ));
+    }
+
+    #[test]
+    fn default_adapter_unload_returns_typed_unsupported() {
+        let mut backend = NoopBackend;
+        let backend: &mut dyn LlmBackend = &mut backend;
+        assert!(matches!(
+            backend.unload_lora_adapter(),
+            Err(ModelAdapterError::UnsupportedBackend {
+                operation: "unload_lora_adapter"
+            })
+        ));
+    }
+
+    #[test]
+    fn default_active_adapter_returns_typed_unsupported() {
+        let backend: &dyn LlmBackend = &NoopBackend;
+        assert!(matches!(
+            backend.active_lora_adapter(),
+            Err(ModelAdapterError::UnsupportedBackend {
+                operation: "active_lora_adapter"
+            })
+        ));
+    }
 
     #[test]
     fn test_quantization_bytes() {

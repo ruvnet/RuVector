@@ -359,7 +359,8 @@ The CLI uses the `router-core` configuration system with the following defaults:
 ```rust
 VectorDbConfig {
     dimensions: 384,              // Vector dimensions
-    max_elements: 1_000_000,      // Maximum vectors
+    max_elements: 1_000_000,      // Capacity hint (enforced only with enforce_max_elements)
+    enforce_max_elements: false,  // Set true to make max_elements a hard bound
     distance_metric: Cosine,      // Distance metric
     hnsw_m: 32,                   // HNSW connections per node
     hnsw_ef_construction: 200,    // HNSW build-time parameter

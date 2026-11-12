@@ -94,6 +94,13 @@ ruvllm chat qwen --temperature 0.5 --max-tokens 1024
 ruvllm chat qwen --quantization q8
 ```
 
+`chat`, `serve` and `benchmark` load the downloaded GGUF that matches
+`--quantization` (`download` keeps every quantization of a repo in one
+directory); when several are downloaded and none matches, they exit with an
+error listing them. A lone GGUF is loaded whatever its quantization.
+Like `serve`, `chat` exits if the model fails to load; only
+`--allow-mock` (`RUVLLM_ALLOW_MOCK=1`) gives labelled placeholder replies.
+
 #### Chat Commands
 
 During chat, use these commands:
@@ -120,24 +127,53 @@ ruvllm serve qwen --host 0.0.0.0 --port 8080
 # Configure concurrency
 ruvllm serve qwen --max-concurrent 8 --max-context 8192
 
-# Exit if the model fails to load, instead of serving mock responses
-ruvllm serve qwen --strict        # or RUVLLM_STRICT=1
+# Client development without a model: labeled placeholder responses
+ruvllm serve qwen --allow-mock    # or RUVLLM_ALLOW_MOCK=1
 ```
 
-If the model fails to load, `serve` keeps running in **mock mode**: completions
-are fixed placeholder text, not model output. A warning is printed at startup,
-every response carries an `x-ruvllm-mode: mock` header (`model` when a model is
-loaded), and `/health` reports `"mode": "mock"`. Use `--strict` in production
-and CI so a failed load exits with an error instead.
+If the model fails to load (or loads without a tokenizer), `serve` prints the
+error and exits with status 1. It never answers with text that did not come
+from the model unless you opt in with `--allow-mock` (alias `--mock`,
+`RUVLLM_ALLOW_MOCK=1`). In that **mock mode** every completion is the fixed
+text `[ruvllm mock mode] Model '<id>' is not loaded. This is placeholder text,
+not model output.`, with zero `usage`, `"system_fingerprint": "ruvllm-mock"`
+and an `x-ruvllm-mode: mock` header (`model` when a model is loaded);
+`/health` reports `"mode": "mock"`.
+
+`--strict` / `RUVLLM_STRICT=1` is still accepted but no longer needed, and it
+conflicts with `--allow-mock`. `RUVLLM_STRICT=0` no longer turns on mock mode.
+
+Messages are rendered with the model's chat template, read from the GGUF's
+embedded `tokenizer.chat_template` (ChatML for Qwen; a `qwen2`/`qwen3` GGUF
+with a non-ChatML template, such as DeepSeek-R1-Distill-Qwen, fails to load),
+else guessed from the model's file or repo name. Roles `system`, `developer`,
+`user` and `assistant` are accepted; any other role is a 400. `content` may be
+a string, an array of `{"type": "text", "text": ...}` parts (joined with
+newlines; other part types are a 400), or `null` for an assistant turn.
+
+`usage` counts tokens with the model's tokenizer: `prompt_tokens` is the
+templated prompt, `completion_tokens` is every token sampled, including the
+end-of-turn token when the model stopped on its own. `finish_reason` is
+`"length"` when `max_tokens` (or the context window) was reached and `"stop"`
+when the model ended its turn or hit a `stop` sequence. Streaming sends text
+as it is generated and puts the same `finish_reason` on its last chunk;
+`"stream_options": {"include_usage": true}` adds a final chunk with `usage`.
+
+Errors use the OpenAI shape, `{"error": {"message", "type", "param", "code"}}`:
+400 `invalid_request_error` for a bad request, malformed JSON included (and
+`code: "context_length_exceeded"` when the prompt fills the context window),
+500 `server_error` when generation fails. A stream that fails after it started
+sends one `data: {"error": ...}` event and then `data: [DONE]`, with no
+`finish_reason` chunk.
 
 #### API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/v1/chat/completions` | POST | Chat completions |
-| `/v1/completions` | POST | Text completions |
+| `/v1/chat/completions` | POST | Chat completions (streaming with `"stream": true`) |
 | `/v1/models` | GET | List models |
-| `/health` | GET | Health check |
+| `/health` | GET | Health check (`status`, `mode`, `model`) |
+| `/metrics` | GET | Request and token counters |
 
 #### Example Request
 

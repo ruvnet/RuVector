@@ -14,12 +14,18 @@ pub fn parse_sparql(query: &str) -> Result<SparqlQuery, SparqlError> {
     parser.parse()
 }
 
+/// Maximum nesting of group patterns, expressions and property paths. The
+/// wasm stack is ~1 MiB, so unbounded recursion would overflow it and
+/// corrupt linear memory.
+const MAX_NESTING_DEPTH: usize = 64;
+
 /// SPARQL Parser state
 struct SparqlParser<'a> {
     input: &'a str,
     pos: usize,
     prefixes: HashMap<String, Iri>,
     base: Option<Iri>,
+    depth: usize,
 }
 
 impl<'a> SparqlParser<'a> {
@@ -29,7 +35,25 @@ impl<'a> SparqlParser<'a> {
             pos: 0,
             prefixes: HashMap::new(),
             base: None,
+            depth: 0,
         }
+    }
+
+    /// Run `f` one nesting level deeper, failing once the limit is reached.
+    fn nested<T>(
+        &mut self,
+        f: impl FnOnce(&mut Self) -> Result<T, SparqlError>,
+    ) -> Result<T, SparqlError> {
+        if self.depth >= MAX_NESTING_DEPTH {
+            return Err(SparqlError::ParseError(format!(
+                "query nested deeper than {}",
+                MAX_NESTING_DEPTH
+            )));
+        }
+        self.depth += 1;
+        let result = f(self);
+        self.depth -= 1;
+        result
     }
 
     fn parse(&mut self) -> Result<SparqlQuery, SparqlError> {
@@ -224,6 +248,10 @@ impl<'a> SparqlParser<'a> {
     }
 
     fn parse_group_graph_pattern(&mut self) -> Result<GraphPattern, SparqlError> {
+        self.nested(Self::parse_group_graph_pattern_unguarded)
+    }
+
+    fn parse_group_graph_pattern_unguarded(&mut self) -> Result<GraphPattern, SparqlError> {
         self.skip_whitespace();
 
         if !self.match_char('{') {
@@ -511,6 +539,10 @@ impl<'a> SparqlParser<'a> {
     }
 
     fn parse_path_alternative(&mut self) -> Result<PropertyPath, SparqlError> {
+        self.nested(Self::parse_path_alternative_unguarded)
+    }
+
+    fn parse_path_alternative_unguarded(&mut self) -> Result<PropertyPath, SparqlError> {
         let mut left = self.parse_path_sequence()?;
 
         loop {
@@ -645,7 +677,7 @@ impl<'a> SparqlParser<'a> {
     }
 
     fn parse_expression(&mut self) -> Result<Expression, SparqlError> {
-        self.parse_conditional_or_expression()
+        self.nested(Self::parse_conditional_or_expression)
     }
 
     fn parse_conditional_or_expression(&mut self) -> Result<Expression, SparqlError> {
@@ -2290,7 +2322,10 @@ impl<'a> SparqlParser<'a> {
             return false;
         }
 
-        let potential = &remaining[..keyword.len()];
+        // `get` returns None when the cut falls inside a multi-byte char.
+        let Some(potential) = remaining.get(..keyword.len()) else {
+            return false;
+        };
         if potential.eq_ignore_ascii_case(keyword) {
             // Make sure it's not part of a longer identifier
             let after = remaining.chars().nth(keyword.len());
@@ -2313,7 +2348,9 @@ impl<'a> SparqlParser<'a> {
             return false;
         }
 
-        let potential = &remaining[..keyword.len()];
+        let Some(potential) = remaining.get(..keyword.len()) else {
+            return false;
+        };
         if potential.eq_ignore_ascii_case(keyword) {
             let after = remaining.chars().nth(keyword.len());
             !after

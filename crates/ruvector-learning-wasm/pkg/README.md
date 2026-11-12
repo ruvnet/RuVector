@@ -230,3 +230,12 @@ MIT OR Apache-2.0
 ---
 
 **Keywords**: LoRA, Low-Rank Adaptation, machine learning, WASM, WebAssembly, neural network, edge AI, adaptation, fine-tuning, query optimization, real-time learning, micro LoRA, rank-2, browser ML
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for WASM, LoRA, AI.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@claude-flow/cli`](https://www.npmjs.com/package/@claude-flow/cli) (optional), [`@claude-flow/plugins`](https://www.npmjs.com/package/@claude-flow/plugins) (peer), [`claude-flow`](https://www.npmjs.com/package/claude-flow) (optional)
+<!-- weaver:seo:links:end -->

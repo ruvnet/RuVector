@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ILLUSTRATIVE, NOT VALIDATED against a real org or the current Salesforce
+  Metadata API schema — see ../README.md. Salesforce's own recommended path
+  for creating this is the Setup UI ("From API Specification", pointed at
+  http://<host>/salesforce/openapi.json), which fetches the live OpenAPI
+  document and derives this metadata automatically; this file is a sketch of
+  what that produces, for tracking in source control afterward, not a
+  guaranteed-correct blind-deploy artifact. The `schema` field normally
+  embeds the full OpenAPI document inline (base64 or literal, depending on
+  Salesforce API version) — omitted here since this session cannot confirm
+  the exact current encoding without a live org.
+-->
+<ExternalServiceRegistration xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>RuVector Actions</label>
+    <namedCredentialReference>RuVector_API</namedCredentialReference>
+    <status>Complete</status>
+    <systemVersion>3</systemVersion>
+    <!-- schema: fetch live from http://<host>/salesforce/openapi.json via
+         Setup's "From API Specification" flow rather than hand-authoring
+         this field -->
+</ExternalServiceRegistration>

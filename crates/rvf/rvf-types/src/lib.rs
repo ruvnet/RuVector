@@ -46,6 +46,7 @@ pub mod segment;
 pub mod segment_type;
 pub mod sha256;
 pub mod signature;
+pub mod stream;
 pub mod wasm_bootstrap;
 pub mod witness;
 
@@ -112,6 +113,7 @@ pub use segment::SegmentHeader;
 pub use segment_type::SegmentType;
 pub use sha256::{hmac_sha256, sha256, Sha256};
 pub use signature::{SignatureAlgo, SignatureFooter};
+pub use stream::{StreamClass, StreamEntry, StreamHeader};
 pub use wasm_bootstrap::{
     WasmHeader, WasmRole, WasmTarget, WASM_FEAT_BULK_MEMORY, WASM_FEAT_EXCEPTION_HANDLING,
     WASM_FEAT_GC, WASM_FEAT_MULTI_VALUE, WASM_FEAT_REFERENCE_TYPES, WASM_FEAT_SIMD,

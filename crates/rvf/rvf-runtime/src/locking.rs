@@ -19,8 +19,16 @@ const LOCK_VERSION: u32 = 1;
 /// Lock file total size in bytes.
 const LOCK_FILE_SIZE: usize = 104;
 
-/// Stale lock age threshold for same-host (30 seconds in nanoseconds).
-const STALE_AGE_NS: u64 = 30_000_000_000;
+/// Stale lock age threshold for a lock written by another host, whose PID
+/// cannot be checked (300 seconds in nanoseconds). Same-host locks are judged
+/// by owner liveness instead, see `lock_owner_gone`.
+const CROSS_HOST_STALE_AGE_NS: u64 = 300_000_000_000;
+
+/// Optional trailer after the fixed 104-byte lock body: the writer's kernel
+/// boot id (16 bytes at 0x68). Readers that predate it only read 0..0x68,
+/// so the longer file stays compatible; an all-zero trailer means unknown.
+const BOOT_ID_OFFSET: usize = LOCK_FILE_SIZE;
+const LOCK_FILE_SIZE_WITH_BOOT_ID: usize = LOCK_FILE_SIZE + 16;
 
 /// Represents an acquired writer lock.
 pub(crate) struct WriterLock {
@@ -162,29 +170,21 @@ fn try_break_stale_lock(lock_path: &Path) -> io::Result<bool> {
     let current_hostname = get_hostname();
     let same_host = lock_hostname == current_hostname;
 
-    // Check if PID is alive (same host only).
-    let pid_alive = if same_host {
-        is_pid_alive(lock_pid)
-    } else {
-        // Cannot check remote PID; rely on age only.
-        true
-    };
-
-    // Stale conditions:
-    // - PID is dead AND age > threshold (same host)
-    // - Age > extended threshold (cross-host)
-    let threshold = if same_host {
-        STALE_AGE_NS
-    } else {
-        300_000_000_000
-    };
-
-    if !pid_alive && age > threshold {
-        let _ = fs::remove_file(lock_path);
-        return Ok(true);
+    if same_host {
+        // Same host: the owner is knowable, so decide on liveness, not age.
+        // A dead owner's lock is stale at once (a supervisor restarting a
+        // killed writer must not wait). A live PID still counts as stale when
+        // the lock was written under another kernel boot, since the number
+        // then names an unrelated process.
+        if lock_owner_gone(lock_pid, read_boot_id_from_lock(&content)) {
+            let _ = fs::remove_file(lock_path);
+            return Ok(true);
+        }
+        return Ok(false);
     }
 
-    if !same_host && age > threshold {
+    // Cross-host: the remote PID cannot be checked; rely on age only.
+    if age > CROSS_HOST_STALE_AGE_NS {
         let _ = fs::remove_file(lock_path);
         return Ok(true);
     }
@@ -198,7 +198,7 @@ fn build_lock_content(
     timestamp_ns: u64,
     writer_id: &[u8; 16],
 ) -> Vec<u8> {
-    let mut buf = vec![0u8; LOCK_FILE_SIZE];
+    let mut buf = vec![0u8; LOCK_FILE_SIZE_WITH_BOOT_ID];
 
     // Magic (0x00).
     buf[0..4].copy_from_slice(&LOCK_MAGIC.to_le_bytes());
@@ -218,6 +218,10 @@ fn build_lock_content(
     // CRC32 (0x64) — simplified: we use a basic checksum.
     let crc = simple_crc32(&buf[0..0x64]);
     buf[0x64..0x68].copy_from_slice(&crc.to_le_bytes());
+    // Boot id trailer (0x68), outside the CRC so older readers are unaffected.
+    if let Some(boot_id) = current_boot_id() {
+        buf[BOOT_ID_OFFSET..LOCK_FILE_SIZE_WITH_BOOT_ID].copy_from_slice(&boot_id);
+    }
 
     buf
 }
@@ -268,6 +272,51 @@ fn random_uuid() -> [u8; 16] {
     buf
 }
 
+/// True when the process that wrote a same-host lock cannot still hold it:
+/// its PID is dead, or the lock was written under a different kernel boot
+/// (so the PID number no longer refers to the writer).
+fn lock_owner_gone(lock_pid: u32, lock_boot_id: Option<[u8; 16]>) -> bool {
+    if !is_pid_alive(lock_pid) {
+        return true;
+    }
+    match (lock_boot_id, current_boot_id()) {
+        (Some(theirs), Some(ours)) => theirs != ours,
+        _ => false,
+    }
+}
+
+/// Boot id recorded in a lock file, if it carries one.
+fn read_boot_id_from_lock(content: &[u8]) -> Option<[u8; 16]> {
+    let raw = content.get(BOOT_ID_OFFSET..LOCK_FILE_SIZE_WITH_BOOT_ID)?;
+    if raw.iter().all(|&b| b == 0) {
+        return None;
+    }
+    let mut id = [0u8; 16];
+    id.copy_from_slice(raw);
+    Some(id)
+}
+
+/// This kernel boot's id (Linux `/proc/sys/kernel/random/boot_id`).
+fn current_boot_id() -> Option<[u8; 16]> {
+    #[cfg(target_os = "linux")]
+    {
+        let text = fs::read_to_string("/proc/sys/kernel/random/boot_id").ok()?;
+        let hex: Vec<u8> = text.trim().bytes().filter(|b| *b != b'-').collect();
+        if hex.len() != 32 {
+            return None;
+        }
+        let mut id = [0u8; 16];
+        for (i, pair) in hex.chunks(2).enumerate() {
+            id[i] = u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok()?;
+        }
+        Some(id)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        None
+    }
+}
+
 fn is_pid_alive(pid: u32) -> bool {
     // On Unix, kill(pid, 0) checks process existence without sending a signal.
     // A return of 0 means the process exists and we have permission to signal it.
@@ -279,9 +328,10 @@ fn is_pid_alive(pid: u32) -> bool {
         if ret == 0 {
             return true;
         }
-        // Check errno for EPERM -- process exists but we lack permission
-        let err = unsafe { *libc_errno() };
-        err == EPERM
+        // Check errno for EPERM -- process exists but we lack permission.
+        // last_os_error reads errno through each platform's own accessor, so this
+        // works on every Unix rather than only those with a hand-declared symbol.
+        std::io::Error::last_os_error().raw_os_error() == Some(EPERM)
     }
     #[cfg(not(unix))]
     {
@@ -299,16 +349,6 @@ extern "C" {
     fn kill(pid: i32, sig: i32) -> i32;
 }
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
-extern "C" {
-    fn __errno_location() -> *mut i32;
-}
-
-#[cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd"))]
-extern "C" {
-    fn __error() -> *mut i32;
-}
-
 /// Permission denied errno -- process exists but belongs to another user.
 #[cfg(unix)]
 const EPERM: i32 = 1;
@@ -316,18 +356,6 @@ const EPERM: i32 = 1;
 #[cfg(unix)]
 fn libc_kill(pid: i32, sig: i32) -> i32 {
     unsafe { kill(pid, sig) }
-}
-
-/// Get a pointer to the thread-local errno value.
-#[cfg(any(target_os = "linux", target_os = "android"))]
-fn libc_errno() -> *mut i32 {
-    unsafe { __errno_location() }
-}
-
-/// Get a pointer to the thread-local errno value (macOS/BSD).
-#[cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd"))]
-fn libc_errno() -> *mut i32 {
-    unsafe { __error() }
 }
 
 /// Simple CRC32 (not CRC32C) for lock file checksumming.
@@ -394,6 +422,69 @@ mod tests {
         // Should be able to acquire despite existing lock (stale).
         let lock = WriterLock::acquire(&rvf_path).unwrap();
         assert!(lock.is_valid());
+    }
+
+    /// Regression (rvf:dead-writer-lock-held-30s): a lock left by a writer that
+    /// was SIGKILLed on this host must be broken at once, not after 30 s.
+    #[cfg(unix)]
+    #[test]
+    fn lock_of_killed_writer_breaks_immediately() {
+        let dir = TempDir::new().unwrap();
+        let rvf_path = dir.path().join("killed.rvf");
+        fs::write(&rvf_path, b"").unwrap();
+        let lock_path = lock_path_for(&rvf_path);
+
+        let mut child = std::process::Command::new("sleep")
+            .arg("30")
+            .spawn()
+            .unwrap();
+        let content = build_lock_content(child.id(), &get_hostname(), now_ns(), &[0xCDu8; 16]);
+        fs::write(&lock_path, &content).unwrap();
+        // While the owner lives the lock holds.
+        assert!(WriterLock::acquire(&rvf_path).is_err());
+
+        child.kill().unwrap(); // SIGKILL
+        child.wait().unwrap();
+        let t0 = std::time::Instant::now();
+        let lock = WriterLock::acquire(&rvf_path).expect("dead owner's lock must break");
+        let took = t0.elapsed();
+        assert!(lock.is_valid());
+        assert!(
+            took < std::time::Duration::from_secs(1),
+            "reopen took {took:?}"
+        );
+    }
+
+    #[test]
+    fn live_owner_from_another_boot_is_stale() {
+        let dir = TempDir::new().unwrap();
+        let rvf_path = dir.path().join("reboot.rvf");
+        fs::write(&rvf_path, b"").unwrap();
+        let lock_path = lock_path_for(&rvf_path);
+        // Our own (live) PID, but stamped with a different boot id.
+        let mut content =
+            build_lock_content(std::process::id(), &get_hostname(), now_ns(), &[0xEEu8; 16]);
+        if current_boot_id().is_none() {
+            return; // no boot id on this platform
+        }
+        content[BOOT_ID_OFFSET..LOCK_FILE_SIZE_WITH_BOOT_ID].copy_from_slice(&[0x11u8; 16]);
+        fs::write(&lock_path, &content).unwrap();
+        assert!(WriterLock::acquire(&rvf_path).is_ok());
+    }
+
+    #[test]
+    fn live_owner_same_boot_holds_and_legacy_104_byte_lock_is_read() {
+        let dir = TempDir::new().unwrap();
+        let rvf_path = dir.path().join("live.rvf");
+        fs::write(&rvf_path, b"").unwrap();
+        let lock_path = lock_path_for(&rvf_path);
+        let content =
+            build_lock_content(std::process::id(), &get_hostname(), now_ns(), &[0x22u8; 16]);
+        fs::write(&lock_path, &content).unwrap();
+        assert!(WriterLock::acquire(&rvf_path).is_err());
+        // A lock written by an older rvf (no boot id trailer) still holds.
+        fs::write(&lock_path, &content[..LOCK_FILE_SIZE]).unwrap();
+        assert!(WriterLock::acquire(&rvf_path).is_err());
     }
 
     #[test]

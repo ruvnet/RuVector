@@ -55,6 +55,12 @@ impl WasmDag {
             return false;
         }
 
+        // Re-adding an existing edge succeeds without storing a duplicate,
+        // which would double-count in-degrees and inflate edge_count.
+        if self.edges.contains(&(from, to)) {
+            return true;
+        }
+
         // Simple cycle check: to must not reach from
         if self.has_path(to, from) {
             return false;
@@ -114,8 +120,28 @@ impl WasmDag {
     /// Find critical path (longest path by cost)
     /// Returns JSON: {"path": [node_ids], "cost": total}
     pub fn critical_path(&self) -> JsValue {
+        let (path, max_cost) = self.critical_path_parts();
+
+        // Convert to JSON manually to avoid serde_json dependency
+        let path_str = path
+            .iter()
+            .map(|id| id.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+
+        let json = format!("{{\"path\":[{}],\"cost\":{}}}", path_str, max_cost);
+        JsValue::from_str(&json)
+    }
+
+    /// Longest path by cost and its total. An empty DAG has an empty path
+    /// and cost 0; it used to hit `unwrap()` on `None`, and the trap left
+    /// the wasm object borrowed, so every later call on it failed too.
+    fn critical_path_parts(&self) -> (Vec<u32>, f32) {
         let topo = self.topo_sort();
         let n = self.nodes.len();
+        if n == 0 {
+            return (Vec::new(), 0.0);
+        }
 
         // dist[i] = (max_cost_to_i, predecessor)
         let mut dist = vec![(0.0f32, u32::MAX); n];
@@ -141,12 +167,12 @@ impl WasmDag {
             }
         }
 
-        // Find node with maximum cost
-        let (max_idx, (max_cost, _)) = dist
+        // Find node with maximum cost (total_cmp: a NaN cost must not panic)
+        let (max_idx, &(max_cost, _)) = dist
             .iter()
             .enumerate()
-            .max_by(|(_, a), (_, b)| a.0.partial_cmp(&b.0).unwrap())
-            .unwrap();
+            .max_by(|(_, a), (_, b)| a.0.total_cmp(&b.0))
+            .expect("n > 0");
 
         // Backtrack to build path
         let mut path = Vec::new();
@@ -158,16 +184,7 @@ impl WasmDag {
         }
 
         path.reverse();
-
-        // Convert to JSON manually to avoid serde_json dependency
-        let path_str = path
-            .iter()
-            .map(|id| id.to_string())
-            .collect::<Vec<_>>()
-            .join(",");
-
-        let json = format!("{{\"path\":[{}],\"cost\":{}}}", path_str, max_cost);
-        JsValue::from_str(&json)
+        (path, max_cost)
     }
 
     /// Compute attention scores for nodes
@@ -356,6 +373,37 @@ mod tests {
 
         // Should detect cycle
         assert!(!dag.add_edge(n2, n0));
+    }
+
+    #[test]
+    fn critical_path_of_empty_dag_is_empty() {
+        let dag = WasmDag::new();
+        assert_eq!(dag.critical_path_parts(), (Vec::new(), 0.0));
+    }
+
+    #[test]
+    fn critical_path_follows_the_costliest_chain() {
+        let mut dag = WasmDag::new();
+        let a = dag.add_node(0, 1.0);
+        let b = dag.add_node(0, 5.0);
+        let c = dag.add_node(0, 2.0);
+        dag.add_edge(a, b);
+        dag.add_edge(a, c);
+        assert_eq!(dag.critical_path_parts(), (vec![a, b], 6.0));
+        // A NaN cost must not panic.
+        dag.add_node(0, f32::NAN);
+        let _ = dag.critical_path_parts();
+    }
+
+    #[test]
+    fn duplicate_edge_is_idempotent() {
+        let mut dag = WasmDag::new();
+        let a = dag.add_node(0, 1.0);
+        let b = dag.add_node(0, 1.0);
+        assert!(dag.add_edge(a, b));
+        assert!(dag.add_edge(a, b));
+        assert_eq!(dag.edge_count(), 1);
+        assert_eq!(dag.topo_sort(), vec![a, b]);
     }
 
     #[test]

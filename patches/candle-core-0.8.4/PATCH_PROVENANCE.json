@@ -1,0 +1,35 @@
+{
+  "crate": "candle-core",
+  "version": "0.8.4",
+  "source_archive": "https://static.crates.io/crates/candle-core/candle-core-0.8.4.crate",
+  "source_archive_sha256": "06ccf5ee3532e66868516d9b315f73aec9f34ea1a37ae98514534d458915dbf1",
+  "source_vcs": {
+    "git": {
+      "sha1": "468d1d525fe206a35d6962c02cfa7b9918b31076"
+    },
+    "path_in_vcs": "candle-core"
+  },
+  "upstream_migration": "https://github.com/huggingface/candle/pull/4041",
+  "upstream_patch_head": "70f72e9cfdbfc570846ca363ead2135394af3e9a",
+  "modified_files": [
+    "Cargo.toml",
+    "src/pickle.rs",
+    "src/npy.rs",
+    "tests/serialization_tests.rs"
+  ],
+  "modification_scope": "ZIP9.0.5 manifest dependency; upstream fallible Cow filename and file_names adaptations and4upstream serialization regressions; Rust minimum1.88; local ZIP9 CP437 PTH compatibility repair (metadata by_index, deferredget raw-index fastpath plus decoded-name fallback)",
+  "retained_license_files": [
+    {
+      "path": "LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    }
+  ],
+  "omitted_from_copy": [
+    "Cargo.lock (consumer workspace lockfile is authoritative)"
+  ],
+  "original_manifest_note": "Cargo.toml.orig is retained unchanged as upstream provenance; Cargo.toml is the active backported manifest",
+  "maintenance": "Release owner must assign long-term ownership before adoption; temporary session operator Dragan",
+  "removal_criterion": "Remove path patch after a maintained published Candle version supportsZIP>=9 and consumers migrate; rerunCPU serialization/default consumer checks, cargo-audit/cargo-deny, andnative sdist build",
+  "distribution_limit": "Workspace root patches do not propagate to downstream Cargo consumers of published RuVector crates. This candidate repairs root workspace builds/native artifacts and the explicitly vendored Python sdist only.",
+  "observable_metadata_change": "For legacy CP437 PTH prefixes, ZIP9 produces correctly decodedUnicode TensorInfo.path (e.g.\u00e9est/data/0), whereas older ZIP file_names reported replacement-character paths. Tensor names/dtypes/dimensions/values and eager/lazy NPZ names remain compatible."
+}

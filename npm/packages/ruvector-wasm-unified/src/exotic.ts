@@ -15,6 +15,23 @@ import type {
   TopologicalFeature,
   ExoticConfig,
 } from './types';
+import {
+  quantumApply,
+  quantumInitState,
+  quantumMeasureState,
+  quantumUnsupported,
+} from './quantum';
+
+export {
+  initQuantumBackend,
+  quantumBackendStatus,
+  QuantumBackendError,
+  type QuantumBackendOptions,
+  type QuantumBackendStatus,
+  type QuantumGateOp,
+  type QuantumGateType,
+  type RuquModule,
+} from './quantum';
 
 // ============================================================================
 // Exotic Computation Engine Interface
@@ -441,56 +458,27 @@ export function createExoticEngine(config?: ExoticConfig): ExoticEngine {
     // Quantum operations
     quantumInit: (numQubits) => {
       stats.quantumOperations++;
-      const size = Math.pow(2, numQubits);
-      const amplitudes = new Float32Array(size);
-      amplitudes[0] = 1.0; // |00...0> state
-      return {
-        amplitudes,
-        phases: new Float32Array(size),
-        entanglementMap: new Map(),
-      };
+      return quantumInitState(numQubits);
     },
-    quantumHadamard: (state, _qubit) => {
+    quantumHadamard: (state, qubit) => {
       stats.quantumOperations++;
-      // WASM call: ruvector_quantum_hadamard(state, qubit)
-      return { ...state };
+      return quantumApply(state, { type: 'H', targets: [qubit] });
     },
     quantumCnot: (state, control, target) => {
       stats.quantumOperations++;
-      // WASM call: ruvector_quantum_cnot(state, control, target)
-      const newMap = new Map(state.entanglementMap);
-      newMap.set(control, [...(newMap.get(control) || []), target]);
-      return { ...state, entanglementMap: newMap };
+      return quantumApply(state, { type: 'CNOT', targets: [control, target] });
     },
-    quantumPhase: (state, _qubit, _phase) => {
+    quantumPhase: (state, qubit, phase) => {
       stats.quantumOperations++;
-      // WASM call: ruvector_quantum_phase(state, qubit, phase)
-      return { ...state };
+      // RZ equals the phase gate up to a global phase.
+      return quantumApply(state, { type: 'RZ', targets: [qubit], parameter: phase });
     },
-    quantumMeasure: (state, _qubits) => {
+    quantumMeasure: (state, qubits) => {
       stats.quantumOperations++;
-      // WASM call: ruvector_quantum_measure(state, qubits)
-      return {
-        bitstring: [],
-        probability: 1.0,
-        collapsedState: state,
-      };
+      return quantumMeasureState(state, qubits);
     },
-    quantumAmplify: (state, _oracle, iterations = 1) => {
-      stats.quantumOperations += iterations;
-      // WASM call: ruvector_quantum_amplify(state, oracle, iterations)
-      return { ...state };
-    },
-    quantumVqe: (_hamiltonian, _ansatz, _optimizer = 'cobyla') => {
-      stats.quantumOperations++;
-      // WASM call: ruvector_quantum_vqe(hamiltonian, ansatz, optimizer)
-      return {
-        energy: 0,
-        optimalParameters: new Float32Array(0),
-        iterations: 0,
-        converged: false,
-      };
-    },
+    quantumAmplify: () => quantumUnsupported('quantumAmplify'),
+    quantumVqe: () => quantumUnsupported('quantumVqe'),
 
     // Hyperbolic operations
     hyperbolicPoint: (_coordinates, _manifold = 'poincare', _curvature = -1) => {

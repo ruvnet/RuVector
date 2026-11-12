@@ -33,7 +33,21 @@
 #![allow(clippy::all)]
 #![allow(unsafe_op_in_unsafe_fn)]
 
+#[cfg_attr(not(feature = "std"), macro_use)]
 extern crate alloc;
+
+/// `f32::sqrt` lives in `std`; bare-metal builds use `libm`.
+#[inline]
+pub(crate) fn sqrt_f32(x: f32) -> f32 {
+    #[cfg(feature = "std")]
+    {
+        x.sqrt()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        libm::sqrtf(x)
+    }
+}
 
 pub mod compression;
 pub mod delta;

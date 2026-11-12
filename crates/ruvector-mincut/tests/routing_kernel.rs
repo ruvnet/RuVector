@@ -219,7 +219,9 @@ fn geographic_lookup_matches_linear_and_handles_date_line() {
                 + a.cos() * b.cos() * ((lon - c[1]).to_radians() / 2.).sin().powi(2)
         };
         let expected = coords
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .enumerate()
             .min_by(|a, b| distance(a.1).total_cmp(&distance(b.1)))
             .unwrap()

@@ -5,14 +5,14 @@
 //! prints a markdown table + one JSON line per run (to stderr) so numbers
 //! are both human- and machine-readable.
 //!
-//! ## HARD RULE (do not relax)
+//! ## Candle timing rule
 //!
-//! `CandleBackend::generate_stream_v2` samples exactly one token from the
-//! initial prefill logits and then emits `Done` (candle_backend.rs, the
-//! `generate_stream_v2` impl around line 1457-1600) — it is a 1-token stub,
-//! not a real decode loop. This harness therefore times the candle backend
-//! via the blocking `generate()` call ONLY. Never wire candle's streaming
-//! path into a timing measurement here.
+//! `CandleBackend::generate_stream_v2` runs the full decode loop to
+//! completion and then replays the tokens into the stream, so its first
+//! token arrives only after the whole generation: it cannot measure TTFT.
+//! This harness therefore times the candle backend via the blocking
+//! `generate()` call (equivalent total work). For per-token timing use
+//! `generate_detailed`, whose callback fires as each token is decoded.
 //!
 //! ## GPU serialization (fleet convention)
 //!
@@ -509,11 +509,10 @@ fn run_lattice(_args: &Args) {
 // candle backend leg
 // ---------------------------------------------------------------------------
 
-/// HARD RULE: candle is measured via the blocking `generate()` call only.
-/// `CandleBackend::generate_stream_v2` sends one prefill-sampled token then
-/// `Done` (a stub, not a real decode loop) — see the module doc above and
-/// candle_backend.rs's `generate_stream_v2` impl. Do not call it here for
-/// timing.
+/// Candle is measured via the blocking `generate()` call.
+/// `CandleBackend::generate_stream_v2` replays tokens only after the whole
+/// generation has finished (see the module doc above), so it reports no
+/// meaningful TTFT; do not use it here for timing.
 #[cfg(feature = "candle")]
 fn run_candle(args: &Args) {
     let model_path = args.model.display().to_string();

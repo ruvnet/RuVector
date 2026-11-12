@@ -1,210 +1,105 @@
-# RuVector Node.js Examples
+# RuVector Node.js tutorial
 
-JavaScript/TypeScript examples for integrating RuVector with Node.js applications.
+![Animated tutorial: install, write, reopen, verify](../../assets/ruvector/tutorial-steps.svg)
 
-## Examples
+[All examples](../README.md) · [npm package](../../npm/packages/ruvector/README.md) · [API reference](../../docs/api/NODEJS_API.md)
 
-| File | Description |
-|------|-------------|
-| `basic_usage.js` | Getting started with the JS SDK |
-| `semantic_search.js` | Semantic search implementation |
+Build semantic memory and retrieve it from a second process. Use a supported Node.js native backend; run `npx ruvector info` before continuing. The first embedding call downloads a local model.
 
-## Quick Start
+## Install
+
+Run in a new application directory:
 
 ```bash
+npm init -y
 npm install ruvector
-node basic_usage.js
-node semantic_search.js
+npx ruvector info
 ```
 
-## Basic Usage
+## Write and reopen
+
+Save this as `memory.cjs`. Both commands below must run from the same directory so they use the same database path.
 
 ```javascript
-const { VectorDB } = require('ruvector');
+const { OnnxEmbedder, VectorDB } = require('ruvector');
 
 async function main() {
-    // Initialize database
-    const db = new VectorDB({
-        dimensions: 128,
-        storagePath: './my_vectors.db'
-    });
-    await db.initialize();
+  const embedder = new OnnxEmbedder();
+  await embedder.init();
 
-    // Insert vectors
+  const db = new VectorDB({
+    dimensions: 384,
+    distanceMetric: 'cosine',
+    storagePath: './agent-memory.db',
+  });
+
+  const memories = [
+    {
+      id: 'decision-1',
+      text: 'The customer requires all inference to remain in Canada.',
+      kind: 'decision',
+    },
+    {
+      id: 'episode-1',
+      text: 'The Toronto pilot passed its privacy review on Tuesday.',
+      kind: 'episode',
+    },
+    {
+      id: 'procedure-1',
+      text: 'Escalate production access through the security owner.',
+      kind: 'procedure',
+    },
+  ];
+
+  if (process.argv[2] === 'write') {
+  for (const memory of memories) {
+    const vector = await embedder.embedPassage(memory.text);
     await db.insert({
-        id: 'doc_001',
-        vector: new Float32Array(128).fill(0.1),
-        metadata: { title: 'Document 1' }
+      id: memory.id,
+      vector,
+      metadata: {
+        text: memory.text,
+        kind: memory.kind,
+        tenant: 'acme',
+        createdAt: Date.now(),
+      },
     });
+  }
 
-    // Search
-    const results = await db.search({
-        vector: new Float32Array(128).fill(0.1),
-        topK: 10
-    });
+  }
 
-    console.log('Results:', results);
+  const query = await embedder.embedQuery(
+    'Where may the customer data be processed?',
+  );
+
+  const results = await db.search({
+    vector: query,
+    k: 3,
+    filter: { tenant: 'acme' },
+  });
+
+  if (!results.length) throw new Error('No stored records found. Run the write step first.');
+  console.log(results.map(({ score, metadata }) => ({ score, ...metadata })));
 }
 
-main().catch(console.error);
+main().catch(error => { console.error(error); process.exitCode = 1; });
 ```
 
-## Semantic Search
-
-```javascript
-const { VectorDB } = require('ruvector');
-const { encode } = require('your-embedding-model');
-
-async function semanticSearch() {
-    const db = new VectorDB({ dimensions: 384 });
-    await db.initialize();
-
-    // Index documents
-    const documents = [
-        'Machine learning is a subset of AI',
-        'Neural networks power modern AI',
-        'Deep learning uses multiple layers'
-    ];
-
-    for (const doc of documents) {
-        const embedding = await encode(doc);
-        await db.insert({
-            id: doc.slice(0, 20),
-            vector: embedding,
-            metadata: { text: doc }
-        });
-    }
-
-    // Search by meaning
-    const query = 'How does artificial intelligence work?';
-    const queryVec = await encode(query);
-
-    const results = await db.search({
-        vector: queryVec,
-        topK: 5
-    });
-
-    results.forEach(r => {
-        console.log(`${r.score.toFixed(3)}: ${r.metadata.text}`);
-    });
-}
+```bash
+node memory.cjs write
+node memory.cjs read
 ```
 
-## Batch Operations
+**Expected result:** both processes return stored records with text, metadata, and distances. The second invocation skips insertion and proves that records survive the first process. Lower search distances are closer. Keep the embedding model and dimension consistent.
 
-```javascript
-// Batch insert for efficiency
-const entries = documents.map((doc, i) => ({
-    id: `doc_${i}`,
-    vector: embeddings[i],
-    metadata: { text: doc }
-}));
+## Next examples
 
-await db.insertBatch(entries);
+| Goal | Continue with |
+| :--- | :--- |
+| Give Claude Code access to project memory | [Claude Code MCP setup](../../README.md#claude-code-setup) |
+| Return typed decisions | [typesafe tutorial](../../npm/packages/typesafe/README.md) |
+| Follow graph relationships | [Graph examples](../graph/README.md) |
+| Run search in a browser | [Vanilla WASM](../wasm-vanilla/README.md), [React WASM](../wasm-react/README.md) |
+| Learn from explicit outcomes | [SONA guide](../../crates/sona/README.md) |
 
-// Batch search
-const queries = ['query1', 'query2', 'query3'];
-const queryVectors = await Promise.all(queries.map(encode));
-
-const batchResults = await db.searchBatch(
-    queryVectors.map(v => ({ vector: v, topK: 5 }))
-);
-```
-
-## Filtering
-
-```javascript
-// Metadata filtering
-const results = await db.search({
-    vector: queryVec,
-    topK: 10,
-    filter: {
-        category: { $eq: 'technology' },
-        date: { $gte: '2024-01-01' }
-    }
-});
-```
-
-## TypeScript
-
-```typescript
-import { VectorDB, VectorEntry, SearchResult } from 'ruvector';
-
-interface DocMetadata {
-    title: string;
-    author: string;
-    date: string;
-}
-
-const db = new VectorDB<DocMetadata>({
-    dimensions: 384
-});
-
-const entry: VectorEntry<DocMetadata> = {
-    id: 'doc_001',
-    vector: new Float32Array(384),
-    metadata: {
-        title: 'TypeScript Guide',
-        author: 'Dev Team',
-        date: '2024-01-01'
-    }
-};
-
-await db.insert(entry);
-```
-
-## Express.js Integration
-
-```javascript
-const express = require('express');
-const { VectorDB } = require('ruvector');
-
-const app = express();
-const db = new VectorDB({ dimensions: 384 });
-
-app.post('/search', express.json(), async (req, res) => {
-    const { query, topK = 10 } = req.body;
-    const queryVec = await encode(query);
-
-    const results = await db.search({
-        vector: queryVec,
-        topK
-    });
-
-    res.json(results);
-});
-
-app.listen(3000);
-```
-
-## Configuration Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `dimensions` | number | required | Vector dimensions |
-| `storagePath` | string | `:memory:` | Database file path |
-| `metric` | string | `cosine` | Distance metric |
-| `indexType` | string | `hnsw` | Index algorithm |
-
-## Error Handling
-
-```javascript
-try {
-    await db.insert(entry);
-} catch (error) {
-    if (error.code === 'DIMENSION_MISMATCH') {
-        console.error('Vector dimension mismatch');
-    } else if (error.code === 'DUPLICATE_ID') {
-        console.error('ID already exists');
-    } else {
-        throw error;
-    }
-}
-```
-
-## Performance Tips
-
-1. Use batch operations for bulk inserts
-2. Keep vector dimensions consistent
-3. Use appropriate index for query patterns
-4. Consider in-memory mode for speed
+If the native backend cannot load, resolve the platform or installation problem before trusting an empty search result. The root package's limited fallback does not provide a working persistent vector store.

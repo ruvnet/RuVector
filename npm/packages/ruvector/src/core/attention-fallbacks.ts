@@ -364,9 +364,9 @@ export class MoEAttention {
     const attention = getAttentionModule();
     this.inner = new attention.MoEAttention({
       dim: config.dim,
-      num_experts: config.numExperts,
-      top_k: config.topK,
-      expert_capacity: config.expertCapacity ?? 1.25,
+      numExperts: config.numExperts,
+      topK: config.topK,
+      expertCapacity: config.expertCapacity ?? 1.25,
     });
     this.config = config;
   }
@@ -509,26 +509,35 @@ export class GraphRoPeAttention {
   public readonly numHeads: number;
   public readonly maxSeqLen: number;
 
+  /**
+   * @param numHeads - kept for API compatibility; the native kernel is single-head
+   * @param maxSeqLen - maximum graph position (native `maxPosition`)
+   */
   constructor(dim: number, numHeads: number = 4, maxSeqLen: number = 4096) {
     const attention = getAttentionModule();
-    this.inner = new attention.GraphRoPeAttention(dim, numHeads, maxSeqLen);
+    this.inner = new attention.GraphRoPeAttention({ dim, maxPosition: maxSeqLen });
     this.dim = dim;
     this.numHeads = numHeads;
     this.maxSeqLen = maxSeqLen;
   }
 
+  /**
+   * @param keyPositions - graph positions of the keys (e.g. hop distances);
+   *   when given, rotary embeddings are applied relative to `queryPosition`
+   */
   compute(
     query: number[] | Float32Array,
     keys: (number[] | Float32Array)[],
     values: (number[] | Float32Array)[],
-    positions?: number[]
+    keyPositions?: number[],
+    queryPosition: number = 0
   ): AttentionOutput {
-    const raw = this.inner.compute(
-      toFloat32Array(query),
-      toFloat32Arrays(keys),
-      toFloat32Arrays(values),
-      positions ? new Int32Array(positions) : undefined
-    );
+    const q = toFloat32Array(query);
+    const k = toFloat32Arrays(keys);
+    const v = toFloat32Arrays(values);
+    const raw = keyPositions
+      ? this.inner.computeWithPositions(q, k, v, queryPosition, keyPositions)
+      : this.inner.compute(q, k, v);
     return { values: fromFloat32Array(raw), raw };
   }
 }
@@ -544,7 +553,7 @@ export class EdgeFeaturedAttention {
 
   constructor(dim: number, edgeDim: number = 16) {
     const attention = getAttentionModule();
-    this.inner = new attention.EdgeFeaturedAttention(dim, edgeDim);
+    this.inner = new attention.EdgeFeaturedAttention({ nodeDim: dim, edgeDim, numHeads: 1 });
     this.dim = dim;
     this.edgeDim = edgeDim;
   }
@@ -555,12 +564,12 @@ export class EdgeFeaturedAttention {
     values: (number[] | Float32Array)[],
     edgeFeatures?: (number[] | Float32Array)[]
   ): AttentionOutput {
-    const raw = this.inner.compute(
-      toFloat32Array(query),
-      toFloat32Arrays(keys),
-      toFloat32Arrays(values),
-      edgeFeatures ? toFloat32Arrays(edgeFeatures) : undefined
-    );
+    const q = toFloat32Array(query);
+    const k = toFloat32Arrays(keys);
+    const v = toFloat32Arrays(values);
+    const raw = edgeFeatures
+      ? this.inner.computeWithEdges(q, k, v, toFloat32Arrays(edgeFeatures))
+      : this.inner.compute(q, k, v);
     return { values: fromFloat32Array(raw), raw };
   }
 }
@@ -575,9 +584,13 @@ export class DualSpaceAttention {
   public readonly curvature: number;
   public readonly alpha: number;
 
+  /**
+   * @param alpha - weight of the Euclidean space in [0, 1]; the hyperbolic
+   *   space gets `1 - alpha`
+   */
   constructor(dim: number, curvature: number = 1.0, alpha: number = 0.5) {
     const attention = getAttentionModule();
-    this.inner = new attention.DualSpaceAttention(dim, curvature, alpha);
+    this.inner = attention.DualSpaceAttention.withWeights(dim, curvature, alpha, 1 - alpha);
     this.dim = dim;
     this.curvature = curvature;
     this.alpha = alpha;
@@ -628,23 +641,76 @@ export class DotProductAttention {
 // Parallel/Batch Attention Compute
 // ============================================================================
 
+/** Attention kernels the native batch/parallel API can run. */
+export type BatchAttentionType =
+  | 'dot' | 'dot_product' | 'scaled-dot-product'
+  | 'flash' | 'linear' | 'hyperbolic' | 'local-global';
+
+/** Optional kernel parameters for parallel/batch compute. */
+export interface BatchAttentionOptions {
+  blockSize?: number;
+  numFeatures?: number;
+  localWindow?: number;
+  globalTokens?: number;
+  curvature?: number;
+}
+
+const NATIVE_ATTENTION_TYPES: Record<string, string> = {
+  'dot': 'ScaledDotProduct',
+  'dot_product': 'ScaledDotProduct',
+  'dot-product': 'ScaledDotProduct',
+  'scaled-dot-product': 'ScaledDotProduct',
+  'flash': 'Flash',
+  'linear': 'Linear',
+  'hyperbolic': 'Hyperbolic',
+  'local-global': 'LocalGlobal',
+  'local_global': 'LocalGlobal',
+};
+
+function toNativeAttentionType(type: string): string {
+  const mapped = NATIVE_ATTENTION_TYPES[String(type).toLowerCase()];
+  if (!mapped) {
+    throw new Error(
+      `Attention type '${type}' has no native batch kernel; ` +
+      `use one of: dot, flash, linear, hyperbolic, local-global`
+    );
+  }
+  return mapped;
+}
+
+function isNestedVectors(x: any): boolean {
+  return Array.isArray(x) && x.length > 0 && (Array.isArray(x[0]) || x[0] instanceof Float32Array) &&
+    x[0].length > 0 && (Array.isArray(x[0][0]) || x[0][0] instanceof Float32Array);
+}
+
 /**
- * Compute attention in parallel across multiple queries
+ * Compute attention in parallel across multiple queries.
+ *
+ * `keys`/`values` are either one shared set used for every query, or one set
+ * per query (`keys[i]` belongs to `queries[i]`).
  */
 export async function parallelAttentionCompute(
   queries: (number[] | Float32Array)[],
-  keys: (number[] | Float32Array)[],
-  values: (number[] | Float32Array)[],
-  attentionType: 'dot' | 'multi-head' | 'flash' | 'hyperbolic' | 'linear' = 'multi-head'
+  keys: (number[] | Float32Array)[] | (number[] | Float32Array)[][],
+  values: (number[] | Float32Array)[] | (number[] | Float32Array)[][],
+  attentionType: BatchAttentionType = 'dot',
+  options: BatchAttentionOptions = {}
 ): Promise<number[][]> {
   const attention = getAttentionModule();
-  const results = await attention.parallelAttentionCompute(
-    toFloat32Arrays(queries),
-    toFloat32Arrays(keys),
-    toFloat32Arrays(values),
-    attentionType
-  );
-  return results.map((r: Float32Array) => fromFloat32Array(r));
+  const nativeType = toNativeAttentionType(attentionType);
+  const q = toFloat32Arrays(queries);
+  if (q.length === 0) return [];
+  const perQuery = (set: any): Float32Array[][] => isNestedVectors(set)
+    ? (set as (number[] | Float32Array)[][]).map(toFloat32Arrays)
+    : q.map(() => toFloat32Arrays(set as (number[] | Float32Array)[]));
+  const k = perQuery(keys);
+  const v = perQuery(values);
+  if (k.length !== q.length || v.length !== q.length) {
+    throw new Error(`parallelAttentionCompute: got ${q.length} queries but ${k.length} key sets and ${v.length} value sets`);
+  }
+  const config = { attentionType: nativeType, dim: q[0].length, ...options };
+  const result = await attention.parallelAttentionCompute(config, q, k, v);
+  return result.outputs.map((r: Float32Array) => fromFloat32Array(r));
 }
 
 /**
@@ -656,62 +722,51 @@ export async function batchAttentionCompute(
     keys: (number[] | Float32Array)[];
     values: (number[] | Float32Array)[];
   }>,
-  attentionType: 'dot' | 'multi-head' | 'flash' | 'hyperbolic' | 'linear' = 'multi-head'
+  attentionType: BatchAttentionType = 'dot',
+  options: BatchAttentionOptions = {}
 ): Promise<number[][]> {
-  const attention = getAttentionModule();
-  const nativeBatches = batches.map(b => ({
-    query: toFloat32Array(b.query),
-    keys: toFloat32Arrays(b.keys),
-    values: toFloat32Arrays(b.values),
-  }));
-  const results = await attention.batchAttentionCompute(nativeBatches, attentionType);
-  return results.map((r: Float32Array) => fromFloat32Array(r));
+  if (batches.length === 0) return [];
+  return parallelAttentionCompute(
+    batches.map(b => b.query),
+    batches.map(b => b.keys),
+    batches.map(b => b.values),
+    attentionType,
+    options
+  );
 }
 
 /**
- * Async flash attention with callback
+ * Async flash attention
  */
-export function computeFlashAttentionAsync(
+export async function computeFlashAttentionAsync(
   query: number[] | Float32Array,
   keys: (number[] | Float32Array)[],
-  values: (number[] | Float32Array)[]
+  values: (number[] | Float32Array)[],
+  blockSize: number = 64
 ): Promise<number[]> {
   const attention = getAttentionModule();
-  return new Promise((resolve, reject) => {
-    attention.computeFlashAttentionAsync(
-      toFloat32Array(query),
-      toFloat32Arrays(keys),
-      toFloat32Arrays(values),
-      (err: Error | null, result: Float32Array) => {
-        if (err) reject(err);
-        else resolve(fromFloat32Array(result));
-      }
-    );
-  });
+  const q = toFloat32Array(query);
+  const result = await attention.computeFlashAttentionAsync(
+    q, toFloat32Arrays(keys), toFloat32Arrays(values), q.length, blockSize
+  );
+  return fromFloat32Array(result);
 }
 
 /**
  * Async hyperbolic attention
  */
-export function computeHyperbolicAttentionAsync(
+export async function computeHyperbolicAttentionAsync(
   query: number[] | Float32Array,
   keys: (number[] | Float32Array)[],
   values: (number[] | Float32Array)[],
   curvature: number = 1.0
 ): Promise<number[]> {
   const attention = getAttentionModule();
-  return new Promise((resolve, reject) => {
-    attention.computeHyperbolicAttentionAsync(
-      toFloat32Array(query),
-      toFloat32Arrays(keys),
-      toFloat32Arrays(values),
-      curvature,
-      (err: Error | null, result: Float32Array) => {
-        if (err) reject(err);
-        else resolve(fromFloat32Array(result));
-      }
-    );
-  });
+  const q = toFloat32Array(query);
+  const result = await attention.computeHyperbolicAttentionAsync(
+    q, toFloat32Arrays(keys), toFloat32Arrays(values), q.length, curvature
+  );
+  return fromFloat32Array(result);
 }
 
 // ============================================================================
@@ -719,18 +774,36 @@ export function computeHyperbolicAttentionAsync(
 // ============================================================================
 
 /**
- * Adam optimizer for attention training
+ * Adam optimizer for attention training.
+ *
+ * The native optimizer is sized to the parameter vector, so it is created on
+ * the first `step()` and every later step must pass the same length.
  */
 export class AdamOptimizer {
-  private inner: any;
+  private inner: any = null;
+  private paramCount = 0;
 
-  constructor(learningRate: number = 0.001, beta1: number = 0.9, beta2: number = 0.999) {
-    const attention = getAttentionModule();
-    this.inner = new attention.AdamOptimizer(learningRate, beta1, beta2);
+  constructor(
+    public readonly learningRate: number = 0.001,
+    public readonly beta1: number = 0.9,
+    public readonly beta2: number = 0.999
+  ) {
+    getAttentionModule();
   }
 
+  /** Returns the updated parameters; `params` itself is not modified. */
   step(gradients: number[] | Float32Array, params: number[] | Float32Array): number[] {
-    const result = this.inner.step(toFloat32Array(gradients), toFloat32Array(params));
+    if (gradients.length !== params.length) {
+      throw new Error(`AdamOptimizer.step: ${gradients.length} gradients for ${params.length} params`);
+    }
+    if (!this.inner) {
+      this.inner = getAttentionModule().AdamOptimizer.withBetas(params.length, this.learningRate, this.beta1, this.beta2);
+      this.paramCount = params.length;
+    } else if (params.length !== this.paramCount) {
+      throw new Error(`AdamOptimizer.step: expected ${this.paramCount} params, got ${params.length}`);
+    }
+    // The native step consumes its params buffer, so always hand it a copy.
+    const result = this.inner.step(new Float32Array(params), toFloat32Array(gradients));
     return fromFloat32Array(result);
   }
 }
@@ -745,26 +818,41 @@ export function infoNceLoss(
   temperature: number = 0.07
 ): number {
   const attention = getAttentionModule();
-  return attention.InfoNceLoss.compute(
+  return new attention.InfoNceLoss(temperature).compute(
     toFloat32Array(anchor),
     toFloat32Array(positive),
-    toFloat32Arrays(negatives),
-    temperature
+    toFloat32Arrays(negatives)
   );
 }
 
+/** Options for {@link mineHardNegatives}. */
+export interface MineHardNegativesOptions {
+  /** Positive example; defaults to the anchor. */
+  positive?: number[] | Float32Array;
+  strategy?: 'Random' | 'HardNegative' | 'SemiHard' | 'DistanceWeighted';
+}
+
 /**
- * Hard negative mining for contrastive learning
+ * Hard negative mining for contrastive learning. Returns the selected
+ * candidate vectors, hardest first.
  */
 export function mineHardNegatives(
   anchor: number[] | Float32Array,
   candidates: (number[] | Float32Array)[],
-  topK: number = 5
+  topK: number = 5,
+  options: MineHardNegativesOptions = {}
 ): number[][] {
   const attention = getAttentionModule();
-  const miner = new attention.HardNegativeMiner(topK);
-  const results = miner.mine(toFloat32Array(anchor), toFloat32Arrays(candidates));
-  return results.map((r: Float32Array) => fromFloat32Array(r));
+  const miner = new attention.HardNegativeMiner(options.strategy ?? 'HardNegative');
+  const a = toFloat32Array(anchor);
+  const pool = toFloat32Arrays(candidates);
+  const indices: number[] = miner.mine(
+    a,
+    options.positive ? toFloat32Array(options.positive) : a,
+    pool,
+    Math.min(topK, pool.length)
+  );
+  return indices.map(i => fromFloat32Array(pool[i]));
 }
 
 // ============================================================================
@@ -772,7 +860,7 @@ export function mineHardNegatives(
 // ============================================================================
 
 /**
- * Benchmark attention implementations
+ * Benchmark the native attention kernels, keyed by kernel name.
  */
 export async function benchmarkAttention(
   dim: number,
@@ -780,7 +868,12 @@ export async function benchmarkAttention(
   iterations: number = 100
 ): Promise<Record<string, { avgMs: number; minMs: number; maxMs: number }>> {
   const attention = getAttentionModule();
-  return attention.benchmarkAttention(dim, seqLen, iterations);
+  const out: Record<string, { avgMs: number; minMs: number; maxMs: number }> = {};
+  for (const type of ['ScaledDotProduct', 'Flash', 'Linear', 'Hyperbolic']) {
+    const r = await attention.benchmarkAttention(type, dim, seqLen, iterations);
+    out[r.name || type] = { avgMs: r.avgMs, minMs: r.minMs, maxMs: r.maxMs };
+  }
+  return out;
 }
 
 export default {

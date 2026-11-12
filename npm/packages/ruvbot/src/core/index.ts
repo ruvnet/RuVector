@@ -5,9 +5,9 @@
  * ChatEnhancer provides the ultimate chatbot experience with skills and memory.
  */
 
-export * from './agent';
-export * from './session';
-export * from './skill';
+export * from './agent/index.js';
+export * from './session/index.js';
+export * from './skill/index.js';
 
 // ChatEnhancer - The ultimate chatbot integration layer
 export {

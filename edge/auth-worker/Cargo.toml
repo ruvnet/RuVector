@@ -1,0 +1,37 @@
+[package]
+name = "ruvector-edge-auth-worker"
+description = "ruvector-edge-auth authorization-server Worker: federates login to auth.cognitum.one and mints resource-bound ES256 access tokens. Durable Object SQLite holds clients, codes, flows and refresh families."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+worker = { workspace = true }
+wasm-bindgen = { workspace = true }
+console_error_panic_hook = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+url = { workspace = true }
+p256 = { workspace = true }
+zeroize = { workspace = true }
+ruvector-edge-auth = { workspace = true }
+ruvector-edge-authz = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# RNG port backend (crypto.getRandomValues) for codes, tokens and flow state.
+getrandom = { workspace = true }
+
+[features]
+default = []
+dev-issuer = []
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+# Real SQLite (RETURNING, ON CONFLICT) behind the `SqlExec` port in native tests.
+rusqlite = { workspace = true }

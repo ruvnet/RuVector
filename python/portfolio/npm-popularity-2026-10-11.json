@@ -1,0 +1,965 @@
+{
+  "retrieved_at": "2026-10-11T18:12:18.311940+00:00",
+  "methodology": "Union of repository package.json names and npm registry search. Include ruvector and @ruvector/*; exclude platform-specific binary package variants. Rank npm downloads point last-month descending. Downloads are registry retrievals, not unique users. Registry searches fully paginated; pages after offset250 add no eligible names. HTTP429 responses retried against explicit 2026-09-11:2026-10-10 point endpoint. WASM distributions count as distinct npm packages; native platform binary variants excluded.",
+  "searches": [
+    {
+      "url": "https://registry.npmjs.org/-/v1/search?text=scope%3Aruvector&size=250",
+      "total": 0,
+      "returned": 0
+    },
+    {
+      "url": "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+      "total": 259,
+      "returned": 250
+    },
+    {
+      "url": "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250",
+      "total": 273,
+      "returned": 250
+    },
+    {
+      "url": "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250&from=250",
+      "total": 259,
+      "returned": 9
+    },
+    {
+      "url": "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250&from=250",
+      "total": 273,
+      "returned": 23
+    }
+  ],
+  "excluded_platform_packages": [
+    "@ruvector/attention-darwin-arm64",
+    "@ruvector/attention-darwin-x64",
+    "@ruvector/attention-linux-arm64-gnu",
+    "@ruvector/attention-linux-x64-gnu",
+    "@ruvector/attention-linux-x64-musl",
+    "@ruvector/attention-win32-arm64-msvc",
+    "@ruvector/attention-win32-x64-msvc",
+    "@ruvector/diskann-darwin-arm64",
+    "@ruvector/diskann-darwin-x64",
+    "@ruvector/diskann-linux-arm64-gnu",
+    "@ruvector/diskann-linux-x64-gnu",
+    "@ruvector/diskann-win32-x64-msvc",
+    "@ruvector/gnn-darwin-arm64",
+    "@ruvector/gnn-darwin-x64",
+    "@ruvector/gnn-linux-arm64-gnu",
+    "@ruvector/gnn-linux-arm64-musl",
+    "@ruvector/gnn-linux-x64-gnu",
+    "@ruvector/gnn-linux-x64-musl",
+    "@ruvector/gnn-win32-x64-msvc",
+    "@ruvector/graph-node-darwin-arm64",
+    "@ruvector/graph-node-darwin-x64",
+    "@ruvector/graph-node-linux-arm64-gnu",
+    "@ruvector/graph-node-linux-x64-gnu",
+    "@ruvector/graph-node-win32-x64-msvc",
+    "@ruvector/graph-transformer-darwin-arm64",
+    "@ruvector/graph-transformer-darwin-x64",
+    "@ruvector/graph-transformer-linux-arm64-gnu",
+    "@ruvector/graph-transformer-linux-arm64-musl",
+    "@ruvector/graph-transformer-linux-x64-gnu",
+    "@ruvector/graph-transformer-linux-x64-musl",
+    "@ruvector/graph-transformer-win32-x64-msvc",
+    "@ruvector/kge-darwin-arm64",
+    "@ruvector/kge-darwin-x64",
+    "@ruvector/kge-linux-arm64-gnu",
+    "@ruvector/kge-linux-x64-gnu",
+    "@ruvector/kge-win32-x64-msvc",
+    "@ruvector/node-darwin-arm64",
+    "@ruvector/node-darwin-x64",
+    "@ruvector/node-linux-arm64-gnu",
+    "@ruvector/node-linux-x64-gnu",
+    "@ruvector/node-win32-x64-msvc",
+    "@ruvector/router-darwin-arm64",
+    "@ruvector/router-darwin-x64",
+    "@ruvector/router-linux-arm64-gnu",
+    "@ruvector/router-linux-x64-gnu",
+    "@ruvector/router-win32-x64-msvc",
+    "@ruvector/ruvllm-darwin-arm64",
+    "@ruvector/ruvllm-darwin-x64",
+    "@ruvector/ruvllm-linux-arm64-gnu",
+    "@ruvector/ruvllm-linux-x64-gnu",
+    "@ruvector/ruvllm-win32-x64-msvc",
+    "@ruvector/rvf-node-darwin-arm64",
+    "@ruvector/rvf-node-darwin-x64",
+    "@ruvector/rvf-node-linux-arm64-gnu",
+    "@ruvector/rvf-node-linux-x64-gnu",
+    "@ruvector/rvf-node-win32-x64-msvc",
+    "@ruvector/sona-darwin-arm64",
+    "@ruvector/sona-darwin-x64",
+    "@ruvector/sona-linux-arm64-gnu",
+    "@ruvector/sona-linux-x64-gnu",
+    "@ruvector/sona-linux-x64-musl",
+    "@ruvector/sona-win32-arm64-msvc",
+    "@ruvector/sona-win32-x64-msvc",
+    "@ruvector/tiny-dancer-darwin-arm64",
+    "@ruvector/tiny-dancer-darwin-x64",
+    "@ruvector/tiny-dancer-linux-arm64-gnu",
+    "@ruvector/tiny-dancer-linux-arm64-musl",
+    "@ruvector/tiny-dancer-linux-x64-gnu",
+    "@ruvector/tiny-dancer-linux-x64-musl",
+    "@ruvector/tiny-dancer-win32-arm64-msvc",
+    "@ruvector/tiny-dancer-win32-x64-msvc",
+    "@ruvector/typesafe-darwin-arm64",
+    "@ruvector/typesafe-darwin-x64",
+    "@ruvector/typesafe-linux-arm64-gnu",
+    "@ruvector/typesafe-linux-x64-gnu",
+    "@ruvector/typesafe-win32-x64-msvc"
+  ],
+  "ranked": [
+    {
+      "downloads": 519297,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/ruvllm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/ruvllm",
+      "discovery_sources": [
+        "npm/packages/ruvllm/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 506811,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "ruvector",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/ruvector"
+    },
+    {
+      "downloads": 494402,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/rvf",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/rvf"
+    },
+    {
+      "downloads": 415506,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/graph-node",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/graph-node",
+      "discovery_sources": [
+        "npm/packages/graph-node/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 395416,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/sona",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/sona",
+      "discovery_sources": [
+        "npm/packages/sona/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 364417,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/attention",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/attention",
+      "discovery_sources": [
+        "crates/ruvector-attention-node/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 362362,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/router",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/router"
+    },
+    {
+      "downloads": 344076,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/gnn",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/gnn",
+      "discovery_sources": [
+        "crates/ruvector-gnn-node/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 341954,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/core",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/core",
+      "discovery_sources": [
+        "npm/core/package.json",
+        "npm/packages/core/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 328808,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/rvf-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/rvf-wasm"
+    },
+    {
+      "downloads": 321899,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/rvf-node",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/rvf-node"
+    },
+    {
+      "downloads": 318581,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/tiny-dancer",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/tiny-dancer",
+      "discovery_sources": [
+        "npm/packages/tiny-dancer/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 313672,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/rvf-solver",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/rvf-solver"
+    },
+    {
+      "downloads": 275890,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/graph-transformer",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/graph-transformer",
+      "discovery_sources": [
+        "crates/ruvector-graph-transformer-node/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 229785,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/edge-full",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/edge-full",
+      "discovery_sources": [
+        "examples/edge-full/pkg/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 209857,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/rabitq-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/rabitq-wasm"
+    },
+    {
+      "downloads": 27886,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/learning-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/learning-wasm",
+      "discovery_sources": [
+        "crates/ruvector-learning-wasm/pkg/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 18521,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/wasm"
+    },
+    {
+      "downloads": 12166,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/typesafe",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/typesafe",
+      "discovery_sources": [
+        "npm/packages/typesafe/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 9913,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/emergent-time",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/emergent-time",
+      "discovery_sources": [
+        "npm/packages/emergent-time/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 9331,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/diskann",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/diskann",
+      "discovery_sources": [
+        "npm/packages/diskann/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 6916,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/ruvllm-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/ruvllm-wasm",
+      "discovery_sources": [
+        "npm/packages/ruvllm-wasm/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 6780,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/rvagent-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/rvagent-wasm"
+    },
+    {
+      "downloads": 5037,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/rvlite",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/rvlite"
+    },
+    {
+      "downloads": 2923,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/pi-brain",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/pi-brain",
+      "discovery_sources": [
+        "npm/packages/pi-brain/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 2774,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/mincut-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/mincut-wasm",
+      "discovery_sources": [
+        "npm/packages/mincut-wasm/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 1736,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/graph-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/graph-wasm",
+      "discovery_sources": [
+        "npm/packages/graph-wasm/package.json",
+        "crates/ruvector-graph-wasm/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 661,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/rvforge",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/rvforge"
+    },
+    {
+      "downloads": 580,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/exotic-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/exotic-wasm",
+      "discovery_sources": [
+        "crates/ruvector-exotic-wasm/pkg/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 557,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/gnn-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/gnn-wasm",
+      "discovery_sources": [
+        "crates/ruvector-gnn-wasm/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 537,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/attention-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/attention-wasm",
+      "discovery_sources": [
+        "crates/ruvector-attention-wasm/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 422,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/kge",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/kge",
+      "discovery_sources": [
+        "npm/packages/kge/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 389,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/node",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/node",
+      "discovery_sources": [
+        "npm/packages/node/package.json",
+        "crates/ruvector-node/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 351,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/postgres-cli",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/postgres-cli",
+      "discovery_sources": [
+        "npm/packages/postgres-cli/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 332,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/rvf-mcp-server",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/rvf-mcp-server"
+    },
+    {
+      "downloads": 326,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/nervous-system-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/nervous-system-wasm",
+      "discovery_sources": [
+        "crates/ruvector-nervous-system-wasm/pkg/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 318,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/attention-unified-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/attention-unified-wasm",
+      "discovery_sources": [
+        "crates/ruvector-attention-unified-wasm/pkg/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 315,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/economy-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/economy-wasm",
+      "discovery_sources": [
+        "crates/ruvector-economy-wasm/pkg/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 258,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/server",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/server"
+    },
+    {
+      "downloads": 223,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/agentic-synth",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/agentic-synth",
+      "discovery_sources": [
+        "npm/packages/agentic-synth/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 161,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/edge-net",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/edge-net",
+      "discovery_sources": [
+        "examples/edge-net/pkg/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 147,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/cli",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/cli",
+      "discovery_sources": [
+        "npm/packages/cli/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 136,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/cnn",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/cnn",
+      "discovery_sources": [
+        "npm/packages/ruvector-cnn/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 115,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/edge",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/edge",
+      "discovery_sources": [
+        "examples/edge/pkg/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 99,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/rudag",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/rudag"
+    },
+    {
+      "downloads": 41,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/ruqu",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/ruqu",
+      "discovery_sources": [
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 41,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/rvdna",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/rvdna"
+    },
+    {
+      "downloads": 39,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/spiking-neural",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/spiking-neural",
+      "discovery_sources": [
+        "npm/packages/spiking-neural/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 33,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/ruqu-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/ruqu-wasm",
+      "discovery_sources": [
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 31,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/math-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/math-wasm",
+      "discovery_sources": [
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 29,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/agentic-synth-examples",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/agentic-synth-examples",
+      "discovery_sources": [
+        "npm/packages/agentic-synth-examples/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 28,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/burst-scaling",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/burst-scaling",
+      "discovery_sources": [
+        "npm/packages/burst-scaling/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 24,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/agentic-integration",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/agentic-integration",
+      "discovery_sources": [
+        "npm/packages/agentic-integration/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 24,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/graph-data-generator",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/graph-data-generator",
+      "discovery_sources": [
+        "npm/packages/graph-data-generator/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 24,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/ruvllm-cli",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/ruvllm-cli",
+      "discovery_sources": [
+        "npm/packages/ruvllm-cli/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 23,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/tiny-dancer-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/tiny-dancer-wasm",
+      "discovery_sources": [
+        "crates/ruvector-tiny-dancer-wasm/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 22,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/acorn-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/acorn-wasm",
+      "discovery_sources": [
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 22,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/wasm-unified",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/wasm-unified"
+    },
+    {
+      "downloads": 21,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/replication",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/replication"
+    },
+    {
+      "downloads": 16,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/ospipe",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/ospipe",
+      "discovery_sources": [
+        "npm/packages/ospipe/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 15,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/cluster",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/cluster",
+      "discovery_sources": [
+        "crates/ruvector-cluster/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 13,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/router-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/router-wasm"
+    },
+    {
+      "downloads": 12,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/ospipe-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/ospipe-wasm",
+      "discovery_sources": [
+        "npm/packages/ospipe-wasm/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 11,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/scipix",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/scipix"
+    },
+    {
+      "downloads": 10,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/neural-trader-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/neural-trader-wasm",
+      "discovery_sources": [
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 8,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/raft",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/raft"
+    },
+    {
+      "downloads": 7,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/ruvector-consciousness-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/ruvector-consciousness-wasm",
+      "discovery_sources": [
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "package": "@ruvector/benchmarks",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/benchmarks",
+      "error": "HTTP Error 404: Not Found"
+    },
+    {
+      "package": "@ruvector/delta-behavior",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/delta-behavior",
+      "error": "HTTP Error 404: Not Found"
+    },
+    {
+      "package": "@ruvector/edge-net-dashboard",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/edge-net-dashboard",
+      "error": "HTTP Error 404: Not Found"
+    },
+    {
+      "package": "@ruvector/edge-net-relay",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/edge-net-relay",
+      "error": "HTTP Error 404: Not Found"
+    },
+    {
+      "package": "@ruvector/edge-net-tests",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/edge-net-tests",
+      "error": "HTTP Error 404: Not Found"
+    },
+    {
+      "package": "@ruvector/ios-wasm-types",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/ios-wasm-types",
+      "error": "HTTP Error 404: Not Found"
+    },
+    {
+      "package": "@ruvector/solver",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/solver",
+      "initial_error": "HTTP Error 429: Too Many Requests",
+      "error": "HTTP Error 404: Not Found"
+    },
+    {
+      "package": "@ruvector/sota-metaharness",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/sota-metaharness",
+      "error": "HTTP Error 404: Not Found"
+    },
+    {
+      "package": "@ruvector/workspace",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/workspace",
+      "initial_error": "HTTP Error 429: Too Many Requests",
+      "error": "HTTP Error 404: Not Found"
+    }
+  ],
+  "completed_at": "2026-10-11T18:14:13.270212+00:00",
+  "top10": [
+    {
+      "downloads": 519297,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/ruvllm",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/ruvllm",
+      "discovery_sources": [
+        "npm/packages/ruvllm/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 506811,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "ruvector",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/ruvector"
+    },
+    {
+      "downloads": 494402,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/rvf",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/rvf"
+    },
+    {
+      "downloads": 415506,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/graph-node",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/graph-node",
+      "discovery_sources": [
+        "npm/packages/graph-node/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 395416,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/sona",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/sona",
+      "discovery_sources": [
+        "npm/packages/sona/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 364417,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/attention",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/attention",
+      "discovery_sources": [
+        "crates/ruvector-attention-node/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 362362,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/router",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/router"
+    },
+    {
+      "downloads": 344076,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/gnn",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/gnn",
+      "discovery_sources": [
+        "crates/ruvector-gnn-node/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 341954,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/core",
+      "source_url": "https://api.npmjs.org/downloads/point/last-month/@ruvector/core",
+      "discovery_sources": [
+        "npm/core/package.json",
+        "npm/packages/core/package.json",
+        "https://registry.npmjs.org/-/v1/search?text=%40ruvector&size=250",
+        "https://registry.npmjs.org/-/v1/search?text=ruvector&size=250"
+      ]
+    },
+    {
+      "downloads": 328808,
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "package": "@ruvector/rvf-wasm",
+      "source_url": "https://api.npmjs.org/downloads/point/2026-09-11:2026-10-10/@ruvector/rvf-wasm"
+    }
+  ]
+}

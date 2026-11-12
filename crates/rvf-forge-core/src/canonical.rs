@@ -64,14 +64,14 @@ pub fn hex_lower(bytes: &[u8]) -> String {
 ///
 /// [`ForgeError::Manifest`] if the input has odd length or a non-hex digit.
 pub fn hex_decode(s: &str) -> Result<Vec<u8>> {
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return Err(ForgeError::Manifest {
             detail: format!("hex string has odd length {}", s.len()),
         });
     }
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(s.len() / 2);
-    for pair in bytes.chunks_exact(2) {
+    for pair in bytes.as_chunks::<2>().0 {
         let hi = hex_nibble(pair[0])?;
         let lo = hex_nibble(pair[1])?;
         out.push((hi << 4) | lo);

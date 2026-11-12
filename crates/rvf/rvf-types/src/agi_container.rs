@@ -568,6 +568,7 @@ impl ContainerSegments {
 
 /// Error type for AGI container operations.
 #[derive(Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ContainerError {
     /// A required segment is missing.
     MissingSegment(&'static str),

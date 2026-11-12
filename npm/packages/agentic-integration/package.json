@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/agentic-integration",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "description": "Distributed agent coordination for ruvector with claude-flow integration",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -24,13 +24,16 @@
     "swarm:status": "node dist/tools/swarm-status.js"
   },
   "keywords": [
-    "ruvector",
     "distributed-systems",
-    "agent-coordination",
+    "agent-orchestration",
+    "agentic-ai",
     "vector-search",
-    "claude-flow",
     "swarm",
-    "mesh-coordination"
+    "claude",
+    "ruvector",
+    "ruvnet",
+    "claude-flow",
+    "ai-agents"
   ],
   "author": "RuVector Team",
   "license": "MIT",
@@ -87,14 +90,14 @@
     "LICENSE"
   ],
   "repository": {
+    "directory": "npm/packages/agentic-integration",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
-    "directory": "src/agentic-integration"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },
-  "homepage": "https://github.com/ruvnet/ruvector#readme",
+  "homepage": "https://ruv.io",
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",

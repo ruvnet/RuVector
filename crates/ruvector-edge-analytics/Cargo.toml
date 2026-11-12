@@ -1,0 +1,35 @@
+[package]
+name = "ruvector-edge-analytics"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "ruvector edge rv-mincut core (ADR-351 §3, §10, M4): tenant graphs persisted as a versioned, checksummed, chunked edge list, rebuilt through ruvector-mincut's MinCutBuilder, with exact min-cut queries (approximate requests answered exactly) under vertex/edge limits and a work/memory budget (budget_exceeded -> 413) and an async job descriptor for large graphs. Pure Rust, wasm32 clean."
+
+[dependencies]
+# `wasm` is added only for wasm32 (below): a target-specific feature is not
+# unified into native builds under resolver 2, so native workspace builds of
+# the ~20 other ruvector-mincut dependents keep the plain native crate.
+ruvector-mincut = { path = "../ruvector-mincut", default-features = false, features = ["exact", "approximate"] }
+ruvector-edge-store = { path = "../ruvector-edge-store" }
+# Only for the runtime parallelism probe (`runtime::worker_threads`); the
+# min-cut paths used here never call rayon (see src/runtime.rs).
+rayon = { workspace = true }
+sha2 = "0.10"
+hex = "0.4"
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+# ruvector-mincut depends on rand 0.8 -> getrandom 0.2, which refuses to
+# compile for wasm32-unknown-unknown without its `js` backend.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+ruvector-mincut = { path = "../ruvector-mincut", default-features = false, features = ["wasm", "exact", "approximate"] }
+getrandom = { version = "0.2", features = ["js"] }
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[dev-dependencies]
+serde_json = { workspace = true }

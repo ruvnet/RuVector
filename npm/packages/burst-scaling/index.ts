@@ -8,11 +8,9 @@
 import { BurstPredictor, EventCalendar, PredictedBurst } from './burst-predictor';
 import { ReactiveScaler, ScalingMetrics, ScalingAction } from './reactive-scaler';
 import { CapacityManager, CapacityPlan } from './capacity-manager';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { notifyClaudeFlow } from './claude-flow-runner';
 import * as cron from 'node-cron';
 
-const execAsync = promisify(exec);
 
 /**
  * Main Burst Scaling Orchestrator
@@ -228,8 +226,8 @@ export class BurstScalingSystem {
     }
 
     // Notify via hooks
-    await execAsync(
-      `npx claude-flow@alpha hooks notify --message "PRE-WARM: ${burst.eventName} - scaling to ${burst.expectedMultiplier}x capacity"`
+    await notifyClaudeFlow(
+      `PRE-WARM: ${burst.eventName} - scaling to ${burst.expectedMultiplier}x capacity`
     );
   }
 
@@ -273,8 +271,8 @@ export class BurstScalingSystem {
     this.scaleCloudRunService(action.region, action.toInstances);
 
     // Notify via hooks
-    await execAsync(
-      `npx claude-flow@alpha hooks notify --message "SCALING: ${action.region} ${action.action} to ${action.toInstances} instances (${action.reason})"`
+    await notifyClaudeFlow(
+      `SCALING: ${action.region} ${action.action} to ${action.toInstances} instances (${action.reason})`
     );
   }
 
@@ -283,12 +281,13 @@ export class BurstScalingSystem {
    */
   private scaleCloudRunService(region: string, instances: number): void {
     try {
-      // In production, use GCP API:
+      // In production, use the GCP API, or execFile with an argv array
+      // (never a shell string — region names are caller-supplied):
       /*
-      const command = `gcloud run services update ruvector-${region} \
-        --region=${region} \
-        --max-instances=${instances}`;
-      await execAsync(command);
+      await execFileAsync('gcloud', [
+        'run', 'services', 'update', `ruvector-${region}`,
+        `--region=${region}`, `--max-instances=${instances}`,
+      ]);
       */
 
       console.log(`   ✅ Scaled ruvector-${region} to ${instances} instances`);
@@ -363,8 +362,8 @@ export class BurstScalingSystem {
     console.log('\n=== END REPORT ===\n');
 
     // Notify via hooks
-    await execAsync(
-      `npx claude-flow@alpha hooks notify --message "DAILY REPORT: ${status.totalInstances} instances, $${status.totalCost.toFixed(2)}/hr, ${(status.budgetUsage * 100).toFixed(1)}% budget used"`
+    await notifyClaudeFlow(
+      `DAILY REPORT: ${status.totalInstances} instances, $${status.totalCost.toFixed(2)}/hr, ${(status.budgetUsage * 100).toFixed(1)}% budget used`
     );
   }
 

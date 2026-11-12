@@ -231,6 +231,15 @@ tests and wiring only. Production accuracy needs the ONNX embedder:
 const ts = createTypesafe({ embedder: { kind: 'onnx', modelDir: './models/bge', manifest: './models/manifest.json' } });
 ```
 
+On WASM, TypeSafe reads the pinned model and tokenizer from `modelDir` and
+passes their bytes to `Engine.fromBytes`. If a manifest contains several
+models and `modelDir` does not match an entry name, select one explicitly with
+`embedder.model` (or `--model <name>` in the CLI). The model files must already
+exist locally; TypeSafe does not download them at runtime. The WASM artifact
+must be built with the `wasm-onnx` feature for ONNX inference.
+The current WASM `fromBytes` backend does not support `engine` tuning options;
+it rejects them rather than silently ignoring them.
+
 Creating an engine on the `hash` embedder emits one process warning
 (`TYPESAFE_HASH_EMBEDDER`) per process, so a quick start never silently ships
 test-double answers. Tests can pass `{ warnOnHashEmbedder: false }` to silence it.
@@ -614,3 +623,18 @@ Earlier `benchmark-*.json` files retain historical optimization evidence;
 ## License
 
 MIT
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for embeddings, WASM, N-API.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@claude-flow/cli`](https://www.npmjs.com/package/@claude-flow/cli) (peer)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

@@ -215,16 +215,15 @@ describe('ContextCache', () => {
       expect(entry.accessCount).toBe(2);
     });
 
-    it('should update last access time', () => {
+    it('should update last access time', async () => {
       cache.set('key1', 'value1');
       const initialAccess = cache.cache.get('key1').lastAccess;
 
-      // Small delay
-      setTimeout(() => {
-        cache.get('key1');
-        const laterAccess = cache.cache.get('key1').lastAccess;
-        expect(laterAccess).toBeGreaterThan(initialAccess);
-      }, 10);
+      // Small delay (awaited: an un-awaited timer fires after the test ends)
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      cache.get('key1');
+      const laterAccess = cache.cache.get('key1').lastAccess;
+      expect(laterAccess).toBeGreaterThan(initialAccess);
     });
   });
 

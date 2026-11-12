@@ -1,0 +1,1019 @@
+{
+  "objective": "A family of multi-tenant ruvector services (rv-vector, rv-quant, rv-graph, rv-mincut, rv-registry, rv-mcp) on Cloudflare Workers + Durable Objects behind the ruvector-edge-auth edge authorization server, which federates login to auth.cognitum.one and mints its own ES256 access tokens with aud = the exact canonical resource URL. Cloudflare account 501c77f558c68152352b8ddfade9b854, workers.dev subdomain cognitum-consulting-mail, no custom domains. Rust/wasm32 (workers-rs) throughout; no Cloudflare resource or OAuth-provider change without a separate, explicit gate approval.",
+  "created": "2026-09-28",
+  "adr": "docs/adr/ADR-351-ruvector-edge-multitenant-services.md",
+  "adr_status": "Proposed (revised 2026-09-28; reconciled 2026-09-29 with the edge-AS decision; reconciled with shipped code at 52e2a5c55 and reviewed in the finalize pass, 2026-09-29) — moves to Accepted only at M6",
+  "branch": "feat/ruvector-edge-services",
+  "worktree": "/home/ruvultra/projects/ruvector-edge",
+  "repo": "ruvector-edge (off origin/main of ruvector)",
+  "targetDate": null,
+  "currentMilestone": "M6 (Workers Paid done 2026-09-29, gateway 1460504f; next: human-login G1 token drills and the live Paid drills)",
+  "baseline_state": {
+    "as_of": "2026-09-29",
+    "adr_written": true,
+    "adr_merged": false,
+    "cloudflare_resources_created": true,
+    "oauth_provider_changed": false,
+    "scaffolded_crates": [
+      "crates/ruvector-edge-auth (jws, jwks, claims, audience, resource, subject (edge_subject), scopes, prm, verifier, clock, error — RS verification core; M0 adds trust_root)",
+      "crates/ruvector-edge-authz (client (DCR), authorize, pkce, code (replay tombstones), federation, token (RFC 9068 mint with upstream_iss + edge sub), grant (TokenEndpoint), params, refresh, revoke, metadata, resource, ports, error — edge AS core)",
+      "crates/ruvector-edge-tenancy (context (from_verified(claims, role, surface), scope ∩ role), names (do_name by collection_uid), uid (v2, nonce), shard, meta, membership, lease, validate, quota, problem, error)"
+    ],
+    "edge_dir": "edge/ standalone workspace (worker =0.8.5, wasm-bindgen =0.2.125; rvlite pinned by rev c6ece785, RuVector#1084): edge/auth-worker (Worker ruvector-edge-auth, DO AuthStore) and edge/gateway (Worker ruvector-edge-gateway: REST /v1, /v1/ops, /v1/mcp, M3 snapshots/exports/uploads/imports/jobs, M4 graphs/cypher/mincut, M5 rvf registry; DOs VectorShard, TenantLedger, QuantShard, GraphStore, AnalyticsJob, RegistryRoot, RegistryScope)",
+    "note": "ADR §8 deltas and scope vocabulary, status 2026-09-29: alignment pass committed at 94a4ce1a1 (deployed at M0.5); per-resource-vocabulary follow-up committed with this note and ruvector-edge-auth redeployed from it (auth version 98e93c52, gateway unchanged). CLOSED: (1) scope vocabulary ruvector:read/write/admin/publish + offline_access (SCOPE_TABLE v3 incl. ruvector:publish; Admin and PublishPublic never on the MCP surface; Owner role ceiling includes Admin; per-document PRM scopes; 401 challenge scope \"ruvector:read offline_access\"); (4) per-resource grant rule requested ∩ client ceiling ∩ resource scopes, now with PER-RESOURCE VOCABULARIES: each RESOURCE_ALLOWLIST entry draws on exactly one family plus offline_access (authz resource::Vocabulary; unknown or mixed entries fail the load) and the URL -> family binding is COMPILED (resource::RESOURCE_VOCABULARIES; an uncompiled URL, ruvector:* for team.ruv.io or team:* for /v1 fails the load, so the var can only narrow) — gateway /v1 and /v1/mcp ruvector:* (admin only for /v1), https://team.ruv.io/mcp team:read team:write team:run offline_access (default grant team:read + offline_access); an unknown scope is invalid_scope; a scope of another resource's family or a same-family scope outside the ceiling or the resource is dropped (Q16(b) closed: an AS-metadata-union request gets its resource's share); nothing but offline_access is invalid_scope; scopes_supported (RFC 8414 + DCR) = the union (ruvector:read/write/admin, team:read/write/run, offline_access); DCR default ceiling compiled DEFAULT_CLIENT_SCOPE = ruvector:read ruvector:write offline_access, explicit registrations keep the union of the families requested (team:* only when registered); /authorize default grant = the resource's first scope + offline_access; omitted grant_types -> both, refresh follows registered grant_types not offline_access and may only narrow (never crosses families), client_name ASCII-only; the M1 exchange maps team:read -> ruvector:read, team:write -> ruvector:write, team:run -> nothing (ADR §5.6, §16.1; exchange grant not yet coded; the map is compiled as resource::TEAM_EXCHANGE_MAP and the consent page discloses it for every team:read/team:write grant on team.ruv.io, shipped in the same release as the team:* allowlist, so no team:* family predates the disclosure); (6) gateway trust root compiled (edge/gateway/src/trust_root.rs; vars only under dev-issuer; contradicting var -> 503 trust_root_mismatch; only UPSTREAM_FIRST_PARTY stays a var), edge lifetime cap 900 s, ACCEPTED_UPSTREAM_KIDS on both Workers (empty until G1); gateway fetches the edge JWKS only via the EDGE_AUTH Service Binding (no public fallback, 1042). Also: AccessTokenClaims carry act (exchanged only); TenantContext keys tenant_key on the token upstream_iss claim (§16.2); the gateway never accepts the team.ruv.io aud (401 audience mismatch, tested with team:* scopes); consent page discloses 'stays signed in for up to 90 days' whenever the client registered the refresh grant; prm::step_up_scope(capability) builds the 403 challenge scope (wiring waits on the role source, open (1)); /authorize answers temporarily_unavailable with a static pending description while UPSTREAM_CLIENT_ID/ACCEPTED_UPSTREAM_KIDS are empty (G1, console#605). Earlier: (2) identity-only UPSTREAM_SCOPES, (5) PRM per resource + bare path 404 + Expose-Headers, (7) consent verified marker + upstream refresh revoke, (9) env -u RUSTFLAGS build; (10) every aud mismatch (other gateway resource, adapter resource, array) is 401 invalid_token with error_description=\"audience mismatch\" + this route's resource_metadata. LIVE: ruvector-edge-auth redeployed 2026-09-29 (version 98e93c52-8b29-409a-ac4a-d393369b2e4a, deployment 8bd3309f-504f-4479-b69b-479113218635) from the per-resource-vocabulary commit: scopes_supported [ruvector:read, ruvector:write, ruvector:admin, offline_access, team:read, team:write, team:run]; team.ruv.io lists team:read team:write team:run offline_access; the gateway was not redeployed (only its tests changed). STILL OPEN: (1) RouteSurface::Ops and role column in ROUTE_TABLE; (3) AuthStore subjects table (dcr_rate and redeemed_codes exist); (4) localhost loopback redirects; (6) auth-worker ISSUER/UPSTREAM_* still [vars] (not compiled); (8) version pins 0.8.5/0.2.125 recorded; (11) REFRESH_REUSE_GRACE_SECS; Q16(a) connectors on team.ruv.io (default registrations lack team:*); M1: token-exchange grant with the team exchange map, private_key_jwt adapter clients.",
+    "cloudflare_resources": "as of gateway a5cb208b / auth 98e93c52: Workers ruvector-edge-auth (DO AuthStore, migration v1; Rate Limiting DCR_RATE_LIMITER 35101, AUTHZ_RATE_LIMITER 35102; secret EDGE_AUTH_SIGNING_JWK) and ruvector-edge-gateway (EDGE_AUTH Service Binding; DOs VectorShard, TenantLedger, QuantShard, GraphStore, AnalyticsJob, RegistryRoot, RegistryScope via migrations v1, v2-registry, v-m4-quant-graph; 8 Rate Limiting bindings; R2 EDGE_DATA -> ruvector-edge-data; Queues ruvector-edge-ingest(+dlq), ruvector-edge-audit(+dlq); Workers AI AI) on workers.dev only; no routes, custom domains, KV or D1. IP_HASH_SALT and DENY_GLOBAL not set. Account on Workers Paid since 2026-09-29 (gateway cpu_ms = 30000; gateway version 1460504f)."
+  },
+  "gates_registry": {
+    "G1": "Register the edge AS as an upstream client at auth.cognitum.one via public DCR (authorised by rUv 2026-09-29): identity scopes only (openid profile email), redirect https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev/callback. Precondition [V at console ce9ddca]: that redirect is not on the DCR allowlist, so G1 includes one exact ALLOWED_EXACT_REDIRECTS line (console review) or a hand-seeded client row — earliest M0.5",
+    "G2": "Cloudflare resources in account 501c77f5…: Workers ruvector-edge-auth + ruvector-edge-gateway on workers.dev (gateway -> auth EDGE_AUTH Service Binding), DO namespaces AuthStore (M0.5), VectorShard/TenantLedger (M1), Rate Limiting, secrets EDGE_AUTH_SIGNING_JWK/IP_HASH_SALT/DENY_GLOBAL; Workers Paid; wrangler OAuth for operator deploys, scoped token for CI — earliest M0.5",
+    "G3": "R2 ruvector-edge-data, D1 ruvector-edge-control, Queues (jobs+DLQ, audit), Workers AI binding — required by M3",
+    "G4": "Upstream crate PRs: (a) rvf-index DistanceOracle/CSR/streaming/simd128 [G4a, needed M2b], (b) rvlite-core split/browser feature [G4b], (c) ruvector-rabitq persist v2 [G4c] — required by M2b, M4",
+    "G5": "Team tenancy only: upstream org selector and/or org-role claim (console repo). Former G5a (web client), G5b (RFC 8707 upstream) and G5c (ruvector:* upstream scopes) are withdrawn — the edge AS provides them — required by M6",
+    "G6": "Production hostname: zone/delegation (api.cognitum.one is not in this account) or a separate Cloudflare account; changes the edge issuer and every audience — required by M6"
+  },
+  "milestones": [
+    {
+      "id": "M0",
+      "name": "Cores including authz (no deploy, no Cloudflare or provider changes)",
+      "status": "deployed_pending_G1",
+      "gated_on": null,
+      "criteria": "ruvector-edge-auth, ruvector-edge-authz and ruvector-edge-tenancy implemented per ADR §4-§5 and every §8 working-tree delta closed (M1-marked items excepted); native tests pass (minted-token golden test with the exact §5.2 claim set, refresh grace and reuse detection, code-replay revocation, flow-cookie binding, §5.3 scope grant rule, 401 on aud mismatch, upstream-mode ID-token and typ=inference cases, trust-root mismatch on both Workers); route-table gap test passes; both Workers build for wasm32 with env -u RUSTFLAGS; every file under 500 lines; JWS/JWKS/DCR/token-form/ResourceUrl fuzzers run 10 min with no panic.",
+      "completed": "2026-09-29",
+      "commit": "94a4ce1a1",
+      "evidence": "Root crates 285/0 (auth 97, authz 112, tenancy 76); edge workspace 90/0 (auth-worker 63, gateway 27), gateway --features dev-issuer 27/0; fmt + clippy -D warnings clean (native and wasm32 edge); wasm32 cargo check clean with env -u RUSTFLAGS; wrangler deploy --dry-run exit 0 for both Workers; no file >= 500 lines.",
+      "criteria_exceptions": [
+        "Fuzz criterion met 2026-09-29 at db5820427 (nightly 1.100.0 8925ea358, env -u RUSTFLAGS, -max_total_time=600 -rss_limit_mb=2048, parallel, exit 0, no crash, no artifacts): jws_compact 687,634 runs (cov 1603), jwks_parse 45,781,391 (cov 2487), resource_url 49,202,815 (cov 672), dcr_json 6,050,139 (cov 4210), token_form 11,355,928 (cov 1477). Status deployed_pending_G1 (was deployed_partial; done before the finalize rollback): every M0 criterion is met natively, and M0's live counterpart is M0.5, pending G1.",
+        "Caveat, not an unmet criterion: the M0 route-table gap test guards ROUTE_TABLE, which the runtime does not consult (ADR Shipped-vs-designed #12)."
+      ]
+    },
+    {
+      "id": "M0.5",
+      "name": "Deploy ruvector-edge-auth + gateway to workers.dev: upstream DCR, signing key as wrangler secret, live discovery + login round trip",
+      "status": "deployed_pending_G1",
+      "gated_on": [
+        "G1",
+        "G2"
+      ],
+      "criteria": "Live: AS metadata, JWKS and both PRM documents (/v1, /v1/mcp) name the edge issuer, bare-origin PRM 404; POST /v1/mcp without a token returns the 401 challenge with the /v1/mcp resource_metadata; a browser user completes DCR -> consent -> upstream login -> callback -> token and GET /v1/me returns the edge sub and tenant_key; the token carries exactly the §5.2 claims; it is refused by the gateway's other resource (401 invalid_token + resource_metadata) and at api.cognitum.one/v1/mcp; replayed code, replayed state and mismatched flow cookie refused; refresh rotates, a concurrent refresh inside the 30 s grace does not revoke, reuse after it revokes the family, /revoke works; Claude.ai, ChatGPT, Claude Code (http://localhost) and MCP Inspector complete discovery -> DCR -> consent -> token for the /v1/mcp audience with a refresh token; no upstream token in storage or logs; M0.5 [U]s resolved (upstream iss parameter, connector scope/grant_types requests and step-up behaviour, DCR limits).",
+      "blocked_on": "G1 (upstream client registration at auth.cognitum.one, console#605): login round trip, token mint, /v1/me with a real token, refresh/revoke and connector checks cannot run until UPSTREAM_CLIENT_ID + ACCEPTED_UPSTREAM_KIDS are set",
+      "deployment": {
+        "date": "2026-09-29",
+        "source_commit": "94a4ce1a1",
+        "account": "501c77f558c68152352b8ddfade9b854",
+        "auth_url": "https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev",
+        "gateway_url": "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev",
+        "signing_kid": "zEJuF9kW0cfGGwKeoDbPD8PCObKlOMlaXGwZQuoJBiM",
+        "auth_versions": {
+          "upload": "7c6b0a01-cb7a-4aa0-b323-d7339e108df0 (deployment 89e2dd67-1d4c-42ac-a5e1-ecd1b22b60a4)",
+          "secret": "a4afbec1-edd5-4968-a9f7-b64159ec24dd (deployment c852875a-e384-44c4-9efd-82549b42ef8e, live)"
+        },
+        "gateway_versions": {
+          "upload": "4a3d72ce-1b9e-4b81-8cb5-b7d464ea81eb (deployment dc0edf80-b221-4477-b99c-2b1faf546e1e, live)"
+        },
+        "bundle": "auth 852.51 KiB / 287.04 KiB gzip; gateway 605.26 KiB / 210.27 KiB gzip; startup 4 ms each",
+        "auth_redeploys": [
+          {
+            "date": "2026-09-29",
+            "source": "commit feat(edge): per-resource scope vocabularies (team.ruv.io team:*), JWS/JWKS fuzzing, ADR-351 update (parent 866c70b01)",
+            "version": "98e93c52-8b29-409a-ac4a-d393369b2e4a (deployment 8bd3309f-504f-4479-b69b-479113218635, live)",
+            "bundle": "855.28 KiB / 288.08 KiB gzip; startup 4 ms",
+            "scope": "ruvector-edge-auth only; secrets not re-set; gateway not redeployed (its source and deps unchanged, only auth_tests.rs)"
+          }
+        ]
+      },
+      "verification": [
+        "GET auth /.well-known/oauth-authorization-server -> 200; issuer exact https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev; code_challenge_methods_supported [S256]; authorize/token/register/revoke/jwks endpoints on the issuer; scopes_supported [ruvector:read, ruvector:write, ruvector:admin, offline_access]; token_endpoint_auth_methods_supported [none]; authorization_response_iss_parameter_supported true",
+        "GET auth /.well-known/jwks.json -> 200; one EC P-256 key, alg ES256, use sig, kid = locally computed RFC 7638 thumbprint",
+        "POST auth /register (public client, redirect http://127.0.0.1:53682/callback) -> 201; default scope ruvector:read ruvector:write offline_access",
+        "GET auth /authorize for that client (resource /v1/mcp, S256) -> 302 to the redirect with error=temporarily_unavailable, the static pending description, state and iss (G1 pending, expected)",
+        "GET gateway /v1/health -> 200 {\"ok\":true}",
+        "GET gateway /.well-known/oauth-protected-resource/v1 and /v1/mcp -> 200; resource exact; authorization_servers [issuer]; /v1/mcp omits ruvector:admin",
+        "GET gateway /.well-known/oauth-protected-resource (bare origin) -> 404",
+        "GET gateway /v1/me without token -> 401, WWW-Authenticate Bearer resource_metadata=.../oauth-protected-resource/v1, scope=\"ruvector:read offline_access\"",
+        "POST gateway /v1/mcp without token -> 401 with resource_metadata=.../oauth-protected-resource/v1/mcp",
+        "GET gateway /v1/me with a garbage token -> 401 error=invalid_token",
+        "GET gateway /v1/me with a well-formed JWT using the live kid and a random signature -> 401 invalid_token (not 503 jwks_unavailable): the edge JWKS is reachable through the EDGE_AUTH Service Binding",
+        "cognitum-consultant-email-staging-* (7 scripts): modified_on identical before and after the deploy; both ruvector-edge-* scripts have no custom domains or routes",
+        "2026-09-29 auth redeploy 98e93c52: GET /.well-known/oauth-authorization-server -> scopes_supported [ruvector:read, ruvector:write, ruvector:admin, offline_access, team:read, team:write, team:run]; issuer unchanged",
+        "2026-09-29 auth redeploy: JWKS 200, one ES256 key, kid zEJuF9kW0cfGGwKeoDbPD8PCObKlOMlaXGwZQuoJBiM (unchanged)",
+        "2026-09-29 auth redeploy: POST /register scope \"team:read team:write offline_access\" -> 201, scope echoed; scope \"team:admin\" -> 400 invalid_client_metadata; /authorize resource=https://team.ruv.io/mcp scope=team:read -> 302 temporarily_unavailable (G1 pending, expected)",
+        "2026-09-29 auth redeploy: gateway /v1/me and POST /v1/mcp without token -> 401 with their resource_metadata challenges; garbage token -> 401; /v1/health 200; PRM /v1/mcp scopes [ruvector:read, ruvector:write, offline_access]"
+      ]
+    },
+    {
+      "id": "M1",
+      "name": "rv-vector MVP, exact flat scan, connectors end to end",
+      "status": "deployed_pending_G1",
+      "gated_on": [
+        "G1 (real user tokens: login round trip)",
+        "G2 (DO namespaces, exercised 2026-09-29)"
+      ],
+      "criteria": "Locally and live: login -> claim -> create -> upsert 1k x 384 -> exact top-10 equals native brute force; tenant B gets 404 on tenant A's names; non-member gets 403; no upsert without ruvector:write, even as owner; foreign-iss, wrong-aud, upstream (mode off) and ID tokens rejected; 413 at the shard cap, 429 at the rate limit; four 12 MB shards stay resident and a fifth evicts, not crashes; instantiate < 600 ms and lazy-load p95 < 1 s; Claude.ai and ChatGPT connectors run vector_query, step up to ruvector:write on consent (HTTP 403 insufficient_scope challenge) and run a dry_run vector_upsert; /v1/ops accepts only aud = …/v1 tokens obtained by the RFC 8693 exchange grant (confidential private_key_jwt adapter clients, act claim audited; an adapter-audience token gets 401), refuses a mismatched target or tenant_key and never applies an op_id twice.",
+      "deployment": {
+        "date": "2026-09-29",
+        "source_commit": "96aeb49016ab4d22b9147a2ed5c03ec3b2111de0",
+        "account": "501c77f558c68152352b8ddfade9b854",
+        "auth": "ruvector-edge-auth version 61bf970a-f44a-481a-bdfd-855f2e73661d (deployment ab478379-ae57-428f-80c4-09d0dd365292, 100%); 904.27 KiB / 304.99 KiB gzip; startup 3 ms; CONFIDENTIAL_CLIENTS empty (no adapter registered yet); secrets not re-set",
+        "gateway": "ruvector-edge-gateway version fdcce770-980e-410c-84cd-b672e6a0d080 (deployment 9da0e59b-ca5d-4b5f-950e-6e379db0f4bd, 100%); 1338.14 KiB / 409.88 KiB gzip; startup 5 ms; migration v1 applied (new_sqlite_classes TenantLedger 5a425ce4b1374b518551c3c4256656dc, VectorShard 9624b70c618d42b0879c3adb1b48cba0, both SQLite); bindings TENANT_LEDGER, VECTOR_SHARD, EDGE_AUTH",
+        "order": "auth first, then gateway"
+      },
+      "evidence": {
+        "tests": "Root crates 380/0 (auth 98, authz 141, tenancy + store incl. idem_reserve_and_audit 4 new); edge workspace 127/0 (auth-worker 70, gateway 57); gateway --features dev-issuer 57/0; cargo fmt --check clean (root edge crates + edge workspace); clippy -D warnings clean native (--all-targets, also --features dev-issuer) and wasm32-unknown-unknown (env -u RUSTFLAGS); wrangler deploy --dry-run exit 0 for both Workers; no .rs file >= 500 lines (largest 488).",
+        "review_fixes_in_source_commit": [
+          "Body cap enforced while streaming (api::read_capped): chunked/undeclared bodies stop at 1 MiB instead of buffering whole; declared Content-Length still refused pre-auth (413)",
+          "Quota admission (ops + base work units) before any shard fan-out in query, fetch, collection_get, upsert Plan (dry runs included) and dry-run delete; extra scan work units charged after, and on budget_exceeded for scans already done",
+          "REST Idempotency-Key honoured on create/upsert/delete (<= 255 visible ASCII bytes, 400 otherwise): reserve -> execute -> store '<status> <json>' or release; namespaced rest:<key>, bound to route + raw body; mismatch 409 op_replayed; dry runs and reads ignore it",
+          "op_id reservation: TenantLedger::idem_reserve (lookup + pending row in one DO turn, IDEM_PENDING_TTL_SECS 120), idem_release, idem_store clears an unremembered reservation; concurrent twin -> 409 conflict retry_after_s 1",
+          "Confidential registry refuses gateway resources (/v1, /v1/mcp) as subject audiences; exchange_scope(subject vocabulary, scope): only adapter vocabularies map (team:read -> ruvector:read, team:write -> ruvector:write), ruvector:* maps to nothing",
+          "Audit: ActorWire/store Actor carry act_sub, recorded in shard ops.act_sub (part of the first shard schema; no VectorShard existed before this deploy); AS logs one structured token_exchange line per mint (client_id, sub, family_id, jti, scope, exp) via Reply.log",
+          "MCP: tenant_claim bootstrap tool (403 step-up without write/admin, 409 as isError); MCP-Protocol-Version header validated (absent ok, unsupported 400); 2025-03-26 no longer offered (batches unsupported); request ids must be string or integer (null/float/bool/object -> -32600, id not echoed)"
+        ],
+        "live_verification_2026-09-29": [
+          "GET gateway /v1/health -> 200 {\"ok\":true}",
+          "GET auth /.well-known/oauth-authorization-server -> grant_types_supported [authorization_code, refresh_token, urn:ietf:params:oauth:grant-type:token-exchange]; token_endpoint_auth_methods_supported [none, private_key_jwt]; token_endpoint_auth_signing_alg_values_supported [ES256]; issuer unchanged",
+          "GET /v1/collections without token -> 401, WWW-Authenticate Bearer resource_metadata=.../oauth-protected-resource/v1, scope=\"ruvector:read offline_access\"",
+          "POST /v1/ops without token -> 401 with the /v1 resource_metadata",
+          "POST /v1/mcp initialize without token -> 401 challenge with resource_metadata=.../oauth-protected-resource/v1/mcp",
+          "POST /v1/ops with a garbage token -> 401 error=\"invalid_token\"",
+          "Well-formed ES256 JWT with the live kid and a random signature -> 401 invalid_token on /v1/ops, /v1/me and /v1/mcp (not 503: edge JWKS reachable via EDGE_AUTH)",
+          "POST /v1/ops declaring Content-Length 2000000 without token -> 413 (pre-auth); chunked POST /v1/mcp without token -> 401",
+          "PRM /v1 and /v1/mcp 200, bare /.well-known/oauth-protected-resource 404",
+          "cognitum-consultant-email-staging-* (7 scripts): modified_on identical before and after both deploys; ruvector-edge-* have 0 custom domains"
+        ]
+      },
+      "remaining_acceptance_needing_real_login": [
+        "login -> claim -> create -> upsert 1k x 384 -> exact top-10 equals native brute force, live (covered natively by e2e_tests)",
+        "tenant B 404 on tenant A's names; non-member 403; no upsert without ruvector:write even as owner, live",
+        "foreign-iss, wrong-aud, upstream (mode off) and ID tokens rejected with real minted tokens",
+        "413 at the shard cap; four 12 MB shards resident and a fifth evicts; instantiate < 600 ms and lazy-load p95 < 1 s (live measurements)",
+        "Claude.ai and ChatGPT connectors: discovery -> DCR -> consent -> tenant_claim -> vector_query, step up to ruvector:write (HTTP 403 insufficient_scope) and a dry_run vector_upsert",
+        "/v1/ops with a real exchanged token: needs an operator-registered adapter in CONFIDENTIAL_CLIENTS (team.ruv.io public JWK, reviewed config) plus a real team.ruv.io user token; adapter-audience token 401, wrong target/tenant_key refused, op_id never applied twice, act.sub audited (ops.act_sub + AS token_exchange log line)"
+      ],
+      "remaining_not_login_gated": [
+        "ADR §7 lists 422 idempotency_mismatch; the implementation answers 409 op_replayed for a REST Idempotency-Key reused with a different request (same code as /v1/ops) — reconcile ADR or code (still open)"
+      ],
+      "closed_leftovers": [
+        "CLOSED 2026-09-29 (commit 49b002d91, gateway 5ac46dca): ADR §10 layer 2 rate limiting — Workers Rate Limiting bindings RL_{READ,WRITE,OPS,MCP}_{USER,ORG} (user:{tenant_key}:{sub} then org:{tenant_key}, 20/100, writes 10/50 per 10 s), 429 rate_limited + Retry-After; mutating /v1/ops ops and MCP tools/call are charged to the write budget too; a query pays one read token per shard. Live 429 unverified until G1.",
+        "CLOSED 2026-09-29: /v1/tenant/members (GET/POST, DELETE /{sub} with a 900 s sub deny), /v1/tenant/deny (GET/POST, owner, ≤ 1000 owner entries; removal denies uncapped) and DELETE /v1/collections/{c} (tombstone-first: Deleting → shard wipe with a persistent wiped marker → Deleted by uid) are served; unauthenticated 401s verified live."
+      ]
+    },
+    {
+      "id": "M2a",
+      "name": "int8 flat scan with f32 rerank (today's crates)",
+      "status": "deployed_pending_G1",
+      "gated_on": null,
+      "criteria": "recall@10 >= 0.95 against FlatIndex on 20k x 384 random vectors and one real-embedding set; >= 3 shards per isolate at the measured per-shard cap; a quantizer change re-encodes without blocking queries for more than one slice.",
+      "deployment": {
+        "date": "2026-09-29",
+        "source_commits": [
+          "49b002d91 (M2 feature commit)",
+          "4cd5e95a1 (HNSW rebuild budget fits the default CPU limit; limits.cpu_ms refused by the plan)"
+        ],
+        "account": "501c77f558c68152352b8ddfade9b854",
+        "gateway": "ruvector-edge-gateway version 5ac46dca-54af-4c0e-af76-558a5c681e2f (deployment a793c2c1-d052-402c-8b12-8a405d7c98c7, 100%); 1687.02 KiB / 520.02 KiB gzip; startup 3 ms; bindings TENANT_LEDGER, VECTOR_SHARD, EDGE_AUTH, 8 Rate Limiting bindings (35101-35108); no new DO migration tag (classes unchanged; v1 only; the catalog 'deleting' state and the shard 'wiped' marker are data, not schema)",
+        "auth": "ruvector-edge-auth not redeployed (source and deps unchanged; live version 61bf970a)",
+        "first_attempt": "wrangler deploy with [limits] cpu_ms = 120000 was refused by the API (code 100328: CPU limits are not supported for the Free plan); nothing was uploaded. Fixed in 4cd5e95a1 (no cpu_ms; REBUILD_BUDGET_MS 20 s bounds HNSW shards instead)."
+      },
+      "live_verification_2026-09-29": [
+        "GET /v1/health -> 200 {\"ok\":true}",
+        "GET /v1/collections, GET+POST /v1/tenant/members, DELETE /v1/tenant/members/x, GET+POST /v1/tenant/deny, DELETE /v1/collections/x, POST /v1/ops without token -> 401 invalid_token, WWW-Authenticate Bearer resource_metadata=.../oauth-protected-resource/v1",
+        "POST /v1/mcp without token -> 401 with resource_metadata=.../oauth-protected-resource/v1/mcp",
+        "GET /v1/collections with a garbage bearer -> 401 invalid_token",
+        "PRM /.well-known/oauth-protected-resource/v1 -> 200; bare /.well-known/oauth-protected-resource -> 404",
+        "cognitum-consultant-email-staging-* (7 scripts): modified_on identical before and after the deploy (Cloudflare API list); ruvector-edge-gateway and ruvector-edge-auth: 0 custom domains"
+      ],
+      "evidence": {
+        "tests": "Root edge crates 444/0 (auth, authz, tenancy, store incl. m2_maintain, m2_persist, m2_recall, m2_maintenance_review, index), release profile; edge workspace 141/0 (auth-worker 70, gateway 71); gateway --features dev-issuer 71/0; cargo fmt --check clean (root edge crates + edge workspace); clippy -D warnings clean native (--all-targets, also --features dev-issuer) and wasm32-unknown-unknown (env -u RUSTFLAGS); wrangler deploy --dry-run exit 0; no .rs file >= 500 lines (largest 488, store catalog.rs 479).",
+        "measured": "flat int8 + f32 rerank(40) recall@10 = 1.000 on every native recall run (m2_recall, 20k x 384 class sizes and e2e 5k x 384); ~384 B/vector resident flat at 384-d; flat is the default index kind",
+        "review_findings_fixed": [
+          "CRITICAL fixed: HNSW iid gap after a rebuild (newest rows deleted before a requantize left next_iid above len+1, the next insert opened a gap the encoder refuses, every flush failed and maintain() poisoned the shard, op tail grew unbounded). rebuild_from_vectors renumbers densely whenever max_iid != len OR next_iid != len+1 (identity pairs persist NEXT_IID); maintain() heals a deterministic encoder refusal by a dense rebuild + rebase instead of poisoning. Regression: the review's exact repro (64+64+10 l2 HNSW dim 8, delete 129..138, requantize, upsert 5) flushes directly and reloads Current; a forced gap (stale meta.next_iid) heals.",
+          "HIGH fixed: no HNSW graph build on the request path. ensure_index rebuilds flat (quantize only) on a request, but marks HNSW rebuild_pending and answers 503 shard_unavailable without poisoning; the alarm (maintenance_due Now) rebuilds. Rebase flushes write two epochs with the same payload/seq, so one corrupt chunk falls back to Previous with bit-identical results and the rebuild path needs both copies bad. HNSW admission also caps nodes by REBUILD_BUDGET_MS 20 s (fits the 30 s default; limits.cpu_ms is refused on this account's plan). Partial correction: the requantize-alarm rebuild is bounded (needs_requantize only fires while the trained sample is < 1000 rows, so that rebuild is ≤ ~2k rows, never cap-sized).",
+          "HIGH fixed: HNSW link repair runs in alarm slices (resident cursor, repair_slice_nodes ≈ 2 s of modelled wasm CPU per slice, re-armed while in progress, writes interleave); the final slice purges, renumbers, shrinks and writes a rebase. Regression: 1100×1536 m48 efc200 shard repairs in ≥ 2 slices with an upsert between slices, then reloads Current with exact brute-force answers.",
+          "MEDIUM fixed: compaction becomes due when dead slots are what blocks admission at the resident cap (same projection as plan_upsert), and compaction shrink_to_fit()s the index so the dead capacity is released. Regression: 22k×384 flat, delete 1/6, re-insert new ids: compaction runs and live rows pass 22k before the real cap (was stuck at ≈ 21.9k).",
+          "MEDIUM fixed: lazy-load bound for heavy HNSW configs: flush threshold flush_ops(cfg) (200 at default params, 16 at 1536-d m48 efc200) from a per-insert wasm cost model fitted to the two measured points; HNSW node cap = min(rebuild budget, decode budget via memory::max_nodes_for_load_budget).",
+          "MEDIUM fixed: §6.1 corrupted-chunk fallback now holds right after a rebase and for a shard's first epoch (both written as two identical epochs); regression: compaction followed by one corrupt chunk loads Previous with identical answers.",
+          "LOW fixed: filtered HNSW query_steps charges max(rerank, min(len, EXACT_FILTER_MAX)) for the exact fallback.",
+          "LOW fixed: rebuild reads VEC_PAGE_F32 (iid, f32 only) 256 rows a page; training fetches only the ≤ 1000 strided sample iids (VEC_F32_BY_IIDS). Not changed: open() still parses metadata to rebuild the filter form (pre-existing, noted by the review).",
+          "MEDIUM fixed (gateway): collection drop is tombstone-first and by uid: the ledger moves the named collection Live -> Deleting atomically and names its uid (lookups/writes 404, name reserved, retry finishes), each shard is wiped and keeps a meta.wiped marker (no deleteAll) so a write that raced the drop gets 404 and is refunded, then Purge{uid} -> Deleted. A stale purge can never touch a newer same-name collection (regression test).",
+          "MEDIUM fixed (gateway): write budget applies per operation: mutating /v1/ops ops and MCP tools/call (collection_create, vector_upsert, vector_delete, tenant_claim) are also charged to RL_WRITE_*.",
+          "LOW fixed (gateway): a query pays shards_queried read tokens (Backend::charge_fanout after lookup; 429 + Retry-After).",
+          "LOW fixed (gateway): member removal at 1000 live deny entries commits and returns 200; the removal deny bypasses the owner-entry cap."
+        ]
+      },
+      "criteria_exceptions": [
+        "Not verified live (needs G1 real tokens): recall through the deployed Worker, ≥ 3 shards per isolate, lazy-load p95.",
+        "A quantizer change is a one-shot bounded rebase (≤ ~2k rows, the l2/dot retrain fires only while the sample is < 1000 rows), not a sliced re-encode.",
+        "No real-embedding recall set run yet (random vectors only)."
+      ]
+    },
+    {
+      "id": "M2b",
+      "name": "HNSW (gated on G4a)",
+      "status": "deployed_pending_G1",
+      "gated_on": [
+        "G4a"
+      ],
+      "criteria": "recall@10 >= 0.95 against FlatIndex; warm query p50 < 10 ms [U]; >= 2 full HNSW shards fit the isolate cap; lazy-load p95 < 1 s with <= 200-op replay; a corrupted chunk falls back with identical results; a gapped-iid encode fails loudly.",
+      "deployment": {
+        "date": "2026-09-29",
+        "source_commits": [
+          "49b002d91 (M2 feature commit)",
+          "4cd5e95a1 (HNSW rebuild budget fits the default CPU limit; limits.cpu_ms refused by the plan)"
+        ],
+        "account": "501c77f558c68152352b8ddfade9b854",
+        "gateway": "ruvector-edge-gateway version 5ac46dca-54af-4c0e-af76-558a5c681e2f (deployment a793c2c1-d052-402c-8b12-8a405d7c98c7, 100%); 1687.02 KiB / 520.02 KiB gzip; startup 3 ms; bindings TENANT_LEDGER, VECTOR_SHARD, EDGE_AUTH, 8 Rate Limiting bindings (35101-35108); no new DO migration tag (classes unchanged; v1 only; the catalog 'deleting' state and the shard 'wiped' marker are data, not schema)",
+        "auth": "ruvector-edge-auth not redeployed (source and deps unchanged; live version 61bf970a)",
+        "first_attempt": "wrangler deploy with [limits] cpu_ms = 120000 was refused by the API (code 100328: CPU limits are not supported for the Free plan); nothing was uploaded. Fixed in 4cd5e95a1 (no cpu_ms; REBUILD_BUDGET_MS 20 s bounds HNSW shards instead)."
+      },
+      "live_verification_2026-09-29": [
+        "GET /v1/health -> 200 {\"ok\":true}",
+        "GET /v1/collections, GET+POST /v1/tenant/members, DELETE /v1/tenant/members/x, GET+POST /v1/tenant/deny, DELETE /v1/collections/x, POST /v1/ops without token -> 401 invalid_token, WWW-Authenticate Bearer resource_metadata=.../oauth-protected-resource/v1",
+        "POST /v1/mcp without token -> 401 with resource_metadata=.../oauth-protected-resource/v1/mcp",
+        "GET /v1/collections with a garbage bearer -> 401 invalid_token",
+        "PRM /.well-known/oauth-protected-resource/v1 -> 200; bare /.well-known/oauth-protected-resource -> 404",
+        "cognitum-consultant-email-staging-* (7 scripts): modified_on identical before and after the deploy (Cloudflare API list); ruvector-edge-gateway and ruvector-edge-auth: 0 custom domains"
+      ],
+      "gated_on_note": "HNSW is implemented in-repo in crates/ruvector-edge-index (commit 9d058e6ab) rather than via the G4a rvf-index PR; G4a no longer blocks this milestone's code.",
+      "evidence": {
+        "tests": "Root edge crates 444/0 (auth, authz, tenancy, store incl. m2_maintain, m2_persist, m2_recall, m2_maintenance_review, index), release profile; edge workspace 141/0 (auth-worker 70, gateway 71); gateway --features dev-issuer 71/0; cargo fmt --check clean (root edge crates + edge workspace); clippy -D warnings clean native (--all-targets, also --features dev-issuer) and wasm32-unknown-unknown (env -u RUSTFLAGS); wrangler deploy --dry-run exit 0; no .rs file >= 500 lines (largest 488, store catalog.rs 479).",
+        "measured": "HNSW needs ef 512 (l2) / 1024 (cosine) for recall@10 >= 0.95 on random data, so index=hnsw is opt-in with per-metric default ef (cosine 1024, l2/dot 512, capped, client-tunable); ~522 B/vector at 384-d m16; full rebuild 26k×384 m16 efc128 29.0 s wasm, 6.6k×1536 m48 efc200 26.3 s wasm; HNSW admission capped at REBUILD_BUDGET_MS 20 s (≈ 18k nodes at 384-d m16, ≈ 4.2k at 1536-d m48)",
+        "review_findings_fixed": [
+          "CRITICAL fixed: HNSW iid gap after a rebuild (newest rows deleted before a requantize left next_iid above len+1, the next insert opened a gap the encoder refuses, every flush failed and maintain() poisoned the shard, op tail grew unbounded). rebuild_from_vectors renumbers densely whenever max_iid != len OR next_iid != len+1 (identity pairs persist NEXT_IID); maintain() heals a deterministic encoder refusal by a dense rebuild + rebase instead of poisoning. Regression: the review's exact repro (64+64+10 l2 HNSW dim 8, delete 129..138, requantize, upsert 5) flushes directly and reloads Current; a forced gap (stale meta.next_iid) heals.",
+          "HIGH fixed: no HNSW graph build on the request path. ensure_index rebuilds flat (quantize only) on a request, but marks HNSW rebuild_pending and answers 503 shard_unavailable without poisoning; the alarm (maintenance_due Now) rebuilds. Rebase flushes write two epochs with the same payload/seq, so one corrupt chunk falls back to Previous with bit-identical results and the rebuild path needs both copies bad. HNSW admission also caps nodes by REBUILD_BUDGET_MS 20 s (fits the 30 s default; limits.cpu_ms is refused on this account's plan). Partial correction: the requantize-alarm rebuild is bounded (needs_requantize only fires while the trained sample is < 1000 rows, so that rebuild is ≤ ~2k rows, never cap-sized).",
+          "HIGH fixed: HNSW link repair runs in alarm slices (resident cursor, repair_slice_nodes ≈ 2 s of modelled wasm CPU per slice, re-armed while in progress, writes interleave); the final slice purges, renumbers, shrinks and writes a rebase. Regression: 1100×1536 m48 efc200 shard repairs in ≥ 2 slices with an upsert between slices, then reloads Current with exact brute-force answers.",
+          "MEDIUM fixed: compaction becomes due when dead slots are what blocks admission at the resident cap (same projection as plan_upsert), and compaction shrink_to_fit()s the index so the dead capacity is released. Regression: 22k×384 flat, delete 1/6, re-insert new ids: compaction runs and live rows pass 22k before the real cap (was stuck at ≈ 21.9k).",
+          "MEDIUM fixed: lazy-load bound for heavy HNSW configs: flush threshold flush_ops(cfg) (200 at default params, 16 at 1536-d m48 efc200) from a per-insert wasm cost model fitted to the two measured points; HNSW node cap = min(rebuild budget, decode budget via memory::max_nodes_for_load_budget).",
+          "MEDIUM fixed: §6.1 corrupted-chunk fallback now holds right after a rebase and for a shard's first epoch (both written as two identical epochs); regression: compaction followed by one corrupt chunk loads Previous with identical answers.",
+          "LOW fixed: filtered HNSW query_steps charges max(rerank, min(len, EXACT_FILTER_MAX)) for the exact fallback.",
+          "LOW fixed: rebuild reads VEC_PAGE_F32 (iid, f32 only) 256 rows a page; training fetches only the ≤ 1000 strided sample iids (VEC_F32_BY_IIDS). Not changed: open() still parses metadata to rebuild the filter form (pre-existing, noted by the review).",
+          "MEDIUM fixed (gateway): collection drop is tombstone-first and by uid: the ledger moves the named collection Live -> Deleting atomically and names its uid (lookups/writes 404, name reserved, retry finishes), each shard is wiped and keeps a meta.wiped marker (no deleteAll) so a write that raced the drop gets 404 and is refunded, then Purge{uid} -> Deleted. A stale purge can never touch a newer same-name collection (regression test).",
+          "MEDIUM fixed (gateway): write budget applies per operation: mutating /v1/ops ops and MCP tools/call (collection_create, vector_upsert, vector_delete, tenant_claim) are also charged to RL_WRITE_*.",
+          "LOW fixed (gateway): a query pays shards_queried read tokens (Backend::charge_fanout after lookup; 429 + Retry-After).",
+          "LOW fixed (gateway): member removal at 1000 live deny entries commits and returns 200; the removal deny bypasses the owner-entry cap."
+        ]
+      },
+      "criteria_exceptions": [
+        "Not verified live (needs G1 real tokens): warm query p50, ≥ 2 full shards per isolate, lazy-load p95 < 1 s.",
+        "'A gapped-iid encode fails loudly': the encoder still refuses (EncodeError::GappedIid) and the store no longer produces gaps; if one appears maintenance heals by a dense rebuild instead of poisoning the shard.",
+        "Chunk-decoding fuzz (index_chunks, ruvector-edge-index/fuzz) ran 600 s clean 2026-09-29: 9,735,521 runs, cov 2705, exit 0, no crash."
+      ]
+    },
+    {
+      "id": "M3",
+      "name": "Durability, ingest, embeddings, control plane, result pages (gated on G3)",
+      "status": "deployed_pending_G1",
+      "gated_on": [
+        "G3"
+      ],
+      "criteria": "A kill-and-restore drill returns byte-identical results; cross-tenant restore, a tampered snapshot and a foreign upload_id are refused; a 100k-vector import stays within quota and the isolate cap; a global deny takes effect within 60 s; usage reconciles within 1%; a signed result page's witness verifies offline and a redacted key is absent; fuzzers run 1 h clean.",
+      "deployment": {
+        "date": "2026-09-29",
+        "source_commits": [
+          "69f023478 (M3 feature branch feat/ruvector-edge-m3-int)",
+          "f1959f942 (merge into feat/ruvector-edge-services; one R2 binding EDGE_DATA, M3 routes rate-limited + deny-listed, M2/M5 writes audited)",
+          "638b20b43 (inline :import cap 512 KiB; no audit on job/snapshot-list polls or 429s; m3_http split)",
+          "edb62a721 (synchronous snapshot/export/restore budget 2^18 floats, 413 before side effects; restore quota capped)",
+          "51688a913 (collection drop settles an interrupted restore journal)",
+          "905e0a825 (queued import: 1 MiB segment cap, write token per batch, deny/lookup before hash pass, stalled jobs fail before DLQ)",
+          "d35b760a7 (structural text probe on the M1 upsert/query path)",
+          "517589a01 (wrangler comment)"
+        ],
+        "account": "501c77f558c68152352b8ddfade9b854",
+        "gateway": "ruvector-edge-gateway version 07de745c-37aa-45a4-83e6-c3709b261dc8 (deployment 488975f5-9737-4077-b040-435a92d74643, 100%); 2992.97 KiB / 920.01 KiB gzip; startup 5 ms; bindings TENANT_LEDGER, VECTOR_SHARD, REGISTRY_ROOT, REGISTRY_SCOPE, INGEST_QUEUE, AUDIT_QUEUE, EDGE_DATA (R2 ruvector-edge-data, the single R2 binding), EDGE_AUTH, AI, 8 Rate Limiting bindings; consumer of ruvector-edge-ingest (max_retries 20, retry_delay 30, DLQ ruvector-edge-ingest-dlq) and ruvector-edge-audit (max_retries 10, retry_delay 30, DLQ ruvector-edge-audit-dlq); no [limits] block",
+        "migration": "none: M3 adds no Durable Object class (its tables live in TenantLedger / VectorShard behind /m3); live script migration_tag stays v2-registry",
+        "auth": "ruvector-edge-auth not redeployed (no auth-worker diff)",
+        "precondition": "Workers Paid for M3 data paths beyond small collections: the synchronous snapshot/export/restore are refused above 2^18 stored floats (682 rows at 384 dims) because one request processes the whole collection; queued imports run in bounded deliveries (512 KiB hash slices, 2 batches, <=1 MiB segments) sized for the Free 10 ms budget by arithmetic only (unmeasured on wasm); embeddings call Workers AI. Raising the sync budget, or making snapshot/export/restore resumable queued jobs, is the path to large collections. — MET 2026-09-29: account 501c77f5 on Workers Paid (gateway cpu_ms = 30000, a83f661da); caps raised in 24f37fab2, gateway version 1460504f (see sessions[-1].caps_workers_paid)."
+      },
+      "live_verification_2026-09-29": [
+        "GET /v1/health -> 200 {\"ok\":true}",
+        "Without token -> 401 with WWW-Authenticate resource_metadata=.../.well-known/oauth-protected-resource/v1: POST /v1/collections/c/snapshots, GET /v1/collections/c/snapshots, POST /v1/collections/c/snapshots/1:restore (the real restore route), POST /v1/collections/c:restore, POST /v1/collections/c:export, POST /v1/collections/c:import, GET /v1/jobs/x, GET /v1/exports/x, POST /v1/uploads, POST /v1/uploads/u/parts/1, POST /v1/uploads/u:complete",
+        "M2/M5 without token -> 401 (.../v1): GET /v1/collections, POST /v1/collections, DELETE /v1/collections/c, GET /v1/tenant/members, POST /v1/collections/c/vectors:upsert, POST /v1/collections/c/query, POST /v1/collections/c:import-rvf, GET /v1/rvf/scopes; POST /v1/mcp -> 401 (.../v1/mcp); both PRMs -> 200",
+        "Pre-auth body caps: 600 KB octet-stream :import -> 413; 2 MB upload part -> 401 (allowed size, then auth)",
+        "Queues (wrangler queues info + API): ruvector-edge-ingest and ruvector-edge-audit each have producer and consumer worker:ruvector-edge-gateway",
+        "cognitum-consultant-email-staging-* (7 scripts) modified_on/etag and their 4 queues (producers/consumers) identical before and after the deploy (Cloudflare API); only ruvector-edge-gateway changed; ruvector-edge-* have 0 custom domains"
+      ],
+      "evidence": {
+        "tests": "Root edge crates 562/0 (auth, authz, tenancy, store, index, registry, snapshot); edge workspace 227/0 (gateway 157, auth-worker 70); cargo fmt --check clean; clippy -D warnings clean native (--all-targets) and wasm32-unknown-unknown, both workspaces; wrangler deploy --dry-run OK (gateway, auth); no .rs file >= 500 lines",
+        "review_findings": [
+          "HIGH mitigated: synchronous snapshot/export/restore not resumable -> refused 413 above 2^18 floats before any epoch, multipart upload or journal (Stats pre-check + read meter); restore quota capped at the same budget (undoes the merge raising it to the M2 shard cap). Resumable jobs remain future work.",
+          "HIGH fixed: inline :import hashed up to 8 MiB in the request -> cap 512 KiB (parts keep 8 MiB).",
+          "MEDIUM fixed: per-delivery O(record) re-read -> queued segments capped at 1 MiB (gateway export sized to fit); stalled jobs (15 deliveries without a batch) fail before the DLQ and release their upload.",
+          "MEDIUM fixed: collection drop leaked the admitted growth of an interrupted restore -> drop settles a stale journal before the wipe, 409 while a restore is live.",
+          "MEDIUM fixed by budget: restore Commit rows in one DO turn bounded by the sync budget.",
+          "MEDIUM fixed: queue volume -> job/snapshot-list polls and 429 refusals no longer audited; M1/M2/M3/M5 writes still ship one message each (deliberate).",
+          "LOW fixed: text detection is structural (no Value tree); queued batches pay write tokens; deny/lookup before the hash pass."
+        ]
+      },
+      "criteria_exceptions": [
+        "Fuzz criterion (1 h clean) met 2026-09-29 at db5820427 for the rvf-wire decoders: m3_reader 101,944,102 runs (cov 1767), rvf_validate 80,333,811 (cov 939), rvf_payloads 2,471,045,526 (cov 166), each -max_total_time=3600, exit 0, no crash. Other M3 criteria still need G1/Paid live drills."
+      ]
+    },
+    {
+      "id": "M4",
+      "name": "rv-quant, rv-graph, rv-mincut (gated on G4b/G4c)",
+      "status": "deployed_pending_G1",
+      "gated_on": [
+        "G4b",
+        "G4c"
+      ],
+      "criteria": "A 50k x 384 rabitq cold load fits the CPU and memory budgets; a viewer cannot run a mutating Cypher query; mincut on 50k edges equals the native crate; an exhausted budget returns 413, not 500.",
+      "deployment": {
+        "date": "2026-09-29",
+        "source_commits": [
+          "2e3537a57 (M4 feature branch feat/ruvector-edge-m4-int, base 1446b9511 = M2)",
+          "aae8b3798 (merge into feat/ruvector-edge-services; migrations v1, v2-registry, then the new v-m4-quant-graph; snapshot/export/restore refuse index=rabitq with 400 before any charge)",
+          "18a2ba400 (review fixes: job memory budget 32 MiB + submit precheck + streaming edge parse; queued job pays a write token, audited mincut.job, 20 live jobs/tenant, 24 h retention; DELETE /v1/graphs/{g}; Idempotency-Key on graph edges and mutating Cypher)"
+        ],
+        "account": "501c77f558c68152352b8ddfade9b854",
+        "gateway": "ruvector-edge-gateway version a5cb208b-ff70-4bc1-ae08-039eb66f2ab6 (deployment e9cc9487-c546-490b-badd-f1902594273e, 100%; previous 07de745c); 3863.39 KiB / 1191.54 KiB gzip; startup 5 ms; bindings TENANT_LEDGER, VECTOR_SHARD, QUANT_SHARD, GRAPH_STORE, ANALYTICS_JOB, REGISTRY_ROOT, REGISTRY_SCOPE, INGEST_QUEUE, AUDIT_QUEUE, EDGE_DATA, EDGE_AUTH, AI, 8 Rate Limiting bindings; producer + consumer of ruvector-edge-ingest / ruvector-edge-audit unchanged; no [limits] block; workers.dev only",
+        "migration": "live script migration_tag v2-registry before -> v-m4-quant-graph after (Cloudflare API script list); additive: new_sqlite_classes [QuantShard, GraphStore, AnalyticsJob]; namespaces ruvector-edge-gateway_QuantShard 1b2a504be70f4e4aaa4914cea5b608ab, _GraphStore d129c85b183e4252ab9c3e246a7ce172, _AnalyticsJob b0bd55d5b793401abdddb7590221834b (use_sqlite true), next to the unchanged TenantLedger, VectorShard, RegistryRoot, RegistryScope",
+        "auth": "ruvector-edge-auth not redeployed (no auth-worker diff; etag ffbc40eb… unchanged)",
+        "precondition": "Workers Paid for M4 beyond small data. Free-plan limits (10 ms CPU per invocation, incl. DO alarms): the first cold load of a 50k-row rabitq shard answers one retryable 503 shard_unavailable (the load is its own turn; the retry is served resident); a 51k-edge min-cut (K_320) is admitted as a job (est. 29.8 MB, inside the 32 MiB job memory budget) but every solve attempt exceeds 10 ms, so it ends failed 413 budget_exceeded on Free (completes on Paid, ~84 ms release native); a graph's persisted state is capped at 256 KiB (~1.5-2k edges) versus the ADR's 200k edges, because a cold load and a commit are O(whole graph) on Free. — MET 2026-09-29: account 501c77f5 on Workers Paid (gateway cpu_ms = 30000, a83f661da); caps raised in 24f37fab2, gateway version 1460504f (see sessions[-1].caps_workers_paid)."
+      },
+      "free_plan_limits": {
+        "status": "RESOLVED 2026-09-29: Workers Paid; the Free values below are history, current values in sessions[-1].caps_workers_paid",
+        "quant_cold_load_50k": "Free: one retryable 503 shard_unavailable; Paid: LOAD_TURN_UNITS = MAX_LOAD_UNITS = 400M, served in its own turn (max_vectors stays 50k for memory)",
+        "mincut_51k_edges": "Free: failed 413 budget_exceeded after 3 killed solves; Paid: ~295M units (~84 ms native) under JOB_MAX_WORK 3e9, completes",
+        "graph_state": "Free: 256 KiB / 1,000 edges per bulk; Paid: MAX_STATE_BYTES 1 MiB (~6.5k edges, memory-bound), MAX_BULK_EDGES 5,000; ADR §10 200k edges needs delta persistence",
+        "mincut_job_memory": "JOB_MEMORY_BYTES 32 MiB unchanged (memory-bound, ~79.9k edges); job work 20e9 -> 3e9 (<= ~4.5 s wasm per solve turn)"
+      },
+      "live_verification_2026-09-29": [
+        "GET /v1/health -> 200 (body sha256 4062edaf750f)",
+        "M4 without token -> 401, WWW-Authenticate resource_metadata=/.well-known/oauth-protected-resource/v1 (body sha256 0a0e7787d3c9): POST /v1/collections {index: rabitq}, POST /v1/collections/q/vectors:upsert, POST /v1/collections/q/query, POST /v1/graphs, GET /v1/graphs, GET /v1/graphs/g, DELETE /v1/graphs/g, POST /v1/graphs/g/cypher, POST /v1/graphs/g/edges, POST /v1/mincut, GET /v1/mincut/jobs/mc_0000000000000000; POST /v1/mcp -> 401 (…/oauth-protected-resource/v1/mcp)",
+        "M2/M3/M5 without token -> 401 (…/v1): GET /v1/collections, DELETE /v1/collections/c, GET /v1/tenant/members, POST /v1/ops, POST /v1/collections/c/snapshots, POST /v1/collections/c:export, GET /v1/jobs/x, POST /v1/uploads, GET /v1/rvf/scopes, POST /v1/collections/c:import-rvf; both PRMs -> 200 (sha256 cec00cdd22f1, d99b5e28c4ef)",
+        "Cloudflare API: script ruvector-edge-gateway migration_tag v-m4-quant-graph; DO namespaces QuantShard, GraphStore, AnalyticsJob exist (sqlite)",
+        "cognitum-consultant-email-staging-* (7 scripts) modified_on + etag and their 4 queues (producers/consumers/modified_on) identical before and after the deploy; ruvector-edge-* 0 custom domains"
+      ],
+      "evidence": {
+        "tests": "Root edge crates 619/0 (auth, authz, tenancy, store, index, registry, snapshot, analytics, quant); edge workspace 258/0 (gateway 188, auth-worker 70); cargo fmt --check clean both workspaces; clippy -D warnings clean native (--all-targets) both workspaces and wasm32-unknown-unknown for the edge workspace and the root edge crates except ruvector-edge-analytics, whose dependency ruvector-mincut fails wasm32 clippy (static_mut_refs, unused_unsafe; pre-existing, unchanged by M4 or the merge); wrangler deploy --dry-run OK (gateway, auth); no .rs file >= 500 lines",
+        "review_findings_fixed": [
+          "MEDIUM fixed: AnalyticsJob admitted against Profile::JOB (100 MB, 'the isolate to itself') while sharing the isolate with 56 MB of resident caps and M5 finalize part buffers -> gateway profile EDGE_JOB (32 MiB), submit precheck (413 before storing), admit parses the edge list without a JSON tree; shard_core states 56 MB + 32 MiB job + 2 x 16 MiB registry part ~= 123 of 128 MB (test m4_review_tests::isolate_budget_counts_jobs_and_registry_parts).",
+          "MEDIUM fixed: min-cut job creation charged only a read token, no audit, unbounded never-deleted storage -> one write token (Backend::charge_writes, 429), mincut.job audit only on 202, 20 live jobs per tenant in the $catalog GraphStore (413 quota_exceeded), job storage deleted 24 h after submit (alarm + deleteAll).",
+          "LOW fixed: no graph deletion (20-graph cap permanent) -> DELETE /v1/graphs/{g} (write + editor, Class::Write, graph.delete audit; rows + resident copy, then catalog; name reusable).",
+          "LOW fixed: graph mutations ignored Idempotency-Key -> honoured on POST …/edges and mutating Cypher via the REST key table (replay without re-running or re-charging; reuse 409)."
+        ]
+      },
+      "residual_risks": [
+        "Isolate memory (shard_core table, 24f37fab2): 56 MB resident + one synchronous analytics turn (job 32 MiB or inline min-cut 16 MiB) + one registry part (2 x 8 MiB) + one 8 MiB gateway transfer (2 x 8 MiB) ~ 123 of 128 MB. A second concurrent registry part or 8 MiB transfer in the same isolate (+16.8 MB each) is not bounded; accepted and recorded in ADR-351 §12.",
+        "Job retention relies on the DO alarm: a job whose alarm retries are exhausted before it becomes terminal keeps its storage until a GET fails it (STALL_MS) and arms retention; its catalog slot still expires on time.",
+        "Graph and job storage are not counted in the tenant byte quota (bounded by 20 graphs x 256 KiB and 20 live jobs x ~3 MB); tenant_admin has no graph/job wipe on tenant removal.",
+        "Isolate-kill blast radius of a CPU-exceeding job solve on Free is unverified [U] (other DOs sharing the isolate may be reset).",
+        "Live behaviour (quant cold load, graph writes, job alarms, 429s) unverified with tokens until G1.",
+        "Workers Paid (24f37fab2): single DO turns of several seconds block every co-resident object of the isolate: an AnalyticsJob solve (<= 3e9 work, ~4.5 s wasm) and an HNSW rebuild at REBUILD_BUDGET_MS 20 s (~17 s measured at the node cap). Kept at 20 s so no existing shard regresses to 413."
+      ]
+    },
+    {
+      "id": "M5",
+      "name": "rv-registry and the full rv-mcp tool set",
+      "status": "deployed_pending_G1",
+      "gated_on": null,
+      "criteria": "Every mutating MCP tool needs ruvector:write + editor and honours dry_run; a /v1/mcp connector token gets 401 (audience mismatch) on /v1 REST; an RVF from the rvf CLI imports via upload_id and queries correctly; the Launch Doctor conformance checker (ADR §9.1) passes against the live hosts.",
+      "deployment": {
+        "date": "2026-09-29",
+        "source_commits": [
+          "1536c8b16 (M5 feature branch feat/ruvector-edge-m5-int)",
+          "0948584ad (merge into feat/ruvector-edge-services)",
+          "06d6e510a (stepped finalize driven within one request; job kept on cancel)",
+          "dfdb783d0 (import charges one write token per upsert batch)",
+          "66ea39938 (CORS: PUT, ETag, X-RVF-Yanked, Retry-After)"
+        ],
+        "account": "501c77f558c68152352b8ddfade9b854",
+        "gateway": "ruvector-edge-gateway version f24ff298-2f61-4fdd-aefb-ff45a1d97b56 (deployment 352c51dc-624a-43bf-b484-b387d047805b, 100%); 2459.68 KiB / 754.12 KiB gzip; startup 3 ms; bindings TENANT_LEDGER, VECTOR_SHARD, REGISTRY_ROOT, REGISTRY_SCOPE, EDGE_DATA (R2 ruvector-edge-data), EDGE_AUTH, 8 Rate Limiting bindings; no [limits] block",
+        "migration": "live script migration_tag v1 before -> v2-registry after (Cloudflare API script list); v2-registry is additive: new_sqlite_classes [RegistryRoot, RegistryScope]",
+        "auth": "ruvector-edge-auth not redeployed (no auth-worker diff since 1446b9511)",
+        "precondition": "Workers Paid for registry writes: upload part hashing (<=16 MiB), inline finalize (<=32 MiB x 3 passes), stepped finalize steps (<=64 MiB) and import (<=32 MiB hash + validate per request) assume the Paid 30 s default CPU; Workers Free allows 10 ms per request (docs: workers/platform/limits), so these requests are expected to fail with exceeded-CPU (1102) on the current plan. Unauthenticated/auth surfaces are unaffected. — MET 2026-09-29: account 501c77f5 on Workers Paid (gateway cpu_ms = 30000, a83f661da); caps raised in 24f37fab2, gateway version 1460504f (see sessions[-1].caps_workers_paid). Registry parts lowered 16 -> 8 MiB for the isolate memory budget."
+      },
+      "live_verification_2026-09-29": [
+        "GET /v1/health -> 200 {\"ok\":true}",
+        "GET /v1/rvf/scopes, POST /v1/rvf/scopes/x, GET /v1/rvf/x/y, POST /v1/collections/c:import-rvf, PUT /v1/rvf/x/y/1.0.0/uploads/u/parts/1 without token -> 401 invalid_token, WWW-Authenticate resource_metadata=.../oauth-protected-resource/v1",
+        "M2 routes GET /v1/collections, GET /v1/tenant/members, POST /v1/tenant/deny, DELETE /v1/collections/x, POST /v1/ops -> 401 (resource_metadata .../v1); POST /v1/mcp -> 401 (.../v1/mcp)",
+        "PRMs /.well-known/oauth-protected-resource/v1 and /v1/mcp -> 200",
+        "OPTIONS preflight -> 204, Allow-Methods GET, POST, PUT, DELETE, OPTIONS; Expose-Headers WWW-Authenticate, Retry-After, ETag, X-RVF-Yanked",
+        "cognitum-consultant-email-staging-* (7 scripts): modified_on identical before and after the deploy (Cloudflare API list); ruvector-edge-gateway and ruvector-edge-auth: 0 custom domains"
+      ],
+      "evidence": {
+        "tests": "Root edge crates 512/0 (auth, authz, tenancy, store, index, registry); edge workspace 181/0 (gateway 111, auth-worker 70); cargo fmt --check clean; clippy -D warnings clean native (--all-targets) and wasm32-unknown-unknown; wrangler deploy --dry-run exit 0 (gateway, auth); no edited .rs file >= 500 lines (largest rvf_finalize_step.rs 490)",
+        "review_findings_fixed": [
+          "HIGH fixed: stepped finalize lost its live validator when RegistryScope hibernated between client-paced steps (>=10 s idle, e.g. Retry-After 10) or when a step was cancelled; one :finalize request now drives steps back to back (FINALIZE_STEPS 32, 202 only on no progress or cap) and a drop guard puts the job back on every non-consuming exit. Regression tests: one request commits a 4-step upload; cap answers 202 then commits; cancelled step keeps its job.",
+          "MEDIUM fixed: import upserted up to ~57k vectors per write token; now one write token per upsert batch (Backend::charge_writes), over budget -> 200 rate_limited:true with resumable next_offset. Regression test: 13 batches -> 11 imported (10 admitted + request token), resume completes.",
+          "LOW fixed: CORS preflight allows PUT; responses expose Retry-After, ETag, X-RVF-Yanked.",
+          "CRITICAL not fixable in code: Free-plan 10 ms CPU vs megabyte SHA-256; comments now state the Paid assumption; recorded as deploy precondition."
+        ]
+      }
+    },
+    {
+      "id": "M6",
+      "name": "Hardening and GA (gated on G5 and G6)",
+      "status": "pending",
+      "gated_on": [
+        "G5",
+        "G6"
+      ],
+      "criteria": "No open high or critical pentest findings (incl. consent phishing, code injection, refresh theft, token-exchange abuse, upstream deprovisioning, key rotation, upstream-token replay); p50 query < 30 ms and p99 < 150 ms at the edge for single-shard 384-dim collections [U]; this ADR moves to Accepted."
+    }
+  ],
+  "risks": [
+    "ADR numbering collision: ADR-350/ADR-351 range has multiple open claimants; renumber if taken before merge.",
+    "G1 is on the M0.5 critical path and is a provider touch: at console ce9ddca the upstream DCR redirect allowlist refuses the edge callback, so one exact ALLOWED_EXACT_REDIRECTS line (or a hand-seeded client) must pass console review; ADR-124 does not pre-approve it.",
+    "Working-tree code still deviates from the ADR (§8) in: auth-worker ISSUER/UPSTREAM_* trust roots still [vars] (gateway trust root is compiled), no RouteSurface::Ops / role column in ROUTE_TABLE, localhost loopback redirects refused, no REFRESH_REUSE_GRACE_SECS, no AuthStore subjects table. Closed 2026-09-29: mcp:* vocabulary and mcp:read upstream scope, DCR full-set default, gateway [vars] trust root, aud mismatch -> 401 (was 403).",
+    "Open DCR at the edge AS accepts any https and loopback redirect: consent-page quality, the unverified-host marker, write only on explicit consented request, clickjacking headers and DCR rate limits are the phishing defence; upstream deprovisioning is not propagated (≤ 90 d without an operator action).",
+    "Single global AuthStore DO (~500-1,000 req/s) and a single ES256 signing key held as a wrangler secret: availability and key-compromise procedures must be exercised before GA.",
+    "Several load-bearing facts are [U]: Rate Limiting locality, DO CPU-limit source, D1 size limits, upstream ID-token contents and RFC 9207 support, connector scope requests, HNSW warm p50 and the M6 latency targets.",
+    "G4 upstream crate PRs gate M2b and M4; team tenancy (G5) still needs an upstream org selector or org-role claim.",
+    "workers.dev hosts are the issuer and audiences until G6; moving hosts changes every aud and forces a re-login for all clients and adapters.",
+    "2026-09-29: the Workers API refused limits.cpu_ms with 'CPU limits are not supported for the Free plan' (code 100328): the account appears to be on Workers Free, whose per-invocation CPU limit is far below what an HNSW batch insert, a flush of a large shard or an alarm rebuild needs. G2 lists Workers Paid; confirm the plan before load-testing M2 live. — RESOLVED 2026-09-29: account on Workers Paid; gateway [limits] cpu_ms = 30000 accepted (161567cc).",
+    "2026-09-29 (M5): registry uploads/finalize/import hash up to 16-64 MiB per request and need Workers Paid (30 s default CPU); on the current Workers Free account (10 ms) they are expected to fail with 1102. Deployed anyway (unauthenticated surfaces verified); upgrade to Workers Paid before any live registry write or G1 load test. Free-plan DO CPU figure unverified. — RESOLVED 2026-09-29: Workers Paid; registry parts now <= 8 MiB (24f37fab2). Live registry write still owed (after G1).",
+    "2026-09-29 (M3): every CPU figure behind the M3 budgets (512 KiB inline hash, 2^18-float sync snapshot/export/restore, 1 MiB segment re-verify per delivery, 2 batches per delivery) is arithmetic (~100 MB/s wasm SHA-256), not measured on wasm; on Workers Free some requests may still exceed 10 ms. SHAKE256 (checksum_algo 2) segments are accepted and cost more per re-verify. — 2026-09-29 Paid: caps raised (8 MiB inline/hash/segment, export 2^24 floats + 128 MiB bytes); figures still arithmetic, now ~1-6 % of the 30 s cpu_ms.",
+    "2026-09-29 (M3): Queues operations are account-wide; every write (M1/M2/M3/M5) ships one audit message and an import re-enqueues every 2 batches / 512 KiB hash slice. If the account is on a Free Queues allowance, a busy day can exhaust it and new imports fail with enqueue failed. Verify the plan before G1.",
+    "2026-09-29 (M3): the R2 bucket has lifecycle rules for exports/ (1 day) and aborted multipart (7 days) but none for staging/ (shared with the M5 registry sweep), so unconsumed M3 import uploads are not reclaimed (wrangler.toml comment corrected).",
+    "2026-09-29 (M3): queued :import accepts RVF segments up to 1 MiB (QUEUED_MAX_SEGMENT_PAYLOAD). The rvf CLI ingests in --batch-size 1000 by default, i.e. ~1.54 MB VEC segments at 384 dims, which the queued import now fails as incompatible; the M5 criterion 'an RVF from the rvf CLI imports via upload_id' holds only with --batch-size <= 1 MiB / (8 + 4 * dim) (<= 680 at 384 dims) or dim <= 260. Gateway exports are sized to fit (export::rows_per_segment). Raise the cap (Workers Paid) or lower the CLI default to close it. — RESOLVED 2026-09-29: QUEUED_MAX_SEGMENT_PAYLOAD 8 MiB (24f37fab2), so the rvf CLI default --batch-size 1000 imports unchanged (1.54 MB at 384-d, ~6.1 MB at 1536-d).",
+    "2026-09-29 finalize: IP_HASH_SALT is unset on the live auth Worker and the code falls back to an empty salt, so dcr_rate rows / Rate Limiting keys are unsalted truncated sha256 of CF-Connecting-IP (IPv4 brute-forceable). Only operator IPs reach /register and /authorize before G1; set the secret before G1.",
+    "2026-09-29 finalize: VectorShard lazy-load (decode 300 ms + replay 600 ms), flush and HNSW rebuild (REBUILD_BUDGET_MS 20 s) budgets and the 14 MB per-shard cap are sized for Workers Paid (30 s), not Free: on Free, cold loads and rebuilds of non-trivial shards are expected to exceed CPU (ADR [needs Paid]). — RESOLVED 2026-09-29: account on Workers Paid (cpu_ms 30000). REBUILD_BUDGET_MS kept at 20 s.",
+    "2026-09-29 finalize: both Workers declare Rate Limiting namespace_id 35101/35102 with different limits; if namespaces are account-scoped the counters are shared. Fix needs a gateway redeploy (owed).",
+    "2026-09-29 finalize: rvlite comes from the head of the open RuVector#1084; now pinned by rev c6ece785 so a squash-merge with branch deletion cannot break clean builds, but the dependency is still unmerged upstream code."
+  ],
+  "drift_detection": {
+    "scope_drift": "Flag if work expands beyond the edge AS, rv-gateway and the services in ADR §3 (rv-vector, TenantLedger, rv-snapshot, rv-embed, rv-ingest, rv-quant, rv-graph, rv-mincut, rv-registry, rv-mcp, /v1/results signed result pages) plus the §16 adapter contract (/v1/ops, RFC 8693 exchange for adapter clients), or touches Cloudflare resources/OAuth provider settings without a listed gate (G1-G6) being explicitly approved.",
+    "timeline_drift": "Flag if milestone velocity suggests M6 (Accepted) will not land, or if a milestone is marked done without its acceptance criteria being verifiably met (milestones are binary, no partial credit).",
+    "approach_drift": "Flag if the Rust-only house rule is violated; if any resource server accepts anything but exact-aud edge tokens outside the flagged upstream mode (no second audience on /v1/ops — adapters must use the RFC 8693 exchange with act, the only non-user token path); if the edge AS requests non-identity upstream scopes or persists upstream tokens; if an aud mismatch returns anything but 401 with resource_metadata; or if per-shard/isolate caps are set without measurement.",
+    "dependency_drift": "Flag if G1 review stalls (blocks M0.5) or if the G4 upstream PRs stall or change shape (block M2b, M4).",
+    "priority_drift": "Flag if the effort loses cadence versus the /loop 5m cycle it was started under."
+  },
+  "sessions": [
+    {
+      "date": "2026-09-28",
+      "summary": "Horizon initialized from ADR-351 §15 Phased implementation plan. M0 set to in_progress; M1-M6 pending. Checkpoint written to ruvector-edge/edge/HORIZON.json.",
+      "next": "Drive M0 to completion: confirm native auth/tenancy test matrix green, wasm32 build clean, route-table gap test passing, all files <500 lines, and 10-minute JWS/JWKS fuzz runs clean; then flip M0 to done and advance currentMilestone to M1."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "ADR-351 reconciled with the edge-AS decision (rUv): ruvector-edge-auth federates to auth.cognitum.one and mints resource-bound ES256 tokens; new M0.5 (deploy auth + gateway to workers.dev, upstream DCR, signing key secret, live login round trip); connectors end to end from M1; G5 reduced to team tenancy; G1 requires one upstream redirect-allowlist line; adapter contract (§16) and downstream products (§17) added.",
+      "next": "Close the ADR §8 code deltas (then nine; superseded by the 2026-09-29 second-pass list of eleven) and the M0 test matrix; prepare the G1 console change (exact redirect entry) for review; then M0.5."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "ADR-351 second review pass: OPS_AUDS removed in favour of an RFC 8693 exchange grant (confidential private_key_jwt adapter clients, act claim); aud mismatch -> 401 re-discovery; connector scope defaults and HTTP 403 step-up; localhost loopback; 30 s refresh grace; code-replay revocation; unpinned upstream keys on the AS login path (ACCEPTED_UPSTREAM_KIDS only for the flagged mode); trust roots of both Workers as consts; EDGE_AUTH_SIGNING_JWK with rotation by key order; bare PRM 404; CORS; /v1/mcp challenge at M0.5; CIMD as Q15; §8 re-verified against the working tree (eleven open deltas).",
+      "next": "Close the eleven ADR §8 deltas (M1-marked excepted) and the M0 test matrix; prepare the G1 console change (exact redirect entry) for review; then M0.5."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "M0 marked done at 94a4ce1a1 (the fuzz criterion is still owed, see criteria_exceptions). M0.5 deployed_partial: ruvector-edge-auth and ruvector-edge-gateway are live on workers.dev with the ES256 signing key secret; discovery, DCR, the G1-pending authorize answer and the gateway 401 challenges were verified live. G2 was exercised by this workflow run.",
+      "next": "G1: land the console#605 redirect entry, register the edge AS upstream, then set UPSTREAM_CLIENT_ID + ACCEPTED_UPSTREAM_KIDS and redeploy auth; then run the M0.5 login round trip, token-claim, refresh/revoke and connector checks. Add the M0 fuzz targets and run them."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "Per-resource scope vocabularies: team.ruv.io mints team:read/write/run only; URL -> family binding compiled (resource::RESOURCE_VOCABULARIES) and enforced at load; cross-family scopes dropped (Q16(b) closed); team.ruv.io consent discloses the M1 exchange map (team:read -> ruvector:read, team:write -> ruvector:write); ADR-351 exchange wording is map-not-narrow; JWS/JWKS cargo-fuzz targets with .gitignore. ruvector-edge-auth redeployed (98e93c52) and verified live; gateway unchanged.",
+      "next": "G1 (console#605) then the M0.5 login round trip; run and record the fuzz targets; add DCR JSON, /token form and ResourceUrl fuzz targets; Q16(a) connector registrations on team.ruv.io."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "M1 review fixes (10 findings verified, all real, all fixed with regression tests): streaming body cap, quota admission before shard fan-out, REST Idempotency-Key, op_id reservation, confidential subject audiences limited to adapter resources, act_sub audit + AS exchange log, MCP tenant_claim, MCP-Protocol-Version, 2025-03-26 dropped, JSON-RPC id validation. Committed 96aeb4901 and deployed auth (61bf970a) then gateway (fdcce770, DO migration v1); unauthenticated/invalid surfaces verified live.",
+      "next": "G1 (console#605) for real tokens; register the team.ruv.io adapter in CONFIDENTIAL_CLIENTS (reviewed); implement §10 layer 2 rate limiting; then run the login-gated M1 acceptance items live."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "M2 review (13 findings verified: 12 real and fixed with regression tests, 1 partially corrected — the requantize-alarm rebuild is bounded to < ~2k rows): HNSW iid-gap (critical), request-path HNSW rebuild and sliced link repair (high), cap-blocking compaction, load-budget flush/node caps, rebase fallback copies, tombstone-first drop by uid with wiped marker, per-op write budget (medium), filtered-HNSW step charge, f32-only rebuild pages, query fan-out tokens, removal at the deny cap (low). Committed 49b002d91 + 4cd5e95a1 (limits.cpu_ms refused on the Free plan; HNSW rebuild budget 20 s instead) and deployed the gateway (5ac46dca, deployment a793c2c1; auth unchanged); unauthenticated surfaces verified live; staging scripts unchanged.",
+      "next": "G1 for real tokens, then the live M1/M2 acceptance (recall, shards per isolate, lazy-load p95, 429); confirm the Workers plan (Paid) before live M2 load; reconcile 422 idempotency_mismatch vs 409 op_replayed; run the chunk-decode fuzz target."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "M5 RVF registry merged into edge services (0948584ad), review fixes 06d6e510a (finalize driven in one request, job kept on cancel), dfdb783d0 (import write budget per batch), 66ea39938 (CORS); gateway deployed f24ff298 (deployment 352c51dc), migration v1 -> v2-registry applied; auth unchanged; unauthenticated surfaces verified live; staging scripts unchanged.",
+      "next": "Move the account to Workers Paid (G2 precondition, pending rUv), then exercise a live registry upload/finalize/import (after G1, console#605); merge M3 and M4 branches."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "M3 (69f023478) merged into edge services (f1959f942) with one R2 binding; review fixes 638b20b43, edb62a721, 51688a913, 905e0a825, d35b760a7; gateway deployed 07de745c (deployment 488975f5) with ingest + audit queue consumers, AI and EDGE_DATA; no migration (tag stays v2-registry); unauthenticated M3/M2/M5 surfaces verified live; email staging untouched.",
+      "next": "Move the account to Workers Paid (G2 precondition, pending rUv), then run a live snapshot/restore drill and a queued import (after G1, console#605); make snapshot/export/restore resumable queued jobs; merge M4."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "M4 (2e3537a57) merged into edge services (aae8b3798: migration v-m4-quant-graph appended after v1, v2-registry; rabitq snapshots/exports/restores refused 400); review fixes 18a2ba400 (job memory budget 32 MiB + submit precheck + streaming parse; job write token, mincut.job audit, 20 live jobs/tenant, 24 h retention; DELETE /v1/graphs/{g}; graph Idempotency-Key); gateway deployed a5cb208b (deployment e9cc9487), migration_tag v2-registry -> v-m4-quant-graph, QuantShard/GraphStore/AnalyticsJob namespaces live; unauthenticated M2-M5 surfaces 401 as expected; email staging untouched.",
+      "next": "Workers Paid (G2 precondition, pending rUv); then G1 (console#605) live token drills: 50k rabitq cold load, Cypher viewer 403, K_320 job to done, 413 budgets; count graph/job bytes in tenant quota; graph/job wipe on tenant removal."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "Finalize pass: ADR-351 reconciled with shipped M0-M5 at 52e2a5c55 and corrected per review (manifest mirror designed-not-written, [needs Paid] marker for Paid-sized VectorShard/registry budgets, dry_run and destructiveHint surfaces, /v1/ops op_id lookup on dry runs, ApproxMinCut 0.10-0.33x, IP_HASH_SALT unset, G3/G4 provenance, §16 adoption status, M4 residuals, fuzz evidence). Code: rvlite pinned by rev c6ece785 (lock source strings only, resolved commit unchanged); keys.rs doc no longer claims the manifest mirror is written; registry fuzz Cargo.lock refreshed. Nothing deployed. Verification: root edge crates cargo test 619 passed / 0 failed / 7 ignored (79 result lines); edge workspace cargo test 258 passed / 0 failed (same with dev-issuer); fmt --check, clippy -D warnings native (--all-targets, also dev-issuer) both workspaces and wasm32 (edge workspace; root edge crates except ruvector-edge-analytics, RuVector#1085) clean; wrangler@4 deploy --dry-run OK for gateway (3862.02 KiB / 1191.29 KiB gzip) and auth (909.13 KiB / 307.64 KiB gzip). Fuzz 5 min each (nightly, exit 0, no crash): jws_compact 365,111 runs, jwks_parse 21,474,073, rvf_validate 5,963,434, rvf_payloads 234,785,134.",
+      "verification_table_live_2026-09-29": {
+        "note": "Token-less read-only sweep of the live Workers (gateway a5cb208b, auth 98e93c52). Row = METHOD path status prm=<resource_metadata path suffix> sha=<first 12 hex of sha256(body)>. Every /v1 route family -> 401 Bearer with no error (no credentials) and scope=\"ruvector:read offline_access\"; the last two rows carry a forged ES256 bearer (kid zEJuF9kW0cfGGwKeoDbPD8PCObKlOMlaXGwZQuoJBiM, random signature) -> 401 invalid_token. JWKS lists exactly kid zEJuF9kW0cfGGwKeoDbPD8PCObKlOMlaXGwZQuoJBiM. AUTH = https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev.",
+        "rows": [
+          "GET /v1/health 200 prm=- sha=4062edaf750f",
+          "GET /v1/me 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/tenant:claim 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/claim 401 prm=/v1 sha=0a0e7787d3c9",
+          "GET /v1/tenant/members 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/tenant/members 401 prm=/v1 sha=0a0e7787d3c9",
+          "DELETE /v1/tenant/members/sub-x 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/tenant/deny 401 prm=/v1 sha=0a0e7787d3c9",
+          "GET /v1/usage 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/collections 401 prm=/v1 sha=0a0e7787d3c9",
+          "GET /v1/collections 401 prm=/v1 sha=0a0e7787d3c9",
+          "GET /v1/collections/c 401 prm=/v1 sha=0a0e7787d3c9",
+          "DELETE /v1/collections/c 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/collections/c/vectors:upsert 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/collections/c/vectors 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/collections/c/query 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/collections/c/vectors:fetch 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/collections/c/vectors:delete 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/ops 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/collections/c/snapshots 401 prm=/v1 sha=0a0e7787d3c9",
+          "GET /v1/collections/c/snapshots 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/collections/c/snapshots/s1:restore 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/collections/c:export 401 prm=/v1 sha=0a0e7787d3c9",
+          "GET /v1/exports/e1 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/uploads 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/uploads/u1/parts/1 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/uploads/u1:complete 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/collections/c:import 401 prm=/v1 sha=0a0e7787d3c9",
+          "GET /v1/jobs/j1 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/graphs 401 prm=/v1 sha=0a0e7787d3c9",
+          "GET /v1/graphs 401 prm=/v1 sha=0a0e7787d3c9",
+          "GET /v1/graphs/g 401 prm=/v1 sha=0a0e7787d3c9",
+          "DELETE /v1/graphs/g 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/graphs/g/edges 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/graphs/g/cypher 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/mincut 401 prm=/v1 sha=0a0e7787d3c9",
+          "GET /v1/mincut/jobs/j1 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/rvf/scopes/acme 401 prm=/v1 sha=0a0e7787d3c9",
+          "GET /v1/rvf/scopes 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/rvf/acme/pkg/1.0.0/uploads 401 prm=/v1 sha=0a0e7787d3c9",
+          "PUT /v1/rvf/acme/pkg/1.0.0/uploads/u1/parts/1 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/rvf/acme/pkg/1.0.0/uploads/u1:finalize 401 prm=/v1 sha=0a0e7787d3c9",
+          "GET /v1/rvf/acme/pkg 401 prm=/v1 sha=0a0e7787d3c9",
+          "GET /v1/rvf/acme/pkg/1.0.0 401 prm=/v1 sha=0a0e7787d3c9",
+          "GET /v1/rvf/acme/pkg/1.0.0/blob 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/rvf/acme/pkg/1.0.0:yank 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/rvf/acme/pkg/1.0.0:unyank 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/rvf/acme/pkg/1.0.0:publish 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/collections/c:import-rvf 401 prm=/v1 sha=0a0e7787d3c9",
+          "POST /v1/mcp 401 prm=/v1/mcp sha=0a0e7787d3c9",
+          "GET /.well-known/oauth-protected-resource/v1 200 prm=- sha=cec00cdd22f1",
+          "GET /.well-known/oauth-protected-resource/v1/mcp 200 prm=- sha=d99b5e28c4ef",
+          "GET /.well-known/oauth-protected-resource 404 prm=- sha=afa656dc06f2",
+          "GET AUTH/.well-known/oauth-authorization-server 200 prm=- sha=aff036087d70",
+          "GET AUTH/.well-known/jwks.json 200 prm=- sha=eaba4e66ae31",
+          "GET /v1/me 401 prm=/v1 error=\"invalid_token\" sha=0a0e7787d3c9",
+          "POST /v1/mcp 401 prm=/v1/mcp error=\"invalid_token\" sha=0a0e7787d3c9"
+        ]
+      },
+      "next": "Workers Paid (G2 precondition, pending rUv) and IP_HASH_SALT; then G1 (console#605) live token drills; send the §16 delta to the ChatGPT coordinator and record the receipt; owed fuzz durations/targets; RuVector#1084/#1085 follow-ups."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "Fuzz campaigns to ADR-351 durations at db5820427 (nightly 1.100.0 8925ea358, cargo-fuzz 0.13.1, env -u RUSTFLAGS, -rss_limit_mb=2048, 10 targets in parallel on 32 cores, existing corpora plus committed seeds). M0 targets (jws_compact, jwks_parse, resource_url, dcr_json, token_form) and index_chunks (M2b) and rbqx_decode (M4) ran 600 s; the M3 rvf-wire decoders (m3_reader, rvf_validate, rvf_payloads) ran 3600 s. All exit 0, no crash/oom/timeout artifacts, peak RSS <= 730 MB. No library change, so no crate tests or clippy were affected. M0 -> deployed_pending_G1; M2b/M3 fuzz exceptions replaced with evidence; fuzz item removed from owed. Nothing deployed.",
+      "next": "Workers Paid (G2 precondition) and IP_HASH_SALT; then G1 (console#605) live token drills; ADR-351 §9 item 4, §15 status line and §16 still describe fuzz evidence as owed (5-min runs) and need the numbers from this session; RuVector#1084/#1085 follow-ups.",
+      "fuzz_table_2026-09-29": [
+        {
+          "target": "jws_compact",
+          "crate": "ruvector-edge-auth/fuzz",
+          "secs": 600,
+          "runs": 687634,
+          "cov": 1603,
+          "ft": 3950,
+          "peak_rss_mb": 467,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "jwks_parse",
+          "crate": "ruvector-edge-auth/fuzz",
+          "secs": 600,
+          "runs": 45781391,
+          "cov": 2487,
+          "ft": 10218,
+          "peak_rss_mb": 730,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "resource_url",
+          "crate": "ruvector-edge-auth/fuzz",
+          "secs": 600,
+          "runs": 49202815,
+          "cov": 672,
+          "ft": 2302,
+          "peak_rss_mb": 543,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "dcr_json",
+          "crate": "ruvector-edge-authz/fuzz",
+          "secs": 600,
+          "runs": 6050139,
+          "cov": 4210,
+          "ft": 20224,
+          "peak_rss_mb": 596,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "token_form",
+          "crate": "ruvector-edge-authz/fuzz",
+          "secs": 600,
+          "runs": 11355928,
+          "cov": 1477,
+          "ft": 4926,
+          "peak_rss_mb": 557,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "index_chunks",
+          "crate": "ruvector-edge-index/fuzz",
+          "secs": 600,
+          "runs": 9735521,
+          "cov": 2705,
+          "ft": 8385,
+          "peak_rss_mb": 467,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "rbqx_decode",
+          "crate": "ruvector-edge-quant/fuzz",
+          "secs": 600,
+          "runs": 506286,
+          "cov": 1596,
+          "ft": 4691,
+          "peak_rss_mb": 128,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "rvf_validate",
+          "crate": "ruvector-edge-registry/fuzz",
+          "secs": 3600,
+          "runs": 80333811,
+          "cov": 939,
+          "ft": 3023,
+          "peak_rss_mb": 390,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "rvf_payloads",
+          "crate": "ruvector-edge-registry/fuzz",
+          "secs": 3600,
+          "runs": 2471045526,
+          "cov": 166,
+          "ft": 264,
+          "peak_rss_mb": 448,
+          "crashes": 0,
+          "exit": 0
+        },
+        {
+          "target": "m3_reader",
+          "crate": "ruvector-edge-snapshot/fuzz",
+          "secs": 3600,
+          "runs": 101944102,
+          "cov": 1767,
+          "ft": 5672,
+          "peak_rss_mb": 523,
+          "crashes": 0,
+          "exit": 0
+        }
+      ],
+      "g1_close": {
+        "merged": "98e1615f8",
+        "publish_run": 36578007212,
+        "upstream_client_id": "dcr-0d64c5e883c74a3db49cbbb41e8dcaf0",
+        "accepted_kid": "_jQ62WD8cCiIGkKNQB8Hg4El2TNU5rHIITV4h_ba4YM",
+        "auth_version": "24a2818e-6eaf-4b5e-bb21-a5afadb108d4",
+        "probe_client": "edc-VFogSHyfHUOdWtKDZvP2mQ (loopback, left registered)"
+      }
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "Workers Paid: rUv upgraded account 501c77f5 to Workers Paid (G2 precondition closed). Free-sized (10 ms) gateway caps raised and five review findings fixed with tests in 24f37fab2, then ruvector-edge-gateway deployed (only). (1) HIGH REBUILD_BUDGET_MS kept at 20 s (15 s would have dropped the 384-d m16 HNSW node cap ~18k -> ~13.6k and 413 every write to shards between); regression assertion in m2_maintenance_review. (2) Queued-import batches bounded by worst-case encoded bytes <= 1 MiB (17 B/float ryu f32, 4 KiB metadata re-checked in the sink -> 413, 512 B escaped id): 93 rows at 384-d, 34 at 1536-d, 218 at 8-d; the sink serialises f32 text instead of widening through serde_json::Value; tests encode metadata-heavy worst-case batches at 1..4096 dims and sweep f32 bit patterns. (3) Export adds EXPORT_MAX_BYTES 128 MiB (values + ids + metadata) beside 2^24 floats, enforced while rows are read (multipart aborted, 413); test at 16-d with 4 KiB metadata refuses near 32k rows. (4) JOB_MAX_WORK 10e9 -> 3e9 (~4.5 s wasm per solve turn; exact Stoer-Wagner ceiling 6,782 vertices on the circulant test graph, 6,783 is 413); HNSW rebuild recorded as residual risk. (5) shard_core isolate table counts one synchronous analytics turn (job 32 MiB or inline min-cut 16 MiB), one registry part (lowered 16 -> 8 MiB) and one 8 MiB gateway transfer (read_capped never reserves past its cap): ~123 of 128 MB, test updated.",
+      "commits": {
+        "code": "24f37fab2"
+      },
+      "deploy": {
+        "worker": "ruvector-edge-gateway",
+        "version_id": "1460504f-fb07-4779-a4ce-8d8f03130e30",
+        "upload": "3863.77 KiB / gzip 1192.03 KiB",
+        "url": "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev",
+        "migrations": "unchanged (v1, v2-registry, v-m4-quant-graph); no new DO class",
+        "command": "cd edge/gateway && env -u CLOUDFLARE_API_TOKEN -u RUSTFLAGS npx -y wrangler@4 deploy"
+      },
+      "caps_workers_paid": [
+        {
+          "cap": "inline :import body (uploads::MAX_INLINE_BYTES)",
+          "free": "512 KiB",
+          "paid": "8 MiB"
+        },
+        {
+          "cap": "export (sync_budget)",
+          "free": "2^18 floats",
+          "paid": "2^24 floats + 128 MiB stored bytes"
+        },
+        {
+          "cap": "snapshot / restore (SYNC_MAX_FLOATS)",
+          "free": "2^18 floats",
+          "paid": "2^18 floats (kept: restore commit is memory-bound)"
+        },
+        {
+          "cap": "export segment payload",
+          "free": "1 MiB",
+          "paid": "1 MiB (kept, memory)"
+        },
+        {
+          "cap": "queued import segment (QUEUED_MAX_SEGMENT_PAYLOAD)",
+          "free": "1 MiB",
+          "paid": "8 MiB"
+        },
+        {
+          "cap": "queued batch (batch_rows)",
+          "free": "24,576 floats (64 rows @384-d, 500 @8-d)",
+          "paid": "<= 65,536 floats and <= 1 MiB worst-case JSON (93 @384-d, 34 @1536-d, 218 @8-d; hnsw 64)"
+        },
+        {
+          "cap": "BATCHES_PER_DELIVERY",
+          "free": "2",
+          "paid": "8"
+        },
+        {
+          "cap": "HASH_BYTES_PER_DELIVERY",
+          "free": "512 KiB",
+          "paid": "8 MiB"
+        },
+        {
+          "cap": "quant max_load_units / LOAD_TURN_UNITS",
+          "free": "6M / 2M",
+          "paid": "400M / 400M"
+        },
+        {
+          "cap": "quant TURN_UNITS (+ PAGE_BYTES)",
+          "free": "4M",
+          "paid": "16M (+ 2 MiB page)"
+        },
+        {
+          "cap": "quant max_vectors",
+          "free": "50k",
+          "paid": "50k (kept, memory)"
+        },
+        {
+          "cap": "graph MAX_STATE_BYTES / MAX_BULK_EDGES",
+          "free": "256 KiB / 1,000",
+          "paid": "1 MiB / 5,000 (LOAD_TURN_BYTES 503 removed)"
+        },
+        {
+          "cap": "mincut inline work / INLINE_MAX_EDGES",
+          "free": "5M / 10,000",
+          "paid": "500M / 39,945 (16 MiB memory-bound)"
+        },
+        {
+          "cap": "mincut JOB_MAX_WORK",
+          "free": "20e9 (crate)",
+          "paid": "3e9"
+        },
+        {
+          "cap": "mincut JOB_MEMORY_BYTES",
+          "free": "32 MiB",
+          "paid": "32 MiB (kept)"
+        },
+        {
+          "cap": "RVF import IMPORT_SUBREQUEST_BUDGET",
+          "free": "800",
+          "paid": "4,000"
+        },
+        {
+          "cap": "HNSW REBUILD_BUDGET_MS",
+          "free": "20 s",
+          "paid": "20 s (kept)"
+        },
+        {
+          "cap": "registry max_part_size",
+          "free": "16 MiB",
+          "paid": "8 MiB (isolate budget)"
+        },
+        {
+          "cap": "isolate memory table",
+          "free": "56 + 32 MiB job + 2x16 MiB registry ~ 123 MB",
+          "paid": "56 + 32 MiB analytics turn + 2x8 MiB registry + 2x8 MiB transfer ~ 123 MB"
+        }
+      ],
+      "verification": "Root edge crates (auth, authz, tenancy, store, index, registry, snapshot, quant, analytics) cargo test 619 passed / 0 failed / 7 ignored (79 result lines); edge workspace 268/0 (gateway 198, auth-worker 70); cargo fmt --check clean both workspaces; clippy --all-targets -D warnings native both workspaces and wasm32-unknown-unknown (edge workspace, env -u RUSTFLAGS) clean; wrangler@4 deploy --dry-run OK; CARGO_TARGET_DIR=/data/scratch/ruvector-edge-target/paid; no .rs file >= 500 lines (largest rvf_finalize_step.rs 490).",
+      "live_verification": {
+        "GET /v1/health": "200 sha256 4062edaf750f",
+        "20 /v1 routes without token (collections GET/POST, vectors:upsert, query, ops, snapshots POST/GET, :export, :import, jobs, uploads, graphs, cypher, edges, graphs/g/mincut, graphs/g/mincut/jobs, mincut, rvf/scopes, mcp)": "401 invalid_token with resource_metadata, body sha256 0a0e7787d3c9",
+        "POST /v1/collections/c:import 8,388,608 B": "401 sha256 0a0e7787d3c9 (under the pre-auth cap)",
+        "POST /v1/collections/c:import 8,388,609 B": "413 payload_too_large sha256 ae9ab8b9d099 (pre-auth)"
+      },
+      "email_staging_untouched": {
+        "scripts": 7,
+        "before_and_after_identical": true,
+        "snapshot": [
+          {
+            "id": "cognitum-consultant-email-staging-audit-processor",
+            "modified_on": "2026-08-01T19:05:49.600679Z",
+            "etag": "a6c0d3777fe80568016fe6d5b15ac9b3119b31f733d814ad142dee8cb3beeb9e"
+          },
+          {
+            "id": "cognitum-consultant-email-staging-control-plane-proxy",
+            "modified_on": "2026-08-02T02:11:25.333864Z",
+            "etag": "354ef1ca417dfb34535a7d7e80711448b846deaf6a9ecfaed1eafcae52b8bd93"
+          },
+          {
+            "id": "cognitum-consultant-email-staging-delivery-ingestion",
+            "modified_on": "2026-08-01T21:37:05.111919Z",
+            "etag": "223b3e8aee80f1c96a7f82f746662843f02b81f6cd2f978fd4adb7e6eb5e2900"
+          },
+          {
+            "id": "cognitum-consultant-email-staging-delivery-processor",
+            "modified_on": "2026-08-01T19:05:49.585515Z",
+            "etag": "a6c0d3777fe80568016fe6d5b15ac9b3119b31f733d814ad142dee8cb3beeb9e"
+          },
+          {
+            "id": "cognitum-consultant-email-staging-inbound-ingestion",
+            "modified_on": "2026-08-01T21:37:05.117188Z",
+            "etag": "223b3e8aee80f1c96a7f82f746662843f02b81f6cd2f978fd4adb7e6eb5e2900"
+          },
+          {
+            "id": "cognitum-consultant-email-staging-inbound-processor",
+            "modified_on": "2026-08-01T19:05:49.601956Z",
+            "etag": "a6c0d3777fe80568016fe6d5b15ac9b3119b31f733d814ad142dee8cb3beeb9e"
+          },
+          {
+            "id": "cognitum-consultant-email-staging-webhook-edge",
+            "modified_on": "2026-08-01T21:37:04.116959Z",
+            "etag": "c2e9c06ca42ead89e7260bf2655586ebfe453e72fe1372e903b074caff108c17"
+          }
+        ]
+      },
+      "next": "Human-login G1 token drills, then the live Paid drills (owed); IP_HASH_SALT; RuVector#1084/#1085 follow-ups. PR #1098 stays open (not merged).",
+      "ops_2026_09_29_pm": {
+        "gateway_rate_limit_namespaces": "35101-35108 -> 35201-35208 (was sharing 35101/35102 with the auth worker)",
+        "gateway_version": "46fa927c-7385-4a1d-86a1-c29348fb4e07",
+        "ip_hash_salt": "set on ruvector-edge-auth via wrangler secret put (random 48 bytes, never printed)"
+      },
+      "live_token_drills_2026_09_29": {
+        "login": "browser login by rUv via edge /authorize -> consent -> auth.cognitum.one -> /callback -> loopback client edc-VFogSHyfHUOdWtKDZvP2mQ; ES256 token aud=/v1, scope ruvector:read ruvector:write offline_access, 900 s, refresh issued",
+        "passed": [
+          "GET /v1/me resolves tenant_key from org/workspace",
+          "POST /v1/tenant:claim 201 owner",
+          "unclaimed tenant 403 not_claimed on /v1/usage and /v1/collections",
+          "collection create 201 (flat, and 384-d with bge-small-en-v1.5 embedder)",
+          "upsert/query/fetch/delete 200 with usage metering",
+          "Workers AI text upsert+query ranks semantically",
+          "unknown collection 404",
+          "graph create 201; Cypher CREATE/MATCH 200",
+          "inline mincut 200 exact (stoer_wagner) with digest",
+          "POST /v1/tenant/members with write-only token 403 insufficient_scope + challenge",
+          "/v1 token at /v1/mcp 401 invalid_token (exact audience)",
+          "refresh rotates; access token from refresh works",
+          "old refresh replay 400 reuse detected and family revoked (rotated token then 400 revoked)",
+          "drill resources deleted"
+        ],
+        "not_run": [
+          "tenant A/B denial: needs a second login in a different org/workspace"
+        ],
+        "dx_note": "unsupported Cypher syntax (e.g. relationship property maps, count(n)) returns bare 400 invalid_request with no detail; unaliased RETURN columns are named ?column?",
+        "dx_note_status": "fixed 2026-09-29 in 694f927dc, gateway 7b3bc9ef (see the Cypher DX session entry)"
+      },
+      "exchange_drill_2026_09_29": {
+        "client": "ruflo-ai-team (kid MItTXyaR29uQzUZB9ETuLl8-9uQ_YwmmXQZfPO5kHiE), auth 1a43aae6, gateway 46fa927c",
+        "subject": "rUv browser login for https://team.ruv.io/mcp via loopback client edc-o87br1_OXtrVSavE6oNoNw",
+        "key_handling": "adapter private JWK piped from GCP Secret Manager into process memory with rUv approval; public part checked against registered kid; never printed or written",
+        "result": [
+          "subject token: aud=https://team.ruv.io/mcp scope=\"team:read team:write offline_access\" sub=es1_gxgyi7vlvsr56rdoffayaqycci exp=1790709858",
+          "PASS exchange 200 — 200   body sha 25aa097419ec",
+          "PASS Cache-Control no-store",
+          "PASS no refresh_token issued",
+          "PASS aud is exactly …/v1 — https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1",
+          "PASS act = {sub: ruflo-ai-team} — {\"sub\":\"ruflo-ai-team\"}",
+          "PASS same sub as subject",
+          "PASS exp <= subject exp — 1790709858 <= 1790709858",
+          "PASS scope mapped team:* -> ruvector:read ruvector:write — ruvector:read ruvector:write",
+          "PASS org_id carried over",
+          "PASS workspace_id carried over",
+          "PASS upstream_iss carried over",
+          "PASS family_id carried over",
+          "PASS exchanged token at /v1/me 200 with act_sub — 200 act_sub=ruflo-ai-team tenant=xj7hi2ao27v5ggtzq4p26osscm",
+          "PASS exchanged (adapter) token refused at /v1/mcp — 401 invalid_token sha 0a0e7787d3c9",
+          "PASS raw team.ruv.io token refused at /v1 — 401 invalid_token",
+          "PASS assertion replay (same jti) refused — 401 invalid_client",
+          "PASS exchange to …/v1/mcp refused — 400 invalid_target",
+          "PASS re-exchanging an exchanged token (nested act) refused — 400 invalid_request",
+          "PASS assertion with wrong aud refused — 401 invalid_client",
+          "PASS assertion exp > 5 min refused — 401 invalid_client",
+          "PASS exchange without client assertion refused — 401 invalid_client",
+          "PASS scope escalation to ruvector:admin not granted — 400 invalid_scope",
+          "RESULT pass=22 fail=0"
+        ]
+      }
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "Cypher DX (from the live drill dx_note): refusals now say what failed and unaliased RETURN columns are named by expression. Status codes and `code` unchanged. The GraphStore wire carried only the error code (WireErr.into_op substitutes code.as_str() for detail), so every DO-side Cypher refusal read detail \"invalid_request\"; WireErr gains an optional detail set only by Cypher refusals (graph_cypher_dx::Refusal), rendered as the REST problem detail and the MCP graph_query / graph_mutate (incl. dry_run) tool-error detail, clamped to 200 chars, built from fixed phrases plus the caller's own query (line/column, token, variable name, byte offset), never rvlite Debug AST dumps. rvlite named every unaliased non-variable RETURN item ?column? and kept one column per name (RETURN n.id, n.name silently dropped n.name); gc::parse now aliases such items with their expression text before execution (zero-match column list too). rvlite (c6ece785) unmodified.",
+      "commits": {
+        "code": "694f927dc"
+      },
+      "examples": [
+        {
+          "query": "CREATE (a:N {id:1})-[:E {w:3}]->(b:N {id:2}) RETURN a,b",
+          "before": "400 invalid_request detail \"invalid_request\"",
+          "after": "400 invalid_request detail \"unsupported: RETURN of variables bound by CREATE (`a`); run the CREATE, then MATCH it in a second query\" (mutation discarded, nodes 0)"
+        },
+        {
+          "query": "MATCH (n:N) RETURN count(n)",
+          "before": "400 invalid_request detail \"invalid_request\"",
+          "after": "400 invalid_request detail \"unsupported: aggregation count() (aggregate functions are not implemented)\""
+        },
+        {
+          "query": "MATCH (n:N RETURN n",
+          "before": "400 detail \"cypher parse error\"",
+          "after": "400 detail \"parse error at line 1, column 12: expected ..., found ...\""
+        },
+        {
+          "query": "MATCH (n:N) RETURN n.id, n.name, n",
+          "before": "columns [\"?column?\", \"n\"] (n.name lost)",
+          "after": "columns [\"n.id\", \"n.name\", \"n\"]"
+        }
+      ],
+      "gate": "edge workspace 273/0 (auth-worker 70, gateway 203 incl. 5 new graph_dx_tests), gateway --features dev-issuer 203/0; root ruvector-edge-analytics 30/0 (2 ignored), release; cargo fmt --check clean; clippy -D warnings clean native (--all-targets, also --features dev-issuer) and wasm32-unknown-unknown (env -u RUSTFLAGS); wrangler deploy --dry-run exit 0; no .rs file >= 500 lines (new graph_cypher_dx.rs 355).",
+      "deploy": {
+        "worker": "ruvector-edge-gateway",
+        "version_id": "7b3bc9ef-ce06-420b-9bef-8b4f0e1db0c1",
+        "previous_version_id": "46fa927c",
+        "url": "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev",
+        "migrations": "unchanged; no new DO class",
+        "command": "cd edge/gateway && env -u CLOUDFLARE_API_TOKEN -u RUSTFLAGS npx -y wrangler@4 deploy",
+        "deployments_status": "(100%) 7b3bc9ef-ce06-420b-9bef-8b4f0e1db0c1"
+      },
+      "live_verification": [
+        "GET /v1/health 200 {\"ok\":true} sha256 4062edaf750f",
+        "GET /v1/graphs 401 invalid_token sha256 0a0e7787d3c9",
+        "POST /v1/graphs/g/cypher 401 invalid_token sha256 0a0e7787d3c9",
+        "POST /v1/mcp 401 invalid_token sha256 0a0e7787d3c9"
+      ],
+      "staging_unchanged": {
+        "result": "all 7 cognitum-consultant-email-staging-* scripts: modified_on and etag identical before and after the deploy",
+        "scripts": [
+          {
+            "script": "cognitum-consultant-email-staging-audit-processor",
+            "modified_on": "2026-08-01T19:05:49.600679Z",
+            "etag": "a6c0d3777fe80568016fe6d5b15ac9b3119b31f733d814ad142dee8cb3beeb9e"
+          },
+          {
+            "script": "cognitum-consultant-email-staging-control-plane-proxy",
+            "modified_on": "2026-08-02T02:11:25.333864Z",
+            "etag": "354ef1ca417dfb34535a7d7e80711448b846deaf6a9ecfaed1eafcae52b8bd93"
+          },
+          {
+            "script": "cognitum-consultant-email-staging-delivery-ingestion",
+            "modified_on": "2026-08-01T21:37:05.111919Z",
+            "etag": "223b3e8aee80f1c96a7f82f746662843f02b81f6cd2f978fd4adb7e6eb5e2900"
+          },
+          {
+            "script": "cognitum-consultant-email-staging-delivery-processor",
+            "modified_on": "2026-08-01T19:05:49.585515Z",
+            "etag": "a6c0d3777fe80568016fe6d5b15ac9b3119b31f733d814ad142dee8cb3beeb9e"
+          },
+          {
+            "script": "cognitum-consultant-email-staging-inbound-ingestion",
+            "modified_on": "2026-08-01T21:37:05.117188Z",
+            "etag": "223b3e8aee80f1c96a7f82f746662843f02b81f6cd2f978fd4adb7e6eb5e2900"
+          },
+          {
+            "script": "cognitum-consultant-email-staging-inbound-processor",
+            "modified_on": "2026-08-01T19:05:49.601956Z",
+            "etag": "a6c0d3777fe80568016fe6d5b15ac9b3119b31f733d814ad142dee8cb3beeb9e"
+          },
+          {
+            "script": "cognitum-consultant-email-staging-webhook-edge",
+            "modified_on": "2026-08-01T21:37:04.116959Z",
+            "etag": "c2e9c06ca42ead89e7260bf2655586ebfe453e72fe1372e903b074caff108c17"
+          }
+        ]
+      },
+      "not_touched": [
+        "cognitum-consultant-email-staging-*",
+        "D1 ruvector-chatgpt",
+        "custom domains",
+        "ruvector-edge-auth"
+      ]
+    }
+  ],
+  "gates_registry_status": {
+    "G1": "authorised by rUv 2026-09-29; NOT executed (console#605 pending): UPSTREAM_CLIENT_ID and ACCEPTED_UPSTREAM_KIDS are empty, so /authorize answers temporarily_unavailable. Preconditions before running G1: operator sets the IP_HASH_SALT secret (today the empty-salt fallback leaves per-IP buckets unsalted); Workers Paid (G2) before any live load — done 2026-09-29.",
+    "G2": "exercised 2026-09-29 by the M0.5 deploy workflow run (scope limited to the two ruvector-edge-* scripts, their DO/rate-limit bindings and the signing-key secret); no separate G2 approval line was recorded in this file before the run. Workers Paid CLOSED 2026-09-29 (cpu_ms = 30000 accepted, gateway 161567cc; caps raised and deployed at 1460504f). Still open inside G2: IP_HASH_SALT and DENY_GLOBAL secrets, distinct Rate Limiting namespace_ids (auth and gateway both use 35101/35102).",
+    "G3": "exercised 2026-09-29 by the M3 deploy (merge f1959f942, gateway version 07de745c): R2 ruvector-edge-data (binding EDGE_DATA, shared with M5), Queues ruvector-edge-ingest(+ruvector-edge-ingest-dlq) and ruvector-edge-audit(+ruvector-edge-audit-dlq), Workers AI binding AI. D1 ruvector-edge-control NOT created. No G3 approval line was recorded in this file before the run (as for G2).",
+    "G4": "(a) not needed: HNSW built in-repo (ruvector-edge-index); (b) consumed from the unmerged branch of RuVector#1084, pinned by rev c6ece785 (merge owed; move to main/release after); (c) not needed: persist v2 rbqx0002 built in-repo (ruvector-edge-quant).",
+    "G5": "not started (M6)",
+    "G6": "not started (M6)"
+  },
+  "open_gates": [
+    "Workers Paid CLOSED 2026-09-29 (G2 precondition): rUv upgraded account 501c77f5 to Workers Paid; gateway [limits] cpu_ms = 30000 accepted (version 161567cc, a83f661da); Free-sized caps raised and deployed (24f37fab2, gateway version 1460504f-fb07-4779-a4ce-8d8f03130e30).",
+    "G1 CLOSED 2026-09-29: console#605 merged (98e1615f8) + Identity published; edge AS registered upstream as dcr-0d64c5e883c74a3db49cbbb41e8dcaf0 (public, PKCE S256, openid profile email), ACCEPTED_UPSTREAM_KIDS=_jQ62WD8cCiIGkKNQB8Hg4El2TNU5rHIITV4h_ba4YM; auth version 24a2818e. Live: /authorize -> consent 200 -> 303 to auth.cognitum.one/oauth/authorize -> upstream login page 200. Remaining: a human browser login to complete callback + token drills.",
+    "ChatGPT §16: adapter ruflo-ai-team registered and live exchange drill 22/22 PASS (2026-09-29); remaining: coordinator acceptance note + tenant A/B denial (second org/workspace login)",
+    "G5 (team tenancy: upstream org selector / org-role claim) and G6 (production hostname) for M6"
+  ],
+  "owed": [
+    "Upstream: RuVector#1084 merge (then move rvlite from rev c6ece785 to main/release); RuVector#1085 (ApproxMinCut 0.10-0.33x exact; ruvector-mincut wasm32 clippy static_mut_refs/unused_unsafe) before serving approximate mode or dropping the analytics wasm32 clippy exception; RuVector#1063/#1064 (@ruvector/core VectorDb shares ./ruvector.db across tenants) before a RuFlo front end fronts multi-tenant data",
+    "M0.5 live verification left two public DCR clients on AuthStore (default scope with 127.0.0.1:53682 redirect; a team:read/team:write client); their client_ids were not recorded and purge_idle_clients runs only at MAX_CLIENTS; operator to list and delete them or accept them as test fixtures before G1",
+    "M4 residuals: graph/job bytes not in tenant quota; no graph/job wipe on tenant removal (no tenant deletion at all); isolate-kill blast radius unverified; multi-second DO turns (job solve <= ~4.5 s, HNSW rebuild <= 20 s) block co-resident objects",
+    "Code: dry_run on REST collection create, tenant claim, drop, member/deny, graph REST, rvf_import, M3, mincut jobs, registry; registry manifest mirror (designed, not written); fail-closed empty IP_HASH_SALT in release builds; ruvector:publish in the RESOURCE_ALLOWLIST; /v1/results; GET /v1/audit; global deny/D1",
+    "Live drills after G1 (Workers Paid done 2026-09-29): 50k rabitq cold load, Cypher viewer 403, K_320 job to done, 413 budgets incl. the Paid caps (8 MiB inline import, export 2^24 floats / 128 MiB, 1 MiB graph state), snapshot/restore, queued import (rvf CLI default batch size), registry upload/finalize/import (8 MiB parts), recall and lazy-load p95"
+  ]
+}

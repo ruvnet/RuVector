@@ -1,5 +1,5 @@
 [workspace]
-exclude = ["external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf", "crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/ruvector-hyperbolic-hnsw-wasm", "examples/ruvLLM/esp32", "examples/ruvLLM/esp32-flash", "examples/edge-net", "examples/data", "examples/ruvLLM", "examples/delta-behavior", "crates/rvf", "crates/rvf/*", "crates/rvf/*/*", "examples/rvf-desktop", "crates/mcp-brain-server",
+exclude = ["crates/prime-radiant", "patches/candle-core-0.8.4", "patches/candle-core-0.9.2", "external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf", "crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/ruvector-hyperbolic-hnsw-wasm", "examples/ruvLLM/esp32", "examples/ruvLLM/esp32-flash", "examples/edge-net", "examples/data", "examples/ruvLLM", "examples/delta-behavior", "crates/rvf", "crates/rvf/*", "crates/rvf/*/*", "examples/rvf-desktop", "crates/mcp-brain-server",
     # emergent-time-wasm: standalone cdylib with own opt-level=z, panic=abort
     "crates/emergent-time-wasm",
     # sonic-ct crates: self-contained detached workspaces
@@ -45,8 +45,28 @@ exclude = ["external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf",
     # against ruvector-sparse-inference (SparseModel is now an enum without
     # forward_embedding/sparsity_statistics/encode; serde derives were
     # dropped from InferenceConfig/ModelMetadata).
-    "crates/ruvector-sparse-inference-wasm"]
+    "crates/ruvector-sparse-inference-wasm",
+    # ruvector edge Workers (ADR-351): a separate cargo workspace of workers-rs
+    # cdylibs with its own Cargo.lock, so its wasm-bindgen/worker pins never
+    # unify with this workspace. The pure cores it wraps are members below.
+    "edge", "edge/*"]
 members = [
+    # Shared EMA clustering core and portable npm WASM engine (ADR-359).
+    "crates/ruvector-e-means",
+    # ruvector Python SDK (ADR-352): PyO3 + maturin bindings. Salvaged from
+    # the stale feature/python-sdk-m1 branch (M1 RaBitQ scope) and extended.
+    "crates/ruvector-py",
+    # ruvector edge pure-Rust cores (ADR-351): resource-server auth, tenancy,
+    # and the edge OAuth authorization server. wasm32-unknown-unknown clean.
+    "crates/ruvector-edge-auth",
+    "crates/ruvector-edge-tenancy",
+    "crates/ruvector-edge-authz",
+    "crates/ruvector-edge-store",
+    "crates/ruvector-edge-index",
+    "crates/ruvector-edge-registry",
+    "crates/ruvector-edge-snapshot",
+    "crates/ruvector-edge-analytics",
+    "crates/ruvector-edge-quant",
     "crates/ruvector-bounded-rag",
     "crates/ruvector-temporal-coherence",
     "crates/ruvector-acorn",
@@ -79,6 +99,7 @@ members = [
     "crates/ruvector-server",
     "crates/ruvector-snapshot",
     "crates/ruvector-tiny-dancer-core",
+    "crates/ruvector-voi",
     "crates/ruvector-tiny-dancer-wasm",
     "crates/ruvector-tiny-dancer-node",
     "crates/ruvector-collections",
@@ -98,6 +119,9 @@ members = [
     # StagedWorkspace (arXiv:2608.18050) content-hash state binding
     # (ADR-318, PIR WP16 ruvnet/RuVector#863).
     "crates/ruvector-staged-workspace",
+    # ruvector-weaver (ADR-355): ecosystem cross-integration harness that
+    # turns graph/scan/gate/ledger into a ranked work queue for /loop lanes.
+    "crates/ruvector-weaver",
     # vast.ai GPU job runner with hard budget caps + auto-destroy (openjev).
     "crates/ruvector-gpu-runner",
     # OpenJev v0 trainer (ADR-008): candle fine-tune + ONNX transplant (openjev).
@@ -158,7 +182,6 @@ members = [
     "crates/ruvllm",
     "crates/ruvllm-cli",
     "crates/ruvllm-wasm",
-    "crates/prime-radiant",
     "crates/ruvector-delta-core",
     "crates/ruvector-delta-wasm",
     "crates/ruvector-delta-index",
@@ -365,7 +388,7 @@ unused_unit = "allow"
 [workspace.package]
 version = "2.3.0"
 edition = "2021"
-rust-version = "1.77"
+rust-version = "1.88"
 license = "MIT"
 authors = ["Ruvector Team"]
 repository = "https://github.com/ruvnet/ruvector"
@@ -451,7 +474,23 @@ debug = true
 
 [profile.test]
 
+# ruvector-edge-index recall/persistence tests run 10k x 384 HNSW builds; at
+# opt-level 0 they take minutes. Optimise just this crate in dev/test builds.
+[profile.dev.package.ruvector-edge-index]
+opt-level = 3
+
+# ruvector-mincut's subpolynomial tests and two ruvector-exotic-wasm doctests are
+# compute-bound and set the Workspace CI critical path at opt-level 0. Same fix as above.
+[profile.dev.package.ruvector-mincut]
+opt-level = 3
+
+[profile.dev.package.ruvector-exotic-wasm]
+opt-level = 3
+
 # Patch hnsw_rs to use rand 0.8 instead of 0.9 for WASM compatibility
 # This resolves the getrandom version conflict (0.2 vs 0.3)
 [patch.crates-io]
 hnsw_rs = { path = "./patches/hnsw_rs" }
+
+candle-core-084 = { package = "candle-core", path = "patches/candle-core-0.8.4" }
+candle-core-092 = { package = "candle-core", path = "patches/candle-core-0.9.2" }

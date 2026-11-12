@@ -1,0 +1,34 @@
+# cargo-fuzz target for the M3 readers (ADR-351 §6.3, §15 M3 "fuzzers run
+# 1 h clean"): snapshot manifest objects, snapshot chunk restore (rvf-wire
+# VEC_SEG row blocks) and the streamed RVF import (tail manifest + records).
+# Run with nightly:
+#   cd crates/ruvector-edge-snapshot/fuzz
+#   env -u RUSTFLAGS cargo +nightly fuzz run m3_reader corpus/m3_reader seeds/m3_reader -- -max_total_time=3600
+# `seeds/m3_reader` holds a small snapshot (manifest object, chunk, segment
+# payloads) and RVF export written the way the integration tests write
+# them; `corpus/` is ignored.
+[package]
+name = "ruvector-edge-snapshot-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ruvector-edge-snapshot = { path = ".." }
+rvf-wire = { path = "../../rvf/rvf-wire" }
+rvf-types = { path = "../../rvf/rvf-types" }
+sha2 = "0.10"
+
+# Prevent this from being discovered as a workspace member
+[workspace]
+
+[[bin]]
+name = "m3_reader"
+path = "fuzz_targets/m3_reader.rs"
+test = false
+doc = false
+bench = false

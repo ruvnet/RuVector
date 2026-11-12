@@ -46,6 +46,25 @@ type ScanFn = fn(
 
 static SCAN_IMPL: OnceLock<ScanFn> = OnceLock::new();
 
+/// Hard (release-mode) shape check guarding every `get_unchecked` in the
+/// kernels below. `scan` / `scan_scalar` are safe `pub` fns, so a
+/// `debug_assert!` alone would let a caller trigger out-of-bounds reads.
+/// Three compares per scan call, not per candidate.
+#[inline]
+fn check_shapes(packed: &[u64], n_words: usize, n: usize, q_packed: &[u64], out_agree: &[u32]) {
+    assert!(
+        n == 0 || n_words > 0,
+        "scan: n_words must be > 0 when n > 0"
+    );
+    assert_eq!(
+        Some(packed.len()),
+        n.checked_mul(n_words),
+        "scan: packed.len() != n * n_words"
+    );
+    assert_eq!(q_packed.len(), n_words, "scan: q_packed.len() != n_words");
+    assert_eq!(out_agree.len(), n, "scan: out_agree.len() != n");
+}
+
 /// Portable scalar kernel. Matches the pre-SIMD inline loop byte-for-byte.
 #[inline]
 pub fn scan_scalar(
@@ -56,9 +75,7 @@ pub fn scan_scalar(
     mask: u64,
     out_agree: &mut [u32],
 ) {
-    debug_assert_eq!(packed.len(), n * n_words);
-    debug_assert_eq!(q_packed.len(), n_words);
-    debug_assert_eq!(out_agree.len(), n);
+    check_shapes(packed, n_words, n, q_packed, out_agree);
 
     let aligned = mask == !0u64;
     if aligned && n_words == 2 {
@@ -285,13 +302,12 @@ fn scan_avx2_dispatch(
 /// Caller must guarantee `is_x86_feature_detected!("avx512f")` and
 /// `is_x86_feature_detected!("avx512vpopcntdq")`. The dispatcher in
 /// [`scan`] does this.
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", ruvector_rabitq_stable_avx512))]
 #[target_feature(enable = "avx2,avx512f,avx512bw,avx512vpopcntdq")]
-// AVX-512 intrinsics stabilized in Rust 1.89; the crate's declared MSRV is
-// older, but these are guarded behind `is_x86_feature_detected!` at dispatch
-// time and the target_feature gate ensures the compiler only emits them when
-// enabled. The runtime dispatcher never reaches this fn on a toolchain that
-// cannot emit these intrinsics. Silence the clippy MSRV lint locally.
+// The build-script compiler gate is required in addition to runtime CPU
+// detection: older stable compilers cannot type-check these intrinsics.
+// Clippy reads the manifest MSRV, so retain its local allowance for this
+// newer-compiler-only implementation.
 #[allow(clippy::incompatible_msrv)]
 unsafe fn scan_avx512(
     packed: &[u64],
@@ -404,7 +420,7 @@ unsafe fn scan_avx512(
 /// Thin wrapper that adapts the `unsafe` AVX-512 kernel to the safe
 /// `ScanFn` signature for the dispatcher cache. Safe to call only when the
 /// CPU supports AVX-512F + AVX512VPOPCNTDQ — which the dispatcher checks.
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", ruvector_rabitq_stable_avx512))]
 fn scan_avx512_dispatch(
     packed: &[u64],
     n_words: usize,
@@ -430,6 +446,7 @@ pub fn scan(
     mask: u64,
     out_agree: &mut [u32],
 ) {
+    check_shapes(packed, n_words, n, q_packed, out_agree);
     let f = SCAN_IMPL.get_or_init(select_impl);
     f(packed, n_words, n, q_packed, mask, out_agree);
 }
@@ -437,6 +454,7 @@ pub fn scan(
 fn select_impl() -> ScanFn {
     #[cfg(target_arch = "x86_64")]
     {
+        #[cfg(ruvector_rabitq_stable_avx512)]
         if std::is_x86_feature_detected!("avx512f")
             && std::is_x86_feature_detected!("avx512vpopcntdq")
         {
@@ -518,8 +536,8 @@ mod tests {
             );
         }
 
-        // Same for AVX-512 — skipped silently on hosts lacking VPOPCNTDQ.
-        #[cfg(target_arch = "x86_64")]
+        // Same for AVX-512 when both compiler and CPU support it.
+        #[cfg(all(target_arch = "x86_64", ruvector_rabitq_stable_avx512))]
         if std::is_x86_feature_detected!("avx512f")
             && std::is_x86_feature_detected!("avx512vpopcntdq")
         {
@@ -535,6 +553,41 @@ mod tests {
     }
 
     #[test]
+    fn scan_agree_matches_scalar_across_word_and_batch_boundaries() {
+        for dim in [31, 32, 33, 63, 64, 65, 127, 128, 129, 511, 512, 513] {
+            for n in [0, 1, 3, 4, 5, 31, 32, 33, 63, 64, 65] {
+                run_both(dim, n, 0xBADC_0FFE_1234_5678);
+            }
+        }
+    }
+
+    #[test]
+    #[cfg(target_arch = "x86_64")]
+    fn dispatcher_selects_supported_compiler_and_cpu_kernel() {
+        #[cfg(ruvector_rabitq_stable_avx512)]
+        if std::is_x86_feature_detected!("avx512f")
+            && std::is_x86_feature_detected!("avx512vpopcntdq")
+        {
+            assert!(std::ptr::eq(
+                select_impl() as *const (),
+                scan_avx512_dispatch as *const ()
+            ));
+            return;
+        }
+        if std::is_x86_feature_detected!("avx2") && std::is_x86_feature_detected!("popcnt") {
+            assert!(std::ptr::eq(
+                select_impl() as *const (),
+                scan_avx2_dispatch as *const ()
+            ));
+        } else {
+            assert!(std::ptr::eq(
+                select_impl() as *const (),
+                scan_scalar as *const ()
+            ));
+        }
+    }
+
+    #[test]
     fn scan_agree_matches_scalar_at_d128() {
         // 1000 candidates at the production dim.
         run_both(128, 1000, 0xA5A5_5A5A_1234_CAFE);
@@ -545,6 +598,7 @@ mod tests {
     /// on non-x86 hosts and on x86 hosts missing AVX-512F + VPOPCNTDQ so
     /// CI runners without AVX-512 don't fail.
     #[test]
+    #[cfg(all(target_arch = "x86_64", ruvector_rabitq_stable_avx512))]
     fn scan_avx512_matches_scalar() {
         #[cfg(target_arch = "x86_64")]
         {

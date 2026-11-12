@@ -110,10 +110,24 @@ enum Commands {
         #[arg(short, long, default_value = "q4k")]
         quantization: String,
 
-        /// Exit with an error if the model fails to load, instead of serving
-        /// placeholder "mock mode" completions.
+        /// If the model fails to load, serve labeled placeholder responses
+        /// instead of exiting (client development only). Every placeholder
+        /// response carries `x-ruvllm-mode: mock` and
+        /// `system_fingerprint: "ruvllm-mock"`.
+        #[arg(
+            long = "allow-mock",
+            alias = "mock",
+            env = "RUVLLM_ALLOW_MOCK",
+            action = clap::ArgAction::SetTrue,
+            value_parser = clap::builder::FalseyValueParser::new()
+        )]
+        allow_mock: bool,
+
+        /// Deprecated: exiting when the model fails to load is now the
+        /// default. Accepted for compatibility; conflicts with --allow-mock.
         #[arg(
             long,
+            hide = true,
             env = "RUVLLM_STRICT",
             action = clap::ArgAction::SetTrue,
             value_parser = clap::builder::FalseyValueParser::new()
@@ -154,6 +168,17 @@ enum Commands {
         /// Number of speculative tokens to generate ahead (2-8)
         #[arg(long, default_value = "4")]
         speculative_lookahead: usize,
+
+        /// If the model fails to load, reply with labelled placeholder text
+        /// instead of exiting (development only).
+        #[arg(
+            long = "allow-mock",
+            alias = "mock",
+            env = "RUVLLM_ALLOW_MOCK",
+            action = clap::ArgAction::SetTrue,
+            value_parser = clap::builder::FalseyValueParser::new()
+        )]
+        allow_mock: bool,
     },
 
     /// Run performance benchmarks
@@ -286,6 +311,7 @@ async fn main() -> anyhow::Result<()> {
             max_concurrent,
             max_context,
             quantization,
+            allow_mock,
             strict,
         } => {
             serve::run(
@@ -296,6 +322,7 @@ async fn main() -> anyhow::Result<()> {
                 max_context,
                 &quantization,
                 &cache_dir,
+                allow_mock,
                 strict,
             )
             .await
@@ -309,6 +336,7 @@ async fn main() -> anyhow::Result<()> {
             quantization,
             speculative,
             speculative_lookahead,
+            allow_mock,
         } => {
             chat::run(
                 &model,
@@ -319,6 +347,7 @@ async fn main() -> anyhow::Result<()> {
                 &cache_dir,
                 speculative.as_deref(),
                 speculative_lookahead,
+                allow_mock,
             )
             .await
         }

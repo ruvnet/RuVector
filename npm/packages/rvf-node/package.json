@@ -1,7 +1,7 @@
 {
   "name": "@ruvector/rvf-node",
-  "version": "0.2.3",
-  "description": "RuVector Format Node.js native bindings",
+  "version": "0.4.7",
+  "description": "Native Node.js (N-API) bindings for the RuVector Format vector database, built in Rust: HNSW indexing and search over portable .rvf files.",
   "main": "index.js",
   "types": "index.d.ts",
   "files": [
@@ -22,10 +22,26 @@
   "scripts": {
     "build": "napi build --platform --release"
   },
+  "keywords": [
+    "rvf",
+    "vector-database",
+    "napi",
+    "hnsw",
+    "rust",
+    "nodejs",
+    "ruvector",
+    "ruvnet",
+    "vector-search"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector"
+    "url": "git+https://github.com/ruvnet/ruvector.git",
+    "directory": "npm/packages/rvf-node"
+  },
+  "homepage": "https://ruv.io",
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
   },
   "engines": {
     "node": ">= 16"
@@ -33,12 +49,5 @@
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public"
-  },
-  "optionalDependencies": {
-    "@ruvector/rvf-node-linux-x64-gnu": "0.1.7",
-    "@ruvector/rvf-node-darwin-x64": "0.1.7",
-    "@ruvector/rvf-node-darwin-arm64": "0.1.7",
-    "@ruvector/rvf-node-win32-x64-msvc": "0.1.7",
-    "@ruvector/rvf-node-linux-arm64-gnu": "0.1.7"
   }
 }

@@ -2,7 +2,7 @@
  * Worker thread for parallel ONNX embedding generation
  */
 import { parentPort, workerData } from 'worker_threads';
-import { WasmEmbedder, WasmEmbedderConfig } from './pkg/ruvector_onnx_embeddings_wasm.js';
+import { WasmEmbedder, WasmEmbedderConfig } from './ruvector_onnx_embeddings_wasm.node.mjs';
 
 // Initialize embedder with model data passed from main thread
 const { modelBytes, tokenizerJson, config } = workerData;

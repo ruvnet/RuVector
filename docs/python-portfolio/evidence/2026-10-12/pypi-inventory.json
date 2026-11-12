@@ -1,0 +1,95 @@
+[
+  {
+    "package": "ruvector",
+    "latest": "0.1.4",
+    "target": "0.1.4",
+    "files": [
+      {
+        "name": "ruvector-0.1.4-cp39-abi3-macosx_10_12_x86_64.whl",
+        "sha256": "3da743e96235ef90d2b95e10f13b42da81374f1844daf3d1fabb9ab011b8670d"
+      },
+      {
+        "name": "ruvector-0.1.4-cp39-abi3-macosx_11_0_arm64.whl",
+        "sha256": "28aeac25bb3151b4afb0b06bc07ec259137432387c7c2cb3316842bc55e82006"
+      },
+      {
+        "name": "ruvector-0.1.4-cp39-abi3-manylinux_2_28_aarch64.whl",
+        "sha256": "d6dabb8f3d5add92e8721adcfc28dcaaaadb70e62ac7e729c625ed3870497a7c"
+      },
+      {
+        "name": "ruvector-0.1.4-cp39-abi3-manylinux_2_28_x86_64.whl",
+        "sha256": "2189bf262fab1533f40ac654afa4bcb580b87ad2e33eee1decd0b7a42f469ebe"
+      },
+      {
+        "name": "ruvector-0.1.4-cp39-abi3-win_amd64.whl",
+        "sha256": "6032dd22b1f74d0d4fa8c23142f88ca9275bcb5f31cd114c3e875e164356d5ee"
+      },
+      {
+        "name": "ruvector-0.1.4.tar.gz",
+        "sha256": "614697f60b038486372fdd7f6feef819f89938b955b38e7fe5fb608d14406e5f"
+      }
+    ]
+  },
+  {
+    "package": "ruvector-attention",
+    "latest": "0.2.0",
+    "target": "0.2.0",
+    "files": [
+      {
+        "name": "ruvector_attention-0.2.0-py3-none-any.whl",
+        "sha256": "48c6557e4fc53c41aeb24b832e3e167afe88fde6c17affbb31cd6da148972bdc"
+      }
+    ]
+  },
+  {
+    "package": "ruvector-cluster",
+    "latest": "0.2.0",
+    "target": "0.2.0",
+    "files": [
+      {
+        "name": "ruvector_cluster-0.2.0-py3-none-any.whl",
+        "sha256": "99efcf69e29c9a11e47599ea37a725496e11fa88b169224885e23efa0d6ec3b8"
+      }
+    ]
+  },
+  {
+    "package": "ruvector-core",
+    "status": 404
+  },
+  {
+    "package": "ruvector-gnn",
+    "status": 404
+  },
+  {
+    "package": "ruvector-graph",
+    "latest": "0.1.0",
+    "target": "0.2.0",
+    "files": []
+  },
+  {
+    "package": "ruvector-rerank",
+    "latest": "0.1.0",
+    "target": "0.2.0",
+    "files": []
+  },
+  {
+    "package": "ruvector-router",
+    "status": 404
+  },
+  {
+    "package": "ruvector-ruvllm",
+    "status": 404
+  },
+  {
+    "package": "ruvector-rvf",
+    "status": 404
+  },
+  {
+    "package": "ruvector-rvf-wasm",
+    "status": 404
+  },
+  {
+    "package": "ruvector-sona",
+    "status": 404
+  }
+]

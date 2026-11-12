@@ -1,0 +1,120 @@
+{
+  "version": "0.2.0",
+  "runtime": "0.1.3",
+  "source_sha": "fccf36e9a76d35bce6750dfd3b25802cae3d683b",
+  "run_id": 38169271248,
+  "artifact_id": 11713787141,
+  "archive_sha256": "b4c92cae86c753305abef7aad395fdd9d91c7e84c3c887342defa7a3e4607241",
+  "files": [
+    {
+      "filename": "ruvector_attention-0.2.0-py3-none-any.whl",
+      "sha256": "48c6557e4fc53c41aeb24b832e3e167afe88fde6c17affbb31cd6da148972bdc",
+      "bytes": 3629
+    },
+    {
+      "filename": "ruvector_attention-0.2.0.tar.gz",
+      "sha256": "767881ffe1e0023ed2866ccbb57fdab1c985149ec89d1c003e2e737d7327aa70",
+      "bytes": 2865
+    },
+    {
+      "filename": "ruvector_cluster-0.2.0-py3-none-any.whl",
+      "sha256": "99efcf69e29c9a11e47599ea37a725496e11fa88b169224885e23efa0d6ec3b8",
+      "bytes": 3994
+    },
+    {
+      "filename": "ruvector_cluster-0.2.0.tar.gz",
+      "sha256": "09e0db4fc6f19a6b0e45b7906c5647adb24917dd5a3b2fa59a282a3629333635",
+      "bytes": 3269
+    },
+    {
+      "filename": "ruvector_core-0.2.0-py3-none-any.whl",
+      "sha256": "c269a9cd41dbf6b91900e1709f31e1576560b51e70a553adfeb219d108c1cd89",
+      "bytes": 4099
+    },
+    {
+      "filename": "ruvector_core-0.2.0.tar.gz",
+      "sha256": "24a62d2a0b08f4a4a5f1470922f04c8727a75ea36fb4aea3691d087f0d3c5630",
+      "bytes": 3384
+    },
+    {
+      "filename": "ruvector_gnn-0.2.0-py3-none-any.whl",
+      "sha256": "4e5e013e3ba87205d2acaabaf1420ada8a37cb9bb8281168395c741c5c6eedcb",
+      "bytes": 4094
+    },
+    {
+      "filename": "ruvector_gnn-0.2.0.tar.gz",
+      "sha256": "46706f979d8d45a9d0eb19005f595aa2fe48d88804d04e99acbe22f139a6d100",
+      "bytes": 3366
+    },
+    {
+      "filename": "ruvector_graph-0.2.0-py3-none-any.whl",
+      "sha256": "2278acfa6255df9bd961c80ebb36fa28621975b36eb7fb41d992b7b5a921b8cc",
+      "bytes": 4028
+    },
+    {
+      "filename": "ruvector_graph-0.2.0.tar.gz",
+      "sha256": "5410b43357250b3719f8c7f700b4cad9e99242bc53532141085ebfb08565ccde",
+      "bytes": 3319
+    },
+    {
+      "filename": "ruvector_rerank-0.2.0-py3-none-any.whl",
+      "sha256": "5990bbcc2fabab087480740770f240f10bf65c2bf6400aba6911c27079a9cea4",
+      "bytes": 4063
+    },
+    {
+      "filename": "ruvector_rerank-0.2.0.tar.gz",
+      "sha256": "839921d2d7d14387cc572bb210cc356c23b84d2946706dc7432e87afb1bcf87c",
+      "bytes": 3344
+    },
+    {
+      "filename": "ruvector_router-0.2.0-py3-none-any.whl",
+      "sha256": "7066ec5b35e3cfb1f5dbb902b87bed18aa85ad10b76f085137e823b5ac0e4938",
+      "bytes": 4368
+    },
+    {
+      "filename": "ruvector_router-0.2.0.tar.gz",
+      "sha256": "10c79f3a0f7c86820e7128b9a1e3d426b66f22f248a7eb2a1c92ba891a02eac5",
+      "bytes": 3579
+    },
+    {
+      "filename": "ruvector_ruvllm-0.2.0-py3-none-any.whl",
+      "sha256": "ccad8d79a43811148908a97e161f2eebcadbe1ab8975aaa266a0824c3d3cc720",
+      "bytes": 5085
+    },
+    {
+      "filename": "ruvector_ruvllm-0.2.0.tar.gz",
+      "sha256": "860a882d5403789c9da73f51e9177a79139eb66617627cb454982da39e4fed4a",
+      "bytes": 4270
+    },
+    {
+      "filename": "ruvector_rvf-0.2.0-py3-none-any.whl",
+      "sha256": "7003a7866227bc4ad336c77f677456752c4bc0f6acf37843c6effd94749d496e",
+      "bytes": 4156
+    },
+    {
+      "filename": "ruvector_rvf-0.2.0.tar.gz",
+      "sha256": "4d2902065f1212ffbc4861bc316dbc9f7b928397e0840682e8d8ef246527624f",
+      "bytes": 3520
+    },
+    {
+      "filename": "ruvector_rvf_wasm-0.2.0-py3-none-any.whl",
+      "sha256": "17bb6bbdb86595c9644a2cac6cb2e631fa2341eb9f87235f2105324aef989e57",
+      "bytes": 24238
+    },
+    {
+      "filename": "ruvector_rvf_wasm-0.2.0.tar.gz",
+      "sha256": "566d5d46365188e1493cdace52020f5d9da38232b79580a6b946e549d8cd8028",
+      "bytes": 23623
+    },
+    {
+      "filename": "ruvector_sona-0.2.0-py3-none-any.whl",
+      "sha256": "bbf005d0438458a6d1dfdd78e9553eee9cda7933af059450ca7202188eafa4ce",
+      "bytes": 3675
+    },
+    {
+      "filename": "ruvector_sona-0.2.0.tar.gz",
+      "sha256": "23db0420e9b1eff2d8c01a61eb84dd1f97e46787a9b0a0ac73cf3908458cd273",
+      "bytes": 2980
+    }
+  ]
+}

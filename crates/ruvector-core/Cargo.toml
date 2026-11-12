@@ -1,6 +1,6 @@
 [package]
 name = "ruvector-core"
-version = "2.3.1"
+version = "2.5.2"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -8,6 +8,10 @@ authors.workspace = true
 repository.workspace = true
 readme = "README.md"
 description = "High-performance Rust vector database core with HNSW indexing"
+homepage = "https://ruv.io"
+documentation = "https://docs.rs/ruvector-core"
+keywords = ["vector-database", "hnsw", "ann", "embeddings", "quantization"]
+categories = ["database-implementations", "algorithms", "data-structures"]
 
 [dependencies]
 # Core functionality
@@ -17,6 +21,8 @@ hnsw_rs = { workspace = true, optional = true }
 # Turbo4 codec + unified encoding plane (ADR-296/297). Dependency-free and
 # WASM-safe, so it is unconditional: the codec plane exists on every build.
 ruvector-turboquant = { version = "2.3.0", path = "../ruvector-turboquant" }
+# Shared CPU/WASM e-means optimizer, used by the explicit PQ training API.
+ruvector-e-means = { version = "=0.1.0", path = "../ruvector-e-means" }
 simsimd = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 crossbeam = { workspace = true, optional = true }
@@ -65,8 +71,11 @@ hf-hub = { version = "0.4", optional = true }
 # express a per-feature `rust-version`, so enabling the `lattice-embeddings`
 # feature raises the effective MSRV above this crate's workspace-inherited
 # 1.77 for anyone who turns it on. The default build is unaffected.
-lattice-embed = { version = "0.6.1", optional = true }
+lattice-embed = { version = "0.11.1", optional = true }
 tokio = { workspace = true, optional = true }
+
+[build-dependencies]
+rustc_version = "0.4"
 
 [dev-dependencies]
 # Self dev-dep: enables the patched-hnsw_rs diagnostics for this crate's own tests only.
@@ -119,9 +128,9 @@ required-features = ["lattice-embeddings"]
 [features]
 default = ["simd", "simd-avx512", "storage", "hnsw", "api-embeddings", "parallel"]
 simd = ["simsimd"]  # SIMD acceleration (not available in WASM)
-# AVX-512 intrinsics. Requires Rust >= 1.89 (where avx512f stabilized).
-# Downstream consumers on older stable (1.77–1.88) can opt out:
-#   --no-default-features --features simd,storage,hnsw,api-embeddings,parallel
+# AVX-512 intrinsics are compiled on Rust >= 1.89, where they stabilized.
+# Older compilers automatically retain AVX2/scalar dispatch with this feature
+# enabled, so default features do not require manual consumer opt-outs.
 # See issue #438.
 simd-avx512 = []
 parallel = ["rayon", "crossbeam"]  # Parallel processing (not available in WASM)

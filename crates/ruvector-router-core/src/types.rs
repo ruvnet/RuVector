@@ -62,8 +62,18 @@ pub struct SearchResult {
 pub struct VectorDbConfig {
     /// Vector dimensions
     pub dimensions: usize,
-    /// Maximum number of elements
+    /// Capacity hint: the number of vectors the database is expected to hold.
+    ///
+    /// On its own this is **not a hard limit** — inserts beyond it succeed.
+    /// Set [`VectorDbConfig::enforce_max_elements`] to make it one (#1099).
     pub max_elements: usize,
+    /// When `true`, `max_elements` is enforced: an insert that would make the
+    /// database hold more than `max_elements` distinct ids fails with
+    /// [`crate::error::VectorDbError::CapacityExceeded`]. Replacing an existing
+    /// id never counts against the bound. Defaults to `false` so existing
+    /// databases that already exceed the default hint keep accepting writes.
+    #[serde(default)]
+    pub enforce_max_elements: bool,
     /// Distance metric
     pub distance_metric: DistanceMetric,
     /// HNSW M parameter (connections per node)
@@ -85,6 +95,7 @@ impl Default for VectorDbConfig {
         Self {
             dimensions: 384,
             max_elements: 1_000_000,
+            enforce_max_elements: false,
             distance_metric: DistanceMetric::Cosine,
             hnsw_m: 32,
             hnsw_ef_construction: 200,

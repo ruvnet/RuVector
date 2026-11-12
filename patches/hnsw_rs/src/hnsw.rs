@@ -516,9 +516,16 @@ impl<'b, T: Clone + Send + Sync> PointIndexation<'b, T> {
             let mut lock_nb_point = self.nb_point.write();
             *lock_nb_point += 1;
             nb_point = *lock_nb_point;
-            if nb_point % 50000 == 0 {
-                println!(" setting number of points {:?} ", nb_point);
-            }
+            // Was `println!` to stdout every 50_000 points — corrupts any
+            // consumer that frames a protocol over stdout (e.g. an MCP
+            // server's stdio transport: ruvector-py's HnswIndex wraps
+            // ruvector-core's VectorDB, which uses this crate, and
+            // `ruvector serve` over stdio writes JSON-RPC to stdout).
+            // The `trace!` one line below already logs the identical
+            // message through the `log` facade, which every caller
+            // controls via a subscriber instead of inheriting a hardcoded
+            // stdout write — removed as redundant+unsafe-for-stdio rather
+            // than kept as "the same bug, logged too."
         }
         trace!(" setting number of points {:?} ", *self.nb_point);
         // Now possibly this is a point on a new layer that will have no neighbours in its layer

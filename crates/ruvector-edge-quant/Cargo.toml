@@ -1,0 +1,28 @@
+[package]
+name = "ruvector-edge-quant"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "ruvector edge rv-quant core (ADR-351 §3, M4): a tenant-shard RaBitQ index over ruvector-rabitq with a chunked, checksummed persist v2 format (packed codes + rotation seed, no f32 rebuild on cold load), memory/CPU budget accounting (413 budget_exceeded) and optional exact f32 rerank through a callback. Pure Rust, wasm32 clean."
+
+[dependencies]
+ruvector-rabitq = { path = "../ruvector-rabitq" }
+ruvector-edge-store = { path = "../ruvector-edge-store" }
+thiserror = { workspace = true }
+
+# ruvector-rabitq pulls `rand` (default features → getrandom 0.2). The index
+# never draws OS entropy (rotations are seeded StdRng), but getrandom 0.2 only
+# compiles for wasm32-unknown-unknown with its `js` backend selected.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+
+[dev-dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3"
+js-sys = "0.3"

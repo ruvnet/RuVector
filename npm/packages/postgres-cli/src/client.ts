@@ -279,14 +279,21 @@ export class RuVectorClient {
       max: this.poolConfig.maxConnections,
       idleTimeoutMillis: this.poolConfig.idleTimeoutMs,
       connectionTimeoutMillis: this.poolConfig.connectionTimeoutMs,
+      // pg applies this to every pooled connection; a one-off SET reached only one.
+      statement_timeout: this.poolConfig.statementTimeoutMs,
     });
+    // An idle client that errors (e.g. server restart) emits on the pool;
+    // without a listener Node treats it as an uncaught exception.
+    this.pool.on('error', () => { /* the next query reports the failure */ });
 
-    // Test connection and set statement timeout
-    const client = await this.pool.connect();
+    // Test connection
     try {
-      await client.query(`SET statement_timeout = ${this.poolConfig.statementTimeoutMs}`);
-    } finally {
+      const client = await this.pool.connect();
       client.release();
+    } catch (err) {
+      await this.pool.end().catch(() => {});
+      this.pool = null;
+      throw err;
     }
   }
 
@@ -442,9 +449,11 @@ export class RuVectorClient {
     _indexType: 'hnsw' | 'ivfflat' = 'hnsw'
   ): Promise<void> {
     const safeName = quoteIdentifier(name);
-    const safeIdxName = quoteIdentifier(`${name}_id_idx`);
+    // Keep the derived index name within the 63-char identifier limit.
+    const safeIdxName = quoteIdentifier(`${name.slice(0, 56)}_id_idx`);
 
-    if (dimensions < 1 || dimensions > 65535) {
+    // dimensions is interpolated into the DDL below, so it must be a real integer.
+    if (!Number.isInteger(dimensions) || dimensions < 1 || dimensions > 65535) {
       throw new Error('Dimensions must be between 1 and 65535');
     }
 

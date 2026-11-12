@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/agentic-synth.svg" alt="@ruvector/agentic-synth: Synthetic data generator for AI/ML training, RAG systems and agentic workflows." width="100%"></p>
+
 # 🎲 Agentic-Synth
 
 <div align="center">
@@ -93,8 +95,7 @@ Agentic-Synth generates **unlimited synthetic data** tailored to your exact need
 
 ### 🔌 **Ecosystem Integration**
 - 🎯 **Ruvector** - Native vector database for RAG systems
-- 🤖 **Agentic-Robotics** - Workflow automation and scheduling
-- 🌊 **Midstreamer** - Real-time streaming pipelines
+- **Agentic-Robotics** / **Midstreamer**: pair with them for scheduling and streaming (separate installs, not dependencies)
 - 🦜 **DSPy.ts** - Prompt optimization and self-learning
 - 🔄 **Agentic-Jujutsu** - Version-controlled data generation
 
@@ -171,13 +172,14 @@ import { AgenticSynth } from '@ruvector/agentic-synth';
 const synth = new AgenticSynth({
   provider: 'gemini',
   apiKey: process.env.GEMINI_API_KEY,
-  model: 'gemini-2.0-flash-exp',
-  cache: { enabled: true, maxSize: 1000 }
+  model: 'gemini-2.5-flash',
+  cache: { enabled: true, maxSize: 1000 },
+  timeout: 120000 // LLM generation can take well over the 30 s default
 });
 
 // Generate time-series data (IoT sensors, financial data)
 const timeSeries = await synth.generateTimeSeries({
-  count: 100,
+  count: 24,
   interval: '1h',
   trend: 'upward',
   seasonality: true,
@@ -185,7 +187,7 @@ const timeSeries = await synth.generateTimeSeries({
 });
 
 console.log(`Generated ${timeSeries.data.length} time-series points`);
-console.log(`Quality: ${(timeSeries.metadata.quality * 100).toFixed(1)}%`);
+console.log('First point:', timeSeries.data[0]);
 ```
 
 ### 2️⃣ **Generate Event Logs**
@@ -324,7 +326,7 @@ import { AgenticSynth } from '@ruvector/agentic-synth';
 // Generate baseline with Gemini (fast, cheap)
 const baseline = new AgenticSynth({
   provider: 'gemini',
-  model: 'gemini-2.0-flash-exp'
+  model: 'gemini-2.5-flash'
 });
 
 const baselineData = await baseline.generateStructured({
@@ -793,54 +795,12 @@ const results = await db.search('wireless headphones', { limit: 5 });
 
 ---
 
-### 🌊 **Midstreamer - Real-Time Streaming**
+### **Streaming and scheduling (Midstreamer, Agentic-Robotics)**
 
-Stream generated data to real-time pipelines.
-
-```typescript
-import { AgenticSynth } from '@ruvector/agentic-synth';
-import { Midstreamer } from 'midstreamer';
-
-const synth = new AgenticSynth();
-const stream = new Midstreamer({ endpoint: 'ws://localhost:3000' });
-
-// Stream events to real-time pipeline
-for await (const event of synth.generateStream({ type: 'events', count: 10000 })) {
-  await stream.send('events', event);
-}
-```
+`midstreamer` and `agentic-robotics` are separate packages, not dependencies of agentic-synth. Nothing in this package imports them, so install them yourself if you want them, and pass `synth.generateStream()` or `synth.generateBatch()` output to that package's own API.
 
 **Links:**
-- 📦 [NPM Package](https://www.npmjs.com/package/midstreamer)
-- 🐙 [GitHub Repository](https://github.com/ruvnet/midstreamer)
-
----
-
-### 🤖 **Agentic-Robotics - Workflow Automation**
-
-Automate data generation workflows with scheduling.
-
-```typescript
-import { AgenticSynth } from '@ruvector/agentic-synth';
-import { AgenticRobotics } from 'agentic-robotics';
-
-const synth = new AgenticSynth();
-const robotics = new AgenticRobotics();
-
-// Schedule hourly data generation
-await robotics.schedule({
-  task: 'generate-training-data',
-  interval: '1h',
-  action: async () => {
-    const data = await synth.generateBatch({ count: 1000 });
-    await robotics.store('training-data', data);
-  }
-});
-```
-
-**Links:**
-- 📦 [NPM Package](https://www.npmjs.com/package/agentic-robotics)
-- 🐙 [GitHub Repository](https://github.com/ruvnet/agentic-robotics)
+- 📦 [midstreamer](https://www.npmjs.com/package/midstreamer) · [agentic-robotics](https://www.npmjs.com/package/agentic-robotics)
 
 ---
 
@@ -1358,3 +1318,12 @@ npx @ruvector/agentic-synth interactive
 ---
 
 **Keywords:** synthetic data generation, AI training data, test data generator, machine learning datasets, time-series data, event generation, structured data, RAG systems, vector embeddings, agentic AI, LLM training, GPT, Claude, Gemini, OpenRouter, data augmentation, edge cases, ruvector, agenticdb, langchain, typescript, nodejs, nlp, natural language processing, streaming, context caching, model routing, performance optimization, automation, CI/CD testing, financial data, cryptocurrency, security testing, log analytics, swarm coordination, business intelligence, employee simulation, DSPy, prompt optimization, self-learning, reinforcement learning
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for RAG, agentic AI, NLP.
+
+- **Works with** (its runtime dependencies): [`@google/generative-ai`](https://www.npmjs.com/package/@google/generative-ai), [`commander`](https://www.npmjs.com/package/commander), [`dotenv`](https://www.npmjs.com/package/dotenv), [`zod`](https://www.npmjs.com/package/zod); optional peers [`ruvector`](https://www.npmjs.com/package/ruvector) and [`dspy.ts`](https://www.npmjs.com/package/dspy.ts)
+- **Used by** (published packages that depend on it): [`@ruvector/agentic-synth-examples`](https://www.npmjs.com/package/@ruvector/agentic-synth-examples), [`@ruvector/graph-data-generator`](https://www.npmjs.com/package/@ruvector/graph-data-generator), [`psycho-symbolic-integration`](https://www.npmjs.com/package/psycho-symbolic-integration)
+<!-- weaver:seo:links:end -->

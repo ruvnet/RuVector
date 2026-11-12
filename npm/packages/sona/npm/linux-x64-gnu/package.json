@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/sona-linux-x64-gnu",
-  "version": "0.1.5",
+  "version": "0.1.11",
   "os": [
     "linux"
   ],
@@ -14,7 +14,12 @@
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git"
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "npm/packages/sona/npm/linux-x64-gnu"
   },
-  "description": "SONA Linux x64 GNU native binding"
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
+  },
+  "description": "SONA Linux x64 GNU native binding",
+  "homepage": "https://ruv.io"
 }

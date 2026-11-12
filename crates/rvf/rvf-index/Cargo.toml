@@ -1,6 +1,6 @@
 [package]
 name = "rvf-index"
-version = "0.2.0"
+version = "0.2.4"
 edition = "2021"
 description = "RuVector Format progressive HNSW indexing with Layer A/B/C tiered search"
 license = "MIT OR Apache-2.0"
@@ -19,6 +19,7 @@ simd = []
 [dependencies]
 # rvf-types dependency will be re-enabled once rvf-types stabilizes.
 # For now, rvf-index defines its own local types.
+libm = { version = "0.2", default-features = false }
 
 [dev-dependencies]
 rand = "0.8"

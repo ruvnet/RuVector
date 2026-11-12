@@ -61,3 +61,21 @@ sha3 = "0.10"
 ed25519-dalek = "2"
 rand = "0.8"
 tempfile = "3"
+
+# The stream tests build 60k-vector HNSW fixtures; at opt-level 0 that takes
+# minutes and looks like a hang. Optimise the crates on that path (and their
+# hashing dependencies) in dev/test builds.
+[profile.dev.package.rvf-index]
+opt-level = 3
+[profile.dev.package.rvf-runtime]
+opt-level = 3
+[profile.dev.package.rvf-wire]
+opt-level = 3
+[profile.dev.package.rvf-crypto]
+opt-level = 3
+[profile.dev.package.rvf-quant]
+opt-level = 3
+[profile.dev.package.sha2]
+opt-level = 3
+[profile.dev.package.curve25519-dalek]
+opt-level = 3

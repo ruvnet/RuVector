@@ -91,6 +91,11 @@ export interface AIDefenceConfig {
   enableAuditLog: boolean;
   /** AIDefence server URL (if using external service) */
   serverUrl?: string;
+  /**
+   * Also run the pack-driven detector from the optional `aidefence` package
+   * (^3) when it is installed. Default true; built-in patterns always run.
+   */
+  useAidefencePackage?: boolean;
 }
 
 /**
@@ -107,7 +112,8 @@ export const AIDefenceConfigSchema = z.object({
   allowedDomains: z.array(z.string()).optional(),
   maxInputLength: z.number().positive().default(100000),
   enableAuditLog: z.boolean().default(true),
-  serverUrl: z.string().url().optional(),
+  serverUrl: z.url().optional(),
+  useAidefencePackage: z.boolean().optional(),
 });
 
 // ============================================================================
@@ -227,6 +233,89 @@ const HOMOGLYPH_MAP: Record<string, string> = {
 // AIDefenceGuard Implementation
 // ============================================================================
 
+// ============================================================================
+// Optional `aidefence` package (pack-driven detector, lazy-loaded)
+// ============================================================================
+
+/** Subset of aidefence ^3 `InjectionThreat` used here. */
+interface AidefenceThreat {
+  id: string;
+  type: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  confidence: number;
+  description: string;
+  match: string;
+  offset: number;
+}
+
+/** Subset of aidefence ^3 `InjectionDetector` used here. */
+export interface AidefenceDetector {
+  detect(input: string): { safe: boolean; threats: readonly AidefenceThreat[] };
+}
+
+/**
+ * Detection-only entry point. The package root also loads the express
+ * gateway, which a chat bot does not need.
+ */
+const AIDEFENCE_DETECTION_MODULE = 'aidefence/dist/detection/index.js';
+
+let aidefenceDetector: Promise<AidefenceDetector | null> | undefined;
+
+/**
+ * Load the shared aidefence detector once. Resolves to null when the optional
+ * package is not installed or fails to load; the built-in patterns still run.
+ */
+export function loadAidefenceDetector(): Promise<AidefenceDetector | null> {
+  if (!aidefenceDetector) {
+    aidefenceDetector = (async () => {
+      try {
+        const specifier: string = AIDEFENCE_DETECTION_MODULE;
+        const mod = (await import(specifier)) as {
+          getInjectionDetector?: () => AidefenceDetector;
+          default?: { getInjectionDetector?: () => AidefenceDetector };
+        };
+        const factory = mod.getInjectionDetector ?? mod.default?.getInjectionDetector;
+        return typeof factory === 'function' ? factory() : null;
+      } catch {
+        return null;
+      }
+    })();
+  }
+  return aidefenceDetector;
+}
+
+/** Test hook: replace (or clear, with undefined) the cached detector. */
+export function setAidefenceDetectorForTesting(detector: AidefenceDetector | null | undefined): void {
+  aidefenceDetector = detector === undefined ? undefined : Promise.resolve(detector);
+}
+
+const AIDEFENCE_TYPE_MAP: Record<string, ThreatType> = {
+  jailbreak: 'jailbreak',
+  role_switching: 'jailbreak',
+  encoding_attack: 'encoding_attack',
+  data_exfiltration: 'data_exfiltration',
+  tool_invocation: 'malicious_code',
+};
+
+async function detectWithAidefencePackage(input: string): Promise<ThreatInfo[]> {
+  const detector = await loadAidefenceDetector();
+  if (!detector) return [];
+  let report: ReturnType<AidefenceDetector['detect']>;
+  try {
+    report = detector.detect(input);
+  } catch {
+    return [];
+  }
+  return report.threats.map((t) => ({
+    type: AIDEFENCE_TYPE_MAP[t.type] ?? 'prompt_injection',
+    severity: t.severity,
+    confidence: t.confidence,
+    description: `aidefence ${t.id}: ${t.description}`,
+    location: { start: t.offset, end: t.offset + t.match.length, text: t.match },
+    mitigation: 'Input will be blocked or sanitized',
+  }));
+}
+
 /**
  * AIDefenceGuard - Main class for AI security protection
  *
@@ -285,6 +374,9 @@ export class AIDefenceGuard {
     if (this.config.detectPromptInjection) {
       const injectionThreats = this.detectInjection(input);
       threats.push(...injectionThreats);
+      if (this.config.useAidefencePackage !== false) {
+        threats.push(...(await detectWithAidefencePackage(input)));
+      }
     }
 
     // Jailbreak detection

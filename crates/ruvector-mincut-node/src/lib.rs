@@ -163,7 +163,9 @@ impl MinCut {
             return Err(Error::from_reason("Expected two endpoints per weight"));
         }
         let edges: Vec<_> = endpoints
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .zip(weights.iter())
             .map(|(uv, &w)| (u64::from(uv[0]), u64::from(uv[1]), w))
             .collect();
@@ -183,7 +185,9 @@ impl MinCut {
             return Err(Error::from_reason("Expected endpoint pairs"));
         }
         let edges: Vec<_> = endpoints
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|uv| (u64::from(uv[0]), u64::from(uv[1])))
             .collect();
         let mut mincut = self

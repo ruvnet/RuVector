@@ -70,7 +70,7 @@ impl ScalarQuantizer {
             let range = self.max_vals[d] - self.min_vals[d];
             let normalized = (val - self.min_vals[d]) / range;
             let clamped = normalized.clamp(0.0, 1.0);
-            codes.push((clamped * 255.0).round() as u8);
+            codes.push(crate::round_f32(clamped * 255.0) as u8);
         }
         codes
     }

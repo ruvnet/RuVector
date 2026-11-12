@@ -1,0 +1,1 @@
+{"redirect_uris":["https://claude.ai/api/mcp/auth_callback"],"grant_types":["authorization_code","refresh_token"],"client_name":"Claude"}

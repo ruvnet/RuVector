@@ -29,7 +29,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
   schedule:
     # Weekly Tuesday 09:23 UTC — offset 6 min from sublinear's 09:17
     # so the two crates don't pile onto the GH Actions scheduler at
@@ -56,7 +55,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────
   dependency-review:
     name: dependency-review (PRs only)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -77,7 +76,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────
   cargo-audit:
     name: cargo audit (RustSec advisories)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
@@ -101,7 +100,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────
   cargo-deny:
     name: cargo deny (license + source + ban policy)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
@@ -116,7 +115,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────
   npm-audit:
     name: npm audit (npm/ workspace)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: npm
@@ -152,7 +151,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────
   lockfile-integrity:
     name: lockfile integrity (Cargo.lock)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4

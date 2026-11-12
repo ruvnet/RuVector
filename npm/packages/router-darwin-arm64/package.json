@@ -2,6 +2,7 @@
   "name": "@ruvector/router-darwin-arm64",
   "version": "0.1.30",
   "description": "macOS ARM64 (Apple Silicon) native bindings for @ruvector/router",
+  "homepage": "https://ruv.io",
   "main": "ruvector-router.darwin-arm64.node",
   "files": [
     "ruvector-router.darwin-arm64.node"
@@ -16,7 +17,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git"
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "npm/packages/router-darwin-arm64"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
   },
   "publishConfig": {
     "access": "public"

@@ -332,8 +332,8 @@ impl DeltaCompressor {
 
     #[cfg(feature = "compression")]
     fn compress_lz4(&self, data: &[u8]) -> Result<Vec<u8>> {
-        lz4_flex::compress_prepend_size(data)
-            .map_err(|e| DeltaError::CompressionError(alloc::format!("LZ4 error: {}", e)))
+        // compress_prepend_size returns Vec<u8>, not a Result.
+        Ok(lz4_flex::compress_prepend_size(data))
     }
 
     #[cfg(feature = "compression")]
@@ -654,6 +654,25 @@ mod tests {
 
         let result = compressor.decompress(&compressed);
         assert!(result.is_err());
+    }
+
+    #[cfg(feature = "compression")]
+    #[test]
+    fn test_compressor_zstd_roundtrip() {
+        let config = CompressorConfig {
+            codec: CompressionCodec::Zstd,
+            level: CompressionLevel::Fast,
+            min_size: 0,
+            enable_checksum: true,
+        };
+        let compressor = DeltaCompressor::with_config(config);
+        let delta = VectorDelta::from_dense(vec![1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5]);
+
+        let compressed = compressor.compress(&delta).unwrap();
+        assert_eq!(compressed[5], CompressionCodec::Zstd as u8);
+
+        let decompressed = compressor.decompress(&compressed).unwrap();
+        assert_eq!(delta.dimensions, decompressed.dimensions);
     }
 
     #[test]
