@@ -1,5 +1,19 @@
 # A stub `partition` field, and a 266,000x speedup hiding behind it
 
+> **Update, 2026-11-12:** the main branch independently fixed the same
+> stub bug this article describes, more rigorously than the fix below —
+> and re-testing against that better fix found the "fast" half of this
+> story doesn't hold up where it matters. The short version: the stub was
+> real and worth fixing, but the fixed algorithm still can't reliably find
+> the bridge on realistic, skewed-weight graphs — it reports a cut tens of
+> thousands of times too large and misses the bridge in every one of 50
+> trials. The speedup is real; the correctness it was supposed to come
+> with is not. Full account in
+> [ADR-357](https://github.com/ruvnet/ruvector/blob/main/docs/adr/ADR-357-approx-mincut-partition-fix-and-boundary-backend.md)
+> and the nightly README's 2026-11-12 update. The bug-finding half of this
+> article (below) still stands; its ending does not — see the corrected
+> "What's next" at the bottom.
+
 ## Problem
 
 `ruvector-mincut` is a Rust dynamic minimum-cut library with an exact
@@ -166,17 +180,31 @@ untested one is the one a doc comment promises but a comment three lines
 into its implementation quietly admits isn't really being computed yet
 ("For now, return a simple partition...").
 
-## What's next
+## What's next (corrected, 2026-11-12)
 
-This fix unblocks, but does not itself complete, the original goal: the
-2026-09-05 nightly's bridge-retention/Recall@10 benchmark — rejected
-purely on the `Exact` backend's latency — needs to be re-run at its
-originally-intended corpus scale with the now-fast, now-correct `Approx`
-backend before `MincutGatedForgetting` can be called production-ready.
-That's a well-defined next step, not an open-ended one, which is exactly
-the kind of research result worth having: not "we made something faster,"
-but "we found and fixed the specific thing standing between a rejected
-experiment and a fair re-trial."
+The original ending here said the fix unblocked a fair re-trial of
+`MincutGatedForgetting` at full scale, pending only a bigger benchmark
+run. It doesn't. Main independently fixed the same stub bug in a more
+careful way — always re-weighing the candidate partition on the real
+graph instead of the sampler's own distorted weights — and that fix is
+a genuine improvement on its own terms. But re-running this article's own
+benchmark against it, the "fast and correct" story collapses on exactly
+the graph shape this whole investigation cared about: two dense clusters
+joined by one weak bridge, which is what a real embedding's nearest-neighbor
+graph actually looks like. The algorithm samples edges weighted toward the
+*heaviest* ones; the bridge is deliberately the lightest edge in the
+graph, so it is one of the least likely edges to survive sampling, and no
+amount of re-weighing candidates you never generated can recover a cut
+you never built. Asking for more samples barely helps: 3 samples misses
+by about 40,000x, 50 samples still misses by about 19,000x.
+
+So the actual next step isn't "run the bigger benchmark." It's: either
+find a sampling strategy that doesn't systematically discard the lightest
+edges in a skewed-weight graph, or accept that this is the wrong tool for
+this particular job and use the exact solver this repository already has
+(slower, but it finds the bridge every time). That's still a well-defined
+research result — a falsified hypothesis with a clear, specific reason it
+failed is not a worse outcome than an accepted one, just a different one.
 
 ---
 

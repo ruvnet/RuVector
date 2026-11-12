@@ -46,10 +46,25 @@ pub enum MincutBackend {
     /// compaction pass needs (measured 76ms-11.4s per call for 50-400
     /// vertices in the 2026-09-05 nightly) but exact.
     Exact,
-    /// `ApproxMinCut` (SODA 2025 spectral sparsification, now with a real
-    /// partition-recovery fix — see `ruvector-mincut`'s
-    /// `algorithm::approximate` module docs). `epsilon` is the
-    /// approximation parameter forwarded to `ApproxMinCutConfig`.
+    /// `ApproxMinCut` (SODA 2025 spectral sparsification). `epsilon` is a
+    /// sampling parameter forwarded to `ApproxMinCutConfig`, not a
+    /// certified approximation ratio.
+    ///
+    /// **Not recommended.** Faster than [`Self::Exact`] by 2-5 orders of
+    /// magnitude, but as of the fix in `ruvector-mincut` main (2026-11-12,
+    /// commits `d4a1092db`/`e2c33478a`) it reliably fails to find anything
+    /// near the true minimum cut on graphs with skewed edge weights — the
+    /// realistic shape of a k-NN graph over real embeddings, and exactly
+    /// the shape this module needs the signal for. On this crate's own
+    /// two-dense-clusters-plus-bridge correctness topology it reports a
+    /// cut 19,000x-40,000x above the true minimum and misses the bridge
+    /// vertex in every trial (0/50), regardless of `num_samples`. See
+    /// `docs/adr/ADR-357-approx-mincut-partition-fix-and-boundary-backend.md`'s
+    /// 2026-11-12 update for the full diagnosis. Kept as a tested, additive
+    /// option — not because it works for this purpose, but because it is
+    /// internally consistent (its `value` always matches its `partition`)
+    /// and may be useful where that property, not cut quality, is what
+    /// matters.
     Approx { epsilon: f64 },
 }
 

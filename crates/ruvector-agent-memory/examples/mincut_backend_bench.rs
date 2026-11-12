@@ -1,7 +1,19 @@
-//! Nightly research benchmark (2026-10-29): does `ApproxMinCut` (SODA 2025
-//! spectral sparsification, `ruvector-mincut::algorithm::approximate`) make
-//! a viable, faster drop-in replacement for `RuVectorGraphAnsalyzer`'s exact
-//! global min-cut as `MincutGatedForgetting`'s boundary-detection backend?
+//! Nightly research benchmark (2026-10-29; re-run 2026-11-12 against an
+//! independent upstream fix to the same bug): does `ApproxMinCut` (SODA
+//! 2025 spectral sparsification, `ruvector-mincut::algorithm::approximate`)
+//! make a viable, faster drop-in replacement for `RuVectorGraphAnalyzer`'s
+//! exact global min-cut as `MincutGatedForgetting`'s boundary-detection
+//! backend?
+//!
+//! **Answer: no.** It is faster (sub-millisecond even at n=400), but after
+//! adopting main's own fix to the original partition bug this benchmark
+//! was written to validate, it reports a cut 19,000x-40,000x above the
+//! true minimum and misses the bridge vertex in 100% of trials on this
+//! file's own correctness topology — see
+//! `docs/adr/ADR-357-approx-mincut-partition-fix-and-boundary-backend.md`'s
+//! 2026-11-12 update for the full diagnosis. `MincutBackend::Approx`
+//! remains available (it is internally consistent, just not accurate) but
+//! is not recommended; prefer `MincutBackend::Exact`.
 //!
 //! This follows up on two prior nightlies that could not be re-run as
 //! originally planned without this work:

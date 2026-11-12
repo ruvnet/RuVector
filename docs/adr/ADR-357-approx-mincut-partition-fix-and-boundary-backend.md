@@ -2,10 +2,62 @@
 
 ## Status
 
-Accepted (bug fix in `ruvector-mincut`, non-breaking). The new
-`MincutBackend::Approx` option in `ruvector-agent-memory` is additive and
-defaults off (`Exact`); promoting it to the default is deferred to a
-follow-up nightly per the [Rejection criteria](#rejection-criteria) below.
+Accepted (bug fix in `ruvector-mincut`, superseded — see Update below),
+Rejected (the `MincutBackend::Approx` boundary-detection use case).
+
+## Update (2026-11-12): main independently fixed the same bug more rigorously; re-validating against it reverses this ADR's original ACCEPT
+
+A landing review on PR #1286 found that `main` had, independently and in
+parallel, fixed the exact same `ApproxMinCut.partition` stub bug this ADR
+originally addresses — commits `d4a1092db` ("report cuts weighed on the
+original graph") and `e2c33478a` ("report exact results and qualify
+release claims"). Main's fix is more rigorous than this run's original
+one: it reuses the crate's existing `exact::minimum_cut` solver instead of
+a bespoke Stoer-Wagner reimplementation, always re-weighs every candidate
+partition's crossing weight on the *original* graph (not the sparsifier's
+rescaled weights — a real consistency gap in this ADR's original fix that
+its own tests never caught, because they only exercised the `<=50`-edge
+exact path), and removes this crate's previously-false "(1+ε) certified
+approximation" framing in favor of an honestly-labeled heuristic with only
+a trivial upper-bound guarantee.
+
+This run's `ruvector-mincut` algorithm change (Decision item 1, the
+`stoer_wagner_with_partition` addition and its 5 tests) is therefore
+**dropped** in favor of main's version — adopted via merge, zero diff
+against `main`'s `crates/ruvector-mincut/src/algorithm/approximate.rs`.
+
+Re-running this ADR's own benchmark against main's fixed algorithm,
+however, surfaced a second, more serious problem: **main's heuristic
+reliably fails to find anything close to the true minimum cut on this
+ADR's own two-dense-cliques-plus-weak-bridge correctness topology once the
+graph exceeds the 50-edge exact-path threshold.** On the 19-vertex, 74-edge
+bridge dataset (two ~9-clique topic clusters joined by one weak bridge —
+the realistic shape of a k-NN graph over a real embedding, and the exact
+shape `MincutGatedForgetting` needs the signal for), `ApproxMinCut` reports
+a cut of weight ~150,000 — the true minimum is ~3.6 (the bridge's own two
+edges) — and flags the bridge as a boundary vertex in **0% of 50 trials**,
+down from 100% under this ADR's original (now-superseded) fix. Raising
+`num_samples` from 3 to 50 reduces the reported cut to ~70,000 but does
+not fix the qualitative failure (still ~19,000x too high, still 0%
+bridge-detection) — this is not an under-sampling bug, it is a structural
+weakness of "sample edges proportional to weight × resistance, take the
+best of N candidates weighed on the original graph" when edge weights are
+highly skewed (the cliques' edges carry weight ~10,000 from near-identical
+embeddings; the bridge's carry ~1.8): the sampling procedure is heavily
+biased against ever constructing the "isolate the bridge" candidate in
+the first place, so no amount of "best of N" selection over the candidates
+it does construct can recover it.
+
+**Net effect on this ADR's hypothesis:** REJECT. The opt-in
+`MincutBackend::Approx` wiring in `ruvector-agent-memory::graph_forget`
+is retained (it is correct, tested, additive, and defaults off — see
+[Production path](#production-path)), but is **not recommended** for
+`MincutGatedForgetting`'s actual boundary-detection use case: it is fast,
+but not reliably correct for the realistic topology this policy exists to
+protect. The [Evidence](#evidence) section below is retained with its
+original (now-stale, pre-main-fix) numbers for lineage, followed by the
+corrected post-merge benchmark in a new **Evidence (post-merge,
+2026-11-12)** section.
 
 ## Context
 
@@ -62,7 +114,7 @@ determinism (empty/degenerate rate) stay at parity or better.
 
 ## Decision
 
-1. Fix `ApproxMinCut`'s partition bug in `ruvector-mincut`
+1. ~~Fix `ApproxMinCut`'s partition bug in `ruvector-mincut`
    (`src/algorithm/approximate.rs`): add `stoer_wagner_with_partition`,
    which performs the same Stoer-Wagner contraction as the pre-existing
    value-only `stoer_wagner` while tracking supervertex membership, so the
@@ -74,7 +126,12 @@ determinism (empty/degenerate rate) stay at parity or better.
    repeated `min_cut()` calls on an unchanged graph return it too (the old
    code returned `None` unconditionally on the cache-hit path, even though
    a value was already cached). Remove the stub `compute_partition` and
-   the now-redundant `compute_exact_min_cut` outright.
+   the now-redundant `compute_exact_min_cut` outright.~~ **Superseded (see
+   Update above):** `main` independently shipped a more rigorous fix to
+   the same file (commits `d4a1092db`, `e2c33478a`) while this PR was
+   open. This item's implementation was dropped in favor of main's on
+   merge; `crates/ruvector-mincut/src/algorithm/approximate.rs` in this
+   PR is now byte-identical to main's version.
 2. Add `MincutBackend { Exact, Approx { epsilon: f64 } }` to
    `ruvector-agent-memory::graph_forget`, with `MincutGatedForgetting::backend`
    defaulting to `Exact` (zero behavior change for existing callers).
@@ -123,17 +180,62 @@ All 9 pre-existing `ApproxMinCut` tests pass unmodified; all 5 new tests
 pass; all 3 pre-existing `graph_forget` tests pass unmodified with the new
 `backend` field defaulting to `Exact`.
 
+## Evidence (post-merge, 2026-11-12, against main's `ApproxMinCut`)
+
+Same benchmark, same command, release build, after merging main's
+independent fix (this run's own algorithm change dropped):
+
+**Latency scaling (ring k-NN, k=8):** even faster than before — main's
+version skips the Stoer-Wagner-on-median-sparsifier step this ADR
+originally added and instead runs the crate's existing exact solver
+directly on each (small) sampled sparsifier:
+
+| n   | Exact (ms) | Approx(0.1) (ms) | Approx(0.3) (ms) |
+|-----|-----------:|------------------:|------------------:|
+| 19  | 97,565.8   | 0.145             | 0.109             |
+| 50  | 80.4       | 0.279             | 0.240             |
+| 100 | 506.5      | 0.543             | 0.497             |
+| 200 | 1,659.7    | 1.690             | 1.589             |
+| 400 | 6,056.3    | 3.137             | 3.280             |
+
+**Determinism + bridge-boundary correctness** (same 19-vertex
+two-clique-plus-bridge topology, 50 trials/backend):
+
+| backend     | empty/degenerate | bridge detected as boundary | avg latency/call |
+|-------------|------------------:|------------------------------:|------------------:|
+| Exact       | 0%                | 100%                          | 1,250.7ms         |
+| Approx(0.1) | 0%                | **0%**                        | 0.071ms           |
+| Approx(0.3) | 0%                | **0%**                        | 0.082ms           |
+
+Faster, but no longer correct for this topology. A targeted diagnostic
+(19 vertices, 74 edges after dedup — above the 50-edge exact-path
+threshold) confirms why: `ApproxMinCut::min_cut()` reports value
+**150,047.36** at the default `num_samples: 3`, and **70,066.31** at
+`num_samples: 50` — both many orders of magnitude above the true global
+minimum (**~3.6**, the bridge's own two edges, weight 1.809 each). The
+reported partition splits off an arbitrary 5- or 7-vertex group instead of
+isolating the bridge; the bridge and most of its own cluster land on the
+*same* side, so `MincutGatedForgetting`'s crossing-edge check correctly
+reports it as not a boundary vertex at all.
+
 ## Consequences
 
-- `ApproxMinCut.partition` is now trustworthy for every in-tree and
-  downstream consumer of `ruvector-mincut` (WASM/Node bindings,
-  `ruvector-graph-condense`, `prime-radiant`, `cognitum-gate-kernel`,
-  `mcp-brain-server`, this crate) — previously, any caller relying on it
-  structurally would have gotten a silently wrong answer past the
-  `<=50`-edge exact fallback.
-- `MincutGatedForgetting` now has a backend that is fast enough to
-  consider for the production path ADR-345 closed off, pending the
-  full-scale re-run named in [Next steps](#open-questions).
+- `ApproxMinCut.partition` is now trustworthy *as a value/partition-consistency
+  guarantee* for every in-tree and downstream consumer of `ruvector-mincut`
+  (WASM/Node bindings, `ruvector-graph-condense`, `prime-radiant`,
+  `cognitum-gate-kernel`, `mcp-brain-server`, this crate) — main's fix
+  (adopted here) guarantees `value` always equals the returned partition's
+  actual crossing weight on the original graph. It is **not** a guarantee
+  that the returned cut is close to the true minimum — see
+  [Evidence (post-merge)](#evidence-post-merge-2026-11-12-against-mains-approxmincut).
+  Any caller treating a low `ApproxMinCut.value` as evidence of a
+  near-minimum cut, on a graph with skewed edge weights, should re-check
+  that assumption against this ADR's bridge-topology finding.
+- `MincutGatedForgetting` gains a backend that is fast but **not** reliable
+  for its own boundary-detection purpose on realistic (skewed-weight)
+  topologies — see [Production path](#production-path). It does not close
+  ADR-345's latency blocker in any usable way; `Exact` remains the only
+  backend with validated correctness, at its original cost.
 - No migration needed: both changes are additive/backward-compatible.
 
 ## Alternatives
@@ -201,10 +303,33 @@ for at all) — cannot introduce a new integrity-weakening behavior.
 
 ## Governance
 
-Promotion of `Approx` as `MincutGatedForgetting`'s *default* backend is a
-separate decision, deferred to a follow-up nightly that re-runs the full
-2026-09-05 bridge-retention/Recall@10 benchmark at the originally-intended
-corpus scale (see [Rejection criteria](#rejection-criteria)).
+Promotion of `Approx` as `MincutGatedForgetting`'s default backend is
+withdrawn, not deferred: the post-merge evidence above is a direct
+correctness failure on this ADR's own topology, not an open question
+pending more data. Re-opening this would require a *different* algorithm
+or heuristic, not more benchmarking of this one.
+
+## Production path
+
+1. Ship the opt-in `MincutBackend::Approx` as-is: it is correct in the
+   narrow sense main's fix guarantees (value matches partition, always),
+   builds, and passes every test written against it. Document it,
+   per this ADR, as **not recommended** for `MincutGatedForgetting` or any
+   other structural-boundary-detection use on real (skewed-weight) graphs.
+2. `MincutGatedForgetting` itself gains nothing from this run toward
+   production-readiness: `Exact` is still the only backend with validated
+   correctness, still at ADR-345's original cost. The latency blocker
+   ADR-345/346 opened remains open.
+3. If a future run wants to retry the "fast + correct" goal, it should
+   evaluate algorithms that don't depend on uniform-ish edge weights for
+   their sampling to work — e.g. `DynamicMinCut`/`min_cut_exact` (ADR-360,
+   closed-but-evidence-worth-reusing per the 7-PR consolidation on
+   PR #1286) already clears both latency and correctness on this same
+   topology, at polynomial (not near-linear) cost. That tradeoff — exact
+   and correct at higher-than-`ApproxMinCut` cost, versus `ApproxMinCut`'s
+   speed without a usable correctness guarantee on this workload's typical
+   weight distribution — is the real open choice, not a parameter to tune
+   within `ApproxMinCut` itself.
 
 ## Failure modes
 
@@ -212,7 +337,10 @@ corpus scale (see [Rejection criteria](#rejection-criteria)).
   ceiling; a much larger corpus could behave differently.
 - Partition quality (not just the cut *value*) at looser epsilon is not
   separately quantified beyond the bridge-isolation test passing at the
-  epsilons benchmarked (0.1, 0.3).
+  epsilons benchmarked (0.1, 0.3) — this was true before the merge, and
+  the post-merge evidence confirms the *current* algorithm fails this
+  question outright at both epsilons on the bridge topology, not merely
+  "unquantified."
 
 ## Migration
 
@@ -225,21 +353,33 @@ crate depends on it yet, so rollback has no downstream migration cost.
 
 ## Rejection criteria
 
-Do **not** promote `MincutBackend::Approx` to `MincutGatedForgetting`'s
-default, and do not claim `MincutGatedForgetting` is production-ready,
-until a follow-up nightly re-runs the original 2026-09-05
-`mincut_gated_forgetting_bench` hypothesis (bridge-survival gap >= 15pp,
-Recall@10 within 2pp of baseline, wall-clock bound) with
-`backend: MincutBackend::Approx` substituted in at the originally-intended
-~2,000-memory corpus scale `Exact`'s cost made infeasible, and it clears
-those thresholds. This run's evidence is about boundary-detection
-latency/correctness in isolation, not the full compaction-policy claim.
+Already met, not merely pending: do **not** promote `MincutBackend::Approx`
+to `MincutGatedForgetting`'s default, and do not claim
+`MincutGatedForgetting` is production-ready on this backend. The
+post-merge evidence (0% bridge-detection, cut value ~40,000x the true
+minimum) is itself the rejecting measurement this section originally
+asked a future nightly to go find — no further benchmarking at larger
+corpus scale is needed to reach this verdict, since the backend already
+fails this ADR's own small-scale correctness check outright.
 
 ## Open questions
 
-1. Does the full-scale re-run (above) clear ADR-345's original thresholds?
+1. ~~Does the full-scale re-run clear ADR-345's original thresholds?~~
+   Moot for `Approx`: it fails correctness before latency/scale are even
+   relevant. Still open for `Exact` (unchanged from ADR-345) and for
+   `DynamicMinCut`/`min_cut_exact` (ADR-360), neither touched by this run.
 2. Does any existing downstream consumer of `ApproxMinCut.partition`
-   depend on the old (wrong) behavior in a way this fix could break? (Not
-   audited this run — see Next Research item 5 in the nightly README.)
-3. Should `ClusterHierarchy` be renamed or rebuilt to match its
-   documented intent?
+   depend on it being close to the true minimum cut (not just internally
+   consistent) on a skewed-weight graph? This run's finding suggests
+   auditing `ruvector-graph-condense`, `prime-radiant`,
+   `cognitum-gate-kernel`, and `mcp-brain-server` for exactly this
+   assumption, not just for "did it use the old stub" (ADR-357's original
+   open question).
+3. Should `ApproxMinCut`'s own doc comment/tests gain a skewed-weight
+   correctness check (this ADR's bridge topology, or similar), so this
+   failure mode is caught by `ruvector-mincut`'s own test suite rather
+   than by a downstream consumer's benchmark? Not fixed here — this run
+   does not own `ApproxMinCut`'s algorithm, only this consumer's use of it.
+4. Should `ClusterHierarchy` be renamed or rebuilt to match its
+   documented intent? (Unchanged from this ADR's original text; unrelated
+   to the update above.)

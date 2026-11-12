@@ -1,10 +1,45 @@
 # Nightly Research — Fixing `ApproxMinCut`'s Partition Bug and Using It as `MincutGatedForgetting`'s Boundary Backend
 
-**Date:** 2026-10-29
+**Date:** 2026-10-29 (corrected 2026-11-12 — see Update below)
 **Slug:** `approx-mincut-boundary-backend`
 **ADR:** [ADR-357](../../../adr/ADR-357-approx-mincut-partition-fix-and-boundary-backend.md)
 **Crates:** `ruvector-mincut` (`algorithm::approximate`), `ruvector-agent-memory` (`graph_forget`)
-**Acceptance:** see [Acceptance result](#acceptance-result)
+**Acceptance:** **REJECT** (reversed from the original ACCEPT — see
+[Update (2026-11-12)](#update-2026-11-12-main-fixed-the-same-bug-independently-reversing-this-runs-accept)
+and [Acceptance result](#acceptance-result))
+
+## Update (2026-11-12): main fixed the same bug independently, reversing this run's ACCEPT
+
+A landing review on PR #1286 (ruvnet/ruvector) found that `main` had,
+independently and in parallel with this run, fixed the same
+`ApproxMinCut.partition` stub bug described below — commits `d4a1092db`
+and `e2c33478a` — more rigorously than this run did: it reuses the
+crate's existing `exact::minimum_cut` solver, always re-weighs every
+candidate partition on the *original* graph (this run's fix evaluated the
+sparsifier-path partition using the sparsifier's own rescaled weights, a
+real latent inconsistency this run's tests never caught because they only
+exercised the `<=50`-edge exact path), and drops the previously-false
+"(1+ε) certified" framing entirely. This run's own `ruvector-mincut`
+algorithm change (everything under
+[Implementation](#implementation) describing `stoer_wagner_with_partition`
+and its 5 new tests) was dropped on merge in favor of main's version —
+`crates/ruvector-mincut/src/algorithm/approximate.rs` in this PR is now
+byte-identical to main's.
+
+Re-running this run's own benchmark against main's fixed algorithm
+surfaced a second, independent problem, serious enough to reverse the
+original **ACCEPT** verdict below to **REJECT**: main's heuristic reliably
+fails to find anything near the true minimum cut on this run's own
+two-dense-cliques-plus-weak-bridge topology once the graph exceeds the
+50-edge exact-path threshold (the 19-vertex bridge dataset has 74 edges).
+Full corrected evidence, diagnosis, and the revised conclusion are in
+[Benchmark results (post-merge, 2026-11-12)](#benchmark-results-post-merge-2026-11-12)
+and [Acceptance result](#acceptance-result) below. The rest of this
+document, except where marked, is preserved as originally written (including
+now-superseded numbers and claims) so the before/after is visible rather
+than silently rewritten, following this repository's own convention for
+post-review corrections (e.g. the 2026-09-16 nightly's witness-signer
+hardening update).
 
 ## Summary
 
@@ -252,6 +287,81 @@ two-dense-clusters-plus-bridge graph (closer to what a real embedding's
 k-NN graph looks like) is comparatively cheap for the same solver at the
 same vertex count. `Approx` is unaffected by this topology sensitivity —
 sub-millisecond on both shapes at n=19.
+
+## Benchmark results (post-merge, 2026-11-12)
+
+**Everything above this point predates adopting main's independent fix
+and is now stale** (see the Update at the top of this document). Same
+command, same hardware class, release build, after merging main's fixed
+`ApproxMinCut` and dropping this run's own superseded algorithm change:
+
+```text
+=== Part 1: latency scaling (ring k-NN, k=8) ===
+backend                  n     latency_ms
+Exact                   19      97565.816
+Approx(eps=0.1)         19          0.145
+Approx(eps=0.3)         19          0.109
+Exact                   50         80.376
+Approx(eps=0.1)         50          0.279
+Approx(eps=0.3)         50          0.240
+Exact                  100        506.503
+Approx(eps=0.1)        100          0.543
+Approx(eps=0.3)        100          0.497
+Exact                  200       1659.704
+Approx(eps=0.1)        200          1.690
+Approx(eps=0.3)        200          1.589
+Exact                  400       6056.305
+Approx(eps=0.1)        400          3.137
+Approx(eps=0.3)        400          3.280
+
+=== Part 2: determinism + bridge-boundary correctness (19-vertex bridge dataset) ===
+backend              trials    elapsed_s  empty_pct  bridge_detect_pct         avg_ms
+Exact                    50       62.536         0%               100%       1250.710
+Approx(eps=0.1)          50        0.004         0%                 0%          0.071
+Approx(eps=0.3)          50        0.004         0%                 0%          0.082
+```
+
+`Approx` got even faster (main's version skips this run's own
+Stoer-Wagner-on-median-sparsifier step and runs the crate's existing exact
+solver directly on each small sampled sparsifier) — but
+**bridge-detection dropped from 100% to 0% at both epsilons.**
+
+A targeted diagnostic (standalone, not part of the shipped benchmark,
+reproducing the exact 19-vertex/74-edge bridge graph and calling
+`ApproxMinCut` directly) explains why:
+
+```text
+unique edges: 74
+  bridge edge (8,18) weight=1.8090
+  bridge edge (17,18) weight=1.8090
+--- epsilon=0.1 (num_samples=3, default) value=150047.3645 ---
+side_a (14): [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 15, 17, 18]
+side_b (5):  [9, 12, 13, 14, 16]
+--- epsilon=0.1 (num_samples=50) value=70066.3068 ---
+side_a (12): [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 17, 18]
+side_b (7):  [9, 10, 12, 13, 14, 15, 16]
+```
+
+The true global minimum cut is **~3.6** (the bridge's own two edges, each
+weight 1.809 — the same topology every prior nightly in this lineage has
+used specifically because it makes that cut unambiguous). `ApproxMinCut`
+reports **150,047.36** at the default `num_samples: 3`, improving only to
+**70,066.31** at `num_samples: 50` (a 16x increase in sampling effort for
+a ~2x reduction in error, still ~19,000x off) — ruling out "just sample
+more" as a fix. The bridge and most of its own cluster land on the *same*
+side in both cases; no partition anywhere close to "isolate the bridge"
+is ever produced. Root cause: `build_sparsifier` samples edges with
+probability proportional to `weight × resistance`; the bridge's edges
+(weight 1.8) are vastly less likely to survive sampling than the two
+near-complete cliques' edges (weight ~10,000, from near-identical
+embedding vectors — cosine similarity ≈ 1 forces `weight = 1/distance`
+toward its `1e-4`-clamped maximum). The "ensure spanning-tree connectivity"
+repair step keeps the sparsifier connected but does not reconstruct the
+bridge as *the sparsifier's own min cut* — so re-weighing each sample's
+candidate on the original graph (main's fix) can only select among
+candidates that were generated, and none of them resemble the true cut.
+This is a structural property of proportional-sampling-based
+sparsification under highly skewed edge weights, not a tunable parameter.
 
 ## Correctness evidence (unit tests, `ruvector-mincut`)
 
@@ -614,25 +724,42 @@ capabilities. No comparison attempted.
 
 ## Production path
 
-1. If [Benchmark results](#benchmark-results) shows `Approx` materially
-   faster than `Exact` at 50-400 vertices with reliable bridge detection
-   (no empty/degenerate results, bridge flagged in close to 100% of
-   trials) and acceptable determinism, re-run the original
-   `mincut_gated_forgetting_bench` (2026-09-05's rejected experiment) with
-   `backend: MincutBackend::Approx` substituted in, at the originally
-   intended ~2,000-memory corpus the `Exact` backend made infeasible — the
-   direct re-test ADR-345's Next Research item 3 asked for, now with a
-   correct and (if confirmed) fast backend.
-2. If that re-run clears the original 2026-09-05 acceptance thresholds
+**Superseded by the 2026-11-12 update** — items 1-2 below described the
+plan under the original (now-reversed) ACCEPT verdict and are kept for
+lineage; they do not apply once `Approx` fails bridge-detection outright
+on this run's own correctness topology. The actual production path is:
+
+0. Ship the opt-in `MincutBackend::Approx` as additive, tested,
+   **not-recommended** API (it is internally consistent — value always
+   matches the returned partition, thanks to main's fix — just not close
+   to the true minimum on skewed-weight graphs). Do not substitute it into
+   `mincut_gated_forgetting_bench` or any other production-facing
+   benchmark expecting a usable structural signal; it would not produce a
+   meaningful result. `MincutGatedForgetting` remains rejected for
+   production on the same grounds ADR-345 originally found, now also
+   confirmed unfixable via this particular backend swap.
+3. The `ApproxMinCut` partition fix's test pattern
+   (`assert_partition_matches_value`-equivalent assertions, already
+   present in main's own test suite for this module) is a good lint
+   against future stub regressions in any `ruvector-mincut` API that
+   returns a partition alongside a value — worth backporting as a general
+   convention, independent of this run's own conclusion.
+
+~~1. If Benchmark results shows `Approx` materially faster than `Exact` at
+   50-400 vertices with reliable bridge detection (no empty/degenerate
+   results, bridge flagged in close to 100% of trials) and acceptable
+   determinism, re-run the original `mincut_gated_forgetting_bench`
+   (2026-09-05's rejected experiment) with `backend: MincutBackend::Approx`
+   substituted in, at the originally intended ~2,000-memory corpus the
+   `Exact` backend made infeasible — the direct re-test ADR-345's Next
+   Research item 3 asked for, now with a correct and (if confirmed) fast
+   backend.~~ **Moot**: bridge detection is 0%, not "close to 100%" — this
+   step's precondition fails.
+~~2. If that re-run clears the original 2026-09-05 acceptance thresholds
    (bridge-survival gap, Recall@10 tolerance, wall-clock bound), promote
    `MincutGatedForgetting` out of "rejected for production" into
-   production-candidate status at that point — not before, and not on
-   this run's boundary-latency evidence alone (orthogonal claims, per the
-   hypothesis's explicit scope).
-3. Independently, backport the `ApproxMinCut` partition fix's test pattern
-   (`assert_partition_matches_value`) as a lint against future stub
-   regressions in any `ruvector-mincut` API that returns a partition
-   alongside a value.
+   production-candidate status at that point.~~ **Moot** for the same
+   reason.
 
 ## Falsification criteria
 
@@ -672,11 +799,15 @@ outcome against these criteria.
 
 ## Next research
 
-1. Re-run `mincut_gated_forgetting_bench` at full originally-intended scale
-   with `MincutBackend::Approx` (see [Production path](#production-path)
-   item 1) — the direct continuation this run exists to unblock.
+1. ~~Re-run `mincut_gated_forgetting_bench` at full originally-intended
+   scale with `MincutBackend::Approx`~~ — **moot** (2026-11-12): the
+   backend fails bridge-detection outright at small scale, so a
+   large-scale re-run would not produce an interpretable result. Replaced
+   by item 7 below.
 2. A p50/p95/p99 latency study for `ApproxMinCut` across many repeated
-   builds at fixed size, for any deployment with real-time constraints.
+   builds at fixed size, for any deployment with real-time constraints —
+   still relevant to any *other* use of `ApproxMinCut` that only needs
+   its value/partition-consistency guarantee, not a near-minimum cut.
 3. Fix or rename `ClusterHierarchy` so its name matches its actual
    (non-cut-aware) behavior, or rebuild `build_level` on a real min-cut
    policy if a genuinely cheap hierarchical min-cut is wanted.
@@ -690,6 +821,17 @@ outcome against these criteria.
    `insert_edge`/`delete_edge`, exploiting the SODA 2025 paper's claimed
    incremental strength (not exploited by this crate's current
    `insert_edge`/`delete_edge`, which just invalidate the whole cache).
+7. (2026-11-12) If a fast structural boundary signal is still wanted for
+   `MincutGatedForgetting`, evaluate `DynamicMinCut`/`min_cut_exact`
+   (ADR-360, from the PR #1286 7-way consolidation this run's PR was
+   selected out of) instead of `ApproxMinCut`: exact and already confirmed
+   correct on this same bridge topology, at polynomial (not near-linear)
+   cost — the real tradeoff to evaluate, not a parameter within
+   `ApproxMinCut` itself.
+8. (2026-11-12) Give `ApproxMinCut` its own skewed-weight correctness
+   regression test (this run's bridge topology or equivalent) in
+   `ruvector-mincut` itself, so this failure mode is caught upstream
+   rather than rediscovered by each downstream consumer.
 
 ## Witness evidence
 
@@ -708,20 +850,37 @@ outcome against these criteria.
 ## Acceptance result
 
 ```text
-ACCEPT
+REJECT (reversed from an earlier ACCEPT — see Update, 2026-11-12)
 ```
 
-All of the hypothesis's success criteria were met with measured evidence:
-latency at every scaling-probe size >= 50 vertices dropped by 37x-266,000x
-(including the n=19 outlier) relative to `Exact`; bridge-vertex detection
-stayed at 100% for both `Approx` configurations, matching `Exact`; the
-empty/degenerate rate stayed at 0% for all three backends (no new
-non-determinism introduced); and no pre-existing test in either crate
-regressed (9/9 pre-existing `ApproxMinCut` tests, 3/3 pre-existing
-`graph_forget` tests, 48/48 full `ruvector-agent-memory` suite, all green).
-The explicit non-claims in the hypothesis's "subject to" clause (bridge-
-*retention*/Recall@10, the witness mechanism) were correctly left
-unre-measured — they are orthogonal and already covered elsewhere.
+**Original (2026-10-29) verdict, superseded:** ACCEPT. At the time, all of
+the hypothesis's success criteria appeared met: latency at every
+scaling-probe size >= 50 vertices dropped by 37x-266,000x relative to
+`Exact`; bridge-vertex detection stayed at 100% for both `Approx`
+configurations; the empty/degenerate rate stayed at 0% for all three
+backends; and no pre-existing test in either crate regressed. This verdict
+was reached against this run's own (now-superseded) `ApproxMinCut` fix.
+
+**Corrected (2026-11-12) verdict: REJECT.** After adopting main's
+independent, more rigorous fix to the same bug (dropping this run's own
+algorithm change) and re-running the identical benchmark, bridge-vertex
+detection fell to 0% for both `Approx` configurations — the backend
+reports a cut ~19,000-40,000x the true minimum on this run's own
+correctness topology once the graph exceeds the 50-edge exact-path
+threshold (see
+[Benchmark results (post-merge, 2026-11-12)](#benchmark-results-post-merge-2026-11-12)).
+Latency gains hold and are not in question; correctness does not, and
+correctness is the mandatory criterion per the hypothesis's "subject to"
+clause. This is not a case of an unlucky seed or insufficient
+sampling (`num_samples: 50` vs. the default `3` only closes ~2x of a
+~40,000x gap) — it is a structural property of proportional-sampling
+sparsification under the skewed edge weights a real embedding's k-NN
+graph produces, and is reported here per this nightly process's own rule
+that a failed hypothesis with good evidence is a successful run. The
+explicit non-claims in the hypothesis's "subject to" clause (bridge-
+*retention*/Recall@10, the witness mechanism) remain correctly
+unre-measured — orthogonal, already covered elsewhere, and moot now that
+the backend fails the boundary-detection step itself.
 
 ## References
 
