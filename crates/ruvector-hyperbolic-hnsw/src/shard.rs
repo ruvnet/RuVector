@@ -365,7 +365,11 @@ impl ShardedHyperbolicHnsw {
         }
 
         // Sort by distance and take top k
-        all_results.sort_by(|a, b| a.1.distance.partial_cmp(&b.1.distance).unwrap());
+        all_results.sort_by(|a, b| {
+            a.1.distance
+                .total_cmp(&b.1.distance)
+                .then(a.0.cmp(&b.0))
+        });
         all_results.truncate(k);
 
         Ok(all_results)
@@ -491,7 +495,7 @@ fn spearman_correlation(x: &[f32], y: &[usize]) -> f32 {
 
     // Compute ranks for x
     let mut x_indexed: Vec<(usize, f32)> = x.iter().cloned().enumerate().collect();
-    x_indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    x_indexed.sort_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
     let mut x_ranks = vec![0.0; n];
     for (rank, (idx, _)) in x_indexed.iter().enumerate() {
         x_ranks[*idx] = rank as f32;

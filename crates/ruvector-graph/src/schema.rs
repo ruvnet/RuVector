@@ -124,7 +124,8 @@ impl DistanceMetric {
 
 /// Score a vector-shaped property against a query without allocating in the
 /// common `FloatArray` case (zero-copy slice scoring). Returns `None` if the
-/// property is not vector-shaped or its dimension does not match the query.
+/// property is not vector-shaped, its dimension does not match the query, or
+/// scoring produces a non-finite value (including arithmetic overflow).
 #[inline]
 pub fn score_property(
     metric: DistanceMetric,
@@ -132,10 +133,10 @@ pub fn score_property(
     query_norm: f32,
     value: &PropertyValue,
 ) -> Option<f32> {
-    match value {
+    let score = match value {
         // Fast path: borrow the stored slice directly, no clone.
         PropertyValue::FloatArray(v) => {
-            if v.len() == query.len() {
+            if v.len() == query.len() && v.iter().all(|x| x.is_finite()) {
                 Some(metric.score_pre(query, v, query_norm))
             } else {
                 None
@@ -144,14 +145,15 @@ pub fn score_property(
         // Slow path: heterogeneous numeric list must be materialized.
         PropertyValue::Array(_) | PropertyValue::List(_) => {
             let v = extract_vector(value)?;
-            if v.len() == query.len() {
+            if v.len() == query.len() && v.iter().all(|x| x.is_finite()) {
                 Some(metric.score_pre(query, &v, query_norm))
             } else {
                 None
             }
         }
         _ => None,
-    }
+    }?;
+    score.is_finite().then_some(score)
 }
 
 #[inline]
@@ -430,6 +432,18 @@ impl GraphSchema {
                 }
             }
         }
+        for vector in self.vectors.values() {
+            if node.has_label(&vector.label) {
+                if let Some(value) = node.properties.get(&vector.property) {
+                    if extract_vector(value).is_some_and(|v| v.iter().any(|x| !x.is_finite())) {
+                        return Err(GraphError::SchemaViolation(format!(
+                            "node '{}' vector '{}' contains a non-finite component",
+                            node.id, vector.name
+                        )));
+                    }
+                }
+            }
+        }
         Ok(())
     }
 
@@ -488,6 +502,12 @@ impl GraphSchema {
                 vector_type,
                 vs.dimensions,
                 query.len()
+            )));
+        }
+        if query.iter().any(|x| !x.is_finite()) {
+            return Err(GraphError::SchemaViolation(format!(
+                "vector type '{}' query contains a non-finite component",
+                vector_type
             )));
         }
         Ok(vs)
@@ -687,5 +707,18 @@ mod tests {
             .collect(),
         );
         assert!(s.validate_node(&n).is_ok());
+    }
+
+    #[test]
+    fn score_property_ignores_non_finite_arithmetic_results() {
+        let value = PropertyValue::FloatArray(vec![f32::MAX]);
+        assert_eq!(
+            score_property(DistanceMetric::DotProduct, &[f32::MAX], 1.0, &value),
+            None
+        );
+        assert_eq!(
+            score_property(DistanceMetric::DotProduct, &[1.0], 1.0, &value),
+            Some(f32::MAX)
+        );
     }
 }

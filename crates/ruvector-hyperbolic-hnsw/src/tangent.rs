@@ -247,7 +247,11 @@ impl TangentPruner {
         }
 
         // Sort by tangent distance and keep top prune_factor * top_n
-        candidates.sort_by(|a, b| a.tangent_dist.partial_cmp(&b.tangent_dist).unwrap());
+        candidates.sort_by(|a, b| {
+            a.tangent_dist
+                .total_cmp(&b.tangent_dist)
+                .then(a.index.cmp(&b.index))
+        });
         candidates.truncate(num_prune);
 
         // Phase 2: Exact Poincaré distance for finalists
@@ -262,8 +266,8 @@ impl TangentPruner {
         candidates.sort_by(|a, b| {
             a.exact_dist
                 .unwrap_or(f32::MAX)
-                .partial_cmp(&b.exact_dist.unwrap_or(f32::MAX))
-                .unwrap()
+                .total_cmp(&b.exact_dist.unwrap_or(f32::MAX))
+                .then(a.index.cmp(&b.index))
         });
         candidates.truncate(self.top_n);
 
@@ -344,5 +348,22 @@ mod tests {
         assert_eq!(results.len(), 2);
         // Results should be sorted by exact distance
         assert!(results[0].exact_dist.unwrap() <= results[1].exact_dist.unwrap());
+    }
+
+    #[test]
+    fn non_finite_query_does_not_panic_in_tangent_pruner() {
+        let points = vec![vec![0.1, 0.2], vec![-0.1, 0.15], vec![0.2, -0.1]];
+        let indices: Vec<usize> = (0..points.len()).collect();
+        let cache = TangentCache::new(&points, &indices, 1.0).unwrap();
+        let mut pruner = TangentPruner::new(2, 2);
+        pruner.add_cache(cache);
+
+        let first = pruner.search(&[f32::NAN, 0.1], &points, 1.0);
+        let second = pruner.search(&[f32::NAN, 0.1], &points, 1.0);
+        assert_eq!(first.len(), 2);
+        assert_eq!(
+            first.iter().map(|r| r.index).collect::<Vec<_>>(),
+            second.iter().map(|r| r.index).collect::<Vec<_>>()
+        );
     }
 }

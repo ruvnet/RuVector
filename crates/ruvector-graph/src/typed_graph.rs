@@ -257,7 +257,7 @@ impl TypedGraph {
                 })
                 .flatten();
             if let Some(emb) = emb {
-                if emb.len() == vs.dimensions {
+                if emb.len() == vs.dimensions && emb.iter().all(|x| x.is_finite()) {
                     index.add_node_embedding(id, emb)?;
                     count += 1;
                 }
@@ -343,6 +343,12 @@ impl TypedGraph {
         let metric = vs.metric;
         let property = vs.property.as_str();
         let query_norm = metric.query_norm(query);
+        if !query_norm.is_finite() {
+            return Err(GraphError::SchemaViolation(format!(
+                "vector type '{}' query norm is non-finite",
+                vs.name
+            )));
+        }
         let ids = self.graph.node_ids_by_label(&vs.label);
 
         // For small collections an exact serial scan is both cheap and stable.
@@ -432,14 +438,7 @@ impl TypedGraph {
 
         // Vector arm: embed inline, dimension-check, rank.
         let qvec = self.embed(text)?;
-        if qvec.len() != vs.dimensions {
-            return Err(GraphError::SchemaViolation(format!(
-                "embedder produced dimension {} but vector type '{}' expects {}",
-                qvec.len(),
-                vector_type,
-                vs.dimensions
-            )));
-        }
+        self.schema.validate_vector_dims(vector_type, &qvec)?;
         let vec_hits = self.rank_seeds(vs, &qvec, over)?;
 
         // Keyword arm: BM25 over the text property of the bound label.
@@ -487,7 +486,7 @@ impl TypedGraph {
                 Some((s, id))
             })
             .collect();
-        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        scored.sort_by(|a, b| b.0.total_cmp(&a.0));
         scored.truncate(k);
         Ok(scored)
     }
@@ -547,7 +546,7 @@ impl TypedGraph {
             .into_iter()
             .map(|Reverse((s, id))| (s.into_inner(), id))
             .collect();
-        hits.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        hits.sort_by(|a, b| b.0.total_cmp(&a.0));
         hits
     }
 
@@ -703,6 +702,87 @@ mod tests {
     }
 
     #[test]
+    fn search_rejects_non_finite_query_vectors() {
+        let tg = TypedGraph::new(GraphDB::new(), schema()).unwrap();
+        tg.create_node(doc("finite", "good", vec![1.0, 0.0, 0.0]))
+            .unwrap();
+        for invalid in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            let result = tg.search_then_traverse(
+                "DocEmb",
+                &[invalid, 0.0, 0.0],
+                1,
+                &TraverseSpec::out("ABOUT"),
+            );
+            assert!(result.is_err(), "non-finite query component was accepted");
+        }
+        assert!(tg
+            .search_then_traverse(
+                "DocEmb",
+                &[f32::MAX, 0.0, 0.0],
+                1,
+                &TraverseSpec::out("ABOUT"),
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn non_finite_stored_vectors_cannot_displace_finite_hits() {
+        let mut tg = TypedGraph::new(GraphDB::new(), schema()).unwrap();
+        tg.create_node(doc("finite", "good", vec![1.0, 0.0, 0.0]))
+            .unwrap();
+        assert!(tg
+            .create_node(doc("invalid", "bad", vec![f32::NAN, 0.0, 0.0]))
+            .is_err());
+
+        // GraphDB is an intentional escape hatch, so previously persisted or
+        // directly inserted invalid vectors must also be ignored by ranking.
+        tg.graph()
+            .create_node(doc("legacy", "bad", vec![f32::NAN, 0.0, 0.0]))
+            .unwrap();
+        let hits = tg
+            .search_then_traverse("DocEmb", &[1.0, 0.0, 0.0], 1, &TraverseSpec::out("ABOUT"))
+            .unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].seed_id, "finite");
+        assert!(hits[0].score.is_finite());
+        let zero_query_hits = tg
+            .search_then_traverse("DocEmb", &[0.0, 0.0, 0.0], 2, &TraverseSpec::out("ABOUT"))
+            .unwrap();
+        assert_eq!(zero_query_hits.len(), 1);
+        assert_eq!(zero_query_hits[0].seed_id, "finite");
+        assert_eq!(tg.build_vector_index("DocEmb").unwrap(), 1);
+    }
+
+    #[test]
+    fn hybrid_search_rejects_non_finite_embedder_output() {
+        struct InvalidEmbedder;
+        impl Embedder for InvalidEmbedder {
+            fn dimensions(&self) -> usize {
+                3
+            }
+            fn embed(&self, _: &str) -> Result<Vec<f32>> {
+                Ok(vec![f32::NAN, 0.0, 0.0])
+            }
+        }
+
+        let mut tg = TypedGraph::new(GraphDB::new(), schema())
+            .unwrap()
+            .with_embedder(Arc::new(InvalidEmbedder));
+        tg.create_node(doc("finite", "good", vec![1.0, 0.0, 0.0]))
+            .unwrap();
+        tg.build_text_index("Doc", "title").unwrap();
+        let result = tg.hybrid_search_text(
+            "DocEmb",
+            "title",
+            "good",
+            1,
+            60.0,
+            &TraverseSpec::out("ABOUT"),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn parallel_scan_matches_reference() {
         // Exceed PARALLEL_SCAN_THRESHOLD so the rayon path runs, and check the
         // top-k it returns equals an independent brute-force ranking.
@@ -742,7 +822,7 @@ mod tests {
                 (s, id.clone())
             })
             .collect();
-        reference.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+        reference.sort_by(|a, b| b.0.total_cmp(&a.0));
 
         assert_eq!(res.len(), k);
         for w in res.windows(2) {

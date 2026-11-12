@@ -1,14 +1,14 @@
 //! # RuVector MinCut
 //!
-//! Subpolynomial-time dynamic minimum cut algorithm with real-time monitoring.
+//! Dynamic global minimum cuts with an exact sparse Stoer-Wagner baseline.
 //!
 //! This crate provides efficient algorithms for maintaining minimum cuts in
 //! dynamic graphs with edge insertions and deletions.
 //!
 //! ## Features
 //!
-//! - **Exact Algorithm**: O(n^{o(1)}) amortized update time for cuts up to 2^{O((log n)^{3/4})}
-//! - **Approximate Algorithm**: (1+ε)-approximate cuts via graph sparsification
+//! - **DynamicMinCut**: exact global cuts, recomputed when the cached cut changes
+//! - **ApproxMinCut**: a separate experimental sparsification implementation
 //! - **Real-Time Monitoring**: Event-driven notifications with configurable thresholds
 //! - **Thread-Safe**: Concurrent reads with exclusive writes
 //!
@@ -50,7 +50,7 @@
 //! ## Feature Flags
 //!
 //! - `exact` - Exact minimum cut algorithm (enabled by default)
-//! - `approximate` - (1+ε)-approximate algorithm (enabled by default)
+//! - `approximate` - legacy compatibility flag; it does not switch the solver
 //! - `monitoring` - Real-time monitoring with callbacks (optional)
 //! - `integration` - GraphDB integration (optional)
 //! - `simd` - SIMD optimizations (optional)
@@ -74,20 +74,20 @@
 //! assert_eq!(mincut.min_cut_value(), 2.0);
 //! ```
 //!
-//! ### Approximate Algorithm
+//! ### Legacy approximate builder option
 //!
 //! ```rust
 //! use ruvector_mincut::prelude::*;
 //!
 //! let mincut = MinCutBuilder::new()
-//!     .approximate(0.1) // 10% approximation
+//!     .approximate(0.1) // compatibility option; still runs the exact solver
 //!     .with_edges(vec![(1, 2, 1.0), (2, 3, 1.0)])
 //!     .build()
 //!     .unwrap();
 //!
 //! let result = mincut.min_cut();
-//! assert!(!result.is_exact);
-//! assert_eq!(result.approximation_ratio, 1.1);
+//! assert!(result.is_exact);
+//! assert_eq!(result.approximation_ratio, 1.0);
 //! ```
 //!
 //! ### Real-Time Monitoring
@@ -180,10 +180,10 @@ pub mod optimization;
 /// ```
 pub mod snn;
 
-/// Subpolynomial-time dynamic minimum cut algorithm.
+/// Research module for dynamic minimum cut.
 ///
-/// This module implements the December 2024 breakthrough achieving n^{o(1)} update time.
-/// Integrates multi-level hierarchy, deterministic LocalKCut, and fragmenting algorithm.
+/// Research components inspired by dynamic min-cut work. The module's presence
+/// does not establish a subpolynomial update bound for this implementation.
 pub mod subpolynomial;
 
 /// Dynamic Hierarchical j-Tree Decomposition for Approximate Cut Structure
@@ -595,8 +595,8 @@ mod tests {
             .unwrap();
 
         let result = mincut.min_cut();
-        assert!(!result.is_exact);
-        assert_eq!(result.approximation_ratio, 1.1);
+        assert!(result.is_exact);
+        assert_eq!(result.approximation_ratio, 1.0);
     }
 
     #[test]
