@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/agentic-synth",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "High-performance synthetic data generator for AI/ML training, RAG systems, and agentic workflows with DSPy.ts, Gemini, OpenRouter, and vector databases",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -65,7 +65,7 @@
   },
   "peerDependencies": {
     "dspy.ts": "^2.2.0",
-    "ruvector": "0.3.24"
+    "ruvector": "0.3.26"
   },
   "peerDependenciesMeta": {
     "dspy.ts": {

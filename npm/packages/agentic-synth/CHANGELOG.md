@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.12] - 2026-11-12
+
+### Fixed
+- Default Gemini model is now `gemini-2.5-flash`. The previous default `gemini-2.0-flash-exp` (and the `gemini-1.5-*` routes) are retired and return 404, so calls relying on the default failed. Verified with a live call.
+
+### Changed
+- Optional `ruvector` peer dependency pinned to `0.3.26` (was `0.3.24`); verified `VectorDB` insert and search against it.
+
+---
+
 ## [0.1.11] - 2026-11-11
 
 ### Changed

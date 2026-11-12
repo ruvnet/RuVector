@@ -33,7 +33,7 @@ Create a `config.json` file for persistent settings:
 ```json
 {
   "provider": "gemini",
-  "model": "gemini-2.0-flash-exp",
+  "model": "gemini-2.5-flash",
   "apiKey": "your-api-key",
   "cacheStrategy": "memory",
   "cacheTTL": 3600,
@@ -221,7 +221,7 @@ The CLI displays metadata after generation:
 ```
 Metadata:
   Provider: gemini
-  Model: gemini-2.0-flash-exp
+  Model: gemini-2.5-flash
   Cached: false
   Duration: 1247ms
   Generated: 2025-11-22T10:30:45.123Z
