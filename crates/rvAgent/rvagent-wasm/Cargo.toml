@@ -5,6 +5,7 @@ edition = "2021"
 description = "rvAgent WASM bindings — browser and Node.js agent execution"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ruvnet/RuVector"
+homepage = "https://ruv.io"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

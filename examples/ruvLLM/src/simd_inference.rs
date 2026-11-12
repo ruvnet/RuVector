@@ -1104,7 +1104,6 @@ impl SimdInferenceEngine {
 
         // Demo model returns a helpful message instead of garbled output
         if self.is_demo_model {
-            let elapsed = start.elapsed().as_secs_f64() * 1000.0;
             let response = format!(
                 "[RuvLLM Demo Mode]\n\
                  No trained model is currently loaded. This is a demonstration engine.\n\n\
@@ -1121,6 +1120,7 @@ impl SimdInferenceEngine {
                 config.top_p,
                 config.max_tokens,
             );
+            let elapsed = start.elapsed().as_secs_f64() * 1000.0;
             return (response, 0, elapsed);
         }
 
@@ -1225,7 +1225,8 @@ mod tests {
             ..Default::default()
         };
         let (output, tokens, time_ms) = engine.generate("Hello", &config, None);
-        assert!(tokens <= 10);
+        assert_eq!(tokens, 0, "demo mode must not claim generated model tokens");
+        assert!(output.contains("No trained model is currently loaded"));
         assert!(time_ms > 0.0);
     }
 }

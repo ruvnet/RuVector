@@ -1,12 +1,15 @@
 [package]
 name = "ospipe"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.77"
 license = "MIT"
 description = "OSpipe: RuVector-enhanced personal AI memory system integrating with Screenpipe"
 authors = ["Ruvector Team"]
 repository = "https://github.com/ruvnet/ruvector"
+homepage = "https://ruv.io"
+keywords = ["memory", "screenpipe", "vector-search", "ai", "embeddings"]
+categories = ["database", "text-processing"]
 
 [dependencies]
 # Serialization (cross-platform)

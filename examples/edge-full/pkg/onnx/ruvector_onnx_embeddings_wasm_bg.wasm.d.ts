@@ -1,6 +1,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export const init: () => void;
+export const simd_available: () => number;
+export const version: () => [number, number];
 export const __wbg_wasmembedder_free: (a: number, b: number) => void;
 export const __wbg_wasmembedderconfig_free: (a: number, b: number) => void;
 export const cosineSimilarity: (a: number, b: number, c: number, d: number) => number;
@@ -16,14 +19,11 @@ export const wasmembedderconfig_new: () => number;
 export const wasmembedderconfig_setMaxLength: (a: number, b: number) => number;
 export const wasmembedderconfig_setNormalize: (a: number, b: number) => number;
 export const wasmembedderconfig_setPooling: (a: number, b: number) => number;
-export const init: () => void;
-export const simd_available: () => number;
-export const version: () => [number, number];
-export const __wbindgen_malloc: (a: number, b: number) => number;
-export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
-export const __wbindgen_exn_store: (a: number) => void;
-export const __externref_table_alloc: () => number;
+export const __wbindgen_malloc_command_export: (a: number, b: number) => number;
+export const __wbindgen_realloc_command_export: (a: number, b: number, c: number, d: number) => number;
+export const __wbindgen_exn_store_command_export: (a: number) => void;
+export const __externref_table_alloc_command_export: () => number;
 export const __wbindgen_externrefs: WebAssembly.Table;
-export const __wbindgen_free: (a: number, b: number, c: number) => void;
-export const __externref_table_dealloc: (a: number) => void;
+export const __wbindgen_free_command_export: (a: number, b: number, c: number) => void;
+export const __externref_table_dealloc_command_export: (a: number) => void;
 export const __wbindgen_start: () => void;

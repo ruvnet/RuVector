@@ -1,6 +1,6 @@
 //! Core memory entry and in-memory store.
 
-use crate::scoring::cosine_sim;
+use crate::scoring::{compare_scores_desc, cosine_sim};
 
 /// A single agent memory record.
 #[derive(Debug, Clone)]
@@ -101,7 +101,7 @@ impl MemoryStore {
             .enumerate()
             .map(|(i, e)| (i, cosine_sim(query, &e.vector)))
             .collect();
-        scored.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        scored.sort_unstable_by(|a, b| compare_scores_desc(a.1, b.1));
         scored
             .into_iter()
             .take(k)
@@ -145,6 +145,29 @@ mod tests {
         let results = store.search(&[1.0, 0.0, 0.0], 1);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].id, 0);
+    }
+
+    #[test]
+    fn search_with_nonfinite_embedding_keeps_finite_matches_first() {
+        let mut store = MemoryStore::new(2);
+        store.insert(vec![1.0, 0.0]);
+        store.insert(vec![0.0, 1.0]);
+        store.insert(vec![f32::NAN, 0.0]);
+
+        let results = store.search(&[1.0, 0.0], 3);
+        assert_eq!(
+            results.iter().map(|r| r.id).collect::<Vec<_>>(),
+            vec![0, 1, 2]
+        );
+        assert!(results[2].score.is_nan());
+
+        let nan_query = store.search(&[f32::NAN, 0.0], 3);
+        let repeated = store.search(&[f32::NAN, 0.0], 3);
+        assert_eq!(
+            nan_query.iter().map(|r| r.id).collect::<Vec<_>>(),
+            repeated.iter().map(|r| r.id).collect::<Vec<_>>()
+        );
+        assert!(nan_query.iter().all(|r| r.score.is_nan()));
     }
 
     #[test]

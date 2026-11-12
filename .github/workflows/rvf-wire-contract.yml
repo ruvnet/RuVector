@@ -30,7 +30,7 @@ concurrency:
 jobs:
   wire-contract:
     name: Verify RVF v1 wire contract
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:

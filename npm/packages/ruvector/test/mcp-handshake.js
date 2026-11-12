@@ -35,6 +35,8 @@ const INIT = {
   },
 };
 const LIST = { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} };
+// Clients such as Continue call this during setup and abort on -32601.
+const TEMPLATES = { jsonrpc: '2.0', id: 3, method: 'resources/templates/list', params: {} };
 
 /**
  * Drive a full handshake against `ruvector mcp start`.
@@ -64,6 +66,7 @@ function handshake() {
       resolve({
         init: seen.get(1) || null,
         tools: seen.get(2) || null,
+        templates: seen.get(3) || null,
         stdoutNoise: noise,
         ...extra,
       });
@@ -95,7 +98,7 @@ function handshake() {
       // test exists to catch (e.g. the ONNX loader's cache messages) is
       // emitted *after* the initialize reply, so returning immediately races
       // past it and the noise assertion silently passes. Drain briefly first.
-      if (seen.has(1) && seen.has(2) && !draining) {
+      if (seen.has(1) && seen.has(2) && seen.has(3) && !draining) {
         draining = true;
         setTimeout(() => finish(), DRAIN_MS);
       }
@@ -107,6 +110,7 @@ function handshake() {
     child.stdin.write(JSON.stringify(INIT) + '\n');
     child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
     child.stdin.write(JSON.stringify(LIST) + '\n');
+    child.stdin.write(JSON.stringify(TEMPLATES) + '\n');
   });
 }
 
@@ -151,6 +155,15 @@ async function main() {
     assert.ok(tools.every((t) => t.name), 'a tool is missing its name');
   });
 
+  check('resources/templates/list is handled (empty list, not -32601)', () => {
+    assert.ok(r.templates, 'no resources/templates/list response received');
+    assert.ok(
+      r.templates.result,
+      `resources/templates/list returned an error: ${JSON.stringify(r.templates.error)}`
+    );
+    assert.deepStrictEqual(r.templates.result.resourceTemplates, []);
+  });
+
   check('stdout carries only JSON-RPC (no diagnostic noise)', () => {
     assert.strictEqual(
       r.stdoutNoise.length,
@@ -160,7 +173,7 @@ async function main() {
     );
   });
 
-  const total = 4;
+  const total = 5;
   console.log(`\nResults: ${total - failed} passed, ${failed} failed`);
   if (failed) {
     console.log('MCP HANDSHAKE TEST FAILED');

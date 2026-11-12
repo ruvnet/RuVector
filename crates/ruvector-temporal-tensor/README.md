@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/ruvector/main/assets/ruvector/crates/ruvector-temporal-tensor.svg" alt="ruvector-temporal-tensor flow" width="100%"></p>
+
 # ruvector-temporal-tensor
 
 [![Crates.io](https://img.shields.io/crates/v/ruvector-temporal-tensor.svg)](https://crates.io/crates/ruvector-temporal-tensor)
@@ -277,3 +279,7 @@ MIT License — see [LICENSE](../../LICENSE) for details.
 **Part of [Ruvector](https://github.com/ruvnet/ruvector)**
 
 </div>
+
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector/tree/main/crates/ruvector-temporal-tensor)

@@ -9,7 +9,7 @@
 //!
 //! Deterministic: fixed LCG seed, no external dependencies.
 
-use mcp_gate::schema_cache::{compile_fresh, ResourceId, SchemaResourceCache};
+use mcp_gate::schema_cache::{compile_fresh, ResourceId, SchemaCacheConfig, SchemaResourceCache};
 use std::time::Instant;
 
 const N_SCHEMAS: usize = 100;
@@ -74,7 +74,8 @@ fn main() {
         .map(|s| mcp_gate::schema_cache::canonicalize(s).unwrap().len())
         .sum();
 
-    let mut cache = SchemaResourceCache::new();
+    let config = SchemaCacheConfig::default();
+    let mut cache = SchemaResourceCache::with_config(config.clone());
     let ids: Vec<ResourceId> = schemas
         .iter()
         .map(|s| cache.insert(s).expect("insert"))
@@ -96,7 +97,7 @@ fn main() {
         let req_ids: Vec<ResourceId> = ord.iter().map(|&i| ids[i]).collect();
         assert_eq!(
             cache.assemble(&req_ids).unwrap(),
-            compile_fresh(&refs).unwrap(),
+            compile_fresh(&refs, &config).unwrap(),
             "warm assembly diverged from cold compile"
         );
     }
@@ -106,7 +107,7 @@ fn main() {
     let mut cold_bytes = 0usize;
     for ord in &orderings {
         let refs: Vec<&serde_json::Value> = ord.iter().map(|&i| &schemas[i]).collect();
-        cold_bytes += compile_fresh(&refs).unwrap().len();
+        cold_bytes += compile_fresh(&refs, &config).unwrap().len();
     }
     let cold = start.elapsed();
 

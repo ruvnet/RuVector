@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 220" width="760" height="220" role="img" aria-labelledby="t d">
+  <title id="t">e-means training loop</title>
+  <desc id="d">Three groups of points. Centroids start on random rows and move toward each group as mini-batches update exponential moving averages of counts and sums with a cosine-decaying step. A dead centroid is revived by splitting a busy donor, and the last epoch's mean gives the final codebook.</desc>
+  <style>
+    .panel{fill:#f6f8fa;stroke:#57606a;stroke-width:1.5}
+    .pt{fill:#8c959f}
+    .c{fill:#0969da;stroke:#ffffff;stroke-width:2}
+    .r{fill:#1a7f37;stroke:#ffffff;stroke-width:2}
+    text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:13px;fill:#1f2328}
+    .s{font-size:11px;fill:#57606a}
+    .step{fill:#ddf4ff;stroke:#0969da;stroke-width:1.2}
+    @media (prefers-color-scheme:dark){
+      .panel{fill:#161b22;stroke:#8b949e}
+      .pt{fill:#6e7681}
+      .c{stroke:#0d1117}
+      .r{stroke:#0d1117}
+      text{fill:#e6edf3}
+      .s{fill:#8b949e}
+      .step{fill:#0c2d6b;stroke:#58a6ff}
+    }
+  </style>
+  <rect class="panel" x="10" y="10" width="740" height="200" rx="10"/>
+  <g>
+    <circle class="pt" cx="70" cy="60" r="4"/><circle class="pt" cx="88" cy="74" r="4"/><circle class="pt" cx="62" cy="86" r="4"/>
+    <circle class="pt" cx="96" cy="52" r="4"/><circle class="pt" cx="80" cy="96" r="4"/><circle class="pt" cx="104" cy="82" r="4"/>
+    <circle class="pt" cx="230" cy="70" r="4"/><circle class="pt" cx="248" cy="88" r="4"/><circle class="pt" cx="222" cy="96" r="4"/>
+    <circle class="pt" cx="256" cy="62" r="4"/><circle class="pt" cx="240" cy="108" r="4"/><circle class="pt" cx="264" cy="96" r="4"/>
+    <circle class="pt" cx="140" cy="160" r="4"/><circle class="pt" cx="160" cy="176" r="4"/><circle class="pt" cx="128" cy="182" r="4"/>
+    <circle class="pt" cx="170" cy="154" r="4"/><circle class="pt" cx="150" cy="190" r="4"/><circle class="pt" cx="178" cy="184" r="4"/>
+  </g>
+  <circle class="c" cx="96" cy="52" r="8">
+    <animate attributeName="cx" values="96;88;84;83;83" keyTimes="0;0.25;0.5;0.75;1" dur="6s" repeatCount="indefinite"/>
+    <animate attributeName="cy" values="52;68;74;75;75" keyTimes="0;0.25;0.5;0.75;1" dur="6s" repeatCount="indefinite"/>
+  </circle>
+  <circle class="c" cx="104" cy="82" r="8">
+    <animate attributeName="cx" values="104;150;200;236;243" keyTimes="0;0.25;0.5;0.75;1" dur="6s" repeatCount="indefinite"/>
+    <animate attributeName="cy" values="82;82;84;86;87" keyTimes="0;0.25;0.5;0.75;1" dur="6s" repeatCount="indefinite"/>
+  </circle>
+  <circle class="r" cx="243" cy="87" r="8" opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;1" keyTimes="0;0.45;0.5;0.75;1" dur="6s" repeatCount="indefinite"/>
+    <animate attributeName="cx" values="243;243;236;180;154" keyTimes="0;0.45;0.5;0.75;1" dur="6s" repeatCount="indefinite"/>
+    <animate attributeName="cy" values="87;87;92;150;174" keyTimes="0;0.45;0.5;0.75;1" dur="6s" repeatCount="indefinite"/>
+  </circle>
+  <text x="330" y="44">e-means: mini-batch k-means with EMA statistics</text>
+  <rect class="step" x="330" y="58" width="400" height="26" rx="6">
+    <animate attributeName="opacity" values="1;0.35;0.35;0.35;1" keyTimes="0;0.25;0.5;0.75;1" dur="6s" repeatCount="indefinite"/>
+  </rect>
+  <text x="342" y="76">1. assign batch rows, EMA-update counts and sums</text>
+  <rect class="step" x="330" y="90" width="400" height="26" rx="6" opacity="0.35">
+    <animate attributeName="opacity" values="0.35;1;0.35;0.35;0.35" keyTimes="0;0.25;0.5;0.75;1" dur="6s" repeatCount="indefinite"/>
+  </rect>
+  <text x="342" y="108">2. step size follows a cosine schedule</text>
+  <rect class="step" x="330" y="122" width="400" height="26" rx="6" opacity="0.35">
+    <animate attributeName="opacity" values="0.35;0.35;1;0.35;0.35" keyTimes="0;0.25;0.5;0.75;1" dur="6s" repeatCount="indefinite"/>
+  </rect>
+  <text x="342" y="140">3. every 5 updates, split a busy donor into a dead slot</text>
+  <rect class="step" x="330" y="154" width="400" height="26" rx="6" opacity="0.35">
+    <animate attributeName="opacity" values="0.35;0.35;0.35;1;0.35" keyTimes="0;0.25;0.5;0.75;1" dur="6s" repeatCount="indefinite"/>
+  </rect>
+  <text x="342" y="172">4. finalize with the last epoch's mean (or the EMA)</text>
+  <text class="s" x="330" y="200">Same Rust kernel natively and in WebAssembly; seeded and deterministic.</text>
+</svg>

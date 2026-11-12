@@ -34,7 +34,9 @@ export type {
 
 // Export benchmark components
 export {
-  MultiModelBenchmark
+  MultiModelBenchmark,
+  dspyAvailable,
+  DSPY_TS_VERSION
 } from './benchmark';
 
 export type {

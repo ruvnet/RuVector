@@ -1,4 +1,4 @@
-import type { RvfOptions, RvfQueryOptions, RvfSearchResult, RvfIngestResult, RvfIngestEntry, RvfDeleteResult, RvfCompactionResult, RvfStatus, RvfFilterExpr, RvfKernelData, RvfEbpfData, RvfSegmentInfo, BackendType, DistanceMetric } from './types';
+import type { RvfOptions, RvfQueryOptions, RvfSearchResult, RvfIngestResult, RvfIngestEntry, RvfDeleteResult, RvfCompactionResult, RvfStatus, RvfFilterExpr, RvfKernelData, RvfEbpfData, RvfSegmentInfo, BackendType, DistanceMetric, DerivationType } from './types';
 /**
  * Abstract backend that wraps either the native (N-API) or WASM build of
  * rvf-runtime.  The `RvfDatabase` class delegates all I/O to a backend
@@ -28,7 +28,9 @@ export interface RvfBackend {
     fileId(): Promise<string>;
     parentId(): Promise<string>;
     lineageDepth(): Promise<number>;
-    derive(childPath: string, options?: RvfOptions): Promise<RvfBackend>;
+    derive(childPath: string, options?: RvfOptions, derivationType?: DerivationType): Promise<RvfBackend>;
+    /** How this store was derived, or null for a root store or an older file. */
+    derivationType(): Promise<DerivationType | null>;
     branch(childPath: string): Promise<RvfBackend>;
     freeze(): Promise<number>;
     embedKernel(arch: number, kernelType: number, flags: number, image: Uint8Array, apiPort: number, cmdline?: string): Promise<number>;
@@ -85,7 +87,8 @@ export declare class NodeBackend implements RvfBackend {
     fileId(): Promise<string>;
     parentId(): Promise<string>;
     lineageDepth(): Promise<number>;
-    derive(childPath: string, options?: RvfOptions): Promise<RvfBackend>;
+    derivationType(): Promise<DerivationType | null>;
+    derive(childPath: string, options?: RvfOptions, derivationType?: DerivationType): Promise<RvfBackend>;
     branch(childPath: string): Promise<RvfBackend>;
     freeze(): Promise<number>;
     embedKernel(arch: number, kernelType: number, flags: number, image: Uint8Array, apiPort: number, cmdline?: string): Promise<number>;
@@ -192,7 +195,8 @@ export declare class WasmBackend implements RvfBackend {
     fileId(): Promise<string>;
     parentId(): Promise<string>;
     lineageDepth(): Promise<number>;
-    derive(_childPath: string, _options?: RvfOptions): Promise<RvfBackend>;
+    derive(_childPath: string, _options?: RvfOptions, _derivationType?: DerivationType): Promise<RvfBackend>;
+    derivationType(): Promise<DerivationType | null>;
     branch(_childPath: string): Promise<RvfBackend>;
     freeze(): Promise<number>;
     embedKernel(): Promise<number>;

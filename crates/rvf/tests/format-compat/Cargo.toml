@@ -1,0 +1,19 @@
+[package]
+name = "rvf-format-compat"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Format round trips between the workspace rvf-runtime and the last published one"
+
+# Its own workspace and lockfile on purpose: in the rvf workspace, a registry
+# copy of rvf-runtime / rvf-types would make `cargo test -p rvf-runtime`
+# ambiguous for every other job.
+[workspace]
+
+[dev-dependencies]
+rvf-runtime = { path = "../../rvf-runtime" }
+rvf-types = { path = "../../rvf-types", features = ["std"] }
+# The last published runtime: the "older reader and writer".
+rvf-runtime-0-5-3 = { package = "rvf-runtime", version = "=0.5.3" }
+rvf-types-0-3-1 = { package = "rvf-types", version = "=0.3.1" }
+tempfile = "3"
