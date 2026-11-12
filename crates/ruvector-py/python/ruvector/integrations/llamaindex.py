@@ -122,6 +122,8 @@ def _match_filter_value(operator: "FilterOperator", value: Any, metadata_value: 
     filter callable (``Collection.search(..., filter=...)``) already
     receives the metadata dict directly, so there is no id to look up.
     """
+    if operator == FilterOperator.IS_EMPTY:
+        return metadata_value is None or metadata_value == [] or metadata_value == ""
     if metadata_value is None:
         return operator in (FilterOperator.NE, FilterOperator.NIN)
     if operator == FilterOperator.EQ:
@@ -152,8 +154,6 @@ def _match_filter_value(operator: "FilterOperator", value: Any, metadata_value: 
         return all(v in metadata_value for v in value)
     if operator == FilterOperator.ANY:
         return any(v in metadata_value for v in value)
-    if operator == FilterOperator.IS_EMPTY:
-        return metadata_value is None or metadata_value == [] or metadata_value == ""
     raise ValueError(f"Unsupported FilterOperator: {operator!r}")
 
 
@@ -296,12 +296,26 @@ class RuVectorStore(BasePydanticVectorStore):
             raise ValueError("RuVectorStore.query requires query.query_embedding (no sparse/text-only mode)")
 
         predicate = _filters_to_predicate(query.filters) if query.filters is not None else None
+        if query.node_ids is not None or query.doc_ids is not None:
+            metadata_predicate = predicate
+            allowed_nodes = set(query.node_ids) if query.node_ids is not None else None
+            allowed_documents = set(query.doc_ids) if query.doc_ids is not None else None
+
+            def constrained_predicate(metadata: Dict[str, Any]) -> bool:
+                if metadata_predicate is not None and not metadata_predicate(metadata):
+                    return False
+                if allowed_documents is not None and metadata.get("ref_doc_id") not in allowed_documents:
+                    return False
+                if allowed_nodes is not None:
+                    node = metadata_dict_to_node(metadata)
+                    if node.node_id not in allowed_nodes:
+                        return False
+                return True
+
+            predicate = constrained_predicate
+
         query_vec = np.asarray(query.query_embedding, dtype=np.float32)
         hits = self._collection.search(query_vec, query.similarity_top_k, filter=predicate)
-
-        if query.node_ids is not None:
-            allowed = set(query.node_ids)
-            hits = [h for h in hits if self._int_to_id.get(h.id) in allowed]
 
         metric = self._collection.metric
         nodes: List[BaseNode] = []

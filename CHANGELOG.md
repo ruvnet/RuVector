@@ -43,6 +43,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (Python SDK)
+- Python LangChain adapter: duplicate caller IDs in one batch are rejected before inserting vectors, preventing rows that cannot be deleted through the adapter.
+- Python Collection persistence binds new sidecars to their index bytes with a SHA-256 digest, rejecting mixed file pairs after an interrupted index replacement. Legacy sidecars remain readable without this integrity guarantee.
+- Python MCP tools evict mutated collection state after a failed save so rejected writes cannot leak into reads or later retries.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python MCP: discover persisted collections from their metadata sidecars, including empty RaBitQ collections, and omit incomplete native-index files.
+- Python LlamaIndex searches apply node, document, and metadata restrictions before selecting the nearest top-k results. Empty document restrictions now return no results.
+- Python LlamaIndex IS_EMPTY filters now include absent and null metadata fields, matching the framework contract alongside existing empty-string and empty-list handling.
+- Python Agentforce routes: enforce the configured per-collection vector cap before upserting, consistently with MCP writes.
+- Python Salesforce ingestion: reject incomplete pages without cursors and repeated pagination cursors rather than returning partial results or looping.
+- Python RaBitQ identity integrity also ignores missing deletions and preserves IDs, metadata, and subsequent insertion identities through vacuum, keeping adapter document maps valid.
+- Python RaBitQ export and persistence retain caller-supplied external IDs instead of substituting internal row positions, preserving associated Collection metadata through save/load.
+- Python CLI: empty insert-batch inputs now report zero inserted rows successfully instead of indexing an empty ID list.
+- Python graph queries preserve unknown null predicates through comparisons, NOT, AND, OR and XOR, preventing missing properties from being admitted by negation; integer equality and ordering retain precision beyond the float mantissa.
+- Validate Python GNN checkpoint declarations, tensor layout and finite parameters before loading while preserving valid serialized learned weights.
+
 ### Fixed
 - RvLite: acquire browser writer leases in a committed atomic IndexedDB transaction and prevent expired holders from overwriting or releasing successor leases.
 - RvLite CLI refuses corrupt or unreadable existing databases instead of reporting empty data or overwriting recoverable bytes.

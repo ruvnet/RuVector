@@ -266,7 +266,14 @@ def _load(name: str) -> "Collection":
 
 
 def _save(name: str, coll: "Collection") -> None:
-    coll.save(_safe_path(name))
+    try:
+        coll.save(_safe_path(name))
+    except Exception:
+        # Mutators edit the cached Collection before persisting. A rejected
+        # write must not remain visible or be saved by a later retry. Reload
+        # disk state on the next call; incomplete on-disk pairs stay errors.
+        _cache.pop(name, None)
+        raise
     _cache[name] = coll
 
 
@@ -402,7 +409,7 @@ def vector_create_collection(
     _require_write_scope()
     with _lock:
         path = _safe_path(name)
-        if Collection.meta_path(path).exists():
+        if path.exists() or Collection.meta_path(path).exists():
             raise ValueError(f"collection {name!r} already exists")
         coll = Collection.create(dim=dim, backend=backend, rerank_factor=rerank_factor, seed=seed)
         _save(name, coll)
@@ -503,7 +510,7 @@ def vector_stats(name: str) -> Dict[str, Any]:
 )
 def vector_list_collections() -> Dict[str, Any]:
     root = _data_root()
-    names = sorted(p.stem for p in root.glob("*.rbpx"))
+    names = sorted(p.name.removesuffix(".rbpx.meta.json") for p in root.glob("*.rbpx.meta.json"))
     return {"collections": names, "data_root": str(root)}
 
 

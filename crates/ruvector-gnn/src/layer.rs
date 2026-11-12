@@ -9,6 +9,8 @@ use rand::SeedableRng;
 use rand_distr::{Distribution, Normal};
 use serde::{Deserialize, Serialize};
 
+mod validation;
+
 /// Linear transformation layer (weight matrix multiplication)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Linear {
