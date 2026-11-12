@@ -278,7 +278,7 @@ program
       // Create default configuration
       const defaultConfig = {
         provider: options.provider,
-        model: options.provider === 'gemini' ? 'gemini-2.0-flash-exp' : 'anthropic/claude-3.5-sonnet',
+        model: options.provider === 'gemini' ? 'gemini-2.5-flash' : 'anthropic/claude-3.5-sonnet',
         cacheStrategy: 'memory',
         maxRetries: 3,
         timeout: 30000,

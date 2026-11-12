@@ -199,7 +199,16 @@ impl HnswIndex {
             .collect();
 
         let id_to_idx: DashMap<VectorId, usize> = state.id_to_idx.into_iter().collect();
-        let idx_to_id: DashMap<usize, VectorId> = state.idx_to_id.into_iter().collect();
+        // Older snapshots retained reverse mappings for replaced versions.
+        // Reconstruct only each live ID's canonical current graph position.
+        let idx_to_id: DashMap<usize, VectorId> = state
+            .idx_to_id
+            .into_iter()
+            .filter(|(idx, id)| {
+                vectors_lookup.contains_key(id.as_str())
+                    && id_to_idx.get(id).is_some_and(|current| *current == *idx)
+            })
+            .collect();
 
         // Insert vectors into HNSW in index order for deterministic reconstruction.
         let mut sorted_entries: Vec<_> = idx_to_id
@@ -295,10 +304,13 @@ impl HnswIndex {
 
         let neighbors = inner.hnsw.search(query, wanted, effective_ef);
 
+        // Only an id's live node answers for it (snapshots from older versions can still map superseded nodes).
         let mut results: Vec<SearchResult> = neighbors
             .into_iter()
             .filter_map(|(idx, distance)| {
-                inner.idx_to_id.get(&idx).map(|id| SearchResult {
+                let id = inner.idx_to_id.get(&idx)?;
+                let live = inner.id_to_idx.get(id.as_str()).is_some_and(|i| *i == idx);
+                live.then(|| SearchResult {
                     id: id.clone(),
                     score: distance,
                     vector: None,
@@ -334,9 +346,11 @@ impl VectorIndex for HnswIndex {
 
         inner.hnsw.insert(&vector, idx);
 
-        // Store mappings
+        // Store mappings. Re-adding an id is an upsert: the old graph node becomes a tombstone.
         inner.vectors.insert(id.clone(), vector);
-        inner.id_to_idx.insert(id.clone(), idx);
+        if let Some(old) = inner.id_to_idx.insert(id.clone(), idx) {
+            inner.idx_to_id.remove(&old);
+        }
         inner.idx_to_id.insert(idx, id);
 
         Ok(())
@@ -368,10 +382,12 @@ impl VectorIndex for HnswIndex {
             .collect();
         inner.hnsw.insert_batch(&items);
 
-        // Store mappings
+        // Store mappings; an id seen earlier (in the index or this batch) keeps only its newest node.
         for (id, idx, vector) in data_with_ids {
             inner.vectors.insert(id.clone(), vector);
-            inner.id_to_idx.insert(id.clone(), idx);
+            if let Some(old) = inner.id_to_idx.insert(id.clone(), idx) {
+                inner.idx_to_id.remove(&old);
+            }
             inner.idx_to_id.insert(idx, id);
         }
 

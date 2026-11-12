@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ruvllm-linux-arm64-gnu",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "os": [
     "linux"
   ],
@@ -11,15 +11,20 @@
   "files": [
     "ruvllm.linux-arm64-gnu.node"
   ],
-  "description": "RuvLLM native binding (SIMD + candle GGUF inference) - linux-arm64-gnu platform",
+  "description": "Prebuilt Linux arm64 (glibc) native binary for @ruvector/ruvllm: SIMD vector ops and candle GGUF inference. Installed automatically by @ruvector/ruvllm.",
   "homepage": "https://ruv.io",
   "keywords": [
     "ruvllm",
+    "ruvector",
     "llm",
+    "local-llm",
+    "gguf",
+    "inference",
     "simd",
-    "neon",
-    "vector-database",
-    "napi-rs"
+    "napi",
+    "native-addon",
+    "prebuilt-binary",
+    "linux-arm64-gnu"
   ],
   "author": "rUv Team <team@ruv.io>",
   "license": "MIT OR Apache-2.0",

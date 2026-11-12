@@ -20,6 +20,7 @@ const {
   CallToolRequestSchema,
   ListToolsRequestSchema,
   ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
   ReadResourceRequestSchema,
 } = require('@modelcontextprotocol/sdk/types.js');
 const path = require('path');
@@ -27,6 +28,8 @@ const fs = require('fs');
 const { serializeStore, resolveIntelStorePath } = require('./intel-store');
 const memoryStore = require('./memory-store');
 const recordValidate = require('./record-validate');
+// weights_* tools; @ruvector/weight-space itself is loaded only inside a call
+const weightsTools = require('./weights');
 const { execFileSync } = require('child_process');
 
 // ADR-256: default-deny MCP tool-access policy (RUVECTOR_MCP_ALLOW/DENY/PROFILE)
@@ -205,6 +208,67 @@ function sanitizeShellArg(arg) {
     .replace(/[`$(){}|;&<>!'"\\]/g, '')
     .replace(/\.\./g, '')
     .slice(0, 4096);
+}
+
+/**
+ * Run one rvlite_* MCP query.
+ *
+ * rvlite exports the `RvLite` class (also its default export); there is no
+ * `Database` class. Its query methods are async and parse the text in-process
+ * (WASM), so the query is never handed to a shell: shell-metacharacter
+ * stripping would remove the parentheses, braces and quotes every SQL, Cypher
+ * and SPARQL statement needs. Only NUL bytes and oversize input are rejected.
+ *
+ * With `db_path` the RVF file is loaded (path-confined like every other RVF
+ * tool) but never written back: rvlite's RVF export only carries vector
+ * state, so saving after a query would silently drop SQL tables.
+ */
+const RVLITE_MAX_QUERY_LEN = 65536;
+async function runRvliteQuery(kind, args) {
+  let rvliteModule;
+  try {
+    rvliteModule = await import('rvlite');
+  } catch (_e) {
+    return {
+      success: false,
+      error: 'rvlite package not installed',
+      hint: 'Install with: npx ruvector add rvlite  (or: npm install rvlite)'
+    };
+  }
+  const RvLite = rvliteModule.RvLite
+    || (rvliteModule.default && rvliteModule.default.RvLite)
+    || rvliteModule.default;
+  if (typeof RvLite !== 'function') {
+    throw new Error('installed rvlite does not export the RvLite class');
+  }
+  const query = args.query;
+  if (typeof query !== 'string' || query.trim().length === 0) {
+    throw new Error('query must be a non-empty string');
+  }
+  if (query.includes('\0')) throw new Error('query contains null bytes');
+  if (query.length > RVLITE_MAX_QUERY_LEN) {
+    throw new Error(`query exceeds ${RVLITE_MAX_QUERY_LEN} characters`);
+  }
+  let db;
+  if (args.db_path) {
+    const rvfPath = validateRvfPath(args.db_path);
+    db = typeof RvLite.createWithRvf === 'function'
+      ? await RvLite.createWithRvf({ rvfPath })
+      : new RvLite({ rvfPath });
+  } else {
+    db = new RvLite({});
+  }
+  const results = await db[kind](query);
+  const rows = Array.isArray(results) ? results
+    : (results && Array.isArray(results.rows)) ? results.rows
+    : (results && Array.isArray(results.bindings)) ? results.bindings
+    : null;
+  return {
+    success: true,
+    query_type: kind,
+    results,
+    row_count: rows ? rows.length : 0
+  };
 }
 
 /**
@@ -1372,7 +1436,7 @@ const TOOLS = [
   // Learning Engine Tools (v2.1)
   {
     name: 'hooks_learning_config',
-    description: 'Configure learning algorithms for different tasks. Supports 9 algorithms: q-learning, sarsa, double-q, actor-critic, ppo, decision-transformer, monte-carlo, td-lambda, dqn',
+    description: 'Configure learning algorithms for different tasks. Supports 10 algorithms: q-learning, sarsa, double-q, actor-critic, ppo, decision-transformer, monte-carlo, td-lambda, dqn, neural-q (neural-q needs the optional ruv-fann package; it falls back to the tabular Q-table without it)',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1384,7 +1448,7 @@ const TOOLS = [
         algorithm: {
           type: 'string',
           description: 'Learning algorithm',
-          enum: ['q-learning', 'sarsa', 'double-q', 'actor-critic', 'ppo', 'decision-transformer', 'monte-carlo', 'td-lambda', 'dqn']
+          enum: ['q-learning', 'sarsa', 'double-q', 'actor-critic', 'ppo', 'decision-transformer', 'monte-carlo', 'td-lambda', 'dqn', 'neural-q']
         },
         learningRate: { type: 'number', description: 'Learning rate (0.0-1.0)' },
         discountFactor: { type: 'number', description: 'Discount factor gamma (0.0-1.0)' },
@@ -1837,6 +1901,9 @@ const TOOLS = [
       required: ['path', 'vector']
     }
   },
+  // ── Weight registry Tools (optional @ruvector/weight-space) ──────────────
+  // weights_save, weights_nearest, weights_diff, weights_lineage
+  ...weightsTools.MCP_TOOLS,
   // ── RVF Vector Store Tools ────────────────────────────────────────────────
   {
     name: 'rvf_create',
@@ -2637,7 +2704,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'hooks_build_agents': {
         const commandArgs = ['hooks', 'build-agents'];
-        if (args.focus) commandArgs.push('--focus', args.focus);
+        if (args.focus) {
+          // The focus string is written into .claude/agents/* and settings.json.
+          if (!BUILD_AGENT_FOCUS.includes(args.focus)) {
+            throw new Error(`focus must be one of: ${BUILD_AGENT_FOCUS.join(', ')}`);
+          }
+          commandArgs.push('--focus', args.focus);
+        }
         if (args.include_prompts) commandArgs.push('--include-prompts');
 
         try {
@@ -3494,6 +3567,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const engine = new LearningEngine();
         if (intel.data.learning) engine.import(intel.data.learning);
+        if (engine.usesNeural()) await engine.enableNeural();
 
         const experience = {
           state: args.state,
@@ -3527,6 +3601,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const engine = new LearningEngine();
         if (intel.data.learning) engine.import(intel.data.learning);
+        if (engine.usesNeural()) await engine.enableNeural();
 
         const task = args.task || 'agent-routing';
         let result = { success: true };
@@ -3680,6 +3755,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (intel.data.learning) {
           engine.import(intel.data.learning);
         }
+        if (engine.usesNeural()) await engine.enableNeural();
 
         const results = [];
         let totalReward = 0;
@@ -3830,7 +3906,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'workers_status': {
         try {
           const commandArgs = ['workers', 'status'];
-          if (args.workerId) commandArgs.push(String(args.workerId));
+          if (args.workerId) commandArgs.push(assertPositional(String(args.workerId), 'workerId'));
           const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', commandArgs, {
             timeout: 15000,
             stdio: ['pipe', 'pipe', 'pipe']
@@ -3957,7 +4033,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'workers_create': {
-        const name = String(args.name || '');
+        const name = assertPositional(String(args.name || ''), 'worker name');
         const preset = String(args.preset || 'quick-scan');
         const triggers = args.triggers == null ? null : String(args.triggers);
         try {
@@ -3985,8 +4061,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'workers_run': {
-        const name = String(args.name);
-        const targetPath = String(args.path || '.');
+        const name = assertPositional(String(args.name), 'worker name');
+        // Workers read and report on files under --path; confine it like every
+        // other MCP file argument.
+        const targetPath = validateRvfPath(String(args.path || '.'));
         try {
           const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', ['workers', 'run', name, '--path', targetPath], {
             timeout: 120000,
@@ -4049,7 +4127,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'workers_load_config': {
-        const configFile = String(args.file || 'workers.yaml');
+        const configFile = validateRvfPath(String(args.file || 'workers.yaml'));
         try {
           const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', ['workers', 'load-config', '--file', configFile], {
             timeout: 30000,
@@ -4137,6 +4215,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
         }
       }
+
+      // ── Weight registry Tool Handlers ───────────────────────────────────
+      // Registry and model paths go through validateRvfPath (working directory
+      // + RUVECTOR_MCP_ROOTS); a missing package returns ERR_WEIGHT_SPACE_MISSING.
+      case 'weights_save':
+      case 'weights_nearest':
+      case 'weights_diff':
+      case 'weights_lineage':
+        return await weightsTools.runMcpTool(name, args, validateRvfPath);
 
       // ── RVF Tool Handlers ─────────────────────────────────────────────────
       case 'rvf_create': {
@@ -4354,91 +4441,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       // ── rvlite Query Tool Handlers ──────────────────────────────────────
-      case 'rvlite_sql': {
-        try {
-          let rvliteModule;
-          try {
-            rvliteModule = await import('rvlite');
-          } catch (_e) {
-            return { content: [{ type: 'text', text: JSON.stringify({
-              success: false,
-              error: 'rvlite package not installed',
-              hint: 'Install with: npx ruvector add rvlite  (or: npm install rvlite)'
-            }, null, 2) }] };
-          }
-          const rvlite = rvliteModule.default || rvliteModule;
-          const safeQuery = sanitizeShellArg(args.query);
-          const dbOpts = args.db_path ? { path: validateRvfPath(args.db_path) } : {};
-          const db = new rvlite.Database(dbOpts);
-          const results = db.sql(safeQuery);
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: true,
-            query_type: 'sql',
-            results,
-            row_count: Array.isArray(results) ? results.length : 0
-          }, null, 2) }] };
-        } catch (e) {
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: false,
-            error: e.message
-          }, null, 2) }], isError: true };
-        }
-      }
-
-      case 'rvlite_cypher': {
-        try {
-          let rvliteModule;
-          try {
-            rvliteModule = await import('rvlite');
-          } catch (_e) {
-            return { content: [{ type: 'text', text: JSON.stringify({
-              success: false,
-              error: 'rvlite package not installed',
-              hint: 'Install with: npx ruvector add rvlite  (or: npm install rvlite)'
-            }, null, 2) }] };
-          }
-          const rvlite = rvliteModule.default || rvliteModule;
-          const safeQuery = sanitizeShellArg(args.query);
-          const dbOpts = args.db_path ? { path: validateRvfPath(args.db_path) } : {};
-          const db = new rvlite.Database(dbOpts);
-          const results = db.cypher(safeQuery);
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: true,
-            query_type: 'cypher',
-            results,
-            row_count: Array.isArray(results) ? results.length : 0
-          }, null, 2) }] };
-        } catch (e) {
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: false,
-            error: e.message
-          }, null, 2) }], isError: true };
-        }
-      }
-
+      case 'rvlite_sql':
+      case 'rvlite_cypher':
       case 'rvlite_sparql': {
+        const kind = name.slice('rvlite_'.length);
         try {
-          let rvliteModule;
-          try {
-            rvliteModule = await import('rvlite');
-          } catch (_e) {
-            return { content: [{ type: 'text', text: JSON.stringify({
-              success: false,
-              error: 'rvlite package not installed',
-              hint: 'Install with: npx ruvector add rvlite  (or: npm install rvlite)'
-            }, null, 2) }] };
-          }
-          const rvlite = rvliteModule.default || rvliteModule;
-          const safeQuery = sanitizeShellArg(args.query);
-          const dbOpts = args.db_path ? { path: validateRvfPath(args.db_path) } : {};
-          const db = new rvlite.Database(dbOpts);
-          const results = db.sparql(safeQuery);
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: true,
-            query_type: 'sparql',
-            results,
-            row_count: Array.isArray(results) ? results.length : 0
-          }, null, 2) }] };
+          const outcome = await runRvliteQuery(kind, args);
+          return { content: [{ type: 'text', text: JSON.stringify(outcome, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({
             success: false,
@@ -4922,6 +4931,13 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
       }
     ]
   };
+});
+
+// The server advertises the resources capability, so clients such as Continue
+// call resources/templates/list during setup and treat -32601 as fatal. There
+// are no parameterized resources, so the list is empty.
+server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
+  return { resourceTemplates: [] };
 });
 
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {

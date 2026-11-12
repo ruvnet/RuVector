@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/edge-full",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Consensus: Complete WASM toolkit for edge AI: vector search, graph DB, neural networks, DAG workflows, SQL/SPARQL/Cypher, and ONNX inference - all running in browser",
   "main": "index.js",

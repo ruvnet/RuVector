@@ -9,7 +9,7 @@
 
 ```toml
 [dependencies]
-ruvector-graph = "0.1.1"
+ruvector-graph = "2.3"
 ```
 
 Most graph databases make you choose: you can have relationships *or* vector search, a query language *or* raw traversals, pairwise edges *or* nothing. `ruvector-graph` gives you all of them together. Write familiar Cypher queries like Neo4j, attach vector embeddings to any node for semantic search, and model complex group relationships with hyperedges that connect three or more nodes at once. It runs on servers, in browsers via WASM, and across clusters with built-in RAFT consensus. Part of the [RuVector](https://github.com/ruvnet/ruvector) ecosystem.
@@ -43,7 +43,7 @@ Most graph databases make you choose: you can have relationships *or* vector sea
 
 ```toml
 [dependencies]
-ruvector-graph = "0.1.1"
+ruvector-graph = "2.3"
 ```
 
 ### Feature Flags
@@ -51,13 +51,13 @@ ruvector-graph = "0.1.1"
 ```toml
 [dependencies]
 # Full feature set
-ruvector-graph = { version = "0.1.1", features = ["full"] }
+ruvector-graph = { version = "2.3", features = ["full"] }
 
 # Minimal WASM-compatible build
-ruvector-graph = { version = "0.1.1", default-features = false, features = ["wasm"] }
+ruvector-graph = { version = "2.3", default-features = false, features = ["wasm"] }
 
 # Distributed deployment
-ruvector-graph = { version = "0.1.1", features = ["distributed"] }
+ruvector-graph = { version = "2.3", features = ["distributed"] }
 ```
 
 Available features:
@@ -76,43 +76,45 @@ Available features:
 ### Create a Graph
 
 ```rust
-use ruvector_graph::{Graph, Node, Edge, GraphConfig};
+use ruvector_graph::{EdgeBuilder, GraphDB, NodeBuilder};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create a new graph
-    let config = GraphConfig::default();
-    let graph = Graph::new(config)?;
+    // Create an in-memory graph
+    let graph = GraphDB::new();
 
     // Create nodes
-    let alice = graph.create_node(Node {
-        labels: vec!["Person".to_string()],
-        properties: serde_json::json!({
-            "name": "Alice",
-            "age": 30
-        }),
-        ..Default::default()
-    })?;
+    let alice = graph.create_node(
+        NodeBuilder::new()
+            .id("alice")
+            .label("Person")
+            .property("name", "Alice")
+            .property("age", 30i64)
+            .build(),
+    )?;
+    let bob = graph.create_node(
+        NodeBuilder::new()
+            .id("bob")
+            .label("Person")
+            .property("name", "Bob")
+            .property("age", 25i64)
+            .build(),
+    )?;
 
-    let bob = graph.create_node(Node {
-        labels: vec!["Person".to_string()],
-        properties: serde_json::json!({
-            "name": "Bob",
-            "age": 25
-        }),
-        ..Default::default()
-    })?;
+    // Create a relationship
+    graph.create_edge(
+        EdgeBuilder::new(alice.clone(), bob.clone(), "KNOWS")
+            .property("since", 2020i64)
+            .build(),
+    )?;
 
-    // Create relationship
-    graph.create_edge(Edge {
-        label: "KNOWS".to_string(),
-        source: alice.id,
-        target: bob.id,
-        properties: serde_json::json!({
-            "since": 2020
-        }),
-        ..Default::default()
-    })?;
+    // Query it back
+    let people = graph.get_nodes_by_label("Person");
+    let knows = graph.get_outgoing_edges(&alice);
+    println!("{} people, alice knows {} node(s)", people.len(), knows.len());
 
+    // Disk-first delete: memory and indexes change only after storage succeeds
+    graph.delete_edge(&knows[0].id)?;
+    assert!(graph.get_outgoing_edges(&alice).is_empty());
     Ok(())
 }
 ```

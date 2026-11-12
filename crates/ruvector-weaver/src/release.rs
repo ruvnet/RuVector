@@ -405,8 +405,9 @@ pub fn patched_versions(ledger: &Ledger) -> std::collections::BTreeMap<String, S
 }
 
 /// Range signals over the published fabric:
-/// - `fix_unreachable`: a dependent's declared range excludes the version
-///   that carries a shipped security fix (high priority);
+/// - `fix_unreachable`: every version a dependent's declared range admits
+///   predates a shipped security fix (high priority). A range that starts
+///   past the fix (`^2.3.0` vs 2.2.3) reaches it;
 /// - `zero_caret`: a `^0.y`/`~0.y` range that already excludes the dep's
 ///   current release (0.x carets behave like pins).
 pub fn range_signals(
@@ -435,7 +436,10 @@ pub fn range_signals(
                 occurrences: 1,
             };
             if let Some(fixed) = patched.get(dep) {
-                if crate::semver::satisfies(range, fixed) == Some(false) {
+                // Unreachable only if no admitted version is at or past the
+                // fix. Excluding `fixed` itself is fine when the range starts
+                // after it (`^2.3.0` vs a 2.2.3 fix).
+                if crate::semver::reaches_fix(range, fixed) == Some(false) {
                     out.push(mk("fix_unreachable", 1.0, "high", format!(
                         "{}@{} declares {dep} \"{range}\", which excludes the security fix in {dep}@{fixed}",
                         p.name, p.version
