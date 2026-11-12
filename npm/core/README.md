@@ -73,7 +73,7 @@ Creates a new vector database with the specified options.
 **Options:**
 - `dimensions` (number, required): Vector dimensions
 - `distanceMetric` (DistanceMetric, optional): Distance metric (default: Cosine)
-- `storagePath` (string, optional): Path for persistent storage (default: './ruvector.db')
+- `storagePath` (string, optional): Path for persistent storage. Omit for an in-memory database private to the instance (older versions defaulted to './ruvector.db'; see issue #1063)
 - `hnswConfig` (HnswConfig, optional): HNSW index configuration
 - `quantization` (QuantizationConfig, optional): Quantization configuration
 
@@ -83,7 +83,7 @@ Creates a new vector database with the specified options.
 VectorDB.withDimensions(dimensions: number): VectorDB
 ```
 
-Creates a vector database with default options.
+Creates an in-memory vector database with default options (nothing is written to disk).
 
 #### Instance Methods
 
