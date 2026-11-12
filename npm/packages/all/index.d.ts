@@ -46,6 +46,8 @@ export declare function loadRuvllmWasm(): Promise<typeof import('@ruvector/ruvll
 export declare function loadEmergentTime(): Promise<typeof import('@ruvector/emergent-time')>;
 /** ESM-only. Async loader → `import('@ruvector/rvf-wasm')`. */
 export declare function loadRvfWasm(): Promise<typeof import('@ruvector/rvf-wasm')>;
+/** ESM-only. Async loader → `import('@ruvector/e-means')`. */
+export declare function loadEMeans(): Promise<typeof import('@ruvector/e-means')>;
 
 export interface MemberModules {
   ruvector: typeof import('ruvector');
@@ -60,6 +62,7 @@ export interface MemberModules {
   ruvllmWasm: typeof import('@ruvector/ruvllm-wasm');
   emergentTime: typeof import('@ruvector/emergent-time');
   rvfWasm: typeof import('@ruvector/rvf-wasm');
+  eMeans: typeof import('@ruvector/e-means');
 }
 
 export type MemberKey = keyof MemberModules;

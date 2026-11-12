@@ -14,6 +14,7 @@ import type {
   RvfSegmentInfo,
   BackendType,
   DistanceMetric,
+  DerivationType,
 } from './types';
 import type { RvfBackend } from './backend';
 import { resolveBackend } from './backend';
@@ -230,11 +231,28 @@ export class RvfDatabase {
    * Creates a new RVF file at `childPath` that records this store as its
    * parent for provenance tracking. Returns a new `RvfDatabase` wrapping
    * the child store.
+   *
+   * `derivationType` is recorded in the child (default `'filter'`); it
+   * needs `@ruvector/rvf-node` >= 0.4.7. `'merge'` is recorded with this
+   * store as the only parent.
    */
-  async derive(childPath: string, options?: RvfOptions): Promise<RvfDatabase> {
+  async derive(
+    childPath: string,
+    options?: RvfOptions,
+    derivationType?: DerivationType,
+  ): Promise<RvfDatabase> {
     this.ensureOpen();
-    const childBackend = await this.backend.derive(childPath, options);
+    const childBackend = await this.backend.derive(childPath, options, derivationType);
     return RvfDatabase.fromBackend(childBackend);
+  }
+
+  /**
+   * How this store was derived from its parent(s), or `null` for a root
+   * store or one derived before `@ruvector/rvf-node` 0.4.7.
+   */
+  async derivationType(): Promise<DerivationType | null> {
+    this.ensureOpen();
+    return this.backend.derivationType();
   }
 
   /**

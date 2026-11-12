@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/gnn",
-  "version": "0.1.27",
+  "version": "0.1.28",
   "description": "Graph neural network (GNN) layers for RuVector: native Node.js bindings for message passing and graph-aware vector search.",
   "homepage": "https://ruv.io",
   "main": "index.js",
@@ -66,11 +66,11 @@
     "access": "public"
   },
   "optionalDependencies": {
-    "@ruvector/gnn-linux-x64-gnu": "0.1.26",
-    "@ruvector/gnn-linux-x64-musl": "0.1.26",
-    "@ruvector/gnn-linux-arm64-gnu": "0.1.26",
-    "@ruvector/gnn-darwin-x64": "0.1.26",
-    "@ruvector/gnn-darwin-arm64": "0.1.26",
-    "@ruvector/gnn-win32-x64-msvc": "0.1.26"
+    "@ruvector/gnn-linux-x64-gnu": "0.1.28",
+    "@ruvector/gnn-linux-x64-musl": "0.1.28",
+    "@ruvector/gnn-linux-arm64-gnu": "0.1.28",
+    "@ruvector/gnn-darwin-x64": "0.1.28",
+    "@ruvector/gnn-darwin-arm64": "0.1.28",
+    "@ruvector/gnn-win32-x64-msvc": "0.1.28"
   }
 }

@@ -48,8 +48,8 @@ async-graphql = { version = "7.0", features = ["uuid", "chrono", "tracing"] }
 async-graphql-axum = "7.0"
 
 # OpenAPI
-utoipa = { version = "5.3", features = ["axum_extras", "uuid", "chrono"] }
-utoipa-swagger-ui = { version = "9.0", features = ["axum"] }
+utoipa = { version = "6", features = ["axum_extras", "uuid", "chrono"] }
+utoipa-swagger-ui = { version = "10", features = ["axum"] }
 
 # Async streaming
 async-stream = "0.3"

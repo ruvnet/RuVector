@@ -1,0 +1,74 @@
+name: weight-space npm — unit, CJS, packed-tarball install
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'npm/packages/weight-space/**'
+      - '.github/workflows/weight-space-ci.yml'
+  pull_request:
+    paths:
+      - 'npm/packages/weight-space/**'
+      - '.github/workflows/weight-space-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: npm/packages/weight-space
+
+jobs:
+  test:
+    name: Unit + real ruv-fann (Node ${{ matrix.node }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install (isolated from workspace)
+        run: npm install --no-workspaces --no-audit --no-fund
+      - name: Build (ESM + CJS)
+        run: npm run build
+      - name: Unit tests (flat and @ruvector/core stores, ruv-fann 0.1.0, CJS require)
+        run: npm test
+      - name: Warm-start eval runs
+        run: node eval/warmstart.mjs
+
+  tarball:
+    name: Packed tarball installs and runs outside the repo
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+      - name: Build and pack
+        run: |
+          npm install --no-workspaces --no-audit --no-fund
+          npm run build
+          npm pack --pack-destination "$RUNNER_TEMP"
+      - name: Install the tarball in a clean directory (no @ruvector/core) and run ESM + CJS
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -e
+          mkdir consumer && cd consumer
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund "$RUNNER_TEMP"/ruvector-weight-space-0.1.0.tgz
+          test ! -d node_modules/@ruvector/core
+          cat > esm.mjs <<'EOF'
+          import { WeightRegistry, createMlp } from '@ruvector/weight-space';
+          const reg = await WeightRegistry.open({ path: 'w.jsonl' });
+          const a = await reg.save(createMlp([2, 4, 1]), [1, 0]);
+          if (reg.storeKind !== 'flat') throw new Error('expected flat fallback without @ruvector/core');
+          if ((await reg.nearest([1, 0.1], 1))[0].id !== a.id) throw new Error('nearest failed');
+          console.log('esm ok', reg.storeKind);
+          EOF
+          node esm.mjs
+          node -e "const ws=require('@ruvector/weight-space'); ws.loadFann().then(rt=>console.log('cjs ok', rt.backend))"

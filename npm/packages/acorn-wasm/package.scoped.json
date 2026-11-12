@@ -38,7 +38,7 @@
     "url": "git+https://github.com/ruvnet/RuVector.git",
     "directory": "crates/ruvector-acorn-wasm"
   },
-  "homepage": "https://github.com/ruvnet/RuVector#readme",
+  "homepage": "https://ruv.io",
   "bugs": {
     "url": "https://github.com/ruvnet/RuVector/issues"
   },

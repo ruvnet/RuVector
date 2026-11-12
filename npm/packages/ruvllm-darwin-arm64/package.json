@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ruvllm-darwin-arm64",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "os": [
     "darwin"
   ],
@@ -11,19 +11,21 @@
   "files": [
     "ruvllm.darwin-arm64.node"
   ],
-  "description": "RuvLLM native SIMD acceleration - darwin-arm64 (Apple Silicon) platform",
+  "description": "Prebuilt macOS arm64 (Apple Silicon) native binary for @ruvector/ruvllm: SIMD vector ops and candle GGUF inference. Installed automatically by @ruvector/ruvllm.",
   "homepage": "https://ruv.io",
   "keywords": [
     "ruvllm",
+    "ruvector",
     "llm",
+    "local-llm",
+    "gguf",
+    "inference",
     "simd",
-    "neon",
-    "apple-silicon",
-    "m1",
-    "m2",
-    "m3",
-    "vector-database",
-    "napi-rs"
+    "napi",
+    "native-addon",
+    "prebuilt-binary",
+    "darwin-arm64",
+    "apple-silicon"
   ],
   "author": "rUv Team <team@ruv.io>",
   "license": "MIT OR Apache-2.0",
