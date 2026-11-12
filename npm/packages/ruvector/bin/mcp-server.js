@@ -3900,7 +3900,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'workers_status': {
         try {
           const commandArgs = ['workers', 'status'];
-          if (args.workerId) commandArgs.push(String(args.workerId));
+          if (args.workerId) commandArgs.push(assertPositional(String(args.workerId), 'workerId'));
           const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', commandArgs, {
             timeout: 15000,
             stdio: ['pipe', 'pipe', 'pipe']
@@ -4027,7 +4027,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'workers_create': {
-        const name = String(args.name || '');
+        const name = assertPositional(String(args.name || ''), 'worker name');
         const preset = String(args.preset || 'quick-scan');
         const triggers = args.triggers == null ? null : String(args.triggers);
         try {
@@ -4055,8 +4055,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'workers_run': {
-        const name = String(args.name);
-        const targetPath = String(args.path || '.');
+        const name = assertPositional(String(args.name), 'worker name');
+        // Workers read and report on files under --path; confine it like every
+        // other MCP file argument.
+        const targetPath = validateRvfPath(String(args.path || '.'));
         try {
           const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', ['workers', 'run', name, '--path', targetPath], {
             timeout: 120000,
@@ -4119,7 +4121,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'workers_load_config': {
-        const configFile = String(args.file || 'workers.yaml');
+        const configFile = validateRvfPath(String(args.file || 'workers.yaml'));
         try {
           const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', ['workers', 'load-config', '--file', configFile], {
             timeout: 30000,
