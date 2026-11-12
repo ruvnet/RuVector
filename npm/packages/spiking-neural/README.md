@@ -1,8 +1,10 @@
-# spiking-neural
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/spiking-neural.svg" alt="@ruvector/spiking-neural: High-performance spiking neural network (SNN) library with SIMD optimization — CLI and SDK." width="100%"></p>
+
+# @ruvector/spiking-neural
 
 A high-performance Spiking Neural Network (SNN) library for Node.js with biologically-inspired neuron models and unsupervised learning. SNNs process information through discrete spike events rather than continuous values, making them more energy-efficient and better suited for temporal pattern recognition.
 
-[![npm version](https://badge.fury.io/js/spiking-neural.svg)](https://www.npmjs.com/package/spiking-neural)
+[![npm version](https://img.shields.io/npm/v/@ruvector/spiking-neural.svg)](https://www.npmjs.com/package/@ruvector/spiking-neural)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## What Are Spiking Neural Networks?
@@ -28,7 +30,7 @@ Unlike traditional neural networks that use continuous activation values, SNNs c
 ## Installation
 
 ```bash
-npm install spiking-neural
+npm install @ruvector/spiking-neural
 ```
 
 **Note**: This package is pure JavaScript and works out of the box. No native compilation required.
@@ -39,29 +41,25 @@ npm install spiking-neural
 
 ```bash
 # Run pattern recognition demo
-npx spiking-neural demo pattern
+npx @ruvector/spiking-neural demo pattern
 
 # Run performance benchmarks
-npx spiking-neural benchmark
+npx @ruvector/spiking-neural benchmark
 
 # Run SIMD vector operation benchmarks
-npx spiking-neural simd
+npx @ruvector/spiking-neural simd
 
 # Run validation tests
-npx spiking-neural test
+npx @ruvector/spiking-neural test
 
 # Show help
-npx spiking-neural help
+npx @ruvector/spiking-neural help
 ```
 
 ### SDK Usage
 
 ```javascript
-const {
-  createFeedforwardSNN,
-  rateEncoding,
-  native
-} = require('spiking-neural');
+const { createFeedforwardSNN, rateEncoding } = require('@ruvector/spiking-neural');
 
 // Create a 3-layer feedforward SNN
 const snn = createFeedforwardSNN([100, 50, 10], {
@@ -84,7 +82,13 @@ for (let t = 0; t < 100; t++) {
 
 // Get output
 const output = snn.getOutput();
-console.log('Output:', output);
+console.log('output neurons:', output.length);
+```
+
+Expected output:
+
+```text
+output neurons: 10
 ```
 
 ## CLI Commands
@@ -104,13 +108,13 @@ console.log('Output:', output);
 
 ```bash
 # Pattern recognition with 5x5 pixel patterns
-npx spiking-neural demo pattern
+npx @ruvector/spiking-neural demo pattern
 
 # Train custom network
-npx spiking-neural train --layers 25,50,10 --epochs 10
+npx @ruvector/spiking-neural train --layers 25,50,10 --epochs 10
 
 # All demos
-npx spiking-neural demo all
+npx @ruvector/spiking-neural demo all
 ```
 
 ## API Reference
@@ -180,7 +184,7 @@ const spikes = temporalEncoding(input, currentTime, 0, 50);
 SIMD-optimized vector operations.
 
 ```javascript
-const { SIMDOps } = require('spiking-neural');
+const { SIMDOps } = require('@ruvector/spiking-neural');
 
 const a = new Float32Array([1, 2, 3, 4]);
 const b = new Float32Array([4, 3, 2, 1]);
@@ -195,7 +199,7 @@ SIMDOps.cosineSimilarity(a, b);  // Cosine similarity
 Low-level LIF neuron layer.
 
 ```javascript
-const { LIFLayer } = require('spiking-neural');
+const { LIFLayer } = require('@ruvector/spiking-neural');
 
 const layer = new LIFLayer(100, {
   tau: 20.0,
@@ -213,7 +217,7 @@ const spikes = layer.getSpikes();
 Low-level synaptic connection layer with STDP.
 
 ```javascript
-const { SynapticLayer } = require('spiking-neural');
+const { SynapticLayer } = require('@ruvector/spiking-neural');
 
 const synapses = new SynapticLayer(100, 50, {
   a_plus: 0.01,
@@ -250,7 +254,7 @@ const stats = synapses.getWeightStats();
 ### Pattern Recognition
 
 ```javascript
-const { createFeedforwardSNN, rateEncoding } = require('spiking-neural');
+const { createFeedforwardSNN, rateEncoding } = require('@ruvector/spiking-neural');
 
 // 5x5 pattern -> 4 classes
 const snn = createFeedforwardSNN([25, 20, 4], {
@@ -288,7 +292,7 @@ console.log(`Pattern classified as neuron ${winner}`);
 ### Custom Network Architecture
 
 ```javascript
-const { LIFLayer, SynapticLayer, SpikingNeuralNetwork } = require('spiking-neural');
+const { LIFLayer, SynapticLayer, SpikingNeuralNetwork } = require('@ruvector/spiking-neural');
 
 // Build custom architecture
 const input_layer = new LIFLayer(100, { tau: 15.0 });
@@ -315,8 +319,8 @@ This package is part of the [ruvector](https://github.com/ruvnet/ruvector) meta-
 
 | Demo | Description | Command |
 |------|-------------|---------|
-| Pattern Recognition | 5x5 pixel classification | `npx spiking-neural demo pattern` |
-| SIMD Benchmarks | Vector operation performance | `npx spiking-neural simd` |
+| Pattern Recognition | 5x5 pixel classification | `npx @ruvector/spiking-neural demo pattern` |
+| SIMD Benchmarks | Vector operation performance | `npx @ruvector/spiking-neural simd` |
 | Attention Mechanisms | 5 attention types | See [meta-cognition examples](../examples/meta-cognition-spiking-neural-network) |
 | Hyperbolic Attention | Poincaré ball model | See [meta-cognition examples](../examples/meta-cognition-spiking-neural-network) |
 | Self-Discovery | Meta-cognitive systems | See [meta-cognition examples](../examples/meta-cognition-spiking-neural-network) |
@@ -347,5 +351,14 @@ MIT © [rUv](https://ruv.io)
 
 - **Homepage**: [ruv.io](https://ruv.io)
 - **GitHub**: [github.com/ruvnet/ruvector](https://github.com/ruvnet/ruvector)
-- **npm**: [npmjs.com/package/spiking-neural](https://www.npmjs.com/package/spiking-neural)
+- **npm**: [npmjs.com/package/@ruvector/spiking-neural](https://www.npmjs.com/package/@ruvector/spiking-neural)
 - **SNN Guide**: [Meta-Cognition Examples](https://github.com/ruvnet/ruvector/tree/main/examples/meta-cognition-spiking-neural-network)
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for neural network, SIMD, AI.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): none yet
+<!-- weaver:seo:links:end -->

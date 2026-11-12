@@ -168,3 +168,18 @@ external comparator.
 ## License
 
 MIT, matching the rest of the ruvector workspace (see [`LICENSE`](LICENSE)).
+
+## Python capability packages
+
+![Python portfolio](https://raw.githubusercontent.com/ruvnet/RuVector/main/docs/python-portfolio/overview.svg)
+
+The [Python portfolio](../../python/portfolio/README.md) maps the ten most downloaded RuVector npm distributions to scoped Python APIs. Version 0.1.3 adds native `KVCache` (full precision cache attention, no text generation) and `RvfStore` (trusted local RVF vector storage). Existing vector, graph, GNN, attention and SONA APIs remain available.
+
+```python
+from ruvector import KVCache
+cache = KVCache(2, max_tokens=8)
+cache.append([1.0, 0.0], [0.25, 0.75])
+assert cache.attend([1.0, 0.0]) == [0.25, 0.75]
+```
+
+Native version changes merged into main automatically build, audit, test and publish all supported wheel platforms. A failed gate blocks upload.

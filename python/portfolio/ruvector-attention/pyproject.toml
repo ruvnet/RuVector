@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ruvector-attention"
+version = "0.2.0"
+description = "Native scaled dot product attention for embedding aggregation."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{name = "RuVector Team"}]
+dependencies = ["ruvector==0.1.4", "numpy>=1.21"]
+keywords = ["ruvector", "rust", "attention", "embeddings", "ai"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Rust",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.urls]
+Homepage = "https://github.com/ruvnet/RuVector"
+Documentation = "https://github.com/ruvnet/RuVector/tree/main/python/portfolio/ruvector-attention"
+Repository = "https://github.com/ruvnet/RuVector"
+Issues = "https://github.com/ruvnet/RuVector/issues"
+Changelog = "https://github.com/ruvnet/RuVector/blob/main/python/portfolio/CHANGELOG.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ruvector_attention"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "README.md", "LICENSE", "pyproject.toml"]

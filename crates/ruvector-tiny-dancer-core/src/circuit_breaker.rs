@@ -64,6 +64,9 @@ impl CircuitBreaker {
                         // Move to half-open state
                         *self.state.write() = CircuitState::HalfOpen;
                         self.half_open_requests.store(0, Ordering::SeqCst);
+                        // Recovery must be earned by probes in half-open,
+                        // not by successes counted before the circuit opened.
+                        self.success_count.store(0, Ordering::SeqCst);
                         return true;
                     }
                 }

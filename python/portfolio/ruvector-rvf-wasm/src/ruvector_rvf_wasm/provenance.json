@@ -1,0 +1,9 @@
+{
+  "npm_package": "@ruvector/rvf-wasm",
+  "npm_version": "0.1.9",
+  "tarball": "https://registry.npmjs.org/@ruvector/rvf-wasm/-/rvf-wasm-0.1.9.tgz",
+  "tarball_integrity": "sha512-C6kKdnv47Ud2t0U61eAjRU8dh9DgfQT6KFlGicZKfwUwVcr9NRA52xbM9hI9nd6G3iEOtNqdhkqDe0c6BUwFew==",
+  "wasm_sha256": "3df581554a6e9cb4721b9e4174d5f3d739dff4569b5ce5f985d517d5c3bbb0fa",
+  "license": "MIT",
+  "license_source": "https://github.com/ruvnet/RuVector/blob/main/LICENSE"
+}

@@ -575,7 +575,7 @@ pub struct QuantStats {
 ///
 /// Vector of quantized blocks
 pub fn quantize_ruvltra_q4(input: &[f32]) -> Result<Vec<Q4KMBlock>> {
-    if input.len() % K_BLOCK_SIZE != 0 {
+    if !input.len().is_multiple_of(K_BLOCK_SIZE) {
         return Err(RuvLLMError::Model(format!(
             "Input length {} is not a multiple of block size {}",
             input.len(),
@@ -597,7 +597,7 @@ pub fn quantize_ruvltra_q4(input: &[f32]) -> Result<Vec<Q4KMBlock>> {
 
 /// Quantize FP32 values to Q5_K_M format
 pub fn quantize_ruvltra_q5(input: &[f32]) -> Result<Vec<Q5KMBlock>> {
-    if input.len() % K_BLOCK_SIZE != 0 {
+    if !input.len().is_multiple_of(K_BLOCK_SIZE) {
         return Err(RuvLLMError::Model(format!(
             "Input length {} is not a multiple of block size {}",
             input.len(),
@@ -619,7 +619,7 @@ pub fn quantize_ruvltra_q5(input: &[f32]) -> Result<Vec<Q5KMBlock>> {
 
 /// Quantize FP32 values to Q8_0 format (symmetric 8-bit)
 pub fn quantize_ruvltra_q8(input: &[f32]) -> Result<Vec<Q8Block>> {
-    if input.len() % Q8_BLOCK_SIZE != 0 {
+    if !input.len().is_multiple_of(Q8_BLOCK_SIZE) {
         return Err(RuvLLMError::Model(format!(
             "Input length {} is not a multiple of block size {}",
             input.len(),
@@ -724,7 +724,7 @@ fn quantize_q4_k_block(data: &[f32]) -> Q4KMBlock {
             // Pack into qs array (2 values per byte)
             let elem_idx = sb_start + i;
             let byte_idx = elem_idx / 2;
-            if elem_idx % 2 == 0 {
+            if elem_idx.is_multiple_of(2) {
                 block.qs[byte_idx] = q;
             } else {
                 block.qs[byte_idx] |= q << 4;
@@ -836,7 +836,7 @@ fn dequantize_q4_k_block_to_fp32(block: &Q4KMBlock, output: &mut [f32]) {
         for i in 0..K_SUB_BLOCK_SIZE {
             let elem_idx = sb_start + i;
             let byte_idx = elem_idx / 2;
-            let q = if elem_idx % 2 == 0 {
+            let q = if elem_idx.is_multiple_of(2) {
                 block.qs[byte_idx] & 0x0F
             } else {
                 (block.qs[byte_idx] >> 4) & 0x0F
@@ -1105,7 +1105,7 @@ impl RuvltraQuantizer {
 
         // ANE prefers 16-byte aligned data with specific tile layouts
         // For now, ensure alignment (future: implement tiling)
-        if data.as_ptr() as usize % ANE_ALIGNMENT != 0 {
+        if !(data.as_ptr() as usize).is_multiple_of(ANE_ALIGNMENT) {
             // Data is already in a Vec, alignment is typically satisfied
             // but we could reallocate if needed
         }

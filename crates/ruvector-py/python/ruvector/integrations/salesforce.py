@@ -195,13 +195,19 @@ async def fetch_records(
     async with httpx.AsyncClient(transport=transport) as client:
         path: Optional[str] = f"/services/data/v{config.api_version}/query"
         params: Optional[Dict[str, str]] = {"q": soql}
+        seen_paths = set()
         while path is not None:
+            if path in seen_paths:
+                raise RuntimeError("Salesforce query returned a repeated pagination cursor")
+            seen_paths.add(path)
             resp = await client.get(f"{config.instance_url}{path}", headers=headers, params=params)
             if resp.status_code != 200:
                 raise RuntimeError(f"Salesforce query failed ({resp.status_code}): {resp.text}")
             body = resp.json()
             records.extend(body.get("records", []))
             next_path = body.get("nextRecordsUrl")
+            if not body.get("done", True) and (not isinstance(next_path, str) or not next_path):
+                raise RuntimeError("Salesforce query returned an incomplete page without a valid cursor")
             path = next_path if not body.get("done", True) else None
             params = None  # nextRecordsUrl already carries the query cursor
     return records

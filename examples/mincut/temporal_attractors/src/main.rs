@@ -156,7 +156,7 @@ impl AttractorNetwork {
         }
 
         // Strengthen existing edges to increase mincut
-        if self.current_step % 3 == 0 {
+        if self.current_step.is_multiple_of(3) {
             self.strengthen_random_edge();
         }
     }
@@ -166,7 +166,7 @@ impl AttractorNetwork {
     /// Strategy: Remove edges to create disconnected clusters
     fn evolve_toward_fragmented(&mut self) {
         // Remove random edges to fragment the network
-        if self.current_step % 2 == 0 && !self.edges.is_empty() {
+        if self.current_step.is_multiple_of(2) && !self.edges.is_empty() {
             let rng_state = self.seed.wrapping_mul(self.current_step as u64 + 1);
             let edge_idx = (rng_state % self.edges.len() as u64) as usize;
 
@@ -188,7 +188,7 @@ impl AttractorNetwork {
         let n = self.nodes;
 
         // Oscillate: add edges on even steps, remove on odd steps
-        if self.current_step % 2 == 0 {
+        if self.current_step.is_multiple_of(2) {
             // Add phase
             let rng_state = self.seed.wrapping_mul(self.current_step as u64 + 1);
             let u = (rng_state % n as u64) as VertexId;

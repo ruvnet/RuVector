@@ -1,8 +1,10 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/exotic-wasm.svg" alt="@ruvector/exotic-wasm: exotic AI mechanisms in WebAssembly. Agent nodes pulse and synchronise toward consensus." width="100%"></p>
+
 # @ruvector/exotic-wasm - Exotic AI: NAO, Morphogenetic Networks, Time Crystals
 
-[![npm version](https://img.shields.io/npm/v/ruvector-exotic-wasm.svg)](https://www.npmjs.com/package/ruvector-exotic-wasm)
+[![npm version](https://img.shields.io/npm/v/@ruvector/exotic-wasm.svg)](https://www.npmjs.com/package/@ruvector/exotic-wasm)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ruvnet/ruvector)
-[![Bundle Size](https://img.shields.io/badge/bundle%20size-146KB%20gzip-green.svg)](https://www.npmjs.com/package/ruvector-exotic-wasm)
+[![Bundle Size](https://img.shields.io/badge/bundle%20size-146KB%20gzip-green.svg)](https://www.npmjs.com/package/@ruvector/exotic-wasm)
 [![WebAssembly](https://img.shields.io/badge/WebAssembly-654FF0?logo=webassembly&logoColor=white)](https://webassembly.org/)
 
 **Exotic AI mechanisms** for emergent behavior in distributed systems. Implements novel coordination primitives inspired by decentralized governance (DAOs), developmental biology, and quantum physics.
@@ -18,11 +20,50 @@
 ## Installation
 
 ```bash
-npm install ruvector-exotic-wasm
+npm install @ruvector/exotic-wasm
 # or
-yarn add ruvector-exotic-wasm
+yarn add @ruvector/exotic-wasm
 # or
-pnpm add ruvector-exotic-wasm
+pnpm add @ruvector/exotic-wasm
+```
+
+## Quick Start
+
+Runs in browsers and Node.js (tested on Node.js 22); WebAssembly, no native build. In a browser call `await init()`; in Node pass the `.wasm` bytes to `init()`:
+
+```javascript
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import init, { WasmNAO } from '@ruvector/exotic-wasm';
+
+const require = createRequire(import.meta.url);
+await init({ module_or_path: readFileSync(require.resolve('@ruvector/exotic-wasm/ruvector_exotic_wasm_bg.wasm')) });
+
+const nao = new WasmNAO(0.7); // 70% quorum threshold
+nao.addMember('agent_alpha', 100);
+nao.addMember('agent_beta', 50);
+nao.addMember('agent_gamma', 75);
+
+const proposalId = nao.propose('Upgrade memory backend to vector store');
+nao.vote(proposalId, 'agent_alpha', 0.9);
+nao.vote(proposalId, 'agent_beta', 0.6);
+nao.vote(proposalId, 'agent_gamma', 0.8);
+
+for (let i = 0; i < 100; i++) nao.tick(0.001); // advance 100 ms of simulated time
+
+const sync = nao.synchronization();
+console.log('Synchronization in [0, 1]:', sync >= 0 && sync <= 1);
+console.log('Executed:', nao.execute(proposalId));
+const c = nao.agentCoherence('agent_alpha', 'agent_beta');
+console.log('Alpha-Beta coherence in [-1, 1]:', c >= -1 && c <= 1);
+```
+
+Expected output:
+
+```text
+Synchronization in [0, 1]: true
+Executed: true
+Alpha-Beta coherence in [-1, 1]: true
 ```
 
 ## Neural Autonomous Organization (NAO)
@@ -37,7 +78,7 @@ Unlike traditional DAOs that govern humans, NAOs coordinate AI agents through:
 - **Emergent Consensus**: Proposals pass when collective coherence exceeds quorum
 
 ```typescript
-import init, { WasmNAO } from 'ruvector-exotic-wasm';
+import init, { WasmNAO } from '@ruvector/exotic-wasm';
 
 await init();
 
@@ -90,7 +131,7 @@ Cells in the network:
 - **Compute Cells**: Specialized for processing tasks
 
 ```typescript
-import { WasmMorphogeneticNetwork } from 'ruvector-exotic-wasm';
+import { WasmMorphogeneticNetwork } from '@ruvector/exotic-wasm';
 
 // Create 100x100 grid network
 const network = new WasmMorphogeneticNetwork(100, 100);
@@ -138,7 +179,7 @@ Time crystals exhibit:
 - **Phase Locking**: Agents synchronize into stable coordination patterns
 
 ```typescript
-import { WasmTimeCrystal } from 'ruvector-exotic-wasm';
+import { WasmTimeCrystal } from '@ruvector/exotic-wasm';
 
 // Create time crystal with 10 oscillators, 100ms period
 const crystal = new WasmTimeCrystal(10, 100);
@@ -186,7 +227,7 @@ console.log(`Initial order: ${syncedCrystal.orderParameter()}`);  // ~1.0
 Interconnected simulation of all three mechanisms working together:
 
 ```typescript
-import { ExoticEcosystem } from 'ruvector-exotic-wasm';
+import { ExoticEcosystem } from '@ruvector/exotic-wasm';
 
 // Create ecosystem: 5 agents, 50x50 grid, 8 oscillators
 const ecosystem = new ExoticEcosystem(5, 50, 8);
@@ -282,9 +323,9 @@ console.log(JSON.stringify(summary, null, 2));
 
 ## Related Packages
 
-- [ruvector-economy-wasm](https://www.npmjs.com/package/ruvector-economy-wasm) - CRDT credit economy
-- [ruvector-nervous-system-wasm](https://www.npmjs.com/package/ruvector-nervous-system-wasm) - Bio-inspired neural
-- [ruvector-learning-wasm](https://www.npmjs.com/package/ruvector-learning-wasm) - MicroLoRA adaptation
+- [@ruvector/economy-wasm](https://www.npmjs.com/package/@ruvector/economy-wasm) - CRDT credit economy
+- [@ruvector/nervous-system-wasm](https://www.npmjs.com/package/@ruvector/nervous-system-wasm) - Bio-inspired neural
+- [@ruvector/learning-wasm](https://www.npmjs.com/package/@ruvector/learning-wasm) - MicroLoRA adaptation
 
 ## License
 
@@ -299,3 +340,12 @@ MIT
 ---
 
 **Keywords**: DAO, AI governance, emergent behavior, distributed AI, NAO, Neural Autonomous Organization, morphogenetic, developmental biology, time crystal, quantum physics, swarm intelligence, multi-agent systems, WebAssembly, WASM, coordination, consensus, oscillatory, synchronization
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for WASM, WebAssembly, swarm.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@claude-flow/plugin-quantum-optimizer`](https://www.npmjs.com/package/@claude-flow/plugin-quantum-optimizer) (optional)
+<!-- weaver:seo:links:end -->

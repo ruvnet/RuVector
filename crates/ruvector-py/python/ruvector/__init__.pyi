@@ -18,6 +18,8 @@ from ruvector._native import RuVectorError as RuVectorError
 from ruvector._native import __version__ as __version__
 from ruvector._native import kmeans as kmeans
 from ruvector._native import SonaEngine as SonaEngine
+from ruvector._native import KVCache as KVCache
+from ruvector._native import RvfStore as RvfStore
 from ruvector.collection import Collection as Collection
 from ruvector.collection import CollectionError as CollectionError
 from ruvector.collection import CollectionStats as CollectionStats
@@ -37,4 +39,6 @@ __all__ = [
     "AttentionReranker",
     "kmeans",
     "SonaEngine",
+    "KVCache",
+    "RvfStore",
 ]

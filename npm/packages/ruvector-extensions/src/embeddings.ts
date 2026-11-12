@@ -19,6 +19,12 @@
  * ```
  */
 
+import { createRequire } from 'node:module';
+
+// The package is ESM ("type": "module"), so the CommonJS `require` global does
+// not exist; build one to load the optional, synchronously-constructed SDKs.
+const require = createRequire(import.meta.url);
+
 // VectorDB type will be used as any for maximum compatibility
 type VectorDB = any;
 
@@ -702,8 +708,12 @@ export class HuggingFaceEmbeddings extends EmbeddingProvider {
     if (this.initialized) return;
 
     try {
-      // Dynamic import of transformers.js
-      const { pipeline } = await import('@xenova/transformers');
+      // Dynamic import of transformers.js (optional, untyped here so the
+      // build does not need it installed)
+      const specifier: string = '@xenova/transformers';
+      const { pipeline } = (await import(specifier)) as {
+        pipeline: (task: string, model: string) => Promise<any>;
+      };
 
       this.pipeline = await pipeline(
         'feature-extraction',

@@ -66,10 +66,10 @@ fn random_20k_x_384_recall_at_10() {
     let mut fetch = SliceFetch::new(&base, DIM);
     for c in cases {
         let t = truth(c.metric, &base, &queries, DIM, K);
-        let rows = || queries.chunks_exact(DIM).zip(&t);
+        let rows = || queries.as_chunks::<DIM>().0.iter().zip(&t);
 
         let mut flat = QuantFlatIndex::with_capacity(c.quant.clone(), N20 as u32, N20).unwrap();
-        for (i, v) in base.chunks_exact(DIM).enumerate() {
+        for (i, v) in base.as_chunks::<DIM>().0.iter().enumerate() {
             flat.upsert(i as u32, v).unwrap();
         }
         let raw = mean(rows().map(|(qv, t)| recall(t, &flat.search(qv, K).unwrap())));
@@ -90,7 +90,7 @@ fn random_20k_x_384_recall_at_10() {
         }
 
         let mut h = HnswIndex::with_capacity(HnswParams::default(), c.quant, N20).unwrap();
-        for (i, v) in base.chunks_exact(DIM).enumerate() {
+        for (i, v) in base.as_chunks::<DIM>().0.iter().enumerate() {
             h.insert(i as u32, v, &mut op_rng(i as u64)).unwrap();
         }
         for ef in [64, 128, 256, 512, 1024] {

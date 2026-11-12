@@ -42,7 +42,7 @@ const PREFETCH_DISTANCE: usize = 64;
 pub fn euclidean_distance_simd(a: &[f32], b: &[f32]) -> f32 {
     #[cfg(target_arch = "x86_64")]
     {
-        #[cfg(feature = "simd-avx512")]
+        #[cfg(all(feature = "simd-avx512", ruvector_core_stable_avx512))]
         {
             if is_x86_feature_detected!("avx512f") {
                 return unsafe { euclidean_distance_avx512_impl(a, b) };
@@ -198,7 +198,11 @@ unsafe fn euclidean_distance_avx2_fma_impl(a: &[f32], b: &[f32]) -> f32 {
 /// AVX-512 euclidean distance - 4-accumulator version for ILP
 /// Processes 64 floats per iteration (4×16) to hide 4-cycle FMA latency on Zen 4/5.
 /// For 384-dim vectors: 384/64 = 6 exact iterations with no scalar tail.
-#[cfg(all(target_arch = "x86_64", feature = "simd-avx512"))]
+#[cfg(all(
+    target_arch = "x86_64",
+    feature = "simd-avx512",
+    ruvector_core_stable_avx512
+))]
 #[target_feature(enable = "avx512f")]
 unsafe fn euclidean_distance_avx512_impl(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "Input arrays must have the same length");
@@ -265,7 +269,11 @@ unsafe fn euclidean_distance_avx512_impl(a: &[f32], b: &[f32]) -> f32 {
 
 /// AVX-512 dot product - 4-accumulator version for ILP
 /// Processes 64 floats per iteration (4×16) to hide 4-cycle FMA latency on Zen 4/5.
-#[cfg(all(target_arch = "x86_64", feature = "simd-avx512"))]
+#[cfg(all(
+    target_arch = "x86_64",
+    feature = "simd-avx512",
+    ruvector_core_stable_avx512
+))]
 #[target_feature(enable = "avx512f")]
 unsafe fn dot_product_avx512_impl(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "Input arrays must have the same length");
@@ -322,7 +330,11 @@ unsafe fn dot_product_avx512_impl(a: &[f32], b: &[f32]) -> f32 {
 /// AVX-512 cosine similarity - 2-accumulator-per-component version for ILP
 /// Uses 6 ZMM registers (dot0/dot1, na0/na1, nb0/nb1) to hide 4-cycle FMA latency.
 /// Processes 32 floats per iteration (2×16) on Zen 4/5.
-#[cfg(all(target_arch = "x86_64", feature = "simd-avx512"))]
+#[cfg(all(
+    target_arch = "x86_64",
+    feature = "simd-avx512",
+    ruvector_core_stable_avx512
+))]
 #[target_feature(enable = "avx512f")]
 unsafe fn cosine_similarity_avx512_impl(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "Input arrays must have the same length");
@@ -385,7 +397,11 @@ unsafe fn cosine_similarity_avx512_impl(a: &[f32], b: &[f32]) -> f32 {
 
 /// AVX-512 Manhattan distance - 4-accumulator version for ILP
 /// Processes 64 floats per iteration (4×16) to hide add-latency on Zen 4/5.
-#[cfg(all(target_arch = "x86_64", feature = "simd-avx512"))]
+#[cfg(all(
+    target_arch = "x86_64",
+    feature = "simd-avx512",
+    ruvector_core_stable_avx512
+))]
 #[target_feature(enable = "avx512f")]
 unsafe fn manhattan_distance_avx512_impl(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "Input arrays must have the same length");
@@ -916,7 +932,7 @@ unsafe fn manhattan_distance_neon_unrolled_impl(a: &[f32], b: &[f32]) -> f32 {
 pub fn dot_product_simd(a: &[f32], b: &[f32]) -> f32 {
     #[cfg(target_arch = "x86_64")]
     {
-        #[cfg(feature = "simd-avx512")]
+        #[cfg(all(feature = "simd-avx512", ruvector_core_stable_avx512))]
         {
             if is_x86_feature_detected!("avx512f") {
                 return unsafe { dot_product_avx512_impl(a, b) };
@@ -984,7 +1000,7 @@ unsafe fn dot_product_avx2_impl(a: &[f32], b: &[f32]) -> f32 {
 pub fn cosine_similarity_simd(a: &[f32], b: &[f32]) -> f32 {
     #[cfg(target_arch = "x86_64")]
     {
-        #[cfg(feature = "simd-avx512")]
+        #[cfg(all(feature = "simd-avx512", ruvector_core_stable_avx512))]
         {
             if is_x86_feature_detected!("avx512f") {
                 return unsafe { cosine_similarity_avx512_impl(a, b) };
@@ -1024,7 +1040,7 @@ pub fn cosine_similarity_avx2(a: &[f32], b: &[f32]) -> f32 {
 pub fn manhattan_distance_simd(a: &[f32], b: &[f32]) -> f32 {
     #[cfg(target_arch = "x86_64")]
     {
-        #[cfg(feature = "simd-avx512")]
+        #[cfg(all(feature = "simd-avx512", ruvector_core_stable_avx512))]
         {
             if is_x86_feature_detected!("avx512f") {
                 return unsafe { manhattan_distance_avx512_impl(a, b) };
@@ -1528,6 +1544,41 @@ pub fn batch_euclidean_owned(query: &[f32], vectors: &[Vec<f32>]) -> Vec<f32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_dispatch_matches_scalar_across_simd_widths() {
+        // Runs AVX2/scalar on older compilers and AVX-512 on capable hosts
+        // with Rust >= 1.89. Include tails and the 64-float unrolled boundary.
+        for dimensions in [1, 7, 8, 15, 16, 17, 31, 32, 63, 64, 65, 129] {
+            let a: Vec<f32> = (0..dimensions).map(|i| (i % 13) as f32 - 6.0).collect();
+            let b: Vec<f32> = (0..dimensions)
+                .map(|i| ((i * 7) % 17) as f32 - 8.0)
+                .collect();
+            for (name, actual, expected) in [
+                (
+                    "euclidean",
+                    euclidean_distance_simd(&a, &b),
+                    euclidean_distance_scalar(&a, &b),
+                ),
+                ("dot", dot_product_simd(&a, &b), dot_product_scalar(&a, &b)),
+                (
+                    "cosine",
+                    cosine_similarity_simd(&a, &b),
+                    cosine_similarity_scalar(&a, &b),
+                ),
+                (
+                    "manhattan",
+                    manhattan_distance_simd(&a, &b),
+                    manhattan_distance_scalar(&a, &b),
+                ),
+            ] {
+                assert!(
+                    (actual - expected).abs() <= 1e-5 * expected.abs().max(1.0),
+                    "{name} mismatch at {dimensions} dimensions: {actual} vs {expected}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn test_euclidean_distance_simd() {

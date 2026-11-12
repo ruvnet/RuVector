@@ -44,7 +44,9 @@ mod error;
 mod gnn;
 mod graph;
 mod hnsw;
+mod llm;
 mod rabitq;
+mod rvf;
 mod sona;
 
 #[pymodule]
@@ -56,6 +58,8 @@ fn _native(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     gnn::register(m)?;
     cluster::register(m)?;
     sona::register(m)?;
+    llm::register(m)?;
+    rvf::register(m)?;
     m.add("RuVectorError", py.get_type::<error::RuVectorError>())?;
 
     // Version mirrors the Cargo crate version. The pure-Python

@@ -44,7 +44,10 @@ export declare enum RvfErrorCode {
     InvalidArgument = 65285,
     SidecarWriteFailed = 65286,
     SidecarCorrupt = 65287,
-    FileExists = 65288
+    FileExists = 65288,
+    MetadataTypeConflict = 65289,
+    InvalidMetadataRegistry = 65290,
+    InvalidFilter = 65291
 }
 /**
  * Custom error class for all RVF operations.

@@ -3,12 +3,13 @@
 //! Provides the main algorithm with:
 //! - Exact global cuts with a matching cached partition
 //! - Support for edge insertions and deletions
-//! - Both exact and approximate modes
+//! - Exact global cuts; the legacy approximate option does not select a solver
 //!
 //! ## Modules
 //!
 //! - [`replacement`]: Replacement edge index for tree edge deletions
-//! - [`approximate`]: (1+ε)-approximate min-cut for all cut sizes (SODA 2025)
+//! - [`approximate`]: experimental sampled-graph min-cut, without a validated
+//!   all-graph `(1+ε)` guarantee
 
 pub mod approximate;
 mod exact;
@@ -28,9 +29,9 @@ use std::sync::Arc;
 pub struct MinCutConfig {
     /// Maximum cut size supported for exact algorithm
     pub max_exact_cut_size: usize,
-    /// Epsilon for approximate algorithm (0 < ε ≤ 1)
+    /// Legacy requested tolerance (0 < ε ≤ 1); ignored by `DynamicMinCut`.
     pub epsilon: f64,
-    /// Whether to use approximate mode
+    /// Legacy request flag; `DynamicMinCut` still uses the exact solver.
     pub approximate: bool,
     /// Enable parallel computation
     pub parallel: bool,
@@ -59,9 +60,9 @@ pub struct MinCutResult {
     pub cut_edges: Option<Vec<Edge>>,
     /// Partition (if requested): (S, T) where S and T are vertex sets
     pub partition: Option<(Vec<VertexId>, Vec<VertexId>)>,
-    /// Whether this is an exact or approximate result
+    /// Whether the solver actually computed an exact cut.
     pub is_exact: bool,
-    /// Approximation ratio (1.0 for exact)
+    /// Guarantee of the solver actually used (1.0 for exact).
     pub approximation_ratio: f64,
 }
 
@@ -308,12 +309,10 @@ impl DynamicMinCut {
             value,
             cut_edges: Some(edges),
             partition: Some((partition_s, partition_t)),
-            is_exact: !self.config.approximate,
-            approximation_ratio: if self.config.approximate {
-                1.0 + self.config.epsilon
-            } else {
-                1.0
-            },
+            // recompute_min_cut always runs the exact Stoer-Wagner kernel.
+            // The legacy approximate request must not relabel its result.
+            is_exact: true,
+            approximation_ratio: 1.0,
         }
     }
 
@@ -434,7 +433,9 @@ impl MinCutBuilder {
         self
     }
 
-    /// Use approximate algorithm with given epsilon
+    /// Record a legacy approximate request. `DynamicMinCut` still computes an
+    /// exact cut; this option does not enable an approximate solver. Use the
+    /// separate `ApproxMinCut` type for experimental sparsification behavior.
     pub fn approximate(mut self, epsilon: f64) -> Self {
         assert!(epsilon > 0.0 && epsilon <= 1.0, "Epsilon must be in (0, 1]");
         self.config.approximate = true;
@@ -612,8 +613,36 @@ mod tests {
         let mincut = MinCutBuilder::new().approximate(0.1).build().unwrap();
 
         let result = mincut.min_cut();
-        assert!(!result.is_exact);
-        assert_eq!(result.approximation_ratio, 1.1);
+        assert!(result.is_exact);
+        assert_eq!(result.approximation_ratio, 1.0);
+    }
+
+    #[test]
+    fn legacy_approximate_option_reports_the_exact_solver_after_updates() {
+        let edges = vec![(1, 2, 3.0), (2, 3, 2.0), (1, 3, 1.0)];
+        let mut exact = MinCutBuilder::new()
+            .with_edges(edges.clone())
+            .build()
+            .unwrap();
+        let mut legacy = MinCutBuilder::new()
+            .approximate(0.5)
+            .with_edges(edges)
+            .build()
+            .unwrap();
+        for (u, v, weight) in [(3, 4, 2.0), (1, 4, 1.0)] {
+            exact.insert_edge(u, v, weight).unwrap();
+            legacy.insert_edge(u, v, weight).unwrap();
+            let lhs = exact.min_cut();
+            let rhs = legacy.min_cut();
+            assert_eq!(rhs.value, lhs.value);
+            assert_eq!(rhs.partition, lhs.partition);
+            assert_eq!(
+                rhs.cut_edges.as_ref().map(Vec::len),
+                lhs.cut_edges.as_ref().map(Vec::len)
+            );
+            assert!(rhs.is_exact);
+            assert_eq!(rhs.approximation_ratio, 1.0);
+        }
     }
 
     #[test]

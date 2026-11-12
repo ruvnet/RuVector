@@ -267,3 +267,23 @@ def test_blank_action_token_falls_back_to_mcp_token(monkeypatch: pytest.MonkeyPa
     monkeypatch.setenv("RUVECTOR_SALESFORCE_ACTION_TOKEN", "  ")
     monkeypatch.setenv("RUVECTOR_MCP_TOKEN", " mcp-tok ")
     assert sr._expected_action_token() == "mcp-tok"
+
+
+@pytest.mark.parametrize("backend", ["hnsw", "rabitq"])
+def test_upsert_respects_shared_collection_capacity(sf_client: Any, monkeypatch: pytest.MonkeyPatch, backend: str) -> None:
+    from ruvector import Collection
+    import ruvector.mcp_server as m
+
+    monkeypatch.setenv("RUVECTOR_MCP_MAX_VECTORS", "1")
+    m._save("limited", Collection.create(dim=2, backend=backend))
+    body = {"collection": "limited", "vector": [1.0, 0.0]}
+    assert sf_client.post("/salesforce/upsert", json=body, headers=_auth_headers()).status_code == 200
+    index = m._safe_path("limited")
+    before = (index.read_bytes(), Collection.meta_path(index).read_bytes())
+    rejected = sf_client.post("/salesforce/upsert", json=body, headers=_auth_headers())
+    assert rejected.status_code == 400
+    assert "vector limit" in rejected.json()["error_description"]
+    assert len(m._load("limited")) == 1
+    assert (index.read_bytes(), Collection.meta_path(index).read_bytes()) == before
+    m._cache.clear()
+    assert len(m._load("limited")) == 1

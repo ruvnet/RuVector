@@ -30,13 +30,15 @@ fn bench_build_query_persist() {
 
     let t = Instant::now();
     let mut flat = QuantFlatIndex::with_capacity(quant.clone(), N as u32, N).unwrap();
-    for (i, v) in base.chunks_exact(DIM).enumerate() {
+    for (i, v) in base.as_chunks::<DIM>().0.iter().enumerate() {
         flat.upsert(i as u32, v).unwrap();
     }
     eprintln!("flat encode {N}: {:.1} ms", ms(t.elapsed()));
     let mut fetch = SliceFetch::new(&base, DIM);
     let lat: Vec<Duration> = queries
-        .chunks_exact(DIM)
+        .as_chunks::<DIM>()
+        .0
+        .iter()
         .map(|q| {
             let t = Instant::now();
             flat.search_rerank(q, K, 4 * K, &mut fetch).unwrap();
@@ -51,7 +53,7 @@ fn bench_build_query_persist() {
 
     let t = Instant::now();
     let mut h = HnswIndex::with_capacity(HnswParams::default(), quant, N).unwrap();
-    for (i, v) in base.chunks_exact(DIM).enumerate() {
+    for (i, v) in base.as_chunks::<DIM>().0.iter().enumerate() {
         h.insert(i as u32, v, &mut op_rng(i as u64)).unwrap();
     }
     let build = t.elapsed();
@@ -62,7 +64,9 @@ fn bench_build_query_persist() {
     );
     for ef in [32, 64, 128] {
         let lat: Vec<Duration> = queries
-            .chunks_exact(DIM)
+            .as_chunks::<DIM>()
+            .0
+            .iter()
             .map(|q| {
                 let t = Instant::now();
                 h.search_rerank(q, K, ef, &mut fetch).unwrap();
@@ -100,7 +104,7 @@ fn bench_build_query_persist() {
             HnswIndex::from_chunk_iter(rows, Some(&enc.sha256), enc.payload_len).unwrap();
         dec.push(t.elapsed());
         loaded.reserve(200);
-        for (j, v) in extra.chunks_exact(DIM).enumerate() {
+        for (j, v) in extra.as_chunks::<DIM>().0.iter().enumerate() {
             let iid = (N + j) as u32;
             loaded.insert(iid, v, &mut op_rng(iid as u64)).unwrap();
         }
@@ -127,14 +131,16 @@ fn bench_build_query_persist() {
     let rq: Vec<f32> = (0..50 * DIM).map(|_| g.gauss()).collect();
     let q = QuantParams::train(Metric::L2, DIM, &rand[..1000 * DIM], 1).unwrap();
     let mut r = HnswIndex::with_capacity(HnswParams::default(), q, N).unwrap();
-    for (i, v) in rand.chunks_exact(DIM).enumerate() {
+    for (i, v) in rand.as_chunks::<DIM>().0.iter().enumerate() {
         r.insert(i as u32, v, &mut op_rng(i as u64)).unwrap();
     }
     let mut rf = SliceFetch::new(&rand, DIM);
     let tr = truth(Metric::L2, &rand, &rq, DIM, K);
     for ef in [64, 256] {
         let rec: f64 = rq
-            .chunks_exact(DIM)
+            .as_chunks::<DIM>()
+            .0
+            .iter()
             .zip(&tr)
             .map(|(qv, t)| recall(t, &r.search_rerank(qv, K, ef, &mut rf).unwrap()))
             .sum::<f64>()
@@ -142,12 +148,14 @@ fn bench_build_query_persist() {
         eprintln!("control: iid gaussian 10k x 384 l2 hnsw ef={ef}: recall@10 {rec:.4}");
     }
     let mut rflat = QuantFlatIndex::with_capacity(r.quant().clone(), N as u32, N).unwrap();
-    for (i, v) in rand.chunks_exact(DIM).enumerate() {
+    for (i, v) in rand.as_chunks::<DIM>().0.iter().enumerate() {
         rflat.upsert(i as u32, v).unwrap();
     }
     for over in [4, 10] {
         let rec: f64 = rq
-            .chunks_exact(DIM)
+            .as_chunks::<DIM>()
+            .0
+            .iter()
             .zip(&tr)
             .map(|(qv, t)| recall(t, &rflat.search_rerank(qv, K, over * K, &mut rf).unwrap()))
             .sum::<f64>()

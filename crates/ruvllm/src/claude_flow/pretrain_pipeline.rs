@@ -937,7 +937,11 @@ impl PretrainPipeline {
 
                 // Checkpoint if needed
                 if self.config.enable_checkpoints
-                    && self.samples_processed % self.config.checkpoint_interval as u64 == 0
+                    && self
+                        .samples_processed
+                        .checked_rem(self.config.checkpoint_interval as u64)
+                        .expect("attempt to calculate the remainder with a divisor of zero")
+                        == 0
                 {
                     let _ = self.save_checkpoint(&format!(
                         "{}/checkpoint_synthetic_{}.bin",

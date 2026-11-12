@@ -166,8 +166,10 @@ impl TurboVecIndex {
         if norm < 1e-10 {
             // Degenerate zero vector: store an all-zero code, neutral scalars.
             self.ids.push(id);
-            self.codes
-                .extend(std::iter::repeat(0u8).take(self.bw.code_bytes(self.rotated_dim)));
+            self.codes.extend(std::iter::repeat_n(
+                0u8,
+                self.bw.code_bytes(self.rotated_dim),
+            ));
             self.norms.push(0.0);
             self.corr.push(0.0);
             return;

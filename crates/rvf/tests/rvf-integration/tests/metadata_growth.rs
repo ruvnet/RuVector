@@ -55,16 +55,27 @@ fn meta_segments(bytes: &[u8]) -> Vec<(usize, usize)> {
         if seg_type == SegmentType::Meta as u8 {
             found.push((offset + SEGMENT_HEADER_SIZE, payload_len));
         }
-        offset = end;
+        // Wire dialect (ADR-354): segments are padded to 64-byte boundaries.
+        offset = (end + 63) & !63;
     }
     found
 }
 
-/// The runtime's legacy segment content hash: an IEEE CRC32 of the payload
-/// rotated into four little-endian lanes (`rvf-runtime::hashing`). Rewriting a
-/// segment payload in place means repairing this, or the reader rejects the
-/// segment as damaged and the test would exercise recovery instead of the
-/// intact-chain path it means to pin.
+/// The content hash a segment header should carry for `data` under the
+/// header's `checksum_algo`. The runtime writes the wire dialect now
+/// (ADR-354): algo 1 = XXH3-128, 2 = SHAKE-256-128 (`rvf-wire` registry).
+/// Rewriting a segment payload in place means repairing this, or the reader
+/// rejects the segment as damaged and the test would exercise recovery instead
+/// of the intact-chain path it means to pin.
+fn content_hash_for(algo: u8, data: &[u8]) -> [u8; 16] {
+    if algo != 0 {
+        return rvf_wire::hash::compute_content_hash(algo, data);
+    }
+    legacy_content_hash(data)
+}
+
+/// The pre-ADR-354 runtime hash (algo 0): an IEEE CRC32 rotated into four
+/// little-endian lanes.
 fn legacy_content_hash(data: &[u8]) -> [u8; 16] {
     let mut crc = 0xFFFF_FFFFu32;
     for &byte in data {
@@ -98,7 +109,8 @@ fn replace_meta_payload(bytes: &mut [u8], payload_start: usize, payload: &[u8]) 
     );
     bytes[payload_start..payload_start + payload.len()].copy_from_slice(payload);
     let header = payload_start - SEGMENT_HEADER_SIZE;
-    bytes[header + 0x28..header + 0x38].copy_from_slice(&legacy_content_hash(payload));
+    let algo = bytes[header + 0x20];
+    bytes[header + 0x28..header + 0x38].copy_from_slice(&content_hash_for(algo, payload));
 }
 
 /// Several hundred single-vector metadata commits must not cost several hundred

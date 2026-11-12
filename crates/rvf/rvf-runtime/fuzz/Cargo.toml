@@ -1,0 +1,56 @@
+# cargo-fuzz target: rvf-runtime's manifest location must agree with rvf-wire's
+# single tail scanner on arbitrary bytes (ADR-354 item 4). Run with nightly:
+#   cd crates/rvf/rvf-runtime/fuzz
+#   env -u RUSTFLAGS cargo +nightly fuzz run tail_scan_differential <scratch-corpus-dir> -- -max_total_time=120
+#   (seed <scratch-corpus-dir> with copies of ../../tests/vectors/*.rvf and ../../tests/vectors/legacy/*.rvf)
+[package]
+name = "rvf-runtime-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+rvf-runtime = { path = ".." }
+rvf-types = { path = "../../rvf-types", features = ["std"] }
+rvf-wire = { path = "../../rvf-wire" }
+rvf-index = { path = "../../rvf-index", features = ["std"] }
+rvf-server = { path = "../../rvf-server" }
+ed25519-dalek = "2"
+tempfile = "3"
+tokio = { version = "1", features = ["full"] }
+axum = "0.7"
+
+# Prevent this from being discovered as a workspace member
+[workspace]
+
+[[bin]]
+name = "tail_scan_differential"
+path = "fuzz_targets/tail_scan_differential.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "stream_ingest_feed"
+path = "fuzz_targets/stream_ingest_feed.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "server_stream_frames"
+path = "fuzz_targets/server_stream_frames.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "stream_query_interleave"
+path = "fuzz_targets/stream_query_interleave.rs"
+test = false
+doc = false
+bench = false

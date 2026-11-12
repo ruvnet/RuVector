@@ -1,13 +1,18 @@
 [package]
 name = "ruvector-cli"
-version.workspace = true
+# Per-crate override: workspace 2.3.0 is already on crates.io.
+version = "2.3.1"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+homepage = "https://ruv.io"
+documentation = "https://docs.rs/ruvector-cli"
 readme = "README.md"
-description = "CLI and MCP server for Ruvector"
+description = "Command-line tool and stdio MCP server for RuVector: create, query and benchmark HNSW vector databases from the shell or an AI agent."
+keywords = ["vector-database", "cli", "mcp", "hnsw", "embeddings"]
+categories = ["command-line-utilities", "database"]
 
 [[bin]]
 name = "ruvector"
@@ -60,7 +65,8 @@ toml = "0.8"
 
 # Data formats
 csv = "1.3"
-ndarray-npy = "0.9"
+# This loader reads .npy only; NPZ support would add an unused ZIP dependency.
+ndarray-npy = { version = "0.9", default-features = false }
 ndarray = { workspace = true }
 
 # Terminal colors

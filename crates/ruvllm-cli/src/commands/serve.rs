@@ -199,6 +199,11 @@ pub async fn run(
         .with_context(|| format!("Failed to bind server to {addr}"))?;
     let addr = listener.local_addr().context("Read server address")?;
 
+    // Bind before announcing readiness; clients can connect upon the banner.
+    // Report the actual port when zero was requested.
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    let addr = listener.local_addr()?;
+
     println!();
     if mock_mode {
         println!(

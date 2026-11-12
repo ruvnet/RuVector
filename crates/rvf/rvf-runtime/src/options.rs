@@ -86,6 +86,17 @@ impl Default for WitnessConfig {
     }
 }
 
+/// How a signature-checking open decides whether the signed state is fresh.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Freshness {
+    /// The caller accepts any validly signed state, including an older one
+    /// (authenticity only; rollback to an earlier signed state is undetected).
+    Unchecked,
+    /// Refuse a signed state whose manifest epoch is below this value
+    /// (`StreamStaleEpoch`).
+    MinEpoch(u32),
+}
+
 /// Options for creating a new RVF store.
 #[derive(Clone, Debug)]
 pub struct RvfOptions {
@@ -109,6 +120,25 @@ pub struct RvfOptions {
     pub witness: WitnessConfig,
     /// Security policy for manifest signature verification (ADR-033 §4).
     pub security_policy: SecurityPolicy,
+    /// Ed25519 public keys the open path trusts for Level-0 root signatures
+    /// (ADR-033 section 4). Consulted by `open_with_policy`/`open_with_options`/
+    /// `open_signed`; with an empty list every signature-checking policy
+    /// refuses signed files as `UnknownSigner`.
+    pub trusted_signers: Vec<[u8; 32]>,
+    /// Freshness choice (F3-02, F4-04). REQUIRED for every signature-checking
+    /// open (`Strict`/`Paranoid`): `None` is refused with
+    /// `ErrorCode::FreshnessRequired`. A signed page proves authenticity, not
+    /// freshness; only `Freshness::MinEpoch` (or an external pin) detects
+    /// rollback to an older validly signed state.
+    pub freshness: Option<Freshness>,
+    /// Serve the signed state even though a newer parseable manifest exists
+    /// beyond the signed page (an unsigned tail: an interrupted commit, a
+    /// planted manifest, or a rollback by page swap). ANY bytes between the signed
+    /// manifest and the page count, parseable or not (a damaged newer manifest
+    /// must not hide itself).
+    /// opens and reports the ignored manifest through
+    /// `RvfStore::newer_manifest_ignored`.
+    pub serve_signed_prefix: bool,
 }
 
 impl Default for RvfOptions {
@@ -124,6 +154,9 @@ impl Default for RvfOptions {
             ef_construction: 200,
             witness: WitnessConfig::default(),
             security_policy: SecurityPolicy::Strict,
+            trusted_signers: Vec::new(),
+            freshness: None,
+            serve_signed_prefix: false,
         }
     }
 }
@@ -134,6 +167,15 @@ pub struct QueryOptions {
     /// HNSW ef_search parameter (beam width during search).
     pub ef_search: u16,
     /// Optional metadata filter expression.
+    ///
+    /// When the filter matches a large share of the store, a filtered query
+    /// runs a predicate-aware HNSW walk, but only if the graph itself
+    /// measures at least 0.95 recall@10 at the query's `ef` (a one-off
+    /// calibration against the exact scan, cached on the index). Graphs
+    /// that measure lower (e.g. high intrinsic-dimension data) and small
+    /// match sets are scanned exactly. `QualityPreference::PreferLatency` /
+    /// `AcceptDegraded` skip the calibration gate and always take the walk.
+    /// Set [`QueryOptions::force_exact`] to always get exact results.
     pub filter: Option<FilterExpr>,
     /// Query timeout in milliseconds (0 = no timeout).
     pub timeout_ms: u32,
@@ -148,8 +190,8 @@ pub struct QueryOptions {
     /// Opt in to the RaBitQ two-stage path: a 1-bit-code candidate scan
     /// (~32x smaller than f32) followed by an exact f32 rescore of the
     /// oversampled candidates. Default `false` (full-precision HNSW /
-    /// exact scan). v1 serves the L2 metric only; other metrics and
-    /// filtered/COW queries fall back to the default routing.
+    /// exact scan). Serves L2, cosine and inner product; filtered/COW
+    /// queries fall back to the default routing.
     pub rabitq: bool,
     /// Candidate oversampling factor for the RaBitQ first stage: the
     /// binary scan collects `rabitq_oversample * k` candidates (floored
@@ -320,4 +362,35 @@ pub struct MetadataRecovery {
     /// absent in the committed vector state, because a dropped generation
     /// carried the deletion. They are excluded from the served metadata.
     pub dropped_records: u64,
+}
+
+/// What follows the manifest `open` selected (crash-recovery evidence).
+///
+/// Open serves the newest valid manifest and ignores later bytes: that is the
+/// ADR-280 crash rule, so a torn append recovers to the prior snapshot. The
+/// same bytes also result from a file cut short in transit, which then looks
+/// like an older -- possibly empty -- generation (#1276). The library cannot
+/// tell the two apart, so it reports what it ignored; strict callers use
+/// [`crate::RvfStore::open_readonly_strict`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TailRecovery {
+    /// Offset of a segment cut off by end-of-file (a header whose payload runs
+    /// past EOF, or a partial header), if any. A healthy file never has one.
+    pub torn_at: Option<u64>,
+    /// Complete non-manifest segments after the selected manifest that no
+    /// manifest commits (e.g. data whose commit record was lost). May also be
+    /// non-zero in a healthy file (an unsigned audit-query witness).
+    pub uncommitted_segments: u32,
+    /// Bytes from the end of the selected manifest to the end of the file.
+    pub bytes_after_manifest: u64,
+    /// A writable open cut the torn tail off (at `torn_at`) before appending,
+    /// so the file is clean again. Read-only opens never modify the file.
+    pub repaired: bool,
+}
+
+impl TailRecovery {
+    /// True when the file ends inside a segment: a torn write or truncation.
+    pub fn is_torn(&self) -> bool {
+        self.torn_at.is_some()
+    }
 }

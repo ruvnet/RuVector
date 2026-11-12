@@ -18,6 +18,15 @@ import { RuvBot, createRuvBot } from './RuvBot.js';
 import { createAIDefenceGuard, type AIDefenceConfig } from './security/AIDefenceGuard.js';
 import { ChatEnhancer, createChatEnhancer } from './core/ChatEnhancer.js';
 import type { AgentConfig } from './core/types.js';
+import {
+  readJsonBody,
+  isRequestAuthorized,
+  isPublicPath,
+  summarizeSession,
+  PayloadTooLargeError,
+  InvalidJsonError,
+  type ApiAuthConfig,
+} from './api/httpGuard.js';
 
 // ============================================================================
 // Configuration
@@ -26,6 +35,13 @@ import type { AgentConfig } from './core/types.js';
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 const NODE_ENV = process.env.NODE_ENV || 'development';
+
+// Optional bearer-token protection for /api/* (set RUVBOT_API_KEY to enable).
+const API_AUTH: ApiAuthConfig = {
+  enabled: !!process.env.RUVBOT_API_KEY,
+  type: 'bearer',
+  secret: process.env.RUVBOT_API_KEY,
+};
 
 const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
@@ -65,36 +81,6 @@ const startTime = Date.now();
 // ============================================================================
 // Utility Functions
 // ============================================================================
-
-async function parseBody(req: IncomingMessage): Promise<Record<string, unknown> | null> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => chunks.push(chunk));
-    req.on('end', () => {
-      if (chunks.length === 0) {
-        resolve(null);
-        return;
-      }
-      const rawBody = Buffer.concat(chunks).toString('utf-8');
-      try {
-        const body = JSON.parse(rawBody) as Record<string, unknown>;
-        resolve(body);
-      } catch (parseError) {
-        logger.error({
-          rawBody: rawBody.substring(0, 500),
-          contentType: req.headers['content-type'],
-          contentLength: req.headers['content-length'],
-          err: parseError
-        }, 'JSON parse error');
-        reject(new Error('Invalid JSON'));
-      }
-    });
-    req.on('error', (err) => {
-      logger.error({ err }, 'Request body read error');
-      reject(err);
-    });
-  });
-}
 
 function sendJSON(res: ServerResponse, statusCode: number, data: unknown): void {
   res.writeHead(statusCode, {
@@ -380,7 +366,7 @@ function handleListSessions(ctx: RequestContext): Promise<void> {
     sendError(res, 503, 'Bot not initialized', 'NOT_INITIALIZED');
     return Promise.resolve();
   }
-  sendJSON(res, 200, { sessions: bot.listSessions() });
+  sendJSON(res, 200, { sessions: bot.listSessions().map(summarizeSession) });
   return Promise.resolve();
 }
 
@@ -546,16 +532,26 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     return;
   }
 
+  if (!isPublicPath(url.pathname) && !isRequestAuthorized(req.headers, API_AUTH)) {
+    sendError(res, 401, 'Unauthorized', 'UNAUTHORIZED');
+    return;
+  }
+
   // Find matching route
   for (const route of routes) {
     if (route.method === method && route.pattern.test(url.pathname)) {
       try {
         const body = method !== 'GET' && method !== 'HEAD'
-          ? await parseBody(req)
+          ? await readJsonBody(req)
           : null;
         await route.handler({ req, res, url, body });
         return;
       } catch (error) {
+        if (error instanceof PayloadTooLargeError || error instanceof InvalidJsonError) {
+          sendError(res, error.statusCode, error.message,
+            error.statusCode === 413 ? 'PAYLOAD_TOO_LARGE' : 'INVALID_JSON');
+          return;
+        }
         // Use 'err' key for proper pino error serialization
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error({ err: error, path: url.pathname, errorMessage }, 'Request handler error');
@@ -585,7 +581,7 @@ async function initializeBot(): Promise<void> {
         host: HOST,
         cors: true,
         rateLimit: { max: 100, timeWindow: 60000 },
-        auth: { enabled: false, type: 'bearer' },
+        auth: API_AUTH,
       },
       llm: {
         provider: process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY ? 'google' : 'anthropic',
@@ -704,7 +700,10 @@ async function startServer(): Promise<void> {
 
   // Start listening
   server.listen(PORT, HOST, () => {
-    logger.info({ port: PORT, host: HOST, env: NODE_ENV }, 'RuvBot server started');
+    logger.info({ port: PORT, host: HOST, env: NODE_ENV, apiAuth: API_AUTH.enabled }, 'RuvBot server started');
+    if (!API_AUTH.enabled) {
+      logger.warn('RUVBOT_API_KEY is not set: /api/* endpoints accept unauthenticated requests. Set RUVBOT_API_KEY to require "Authorization: Bearer <key>".');
+    }
   });
 }
 

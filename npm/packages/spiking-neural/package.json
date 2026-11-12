@@ -1,8 +1,9 @@
 {
   "name": "@ruvector/spiking-neural",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "description": "High-performance Spiking Neural Network (SNN) with SIMD optimization - CLI & SDK",
   "main": "src/index.js",
+  "gypfile": false,
   "bin": {
     "spiking-neural": "./bin/cli.js",
     "snn": "./bin/cli.js"
@@ -12,25 +13,24 @@
     "benchmark": "node bin/cli.js benchmark",
     "demo": "node bin/cli.js demo pattern",
     "build:native": "node-gyp rebuild",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "npm test",
+    "test:pack": "node --test test/pack-install.test.js"
   },
   "keywords": [
-    "spiking-neural-network",
-    "snn",
     "neural-network",
-    "neuromorphic",
     "simd",
-    "machine-learning",
     "ai",
+    "machine-learning",
     "deep-learning",
-    "stdp",
-    "lif-neuron",
-    "biologically-inspired",
-    "pattern-recognition"
+    "cli",
+    "ruvector",
+    "ruvnet",
+    "spiking-neural-network"
   ],
   "author": "rUv <ruv@ruv.net>",
   "license": "MIT",
   "repository": {
+    "directory": "npm/packages/spiking-neural",
     "type": "git",
     "url": "git+https://github.com/ruvnet/ruvector.git"
   },

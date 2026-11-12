@@ -312,6 +312,36 @@ if (graphNodeAvailable) {
   skip('graph persistent operations', '@ruvector/graph-node is not installed');
 }
 
+test('hooks build-agents --output <absolute dir> writes there and leaves the project settings alone', () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), 'ruvector-build-agents-'));
+  const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ruvector-agents-out-'));
+  try {
+    fs.mkdirSync(path.join(project, '.claude'));
+    const settingsPath = path.join(project, '.claude', 'settings.json');
+    fs.writeFileSync(settingsPath, '{"keep":1}\n');
+    run(`hooks build-agents --output "${outDir}" --format json`, { cwd: project, timeout: 60000 });
+    assert(fs.readdirSync(outDir).some((f) => f.endsWith('.json')), 'Agents should be written to the absolute --output');
+    assert(!fs.existsSync(path.join(project, outDir.replace(/^\//, ''))), 'The absolute path must not be joined onto the project folder');
+    assert.strictEqual(fs.readFileSync(settingsPath, 'utf8'), '{"keep":1}\n', 'An output outside the project must not touch its settings.json');
+    run('hooks build-agents --output .claude/agents-test --format json', { cwd: project, timeout: 60000 });
+    assert.strictEqual(JSON.parse(fs.readFileSync(settingsPath, 'utf8')).agentConfig.directory, path.join('.claude', 'agents-test'),
+      'An output inside the project is recorded as a relative directory');
+    // an absolute path that is inside the project is recorded relative to it
+    run(`hooks build-agents --output "${path.join(project, 'agents-abs')}" --format json`, { cwd: project, timeout: 60000 });
+    assert.strictEqual(JSON.parse(fs.readFileSync(settingsPath, 'utf8')).agentConfig.directory, 'agents-abs',
+      'An absolute output inside the project is recorded as a relative directory');
+    // a relative path that leaves the project is outside it: settings untouched
+    const escape = path.join('..', path.basename(outDir), 'escaped');
+    const before = fs.readFileSync(settingsPath, 'utf8');
+    run(`hooks build-agents --output "${escape}" --format json`, { cwd: project, timeout: 60000 });
+    assert(fs.existsSync(path.join(outDir, 'escaped')), 'The relative path is resolved against the project');
+    assert.strictEqual(fs.readFileSync(settingsPath, 'utf8'), before, 'An output that leaves the project must not touch its settings.json');
+  } finally {
+    fs.rmSync(project, { recursive: true, force: true });
+    fs.rmSync(outDir, { recursive: true, force: true });
+  }
+});
+
 test('router --help shows usage', () => {
   const { stdout } = runSafe('router --help');
   assert(stdout.includes('router') || stdout.includes('Router'),

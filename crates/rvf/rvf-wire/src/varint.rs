@@ -69,6 +69,10 @@ pub fn decode_varint(buf: &[u8]) -> Result<(u64, usize), RvfError> {
     let mut shift: u32 = 14;
     let limit = buf.len().min(MAX_VARINT_LEN);
     for (i, &byte) in buf.iter().enumerate().take(limit).skip(2) {
+        // A u64 has only one remaining bit in its tenth LEB128 byte.
+        if i == MAX_VARINT_LEN - 1 && byte > 1 {
+            return Err(RvfError::Code(ErrorCode::TruncatedSegment));
+        }
         value |= ((byte & 0x7F) as u64) << shift;
         if byte & 0x80 == 0 {
             return Ok((value, i + 1));

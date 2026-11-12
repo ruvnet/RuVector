@@ -10,7 +10,7 @@ description = "Core of the ruvector edge OAuth 2.1 authorization server: DCR (RF
 
 [dependencies]
 ruvector-edge-auth = { path = "../ruvector-edge-auth" }
-p256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
+p256 = { version = "0.14", default-features = false, features = ["ecdsa"] }
 sha2 = "0.10"
 base64ct = { version = "1", features = ["alloc"] }
 subtle = "2.6"

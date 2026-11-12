@@ -12,6 +12,7 @@ mod alloc_setup;
 pub mod bootstrap;
 mod distance;
 mod memory;
+mod open;
 mod segment;
 mod store;
 mod topk;
@@ -46,11 +47,16 @@ pub extern "C" fn rvf_init(config_ptr: i32) -> i32 {
 /// Returns 0 on success.
 #[no_mangle]
 pub extern "C" fn rvf_load_query(query_ptr: i32, dim: i32) -> i32 {
-    let dim = dim as usize;
-    let byte_len = dim * 2; // fp16 = 2 bytes per element
-    if byte_len > QUERY_SCRATCH_SIZE {
-        return -1;
-    }
+    // fp16 = 2 bytes per element. Checked: on wasm32 a dim >= 2^31 used to
+    // wrap `dim * 2` under the limit and store the huge dim for later reads.
+    let dim = match usize::try_from(dim) {
+        Ok(d) => d,
+        Err(_) => return -1,
+    };
+    let byte_len = match dim.checked_mul(2) {
+        Some(b) if b <= QUERY_SCRATCH_SIZE => b,
+        _ => return -1,
+    };
     unsafe {
         let src = query_ptr as *const u8;
         let dst = DATA_MEMORY.as_mut_ptr().add(QUERY_SCRATCH_OFFSET);
@@ -77,10 +83,13 @@ pub extern "C" fn rvf_load_block(block_ptr: i32, count: i32, dtype: i32) -> i32 
         2 => 4, // f32
         _ => return -1,
     };
-    let total_bytes = count * dim * elem_size;
-    if total_bytes > SIMD_BLOCK_SIZE {
-        return -1;
-    }
+    let total_bytes = match count
+        .checked_mul(dim)
+        .and_then(|n| n.checked_mul(elem_size))
+    {
+        Some(b) if b <= SIMD_BLOCK_SIZE => b,
+        _ => return -1,
+    };
     unsafe {
         let src = block_ptr as *const u8;
         let dst = SIMD_SCRATCH.as_mut_ptr();
@@ -183,10 +192,10 @@ pub extern "C" fn rvf_topk_read(out_ptr: i32) -> i32 {
 /// Returns 0 on success.
 #[no_mangle]
 pub extern "C" fn rvf_load_sq_params(params_ptr: i32, dim: i32) -> i32 {
-    let byte_len = dim as usize * 8; // 2 f32 per dim
-    if byte_len > DECODE_WORKSPACE_SIZE {
-        return -1;
-    }
+    let byte_len = match usize::try_from(dim).ok().and_then(|d| d.checked_mul(8)) {
+        Some(b) if b <= DECODE_WORKSPACE_SIZE => b, // 2 f32 per dim
+        _ => return -1,
+    };
     unsafe {
         let src = params_ptr as *const u8;
         let dst = DATA_MEMORY.as_mut_ptr().add(DECODE_WORKSPACE_OFFSET);
@@ -229,15 +238,13 @@ pub extern "C" fn rvf_dequant_i8(src_ptr: i32, dst_ptr: i32, count: i32) -> i32 
 #[no_mangle]
 pub extern "C" fn rvf_load_pq_codebook(codebook_ptr: i32, m: i32, k: i32) -> i32 {
     let dim = unsafe { *(DATA_MEMORY.as_ptr().add(TILE_CONFIG_DIM_OFFSET) as *const u32) as usize };
-    let m_usize = m as usize;
-    if m_usize == 0 {
+    if m <= 0 || k <= 0 {
         return -1;
     }
-    let sub_dim = dim / m_usize;
-    let total_bytes = m_usize * k as usize * sub_dim * 2;
-    if total_bytes > SIMD_PQ_TABLE_SIZE {
-        return -1;
-    }
+    let total_bytes = match pq_codebook_bytes(dim, m as usize, k as usize) {
+        Some(b) => b,
+        None => return -1,
+    };
     unsafe {
         let src = codebook_ptr as *const u8;
         let dst = SIMD_SCRATCH.as_mut_ptr().add(SIMD_PQ_TABLE_OFFSET);
@@ -262,7 +269,8 @@ pub extern "C" fn rvf_pq_distances(codes_ptr: i32, count: i32, result_ptr: i32) 
         let k = *(DATA_MEMORY.as_ptr().add(TILE_CONFIG_PQ_K_OFFSET) as *const u32) as usize;
         (dim, m, k)
     };
-    if m == 0 || k == 0 || dim == 0 {
+    // m/k/dim can also arrive unvalidated through rvf_init's raw config copy.
+    if pq_codebook_bytes(dim, m, k).is_none() {
         return -1;
     }
     let sub_dim = dim / m;
@@ -300,6 +308,28 @@ pub extern "C" fn rvf_pq_distances(codes_ptr: i32, count: i32, result_ptr: i32) 
     }
 
     count
+}
+
+/// Codebook size in bytes for a PQ layout, or `None` if the layout does not
+/// fit the tile: the codebook must fit the PQ table, the m*k f32 lookup table
+/// that `rvf_pq_distances` builds must fit the hot cache, and the query
+/// (dim fp16 values) must fit the query scratch. `sub_dim == 0` (dim < m) is
+/// rejected: it made the codebook size 0 and let any m*k through.
+fn pq_codebook_bytes(dim: usize, m: usize, k: usize) -> Option<usize> {
+    if m == 0 || k == 0 || dim.checked_mul(2)? > QUERY_SCRATCH_SIZE {
+        return None;
+    }
+    let sub_dim = dim / m;
+    if sub_dim == 0 {
+        return None;
+    }
+    let mk = m.checked_mul(k)?;
+    let codebook = mk.checked_mul(sub_dim)?.checked_mul(2)?;
+    let table = mk.checked_mul(4)?;
+    if codebook > SIMD_PQ_TABLE_SIZE || table > SIMD_HOT_CACHE_SIZE {
+        return None;
+    }
+    Some(codebook)
 }
 
 // =====================================================================
@@ -356,31 +386,41 @@ pub extern "C" fn rvf_greedy_step(current_id: i64, layer: i32) -> i64 {
 // Segment Verification
 // =====================================================================
 
-/// Verify segment header magic and version.
-/// Returns 0 if valid, non-zero error code otherwise.
+/// Verify segment header magic and version of the `header_len` bytes at
+/// `header_ptr`.
+/// Returns 0 if valid, 1 for bad magic, 2 for bad version, 3 if the pointer
+/// is null or the region is shorter than the 5 bytes inspected.
 #[no_mangle]
-pub extern "C" fn rvf_verify_header(header_ptr: i32) -> i32 {
-    let ptr = header_ptr as *const u8;
-    let magic = unsafe {
-        let b = core::slice::from_raw_parts(ptr, 4);
-        u32::from_le_bytes([b[0], b[1], b[2], b[3]])
-    };
-    if magic != 0x5256_4653 {
+pub extern "C" fn rvf_verify_header(header_ptr: i32, header_len: i32) -> i32 {
+    if header_ptr == 0 || header_len < 5 {
+        return 3;
+    }
+    let b = unsafe { core::slice::from_raw_parts(header_ptr as *const u8, header_len as usize) };
+    verify_header_bytes(b)
+}
+
+fn verify_header_bytes(b: &[u8]) -> i32 {
+    if b.len() < 5 {
+        return 3;
+    }
+    if u32::from_le_bytes([b[0], b[1], b[2], b[3]]) != 0x5256_4653 {
         return 1;
     }
-    let version = unsafe { *ptr.add(4) };
-    if version != 1 {
+    if b[4] != 1 {
         return 2;
     }
     0
 }
 
 /// Compute CRC32C of a data region.
-/// Returns the 32-bit CRC value.
+/// Returns the 32-bit CRC value, or 0 (the CRC of no bytes) if `len` is
+/// negative or the pointer is null.
 #[no_mangle]
 pub extern "C" fn rvf_crc32c(data_ptr: i32, len: i32) -> i32 {
-    let ptr = data_ptr as *const u8;
-    let data = unsafe { core::slice::from_raw_parts(ptr, len as usize) };
+    if len <= 0 || data_ptr == 0 {
+        return 0;
+    }
+    let data = unsafe { core::slice::from_raw_parts(data_ptr as *const u8, len as usize) };
     crc32c_compute(data) as i32
 }
 
@@ -449,67 +489,12 @@ pub extern "C" fn rvf_store_open(buf_ptr: i32, buf_len: i32) -> i32 {
         return -1;
     }
     let buf = unsafe { core::slice::from_raw_parts(buf_ptr as *const u8, buf_len as usize) };
-    let segments = segment::parse_segments(buf);
+    let (dim, entries) = match open::parse_vec_entries(buf) {
+        Ok(parsed) => parsed,
+        Err(_) => return -1,
+    };
 
     let reg = store::registry();
-    let mut dim: u32 = 0;
-    let mut entries: alloc::vec::Vec<(u64, alloc::vec::Vec<f32>)> = alloc::vec::Vec::new();
-
-    for seg in &segments {
-        // SegmentType::Vec = 0x01
-        if seg.seg_type == 0x01 {
-            let payload_start = seg.offset + rvf_types::constants::SEGMENT_HEADER_SIZE;
-            let payload_end = payload_start + seg.payload_length as usize;
-            if payload_end > buf.len() || seg.payload_length < 6 {
-                continue;
-            }
-            let payload = &buf[payload_start..payload_end];
-
-            let count = u16::from_le_bytes([payload[0], payload[1]]) as usize;
-            let seg_dim = u32::from_le_bytes([payload[2], payload[3], payload[4], payload[5]]);
-            if dim == 0 {
-                dim = seg_dim;
-            }
-
-            let mut offset = 6;
-            for _ in 0..count {
-                if offset + 8 > payload.len() {
-                    break;
-                }
-                let id = u64::from_le_bytes([
-                    payload[offset],
-                    payload[offset + 1],
-                    payload[offset + 2],
-                    payload[offset + 3],
-                    payload[offset + 4],
-                    payload[offset + 5],
-                    payload[offset + 6],
-                    payload[offset + 7],
-                ]);
-                offset += 8;
-                let vec_bytes = (seg_dim as usize) * 4;
-                if offset + vec_bytes > payload.len() {
-                    break;
-                }
-                let mut vec_data = alloc::vec::Vec::with_capacity(seg_dim as usize);
-                for d in 0..seg_dim as usize {
-                    let f = f32::from_le_bytes([
-                        payload[offset + d * 4],
-                        payload[offset + d * 4 + 1],
-                        payload[offset + d * 4 + 2],
-                        payload[offset + d * 4 + 3],
-                    ]);
-                    vec_data.push(f);
-                }
-                offset += vec_bytes;
-                entries.push((id, vec_data));
-            }
-        }
-    }
-
-    if dim == 0 {
-        dim = 1;
-    }
     let handle = reg.create(dim, 0);
     if handle <= 0 {
         return handle;
@@ -764,6 +749,51 @@ pub extern "C" fn rvf_witness_count(chain_len: i32) -> i32 {
 // =====================================================================
 
 // rvf_alloc and rvf_free are exported from alloc_setup module.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pq_layout_must_fit_the_lookup_table() {
+        // A plausible layout (dim 32, m 16, k 256): the 16 KB codebook fits
+        // the PQ table, but the 16 KB m*k f32 lookup table does not fit the
+        // 12 KB hot cache, which ends at the end of SIMD scratch.
+        assert_eq!(pq_codebook_bytes(32, 16, 256), None);
+        // dim < m made sub_dim 0 and the codebook "0 bytes" for any k.
+        assert_eq!(pq_codebook_bytes(4, 8, 1 << 20), None);
+        assert_eq!(pq_codebook_bytes(32, 8, 256), Some(8 * 256 * 4 * 2));
+        assert_eq!(pq_codebook_bytes(96, 8, 64), Some(8 * 64 * 12 * 2));
+        assert_eq!(pq_codebook_bytes(97, 8, 4), None); // query scratch is 96 fp16
+        assert_eq!(pq_codebook_bytes(32, usize::MAX, 2), None);
+        assert_eq!(pq_codebook_bytes(32, 2, usize::MAX), None);
+    }
+
+    #[test]
+    fn verify_header_checks_the_region_length() {
+        let mut h = [0u8; 64];
+        h[..4].copy_from_slice(&0x5256_4653u32.to_le_bytes());
+        h[4] = 1;
+        assert_eq!(verify_header_bytes(&h), 0);
+        assert_eq!(verify_header_bytes(&h[..4]), 3);
+        assert_eq!(verify_header_bytes(&[]), 3);
+        h[4] = 2;
+        assert_eq!(verify_header_bytes(&h), 2);
+        // Rejected before any read.
+        assert_eq!(rvf_verify_header(0, 64), 3);
+        assert_eq!(rvf_verify_header(16, 4), 3);
+        assert_eq!(rvf_verify_header(16, -1), 3);
+    }
+
+    #[test]
+    fn crc32c_rejects_a_negative_length() {
+        // Rejected before any read: a negative i32 used to become a huge usize.
+        assert_eq!(rvf_crc32c(16, -1), 0);
+        assert_eq!(rvf_crc32c(16, i32::MIN), 0);
+        assert_eq!(rvf_crc32c(0, 8), 0);
+        assert_eq!(crc32c_compute(b"123456789"), 0xE306_9283);
+    }
+}
 
 /// Panic handler for no_std WASM.
 #[cfg(not(test))]

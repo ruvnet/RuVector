@@ -388,3 +388,18 @@ MIT License - Use freely for any purpose.
 - [npm](https://www.npmjs.com/package/@ruvector/edge-full)
 - [GitHub](https://github.com/ruvnet/ruvector)
 - [@ruvector/edge](https://www.npmjs.com/package/@ruvector/edge) (lightweight version)
+
+<!-- weaver:seo:links:start -->
+## Works with / Used by
+
+Part of the [ruv.io](https://ruv.io) open-source stack for consensus, AI, WASM.
+
+- **Works with** (its runtime dependencies): no other ruvnet package (standalone)
+- **Used by** (published packages that depend on it): [`@ruvector/edge`](https://www.npmjs.com/package/@ruvector/edge) (optional), [`agentic-flow`](https://www.npmjs.com/package/agentic-flow)
+<!-- weaver:seo:links:end -->
+
+<!-- weaver:seo:footer:start -->
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector)
+<!-- weaver:seo:footer:end -->

@@ -1,0 +1,37 @@
+[package]
+name = "rvf-wire-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+rvf-wire = { path = ".." }
+rvf-types = { path = "../../rvf-types", features = ["std"] }
+rvf-crypto = { path = "../../rvf-crypto", default-features = false, features = ["ed25519"] }
+ed25519-dalek = "2"
+
+# Own workspace root: not a member of crates/rvf.
+[workspace]
+
+[[bin]]
+name = "rvsd_descriptor"
+path = "fuzz_targets/rvsd_descriptor.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "rvsd_frames"
+path = "fuzz_targets/rvsd_frames.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "rvsd_split"
+path = "fuzz_targets/rvsd_split.rs"
+test = false
+doc = false

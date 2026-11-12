@@ -108,7 +108,7 @@ RuVector MinCut has several optional features you can enable based on your needs
 
 ```toml
 [dependencies]
-ruvector-mincut = { version = "0.2", features = ["monitoring", "simd"] }
+ruvector-mincut = { version = "2.3", features = ["monitoring", "simd"] }
 ```
 
 #### Available Features
@@ -116,7 +116,7 @@ ruvector-mincut = { version = "0.2", features = ["monitoring", "simd"] }
 | Feature | Default | What It Does | When to Use |
 |---------|---------|--------------|-------------|
 | **`exact`** | ✅ Yes | Exact minimum cut algorithm | When you need guaranteed correct results |
-| **`approximate`** | ✅ Yes | Fast (1+ε)-approximate algorithm | When speed matters more than perfect accuracy |
+| **`approximate`** | ✅ Yes | Legacy compatibility flag; does not switch `DynamicMinCut` solvers | Existing manifests only |
 | **`monitoring`** | ❌ No | Real-time event notifications | When you need alerts for cut changes |
 | **`integration`** | ❌ No | GraphDB integration with ruvector-graph | When working with vector databases |
 | **`simd`** | ❌ No | SIMD vector optimizations | For faster processing on modern CPUs |
@@ -321,7 +321,7 @@ mincut.insert_edge(3, 4, 2.0)?;  // Add edge
 mincut.delete_edge(2, 3)?;        // Remove edge
 ```
 
-These operations update the minimum cut in **O(n^{o(1)})** amortized time — much faster than recomputing from scratch!
+These operations update the cached cut. Some changes require a full polynomial-time exact recomputation.
 
 ---
 
@@ -388,89 +388,27 @@ if result.is_exact {
 - Slower for very large graphs
 - Use when correctness is critical
 
-#### Approximate Mode
-- **`is_exact = false`**
-- Returns a cut within `(1+ε)` of the minimum
-- Much faster for large graphs
-- Use when speed matters more than perfect accuracy
+#### Legacy Approximate Option
 
-**Example:** With `ε = 0.1`:
-- If true minimum = 10, approximate returns between 10 and 11
-- Approximation ratio = 1.1 (10% tolerance)
+`MinCutBuilder::approximate(ε)` remains for compatibility, but it does not
+select a different solver. `DynamicMinCut` still computes an exact cut and
+reports `is_exact = true` and `approximation_ratio = 1.0`. The separate
+`ApproxMinCut` research API uses heuristic sparsification without a validated
+all-graph `(1+ε)` guarantee.
 
 ### Performance Characteristics
 
-```rust
-// Query: O(1) - instant!
-let value = mincut.min_cut_value();
-
-// Insert edge: O(n^{o(1)}) - subpolynomial!
-mincut.insert_edge(u, v, weight)?;
-
-// Delete edge: O(n^{o(1)}) - subpolynomial!
-mincut.delete_edge(u, v)?;
-```
-
-**What is O(n^{o(1)})?**
-- Slower than O(1) but faster than O(n), O(log n), etc.
-- Example: O(n^{0.01}) or O(n^{1/log log n})
-- Much better than traditional O(m·n) algorithms
-- Enables real-time updates even for large graphs
+The cached cut value is O(1) to read. An update may preserve the current cut
+or run the sparse Stoer-Wagner exact solver, whose full recomputation is
+polynomial. Measure against your graph family before relying on update latency.
 
 ---
 
-## 5. Choosing Between Exact and Approximate
+## 5. Choosing the Solver
 
-Use this flowchart to decide which mode to use:
-
-```mermaid
-flowchart TD
-    Start{What's your<br/>graph size?} --> Small{Less than<br/>10,000 nodes?}
-
-    Small -->|Yes| UseExact[Use EXACT mode]
-    Small -->|No| Large{More than<br/>1 million nodes?}
-
-    Large -->|Yes| UseApprox[Use APPROXIMATE mode]
-    Large -->|No| CheckAccuracy{Need guaranteed<br/>correctness?}
-
-    CheckAccuracy -->|Yes| UseExact2[Use EXACT mode]
-    CheckAccuracy -->|No| CheckSpeed{Speed is<br/>critical?}
-
-    CheckSpeed -->|Yes| UseApprox2[Use APPROXIMATE mode]
-    CheckSpeed -->|No| UseExact3[Use EXACT mode<br/>as default]
-
-    UseExact --> ExactCode["mincut = MinCutBuilder::new()
-        .exact()
-        .build()?"]
-
-    UseExact2 --> ExactCode
-    UseExact3 --> ExactCode
-
-    UseApprox --> ApproxCode["mincut = MinCutBuilder::new()
-        .approximate(0.1)
-        .build()?"]
-
-    UseApprox2 --> ApproxCode
-
-    style Start fill:#e1f5ff
-    style UseExact fill:#c8e6c9
-    style UseExact2 fill:#c8e6c9
-    style UseExact3 fill:#c8e6c9
-    style UseApprox fill:#fff9c4
-    style UseApprox2 fill:#fff9c4
-    style ExactCode fill:#f0f0f0
-    style ApproxCode fill:#f0f0f0
-```
-
-### Quick Comparison
-
-| Aspect | Exact Mode | Approximate Mode |
-|--------|-----------|------------------|
-| **Accuracy** | 100% correct | (1+ε) of optimal |
-| **Speed** | Moderate | Very fast |
-| **Memory** | O(n log n + m) | O(n log n / ε²) |
-| **Best For** | Small-medium graphs | Large graphs |
-| **Update Time** | O(n^{o(1)}) | O(n^{o(1)}) |
+Use `DynamicMinCut` when an exact global cut is required and its update cost is
+acceptable. The legacy `.approximate(ε)` builder option offers no speedup.
+Evaluate the separate `ApproxMinCut` API only as experimental research code.
 
 ### Code Examples
 
@@ -484,16 +422,16 @@ let mut mincut = MinCutBuilder::new()
 assert!(mincut.min_cut().is_exact);
 ```
 
-**Approximate Mode** (10% tolerance):
+**Legacy approximate request** (still exact):
 ```rust
 let mut mincut = MinCutBuilder::new()
-    .approximate(0.1)  // ε = 0.1
+    .approximate(0.1)  // legacy request; does not change the solver
     .with_edges(edges)
     .build()?;
 
 let result = mincut.min_cut();
-assert!(!result.is_exact);
-assert_eq!(result.approximation_ratio, 1.1);
+assert!(result.is_exact);
+assert_eq!(result.approximation_ratio, 1.0);
 ```
 
 ---
@@ -615,9 +553,8 @@ The minimum cut problem connects to many fascinating areas of computer science:
 
 ```rust
 MinCutBuilder::new()
-    .exact()                    // or .approximate(0.1)
+    .exact()                    // exact solver
     .with_edges(edges)          // Initial edges
-    .with_capacity(10000)       // Preallocate capacity
     .build()?                   // Construct
 ```
 
@@ -627,8 +564,8 @@ MinCutBuilder::new()
 mincut.min_cut_value()          // Get cut value (O(1))
 mincut.partition()              // Get partition (O(n))
 mincut.cut_edges()              // Get cut edges (O(m))
-mincut.insert_edge(u, v, w)?    // Add edge (O(n^{o(1)}))
-mincut.delete_edge(u, v)?       // Remove edge (O(n^{o(1)}))
+mincut.insert_edge(u, v, w)?    // Add edge (may recompute)
+mincut.delete_edge(u, v)?       // Remove edge (may recompute)
 ```
 
 ### Result Inspection
@@ -636,9 +573,9 @@ mincut.delete_edge(u, v)?       // Remove edge (O(n^{o(1)}))
 ```rust
 let result = mincut.min_cut();
 result.value                    // Cut value
-result.is_exact                 // true if exact mode
-result.approximation_ratio      // 1.0 if exact, >1.0 if approximate
-result.edges                    // Edges in the cut
+result.is_exact                 // true for DynamicMinCut
+result.approximation_ratio      // 1.0 for DynamicMinCut
+result.cut_edges                // Edges in the cut
 result.partition                // (S, T) vertex sets
 ```
 

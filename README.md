@@ -639,7 +639,9 @@ cd RuVector
 cargo test --workspace
 ```
 
-The workspace requires Rust 1.77 or newer. RVF and PostgreSQL have separate build instructions in their component documentation.
+The workspace declares Rust 1.88 as its minimum, including the ZIP 9 dependency used by Candle-backed components. RVF and PostgreSQL have separate build instructions in their component documentation.
+
+The Candle backports apply to builds from this workspace and are included in Python source distributions. Cargo does not carry workspace patches into published Rust dependencies; Candle-based crates.io releases still require fixed upstream dependencies or a published fork dependency chain.
 
 ## Frequently asked questions
 
@@ -684,3 +686,7 @@ Contributions are welcome. Start with the [contribution guide](./docs/developmen
 RuVector is available under the [MIT License](./LICENSE).
 
 Built by [rUv](https://ruv.io) and powering [Cognitum](https://cognitum.one).
+
+### Focused Python packages
+
+The [Python package portfolio](python/portfolio/README.md) adds graph traversal, embedding clustering and attention ranking APIs over the shared native Rust runtime, with executable examples, animated guides and gated PyPI publishing. These are release candidates until published artifacts are verified.

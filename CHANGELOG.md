@@ -1,9 +1,251 @@
 # Changelog
 
+- RvLite CLI persists literal vector IDs such as __proto__ and requires own records for get/delete, preventing silent data loss and phantom inherited IDs; automatic allocation skips occupied caller IDs and refuses exhausted counters.
+
 All notable changes to RuVector will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [@ruvector/core 0.2.0] - Unreleased
+### Changed (breaking)
+- `new VectorDb({ dimensions })` and `VectorDb.withDimensions(n)` without
+  `storagePath` now create an in-memory database private to that instance
+  (issue #1063). They used to open a shared `./ruvector.db` in the working
+  directory, so every such instance shared one store and its stored dimension
+  silently overrode the requested one: a 4-dim index created after a 256-dim one
+  accepted construction, then failed every insert with `Dimension mismatch`.
+  **Upgrading:** to keep an existing implicit store, pass
+  `storagePath: './ruvector.db'`. When `storagePath` is omitted and that file
+  exists, the binding prints a one-time warning to stderr.
+- Opening an existing store whose stored `dimensions` differ from the requested
+  ones now throws in the constructor, naming the path and both values. An
+  explicitly passed `distanceMetric` is checked the same way; an omitted one
+  keeps the stored metric, so reopening a non-Cosine store without restating the
+  metric still works.
+- Needs native `ruvector-core-*` platform packages built from this change;
+  publish them at the same version and bump the `optionalDependencies` pins.
+  Published as 0.2.0 rather than 0.1.x so caret (`^0.1.x`) dependents do not
+  pick up the new default silently.
+
+## [ruvector-core] - Unreleased
+### Added
+- `VectorDB::open_checked(options, ConfigCheck)` and `ConfigCheck`
+  (`ALL`, `DIMENSIONS`, `NONE`): open or create a database, failing with
+  `InvalidParameter` when an existing store's `dimensions` and/or
+  `distance_metric` differ from the requested ones instead of adopting them. A
+  legacy file holding vectors but no stored config is checked against a stored
+  vector's length before the requested config is written into it.
+### Changed
+- `VectorDB::new` keeps its documented behaviour (the stored configuration is
+  adopted) and now logs a `tracing` warning when the stored `dimensions` or
+  `distance_metric` differ from the requested ones.
+
+## [Unreleased]
+
+### Fixed (Python SDK)
+- Python LangChain adapter: duplicate caller IDs in one batch are rejected before inserting vectors, preventing rows that cannot be deleted through the adapter.
+- Python Collection persistence binds new sidecars to their index bytes with a SHA-256 digest, rejecting mixed file pairs after an interrupted index replacement. Legacy sidecars remain readable without this integrity guarantee.
+- Python MCP tools evict mutated collection state after a failed save so rejected writes cannot leak into reads or later retries.
+- Python MCP: refuse collection creation when a native index already exists without its sidecar, preserving partially restored data.
+- Python MCP: discover persisted collections from their metadata sidecars, including empty RaBitQ collections, and omit incomplete native-index files.
+- Python LlamaIndex searches apply node, document, and metadata restrictions before selecting the nearest top-k results. Empty document restrictions now return no results.
+- Python LlamaIndex IS_EMPTY filters now include absent and null metadata fields, matching the framework contract alongside existing empty-string and empty-list handling.
+- Python Agentforce routes: enforce the configured per-collection vector cap before upserting, consistently with MCP writes.
+- Python Salesforce ingestion: reject incomplete pages without cursors and repeated pagination cursors rather than returning partial results or looping.
+- Python RaBitQ identity integrity also ignores missing deletions and preserves IDs, metadata, and subsequent insertion identities through vacuum, keeping adapter document maps valid.
+- Python RaBitQ export and persistence retain caller-supplied external IDs instead of substituting internal row positions, preserving associated Collection metadata through save/load.
+- Python CLI: empty insert-batch inputs now report zero inserted rows successfully instead of indexing an empty ID list.
+- Python graph queries preserve unknown null predicates through comparisons, NOT, AND, OR and XOR, preventing missing properties from being admitted by negation; integer equality and ordering retain precision beyond the float mantissa.
+- Validate Python GNN checkpoint declarations, tensor layout and finite parameters before loading while preserving valid serialized learned weights.
+
+### Fixed
+- RvLite: acquire browser writer leases in a committed atomic IndexedDB transaction and prevent expired holders from overwriting or releasing successor leases.
+- RvLite CLI refuses corrupt or unreadable existing databases instead of reporting empty data or overwriting recoverable bytes.
+- Memory-backed Rust batches validate all vector dimensions before storing any
+- `rvf_store_open` refuses a malformed or dimensionless `.rvf` buffer instead of skipping the bad segment and allocating a dimension-1 store.
+- Count undirected edge weights once when scoring modularity in the npm
+  graph helpers and returned minimum-cut partitions. Single-edge and
+  disconnected-component scores now use the correct total edge weight.
+- npm rvf WASM queries use the metric stored on the database. Passing zero to `rvf_store_query` forced L2, so cosine and inner-product stores ranked with the wrong distance.
+- npm rvf rejects a batch whose rows do not match the store dimension before flattening, so a short vector cannot pad into the next row.
+- npm rvf keeps a quarantined id-map sidecar refused on the next open until a valid mapping is restored. A fresh store with no quarantine still opens.
+
+## [ruvector 0.3.23] - 2026-11-10
+### Fixed
+- `LearningEngine.import()` accepts state without the `neural` field again.
+  0.3.22 typed its parameter as the full `export()` return type, so TypeScript
+  code passing state exported by, or typed against, 0.3.21 stopped compiling.
+  `neural` is now optional (`LearningEngineImportState`); runtime behaviour is
+  unchanged. A type-level test compiles a 0.3.21 `export()` shape.
+- `@ruvector/edge-full` source: `modules.onnx.size` and `totalSize.withOnnx`
+  report the current ONNX wasm size (10.2MB, 11.5MB with ONNX) instead of
+  7.1MB / 8.4MB (not republished).
+
+## [ruvector 0.3.22] - 2026-11-10
+### Added
+- `neural-q` learning algorithm: a small MLP Q-function (hashed state features,
+  64-32-|actions|) trained with AdamW on the experience buffer, so routing
+  generalises to states the tabular Q-table has never seen. Available in
+  `LearningEngine`, `ruvector hooks learning-config -a neural-q` and the
+  `hooks_learning_config` MCP tool. It runs on the optional peer `ruv-fann`
+  (`npm i ruv-fann@0.1.0`); without it `neural-q` behaves exactly like
+  `q-learning`. The default install is unchanged. Held-out benchmark
+  (`scripts/neural-q-bench.js`, 9 agents, 5 seeds): unseen-state routing
+  accuracy 0.924 vs 0.204 (route keys) and 0.597 vs 0.203 (free-text states)
+  for neural-q vs q-learning; about 7 us per decision vs about 1 us.
+
+## [rvf-runtime 0.5.5] - 2026-11-10
+### Added
+- `RvfStore::should_compact`, `should_compact_with` and
+  `compact_if_needed` wire the spec 10 §7 compaction policy (dead space,
+  segment count, interval, emergency ratio) into the store. The policy and
+  `compaction::{CompactionThresholds, CompactionDecision, evaluate_triggers}`
+  were implemented and tested but unreachable (#755, from #753).
+
+## [ruvector-sona 0.2.5, ruvector-graph 2.3.5] - 2026-11-10
+### Fixed
+- `MicroLoRA::set_weights` rejects NaN/Inf in either projection before
+  changing any state, so corrupt external weights cannot poison an adapter
+  (#1472, from #375).
+- `GraphDB::delete_edge` and `delete_edges_batch` persist the deletion
+  before touching memory and indexes, so a storage error no longer leaves
+  memory and disk disagreeing (#1472, from #375).
+
+### Documentation
+- ruvector-graph README quickstart rewritten against the real `GraphDB` /
+  `NodeBuilder` / `EdgeBuilder` API (it used types that do not exist).
+
+## [ruvector 0.3.21, ruvector-cli 2.3.1] - 2026-11-10
+### Fixed
+- `rvlite_sql`, `rvlite_cypher` and `rvlite_sparql` MCP tools work. They
+  constructed a nonexistent `rvlite.Database` (the class is `RvLite`), did
+  not await the async query methods, and stripped `( ) { } ' "` from queries
+  with a shell sanitizer although queries never reach a shell. `db_path`
+  stays confined to the working directory and is loaded, never written
+  back (#1463).
+- Both MCP servers (`ruvector mcp start` and `ruvector-mcp`) answer
+  `resources/templates/list` with an empty list instead of -32601, which
+  clients such as Continue treat as fatal during setup (#1464, from #217).
+
+## [ruvector 0.3.20] - 2026-11-09
+### Fixed
+- Attention wrappers call `@ruvector/attention` with its real argument
+  shapes (GraphRoPe, DualSpace, async flash/hyperbolic, parallel/batch
+  compute, InfoNCE, hard-negative mining, Adam, benchmark), and
+  `ruvector attention compute -t flash|linear` works (#1375).
+- `hooks init` merges with other tools' hooks instead of replacing them,
+  hook commands read Claude Code's stdin JSON (`--stdin`), timeouts are in
+  seconds, and init no longer enables `claude-flow` or adds agentic-flow
+  alpha prompt hooks (#1222).
+- Session hooks run on `SessionEnd` instead of after every reply,
+  `compressedPatterns` survive later saves, and `hooks compress` /
+  AUTO_COMPRESS store the Q-table (#1223).
+- `hooks graph-cluster` / `graph-mincut` name nodes by relative path, so
+  same-named files in different directories stay distinct, and follow
+  `../x`, subpath and directory-index imports (#1217).
+
+## [@ruvector/core 0.1.38 (platforms 0.1.35), ruvector 0.3.19] - 2026-11-09
+### Fixed
+- Re-inserting an existing id is an upsert with no HNSW ghost of the old
+  vector, and NaN/Inf vectors are rejected on insert, insertBatch and search
+  (#1443, issues #1310 / #1313). Core binaries built from b59a81a06.
+- HNSW returns complete results on very small graphs and skips deleted
+  nodes (#1299). Shipped as core platform packages 0.1.35; 0.1.37 still
+  pinned the 0.1.34 binaries, built before the fix.
+- linux-arm64-gnu core binary is baseline aarch64 again (#1384): 0.1.34
+  carried 2,524 LDAPR (`+rcpc`) instructions and died with SIGILL on
+  Cortex-A72 (Pi 4) and Jetson AGX Xavier. The 0.1.35 binary has none.
+- `ruvector hooks build-agents` honours an absolute `--output` (#1294) and
+  `hooks rag-context --rerank` actually reranks (#1319).
+- `@ruvector/rvf-mcp-server` 0.2.5 and `ruvector-extensions` 0.1.6 require
+  express ^4.22.3 (#1281).
+
+## [ruvector 0.3.14] - 2026-11-06
+### Security
+- `decompile_url` private-address guard also checks IPv4 addresses embedded
+  in IPv6 forms (#1359).
+- DiskANN build/search refuse symlinked index files (#1381).
+
+### Changed
+- Fresh installs resolve `@ruvector/rvf` 0.4.6 (filtered queries exact on
+  weak graphs, `forceExact`), `@ruvector/attention` 2.3.0 (native faster than
+  a JS loop, `computeFlat`, complete typings) and `@ruvector/core` 0.1.36
+  (`version()` reports the package version) through the existing ranges.
+
+## [ruvector 0.3.13] - 2026-11-05
+### Added
+- Hook memory recall (`IntelligenceEngine.recall`, MCP `hooks_recall` /
+  `hooks_suggest_context`) uses a RaBitQ candidate index from
+  `@ruvector/rabitq-wasm` once a store holds `RUVECTOR_RABITQ_THRESHOLD`
+  memories (default 5000; `0` disables). The index proposes 10 x k candidates
+  and they are re-scored with exact cosine, so scores are exact and top-10
+  recall matched brute force (1.000) on 20k x 384 at ~2.7 ms vs ~38 ms per
+  query. The index is built on the second eligible recall in a process, so
+  one-shot hook commands never pay the ~0.4 s build. Post-build
+  inserts/deletes apply as a delta without a rebuild. Without the package,
+  recall is the unchanged exact scan. `@ruvector/rabitq-wasm` moves from
+  devDependencies to optionalDependencies (282 KB).
+- `ruvector diskann build <dir> -i vectors.json` / `ruvector diskann search
+  <dir> -v ...` and MCP tools `diskann_build` / `diskann_search` (paths
+  confined to the working directory) expose `@ruvector/diskann`, previously
+  library-only. It stays an opt-in extra: `npx ruvector add diskann`.
+- `ruvector skills list|install` ships the `ruvector-integrations` agent
+  skill and installs it into `.claude/skills` (Claude Code) and/or
+  `.agents/skills` (Codex). `skills/` is now in the published files.
+### Fixed
+- Keep generated memory-storage IDs from overwriting live caller-selected rows, reserve explicit IDs in mixed batches, and refuse generated-counter wraparound while preserving intentional explicit upserts.
+- Preserve current HNSW caller IDs across replacements and deletion, widen live top-k retrieval when obsolete graph rows crowd candidates, and repair stale reverse mappings when restoring older snapshots.
+- Every open-ended `>=` peer range is now bounded. `@ruvector/ruvllm >=2.0.0`
+  resolved to 4.0.1, a different product published under the same name
+  without the runtime that `ruvector llm` / `ruvector sona` load (`ruvllm.RuvLLM is
+  not a constructor`); it is now `^4.1.0`, the restored runtime, verified
+  with `llm info|models|embed` and `sona status`. Other peers take their optionalDependencies spec
+  or a caret on their previous minimum.
+- Security: `@metaharness/darwin` moves from `^0.9.1` to `^0.13.0` (and the
+  `metaharness` meta-package from `^0.4.7` to `^0.4.20`, which itself requires
+  darwin `^0.13.0`) for the high-severity sandbox bypass fixed in darwin 0.13.0
+  (GHSA-mjwg-5fm3-fx2p). The 0.x caret could never reach 0.13. `ruvector harness
+  darwin --execute` and `runMetaHarnessDarwin` call `evolve(config)`, whose
+  signature is unchanged; verified with a real evolution run against 0.13.0.
+- Security: `@ruvector/attention` moves from `^0.1.3` (resolved 0.1.32) to
+  `^2.2.3`, which contains the H1 fix: on 0.1.x a malformed input panicked in
+  the NAPI binding and aborted the whole Node process (SIGABRT); 2.2.3 throws a
+  catchable error. The JS surface is identical (same 39 exports, byte-identical
+  wrapper); a differential run of every ruvector attention wrapper gave identical
+  outputs (max |diff| 1.8e-3 on hyperbolic, float drift). `@ruvector/core`,
+  `gnn` and `sona` already resolve to their latest. Guarded by
+  `test/attention-panic.js`.
+- `harness status` no longer imports `@metaharness/darwin` to report it (darwin
+  0.13 eagerly loads `@babel/parser`, ~35 ms, which pushed status past the
+  ADR-256 startup budget: +135 ms vs 120 ms on CI). Status reports darwin as
+  installed, with its real installed version, without loading it; `harness
+  doctor` still imports every package. Delta back to ~+40 ms.
+- Security: `@ruvector/sona` floor raised from `^0.1.4` to `^0.1.11`
+  (GHSA-c27m-v4wg-f9qj, affects < 0.1.9; 0.1.11 adds catch_unwind on every sync
+  NAPI entry point and a bounded trajectory store) so existing lockfiles move.
+
+## [ruvector 0.3.12] - 2026-11-05
+### Fixed
+- `hooks graph-mincut` and `hooks graph-cluster` (and the MCP tools
+  `hooks_graph_mincut` / `hooks_graph_cluster` that shell out to them) failed
+  on every input: the CLI passed `(nodes, edges)` with `{source,target}` edges
+  to functions that take one `Graph` built from `{from,to}` edges. They now
+  build the graph correctly, recognise `require('./x')` and extension-ful
+  imports, and print clusters as JSON (`assignments`, `groups`, `modularity`)
+  instead of empty objects from serialized `Map`s.
+- `graph-mincut` now uses `minCutFast`, which runs on the optional
+  `@ruvector/mincut-wasm` when installed and falls back to the exact TS
+  Stoer-Wagner otherwise; the output reports which `engine` ran.
+- `louvainCommunities` could loop forever on any graph with a bridge edge: it
+  scored only the gain of joining a community, not the loss of leaving one, so
+  a bridge node oscillated. It now scores moves with the node removed from its
+  community, moves only on strict improvement, and normalizes by the
+  undirected edge weight like `calculateModularity`.
+- `spectralClustering` used the largest eigenvectors of the normalized
+  Laplacian (power iteration) instead of the smallest, and seeded both power
+  iteration and k-means randomly. It now iterates on `2I - L` and seeds
+  deterministically, so it finds the real clusters and is reproducible.
 
 ## [@ruvector/router 0.1.32] - 2026-09-30
 ### Fixed

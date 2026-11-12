@@ -62,6 +62,8 @@ __all__ = [
     "AttentionReranker",
     "kmeans",
     "SonaEngine",
+    "KVCache",
+    "RvfStore",
 ]
 
 # Names that must NOT be dynamically resolved against _native/collection even

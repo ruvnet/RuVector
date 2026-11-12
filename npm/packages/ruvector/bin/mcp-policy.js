@@ -31,6 +31,8 @@ const MCP_PROFILES = {
     'metaharness_reward_hack_scan',
     'hooks_stats',
     'hooks_recall',
+    'hooks_memory_get',
+    'hooks_memory_list',
     'hooks_route',
     'hooks_route_enhanced',
     'hooks_suggest_context',
@@ -39,6 +41,8 @@ const MCP_PROFILES = {
     'hooks_doctor',
     'hooks_attention_info',
     'hooks_gnn_info',
+    'quantum_info',
+    'quantum_simulate',
   ],
 };
 

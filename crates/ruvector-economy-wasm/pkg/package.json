@@ -6,11 +6,12 @@
   ],
   "author": "RuVector Team <ruvnet@users.noreply.github.com>",
   "description": "CRDT-based autonomous credit economy for distributed compute networks - WASM optimized",
-  "version": "0.1.29",
+  "version": "0.1.30",
   "license": "MIT",
   "repository": {
+    "directory": "crates/ruvector-economy-wasm/pkg",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
@@ -30,14 +31,20 @@
   ],
   "keywords": [
     "wasm",
-    "crdt",
-    "distributed-economy",
-    "p2p-credits",
-    "reputation",
-    "ruvector",
-    "webassembly",
     "distributed-systems",
-    "autonomous-economy",
-    "consensus"
+    "webassembly",
+    "consensus",
+    "autonomous-agents",
+    "ruvector",
+    "ruvnet",
+    "vector-database",
+    "vector-search",
+    "hnsw",
+    "embeddings",
+    "rag",
+    "semantic-search",
+    "knowledge-graph",
+    "gnn",
+    "graph-embeddings"
   ]
 }

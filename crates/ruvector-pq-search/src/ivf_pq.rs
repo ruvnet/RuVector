@@ -4,7 +4,11 @@
 //! k-means on raw vectors. At query time, probe the `n_probe` nearest cells
 //! and run ADC only within those lists. Reduces scan from O(n) to O(n/n_lists × n_probe).
 
-use crate::{codebook::PqCodebook, encoder::encode_vector, l2_sq, PqSearch, SearchResult};
+use crate::{
+    codebook::{EmeansPqError, PqCodebook},
+    encoder::encode_vector,
+    l2_sq, PqSearch, SearchResult,
+};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
@@ -21,6 +25,60 @@ pub struct IvfPqIndex {
 }
 
 impl IvfPqIndex {
+    /// Train coarse e-means centroids while retaining the existing IVF+PQ
+    /// posting, code, and ADC search representation. `options.clusters` sets
+    /// the number of lists; the supplied codebook may also be e-means-trained.
+    pub fn new_e_means(
+        codebook: PqCodebook,
+        n_probe: usize,
+        training_vecs: &[f32],
+        options: &ruvector_e_means::Config,
+    ) -> Result<Self, EmeansPqError> {
+        codebook.validate_e_means_layout()?;
+        if n_probe == 0 || n_probe > options.clusters {
+            return Err(EmeansPqError::InvalidInput(
+                "n_probe must be in 1..=coarse clusters",
+            ));
+        }
+        let dim = codebook.dim;
+        let coarse = ruvector_e_means::fit(training_vecs, dim, options)?;
+        Ok(Self {
+            codebook,
+            coarse_centroids: coarse.centroids,
+            lists: vec![Vec::new(); options.clusters],
+            n_lists: options.clusters,
+            n_probe,
+            dim,
+            next_id: 0,
+        })
+    }
+
+    /// Insert one finite, correctly shaped vector without a partial mutation
+    /// on validation failure. Existing `PqSearch::insert` remains available.
+    pub fn try_insert(&mut self, vector: &[f32]) -> Result<(), EmeansPqError> {
+        self.validate_vector(vector)?;
+        if self.next_id == usize::MAX {
+            return Err(EmeansPqError::InvalidInput("vector ID overflow"));
+        }
+        <Self as PqSearch>::insert(self, vector);
+        Ok(())
+    }
+
+    /// Search with explicit query validation before accessing legacy ADC code.
+    pub fn try_search(&self, query: &[f32], k: usize) -> Result<Vec<SearchResult>, EmeansPqError> {
+        self.validate_vector(query)?;
+        Ok(<Self as PqSearch>::search(self, query, k))
+    }
+
+    fn validate_vector(&self, vector: &[f32]) -> Result<(), EmeansPqError> {
+        if vector.len() != self.dim || vector.iter().any(|value| !value.is_finite()) {
+            return Err(EmeansPqError::InvalidInput(
+                "vector must match dimensions and contain only finite values",
+            ));
+        }
+        Ok(())
+    }
+
     /// Build an IVF+PQ index.
     /// `n_lists`: number of Voronoi partitions.
     /// `n_probe`: cells to probe at query time.

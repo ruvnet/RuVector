@@ -28,11 +28,11 @@ fn xyz(lat: f64, lon: f64) -> Result<[f64; 3], RoutingError> {
 }
 impl MapIndex {
     pub fn new(lat_lon: &[f64]) -> Result<Self, RoutingError> {
-        if lat_lon.len() % 2 != 0 || lat_lon.len() / 2 > MAX_NODES {
+        if !lat_lon.len().is_multiple_of(2) || lat_lon.len() / 2 > MAX_NODES {
             return Err(RoutingError::InvalidInput("coordinate count"));
         }
         let mut points = Vec::with_capacity(lat_lon.len() / 2);
-        for (id, c) in lat_lon.chunks_exact(2).enumerate() {
+        for (id, c) in lat_lon.as_chunks::<2>().0.iter().enumerate() {
             points.push(Point {
                 xyz: xyz(c[0], c[1])?,
                 id: id as u32,

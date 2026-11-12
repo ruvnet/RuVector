@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/agentic-synth-examples",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Production-ready examples for @ruvector/agentic-synth - DSPy training, multi-model benchmarking, and advanced synthetic data generation patterns",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -44,43 +44,37 @@
     "pretest": "npm run typecheck"
   },
   "keywords": [
-    "agentic-synth",
+    "benchmark",
+    "claude",
+    "machine-learning",
+    "gemini",
+    "prompt-engineering",
+    "agentic-ai",
+    "ruvector",
+    "ruvnet",
     "examples",
     "dspy",
-    "dspy-ts",
-    "synthetic-data",
-    "multi-model",
-    "benchmarking",
-    "machine-learning",
-    "ai-training",
-    "prompt-engineering",
-    "self-learning",
-    "claude",
-    "gpt4",
-    "gemini",
-    "llama",
-    "tutorials",
-    "getting-started"
+    "self-learning"
   ],
   "author": "ruvnet",
   "license": "MIT",
   "repository": {
+    "directory": "npm/packages/agentic-synth-examples",
     "type": "git",
-    "url": "https://github.com/ruvnet/ruvector.git",
-    "directory": "packages/agentic-synth-examples"
+    "url": "git+https://github.com/ruvnet/ruvector.git"
   },
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/packages/agentic-synth-examples#readme",
+  "homepage": "https://ruv.io",
   "dependencies": {
-    "@ruvector/agentic-synth": "file:../agentic-synth",
+    "@ruvector/agentic-synth": "0.1.11",
     "commander": "^11.1.0",
     "zod": "^4.1.12"
   },
   "peerDependencies": {
-    "@ruvector/agentic-synth": "^0.1.0",
-    "dspy.ts": "^2.2.0"
+    "@ruvector/agentic-synth": "0.1.11",
+    "dspy.ts": "2.3.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

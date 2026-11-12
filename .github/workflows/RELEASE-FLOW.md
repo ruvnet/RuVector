@@ -55,7 +55,7 @@
 │  │                                                              ││
 │  │  Platform 4        Platform 5                               ││
 │  │  darwin-arm64      win32-x64-msvc                           ││
-│  │  macos-14          windows-2022                             ││
+│  │  macos-15          windows-2022                             ││
 │  │  ┌──────────┐      ┌──────────┐                            ││
 │  │  │ napi-rs  │      │ napi-rs  │                            ││
 │  │  │ build    │      │ build    │                            ││

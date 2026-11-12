@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/rabitq-wasm.svg" alt="@ruvector/rabitq-wasm: RaBitQ 1-bit quantized vector index in WebAssembly — 32× compression with high-recall rerank." width="100%"></p>
+
 # @ruvector/rabitq-wasm
 
 **RaBitQ 1-bit quantized vector index in WebAssembly.** Compress embeddings 32× and run approximate nearest-neighbor search in the browser, Cloudflare Workers, Deno, or Bun.
@@ -27,7 +29,7 @@ npm install @ruvector/rabitq-wasm
 ```js
 import init, { RabitqIndex } from "@ruvector/rabitq-wasm";
 
-await init();
+await init(); // the default export loads the .wasm (the named `init` export is only the panic-hook installer)
 
 const dim = 768;
 const n = 10_000;
@@ -41,8 +43,12 @@ const query = new Float32Array(dim);
 // ... fill query ...
 
 const results = idx.search(query, 10);
-// → [{ id: 7421, distance: 0.0023 }, { id: 9011, distance: 0.0041 }, ...]
+for (const r of results) console.log(r.id, r.distance); // e.g. 7421 0.0023
 ```
+
+The hits are wasm-bindgen `SearchResult` objects whose `id` / `distance` are
+getters, so `JSON.stringify` or `{ ...r }` won't show them — map to plain objects
+first: `results.map(r => ({ id: r.id, distance: r.distance }))`.
 
 ## Usage (Node.js / Bun)
 
@@ -80,7 +86,7 @@ Throws if `dim == 0`, `vectors` is empty, or `vectors.length` is not a multiple 
 
 #### `idx.search(query, k)`
 
-Find the `k` nearest neighbors of `query`. Returns an array of `SearchResult` ordered ascending by distance.
+Find the `k` nearest neighbors of `query` (a `Float32Array` of length `dim`). Returns an array of `SearchResult` ordered ascending by distance. Throws if `k == 0` or the query length differs from the index's `dim`.
 
 #### `idx.len` (getter, number)
 
@@ -90,14 +96,17 @@ Number of vectors indexed.
 
 `true` iff no vectors have been indexed.
 
-### `interface SearchResult`
+### `class SearchResult`
 
 ```ts
 {
-  id: number;       // caller-supplied vector id (its row index in `build`)
-  distance: number; // approximate L2² distance after rerank
+  readonly id: number;       // caller-supplied vector id (its row index in `build`)
+  readonly distance: number; // approximate L2² distance after rerank
 }
 ```
+
+`RabitqIndex` and `SearchResult` hold WASM memory; call `.free()` when you are done
+with them in long-running code (they are also released by a `FinalizationRegistry`).
 
 ### `version()`
 
@@ -110,11 +119,12 @@ Returns the crate version baked at build time.
 - **Deterministic across architectures.** Builds on your x86_64 build server, runs identically on the user's ARM phone or in a Cloudflare Worker.
 - **No server.** Run RAG, semantic search, or recommendation lookup entirely client-side.
 
-## Sister packages
+## Related packages
 
-- [`@ruvector/acorn-wasm`](https://www.npmjs.com/package/@ruvector/acorn-wasm) — predicate-agnostic filtered HNSW (when you also need to filter results by metadata).
-- [`@ruvector/graph-wasm`](https://www.npmjs.com/package/@ruvector/graph-wasm) — Cypher-compatible hypergraph database in WASM.
-- [`ruvector`](https://www.npmjs.com/package/ruvector), [`@ruvector/core`](https://www.npmjs.com/package/@ruvector/core) — Node.js NAPI bindings for the full ruvector engine.
+- [`@ruvector/acorn-wasm`](https://www.npmjs.com/package/@ruvector/acorn-wasm) — predicate-agnostic filtered HNSW in WASM, for when you also need to filter results by metadata.
+- [`@ruvector/wasm`](https://www.npmjs.com/package/@ruvector/wasm) — the full ruvector vector database compiled to WASM for browsers.
+- [`@ruvector/core`](https://www.npmjs.com/package/@ruvector/core) — native Node.js (NAPI) vector database with HNSW indexing.
+- [`ruvector`](https://www.npmjs.com/package/ruvector) — umbrella package and CLI (`npx ruvector`).
 
 ## Source
 

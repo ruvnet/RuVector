@@ -1,6 +1,6 @@
 [package]
 name = "ruvector-py"
-version = "0.1.2"
+version = "0.1.4"
 edition = "2021"
 rust-version.workspace = true
 license = "MIT"
@@ -81,3 +81,5 @@ ruvector-gnn = { path = "../ruvector-gnn" }
 ruvector-attention = { path = "../ruvector-attention" }
 ruvector-cluster-rag = { path = "../ruvector-cluster-rag" }
 ruvector-sona = { path = "../sona" }
+ruvllm = { path = "../ruvllm", default-features = false, features = ["minimal"] }
+rvf-runtime = { path = "../rvf/rvf-runtime" }

@@ -5,3 +5,17 @@ html{scroll-padding-top:130px}body{padding-top:0;padding-bottom:100px}.explorer-
 /* Leave room for both navigation bars and the replay controls. */
 body[data-rx-section=search] #topo{height:calc(100dvh - 250px);min-height:460px;max-height:860px}
 @media(max-width:740px){body[data-rx-section=search] #topo{height:calc(100dvh - 235px);min-height:440px}}
+/* Focus and fullscreen modes keep the canvas controls reachable while the surrounding search UI collapses. */
+#focusBtn{top:158px;left:20px;z-index:3}
+#fullBtn{top:158px;right:20px;z-index:3}
+#focusBtn svg,#fullBtn svg{display:block;pointer-events:none}
+body.rx-focus-mode{max-width:none;padding:0;overflow:hidden}
+body.rx-focus-mode .explorer-intro,body.rx-focus-mode .rx-topnav,body.rx-focus-mode .rx-dock,body.rx-focus-mode #rx-workspace>.strip,body.rx-focus-mode .rx-panel{display:none!important}
+body.rx-focus-mode #rx-workspace{margin:0;padding:0}
+body.rx-focus-mode #stage{position:fixed;inset:0;z-index:1000;width:100vw;height:100dvh;border:0}
+body.rx-focus-mode #topo,#stage:fullscreen #topo{width:100%;height:100dvh!important;min-height:0!important;max-height:none!important}
+#stage:fullscreen{width:100vw;height:100dvh;border:0}
+#stage:fullscreen #focusBtn{top:calc(158px + env(safe-area-inset-top,0px))}
+#stage:fullscreen #fullBtn{top:calc(158px + env(safe-area-inset-top,0px))}
+@media(max-width:740px){#focusBtn{top:calc(158px + env(safe-area-inset-top,0px));left:12px}#fullBtn{top:calc(158px + env(safe-area-inset-top,0px));right:12px}.stage:fullscreen #topo{height:100dvh!important}}
+@media(prefers-reduced-motion:reduce){body.rx-focus-mode #stage{scroll-behavior:auto}}

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Add the vendored `patches/hnsw_rs` crate to a `maturin sdist` tarball.
+# Add every workspace path patch to a `maturin sdist` tarball.
 #
 # The workspace root Cargo.toml has `[patch.crates-io] hnsw_rs = { path =
 # "./patches/hnsw_rs" }`. maturin copies path *dependencies* into the sdist
@@ -20,9 +20,47 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 tar xzf "$sdist" -C "$work"
-mkdir -p "$work/$top/patches"
-cp -r "$root/patches/hnsw_rs" "$work/$top/patches/hnsw_rs"
-rm -rf "$work/$top/patches/hnsw_rs/target"
+# setup-python pins Python 3.12 in the sdist job (tomllib requires >=3.11).
+python3 - "$root" "$work/$top" <<'PATCH_PATHS'
+import pathlib
+import shutil
+import sys
+import tomllib
+
+root = pathlib.Path(sys.argv[1])
+destination = pathlib.Path(sys.argv[2])
+manifest = tomllib.loads((root / "Cargo.toml").read_text())
+for spec in manifest.get("patch", {}).get("crates-io", {}).values():
+    if not isinstance(spec, dict) or "path" not in spec:
+        continue
+    relative = pathlib.Path(spec["path"])
+    source = (root / relative).resolve()
+    if relative.is_absolute() or not source.is_relative_to(root):
+        raise ValueError(f"Patch path must stay inside the source workspace: {relative}")
+    if not (source / "Cargo.toml").is_file() or not list(source.glob("LICENSE*")):
+        raise ValueError(f"Patch manifest or retained license missing: {relative}")
+    shutil.copytree(source, destination / relative, dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns("target", ".git"))
+    print(f"vendored patch: {relative}")
+PATCH_PATHS
 cp "$root/crates/ruvector-py/LICENSE" "$work/$top/LICENSE"
+# Maturin trims the workspace. Prune its copied lock to that exact source
+# graph, then reject any registry version/source/checksum change.
+cargo metadata --offline --format-version 1 --manifest-path "$work/$top/Cargo.toml" > "$work/metadata.json"
+python3 - "$root/Cargo.lock" "$work/$top/Cargo.lock" <<'LOCK_CLOSURE'
+import pathlib
+import sys
+import tomllib
+
+def registry_packages(path):
+    lock = tomllib.loads(pathlib.Path(path).read_text())
+    return {(p["name"], p["version"], p["source"], p.get("checksum"))
+            for p in lock["package"] if p.get("source", "").startswith("registry+")}
+
+before, after = map(registry_packages, sys.argv[1:])
+if not after.issubset(before):
+    raise ValueError(f"sdist resolution changed locked registry packages: {sorted(after - before)}")
+print(f"sdist lock closure: {len(after)} registry package tuples verified against workspace lock (subset)")
+LOCK_CLOSURE
 tar czf "$sdist" -C "$work" "$top"
-echo "patched $sdist: added $top/patches/hnsw_rs and $top/LICENSE"
+echo "patched $sdist: added workspace path patches and $top/LICENSE"

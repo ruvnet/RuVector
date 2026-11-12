@@ -114,11 +114,14 @@ impl ProgressiveIndex {
             for part in &layer_a.partition_map {
                 if part.centroid_id == ci as u32 {
                     // Scan vectors in this partition.
-                    for vid in part.vector_id_start..part.vector_id_end {
-                        if let Some(v) = vectors.get_vector(vid) {
-                            candidates.push((vid, distance_fn(query, v)));
-                        }
-                    }
+                    // Bounded by the entries present when the store can say so
+                    // (see `VectorStore::for_each_in_range`); a hostile range
+                    // such as 0..u64::MAX must not mean 2^64 lookups.
+                    vectors.for_each_in_range(
+                        part.vector_id_start,
+                        part.vector_id_end,
+                        &mut |vid, v| candidates.push((vid, distance_fn(query, v))),
+                    );
                 }
             }
         }

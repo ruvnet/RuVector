@@ -1,6 +1,6 @@
 [package]
 name        = "ruvector-agent-memory"
-version     = "0.1.0"
+version     = "0.1.1"
 edition     = "2021"
 description = "Coherence-weighted agent memory compaction for ruvector: retain important memories using recency, frequency, and semantic coherence"
 authors     = ["ruvnet", "claude-flow"]
@@ -21,7 +21,7 @@ serde = { workspace = true }
 # hash or signature scheme (ADR-320 Security Gates). `ed25519` feature pulls in
 # ed25519-dalek + rand_core; the always-compiled `sha256` module needs no
 # feature.
-rvf-types = { version = "0.2", path = "../rvf/rvf-types", features = ["ed25519"] }
+rvf-types = { version = "0.3", path = "../rvf/rvf-types", features = ["ed25519"] }
 # ADR-347: hold an `ed25519_dalek::SigningKey` directly in `SignedWitnessSink`
 # (no per-signature secret copies) and use `verify_strict`. Same crate and
 # spec rvf-types already pulls in (2.2.x) — no new crate in the tree.
