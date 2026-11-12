@@ -1,0 +1,70 @@
+{
+  "observedAt": "2026-11-11T17:36:16.810277+00:00",
+  "scope": "New e-means modules and explicit ecosystem entrypoints; no registry publication, Cloudflare deployment, or hosted Vectorize mutation.",
+  "rust": {
+    "targetedTestsPassed": 50,
+    "packages": [
+      "ruvector-e-means (all features)",
+      "ruvector-pq-search",
+      "ruvector-rairs"
+    ],
+    "strictClippyAllTargets": "passed",
+    "crateArchiveVerification": "passed",
+    "packagedNativeRust181Check": "passed"
+  },
+  "npm": {
+    "sharedTestsPassed": 44,
+    "sharedFailures": 0,
+    "sharedSkips": 0,
+    "strictTypes": "passed",
+    "optionalSdkAbsentInstalledConsumer": "passed",
+    "realDarwinInstalledConsumer": "passed",
+    "newRuVectorArchiveEntryPoints": [
+      "@ruvector/core/clustering.mjs",
+      "ruvector/clustering.mjs",
+      "@ruvector/all/clustering.mjs",
+      "@ruvector/wasm/clustering"
+    ],
+    "newRuVectorArchiveEntryPointsStatus": "passed; unrelated legacy root/prepack release builds excluded",
+    "fannSourceFacadeTestsPassed": 8,
+    "fannRustAdapterTestsPassed": 3
+  },
+  "cloudflare": {
+    "localWorkerd": "passed with static Rust WASM and no nodejs_compat",
+    "localR2BindingRoundtrip": "passed",
+    "installedArchiveWorker": "passed",
+    "vectorize": "binding-contract fixtures only; no hosted mutation",
+    "schemaIteratorAuthBodyDeadlineAndWorkBoundRegressions": "passed"
+  },
+  "metaharness": {
+    "package": "@metaharness/darwin",
+    "version": "0.13.0",
+    "algorithm": "actual evolveNumeric",
+    "holdout": "Separate nonoverlapping caller-supplied snapshot; used for selection, not independent generalization evidence",
+    "sourceApplied": false,
+    "temporaryArchiveCleanup": "passed"
+  },
+  "dependencyAudit": {
+    "scope": "Isolated canonical integration-tool package lock",
+    "counts": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "miniflare": "4.20260730.0",
+    "scopedOverrides": {
+      "sharp": "0.35.5",
+      "undici": "7.30.1"
+    },
+    "workspaceInstallLimitation": "Existing Darwin-only workspace package prevents a whole-workspace Linux npm install; isolated lock qualification is used."
+  },
+  "sha256": {
+    "npm/packages/e-means/package-lock.json": "d4b066d2503c58c92927fac0872180e3f1cc5d9f3e2e9665ddd5d2fdf717d25b",
+    "npm/package-lock.json": "4d80b3ccec4d52dbbfc5191062cc57397b8f6aa0ff24e7211c45cdb06c3fa1b0",
+    "Cargo.lock": "45f6253a219ae8446ff24b4adc27061e18ea43b9e627f8c55756f8983f81fcf4",
+    "npm/packages/e-means/wasm/ruvector_e_means_bg.wasm": "2c8f8a21e89f7e809a02d967bb77935284f35115855ed8024fae1a9453f27b5b"
+  }
+}

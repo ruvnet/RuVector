@@ -48,6 +48,26 @@ pub struct RairsSeil {
 }
 
 impl RairsSeil {
+    /// Train explicit e-means centroids while retaining SEIL block storage and
+    /// redundant assignment. Cluster count must match the constructor; options
+    /// provide epochs and seed. Failure preserves state; success clears stored
+    /// vectors and restarts their IDs at zero.
+    pub fn train_e_means(
+        &mut self,
+        corpus: &[Vec<f32>],
+        options: &ruvector_e_means::Config,
+    ) -> Result<(), RairsError> {
+        if !self.lambda.is_finite() {
+            return Err(RairsError::InvalidParam("lambda must be finite".into()));
+        }
+        let centroids =
+            crate::ivf::train_e_means_centroids(corpus, self.dim, self.nclusters, options)?;
+        self.lists = vec![Vec::new(); centroids.len()];
+        self.centroids = centroids;
+        self.total = 0;
+        Ok(())
+    }
+
     /// Create a new untrained RairsSeil index.
     pub fn new(dim: usize, nclusters: usize, max_iter: usize, seed: u64, lambda: f32) -> Self {
         Self {

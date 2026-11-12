@@ -732,7 +732,7 @@ console.log('Streaming complete!');
 // Use cheaper models for simple data
 const simpleData = new AgenticSynth({
   provider: 'gemini',
-  model: 'gemini-2.0-flash-exp', // Fast and cheap
+  model: 'gemini-2.5-flash', // Fast and cheap
   apiKey: process.env.GEMINI_API_KEY
 });
 
@@ -1059,7 +1059,7 @@ class MultiProviderSynth {
       new AgenticSynth({
         provider: 'gemini',
         apiKey: process.env.GEMINI_API_KEY,
-        model: 'gemini-2.0-flash-exp'
+        model: 'gemini-2.5-flash'
       }),
       new AgenticSynth({
         provider: 'openrouter',
@@ -1218,7 +1218,7 @@ async function progressiveDataGeneration(synth: AgenticSynth) {
 
 1. **Cache Configuration**: Larger TTL (1-2 hours) for stable schemas
 2. **Batch Size**: 3-5 concurrent requests for optimal throughput
-3. **Model Selection**: Use `gemini-2.0-flash-exp` for speed
+3. **Model Selection**: Use `gemini-2.5-flash` for speed
 4. **Streaming**: Use for >10K records to reduce memory
 5. **Connection Pooling**: Reuse AgenticSynth instances
 6. **Rate Limiting**: Implement to avoid 429 errors
@@ -1246,7 +1246,7 @@ const options = { count: 100, schema: { id: 'UUID' } };
 
 **Solution**:
 1. Enable caching
-2. Use faster model (gemini-2.0-flash-exp)
+2. Use faster model (gemini-2.5-flash)
 3. Reduce complexity of schema
 4. Batch similar requests
 

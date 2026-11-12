@@ -206,6 +206,7 @@ export async function putObject(
   object: unknown,
 ): Promise<{ path: string; existed: boolean }> {
   const path = objectPath(registryDir, id);
+  assertObjectIdentity(id, object);
   await mkdir(dirname(path), { recursive: true });
   const body = canonicalJsonFile(object);
   try {
@@ -225,11 +226,20 @@ export async function putObject(
 /** Read a content-addressed object, or null when it is absent. */
 export async function getObject<T>(registryDir: string, id: string): Promise<T | null> {
   try {
-    return JSON.parse(await readFile(objectPath(registryDir, id), 'utf8')) as T;
+    const object: unknown = JSON.parse(await readFile(objectPath(registryDir, id), 'utf8'));
+    assertObjectIdentity(id, object);
+    return object as T;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
     if (err instanceof ForgeError) throw err;
     throw new ForgeError(ForgeErrorCode.REGISTRY, `Registry object ${id} is unreadable or malformed.`, { id });
+  }
+}
+
+function assertObjectIdentity(id: string, object: unknown): void {
+  if (!object || typeof object !== 'object' || Array.isArray(object) ||
+      objectId(object as Record<string, unknown>) !== `sha256:${digestOf(id)}`) {
+    throw new ForgeError(ForgeErrorCode.REGISTRY, `Registry object does not match content address ${id}.`, { id });
   }
 }
 
@@ -256,8 +266,9 @@ export async function readReleaseIndex(
   let raw: string;
   try {
     raw = await readFile(join(packagePath(registryDir, publisherId, name), RELEASES_FILENAME), 'utf8');
-  } catch {
-    return [];
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw new ForgeError(ForgeErrorCode.REGISTRY, 'Cannot read existing registry history.');
   }
   return raw
     .split('\n')
@@ -314,8 +325,9 @@ export async function readLog(registryDir: string): Promise<TransparencyLogEntry
   let raw: string;
   try {
     raw = await readFile(join(registryDir, LOG_ENTRIES_FILE), 'utf8');
-  } catch {
-    return [];
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw new ForgeError(ForgeErrorCode.REGISTRY, 'Cannot read existing registry history.');
   }
   return raw
     .split('\n')
@@ -327,8 +339,9 @@ export async function readLog(registryDir: string): Promise<TransparencyLogEntry
 export async function readTreeHead(registryDir: string): Promise<TreeHead | null> {
   try {
     return JSON.parse(await readFile(join(registryDir, TREE_HEAD_FILE), 'utf8')) as TreeHead;
-  } catch {
-    return null;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw new ForgeError(ForgeErrorCode.REGISTRY, 'Cannot read the existing registry tree head.');
   }
 }
 
@@ -459,6 +472,10 @@ export function inclusionProof(
 export function verifyInclusionProof(proof: InclusionProof, expectedRoot: string): boolean {
   if (proof.rootHash !== expectedRoot) return false;
   try {
+    // Buffer.from(hex) silently truncates malformed input. A wire digest must
+    // name exactly one SHA-256 value before it can enter proof verification.
+    const validDigest = (value: string): boolean => /^sha256:[0-9a-f]{64}$/.test(value);
+    if (![proof.leafHash, proof.rootHash, expectedRoot, ...proof.path].every(validDigest)) return false;
     return verifyInclusion(
       fromDigest(proof.leafHash),
       proof.leafIndex,
@@ -489,8 +506,9 @@ export async function readWitnessChain(registryDir: string, subject: string): Pr
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => line !== '');
-  } catch {
-    return [];
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw new ForgeError(ForgeErrorCode.REGISTRY, 'Cannot read existing registry history.');
   }
 }
 

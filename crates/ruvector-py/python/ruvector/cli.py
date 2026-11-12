@@ -13,6 +13,7 @@ doesn't pay for them. Measured via `python -X importtime -m ruvector.cli
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 from pathlib import Path
@@ -95,7 +96,8 @@ def insert_batch(path: str, vectors_path: str, metadata_path: Optional[str]) -> 
     coll = Collection.load(p)
     ids = _run_with_spinner(f"inserting {len(vecs)} vectors...", lambda: coll.insert_batch(vecs, metadatas=metadatas))
     coll.save(p)
-    _secho(f"inserted {len(ids)} vectors (ids {ids[0]}..{ids[-1]}); collection now has {len(coll)} rows", fg="green")
+    id_range = f" (ids {ids[0]}..{ids[-1]})" if ids else ""
+    _secho(f"inserted {len(ids)} vectors{id_range}; collection now has {len(coll)} rows", fg="green")
 
 
 def _run_with_spinner(label: str, fn: "Callable[[], _T]") -> "_T":
@@ -255,6 +257,12 @@ def export(path: str, out_prefix: str) -> None:
     from ruvector.collection import Collection
 
     p = _resolve_existing(path)
+    sources = (p, Collection.meta_path(p))
+    outputs = (Path(f"{out_prefix}.npy"), Path(f"{out_prefix}.meta.json"))
+    for output in outputs:
+        for source in sources:
+            if output.resolve() == source.resolve() or (output.exists() and output.samefile(source)):
+                raise click.ClickException(f"export output overlaps the source collection: {output}")
     coll = Collection.load(p)
     live = coll.export_live_items()
     if not live:
@@ -415,7 +423,7 @@ def benchmark(
         latencies.append(time.perf_counter() - t0)
     latencies.sort()
     p50 = latencies[len(latencies) // 2]
-    p99 = latencies[int(len(latencies) * 0.99) - 1]
+    p99 = latencies[math.ceil(len(latencies) * 0.99) - 1]
 
     recall = _recall_at_k(coll, vecs, qs, recall_k)
 

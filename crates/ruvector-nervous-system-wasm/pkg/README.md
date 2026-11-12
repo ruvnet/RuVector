@@ -1,8 +1,10 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/nervous-system-wasm.svg" alt="@ruvector/nervous-system-wasm: bio-inspired AI components in WebAssembly. Activation bars compete and one winner is selected." width="100%"></p>
+
 # @ruvector/nervous-system-wasm - Bio-Inspired AI for WebAssembly
 
-[![npm version](https://img.shields.io/npm/v/ruvector-nervous-system-wasm.svg)](https://www.npmjs.com/package/ruvector-nervous-system-wasm)
+[![npm version](https://img.shields.io/npm/v/@ruvector/nervous-system-wasm.svg)](https://www.npmjs.com/package/@ruvector/nervous-system-wasm)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ruvnet/ruvector)
-[![Bundle Size](https://img.shields.io/badge/bundle%20size-174KB%20gzip-green.svg)](https://www.npmjs.com/package/ruvector-nervous-system-wasm)
+[![Bundle Size](https://img.shields.io/badge/bundle%20size-174KB%20gzip-green.svg)](https://www.npmjs.com/package/@ruvector/nervous-system-wasm)
 [![WebAssembly](https://img.shields.io/badge/WebAssembly-654FF0?logo=webassembly&logoColor=white)](https://webassembly.org/)
 
 **Bio-inspired neural system components** for browser execution. Implements neuromorphic computing primitives including Hyperdimensional Computing (HDC), Behavioral Timescale Synaptic Plasticity (BTSP), Winner-Take-All networks, and Global Workspace attention.
@@ -19,42 +21,48 @@
 ## Installation
 
 ```bash
-npm install ruvector-nervous-system-wasm
+npm install @ruvector/nervous-system-wasm
 # or
-yarn add ruvector-nervous-system-wasm
+yarn add @ruvector/nervous-system-wasm
 # or
-pnpm add ruvector-nervous-system-wasm
+pnpm add @ruvector/nervous-system-wasm
 ```
 
 ## Quick Start
 
-```typescript
-import init, {
-  BTSPLayer,
-  Hypervector,
-  HdcMemory,
-  WTALayer,
-  KWTALayer,
-  GlobalWorkspace,
-  WorkspaceItem
-} from 'ruvector-nervous-system-wasm';
+Runs in browsers and Node.js (tested on Node.js 22); WebAssembly, no native build. In a browser call `await init()`; in Node pass the `.wasm` bytes to `init()`:
 
-await init();
+```javascript
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import init, { BTSPLayer, Hypervector, WTALayer } from '@ruvector/nervous-system-wasm';
+
+const require = createRequire(import.meta.url);
+await init({ module_or_path: readFileSync(require.resolve('@ruvector/nervous-system-wasm/ruvector_nervous_system_wasm_bg.wasm')) });
 
 // One-shot learning with BTSP
 const btsp = new BTSPLayer(100, 2000.0);
-const pattern = new Float32Array(100).fill(0.1);
-btsp.one_shot_associate(pattern, 1.0);
+btsp.one_shot_associate(new Float32Array(100).fill(0.1), 1.0);
 
-// Hyperdimensional computing
+// Hyperdimensional computing: two random hypervectors are nearly orthogonal
 const apple = Hypervector.random();
 const orange = Hypervector.random();
-const similarity = apple.similarity(orange);
+console.log('random similarity near 0:', Math.abs(apple.similarity(orange)) < 0.1);
+console.log('self similarity:', apple.similarity(apple));
 
-// Winner-take-all decisions
+// Winner-take-all over an activation vector
 const wta = new WTALayer(1000, 0.5, 0.8);
 const activations = new Float32Array(1000);
-const winner = wta.compete(activations);
+activations[42] = 1.0;
+console.log('winner:', wta.compete(activations));
+```
+
+Expected output:
+
+```text
+random similarity near 0: true
+self similarity: 1
+winner: 42
 ```
 
 ## Hyperdimensional Computing (HDC)
@@ -69,7 +77,7 @@ HDC represents information using high-dimensional binary vectors (~10,000 bits).
 - **Single-Operation Learning**: No iterative training needed
 
 ```typescript
-import { Hypervector, HdcMemory } from 'ruvector-nervous-system-wasm';
+import { Hypervector, HdcMemory } from '@ruvector/nervous-system-wasm';
 
 // Create random hypervectors for concepts
 const apple = Hypervector.random();
@@ -102,7 +110,7 @@ const restored = Hypervector.from_bytes(bytes);
 ### HDC Memory Store
 
 ```typescript
-import { HdcMemory, Hypervector } from 'ruvector-nervous-system-wasm';
+import { HdcMemory, Hypervector } from '@ruvector/nervous-system-wasm';
 
 const memory = new HdcMemory();
 
@@ -133,7 +141,7 @@ if (memory.has("apple")) {
 BTSP enables **one-shot learning** - learning patterns in a single exposure, inspired by hippocampal place field formation (Bittner et al., 2017).
 
 ```typescript
-import { BTSPLayer, BTSPSynapse, BTSPAssociativeMemory } from 'ruvector-nervous-system-wasm';
+import { BTSPLayer, BTSPSynapse, BTSPAssociativeMemory } from '@ruvector/nervous-system-wasm';
 
 // Create BTSP layer
 const btsp = new BTSPLayer(256, 2000.0);  // 256 synapses, 2s time constant
@@ -156,7 +164,7 @@ const weights = btsp.get_weights();
 ### Individual Synapse Control
 
 ```typescript
-import { BTSPSynapse } from 'ruvector-nervous-system-wasm';
+import { BTSPSynapse } from '@ruvector/nervous-system-wasm';
 
 // Create synapse with initial weight
 const synapse = new BTSPSynapse(0.5, 2000.0);
@@ -175,7 +183,7 @@ console.log(`Eligibility: ${synapse.eligibility_trace.toFixed(3)}`);
 ### Associative Memory
 
 ```typescript
-import { BTSPAssociativeMemory } from 'ruvector-nervous-system-wasm';
+import { BTSPAssociativeMemory } from '@ruvector/nervous-system-wasm';
 
 // Create key-value associative memory
 const assocMem = new BTSPAssociativeMemory(64, 128);  // 64-dim keys -> 128-dim values
@@ -195,7 +203,7 @@ const retrieved = assocMem.retrieve(query);
 WTA implements competitive neural dynamics where only the strongest activation survives - enabling ultra-fast decision making.
 
 ```typescript
-import { WTALayer } from 'ruvector-nervous-system-wasm';
+import { WTALayer } from '@ruvector/nervous-system-wasm';
 
 // Create WTA layer: 1000 neurons, 0.5 threshold, 0.8 inhibition
 const wta = new WTALayer(1000, 0.5, 0.8);
@@ -226,7 +234,7 @@ wta.reset();
 K-WTA selects the top-k neurons, enabling sparse distributed coding.
 
 ```typescript
-import { KWTALayer } from 'ruvector-nervous-system-wasm';
+import { KWTALayer } from '@ruvector/nervous-system-wasm';
 
 // Create K-WTA: 1000 neurons, select top 50
 const kwta = new KWTALayer(1000, 50);
@@ -257,7 +265,7 @@ const sparse = kwta.sparse_activations(activations);
 Implements the Global Workspace Theory of consciousness - a limited-capacity "workspace" where only the most salient information gains access.
 
 ```typescript
-import { GlobalWorkspace, WorkspaceItem } from 'ruvector-nervous-system-wasm';
+import { GlobalWorkspace, WorkspaceItem } from '@ruvector/nervous-system-wasm';
 
 // Create workspace with capacity 7 (Miller's Law: 7 +/- 2)
 const workspace = new GlobalWorkspace(7);
@@ -391,9 +399,9 @@ workspace.set_decay_rate(0.05);
 
 ## Related Packages
 
-- [ruvector-attention-unified-wasm](https://www.npmjs.com/package/ruvector-attention-unified-wasm) - 18+ attention mechanisms
-- [ruvector-learning-wasm](https://www.npmjs.com/package/ruvector-learning-wasm) - MicroLoRA adaptation
-- [ruvector-exotic-wasm](https://www.npmjs.com/package/ruvector-exotic-wasm) - NAO governance, exotic AI
+- [@ruvector/attention-unified-wasm](https://www.npmjs.com/package/@ruvector/attention-unified-wasm) - 18+ attention mechanisms
+- [@ruvector/learning-wasm](https://www.npmjs.com/package/@ruvector/learning-wasm) - MicroLoRA adaptation
+- [@ruvector/exotic-wasm](https://www.npmjs.com/package/@ruvector/exotic-wasm) - NAO governance, exotic AI
 
 ## License
 

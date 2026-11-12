@@ -335,3 +335,25 @@ def test_serve_rejects_bad_max_vectors(
     assert result.exit_code != 0
     assert "positive integer" in result.output
     assert not ran
+
+
+@pytest.mark.parametrize("existing_rows", [0, 1])
+def test_insert_empty_batch_is_successful_noop(runner: CliRunner, tmp_path: Path, existing_rows: int) -> None:
+    db = tmp_path / "empty-batch.rbpx"
+    created = runner.invoke(main, ["create", "--path", str(db), "--dim", "4"])
+    assert created.exit_code == 0, created.output
+    vectors = tmp_path / "empty.npy"
+    if existing_rows:
+        np.save(vectors, np.ones((existing_rows, 4), dtype=np.float32))
+        seeded = runner.invoke(main, ["insert-batch", "--path", str(db), "--vectors", str(vectors)])
+        assert seeded.exit_code == 0, seeded.output
+    sidecar = Path(str(db) + ".meta.json")
+    before = (db.read_bytes(), sidecar.read_bytes())
+    np.save(vectors, np.empty((0, 4), dtype=np.float32))
+    result = runner.invoke(main, ["insert-batch", "--path", str(db), "--vectors", str(vectors)])
+    assert result.exit_code == 0, repr(result.exception)
+    assert "inserted 0 vectors" in result.output
+    info = runner.invoke(main, ["info", "--path", str(db), "--json"])
+    assert info.exit_code == 0, info.output
+    assert json.loads(info.output)["count"] == existing_rows
+    assert (db.read_bytes(), sidecar.read_bytes()) == before

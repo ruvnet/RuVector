@@ -489,12 +489,12 @@ pub extern "C" fn rvf_store_open(buf_ptr: i32, buf_len: i32) -> i32 {
         return -1;
     }
     let buf = unsafe { core::slice::from_raw_parts(buf_ptr as *const u8, buf_len as usize) };
-    let (mut dim, entries) = open::parse_vec_entries(buf);
+    let (dim, entries) = match open::parse_vec_entries(buf) {
+        Ok(parsed) => parsed,
+        Err(_) => return -1,
+    };
 
     let reg = store::registry();
-    if dim == 0 {
-        dim = 1;
-    }
     let handle = reg.create(dim, 0);
     if handle <= 0 {
         return handle;

@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ruvllm",
-  "version": "4.2.1",
+  "version": "4.2.2",
   "description": "Local LLM runtime for Node.js: GGUF inference, KV-cache compression, SONA self-learning with LoRA, speculative decoding and an HTTP serve command.",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",

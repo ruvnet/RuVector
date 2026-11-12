@@ -1,12 +1,13 @@
 [package]
 name = "ruvector-data-framework"
-version = "0.3.0"
+version = "0.3.1"
 edition.workspace = true
 description = "Core discovery framework for RuVector dataset integrations - find hidden patterns in massive datasets using vector memory, graph structures, and dynamic min-cut algorithms"
 license.workspace = true
 repository.workspace = true
 readme = "../README.md"
 documentation = "https://docs.rs/ruvector-data-framework"
+homepage = "https://ruv.io"
 authors = ["RuVector Team <team@ruvector.dev>"]
 keywords = ["vector-database", "discovery", "graph", "mincut", "coherence"]
 categories = ["science", "database", "data-structures"]
@@ -41,7 +42,7 @@ rand = "0.8"
 urlencoding = "2.1"
 
 # XML parsing for PubMed
-quick-xml = { version = "0.36", features = ["serialize"] }
+quick-xml = { version = "0.42", features = ["serialize"] }
 
 # Compression
 flate2 = "1.1"
@@ -49,7 +50,7 @@ flate2 = "1.1"
 # MCP Server dependencies
 clap = { version = "4.5", features = ["derive"] }
 num_cpus = "1.16"
-warp = { version = "0.3", optional = true }
+warp = { version = "0.4", features = ["server"], optional = true }
 
 # ONNX embeddings (optional - for semantic embeddings)
 ruvector-onnx-embeddings = { version = "0.1.0", optional = true }

@@ -235,6 +235,11 @@ impl EphemeralAgent {
         self.engine.get_all_patterns()
     }
 
+    /// Find top-k patterns most similar to a query embedding
+    pub fn find_patterns(&self, query: &[f32], k: usize) -> Vec<LearnedPattern> {
+        self.engine.find_patterns(query, k)
+    }
+
     /// Export agent state for federation
     ///
     /// Call this before terminating the agent.
@@ -574,6 +579,27 @@ mod tests {
 
         assert_eq!(agent.trajectory_count(), 1);
         assert!((agent.avg_quality() - 0.8).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_find_patterns_returns_top_k_learned_patterns() {
+        let mut agent = EphemeralAgent::default_federated("agent-1", 64);
+        for i in 0..60 {
+            let mut embedding = vec![0.0; 64];
+            embedding[i % 4] = 1.0;
+            embedding[4 + i % 7] = 0.25;
+            agent.process_trajectory(embedding, vec![0.5; 64], 0.9, None, vec![]);
+        }
+        agent.force_learn();
+
+        let all = agent.get_patterns();
+        assert!(!all.is_empty(), "force_learn should extract patterns");
+
+        let mut query = vec![0.0; 64];
+        query[0] = 1.0;
+        let top = agent.find_patterns(&query, 2);
+        assert_eq!(top.len(), all.len().min(2));
+        assert!(agent.find_patterns(&query, 0).is_empty());
     }
 
     #[test]

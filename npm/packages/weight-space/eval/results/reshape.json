@@ -1,0 +1,324 @@
+{
+  "corpus": {
+    "docs": 325,
+    "queries": 919,
+    "embedder": "all-MiniLM-L6-v2",
+    "dimensions": 384
+  },
+  "grid": 24,
+  "protocols": {
+    "query-split": {
+      "perSeed": [
+        {
+          "seed": 1,
+          "sizes": {
+            "train": 551,
+            "val": 184,
+            "test": 184
+          },
+          "chosen": {
+            "hidden": 16,
+            "epochs": 60,
+            "learningRate": 50,
+            "negativeWeight": 0
+          },
+          "valRecall5": {
+            "base": 0.45652173913043476,
+            "reshaped": 0.46195652173913043
+          },
+          "trainMs": 3801,
+          "trainLoss": {
+            "initialLoss": 0.0032084195623374363,
+            "finalLoss": 0.0028481368102224428,
+            "calls": 540
+          },
+          "test": {
+            "recall@1": {
+              "base": 0.29347826086956524,
+              "reshaped": 0.31521739130434784
+            },
+            "recall@5": {
+              "base": 0.45652173913043476,
+              "reshaped": 0.4782608695652174
+            },
+            "recall@10": {
+              "base": 0.5271739130434783,
+              "reshaped": 0.5760869565217391
+            }
+          }
+        },
+        {
+          "seed": 2,
+          "sizes": {
+            "train": 551,
+            "val": 184,
+            "test": 184
+          },
+          "chosen": {
+            "hidden": 32,
+            "epochs": 20,
+            "learningRate": 50,
+            "negativeWeight": 0.5
+          },
+          "valRecall5": {
+            "base": 0.5,
+            "reshaped": 0.5706521739130435
+          },
+          "trainMs": 3486,
+          "trainLoss": {
+            "initialLoss": 0.0058144364247540445,
+            "finalLoss": 0.005193609350430432,
+            "calls": 340
+          },
+          "test": {
+            "recall@1": {
+              "base": 0.2554347826086957,
+              "reshaped": 0.29891304347826086
+            },
+            "recall@5": {
+              "base": 0.483695652173913,
+              "reshaped": 0.5054347826086957
+            },
+            "recall@10": {
+              "base": 0.5597826086956522,
+              "reshaped": 0.6086956521739131
+            }
+          }
+        },
+        {
+          "seed": 3,
+          "sizes": {
+            "train": 551,
+            "val": 184,
+            "test": 184
+          },
+          "chosen": {
+            "hidden": 32,
+            "epochs": 20,
+            "learningRate": 50,
+            "negativeWeight": 0.5
+          },
+          "valRecall5": {
+            "base": 0.483695652173913,
+            "reshaped": 0.5543478260869565
+          },
+          "trainMs": 3457,
+          "trainLoss": {
+            "initialLoss": 0.007036649265668634,
+            "finalLoss": 0.005231711095657645,
+            "calls": 340
+          },
+          "test": {
+            "recall@1": {
+              "base": 0.33695652173913043,
+              "reshaped": 0.358695652173913
+            },
+            "recall@5": {
+              "base": 0.5,
+              "reshaped": 0.5
+            },
+            "recall@10": {
+              "base": 0.5869565217391305,
+              "reshaped": 0.5706521739130435
+            }
+          }
+        }
+      ],
+      "summary": {
+        "recall@1": {
+          "base": 0.2952898550724638,
+          "reshaped": 0.3242753623188406,
+          "delta95": {
+            "mean": 0.028985507246376812,
+            "lo": 0.005434782608695652,
+            "hi": 0.05253623188405797
+          }
+        },
+        "recall@5": {
+          "base": 0.4800724637681159,
+          "reshaped": 0.4945652173913044,
+          "delta95": {
+            "mean": 0.014492753623188406,
+            "lo": -0.009057971014492754,
+            "hi": 0.03804347826086957
+          }
+        },
+        "recall@10": {
+          "base": 0.5579710144927535,
+          "reshaped": 0.5851449275362319,
+          "delta95": {
+            "mean": 0.02717391304347826,
+            "lo": 0.0018115942028985507,
+            "hi": 0.05434782608695652
+          }
+        },
+        "gate": {
+          "metric": "pooled test recall@5 delta",
+          "passes": false,
+          "ci": {
+            "mean": 0.014492753623188406,
+            "lo": -0.009057971014492754,
+            "hi": 0.03804347826086957
+          }
+        }
+      }
+    },
+    "doc-split": {
+      "perSeed": [
+        {
+          "seed": 1,
+          "sizes": {
+            "train": 548,
+            "val": 183,
+            "test": 188
+          },
+          "chosen": {
+            "hidden": 16,
+            "epochs": 60,
+            "learningRate": 20,
+            "negativeWeight": 0.5
+          },
+          "valRecall5": {
+            "base": 0.4972677595628415,
+            "reshaped": 0.5191256830601093
+          },
+          "trainMs": 3928,
+          "trainLoss": {
+            "initialLoss": 0.006041706675493748,
+            "finalLoss": 0.0055791699420861636,
+            "calls": 540
+          },
+          "test": {
+            "recall@1": {
+              "base": 0.30319148936170215,
+              "reshaped": 0.2925531914893617
+            },
+            "recall@5": {
+              "base": 0.4946808510638298,
+              "reshaped": 0.46808510638297873
+            },
+            "recall@10": {
+              "base": 0.5851063829787234,
+              "reshaped": 0.5797872340425532
+            }
+          }
+        },
+        {
+          "seed": 2,
+          "sizes": {
+            "train": 548,
+            "val": 189,
+            "test": 182
+          },
+          "chosen": {
+            "hidden": 32,
+            "epochs": 20,
+            "learningRate": 50,
+            "negativeWeight": 0
+          },
+          "valRecall5": {
+            "base": 0.5238095238095238,
+            "reshaped": 0.544973544973545
+          },
+          "trainMs": 3442,
+          "trainLoss": {
+            "initialLoss": 0.0034098232613968384,
+            "finalLoss": 0.0028028771325125565,
+            "calls": 340
+          },
+          "test": {
+            "recall@1": {
+              "base": 0.2692307692307692,
+              "reshaped": 0.29120879120879123
+            },
+            "recall@5": {
+              "base": 0.43956043956043955,
+              "reshaped": 0.4340659340659341
+            },
+            "recall@10": {
+              "base": 0.5164835164835165,
+              "reshaped": 0.5
+            }
+          }
+        },
+        {
+          "seed": 3,
+          "sizes": {
+            "train": 562,
+            "val": 174,
+            "test": 183
+          },
+          "chosen": {
+            "hidden": 16,
+            "epochs": 60,
+            "learningRate": 20,
+            "negativeWeight": 0.5
+          },
+          "valRecall5": {
+            "base": 0.46551724137931033,
+            "reshaped": 0.5229885057471264
+          },
+          "trainMs": 4024,
+          "trainLoss": {
+            "initialLoss": 0.006167229745301903,
+            "finalLoss": 0.005626313316706481,
+            "calls": 540
+          },
+          "test": {
+            "recall@1": {
+              "base": 0.3333333333333333,
+              "reshaped": 0.3333333333333333
+            },
+            "recall@5": {
+              "base": 0.5409836065573771,
+              "reshaped": 0.5355191256830601
+            },
+            "recall@10": {
+              "base": 0.6120218579234973,
+              "reshaped": 0.6120218579234973
+            }
+          }
+        }
+      ],
+      "summary": {
+        "recall@1": {
+          "base": 0.3019185306419349,
+          "reshaped": 0.3056984386771621,
+          "delta95": {
+            "mean": 0.003616636528028933,
+            "lo": -0.0162748643761302,
+            "hi": 0.0216998191681736
+          }
+        },
+        "recall@5": {
+          "base": 0.4917416323938822,
+          "reshaped": 0.4792233887106576,
+          "delta95": {
+            "mean": -0.012658227848101266,
+            "lo": -0.03074141048824593,
+            "hi": 0.0054249547920434
+          }
+        },
+        "recall@10": {
+          "base": 0.571203919128579,
+          "reshaped": 0.5639363639886835,
+          "delta95": {
+            "mean": -0.007233273056057866,
+            "lo": -0.028933092224231464,
+            "hi": 0.014466546112115732
+          }
+        },
+        "gate": {
+          "metric": "pooled test recall@5 delta",
+          "passes": false,
+          "ci": {
+            "mean": -0.012658227848101266,
+            "lo": -0.03074141048824593,
+            "hi": 0.0054249547920434
+          }
+        }
+      }
+    }
+  },
+  "ship": false
+}

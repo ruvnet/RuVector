@@ -3634,8 +3634,12 @@ class Intelligence {
 
     // Convert file sequences to co-edit patterns
     if (data.file_sequences) {
+      const unsafe = (k) => k === '__proto__' || k === 'constructor' || k === 'prototype';
       for (const seq of data.file_sequences) {
-        if (!converted.coEditPatterns[seq.from_file]) {
+        // File names come from the (possibly repository-supplied) store and become object keys.
+        if (!seq || typeof seq.from_file !== 'string' || typeof seq.to_file !== 'string') continue;
+        if (unsafe(seq.from_file) || unsafe(seq.to_file)) continue;
+        if (!Object.prototype.hasOwnProperty.call(converted.coEditPatterns, seq.from_file)) {
           converted.coEditPatterns[seq.from_file] = {};
         }
         converted.coEditPatterns[seq.from_file][seq.to_file] = seq.count;
@@ -6362,7 +6366,7 @@ function loadLearningModules() {
 hooksCmd.command('learning-config')
   .description('Configure learning algorithms for different tasks')
   .option('-t, --task <type>', 'Task type (agent-routing, error-avoidance, confidence-scoring, trajectory-learning, context-ranking, memory-recall)')
-  .option('-a, --algorithm <alg>', 'Algorithm (q-learning, sarsa, double-q, actor-critic, ppo, decision-transformer, monte-carlo, td-lambda, dqn)')
+  .option('-a, --algorithm <alg>', 'Algorithm (q-learning, sarsa, double-q, actor-critic, ppo, decision-transformer, monte-carlo, td-lambda, dqn, neural-q)')
   .option('-l, --learning-rate <rate>', 'Learning rate (0.0-1.0)', parseFloat)
   .option('-g, --gamma <gamma>', 'Discount factor (0.0-1.0)', parseFloat)
   .option('-e, --epsilon <epsilon>', 'Exploration rate (0.0-1.0)', parseFloat)
@@ -6499,6 +6503,8 @@ hooksCmd.command('learning-update')
     if (data.learning) {
       engine.import(data.learning);
     }
+    // 'neural-q' tasks use the optional ruv-fann MLP when installed (tabular otherwise).
+    if (engine.usesNeural()) await engine.enableNeural();
 
     let reward;
     try {
@@ -6715,6 +6721,8 @@ hooksCmd.command('learn')
     if (data.learning) {
       engine.import(data.learning);
     }
+    // 'neural-q' tasks use the optional ruv-fann MLP when installed (tabular otherwise).
+    if (engine.usesNeural()) await engine.enableNeural();
 
     let result = { success: true };
 
@@ -6816,6 +6824,8 @@ hooksCmd.command('batch-learn')
     if (data.learning) {
       engine.import(data.learning);
     }
+    // 'neural-q' tasks use the optional ruv-fann MLP when installed (tabular otherwise).
+    if (engine.usesNeural()) await engine.enableNeural();
 
     const results = [];
     let totalReward = 0;
@@ -7434,9 +7444,11 @@ hooksCmd.command('pretrain')
         const files = execSync('git ls-files 2>/dev/null || find . -type f -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./target/*"',
           { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 }).trim().split('\n').filter(f => f);
 
-        const filesByType = {};
-        const dirPatterns = {};
-        const agentCountsByState = {};
+        // File and directory names come from the repository: keep them out of
+        // Object.prototype (e.g. a top-level `__proto__/` directory).
+        const filesByType = Object.create(null);
+        const dirPatterns = Object.create(null);
+        const agentCountsByState = Object.create(null);
 
         files.forEach(file => {
           stats.files++;
@@ -7446,9 +7458,9 @@ hooksCmd.command('pretrain')
 
           // Determine agent for this file
           let agent = 'coder'; // default
-          if (agentMapping[basename]) {
+          if (Object.hasOwn(agentMapping, basename)) {
             agent = agentMapping[basename];
-          } else if (agentMapping[ext]) {
+          } else if (Object.hasOwn(agentMapping, ext)) {
             agent = agentMapping[ext];
           } else if (file.includes('.test.') || file.includes('.spec.') || file.includes('_test.')) {
             agent = 'test-engineer';
@@ -7462,14 +7474,14 @@ hooksCmd.command('pretrain')
           // Track directory patterns
           const parts = dir.split('/');
           if (parts[0]) {
-            dirPatterns[parts[0]] = dirPatterns[parts[0]] || { count: 0, agents: {} };
+            dirPatterns[parts[0]] = dirPatterns[parts[0]] || { count: 0, agents: Object.create(null) };
             dirPatterns[parts[0]].count++;
             dirPatterns[parts[0]].agents[agent] = (dirPatterns[parts[0]].agents[agent] || 0) + 1;
           }
 
           // Count agents per routing state; patterns are written once below.
           const state = `edit:${ext || 'unknown'}`;
-          agentCountsByState[state] = agentCountsByState[state] || {};
+          agentCountsByState[state] = agentCountsByState[state] || Object.create(null);
           agentCountsByState[state][agent] = (agentCountsByState[state][agent] || 0) + 1;
         });
 
@@ -7546,7 +7558,10 @@ hooksCmd.command('pretrain')
         strongPatterns.slice(0, 100).forEach(([key, count]) => {
           const [file1, file2] = key.split('|');
           if (!intel.data.sequences) intel.data.sequences = {};
-          if (!intel.data.sequences[file1]) intel.data.sequences[file1] = [];
+          if (file1 === '__proto__') return; // would replace the map's prototype
+          if (!Object.hasOwn(intel.data.sequences, file1) || !Array.isArray(intel.data.sequences[file1])) {
+            intel.data.sequences[file1] = [];
+          }
 
           const existing = intel.data.sequences[file1].find(s => s.file === file2);
           if (existing) {
@@ -9091,6 +9106,9 @@ diskannCmd.command('search <dir>')
       process.exit(1);
     }
   });
+
+// Weight registry (optional peer @ruvector/weight-space, loaded inside the actions)
+require('./weights').registerWeightsCommands(program, chalk);
 
 const mcpCmd = program.command('mcp').description('MCP (Model Context Protocol) server for Claude Code integration');
 

@@ -26,6 +26,7 @@ fixes.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from dataclasses import dataclass
@@ -61,6 +62,14 @@ Index = Union[HnswIndex, RabitqIndex]
 
 class CollectionError(RuVectorError):
     """Raised for Collection-level misuse (distinct from index-level errors)."""
+
+
+def _index_digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _check_ids_fit_u32(ids: Iterable[int]) -> None:
@@ -154,6 +163,7 @@ class Collection:
         self._metadata = _metadata
         self._tombstones = _tombstones
         self._next_id = _next_id
+        self._rabitq_ids: Optional[set[int]] = None
 
     # ── construction ────────────────────────────────────────────────────
 
@@ -230,6 +240,10 @@ class Collection:
         id_list: List[int] = list(range(n)) if ids is None else list(ids)
         if len(id_list) != n:
             raise CollectionError(f"ids length ({len(id_list)}) must match vectors row count ({n})")
+        for row_id in id_list:
+            if isinstance(row_id, bool) or not isinstance(row_id, (int, np.integer)):
+                raise CollectionError(f"ids must be integers (not bool), got {row_id!r}")
+        id_list = [int(row_id) for row_id in id_list]
         if len(set(id_list)) != len(id_list):
             raise CollectionError("ids must be unique")
         if metadatas is not None and len(metadatas) != n:
@@ -256,6 +270,7 @@ class Collection:
                     metadata[row_id] = dict(md)
 
         coll = cls(_index=index, _metadata=metadata, _tombstones=set(), _next_id=max(id_list) + 1)
+        coll._rabitq_ids = set(id_list) if backend == "rabitq" else None
         coll._dim = arr.shape[1]
         coll._backend = backend
         coll._rerank_factor = rerank_factor
@@ -272,17 +287,23 @@ class Collection:
         """Insert one vector, returning its assigned internal id."""
         new_id = self._next_id
         vec = _validate_vector(vector, self._dim, "vector")
+        prepared_metadata = dict(metadata) if metadata is not None else None
         if self._backend == "hnsw":
             assert isinstance(self._index, HnswIndex)  # always constructed in create()/from_vectors()
-            self._index.insert(str(new_id), vec, metadata=metadata)
+            self._index.insert(str(new_id), vec, metadata=prepared_metadata)
         else:
             if self._index is None:
-                self._index = RabitqIndex.build(vec.reshape(1, -1), rerank_factor=self._rerank_factor, seed=self._seed)
+                self._index = RabitqIndex.build(
+                    vec.reshape(1, -1), ids=np.asarray([new_id], dtype=np.uint64),
+                    rerank_factor=self._rerank_factor, seed=self._seed,
+                )
             else:
                 assert isinstance(self._index, RabitqIndex)
                 self._index.add(new_id, vec)
-        if metadata:
-            self._metadata[new_id] = dict(metadata)
+        if prepared_metadata:
+            self._metadata[new_id] = prepared_metadata
+        if self._rabitq_ids is not None:
+            self._rabitq_ids.add(new_id)
         self._next_id += 1
         return new_id
 
@@ -300,22 +321,30 @@ class Collection:
         n = arr.shape[0]
         if metadatas is not None and len(metadatas) != n:
             raise CollectionError(f"metadatas length ({len(metadatas)}) must match row count ({n})")
+        prepared_metadatas = (
+            [dict(md) if md is not None else None for md in metadatas]
+            if metadatas is not None
+            else None
+        )
         new_ids = list(range(self._next_id, self._next_id + n))
         if self._backend == "hnsw":
             assert isinstance(self._index, HnswIndex)
-            self._index.insert_batch([str(i) for i in new_ids], arr, metadatas=list(metadatas) if metadatas is not None else None)
+            self._index.insert_batch([str(i) for i in new_ids], arr, metadatas=prepared_metadatas)
         else:
             if self._index is None:
-                self._index = RabitqIndex.build(arr, rerank_factor=self._rerank_factor, seed=self._seed)
-                # build() assigns row ids 0..n-1; since _next_id was 0,
-                # these coincide with new_ids by construction.
+                self._index = RabitqIndex.build(
+                    arr, ids=np.asarray(new_ids, dtype=np.uint64),
+                    rerank_factor=self._rerank_factor, seed=self._seed,
+                )
             else:
                 assert isinstance(self._index, RabitqIndex)
                 self._index.add_batch(np.asarray(new_ids, dtype=np.uint64), arr)
-        if metadatas:
-            for i, md in enumerate(metadatas):
+        if prepared_metadatas:
+            for i, md in enumerate(prepared_metadatas):
                 if md:
-                    self._metadata[new_ids[i]] = dict(md)
+                    self._metadata[new_ids[i]] = md
+        if self._rabitq_ids is not None:
+            self._rabitq_ids.update(new_ids)
         self._next_id += n
         return new_ids
 
@@ -331,6 +360,13 @@ class Collection:
             assert isinstance(self._index, HnswIndex)
             self._index.delete(str(id))
         else:
+            if self._index is None:
+                return
+            if self._rabitq_ids is None:
+                assert isinstance(self._index, RabitqIndex)
+                self._rabitq_ids = {row_id for row_id, _ in self._index.export_items()}
+            if id not in self._rabitq_ids:
+                return
             self._tombstones.add(id)
         self._metadata.pop(id, None)
 
@@ -360,20 +396,20 @@ class Collection:
             self._index = None
             self._metadata = {}
             self._tombstones = set()
-            self._next_id = 0
+            self._rabitq_ids = set()
             return dropped
         vecs = np.stack([v for _, v in kept]).astype(np.float32)
-        # Rebuild with row-index ids 0..len(kept)-1 (build()'s only mode),
-        # then remap metadata from old id -> new row index.
-        self._index = RabitqIndex.build(vecs, rerank_factor=self._rerank_factor, seed=self._seed)
-        old_ids = [i for i, _ in kept]
-        new_metadata: Dict[int, Dict[str, Any]] = {}
-        for new_row, old_id in enumerate(old_ids):
-            if old_id in self._metadata:
-                new_metadata[new_row] = self._metadata[old_id]
-        self._metadata = new_metadata
+        # Reclaim tombstones without changing caller-visible row identities.
+        kept_ids = [i for i, _ in kept]
+        self._index = RabitqIndex.build(
+            vecs, ids=np.asarray(kept_ids, dtype=np.uint64),
+            rerank_factor=self._rerank_factor, seed=self._seed,
+        )
+        self._metadata = {
+            row_id: self._metadata[row_id] for row_id in kept_ids if row_id in self._metadata
+        }
         self._tombstones = set()
-        self._next_id = len(kept)
+        self._rabitq_ids = set(kept_ids)
         return dropped
 
     # ── query ────────────────────────────────────────────────────────────
@@ -616,8 +652,11 @@ class Collection:
         :func:`os.replace`, so a crash or error mid-write never leaves a
         truncated file at the real path. The two files are still replaced
         one after the other, so a crash *between* the two renames can leave
-        a new index with the previous sidecar; :meth:`load` validates the
-        pair and raises :class:`CollectionError` rather than serving it.
+        a new sidecar with the previous index; :meth:`load` validates the
+        pair using the saved index digest and raises :class:`CollectionError`
+        rather than serving it. Legacy sidecars without a digest remain
+        readable but cannot establish that the two files belong together.
+        Digest verification reads the complete index during save and load.
         """
         path = Path(path)
         tmp_index = path.with_name(f"{path.name}.tmp-{os.getpid()}")
@@ -662,10 +701,12 @@ class Collection:
                     "metadata": {str(k): v for k, v in self._metadata.items()},
                     "empty": self._index is None,
                 }
+            if index_written:
+                sidecar["index_sha256"] = _index_digest(tmp_index)
             tmp_meta.write_text(json.dumps(sidecar))
+            os.replace(tmp_meta, meta)
             if index_written:
                 os.replace(tmp_index, path)
-            os.replace(tmp_meta, meta)
         finally:
             for tmp in (tmp_index, tmp_meta):
                 try:
@@ -700,6 +741,15 @@ class Collection:
 
     @classmethod
     def _load_validated(cls, path: Path, sidecar: Dict[str, Any]) -> "Collection":
+        if "index_sha256" in sidecar:
+            expected_digest = sidecar["index_sha256"]
+            if not isinstance(expected_digest, str) or len(expected_digest) != 64 or any(
+                char not in "0123456789abcdef" for char in expected_digest
+            ):
+                raise CollectionError("sidecar 'index_sha256' must be a SHA-256 hex digest")
+            if _index_digest(path) != expected_digest:
+                raise CollectionError("index and sidecar are out of sync: index digest mismatch")
+
         # Sidecars written before ADR-352's M2 slice have no "backend" key
         # at all — they are always rabitq (the only backend that existed).
         backend = sidecar.get("backend", "rabitq")

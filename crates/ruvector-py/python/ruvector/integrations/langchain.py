@@ -52,7 +52,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, TypeVar
 
 import numpy as np
 
-from ..collection import Collection, SearchHit
+from ..collection import Collection, SearchHit, _validate_vector
 
 try:
     from langchain_core.documents import Document
@@ -124,23 +124,28 @@ class RuVectorStore(VectorStore):
         if ids is not None and len(ids) != len(text_list):
             raise ValueError(f"ids length ({len(ids)}) must match texts length ({len(text_list)})")
         if ids is not None:
+            seen_ids = set(self._id_to_int)
             for doc_id in ids:
-                if doc_id in self._id_to_int:
+                if doc_id in seen_ids:
                     raise ValueError(f"id {doc_id!r} already exists in this RuVectorStore")
+                seen_ids.add(doc_id)
 
         if not text_list:
             return []
 
         embeddings = self._embedding.embed_documents(text_list)
+        if len(embeddings) != len(text_list):
+            raise ValueError(f"embeddings length ({len(embeddings)}) must match texts length ({len(text_list)})")
+        # Validate all outputs before the first insertion can mutate the index.
+        arrays = [_validate_vector(vec, self._collection._dim, "embedding") for vec in embeddings]
         resolved_ids = list(ids) if ids is not None else [uuid.uuid4().hex for _ in text_list]
 
         out_ids: List[str] = []
-        for i, (text, vec) in enumerate(zip(text_list, embeddings)):
+        for i, (text, vec) in enumerate(zip(text_list, arrays)):
             doc_id = resolved_ids[i]
             full_metadata: Dict[str, Any] = dict(metadatas[i]) if metadatas is not None else {}
             full_metadata[self._text_key] = text
-            arr = np.asarray(vec, dtype=np.float32)
-            int_id = self._collection.insert(arr, metadata=full_metadata)
+            int_id = self._collection.insert(vec, metadata=full_metadata)
             self._id_to_int[doc_id] = int_id
             self._int_to_id[int_id] = doc_id
             out_ids.append(doc_id)

@@ -1,6 +1,6 @@
 [package]
 name = "ruvector-core"
-version = "2.5.1"
+version = "2.5.2"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -8,6 +8,10 @@ authors.workspace = true
 repository.workspace = true
 readme = "README.md"
 description = "High-performance Rust vector database core with HNSW indexing"
+homepage = "https://ruv.io"
+documentation = "https://docs.rs/ruvector-core"
+keywords = ["vector-database", "hnsw", "ann", "embeddings", "quantization"]
+categories = ["database-implementations", "algorithms", "data-structures"]
 
 [dependencies]
 # Core functionality
@@ -17,6 +21,8 @@ hnsw_rs = { workspace = true, optional = true }
 # Turbo4 codec + unified encoding plane (ADR-296/297). Dependency-free and
 # WASM-safe, so it is unconditional: the codec plane exists on every build.
 ruvector-turboquant = { version = "2.3.0", path = "../ruvector-turboquant" }
+# Shared CPU/WASM e-means optimizer, used by the explicit PQ training API.
+ruvector-e-means = { version = "=0.1.0", path = "../ruvector-e-means" }
 simsimd = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 crossbeam = { workspace = true, optional = true }

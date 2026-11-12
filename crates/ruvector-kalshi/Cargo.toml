@@ -19,10 +19,10 @@ tokio = { workspace = true, features = ["rt-multi-thread", "sync", "macros", "pr
 chrono = { workspace = true }
 tracing = { workspace = true }
 
-# Crypto — Kalshi requires RSA-PSS-SHA256
-rsa = { version = "0.9", features = ["sha2"] }
-sha2 = "0.10"
-rand = { workspace = true }
+# Crypto — Kalshi requires RSA-PSS-SHA256. rsa 0.10 fixes RUSTSEC-2023-0071
+# (Marvin); its default `getrandom` feature supplies the signing RNG and it
+# re-exports the matching sha2 0.11.
+rsa = "0.10"
 base64 = "0.22"
 
 # HTTP — match existing graph (mcp-brain uses reqwest 0.12 + rustls)
@@ -33,6 +33,8 @@ tokio-tungstenite = { version = "0.24", default-features = false, features = ["c
 futures-util = { version = "0.3", default-features = false, features = ["std", "sink"] }
 
 [dev-dependencies]
+# OS RNG implementing rand_core 0.10, for test key generation.
+getrandom = { version = "0.4", features = ["sys_rng"] }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt", "test-util"] }
 

@@ -50,8 +50,10 @@ base64 = "0.22"
 pem = "3.0"
 zeroize = "1.7"
 
-# RSA support (optional)
-rsa = { version = "0.9", features = ["pem"], optional = true }
+# RSA support (optional). rsa 0.10 fixes RUSTSEC-2023-0071 (Marvin); its
+# key generation takes a rand_core 0.10 RNG, supplied by getrandom 0.4.
+rsa = { version = "0.10", optional = true }
+getrandom = { version = "0.4", features = ["sys_rng"], optional = true }
 
 # Password-based key encryption
 argon2 = "0.5"
@@ -72,4 +74,4 @@ tempfile = "3.10"
 
 [features]
 default = []
-rsa = ["dep:rsa"]
+rsa = ["dep:rsa", "dep:getrandom"]

@@ -135,7 +135,8 @@ pub struct StreamIngest<'p> {
     witnesses: Vec<StreamWitness>,
     unpublished: bool,
     dropped_witnesses: u64,
-    vec_stored_bytes: u64,
+    /// `stored_len` of every VEC segment in the signed table.
+    vec_stored_lens: Vec<u64>,
     work_budget: Option<u64>,
     scan_bound: std::time::Duration,
     scan_ns_per_vec: std::cell::Cell<f64>,
@@ -160,7 +161,7 @@ impl<'p> StreamIngest<'p> {
             witnesses: Vec::new(),
             unpublished: false,
             dropped_witnesses: 0,
-            vec_stored_bytes: 0,
+            vec_stored_lens: Vec::new(),
             work_budget: None,
             scan_bound: std::time::Duration::from_millis(25),
             scan_ns_per_vec: std::cell::Cell::new(0.0),
@@ -391,12 +392,12 @@ impl<'p> StreamIngest<'p> {
                         .iter()
                         .map(|e| (e.seg_id, (e.seg_type, e.stored_len)))
                         .collect();
-                    self.vec_stored_bytes = d
+                    self.vec_stored_lens = d
                         .entries
                         .iter()
                         .filter(|e| e.seg_type == SEG_VEC)
                         .map(|e| e.stored_len)
-                        .sum();
+                        .collect();
                 }
                 self.witness(StreamWitness::DescriptorVerified(descriptor_hash));
             }
@@ -438,7 +439,8 @@ impl<'p> StreamIngest<'p> {
             // Whole-segment buffering is bounded by an ingest-level budget on
             // top of the signed table's per-segment sizes.
             if self.buffered + bytes.len() as u64 > self.buffer_budget {
-                self.verifier.poison(ErrorCode::StreamLimitExceeded);
+                self.verifier
+                    .poison_consumer(ErrorCode::StreamLimitExceeded);
                 return;
             }
             self.buffered += bytes.len() as u64;
@@ -498,7 +500,7 @@ impl<'p> StreamIngest<'p> {
         let Some(p) = payload_of(seg) else { return };
         if p.len() >= 4 && p[..4] == MAGIC_A {
             let Some(a) = decode_a(p) else {
-                self.verifier.poison(ErrorCode::StreamTableInvalid);
+                self.verifier.poison_consumer(ErrorCode::StreamTableInvalid);
                 return;
             };
             // Partition ranges must be well formed; their width is harmless
@@ -508,7 +510,7 @@ impl<'p> StreamIngest<'p> {
                 .iter()
                 .any(|p| p.vector_id_end < p.vector_id_start)
             {
-                self.verifier.poison(ErrorCode::StreamTableInvalid);
+                self.verifier.poison_consumer(ErrorCode::StreamTableInvalid);
                 return;
             }
             self.vectors.set_dim(a.dim);
@@ -519,7 +521,8 @@ impl<'p> StreamIngest<'p> {
             self.witness(StreamWitness::LayerPublished(b'A'));
         } else if self.index.layer_a.is_none() {
             // B or C before A: nothing may be searched before its entry points.
-            self.verifier.poison(ErrorCode::StreamRequirementsUnmet);
+            self.verifier
+                .poison_consumer(ErrorCode::StreamRequirementsUnmet);
         } else if p.len() >= 4 && p[..4] == MAGIC_B {
             match decode_b(p) {
                 Some(b) => {
@@ -527,7 +530,7 @@ impl<'p> StreamIngest<'p> {
                     self.witness(StreamWitness::LayerPublished(b'B'));
                 }
                 None => {
-                    self.verifier.poison(ErrorCode::StreamTableInvalid);
+                    self.verifier.poison_consumer(ErrorCode::StreamTableInvalid);
                 }
             }
         } else {
@@ -539,7 +542,7 @@ impl<'p> StreamIngest<'p> {
                     self.witness(StreamWitness::LayerPublished(b'C'));
                 }
                 None => {
-                    self.verifier.poison(ErrorCode::StreamTableInvalid);
+                    self.verifier.poison_consumer(ErrorCode::StreamTableInvalid);
                 }
             }
         }

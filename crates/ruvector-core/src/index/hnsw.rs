@@ -199,7 +199,16 @@ impl HnswIndex {
             .collect();
 
         let id_to_idx: DashMap<VectorId, usize> = state.id_to_idx.into_iter().collect();
-        let idx_to_id: DashMap<usize, VectorId> = state.idx_to_id.into_iter().collect();
+        // Older snapshots retained reverse mappings for replaced versions.
+        // Reconstruct only each live ID's canonical current graph position.
+        let idx_to_id: DashMap<usize, VectorId> = state
+            .idx_to_id
+            .into_iter()
+            .filter(|(idx, id)| {
+                vectors_lookup.contains_key(id.as_str())
+                    && id_to_idx.get(id).is_some_and(|current| *current == *idx)
+            })
+            .collect();
 
         // Insert vectors into HNSW in index order for deterministic reconstruction.
         let mut sorted_entries: Vec<_> = idx_to_id

@@ -109,6 +109,83 @@ pub struct ProductQuantized {
 }
 
 impl ProductQuantized {
+    /// Train product-quantization codebooks with the shared e-means optimizer.
+    ///
+    /// `config.clusters` selects the number of entries in each codebook (1–256).
+    /// Every vector must have the same nonzero dimension, evenly divisible by
+    /// `num_subspaces`, and contain only finite values. The returned codebooks
+    /// use the same representation as [`Self::train`] and work with
+    /// [`Self::encode`]. No input vector is encoded until the caller requests it.
+    ///
+    /// This API is explicit because e-means' automatic hyperparameters were
+    /// fitted on large embedding datasets; callers training small PQ subspaces
+    /// can set `batch_size` and `peak_step` in the configuration.
+    pub fn train_e_means(
+        vectors: &[Vec<f32>],
+        num_subspaces: usize,
+        config: &ruvector_e_means::Config,
+    ) -> Result<Self> {
+        use crate::error::RuvectorError;
+
+        let dimensions = vectors.first().map_or(0, Vec::len);
+        if vectors.is_empty() || dimensions == 0 {
+            return Err(RuvectorError::InvalidInput(
+                "e-means PQ training requires nonempty vectors".into(),
+            ));
+        }
+        if num_subspaces == 0 || dimensions % num_subspaces != 0 {
+            return Err(RuvectorError::InvalidParameter(
+                "Subspace count must be nonzero and divide vector dimensions".into(),
+            ));
+        }
+        if config.clusters == 0 || config.clusters > 256 || config.clusters > vectors.len() {
+            return Err(RuvectorError::InvalidParameter(
+                "Codebook size must be in 1..=256 and no greater than the vector count".into(),
+            ));
+        }
+        for vector in vectors {
+            if vector.len() != dimensions {
+                return Err(RuvectorError::DimensionMismatch {
+                    expected: dimensions,
+                    actual: vector.len(),
+                });
+            }
+            if vector.iter().any(|value| !value.is_finite()) {
+                return Err(RuvectorError::InvalidInput(
+                    "e-means PQ training vectors must contain only finite values".into(),
+                ));
+            }
+        }
+
+        let subspace_dim = dimensions / num_subspaces;
+        let capacity = vectors.len().checked_mul(subspace_dim).ok_or_else(|| {
+            RuvectorError::InvalidInput("e-means PQ training shape overflows usize".into())
+        })?;
+        let mut codebooks = Vec::with_capacity(num_subspaces);
+        let mut subspace_vectors = Vec::with_capacity(capacity);
+        for subspace_idx in 0..num_subspaces {
+            subspace_vectors.clear();
+            let start = subspace_idx * subspace_dim;
+            for vector in vectors {
+                subspace_vectors.extend_from_slice(&vector[start..start + subspace_dim]);
+            }
+            let model = ruvector_e_means::fit(&subspace_vectors, subspace_dim, config)
+                .map_err(|error| RuvectorError::InvalidParameter(error.to_string()))?;
+            codebooks.push(
+                model
+                    .centroids
+                    .chunks_exact(subspace_dim)
+                    .map(<[f32]>::to_vec)
+                    .collect(),
+            );
+        }
+
+        Ok(Self {
+            codes: Vec::new(),
+            codebooks,
+        })
+    }
+
     /// Train product quantization on a set of vectors
     pub fn train(
         vectors: &[Vec<f32>],
@@ -168,16 +245,28 @@ impl ProductQuantized {
             let start = subspace_idx * subspace_dim;
             let end = start + subspace_dim;
             let subvector = &vector[start..end];
+            // Keep the existing f32 distance, so codes for finite distances are
+            // unchanged. Only a candidate whose f32 squared distance overflows
+            // is re-measured in f64, keeping its nearest ordering.
+            let squared_distance = |centroid: &[f32]| -> f64 {
+                let fast = euclidean_squared(subvector, centroid);
+                if fast.is_finite() {
+                    f64::from(fast)
+                } else {
+                    subvector
+                        .iter()
+                        .zip(centroid)
+                        .map(|(&x, &y)| (f64::from(x) - f64::from(y)).powi(2))
+                        .sum()
+                }
+            };
 
             // Find nearest centroid
             let code = codebook
                 .iter()
                 .enumerate()
-                .min_by(|(_, a), (_, b)| {
-                    let dist_a = euclidean_squared(subvector, a);
-                    let dist_b = euclidean_squared(subvector, b);
-                    dist_a.partial_cmp(&dist_b).unwrap()
-                })
+                .map(|(idx, centroid)| (idx, squared_distance(centroid)))
+                .min_by(|(_, a), (_, b)| a.total_cmp(b))
                 .map(|(idx, _)| idx as u8)
                 .unwrap_or(0);
 

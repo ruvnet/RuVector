@@ -1,6 +1,6 @@
 {
   "name": "ruvector",
-  "version": "0.3.20",
+  "version": "0.3.26",
   "description": "Self-learning vector database for Node.js: native HNSW vector search, ONNX embeddings, GNN, attention, SONA routing and an MCP server for agents.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,7 +12,8 @@
     "verify-dist": "node scripts/verify-dist.js",
     "prepack": "npm run build && npm run verify-dist",
     "prepublishOnly": "npm run build && npm run verify-dist",
-    "test": "node test/integration.js && node test/graph-modularity.js && node test/backend-fallback.js && node test/mincut-wasm.js && node test/graph-cli-e2e.js && node test/metaharness-sdk.js && node test/metaharness-optional-deps.js && node test/cli-commands.js && node test/metaharness-cli.js && node test/db-workflow.js && node test/fast-agentdb-native.js && node test/mcp-stdio.js && node test/metaharness-mcp.js && node test/sigterm-cleanup.js && node test/mcp-policy.js && node test/mcp-command-security.js && node test/mcp-exploit-regression.js && node test/mcp-handshake.js && node test/mcp-intel-durability.js && node test/add-extras.js && node test/rabitq-optional.js && node test/rabitq-recall.js && node test/diskann-cli.js && node test/skills-install.js && node test/manifest-ranges.js && node test/attention-panic.js && node test/mcp-extras.js && node test/rvf-e2e.js && node test/startup-budget.js && node test/rag-context-rerank.js"
+    "test": "node test/integration.js && node test/graph-modularity.js && node test/backend-fallback.js && node test/mincut-wasm.js && node test/graph-cli-e2e.js && node test/metaharness-sdk.js && node test/metaharness-optional-deps.js && node test/cli-commands.js && node test/metaharness-cli.js && node test/db-workflow.js && node test/fast-agentdb-native.js && node test/mcp-stdio.js && node test/metaharness-mcp.js && node test/sigterm-cleanup.js && node test/mcp-policy.js && node test/mcp-command-security.js && node test/mcp-exploit-regression.js && node test/mcp-handshake.js && node test/mcp-intel-durability.js && node test/add-extras.js && node test/rabitq-optional.js && node test/rabitq-recall.js && node test/diskann-cli.js && node test/skills-install.js && node test/manifest-ranges.js && node test/attention-panic.js && node test/mcp-extras.js && node test/rvf-e2e.js && node test/startup-budget.js && node test/rag-context-rerank.js && node test/neural-q.js && node test/learning-import-types.js && node test/weight-space-optional.js && node test/weight-space-cli.js && node test/e-means.mjs",
+    "test:e-means": "node test/e-means.mjs"
   },
   "keywords": [
     "vector-database",
@@ -51,7 +52,8 @@
     "@ruvector/sona": "^0.1.11",
     "chalk": "^4.1.2",
     "commander": "^11.1.0",
-    "ora": "^5.4.1"
+    "ora": "^5.4.1",
+    "@ruvector/e-means": "0.1.0"
   },
   "optionalDependencies": {
     "@metaharness/darwin": "^0.13.0",
@@ -72,7 +74,9 @@
   "devDependencies": {
     "@types/node": "^20.10.5",
     "typescript": "^5.9.3",
-    "@ruvector/diskann": "^0.1.3"
+    "@ruvector/diskann": "^0.1.3",
+    "rvlite": "^0.2.8",
+    "ruv-fann": "0.1.0"
   },
   "files": [
     "bin/",
@@ -82,7 +86,10 @@
     "wasm/",
     "skills/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "clustering.mjs",
+    "clustering.d.mts",
+    "clustering/"
   ],
   "peerDependencies": {
     "@metaharness/darwin": "^0.13.0",
@@ -99,7 +106,9 @@
     "@ruvector/ruvllm": "^4.1.0",
     "metaharness": "^0.4.20",
     "@ruvector/rabitq-wasm": "^0.1.1",
-    "rvlite": "^0.2.0"
+    "rvlite": "^0.2.0",
+    "ruv-fann": "0.1.0",
+    "@ruvector/weight-space": "0.1.0"
   },
   "peerDependenciesMeta": {
     "@metaharness/darwin": {
@@ -145,6 +154,12 @@
       "optional": true
     },
     "rvlite": {
+      "optional": true
+    },
+    "ruv-fann": {
+      "optional": true
+    },
+    "@ruvector/weight-space": {
       "optional": true
     }
   },

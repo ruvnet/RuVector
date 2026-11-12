@@ -237,7 +237,7 @@ function buildModelConfig(provider, options) {
         case dspy_learning_session_js_1.ModelProvider.GEMINI:
             return {
                 ...baseConfig,
-                model: 'gemini-2.0-flash-exp',
+                model: 'gemini-2.5-flash',
                 apiKey: process.env.GEMINI_API_KEY || ''
             };
         case dspy_learning_session_js_1.ModelProvider.LLAMA:
