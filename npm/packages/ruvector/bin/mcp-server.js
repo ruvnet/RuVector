@@ -2704,7 +2704,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'hooks_build_agents': {
         const commandArgs = ['hooks', 'build-agents'];
-        if (args.focus) commandArgs.push('--focus', args.focus);
+        if (args.focus) {
+          // The focus string is written into .claude/agents/* and settings.json.
+          if (!BUILD_AGENT_FOCUS.includes(args.focus)) {
+            throw new Error(`focus must be one of: ${BUILD_AGENT_FOCUS.join(', ')}`);
+          }
+          commandArgs.push('--focus', args.focus);
+        }
         if (args.include_prompts) commandArgs.push('--include-prompts');
 
         try {

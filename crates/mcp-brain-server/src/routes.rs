@@ -8483,50 +8483,43 @@ async fn consciousness_status() -> Json<serde_json::Value> {
     }))
 }
 
-/// POST /v1/consciousness/compute — run consciousness computation
-async fn consciousness_compute(
-    Json(req): Json<ConsciousnessComputeRequest>,
-) -> Result<Json<ConsciousnessComputeResponse>, (StatusCode, Json<serde_json::Value>)> {
-    use ruvector_consciousness::types::{ComputeBudget, TransitionMatrix};
-
-    // Validate input
-    if req.n < 2 || !req.n.is_power_of_two() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({
-                "error": "n must be a power of 2 and >= 2"
-            })),
-        ));
+/// Largest system (in elements) each algorithm accepts on the public compute
+/// route. Cost grows exponentially with the element count and the computation
+/// runs on a runtime worker, so each cap keeps one request well under a second.
+pub(crate) fn consciousness_max_elements(algorithm: &str) -> Option<usize> {
+    match algorithm {
+        "ces" => Some(6),
+        "iit4_phi" | "bounds" => Some(8),
+        "pid" => Some(9),
+        "phi_id" => Some(11),
+        _ => None,
     }
-    if req.tpm.len() != req.n * req.n {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({
-                "error": format!("tpm must have {} elements (n×n), got {}", req.n * req.n, req.tpm.len())
-            })),
+}
+
+/// Validate a compute request; returns (num_elements, resolved algorithm).
+pub(crate) fn validate_consciousness_request(
+    req: &ConsciousnessComputeRequest,
+) -> Result<(usize, String), String> {
+    if req.n < 2 || !req.n.is_power_of_two() {
+        return Err("n must be a power of 2 and >= 2".into());
+    }
+    if req.tpm.len() != req.n.saturating_mul(req.n) {
+        return Err(format!(
+            "tpm must have {} elements (n×n), got {}",
+            req.n.saturating_mul(req.n),
+            req.tpm.len()
         ));
     }
     let num_elements = req.n.trailing_zeros() as usize;
     if num_elements > 12 {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({
-                "error": format!("system too large: {} elements (max 12)", num_elements)
-            })),
+        return Err(format!(
+            "system too large: {} elements (max 12)",
+            num_elements
         ));
     }
     if req.state >= req.n {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({
-                "error": format!("state {} out of range [0, {})", req.state, req.n)
-            })),
-        ));
+        return Err(format!("state {} out of range [0, {})", req.state, req.n));
     }
-
-    let tpm = TransitionMatrix::new(req.n, req.tpm.clone());
-    let start = std::time::Instant::now();
-
     let algo = if req.algorithm == "auto" {
         if num_elements <= 4 {
             "ces"
@@ -8534,8 +8527,45 @@ async fn consciousness_compute(
             "iit4_phi"
         }
     } else {
-        &req.algorithm
+        req.algorithm.as_str()
     };
+    let max = consciousness_max_elements(algo).ok_or_else(|| {
+        format!(
+            "unknown algorithm: {}. Use: iit4_phi, ces, phi_id, pid, bounds, auto",
+            algo
+        )
+    })?;
+    if num_elements > max {
+        return Err(format!(
+            "system too large for {}: {} elements (max {})",
+            algo, num_elements, max
+        ));
+    }
+    Ok((num_elements, algo.to_string()))
+}
+
+/// Split the system's element indices (not state indices) into PID sources
+/// by `mask`: bit i set puts element i in source A, otherwise in source B.
+pub(crate) fn pid_sources(num_elements: usize, mask: u64) -> (Vec<usize>, Vec<usize>) {
+    (0..num_elements).partition(|&i| i < 64 && mask & (1u64 << i) != 0)
+}
+
+/// POST /v1/consciousness/compute — run consciousness computation
+async fn consciousness_compute(
+    Json(req): Json<ConsciousnessComputeRequest>,
+) -> Result<Json<ConsciousnessComputeResponse>, (StatusCode, Json<serde_json::Value>)> {
+    use ruvector_consciousness::types::{ComputeBudget, TransitionMatrix};
+
+    let (num_elements, algo) = validate_consciousness_request(&req).map_err(|error| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": error })),
+        )
+    })?;
+    let algo = algo.as_str();
+
+    let tpm = TransitionMatrix::new(req.n, req.tpm.clone());
+    let start = std::time::Instant::now();
 
     let (phi, details) = match algo {
         "iit4_phi" => {
@@ -8618,15 +8648,7 @@ async fn consciousness_compute(
             let mask = req
                 .partition_mask
                 .unwrap_or((1u64 << (num_elements / 2)) - 1);
-            let mut source_a: Vec<usize> = Vec::new();
-            let mut source_b: Vec<usize> = Vec::new();
-            for i in 0..req.n {
-                if mask & (1 << i) != 0 {
-                    source_a.push(i);
-                } else {
-                    source_b.push(i);
-                }
-            }
+            let (source_a, source_b) = pid_sources(num_elements, mask);
             let sources = vec![source_a, source_b.clone()];
             match compute_pid(&tpm, &sources, &source_b) {
                 Ok(result) => (
