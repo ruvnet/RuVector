@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 150" width="720" height="150" role="img" aria-label="rvagent-cli: prompt to agent loop to tools + middleware to A2A peer">
+<title>rvagent-cli: prompt, agent loop, tools + middleware, A2A peer</title>
+<rect width="720" height="150" rx="10" fill="#0f172a"/>
+<text x="360" y="28" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#e2e8f0">rvagent-cli</text>
+<g font-family="sans-serif" font-size="13" fill="#e2e8f0" text-anchor="middle">
+<rect x="20" y="55" width="140" height="50" rx="8" fill="#1e293b" stroke="#38bdf8"/><text x="90" y="85">prompt</text>
+<rect x="200" y="55" width="140" height="50" rx="8" fill="#1e293b" stroke="#38bdf8"/><text x="270" y="85">agent loop</text>
+<rect x="380" y="55" width="140" height="50" rx="8" fill="#1e293b" stroke="#38bdf8"/><text x="450" y="85">tools + middleware</text>
+<rect x="560" y="55" width="140" height="50" rx="8" fill="#1e293b" stroke="#34d399"/><text x="630" y="85">A2A peer</text>
+</g>
+<g stroke="#38bdf8" stroke-width="2" fill="none"><path d="M160 80H200M340 80H380M520 80H560"/></g>
+<circle r="5" cy="80" fill="#fbbf24"><animate attributeName="cx" values="90;270;450;630" keyTimes="0;0.33;0.66;1" dur="4s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;1;0.2" dur="4s" repeatCount="indefinite"/></circle>
+<text x="360" y="132" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#94a3b8">ruv.io</text>
+</svg>

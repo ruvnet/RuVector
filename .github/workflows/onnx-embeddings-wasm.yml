@@ -1,0 +1,48 @@
+# Builds the ruvector-onnx-embeddings-wasm npm package and loads the packed tarball with
+# both require() and import(). 0.1.0-0.1.2 shipped CommonJS glue under "type":"module" and
+# could not be loaded either way; this job keeps that from shipping again.
+name: onnx-embeddings-wasm
+
+on:
+  pull_request:
+    paths:
+      - 'examples/onnx-embeddings-wasm/**'
+      - '.github/workflows/onnx-embeddings-wasm.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'examples/onnx-embeddings-wasm/**'
+      - '.github/workflows/onnx-embeddings-wasm.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pack-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          workspaces: examples/onnx-embeddings-wasm
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build npm package
+        run: bash examples/onnx-embeddings-wasm/scripts/build-npm.sh
+
+      - name: require() and import() the packed tarball
+        run: node examples/onnx-embeddings-wasm/scripts/test-pack.mjs

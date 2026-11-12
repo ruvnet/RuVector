@@ -1,11 +1,14 @@
 [package]
 name        = "ruvector-rairs"
-version     = "0.1.0"
+version     = "0.1.1"
 edition     = "2021"
 description = "RAIRS IVF: Redundant Assignment with Amplified Inverse Residual — ruvector's first IVF index family"
 authors     = ["ruvnet", "claude-flow"]
 license     = "MIT OR Apache-2.0"
 repository  = "https://github.com/ruvnet/ruvector"
+homepage    = "https://ruv.io"
+documentation = "https://docs.rs/ruvector-rairs"
+readme      = "README.md"
 keywords    = ["ann", "ivf", "vector-search", "nearest-neighbor", "ruvector"]
 categories  = ["algorithms", "data-structures"]
 
@@ -14,6 +17,7 @@ name = "rairs-demo"
 path = "src/main.rs"
 
 [dependencies]
+ruvector-e-means = { version = "=0.1.0", path = "../ruvector-e-means" }
 rand        = "0.8"
 serde       = { version = "1", features = ["derive"] }
 

@@ -136,7 +136,8 @@ Every instance method is async. `backend` is `'node' | 'wasm' | 'auto'` (default
 | `db.status()` | Store status (vector/segment counts, epoch, compaction state, ...) |
 | `db.fileId()` / `db.parentId()` | Hex identifiers of this file and its parent |
 | `db.lineageDepth()` | Derivation depth (0 for root files) |
-| `db.derive(childPath, options?)` | Create a child store that records this one as parent |
+| `db.derive(childPath, options?, derivationType?)` | Create a child store that records this one as parent and how it was derived (`'clone'`, `'filter'` (default), `'quantize'`, `'reindex'`, `'transform'`, `'snapshot'`, `'user_defined'`) |
+| `db.derivationType()` | How this store was derived, or `null` |
 | `db.branch(childPath)` | Durable copy-on-write branch that persists only child edits |
 | `db.freeze()` | Freeze this generation; returns the frozen epoch |
 | `db.embedKernel(arch, kernelType, flags, image, apiPort, cmdline?)` | Embed a kernel image |

@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/sona",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "SONA self-learning runtime: adaptive LoRA, EWC++ and ReasoningBank for LLM routing and AI systems, for Node.js and WASM.",
   "main": "index.js",
   "types": "index.d.ts",

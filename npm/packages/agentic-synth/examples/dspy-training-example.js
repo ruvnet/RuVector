@@ -38,7 +38,7 @@ async function basicTrainingExample() {
             },
             {
                 provider: dspy_learning_session_js_1.ModelProvider.GEMINI,
-                model: 'gemini-2.0-flash-exp',
+                model: 'gemini-2.5-flash',
                 apiKey: process.env.GEMINI_API_KEY || 'test-key',
                 temperature: 0.7,
                 maxTokens: 1000
@@ -155,7 +155,7 @@ async function advancedTrainingExample() {
             },
             {
                 provider: dspy_learning_session_js_1.ModelProvider.GEMINI,
-                model: 'gemini-2.0-flash-exp',
+                model: 'gemini-2.5-flash',
                 apiKey: process.env.GEMINI_API_KEY || 'test-key'
             }
         ],
@@ -218,7 +218,7 @@ async function costOptimizedTrainingExample() {
         models: [
             {
                 provider: dspy_learning_session_js_1.ModelProvider.GEMINI,
-                model: 'gemini-2.0-flash-exp',
+                model: 'gemini-2.5-flash',
                 apiKey: process.env.GEMINI_API_KEY || 'test-key'
             },
             {
@@ -347,7 +347,7 @@ async function benchmarkComparisonExample() {
             },
             {
                 provider: dspy_learning_session_js_1.ModelProvider.GEMINI,
-                model: 'gemini-2.0-flash-exp',
+                model: 'gemini-2.5-flash',
                 apiKey: process.env.GEMINI_API_KEY || 'test-key'
             },
             {

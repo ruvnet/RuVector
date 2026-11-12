@@ -28,7 +28,7 @@ function defaultApiKey(provider: ModelProvider): string | undefined {
 
 // OpenRouter has no fixed default: the router picks its top-priority route.
 function defaultModel(provider: ModelProvider): string | undefined {
-  return provider === 'gemini' ? 'gemini-2.0-flash-exp' : undefined;
+  return provider === 'gemini' ? 'gemini-2.5-flash' : undefined;
 }
 
 /**

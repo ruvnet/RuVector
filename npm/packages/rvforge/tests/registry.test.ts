@@ -5,12 +5,13 @@
  * the release index and transparency log refuse.
  */
 
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 
 import { ForgeError, ForgeErrorCode } from '../src/errors';
 import { canonicalJson } from '../src/hash';
+import { readReceipts } from '../src/witness';
 import {
   appendLogEntry,
   appendRelease,
@@ -18,12 +19,16 @@ import {
   getObject,
   inclusionProof,
   initRegistry,
+  LOG_ENTRIES_FILE,
   objectId,
   objectPath,
   putObject,
   readLog,
   readReleaseIndex,
   readTreeHead,
+  readWitnessChain,
+  TREE_HEAD_FILE,
+  witnessIndexPath,
   verifyInclusionProof,
   verifyLog,
   type Release,
@@ -34,6 +39,32 @@ let root: string;
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), 'rvforge-registry-'));
   await initRegistry(root);
+});
+
+describe('unreadable registry state', () => {
+  it('does not mistake an unreadable release index for a new package', async () => {
+    const first = release();
+    const dir = join(root, 'packages', digestOf(first.package.publisherId), 'analyst');
+    await mkdir(join(dir, 'releases.jsonl'), { recursive: true });
+    await expect(appendRelease(root, first)).rejects.toMatchObject({ code: ForgeErrorCode.REGISTRY });
+  });
+
+  it('does not mistake unreadable log or witness files for empty history', async () => {
+    await mkdir(join(root, LOG_ENTRIES_FILE));
+    await expect(readLog(root)).rejects.toMatchObject({ code: ForgeErrorCode.REGISTRY });
+    await mkdir(witnessIndexPath(root, 'subject'));
+    await expect(readWitnessChain(root, 'subject')).rejects.toMatchObject({ code: ForgeErrorCode.REGISTRY });
+    await mkdir(join(root, 'receipts.jsonl'));
+    await expect(readReceipts(root)).rejects.toMatchObject({ code: ForgeErrorCode.REGISTRY });
+  });
+
+  it('does not report an unreadable or malformed tree head as absent', async () => {
+    await mkdir(join(root, TREE_HEAD_FILE));
+    await expect(readTreeHead(root)).rejects.toMatchObject({ code: ForgeErrorCode.REGISTRY });
+    await rm(join(root, TREE_HEAD_FILE), { recursive: true });
+    await writeFile(join(root, TREE_HEAD_FILE), '{');
+    await expect(readTreeHead(root)).rejects.toMatchObject({ code: ForgeErrorCode.REGISTRY });
+  });
 });
 
 afterEach(async () => {
@@ -87,6 +118,37 @@ describe('object identity', () => {
 });
 
 describe('object storage', () => {
+  it('rejects mismatched content before creating or overwriting an object', async () => {
+    const original = release();
+    const different = release({ version: '2.0.0' });
+    await expect(putObject(root, original.releaseId, different)).rejects.toMatchObject({
+      code: ForgeErrorCode.REGISTRY,
+    });
+    expect(await getObject(root, original.releaseId)).toBeNull();
+    await putObject(root, original.releaseId, original);
+    await expect(putObject(root, original.releaseId, different)).rejects.toMatchObject({
+      code: ForgeErrorCode.REGISTRY,
+    });
+    expect(await getObject(root, original.releaseId)).toEqual(original);
+  });
+
+  it('refuses stored content that no longer matches its address', async () => {
+    const original = release();
+    const { path } = await putObject(root, original.releaseId, original);
+    await writeFile(path, JSON.stringify({ ...original, version: '2.0.0' }));
+    await expect(getObject(root, original.releaseId)).rejects.toMatchObject({
+      code: ForgeErrorCode.REGISTRY,
+    });
+  });
+
+  it('allows signatures to be refreshed without changing the content identity', async () => {
+    const original = release();
+    await putObject(root, original.releaseId, original);
+    const signed = { ...original, signatures: [{ keyId: 'key', role: 'publisher', sig: 'signature' }] };
+    await putObject(root, original.releaseId, signed);
+    expect(await getObject(root, original.releaseId)).toEqual(signed);
+  });
+
   it('shards by the first two hex characters of the digest', async () => {
     const object = release();
     const { path } = await putObject(root, object.releaseId, object);
@@ -168,6 +230,12 @@ describe('release lineage', () => {
 });
 
 describe('transparency log', () => {
+  it('does not accept a digest with a valid hexadecimal prefix and invalid suffix', () => {
+    const hash = `sha256:${'a'.repeat(64)}not-hex`;
+    expect(verifyInclusionProof({ leafIndex: 0, treeSize: 1, leafHash: hash,
+      path: [], rootHash: hash }, hash)).toBe(false);
+  });
+
   const entry = (object: string, timestamp: string) =>
     appendLogEntry(root, { object, objectType: 'release', timestamp });
 

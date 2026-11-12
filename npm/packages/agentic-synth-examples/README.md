@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/RuVector/main/assets/ruvector/packages/agentic-synth-examples.svg" alt="@ruvector/agentic-synth-examples: examples for agentic-synth - market simulation, self-learning, DSPy benchmarking." width="100%"></p>
+
 # @ruvector/agentic-synth-examples
 
 **Production-ready examples and tutorials for [@ruvector/agentic-synth](https://www.npmjs.com/package/@ruvector/agentic-synth)**
@@ -24,19 +26,37 @@ npx @ruvector/agentic-synth-examples --help
 
 ### Run Your First Example
 
-```bash
-# DSPy multi-model training
-npx @ruvector/agentic-synth-examples dspy train \
-  --models gemini,claude \
-  --prompt "Generate product descriptions" \
-  --rounds 3
+Simulate market data with Gemini (needs `GEMINI_API_KEY`):
 
-# Basic synthetic data generation
-npx @ruvector/agentic-synth-examples generate \
-  --type structured \
-  --count 100 \
-  --schema ./schema.json
+```javascript
+// quickstart.mjs
+import { StockMarketSimulator } from '@ruvector/agentic-synth-examples';
+
+const sim = new StockMarketSimulator({
+  provider: 'gemini',
+  model: 'gemini-2.5-flash',
+  apiKey: process.env.GEMINI_API_KEY,
+  symbols: ['AAPL'],
+  startPrice: 190,
+  timeout: 120000
+});
+
+const result = await sim.generateMarketData({
+  startDate: new Date('2024-01-02'),
+  endDate: new Date('2024-01-05'),
+  interval: '1d'
+});
+console.log(result.data.length, 'candles; first close', result.data[0]?.close);
+console.log(sim.getStatistics('AAPL'));
 ```
+
+```bash
+npm install @ruvector/agentic-synth-examples
+GEMINI_API_KEY=... node quickstart.mjs
+npx @ruvector/agentic-synth-examples list   # browse the example catalog
+```
+
+The DSPy benchmark (`MultiModelBenchmark`) needs the optional peer `dspy.ts`: `npm install dspy.ts@2.3.1`. Without it the package still imports, and the benchmark throws an install hint when run. The `dspy`, `self-learn` and `generate` CLI subcommands only print their configuration for now.
 
 ---
 
@@ -499,7 +519,7 @@ Learn by doing with production-ready examples! 🚀
 
 Part of the [ruv.io](https://ruv.io) open-source stack for benchmark, Claude, machine learning.
 
-- **Works with** (its runtime dependencies): [`@ruvector/agentic-synth`](https://www.npmjs.com/package/@ruvector/agentic-synth), [`dspy.ts`](https://www.npmjs.com/package/dspy.ts), [`@ruvector/agentic-synth`](https://www.npmjs.com/package/@ruvector/agentic-synth)
+- **Works with** (its runtime dependencies): [`@ruvector/agentic-synth`](https://www.npmjs.com/package/@ruvector/agentic-synth), [`commander`](https://www.npmjs.com/package/commander), [`zod`](https://www.npmjs.com/package/zod); optional peer [`dspy.ts`](https://www.npmjs.com/package/dspy.ts)
 - **Used by** (published packages that depend on it): none yet
 <!-- weaver:seo:links:end -->
 

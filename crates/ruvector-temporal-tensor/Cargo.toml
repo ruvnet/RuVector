@@ -1,11 +1,14 @@
 [package]
 name = "ruvector-temporal-tensor"
-version.workspace = true
+version = "2.3.1"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+homepage = "https://ruv.io"
+readme = "README.md"
+keywords = ["tensor", "compression", "quantization", "wasm", "ruvector"]
 description = "Temporal tensor compression with tiered quantization for RuVector"
 
 [features]

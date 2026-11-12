@@ -62,7 +62,7 @@ Create a `.env` file (or configure in platform):
 # API Configuration
 SYNTH_PROVIDER=gemini
 SYNTH_API_KEY=your-api-key-here
-SYNTH_MODEL=gemini-2.0-flash-exp
+SYNTH_MODEL=gemini-2.5-flash
 
 # Optional: OpenRouter fallback
 OPENROUTER_API_KEY=your-openrouter-key

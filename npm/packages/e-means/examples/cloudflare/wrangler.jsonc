@@ -1,0 +1,9 @@
+{
+  "name": "ruvector-e-means",
+  "main": "dist/worker.mjs",
+  "compatibility_date": "2026-07-30",
+  "no_bundle": true,
+  "find_additional_modules": true,
+  "rules": [{ "type": "CompiledWasm", "globs": ["**/*.wasm"], "fallthrough": true }],
+  "observability": { "enabled": true }
+}

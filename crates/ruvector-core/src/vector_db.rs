@@ -18,6 +18,17 @@ mod metadata_index;
 pub use filtered::FilterPlan;
 use metadata_index::MetadataIndex;
 
+/// Reject vectors with NaN or ±Inf components: they poison distance ordering and cannot be ranked.
+fn ensure_finite(vector: &[f32], what: &str) -> Result<()> {
+    match vector.iter().position(|x| !x.is_finite()) {
+        None => Ok(()),
+        Some(i) => Err(crate::error::RuvectorError::InvalidInput(format!(
+            "{what} component {i} is not finite ({})",
+            vector[i]
+        ))),
+    }
+}
+
 #[cfg(feature = "storage")]
 enum StorageBackend {
     Persistent(crate::storage::VectorStorage),
@@ -344,8 +355,11 @@ impl VectorDB {
         Self::new(options)
     }
 
-    /// Insert a vector entry
+    /// Insert a vector entry. Re-inserting an existing id replaces it (upsert).
+    ///
+    /// A vector containing NaN or ±Inf is rejected before anything is stored.
     pub fn insert(&self, entry: VectorEntry) -> Result<VectorId> {
+        ensure_finite(&entry.vector, "vector")?;
         let id = self.storage.insert(&entry)?;
 
         // Add to index
@@ -359,6 +373,10 @@ impl VectorDB {
     /// Insert multiple vectors in a batch
     pub fn insert_batch(&self, entries: impl AsRef<[VectorEntry]>) -> Result<Vec<VectorId>> {
         let entries = entries.as_ref();
+        // Validate the whole batch first so a bad row leaves storage untouched.
+        for entry in entries {
+            ensure_finite(&entry.vector, "vector")?;
+        }
         let ids = self.storage.insert_batch(entries)?;
 
         // Add to index
@@ -392,6 +410,7 @@ impl VectorDB {
         query: SearchQuery,
         plan: FilterPlan,
     ) -> Result<Vec<SearchResult>> {
+        ensure_finite(&query.vector, "query vector")?;
         if let Some(filter) = query.filter.as_ref().filter(|f| !f.is_empty()) {
             return self.search_filtered(&query, filter, plan);
         }

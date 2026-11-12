@@ -22,6 +22,22 @@ pub struct IvfFlat {
 }
 
 impl IvfFlat {
+    /// Train with the shared e-means optimizer instead of Lloyd's algorithm.
+    /// `options.clusters` must match this index's configured cluster count;
+    /// epochs and seed come from `options`. Successful retraining clears all
+    /// inserted vectors and restarts IDs; validation failure preserves state.
+    pub fn train_e_means(
+        &mut self,
+        corpus: &[Vec<f32>],
+        options: &ruvector_e_means::Config,
+    ) -> Result<(), RairsError> {
+        let centroids = train_e_means_centroids(corpus, self.dim, self.nclusters, options)?;
+        self.lists = vec![Vec::new(); centroids.len()];
+        self.centroids = centroids;
+        self.total = 0;
+        Ok(())
+    }
+
     /// Create a new untrained IvfFlat index.
     ///
     /// * `dim`       — vector dimensionality
@@ -57,6 +73,54 @@ impl IvfFlat {
         self.lists = vec![Vec::new(); k];
         Ok(())
     }
+}
+
+/// Shared validated centroid training for the IVF, RAIRS, and SEIL layouts.
+pub(crate) fn train_e_means_centroids(
+    corpus: &[Vec<f32>],
+    dimensions: usize,
+    clusters: usize,
+    options: &ruvector_e_means::Config,
+) -> Result<Vec<Vec<f32>>, RairsError> {
+    if corpus.is_empty() {
+        return Err(RairsError::EmptyCorpus);
+    }
+    if dimensions == 0 || options.clusters != clusters {
+        return Err(RairsError::InvalidParam(
+            "e-means requires positive dimensions and a matching cluster count".into(),
+        ));
+    }
+    options
+        .parameters(corpus.len())
+        .map_err(|error| RairsError::InvalidParam(error.to_string()))?;
+    let capacity = corpus
+        .len()
+        .checked_mul(dimensions)
+        .ok_or_else(|| RairsError::InvalidParam("training shape overflows usize".into()))?;
+    for row in corpus {
+        if row.len() != dimensions {
+            return Err(RairsError::DimMismatch {
+                expected: dimensions,
+                got: row.len(),
+            });
+        }
+        if row.iter().any(|value| !value.is_finite()) {
+            return Err(RairsError::InvalidParam(
+                "e-means training vectors must contain only finite values".into(),
+            ));
+        }
+    }
+    let mut data = Vec::with_capacity(capacity);
+    for row in corpus {
+        data.extend_from_slice(row);
+    }
+    let model = ruvector_e_means::fit(&data, dimensions, options)
+        .map_err(|error| RairsError::InvalidParam(error.to_string()))?;
+    Ok(model
+        .centroids
+        .chunks_exact(dimensions)
+        .map(<[f32]>::to_vec)
+        .collect())
 }
 
 impl AnnIndex for IvfFlat {

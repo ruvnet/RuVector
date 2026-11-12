@@ -32,19 +32,19 @@ export class ModelRouter {
     const geminiRoutes: ModelRoute[] = [
       {
         provider: 'gemini',
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.5-flash',
         priority: 10,
         capabilities: ['text', 'json', 'streaming', 'fast']
       },
       {
         provider: 'gemini',
-        model: 'gemini-1.5-pro',
+        model: 'gemini-2.5-pro',
         priority: 8,
         capabilities: ['text', 'json', 'complex', 'reasoning']
       },
       {
         provider: 'gemini',
-        model: 'gemini-1.5-flash',
+        model: 'gemini-2.5-flash-lite',
         priority: 9,
         capabilities: ['text', 'json', 'fast', 'efficient']
       }
