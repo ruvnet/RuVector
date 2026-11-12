@@ -1,15 +1,18 @@
 [package]
 name = "ruvector-temporal-tensor-wasm"
-version.workspace = true
+version = "2.3.1"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+homepage = "https://ruv.io"
+readme = "README.md"
+keywords = ["tensor", "compression", "quantization", "wasm", "ruvector"]
 description = "WASM bindings for temporal tensor compression"
 
 [dependencies]
-ruvector-temporal-tensor = { version = "2.3.0", path = "../ruvector-temporal-tensor", features = ["ffi"] }
+ruvector-temporal-tensor = { version = "2.3.1", path = "../ruvector-temporal-tensor", features = ["ffi"] }
 
 [lib]
 crate-type = ["cdylib"]

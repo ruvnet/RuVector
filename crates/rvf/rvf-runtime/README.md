@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/ruvnet/ruvector/main/assets/ruvector/crates/rvf-runtime.svg" alt="rvf-runtime flow" width="100%"></p>
+
 # rvf-runtime
 
 RuVector Format runtime providing the RvfStore API, background compaction, and streaming I/O.
@@ -231,3 +233,7 @@ The following methods are planned for `RvfStore`:
 ## License
 
 MIT OR Apache-2.0
+
+---
+
+Built by [rUv](https://ruv.io) · [ruv.io](https://ruv.io) · [Source](https://github.com/ruvnet/ruvector/tree/main/crates/rvf/rvf-runtime)
