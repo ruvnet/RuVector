@@ -192,17 +192,14 @@ pub async fn run(
     let addr = format!("{}:{}", host, port)
         .parse::<SocketAddr>()
         .context("Invalid address")?;
-    // Readiness means the socket is already listening. Bind failures must not
-    // announce a ready server; local_addr also resolves an OS-assigned port 0.
+
+    // Bind before announcing readiness; clients can connect upon the banner.
+    // Bind failures must not announce a ready server; local_addr also
+    // resolves an OS-assigned port 0 to the actual port.
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .with_context(|| format!("Failed to bind server to {addr}"))?;
     let addr = listener.local_addr().context("Read server address")?;
-
-    // Bind before announcing readiness; clients can connect upon the banner.
-    // Report the actual port when zero was requested.
-    let listener = tokio::net::TcpListener::bind(addr).await?;
-    let addr = listener.local_addr()?;
 
     println!();
     if mock_mode {
