@@ -89,6 +89,43 @@ struct Update {
     v: VertexId,
 }
 
+/// Opt-in optimizations for [`MinCutWrapper::process_instances`]'s cold-start
+/// instance scan, added by the 2026-11-13 nightly research run
+/// (`docs/research/nightly/2026-11-13_bounded_instance_scan_dedup`). Default
+/// is [`ScanOptLevel::Baseline`] — unchanged prior behavior — so existing
+/// callers of `MinCutWrapper::new`/`with_factory` are unaffected unless they
+/// opt in via [`MinCutWrapper::with_scan_opt_level`].
+///
+/// Both non-baseline levels are proven result-preserving, not approximations:
+/// `compute_bounds`'s geometric ranges (floor(1.2^i)) produce literal
+/// duplicate `(lambda_min, lambda_max)` pairs for consecutive small `i`
+/// (e.g. i=0..=2 all map to (1,1)); given ADR-346's determinism fix, querying
+/// an identical range against the identical graph state deterministically
+/// repeats the same `InstanceResult`, so skipping the repeat changes no
+/// result, only removes redundant work. See the nightly README for the
+/// measured evidence and the `scan_opt_equivalence` test below for the
+/// correctness check.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ScanOptLevel {
+    /// Unmodified prior behavior: re-instantiate and re-query every instance
+    /// from `start_idx`, even when consecutive instances share an identical
+    /// `(lambda_min, lambda_max)` range, and re-collect+re-sort the full edge
+    /// list from `self.graph.edges()` for every newly-instantiated instance.
+    #[default]
+    Baseline,
+    /// Skip instantiating instance `i` when `(lambda_min[i], lambda_max[i])`
+    /// is identical to instance `i-1`'s range *and* instance `i-1` was
+    /// queried (not loaded from a prior call's cache) and returned
+    /// `AboveRange` earlier in this same scan. Still re-collects the edge
+    /// list per newly-instantiated instance.
+    DedupRanges,
+    /// `DedupRanges`, plus hoist the `self.graph.edges()` collect-and-sort
+    /// (performed by every `is_new_instance` branch in the unmodified code)
+    /// to once per `process_instances()` call instead of once per
+    /// newly-instantiated instance.
+    DedupRangesAndHoistEdges,
+}
+
 /// The main wrapper managing O(log n) bounded instances
 pub struct MinCutWrapper {
     /// Dynamic connectivity checker
@@ -124,6 +161,10 @@ pub struct MinCutWrapper {
 
     /// Last known min-cut value (for binary search optimization)
     last_min_cut: Option<u64>,
+
+    /// Cold-start instance-scan optimization level (default: `Baseline`,
+    /// i.e. unchanged prior behavior). See [`ScanOptLevel`].
+    scan_opt: ScanOptLevel,
 
     /// Use parallel agentic chip backend
     #[cfg(feature = "agentic")]
@@ -196,9 +237,26 @@ impl MinCutWrapper {
             graph,
             instance_factory: Box::new(factory),
             last_min_cut: None,
+            scan_opt: ScanOptLevel::default(),
             #[cfg(feature = "agentic")]
             use_agentic: false,
         }
+    }
+
+    /// Opt into a cold-start instance-scan optimization level (default:
+    /// [`ScanOptLevel::Baseline`], unchanged prior behavior). See
+    /// [`ScanOptLevel`] for what each level does and why it is
+    /// result-preserving.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let wrapper = MinCutWrapper::new(graph)
+    ///     .with_scan_opt_level(ScanOptLevel::DedupRangesAndHoistEdges);
+    /// ```
+    pub fn with_scan_opt_level(mut self, level: ScanOptLevel) -> Self {
+        self.scan_opt = level;
+        self
     }
 
     /// Enable agentic chip parallel processing
@@ -395,7 +453,50 @@ impl MinCutWrapper {
         // Use binary search hint to find starting instance
         let start_idx = self.get_search_start();
 
+        // `ScanOptLevel::DedupRangesAndHoistEdges` only: collect+sort the
+        // graph's edges once for this call instead of once per
+        // newly-instantiated instance in the loop below (the unmodified
+        // `is_new_instance` branch calls `self.graph.edges()`, an O(m log m)
+        // sort per ADR-346, afresh for every instance it creates).
+        let hoisted_edges: Option<Vec<(EdgeId, VertexId, VertexId)>> =
+            if self.scan_opt == ScanOptLevel::DedupRangesAndHoistEdges {
+                Some(
+                    self.graph
+                        .edges()
+                        .iter()
+                        .map(|e| (e.id, e.source, e.target))
+                        .collect(),
+                )
+            } else {
+                None
+            };
+
+        // `ScanOptLevel::DedupRanges` / `DedupRangesAndHoistEdges`: the range
+        // that most recently returned `AboveRange` *in this scan*. Consecutive
+        // instances with an identical (lambda_min, lambda_max) — real,
+        // produced by `compute_bounds`'s floor(1.2^i) for small i — are
+        // skipped without ever instantiating them: given ADR-346's
+        // determinism fix, querying the same range against the same graph
+        // state is deterministic, so instance i's answer is already known to
+        // be `AboveRange` without re-running it. Only applies to instances
+        // that have never been instantiated (`self.instances[i].is_none()`);
+        // an already-instantiated instance still takes the normal
+        // incremental-update path below, unaffected.
+        let mut prev_above_range: Option<(u64, u64)> = None;
+
         for i in start_idx..MAX_INSTANCES {
+            let range = (self.lambda_min[i], self.lambda_max[i]);
+
+            if self.scan_opt != ScanOptLevel::Baseline
+                && i > start_idx
+                && self.instances[i].is_none()
+                && prev_above_range == Some(range)
+            {
+                // Same range as the instance just scanned, which was
+                // AboveRange; skip re-instantiating and re-querying it.
+                continue;
+            }
+
             // Lazily instantiate instance if needed
             let is_new_instance = self.instances[i].is_none();
             if is_new_instance {
@@ -410,12 +511,16 @@ impl MinCutWrapper {
 
             if is_new_instance {
                 // New instance: apply ALL edges from the graph
-                let all_edges: Vec<_> = self
-                    .graph
-                    .edges()
-                    .iter()
-                    .map(|e| (e.id, e.source, e.target))
-                    .collect();
+                let all_edges: Vec<(EdgeId, VertexId, VertexId)> =
+                    if let Some(ref edges) = hoisted_edges {
+                        edges.clone()
+                    } else {
+                        self.graph
+                            .edges()
+                            .iter()
+                            .map(|e| (e.id, e.source, e.target))
+                            .collect()
+                    };
 
                 if !all_edges.is_empty() {
                     instance.apply_inserts(&all_edges);
@@ -461,6 +566,7 @@ impl MinCutWrapper {
                 }
                 InstanceResult::AboveRange => {
                     // Cut is above this range, try next instance with larger range
+                    prev_above_range = Some(range);
                     continue;
                 }
             }
@@ -1500,5 +1606,62 @@ mod tests {
         // Should return at least initial point
         assert!(!curve.is_empty());
         assert_eq!(curve[0].0, 0); // First entry is k=0
+    }
+
+    /// `ScanOptLevel::DedupRanges` / `DedupRangesAndHoistEdges` must return
+    /// the exact same `MinCutResult::value()` as `Baseline` on a cold start,
+    /// across several topologies spanning both the brute-force (<20 vertex)
+    /// and `search_for_cuts` (>=20 vertex) `BoundedInstance` code paths, and
+    /// both a connected and disconnected graph. This is the correctness
+    /// check for the 2026-11-13 nightly's scan-dedup optimization: see
+    /// `ScanOptLevel`'s doc comment for why equivalence is expected by
+    /// construction, not merely observed on these cases.
+    #[test]
+    fn scan_opt_equivalence() {
+        fn build_graph(edges: &[(u64, u64)]) -> Arc<DynamicGraph> {
+            let graph = Arc::new(DynamicGraph::new());
+            for &(u, v) in edges {
+                let _ = graph.insert_edge(u, v, 1.0);
+            }
+            graph
+        }
+
+        // Small cycle (n=5, brute-force path, min cut = 2).
+        let small_cycle = build_graph(&[(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]);
+        // Larger cycle (n=25, search_for_cuts path, min cut = 2).
+        let large_cycle: Vec<(u64, u64)> = (0..25)
+            .map(|i| (i, if i + 1 == 25 { 0 } else { i + 1 }))
+            .collect();
+        let large_cycle = build_graph(&large_cycle);
+        // Two disjoint triangles (disconnected, min cut = 0).
+        let disconnected = build_graph(&[(0, 1), (1, 2), (2, 0), (10, 11), (11, 12), (12, 10)]);
+        // Dense small graph (n=10 complete-ish, several duplicate-range
+        // instances will be scanned before the true value is reached).
+        let mut dense_edges = Vec::new();
+        for u in 0..10u64 {
+            for v in (u + 1)..10u64 {
+                dense_edges.push((u, v));
+            }
+        }
+        let dense = build_graph(&dense_edges);
+
+        for graph in [&small_cycle, &large_cycle, &disconnected, &dense] {
+            let baseline = MinCutWrapper::new(Arc::clone(graph)).query().value();
+            for level in [
+                ScanOptLevel::DedupRanges,
+                ScanOptLevel::DedupRangesAndHoistEdges,
+            ] {
+                let candidate = MinCutWrapper::new(Arc::clone(graph))
+                    .with_scan_opt_level(level)
+                    .query()
+                    .value();
+                assert_eq!(
+                    candidate,
+                    baseline,
+                    "scan_opt {level:?} diverged from Baseline on a graph with {} vertices",
+                    graph.vertices().len()
+                );
+            }
+        }
     }
 }
