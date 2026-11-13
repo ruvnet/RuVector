@@ -152,6 +152,7 @@ jobs:
           set -e
           node -e "require('@ruvector/weight-space')"
           node test/weight-space-cli.js
+          node test/weight-space-edit.js
 
   # ──────────────────────────────────────────────────────────────────────────
   # 3. FUNCTIONAL SMOKE — npx-style CLI works end-to-end

@@ -120,6 +120,15 @@ rule that a default install does not fetch it, are superseded.
   `ruv-fann@0.1.0` directly, as before.
 - `test/weight-space-cli.js` now fails, rather than skips, when the package does not
   resolve, because a skip would hide a broken install.
+- **Edit and fine-tune surface.** `ruvector weights set-layer|perturb|learn` and the MCP
+  tools `weights_set_layer|weights_perturb|weights_learn` expose the registry's
+  versioned edit and `learnFromOutcomes` operations (`bin/weights-edit.js`). Each writes a
+  child snapshot and never changes its parent. Inputs are bounded (epochs, rows, vector
+  and patch sizes, seeds), file inputs use the same working-directory confinement as
+  `save`, and a fine-tune that does not clear its held-out check writes nothing and
+  returns `accepted: false` rather than an error. These tools write to the registry, so
+  operators who expose the MCP server read-only should deny them with
+  `RUVECTOR_MCP_DENY` (ADR-256).
 
 ## Evaluation
 

@@ -263,7 +263,7 @@ const REGISTRY_PROP = {
 const EMBEDDING_PROP = { type: 'array', items: { type: 'number' }, description: 'Task embedding (all snapshots in a registry share one dimension)' };
 const NEEDS = `Runs on ${WEIGHT_SPACE_PKG}; if it is missing, install it with: ${WEIGHT_SPACE_INSTALL_HINT}.`;
 
-const MCP_TOOLS = [
+const BASE_MCP_TOOLS = [
   {
     name: 'weights_save',
     description: `Save a ruv-fann model snapshot to a weight registry, keyed by a task embedding. ${NEEDS}`,
@@ -310,6 +310,12 @@ const MCP_TOOLS = [
   },
 ];
 
+// Edit and fine-tune operations (set-layer, perturb, learn) live in weights-edit.js;
+// the shared registry plumbing is injected so the two files do not import each other.
+const edit = require('./weights-edit').create({
+  withRegistry, parseId, summarize, optionalString, parseTags, REGISTRY_PROP, NEEDS, MAX_NOTE_CHARS,
+});
+const MCP_TOOLS = [...BASE_MCP_TOOLS, ...edit.MCP_TOOLS];
 const MCP_TOOL_NAMES = new Set(MCP_TOOLS.map((t) => t.name));
 
 /** Run a weights_* MCP tool. `resolvePath` is the server's path validator. */
@@ -330,6 +336,8 @@ async function runMcpTool(name, args, resolvePath) {
       payload = await diffSnapshots({ registry: a.registry, idA: a.id_a, idB: a.id_b }, resolvePath);
     } else if (name === 'weights_lineage') {
       payload = await lineageOf({ registry: a.registry, id: a.id }, resolvePath);
+    } else if (Object.prototype.hasOwnProperty.call(edit.RUNNERS, name)) {
+      payload = await edit.RUNNERS[name](a, resolvePath);
     } else {
       throw new Error(`unknown weights tool '${name}'`);
     }
@@ -377,10 +385,12 @@ function printHuman(chalk, kind, result) {
     console.log(`  hash: ${s.hash}`);
     console.log(`  topology: ${topologyLabel(s.topology)}`);
     console.log(`  tags: ${s.tags.join(',') || '-'}  note: ${s.note ?? '-'}  outcomes: ${s.outcomes.length}`);
+  } else if (Object.prototype.hasOwnProperty.call(edit.PRINTERS, kind)) {
+    edit.PRINTERS[kind](chalk, result);
   }
 }
 
-/** Register `ruvector weights save|nearest|diff|lineage|get` on a commander program. */
+/** Register `ruvector weights save|nearest|diff|lineage|get|set-layer|perturb|learn` on a commander program. */
 function registerWeightsCommands(program, chalk) {
   const cmd = program
     .command('weights')
@@ -446,6 +456,8 @@ function registerWeightsCommands(program, chalk) {
   common(cmd.command('get <id>')
     .description('One snapshot, including its model and embedding'))
     .action(run('get', (id, opts) => getSnapshot({ ...opts, id }, confineToWorkingDir)));
+
+  edit.registerCommands(cmd, run, common, confineToWorkingDir);
 
   return cmd;
 }

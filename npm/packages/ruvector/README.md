@@ -147,9 +147,16 @@ npx ruvector weights nearest --embedding 0.9,0.1,0 -k 5
 npx ruvector weights lineage <id>
 npx ruvector weights diff <idA> <idB> --json
 npx ruvector weights get <id>
+
+# Edit and fine-tune: each writes a CHILD snapshot of <id>; the parent never changes
+npx ruvector weights set-layer <id> 0 --patch patch.json        # {"bias":[...]} / weights / activation / steepness; shape cannot change
+npx ruvector weights perturb <id> --scale 0.05 --seed 7         # seeded Gaussian noise (same seed, same model); --layers 0,1 --no-bias --relative
+npx ruvector weights learn <id> --trajectories rows.json --epochs 300 --learning-rate 0.2
 ```
 
-The registry is an append-only JSON-lines log, `.ruvector/weights.jsonl` by default (`--registry <path>`), with a `.index.db` vector index beside it. All snapshots in one registry share one embedding dimension, so do not mix `--text` (384-d) and hand-written `--embedding` vectors in the same registry. Registry and model paths must be inside the working directory. MCP clients get `weights_save`, `weights_nearest`, `weights_diff` and `weights_lineage`, which take an explicit `embedding` array and apply the same path rule (plus `RUVECTOR_MCP_ROOTS`).
+`learn` trains on rows of `{input, output, score, correction?}`: a row at or above `--success-threshold` (default 0.5) trains toward its `output`, and a failure trains toward its `correction` (failures without one are skipped). A child snapshot is written **only if** a held-out check improves by at least `--min-improvement` (default 1%); otherwise nothing is written and the result says why, with exit code 0. Epochs are capped at 10,000 and trajectories at 10,000 rows.
+
+The registry is an append-only JSON-lines log, `.ruvector/weights.jsonl` by default (`--registry <path>`), with a `.index.db` vector index beside it. All snapshots in one registry share one embedding dimension, so do not mix `--text` (384-d) and hand-written `--embedding` vectors in the same registry. Registry and model paths must be inside the working directory. MCP clients get `weights_save`, `weights_nearest`, `weights_diff` and `weights_lineage`, which take an explicit `embedding` array, plus the writing tools `weights_set_layer`, `weights_perturb` and `weights_learn` (inline `patch` / `trajectories`, or a `patch_path` / `trajectories_path` file). All apply the same path rule (plus `RUVECTOR_MCP_ROOTS`). To expose only the read tools, use `RUVECTOR_MCP_DENY=weights_save,weights_set_layer,weights_perturb,weights_learn`.
 
 ## Recipe: route unseen states with `neural-q` (`ruv-fann`)
 
