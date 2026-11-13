@@ -28,7 +28,9 @@ permissions:
 jobs:
   rust-benchmarks:
     name: Rust Benchmarks
-    runs-on: ubuntu-latest
+    # Pinned: pgrx-pg-sys 0.12.9 bindgen breaks against the pg17 headers on ubuntu-26.04 (ubuntu-latest).
+    # Stopgap until pgrx is bumped, see https://github.com/ruvnet/ruvector/issues/1499
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
 
     steps:
@@ -248,7 +250,9 @@ jobs:
 
   benchmark-comparison:
     name: Compare with Baseline
-    runs-on: ubuntu-latest
+    # Pinned: pgrx-pg-sys 0.12.9 bindgen breaks against the pg17 headers on ubuntu-26.04 (ubuntu-latest).
+    # Stopgap until pgrx is bumped, see https://github.com/ruvnet/ruvector/issues/1499
+    runs-on: ubuntu-24.04
     needs: rust-benchmarks
     if: github.event_name == 'pull_request'
 

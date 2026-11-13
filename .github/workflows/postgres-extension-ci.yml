@@ -34,7 +34,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        # Pinned: pgrx-pg-sys 0.12.9 bindgen breaks against the pg17 headers on ubuntu-26.04 (ubuntu-latest).
+        # Stopgap until pgrx is bumped, see https://github.com/ruvnet/ruvector/issues/1499
+        os: [ubuntu-24.04]
         pg_version: [17]
         rust: [stable]
         include:
@@ -130,7 +132,9 @@ jobs:
   # Test with all features enabled
   test-all-features:
     name: Test All Features (PostgreSQL 17)
-    runs-on: ubuntu-latest
+    # Pinned: pgrx-pg-sys 0.12.9 bindgen breaks against the pg17 headers on ubuntu-26.04 (ubuntu-latest).
+    # Stopgap until pgrx is bumped, see https://github.com/ruvnet/ruvector/issues/1499
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout code
@@ -170,7 +174,9 @@ jobs:
   # Benchmark on pull requests
   benchmark:
     name: Benchmark
-    runs-on: ubuntu-latest
+    # Pinned: pgrx-pg-sys 0.12.9 bindgen breaks against the pg17 headers on ubuntu-26.04 (ubuntu-latest).
+    # Stopgap until pgrx is bumped, see https://github.com/ruvnet/ruvector/issues/1499
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     if: github.event_name == 'pull_request'
 
@@ -245,7 +251,9 @@ jobs:
   # Package the extension
   package:
     name: Package Extension
-    runs-on: ubuntu-latest
+    # Pinned: pgrx-pg-sys 0.12.9 bindgen breaks against the pg17 headers on ubuntu-26.04 (ubuntu-latest).
+    # Stopgap until pgrx is bumped, see https://github.com/ruvnet/ruvector/issues/1499
+    runs-on: ubuntu-24.04
     needs: [test, test-all-features]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 

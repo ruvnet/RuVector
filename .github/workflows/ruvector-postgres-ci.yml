@@ -50,7 +50,9 @@ jobs:
   # ============================================================================
   lint:
     name: Lint & Format
-    runs-on: ubuntu-latest
+    # Pinned: pgrx-pg-sys 0.12.9 bindgen breaks against the pg17 headers on ubuntu-26.04 (ubuntu-latest).
+    # Stopgap until pgrx is bumped, see https://github.com/ruvnet/ruvector/issues/1499
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -119,7 +121,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        # Pinned: pgrx-pg-sys 0.12.9 bindgen breaks against the pg17 headers on ubuntu-26.04 (ubuntu-latest).
+        # Stopgap until pgrx is bumped, see https://github.com/ruvnet/ruvector/issues/1499
+        os: [ubuntu-24.04]
         pg_version: [17]
         include:
           # macOS tests for pg17
@@ -198,7 +202,9 @@ jobs:
   # ============================================================================
   test-all-features:
     name: Test All Features (PG17)
-    runs-on: ubuntu-latest
+    # Pinned: pgrx-pg-sys 0.12.9 bindgen breaks against the pg17 headers on ubuntu-26.04 (ubuntu-latest).
+    # Stopgap until pgrx is bumped, see https://github.com/ruvnet/ruvector/issues/1499
+    runs-on: ubuntu-24.04
     needs: lint
 
     steps:
@@ -344,7 +350,9 @@ jobs:
   # ============================================================================
   benchmark:
     name: Performance Benchmarks
-    runs-on: ubuntu-latest
+    # Pinned: pgrx-pg-sys 0.12.9 bindgen breaks against the pg17 headers on ubuntu-26.04 (ubuntu-latest).
+    # Stopgap until pgrx is bumped, see https://github.com/ruvnet/ruvector/issues/1499
+    runs-on: ubuntu-24.04
     needs: test
     if: github.event_name == 'pull_request' || github.event.inputs.run_benchmarks == 'true'
 
@@ -423,7 +431,9 @@ jobs:
   # ============================================================================
   package:
     name: Package PG${{ matrix.pg_version }}
-    runs-on: ubuntu-latest
+    # Pinned: pgrx-pg-sys 0.12.9 bindgen breaks against the pg17 headers on ubuntu-26.04 (ubuntu-latest).
+    # Stopgap until pgrx is bumped, see https://github.com/ruvnet/ruvector/issues/1499
+    runs-on: ubuntu-24.04
     needs: [test, docker-integration]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
