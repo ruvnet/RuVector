@@ -20,6 +20,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'crates/ruvector-embed-core/**'
       - 'crates/ruvector-typesafe-core/**'
       - 'crates/ruvector-typesafe-ffi/**'
       - 'npm/packages/typesafe/**'
@@ -27,6 +28,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'crates/ruvector-embed-core/**'
       - 'crates/ruvector-typesafe-core/**'
       - 'crates/ruvector-typesafe-ffi/**'
       - 'npm/packages/typesafe/**'
@@ -103,7 +105,9 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
-          toolchain: stable
+          # Pinned, not `stable`: cargo 1.100 (stable since 2026-11-09) breaks
+          # ort-sys 2.0.0-rc.13 copy-dylibs (see the native regression step).
+          toolchain: 1.99.1
           targets: ${{ matrix.settings.target }}
 
       - name: Cache Rust
@@ -313,7 +317,39 @@ jobs:
       - name: Reject changed release gates or unpinned model assets
         run: node scripts/verify-release-bench.mjs --preflight-models
       - name: Download and verify hash-pinned model assets
-        run: node scripts/fetch-models.mjs --model bge-small-en-v1.5
+        run: |
+          node scripts/fetch-models.mjs --model bge-small-en-v1.5
+          node scripts/fetch-models.mjs --model bge-small-en-v1.5-int8
+      - name: Setup Rust for the native INT8 regression
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          # Pinned, not `stable`: cargo 1.100 changed the build-script layout to
+          # target/<profile>/build/<pkg>/<hash>/out, and ort-sys 2.0.0-rc.13's
+          # copy-dylibs derives the target dir as OUT_DIR.ancestors().nth(3),
+          # which then lands on target/<profile>/build and panics (ENOENT on
+          # build/examples). Move this pin when ort is upgraded past rc.13.
+          toolchain: 1.99.1
+      - name: Cache native regression build
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          key: typesafe-native-regression
+      - name: Require exact INT8 embedding parity across batch composition
+        working-directory: .
+        env:
+          ORT_LIB_PATH: ${{ runner.temp }}/ort-link
+          ORT_PREFER_DYNAMIC_LINK: '1'
+          LD_LIBRARY_PATH: ${{ runner.temp }}/ort-link
+        run: |
+          # The release artifact ships only libonnxruntime.so.1; the linker's
+          # -lonnxruntime needs the unversioned name. Link from a scratch dir so
+          # the release artifact directory is left untouched.
+          src="${{ github.workspace }}/npm/packages/typesafe/native/linux-x64-gnu"
+          mkdir -p "$ORT_LIB_PATH"
+          cp "$src"/libonnxruntime.so.1 "$src"/libonnxruntime_providers_shared.so "$ORT_LIB_PATH"/
+          ln -s libonnxruntime.so.1 "$ORT_LIB_PATH/libonnxruntime.so"
+          cargo test --locked -p ruvector-embed-core --features native \
+            --test native_models int8_embeddings_are_independent_of_batch_composition \
+            -- --exact --ignored
       - name: Score full frozen ONNX tickets
         run: |
           args=(--suite tickets --arm both --embedder onnx \

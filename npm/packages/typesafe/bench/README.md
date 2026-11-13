@@ -164,3 +164,33 @@ The golden files are the contract; change them only together.
   bootstraps its pins from `ruvnet/openjev-small-v0/resolve/<commit>/…`
   (`onnx/model.onnx`, `tokenizer.json`, `train-text-hashes.txt`). Nothing is
   committed to `models/manifest.json` before publication.
+
+
+## Complete RVF reload benchmark
+
+`node bench/e2e-rvf.mjs /tmp/typesafe-rvf [config.json]` trains on the frozen
+training split, packages the pinned model, tokenizer, instructions and example
+bank using RVForge, restores in a fresh process, and checks 150 first-pass plus
+150 warm HTTP requests against direct decisions. Any score-record mismatch exits
+nonzero. The adapter re-embeds the example bank and refits heads; it is not a
+frozen-head loader or a KGE text-to-graph benchmark. JEV values are recorded
+historical responses, not live API calls.
+
+Build the native ONNX binding and TypeScript wrapper, fetch the pinned models,
+and build `../rvforge` before running. The receipt includes the source SHA, dirty
+status, binding/model/tokenizer hashes, artifact checksum, corruption rejection,
+accuracy, calibration and timings. Config format:
+
+```json
+{"model":"bge-small-en-v1.5-int8","engine_options":{"probeIterations":5000,"choiceInstructions":true}}
+```
+
+Use `bge-small-en-v1.5` for FP32. Run each configuration three times with fresh
+output directories. Compare exact parity before interpreting speed or size.
+Warm requests repeat the same texts; loopback and historical remote JEV timings
+have different network overhead. Native singleton inference fixes INT8 batch
+sensitivity, so old batched training results must be remeasured after upgrading.
+
+`node bench/push-benchmark.mjs` records a predeclared validation-only sweep;
+consult its CLI arguments before use. Do not select a configuration using test
+labels or silently relax calibration gates.

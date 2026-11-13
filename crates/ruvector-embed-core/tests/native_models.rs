@@ -105,3 +105,41 @@ fn int8_native_loads_and_embeds() {
     assert_eq!(out[0].len(), 384);
     assert!((l2(&out[0]) - 1.0).abs() < 1e-4);
 }
+
+/// Dynamic INT8 activation ranges must not depend on the other texts in a
+/// training/import batch. This is exact: approximate cosine parity can still
+/// flip a downstream decision near its threshold.
+#[test]
+#[ignore = "requires model files"]
+fn int8_embeddings_are_independent_of_batch_composition() {
+    let mf = manifest();
+    let m = mf.get("bge-small-en-v1.5-int8").unwrap();
+    let emb = OrtEmbedder::from_manifest(models_dir(), m).expect("int8 model required");
+    assert_ne!(
+        emb.id(),
+        m.id(),
+        "legacy batched identity must not be reused"
+    );
+    assert_eq!(emb.id(), format!("{}#ort-singleton-v1", m.id()));
+    let texts = [
+        "I cannot log in",
+        "Please urgently refund the duplicate payment on the invoice for our company's annual software subscription.",
+        "Thanks!",
+    ];
+    let together = emb.embed(&texts).unwrap();
+    let reverse = emb.embed(&[texts[2], texts[1], texts[0]]).unwrap();
+    for (i, text) in texts.iter().enumerate() {
+        let alone = emb.embed(&[*text]).unwrap();
+        let max_delta = together[i]
+            .iter()
+            .zip(&alone[0])
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0_f32, f32::max);
+        assert_eq!(
+            together[i], alone[0],
+            "text {i}: max batch delta {max_delta}"
+        );
+        assert_eq!(reverse[2 - i], alone[0], "reordered text {i}");
+    }
+    assert!(emb.embed(&[]).unwrap().is_empty());
+}

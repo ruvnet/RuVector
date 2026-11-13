@@ -320,11 +320,7 @@ impl SweBenchLoader {
                 }
 
                 // Gold patch filter
-                if self.config.require_gold_patch && !task.has_gold_patch() {
-                    return false;
-                }
-
-                true
+                !(self.config.require_gold_patch && !task.has_gold_patch())
             })
             .collect();
 

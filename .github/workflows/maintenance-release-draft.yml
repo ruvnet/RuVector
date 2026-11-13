@@ -1,0 +1,67 @@
+name: Prepare maintenance release draft
+
+# Drafts preserve evidence for review; they do not publish a package or mark a
+# candidate ready. Promotion requires the exact candidate checks to finish.
+on:
+  push:
+    branches: ['release/maintenance-20261011']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: maintenance-release-draft-20261011
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-22.04
+    environment: maintenance-release-drafts
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+      - name: Seal the source snapshot
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test -z "$(git status --porcelain)"
+          mkdir -p "$RUNNER_TEMP/maintenance"
+          git archive --format=tar.gz --prefix=ruvector-maintenance/ HEAD > "$RUNNER_TEMP/maintenance/ruvector-maintenance-source.tar.gz"
+          cd "$RUNNER_TEMP/maintenance"
+          sha256sum ruvector-maintenance-source.tar.gz > SHA256SUMS
+          printf '%s\n' "$SOURCE_SHA" > SOURCE_SHA
+          sha256sum --check SHA256SUMS
+      - name: Create an unpublished release draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if gh release view maintenance-2026-10-11 --json isDraft > "$RUNNER_TEMP/existing-release.json"; then
+            # Never overwrite a published release or silently turn one into a draft.
+            jq --exit-status '.isDraft == true' "$RUNNER_TEMP/existing-release.json"
+            gh release edit maintenance-2026-10-11 --draft \
+              --target "$SOURCE_SHA" --notes-file docs/releases/2026-10-11-maintenance.md
+            gh release upload maintenance-2026-10-11 --clobber \
+              "$RUNNER_TEMP/maintenance/ruvector-maintenance-source.tar.gz" \
+              "$RUNNER_TEMP/maintenance/SHA256SUMS" \
+              "$RUNNER_TEMP/maintenance/SOURCE_SHA"
+          else
+            gh release create maintenance-2026-10-11 \
+              --draft --target "$SOURCE_SHA" \
+              --title 'RuVector maintenance candidate — stable saved decisions and CI repairs' \
+              --notes-file docs/releases/2026-10-11-maintenance.md \
+              "$RUNNER_TEMP/maintenance/ruvector-maintenance-source.tar.gz" \
+              "$RUNNER_TEMP/maintenance/SHA256SUMS" \
+              "$RUNNER_TEMP/maintenance/SOURCE_SHA"
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: maintenance-source-${{ github.sha }}
+          path: ${{ runner.temp }}/maintenance
+          if-no-files-found: error
+          retention-days: 90

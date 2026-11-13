@@ -35,14 +35,12 @@ pub mod tract_backend;
 
 pub use error::{EmbedError, Result};
 
-/// Largest number of texts sent to the model in one forward pass.
+/// Largest number of texts per forward pass for the tract backend.
 ///
-/// The ORT backend pads a whole batch to its longest sequence and runs it as
-/// one tensor, so memory grows with `batch × seq²` in attention. Embedding
-/// thousands of texts in one call (e.g. `train()` with a large labelled set)
-/// asked onnxruntime for a 10 GB buffer. Chunking keeps peak memory bounded
-/// and does not change the results: each text's vector depends only on that
-/// text (padding is masked out).
+/// Chunking bounds attention memory, which grows with `batch × seq²`.
+/// It does not guarantee batch-independent results for every ONNX graph:
+/// dynamic quantization can share activation ranges across rows. The native
+/// ORT backend uses singleton tensors to preserve per-text embedding identity.
 pub const MAX_EMBED_BATCH: usize = 32;
 
 /// Run `f` over `texts` in chunks of at most `max` (0 is treated as 1) and

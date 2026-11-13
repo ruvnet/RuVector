@@ -499,12 +499,23 @@ Every new test was confirmed to fail against the code it protects:
 
 | Test | Verified by |
 |---|---|
-| `reads_stay_responsive_during_rebuild_and_result_is_exact` (3k nodes, 2 reader threads, each read < 200 ms, reads overlap the build, final graph = exact rebuild + the mid-build add) | taking `graph.write()` inside the build closure (the old behaviour) → fails |
+| `reads_stay_responsive_during_rebuild_and_result_is_exact` (300 nodes; synchronized build stage permits searches and a mutation; the complete edge pass finishes while a reader holds the lock; final graph = exact rebuild + the mid-build add) | taking `graph.write()` inside the build closure (the old behaviour) → fails immediately |
 | `mutations_during_build_are_replayed` | removing the replay loop → fails (so does the test above) |
 | `cancelled_rebuild_releases_the_marker` | disabling `AbortOnDrop` → fails |
 | `begin_rebuild_is_single_flight`, `concurrent_rebuilds_are_single_flight` | removing the in-flight check → both fail |
 | `install_batch_invalidates_an_in_flight_sparsifier_build` | removing the `index_generation` bump from the swap → fails |
 | `build_batch_matches_reference_exactly_sequential_and_parallel`, `prenormed_cosine_is_bitwise_identical` | bit-equality (weights via `to_bits`) against the verbatim old loop at 1/2/3/8 threads, incl. a zero vector and a wrong-dimension vector |
+
+**CI validation update (2026-10-11).** The original correctness test also
+required every search to finish within 200 ms. Shared-runner CI recorded a
+211.54 ms maximum despite 590 reads overlapping the rebuild and a 6.20 ms
+install. Search wall time includes lazy CSR construction, PageRank work, and
+OS scheduling, so that assertion did not isolate a lock regression. The
+synchronized test now checks lock availability and forward progress directly;
+its 30-second waits are deadlock watchdogs, not latency targets. The existing
+ignored `rebuild_benchmark` still measures search latency. The historical
+benchmark figures above remain measurements of their original environment,
+not a CI performance guarantee.
 
 **Single-flight vs. cold start is safe to skip.** `/v1/pipeline/optimize` sits behind `check_read_only`, which (since #1022) refuses while `store.is_hydrated()` is false, so a scheduler-triggered rebuild can only begin after hydration completed and therefore snapshots the complete store. If the post-hydration rebuild then gets `AlreadyRunning`, the in-flight rebuild is already building from a full snapshot; nothing is lost. Conversely, when the optimize action finds the post-hydration rebuild in flight it reports the action as succeeded-and-skipped (`true`), not as a failure. Optimize runs themselves were already serialised by `optimize_semaphore` (a second concurrent run gets 429), so the simultaneous 03:00 firing of `brain-graph` and `brain-full-optimize` behaves as before.
 
