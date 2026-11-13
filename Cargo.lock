@@ -8823,6 +8823,7 @@ dependencies = [
 name = "ruvector-agent-memory"
 version = "0.1.1"
 dependencies = [
+ "cognitum-gate-tilezero",
  "ed25519-dalek",
  "rand 0.8.6",
  "ruvector-mincut 2.3.1",
