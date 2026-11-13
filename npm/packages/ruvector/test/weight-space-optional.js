@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * @ruvector/weight-space is an optional peer of ruvector.
+ * @ruvector/weight-space is a hard dependency of ruvector (ADR-358 amendment).
  *
- * (a) manifest: exact optional peer (0.1.0), never a dependency of any kind, so a
- *     default install does not fetch it.
- * (b) absent: with the package hidden by a module-resolution shim (works whether or
- *     not it is installed), `ruvector weights ...` prints the install hint and exits
- *     non-zero, the weights_* MCP tools return a structured error with the hint, and
+ * (a) manifest: exact-pinned runtime dependency (0.1.0), no longer a peer of any kind.
+ * (b) degradation: the package stays lazy-loaded, so a broken or pruned install (for
+ *     example a hoisting package manager or `npm i --omit=...`) degrades cleanly. With
+ *     the package hidden by a module-resolution shim (works whether or not it is
+ *     installed), `ruvector weights ...` prints the install hint and exits non-zero,
+ *     the weights_* MCP tools return a structured error with the hint, and
  *     require('ruvector') still loads.
  */
 
@@ -79,14 +80,13 @@ function mcpSession() {
 }
 
 async function main() {
-  console.log('\n@ruvector/weight-space optional peer');
+  console.log('\n@ruvector/weight-space hard dependency, lazy-loaded');
 
-  await test('manifest: exact optional peer 0.1.0, never a dependency', () => {
+  await test('manifest: exact runtime dependency 0.1.0, not a peer, dev or optional dependency', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
     const name = '@ruvector/weight-space';
-    assert.strictEqual(pkg.peerDependencies[name], '0.1.0');
-    assert.strictEqual(pkg.peerDependenciesMeta[name].optional, true);
-    for (const section of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+    assert.strictEqual(pkg.dependencies[name], '0.1.0');
+    for (const section of ['peerDependencies', 'peerDependenciesMeta', 'devDependencies', 'optionalDependencies']) {
       assert.ok(!(name in (pkg[section] || {})), `${name} must not be in ${section}`);
     }
   });

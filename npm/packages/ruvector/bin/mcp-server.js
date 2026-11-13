@@ -1902,7 +1902,7 @@ const TOOLS = [
     }
   },
   // ── Weight registry Tools (optional @ruvector/weight-space) ──────────────
-  // weights_save, weights_nearest, weights_diff, weights_lineage
+  // weights_save, weights_nearest, weights_diff, weights_lineage, weights_set_layer, weights_perturb, weights_learn
   ...weightsTools.MCP_TOOLS,
   // ── RVF Vector Store Tools ────────────────────────────────────────────────
   {
@@ -4223,6 +4223,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'weights_nearest':
       case 'weights_diff':
       case 'weights_lineage':
+      case 'weights_set_layer':
+      case 'weights_perturb':
+      case 'weights_learn':
         return await weightsTools.runMcpTool(name, args, validateRvfPath);
 
       // ── RVF Tool Handlers ─────────────────────────────────────────────────

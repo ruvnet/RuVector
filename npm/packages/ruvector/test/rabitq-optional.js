@@ -69,9 +69,11 @@ test('manifest: no new hard dependencies were added for extras', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   // @ruvector/e-means (#1489) is a deliberate hard edge: a small pure-WASM
   // package that ruvector/clustering.mjs re-exports statically.
+  // @ruvector/weight-space (ADR-358 amendment) is the other deliberate hard edge: a small
+  // pure-JS package behind `ruvector weights`, lazy-loaded inside the commands.
   assert.deepStrictEqual(Object.keys(pkg.dependencies).sort(), [
     '@modelcontextprotocol/sdk', '@ruvector/attention', '@ruvector/core', '@ruvector/e-means',
-    '@ruvector/gnn', '@ruvector/sona', 'chalk', 'commander', 'ora',
+    '@ruvector/gnn', '@ruvector/sona', '@ruvector/weight-space', 'chalk', 'commander', 'ora',
   ]);
 });
 

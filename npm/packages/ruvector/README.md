@@ -138,23 +138,29 @@ The engine adds 458 KB unpacked to an install. `npx ruvector --help` cold start 
 
 ## Weight registry (`@ruvector/weight-space`)
 
-`ruvector weights` stores [`ruv-fann`](https://www.npmjs.com/package/ruv-fann) model snapshots (`ruv-fann.dense-layers/1` JSON) in a versioned registry keyed by a task embedding, so you can find the snapshot saved for the most similar past task. It runs on the optional peer `@ruvector/weight-space`, which `ruvector` does not install. Without it, the command prints `npm i @ruvector/weight-space@0.1.0` and exits non-zero.
+`ruvector weights` stores [`ruv-fann`](https://www.npmjs.com/package/ruv-fann) model snapshots (`ruv-fann.dense-layers/1` JSON) in a versioned registry keyed by a task embedding, so you can find the snapshot saved for the most similar past task. It runs on `@ruvector/weight-space`, a dependency of `ruvector` that installs with it and is loaded only when a `weights` command runs, so it adds nothing to `ruvector --help` start-up. If an install is incomplete (for example a pruned `node_modules`), the command prints `npm i @ruvector/weight-space@0.1.0` and exits non-zero.
 
 ```bash
-npm i @ruvector/weight-space@0.1.0
 npx ruvector weights save --model model.json --embedding 1,0,0 --task classify --tags v1
 npx ruvector weights save --model model.json --text "classify support tickets"   # ONNX embedding
 npx ruvector weights nearest --embedding 0.9,0.1,0 -k 5
 npx ruvector weights lineage <id>
 npx ruvector weights diff <idA> <idB> --json
 npx ruvector weights get <id>
+
+# Edit and fine-tune: each writes a CHILD snapshot of <id>; the parent never changes
+npx ruvector weights set-layer <id> 0 --patch patch.json        # {"bias":[...]} / weights / activation / steepness; shape cannot change
+npx ruvector weights perturb <id> --scale 0.05 --seed 7         # seeded Gaussian noise (same seed, same model); --layers 0,1 --no-bias --relative
+npx ruvector weights learn <id> --trajectories rows.json --epochs 300 --learning-rate 0.2
 ```
 
-The registry is an append-only JSON-lines log, `.ruvector/weights.jsonl` by default (`--registry <path>`), with a `.index.db` vector index beside it. All snapshots in one registry share one embedding dimension, so do not mix `--text` (384-d) and hand-written `--embedding` vectors in the same registry. Registry and model paths must be inside the working directory. MCP clients get `weights_save`, `weights_nearest`, `weights_diff` and `weights_lineage`, which take an explicit `embedding` array and apply the same path rule (plus `RUVECTOR_MCP_ROOTS`).
+`learn` trains on rows of `{input, output, score, correction?}`: a row at or above `--success-threshold` (default 0.5) trains toward its `output`, and a failure trains toward its `correction` (failures without one are skipped). A child snapshot is written **only if** a held-out check improves by at least `--min-improvement` (default 1%); otherwise nothing is written and the result says why, with exit code 0. Epochs are capped at 10,000 and trajectories at 10,000 rows.
+
+The registry is an append-only JSON-lines log, `.ruvector/weights.jsonl` by default (`--registry <path>`), with a `.index.db` vector index beside it. All snapshots in one registry share one embedding dimension, so do not mix `--text` (384-d) and hand-written `--embedding` vectors in the same registry. Registry and model paths must be inside the working directory. MCP clients get `weights_save`, `weights_nearest`, `weights_diff` and `weights_lineage`, which take an explicit `embedding` array, plus the writing tools `weights_set_layer`, `weights_perturb` and `weights_learn` (inline `patch` / `trajectories`, or a `patch_path` / `trajectories_path` file). All apply the same path rule (plus `RUVECTOR_MCP_ROOTS`). To expose only the read tools, use `RUVECTOR_MCP_DENY=weights_save,weights_set_layer,weights_perturb,weights_learn`.
 
 ## Recipe: route unseen states with `neural-q` (`ruv-fann`)
 
-The tabular learning algorithms score a state they have never seen as all zeros. `neural-q` fits a small MLP Q-function over hashed state features, so `refactor:.rs` is routed from what was learned on `fix:.rs` and `edit:.rs`. It runs on the optional peer [`ruv-fann`](https://www.npmjs.com/package/ruv-fann). Without it, `neural-q` behaves exactly like `q-learning`, and `ruvector` does not install it by default.
+The tabular learning algorithms score a state they have never seen as all zeros. `neural-q` fits a small MLP Q-function over hashed state features, so `refactor:.rs` is routed from what was learned on `fix:.rs` and `edit:.rs`. It runs on [`ruv-fann`](https://www.npmjs.com/package/ruv-fann), an optional peer of `ruvector`. `ruv-fann` is also a dependency of `@ruvector/weight-space`, which `ruvector` now installs, so a default npm install resolves it and `neural-q` uses the MLP. A package manager that does not expose transitive dependencies to `ruvector` (pnpm's strict layout, for example) may not; install `ruv-fann@0.1.0` yourself there. Where `ruv-fann` does not resolve, `neural-q` behaves exactly like `q-learning`.
 
 ```bash
 npm i ruvector ruv-fann@0.1.0
