@@ -34,7 +34,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        # Pinned: pgrx-pg-sys 0.12.9 bindgen breaks against the pg17 headers on ubuntu-26.04 (ubuntu-latest).
+        # Stopgap until pgrx is bumped, see https://github.com/ruvnet/ruvector/issues/1499
+        os: [ubuntu-24.04]
         pg_version: [17]
         rust: [stable]
         include:
@@ -56,8 +58,10 @@ jobs:
       - name: Install PostgreSQL (Ubuntu)
         if: runner.os == 'Linux'
         run: |
-          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          sudo install -d -m 0755 /etc/apt/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor --yes -o /etc/apt/keyrings/postgresql.gpg
+          sudo chmod 0644 /etc/apt/keyrings/postgresql.gpg
+          sudo sh -c 'echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           sudo apt-get update
           sudo apt-get install -y postgresql-${{ matrix.pg_version }} postgresql-server-dev-${{ matrix.pg_version }}
           echo "/usr/lib/postgresql/${{ matrix.pg_version }}/bin" >> $GITHUB_PATH
@@ -128,7 +132,9 @@ jobs:
   # Test with all features enabled
   test-all-features:
     name: Test All Features (PostgreSQL 17)
-    runs-on: ubuntu-latest
+    # Pinned: pgrx-pg-sys 0.12.9 bindgen breaks against the pg17 headers on ubuntu-26.04 (ubuntu-latest).
+    # Stopgap until pgrx is bumped, see https://github.com/ruvnet/ruvector/issues/1499
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout code
@@ -141,8 +147,10 @@ jobs:
 
       - name: Install PostgreSQL
         run: |
-          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          sudo install -d -m 0755 /etc/apt/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor --yes -o /etc/apt/keyrings/postgresql.gpg
+          sudo chmod 0644 /etc/apt/keyrings/postgresql.gpg
+          sudo sh -c 'echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           sudo apt-get update
           sudo apt-get install -y postgresql-17 postgresql-server-dev-17
 
@@ -166,7 +174,9 @@ jobs:
   # Benchmark on pull requests
   benchmark:
     name: Benchmark
-    runs-on: ubuntu-latest
+    # Pinned: pgrx-pg-sys 0.12.9 bindgen breaks against the pg17 headers on ubuntu-26.04 (ubuntu-latest).
+    # Stopgap until pgrx is bumped, see https://github.com/ruvnet/ruvector/issues/1499
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     if: github.event_name == 'pull_request'
 
@@ -181,8 +191,10 @@ jobs:
 
       - name: Install PostgreSQL
         run: |
-          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          sudo install -d -m 0755 /etc/apt/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor --yes -o /etc/apt/keyrings/postgresql.gpg
+          sudo chmod 0644 /etc/apt/keyrings/postgresql.gpg
+          sudo sh -c 'echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           sudo apt-get update
           sudo apt-get install -y postgresql-17 postgresql-server-dev-17
 
@@ -239,7 +251,9 @@ jobs:
   # Package the extension
   package:
     name: Package Extension
-    runs-on: ubuntu-latest
+    # Pinned: pgrx-pg-sys 0.12.9 bindgen breaks against the pg17 headers on ubuntu-26.04 (ubuntu-latest).
+    # Stopgap until pgrx is bumped, see https://github.com/ruvnet/ruvector/issues/1499
+    runs-on: ubuntu-24.04
     needs: [test, test-all-features]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
@@ -256,8 +270,10 @@ jobs:
 
       - name: Install PostgreSQL
         run: |
-          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          sudo install -d -m 0755 /etc/apt/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor --yes -o /etc/apt/keyrings/postgresql.gpg
+          sudo chmod 0644 /etc/apt/keyrings/postgresql.gpg
+          sudo sh -c 'echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           sudo apt-get update
           sudo apt-get install -y postgresql-${{ matrix.pg_version }} postgresql-server-dev-${{ matrix.pg_version }}
 
