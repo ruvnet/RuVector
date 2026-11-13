@@ -138,10 +138,9 @@ The engine adds 458 KB unpacked to an install. `npx ruvector --help` cold start 
 
 ## Weight registry (`@ruvector/weight-space`)
 
-`ruvector weights` stores [`ruv-fann`](https://www.npmjs.com/package/ruv-fann) model snapshots (`ruv-fann.dense-layers/1` JSON) in a versioned registry keyed by a task embedding, so you can find the snapshot saved for the most similar past task. It runs on the optional peer `@ruvector/weight-space`, which `ruvector` does not install. Without it, the command prints `npm i @ruvector/weight-space@0.1.0` and exits non-zero.
+`ruvector weights` stores [`ruv-fann`](https://www.npmjs.com/package/ruv-fann) model snapshots (`ruv-fann.dense-layers/1` JSON) in a versioned registry keyed by a task embedding, so you can find the snapshot saved for the most similar past task. It runs on `@ruvector/weight-space`, a dependency of `ruvector` that installs with it and is loaded only when a `weights` command runs, so it adds nothing to `ruvector --help` start-up. If an install is incomplete (for example a pruned `node_modules`), the command prints `npm i @ruvector/weight-space@0.1.0` and exits non-zero.
 
 ```bash
-npm i @ruvector/weight-space@0.1.0
 npx ruvector weights save --model model.json --embedding 1,0,0 --task classify --tags v1
 npx ruvector weights save --model model.json --text "classify support tickets"   # ONNX embedding
 npx ruvector weights nearest --embedding 0.9,0.1,0 -k 5
@@ -154,7 +153,7 @@ The registry is an append-only JSON-lines log, `.ruvector/weights.jsonl` by defa
 
 ## Recipe: route unseen states with `neural-q` (`ruv-fann`)
 
-The tabular learning algorithms score a state they have never seen as all zeros. `neural-q` fits a small MLP Q-function over hashed state features, so `refactor:.rs` is routed from what was learned on `fix:.rs` and `edit:.rs`. It runs on the optional peer [`ruv-fann`](https://www.npmjs.com/package/ruv-fann). Without it, `neural-q` behaves exactly like `q-learning`, and `ruvector` does not install it by default.
+The tabular learning algorithms score a state they have never seen as all zeros. `neural-q` fits a small MLP Q-function over hashed state features, so `refactor:.rs` is routed from what was learned on `fix:.rs` and `edit:.rs`. It runs on [`ruv-fann`](https://www.npmjs.com/package/ruv-fann), an optional peer of `ruvector`. `ruv-fann` is also a dependency of `@ruvector/weight-space`, which `ruvector` now installs, so a default npm install resolves it and `neural-q` uses the MLP. A package manager that does not expose transitive dependencies to `ruvector` (pnpm's strict layout, for example) may not; install `ruv-fann@0.1.0` yourself there. Where `ruv-fann` does not resolve, `neural-q` behaves exactly like `q-learning`.
 
 ```bash
 npm i ruvector ruv-fann@0.1.0

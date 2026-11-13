@@ -140,20 +140,16 @@ jobs:
         run: node --test tests/*.test.mjs
 
       - name: weight-space absent — CLI/MCP install hint, require('ruvector') still loads
-        # @ruvector/weight-space is an optional peer and is not installed above;
-        # the test also hides it with a resolve shim, so it holds either way.
+        # @ruvector/weight-space is a hard dependency, so it is installed above; the
+        # test hides it with a resolve shim to prove a pruned install still degrades
+        # to the install hint instead of crashing.
         run: node test/weight-space-optional.js
 
       - name: weight-space present — ruvector weights CLI + weights_* MCP (real import)
-        # @ruvector/weight-space is not on npm yet: build and pack the sibling
-        # package, then install the tarball without saving it to package.json.
-        # --save-dev only picks the edge type: the package is a declared peer, and
-        # --legacy-peer-deps skips peer edges, so a plain --no-save install is a
-        # silent no-op ("up to date"). --no-save still leaves package.json alone.
+        # A plain install resolves the published dependency; fail loudly if it does
+        # not, rather than letting the CLI test skip.
         run: |
           set -e
-          (cd ../weight-space && npm install --no-workspaces --no-audit --no-fund && npm run build && npm pack --pack-destination "$RUNNER_TEMP")
-          npm install --no-save --save-dev --no-workspaces --no-audit --no-fund --legacy-peer-deps "$RUNNER_TEMP"/ruvector-weight-space-0.1.0.tgz
           node -e "require('@ruvector/weight-space')"
           node test/weight-space-cli.js
 

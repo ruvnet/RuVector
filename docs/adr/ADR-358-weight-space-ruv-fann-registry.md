@@ -96,6 +96,31 @@ from the mirrored constants.
   loaded, path-confined to the working directory (the MCP rule from #1306/#1307),
   and print `npm i @ruvector/weight-space@0.1.0` when the package is absent.
 
+### Amendment 2026-11-13: hard dependency (supersedes the optional peer above)
+
+The owner asked for `@ruvector/weight-space` to be a primary dependency of
+`ruvector`, as `@ruvector/e-means` already is (#1489). The optional peer, and the
+rule that a default install does not fetch it, are superseded.
+
+- It is an exact-pinned `dependencies` entry (`0.1.0`) and is removed from
+  `peerDependencies` and `peerDependenciesMeta`.
+- Cost, measured on the registry: 175 KB unpacked for the package, plus `ruv-fann`
+  (19 KB) and its `ruv-fann-wasm` runtime. Nothing is loaded at start-up: the
+  `weights` commands and `weights_*` tools still `require` it inside the operation,
+  so `ruvector --help` and MCP start-up are unchanged (`test/startup-budget.js`).
+- The "package absent" path stays, as a degradation path rather than the normal
+  case. A pruned install or a package manager that does not expose it still gets
+  `ERR_WEIGHT_SPACE_MISSING` and the install hint, not a crash.
+- **Side effect on `neural-q`.** `ruv-fann` stays an optional peer of `ruvector`, but
+  it is now also a transitive dependency through `@ruvector/weight-space`. On a
+  default npm install it therefore resolves, and `neural-q` uses its MLP backend
+  instead of falling back to tabular `q-learning`. That is what the algorithm name
+  promises, and it only affects users who select `neural-q`. A strict layout such as
+  pnpm may not expose the transitive package to `ruvector`; those users install
+  `ruv-fann@0.1.0` directly, as before.
+- `test/weight-space-cli.js` now fails, rather than skips, when the package does not
+  resolve, because a skip would hide a broken install.
+
 ## Evaluation
 
 The numbers below were measured on ruvultra (Linux x64, Node 22, ruv-fann

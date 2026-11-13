@@ -1,12 +1,13 @@
 'use strict';
 /**
- * `ruvector weights` CLI group and `weights_*` MCP tools, backed by the optional
- * peer @ruvector/weight-space (versioned ruv-fann weight snapshots indexed by task
- * embedding).
+ * `ruvector weights` CLI group and `weights_*` MCP tools, backed by the
+ * @ruvector/weight-space dependency (versioned ruv-fann weight snapshots indexed by
+ * task embedding).
  *
  * Nothing here loads @ruvector/weight-space (or the ONNX embedder) at require time:
  * both are required inside the operation that needs them, so `ruvector --help` and
- * the MCP server start without them. When the package is absent every operation
+ * the MCP server start without them. The package is a hard dependency, so it is
+ * normally present; if an install is pruned or does not hoist it, every operation
  * fails with ERR_WEIGHT_SPACE_MISSING and the install hint below.
  *
  * Path handling: every operation takes a `resolvePath` function. The MCP server
@@ -32,7 +33,7 @@ const MAX_TEXT_CHARS = 8192;
 
 function missingWeightSpaceError() {
   const err = new Error(
-    `${WEIGHT_SPACE_PKG} is not installed. It is an optional peer of ruvector; install it with: ${WEIGHT_SPACE_INSTALL_HINT}`,
+    `${WEIGHT_SPACE_PKG} is not installed, but it is a dependency of ruvector, so this install is incomplete. Install it with: ${WEIGHT_SPACE_INSTALL_HINT}`,
   );
   err.code = 'ERR_WEIGHT_SPACE_MISSING';
   err.install = WEIGHT_SPACE_INSTALL_HINT;
@@ -260,7 +261,7 @@ const REGISTRY_PROP = {
   description: `Registry event log (JSON lines; confined to the working directory). Default ${DEFAULT_REGISTRY}`,
 };
 const EMBEDDING_PROP = { type: 'array', items: { type: 'number' }, description: 'Task embedding (all snapshots in a registry share one dimension)' };
-const NEEDS = `Requires the optional peer ${WEIGHT_SPACE_PKG} (${WEIGHT_SPACE_INSTALL_HINT}).`;
+const NEEDS = `Runs on ${WEIGHT_SPACE_PKG}; if it is missing, install it with: ${WEIGHT_SPACE_INSTALL_HINT}.`;
 
 const MCP_TOOLS = [
   {
@@ -383,7 +384,7 @@ function printHuman(chalk, kind, result) {
 function registerWeightsCommands(program, chalk) {
   const cmd = program
     .command('weights')
-    .description(`Versioned ruv-fann weight registry indexed by task embedding (optional peer ${WEIGHT_SPACE_PKG})`);
+    .description(`Versioned ruv-fann weight registry indexed by task embedding (${WEIGHT_SPACE_PKG})`);
 
   // Exit explicitly (the ONNX embedder can keep the event loop alive), but only
   // once stdout/stderr have drained: pipe writes are async on some platforms.

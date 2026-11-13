@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * `ruvector weights` and the weights_* MCP tools against the real
- * @ruvector/weight-space. Prints SKIP and exits 0 when the optional peer is not
- * installed (CI installs it from the sibling package; see ruvector-npm-ci.yml).
+ * @ruvector/weight-space. It is a hard dependency of ruvector, so a missing install is a
+ * failure here, not a SKIP: a skip would hide a broken install.
  *
  * Uses explicit --embedding values only, so nothing is downloaded.
  */
@@ -20,8 +20,8 @@ let wsPath;
 try {
   wsPath = require.resolve('@ruvector/weight-space', { paths: [ROOT] });
 } catch {
-  console.log('  SKIP  @ruvector/weight-space not installed (npm i @ruvector/weight-space@0.1.0)');
-  process.exit(0);
+  console.error('  FAIL  @ruvector/weight-space is a dependency of ruvector but does not resolve (run npm install)');
+  process.exit(1);
 }
 
 const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ruvector-ws-cli-')));
