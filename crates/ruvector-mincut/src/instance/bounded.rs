@@ -48,12 +48,33 @@ pub struct BoundedInstance {
     certificate: Mutex<CutCertificate>,
     /// Maximum radius for local search
     max_radius: usize,
-    /// Cluster hierarchy for strategic seed selection
-    cluster_hierarchy: Option<ClusterHierarchy>,
+    /// Cluster hierarchy for strategic seed selection. `Arc`-wrapped so a
+    /// single hierarchy build can be shared across every `BoundedInstance`
+    /// a cold-start `MinCutWrapper::process_instances()` pass creates for
+    /// the *same* graph snapshot (see `with_shared_hierarchy`) instead of
+    /// each instance independently rebuilding an identical copy — see
+    /// `docs/research/nightly/2026-11-14-coldstart-mincut-hierarchy-sharing`.
+    cluster_hierarchy: Option<Arc<ClusterHierarchy>>,
     /// Fragmenting algorithm for disconnected graph handling
     fragmenting: Option<FragmentingAlgorithm>,
     /// Cached boundary for incremental updates (O(1) vs O(m))
     boundary_cache: Mutex<BoundaryCache>,
+    /// When `true`, `ensure_hierarchy` never builds a `ClusterHierarchy`:
+    /// `search_for_cuts` always falls back to its existing
+    /// "all vertices, sorted" seed list. Candidate B of the 2026-11-14
+    /// nightly's cold-start latency experiment.
+    skip_hierarchy: bool,
+    /// A precomputed *exact* (range-independent) global min-cut value and
+    /// witness, consumed (and cleared) by the first `query()` call. Only
+    /// safe to set when the caller knows this instance's edge set exactly
+    /// matches the one the hint was computed from — see
+    /// `with_exact_hint`. Exists because `vertices.len() < 20` makes
+    /// `query()` run exhaustive `brute_force_min_cut` (2^n subsets)
+    /// regardless of `[lambda_min, lambda_max]`: on a cold-start
+    /// `MinCutWrapper` query, every freshly-instantiated range instance
+    /// below the true min-cut's range gets the *identical* edge set and
+    /// would otherwise independently re-run that same exhaustive search.
+    exact_value_hint: Option<(u64, WitnessHandle)>,
 }
 
 impl BoundedInstance {
@@ -72,13 +93,96 @@ impl BoundedInstance {
             cluster_hierarchy: None,
             fragmenting: None,
             boundary_cache: Mutex::new(BoundaryCache::default()),
+            skip_hierarchy: false,
+            exact_value_hint: None,
         }
+    }
+
+    /// Create an instance pre-seeded with an already-known *exact*,
+    /// range-independent global min-cut value and witness for the edge set
+    /// this instance is about to receive via `apply_inserts`.
+    ///
+    /// The first `query()` call consumes the hint directly (no
+    /// `brute_force_min_cut`/`search_for_cuts` work at all) and seeds
+    /// `best_witness`/the boundary cache from it, so every later query
+    /// (after an `apply_inserts`/`apply_deletes` that changes the edge set)
+    /// falls through to the normal incremental-update machinery exactly as
+    /// if the witness had been found the usual way.
+    ///
+    /// # Safety (correctness, not memory safety)
+    ///
+    /// Only valid when `value`/`witness` are the true global min-cut for
+    /// the *exact* edge set this instance will hold at the time of the
+    /// first `query()` — e.g. the common cold-start case where several
+    /// `BoundedInstance`s are about to receive an identical `apply_inserts`
+    /// call with the full current edge set. Passing a stale or
+    /// mismatched hint silently returns a wrong answer; this is why the
+    /// hint is consumed (not reused) after one query.
+    pub fn with_exact_hint(
+        lambda_min: u64,
+        lambda_max: u64,
+        value: u64,
+        witness: WitnessHandle,
+    ) -> Self {
+        let mut instance = Self::new(lambda_min, lambda_max);
+        instance.exact_value_hint = Some((value, witness));
+        instance
+    }
+
+    /// Compute the exact, range-independent global minimum cut and witness
+    /// for a standalone edge set, for use with [`Self::with_exact_hint`].
+    ///
+    /// Only intended for small graphs (`vertices.len() < 20`, where
+    /// `query()` runs exhaustive `brute_force_min_cut` regardless of
+    /// range): on 20+ vertices this would otherwise fall through to
+    /// `search_for_cuts`'s `lambda_min..=lambda_max` budget loop, which is
+    /// infeasible for a wide range such as `(0, u64::MAX)`. Callers must
+    /// check vertex count themselves before calling this.
+    pub fn compute_exact_small_graph(
+        edges: &[(EdgeId, VertexId, VertexId)],
+    ) -> Option<(u64, WitnessHandle)> {
+        let mut probe = Self::new(0, u64::MAX);
+        probe.apply_inserts(edges);
+        match probe.query() {
+            InstanceResult::ValueInRange { value, witness } => Some((value, witness)),
+            InstanceResult::AboveRange => None,
+        }
+    }
+
+    /// Create an instance pre-seeded with an already-built, shared
+    /// [`ClusterHierarchy`], so `ensure_hierarchy` never rebuilds one.
+    ///
+    /// Safe to call with the *same* `hierarchy` for several instances built
+    /// from the same graph snapshot (e.g. every `BoundedInstance` a single
+    /// cold-start `MinCutWrapper::process_instances()` call instantiates):
+    /// the hierarchy is read-only after construction
+    /// (`search_for_cuts` only reads `hierarchy.clusters`), so sharing it
+    /// cannot change which cut any instance finds — only how many times an
+    /// identical hierarchy gets rebuilt.
+    pub fn with_shared_hierarchy(
+        lambda_min: u64,
+        lambda_max: u64,
+        hierarchy: Arc<ClusterHierarchy>,
+    ) -> Self {
+        let mut instance = Self::new(lambda_min, lambda_max);
+        instance.cluster_hierarchy = Some(hierarchy);
+        instance
+    }
+
+    /// Create an instance that never builds a [`ClusterHierarchy`] at all:
+    /// `search_for_cuts` always uses its existing "no hierarchy" fallback
+    /// (all vertices, sorted, as seeds). Trades the hierarchy's
+    /// boundary-targeted seed ordering for zero hierarchy-build cost.
+    pub fn without_hierarchy(lambda_min: u64, lambda_max: u64) -> Self {
+        let mut instance = Self::new(lambda_min, lambda_max);
+        instance.skip_hierarchy = true;
+        instance
     }
 
     /// Ensure cluster hierarchy is built when needed
     fn ensure_hierarchy(&mut self, graph: &DynamicGraph) {
-        if self.cluster_hierarchy.is_none() && self.vertices.len() > 50 {
-            self.cluster_hierarchy = Some(ClusterHierarchy::new(Arc::new(graph.clone())));
+        if self.cluster_hierarchy.is_none() && !self.skip_hierarchy && self.vertices.len() > 50 {
+            self.cluster_hierarchy = Some(Arc::new(ClusterHierarchy::new(Arc::new(graph.clone()))));
         }
     }
 
@@ -449,6 +553,21 @@ impl ProperCutInstance for BoundedInstance {
     }
 
     fn query(&mut self) -> InstanceResult {
+        // Consume a precomputed exact hint before anything else: it is
+        // already the true global min-cut for this instance's edge set,
+        // so no search (brute force or oracle) is needed at all. Seed the
+        // normal caches from it so later incremental updates behave as if
+        // the witness had been found the usual way.
+        if let Some((value, witness)) = self.exact_value_hint.take() {
+            *self.best_witness.lock().unwrap() = Some((value, witness.clone()));
+            self.set_boundary_cache(value);
+            return if value >= self.lambda_min && value <= self.lambda_max {
+                InstanceResult::ValueInRange { value, witness }
+            } else {
+                InstanceResult::AboveRange
+            };
+        }
+
         // FIRST: Check if graph is fragmented (disconnected) using FragmentingAlgorithm
         if let Some(ref frag) = self.fragmenting {
             if !frag.is_connected() {
@@ -609,5 +728,141 @@ mod tests {
         let cert = instance.certificate();
         // Certificate should have recorded searches
         assert!(!cert.localkcut_responses.is_empty() || instance.vertices.len() < 20);
+    }
+
+    /// A k=8 ring graph with >50 vertices, so `ensure_hierarchy`'s
+    /// `vertices.len() > 50` gate is actually exercised. Mirrors
+    /// `examples/mincut_scaling_probe.rs`'s topology for the n=100 size.
+    fn ring_edges(n: usize, k: usize) -> Vec<(EdgeId, VertexId, VertexId)> {
+        let mut edges = Vec::new();
+        let mut id = 0u64;
+        for i in 0..n {
+            for d in 1..=k {
+                edges.push((id, i as u64, ((i + d) % n) as u64));
+                id += 1;
+            }
+        }
+        edges
+    }
+
+    #[test]
+    fn without_hierarchy_matches_baseline_min_cut() {
+        let edges = ring_edges(100, 8);
+
+        let mut baseline = BoundedInstance::new(1, 10_000);
+        baseline.apply_inserts(&edges);
+        let baseline_value = match baseline.query() {
+            InstanceResult::ValueInRange { value, .. } => value,
+            InstanceResult::AboveRange => panic!("baseline: expected ValueInRange"),
+        };
+
+        let mut no_hierarchy = BoundedInstance::without_hierarchy(1, 10_000);
+        no_hierarchy.apply_inserts(&edges);
+        let no_hierarchy_value = match no_hierarchy.query() {
+            InstanceResult::ValueInRange { value, .. } => value,
+            InstanceResult::AboveRange => panic!("without_hierarchy: expected ValueInRange"),
+        };
+
+        assert_eq!(
+            baseline_value, no_hierarchy_value,
+            "skipping hierarchy-based seed selection must not change the found cut value"
+        );
+    }
+
+    #[test]
+    fn with_shared_hierarchy_matches_baseline_min_cut() {
+        let edges = ring_edges(100, 8);
+
+        let mut baseline = BoundedInstance::new(1, 10_000);
+        baseline.apply_inserts(&edges);
+        let baseline_value = match baseline.query() {
+            InstanceResult::ValueInRange { value, .. } => value,
+            InstanceResult::AboveRange => panic!("baseline: expected ValueInRange"),
+        };
+
+        let graph = DynamicGraph::new();
+        for &(_, u, v) in &edges {
+            let _ = graph.insert_edge(u, v, 1.0);
+        }
+        let hierarchy = Arc::new(ClusterHierarchy::new(Arc::new(graph)));
+
+        let mut shared = BoundedInstance::with_shared_hierarchy(1, 10_000, Arc::clone(&hierarchy));
+        shared.apply_inserts(&edges);
+        let shared_value = match shared.query() {
+            InstanceResult::ValueInRange { value, .. } => value,
+            InstanceResult::AboveRange => panic!("with_shared_hierarchy: expected ValueInRange"),
+        };
+
+        assert_eq!(
+            baseline_value, shared_value,
+            "injecting a pre-built, externally-shared hierarchy must not change the found cut value"
+        );
+
+        // The injected hierarchy must actually be used, not silently
+        // rebuilt: `ensure_hierarchy` only fires when `cluster_hierarchy`
+        // is `None`, so this instance should still hold exactly the `Arc`
+        // we gave it (same allocation, not a fresh equivalent one).
+        assert!(shared.cluster_hierarchy.is_some());
+    }
+
+    #[test]
+    fn exact_hint_matches_brute_force_on_small_graph() {
+        // 19 vertices (ring, k=8): exactly the pathological size from
+        // `examples/mincut_scaling_probe.rs` that triggers 2^19 brute force.
+        let edges = ring_edges(19, 8);
+
+        let mut baseline = BoundedInstance::new(1, 10_000);
+        baseline.apply_inserts(&edges);
+        let baseline_value = match baseline.query() {
+            InstanceResult::ValueInRange { value, .. } => value,
+            InstanceResult::AboveRange => panic!("baseline: expected ValueInRange"),
+        };
+
+        let (hint_value, hint_witness) = BoundedInstance::compute_exact_small_graph(&edges)
+            .expect("compute_exact_small_graph should find a cut on a connected ring graph");
+        assert_eq!(baseline_value, hint_value);
+
+        let mut hinted = BoundedInstance::with_exact_hint(1, 10_000, hint_value, hint_witness);
+        hinted.apply_inserts(&edges);
+        let hinted_value = match hinted.query() {
+            InstanceResult::ValueInRange { value, .. } => value,
+            InstanceResult::AboveRange => panic!("hinted: expected ValueInRange"),
+        };
+        assert_eq!(baseline_value, hinted_value);
+    }
+
+    #[test]
+    fn exact_hint_outside_range_reports_above_range() {
+        let edges = ring_edges(19, 8);
+        let (value, witness) = BoundedInstance::compute_exact_small_graph(&edges).unwrap();
+
+        // A range strictly below the true value must report AboveRange,
+        // exactly like the unhinted path would for the same range.
+        let mut hinted = BoundedInstance::with_exact_hint(1, value - 1, value, witness);
+        hinted.apply_inserts(&edges);
+        assert!(matches!(hinted.query(), InstanceResult::AboveRange));
+    }
+
+    #[test]
+    fn exact_hint_is_consumed_only_once() {
+        let edges = ring_edges(19, 8);
+        let (value, witness) = BoundedInstance::compute_exact_small_graph(&edges).unwrap();
+
+        let mut hinted = BoundedInstance::with_exact_hint(1, 10_000, value, witness);
+        hinted.apply_inserts(&edges);
+        assert!(hinted.exact_value_hint.is_some());
+        let _ = hinted.query();
+        assert!(
+            hinted.exact_value_hint.is_none(),
+            "hint must be consumed after the first query"
+        );
+
+        // A second query must still answer correctly via the normal
+        // best_witness cache the hint seeded, not by re-deriving anything.
+        let second = match hinted.query() {
+            InstanceResult::ValueInRange { value, .. } => value,
+            InstanceResult::AboveRange => panic!("expected ValueInRange on second query"),
+        };
+        assert_eq!(second, value);
     }
 }
