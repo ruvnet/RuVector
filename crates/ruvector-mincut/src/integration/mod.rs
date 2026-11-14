@@ -46,6 +46,33 @@ impl RuVectorGraphAnalyzer {
         }
     }
 
+    /// Create an analyzer backed by a custom `MinCutWrapper` instance
+    /// factory, e.g. one of the cold-start `BoundedInstance` strategies
+    /// (`with_shared_hierarchy`, `without_hierarchy`) from the 2026-11-14
+    /// nightly's `partition()` latency experiment
+    /// (`docs/research/nightly/2026-11-14-coldstart-mincut-hierarchy-sharing`).
+    /// Behaves identically to [`Self::new`] otherwise.
+    pub fn new_with_factory<F>(graph: Arc<DynamicGraph>, factory: F) -> Self
+    where
+        F: Fn(&DynamicGraph, u64, u64) -> Box<dyn crate::instance::ProperCutInstance>
+            + Send
+            + Sync
+            + 'static,
+    {
+        let mut wrapper = MinCutWrapper::with_factory(Arc::clone(&graph), factory);
+
+        for edge in graph.edges() {
+            wrapper.insert_edge(edge.id, edge.source, edge.target);
+        }
+
+        Self {
+            graph,
+            wrapper,
+            cached_min_cut: None,
+            cached_partition: None,
+        }
+    }
+
     /// Build graph from similarity matrix
     ///
     /// Creates edges between vectors with similarity above threshold
@@ -70,6 +97,24 @@ impl RuVectorGraphAnalyzer {
 
     /// Build k-NN graph from vectors
     pub fn from_knn(neighbors: &[(usize, Vec<(usize, f64)>)]) -> Self {
+        let graph = Self::knn_graph(neighbors);
+        Self::new(graph)
+    }
+
+    /// Build a k-NN graph from vectors using a custom `MinCutWrapper`
+    /// instance factory. See [`Self::new_with_factory`].
+    pub fn from_knn_with_factory<F>(neighbors: &[(usize, Vec<(usize, f64)>)], factory: F) -> Self
+    where
+        F: Fn(&DynamicGraph, u64, u64) -> Box<dyn crate::instance::ProperCutInstance>
+            + Send
+            + Sync
+            + 'static,
+    {
+        let graph = Self::knn_graph(neighbors);
+        Self::new_with_factory(graph, factory)
+    }
+
+    fn knn_graph(neighbors: &[(usize, Vec<(usize, f64)>)]) -> Arc<DynamicGraph> {
         let graph = Arc::new(DynamicGraph::new());
 
         for &(vertex, ref nn_list) in neighbors {
@@ -80,7 +125,7 @@ impl RuVectorGraphAnalyzer {
             }
         }
 
-        Self::new(graph)
+        graph
     }
 
     /// Compute minimum cut
