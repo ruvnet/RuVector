@@ -6,6 +6,7 @@ const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
+const http = require('node:http');
 const { createServer } = require('../bin/serve.js');
 
 function stubEngine() {
@@ -97,7 +98,7 @@ describe('ruvllm serve HTTP API', () => {
     const small = createServer(stubEngine(), { maxBodyBytes: 64 });
     await new Promise((r) => small.listen(0, '127.0.0.1', r));
     try {
-      const res = await fetch(`http://127.0.0.1:${small.address().port}/query`, { method: 'POST', body: JSON.stringify({ query: 'x'.repeat(200) }) }).catch((e) => e);
+      const res = await fetch(`http://127.0.0.1:${small.address().port}/query`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query: 'x'.repeat(200) }) }).catch((e) => e);
       if (res instanceof Error) return; // connection reset after the 413 is also acceptable
       assert.strictEqual(res.status, 413);
     } finally {
@@ -113,6 +114,40 @@ describe('ruvllm serve HTTP API', () => {
 
   test('unknown routes are 404', async () => {
     assert.strictEqual((await fetch(`${base}/nope`)).status, 404);
+  });
+
+  // A browser page can send a cross-origin POST without a CORS preflight only
+  // with a "simple" content type, so POST bodies must be declared JSON.
+  test('POST without a JSON content type is rejected and never reaches the engine', async () => {
+    const before = engine.calls.length;
+    for (const type of [undefined, 'text/plain', 'application/x-www-form-urlencoded']) {
+      const headers = type ? { 'content-type': type } : {};
+      const res = await fetch(`${base}/query`, { method: 'POST', headers, body: JSON.stringify({ query: 'x' }) });
+      assert.strictEqual(res.status, 415, `content-type ${type}`);
+    }
+    assert.strictEqual(engine.calls.length, before);
+    const ok = await fetch(`${base}/query`, { method: 'POST', headers: { 'content-type': 'application/json; charset=utf-8' }, body: JSON.stringify({ query: 'y' }) });
+    assert.strictEqual(ok.status, 200);
+  });
+
+  // DNS rebinding: a loopback-bound server must only answer its own Host names.
+  test('requests with a foreign Host header are rejected on loopback', async () => {
+    const before = engine.calls.length;
+    const { port } = server.address();
+    const request = (method, p, host, body) => new Promise((resolve, reject) => {
+      const req = http.request({ host: '127.0.0.1', port, method, path: p, headers: { host, 'content-type': 'application/json' } }, (res) => {
+        res.resume();
+        res.on('end', () => resolve(res.statusCode));
+      });
+      req.on('error', reject);
+      req.end(body);
+    });
+    assert.strictEqual(await request('POST', '/query', `attacker.example:${port}`, JSON.stringify({ query: 'x' })), 403);
+    assert.strictEqual(await request('GET', '/health', 'attacker.example', undefined), 403);
+    assert.strictEqual(engine.calls.length, before);
+    for (const host of [`127.0.0.1:${port}`, `localhost:${port}`, 'localhost']) {
+      assert.strictEqual(await request('GET', '/health', host, undefined), 200, host);
+    }
   });
 });
 
