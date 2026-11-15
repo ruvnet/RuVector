@@ -605,7 +605,7 @@ button.addEventListener('click', async () => {
 
 - **Rust**: 1.77 or higher
 - **wasm-pack**: Latest version
-- **Node.js**: 18.0 or higher
+- **Node.js**: 20.0 or higher
 
 ```bash
 # Install wasm-pack
