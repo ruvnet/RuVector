@@ -22,7 +22,7 @@ rvf-types = { path = "../rvf/rvf-types", version = "0.3", default-features = fal
 ] }
 
 [dev-dependencies]
-wasmtime = "27"
+wasmtime = ">=36.0.19, <37"
 anyhow = "1"
 
 [[example]]

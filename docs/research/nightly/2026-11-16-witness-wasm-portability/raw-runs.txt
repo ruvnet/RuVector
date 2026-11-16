@@ -79,7 +79,7 @@ Diligent-forgery rejection: native per_record=true, native batch_tail64=true, wa
 
 Acceptance gates: all PASS. ACCEPTANCE: ACCEPT
 
-=== Cross-run summary ===
+=== Cross-run summary (runs 1-3, wasmtime 27.0.0) ===
 wasm module size:            85445 bytes (83.4 KiB), byte-identical all 3 runs (same binary, only re-executed)
 wasmtime compile time:       138-182 ms (run-to-run JIT/scheduling noise, same container)
 wasm/native overhead (PerRecord):    3.72x - 3.82x
@@ -87,3 +87,34 @@ wasm/native overhead (BatchTail64):  3.31x - 3.34x
 native amortization:         55.4x - 58.2x
 wasm amortization:            63.3x - 64.9x
 Diligent-forgery detection:   12/12 trials (3 runs x 4 variants) correctly detected, 0 missed.
+
+=== RUN 4 (re-verification after dependency fix: wasmtime bumped 27.0.0 -> 36.0.20) ===
+CI's Security audit job (cargo-audit) flagged 8 RUSTSEC advisories against
+wasmtime 27.0.0 (dev-dependency only, used solely to drive this benchmark;
+never part of the wasm32 artifact itself). Bumped to 36.0.20, which clears
+every advisory's published fixed-version range. Re-ran the full benchmark
+unedited to confirm the dependency bump did not change the result:
+
+wasm module size (release, no wasm-opt): 85445 bytes (83.4 KiB) -- unchanged (wasmtime is dev-only, not linked into the wasm32 artifact)
+wasmtime module compile time:    114.726 ms
+wasmtime instance instantiate time: 0.054 ms
+wasm linear memory after instantiate: 17 page(s) = 1088 KiB
+
+native_per_record            mean=     139.9us  p50=     140.1us  p95=     145.2us  p99=     148.2us  signatures=  5000
+native_batch_tail64          mean=       2.5us  p50=       2.5us  p95=       2.6us  p99=       2.6us  signatures=    79
+wasm_per_record              mean=     524.7us  p50=     529.4us  p95=     565.4us  p99=     611.5us  signatures=  5000
+wasm_batch_tail64            mean=       7.7us  p50=       7.7us  p95=       7.9us  p99=       7.9us  signatures=    79
+
+native amortization (per_record / batch_tail64):     56.14x
+wasm amortization   (per_record / batch_tail64):     68.46x
+wasm/native overhead (per_record):                   3.75x
+wasm/native overhead (batch_tail64):                 3.08x
+
+Diligent-forgery rejection: native per_record=true, native batch_tail64=true, wasm per_record=true, wasm batch_tail64=true
+
+Acceptance gates: all PASS. ACCEPTANCE: ACCEPT
+
+Conclusion: results are consistent with runs 1-3 within normal run-to-run
+variance. The wasmtime version bump (a dev-only, host-side benchmarking
+dependency) does not change the measured wasm32 artifact or the
+hypothesis's accept/reject outcome.

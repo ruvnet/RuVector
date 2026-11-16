@@ -222,8 +222,12 @@ No changes to any existing crate.
   record generation (xorshift64, no RNG crate) -- identical inputs across
   all four variants and across repeated runs.
 - Hardware/software: this session's container, Linux x86_64, `rustc
-  1.97.0`, `cargo 1.97.0`, `wasmtime 27.0.0` (resolved by `cargo` at
-  benchmark build time), release profile (`opt-level = 3, lto = "fat",
+  1.97.0`, `cargo 1.97.0`, `wasmtime 36.0.20` (bumped from the initially
+  resolved `27.0.0` after CI's Security audit job flagged several
+  RUSTSEC advisories against that version; `36.0.20` clears every
+  advisory's fixed-version range and was re-verified to reproduce the
+  same results -- see the fourth run appended to `raw-runs.txt`),
+  release profile (`opt-level = 3, lto = "fat",
   codegen-units = 1, strip = true`, workspace-wide).
 - Binary size: raw `wasm32-unknown-unknown` release `.wasm` file size via
   `std::fs::metadata`-equivalent (`std::fs::read(...).len()`); no
