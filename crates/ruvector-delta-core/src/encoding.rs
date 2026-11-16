@@ -9,6 +9,31 @@ use core::marker::PhantomData;
 use crate::delta::{DeltaOp, DeltaValue, VectorDelta};
 use crate::error::{DeltaError, Result};
 
+/// Largest vector a decoder will materialise from untrusted bytes (16M f32 = 64 MiB).
+///
+/// RLE and sparse headers carry a `dimensions` field that is not bounded by the
+/// input length, so without a cap a few bytes could request gigabytes.
+pub const MAX_DECODE_DIMENSIONS: usize = 1 << 24;
+
+fn check_decode_dimensions(dimensions: usize) -> Result<()> {
+    if dimensions > MAX_DECODE_DIMENSIONS {
+        return Err(DeltaError::InvalidEncoding(alloc::format!(
+            "dimensions {} exceed decode limit {}",
+            dimensions,
+            MAX_DECODE_DIMENSIONS
+        )));
+    }
+    Ok(())
+}
+
+/// `header + count * stride`, rejecting overflow (matters on 32-bit / wasm32).
+fn expected_len(header: usize, count: usize, stride: usize) -> Result<usize> {
+    count
+        .checked_mul(stride)
+        .and_then(|n| n.checked_add(header))
+        .ok_or_else(|| DeltaError::InvalidEncoding("Encoded length overflows".into()))
+}
+
 /// Trait for delta encoding strategies
 pub trait DeltaEncoding: Send + Sync {
     /// Encode a delta to bytes
@@ -115,7 +140,7 @@ impl DeltaEncoding for DenseEncoding {
 
         let dimensions = u32::from_le_bytes([bytes[1], bytes[2], bytes[3], bytes[4]]) as usize;
 
-        let expected_len = 5 + dimensions * 4;
+        let expected_len = expected_len(5, dimensions, 4)?;
         if bytes.len() < expected_len {
             return Err(DeltaError::InvalidEncoding(alloc::format!(
                 "Buffer too small: expected {}, got {}",
@@ -216,7 +241,8 @@ impl DeltaEncoding for SparseEncoding {
         let dimensions = u32::from_le_bytes([bytes[1], bytes[2], bytes[3], bytes[4]]) as usize;
         let count = u32::from_le_bytes([bytes[5], bytes[6], bytes[7], bytes[8]]) as usize;
 
-        let expected_len = 9 + count * 8;
+        check_decode_dimensions(dimensions)?;
+        let expected_len = expected_len(9, count, 8)?;
         if bytes.len() < expected_len {
             return Err(DeltaError::InvalidEncoding(alloc::format!(
                 "Buffer too small: expected {}, got {}",
@@ -240,6 +266,13 @@ impl DeltaEncoding for SparseEncoding {
                 bytes[offset + 6],
                 bytes[offset + 7],
             ]);
+            if index as usize >= dimensions {
+                return Err(DeltaError::InvalidEncoding(alloc::format!(
+                    "Sparse index {} out of range for {} dimensions",
+                    index,
+                    dimensions
+                )));
+            }
             ops.push(DeltaOp::new(index, value));
         }
 
@@ -359,7 +392,8 @@ impl DeltaEncoding for RunLengthEncoding {
         let dimensions = u32::from_le_bytes([bytes[1], bytes[2], bytes[3], bytes[4]]) as usize;
         let run_count = u32::from_le_bytes([bytes[5], bytes[6], bytes[7], bytes[8]]) as usize;
 
-        let expected_len = 9 + run_count * 8;
+        check_decode_dimensions(dimensions)?;
+        let expected_len = expected_len(9, run_count, 8)?;
         if bytes.len() < expected_len {
             return Err(DeltaError::InvalidEncoding(alloc::format!(
                 "Buffer too small: expected {}, got {}",
@@ -384,9 +418,18 @@ impl DeltaEncoding for RunLengthEncoding {
                 bytes[offset + 7],
             ]) as usize;
 
-            for _ in 0..count {
-                values.push(value);
-            }
+            // Bound the running total by the header before growing the buffer.
+            let new_len = values
+                .len()
+                .checked_add(count)
+                .filter(|&n| n <= dimensions)
+                .ok_or_else(|| {
+                    DeltaError::InvalidEncoding(alloc::format!(
+                        "RLE runs exceed {} dimensions",
+                        dimensions
+                    ))
+                })?;
+            values.resize(new_len, value);
         }
 
         if values.len() != dimensions {
@@ -597,5 +640,48 @@ mod tests {
         let decoded = encoding.decode(&bytes).unwrap();
 
         assert!(decoded.is_identity());
+    }
+
+    #[test]
+    fn test_rle_decode_rejects_runs_beyond_dimensions() {
+        // dimensions = 1, one run of u32::MAX copies.
+        let mut bytes = vec![EncodingType::RunLength as u8];
+        bytes.extend_from_slice(&1u32.to_le_bytes());
+        bytes.extend_from_slice(&1u32.to_le_bytes());
+        bytes.extend_from_slice(&0f32.to_le_bytes());
+        bytes.extend_from_slice(&u32::MAX.to_le_bytes());
+        assert!(RunLengthEncoding::default().decode(&bytes).is_err());
+        assert!(HybridEncoding::default().decode(&bytes).is_err());
+    }
+
+    #[test]
+    fn test_rle_and_sparse_decode_reject_oversized_dimensions() {
+        let mut rle = vec![EncodingType::RunLength as u8];
+        rle.extend_from_slice(&u32::MAX.to_le_bytes());
+        rle.extend_from_slice(&0u32.to_le_bytes());
+        assert!(RunLengthEncoding::default().decode(&rle).is_err());
+
+        let mut sparse = vec![EncodingType::Sparse as u8];
+        sparse.extend_from_slice(&u32::MAX.to_le_bytes());
+        sparse.extend_from_slice(&0u32.to_le_bytes());
+        assert!(SparseEncoding::default().decode(&sparse).is_err());
+    }
+
+    #[test]
+    fn test_sparse_decode_rejects_index_out_of_range() {
+        let mut bytes = vec![EncodingType::Sparse as u8];
+        bytes.extend_from_slice(&4u32.to_le_bytes());
+        bytes.extend_from_slice(&1u32.to_le_bytes());
+        bytes.extend_from_slice(&4u32.to_le_bytes());
+        bytes.extend_from_slice(&1f32.to_le_bytes());
+        assert!(SparseEncoding::default().decode(&bytes).is_err());
+    }
+
+    #[test]
+    fn test_rle_decode_valid_runs_still_roundtrip() {
+        let delta = VectorDelta::from_dense(vec![0.0, 0.0, 0.0, 2.0, 2.0]);
+        let enc = RunLengthEncoding::default();
+        let bytes = enc.encode(&delta).unwrap();
+        assert_eq!(enc.decode(&bytes).unwrap().dimensions, 5);
     }
 }
