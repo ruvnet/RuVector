@@ -184,23 +184,37 @@ impl JobQueue {
             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
             // Update with result
-            {
+            let webhook = {
                 let mut jobs_lock = jobs.write().await;
                 if let Some(stored_job) = jobs_lock.get_mut(&job_id) {
                     stored_job.set_result("Processed PDF content".to_string());
-
-                    // Send webhook if specified
-                    if let Some(webhook_url) = &stored_job.request.webhook_url {
-                        Self::send_webhook(webhook_url, stored_job).await;
-                    }
+                    stored_job
+                        .request
+                        .webhook_url
+                        .clone()
+                        .map(|url| (url, stored_job.clone()))
+                } else {
+                    None
                 }
+            };
+
+            // Send webhook if specified, without holding the jobs lock
+            if let Some((webhook_url, finished)) = webhook {
+                Self::send_webhook(&webhook_url, &finished).await;
             }
         }
     }
 
     /// Send webhook notification
     async fn send_webhook(url: &str, job: &PdfJob) {
-        let client = reqwest::Client::new();
+        // Webhooks may only target public addresses (no redirects, bounded time).
+        let (client, parsed) = match super::requests::public_client(url).await {
+            Ok(pair) => pair,
+            Err(e) => {
+                tracing::warn!("Refusing webhook to {}: {}", url, e);
+                return;
+            }
+        };
         let payload = serde_json::json!({
             "job_id": job.id,
             "status": job.status,
@@ -208,7 +222,7 @@ impl JobQueue {
             "error": job.error,
         });
 
-        if let Err(e) = client.post(url).json(&payload).send().await {
+        if let Err(e) = client.post(parsed).json(&payload).send().await {
             tracing::error!("Failed to send webhook to {}: {:?}", url, e);
         }
     }
@@ -277,5 +291,22 @@ mod tests {
 
         let status = queue.get_status(&job_id).await;
         assert_eq!(status, Some(JobStatus::Cancelled));
+    }
+
+    #[tokio::test]
+    async fn test_webhook_to_loopback_is_not_sent() {
+        let (url, contacted) = crate::api::requests::tests::loopback_listener(Vec::new());
+        let job = PdfJob::new(PdfRequest {
+            url: "https://example.com/test.pdf".to_string(),
+            options: PdfOptions::default(),
+            webhook_url: Some(url.clone()),
+            metadata: RequestMetadata::default(),
+        });
+
+        JobQueue::send_webhook(&url, &job).await;
+        assert!(
+            !contacted.recv().unwrap(),
+            "loopback webhook must not be contacted"
+        );
     }
 }
