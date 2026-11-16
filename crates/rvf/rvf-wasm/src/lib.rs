@@ -330,7 +330,9 @@ fn distance_layout_fits(dim: usize, count: usize, dtype: u32) -> bool {
     if dim == 0 || count == 0 {
         return false;
     }
-    let query_ok = dim.checked_mul(2).map_or(false, |b| b <= QUERY_SCRATCH_SIZE);
+    let query_ok = dim
+        .checked_mul(2)
+        .map_or(false, |b| b <= QUERY_SCRATCH_SIZE);
     let block_ok = count
         .checked_mul(dim)
         .and_then(|n| n.checked_mul(elem_size))
@@ -340,7 +342,10 @@ fn distance_layout_fits(dim: usize, count: usize, dtype: u32) -> bool {
 
 /// True when `dim` (min, max) f32 pairs fit the decode workspace.
 fn dequant_dim_fits(dim: usize) -> bool {
-    dim != 0 && dim.checked_mul(8).map_or(false, |b| b <= DECODE_WORKSPACE_SIZE)
+    dim != 0
+        && dim
+            .checked_mul(8)
+            .map_or(false, |b| b <= DECODE_WORKSPACE_SIZE)
 }
 
 fn pq_codebook_bytes(dim: usize, m: usize, k: usize) -> Option<usize> {

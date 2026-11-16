@@ -19,7 +19,8 @@ fn check_decode_dimensions(dimensions: usize) -> Result<()> {
     if dimensions > MAX_DECODE_DIMENSIONS {
         return Err(DeltaError::InvalidEncoding(alloc::format!(
             "dimensions {} exceed decode limit {}",
-            dimensions, MAX_DECODE_DIMENSIONS
+            dimensions,
+            MAX_DECODE_DIMENSIONS
         )));
     }
     Ok(())
@@ -268,7 +269,8 @@ impl DeltaEncoding for SparseEncoding {
             if index as usize >= dimensions {
                 return Err(DeltaError::InvalidEncoding(alloc::format!(
                     "Sparse index {} out of range for {} dimensions",
-                    index, dimensions
+                    index,
+                    dimensions
                 )));
             }
             ops.push(DeltaOp::new(index, value));
