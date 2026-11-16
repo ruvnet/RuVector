@@ -32,7 +32,7 @@
 use crate::compaction::{weighted_importance, CoherenceWeights, CompactionPolicy};
 use crate::memory::MemoryEntry;
 use crate::scoring::cosine_sim;
-use ruvector_mincut::RuVectorGraphAnalyzer;
+use ruvector_mincut::{RuVectorGraphAnalyzer, ScanOptLevel};
 use std::collections::HashSet;
 
 /// How the mincut-boundary structural signal is combined with the scalar
@@ -67,6 +67,13 @@ pub struct MincutGatedForgetting {
     /// "Measured limitation" note on [`Self::boundary_indices`]). `1`
     /// disables retrying.
     pub mincut_trials: usize,
+    /// `ruvector_mincut::MinCutWrapper` cold-start instance-scan
+    /// optimization level to use for every `RuVectorGraphAnalyzer::from_knn`
+    /// call this policy makes (default: `ScanOptLevel::Baseline`, matching
+    /// prior behavior exactly). Added by the 2026-11-13 nightly research run
+    /// to re-test the ADR-345 acceptance benchmark against the fix; see
+    /// `docs/research/nightly/2026-11-13_bounded_instance_scan_dedup`.
+    pub scan_opt_level: ScanOptLevel,
 }
 
 impl MincutGatedForgetting {
@@ -80,6 +87,7 @@ impl MincutGatedForgetting {
             structural_bonus,
             protect_fraction: 0.0,
             mincut_trials: 3,
+            scan_opt_level: ScanOptLevel::Baseline,
         }
     }
 
@@ -93,6 +101,7 @@ impl MincutGatedForgetting {
             structural_bonus: 0.0,
             protect_fraction,
             mincut_trials: 3,
+            scan_opt_level: ScanOptLevel::Baseline,
         }
     }
 
@@ -168,7 +177,10 @@ impl MincutGatedForgetting {
 
         let mut boundary = HashSet::new();
         for _ in 0..self.mincut_trials.max(1) {
-            boundary.extend(Self::boundary_from_one_partition(&neighbors));
+            boundary.extend(Self::boundary_from_one_partition(
+                &neighbors,
+                self.scan_opt_level,
+            ));
         }
         boundary
     }
@@ -176,8 +188,12 @@ impl MincutGatedForgetting {
     /// One min-cut partition attempt over an already-built k-NN graph; see
     /// [`Self::boundary_indices`]'s "Measured limitation" note for why this
     /// is called more than once.
-    fn boundary_from_one_partition(neighbors: &[(usize, Vec<(usize, f64)>)]) -> HashSet<usize> {
-        let mut analyzer = RuVectorGraphAnalyzer::from_knn(neighbors);
+    fn boundary_from_one_partition(
+        neighbors: &[(usize, Vec<(usize, f64)>)],
+        scan_opt_level: ScanOptLevel,
+    ) -> HashSet<usize> {
+        let mut analyzer =
+            RuVectorGraphAnalyzer::from_knn(neighbors).with_scan_opt_level(scan_opt_level);
         let (side_a, side_b) = match analyzer.partition() {
             Some(p) => p,
             None => return HashSet::new(),

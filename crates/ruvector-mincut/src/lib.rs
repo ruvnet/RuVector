@@ -278,7 +278,7 @@ pub use subpolynomial::{
 };
 pub use tree::{DecompositionNode, HierarchicalDecomposition, LevelInfo};
 pub use witness::{EdgeWitness, LazyWitnessTree, WitnessTree};
-pub use wrapper::MinCutWrapper;
+pub use wrapper::{MinCutWrapper, ScanOptLevel};
 
 // Optimization re-exports (SOTA j-Tree + BMSSP performance improvements)
 pub use optimization::{
