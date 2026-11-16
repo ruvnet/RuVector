@@ -127,6 +127,10 @@ members = [
     # OpenJev v0 trainer (ADR-008): candle fine-tune + ONNX transplant (openjev).
     "crates/ruvector-typesafe-train",
     "crates/ruvector-retrieval-receipt",
+    # wasm32 portability probe for the ADR-347 WitnessSigner span-signing
+    # design (ADR-361, 2026-11-16 nightly): does it fit in a small wasm
+    # module and does BatchTail's amortization survive a wasmtime sandbox?
+    "crates/ruvector-witness-wasm",
     "crates/ruvector-gnn-rerank",
     "crates/ruvector-gnn-node",
     "crates/ruvector-gnn-wasm",

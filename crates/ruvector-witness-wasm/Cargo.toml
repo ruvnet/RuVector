@@ -1,0 +1,30 @@
+[package]
+name = "ruvector-witness-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "WASM-portable Ed25519/SHA-256 span-signed witness chain primitive (ADR-361) -- measures whether the ADR-347 WitnessSigner batch-amortization result survives a wasm32-unknown-unknown port"
+keywords = ["wasm", "witness", "ed25519", "provenance", "edge"]
+categories = ["wasm", "cryptography"]
+readme = "README.md"
+
+[lib]
+name = "ruvector_witness_wasm"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+rvf-types = { path = "../rvf/rvf-types", version = "0.3", default-features = false, features = [
+    "alloc",
+    "ed25519",
+] }
+
+[dev-dependencies]
+wasmtime = "27"
+anyhow = "1"
+
+[[example]]
+name = "wasm_witness_bench"
+path = "examples/wasm_witness_bench.rs"
