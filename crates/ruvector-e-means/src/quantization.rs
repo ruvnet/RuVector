@@ -1,6 +1,6 @@
 //! Checked product-quantization codebooks trained by the shared e-means kernel.
 
-use crate::{fit, nearest, validate_rows, Config, Error};
+use crate::{fit, fit_warm_start, nearest, validate_rows, Config, Error};
 
 /// A reusable PQ codebook with private, validated layout metadata.
 ///
@@ -38,6 +38,51 @@ impl ProductQuantizer {
                 sub_data.extend_from_slice(&row[start..start + sub_dim]);
             }
             centroids.extend(fit(&sub_data, sub_dim, config)?.centroids);
+        }
+        Self::from_centroids(dimensions, subspaces, config.clusters, centroids)
+    }
+
+    /// Retrain each subspace starting from `previous`'s codebook instead of a
+    /// fresh random draw, per [`fit_warm_start`](crate::fit_warm_start).
+    /// `previous` must share this call's `dimensions` and `subspaces`; its
+    /// cluster count is reused as the trained shape, overriding
+    /// `config.clusters`. Useful for periodically refreshing a PQ codebook
+    /// against newly appended or drifted vectors without a full random
+    /// restart. Successful retraining reflects only the new `data` passed
+    /// here; it does not merge statistics with whatever `data` originally
+    /// produced `previous`.
+    pub fn fit_warm_start(
+        data: &[f32],
+        dimensions: usize,
+        subspaces: usize,
+        config: &Config,
+        previous: &ProductQuantizer,
+    ) -> Result<Self, Error> {
+        validate_rows(data, dimensions)?;
+        if previous.dimensions != dimensions || previous.subspaces != subspaces {
+            return Err(Error(
+                "PQ warm-start codebook must match this call's dimensions and subspaces",
+            ));
+        }
+        let config = &Config {
+            clusters: previous.clusters,
+            ..config.clone()
+        };
+        config.parameters(data.len() / dimensions)?;
+        Self::validate_shape(dimensions, subspaces, config.clusters)?;
+        let sub_dim = dimensions / subspaces;
+        let mut centroids = Vec::with_capacity(dimensions * config.clusters);
+        let mut sub_data = Vec::with_capacity(data.len() / subspaces);
+        for subspace in 0..subspaces {
+            sub_data.clear();
+            let start = subspace * sub_dim;
+            for row in data.chunks_exact(dimensions) {
+                sub_data.extend_from_slice(&row[start..start + sub_dim]);
+            }
+            let previous_start = subspace * previous.clusters * sub_dim;
+            let previous_sub =
+                &previous.centroids[previous_start..previous_start + previous.clusters * sub_dim];
+            centroids.extend(fit_warm_start(&sub_data, sub_dim, config, previous_sub)?.centroids);
         }
         Self::from_centroids(dimensions, subspaces, config.clusters, centroids)
     }

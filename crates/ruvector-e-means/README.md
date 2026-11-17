@@ -32,3 +32,17 @@ persisted state. `ruvector-pq-search` and the IVF/RAIRS/SEIL family expose expli
 e-means training using this dependency. See [ADR-360](https://github.com/ruvnet/ruvector/blob/main/docs/adr/ADR-360-e-means-ecosystem-integrations.md)
 for the native/npm integration matrix, MetaHarness evaluation, and Cloudflare
 static-WASM entrypoints. These additions preserve existing training defaults.
+
+`fit_warm_start(data, dimensions, config, initial_centroids)` runs the same
+algorithm as `fit`, starting from a caller-supplied codebook (for example, a
+previous `Model`'s `centroids`) instead of a fresh random draw from `data`.
+`ProductQuantizer::fit_warm_start` does the same per subspace, reusing a
+previous codebook's cluster count. Both exist for periodically refreshing an
+IVF partition or PQ codebook against newly appended or drifted data without
+paying for a full random-restart convergence; see
+[`docs/research/nightly/2026-11-17-e-means-warm-start-drift-refresh`](https://github.com/ruvnet/ruvector/blob/main/docs/research/nightly/2026-11-17-e-means-warm-start-drift-refresh/README.md)
+for the measured drift benchmark and its acceptance result, and
+[ADR-361](https://github.com/ruvnet/ruvector/blob/main/docs/adr/ADR-361-e-means-warm-start-codebook-refresh.md)
+for scope and promotion status. Neither function merges statistics with
+whatever data originally produced the warm-start codebook; retraining
+reflects only the newly passed `data`.
