@@ -180,6 +180,12 @@ function summarize(rec) {
 async function withRegistry(registry, resolvePath, fn) {
   const ws = loadWeightSpace();
   const registryPath = resolvePath(registry || DEFAULT_REGISTRY);
+  // The registry is an append-only JSON-lines log. Only accept .jsonl targets
+  // (checked after symlink resolution) so a caller cannot append records to an
+  // arbitrary workspace file such as a hook script or a config file.
+  if (path.extname(registryPath).toLowerCase() !== '.jsonl') {
+    throw new Error(`registry must be a .jsonl file (got '${registryPath}')`);
+  }
   // The @ruvector/core index lives next to the log; confine it too (symlinks).
   resolvePath(registryPath + '.index.db');
   const reg = await ws.WeightRegistry.open({ path: registryPath });
