@@ -16,7 +16,7 @@ pub use config::{cosine_step, Config, Finalization, Parameters};
 pub(crate) use distance::nearest;
 pub use ivf::IvfPartition;
 pub use quantization::ProductQuantizer;
-pub use trainer::fit;
+pub use trainer::{fit, fit_warm_start};
 
 /// Validation failure; invalid input is rejected before training starts.
 #[derive(Debug, Clone, PartialEq, Eq)]

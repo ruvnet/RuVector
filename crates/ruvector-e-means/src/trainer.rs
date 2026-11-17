@@ -12,6 +12,10 @@ const SPLIT_DELTA: f64 = 1.0 / 128.0;
 /// (2)-(8) of arXiv:2611.09501v1, using exact CPU assignment. Shuffled partial
 /// batches are included, so every row participates in every epoch. Scratch
 /// memory is O(n + kd); no n-by-k distance matrix is allocated.
+///
+/// Picks `k` seeded-random distinct rows from `data` as the initial centroids.
+/// Use [`fit_warm_start`] to continue training from an existing codebook
+/// instead of a fresh random draw.
 pub fn fit(data: &[f32], dimensions: usize, config: &Config) -> Result<Model, Error> {
     validate_rows(data, dimensions)?;
     let samples = data.len() / dimensions;
@@ -24,6 +28,63 @@ pub fn fit(data: &[f32], dimensions: usize, config: &Config) -> Result<Model, Er
     for &i in &order[..k] {
         centroids.extend_from_slice(&data[i * dimensions..(i + 1) * dimensions]);
     }
+    fit_from_centroids(data, dimensions, config, params, centroids, rng)
+}
+
+/// Continue training from an existing, caller-supplied codebook instead of a
+/// fresh random draw from `data`. `initial_centroids` must be exactly
+/// `config.clusters * dimensions` finite values, flat and row-major — for
+/// example, the `centroids` of a [`Model`] previously returned by [`fit`] or
+/// `fit_warm_start` itself (same or different, compatible, data).
+///
+/// This is the same algorithm as [`fit`] (equations (2)-(8) of
+/// arXiv:2611.09501v1, including EMA updates and dead-cluster revival); the
+/// only difference is where the centroids start. It exists for refreshing a
+/// codebook against a new or drifted batch of data without paying for a full
+/// random-restart convergence, which matters for periodically re-trained
+/// streaming indexes (IVF partitions, PQ codebooks) where the prior codebook
+/// is already a reasonable approximation of most of the data.
+pub fn fit_warm_start(
+    data: &[f32],
+    dimensions: usize,
+    config: &Config,
+    initial_centroids: &[f32],
+) -> Result<Model, Error> {
+    validate_rows(data, dimensions)?;
+    validate_rows(initial_centroids, dimensions)?;
+    let samples = data.len() / dimensions;
+    let params = config.parameters(samples)?;
+    let k = config.clusters;
+    if initial_centroids.len() != k * dimensions {
+        return Err(Error(
+            "warm-start centroids length must equal clusters * dimensions",
+        ));
+    }
+    let rng = ChaCha8Rng::seed_from_u64(config.seed);
+    fit_from_centroids(
+        data,
+        dimensions,
+        config,
+        params,
+        initial_centroids.to_vec(),
+        rng,
+    )
+}
+
+/// Shared training core used by [`fit`] and [`fit_warm_start`]: both have
+/// already validated shapes/finiteness and resolved `params`; they differ
+/// only in how `centroids` and `rng` were produced.
+fn fit_from_centroids(
+    data: &[f32],
+    dimensions: usize,
+    config: &Config,
+    params: crate::Parameters,
+    mut centroids: Vec<f32>,
+    mut rng: ChaCha8Rng,
+) -> Result<Model, Error> {
+    let samples = data.len() / dimensions;
+    let k = config.clusters;
+    let mut order: Vec<usize> = (0..samples).collect();
     let mut counts = vec![INITIAL_COUNT; k];
     let mut sums: Vec<f64> = centroids
         .iter()
