@@ -1,0 +1,38 @@
+$ cargo run --release -p ruvector-agent-memory --features tilezero-gate --example tilezero_gate_bench
+ruvector-agent-memory TileZeroGate admission benchmark
+SEED=42 N_WARM=64 N_TRIALS=500 WINDOW_SIZE=64 EMBED_DIM=64
+
+== Baseline vs candidate, default GateThresholds ==
+always_admit / coherent      permit= 500 refused=   0 warm_permit= 64/64  mean=   0.548us p50=   0.501us p95=   0.553us p99=   2.107us throughput=  710231.3 ops/s
+always_admit / incoherent    permit= 500 refused=   0 warm_permit= 64/64  mean=   0.508us p50=   0.474us p95=   0.537us p99=   1.268us throughput=  781778.9 ops/s
+tilezero_default / coherent  permit= 496 refused=   4 warm_permit= 62/64  mean=   4.124us p50=   3.728us p95=   4.648us p99=   7.888us throughput=  205303.4 ops/s
+tilezero_default / incoherent permit=   0 refused= 500 warm_permit= 62/64  mean=   4.859us p50=   4.621us p95=   5.276us p99=   9.407us throughput=  177321.4 ops/s
+
+== Pre-registered acceptance computation (default GateThresholds) ==
+  Criterion 1: TileZeroGate incoherent Deny+Defer rate (100.0%) - AlwaysAdmitGate incoherent Deny+Defer rate (0.0%) = 100.0pp (need >= 50.0pp) -> PASS
+  Criterion 2: TileZeroGate coherent Permit rate = 99.2% (need >= 85.0%) -> PASS
+  Criterion 5 (informational, no threshold): mean added per-admission latency = 3.964us (TileZeroGate accept() vs AlwaysAdmitGate accept(), pooled over both streams)
+
+== Darwin-lite GateThresholds sweep (3 generations x 4 candidates + default = 13 configs) ==
+label         tau_deny  tau_perm   min_cut  max_shft    th_unc   th_conf    coh_perm%  inc_perm%       sep lat_us  corr  repr  fitness
+default         0.0100   100.000     5.000     0.500    20.000     5.000         99.2        0.0     0.992   4.37   1.0   1.0   0.5988
+gen1_cand1      0.0109   108.402     4.766     0.446    19.656     4.993          0.0        0.0     0.000   1.43   0.0   1.0   0.0000
+gen1_cand2      0.0101   111.712     5.357     0.453    19.980     6.342          0.0        0.0     0.000   1.40   0.0   1.0   0.0000
+gen1_cand3      0.0090   126.308     3.906     0.491    25.146     4.364          0.0        0.0     0.000   1.42   0.0   1.0   0.0000
+gen1_cand4      0.0097   125.047     4.099     0.355    23.372     5.255          0.0        0.0     0.000   1.54   0.0   1.0   0.0000
+gen2_cand1      0.0113   102.640     6.090     0.606    17.228     5.172          0.0        0.0     0.000   1.67   0.0   1.0   0.0000
+gen2_cand2      0.0106   110.336     4.649     0.486    25.047     4.129          0.0        0.0     0.000   1.53   0.0   1.0   0.0000
+gen2_cand3      0.0118   120.472     4.805     0.367    22.825     6.389          0.0        0.0     0.000   1.56   0.0   1.0   0.0000
+gen2_cand4      0.0083   107.522     3.674     0.631    17.753     6.443          0.0        0.0     0.000   1.72   0.0   1.0   0.0000
+gen3_cand1      0.0088   103.434     4.558     0.421    17.218     3.779          0.0        0.0     0.000   1.90   0.0   1.0   0.0000
+gen3_cand2      0.0100   124.631     5.891     0.454    23.306     3.621          0.0        0.0     0.000   1.41   0.0   1.0   0.0000
+gen3_cand3      0.0094   101.036     4.787     0.593    21.534     3.755          0.0        0.0     0.000   1.43   0.0   1.0   0.0000
+gen3_cand4      0.0085    92.036     4.686     0.423    25.122     5.201        100.0        0.4     0.996   4.20   1.0   1.0   0.6151
+
+Default fitness = 0.5988; best-in-sweep = 'gen3_cand4' fitness = 0.6151
+PROMOTION: 'gen3_cand4' strictly beats the hand-picked default on fitness and passes every hard constraint -- recommend as the new default.
+
+== Reproducibility spot-check (re-run default config twice) ==
+  First run:  coherent permit=496 refused=4  incoherent permit=0 refused=500
+  Second run: coherent permit=496 refused=4  incoherent permit=0 refused=500
+  Reproducible (identical decision counts): PASS
