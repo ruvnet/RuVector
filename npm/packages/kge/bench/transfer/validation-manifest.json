@@ -1,0 +1,49 @@
+{
+  "policy": {
+    "minimumFacts": 32,
+    "maximumFacts": 64,
+    "relativeGain": 0.1,
+    "bootstrapReplicates": 2000,
+    "bootstrapSeed": 271828,
+    "rule": "adapted only if validation MRR >=1.1*frozen and paired bootstrap 2.5 percentile gain >0",
+    "filtering": "retained support plus official validation only; no test truths",
+    "limits": "Bootstrap is a descriptive stability guard, not proof of independent graph generalization"
+  },
+  "inputs": {
+    "nations": {
+      "inputHash": "cbd8cbe001a35f6c3557746c3e73f933a211ccb10050dc754fdc531db4f689b7",
+      "validHash": "2b337a62e51a2f45c283eac98a70d21b7e0e102136be1539b2a52c652a7b0530",
+      "checkpoints": {
+        "101": "8ca30104761ba338d8ce1ab33934bdd60da037de2d7fc9d337205430739406b1",
+        "202": "7de3c9fdfd5b8b9b8d98e3cad931e518e41c003516d7cfeefae52b33f3bce36f",
+        "303": "7f93f0b9e42af9aed5a9abfa5e1919c70f9ce6e74aa533eaaf81e3f27b87b7e9"
+      }
+    },
+    "kinships": {
+      "inputHash": "41ce8c89cf358f8f61303bca67e75329d4bfd7ee80caf71774e567f982562f6b",
+      "validHash": "c56f8630a583178b1e569f11a64aa535ae1ce0b0912d8b1e24716be2b37f04da",
+      "checkpoints": {
+        "101": "8d2b289395af3dc168c7cccb342f1d8cacab0c216786b3ad18c37ebc129203da",
+        "202": "39f9e83f309878a828e7821302e1ee28f7b463abc925cb21b48fe0961ede5d77",
+        "303": "284eff663f792aab1d34575f3bb10d169a48cebadb3b2eb03c4fd480666eb6ea"
+      }
+    },
+    "umls": {
+      "inputHash": "52ed2fd2c18641eddc491115b3a7167b30ae0d986699dc4c447e8d618b8218db",
+      "validHash": "025c98f8a4891e2a6582ec5b40ee0d904031edad9c52554522f4b7904820c98e",
+      "checkpoints": {
+        "101": "7524ec41270e6e4f310d1ee7b547be3f60b3f0b703ec6b66eba5d74cc5773ac7",
+        "202": "365cb9b59da7624843341d3a3e2046db4aff5ce00ae0107aff0e7e7230d93baa",
+        "303": "59abca4e0f13454a37ff80001fb84d6906f1fc0bf3c4ab6be37f3df748fdd99b"
+      }
+    }
+  },
+  "trainingReceiptHash": "6cd0f7113c7de07ccd8c95aee04fae5225801630920c73b8d7a264ae8a87ee22",
+  "sourceHashes": {
+    "validation_gate.py": "a8008ccb686a656a75a17854bebb7984f2a0b84ee6e307710a60e63fb0e18ba6",
+    "evaluate_validation_gate.py": "86773b26833347982b471480b1c868e93035fb81a6106044a6c40fa3631d4af0",
+    "ultra_adapter.py": "353745fc9865335221ec1a30a02f3c160c76b55b53e5671da375fd3aea82ee70",
+    "sparse_transfer.py": "430ff7257215018fc8644dc4931cb8e230b5377006747734da6d88f1f62d3bf4",
+    "adaptation_budget.py": "5838cd7fb2a0fcd5bdace4b67577c0dc1d97c1f863a45902ffcefe680463d057"
+  }
+}

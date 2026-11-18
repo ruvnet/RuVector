@@ -1,0 +1,45 @@
+{
+  "protocol": {
+    "fractions": [
+      0.01,
+      0.05,
+      0.1,
+      0.25
+    ],
+    "seeds": [
+      101,
+      202,
+      303
+    ],
+    "seconds": 2.0,
+    "maxSteps": 1000,
+    "trainingThreads": 1,
+    "batchSize": 8,
+    "negatives": 16,
+    "lr": 0.0005,
+    "weightDecay": 0.01,
+    "primary": "equal-weight mean adapted-minus-scratch MRR across four fractions and three seeds",
+    "acceptance": "relative aggregate MRR gain >= 10% versus scratch ULTRA AND both KGE controls; all four fractions positive versus scratch; adapted/scratch/kgeTimed durations within 10% of 2 seconds (kge50 excluded)",
+    "training": "support-only strict negatives; remove batch positive edges and inverse edges before rebuilding relation graph; BCE equal positive/negative group weights",
+    "selection": "nested hash sample with one support fact per relation floor",
+    "querySelection": "fixed prior 64 SHA-selected facts on diagnostic graphs; all 24 official Countries S1 test facts for confirmation",
+    "limits": "Timing checked between updates permits one-step overrun. Wall time is not equal compute. No production promotion."
+  },
+  "inputHashes": {
+    "/workspace/scratch/83b0d7057773/transfer-data/nations.json": "25503259e045011e6c6e9b9cea9889dc829df5626c4cde982b183ec0b9552034",
+    "/workspace/scratch/83b0d7057773/transfer-data/kinships.json": "c7276584118002b690a773a1369d50a941f4bce2cda8fa6e1d0952beb536a418",
+    "/workspace/scratch/83b0d7057773/transfer-data/umls.json": "d7935cd3c996b617ac8a1b235357aef42c216ef5291f2a959b1a1dc14258c912",
+    "/workspace/scratch/83b0d7057773/transfer-data/countries_s1.json": "2ca77cccbae606e0ce123880e01e4b2d96e57bcdc75e147971852d4da5c2547c"
+  },
+  "binding": {
+    "wrapperPath": "/workspace/scratch/83b0d7057773/kge-runtime/node_modules/@ruvector/kge/index.js",
+    "wrapperHash": "c0f5199760ddca2cafd4e012b8e69d69c49762246d83313a0f987d57707609fc",
+    "nativePath": "/workspace/scratch/83b0d7057773/kge-runtime/node_modules/@ruvector/kge/native/kge.linux-x64-gnu.node",
+    "nativeHash": "4a32175eab0256d0e48b2e619388fae21b3c25dfb0269c1988a74c48c0920463"
+  },
+  "sourceHashes": {
+    "sparse_transfer.py": "430ff7257215018fc8644dc4931cb8e230b5377006747734da6d88f1f62d3bf4",
+    "ultra_adapter.py": "353745fc9865335221ec1a30a02f3c160c76b55b53e5671da375fd3aea82ee70",
+    "sparse_kge.mjs": "d8fc644affbf522d3adc29be33d3ed942d454269f43daacd68612a5665b790ed"
+  }
+}
