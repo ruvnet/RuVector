@@ -1,0 +1,230 @@
+{
+  "credit-g": {
+    "TabPFN-v2(ship)": {
+      "auc_mean": 0.7862857142857143,
+      "auc_std": 0.01616794650940766,
+      "acc_mean": 0.75,
+      "t_mean": 6.368113851547241
+    },
+    "TabPFN-ceiling": {
+      "auc_mean": null,
+      "auc_std": null,
+      "acc_mean": null,
+      "t_mean": null
+    },
+    "XGB-tuned": {
+      "auc_mean": 0.7956428571428572,
+      "auc_std": 0.02063677342109377,
+      "acc_mean": 0.766,
+      "t_mean": 5.840635585784912
+    },
+    "HistGBM-tuned": {
+      "auc_mean": 0.7689047619047619,
+      "auc_std": 0.01121056959963676,
+      "acc_mean": 0.7550000000000001,
+      "t_mean": 23.20904674530029
+    },
+    "RandomForest": {
+      "auc_mean": 0.7946071428571428,
+      "auc_std": 0.02232400302614011,
+      "acc_mean": 0.7610000000000001,
+      "t_mean": 0.0
+    },
+    "LogReg": {
+      "auc_mean": 0.7861666666666667,
+      "auc_std": 0.01977085282215196,
+      "acc_mean": 0.748,
+      "t_mean": 0.0
+    }
+  },
+  "diabetes": {
+    "TabPFN-v2(ship)": {
+      "auc_mean": 0.8421928721174006,
+      "auc_std": 0.020865040834372618,
+      "acc_mean": 0.7655631949749597,
+      "t_mean": 3.3816460609436034
+    },
+    "TabPFN-ceiling": {
+      "auc_mean": null,
+      "auc_std": null,
+      "acc_mean": null,
+      "t_mean": null
+    },
+    "XGB-tuned": {
+      "auc_mean": 0.8319713487071978,
+      "auc_std": 0.02773092193260367,
+      "acc_mean": 0.773389355742297,
+      "t_mean": 5.097432851791382
+    },
+    "HistGBM-tuned": {
+      "auc_mean": 0.8170957372466805,
+      "auc_std": 0.028992325953223343,
+      "acc_mean": 0.753823953823954,
+      "t_mean": 20.00244426727295
+    },
+    "RandomForest": {
+      "auc_mean": 0.827211390635919,
+      "auc_std": 0.01962968543002592,
+      "acc_mean": 0.7655886597063069,
+      "t_mean": 0.0
+    },
+    "LogReg": {
+      "auc_mean": 0.8303878406708595,
+      "auc_std": 0.02228758281308102,
+      "acc_mean": 0.7746965452847806,
+      "t_mean": 0.0
+    }
+  },
+  "blood-transfusion-service-center": {
+    "TabPFN-v2(ship)": {
+      "auc_mean": 0.7612886382623224,
+      "auc_std": 0.028668189135599813,
+      "acc_mean": 0.7901118568232662,
+      "t_mean": 2.367714595794678
+    },
+    "TabPFN-ceiling": {
+      "auc_mean": null,
+      "auc_std": null,
+      "acc_mean": null,
+      "t_mean": null
+    },
+    "XGB-tuned": {
+      "auc_mean": 0.7449617098301309,
+      "auc_std": 0.029529667218531484,
+      "acc_mean": 0.7740671140939597,
+      "t_mean": 5.5280537605285645
+    },
+    "HistGBM-tuned": {
+      "auc_mean": 0.7270488721804511,
+      "auc_std": 0.029615827820882228,
+      "acc_mean": 0.7767427293064877,
+      "t_mean": 18.80963635444641
+    },
+    "RandomForest": {
+      "auc_mean": 0.6848377889167363,
+      "auc_std": 0.03570374207280446,
+      "acc_mean": 0.7539686800894855,
+      "t_mean": 0.0
+    },
+    "LogReg": {
+      "auc_mean": 0.7529003063213588,
+      "auc_std": 0.029103589688212236,
+      "acc_mean": 0.7727069351230426,
+      "t_mean": 0.0
+    }
+  },
+  "breast-w": {
+    "TabPFN-v2(ship)": {
+      "auc_mean": 0.994202989963305,
+      "auc_std": 0.0028427986230985898,
+      "acc_mean": 0.968530318602261,
+      "t_mean": 3.564052629470825
+    },
+    "TabPFN-ceiling": {
+      "auc_mean": null,
+      "auc_std": null,
+      "acc_mean": null,
+      "t_mean": null
+    },
+    "XGB-tuned": {
+      "auc_mean": 0.9921115005964165,
+      "auc_std": 0.004484393878015614,
+      "acc_mean": 0.9685200411099691,
+      "t_mean": 2.8613541603088377
+    },
+    "HistGBM-tuned": {
+      "auc_mean": 0.9925217907277579,
+      "auc_std": 0.003348442505065294,
+      "acc_mean": 0.9613669064748201,
+      "t_mean": 13.400657558441162
+    },
+    "RandomForest": {
+      "auc_mean": 0.9928603422974541,
+      "auc_std": 0.003797209937763077,
+      "acc_mean": 0.9656628982528263,
+      "t_mean": 0.0
+    },
+    "LogReg": {
+      "auc_mean": 0.994152652102408,
+      "auc_std": 0.003264273481045298,
+      "acc_mean": 0.9656628982528263,
+      "t_mean": 0.0
+    }
+  },
+  "qsar-biodeg": {
+    "TabPFN-v2(ship)": {
+      "auc_mean": 0.94351321357401,
+      "auc_std": 0.011023981727609914,
+      "acc_mean": 0.881516587677725,
+      "t_mean": 15.588684368133546
+    },
+    "TabPFN-ceiling": {
+      "auc_mean": null,
+      "auc_std": null,
+      "acc_mean": null,
+      "t_mean": null
+    },
+    "XGB-tuned": {
+      "auc_mean": 0.9349176634547494,
+      "auc_std": 0.011069609548969035,
+      "acc_mean": 0.875829383886256,
+      "t_mean": 4.892862606048584
+    },
+    "HistGBM-tuned": {
+      "auc_mean": 0.9328311234312349,
+      "auc_std": 0.01259142939898824,
+      "acc_mean": 0.8777251184834123,
+      "t_mean": 23.324076318740843
+    },
+    "RandomForest": {
+      "auc_mean": 0.9358966870768979,
+      "auc_std": 0.005800180965197466,
+      "acc_mean": 0.8672985781990521,
+      "t_mean": 0.0
+    },
+    "LogReg": {
+      "auc_mean": 0.9276146728492458,
+      "auc_std": 0.008287176428106533,
+      "acc_mean": 0.8701421800947868,
+      "t_mean": 0.0
+    }
+  },
+  "vehicle": {
+    "TabPFN-v2(ship)": {
+      "auc_mean": 0.9677119700265553,
+      "auc_std": 0.0038010548118525187,
+      "acc_mean": 0.8451374869474417,
+      "t_mean": 7.253725194931031
+    },
+    "TabPFN-ceiling": {
+      "auc_mean": null,
+      "auc_std": null,
+      "acc_mean": null,
+      "t_mean": null
+    },
+    "XGB-tuned": {
+      "auc_mean": 0.9341836030085432,
+      "auc_std": 0.005624096480557556,
+      "acc_mean": 0.7600556909154192,
+      "t_mean": 17.91141095161438
+    },
+    "HistGBM-tuned": {
+      "auc_mean": 0.9323841841450486,
+      "auc_std": 0.005307110294248247,
+      "acc_mean": 0.7659310824921686,
+      "t_mean": 66.08864455223083
+    },
+    "RandomForest": {
+      "auc_mean": 0.9309225393340197,
+      "auc_std": 0.006291466028438093,
+      "acc_mean": 0.7576888270100939,
+      "t_mean": 0.0
+    },
+    "LogReg": {
+      "auc_mean": 0.9439931314078269,
+      "auc_std": 0.004988866543059998,
+      "acc_mean": 0.7884441350504698,
+      "t_mean": 0.0
+    }
+  }
+}
