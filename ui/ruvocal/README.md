@@ -163,6 +163,8 @@ MCP_SERVERS=[
 MCP_FORWARD_HF_USER_TOKEN=true
 ```
 
+Any streamable HTTP MCP server can go in that list. For keyless web search you can also use Keenable, for example `{"name": "Web Search (Keenable)", "url": "https://api.keenable.ai/mcp-public"}`; see [MCP Tools](docs/source/configuration/mcp-tools.md) for the keyed variant.
+
 Enable router tool path (Omni):
 
 - Set `LLM_ROUTER_ENABLE_TOOLS=true` and choose a tools‑capable target with `LLM_ROUTER_TOOLS_MODEL=<model id or name>`.
