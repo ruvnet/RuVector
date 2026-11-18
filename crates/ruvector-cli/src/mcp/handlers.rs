@@ -583,7 +583,7 @@ impl McpHandler {
                 params.heads,
                 params.dropout,
             )
-            .await;
+            .await?;
 
         let elapsed = start.elapsed();
         let layer_id = format!(
@@ -632,7 +632,12 @@ impl McpHandler {
         let layer = self
             .gnn_cache
             .get_or_create_layer(input_dim, hidden_dim, heads, dropout)
-            .await;
+            .await?;
+        check_embedding_dims(
+            input_dim,
+            &params.node_embedding,
+            &params.neighbor_embeddings,
+        )?;
 
         // Convert f64 to f32
         let node_f32: Vec<f32> = params.node_embedding.iter().map(|&x| x as f32).collect();
@@ -661,6 +666,13 @@ impl McpHandler {
     async fn tool_gnn_batch_forward(&self, args: &Value) -> Result<String> {
         let params: GnnBatchForwardParams =
             serde_json::from_value(args.clone()).context("Invalid parameters")?;
+        for op in &params.operations {
+            check_embedding_dims(
+                params.layer_config.input_dim,
+                &op.node_embedding,
+                &op.neighbor_embeddings,
+            )?;
+        }
 
         let request = BatchGnnRequest {
             layer_config: LayerConfig {
@@ -684,7 +696,7 @@ impl McpHandler {
                 .collect(),
         };
 
-        let batch_result = self.gnn_cache.batch_forward(request).await;
+        let batch_result = self.gnn_cache.batch_forward(request).await?;
 
         // Convert results to f64
         let results_f64: Vec<Vec<f64>> = batch_result
@@ -785,6 +797,16 @@ impl McpHandler {
     async fn tool_gnn_search(&self, args: &Value) -> Result<String> {
         let params: GnnSearchParams =
             serde_json::from_value(args.clone()).context("Invalid parameters")?;
+        if params
+            .candidates
+            .iter()
+            .any(|c| c.len() != params.query.len())
+        {
+            return Err(anyhow::anyhow!(
+                "Every candidate must have the same length as the query ({})",
+                params.query.len()
+            ));
+        }
 
         let start = Instant::now();
 
@@ -812,6 +834,18 @@ impl McpHandler {
         })
         .to_string())
     }
+}
+
+/// Reject embeddings whose length does not match the layer input dimension;
+/// the layer's matrix products assume it and would otherwise panic.
+fn check_embedding_dims(input_dim: usize, node: &[f64], neighbors: &[Vec<f64>]) -> Result<()> {
+    if node.len() != input_dim || neighbors.iter().any(|n| n.len() != input_dim) {
+        return Err(anyhow::anyhow!(
+            "node and neighbor embeddings must have length {} (the layer input_dim)",
+            input_dim
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -917,6 +951,86 @@ mod tests {
             let result = handler.validate_path(path);
             assert!(result.is_err(), "Should block {}", path);
         }
+    }
+
+    fn call_tool(handler: &McpHandler, name: &str, arguments: Value) -> McpResponse {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        rt.block_on(handler.handle_request(McpRequest {
+            jsonrpc: "2.0".to_string(),
+            id: Some(json!(1)),
+            method: "tools/call".to_string(),
+            params: Some(json!({ "name": name, "arguments": arguments })),
+        }))
+    }
+
+    #[test]
+    fn test_gnn_tools_reject_malformed_arguments_without_panicking() {
+        let dir = tempdir().unwrap();
+        let handler = handler_with_data_dir(dir.path());
+        let cases = [
+            // hidden_dim not divisible by heads, heads = 0, dropout out of range
+            (
+                "gnn_layer_create",
+                json!({"input_dim": 4, "hidden_dim": 5, "heads": 2}),
+            ),
+            (
+                "gnn_layer_create",
+                json!({"input_dim": 4, "hidden_dim": 4, "heads": 0}),
+            ),
+            (
+                "gnn_layer_create",
+                json!({"input_dim": 4, "hidden_dim": 4, "heads": 2, "dropout": 5.0}),
+            ),
+            // dimensions far beyond what the server should allocate
+            (
+                "gnn_layer_create",
+                json!({"input_dim": 1_000_000, "hidden_dim": 1_000_000, "heads": 1}),
+            ),
+            (
+                "gnn_forward",
+                json!({"layer_id": "4_5_2_100", "node_embedding": [0.0, 0.0, 0.0, 0.0],
+                "neighbor_embeddings": [], "edge_weights": []}),
+            ),
+            // embeddings whose length does not match the layer input
+            (
+                "gnn_forward",
+                json!({"layer_id": "4_8_2_100", "node_embedding": [1.0, 2.0],
+                "neighbor_embeddings": [], "edge_weights": []}),
+            ),
+            (
+                "gnn_forward",
+                json!({"layer_id": "4_8_2_100", "node_embedding": [0.0, 0.0, 0.0, 0.0],
+                "neighbor_embeddings": [[1.0]], "edge_weights": [1.0]}),
+            ),
+            (
+                "gnn_batch_forward",
+                json!({"layer_config": {"input_dim": 4, "hidden_dim": 8, "heads": 2},
+                "operations": [{"node_embedding": [1.0], "neighbor_embeddings": [], "edge_weights": []}]}),
+            ),
+            (
+                "gnn_search",
+                json!({"query": [1.0, 0.0], "candidates": [[1.0]], "k": 1}),
+            ),
+        ];
+        for (name, args) in cases {
+            let response = call_tool(&handler, name, args.clone());
+            assert!(
+                response.error.is_some(),
+                "{name} {args} should be rejected, got {:?}",
+                response.result
+            );
+        }
+
+        // The server keeps answering valid requests afterwards.
+        let ok = call_tool(
+            &handler,
+            "gnn_forward",
+            json!({"layer_id": "4_8_2_100", "node_embedding": [0.1, 0.2, 0.3, 0.4],
+                "neighbor_embeddings": [[0.4, 0.3, 0.2, 0.1]], "edge_weights": [1.0]}),
+        );
+        assert!(ok.error.is_none(), "valid forward failed: {:?}", ok.error);
     }
 
     #[test]
