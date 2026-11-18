@@ -1,0 +1,28 @@
+[package]
+name = "sevensense-wasm"
+description = "Browser bindings for the 7sense acoustic analysis pipeline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Only the pure-computation halves of each crate. Both are built without their
+# native features, which is what keeps tokio, symphonia, and instant-distance
+# -- none of which compile for wasm32 -- out of the graph entirely.
+sevensense-audio = { path = "../sevensense-audio", default-features = false }
+sevensense-vector = { path = "../sevensense-vector", default-features = false }
+
+[profile.release]
+# The compiled module is inlined into the page as a data URI, so size is a
+# correctness constraint rather than a nicety.
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
