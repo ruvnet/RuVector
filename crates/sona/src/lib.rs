@@ -47,6 +47,7 @@
 
 pub mod auto_tuner;
 pub mod darwin_guard;
+pub mod darwin_pareto;
 pub mod engine;
 pub mod ewc;
 pub mod loops;
