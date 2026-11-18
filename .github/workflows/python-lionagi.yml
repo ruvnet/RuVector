@@ -1,0 +1,114 @@
+name: Python LionAGI integration
+on:
+  pull_request:
+    paths: ['python/integrations/ruvector-lionagi/**', '.github/workflows/python-lionagi.yml']
+  push:
+    branches: [main]
+    paths: ['python/integrations/ruvector-lionagi/**', '.github/workflows/python-lionagi.yml']
+    tags: ['python-lionagi-v*']
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the validated integration version to PyPI
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: python-lionagi-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, python: '3.10'}
+          - {os: ubuntu-latest, python: '3.12'}
+          - {os: ubuntu-latest, python: '3.14'}
+          - {os: macos-latest, python: '3.12'}
+          - {os: windows-latest, python: '3.12'}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Build and install distributions
+        shell: bash
+        run: |
+          python -m pip install build==1.6.1 twine==7.0.0 pytest==9.1.1 pytest-asyncio==1.4.0
+          python -m build python/integrations/ruvector-lionagi --outdir dist
+          python -m twine check --strict dist/*
+          python -m pip install dist/*.whl
+      - name: Test real LionAGI and Rust contracts
+        run: python -m pytest python/integrations/ruvector-lionagi/tests -q
+      - name: Execute quickstart
+        run: python python/integrations/ruvector-lionagi/examples/quickstart.py
+      - name: Benchmark smoke test
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
+        run: python python/integrations/ruvector-lionagi/benchmarks/retrieval.py --n 1000 --queries 20 --output benchmark-smoke.json
+      - name: Audit installed dependencies
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
+        run: |
+          python -m pip install pip-audit==2.10.1
+          python -m pip_audit --skip-editable
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
+        with:
+          name: lionagi-dist
+          path: dist/*
+  publish:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/python-lionagi-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main')
+    environment: pypi
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      HAS_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with: {python-version: '3.12'}
+      - name: Verify release source
+        shell: bash
+        run: |
+          git merge-base --is-ancestor HEAD origin/main
+          python -c 'import os,tomllib; v=tomllib.load(open("python/integrations/ruvector-lionagi/pyproject.toml","rb"))["project"]["version"]; ref=os.environ["GITHUB_REF"]; assert ref=="refs/heads/main" or ref=="refs/tags/python-lionagi-v"+v'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {name: lionagi-dist, path: dist}
+      - name: Trusted Publishing
+        if: env.HAS_PYPI_TOKEN != 'true'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+        with: {packages-dir: dist/, attestations: true}
+      - name: Configured PyPI publishing
+        if: env.HAS_PYPI_TOKEN == 'true'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+        with:
+          packages-dir: dist/
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          attestations: false
+  verify:
+    needs: publish
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with: {python-version: '3.12'}
+      - name: Install and verify published artifact
+        shell: bash
+        run: |
+          VERSION=$(python -c 'import tomllib; print(tomllib.load(open("python/integrations/ruvector-lionagi/pyproject.toml","rb"))["project"]["version"])')
+          python -m pip install --index-url https://pypi.org/simple --only-binary=:all: --no-cache-dir "ruvector-lionagi==$VERSION" pytest==9.1.1 pytest-asyncio==1.4.0
+          python -m pytest python/integrations/ruvector-lionagi/tests -q
+          python python/integrations/ruvector-lionagi/examples/quickstart.py
