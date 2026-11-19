@@ -66,6 +66,29 @@ ADR-356 manifest check (`scripts/ci/check-platform-manifests.sh`, which expects
 `RuVector.git` on platform manifests) still holds. A new package must have a
 `repository.url` that points at this repository, or its first CI publish fails.
 
+**Do not normalize the casing.** It may look like a provenance bug, but it is
+not one. Lowercasing the platform manifests would break the ADR-356 check, and
+rewriting the wrappers to `RuVector.git` gains nothing. Fix a `repository`
+field only when it is missing or names a different repository.
+
+### `protected-release.yml` coverage
+
+`protected-release.yml` already published with `--provenance` before this ADR.
+It covers exactly six packages, all sealed with `npm pack` and published from
+the sealed tarballs:
+
+- `@ruvector/core`
+- `ruvector-core-linux-x64-gnu`, `ruvector-core-linux-arm64-gnu`,
+  `ruvector-core-darwin-x64`, `ruvector-core-darwin-arm64`,
+  `ruvector-core-win32-x64-msvc`
+
+It covers no other package. In particular it does not cover the `ruvector`
+umbrella (published by `ruvector-publish.yml`), the other `@ruvector/*` native
+wrappers and their `-<platform>` packages (published by the `build-*`
+workflows), or any laptop-only package. Only versions it actually published
+carry attestations: `@ruvector/core@0.1.38` does, and `@ruvector/core@0.1.39`
+does not because it was published outside this workflow.
+
 ## Consequences
 
 - **Laptop publishes get no provenance.** A version published from a laptop
