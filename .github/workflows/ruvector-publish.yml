@@ -29,6 +29,10 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      # Every `npm publish` in this job (direct, scripts/ci/npm-publish-if-missing.sh,
+      # napi prepublish, publish-platforms.js) signs a SLSA provenance statement.
+      NPM_CONFIG_PROVENANCE: 'true'
     defaults:
       run:
         working-directory: npm/packages/ruvector

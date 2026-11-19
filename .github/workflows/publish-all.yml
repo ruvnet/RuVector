@@ -295,6 +295,15 @@ jobs:
   publish-npm:
     name: Publish to npm
     runs-on: ubuntu-24.04
+    # ADR-362: npm provenance needs an OIDC token; nothing else in this job
+    # writes to the repository.
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      # Every `npm publish` in this job (direct, scripts/ci/npm-publish-if-missing.sh,
+      # napi prepublish, publish-platforms.js) signs a SLSA provenance statement.
+      NPM_CONFIG_PROVENANCE: 'true'
     needs: [build-native, build-wasm]
     if: ${{ !inputs.dry_run && (inputs.publish_npm || github.event_name == 'push') }}
 
