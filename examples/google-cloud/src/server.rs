@@ -65,6 +65,37 @@ fn default_k() -> usize {
     10
 }
 
+// Limits for request-controlled benchmark sizes. The service is publicly
+// reachable, so oversized or zero values must be rejected before allocating.
+const MAX_DIMS: usize = 4096;
+const MAX_NUM_VECTORS: usize = 1_000_000;
+const MAX_NUM_QUERIES: usize = 100_000;
+const MAX_K: usize = 1000;
+/// Upper bound on `num_vectors * dims` (f32 elements, ~512 MiB).
+const MAX_TOTAL_ELEMENTS: usize = 128 * 1024 * 1024;
+const MAX_STORED_RESULTS: usize = 100;
+
+fn validate_request(req: &BenchmarkRequest) -> std::result::Result<(), String> {
+    let in_range = |name: &str, v: usize, max: usize| {
+        if v == 0 || v > max {
+            Err(format!("{} must be between 1 and {}, got {}", name, max, v))
+        } else {
+            Ok(())
+        }
+    };
+    in_range("dims", req.dims, MAX_DIMS)?;
+    in_range("num_vectors", req.num_vectors, MAX_NUM_VECTORS)?;
+    in_range("num_queries", req.num_queries, MAX_NUM_QUERIES)?;
+    in_range("k", req.k, MAX_K)?;
+    if req.num_vectors.saturating_mul(req.dims) > MAX_TOTAL_ELEMENTS {
+        return Err(format!(
+            "num_vectors * dims must not exceed {}",
+            MAX_TOTAL_ELEMENTS
+        ));
+    }
+    Ok(())
+}
+
 /// Benchmark response
 #[derive(Serialize)]
 struct BenchmarkResponse {
@@ -182,9 +213,22 @@ async fn benchmark_handler(
     State(state): State<AppState>,
     Json(request): Json<BenchmarkRequest>,
 ) -> impl IntoResponse {
-    // Check if benchmark is already running
+    if let Err(msg) = validate_request(&request) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(BenchmarkResponse {
+                status: "error",
+                message: "Invalid benchmark parameters".to_string(),
+                result: None,
+                error: Some(msg),
+            }),
+        );
+    }
+
+    // Check and set the running flag under one lock so two requests cannot
+    // both start a benchmark.
     {
-        let running = state.running.lock().await;
+        let mut running = state.running.lock().await;
         if *running {
             return (
                 StatusCode::CONFLICT,
@@ -196,11 +240,6 @@ async fn benchmark_handler(
                 }),
             );
         }
-    }
-
-    // Set running flag
-    {
-        let mut running = state.running.lock().await;
         *running = true;
     }
 
@@ -235,6 +274,9 @@ async fn benchmark_handler(
             // Store result
             {
                 let mut results = state.results.lock().await;
+                if results.len() >= MAX_STORED_RESULTS {
+                    results.remove(0);
+                }
                 results.push(benchmark_result.clone());
             }
 
@@ -502,4 +544,56 @@ async fn run_hnsw_benchmark(
     );
 
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn state() -> AppState {
+        AppState {
+            results: Arc::new(Mutex::new(Vec::new())),
+            running: Arc::new(Mutex::new(false)),
+        }
+    }
+
+    fn request(dims: usize, num_vectors: usize, num_queries: usize, k: usize) -> BenchmarkRequest {
+        BenchmarkRequest {
+            dims,
+            num_vectors,
+            num_queries,
+            k,
+            benchmark_type: "distance".to_string(),
+        }
+    }
+
+    #[tokio::test]
+    async fn zero_batch_is_rejected_and_service_stays_usable() {
+        let state = state();
+        let resp = benchmark_handler(State(state.clone()), Json(request(8, 10, 0, 1)))
+            .await
+            .into_response();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        assert!(
+            !*state.running.lock().await,
+            "running flag must not stay set"
+        );
+
+        let resp = benchmark_handler(State(state.clone()), Json(request(8, 10, 2, 1)))
+            .await
+            .into_response();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[test]
+    fn oversized_requests_are_rejected() {
+        assert!(validate_request(&request(128, 10_000, 1000, 10)).is_ok());
+        assert!(validate_request(&request(768, 100_000, 1000, 10)).is_ok());
+        assert!(validate_request(&request(0, 10, 1, 1)).is_err());
+        assert!(validate_request(&request(8, usize::MAX, 1, 1)).is_err());
+        assert!(validate_request(&request(usize::MAX, 10, 1, 1)).is_err());
+        assert!(validate_request(&request(8, 10, usize::MAX, 1)).is_err());
+        assert!(validate_request(&request(8, 10, 1, usize::MAX)).is_err());
+        assert!(validate_request(&request(4096, 1_000_000, 1, 1)).is_err());
+    }
 }

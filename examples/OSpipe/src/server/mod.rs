@@ -19,15 +19,16 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Query, State},
-    http::StatusCode,
-    response::IntoResponse,
+    extract::{Query, Request, State},
+    http::{header, HeaderValue, StatusCode},
+    middleware::{self, Next},
+    response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 
 use crate::pipeline::ingestion::{IngestionPipeline, PipelineStats};
 use crate::search::router::{QueryRoute, QueryRouter};
@@ -172,7 +173,11 @@ async fn search_handler(
 ) -> impl IntoResponse {
     let pipeline = state.pipeline.read().await;
     let embedding = pipeline.embedding_engine().embed(&req.query);
-    let k = if req.k == 0 { 10 } else { req.k };
+    let k = if req.k == 0 {
+        10
+    } else {
+        req.k.min(MAX_SEARCH_K)
+    };
 
     let filter = build_search_filter(&req.filters);
 
@@ -267,7 +272,7 @@ async fn legacy_search_handler(
         }
     };
 
-    let k = params.limit.unwrap_or(10);
+    let k = params.limit.unwrap_or(10).min(MAX_SEARCH_K);
     let pipeline = state.pipeline.read().await;
     let embedding = pipeline.embedding_engine().embed(&q);
 
@@ -403,10 +408,73 @@ fn to_api_result(r: SearchResult) -> ApiSearchResult {
 // Router & startup
 // ---------------------------------------------------------------------------
 
+/// Upper bound on results returned by a single search request.
+const MAX_SEARCH_K: usize = 1000;
+
+/// True when `host` (a Host header value or URL authority, optionally with a
+/// port) names the local machine.
+fn is_loopback_host(host: &str) -> bool {
+    let host = host.trim();
+    let name = if let Some(rest) = host.strip_prefix('[') {
+        match rest.split_once(']') {
+            Some((inner, after)) if after.is_empty() || after.starts_with(':') => inner,
+            _ => return false,
+        }
+    } else {
+        match host.rsplit_once(':') {
+            Some((name, port)) if port.chars().all(|c| c.is_ascii_digit()) => name,
+            Some(_) => return false,
+            None => host,
+        }
+    };
+    name.eq_ignore_ascii_case("localhost")
+        || name
+            .parse::<std::net::IpAddr>()
+            .map(|ip| ip.is_loopback())
+            .unwrap_or(false)
+}
+
+/// True for browser origins served from the local machine (or a Tauri shell).
+/// Indexed screen/audio content must not be readable by arbitrary websites.
+fn is_local_origin(origin: &HeaderValue) -> bool {
+    let Ok(origin) = origin.to_str() else {
+        return false;
+    };
+    let Some((scheme, authority)) = origin.split_once("://") else {
+        return false;
+    };
+    match scheme {
+        "http" | "https" => is_loopback_host(authority),
+        "tauri" => authority == "localhost",
+        _ => false,
+    }
+}
+
+/// Reject requests whose Host header is not a loopback name, so a remote
+/// page cannot reach the API through DNS rebinding.
+async fn require_loopback_host(req: Request, next: Next) -> Response {
+    let ok = req
+        .headers()
+        .get(header::HOST)
+        .and_then(|h| h.to_str().ok())
+        .map(is_loopback_host)
+        .unwrap_or(false);
+    if !ok {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorBody {
+                error: "Host header must name the local machine".to_string(),
+            }),
+        )
+            .into_response();
+    }
+    next.run(req).await
+}
+
 /// Build the axum [`Router`] with all OSpipe endpoints.
 pub fn build_router(state: ServerState) -> Router {
     let cors = CorsLayer::new()
-        .allow_origin(Any)
+        .allow_origin(AllowOrigin::predicate(|origin, _| is_local_origin(origin)))
         .allow_methods(Any)
         .allow_headers(Any);
 
@@ -418,11 +486,12 @@ pub fn build_router(state: ServerState) -> Router {
         .route("/v2/health", get(health_handler))
         // Legacy v1
         .route("/search", get(legacy_search_handler))
+        .layer(middleware::from_fn(require_loopback_host))
         .layer(cors)
         .with_state(state)
 }
 
-/// Start the OSpipe HTTP server on the given port.
+/// Start the OSpipe HTTP server on the given loopback port.
 ///
 /// This function blocks until the server is shut down (e.g. via Ctrl-C).
 ///
@@ -431,7 +500,8 @@ pub fn build_router(state: ServerState) -> Router {
 /// Returns an error if the TCP listener cannot bind to the requested port.
 pub async fn start_server(state: ServerState, port: u16) -> crate::error::Result<()> {
     let app = build_router(state);
-    let addr = format!("0.0.0.0:{}", port);
+    // Loopback only: the index holds captured screen and audio content.
+    let addr = std::net::SocketAddr::from((std::net::Ipv4Addr::LOCALHOST, port));
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .map_err(|e| OsPipeError::Pipeline(format!("Failed to bind to {}: {}", addr, e)))?;
@@ -475,6 +545,7 @@ mod tests {
         let app = build_router(state);
 
         let req = Request::builder()
+            .header("host", "localhost:3030")
             .uri("/v2/health")
             .body(Body::empty())
             .unwrap();
@@ -497,6 +568,7 @@ mod tests {
         let app = build_router(state);
 
         let req = Request::builder()
+            .header("host", "localhost:3030")
             .uri("/v2/stats")
             .body(Body::empty())
             .unwrap();
@@ -518,6 +590,7 @@ mod tests {
         let app = build_router(state);
 
         let req = Request::builder()
+            .header("host", "localhost:3030")
             .method("POST")
             .uri("/v2/route")
             .header("content-type", "application/json")
@@ -540,6 +613,7 @@ mod tests {
         let app = build_router(state);
 
         let req = Request::builder()
+            .header("host", "localhost:3030")
             .method("POST")
             .uri("/v2/search")
             .header("content-type", "application/json")
@@ -564,6 +638,7 @@ mod tests {
         let app = build_router(state);
 
         let req = Request::builder()
+            .header("host", "localhost:3030")
             .uri("/search")
             .body(Body::empty())
             .unwrap();
@@ -590,6 +665,7 @@ mod tests {
         let app = build_router(state);
 
         let req = Request::builder()
+            .header("host", "localhost:3030")
             .method("POST")
             .uri("/v2/search")
             .header("content-type", "application/json")
@@ -606,5 +682,71 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert!(results[0].content.contains("fn main"));
         assert_eq!(results[0].source, "screen");
+    }
+    #[tokio::test]
+    async fn test_remote_origin_gets_no_cors_grant() {
+        let app = build_router(test_state());
+        let req = Request::builder()
+            .uri("/search?q=password")
+            .header("host", "localhost:3030")
+            .header("origin", "https://attacker.example")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert!(
+            resp.headers().get("access-control-allow-origin").is_none(),
+            "a remote website must not be allowed to read search results"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_local_origin_gets_cors_grant() {
+        let app = build_router(test_state());
+        let req = Request::builder()
+            .uri("/v2/health")
+            .header("host", "localhost:3030")
+            .header("origin", "http://localhost:5173")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(
+            resp.headers().get("access-control-allow-origin").unwrap(),
+            "http://localhost:5173"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_non_loopback_host_header_rejected() {
+        let app = build_router(test_state());
+        let req = Request::builder()
+            .uri("/search?q=password")
+            .header("host", "rebind.attacker.example:3030")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[test]
+    fn test_loopback_host_parsing() {
+        for ok in [
+            "localhost",
+            "localhost:3030",
+            "127.0.0.1:3030",
+            "[::1]:3030",
+            "LOCALHOST",
+        ] {
+            assert!(is_loopback_host(ok), "{ok}");
+        }
+        for bad in [
+            "evil.example",
+            "localhost.evil.example",
+            "0.0.0.0:3030",
+            "192.168.1.5:3030",
+            "[::1]x",
+            "localhost:abc",
+        ] {
+            assert!(!is_loopback_host(bad), "{bad}");
+        }
     }
 }
