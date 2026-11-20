@@ -1,0 +1,41 @@
+name: Rust expert paging on Apple Silicon
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'crates/ruvllm/benchmarks/ssd_experts/**'
+      - '.github/workflows/ruvllm-expert-parity.yml'
+permissions:
+  contents: read
+jobs:
+  parity:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          sparse-checkout: crates/ruvllm/benchmarks/ssd_experts
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Record native device capabilities
+        run: |
+          uname -sm
+          sysctl hw.memsize machdep.cpu.brand_string
+          swift -e 'import Metal; let d = MTLCreateSystemDefaultDevice(); print("Metal device =", d?.name ?? "unavailable"); print("Recommended Metal working set =", d?.recommendedMaxWorkingSetSize ?? 0)'
+      - name: Compare the pinned Rust CPU engine in both modes
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal
+          export RUSTUP_TOOLCHAIN=1.93.1
+          python3 crates/ruvllm/benchmarks/ssd_experts/run_cpu.py "$RUNNER_TEMP/ruvllm-parity"
+      - name: Preserve complete token streams and process measurements
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: apple-expert-parity
+          path: |
+            ${{ runner.temp }}/ruvllm-parity/*.jsonl
+            ${{ runner.temp }}/ruvllm-parity/report.json
+          if-no-files-found: ignore
+          retention-days: 7
