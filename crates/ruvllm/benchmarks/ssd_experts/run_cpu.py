@@ -53,6 +53,7 @@ def check(condition, message):
         raise ValueError(message)
 
 def summarize(files):
+    check(set(files)=={"resident","paged"},"both cache modes required")
     ids = None
     result = []
     for mode, path in files.items():
@@ -73,10 +74,12 @@ def summarize(files):
             read=os2['process_read_bytes']-os1['process_read_bytes']
             result.append(dict(mode=mode,trial=n,decode_tps=r['decode_tps'],ttft_s=r['ttft_s'],
                 peak_bytes=peak,decode_storage_read_bytes=read,decode_storage_bytes_per_token=read/(COUNT-1),
-                host_swapout_pages=os2['host_swapouts_pages']-os0['host_swapouts_pages'],
-                swap_used_delta=None if 'host_swap_used_bytes' not in os0 else os2['host_swap_used_bytes']-os0['host_swap_used_bytes'],
+                host_swapout_pages=os2['host_swapouts_pages']-r.get('os_at_load',os0)['host_swapouts_pages'],
+                swap_used_delta=None if 'host_swap_used_bytes' not in os0 else os2['host_swap_used_bytes']-r.get('os_at_load',os0)['host_swap_used_bytes'],
                 hits=delta[0],misses=delta[1],evictions=delta[2],expert_logical_read_bytes=delta[3]))
+    memory_gate = all(r["peak_bytes"] <= 16*(1<<30) and r["host_swapout_pages"] == 0 and (r["swap_used_delta"] or 0) <= 0 for r in result if r["mode"]=="paged")
     return dict(checkpoint_revision=REV,weights_sha256=WEIGHTS,token_count=COUNT,distinct_token_ids=len(set(ids)),
+        paged_memory_and_swap_pass=memory_gate,
         tokens_sha256=hashlib.sha256(b''.join(i.to_bytes(4,'little') for i in ids)).hexdigest(),
         equal_all_four=True,rows=result)
 
@@ -112,6 +115,7 @@ def main():
     report=summarize(files)
     (work/'report.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report))
+    check(report["paged_memory_and_swap_pass"],"paged footprint or swap threshold exceeded")
 
 if __name__=='__main__':
     main()

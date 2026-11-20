@@ -17,6 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if target < 2 || repeats == 0 {
         return Err("need at least two tokens and one run".into());
     }
+    let os_at_load = metrics::sample();
     let load = Instant::now();
     let mut model = Qwen35Model::from_safetensors(Path::new(&args[1]))?;
     let load_s = load.elapsed().as_secs_f64();
@@ -63,7 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!(
             "{}",
             json!({"trial":trial, "prompt_tokens":out.prompt_tokens, "ids":out.token_ids,
-            "os_before":os_before, "os_at_first":os_at_first, "os_after":metrics::sample(), "cache_before":before, "cache_after":model.bench_cpu_cache(), "eos_id":eos, "load_s":load_s, "ttft_s":times[0].as_secs_f64(),
+            "os_at_load":os_at_load,"os_before":os_before, "os_at_first":os_at_first, "os_after":metrics::sample(), "cache_before":before, "cache_after":model.bench_cpu_cache(), "eos_id":eos, "load_s":load_s, "ttft_s":times[0].as_secs_f64(),
             "decode_s":decode_s, "decode_tps":(target-1) as f64/decode_s})
         );
     }

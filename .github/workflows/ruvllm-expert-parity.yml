@@ -24,11 +24,20 @@ jobs:
           uname -sm
           sysctl hw.memsize machdep.cpu.brand_string
           swift -e 'import Metal; let d = MTLCreateSystemDefaultDevice(); print("Metal device =", d?.name ?? "unavailable"); print("Recommended Metal working set =", d?.recommendedMaxWorkingSetSize ?? 0)'
+          swift -e 'import Metal; print(MTLCreateSystemDefaultDevice() == nil ? "RUVLLM_METAL=unavailable" : "RUVLLM_METAL=available")' >> "$GITHUB_ENV"
       - name: Compare the pinned Rust CPU engine in both modes
         run: |
           rustup toolchain install 1.93.1 --profile minimal
           export RUSTUP_TOOLCHAIN=1.93.1
           python3 crates/ruvllm/benchmarks/ssd_experts/run_cpu.py "$RUNNER_TEMP/ruvllm-parity"
+      - name: Compare native ruvllm Metal caches when the device is available
+        if: always() && env.RUVLLM_METAL == 'available'
+        run: python3 crates/ruvllm/benchmarks/ssd_experts/metal_ci.py
+      - name: Compare pre-sampling logits on the CPU runner
+        if: success() && env.RUVLLM_METAL == 'unavailable'
+        env:
+          RUSTUP_TOOLCHAIN: 1.93.1
+        run: python3 crates/ruvllm/benchmarks/ssd_experts/run_diagnostics.py "$RUNNER_TEMP/ruvllm-parity" "$RUNNER_TEMP/ruvllm-diagnostics"
       - name: Preserve complete token streams and process measurements
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -37,5 +46,9 @@ jobs:
           path: |
             ${{ runner.temp }}/ruvllm-parity/*.jsonl
             ${{ runner.temp }}/ruvllm-parity/report.json
+            ${{ runner.temp }}/ruvllm-metal/metal-report.json
+            ${{ runner.temp }}/ruvllm-metal/*.log
+            ${{ runner.temp }}/ruvllm-diagnostics/diagnostics.json
+            ${{ runner.temp }}/ruvllm-diagnostics/*.sha256
           if-no-files-found: ignore
           retention-days: 7
