@@ -1,0 +1,40 @@
+--- a/src/decoder/qwen_cpu.rs
++++ b/src/decoder/qwen_cpu.rs
+@@ -273,6 +273,20 @@
+             }
+         }
+ 
++        if let Some(path) = std::env::var_os("RUVLLM_LOGIT_TRACE") {
++            use sha2::{Digest, Sha256};
++            use std::io::Write;
++            let mut sha = Sha256::new();
++            let mut wire = [0u8; 4096];
++            for block in self.scratch.logits[..vocab_size].chunks(1024) {
++                for (value, bytes) in block.iter().zip(wire.chunks_exact_mut(4)) {
++                    bytes.copy_from_slice(&value.to_le_bytes());
++                }
++                sha.update(&wire[..block.len()*4]);
++            }
++            let mut out = std::fs::OpenOptions::new().append(true).create(true).open(path)?;
++            writeln!(out, "{:x}", sha.finalize())?;
++        }
+         let candidate_id = sample_token(
+             &self.scratch.logits[..vocab_size],
+             request.config,
+--- a/src/bin/cpu_pager_bench.rs
++++ b/src/bin/cpu_pager_bench.rs
+@@ -50,6 +50,14 @@
+                     times.push(start.elapsed());
+                     if times.len() == 1 {
+                         let t = Instant::now();
++                        if trial == 0 {
++                            if let Some(script) = std::env::var_os("RUVLLM_COLD_SCRIPT") {
++                                let model_file = Path::new(&args[1]).join("model.safetensors");
++                                let probe = std::process::Command::new("python3").arg(script).arg(model_file).output().unwrap();
++                                assert!(probe.status.success(), "cold probe failed");
++                                eprintln!("RESIDENCY {}", String::from_utf8(probe.stdout).unwrap().trim());
++                            }
++                        }
+                         os_at_first = Some(metrics::sample());
+                         probe_time = t.elapsed();
+                     }
