@@ -1,0 +1,39 @@
+--- a/src/forward/metal_qwen35.rs
++++ b/src/forward/metal_qwen35.rs
+@@ -7820,6 +7820,25 @@
+             Ok(self.forward_prefill_impl(token_ids, false))
+         }
+ 
++        /// Prompt prefill for ordinary generation. Dense models retain the batched
++        /// schedule. The checked single step supports routed experts on Metal.
++        pub(crate) fn prefill_generation_prompt(
++            &mut self,
++            token_ids: &[u32],
++        ) -> Result<Vec<f32>, crate::error::InferenceError> {
++            if !self.engine.has_moe_layer || token_ids.len() <= 1 {
++                return self.try_forward_prefill(token_ids);
++            }
++            self.check_raw_prefill_fresh_session("prefill_generation_prompt")?;
++            self.check_forward_token_ids("prefill_generation_prompt", token_ids)?;
++            self.check_forward_range_capacity(0, token_ids.len(), false)?;
++            let mut logits = Vec::new();
++            for (position, &token) in token_ids.iter().enumerate() {
++                logits = self.try_forward_step(token, position)?;
++            }
++            Ok(logits)
++        }
++
+         /// **Unstable**: batch prompt prefill; prefill kernel and fallback threshold may change.
+         ///
+         /// Batch prefill: process all prompt tokens at once using GEMM.
+--- a/src/decoder/qwen_metal.rs
++++ b/src/decoder/qwen_metal.rs
+@@ -446,7 +446,7 @@
+                 false,
+             )?
+         } else {
+-            self.state.try_forward_prefill(&self.prompt_ids)?
++            self.state.prefill_generation_prompt(&self.prompt_ids)?
+         };
+         self.readback = match self.mode {
+             ReadbackMode::Compact { .. } => Readback::Compact,

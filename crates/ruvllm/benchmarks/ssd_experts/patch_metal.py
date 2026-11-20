@@ -1,6 +1,7 @@
 """Instrument disposable copies pinned to RuVector 979c31a and Lattice 0.11.1."""
 from pathlib import Path
 import re
+import subprocess
 
 def replace_once(text, needle, change):
     if text.count(needle) != 1:
@@ -8,6 +9,30 @@ def replace_once(text, needle, change):
     return text.replace(needle,change)
 
 def instrument(repo, crate):
+    subprocess.run(['patch','-p1','-i',str(Path(__file__).resolve().with_name('moe_generation_prefill.patch'))],
+                   cwd=crate,check=True)
+    decoder=crate/'src/decoder/qwen_metal.rs'
+    select='        let candidate_id = match &mut self.readback {'
+    observe='''        if let Some(path) = std::env::var_os("RUVLLM_METAL_LOGITS") {
+            use sha2::{Digest, Sha256};
+            use std::io::Write;
+            let Readback::Dense(values) = &self.readback else {
+                return Err(InferenceError::Inference("the benchmark requires full Metal logits".into()));
+            };
+            assert_eq!(values.len(), self.state.engine.config.vocab_size);
+            let mut hash = Sha256::new();
+            let mut wire = [0u8; 4096];
+            for block in values.chunks(1024) {
+                for (value, bytes) in block.iter().zip(wire.chunks_exact_mut(4)) {
+                    bytes.copy_from_slice(&value.to_le_bytes());
+                }
+                hash.update(&wire[..block.len()*4]);
+            }
+            let mut out = std::fs::OpenOptions::new().append(true).create(true).open(path)?;
+            writeln!(out, "{:x}", hash.finalize())?;
+        }
+'''
+    decoder.write_text(replace_once(decoder.read_text(),select,observe+select))
     cache=crate/'src/forward/moe_expert_cache.rs'
     code=cache.read_text()
     # Reuse upstream's real counters and synchronous slot resolver for

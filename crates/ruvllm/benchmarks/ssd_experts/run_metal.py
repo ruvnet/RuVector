@@ -1,5 +1,6 @@
 """Measure the normal ruvllm Lattice backend with verified live Metal cache slots."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -82,17 +83,31 @@ def main():
         'async-runtime,lattice','--example','lattice_bench',cwd=repo,env=env)
     binary=work/'target/release/examples/lattice_bench'
     slots=cfg['num_experts_per_tok']
-    runs,system={},{}
+    runs,system,hashes={},{},{}
     for mode,capacity in [('resident',cfg['num_experts']),('paged',slots)]:
-        factors={'LATTICE_MOE_EXPERT_CACHE_SLOTS':str(capacity)}
+        trace=work/(mode+'.sha256')
+        factors={'LATTICE_MOE_EXPERT_CACHE_SLOTS':str(capacity),'LATTICE_COMPACT_TOPK':'0',
+                 'RUVLLM_METAL_LOGITS':str(trace)}
         if mode=='resident': factors['RUVLLM_PRIME_ALL']='1'
         log=work/(mode+'.log')
         system[mode]=json.loads(subprocess.check_output([str(work/'stats'),str(os.getpid())],text=True))
-        with log.open('w') as out:
-            run(str(binary),'--backend','lattice','--model',str(q4),'--runs','2','--warmup','0','--max-tokens','256',
-                '--prompt',PROMPT, env={**env,**factors},stdout=out,stderr=subprocess.STDOUT)
+        try:
+            with log.open('w') as out:
+                run(str(binary),'--backend','lattice','--model',str(q4),'--runs','2','--warmup','0','--max-tokens','256',
+                    '--prompt',PROMPT, env={**env,**factors},stdout=out,stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError:
+            print('\n'.join(log.read_text().splitlines()[-16:]),file=sys.stderr)
+            raise
         runs[mode]=[json.loads(l[7:]) for l in log.read_text().splitlines() if l.startswith('PARITY ')]
+        hashes[mode]=trace.read_text().splitlines()
     report=validate(runs,cfg,slots,system)
+    reference=hashes['resident'][:256]
+    check(len(reference)==256 and all(len(s)==64 for s in reference) and
+          hashes['resident']==reference*2 and hashes['paged']==reference*2,
+          'missing or different full-vocabulary Metal logits')
+    report['compared_logits_per_trial']=256*cfg['vocab_size']
+    report['logit_digest_sha256']=hashlib.sha256(('\n'.join(reference)+'\n').encode()).hexdigest()
+    report['decode_includes_logit_hashing']=True
     (work/'metal-report.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report))
     check(report['paged_memory_and_swap_pass'], 'paged memory or host swap criterion failed')

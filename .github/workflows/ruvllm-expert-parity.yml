@@ -10,7 +10,7 @@ permissions:
 jobs:
   parity:
     runs-on: macos-15
-    timeout-minutes: 35
+    timeout-minutes: 65
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -48,6 +48,7 @@ jobs:
             ${{ runner.temp }}/ruvllm-parity/report.json
             ${{ runner.temp }}/ruvllm-metal/metal-report.json
             ${{ runner.temp }}/ruvllm-metal/*.log
+            ${{ runner.temp }}/ruvllm-metal/*.sha256
             ${{ runner.temp }}/ruvllm-diagnostics/diagnostics.json
             ${{ runner.temp }}/ruvllm-diagnostics/*.sha256
           if-no-files-found: ignore
