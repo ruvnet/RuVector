@@ -108,19 +108,27 @@ function beautify(source) {
  * @returns {{success: boolean, modules: number, outputDir: string}|null}
  */
 function tryRustDecompiler(filePath, outputDir) {
+  // The Rust pipeline only exists in a RuVector monorepo checkout
+  // (npm/packages/ruvector/src/decompiler). In an installed copy,
+  // ../../../.. is the user's project, so cargo and target/ there must not run.
+  const repoRoot = path.resolve(__dirname, '../../../..');
+  if (__dirname.split(path.sep).includes('node_modules') ||
+      !fs.existsSync(path.join(repoRoot, 'crates', 'ruvector-decompiler', 'Cargo.toml'))) {
+    return null;
+  }
   try {
     const { execFileSync } = require('child_process');
     // Try to find the Rust binary
     const candidates = [
       ['cargo', ['run', '--release', '-p', 'ruvector-decompiler', '--example', 'run_on_cli', '--']],
-      [path.join(__dirname, '../../../../target/release/examples/run_on_cli'), []],
+      [path.join(repoRoot, 'target/release/examples/run_on_cli'), []],
     ];
     for (const [bin, prefix] of candidates) {
       try {
         const result = execFileSync(bin, [...prefix, String(filePath), '--output-dir', String(outputDir)], {
           timeout: 120000,
           stdio: ['pipe', 'pipe', 'pipe'],
-          cwd: path.join(__dirname, '../../../..'),
+          cwd: repoRoot,
         });
         const stderr = result.toString();
         const match = stderr.match(/Wrote (\d+) modules/);
@@ -172,7 +180,7 @@ function decompileSource(source, options = {}) {
 
   // Priority 2: Rust binary (full pipeline, requires cargo build)
   if (useRust && filePath && source.length > 100000) {
-    const tmpDir = path.join(require('os').tmpdir(), 'ruvector-decompile-' + Date.now());
+    const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'ruvector-decompile-'));
     const rustResult = tryRustDecompiler(filePath, tmpDir);
     if (rustResult && rustResult.success) {
       // Load modules from Rust output
