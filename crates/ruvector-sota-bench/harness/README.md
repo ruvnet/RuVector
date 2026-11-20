@@ -2,16 +2,14 @@
 
 This package connects the RuVector SOTA benchmark to the current MetaHarness
 stack while keeping ADR-282's research gate as the only path to a nightly PR.
-The dependency lock pins:
+Read declared ranges and exact resolutions from the adapter directory before running a benchmark:
 
-- `metaharness` 0.4.2
-- Darwin 0.8.0
-- Flywheel 0.1.7
-- Algorithmic Harness 0.1.0
-- Router 0.3.2
-- Workspace Probe 0.1.1
-- Red/Blue 0.1.4
-- Weight-EFT 0.1.1
+```bash
+cd crates/ruvector-sota-bench/harness
+node -e 'const p = require("./package.json"), l = require("./package-lock.json"); for (const [name, range] of Object.entries(p.dependencies)) console.log(name, range, l.packages["node_modules/" + name].version)'
+```
+
+A lockfile makes a run reproducible; it does not establish that the dependencies are safe. Review advisories for the resolved versions before executing candidate code. In particular, check Darwin against [the upstream sandbox fix](https://github.com/ruvnet/ruvllm/pull/10).
 
 Requires Node 20 or newer. Node 22 is used in CI.
 
