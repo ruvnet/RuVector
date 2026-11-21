@@ -81,6 +81,8 @@ const stats = await db.stats();
 console.log(\`Nodes: \${stats.totalNodes}, Edges: \${stats.totalEdges}\`);
 ```
 
+`createNode()` rejects if a node with the supplied ID already exists.
+
 ## Cypher support
 
 `query()` and `querySync()` run a single-pattern matcher, not a full planner.
