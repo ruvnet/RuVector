@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use tower_http::{
     compression::CompressionLayer,
-    cors::{Any, CorsLayer},
+    cors::{AllowOrigin, Any, CorsLayer},
     trace::TraceLayer,
 };
 
@@ -25,7 +25,9 @@ pub struct Config {
     pub host: String,
     /// Server port
     pub port: u16,
-    /// Enable CORS
+    /// Enable CORS for browser pages served from loopback origins
+    /// (`localhost`, `127.0.0.1`, `[::1]`). The API has no authentication, so
+    /// pages from any other origin are not allowed to call it.
     pub enable_cors: bool,
     /// Enable compression
     pub enable_compression: bool,
@@ -40,6 +42,38 @@ impl Default for Config {
             enable_compression: true,
         }
     }
+}
+
+/// Whether a browser `Origin` is an http(s) page on a loopback host.
+fn is_loopback_origin(origin: &[u8]) -> bool {
+    let Ok(origin) = std::str::from_utf8(origin) else {
+        return false;
+    };
+    let Some(rest) = origin
+        .strip_prefix("http://")
+        .or_else(|| origin.strip_prefix("https://"))
+    else {
+        return false;
+    };
+    let host = if rest.starts_with('[') {
+        match rest.find(']') {
+            Some(end) if rest[end + 1..].is_empty() || rest[end + 1..].starts_with(':') => {
+                &rest[..=end]
+            }
+            _ => return false,
+        }
+    } else {
+        rest.split(':').next().unwrap_or("")
+    };
+    let port = &rest[host.len()..];
+    if !(port.is_empty()
+        || (port.len() > 1
+            && port.starts_with(':')
+            && port[1..].bytes().all(|b| b.is_ascii_digit())))
+    {
+        return false;
+    }
+    matches!(host, "localhost" | "127.0.0.1" | "[::1]")
 }
 
 /// Main server structure
@@ -83,7 +117,9 @@ impl RuvectorServer {
 
         if self.config.enable_cors {
             let cors = CorsLayer::new()
-                .allow_origin(Any)
+                .allow_origin(AllowOrigin::predicate(|origin, _| {
+                    is_loopback_origin(origin.as_bytes())
+                }))
                 .allow_methods(Any)
                 .allow_headers(Any);
             router = router.layer(cors);
@@ -121,5 +157,81 @@ impl RuvectorServer {
 impl Default for RuvectorServer {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::http::{header, Method, Request, StatusCode};
+    use tower::ServiceExt;
+
+    async fn send(router: Router, req: Request<Body>) -> axum::response::Response {
+        router.oneshot(req).await.expect("request")
+    }
+
+    fn get_with_origin(origin: &str) -> Request<Body> {
+        Request::builder()
+            .uri("/collections")
+            .header(header::ORIGIN, origin)
+            .body(Body::empty())
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn cors_does_not_grant_arbitrary_web_origins() {
+        let router = RuvectorServer::new().build_router();
+        let resp = send(router.clone(), get_with_origin("https://attacker.example")).await;
+        assert!(
+            resp.headers()
+                .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+                .is_none(),
+            "a foreign web origin must not be allowed to read responses"
+        );
+
+        let preflight = Request::builder()
+            .method(Method::OPTIONS)
+            .uri("/collections/x")
+            .header(header::ORIGIN, "https://attacker.example")
+            .header(header::ACCESS_CONTROL_REQUEST_METHOD, "DELETE")
+            .body(Body::empty())
+            .unwrap();
+        let resp = send(router, preflight).await;
+        assert!(resp
+            .headers()
+            .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+            .is_none());
+    }
+
+    #[tokio::test]
+    async fn cors_allows_loopback_origins() {
+        let router = RuvectorServer::new().build_router();
+        for origin in [
+            "http://localhost:3000",
+            "http://127.0.0.1:8080",
+            "http://[::1]:5173",
+        ] {
+            let resp = send(router.clone(), get_with_origin(origin)).await;
+            assert_eq!(
+                resp.headers()
+                    .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+                    .map(|v| v.as_bytes()),
+                Some(origin.as_bytes()),
+                "{origin} should be allowed"
+            );
+        }
+        for origin in [
+            "http://localhost.attacker.example",
+            "http://127.0.0.1.attacker.example",
+        ] {
+            let resp = send(router.clone(), get_with_origin(origin)).await;
+            assert!(
+                resp.headers()
+                    .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+                    .is_none(),
+                "{origin}"
+            );
+        }
     }
 }
