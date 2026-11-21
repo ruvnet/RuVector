@@ -174,7 +174,13 @@ const results = await db.sparql(`
 ```typescript
 // Node.js - Export to file
 const state = await db.exportJson();
-fs.writeFileSync('db.json', JSON.stringify(state));
+const json = JSON.stringify(state, (_key, value) => {
+  if (value instanceof Map) {
+    return Object.fromEntries(Array.from(value, ([key, entry]) => [key, entry ?? null]));
+  }
+  return value;
+});
+fs.writeFileSync('db.json', json);
 
 // Node.js - Import from file
 const data = JSON.parse(fs.readFileSync('db.json'));
@@ -247,6 +253,10 @@ The file rvlite writes is a JSON envelope (`"magic": "RVF1"`) around the
 `exportJson()` payload. rvlite would use a native RVF reader/writer from
 `@ruvector/rvf-wasm` (an optional dependency) if that package exported one; the
 current `@ruvector/rvf-wasm` does not, so the JSON envelope is what you get.
+
+JSON exports and RVF files persist vectors with metadata, Cypher nodes and
+relationships with their properties, and SPARQL triples. SQL table schemas and
+rows are in memory only.
 
 ### Platform Support
 
