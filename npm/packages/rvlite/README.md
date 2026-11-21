@@ -106,6 +106,10 @@ await db.delete("my-doc-1");
 
 ### SQL Queries
 
+Ordinary `SELECT` queries return every matching row when `LIMIT` is omitted.
+An explicit `LIMIT` counts rows after `WHERE` filtering. `GROUP BY` is unsupported
+and returns a SQL error. Distance-ordered queries default to 10 results.
+
 ```typescript
 // Create table (VECTOR needs its dimension) and insert (column list required,
 // vector literals are unquoted)
@@ -116,11 +120,11 @@ await db.sql("INSERT INTO documents (id, title, embedding) VALUES ('doc1', 'Hell
 // <#> (dot product); in the current release all three return the same
 // (cosine) distance, regardless of the operator or distanceMetric.
 const results = await db.sql(`
-  SELECT id, title FROM documents
+  SELECT id, title, _distance FROM documents
   ORDER BY embedding <-> [0.1, 0.2, 0.3]
   LIMIT 5
 `);
-// { rows: [{ id: { Text: 'doc1' }, title: { Text: 'Hello' }, _distance: { Real: ... }, ... }], rows_affected: 0 }
+// { rows: [{ id: { Text: 'doc1' }, title: { Text: 'Hello' }, _distance: { Real: ... } }], rows_affected: 0 }
 ```
 
 ### Cypher Graph Queries

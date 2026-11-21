@@ -4,10 +4,9 @@ use crate::{ErrorKind, RvLiteError};
 use parking_lot::RwLock;
 use ruvector_core::{SearchQuery, VectorDB, VectorEntry};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-/// Upper bound for `VECTOR(n)`. A table scan allocates an n-float query
-/// vector, so an unchecked `VECTOR(4000000000)` would abort the wasm module.
+/// Upper bound for `VECTOR(n)` to keep vector allocations bounded.
 pub const MAX_VECTOR_DIMENSIONS: usize = 65_536;
 
 /// Table schema definition
@@ -265,7 +264,7 @@ impl SqlEngine {
 
     fn select(
         &self,
-        _columns: Vec<SelectColumn>,
+        columns: Vec<SelectColumn>,
         from: String,
         where_clause: Option<Expression>,
         order_by: Option<OrderBy>,
@@ -283,129 +282,122 @@ impl SqlEngine {
             kind: ErrorKind::SqlError,
         })?;
 
-        // Handle vector similarity search
-        if let Some(order_by) = order_by {
-            if let Expression::Distance {
-                column: _,
-                metric: _,
-                vector,
-            } = order_by.expression
-            {
-                let base_k = limit.unwrap_or(10);
-
-                // Build filter from WHERE clause
-                let filter = if let Some(where_expr) = where_clause {
-                    Some(self.build_filter(where_expr)?)
-                } else {
-                    None
-                };
-
-                // When a metadata filter is present, oversample so post-filter
-                // truncation still yields enough results (HNSW returns k nearest
-                // before filtering, so with k==limit we may get 0 matches).
-                let k = if filter.is_some() {
-                    base_k.saturating_mul(20).max(100)
-                } else {
-                    base_k
-                };
-
-                let query = SearchQuery {
-                    vector,
-                    k,
-                    filter,
-                    ef_search: None,
-                };
-
-                let mut results = db.search(query).map_err(|e| RvLiteError {
-                    message: format!("Search failed: {}", e),
-                    kind: ErrorKind::VectorError,
-                })?;
-                results.truncate(base_k);
-
-                // Convert results to rows
-                let rows: Vec<HashMap<String, Value>> = results
-                    .into_iter()
-                    .map(|result| {
-                        let mut row = HashMap::new();
-
-                        // Add vector if present
-                        if let Some(vec_col) = &schema.vector_column {
-                            if let Some(vector) = result.vector {
-                                row.insert(vec_col.clone(), Value::Vector(vector));
-                            }
-                        }
-
-                        // Add metadata
-                        if let Some(metadata) = result.metadata {
-                            for (key, val) in metadata {
-                                row.insert(key, Value::from_json(&val));
-                            }
-                        }
-
-                        // Add distance score
-                        row.insert("_distance".to_string(), Value::Real(result.score as f64));
-
-                        row
-                    })
-                    .collect();
-
-                return Ok(ExecutionResult {
-                    rows,
-                    rows_affected: 0,
-                });
+        let distance_order = order_by.and_then(|order| match order.expression {
+            Expression::Distance { vector, .. } => Some(vector),
+            _ => None,
+        });
+        let mut wildcard = false;
+        let mut selected_columns = HashSet::new();
+        for column in columns {
+            match column {
+                SelectColumn::Wildcard => wildcard = true,
+                SelectColumn::Name(name) => {
+                    if name != "_distance" || distance_order.is_none() {
+                        schema.validate_columns(std::slice::from_ref(&name))?;
+                    }
+                    selected_columns.insert(name);
+                }
+                SelectColumn::Expression { .. } => {
+                    return Err(RvLiteError {
+                        message: "SELECT expressions are not supported".to_string(),
+                        kind: ErrorKind::NotImplemented,
+                    });
+                }
             }
         }
 
-        // Non-vector query - return all rows (scan all vectors)
-        // This is essentially a table scan through the vector database
-        let k = limit.unwrap_or(1000); // Default to 1000 rows max
-
-        // Create a zero vector for exhaustive search
-        let dims = schema.vector_dimensions.unwrap_or(3);
-        let query_vector = vec![0.0f32; dims];
-
-        // Build filter from WHERE clause
-        let filter = if let Some(where_expr) = where_clause {
-            Some(self.build_filter(where_expr)?)
-        } else {
-            None
+        let make_row = |vector, metadata: Option<HashMap<String, serde_json::Value>>, distance| {
+            let mut row = HashMap::new();
+            if let (Some(column), Some(vector)) = (&schema.vector_column, vector) {
+                row.insert(column.clone(), Value::Vector(vector));
+            }
+            if let Some(metadata) = metadata {
+                row.extend(
+                    metadata
+                        .into_iter()
+                        .map(|(key, val)| (key, Value::from_json(&val))),
+                );
+            }
+            if let Some(score) = distance {
+                row.insert("_distance".to_string(), Value::Real(score));
+            }
+            if !wildcard {
+                row.retain(|column, _| selected_columns.contains(column));
+                for column in &selected_columns {
+                    row.entry(column.clone()).or_insert(Value::Null);
+                }
+            }
+            row
         };
 
-        let query = SearchQuery {
-            vector: query_vector,
-            k,
-            filter,
-            ef_search: None,
-        };
+        let filter = where_clause
+            .map(|expr| self.build_filter(expr))
+            .transpose()?;
 
-        let results = db.search(query).map_err(|e| RvLiteError {
-            message: format!("Search failed: {}", e),
-            kind: ErrorKind::VectorError,
-        })?;
+        // Handle vector similarity search
+        if let Some(vector) = distance_order {
+            let base_k = limit.unwrap_or(10);
 
-        // Convert results to rows
-        let rows: Vec<HashMap<String, Value>> = results
-            .into_iter()
-            .map(|result| {
-                let mut row = HashMap::new();
+            // Keep the vector search candidate budget for filtered queries.
+            let k = if filter.is_some() {
+                base_k.saturating_mul(20).max(100)
+            } else {
+                base_k
+            };
+            let query = SearchQuery {
+                vector,
+                k,
+                filter,
+                ef_search: None,
+            };
+            let results = db.search(query).map_err(|e| RvLiteError {
+                message: format!("Search failed: {}", e),
+                kind: ErrorKind::VectorError,
+            })?;
+            let rows = results
+                .into_iter()
+                .take(base_k)
+                .map(|result| {
+                    make_row(
+                        result.vector,
+                        result.metadata,
+                        Some(f64::from(result.score)),
+                    )
+                })
+                .collect();
+            return Ok(ExecutionResult {
+                rows,
+                rows_affected: 0,
+            });
+        }
 
-                // Add vector if present
-                if let Some(vec_col) = &schema.vector_column {
-                    if let Some(vector) = result.vector {
-                        row.insert(vec_col.clone(), Value::Vector(vector));
-                    }
+        // Count only matching rows towards an explicit limit.
+        let mut rows = Vec::new();
+        let max_rows = limit.unwrap_or(usize::MAX);
+        if max_rows != 0 {
+            let scan_error = |e| RvLiteError {
+                message: format!("Table scan failed: {}", e),
+                kind: ErrorKind::VectorError,
+            };
+            for id in db.keys().map_err(scan_error)? {
+                let Some(entry) = db.get(&id).map_err(scan_error)? else {
+                    continue;
+                };
+                if filter.as_ref().is_some_and(|filter| {
+                    !entry.metadata.as_ref().is_some_and(|metadata| {
+                        filter
+                            .iter()
+                            .all(|(key, value)| metadata.get(key) == Some(value))
+                    })
+                }) {
+                    continue;
                 }
-
-                // Add metadata
-                if let Some(metadata) = result.metadata {
-                    for (key, val) in metadata {
-                        row.insert(key, Value::from_json(&val));
-                    }
+                rows.push(make_row(Some(entry.vector), entry.metadata, None));
+                if rows.len() == max_rows {
+                    break;
                 }
-
-                row
-            })
-            .collect();
+            }
+        }
 
         Ok(ExecutionResult {
             rows,

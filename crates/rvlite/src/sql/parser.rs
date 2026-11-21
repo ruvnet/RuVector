@@ -438,6 +438,16 @@ impl SqlParser {
             None
         };
 
+        if matches!(self.current(), Token::Semicolon) {
+            self.advance();
+        }
+        if !matches!(self.current(), Token::Eof) {
+            return Err(ParseError {
+                message: format!("Unexpected token after SELECT: {:?}", self.current()),
+                position: self.position,
+            });
+        }
+
         Ok(SqlStatement::Select {
             columns,
             from,
