@@ -526,25 +526,25 @@ impl Parser {
     }
 
     fn parse_relationship_range(&mut self) -> ParseResult<RelationshipRange> {
-        let min = if let TokenKind::Integer(n) = self.peek().kind {
-            self.advance();
-            Some(n as usize)
-        } else {
-            None
-        };
-
+        let min = self.parse_relationship_bound()?;
         let max = if self.match_token(&[TokenKind::DotDot]) {
-            if let TokenKind::Integer(n) = self.peek().kind {
-                self.advance();
-                Some(n as usize)
-            } else {
-                None
-            }
+            self.parse_relationship_bound()?
         } else {
             min
         };
 
         Ok(RelationshipRange { min, max })
+    }
+
+    fn parse_relationship_bound(&mut self) -> ParseResult<Option<usize>> {
+        let TokenKind::Integer(bound) = self.peek().kind else {
+            return Ok(None);
+        };
+        let bound = usize::try_from(bound).map_err(|_| {
+            ParseError::InvalidSyntax("Relationship length is out of range".to_string())
+        })?;
+        self.advance();
+        Ok(Some(bound))
     }
 
     fn parse_create(&mut self) -> ParseResult<CreateClause> {

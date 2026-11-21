@@ -98,6 +98,138 @@ fn test_match_relationship() {
 }
 
 #[test]
+fn test_match_relationship_regression_variable_length() {
+    let mut engine = CypherEngine::new();
+    engine
+        .run(
+            "CREATE (a:N {id:'n1'}), (b:N {id:'n2'}), (c:N {id:'n3'}), (d:N {id:'n4'}), (e:N {id:'n5'}),
+             (a)-[:R]->(b), (b)-[:R]->(c), (c)-[:R]->(d), (d)-[:R]->(e)",
+        )
+        .unwrap();
+    assert_eq!(engine.graph_stats().edge_count, 4);
+
+    for (pattern, expected) in [
+        ("(a:N {id:'n1'})-[:R]->(b)", &["n2"][..]),
+        ("(a:N {id:'n1'})-[:R*1..4]->(b)", &["n2", "n3", "n4", "n5"]),
+        ("(a:N {id:'n1'})-[:R*3]->(b)", &["n4"]),
+        ("(a:N {id:'n1'})-[*]->(b)", &["n2", "n3", "n4", "n5"]),
+        ("(a:N {id:'n1'})-[:R*4]->(b:N {id:'n5'})", &["n5"]),
+        ("(a:N {id:'n1'})-[:R*1..]->(b:N {id:'n5'})", &["n5"]),
+        ("(a:N {id:'n1'})-[:R*..2]->(b)", &["n2", "n3"]),
+        ("(a:N {id:'n1'})-[:R*0]->(b)", &["n1"]),
+        ("(:N {id:'n5'})<-[:R*2]-(b)", &["n3"]),
+        ("(:N {id:'n5'})-[:R*1..2]-(b)", &["n3", "n4"]),
+        ("(a:N {id:'n1'})-[:R*5]->(b)", &[]),
+    ] {
+        let result = engine.run(&format!("MATCH {pattern} RETURN b.id")).unwrap();
+        let mut ids: Vec<_> = result
+            .rows
+            .iter()
+            .map(|row| row["b.id"].as_value().unwrap().as_str().unwrap())
+            .collect();
+        ids.sort_unstable();
+        assert_eq!(ids, expected, "{pattern}");
+    }
+
+    let error = engine.run("MATCH (a)-[:R*3..1]->(b) RETURN b").unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("Minimum relationship length exceeds maximum"));
+
+    let error = engine
+        .run("MATCH (a)-[:R]->(b)-[:R*2]->(c) RETURN c")
+        .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("Chained relationship patterns not yet supported in MATCH"));
+
+    let error = engine.run("CREATE (a)-[:R]->(b)-[:R]->(c)").unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("Complex relationship targets not yet supported"));
+}
+
+#[test]
+fn test_match_relationship_regression_target_properties() {
+    let mut engine = CypherEngine::new();
+    engine
+        .run("CREATE (a:N {id:'n1'})-[:R]->(b:N {id:'n2'})")
+        .unwrap();
+
+    for (target, expected) in [
+        ("(b:N {id:'n2'})", 1),
+        ("(b:N {id:'n5'})", 0),
+        ("(b:N) WHERE b.id = 'n5'", 0),
+        ("(b:Other {id:'n2'})", 0),
+        ("(:N {id:'n2'})", 1),
+        ("(:N {missing:'n2'})", 0),
+    ] {
+        let result = engine
+            .run(&format!(
+                "MATCH (a:N {{id:'n1'}})-[:R]->{target} RETURN a.id"
+            ))
+            .unwrap();
+        assert_eq!(result.rows.len(), expected, "{target}");
+        for row in result.rows {
+            assert_eq!(row["a.id"].as_value().unwrap().as_str(), Some("n1"));
+        }
+    }
+}
+
+#[test]
+fn test_match_relationship_regression_cyclic_trails() {
+    let mut engine = CypherEngine::new();
+    engine
+        .run(
+            "CREATE (a:N {id:'n1'}), (b:N {id:'n2'}), (c:N {id:'n3'}),
+             (a)-[:R {active:true}]->(b), (b)-[:R {active:true}]->(a),
+             (b)-[:R {active:false}]->(c), (a)-[:OTHER {active:true}]->(c), (a)-[:LOOP]->(a)",
+        )
+        .unwrap();
+
+    let result = engine
+        .run("MATCH (a:N {id:'n1'})-[r:R {active:true} *]->(b) RETURN r, b.id")
+        .unwrap();
+    let mut trails: Vec<_> = result
+        .rows
+        .iter()
+        .map(|row| {
+            let ContextValue::List(edges) = &row["r"] else {
+                panic!("expected a list of relationships, got {:?}", row["r"]);
+            };
+            let id = row["b.id"].as_value().unwrap().as_str().unwrap();
+            (edges.len(), id)
+        })
+        .collect();
+    trails.sort_unstable();
+    assert_eq!(trails, [(1, "n2"), (2, "n1")]);
+
+    let result = engine
+        .run("MATCH (a:N {id:'n1'})-[r:R]->(b) RETURN r")
+        .unwrap();
+    assert_eq!(result.rows.len(), 1);
+    assert!(matches!(&result.rows[0]["r"], ContextValue::Edge(_)));
+
+    let result = engine
+        .run("MATCH (a:N {id:'n1'})-[:LOOP*1..2]-(b) RETURN b.id")
+        .unwrap();
+    assert_eq!(result.rows.len(), 1);
+    assert_eq!(
+        result.rows[0]["b.id"].as_value().unwrap().as_str(),
+        Some("n1")
+    );
+
+    let result = engine
+        .run("MATCH (a:N {id:'n1'})-[:R*2]->(a) RETURN a.id")
+        .unwrap();
+    assert_eq!(result.rows.len(), 1);
+    assert_eq!(
+        result.rows[0]["a.id"].as_value().unwrap().as_str(),
+        Some("n1")
+    );
+}
+
+#[test]
 fn test_parser_coverage() {
     let test_queries = vec![
         // Simple node creation

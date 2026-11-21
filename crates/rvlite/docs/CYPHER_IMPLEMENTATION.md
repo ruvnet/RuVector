@@ -204,7 +204,14 @@ db.cypher_clear();
 - **Parser**: O(n) for most queries, O(n²) for deeply nested patterns
 - **Node lookup**: O(1) with HashMap
 - **Label lookup**: O(k) where k is nodes with label
-- **Relationship traversal**: O(d) where d is node degree
+- **Relationship traversal**: O(d) for a single hop, where d is node degree.
+  Variable-length matching can visit many trails and benefits from an explicit upper bound.
+
+In `MATCH`, use `[:TYPE*3]` for exactly three hops, `[:TYPE*1..4]` for one to four
+hops, or `[*]` for one or more hops of any relationship type. The target node's
+labels and property map constrain the final node. A variable-length relationship
+variable binds to the list of edges along the match, and each edge can occur at
+most once per trail.
 
 ## Limitations and Future Work
 
@@ -212,14 +219,14 @@ db.cypher_clear();
 1. No persistent storage (memory-only)
 2. Single-threaded execution
 3. Limited aggregation functions
-4. No path queries with variable length
+4. Named path queries and chained relationship patterns are unsupported
 5. No MERGE operation
 6. No index optimization
 
 ### Future Enhancements
 1. Add persistent storage backend
 2. Implement full aggregation suite (COUNT, SUM, AVG, etc.)
-3. Support for path queries `[*1..5]`
+3. Support named paths and chained relationship patterns
 4. Add MERGE for upsert operations
 5. Query optimization
 6. Parallel execution for independent patterns
