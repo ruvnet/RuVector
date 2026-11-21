@@ -13,7 +13,7 @@ use ruvector_core::advanced::hypergraph::{
     HypergraphIndex as CoreHypergraphIndex,
 };
 use ruvector_core::DistanceMetric;
-use ruvector_graph::cypher::{parse_cypher, Statement};
+use ruvector_graph::cypher::{ast::Expression, parse_cypher, Statement};
 use ruvector_graph::edge::Edge as GraphEdge;
 use ruvector_graph::hyperedge::Hyperedge as GraphHyperedge;
 use ruvector_graph::node::NodeBuilder;
@@ -289,7 +289,27 @@ fn run_query(
             Statement::Create(_) => unsupported.push(
                 "CREATE via query() is not supported; use createNode()/createEdge()".to_string(),
             ),
-            Statement::Return(_) => {}
+            Statement::Return(clause) => {
+                for (present, name) in [
+                    (clause.order_by.is_some(), "ORDER BY"),
+                    (clause.skip.is_some(), "SKIP"),
+                    (clause.limit.is_some(), "LIMIT"),
+                ] {
+                    if present {
+                        unsupported.push(format!("{name} is not supported"));
+                    }
+                }
+                if clause
+                    .items
+                    .iter()
+                    .any(|item| !matches!(item.expression, Expression::Variable(_)))
+                {
+                    unsupported.push(
+                        "RETURN expressions (including aggregations) are not supported".to_string(),
+                    );
+                }
+            }
+            Statement::With(_) => unsupported.push("WITH is not supported".to_string()),
             _ => {}
         }
     }
@@ -618,7 +638,7 @@ impl GraphDatabase {
     ///
     /// # Example
     /// ```javascript
-    /// const results = await db.query('MATCH (n) RETURN n LIMIT 10');
+    /// const results = await db.query('MATCH (n) RETURN n');
     /// ```
     #[napi]
     pub async fn query(&self, cypher: String) -> Result<JsQueryResult> {
@@ -643,7 +663,7 @@ impl GraphDatabase {
     ///
     /// # Example
     /// ```javascript
-    /// const results = db.querySync('MATCH (n) RETURN n LIMIT 10');
+    /// const results = db.querySync('MATCH (n) RETURN n');
     /// ```
     #[napi]
     pub fn query_sync(&self, cypher: String) -> Result<JsQueryResult> {

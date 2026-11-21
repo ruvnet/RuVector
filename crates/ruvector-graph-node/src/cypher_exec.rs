@@ -9,10 +9,8 @@
 //!
 //! Scope. This is a single-pattern matcher, not a planner: each pattern in the
 //! `MATCH` is resolved independently against the graph and its rows unioned.
-//! Cross-pattern joins, variable-length paths and aggregations remain
-//! unimplemented — but they now report themselves as unsupported through
-//! [`ExecOutcome::unsupported`] instead of silently returning an empty set,
-//! which is the failure mode that made #879 hard to spot from the outside.
+//! Unsupported MATCH patterns are reported through [`ExecOutcome::unsupported`].
+//! The query binding reports unsupported projection clauses.
 //!
 //! Note on operator coverage: the evaluator implements `CONTAINS`, `STARTS
 //! WITH`, `ENDS WITH`, `IN`, `IS NULL` and `=~` because [`BinaryOperator`]
@@ -177,8 +175,16 @@ fn eval(expr: &Expression, bindings: &Bindings) -> EvalValue {
             }
         }
         Expression::BinaryOp { left, op, right } => eval_binary(left, *op, right, bindings),
-        // Functions, aggregations, CASE and pattern predicates are out of
-        // scope for this executor.
+        Expression::FunctionCall { name, args } if name.eq_ignore_ascii_case("type") => {
+            if let [Expression::Variable(variable)] = args.as_slice() {
+                if let Some(Bound::Edge(edge)) = bindings.get(variable) {
+                    return EvalValue::Str(edge.edge_type.clone());
+                }
+            }
+            EvalValue::Null
+        }
+        // Other functions, aggregations, CASE and pattern predicates are out
+        // of scope for this executor.
         _ => EvalValue::Null,
     }
 }
