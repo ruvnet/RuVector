@@ -71,22 +71,18 @@ impl ClaudeModel {
         }
     }
 
-    /// Get cost per 1K input tokens (USD)
+    /// Get cost per 1K input tokens (USD), priced for `model_id()` by llm-prices
     pub fn input_cost_per_1k(&self) -> f64 {
-        match self {
-            Self::Haiku => 0.00025,
-            Self::Sonnet => 0.003,
-            Self::Opus => 0.015,
-        }
+        llm_prices::lookup(self.model_id())
+            .and_then(|p| p.input)
+            .map_or(0.0, |per_m| per_m / 1000.0)
     }
 
-    /// Get cost per 1K output tokens (USD)
+    /// Get cost per 1K output tokens (USD), priced for `model_id()` by llm-prices
     pub fn output_cost_per_1k(&self) -> f64 {
-        match self {
-            Self::Haiku => 0.00125,
-            Self::Sonnet => 0.015,
-            Self::Opus => 0.075,
-        }
+        llm_prices::lookup(self.model_id())
+            .and_then(|p| p.output)
+            .map_or(0.0, |per_m| per_m / 1000.0)
     }
 
     /// Get typical latency for first token (ms)
@@ -1234,6 +1230,15 @@ mod tests {
 
         assert!(haiku_cost < sonnet_cost);
         assert!(sonnet_cost < opus_cost);
+    }
+
+    #[test]
+    fn test_haiku_priced_as_the_model_it_calls() {
+        // claude-3-5-haiku-20241022 is $0.80 / $4.00 per M, not Claude 3 Haiku's $0.25 / $1.25
+        assert!((ClaudeModel::Haiku.input_cost_per_1k() - 0.0008).abs() < 1e-12);
+        assert!((ClaudeModel::Haiku.output_cost_per_1k() - 0.004).abs() < 1e-12);
+        assert!((ClaudeModel::Opus.input_cost_per_1k() - 0.015).abs() < 1e-12);
+        assert!((ClaudeModel::Opus.output_cost_per_1k() - 0.075).abs() < 1e-12);
     }
 
     #[test]
