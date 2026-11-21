@@ -237,6 +237,8 @@ export declare class GraphDatabase {
   /**
    * Create a node in the graph
    *
+   * Rejects the promise if the node ID already exists.
+   *
    * # Example
    * ```javascript
    * const nodeId = await db.createNode({

@@ -70,6 +70,11 @@ pub struct GraphDatabase {
     storage_path: Option<String>,
 }
 
+enum NodeWrite {
+    Create,
+    Upsert,
+}
+
 /// Register a node into BOTH backing indexes so they stay consistent:
 ///   1. the hypergraph adjacency / vector index (used by `kHopNeighbors`,
 ///      `stats`, and `searchHyperedges`), and
@@ -88,11 +93,14 @@ fn register_node(
     embedding: Vec<f32>,
     labels: Option<Vec<String>>,
     properties: Option<HashMap<String, String>>,
+    write: NodeWrite,
 ) -> Result<()> {
-    // 1. Adjacency / vector index (kHop, stats, hyperedge search).
-    hg.add_entity(id.clone(), embedding.clone());
+    let duplicate = || Error::from_reason(format!("Node '{id}' already exists"));
+    // The caller holds the graph write lock through this check and insertion.
+    if matches!(write, NodeWrite::Create) && gdb.with_node(&id, |_| ()).is_some() {
+        return Err(duplicate());
+    }
 
-    // 2. Property graph + label index (Cypher label scan).
     let mut builder = NodeBuilder::new().id(&id);
     if let Some(node_labels) = labels {
         for label in node_labels {
@@ -104,19 +112,26 @@ fn register_node(
             builder = builder.property(&key, value);
         }
     }
-    builder = builder.property("__embedding", PropertyValue::FloatArray(embedding));
+    builder = builder.property("__embedding", PropertyValue::FloatArray(embedding.clone()));
     let graph_node = builder.build();
 
-    // Persist to storage if enabled (mirrors create_node behaviour).
+    // Check the durable ID in the write transaction because other handles can
+    // write to the same store after this handle has hydrated its indexes.
     if let Some(storage_arc) = storage {
         let storage_guard = storage_arc.write().expect("Storage RwLock poisoned");
-        storage_guard
-            .insert_node(&graph_node)
-            .map_err(|e| Error::from_reason(format!("Failed to persist node: {}", e)))?;
+        let inserted = match write {
+            NodeWrite::Create => storage_guard.insert_node_if_absent(&graph_node),
+            NodeWrite::Upsert => storage_guard.insert_node(&graph_node).map(|_| true),
+        }
+        .map_err(|e| Error::from_reason(format!("Failed to persist node: {}", e)))?;
+        if !inserted {
+            return Err(duplicate());
+        }
     }
 
     gdb.create_node(graph_node)
         .map_err(|e| Error::from_reason(format!("Failed to create node: {}", e)))?;
+    hg.add_entity(id, embedding);
 
     Ok(())
 }
@@ -448,6 +463,8 @@ impl GraphDatabase {
 
     /// Create a node in the graph
     ///
+    /// Rejects the promise if the node ID already exists.
+    ///
     /// # Example
     /// ```javascript
     /// const nodeId = await db.createNode({
@@ -480,6 +497,7 @@ impl GraphDatabase {
                 embedding,
                 labels,
                 properties,
+                NodeWrite::Create,
             )?;
 
             Ok::<String, Error>(id)
@@ -816,6 +834,7 @@ impl GraphDatabase {
                     node.embedding.to_vec(),
                     node.labels,
                     node.properties,
+                    NodeWrite::Upsert,
                 )?;
                 node_ids.push(id);
             }
@@ -1489,6 +1508,7 @@ mod tests {
                 vec![i as f32, i as f32, i as f32, i as f32],
                 Some(vec!["Person".to_string()]),
                 Some(HashMap::from([("name".to_string(), format!("name{i}"))])),
+                NodeWrite::Upsert,
             )
             .expect("register_node should succeed");
         }
