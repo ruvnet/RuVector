@@ -329,127 +329,191 @@ impl<'a> Executor<'a> {
         &self,
         pattern: &NodePattern,
     ) -> Result<Vec<ExecutionContext>, ExecutionError> {
-        let mut contexts = Vec::new();
+        Ok(self
+            .matching_nodes(pattern)?
+            .into_iter()
+            .map(|node| {
+                let mut ctx = ExecutionContext::new();
+                if let Some(var) = &pattern.variable {
+                    ctx.bind(var.clone(), ContextValue::Node(node.clone()));
+                }
+                ctx
+            })
+            .collect())
+    }
 
-        // Find nodes matching labels
-        let candidates: Vec<&Node> = if pattern.labels.is_empty() {
+    fn matching_nodes(&self, pattern: &NodePattern) -> Result<Vec<&Node>, ExecutionError> {
+        let candidates = if pattern.labels.is_empty() {
             self.graph.find_nodes(|_| true)
         } else {
-            let mut nodes = Vec::new();
-            for label in &pattern.labels {
-                nodes.extend(self.graph.find_nodes_by_label(label));
-            }
-            nodes
+            pattern
+                .labels
+                .iter()
+                .flat_map(|label| self.graph.find_nodes_by_label(label))
+                .collect()
         };
 
-        // Filter by properties
+        let mut nodes = Vec::new();
         for node in candidates {
-            if let Some(props) = &pattern.properties {
-                let mut matches = true;
-                for (key, expr) in props {
-                    let expected_value =
-                        self.evaluate_expression(expr, &ExecutionContext::new())?;
-                    if node.get_property(key) != Some(&expected_value) {
-                        matches = false;
-                        break;
-                    }
-                }
-                if !matches {
-                    continue;
-                }
+            if self.matches_properties(pattern.properties.as_ref(), &node.properties)? {
+                nodes.push(node);
             }
-
-            let mut ctx = ExecutionContext::new();
-            if let Some(var) = &pattern.variable {
-                ctx.bind(var.clone(), ContextValue::Node(node.clone()));
-            }
-            contexts.push(ctx);
         }
+        Ok(nodes)
+    }
 
-        Ok(contexts)
+    fn matches_properties(
+        &self,
+        pattern: Option<&PropertyMap>,
+        properties: &HashMap<String, Value>,
+    ) -> Result<bool, ExecutionError> {
+        if let Some(pattern) = pattern {
+            let ctx = ExecutionContext::new();
+            for (key, expr) in pattern {
+                let expected = self.evaluate_expression(expr, &ctx)?;
+                if properties.get(key) != Some(&expected) {
+                    return Ok(false);
+                }
+            }
+        }
+        Ok(true)
     }
 
     fn match_relationship_pattern(
         &self,
         pattern: &RelationshipPattern,
     ) -> Result<Vec<ExecutionContext>, ExecutionError> {
+        let Pattern::Node(target) = &*pattern.to else {
+            return Err(ExecutionError::UnsupportedOperation(
+                "Chained relationship patterns not yet supported in MATCH".to_string(),
+            ));
+        };
+
+        let (min, max) = match &pattern.range {
+            Some(range) => (range.min.unwrap_or(1), range.max.unwrap_or(usize::MAX)),
+            None => (1, 1),
+        };
+        if min > max {
+            return Err(ExecutionError::ExecutionError(
+                "Minimum relationship length exceeds maximum".to_string(),
+            ));
+        }
+
         let mut contexts = Vec::new();
-
-        // Match source nodes
-        let from_contexts = self.match_node_pattern(&pattern.from)?;
-
-        for from_ctx in from_contexts {
-            // Get the source node
-            let from_node = if let Some(var) = &pattern.from.variable {
-                from_ctx
-                    .get(var)
-                    .and_then(|v| v.as_node())
-                    .ok_or_else(|| ExecutionError::VariableNotFound(var.clone()))?
-            } else {
+        for from in self.matching_nodes(&pattern.from)? {
+            let mut path = Vec::new();
+            if min == 0 {
+                contexts.extend(self.relationship_match(pattern, target, from, from, &path)?);
+            }
+            if max == 0 {
                 continue;
-            };
+            }
 
-            // Find matching edges
-            let edges = match pattern.direction {
-                Direction::Outgoing => self.graph.get_outgoing_edges(&from_node.id),
-                Direction::Incoming => self.graph.get_incoming_edges(&from_node.id),
-                Direction::Undirected => {
-                    let mut all = self.graph.get_outgoing_edges(&from_node.id);
-                    all.extend(self.graph.get_incoming_edges(&from_node.id));
-                    all
-                }
-            };
-
-            for edge in edges {
-                // Filter by type
-                if let Some(rel_type) = &pattern.rel_type {
-                    if &edge.edge_type != rel_type {
-                        continue;
+            // Each stack frame retains the current node and the edges still to try.
+            // An edge can appear only once per path, so even an open range terminates on cycles.
+            let mut stack = vec![(from, self.relationship_edges(from, pattern.direction))];
+            let mut used_edges = HashSet::new();
+            while let Some((node, edges)) = stack.last_mut() {
+                let Some(edge) = edges.next() else {
+                    stack.pop();
+                    if let Some(edge) = path.pop() {
+                        used_edges.remove(&edge.id);
                     }
-                }
-
-                // Filter by properties
-                if let Some(props) = &pattern.properties {
-                    let mut matches = true;
-                    for (key, expr) in props {
-                        let expected_value =
-                            self.evaluate_expression(expr, &ExecutionContext::new())?;
-                        if edge.get_property(key) != Some(&expected_value) {
-                            matches = false;
-                            break;
-                        }
-                    }
-                    if !matches {
-                        continue;
-                    }
-                }
-
-                // Get target node
-                let to_node_id = if pattern.direction == Direction::Incoming {
-                    &edge.from
-                } else {
-                    &edge.to
+                    continue;
                 };
 
-                if let Some(to_node) = self.graph.get_node(to_node_id) {
-                    let mut ctx = from_ctx.clone();
-                    if let Some(var) = &pattern.variable {
-                        ctx.bind(var.clone(), ContextValue::Edge(edge.clone()));
-                    }
+                if pattern
+                    .rel_type
+                    .as_ref()
+                    .is_some_and(|t| t != &edge.edge_type)
+                    || used_edges.contains(&edge.id)
+                    || !self.matches_properties(pattern.properties.as_ref(), &edge.properties)?
+                {
+                    continue;
+                }
 
-                    // Bind target node if it's a simple node pattern
-                    if let Pattern::Node(to_pattern) = &*pattern.to {
-                        if let Some(var) = &to_pattern.variable {
-                            ctx.bind(var.clone(), ContextValue::Node(to_node.clone()));
-                        }
-                    }
+                let to_id = if edge.from == node.id {
+                    &edge.to
+                } else {
+                    &edge.from
+                };
+                let Some(to) = self.graph.get_node(to_id) else {
+                    continue;
+                };
 
-                    contexts.push(ctx);
+                path.push(edge);
+                if path.len() >= min {
+                    contexts.extend(self.relationship_match(pattern, target, from, to, &path)?);
+                }
+                if path.len() < max {
+                    used_edges.insert(&edge.id);
+                    stack.push((to, self.relationship_edges(to, pattern.direction)));
+                } else {
+                    path.pop();
                 }
             }
         }
 
         Ok(contexts)
+    }
+
+    fn relationship_edges(&self, node: &Node, direction: Direction) -> std::vec::IntoIter<&Edge> {
+        match direction {
+            Direction::Outgoing => self.graph.get_outgoing_edges(&node.id),
+            Direction::Incoming => self.graph.get_incoming_edges(&node.id),
+            Direction::Undirected => {
+                let mut edges = self.graph.get_outgoing_edges(&node.id);
+                // Self-loops are already included in the outgoing edges.
+                edges.extend(
+                    self.graph
+                        .get_incoming_edges(&node.id)
+                        .into_iter()
+                        .filter(|edge| edge.from != node.id),
+                );
+                edges
+            }
+        }
+        .into_iter()
+    }
+
+    fn relationship_match(
+        &self,
+        pattern: &RelationshipPattern,
+        target: &NodePattern,
+        from: &Node,
+        to: &Node,
+        path: &[&Edge],
+    ) -> Result<Option<ExecutionContext>, ExecutionError> {
+        if (pattern.from.variable.is_some()
+            && pattern.from.variable == target.variable
+            && from.id != to.id)
+            || !target.labels.iter().all(|label| to.has_label(label))
+            || !self.matches_properties(target.properties.as_ref(), &to.properties)?
+        {
+            return Ok(None);
+        }
+
+        let mut ctx = ExecutionContext::new();
+        if let Some(var) = &pattern.from.variable {
+            ctx.bind(var.clone(), ContextValue::Node(from.clone()));
+        }
+        if let Some(var) = &pattern.variable {
+            let value = if pattern.range.is_some() {
+                ContextValue::List(
+                    path.iter()
+                        .map(|&edge| ContextValue::Edge(edge.clone()))
+                        .collect(),
+                )
+            } else {
+                ContextValue::Edge(path[0].clone())
+            };
+            ctx.bind(var.clone(), value);
+        }
+        if let Some(var) = &target.variable {
+            ctx.bind(var.clone(), ContextValue::Node(to.clone()));
+        }
+
+        Ok(Some(ctx))
     }
 
     fn execute_return(
