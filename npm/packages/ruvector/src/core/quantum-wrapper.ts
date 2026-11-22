@@ -290,9 +290,14 @@ export function ghzCircuit(n: number): QuantumCircuitSpec {
 
 let enginePromise: Promise<any> | null = null;
 
+// Resolve the engine only from ruvector's own install location (it ships as an
+// optionalDependency, so it sits next to ruvector). Never search the working
+// directory: a node_modules/@ruvector/ruqu-wasm committed to an untrusted
+// repository would shadow the real engine and run inside the MCP server on the
+// first quantum_info call (GHSA-8pv4-hqq5-m2wv).
 function resolveEnginePath(): string | null {
   try {
-    return require.resolve(PKG, { paths: [process.cwd(), __dirname] });
+    return require.resolve(PKG, { paths: [__dirname] });
   } catch {
     return null;
   }
