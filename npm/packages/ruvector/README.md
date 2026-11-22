@@ -107,7 +107,7 @@ npx ruvector add rabitq diskann
 
 ## Quantum (ruqu)
 
-`ruvector quantum` (alias `ruvector ruqu`) runs state-vector quantum circuits on the [ruqu](https://github.com/ruvnet/ruqu) engine, Rust compiled to WebAssembly. The engine is the optional package `@ruvector/ruqu-wasm`. If it is missing, the command prints `npm i @ruvector/ruqu-wasm` and exits non-zero.
+`ruvector quantum` (alias `ruvector ruqu`) runs state-vector quantum circuits on the [ruqu](https://github.com/ruvnet/ruqu) engine, Rust compiled to WebAssembly. The engine is the optional package `@ruvector/ruqu-wasm`. If it is missing, the command prints `npm i @ruvector/ruqu-wasm` and exits non-zero. The engine is loaded only from where ruvector itself is installed (install both in the same project, or both globally), never from the working directory, so a `node_modules` folder inside a cloned repository cannot replace it.
 
 ```bash
 npm i @ruvector/ruqu-wasm                          # if optional deps were skipped
