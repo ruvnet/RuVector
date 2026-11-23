@@ -1,0 +1,23 @@
+=== ruvector-agent-memory BatchTail fill-timeout latency simulation ===
+batch_size=64 arrivals_per_regime=4000
+
+regime                     policy                   n   spans     t/o avail_mean  avail_p50  avail_p95  avail_p99  avail_max  sign_amort_ns  verified
+target_load_5000qps        baseline_no_timeout   4000      63       0    6.511ms    6.360ms   13.034ms   14.481ms   16.763ms          620.0      true
+target_load_5000qps        candidate_a_50ms      4000      63       0    6.510ms    6.369ms   13.032ms   14.479ms   16.761ms          604.6      true
+target_load_5000qps        candidate_b_10ms      4000      81      79    5.160ms    5.084ms    9.755ms   10.036ms   10.051ms          745.5      true
+light_load_50qps           baseline_no_timeout   4000      63       0  633.931ms  629.083ms 1268.238ms 1402.118ms 1646.577ms          612.4      true
+light_load_50qps           candidate_a_50ms      4000    1141    1140   31.931ms   34.786ms   50.039ms   50.051ms   50.291ms        10768.2      true
+light_load_50qps           candidate_b_10ms      4000    2665    2664    8.358ms   10.027ms   10.036ms   10.046ms   10.220ms        19490.7      true
+bursty_on2000qps_off400ms  baseline_no_timeout   4000      63       0   80.866ms   17.078ms  427.142ms  434.355ms  441.582ms          453.9      true
+bursty_on2000qps_off400ms  candidate_a_50ms      4000      77      20   18.181ms   17.008ms   43.592ms   49.340ms   50.029ms          543.9      true
+bursty_on2000qps_off400ms  candidate_b_10ms      4000     201     200    5.340ms    5.383ms   10.027ms   10.029ms   10.048ms         1426.0      true
+
+=== acceptance ===
+all closed spans verify (every regime/policy): true
+candidate_a p99 bounded by 55.000ms: light=50.051ms bursty=49.340ms -> true
+candidate_b p99 bounded by 15.000ms: light=10.046ms -> true
+baseline p99 at light load exceeds 5x candidate_a's p99 (demonstrates the unbounded-tail failure mode this fixes): baseline=1402.118ms candidate_a=50.051ms -> true
+candidate_a amortized signing cost at target load within 2x of baseline's: candidate_a=604.6ns baseline=620.0ns -> true
+timeout-triggered seals (tradeoff curve): candidate_a_light=1140 candidate_b_light=2664 candidate_a_target=0 (expect b >= a under slow load, both ~0 under healthy load)
+
+BATCH-TAIL FILL-TIMEOUT LATENCY ACCEPTANCE RESULT: ACCEPT
