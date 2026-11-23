@@ -353,7 +353,9 @@ jobs:
           echo "- Node Version: ${{ env.NODE_VERSION }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Check overall status
-        if: needs.quality.result == 'failure' || needs.build-test.result == 'failure'
+        # A job that hits timeout-minutes ends 'cancelled', not 'failure', so
+        # gate on anything other than success.
+        if: needs.quality.result != 'success' || needs.build-test.result != 'success'
         run: |
           echo "::error::CI pipeline failed. Check individual job results."
           exit 1

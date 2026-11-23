@@ -108,6 +108,11 @@ function beautify(source) {
  * @returns {{success: boolean, modules: number, outputDir: string}|null}
  */
 function tryRustDecompiler(filePath, outputDir) {
+  // The Rust pipeline is a fallback for a ruvector monorepo checkout (it runs
+  // cargo / target binaries from the directory four levels up). In an
+  // installed package that directory belongs to the installing project, so
+  // the fallback is source-checkout only.
+  if (__dirname.split(path.sep).includes('node_modules')) return null;
   try {
     const { execFileSync } = require('child_process');
     // Try to find the Rust binary
@@ -424,31 +429,77 @@ async function assertPublicUrl(rawUrl) {
   return u;
 }
 
+/**
+ * dns.lookup replacement for http(s).request that refuses private addresses
+ * at connect time, so the address that is checked is the address used.
+ */
+function publicOnlyLookup(hostname, options, callback) {
+  require('dns').lookup(hostname, { ...options, all: true }, (err, addrs) => {
+    if (err) return callback(err);
+    const bad = addrs.find(a => isPrivateAddress(a.address));
+    if (bad) {
+      return callback(new Error(`Refusing to fetch ${hostname}: resolves to private address ${bad.address} ` +
+        '(set RUVECTOR_ALLOW_PRIVATE_FETCH=1 to allow)'));
+    }
+    if (options && options.all) return callback(null, addrs);
+    return callback(null, addrs[0].address, addrs[0].family);
+  });
+}
+
+/** One GET without following redirects; body capped at MAX_FETCH_BYTES. */
+function requestPinned(rawUrl) {
+  const u = new URL(rawUrl);
+  const mod = u.protocol === 'https:' ? require('https') : require('http');
+  const lookup = process.env.RUVECTOR_ALLOW_PRIVATE_FETCH === '1' ? undefined : publicOnlyLookup;
+  return new Promise((resolve, reject) => {
+    const req = mod.get(u, { lookup, timeout: 30000 }, (res) => {
+      const status = res.statusCode || 0;
+      const location = res.headers.location;
+      if (status >= 300 && status < 400) {
+        res.resume();
+        return resolve({ status, location, body: '' });
+      }
+      const declared = Number(res.headers['content-length']);
+      if (declared > MAX_FETCH_BYTES) {
+        res.destroy();
+        return reject(new Error(`Response too large (${declared} bytes, limit ${MAX_FETCH_BYTES})`));
+      }
+      const chunks = [];
+      let size = 0;
+      res.on('data', (c) => {
+        size += c.length;
+        if (size > MAX_FETCH_BYTES) {
+          res.destroy();
+          reject(new Error(`Response too large (limit ${MAX_FETCH_BYTES} bytes)`));
+          return;
+        }
+        chunks.push(c);
+      });
+      res.on('end', () => resolve({ status, location, body: Buffer.concat(chunks).toString('utf8') }));
+      res.on('error', reject);
+    });
+    req.on('timeout', () => req.destroy(new Error(`Timed out fetching ${rawUrl}`)));
+    req.on('error', reject);
+  });
+}
+
 async function decompileUrl(url, options = {}) {
   let current = url;
   let resp;
   for (let hop = 0; ; hop++) {
     await assertPublicUrl(current);
-    resp = await fetch(current, { redirect: 'manual' });
-    if (resp.status >= 300 && resp.status < 400 && resp.headers.get('location')) {
+    resp = await requestPinned(current);
+    if (resp.status >= 300 && resp.status < 400 && resp.location) {
       if (hop >= MAX_REDIRECTS) throw new Error(`Too many redirects fetching ${url}`);
-      current = new URL(resp.headers.get('location'), current).toString();
+      current = new URL(resp.location, current).toString();
       continue;
     }
     break;
   }
-  if (!resp.ok) {
+  if (resp.status < 200 || resp.status >= 300) {
     throw new Error(`Failed to fetch ${url} (HTTP ${resp.status})`);
   }
-  const declared = Number(resp.headers.get('content-length'));
-  if (declared > MAX_FETCH_BYTES) {
-    throw new Error(`Response too large (${declared} bytes, limit ${MAX_FETCH_BYTES})`);
-  }
-
-  const source = await resp.text();
-  if (source.length > MAX_FETCH_BYTES) {
-    throw new Error(`Response too large (limit ${MAX_FETCH_BYTES} bytes)`);
-  }
+  const source = resp.body;
   const result = decompileSource(source, options);
 
   return {

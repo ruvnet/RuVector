@@ -1,7 +1,7 @@
 import { error } from "@sveltejs/kit";
 import { logger } from "$lib/server/logger.js";
 import { Agent, fetch } from "undici";
-import { isValidUrl, assertSafeIp } from "$lib/server/urlSafety";
+import { isValidPublicUrl, assertSafeIp } from "$lib/server/urlSafety";
 import dns from "node:dns";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -54,7 +54,7 @@ export async function GET({ url }) {
 		throw error(400, "Missing 'url' parameter");
 	}
 
-	if (!isValidUrl(targetUrl)) {
+	if (!isValidPublicUrl(targetUrl)) {
 		logger.warn({ targetUrl }, "Invalid or unsafe URL (only HTTPS is supported)");
 		throw error(400, "Invalid or unsafe URL (only HTTPS is supported)");
 	}
@@ -93,7 +93,7 @@ export async function GET({ url }) {
 				// Resolve relative redirects against the current URL
 				const redirectUrl = new URL(location, currentUrl).toString();
 
-				if (!isValidUrl(redirectUrl)) {
+				if (!isValidPublicUrl(redirectUrl)) {
 					logger.warn(
 						{ redirectUrl, originalUrl: targetUrl },
 						"Redirect to unsafe URL blocked (SSRF)"
