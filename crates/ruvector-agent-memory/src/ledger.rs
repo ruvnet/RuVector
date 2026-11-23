@@ -525,6 +525,14 @@ impl<S: WitnessSink, G: ProofGate> TransactionalLedger<S, G> {
         &self.sink
     }
 
+    /// Mutable access to the witness sink without tearing the ledger down,
+    /// e.g. for a host application's background timer to call
+    /// `TimedBatchTailSink::check_timeout` on a live ledger between
+    /// `add`/`accept` calls.
+    pub fn witness_sink_mut(&mut self) -> &mut S {
+        &mut self.sink
+    }
+
     /// Consume the ledger and recover ownership of its witness sink, e.g.
     /// to call `SignedWitnessSink::flush` and inspect signed spans once a
     /// run is done. Ledger state (`entries`, `history`) is discarded; the
