@@ -385,17 +385,29 @@ impl MinCutWrapper {
     ///
     /// Uses binary search hint from last query to skip early instances,
     /// reducing average case from O(instances) to O(log instances).
+    ///
+    /// Separately, when an instance's `AboveRange` answer comes with an
+    /// [`ProperCutInstance::exact_value_hint`] (true for small-graph
+    /// brute-force instances, whose computed value does not depend on their
+    /// own bounds at all), the sweep jumps directly to the instance whose
+    /// range actually contains that value instead of visiting — and
+    /// redundantly recomputing the identical answer on — every instance in
+    /// between (see ADR-361).
     fn process_instances(&mut self) -> MinCutResult {
         // Sort updates by time for deterministic processing
         self.pending_inserts.sort_by_key(|u| u.time);
         self.pending_deletes.sort_by_key(|u| u.time);
 
         let mut last_in_range: Option<(u64, WitnessHandle)> = None;
+        // Carries an exact-value hint across a skip-ahead jump so the
+        // instance we land on can be seeded instead of recomputing it.
+        let mut pending_seed: Option<(u64, WitnessHandle)> = None;
 
         // Use binary search hint to find starting instance
         let start_idx = self.get_search_start();
+        let mut i = start_idx;
 
-        for i in start_idx..MAX_INSTANCES {
+        while i < MAX_INSTANCES {
             // Lazily instantiate instance if needed
             let is_new_instance = self.instances[i].is_none();
             if is_new_instance {
@@ -447,6 +459,13 @@ impl MinCutWrapper {
                 }
             }
 
+            // If we jumped here carrying an already-known value from an
+            // earlier instance's bound-independent computation, seed it so
+            // this instance's query() does not recompute the same answer.
+            if let Some((value, ref witness)) = pending_seed.take() {
+                instance.seed_known_value(value, witness);
+            }
+
             // Update the last sync time
             self.last_update_time[i] = self.current_time;
 
@@ -460,8 +479,22 @@ impl MinCutWrapper {
                     break;
                 }
                 InstanceResult::AboveRange => {
-                    // Cut is above this range, try next instance with larger range
-                    continue;
+                    // Cut is above this range. If the instance can also tell
+                    // us the true (bound-independent) value, skip straight
+                    // to the instance that actually contains it instead of
+                    // re-querying — and re-paying the identical computation
+                    // on — every range in between.
+                    if let Some((value, witness)) = instance.exact_value_hint() {
+                        let target = Self::binary_search_lambda_max(&self.lambda_max, value);
+                        if target > i {
+                            pending_seed = Some((value, witness));
+                            i = target;
+                            continue;
+                        }
+                    }
+                    // No usable hint (or already at the right instance):
+                    // fall back to visiting the next range as before.
+                    i += 1;
                 }
             }
         }
@@ -528,20 +561,35 @@ impl MinCutWrapper {
     /// # Returns
     /// Instance index where lambda_min <= value <= lambda_max
     fn find_instance_for_value(&self, value: u64) -> usize {
-        // Binary search for the instance containing this value
+        Self::binary_search_lambda_max(&self.lambda_max, value)
+    }
+
+    /// Pure binary-search core shared by [`Self::find_instance_for_value`]
+    /// and the `process_instances` skip-ahead path.
+    ///
+    /// Factored out as a function taking the slice directly (rather than
+    /// `&self`) so it can be called from inside `process_instances` while a
+    /// `&mut` borrow of a *different* field (`self.instances[i]`) is still
+    /// live — a plain `&self` method there would borrow the whole struct
+    /// and conflict.
+    ///
+    /// # Returns
+    /// Index of the first entry with `lambda_max[idx] >= value`, clamped to
+    /// the last valid index.
+    fn binary_search_lambda_max(lambda_max: &[u64], value: u64) -> usize {
         let mut lo = 0usize;
-        let mut hi = MAX_INSTANCES;
+        let mut hi = lambda_max.len();
 
         while lo < hi {
             let mid = lo + (hi - lo) / 2;
-            if self.lambda_max[mid] < value {
+            if lambda_max[mid] < value {
                 lo = mid + 1;
             } else {
                 hi = mid;
             }
         }
 
-        lo.min(MAX_INSTANCES - 1)
+        lo.min(lambda_max.len() - 1)
     }
 
     /// Get the starting instance for search based on hints
@@ -1500,5 +1548,88 @@ mod tests {
         // Should return at least initial point
         assert!(!curve.is_empty());
         assert_eq!(curve[0].0, 0); // First entry is k=0
+    }
+
+    // =========================================================================
+    // ADR-361: process_instances skip-ahead regression tests
+    // =========================================================================
+
+    /// K6 (min cut = 5, the min vertex degree). `find_instance_for_value(5)`
+    /// lands on instance index 8 (lambda_max: ...,3,4,5 at i=6,7,8), so a
+    /// cold wrapper sweeping from `start_idx=0` without the fix would visit
+    /// — and redundantly brute-force-recompute on — instances 0..=8 (9
+    /// calls). With the fix it must visit only instance 0 (to discover the
+    /// value) and instance 8 (seeded, not recomputed): `num_instances()`
+    /// after one query is the direct, implementation-level signature of the
+    /// skip actually having happened, not just of the answer being correct.
+    #[test]
+    fn test_skip_ahead_elides_intermediate_instances_k6() {
+        let graph = Arc::new(DynamicGraph::new());
+        let mut wrapper = MinCutWrapper::new(Arc::clone(&graph));
+
+        let mut edges = Vec::new();
+        let mut edge_id = 0u64;
+        for i in 1..=6u64 {
+            for j in (i + 1)..=6u64 {
+                graph.insert_edge(i, j, 1.0).unwrap();
+                edges.push((edge_id, i, j));
+                edge_id += 1;
+            }
+        }
+        wrapper.batch_insert_edges(&edges);
+
+        let result = wrapper.query();
+        assert_eq!(result.value(), 5, "K6's min cut is 5 (= min degree)");
+
+        assert_eq!(
+            wrapper.num_instances(),
+            2,
+            "skip-ahead must instantiate only the discovery instance (0) and the \
+             target instance (8), eliding every instance in between"
+        );
+    }
+
+    /// Sanity check in the other direction: when the true value is already
+    /// in instance 0's range (no skip is needed, or possible — this is the
+    /// common case that must stay exactly as cheap as before the fix), the
+    /// wrapper must not instantiate anything beyond that single instance.
+    #[test]
+    fn test_no_skip_when_first_instance_already_in_range() {
+        let graph = Arc::new(DynamicGraph::new());
+        let mut wrapper = MinCutWrapper::new(Arc::clone(&graph));
+
+        // Path graph: min cut = 1, within instance 0's range [1, 1].
+        graph.insert_edge(1, 2, 1.0).unwrap();
+        graph.insert_edge(2, 3, 1.0).unwrap();
+        wrapper.batch_insert_edges(&[(0, 1, 2), (1, 2, 3)]);
+
+        let result = wrapper.query();
+        assert_eq!(result.value(), 1);
+        assert_eq!(wrapper.num_instances(), 1);
+    }
+
+    /// Regression guard for the n>=20 (`LocalKCut`/`search_for_cuts`) path:
+    /// `exact_value_hint` must be unavailable there (asserted directly in
+    /// `instance::bounded::tests`), so the wrapper must fall back to the
+    /// original one-instance-at-a-time sweep and still return the correct
+    /// answer — the skip-ahead change must be a strict no-op on this path.
+    #[test]
+    fn test_large_graph_unaffected_by_skip_ahead() {
+        let graph = Arc::new(DynamicGraph::new());
+        let mut wrapper = MinCutWrapper::new(Arc::clone(&graph));
+
+        // 25-vertex cycle: min cut = 2, n >= 20 so this exercises
+        // `search_for_cuts`, never `brute_force_min_cut`.
+        let n = 25u64;
+        let mut edges = Vec::new();
+        for i in 0..n {
+            let j = (i + 1) % n;
+            graph.insert_edge(i, j, 1.0).unwrap();
+            edges.push((i, i, j));
+        }
+        wrapper.batch_insert_edges(&edges);
+
+        let result = wrapper.query();
+        assert_eq!(result.value(), 2, "C_25's min cut is 2");
     }
 }

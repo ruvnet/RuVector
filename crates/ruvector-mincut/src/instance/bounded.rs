@@ -513,6 +513,25 @@ impl ProperCutInstance for BoundedInstance {
     fn bounds(&self) -> (u64, u64) {
         (self.lambda_min, self.lambda_max)
     }
+
+    fn exact_value_hint(&self) -> Option<(u64, WitnessHandle)> {
+        // Only the brute-force path (n < 20) computes a value that is
+        // independent of [lambda_min, lambda_max]; `search_for_cuts`'s
+        // LocalKCut budget search is bound-dependent, so no shortcut
+        // applies there and the previous query's cached witness (if any)
+        // could belong to a different, incompatible range search.
+        if self.vertices.len() >= 20 {
+            return None;
+        }
+        self.best_witness.lock().unwrap().clone()
+    }
+
+    fn seed_known_value(&mut self, value: u64, witness: &WitnessHandle) {
+        if self.vertices.len() < 20 {
+            *self.best_witness.lock().unwrap() = Some((value, witness.clone()));
+            self.set_boundary_cache(value);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -609,5 +628,127 @@ mod tests {
         let cert = instance.certificate();
         // Certificate should have recorded searches
         assert!(!cert.localkcut_responses.is_empty() || instance.vertices.len() < 20);
+    }
+
+    // =========================================================================
+    // ADR-361: exact_value_hint / seed_known_value regression tests
+    // =========================================================================
+
+    /// K4 (min cut = 3) with a deliberately too-small `lambda_max`, so
+    /// `query()` must return `AboveRange`. The brute-force path still
+    /// computes the true, bound-independent value internally (that's the
+    /// whole premise of the fix): `exact_value_hint()` must surface it even
+    /// though the query itself was out of range.
+    #[test]
+    fn test_exact_value_hint_available_even_when_above_range() {
+        let mut instance = BoundedInstance::new(1, 1); // range far below true value
+        instance.apply_inserts(&[
+            (0, 1, 2),
+            (1, 2, 3),
+            (2, 3, 1),
+            (3, 1, 4),
+            (4, 2, 4),
+            (5, 3, 4),
+        ]);
+
+        assert!(instance.exact_value_hint().is_none(), "no query yet");
+
+        match instance.query() {
+            InstanceResult::AboveRange => {}
+            other => panic!("expected AboveRange for K4 (cut=3) with lambda_max=1, got {other:?}"),
+        }
+
+        let hint = instance
+            .exact_value_hint()
+            .expect("brute-force path must expose the true value even when AboveRange");
+        assert_eq!(hint.0, 3, "K4's true min cut is 3 (= min degree)");
+    }
+
+    /// For n >= 20, no bound-independent shortcut exists (the LocalKCut
+    /// search genuinely depends on [lambda_min, lambda_max]), so the hint
+    /// must always be `None` — the wrapper's skip-ahead must never engage
+    /// on this path.
+    #[test]
+    fn test_exact_value_hint_none_for_large_graph() {
+        let mut instance = BoundedInstance::new(1, 2);
+        let edges: Vec<(EdgeId, VertexId, VertexId)> =
+            (0..25).map(|i| (i, i, (i + 1) % 25)).collect();
+        instance.apply_inserts(&edges);
+
+        let _ = instance.query();
+        assert!(
+            instance.exact_value_hint().is_none(),
+            "n>=20 instances must never offer a bound-independent hint"
+        );
+    }
+
+    /// Core correctness claim of the fix: seeding a fresh instance with a
+    /// `(value, witness)` pair computed by *another* instance over the same
+    /// graph is observationally identical to that instance computing it
+    /// itself from scratch — same value, same witness membership. If this
+    /// ever diverges, `MinCutWrapper`'s skip-ahead would silently return a
+    /// wrong answer instead of merely being slow.
+    #[test]
+    fn test_seed_known_value_matches_independent_computation() {
+        let edges: &[(EdgeId, VertexId, VertexId)] = &[
+            (0, 1, 2),
+            (1, 2, 3),
+            (2, 3, 1),
+            (3, 1, 4),
+            (4, 2, 4),
+            (5, 3, 4),
+        ];
+
+        // Independently computed by a normal, in-range query.
+        let mut reference = BoundedInstance::new(1, 10);
+        reference.apply_inserts(edges);
+        let (ref_value, ref_witness) = match reference.query() {
+            InstanceResult::ValueInRange { value, witness } => (value, witness),
+            other => panic!("expected ValueInRange, got {other:?}"),
+        };
+
+        // A different instance, seeded instead of computing it itself.
+        let mut seeded = BoundedInstance::new(1, 10);
+        seeded.apply_inserts(edges);
+        seeded.seed_known_value(ref_value, &ref_witness);
+        let (seeded_value, seeded_witness) = match seeded.query() {
+            InstanceResult::ValueInRange { value, witness } => (value, witness),
+            other => panic!("expected ValueInRange from seeded instance, got {other:?}"),
+        };
+
+        assert_eq!(ref_value, seeded_value);
+        assert_eq!(
+            ref_witness.hash(),
+            seeded_witness.hash(),
+            "seeded witness must have identical membership to an independently computed one"
+        );
+        assert_eq!(ref_witness.boundary_size(), seeded_witness.boundary_size());
+    }
+
+    /// Seeding with a value outside `[lambda_min, lambda_max]` must not
+    /// fabricate an in-range answer — the cached-witness fast path in
+    /// `query()` already guards on this, but it's worth pinning down
+    /// explicitly for the new call site.
+    #[test]
+    fn test_seed_known_value_outside_range_is_not_reported_in_range() {
+        let mut instance = BoundedInstance::new(1, 2); // K4's true cut (3) is above this
+        instance.apply_inserts(&[
+            (0, 1, 2),
+            (1, 2, 3),
+            (2, 3, 1),
+            (3, 1, 4),
+            (4, 2, 4),
+            (5, 3, 4),
+        ]);
+
+        let witness = WitnessHandle::new(1, RoaringBitmap::from_iter([1u32, 2]), 3);
+        instance.seed_known_value(3, &witness);
+
+        match instance.query() {
+            InstanceResult::AboveRange => {}
+            InstanceResult::ValueInRange { value, .. } => {
+                panic!("seeding an out-of-range value must not report ValueInRange (got value={value})")
+            }
+        }
     }
 }
