@@ -482,6 +482,71 @@ fn benchmark_lazy_instantiation(c: &mut Criterion) {
     group.finish();
 }
 
+/// Generate a fixed-degree ring edge list (vertex i connects to the next k
+/// vertices mod n) — the same construction as
+/// `ruvector-agent-memory/examples/mincut_scaling_probe.rs` and
+/// `ruvector-mincut/examples/process_instances_sweep_variants.rs`, reused
+/// here rather than redefined, per this process's "don't rewrite the
+/// instrument" convention.
+fn generate_ring_edges(n: usize, k: usize) -> Vec<(u64, u64)> {
+    let mut edges = Vec::new();
+    for i in 0..n {
+        for d in 1..=k {
+            edges.push((i as u64, ((i + d) % n) as u64));
+        }
+    }
+    edges
+}
+
+/// ADR-361 regression guard: `process_instances`' small-graph (n < 20)
+/// brute-force path jumps directly to the correct λ-instance instead of
+/// linearly sweeping and re-paying `brute_force_min_cut()` at every
+/// instance in between (see `wrapper::tests::\
+/// test_skip_ahead_elides_intermediate_instances_k6` for the correctness
+/// side of this; this benchmark exists purely to catch a latency
+/// regression in CI-scale runs, not to re-litigate the ~16x speedup
+/// already measured and documented in
+/// `docs/research/nightly/2026-11-24_mincut-redundant-sweep/README.md` via
+/// `examples/process_instances_sweep_variants.rs`, which is too slow on
+/// its "baseline" arm to run under criterion's sampling by default).
+///
+/// Uses a 10-vertex, k=6 ring (min cut 9, five λ-instances apart from
+/// instance 0) — small enough to sample at criterion's default rate, large
+/// enough that a regression back to linear-sweep behavior would be
+/// visible.
+fn benchmark_skip_ahead_small_graph(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bounded_skip_ahead_small_graph");
+    group.sample_size(20);
+
+    group.bench_function("cold_wrapper_first_query", |b| {
+        b.iter_batched(
+            || {
+                let graph = Arc::new(DynamicGraph::new());
+                let edges = generate_ring_edges(10, 6);
+
+                for (u, v) in &edges {
+                    let _ = graph.insert_edge(*u, *v, 1.0);
+                }
+
+                let mut wrapper = MinCutWrapper::new(Arc::clone(&graph));
+                for (i, edge) in graph.edges().iter().enumerate() {
+                    wrapper.insert_edge(i as u64, edge.source, edge.target);
+                }
+
+                assert_eq!(wrapper.num_instances(), 0, "no instances before query");
+                wrapper
+            },
+            |mut wrapper| {
+                let result = wrapper.query();
+                black_box(result)
+            },
+            criterion::BatchSize::SmallInput,
+        );
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     benchmark_insert_edge,
@@ -491,6 +556,7 @@ criterion_group!(
     benchmark_different_topologies,
     benchmark_mixed_workload,
     benchmark_lazy_instantiation,
+    benchmark_skip_ahead_small_graph,
 );
 
 criterion_main!(benches);
