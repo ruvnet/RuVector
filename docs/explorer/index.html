@@ -4499,7 +4499,8 @@ function trainBurst(n=25){if(busy||training)return;
 
 let last=performance.now(),stageVisible=true;
 // skip drawing while the stage is scrolled off screen; the clock and auto-run keep going
-try{new IntersectionObserver(([e])=>{stageVisible=e.isIntersecting}).observe($('stage'))}catch(e){}
+// one callback can carry several entries (a layout shift at load delivers hidden then visible together); the newest wins
+try{new IntersectionObserver(es=>{stageVisible=es[es.length-1].isIntersecting}).observe($('stage'))}catch(e){}
 function frame(now){
   const dt=Math.min(.1,(now-last)/1000);last=now;
   beatSync(now);
