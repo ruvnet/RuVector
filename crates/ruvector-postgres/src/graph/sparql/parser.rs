@@ -14,12 +14,18 @@ pub fn parse_sparql(query: &str) -> Result<SparqlQuery, SparqlError> {
     parser.parse()
 }
 
+/// Maximum nesting of group patterns, expressions and property paths.
+/// Unbounded recursion on attacker-supplied queries would overflow the
+/// backend's stack, which `catch_unwind` cannot recover from.
+const MAX_NESTING_DEPTH: usize = 64;
+
 /// SPARQL Parser state
 struct SparqlParser<'a> {
     input: &'a str,
     pos: usize,
     prefixes: HashMap<String, Iri>,
     base: Option<Iri>,
+    depth: usize,
 }
 
 impl<'a> SparqlParser<'a> {
@@ -29,7 +35,25 @@ impl<'a> SparqlParser<'a> {
             pos: 0,
             prefixes: HashMap::new(),
             base: None,
+            depth: 0,
         }
+    }
+
+    /// Run `f` one nesting level deeper, failing once the limit is reached.
+    fn nested<T>(
+        &mut self,
+        f: impl FnOnce(&mut Self) -> Result<T, SparqlError>,
+    ) -> Result<T, SparqlError> {
+        if self.depth >= MAX_NESTING_DEPTH {
+            return Err(SparqlError::ParseError(format!(
+                "query nested deeper than {}",
+                MAX_NESTING_DEPTH
+            )));
+        }
+        self.depth += 1;
+        let result = f(self);
+        self.depth -= 1;
+        result
     }
 
     fn parse(&mut self) -> Result<SparqlQuery, SparqlError> {
@@ -225,6 +249,10 @@ impl<'a> SparqlParser<'a> {
     }
 
     fn parse_group_graph_pattern(&mut self) -> Result<GraphPattern, SparqlError> {
+        self.nested(Self::parse_group_graph_pattern_unguarded)
+    }
+
+    fn parse_group_graph_pattern_unguarded(&mut self) -> Result<GraphPattern, SparqlError> {
         self.skip_whitespace();
 
         if !self.match_char('{') {
@@ -512,6 +540,10 @@ impl<'a> SparqlParser<'a> {
     }
 
     fn parse_path_alternative(&mut self) -> Result<PropertyPath, SparqlError> {
+        self.nested(Self::parse_path_alternative_unguarded)
+    }
+
+    fn parse_path_alternative_unguarded(&mut self) -> Result<PropertyPath, SparqlError> {
         let mut left = self.parse_path_sequence()?;
 
         loop {
@@ -639,7 +671,7 @@ impl<'a> SparqlParser<'a> {
     }
 
     fn parse_expression(&mut self) -> Result<Expression, SparqlError> {
-        self.parse_conditional_or_expression()
+        self.nested(Self::parse_conditional_or_expression)
     }
 
     fn parse_conditional_or_expression(&mut self) -> Result<Expression, SparqlError> {
@@ -2492,5 +2524,52 @@ mod tests {
         "#;
         let result = parse_sparql(query);
         assert!(result.is_ok());
+    }
+
+    // Deeply nested input must be rejected with an error instead of
+    // recursing until the backend's stack overflows.
+    #[test]
+    fn test_deep_group_pattern_nesting_rejected() {
+        let n = 100_000;
+        let query = format!(
+            "SELECT ?s WHERE {}?s ?p ?o{}",
+            "{ OPTIONAL ".repeat(n),
+            " }".repeat(n)
+        );
+        assert!(parse_sparql(&query).is_err());
+    }
+
+    #[test]
+    fn test_deep_expression_nesting_rejected() {
+        let n = 100_000;
+        let query = format!(
+            "SELECT ?s WHERE {{ ?s ?p ?o . FILTER({}?o{}) }}",
+            "(".repeat(n),
+            ")".repeat(n)
+        );
+        assert!(parse_sparql(&query).is_err());
+    }
+
+    #[test]
+    fn test_deep_property_path_nesting_rejected() {
+        let n = 100_000;
+        let query = format!(
+            "SELECT ?s WHERE {{ ?s {}<http://example.org/p>{} \"x\" }}",
+            "(".repeat(n),
+            ")".repeat(n)
+        );
+        assert!(parse_sparql(&query).is_err());
+    }
+
+    #[test]
+    fn test_moderate_nesting_still_parses() {
+        let query = format!(
+            "SELECT ?s WHERE {{ ?s {}<http://example.org/p>{} \"x\" . FILTER({}?s{}) }}",
+            "(".repeat(16),
+            ")".repeat(16),
+            "(".repeat(16),
+            ")".repeat(16)
+        );
+        assert!(parse_sparql(&query).is_ok());
     }
 }
