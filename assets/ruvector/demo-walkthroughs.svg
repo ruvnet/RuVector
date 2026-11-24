@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="120" viewBox="0 0 960 120" role="img" aria-labelledby="title desc">
+  <title id="title">RuVector demo walkthroughs</title>
+  <desc id="desc">A play button beside a vector graph with a moving signal.</desc>
+  <defs>
+    <linearGradient id="surface" x2="1" y2=".2" gradientUnits="objectBoundingBox">
+      <stop stop-color="#101d2b"/>
+      <stop offset=".6" stop-color="#12232d"/>
+      <stop offset="1" stop-color="#153b40"/>
+    </linearGradient>
+    <pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse">
+      <circle cx="8" cy="8" r="1" fill="#79dcc4" opacity=".18"/>
+    </pattern>
+  </defs>
+  <style>
+    @keyframes trace {
+      from { stroke-dashoffset: 28; }
+      to { stroke-dashoffset: -238; }
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .signal { animation: trace 3.6s ease-in-out 1; }
+    }
+  </style>
+  <rect x="1" y="1" width="958" height="118" rx="16" fill="url(#surface)" stroke="#37575c" stroke-width="2"/>
+  <circle cx="58" cy="60" r="30" fill="#8af1d2"/>
+  <path d="M51 47 71 60 51 73Z" fill="#102a2b"/>
+  <g font-family="system-ui, sans-serif">
+    <text x="111" y="42" fill="#97d7c9" font-size="17" font-weight="650" letter-spacing="3">RUVECTOR</text>
+    <text x="109" y="87" fill="#f5faf8" font-size="43" font-weight="700">Demo walkthroughs</text>
+  </g>
+  <g transform="translate(680 12)">
+    <rect width="260" height="96" fill="url(#dots)"/>
+    <g fill="none" stroke="#578b89" stroke-width="1.5">
+      <path d="m12 52 57-32 61 48 56-48 55 30 M12 52l55 28 63-12 60 10 51-28 M69 20l-2 60m2-60 117 0 4 58"/>
+      <path d="m12 52 57-32 61 48 111-18" stroke="#8af1d2" stroke-width="2"/>
+      <path class="signal" d="m12 52 57-32 61 48 111-18" pathLength="238" stroke="#f2fff8" stroke-width="4" stroke-linecap="round" stroke-dasharray="24 242"/>
+    </g>
+    <g fill="#1a333b" stroke="#9ecfc6" stroke-width="2">
+      <circle cx="69" cy="20" r="5"/><circle cx="67" cy="80" r="4"/>
+      <circle cx="130" cy="68" r="6"/><circle cx="186" cy="20" r="4"/>
+      <circle cx="190" cy="78" r="4"/>
+    </g>
+    <g fill="#8af1d2"><circle cx="12" cy="52" r="6"/><circle cx="241" cy="50" r="6"/></g>
+  </g>
+</svg>
