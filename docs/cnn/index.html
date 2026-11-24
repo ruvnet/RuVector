@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RuVector CNN - Neural Image Understanding</title>
+    <meta name="description" content="Image embeddings, similarity, pose and few-shot learning running in your browser with RuVector CNN (Rust + WebAssembly). No backend.">
+    <meta property="og:title" content="RuVector CNN - Neural Image Understanding">
+    <meta property="og:description" content="Image embeddings, similarity, pose and few-shot learning in your browser. No backend.">
+    <meta name="theme-color" content="#0a0a0a">
+    <link rel="icon" href="../explorer/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -680,10 +685,39 @@
             .container { padding: 1rem; }
             .tabs { width: 100%; justify-content: center; }
         }
+
+        /* Site bar, compact hero, sticky tabs (2026-11 UI pass) */
+        .site-bar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 0.6rem; padding: 0.65rem 1.5rem; background: hsla(0, 0%, 3.9%, 0.82); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid hsl(var(--border)); font-size: 0.85rem; }
+        .site-bar a { color: hsl(var(--muted-foreground)); text-decoration: none; }
+        .site-bar a:hover, .site-bar a:focus-visible { color: hsl(var(--foreground)); }
+        .site-bar .site-home { color: hsl(var(--foreground)); font-weight: 600; }
+        .site-bar .site-sep { color: hsl(var(--border)); }
+        .site-bar .site-here { color: hsl(var(--primary)); font-weight: 600; }
+        .site-bar .site-links { margin-left: auto; display: flex; gap: 1.1rem; }
+        header { margin-bottom: 1.5rem; padding: 1rem 0 0.25rem; }
+        h1 { font-size: clamp(2.1rem, 4.2vw, 3rem); }
+        .logo-icon { width: 40px; height: 40px; font-size: 1.25rem; }
+        .tagline { margin: 0.25rem 0 1rem; font-size: 1.05rem; }
+        .tabs { position: sticky; top: 44px; z-index: 40; max-width: 100%; overflow-x: auto; scrollbar-width: none; box-shadow: 0 8px 24px hsla(0, 0%, 0%, 0.35); }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab { flex: none; white-space: nowrap; }
+        .tab:focus-visible, .sample-img:focus-visible, .btn:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+        .sample-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+        .sample-img { width: auto; height: auto; aspect-ratio: 1; padding: 0; background: none; font: inherit; }
+        .sample-img:hover { border-color: hsl(var(--primary)); }
+        .try-samples { margin-top: 0.25rem; }
+        @media (max-width: 768px) {
+            .site-bar { padding: 0.6rem 1rem; }
+            .site-bar .site-links { gap: 0.8rem; }
+            .tabs { justify-content: flex-start; width: auto; top: 42px; }
+            .sample-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        @media (prefers-reduced-motion: reduce) { h1 { animation: none; } }
     </style>
 </head>
 <body>
     <div class="gradient-blur"></div>
+    <nav class="site-bar" aria-label="RuVector demos"><a class="site-home" href="../">RuVector</a><span class="site-sep" aria-hidden="true">/</span><span class="site-here" aria-current="page">CNN</span><span class="site-links"><a href="../explorer/">Explorer</a><a href="https://github.com/ruvnet/ruvector">GitHub</a></span></nav>
 
     <div class="container">
         <header>
@@ -702,7 +736,7 @@
         </header>
 
         <!-- Tabs -->
-        <div class="tabs">
+        <div class="tabs" role="tablist" aria-label="CNN demos">
             <button class="tab active" data-tab="playground">Playground</button>
             <button class="tab" data-tab="realtime">Real-time</button>
             <button class="tab" data-tab="pose">Pose Estimation</button>
@@ -780,6 +814,7 @@
                                 <p style="color: hsl(var(--muted-foreground)); text-align: center; padding: 2rem;">
                                     Extract features from 2+ images to see similarity scores
                                 </p>
+                                <p style="text-align: center;"><button class="btn btn-secondary try-samples" id="try-samples" type="button">Try it with the 6 sample images</button></p>
                             </div>
                         </div>
                     </div>
@@ -1556,14 +1591,28 @@
         const stopRealtimeBtn = document.getElementById('stop-realtime-btn');
 
         // Tabs
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                tab.classList.add('active');
-                document.querySelector(`.tab-content[data-tab="${tab.dataset.tab}"]`).classList.add('active');
+        const tabButtons = [...document.querySelectorAll('.tab')];
+        function selectTab(tab, { focus = false, updateHash = true } = {}) {
+            tabButtons.forEach(t => { const on = t === tab; t.classList.toggle('active', on); t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; });
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === tab.dataset.tab));
+            tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            if (focus) tab.focus();
+            if (updateHash) history.replaceState(null, '', tab.dataset.tab === 'playground' ? location.pathname : '#' + tab.dataset.tab);
+        }
+        tabButtons.forEach((tab, i) => {
+            tab.setAttribute('role', 'tab');
+            tab.id = 'tab-' + tab.dataset.tab;
+            tab.setAttribute('aria-controls', 'panel-' + tab.dataset.tab);
+            const panel = document.querySelector(`.tab-content[data-tab="${tab.dataset.tab}"]`);
+            panel.id = 'panel-' + tab.dataset.tab; panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', tab.id);
+            tab.addEventListener('click', () => selectTab(tab));
+            tab.addEventListener('keydown', e => {
+                const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+                if (step) { e.preventDefault(); selectTab(tabButtons[(i + step + tabButtons.length) % tabButtons.length], { focus: true }); }
+                else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); selectTab(tabButtons[e.key === 'Home' ? 0 : tabButtons.length - 1], { focus: true }); }
             });
         });
+        selectTab(tabButtons.find(t => '#' + t.dataset.tab === location.hash) || tabButtons[0], { updateHash: false });
 
         function log(message, type = 'info') {
             const line = document.createElement('div');
@@ -1631,11 +1680,20 @@
         ];
 
         samples.forEach((url, i) => {
-            const div = document.createElement('div');
+            const div = document.createElement('button');
+            div.type = 'button';
             div.className = 'sample-img';
-            div.innerHTML = `<img src="${url}" alt="Sample" crossorigin="anonymous">`;
+            div.setAttribute('aria-label', `Add sample image ${i + 1}`);
+            div.innerHTML = `<img src="${url}" alt="" crossorigin="anonymous">`;
             div.onclick = () => loadImageFromUrl(url);
             sampleImagesContainer.appendChild(div);
+        });
+
+        // One click from the empty similarity panel: load every sample, then extract.
+        document.getElementById('try-samples')?.addEventListener('click', async (e) => {
+            e.currentTarget.disabled = true;
+            for (const url of samples) await loadImageFromUrl(url);
+            await extractFeatures();
         });
 
         async function loadImageFromUrl(url) {
