@@ -1,0 +1,116 @@
+WEBVTT
+
+1
+00:00:00.300 --> 00:00:04.370
+Meet RuVector: memory
+for software, at work.
+
+2
+00:00:06.410 --> 00:00:12.570
+This is RuVector in your browser: a query
+walking a graph of three thousand vectors.
+
+3
+00:00:16.180 --> 00:00:21.210
+It learns from use, keeping what worked,
+so the next search does less work.
+
+4
+00:00:25.870 --> 00:00:30.510
+Every engine runs on the same data, so
+you can measure the difference yourself.
+
+5
+00:00:36.690 --> 00:00:43.240
+In a supply-chain control tower, the agent with
+memory recalls similar past problems before it acts.
+
+6
+00:00:43.690 --> 00:00:48.800
+Both agents see the same problems. The
+one with memory keeps pulling ahead.
+
+7
+00:00:51.570 --> 00:00:56.050
+More exceptions get resolved without
+a person, and nothing was retrained.
+
+8
+00:00:59.170 --> 00:01:04.280
+In a robot fleet, the first robot to find
+a blocked aisle shares it with the rest.
+
+9
+00:01:05.200 --> 00:01:11.040
+Without shared memory, each robot finds
+the blockage alone, then stops and waits.
+
+10
+00:01:11.670 --> 00:01:15.030
+Same plant, same robots, fewer stops.
+
+11
+00:01:23.220 --> 00:01:29.140
+In a store twin, as a shelf empties, memory
+finds notes about this exact problem.
+
+12
+00:01:31.590 --> 00:01:36.540
+Past shift notes are matched by meaning,
+not keywords, right in the browser.
+
+13
+00:01:42.050 --> 00:01:46.530
+The manager is off shift, but
+what she learned still answers.
+
+14
+00:01:51.150 --> 00:01:55.710
+In a container yard, the twin on the
+right remembers when people cross.
+
+15
+00:01:57.970 --> 00:02:03.000
+Each crossing is recalled by place
+and time, so trucks slow down early.
+
+16
+00:02:05.340 --> 00:02:09.410
+Same trucks, same people,
+far fewer close calls.
+
+17
+00:02:12.720 --> 00:02:17.440
+Out in the field, the machine searches
+its memory for where it got stuck before.
+
+18
+00:02:20.830 --> 00:02:25.080
+So it steers around that soft
+ground instead of driving into it.
+
+19
+00:02:26.570 --> 00:02:31.680
+Same field, same rain. Only the
+machine without memory gets stuck.
+
+20
+00:02:38.050 --> 00:02:43.500
+On a pit wall, today's forecast draws a
+straight line and misses the tyres fading.
+
+21
+00:02:44.290 --> 00:02:49.010
+RuVector recalls the closest past
+stints and sees the drop-off coming.
+
+22
+00:02:51.560 --> 00:02:55.730
+When the stint ends, the result goes
+back into memory for next time.
+
+23
+00:02:58.700 --> 00:03:03.400
+Every demo here uses synthetic data.
+Try RuVector yourself in the Explorer.
+
