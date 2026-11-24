@@ -6,7 +6,7 @@ const header=document.querySelector('.explorer-intro'),stage=document.getElement
 const top=document.createElement('nav');top.className='rx-topnav';top.setAttribute('aria-label','Explorer sections');top.setAttribute('role','tablist');
 const dock=document.createElement('nav');dock.className='rx-dock';dock.setAttribute('aria-label','App navigation');dock.setAttribute('role','tablist');
 function navHTML(where){return tabs.map(([id,label,description])=>`<button id="rx-${where}-${id}" role="tab" data-rx-tab="${id}" aria-selected="false" aria-controls="rx-panel-${id}" title="${description}">${icon(id)}<span>${label}</span></button>`).join('');}
-top.innerHTML=navHTML('top')+'<button class="rx-help" data-rx-help aria-label="Open Explorer guide">?</button>';dock.innerHTML=navHTML('dock');header.after(top);document.body.append(dock);
+top.innerHTML=navHTML('top')+'<button class="rx-help" data-rx-help aria-label="Open Explorer guide">?</button>';dock.innerHTML=navHTML('dock')+'<button class="rx-help" data-rx-help aria-label="Open Explorer guide">?</button>';header.after(top);document.body.append(dock);
 const workspace=document.createElement('main');workspace.id='rx-workspace';top.after(workspace);workspace.append(stage,strip);
 const routes={};for(const [id,label]of tabs){const p=document.createElement('section');p.id='rx-panel-'+id;p.className='rx-panel';p.setAttribute('role','tabpanel');p.setAttribute('aria-label',label);p.tabIndex=-1;workspace.append(p);routes[id]=p;}
 routes.search.append(panels);routes.learn.append(learn);routes.bench.append(bench,ref);routes.capabilities.append(lab);

@@ -20,3 +20,7 @@ body.rx-focus-mode #topo,#stage:fullscreen #topo{width:100%;height:100dvh!import
 @media(max-width:740px){#focusBtn{top:calc(158px + env(safe-area-inset-top,0px));left:12px}#fullBtn{top:calc(110px + env(safe-area-inset-top,0px));left:12px;right:auto}#stage:fullscreen #fullBtn{top:calc(110px + env(safe-area-inset-top,0px))}.stage:fullscreen #topo{height:100dvh!important}}
 /* Phones: the zoom rail rises to the top-right column, so fullscreen sits above focus in the left column instead of over Zoom out. */
 @media(prefers-reduced-motion:reduce){body.rx-focus-mode #stage{scroll-behavior:auto}}
+
+/* Below 1000px the bottom dock carries the sections and the guide, so the top row would only repeat it. */
+@media(max-width:999px){.rx-topnav{display:none}html{scroll-padding-top:76px}.rx-dock .rx-help{flex:0 0 44px;min-width:44px;padding:0;font-size:15px}}
+@media(min-width:1000px){.rx-dock .rx-help{display:none}}
