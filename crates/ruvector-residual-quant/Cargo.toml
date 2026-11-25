@@ -1,0 +1,17 @@
+[package]
+name = "ruvector-residual-quant"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Sheaf-residual-gated per-vector quantization bit-width for agent memory, benchmarked against density-gated and random allocation at a matched bit budget"
+readme = "README.md"
+keywords = ["quantization", "agent-memory", "coherence", "vector-search", "witness"]
+categories = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]

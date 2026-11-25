@@ -10545,6 +10545,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-residual-quant"
+version = "2.3.0"
+
+[[package]]
 name = "ruvector-retrieval-receipt"
 version = "0.1.0"
 dependencies = [

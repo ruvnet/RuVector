@@ -1,0 +1,78 @@
+Command: cargo run --release -p ruvector-residual-quant --bin benchmark
+Rust: rustc 1.97.0 (2d8144b78 2026-07-07) / cargo 1.97.0 (c980f4866 2026-06-30)
+OS: Linux 6.18.44-fc-v880 x86_64
+Preceding: cargo fmt; cargo build --release -p ruvector-residual-quant;
+           cargo test -p ruvector-residual-quant (15 passed, 0 failed);
+           cargo clippy -p ruvector-residual-quant --all-targets (clean)
+Repeated runs: single execution shown; each of the 5 seeds below is an
+independent corpus draw, so cross-seed spread in the aggregate table is
+the real run-to-run variance, not resampling of one dataset.
+
+================================================================
+ ADR-362: Sheaf-residual-gated quantization bit-width benchmark
+================================================================
+Platform : linux / x86_64
+Vectors  : 1500   Dim: 48   Clusters: 6
+Boundary fraction (planted contradictions): 0.08
+kNN k: 10   Edge projection dim: 12
+Bit budget: hi=8 lo=2 hi_fraction=0.25  -> matched avg bits/dim = 3.50
+Queries/seed: 250   Seeds: [1, 2, 3, 4, 5]
+
+--- seed 1 ---
+  raw fp32 reference: 192 bytes/vector, 1500 vectors total = 0.27 MB
+  graph build: 200.3ms   residual_auc=0.361  density_auc=0.414  residual_vs_density_corr=0.880
+  [random        ] overall_recall=0.260  boundary_recall=0.879  bytes=43500  quant_build=658us  query=26303us  witness_ok=true
+  [residual_gated] overall_recall=0.213  boundary_recall=0.921  bytes=43500  quant_build=540us  query=25904us  witness_ok=true
+  [density_gated ] overall_recall=0.194  boundary_recall=0.936  bytes=43500  quant_build=592us  query=26889us  witness_ok=true
+
+--- seed 2 ---
+  raw fp32 reference: 192 bytes/vector, 1500 vectors total = 0.27 MB
+  graph build: 163.4ms   residual_auc=0.562  density_auc=0.626  residual_vs_density_corr=0.860
+  [random        ] overall_recall=0.229  boundary_recall=0.812  bytes=43500  quant_build=480us  query=25315us  witness_ok=true
+  [residual_gated] overall_recall=0.200  boundary_recall=0.900  bytes=43500  quant_build=508us  query=25267us  witness_ok=true
+  [density_gated ] overall_recall=0.201  boundary_recall=0.929  bytes=43500  quant_build=523us  query=26290us  witness_ok=true
+
+--- seed 3 ---
+  raw fp32 reference: 192 bytes/vector, 1500 vectors total = 0.27 MB
+  graph build: 156.9ms   residual_auc=0.531  density_auc=0.641  residual_vs_density_corr=0.842
+  [random        ] overall_recall=0.229  boundary_recall=0.781  bytes=43500  quant_build=479us  query=26038us  witness_ok=true
+  [residual_gated] overall_recall=0.196  boundary_recall=0.881  bytes=43500  quant_build=563us  query=25494us  witness_ok=true
+  [density_gated ] overall_recall=0.184  boundary_recall=0.900  bytes=43500  quant_build=526us  query=26841us  witness_ok=true
+
+--- seed 4 ---
+  raw fp32 reference: 192 bytes/vector, 1500 vectors total = 0.27 MB
+  graph build: 146.7ms   residual_auc=0.459  density_auc=0.489  residual_vs_density_corr=0.872
+  [random        ] overall_recall=0.243  boundary_recall=0.740  bytes=43500  quant_build=399us  query=20050us  witness_ok=true
+  [residual_gated] overall_recall=0.205  boundary_recall=0.855  bytes=43500  quant_build=426us  query=19903us  witness_ok=true
+  [density_gated ] overall_recall=0.195  boundary_recall=0.870  bytes=43500  quant_build=401us  query=20301us  witness_ok=true
+
+--- seed 5 ---
+  raw fp32 reference: 192 bytes/vector, 1500 vectors total = 0.27 MB
+  graph build: 132.8ms   residual_auc=0.424  density_auc=0.475  residual_vs_density_corr=0.873
+  [random        ] overall_recall=0.241  boundary_recall=0.756  bytes=43500  quant_build=396us  query=20358us  witness_ok=true
+  [residual_gated] overall_recall=0.216  boundary_recall=0.878  bytes=43500  quant_build=423us  query=19914us  witness_ok=true
+  [density_gated ] overall_recall=0.216  boundary_recall=0.894  bytes=43500  quant_build=427us  query=19728us  witness_ok=true
+
+================================================================
+ Aggregate across 5 seeds
+================================================================
+Residual-energy AUC (separating planted boundary vectors): mean=0.467 std=0.072
+Local-density AUC (same task):                              mean=0.529 std=0.089
+Pearson corr(residual_score, density_score):                mean=0.865 std=0.013
+
+┌────────────────┬─────────────────────┬─────────────────────┬──────────┐
+│ Policy         │ Overall recall@10    │ Boundary recall@10  │ Bytes    │
+├────────────────┼─────────────────────┼─────────────────────┼──────────┤
+│ random         │    0.240 ±   0.012 │    0.793 ±   0.049 │    43500 │
+│ residual_gated │    0.206 ±   0.008 │    0.887 ±   0.022 │    43500 │
+│ density_gated  │    0.198 ±   0.010 │    0.906 ±   0.024 │    43500 │
+└────────────────┴─────────────────────┴─────────────────────┴──────────┘
+
+Gate: residual_boundary_recall - random_boundary_recall >= 0.05  -> 0.887 - 0.793 = 0.094  [PASS]
+Gate: residual_overall_recall >= random_overall_recall - 0.02         -> 0.206 >= 0.220  [FAIL]
+Gate: matched byte budget across all policies (every seed)              [PASS]
+Gate: witness hash chain verifies for every policy run (every seed)      [PASS]
+
+Context (not a gate): residual vs. density boundary_recall = 0.887 vs. 0.906
+
+ACCEPTANCE RESULT: REJECT
