@@ -227,9 +227,22 @@ impl GraphStorage {
 
     /// Insert a node
     pub fn insert_node(&self, node: &Node) -> Result<NodeId> {
+        self.write_node(node, true)?;
+        Ok(node.id.clone())
+    }
+
+    /// Insert a node only if its ID is absent, returning whether it was inserted.
+    pub fn insert_node_if_absent(&self, node: &Node) -> Result<bool> {
+        self.write_node(node, false)
+    }
+
+    fn write_node(&self, node: &Node, replace_existing: bool) -> Result<bool> {
         let write_txn = self.db().begin_write()?;
         {
             let mut table = write_txn.open_table(NODES_TABLE)?;
+            if !replace_existing && table.get(node.id.as_str())?.is_some() {
+                return Ok(false);
+            }
 
             // Serialize node data
             let node_data = bincode::encode_to_vec(node, config::standard())?;
@@ -237,7 +250,7 @@ impl GraphStorage {
         }
         write_txn.commit()?;
 
-        Ok(node.id.clone())
+        Ok(true)
     }
 
     /// Insert multiple nodes in a batch
