@@ -417,7 +417,14 @@ export class RvLite {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      fs.writeFileSync(filePath, JSON.stringify(rvfEnvelope, null, 2), 'utf-8');
+      // The WASM export uses Maps and represents null map values as undefined.
+      const json = JSON.stringify(rvfEnvelope, (_key, value) => {
+        if (value instanceof Map) {
+          return Object.fromEntries(Array.from(value, ([key, entry]) => [key, entry ?? null]));
+        }
+        return value;
+      }, 2);
+      fs.writeFileSync(filePath, json, 'utf-8');
     } else {
       throw new Error(
         'saveToRvf is only supported in Node.js environments. ' +
