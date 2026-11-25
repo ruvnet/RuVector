@@ -43,3 +43,23 @@ test('CommonJS build works in Node', async () => {
   const { RvLite } = require('../dist/index.cjs');
   await exercise(RvLite);
 });
+
+test('Cypher relationship patterns honor hop bounds and target properties', async () => {
+  const { RvLite } = await import('../dist/index.mjs');
+  const db = new RvLite({ dimensions: 3 });
+  await db.cypher(`
+    CREATE (a:N {id:'n1'}), (b:N {id:'n2'}), (c:N {id:'n3'}),
+           (a)-[:R]->(b), (b)-[:R]->(c)
+  `);
+
+  const query = async (pattern) => {
+    const result = await db.cypher(`MATCH (a:N {id:'n1'})${pattern} RETURN b.id`);
+    return result.rows.map((row) => row.get('b.id').Value.String).sort();
+  };
+
+  assert.deepEqual(await query('-[:R]->(b)'), ['n2']);
+  assert.deepEqual(await query('-[:R*1..2]->(b)'), ['n2', 'n3']);
+  assert.deepEqual(await query("-[:R*2]->(b:N {id:'n3'})"), ['n3']);
+  assert.deepEqual(await query("-[:R]->(b:N {id:'n3'})"), []);
+  await assert.rejects(query('-[:R*4294967296]->(b)'), /Relationship length is out of range/);
+});
