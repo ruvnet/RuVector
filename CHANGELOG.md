@@ -43,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (Node.js Graph)
+- Graph Node returns an `Unsupported Cypher` error for unsupported `RETURN`
+  expressions, `ORDER BY`, `SKIP`, `LIMIT`, and `WITH`. The `type(r)` predicate
+  reads the stored relationship type.
+
 ### Fixed (Python SDK)
 - Python LangChain adapter: duplicate caller IDs in one batch are rejected before inserting vectors, preventing rows that cannot be deleted through the adapter.
 - Python Collection persistence binds new sidecars to their index bytes with a SHA-256 digest, rejecting mixed file pairs after an interrupted index replacement. Legacy sidecars remain readable without this integrity guarantee.

@@ -98,6 +98,7 @@ await db.query('MATCH (n) WHERE n.a > 1 AND n.b < 5 RETURN n');
 await db.query("MATCH (n {name: 'alice'}) RETURN n");        // inline props
 await db.query('MATCH (a)-[r:knows]->(b) RETURN a, r, b');   // typed edges
 await db.query('MATCH (a)-[r]->(b) RETURN r');               // any edge
+await db.query("MATCH (a)-[r]->(b) WHERE type(r) = 'knows' RETURN a, b");
 ```
 
 `WHERE` handles `=`, `<>`, `<`, `<=`, `>`, `>=`, `AND`, `OR`, arithmetic, and
@@ -113,9 +114,12 @@ Not supported — these **raise an error**, they do not silently return `[]`:
 | chained patterns, `(a)-[]->(b)<-[]-(c)` | separate queries |
 | hyperedge patterns in `MATCH` | `searchHyperedges()` |
 
+Both `query()` and `querySync()` raise `Unsupported Cypher` for
+`ORDER BY`, `SKIP`, `LIMIT`, `WITH`, and `RETURN` expressions such as
+`count()` and `collect()`.
+
 Not supported at the parser level, so these fail to parse: `CONTAINS`,
-`STARTS WITH`, `ENDS WITH`, `IN`, `IS NULL`, `=~`. Aggregations (`count()`,
-`collect()`), `ORDER BY`, `SKIP` and `LIMIT` are parsed but not applied.
+`STARTS WITH`, `ENDS WITH`, `IN`, `IS NULL`, `=~`.
 
 Known defect: `NOT` binds tighter than comparison, so `NOT n.age = 30` parses
 as `(NOT n.age) = 30` and matches nothing. Use `<>`. Tracked in
