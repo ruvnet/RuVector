@@ -27,8 +27,8 @@ sha2 = "0.10"
 ort = { version = "=2.0.0-rc.13", features = ["download-binaries", "half"], optional = true }
 
 # WASM ONNX (ADR-002 §3): tract, re-tested for INT8 on 0.23.
-tract-onnx = { version = "0.23", optional = true }
-tract-core = { version = "0.23", optional = true }
+tract-onnx = { version = "0.23.10", optional = true }
+tract-core = { version = "0.23.10", optional = true }
 
 # Tokenizer is shared; the regex backend differs per target (onig native, unstable_wasm wasm).
 tokenizers = { version = "0.20", default-features = false, optional = true }

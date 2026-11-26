@@ -1,9 +1,11 @@
 //! WASM ONNX embedder on `tract-onnx` 0.23 (ADR-002 §3).
 //!
-//! `tract` compiles an optimised plan for a *fixed* input shape, so this keeps
-//! the raw ONNX bytes and lazily builds one plan per distinct padded sequence
-//! length (cached), running batch rows one at a time. That keeps timing honest
-//! — a short batch is not padded to 256 — without symbolic-dimension plumbing.
+//! This keeps the raw ONNX bytes, builds the plan lazily (cached per padded
+//! sequence length) and runs batch rows one at a time, so a short batch is not
+//! padded to 256. Inputs are declared with the graph's own symbolic
+//! `batch_size` / `sequence_length` dims and bound by input NAME, because HF
+//! exports differ in input order (nomic-embed-text declares `input_ids`,
+//! `token_type_ids`, `attention_mask`).
 //!
 //! No `std::time`, `fs` or network here (ADR-005; repo `no-systemtime-in-wasm`
 //! guard): the caller supplies model + tokenizer bytes and verifies hashes.
@@ -148,10 +150,12 @@ impl LoadOutcome {
     }
 }
 
-/// Try to load `model_bytes` through parse -> optimise -> runnable at a fixed
-/// `seq_len`, reporting how far it got. Input arity is read from the parsed
-/// model. Never returns `Err`; the failure stage is part of the value.
-pub fn diagnose_load(model_bytes: &[u8], seq_len: usize) -> LoadOutcome {
+/// Try to load `model_bytes` through parse -> optimise -> runnable with the
+/// symbolic `[batch_size, sequence_length]` input shape, reporting how far it
+/// got (`_seq_len` is kept so the signature is unchanged and is ignored). Input
+/// arity is read from the parsed model. Never returns `Err`; the failure stage
+/// is part of the value.
+pub fn diagnose_load(model_bytes: &[u8], _seq_len: usize) -> LoadOutcome {
     let parsed = match tract_onnx::onnx().model_for_read(&mut std::io::Cursor::new(model_bytes)) {
         Ok(m) => m,
         Err(e) => return LoadOutcome::FailedParse(e.to_string()),
@@ -159,10 +163,8 @@ pub fn diagnose_load(model_bytes: &[u8], seq_len: usize) -> LoadOutcome {
     let num_inputs = parsed.inputs.len();
     let mut m = parsed;
     for i in 0..num_inputs {
-        match m.with_input_fact(
-            i,
-            InferenceFact::dt_shape(i64::datum_type(), tvec![1, seq_len]),
-        ) {
+        let fact = input_fact(&m);
+        match m.with_input_fact(i, fact) {
             Ok(next) => m = next,
             Err(e) => return LoadOutcome::FailedParse(format!("with_input_fact[{i}]: {e}")),
         }
@@ -177,16 +179,29 @@ pub fn diagnose_load(model_bytes: &[u8], seq_len: usize) -> LoadOutcome {
     }
 }
 
-fn build_plan(model_bytes: &[u8], num_inputs: usize, seq_len: usize) -> Result<Arc<Plan>> {
+/// `[batch_size, sequence_length]` i64, using the graph's OWN symbol names.
+///
+/// HF ONNX exports (nomic-embed-text, BERT, MiniLM, bge) declare their inputs
+/// and value_info with the symbols `batch_size` and `sequence_length`. A
+/// concrete `[1, seq_len]` fails to unify with them at the first Gather
+/// (`Impossible to unify Sym(batch_size) with Val(1)`, seen on
+/// nomic-embed-text-v1.5); reusing the names gives one plan for every length.
+fn input_fact(m: &InferenceModel) -> InferenceFact {
+    let (b, s) = (
+        m.symbols.sym("batch_size"),
+        m.symbols.sym("sequence_length"),
+    );
+    InferenceFact::dt_shape(i64::datum_type(), tvec![b.to_dim(), s.to_dim()])
+}
+
+fn build_plan(model_bytes: &[u8], num_inputs: usize, _seq_len: usize) -> Result<Arc<Plan>> {
     let mut m = tract_onnx::onnx()
         .model_for_read(&mut std::io::Cursor::new(model_bytes))
         .map_err(|e| EmbedError::Backend(format!("parse: {e}")))?;
     for i in 0..num_inputs {
+        let fact = input_fact(&m);
         m = m
-            .with_input_fact(
-                i,
-                InferenceFact::dt_shape(i64::datum_type(), tvec![1, seq_len]),
-            )
+            .with_input_fact(i, fact)
             .map_err(|e| EmbedError::Backend(format!("with_input_fact[{i}]: {e}")))?;
     }
     // `into_runnable` already returns an `Arc`.
@@ -219,14 +234,34 @@ fn run_row(
         .map_err(|e| EmbedError::Backend(e.to_string()))?
         .into();
 
-    let inputs: TVec<TValue> = if num_inputs >= 3 {
-        let types_t: Tensor = tract_ndarray::Array2::from_shape_vec((1, seq), types.to_vec())
-            .map_err(|e| EmbedError::Backend(e.to_string()))?
-            .into();
-        tvec![ids_t.into(), mask_t.into(), types_t.into()]
-    } else {
-        tvec![ids_t.into(), mask_t.into()]
-    };
+    let types_t: Tensor = tract_ndarray::Array2::from_shape_vec((1, seq), types.to_vec())
+        .map_err(|e| EmbedError::Backend(e.to_string()))?
+        .into();
+
+    // Bind by NAME, not position: exports differ in input order (nomic-embed-text
+    // declares input_ids, token_type_ids, attention_mask). Unnamed graphs keep
+    // the old positional order (ids, mask, types).
+    let model = plan.model();
+    let mut by_pos = [Some(ids_t), Some(mask_t), Some(types_t)];
+    let mut inputs: TVec<TValue> = tvec![];
+    for (i, outlet) in model
+        .input_outlets()
+        .map_err(|e| EmbedError::Backend(e.to_string()))?
+        .iter()
+        .enumerate()
+        .take(num_inputs)
+    {
+        let slot = match model.node(outlet.node).name.as_str() {
+            "input_ids" => 0,
+            "attention_mask" => 1,
+            "token_type_ids" => 2,
+            _ => i.min(2),
+        };
+        let t = by_pos[slot]
+            .take()
+            .ok_or_else(|| EmbedError::Shape(format!("graph input {i} bound twice")))?;
+        inputs.push(t.into());
+    }
 
     let outputs = plan
         .run(inputs)
