@@ -55,6 +55,36 @@ test('UIServer rejects cross-origin WebSocket connections', async () => {
   }
 });
 
+test('UIServer on loopback rejects requests with a foreign Host header', async () => {
+  const http = await import('node:http');
+  const { WebSocket } = await import('ws');
+  const server = new UIServer(fakeDb, 0);
+  await server.start();
+  const port = server.address().port;
+  const get = (host, path) => new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path, method: 'GET', headers: { Host: host } }, (res) => {
+      res.resume();
+      resolve(res.statusCode);
+    });
+    req.on('error', reject);
+    req.end();
+  });
+  const openWs = (host) => new Promise((resolve) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`, { origin: `http://${host}`, headers: { Host: host } });
+    ws.on('open', () => { ws.close(); resolve('open'); });
+    ws.on('error', () => resolve('rejected'));
+  });
+  try {
+    assert.strictEqual(await get(`rebind.example:${port}`, '/api/graph'), 403);
+    assert.strictEqual(await get(`rebind.example:${port}`, '/'), 403);
+    assert.strictEqual(await openWs(`rebind.example:${port}`), 'rejected');
+    assert.strictEqual(await get(`127.0.0.1:${port}`, '/health'), 200);
+    assert.strictEqual(await get(`localhost:${port}`, '/health'), 200);
+  } finally {
+    await server.stop();
+  }
+});
+
 test('UIServer.start rejects when the port is already in use', async () => {
   const first = new UIServer(fakeDb, 0);
   await first.start();
