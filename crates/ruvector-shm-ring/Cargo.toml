@@ -1,0 +1,22 @@
+[package]
+name = "ruvector-shm-ring"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Shared-memory record ring with one writer, many readers, and a caller-chosen byte size"
+keywords = ["shared-memory", "ring-buffer", "lock-free", "ipc"]
+categories = ["concurrency", "data-structures"]
+readme = "README.md"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(unix)'.dev-dependencies]
+libc = "0.2"
+
+[lints.rust]
+missing_docs = "deny"
+unsafe_op_in_unsafe_fn = "deny"
