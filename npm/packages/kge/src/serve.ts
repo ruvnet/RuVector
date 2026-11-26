@@ -35,6 +35,30 @@ function statusForError(err: KgeError): number {
   return 400;
 }
 
+const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/**
+ * DNS-rebinding guard: a request that arrives on a loopback address must name
+ * loopback in its Host header. A server bound elsewhere on purpose (--host
+ * 0.0.0.0) still answers LAN clients by whatever name they use.
+ */
+function hostAllowed(req: http.IncomingMessage): boolean {
+  if (!LOOPBACK_ADDRESSES.has(req.socket.localAddress ?? '')) return true;
+  const host = String(req.headers.host ?? '').toLowerCase();
+  const name = host.startsWith('[') ? host.slice(0, host.indexOf(']') + 1) : host.split(':')[0];
+  return LOOPBACK_HOSTNAMES.has(name);
+}
+
+/**
+ * Browsers send cross-origin POSTs without a CORS preflight only for "simple"
+ * content types, so POST bodies must be declared application/json.
+ */
+function isJsonContentType(req: http.IncomingMessage): boolean {
+  const type = String(req.headers['content-type'] ?? '').split(';')[0].trim().toLowerCase();
+  return type === 'application/json';
+}
+
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -80,6 +104,11 @@ export function serve(kge: Kge, opts: ServeOptions = {}): Promise<ServeHandle> {
       writeLog(`${method} ${pathname} ${status} ${Date.now() - started}ms`);
     };
 
+    if (!hostAllowed(req)) {
+      send(403, { error: { kind: 'invalid', message: 'invalid Host header' } });
+      return;
+    }
+
     if (method === 'GET' && pathname === '/healthz') {
       send(200, { status: 'ok', version: kge.version, backend: kge.backend });
       return;
@@ -94,6 +123,12 @@ export function serve(kge: Kge, opts: ServeOptions = {}): Promise<ServeHandle> {
 
     if (!route) {
       send(404, { error: { kind: 'invalid', message: 'not found' } });
+      return;
+    }
+
+    if (!isJsonContentType(req)) {
+      req.resume();
+      send(415, { error: { kind: 'invalid', message: 'content-type must be application/json' } });
       return;
     }
 

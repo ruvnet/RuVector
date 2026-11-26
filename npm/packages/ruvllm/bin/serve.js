@@ -58,6 +58,33 @@ function readJson(req, limit) {
   });
 }
 
+const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/**
+ * DNS-rebinding guard: when a request arrives on a loopback address, its Host
+ * header must name loopback too. A server bound to another address on purpose
+ * (--host 0.0.0.0) still answers LAN clients by whatever name they use.
+ */
+function hostAllowed(req) {
+  if (!LOOPBACK_ADDRESSES.has(req.socket.localAddress)) return true;
+  const host = String(req.headers.host || '').toLowerCase();
+  const name = host.startsWith('[') ? host.slice(0, host.indexOf(']') + 1) : host.split(':')[0];
+  return LOOPBACK_HOSTNAMES.has(name);
+}
+
+/**
+ * Browsers send cross-origin POSTs without a CORS preflight only for "simple"
+ * content types, so requiring application/json keeps web pages from driving
+ * generation on a local server.
+ */
+function requireJsonContentType(req) {
+  const type = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+  if (type !== 'application/json') {
+    throw httpError(415, 'unsupported_media_type', 'content-type must be application/json');
+  }
+}
+
 function send(res, status, payload) {
   const body = JSON.stringify(payload);
   res.writeHead(status, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) });
@@ -136,6 +163,9 @@ function createServer(engine, options = {}) {
   async function handle(req, res) {
     const url = new URL(req.url, 'http://localhost');
     const route = `${req.method} ${url.pathname}`;
+
+    if (!hostAllowed(req)) throw httpError(403, 'forbidden_host', 'invalid Host header');
+    if (req.method === 'POST') requireJsonContentType(req);
 
     if (route === 'GET /health') {
       return send(res, 200, {
