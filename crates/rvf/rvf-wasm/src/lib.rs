@@ -115,7 +115,10 @@ pub extern "C" fn rvf_distances(metric: i32, result_ptr: i32) -> i32 {
         (dim, count, dtype)
     };
 
-    if dim == 0 || count == 0 {
+    // dim/count/dtype can be set independently (rvf_load_query after
+    // rvf_load_block, or rvf_init's raw config copy), so re-check that the
+    // query and block reads below stay inside their scratch areas.
+    if !distance_layout_fits(dim, count, dtype) {
         return -1;
     }
 
@@ -210,7 +213,8 @@ pub extern "C" fn rvf_load_sq_params(params_ptr: i32, dim: i32) -> i32 {
 #[no_mangle]
 pub extern "C" fn rvf_dequant_i8(src_ptr: i32, dst_ptr: i32, count: i32) -> i32 {
     let dim = unsafe { *(DATA_MEMORY.as_ptr().add(TILE_CONFIG_DIM_OFFSET) as *const u32) as usize };
-    if dim == 0 {
+    // Per-dimension (min, max) f32 pairs live in the decode workspace.
+    if !dequant_dim_fits(dim) {
         return -1;
     }
 
@@ -315,6 +319,35 @@ pub extern "C" fn rvf_pq_distances(codes_ptr: i32, count: i32, result_ptr: i32) 
 /// that `rvf_pq_distances` builds must fit the hot cache, and the query
 /// (dim fp16 values) must fit the query scratch. `sub_dim == 0` (dim < m) is
 /// rejected: it made the codebook size 0 and let any m*k through.
+/// True when `count` vectors of `dim` elements of `dtype` fit the SIMD block
+/// and the `dim`-element fp16 query fits the query scratch.
+fn distance_layout_fits(dim: usize, count: usize, dtype: u32) -> bool {
+    let elem_size = match dtype {
+        0 => 2,
+        1 => 1,
+        _ => return false,
+    };
+    if dim == 0 || count == 0 {
+        return false;
+    }
+    let query_ok = dim
+        .checked_mul(2)
+        .map_or(false, |b| b <= QUERY_SCRATCH_SIZE);
+    let block_ok = count
+        .checked_mul(dim)
+        .and_then(|n| n.checked_mul(elem_size))
+        .map_or(false, |b| b <= SIMD_BLOCK_SIZE);
+    query_ok && block_ok
+}
+
+/// True when `dim` (min, max) f32 pairs fit the decode workspace.
+fn dequant_dim_fits(dim: usize) -> bool {
+    dim != 0
+        && dim
+            .checked_mul(8)
+            .map_or(false, |b| b <= DECODE_WORKSPACE_SIZE)
+}
+
 fn pq_codebook_bytes(dim: usize, m: usize, k: usize) -> Option<usize> {
     if m == 0 || k == 0 || dim.checked_mul(2)? > QUERY_SCRATCH_SIZE {
         return None;
@@ -767,6 +800,25 @@ mod tests {
         assert_eq!(pq_codebook_bytes(97, 8, 4), None); // query scratch is 96 fp16
         assert_eq!(pq_codebook_bytes(32, usize::MAX, 2), None);
         assert_eq!(pq_codebook_bytes(32, 2, usize::MAX), None);
+    }
+
+    #[test]
+    fn distance_layout_must_fit_query_and_block() {
+        assert!(distance_layout_fits(96, 170, 0)); // 96 fp16 query, 32640-byte block
+        assert!(!distance_layout_fits(97, 1, 0)); // query scratch is 96 fp16
+        assert!(!distance_layout_fits(96, 16384, 1)); // 1.5 MB block
+        assert!(!distance_layout_fits(usize::MAX, 1, 0));
+        assert!(!distance_layout_fits(1, usize::MAX, 0));
+        assert!(!distance_layout_fits(8, 1, 2)); // f32 blocks have no distance path
+        assert!(!distance_layout_fits(0, 1, 0));
+    }
+
+    #[test]
+    fn dequant_params_must_fit_the_decode_workspace() {
+        assert!(dequant_dim_fits(128)); // 128 (min, max) f32 pairs = 1 KB
+        assert!(!dequant_dim_fits(129));
+        assert!(!dequant_dim_fits(0));
+        assert!(!dequant_dim_fits(usize::MAX));
     }
 
     #[test]
