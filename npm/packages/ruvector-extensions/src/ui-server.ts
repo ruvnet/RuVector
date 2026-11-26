@@ -8,6 +8,9 @@ import type { VectorDB } from 'ruvector';
 // ESM has no __dirname; the UI assets are copied next to this file (dist/ui).
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
+const LOOPBACK_BIND = new Set(['127.0.0.1', 'localhost', '::1']);
+const LOOPBACK_HOST_HEADERS = new Set(['127.0.0.1', 'localhost', '[::1]']);
+
 export interface GraphNode {
     id: string;
     label?: string;
@@ -53,6 +56,7 @@ export class UIServer {
         this.wss = new WebSocketServer({
             server: this.server,
             verifyClient: ({ origin, req }: { origin?: string; req: any }) => {
+                if (!this.isAllowedHost(req.headers.host)) return false;
                 if (!origin) return true; // non-browser client
                 try {
                     return new URL(origin).host === req.headers.host;
@@ -70,7 +74,32 @@ export class UIServer {
         this.setupWebSocket();
     }
 
+    /**
+     * DNS-rebinding guard: when bound to loopback, only accept a loopback Host
+     * header. A rebound page has its own hostname as Host (and Origin), so the
+     * Origin check alone does not stop it. Non-loopback binds are opt-in.
+     */
+    private isAllowedHost(hostHeader: unknown): boolean {
+        if (!LOOPBACK_BIND.has(this.host)) return true;
+        if (typeof hostHeader !== 'string') return false;
+        let hostname: string;
+        try {
+            hostname = new URL(`http://${hostHeader}`).hostname;
+        } catch {
+            return false;
+        }
+        return LOOPBACK_HOST_HEADERS.has(hostname.toLowerCase());
+    }
+
     private setupMiddleware(): void {
+        this.app.use((req, res, next) => {
+            if (!this.isAllowedHost(req.headers.host)) {
+                res.status(403).json({ error: 'Invalid Host header' });
+                return;
+            }
+            next();
+        });
+
         // JSON parsing
         this.app.use(express.json());
 
