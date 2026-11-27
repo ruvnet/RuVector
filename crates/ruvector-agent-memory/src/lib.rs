@@ -57,6 +57,8 @@ pub mod memory;
 pub mod observation;
 pub mod ops;
 pub mod scoring;
+#[cfg(feature = "tilezero-gate")]
+pub mod tilezero_gate;
 pub mod witness_signing;
 pub mod witnessed_compaction;
 
@@ -88,6 +90,8 @@ pub use ops::{
     MemoryWitnessLog, NoopWitnessSink, TransitionKind, TransitionRecord, WitnessSink,
 };
 pub use scoring::{coherence_score, cosine_sim, normalize};
+#[cfg(feature = "tilezero-gate")]
+pub use tilezero_gate::{embed_content, TileZeroGate, TILEZERO_DEFAULT_WINDOW, TILEZERO_EMBED_DIM};
 pub use witness_signing::{
     verify_signed_chain, SignPurpose, SignedAnchor, SignedChainError, SignedChainReport,
     SignedSpan, SignedWitnessSink, SigningStrategy, WitnessSignerError,

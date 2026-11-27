@@ -34,11 +34,19 @@ ruvector-proof-gate = { version = "0.1.0", path = "../ruvector-proof-gate", opti
 # for the `graph_forget` mincut-gated forgetting policy, instead of
 # reimplementing graph partitioning here.
 ruvector-mincut = { version = "2.3.0", path = "../ruvector-mincut", optional = true }
+# Nightly 2026-11-10: wire cognitum-gate-tilezero's existing, tested
+# three-filter admission decision (ThreeFilterDecision/ReducedGraph) in as a
+# content-inspecting ProofGate (TileZeroGate, src/tilezero_gate.rs). Its
+# `mincut` feature (pinned to a stale ruvector-mincut = "0.1.30" from
+# crates.io) is deliberately left disabled — ReducedGraph does not need it
+# (see tilezero_gate.rs module doc).
+cognitum-gate-tilezero = { version = "0.1.1", path = "../cognitum-gate-tilezero", optional = true }
 
 [features]
 default = []
 proof-gate = ["dep:ruvector-proof-gate"]
 mincut-forget = ["dep:ruvector-mincut"]
+tilezero-gate = ["dep:cognitum-gate-tilezero"]
 
 [[example]]
 name = "mincut_gated_forgetting_bench"
@@ -54,6 +62,11 @@ required-features = ["mincut-forget"]
 name = "mincut_scaling_probe"
 path = "examples/mincut_scaling_probe.rs"
 required-features = ["mincut-forget"]
+
+[[example]]
+name = "tilezero_gate_bench"
+path = "examples/tilezero_gate_bench.rs"
+required-features = ["tilezero-gate"]
 
 [dev-dependencies]
 serde_json = { workspace = true }
