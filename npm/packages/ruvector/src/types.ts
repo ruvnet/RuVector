@@ -20,7 +20,10 @@ export interface SearchQuery {
   k?: number;
   /** Optional metadata filters */
   filter?: Record<string, any>;
-  /** Minimum similarity threshold (0-1) */
+  /**
+   * Inclusive minimum similarity (0–1), computed as 1 minus the native
+   * distance score. Applied to the top-k results. Omit to return them all.
+   */
   threshold?: number;
 }
 
