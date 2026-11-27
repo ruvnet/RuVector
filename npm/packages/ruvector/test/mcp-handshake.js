@@ -43,9 +43,10 @@ const TEMPLATES = { jsonrpc: '2.0', id: 3, method: 'resources/templates/list', p
  * Resolves { init, tools, stdoutNoise } — never rejects on protocol failure,
  * so the assertions below produce readable diagnostics instead of a stack.
  */
-function handshake() {
+function handshake(env = process.env, drainMs = DRAIN_MS) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [CLI, 'mcp', 'start'], {
+      env,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -100,7 +101,7 @@ function handshake() {
       // past it and the noise assertion silently passes. Drain briefly first.
       if (seen.has(1) && seen.has(2) && seen.has(3) && !draining) {
         draining = true;
-        setTimeout(() => finish(), DRAIN_MS);
+        setTimeout(() => finish(), drainMs);
       }
     });
 
@@ -173,7 +174,31 @@ async function main() {
     );
   });
 
-  const total = 5;
+  const policyEnv = {
+    ...process.env,
+    RUVECTOR_MCP_ALLOW: '',
+    RUVECTOR_MCP_DENY: '',
+    RUVECTOR_MCP_PROFILE: 'readonly',
+    RUVECTOR_EMBEDDER: 'hash',
+  };
+  const canonical = await handshake(policyEnv, 0);
+  const uppercase = await handshake({ ...policyEnv, RUVECTOR_MCP_PROFILE: 'READONLY' }, 0);
+  check('READONLY exposes the same tools as readonly over stdio', () => {
+    const canonicalTools = canonical.tools?.result?.tools;
+    const uppercaseTools = uppercase.tools?.result?.tools;
+    assert.ok(canonicalTools, 'readonly did not return a tools/list result');
+    assert.ok(uppercaseTools, 'READONLY did not return a tools/list result');
+    assert.ok(canonicalTools.some((tool) => tool.name === 'hooks_doctor'));
+    assert.ok(!canonicalTools.some((tool) => tool.name === 'hooks_force_learn'));
+    assert.strictEqual(
+      uppercaseTools.length,
+      canonicalTools.length,
+      `READONLY exposed ${uppercaseTools.length} tools, expected ${canonicalTools.length} for readonly`,
+    );
+    assert.deepStrictEqual(uppercaseTools, canonicalTools);
+  });
+
+  const total = 6;
   console.log(`\nResults: ${total - failed} passed, ${failed} failed`);
   if (failed) {
     console.log('MCP HANDSHAKE TEST FAILED');

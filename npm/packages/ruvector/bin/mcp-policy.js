@@ -63,12 +63,11 @@ function buildToolPolicy(env) {
   const e = env || process.env;
   const allow = parseList(e.RUVECTOR_MCP_ALLOW);
   const deny = new Set(parseList(e.RUVECTOR_MCP_DENY));
-  const profileName = e.RUVECTOR_MCP_PROFILE && e.RUVECTOR_MCP_PROFILE.trim();
+  const normalizedProfile = (e.RUVECTOR_MCP_PROFILE || '').trim().toLowerCase();
+  const profileName = normalizedProfile === 'read-only' ? 'readonly' : normalizedProfile;
+  const profile = Object.hasOwn(MCP_PROFILES, profileName) ? profileName : null;
 
-  let allowSet = null;
-  if (profileName && MCP_PROFILES[profileName]) {
-    allowSet = new Set(MCP_PROFILES[profileName]);
-  }
+  let allowSet = profile ? new Set(MCP_PROFILES[profile]) : null;
   if (allow.length) {
     allowSet = new Set([...(allowSet || []), ...allow]);
   }
@@ -76,7 +75,7 @@ function buildToolPolicy(env) {
   return {
     allowSet,
     deny,
-    profile: profileName && MCP_PROFILES[profileName] ? profileName : null,
+    profile,
     // An unknown profile name with no allow/deny is treated as "not configured".
     configured: Boolean(allowSet || deny.size),
   };
