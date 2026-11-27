@@ -20,6 +20,11 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
+/// Largest input or hidden dimension a cached layer may have. Layer dimensions
+/// come from MCP tool arguments, and a layer allocates several hidden x hidden
+/// matrices, so this keeps one request from exhausting memory.
+pub const MAX_LAYER_DIM: usize = 4096;
+
 /// Cache entry with metadata for monitoring
 #[derive(Debug, Clone)]
 pub struct CacheEntry<T> {
@@ -169,7 +174,15 @@ impl GnnCache {
         hidden_dim: usize,
         heads: usize,
         dropout: f32,
-    ) -> RuvectorLayer {
+    ) -> anyhow::Result<RuvectorLayer> {
+        if input_dim == 0 || input_dim > MAX_LAYER_DIM || hidden_dim > MAX_LAYER_DIM {
+            anyhow::bail!(
+                "GNN layer dimensions must be between 1 and {} (got input_dim {}, hidden_dim {})",
+                MAX_LAYER_DIM,
+                input_dim,
+                hidden_dim
+            );
+        }
         let key = format!(
             "{}_{}_{}_{}",
             input_dim,
@@ -184,13 +197,13 @@ impl GnnCache {
             if let Some(entry) = layers.get_mut(&key) {
                 let mut stats = self.stats.write().await;
                 stats.layer_hits += 1;
-                return entry.access().clone();
+                return Ok(entry.access().clone());
             }
         }
 
         // Create new layer
         let layer = RuvectorLayer::new(input_dim, hidden_dim, heads, dropout)
-            .expect("GNN layer cache: invalid layer configuration");
+            .map_err(|e| anyhow::anyhow!("Invalid GNN layer configuration: {}", e))?;
 
         // Cache it
         {
@@ -214,7 +227,7 @@ impl GnnCache {
             layers.insert(key, CacheEntry::new(layer.clone()));
         }
 
-        layer
+        Ok(layer)
     }
 
     /// Get cached query result if available and not expired
@@ -322,7 +335,7 @@ pub struct BatchGnnResult {
 
 impl GnnCache {
     /// Execute batch GNN operations with caching
-    pub async fn batch_forward(&self, request: BatchGnnRequest) -> BatchGnnResult {
+    pub async fn batch_forward(&self, request: BatchGnnRequest) -> anyhow::Result<BatchGnnResult> {
         let start = Instant::now();
 
         // Get or create the layer
@@ -333,7 +346,7 @@ impl GnnCache {
                 request.layer_config.heads,
                 request.layer_config.dropout,
             )
-            .await;
+            .await?;
 
         let layer_id = format!(
             "{}_{}_{}",
@@ -368,12 +381,12 @@ impl GnnCache {
             }
         }
 
-        BatchGnnResult {
+        Ok(BatchGnnResult {
             results,
             cached_count,
             computed_count,
             total_time_ms: start.elapsed().as_secs_f64() * 1000.0,
-        }
+        })
     }
 }
 
@@ -386,13 +399,13 @@ mod tests {
         let cache = GnnCache::new(GnnCacheConfig::default());
 
         // First access - miss
-        let layer1 = cache.get_or_create_layer(128, 256, 4, 0.1).await;
+        let layer1 = cache.get_or_create_layer(128, 256, 4, 0.1).await.unwrap();
         let stats = cache.stats().await;
         assert_eq!(stats.layer_misses, 1);
         assert_eq!(stats.layer_hits, 0);
 
         // Second access - hit
-        let _layer2 = cache.get_or_create_layer(128, 256, 4, 0.1).await;
+        let _layer2 = cache.get_or_create_layer(128, 256, 4, 0.1).await.unwrap();
         let stats = cache.stats().await;
         assert_eq!(stats.layer_misses, 1);
         assert_eq!(stats.layer_hits, 1);
@@ -442,7 +455,7 @@ mod tests {
             ],
         };
 
-        let result = cache.batch_forward(request).await;
+        let result = cache.batch_forward(request).await.unwrap();
         assert_eq!(result.results.len(), 2);
         assert_eq!(result.computed_count, 2);
         assert_eq!(result.cached_count, 0);
