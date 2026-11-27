@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { offlineToolingLock } from './offline-tooling-lock.mjs';
 
 const packageDir = fileURLToPath(new URL('../', import.meta.url));
 const temp = await mkdtemp(join(tmpdir(), 'e-means-consumer-'));
@@ -46,10 +47,17 @@ try {
   `);
   process.stdout.write(run(process.execPath, ['consumer.mjs']));
   const installed = JSON.parse(await readFile(join(temp, 'node_modules/@ruvector/e-means/package.json')));
-  assert.equal(installed.version, '0.1.0');
-  // Cached pinned registry packages only: installation and qualification do not
-  // execute dependency lifecycle scripts or contact the registry.
-  run('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', '@metaharness/darwin@0.13.0', 'typescript@5.9.3']);
+  assert.equal(installed.version, '0.1.1');
+  // npm ci cached the source lock's tarballs, not necessarily registry package
+  // metadata. Transfer only the exact SDK/tool closure and the actual phase-one
+  // shared archive record, then install without any name/version resolution.
+  const sourceLock = JSON.parse(await readFile(join(packageDir, 'package-lock.json')));
+  const consumerLock = JSON.parse(await readFile(join(temp, 'package-lock.json')));
+  const consumerManifest = JSON.parse(await readFile(join(temp, 'package.json')));
+  const offline = offlineToolingLock(sourceLock, consumerLock, consumerManifest);
+  await writeFile(join(temp, 'package.json'), JSON.stringify(offline.manifest));
+  await writeFile(join(temp, 'package-lock.json'), JSON.stringify(offline.lock));
+  run('npm', ['ci', '--offline', '--ignore-scripts', '--no-audit', '--no-fund']);
   await writeFile(join(temp, 'meta-consumer.mjs'), `
     import assert from 'node:assert/strict';
     import { tuneClustering } from '@ruvector/e-means/metaharness';

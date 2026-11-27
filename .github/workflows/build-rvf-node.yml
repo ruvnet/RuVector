@@ -169,6 +169,10 @@ jobs:
   commit-binaries:
     name: Commit RVF Node Binaries
     runs-on: ubuntu-24.04
+    concurrency:
+      group: ruvector-main-mutation
+      queue: max
+      cancel-in-progress: false
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
@@ -177,7 +181,10 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: main
+          ref: ${{ github.sha }}
+
+      - name: Require the exact build source before applying artifacts
+        run: bash .github/scripts/require-build-head.sh
 
       - name: Download all artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
@@ -216,5 +223,9 @@ jobs:
           Platforms: linux-x64-gnu, linux-arm64-gnu, darwin-x64, darwin-arm64, win32-x64-msvc
 
           Co-Authored-By: claude-flow <ruv@ruv.net>"
-            git push
+            if [ "$GITHUB_REF" = refs/heads/main ]; then
+              git push origin HEAD:refs/heads/main
+            else
+              git push origin "HEAD:$GITHUB_REF"
+            fi
           fi

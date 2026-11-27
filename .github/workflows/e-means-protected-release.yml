@@ -1,0 +1,84 @@
+name: e-means-protected-release
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact main SHA qualified by the release-branch e-means preflight
+        required: true
+        type: string
+permissions:
+  contents: read
+  issues: read
+  actions: read
+concurrency:
+  group: protected-e-means-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: ruvector-main-mutation
+      queue: max
+      cancel-in-progress: false
+    timeout-minutes: 45
+    environment: npm-production
+    permissions:
+      contents: write
+      issues: read
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        with:
+          toolchain: '1.98.1'
+      - name: Verify exact source and select sealed pre-main artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: python3 scripts/e-means/release.py download --expected-sha "$EXPECTED_SHA" --directory "$RUNNER_TEMP/e-means-publication"
+      - name: Publish only the verified crate and npm archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_API_KEY }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: python3 scripts/e-means/release.py publish --expected-sha "$EXPECTED_SHA" --directory "$RUNNER_TEMP/e-means-publication"
+      - name: Install real Chromium for the public archive consumer
+        run: |
+          npm install --prefix "$RUNNER_TEMP/browser-tools" --ignore-scripts --no-save playwright@1.62.1
+          "$RUNNER_TEMP/browser-tools/node_modules/.bin/playwright" install chromium
+          node -e 'const p=require(process.env.RUNNER_TEMP+"/browser-tools/node_modules/playwright"); console.log("E_MEANS_CHROMIUM="+p.chromium.executablePath())' >> "$GITHUB_ENV"
+          echo "E_MEANS_PLAYWRIGHT_ROOT=$RUNNER_TEMP/browser-tools" >> "$GITHUB_ENV"
+      - name: Test fresh public registry consumers without publication credentials
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: python3 scripts/e-means/release.py verify-public --expected-sha "$EXPECTED_SHA" --directory "$RUNNER_TEMP/e-means-publication"
+      - name: Publish exact-source GitHub release and redownload every asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          E_MEANS_RELEASE_ENVIRONMENT: npm-production
+        run: python3 scripts/e-means/github_release.py --expected-sha "$EXPECTED_SHA" --directory "$RUNNER_TEMP/e-means-publication"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: e-means-publication-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/e-means-publication/ci.json
+            ${{ runner.temp }}/e-means-publication/candidate/candidate.json
+            ${{ runner.temp }}/e-means-publication/candidate/FILES.json
+            ${{ runner.temp }}/e-means-publication/public/*
+            ${{ runner.temp }}/e-means-publication/publication.json
+            ${{ runner.temp }}/e-means-publication/public-consumers.json
+            ${{ runner.temp }}/e-means-publication/fresh/command-*.log
+            ${{ runner.temp }}/e-means-publication/github-release.json
+            ${{ runner.temp }}/e-means-publication/github-release-assets/*

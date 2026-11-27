@@ -92,7 +92,7 @@ try {
   `);
   process.stdout.write(run(process.execPath, ['consumer.mjs']));
   const installed = JSON.parse(await readFile(join(temporary, 'node_modules/@ruvector/e-means/package.json')));
-  assert.equal(installed.version, '0.1.0');
+  assert.equal(installed.version, '0.1.1');
   console.log('Installed ecosystem subpaths passed; consumer root/prepack release lanes were not qualified');
 } finally {
   await rm(temporary, { recursive: true, force: true });

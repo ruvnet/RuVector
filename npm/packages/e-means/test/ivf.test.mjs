@@ -58,3 +58,10 @@ test('IVF rejects malformed training data and mutated partition records', () => 
     assert.throws(() => postingList(bad, 0));
   }
 });
+
+test('posting validation reads actual centroid storage despite an overridden iterator', () => {
+  const result = partition(data, 2, options);
+  result.model.centroids[0] = NaN;
+  result.model.centroids[Symbol.iterator] = function* () { yield 0; };
+  assert.throws(() => postingList(result, 0), /centroids must be finite/);
+});

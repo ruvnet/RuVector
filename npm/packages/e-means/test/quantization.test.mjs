@@ -112,3 +112,25 @@ test('every operation revalidates caller-owned codebooks and JSON values', () =>
     assert.throws(() => productQuantizerFromJSON(json));
   }
 });
+
+test('codecs validate indexed typed-array storage despite overridden iterators', () => {
+  const model = { schema: 'ruvector-e-means-pq-v1', dimensions: 1, subspaces: 1,
+    clusters: 1, centroids: new Float32Array([3]) };
+  const hiddenNonfinite = new Float32Array([NaN]);
+  hiddenNonfinite[Symbol.iterator] = function* () { yield 0; };
+  const corrupt = { ...model, centroids: hiddenNonfinite };
+  assert.throws(() => decodeProductQuantizer(corrupt, new Uint8Array([0])), /centroids must be finite/);
+  assert.throws(() => productQuantizerToJSON(corrupt), /centroids must be finite/);
+  const hiddenInvalidCode = new Uint8Array([255]);
+  hiddenInvalidCode[Symbol.iterator] = function* () { yield 0; };
+  assert.throws(() => decodeProductQuantizer(model, hiddenInvalidCode), /code exceeds/);
+});
+
+test('codebook JSON serialization reads stored coordinates rather than a custom iterator', () => {
+  const centroids = new Float32Array([3, 7]);
+  centroids[Symbol.iterator] = function* () { yield 0; };
+  const model = { schema: 'ruvector-e-means-pq-v1', dimensions: 2, subspaces: 1,
+    clusters: 1, centroids };
+  assert.deepEqual(productQuantizerToJSON(model).centroids, [3, 7]);
+  assert.deepEqual(Array.from(decodeProductQuantizer(model, new Uint8Array([0]))), [3, 7]);
+});

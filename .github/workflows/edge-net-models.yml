@@ -278,13 +278,20 @@ jobs:
   update-registry:
     name: Update Registry
     runs-on: ubuntu-latest
+    concurrency:
+      group: ruvector-main-mutation
+      queue: max
+      cancel-in-progress: false
     needs: [prepare, optimize, upload-gcs]
     if: always() && needs.optimize.result == 'success'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ github.head_ref || github.ref_name }}
+          ref: ${{ github.sha }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Require the exact build source before applying artifacts
+        run: bash .github/scripts/require-build-head.sh
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -367,7 +374,11 @@ jobs:
             Quantizations: ${{ needs.prepare.outputs.quantizations }}
 
             [skip ci]"
-            git push
+            if [ "$GITHUB_REF" = refs/heads/main ]; then
+              git push origin HEAD:refs/heads/main
+            else
+              git push origin "HEAD:$GITHUB_REF"
+            fi
           fi
 
   # Run benchmarks on optimized models
