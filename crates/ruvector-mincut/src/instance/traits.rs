@@ -233,4 +233,33 @@ pub trait ProperCutInstance: Send + Sync {
     ///
     /// A tuple (λ_min, λ_max)
     fn bounds(&self) -> (u64, u64);
+
+    /// Optional hint: the true, bound-independent minimum cut value.
+    ///
+    /// Some implementations (e.g. small-graph brute force, where the
+    /// enumeration finds the unconstrained global minimum cut and only
+    /// *classifies* it against `[lambda_min, lambda_max]` afterwards) can
+    /// report this value regardless of their own bounds, even when
+    /// `query()` returns `AboveRange`. The `MinCutWrapper` sweep uses this,
+    /// when available, to jump directly to the bounded-range instance that
+    /// actually contains the value instead of re-querying — and in doing so
+    /// redundantly recomputing the identical bound-independent answer on —
+    /// every intermediate instance in between.
+    ///
+    /// Returns `None` when no such shortcut applies. This is the correct
+    /// answer for any implementation whose result genuinely depends on its
+    /// own `[lambda_min, lambda_max]` bounds (e.g. a bounded-budget
+    /// `LocalKCut` search), and is the default.
+    fn exact_value_hint(&self) -> Option<(u64, WitnessHandle)> {
+        None
+    }
+
+    /// Seed this instance with an already-known `(value, witness)` pair
+    /// computed by another instance over the same bound-independent
+    /// computation, so the next `query()` can skip recomputation.
+    ///
+    /// Implementations that do not support `exact_value_hint` should leave
+    /// this a no-op (the default); the wrapper then falls back to an
+    /// ordinary `query()`.
+    fn seed_known_value(&mut self, _value: u64, _witness: &WitnessHandle) {}
 }
