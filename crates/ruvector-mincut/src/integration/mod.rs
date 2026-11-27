@@ -7,7 +7,7 @@
 #![allow(missing_docs)]
 
 use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
-use crate::wrapper::{MinCutResult, MinCutWrapper};
+use crate::wrapper::{MinCutResult, MinCutWrapper, ScanOptLevel};
 use std::sync::Arc;
 
 // Agentic chip support (feature-gated)
@@ -165,6 +165,18 @@ impl RuVectorGraphAnalyzer {
     pub fn invalidate_cache(&mut self) {
         self.cached_min_cut = None;
         self.cached_partition = None;
+    }
+
+    /// Opt into a [`ScanOptLevel`] for this analyzer's underlying
+    /// `MinCutWrapper` (default: `ScanOptLevel::Baseline`, unchanged prior
+    /// behavior). See `ScanOptLevel`'s doc comment for what each level does
+    /// and why it is proven result-preserving rather than an approximation.
+    /// Added by the 2026-11-13 nightly research run; not called by default
+    /// from anywhere in this crate or its dependents.
+    pub fn with_scan_opt_level(mut self, level: ScanOptLevel) -> Self {
+        self.wrapper = self.wrapper.with_scan_opt_level(level);
+        self.invalidate_cache();
+        self
     }
 
     /// Add edge and invalidate cache
