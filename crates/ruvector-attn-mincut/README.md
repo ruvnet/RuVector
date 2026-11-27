@@ -6,13 +6,33 @@
 
 **Dynamic min-cut gating as an alternative to softmax attention — prune low-value attention edges via graph theory.**
 
-| | Softmax Attention | Min-Cut Gated |
+> **Measured, not aspirational (2026-10-05 nightly audit).** The table below
+> states design targets. An actual benchmark
+> (`cargo run --release -p ruvector-attn-mincut --example claim_audit_bench`,
+> full results in
+> [`docs/research/nightly/2026-10-05-attn-mincut-best-sink-audit/`](../../docs/research/nightly/2026-10-05-attn-mincut-best-sink-audit/README.md),
+> decision recorded in
+> [ADR-352](../../docs/adr/ADR-352-attn-mincut-best-sink-gating-audit.md))
+> found that at every tested `seq_len >= 32` (synthetic data, d=64, lambda
+> in the documented 0.0-1.0 range) the min-cut step pruned **0.00 percentage
+> points** of attention edges beyond what the crate's own elementwise
+> `logit > eps` threshold already removes — for both the fixed-sink
+> implementation below and an exhaustive best-sink search variant
+> (`attn_mincut_best_sink`, added by that audit). Measured coherence
+> (cosine similarity to dense softmax) was ~0.70-0.76, not <1% degradation.
+> Measured latency was 1.3-1.7x dense softmax, not lower. The root cause —
+> the gate's `cut_cost <= lambda * mean_edge_weight` condition does not
+> scale with graph size — and a recommended fix path are in the linked
+> report. Treat the table as the mechanism's design intent, not its
+> current measured behavior.
+
+| | Softmax Attention | Min-Cut Gated (design target — see note above) |
 |---|---|---|
 | **Attention pattern** | All-to-all (dense) | Structure-aware (sparse) |
-| **KV-cache usage** | Full | 15-40% reduction |
-| **Energy per sample** | Baseline | 10-20% lower |
-| **Coherence** | Reference | < 1% degradation |
-| **Deterministic replay** | No | SHA-256 witness chain |
+| **KV-cache usage** | Full | 15-40% reduction (target; measured edge-sparsity benefit was 0% at seq_len >= 32 in the 2026-10-05 audit) |
+| **Energy per sample** | Baseline | 10-20% lower (target; not instrumented — measured wall-clock latency was 1.3-1.7x *higher*, not lower, in the 2026-10-05 audit) |
+| **Coherence** | Reference | < 1% degradation (target; measured ~24-30% degradation, i.e. ~0.70-0.76 cosine similarity, in the 2026-10-05 audit) |
+| **Deterministic replay** | No | SHA-256 witness chain (unaffected by the audit; `witness.rs` was not in scope) |
 
 ## Overview
 

@@ -179,6 +179,86 @@ pub fn dynamic_min_cut(
     }
 }
 
+/// Elementwise `logit > eps` keep-mask with no graph structure involved.
+///
+/// This is the ablation control for the nightly claim audit: it isolates
+/// how much pruning the min-cut *step itself* contributes on top of the
+/// trivial eps threshold that `dynamic_min_cut` and `dynamic_min_cut_best_sink`
+/// both apply regardless of their cut outcome.
+pub fn eps_only_keep_mask(logits: &[f32], eps: f32) -> Vec<bool> {
+    logits.iter().map(|&v| v > eps).collect()
+}
+
+/// Dynamic min-cut gating that searches every candidate sink `t in 1..seq_len`
+/// (source fixed at `0`) and keeps the globally cheapest cut, instead of
+/// [`dynamic_min_cut`]'s single fixed sink (`t = seq_len - 1`).
+///
+/// Because this searches a superset of the cuts `dynamic_min_cut` considers,
+/// its selected `cut_cost` is always `<= dynamic_min_cut`'s on the same graph
+/// and parameters (see `test_best_sink_cut_cost_le_fixed_sink`). The cost is
+/// `O(seq_len)` Dinic calls instead of one, so this is intended for research
+/// use at small/medium `seq_len` (roughly `<= 128`), not production hot paths.
+pub fn dynamic_min_cut_best_sink(
+    logits: &[f32],
+    seq_len: usize,
+    lambda: f32,
+    _tau: usize,
+    eps: f32,
+) -> GatingResult {
+    assert_eq!(logits.len(), seq_len * seq_len);
+    let n = seq_len * seq_len;
+    let clamped: Vec<f32> = logits
+        .iter()
+        .map(|&v| if v > eps { v } else { 0.0 })
+        .collect();
+    let graph = crate::graph::graph_from_logits(&clamped, seq_len);
+
+    if graph.edges.is_empty() || seq_len < 2 {
+        return GatingResult {
+            keep_mask: vec![false; n],
+            cut_cost: 0.0,
+            edges_kept: 0,
+            edges_total: n,
+        };
+    }
+
+    let mean_w: f32 = graph.edges.iter().map(|e| e.weight).sum::<f32>() / graph.edges.len() as f32;
+    let threshold = lambda * mean_w;
+    let mut flat_keep = vec![true; n];
+    let mut total_cut_cost = 0.0f32;
+
+    let mut solver = DinicSolver::new(seq_len);
+    let mut best: Option<CutResult> = None;
+    for t in 1..seq_len {
+        let r = solver.min_cut(&graph, 0, t);
+        if best.as_ref().is_none_or(|b| r.cut_cost < b.cut_cost) {
+            best = Some(r);
+        }
+    }
+
+    if let Some(result) = best {
+        if result.cut_cost <= threshold {
+            total_cut_cost += result.cut_cost;
+            for &(s, d) in &result.cut_edges {
+                flat_keep[s * seq_len + d] = false;
+            }
+        }
+    }
+
+    for i in 0..n {
+        if clamped[i] <= 0.0 {
+            flat_keep[i] = false;
+        }
+    }
+    let edges_kept = flat_keep.iter().filter(|&&k| k).count();
+    GatingResult {
+        keep_mask: flat_keep,
+        cut_cost: total_cut_cost,
+        edges_kept,
+        edges_total: n,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -253,5 +333,34 @@ mod tests {
     #[test]
     fn test_dynamic_single_token() {
         assert_eq!(dynamic_min_cut(&[1.0], 1, 0.5, 2, 0.01).edges_total, 1);
+    }
+
+    #[test]
+    fn test_eps_only_mask_matches_simple_threshold() {
+        let logits = vec![1.0, -0.5, 0.0, 0.02, 0.005, 2.0];
+        let mask = eps_only_keep_mask(&logits, 0.01);
+        assert_eq!(mask, vec![true, false, false, true, false, true]);
+    }
+
+    /// `dynamic_min_cut_best_sink` searches a superset of the single fixed
+    /// `(0, seq_len-1)` cut that `dynamic_min_cut` considers, so on the same
+    /// graph and parameters its chosen cut can never cost more. `lambda` is
+    /// set large enough that both variants' cut is below threshold and thus
+    /// actually applied, so this is a genuine comparison of cut cost, not of
+    /// whether the cut fired at all.
+    #[test]
+    fn test_best_sink_cut_cost_le_fixed_sink() {
+        let seq_len = 5;
+        let logits = vec![
+            1.0, 0.8, 0.3, 0.1, 0.4, //
+            0.2, 1.0, 0.6, 0.9, 0.1, //
+            0.5, 0.3, 1.0, 0.2, 0.7, //
+            0.1, 0.6, 0.4, 1.0, 0.3, //
+            0.3, 0.2, 0.5, 0.4, 1.0, //
+        ];
+        let big_lambda = 1000.0; // threshold huge => cut always applied for both
+        let fixed = dynamic_min_cut(&logits, seq_len, big_lambda, 2, 0.01);
+        let best = dynamic_min_cut_best_sink(&logits, seq_len, big_lambda, 2, 0.01);
+        assert!(best.cut_cost <= fixed.cut_cost + 1e-5);
     }
 }

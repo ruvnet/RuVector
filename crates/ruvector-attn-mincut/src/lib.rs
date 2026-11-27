@@ -25,8 +25,13 @@ pub mod witness;
 
 // Re-export primary types for ergonomic usage.
 pub use config::MinCutConfig;
-pub use gating::{attn_mincut, attn_softmax, AttentionOutput};
+pub use gating::{
+    attn_mincut, attn_mincut_best_sink, attn_softmax, compute_logits, AttentionOutput,
+};
 pub use graph::{graph_from_logits, AttentionGraph, Edge};
 pub use hysteresis::HysteresisTracker;
-pub use mincut::{dynamic_min_cut, CutResult, DinicSolver, GatingResult};
+pub use mincut::{
+    dynamic_min_cut, dynamic_min_cut_best_sink, eps_only_keep_mask, CutResult, DinicSolver,
+    GatingResult,
+};
 pub use witness::{hash_tensor, witness_log, WitnessEntry};
