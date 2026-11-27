@@ -60,6 +60,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Validate Python GNN checkpoint declarations, tensor layout and finite parameters before loading while preserving valid serialized learned weights.
 
 ### Fixed
+- Node.js MCP worker dispatch, status, and results use the installed `agentic-flow`
+  CLI and return a tool error for missing runtimes, usage output, or failed commands.
 - RvLite: acquire browser writer leases in a committed atomic IndexedDB transaction and prevent expired holders from overwriting or releasing successor leases.
 - RvLite CLI refuses corrupt or unreadable existing databases instead of reporting empty data or overwriting recoverable bytes.
 - Memory-backed Rust batches validate all vector dimensions before storing any

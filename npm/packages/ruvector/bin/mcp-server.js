@@ -31,6 +31,7 @@ const recordValidate = require('./record-validate');
 // weights_* tools; @ruvector/weight-space itself is loaded only inside a call
 const weightsTools = require('./weights');
 const { execFileSync } = require('child_process');
+const { stripVTControlCharacters } = require('util');
 
 // ADR-256: default-deny MCP tool-access policy (RUVECTOR_MCP_ALLOW/DENY/PROFILE)
 const { buildToolPolicy, isToolAllowed, filterAllowedTools } = require('./mcp-policy.js');
@@ -305,6 +306,38 @@ function runNpxPackage(packageSpec, args, options = {}) {
     encoding: 'utf-8',
     ...options,
   });
+}
+
+/** Run the installed worker CLI without npx or a shell. */
+function runWorkerCommand(args, timeout) {
+  let executable = 'agentic-flow';
+  const commandArgs = ['workers', ...args];
+  let output;
+  try {
+    if (process.platform === 'win32') {
+      // npm's .cmd shims require a shell. Run the installed package's bin with Node.
+      const paths = [__dirname, ...(process.env.PATH || '').split(path.delimiter).filter(Boolean)];
+      const manifest = require.resolve('agentic-flow/package.json', { paths });
+      const { bin } = require(manifest);
+      commandArgs.unshift(path.resolve(path.dirname(manifest), bin['agentic-flow']));
+      executable = process.execPath;
+    }
+    output = execFileSync(executable, commandArgs, {
+      encoding: 'utf-8',
+      timeout,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+  } catch (e) {
+    if (e.code === 'ENOENT' || e.code === 'MODULE_NOT_FOUND') {
+      throw new Error('agentic-flow was not found. Install it and make it available on the MCP server PATH.');
+    }
+    throw new Error(e.stderr?.trim() || e.message);
+  }
+
+  if (/^[ \t]*usage:[ \t\r\n]*(?:npx[ \t]+)?(?:agentic-flow|workers)\b/im.test(stripVTControlCharacters(output))) {
+    throw new Error(`agentic-flow printed usage for workers ${args[0]}. Install a version that supports this command.`);
+  }
+  return output;
 }
 
 /** Opt-in extras and their install state, for hooks_capabilities (lazy: loaded on call). */
@@ -3883,75 +3916,43 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // BACKGROUND WORKERS HANDLERS (via agentic-flow)
       // ============================================
       case 'workers_dispatch': {
-        const prompt = String(args.prompt);
         try {
-          const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', ['workers', 'dispatch', prompt], {
-            timeout: 30000,
-            stdio: ['pipe', 'pipe', 'pipe']
+          const output = runWorkerCommand(['dispatch', '--', String(args.prompt)], 30000);
+          return jsonResult({
+            success: true,
+            message: output === 'No triggers detected in prompt' ? output : 'Worker dispatched',
+            output,
           });
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: true,
-            message: 'Worker dispatched',
-            output: result.trim()
-          }, null, 2) }] };
         } catch (e) {
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: true,
-            message: 'Worker dispatch attempted',
-            note: 'Check workers status for progress'
-          }, null, 2) }] };
+          return jsonResult({ success: false, error: e.message }, true);
         }
       }
 
       case 'workers_status': {
         try {
-          const commandArgs = ['workers', 'status'];
-          if (args.workerId) commandArgs.push(assertPositional(String(args.workerId), 'workerId'));
-          const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', commandArgs, {
-            timeout: 15000,
-            stdio: ['pipe', 'pipe', 'pipe']
-          });
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: true,
-            status: result.trim()
-          }, null, 2) }] };
+          const commandArgs = ['status'];
+          if (args?.workerId) commandArgs.push(assertPositional(String(args.workerId), 'workerId'));
+          const status = runWorkerCommand(commandArgs, 15000);
+          return jsonResult({ success: true, status });
         } catch (e) {
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: false,
-            error: 'Could not get worker status',
-            message: e.message
-          }, null, 2) }] };
+          return jsonResult({ success: false, error: e.message }, true);
         }
       }
 
       case 'workers_results': {
         try {
-          const commandArgs = ['workers', 'results'];
-          if (args.json) commandArgs.push('--json');
-          const result = runNpxPackage('agentic-flow@3.0.0-alpha.2', commandArgs, {
-            timeout: 15000,
-            stdio: ['pipe', 'pipe', 'pipe']
-          });
-          if (args.json) {
+          const json = args?.json;
+          const output = runWorkerCommand(json ? ['results', '--json'] : ['results'], 15000);
+          if (json) {
             try {
-              return { content: [{ type: 'text', text: JSON.stringify({
-                success: true,
-                results: JSON.parse(result.trim())
-              }, null, 2) }] };
+              return jsonResult({ success: true, results: JSON.parse(output) });
             } catch {
-              return { content: [{ type: 'text', text: result.trim() }] };
+              return { content: [{ type: 'text', text: output }] };
             }
           }
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: true,
-            results: result.trim()
-          }, null, 2) }] };
+          return jsonResult({ success: true, results: output });
         } catch (e) {
-          return { content: [{ type: 'text', text: JSON.stringify({
-            success: false,
-            error: 'Could not get worker results',
-            message: e.message
-          }, null, 2) }] };
+          return jsonResult({ success: false, error: e.message }, true);
         }
       }
 

@@ -68,6 +68,10 @@ RUVECTOR_MCP_PROFILE=readonly npx ruvector mcp start
 
 Available tools vary with package version and policy. `RUVECTOR_MCP_DENY` overrides allow rules; `RUVECTOR_MCP_ALLOW` and profiles restrict access. Without a policy, the broader compatibility surface remains available. [Policy and agent integration](https://github.com/ruvnet/RuVector#agent-integration).
 
+`workers_dispatch`, `workers_status`, and `workers_results` require an installed
+`agentic-flow` CLI with worker commands, such as version 3.5.5. Make it available
+on the MCP server's `PATH`.
+
 ## Build with the SDK
 
 Follow the [Node.js write and reopen tutorial](https://github.com/ruvnet/RuVector/blob/main/examples/nodejs/README.md). It uses `VectorDB`, `OnnxEmbedder`, and search parameter `k`, with a separate read process to verify storage.
