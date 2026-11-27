@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="440" viewBox="0 0 1000 440" role="img" aria-labelledby="title desc">
+<title id="title">LionAGI retrieval with RuVector</title>
+<desc id="desc">A LionAGI branch calls a retrieval tool or memory adapter. The application supplies embeddings. Unfiltered queries use native Rust HNSW; filtered queries rank matching records exactly within a bounded store.</desc>
+<style>
+text{font-family:system-ui,-apple-system,sans-serif;fill:#e9f5f1}.sub{font-size:14px;fill:#9dbbb3}.label{font-size:19px;font-weight:650}.box{fill:#102b2b;stroke:#32726b;stroke-width:1.5}.wire{fill:none;stroke:#56d5bd;stroke-width:2;stroke-dasharray:6 9;animation:flow 2s linear infinite}.pulse{animation:pulse 3s ease-in-out infinite}@keyframes flow{to{stroke-dashoffset:-30}}@keyframes pulse{50%{opacity:.45}}@media(prefers-reduced-motion:reduce){.wire,.pulse{animation:none}}
+</style>
+<rect width="1000" height="440" rx="20" fill="#071919"/>
+<text x="40" y="48" font-size="13" fill="#b0eb62" letter-spacing="3">RUVECTOR × LIONAGI</text>
+<text x="40" y="87" font-size="30" font-weight="700">Local retrieval. Application-owned embeddings.</text>
+<path class="wire" d="M235 215H305M555 215H640M555 235H595V343H640M430 153V128H760V153"/>
+<rect class="box" x="40" y="165" width="195" height="100" rx="12"/>
+<circle class="pulse" cx="64" cy="192" r="5" fill="#b0eb62"/>
+<text class="label" x="60" y="224">LionAGI Branch</text>
+<text class="sub" x="60" y="247">Tool call or memory</text>
+<rect class="box" x="305" y="165" width="250" height="100" rx="12"/>
+<text class="label" x="325" y="200">Bounded adapter</text>
+<text class="sub" x="325" y="224">Validate · snapshot · normalize</text>
+<text class="sub" x="325" y="247">Host binds authorization scope</text>
+<rect class="box" x="640" y="165" width="320" height="83" rx="12"/>
+<text class="label" x="660" y="199">Rust HNSW</text>
+<text class="sub" x="660" y="223">Unfiltered approximate cosine retrieval</text>
+<rect class="box" x="640" y="302" width="320" height="82" rx="12"/>
+<text class="label" x="660" y="334">Exact filtered ranking</text>
+<text class="sub" x="660" y="359">All matching records · bounded capacity</text>
+<text class="sub" x="535" y="117">Application async embedder</text>
+<text x="40" y="342" font-size="17" fill="#b0eb62">No implicit model or database server</text>
+<text class="sub" x="40" y="369">Results remain untrusted data.</text>
+<text class="sub" x="40" y="394">In-memory storage · no persistence</text>
+</svg>
