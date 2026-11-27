@@ -211,18 +211,7 @@ impl WasmDag {
 
     /// Deserialize from bytes
     pub fn from_bytes(data: &[u8]) -> Result<WasmDag, JsValue> {
-        #[derive(Deserialize)]
-        struct SerDag {
-            nodes: Vec<WasmNode>,
-            edges: Vec<(u32, u32)>,
-        }
-
-        bincode::deserialize::<SerDag>(data)
-            .map(|d| WasmDag {
-                nodes: d.nodes,
-                edges: d.edges,
-            })
-            .map_err(|e| JsValue::from_str(&format!("Deserialize error: {}", e)))
+        Self::decode_bytes(data).map_err(|e| JsValue::from_str(&e))
     }
 
     /// Serialize to JSON
@@ -243,23 +232,52 @@ impl WasmDag {
 
     /// Deserialize from JSON
     pub fn from_json(json: &str) -> Result<WasmDag, JsValue> {
-        #[derive(Deserialize)]
-        struct SerDag {
-            nodes: Vec<WasmNode>,
-            edges: Vec<(u32, u32)>,
-        }
-
-        serde_json::from_str::<SerDag>(json)
-            .map(|d| WasmDag {
-                nodes: d.nodes,
-                edges: d.edges,
-            })
-            .map_err(|e| JsValue::from_str(&format!("JSON error: {}", e)))
+        Self::decode_json(json).map_err(|e| JsValue::from_str(&e))
     }
+}
+
+/// Wire format shared by `from_bytes` and `from_json`.
+#[derive(Deserialize)]
+struct SerDagOwned {
+    nodes: Vec<WasmNode>,
+    edges: Vec<(u32, u32)>,
 }
 
 // Internal helper methods (not exported to WASM)
 impl WasmDag {
+    fn decode_bytes(data: &[u8]) -> Result<WasmDag, String> {
+        let d = bincode::deserialize::<SerDagOwned>(data)
+            .map_err(|e| format!("Deserialize error: {}", e))?;
+        Self::from_parts(d.nodes, d.edges)
+    }
+
+    fn decode_json(json: &str) -> Result<WasmDag, String> {
+        let d =
+            serde_json::from_str::<SerDagOwned>(json).map_err(|e| format!("JSON error: {}", e))?;
+        Self::from_parts(d.nodes, d.edges)
+    }
+
+    /// Serialized DAGs are untrusted: enforce the invariants `add_edge`
+    /// guarantees (endpoints exist, no cycles) so later traversals that index
+    /// by node id cannot go out of bounds.
+    fn from_parts(nodes: Vec<WasmNode>, edges: Vec<(u32, u32)>) -> Result<WasmDag, String> {
+        let n = nodes.len();
+        if let Some(&(from, to)) = edges
+            .iter()
+            .find(|&&(from, to)| from as usize >= n || to as usize >= n)
+        {
+            return Err(format!(
+                "Invalid DAG: edge ({}, {}) references a node outside 0..{}",
+                from, to, n
+            ));
+        }
+        let dag = WasmDag { nodes, edges };
+        if dag.topo_sort().len() != n {
+            return Err("Invalid DAG: edges contain a cycle".to_string());
+        }
+        Ok(dag)
+    }
+
     /// Check if there's a path from 'from' to 'to' (for cycle detection)
     #[inline(always)]
     fn has_path(&self, from: u32, to: u32) -> bool {
@@ -457,5 +475,33 @@ mod tests {
         let json = dag.to_json();
         let from_json = WasmDag::from_json(&json).unwrap();
         assert_eq!(from_json.node_count(), 2);
+    }
+
+    #[test]
+    fn deserialized_edges_must_reference_existing_nodes() {
+        let json = r#"{"nodes":[{"id":0,"op":1,"cost":1.0}],"edges":[[0,7]]}"#;
+        assert!(WasmDag::decode_json(json).is_err());
+
+        let mut src = WasmDag::new();
+        src.add_node(1, 1.0);
+        src.edges.push((0, 7));
+        assert!(WasmDag::decode_bytes(&src.to_bytes()).is_err());
+    }
+
+    #[test]
+    fn deserialized_edges_must_be_acyclic() {
+        let json = r#"{"nodes":[{"id":0,"op":1,"cost":1.0},{"id":1,"op":1,"cost":1.0}],"edges":[[0,1],[1,0]]}"#;
+        assert!(WasmDag::decode_json(json).is_err());
+    }
+
+    #[test]
+    fn valid_serialized_dag_round_trips() {
+        let mut dag = WasmDag::new();
+        let a = dag.add_node(1, 1.0);
+        let b = dag.add_node(2, 2.0);
+        assert!(dag.add_edge(a, b));
+        let back = WasmDag::decode_bytes(&dag.to_bytes()).unwrap();
+        assert_eq!(back.edge_count(), 1);
+        assert_eq!(back.topo_sort(), vec![a, b]);
     }
 }
