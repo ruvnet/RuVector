@@ -1,0 +1,127 @@
+--- a/src/weights/f32_weights.rs
++++ b/src/weights/f32_weights.rs
+@@ -1321,6 +1321,9 @@
+ 
+ /// Uniform interface for single-file and sharded tensor sources.
+ pub trait TensorSource {
++    fn bench_extent(&mut self, name: &str, _shape: &[usize]) -> Result<(std::sync::Arc<File>, u64, usize), InferenceError> {
++        Err(InferenceError::InvalidInput(format!("benchmark requires an on-disk BF16 extent for {name}")))
++    }
+     fn has_tensor(&mut self, name: &str) -> Result<bool, InferenceError>;
+     fn tensor_shape(&mut self, name: &str) -> Result<Option<Vec<usize>>, InferenceError>;
+     fn get_f32_tensor_owned(
+--- a/src/weights/mod.rs
++++ b/src/weights/mod.rs
+@@ -47,3 +47,5 @@
+         super::half_bits::bf16_bits_to_f32(bits)
+     }
+ }
++
++pub(crate) mod bench_file;
+--- a/src/model/qwen35/mod.rs
++++ b/src/model/qwen35/mod.rs
+@@ -19,6 +19,7 @@
+ mod loading;
+ mod model;
+ mod moe;
++mod bench_pager;
+ mod norm;
+ mod rerank;
+ mod sampling;
+--- a/src/model/qwen35/weights.rs
++++ b/src/model/qwen35/weights.rs
+@@ -102,6 +102,7 @@
+ /// Routed (sparse) expert weight storage for MoE layers.
+ #[derive(Debug)]
+ pub(crate) struct RoutedExperts {
++    pub(crate) pager: Option<std::sync::Mutex<super::bench_pager::Pager>>,
+     pub(crate) gate_up_proj: Vec<f32>, // [num_experts, 2 * intermediate_size, hidden_size]
+     pub(crate) down_proj: Vec<f32>,    // [num_experts, hidden_size, intermediate_size]
+     pub(crate) num_experts: usize,
+@@ -144,6 +145,7 @@
+             });
+         }
+         Ok(Self {
++            pager: None,
+             gate_up_proj,
+             down_proj,
+             num_experts,
+--- a/src/model/qwen35/loading.rs
++++ b/src/model/qwen35/loading.rs
+@@ -226,7 +226,11 @@
+         hidden,
+     )?;
+ 
+-    let experts = RoutedExperts::new(
++    let experts = if let Some(capacity) = std::env::var_os("RUVLLM_BENCH_SLOTS") {
++        let capacity = capacity.to_str().and_then(|s| s.parse().ok()).ok_or_else(|| InferenceError::InvalidInput("bad cache capacity".into()))?;
++        let pager = super::bench_pager::Pager::new(source,prefix,num_experts,hidden,moe_inter,top_k,capacity)?;
++        RoutedExperts { gate_up_proj: Vec::new(), down_proj: Vec::new(), num_experts, hidden_size:hidden, intermediate_size:moe_inter, pager:Some(std::sync::Mutex::new(pager)) }
++    } else { RoutedExperts::new(
+         load_owned_tensor_checked(
+             source,
+             &format!("{prefix}.mlp.experts.gate_up_proj"),
+@@ -240,7 +244,7 @@
+         num_experts,
+         hidden,
+         moe_inter,
+-    )?;
++    )? };
+ 
+     let shared_expert = SharedExpert::new(
+         load_owned_tensor_checked(
+--- a/src/model/qwen35/moe.rs
++++ b/src/model/qwen35/moe.rs
+@@ -150,10 +150,18 @@
+         // HF Qwen MoE stores each expert gate_up_proj as [2 * intermediate, hidden]
+         // and splits F.linear(...).chunk(2, dim=-1): first half is gate, second is up.
+         // See transformers modeling_qwen3_moe.py:L222 and L244.
+-        let gate_w = &moe.experts.gate_up_proj[gate_up_start..gate_up_start + inter * hidden];
+-        let up_w = &moe.experts.gate_up_proj
+-            [gate_up_start + inter * hidden..gate_up_start + 2 * inter * hidden];
+-        let down_w = &moe.experts.down_proj[down_start..down_start + hidden * inter];
++        let plane = inter * hidden;
++        let mut locked;
++        let (gate_w, up_w, down_w) = if let Some(pager) = &moe.experts.pager {
++            locked = pager.lock().expect("benchmark cache mutex poisoned");
++            // This isolated worker fails before emitting a trial on a read error.
++            let all = locked.resolve(expert_id).expect("expert extent read failed");
++            (&all[..plane], &all[plane..2*plane], &all[2*plane..])
++        } else {
++            (&moe.experts.gate_up_proj[gate_up_start..gate_up_start + plane],
++             &moe.experts.gate_up_proj[gate_up_start + plane..gate_up_start + 2 * plane],
++             &moe.experts.down_proj[down_start..down_start + plane])
++        };
+ 
+         matmul_bt(
+             &scratch.input_tmp[..hidden],
+--- a/src/model/qwen35/model.rs
++++ b/src/model/qwen35/model.rs
+@@ -41,7 +41,9 @@
+         let model_path = path.join("model.safetensors");
+         let index_path = path.join("model.safetensors.index.json");
+         let mut source: Box<dyn TensorSource> = if model_path.exists() {
+-            Box::new(SafetensorsFile::open(&model_path)?)
++            if std::env::var_os("RUVLLM_BENCH_SOURCE").is_some() {
++                Box::new(crate::weights::bench_file::BenchFile::open(&model_path)?)
++            } else { Box::new(SafetensorsFile::open(&model_path)?) }
+         } else if index_path.exists() {
+             Box::new(ShardedSafetensors::open_index(&index_path)?)
+         } else {
+@@ -335,3 +337,16 @@
+         v
+     }
+ }
++
++impl Qwen35Model {
++    /// Per-layer state of the isolated CPU experiment. Counters are cumulative.
++    pub fn bench_cpu_cache(&self) -> Vec<serde_json::Value> {
++        self.weights.layers.iter().filter_map(|(_, layer)| {
++            let FeedForwardWeights::Moe(moe) = &layer.ffn else { return None };
++            Some(match &moe.experts.pager {
++                Some(guard) => { let p = guard.lock().unwrap(); serde_json::json!([p.slots(),p.hits,p.misses,p.evictions,p.bytes]) },
++                None => serde_json::json!([moe.experts.num_experts,0,0,0,0]),
++            })
++        }).collect()
++    }
++}
