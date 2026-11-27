@@ -44,6 +44,9 @@ uuid = { workspace = true, features = ["v4", "serde"] }
 ndarray = { workspace = true }
 rand = { workspace = true }
 
+# Dated LLM API prices for Claude cost accounting
+llm-prices = "1.8.0"
+
 # Pattern matching
 regex = "1.10"
 
