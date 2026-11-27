@@ -144,3 +144,7 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Built UI page: regenerate with scripts/build-ui.sh (embeds a 384 KB base64
+# WebAssembly payload, so it is not worth versioning).
+ui/dist/
