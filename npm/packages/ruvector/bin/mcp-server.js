@@ -1811,13 +1811,14 @@ const TOOLS = [
   },
   {
     name: 'vectordb_search',
-    description: 'k-nearest-neighbour search with optional metadata filter',
+    description: 'k-nearest-neighbour search with optional metadata filter and similarity threshold',
     inputSchema: {
       type: 'object',
       properties: {
         path: { type: 'string', description: 'Database file path' },
         vector: { type: 'array', items: { type: 'number' }, description: 'Query vector' },
         k: { type: 'number', description: 'Number of results (max 1000)', default: 10 },
+        threshold: { type: 'number', minimum: 0, maximum: 1, description: 'Minimum similarity, computed as 1 minus the distance score' },
         filter: { type: 'object', description: 'Metadata filter' }
       },
       required: ['path', 'vector']
@@ -2624,6 +2625,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const vector = recordValidate.validateVector(args.vector, dimension);
           const query = { vector, k: recordValidate.validateK(args.k) };
           if (args.filter !== undefined) query.filter = recordValidate.validateMetadata(args.filter, 'filter');
+          if (args.threshold !== undefined) query.threshold = args.threshold;
           const results = await db.search(query);
           return jsonResult({ success: true, results: results.map(r => ({ id: r.id, score: r.score, metadata: r.metadata })) });
         } catch (e) { return jsonResult({ success: false, error: e.message }, true); }

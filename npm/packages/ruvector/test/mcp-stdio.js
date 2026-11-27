@@ -9,8 +9,11 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
+const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
+const { StdioClientTransport } = require('@modelcontextprotocol/sdk/client/stdio.js');
 
 const PACKAGE_ROOT = path.join(__dirname, '..');
 const CLI = path.join(PACKAGE_ROOT, 'bin', 'cli.js');
@@ -55,6 +58,56 @@ function waitForInitialize(child, timeoutMs = 10_000) {
       reject(new Error(`MCP process exited before initialize: code=${code} signal=${signal}\nstderr: ${stderr}`));
     });
   });
+}
+
+async function testVectorSearchThreshold() {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'ruvector-mcp-search-'));
+  const client = new Client({ name: 'ruvector-mcp-search-test', version: '1.0.0' });
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [CLI, 'mcp', 'start'],
+    cwd,
+    env: { ...process.env, HOME: cwd, NO_COLOR: '1' },
+    stderr: 'pipe',
+  });
+  transport.stderr.resume();
+
+  try {
+    await client.connect(transport);
+    const call = async (name, args) => JSON.parse(
+      (await client.callTool({ name, arguments: { path: './vectors.db', ...args } })).content[0].text,
+    );
+    const created = await call('vectordb_create', { dimension: 2 });
+    assert.strictEqual(created.success, true, JSON.stringify(created));
+    const inserted = await call('vectordb_insert', { entries: [
+      { id: 'same', vector: [1, 0], metadata: { group: 'a' } },
+      { id: 'opposite', vector: [-1, 0], metadata: { group: 'b' } },
+    ] });
+    assert.strictEqual(inserted.success, true, JSON.stringify(inserted));
+
+    const query = { vector: [1, 0], k: 2 };
+    const all = await call('vectordb_search', query);
+    assert.strictEqual(all.success, true, JSON.stringify(all));
+    assert.deepStrictEqual(all.results.map(row => row.id), ['same', 'opposite']);
+    const filtered = await call('vectordb_search', { ...query, threshold: 1 });
+    assert.deepStrictEqual(filtered, { success: true, results: [all.results[0]] },
+      `vectordb_search threshold 1 returned ${JSON.stringify(filtered)}`);
+    assert.deepStrictEqual(
+      await call('vectordb_search', { ...query, threshold: 0, filter: { group: 'b' } }),
+      { success: true, results: [] },
+    );
+    const invalid = await call('vectordb_search', { ...query, threshold: '1' });
+    assert.strictEqual(invalid.success, false);
+    assert.match(invalid.error, /threshold/i);
+
+    const { tools } = await client.listTools();
+    const schema = tools.find(tool => tool.name === 'vectordb_search').inputSchema;
+    assert.strictEqual(schema.properties.threshold.type, 'number');
+    assert.ok(!schema.required.includes('threshold'));
+  } finally {
+    await client.close();
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
 }
 
 async function main() {
@@ -109,6 +162,10 @@ async function main() {
   }
 
   console.log('MCP stdio launcher and stdout hygiene checks passed');
+
+  console.log('MCP vectordb_search honors its optional similarity threshold');
+  await testVectorSearchThreshold();
+  console.log('  PASS  MCP vectordb_search honors its optional similarity threshold');
 }
 
 main().catch((error) => {

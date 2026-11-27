@@ -285,7 +285,7 @@ program
   .description('Search for similar vectors')
   .requiredOption('-v, --vector <json>', 'Query vector as JSON array')
   .option('-k, --top-k <number>', 'Number of results', '10')
-  .option('-t, --threshold <number>', 'Similarity threshold', '0.0')
+  .option('-t, --threshold <number>', 'Minimum similarity (0-1), computed as 1 minus the distance score')
   .option('-f, --filter <json>', 'Metadata filter as JSON')
   .action(async (dbPath, options) => {
     requireRuvector();
@@ -312,9 +312,13 @@ program
       const vector = JSON.parse(options.vector);
       const query = {
         vector,
-        k: parseInt(options.topK),
-        threshold: parseFloat(options.threshold)
+        k: parseInt(options.topK)
       };
+
+      if (options.threshold !== undefined) {
+        const threshold = options.threshold.trim();
+        query.threshold = threshold === '' ? NaN : Number(threshold);
+      }
 
       if (options.filter) {
         query.filter = JSON.parse(options.filter);

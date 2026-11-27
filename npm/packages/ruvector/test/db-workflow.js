@@ -132,6 +132,47 @@ test('search returns the correct nearest neighbor', () => {
   assert.match(firstResult, /vec4/, `expected vec4 first in:\n${r.out}`);
 });
 
+test('search applies an inclusive similarity threshold to the top-k results', () => {
+  fs.writeFileSync(path.join(workDir, 'threshold-vectors.json'), JSON.stringify([
+    { id: 'same', vector: [1, 0], metadata: { group: 'a' } },
+    { id: 'orthogonal', vector: [0, 1], metadata: { group: 'b' } },
+    { id: 'opposite', vector: [-1, 0], metadata: { group: 'a' } },
+  ]));
+
+  for (const [metric, strictIds] of [
+    ['cosine', ['same']],
+    ['euclidean', ['same']],
+    ['dot', ['same', 'orthogonal']],
+  ]) {
+    const db = `./threshold-${metric}.db`;
+    const created = run(`create ${db} --dimension 2 --metric ${metric}`, cwd);
+    assert.strictEqual(created.code, 0, created.out);
+    const inserted = run(`insert ${db} threshold-vectors.json`, cwd);
+    assert.strictEqual(inserted.code, 0, inserted.out);
+
+    const search = (options) => {
+      const r = run(`search ${db} --vector "[1,0]" ${options}`, cwd);
+      assert.strictEqual(r.code, 0, r.out);
+      return Array.from(r.out.matchAll(/^\d+\. ID: (.+)$/gm), match => match[1]);
+    };
+
+    assert.deepStrictEqual(search('-k 3'), ['same', 'orthogonal', 'opposite']);
+    assert.deepStrictEqual(search('-k 1'), ['same']);
+    const actual = search('-k 3 --threshold 0.75');
+    assert.deepStrictEqual(actual, strictIds,
+      `${metric} threshold 0.75 returned [${actual}], expected [${strictIds}]`);
+
+    if (metric === 'cosine') {
+      assert.deepStrictEqual(search('-k 3 -t 0'), ['same', 'orthogonal']);
+      assert.deepStrictEqual(search('-k 3 -t 1'), ['same']);
+      assert.deepStrictEqual(search(`-k 3 -t 0.75 --filter '{"group":"b"}'`), []);
+      const invalid = run(`search ${db} --vector "[1,0]" -t 0.75junk`, cwd);
+      assert.notStrictEqual(invalid.code, 0);
+      assert.match(invalid.out, /threshold/i);
+    }
+  }
+});
+
 test('insert adds vectors to an existing db and persists', () => {
   const vecFile = path.join(workDir, 'vecs.json');
   fs.writeFileSync(vecFile, JSON.stringify([

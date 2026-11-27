@@ -11,6 +11,7 @@
  */
 
 export * from './types';
+import type { SearchQuery } from './types';
 
 // Export core wrappers (safe interfaces with automatic type conversion)
 export * from './core';
@@ -335,7 +336,12 @@ class VectorDBWrapper {
   /**
    * Search for similar vectors (metadata is auto-parsed from JSON)
    */
-  async search(query: { vector: Float32Array | number[]; k: number; filter?: Record<string, any>; efSearch?: number }): Promise<Array<{ id: string; score: number; vector?: Float32Array; metadata?: Record<string, any> }>> {
+  async search(query: Omit<SearchQuery, 'vector' | 'k'> & { vector: Float32Array | number[]; k: number; efSearch?: number }): Promise<Array<{ id: string; score: number; vector?: Float32Array; metadata?: Record<string, any> }>> {
+    const { threshold } = query;
+    if (threshold !== undefined && (!Number.isFinite(threshold) || threshold < 0 || threshold > 1)) {
+      throw new RangeError('Search threshold must be a number between 0 and 1');
+    }
+
     const nativeQuery: any = {
       vector: query.vector instanceof Float32Array ? query.vector : new Float32Array(query.vector),
       k: query.k,
@@ -347,7 +353,10 @@ class VectorDBWrapper {
       nativeQuery.filter = JSON.stringify(query.filter);
     }
 
-    const results = await this.db.search(nativeQuery);
+    let results = await this.db.search(nativeQuery);
+    if (threshold !== undefined) {
+      results = results.filter((r: { score: number }) => 1 - r.score >= threshold);
+    }
 
     // Auto-parse metadata JSON strings back to objects
     return results.map((r: any) => ({
