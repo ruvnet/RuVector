@@ -381,6 +381,15 @@ jobs:
   publish:
     name: Publish Typesafe Packages
     runs-on: ubuntu-24.04
+    # ADR-362: npm provenance needs an OIDC token; nothing else in this job
+    # writes to the repository.
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      # Every `npm publish` in this job (direct, scripts/ci/npm-publish-if-missing.sh,
+      # napi prepublish, publish-platforms.js) signs a SLSA provenance statement.
+      NPM_CONFIG_PROVENANCE: 'true'
     needs: [build, release-bench]
     # Exact shipped binary and frozen ONNX ticket gates must pass first.
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish == true

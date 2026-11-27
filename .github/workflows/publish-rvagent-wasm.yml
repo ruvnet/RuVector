@@ -21,6 +21,15 @@ jobs:
   publish:
     name: Build and Publish @ruvector/rvagent-wasm
     runs-on: ubuntu-latest
+    # ADR-362: npm provenance needs an OIDC token; nothing else in this job
+    # writes to the repository.
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      # Every `npm publish` in this job (direct, scripts/ci/npm-publish-if-missing.sh,
+      # napi prepublish, publish-platforms.js) signs a SLSA provenance statement.
+      NPM_CONFIG_PROVENANCE: 'true'
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
