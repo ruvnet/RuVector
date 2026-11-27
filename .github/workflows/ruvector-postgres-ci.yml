@@ -423,7 +423,7 @@ jobs:
       - name: Run cargo audit
         run: |
           cargo install cargo-audit
-          cargo audit --ignore RUSTSEC-2020-0071 || true
+          cargo audit --ignore RUSTSEC-2020-0071
         working-directory: crates/ruvector-postgres
 
   # ============================================================================
