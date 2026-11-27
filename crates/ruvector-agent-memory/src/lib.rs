@@ -47,6 +47,7 @@
 //! - Survey 2026, "From Storage to Experience" (arXiv:2605.06716)
 
 pub mod arbitration;
+pub mod batch_tail_timeout;
 pub mod compaction;
 pub mod diagnostic;
 pub mod fusion;
@@ -64,6 +65,7 @@ pub use arbitration::{
     arbitrate, ArbitrationConfig, ArbitrationError, ArbitrationOutcome, ArbitrationVerdict,
     EvidenceLineage, ReliabilityModel,
 };
+pub use batch_tail_timeout::{Clock, LogicalClock, SystemClock, TimedBatchTailSink};
 pub use compaction::{
     weighted_importance, CoherencePolicy, CoherenceWeights, CompactionPolicy, LfuPolicy, LruPolicy,
 };
