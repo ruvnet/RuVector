@@ -55,5 +55,10 @@ name = "mincut_scaling_probe"
 path = "examples/mincut_scaling_probe.rs"
 required-features = ["mincut-forget"]
 
+[[example]]
+name = "mincut_backend_bench"
+path = "examples/mincut_backend_bench.rs"
+required-features = ["mincut-forget"]
+
 [dev-dependencies]
 serde_json = { workspace = true }
