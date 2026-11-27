@@ -66,7 +66,7 @@ npx ruvector mcp tools
 RUVECTOR_MCP_PROFILE=readonly npx ruvector mcp start
 ```
 
-Available tools vary with package version and policy. `RUVECTOR_MCP_DENY` overrides allow rules; `RUVECTOR_MCP_ALLOW` and profiles restrict access. Without a policy, the broader compatibility surface remains available. [Policy and agent integration](https://github.com/ruvnet/RuVector#agent-integration).
+Available tools vary with package version and policy. `RUVECTOR_MCP_DENY` overrides allow rules; `RUVECTOR_MCP_ALLOW` and profiles restrict access. The `readonly` profile name is case-insensitive and accepts `read-only` as an alias. Without a policy, the broader compatibility surface remains available. [Policy and agent integration](https://github.com/ruvnet/RuVector#agent-integration).
 
 ## Build with the SDK
 

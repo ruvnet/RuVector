@@ -105,11 +105,36 @@ test('profile + extra ALLOW are unioned', () => {
   assert.strictEqual(isToolAllowed('hooks_stats', p), true);
 });
 
+test('readonly profile variants preserve the allow and deny rules', () => {
+  const expected = buildToolPolicy({
+    RUVECTOR_MCP_PROFILE: 'readonly',
+    RUVECTOR_MCP_ALLOW: 'hooks_force_learn',
+    RUVECTOR_MCP_DENY: 'hooks_doctor',
+  });
+  for (const profile of ['readonly ', 'READONLY', 'ReadOnly', 'read-only', ' READ-ONLY ']) {
+    const p = buildToolPolicy({
+      RUVECTOR_MCP_PROFILE: profile,
+      RUVECTOR_MCP_ALLOW: 'hooks_force_learn',
+      RUVECTOR_MCP_DENY: 'hooks_doctor',
+    });
+    assert.deepStrictEqual(p, expected, profile);
+    assert.strictEqual(isToolAllowed('hooks_force_learn', p), true);
+    assert.strictEqual(isToolAllowed('hooks_doctor', p), false);
+  }
+});
+
 test('unknown profile with no allow/deny → not configured (allow-all)', () => {
   const p = buildToolPolicy({ RUVECTOR_MCP_PROFILE: 'does-not-exist' });
   assert.strictEqual(p.profile, null);
   assert.strictEqual(p.configured, false);
   assert.strictEqual(isToolAllowed('hooks_force_learn', p), true);
+});
+
+test('blank and unrecognized profile spellings preserve the unconfigured policy', () => {
+  const expected = buildToolPolicy({});
+  for (const profile of ['', '  ', 'read_only', 'Constructor', '__proto__']) {
+    assert.deepStrictEqual(buildToolPolicy({ RUVECTOR_MCP_PROFILE: profile }), expected, profile);
+  }
 });
 
 console.log('\n' + '='.repeat(60));
