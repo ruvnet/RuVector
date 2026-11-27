@@ -14,6 +14,10 @@ categories = ["algorithms", "data-structures"]
 name = "benchmark"
 path = "src/bin/benchmark.rs"
 
+[[bin]]
+name = "bounded_degree_benchmark"
+path = "src/bin/bounded_degree_benchmark.rs"
+
 [dependencies]
 
 [lints.rust]
