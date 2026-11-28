@@ -268,7 +268,8 @@ pub fn parse_header<R: Read>(reader: &mut R) -> Result<GgufHeader> {
 ///
 /// HashMap of metadata key-value pairs
 pub fn parse_metadata<R: Read>(reader: &mut R, count: u64) -> Result<HashMap<String, GgufValue>> {
-    let mut metadata = HashMap::with_capacity(count as usize);
+    // `count` comes from the file: grow on demand instead of trusting it up front.
+    let mut metadata = HashMap::with_capacity(prealloc(count));
 
     for _ in 0..count {
         let key = read_string(reader)?;
@@ -290,11 +291,17 @@ pub fn parse_metadata<R: Read>(reader: &mut R, count: u64) -> Result<HashMap<Str
 ///
 /// Vector of tensor information structures
 pub fn parse_tensor_infos<R: Read>(reader: &mut R, count: u64) -> Result<Vec<TensorInfo>> {
-    let mut tensors = Vec::with_capacity(count as usize);
+    let mut tensors = Vec::with_capacity(prealloc(count));
 
     for _ in 0..count {
         let name = read_string(reader)?;
         let n_dims = read_u32(reader)? as usize;
+        if n_dims > MAX_TENSOR_DIMS {
+            return Err(RuvLLMError::Model(format!(
+                "Tensor '{}' has {} dimensions, maximum is {}",
+                name, n_dims, MAX_TENSOR_DIMS
+            )));
+        }
 
         let mut shape = Vec::with_capacity(n_dims);
         for _ in 0..n_dims {
@@ -337,15 +344,34 @@ fn read_value<R: Read>(reader: &mut R) -> Result<GgufValue> {
         GgufValueType::F64 => Ok(GgufValue::F64(read_f64(reader)?)),
         GgufValueType::Bool => Ok(GgufValue::Bool(read_u8(reader)? != 0)),
         GgufValueType::String => Ok(GgufValue::String(read_string(reader)?)),
-        GgufValueType::Array => read_array(reader),
+        GgufValueType::Array => read_array(reader, 0),
     }
+}
+
+/// Maximum tensor rank accepted from a file (ggml itself uses 4).
+const MAX_TENSOR_DIMS: usize = 8;
+
+/// Maximum nesting depth of metadata arrays (arrays of arrays).
+const MAX_ARRAY_DEPTH: usize = 8;
+
+/// Upper bound on capacity reserved up front from a count read from the file.
+const MAX_PREALLOC: u64 = 4096;
+
+fn prealloc(count: u64) -> usize {
+    count.min(MAX_PREALLOC) as usize
 }
 
 /// Maximum allowed array size to prevent OOM attacks from malicious GGUF files.
 /// Set to 10 million elements (about 80MB for u64 arrays).
 const MAX_ARRAY_SIZE: usize = 10_000_000;
 
-fn read_array<R: Read>(reader: &mut R) -> Result<GgufValue> {
+fn read_array<R: Read>(reader: &mut R, depth: usize) -> Result<GgufValue> {
+    if depth >= MAX_ARRAY_DEPTH {
+        return Err(RuvLLMError::Model(format!(
+            "Metadata arrays nested deeper than {}",
+            MAX_ARRAY_DEPTH
+        )));
+    }
     let elem_type_id = read_u32(reader)?;
     let elem_type = GgufValueType::try_from(elem_type_id)?;
     let count = read_u64(reader)?;
@@ -359,7 +385,7 @@ fn read_array<R: Read>(reader: &mut R) -> Result<GgufValue> {
     }
 
     let count = count as usize;
-    let mut values = Vec::with_capacity(count);
+    let mut values = Vec::with_capacity(prealloc(count as u64));
 
     for _ in 0..count {
         let value = match elem_type {
@@ -375,7 +401,7 @@ fn read_array<R: Read>(reader: &mut R) -> Result<GgufValue> {
             GgufValueType::F64 => GgufValue::F64(read_f64(reader)?),
             GgufValueType::Bool => GgufValue::Bool(read_u8(reader)? != 0),
             GgufValueType::String => GgufValue::String(read_string(reader)?),
-            GgufValueType::Array => read_array(reader)?,
+            GgufValueType::Array => read_array(reader, depth + 1)?,
         };
         values.push(value);
     }
@@ -564,5 +590,56 @@ mod tests {
         assert_eq!(GgufValueType::try_from(6).unwrap(), GgufValueType::F32);
         assert_eq!(GgufValueType::try_from(8).unwrap(), GgufValueType::String);
         assert!(GgufValueType::try_from(100).is_err());
+    }
+
+    fn push_str(b: &mut Vec<u8>, s: &str) {
+        b.extend_from_slice(&(s.len() as u64).to_le_bytes());
+        b.extend_from_slice(s.as_bytes());
+    }
+
+    #[test]
+    fn parse_metadata_does_not_trust_count_for_allocation() {
+        let mut cursor = Cursor::new(Vec::<u8>::new());
+        assert!(parse_metadata(&mut cursor, u64::MAX).is_err());
+    }
+
+    #[test]
+    fn parse_tensor_infos_does_not_trust_count_for_allocation() {
+        let mut cursor = Cursor::new(Vec::<u8>::new());
+        assert!(parse_tensor_infos(&mut cursor, u64::MAX).is_err());
+    }
+
+    #[test]
+    fn parse_tensor_infos_rejects_excessive_rank() {
+        let mut b = Vec::new();
+        push_str(&mut b, "t");
+        b.extend_from_slice(&u32::MAX.to_le_bytes());
+        assert!(parse_tensor_infos(&mut Cursor::new(b), 1).is_err());
+    }
+
+    #[test]
+    fn parse_metadata_rejects_deeply_nested_arrays() {
+        let mut b = Vec::new();
+        push_str(&mut b, "k");
+        b.extend_from_slice(&9u32.to_le_bytes()); // array
+        for _ in 0..200_000 {
+            b.extend_from_slice(&9u32.to_le_bytes()); // element type: array
+            b.extend_from_slice(&1u64.to_le_bytes()); // one element
+        }
+        assert!(parse_metadata(&mut Cursor::new(b), 1).is_err());
+    }
+
+    #[test]
+    fn parse_metadata_accepts_shallow_nested_arrays() {
+        let mut b = Vec::new();
+        push_str(&mut b, "k");
+        b.extend_from_slice(&9u32.to_le_bytes()); // array
+        b.extend_from_slice(&9u32.to_le_bytes()); // of arrays
+        b.extend_from_slice(&1u64.to_le_bytes());
+        b.extend_from_slice(&0u32.to_le_bytes()); // of u8
+        b.extend_from_slice(&2u64.to_le_bytes());
+        b.extend_from_slice(&[7, 8]);
+        let md = parse_metadata(&mut Cursor::new(b), 1).unwrap();
+        assert_eq!(md["k"].as_array().unwrap().len(), 1);
     }
 }
