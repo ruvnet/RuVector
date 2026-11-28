@@ -15,6 +15,12 @@ pub const GGUF_MAGIC: u32 = 0x46554747;
 /// Supported GGUF version
 pub const GGUF_VERSION: u32 = 3;
 
+/// Maximum tensor rank accepted from a file (ggml itself uses 4).
+const MAX_TENSOR_DIMS: usize = 8;
+
+/// Maximum nesting depth of metadata arrays (arrays of arrays).
+const MAX_ARRAY_DEPTH: usize = 8;
+
 /// GGUF file header
 #[derive(Debug, Clone)]
 pub struct GgufHeader {
@@ -253,6 +259,12 @@ impl GgufParser {
 
             // Read number of dimensions
             let n_dims = cursor.read_u32::<LittleEndian>()? as usize;
+            if n_dims > MAX_TENSOR_DIMS {
+                return Err(GgufError::InvalidFormat(format!(
+                    "tensor '{}' has {} dimensions (max {})",
+                    name, n_dims, MAX_TENSOR_DIMS
+                )));
+            }
 
             // Read dimensions
             let mut dimensions = Vec::with_capacity(n_dims);
@@ -280,21 +292,35 @@ impl GgufParser {
         Ok(tensors)
     }
 
+    /// Bytes left after the cursor position.
+    fn remaining(cursor: &Cursor<&[u8]>) -> u64 {
+        (cursor.get_ref().len() as u64).saturating_sub(cursor.position())
+    }
+
     fn read_string(cursor: &mut Cursor<&[u8]>) -> Result<String, GgufError> {
-        let len = cursor.read_u64::<LittleEndian>()? as usize;
-        let mut bytes = vec![0u8; len];
+        let len = cursor.read_u64::<LittleEndian>()?;
+        // A length field larger than the rest of the input cannot be valid;
+        // reject it before allocating.
+        if len > Self::remaining(cursor) {
+            return Err(GgufError::InvalidFormat(format!(
+                "string length {} exceeds remaining input",
+                len
+            )));
+        }
+        let mut bytes = vec![0u8; len as usize];
         cursor.read_exact(&mut bytes)?;
         Ok(String::from_utf8(bytes)?)
     }
 
     fn read_value(cursor: &mut Cursor<&[u8]>) -> Result<GgufValue, GgufError> {
         let value_type = cursor.read_u32::<LittleEndian>()?;
-        Self::read_value_of_type(cursor, value_type)
+        Self::read_value_of_type(cursor, value_type, 0)
     }
 
     fn read_value_of_type(
         cursor: &mut Cursor<&[u8]>,
         value_type: u32,
+        depth: usize,
     ) -> Result<GgufValue, GgufError> {
         match value_type {
             0 => Ok(GgufValue::Uint8(cursor.read_u8()?)),
@@ -307,12 +333,26 @@ impl GgufParser {
             7 => Ok(GgufValue::Bool(cursor.read_u8()? != 0)),
             8 => Ok(GgufValue::String(Self::read_string(cursor)?)),
             9 => {
+                if depth >= MAX_ARRAY_DEPTH {
+                    return Err(GgufError::InvalidFormat(format!(
+                        "metadata arrays nested deeper than {}",
+                        MAX_ARRAY_DEPTH
+                    )));
+                }
                 let array_type = cursor.read_u32::<LittleEndian>()?;
-                let array_len = cursor.read_u64::<LittleEndian>()? as usize;
-                let mut array = Vec::with_capacity(array_len);
+                let array_len = cursor.read_u64::<LittleEndian>()?;
+                // Every element takes at least one byte, so the count is
+                // bounded by the remaining input.
+                if array_len > Self::remaining(cursor) {
+                    return Err(GgufError::InvalidFormat(format!(
+                        "array length {} exceeds remaining input",
+                        array_len
+                    )));
+                }
+                let mut array = Vec::with_capacity(array_len as usize);
 
                 for _ in 0..array_len {
-                    array.push(Self::read_value_of_type(cursor, array_type)?);
+                    array.push(Self::read_value_of_type(cursor, array_type, depth + 1)?);
                 }
                 Ok(GgufValue::Array(array))
             }
@@ -334,13 +374,32 @@ impl GgufParser {
             .get(tensor_name)
             .ok_or_else(|| GgufError::TensorNotFound(tensor_name.to_string()))?;
 
-        let offset = (model.tensor_data_offset + info.offset) as usize;
+        let invalid =
+            |what: &str| GgufError::InvalidFormat(format!("tensor '{}': {}", tensor_name, what));
+
+        let offset = model
+            .tensor_data_offset
+            .checked_add(info.offset)
+            .and_then(|o| usize::try_from(o).ok())
+            .ok_or_else(|| invalid("offset overflows"))?;
 
         // Calculate tensor size
-        let n_elements = info.dimensions.iter().product::<u64>() as usize;
+        let n_elements = info
+            .dimensions
+            .iter()
+            .try_fold(1u64, |acc, &d| acc.checked_mul(d))
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(|| invalid("element count overflows"))?;
 
-        // Dequantize to f32
-        let tensor_data = &data[offset..];
+        // Dequantize to f32; the data the decoder reads must be present.
+        let tensor_data = data
+            .get(offset..)
+            .ok_or_else(|| invalid("offset is past the end of the data"))?;
+        let needed =
+            decoded_bytes(info.tensor_type, n_elements).ok_or_else(|| invalid("size overflows"))?;
+        if needed > tensor_data.len() {
+            return Err(invalid("data is shorter than its declared shape"));
+        }
         let dequantized = Self::dequantize(tensor_data, info.tensor_type, n_elements)?;
 
         Ok(Tensor::new(
@@ -371,6 +430,26 @@ impl GgufParser {
             GgufTensorType::Q5_K => Ok(dequantize_q5_k(data, n_elements)),
             GgufTensorType::Q6_K => Ok(dequantize_q6_k(data, n_elements)),
         }
+    }
+}
+
+/// Bytes the dequantizer for `tensor_type` reads for `n_elements` values
+/// (mirrors the block strides used by the `dequantize_*` functions below).
+fn decoded_bytes(tensor_type: GgufTensorType, n_elements: usize) -> Option<usize> {
+    let blocks = |stride: usize| n_elements.div_ceil(32).checked_mul(stride);
+    match tensor_type {
+        GgufTensorType::F32 => n_elements.checked_mul(4),
+        GgufTensorType::F16 => n_elements.checked_mul(2),
+        GgufTensorType::Q4_0
+        | GgufTensorType::Q2_K
+        | GgufTensorType::Q3_K
+        | GgufTensorType::Q4_K => blocks(18),
+        GgufTensorType::Q4_1 => blocks(20),
+        GgufTensorType::Q5_0
+        | GgufTensorType::Q5_1
+        | GgufTensorType::Q5_K
+        | GgufTensorType::Q6_K => blocks(22),
+        GgufTensorType::Q8_0 | GgufTensorType::Q8_1 => blocks(34),
     }
 }
 
@@ -606,5 +685,114 @@ mod tests {
 
         let result = dequantize_q4_0(&data, 32);
         assert_eq!(result.len(), 32);
+    }
+
+    /// GGUF v3 header with the given metadata and tensor counts.
+    fn header(tensors: u64, kvs: u64) -> Vec<u8> {
+        let mut b = Vec::new();
+        b.extend_from_slice(&GGUF_MAGIC.to_le_bytes());
+        b.extend_from_slice(&GGUF_VERSION.to_le_bytes());
+        b.extend_from_slice(&tensors.to_le_bytes());
+        b.extend_from_slice(&kvs.to_le_bytes());
+        b
+    }
+
+    fn push_str(b: &mut Vec<u8>, s: &str) {
+        b.extend_from_slice(&(s.len() as u64).to_le_bytes());
+        b.extend_from_slice(s.as_bytes());
+    }
+
+    #[test]
+    fn parse_rejects_string_length_beyond_input() {
+        let mut b = header(0, 1);
+        b.extend_from_slice(&(u64::MAX / 2).to_le_bytes());
+        assert!(GgufParser::parse(&b).is_err());
+    }
+
+    #[test]
+    fn parse_rejects_array_length_beyond_input() {
+        let mut b = header(0, 1);
+        push_str(&mut b, "k");
+        b.extend_from_slice(&9u32.to_le_bytes()); // array
+        b.extend_from_slice(&0u32.to_le_bytes()); // of u8
+        b.extend_from_slice(&(1u64 << 60).to_le_bytes());
+        assert!(GgufParser::parse(&b).is_err());
+    }
+
+    #[test]
+    fn parse_rejects_deeply_nested_arrays() {
+        let mut b = header(0, 1);
+        push_str(&mut b, "k");
+        b.extend_from_slice(&9u32.to_le_bytes());
+        for _ in 0..200_000 {
+            b.extend_from_slice(&9u32.to_le_bytes()); // element type: array
+            b.extend_from_slice(&1u64.to_le_bytes()); // one element
+        }
+        assert!(GgufParser::parse(&b).is_err());
+    }
+
+    #[test]
+    fn parse_accepts_shallow_nested_arrays() {
+        let mut b = header(0, 1);
+        push_str(&mut b, "k");
+        b.extend_from_slice(&9u32.to_le_bytes());
+        b.extend_from_slice(&9u32.to_le_bytes()); // array of arrays
+        b.extend_from_slice(&1u64.to_le_bytes());
+        b.extend_from_slice(&0u32.to_le_bytes()); // of u8
+        b.extend_from_slice(&2u64.to_le_bytes());
+        b.extend_from_slice(&[7, 8]);
+        let model = GgufParser::parse(&b).expect("valid nested array");
+        assert!(matches!(model.metadata.get("k"), Some(GgufValue::Array(a)) if a.len() == 1));
+    }
+
+    #[test]
+    fn parse_rejects_excessive_tensor_rank() {
+        let mut b = header(1, 0);
+        push_str(&mut b, "t");
+        b.extend_from_slice(&u32::MAX.to_le_bytes());
+        assert!(GgufParser::parse(&b).is_err());
+    }
+
+    /// One F32 tensor "t" with the given dims and relative offset, plus `data_len` data bytes.
+    fn one_tensor(dims: &[u64], offset: u64, data_len: usize) -> Vec<u8> {
+        let mut b = header(1, 0);
+        push_str(&mut b, "t");
+        b.extend_from_slice(&(dims.len() as u32).to_le_bytes());
+        for d in dims {
+            b.extend_from_slice(&d.to_le_bytes());
+        }
+        b.extend_from_slice(&0u32.to_le_bytes()); // F32
+        b.extend_from_slice(&offset.to_le_bytes());
+        while b.len() % 32 != 0 {
+            b.push(0);
+        }
+        b.resize(b.len() + data_len, 0);
+        b
+    }
+
+    #[test]
+    fn load_tensor_rejects_offset_past_end() {
+        let b = one_tensor(&[4], 1 << 40, 16);
+        let model = GgufParser::parse(&b).unwrap();
+        assert!(GgufParser::load_tensor(&b, &model, "t").is_err());
+    }
+
+    #[test]
+    fn load_tensor_rejects_shape_larger_than_data() {
+        let b = one_tensor(&[1 << 31, 1 << 31], 0, 16);
+        let model = GgufParser::parse(&b).unwrap();
+        assert!(GgufParser::load_tensor(&b, &model, "t").is_err());
+
+        let b = one_tensor(&[u64::MAX, 2], 0, 16);
+        let model = GgufParser::parse(&b).unwrap();
+        assert!(GgufParser::load_tensor(&b, &model, "t").is_err());
+    }
+
+    #[test]
+    fn load_tensor_reads_valid_f32() {
+        let b = one_tensor(&[4], 0, 16);
+        let model = GgufParser::parse(&b).unwrap();
+        let t = GgufParser::load_tensor(&b, &model, "t").unwrap();
+        assert_eq!(t.data.len(), 4);
     }
 }
